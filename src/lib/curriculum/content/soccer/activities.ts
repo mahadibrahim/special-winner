@@ -4120,7 +4120,8 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "wall-pass-combinations",
     name: "Wall Pass Combinations",
-    description: "Practice one-two passing patterns with a partner or group",
+    description:
+      "Groups of three practice the classic 'give-and-go': the mover passes to a wall player, sprints into space, and receives a first-time return pass into their path. Builds one-touch passing technique, disguised support angles, and the timing between passing and moving that unlocks combination play in games.",
     sport: "soccer",
     activityType: "technical",
     difficulty: "intermediate",
@@ -4129,45 +4130,347 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     durationMinutes: 12,
     skillsDeveloped: ["passing-short", "support-play", "receiving-first-touch"],
     setupInstructions:
-      "Set up pairs of cones 10-12 yards apart. Groups of 3 work together.",
+      "EQUIPMENT CHECKLIST\n□ 1 ball per group of 3\n□ 2 cones per group (start cone and end/target cone)\n□ Optional: 1 pinny per group to mark the 'wall' player\n\nSPACE: 10-12 pace channel per group, plus 3-4 paces of width for the wall player's angle\n\nSETUP STEPS\n1. Place a start cone and an end cone 10-12 paces apart for each group\n2. Wall player (B) stands 3-4 paces off the direct line, roughly halfway between the cones, angled so they can see both the ball and the target\n3. Player A begins at the start cone with the ball; Player C waits at the end cone as the target\n4. Space groups at least 5 paces apart if running several channels at once\n5. After each repetition, rotate: A becomes the new wall, B becomes the new target, C becomes the new mover\n\nDIAGRAM\n┌──────────────────────────────────────┐\n│ ▲ A(⚽)                        ▲ C   │\n│   \\                             |    │  10-12\n│    \\                            |    │  paces\n│     ○ B (wall, 3-4 paces off)   |    │\n└──────────────────────────────────────┘\n\n▲ = cone   ○ = wall player   ⚽ = ball\nA passes to B, sprints toward C; B one-touches into A's path; A collects and dribbles to C",
     howToPlay:
-      "1. Player A passes to Player B (the 'wall')\n2. Player A sprints forward\n3. Player B plays one-touch pass into A's path\n4. Player A receives and dribbles to the end\n5. Rotate positions after each repetition",
+      'PHASE 1: GATHER & EXPLAIN (60 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: Beside one demo group\n\nSAY: "This is a wall pass - also called a give-and-go. You\'ll pass to your teammate, then sprint past them like they\'re a wall you bounced the ball off of!"\n\nDEMO with two players: A passes to B, sprints forward, B one-touches it into A\'s path, A runs onto it and dribbles to the end cone.\n\nSAY: "Three jobs: pass and SPRINT immediately, wall player plays it FIRST TIME into the runner\'s path, runner collects and drives to the end. Let\'s try it!"\n\n\nPHASE 2: ROUND 1 - BUILD THE PATTERN (3 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Groups of three, get in your channels! A starts with the ball. Go slow first - we want a good pattern before we add speed."\n\nCoach Position: Walking between groups\n\nLOOK FOR:\n□ Does A sprint immediately after passing, or stand and watch?\n□ Is B\'s return pass one touch, played INTO A\'s path (not at A\'s feet)?\n□ Is A\'s first touch after receiving under control?\n\nPHRASES TO USE:\n• "Pass and GO - don\'t admire your pass!"\n• "Wall player - one touch, into the space ahead of the runner!"\n• "Nice angle, B - I can see the passer AND the target!"\n\nRotate after every 2 reps: A→wall, wall→target, target→A.\n\n\nPHASE 3: TEACHING MOMENT (45 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Everyone watch this group."\n\nDEMO: Show a return pass played AT the runner\'s feet (runner has to slow down) vs. a return pass played INTO the space ahead (runner runs onto it at full speed).\n\nSAY: "See the difference? A pass to feet makes you stop. A pass to SPACE lets you keep sprinting. That\'s the whole point of the wall pass - beat a defender with speed, not just skill!"\n\n\nPHASE 4: ROUND 2 - ADD SPRINT TIMING (3 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Same pattern, but now full speed sprint after your pass. Wall player, lead them into space!"\n\nCoach Position: Roaming, giving 1-on-1 feedback\n\nPHRASES TO USE:\n• "Explode after that pass!"\n• "Open your body to the field before you receive!"\n• "First touch forward, into your stride!"\n\n\nPHASE 5: CHALLENGE ROUND (3 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nChoose ONE challenge:\n\nOption A - Weak Foot Wall:\nSAY: "This round, the wall player must use their weak foot for the return pass!"\n\nOption B - Passive Defender:\nSAY: "One player jogs alongside as a passive defender - just enough pressure to make your timing sharp."\n\nOption C - Finish It:\nSAY: "After A collects the return pass, take one more touch and finish into an imaginary goal at the end cone!"\n\nRun challenge. Celebrate good combinations loudly.\n\n\nPHASE 6: WRAP UP (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Great combination play! What made your best wall pass work?"\n\nListen for: "Sprinting right after the pass," "One-touch return," "Pass to space not feet"\n\nSAY: "That\'s exactly how you beat defenders in a real game - two players working together beat one defender working alone. Water break!"',
+    diagram:
+      "┌──────────────────────────────────────┐\n│ ▲ A(⚽)                        ▲ C   │\n│   \\                             |    │\n│    \\                            |    │\n│     ○ B (wall, 3-4 paces off)   |    │\n└──────────────────────────────────────┘\n\n▲ = cone   ○ = wall player   ⚽ = ball",
     coachingPoints: [
-      "Quality first pass to the wall",
-      "Sprint immediately after passing",
-      "Wall player: open body position",
-      "Return pass should be in front of runner",
+      "SPRINT IMMEDIATELY AFTER PASSING → Say: 'Pass and GO - don't admire your pass!'",
+      "ONE-TOUCH RETURN INTO SPACE → Say: 'Wall player - play it into the space ahead, not at their feet!'",
+      "OPEN BODY SHAPE ON THE WALL → Say: 'Angle yourself so you can see both the passer and the target before the ball arrives!'",
+      "FIRST TOUCH FORWARD → Say: 'Push your first touch into your next stride - don't stop the ball dead!'",
     ],
     questionsToAsk: [
-      "Where should your first touch be?",
-      "When do you start your run?",
-      "How does the wall player know where to pass?",
+      "'Where should your first pass go?' → To the wall player's strong foot, so they can play it first time",
+      "'When do you start your sprint?' → The instant the ball leaves your foot, not after watching it arrive",
+      "'How does the wall player know where to pass?' → By watching the runner's angle and speed before the ball arrives",
+      "'Why is this called a give-and-go?' → You give (pass) then go (sprint) - two players beating one defender",
     ],
     commonMistakes: [
-      "Not sprinting after first pass",
-      "Wall pass behind the runner",
-      "Poor first touch stopping momentum",
+      "WATCHING THE PASS INSTEAD OF SPRINTING → Say: 'Pass and go - your legs should already be moving!'",
+      "WALL PASS PLAYED BEHIND THE RUNNER → Say: 'Lead them! Play it into the space they're running into.'",
+      "TAKING TOO MANY TOUCHES ON THE WALL PASS → Say: 'One touch if you can - that's what makes it fast!'",
+      "POOR FIRST TOUCH STOPS MOMENTUM → Say: 'Push your first touch forward, into your run!'",
     ],
     variations: [
       {
         name: "Third Man Run",
-        description: "Add third player making overlapping run",
+        description:
+          "Add a fourth player making an overlapping run from behind as A plays the wall pass - A now has two options and must read which run is on.",
         difficulty: "advanced",
       },
       {
         name: "Double Wall",
-        description: "Two wall passes in sequence",
+        description:
+          "Chain two wall passes in sequence with two different wall players before reaching the end cone - tests timing and communication over a longer sequence.",
         difficulty: "advanced",
       },
+      {
+        name: "Defended Wall Pass",
+        description:
+          "A passive defender (from another group) jogs alongside the runner to add just enough pressure that the combination has to be quick and accurate to beat them.",
+        difficulty: "intermediate",
+      },
     ],
-    makeEasier: "Two-touch for wall player, shorter distance",
-    makeHarder: "Add passive defender, require weak foot",
-    equipmentNeeded: ["Cones", "1 ball per group"],
+    makeEasier:
+      "SIGNS THEY'RE STRUGGLING:\n• Wall player needs 2-3 touches to return the pass\n• Runner stops or walks after passing instead of sprinting\n• Return pass consistently goes behind or wide of the runner\n• First touch after receiving knocks the ball too far away\n\nSOLUTIONS:\n• Allow the wall player two touches instead of one\n• Shorten the channel to 6-8 paces\n• Coach stands at the wall spot and models the pass timing\n• Walk through the pattern at half speed before adding the sprint",
+    makeHarder:
+      "SIGNS THEY'RE READY:\n• Consistent one-touch return passes into the runner's path\n• Runner sprints immediately without prompting\n• First touch after receiving keeps the ball moving forward\n• Pattern looks smooth and automatic\n\nSOLUTIONS:\n• Require the wall player's weak foot on the return\n• Add a passive then active defender\n• Chain two wall passes in a row (Double Wall variation)\n• Finish with a shot at the end cone under time pressure",
+    equipmentNeeded: ["Cones", "1 ball per group of 3", "Pinnies (optional)"],
     spaceRequired: "medium",
     indoorSuitable: true,
     appropriateStages: ["skill-building", "development"],
     tags: ["passing", "combination play", "one-two", "movement"],
     featured: true,
+    comprehensiveGuide: {
+      quickReference: {
+        oneSentence:
+          "Pass to a 'wall' player, sprint into space, and receive a one-touch return pass into your path - the give-and-go that beats a defender with movement, not just skill.",
+        keyPhrases: [
+          "Pass and GO - don't admire your pass!",
+          "Wall player - into the space, not to the feet!",
+          "First touch forward, into your stride!",
+        ],
+        setupDiagram:
+          "10-12 pace channel per group of 3; wall player stands 3-4 paces off the line, roughly halfway",
+        quickProgression: {
+          easier: "Two touches for the wall player, shorter channel, walk through at half speed",
+          harder: "Weak foot wall pass, add a defender, chain two wall passes (Double Wall)",
+        },
+      },
+      completeScript: {
+        beforeYouStart: {
+          preparation: [
+            "Set up start/end cone channels 10-12 paces apart, one per group of 3-4",
+            "Decide where wall players will stand before players arrive",
+            "Have pinnies ready if you want the wall player visually marked",
+            "Plan your rotation order so every player gets every role",
+          ],
+          mindset:
+            "This is a timing drill disguised as a passing drill. The pass quality matters, but the SPRINT after the pass is what most players skip. Be relentless about 'pass and go' - that habit is what makes this translate to games.",
+        },
+        segments: [
+          {
+            phase: "Gather & Explain",
+            duration: "60 seconds",
+            coachPosition: "Beside one demo group",
+            script:
+              "SAY: 'Pass to your teammate, then sprint past them like they're a wall you bounced the ball off of!' Demo the full pattern once. 'Pass and sprint, wall plays it first time, runner collects and drives forward.'",
+            anticipatedResponses: {
+              "Which foot do I pass with?":
+                "Whichever gets the cleanest pass to the wall player - usually your strong foot to start.",
+              "Do I have to run in a straight line?":
+                "Run toward where the ball is going to be, not straight ahead - read the return pass.",
+            },
+          },
+          {
+            phase: "Round 1 - Build the Pattern",
+            duration: "3 minutes",
+            coachPosition: "Walking between groups",
+            script:
+              "Let groups walk through the pattern slowly first. Reinforce: pass and sprint immediately, one-touch return into space, controlled first touch.",
+            troubleshooting: {
+              "Runner stands still after passing": [
+                "Physically point where they should be running as they pass",
+              ],
+              "Wall player needs multiple touches": [
+                "Move the wall player closer to the passer to shorten the pass",
+              ],
+            },
+          },
+          {
+            phase: "Teaching Moment",
+            duration: "45 seconds",
+            coachPosition: "At one group, everyone gathered",
+            script:
+              "Demo a pass to feet (runner has to stop) vs. a pass to space (runner keeps sprinting). 'That's the whole point of the wall pass - beat a defender with speed!'",
+          },
+          {
+            phase: "Round 2 - Add Sprint Timing",
+            duration: "3 minutes",
+            coachPosition: "Roaming, 1-on-1 feedback",
+            script:
+              "Push for full-speed sprints and earlier body-opening by the wall player. Individual feedback on timing, not just technique.",
+          },
+          {
+            phase: "Challenge Round",
+            duration: "3 minutes",
+            coachPosition: "Roaming",
+            script:
+              "Pick one: weak foot wall pass, passive defender, or finish with a shot. Celebrate clean combinations loudly.",
+          },
+          {
+            phase: "Wrap Up",
+            duration: "30 seconds",
+            coachPosition: "Center, groups gathered",
+            script:
+              "ASK: 'What made your best wall pass work?' Connect to games: two players working together beat one defender working alone.",
+          },
+        ],
+      },
+      troubleshooting: {
+        gameBalance: {
+          tooEasy: {
+            symptoms: [
+              "Consistent one-touch returns without thinking",
+              "Runners sprinting automatically",
+              "Pattern looks effortless",
+            ],
+            solutions: [
+              "Weak foot wall pass",
+              "Add a passive defender",
+              "Chain two wall passes (Double Wall)",
+              "Finish with a shot under time pressure",
+            ],
+          },
+          tooHard: {
+            symptoms: [
+              "Wall player needs several touches",
+              "Runners stop instead of sprinting",
+              "Return passes consistently miss the runner's path",
+            ],
+            solutions: [
+              "Shorten the channel",
+              "Allow two touches for the wall player",
+              "Walk through at half speed before adding sprint",
+              "Coach demonstrates the wall player's role directly",
+            ],
+          },
+        },
+        playerBehavior: {
+          notSprinting: {
+            symptoms: [
+              "Runner walks or jogs after passing",
+              "Runner watches the pass instead of moving",
+            ],
+            approach:
+              "SAY: 'Pass and GO - your legs should already be moving before the ball arrives at the wall!' Point to where they should run.",
+          },
+          confusionOverRotation: {
+            symptoms: ["Players unsure whose turn it is", "Standing around between reps"],
+            approach:
+              "Call out the rotation out loud each time: 'A becomes wall, wall becomes target, target becomes runner - go!'",
+          },
+        },
+        environmentalIssues: {
+          groupsTooClose: {
+            symptoms: ["Balls from different groups colliding", "Runners cutting through other channels"],
+            solution: "Space channels at least 5-6 paces apart, or stagger start times between groups.",
+          },
+        },
+      },
+      skillConnections: {
+        primarySkills: [
+          {
+            skill: "Passing (Short)",
+            domain: "technical",
+            howItDevelops:
+              "The wall player must play an accurate, well-weighted one-touch pass into a moving target's path - a much harder demand than passing to a stationary partner.",
+            levelIndicators: {
+              1: "Needs multiple touches before passing; pass often inaccurate",
+              2: "One-touch pass sometimes clean but often to feet, not space",
+              3: "Consistent one-touch pass, usually into the runner's path",
+              4: "Reads the runner's speed and adjusts pace/weight of pass",
+              5: "Disguises the pass and times it perfectly for the runner's stride",
+            },
+            assessmentNotes:
+              "Watch the wall player's touch count and where the ball ends up relative to the runner's path.",
+          },
+          {
+            skill: "Support Play",
+            domain: "tactical",
+            howItDevelops:
+              "The wall player has to find an angle where they can see both the ball and the target before it arrives - the foundation of good supporting positioning in games.",
+            levelIndicators: {
+              1: "Stands directly on the line; no real angle",
+              2: "Some angle but reacts late to the ball",
+              3: "Consistently finds a supporting angle before the pass arrives",
+              4: "Adjusts angle based on where the runner is heading",
+              5: "Positions to make the next pass easy before being asked",
+            },
+            assessmentNotes: "Watch body orientation before the ball arrives at the wall player.",
+          },
+        ],
+        secondarySkills: [
+          {
+            skill: "Receiving / First Touch",
+            domain: "technical",
+            howItDevelops:
+              "The runner must control the return pass at speed and push it forward into their next stride - a first touch under time pressure.",
+          },
+          {
+            skill: "Speed",
+            domain: "physical",
+            howItDevelops:
+              "Sprinting immediately after passing trains the explosive first steps needed to beat a defender in games.",
+          },
+        ],
+        physicalDevelopment: {
+          agility: "Change of pace from a standing pass to a full sprint",
+          coordination: "Passing accurately while preparing to move",
+        },
+        psychologicalDevelopment: {
+          teamwork: "Success depends entirely on the wall player's timing and awareness of a teammate",
+          confidence: "Executing a clean combination builds belief in playing quick, purposeful soccer",
+        },
+      },
+      developmentalContext: {
+        whyThisActivity:
+          "The give-and-go is one of the most effective ways to beat a defender in real games because it uses two players' movement instead of one player's dribbling skill. Practicing it as a repeatable pattern builds the passing technique, timing, and support angles that combination play depends on.",
+        whenToUseIt: {
+          idealFor: [
+            "After players are comfortable with basic passing technique (Passing Pairs, Passing Accuracy Challenge)",
+            "Building toward small-sided games that reward combination play",
+            "Mid-practice technical block once players are warmed up",
+          ],
+          avoidWhen: [
+            "Players haven't yet developed a reliable inside-of-foot pass",
+            "Very early practice before technique work has happened",
+          ],
+        },
+        progressionPath: {
+          before: [
+            { activity: "Passing Pairs", reason: "Establishes basic passing and receiving technique" },
+            { activity: "Passing Accuracy Challenge", reason: "Builds pass accuracy under a simple target" },
+          ],
+          after: [
+            { activity: "Rondo 4v1", reason: "Applies quick one-touch passing under pressure" },
+            { activity: "4v4 to Small Goals", reason: "Combination play now has to happen against real defenders" },
+          ],
+        },
+        ageAdaptations: {
+          ages6to8: {
+            approach:
+              "Not typically used before ages 9-10 - the timing demands (one-touch pass into a moving target) are usually too advanced. If used with an advanced group, simplify heavily.",
+            keyPhrases: ["Pass then run to your friend!", "Catch the ball with your feet!"],
+            avoidSaying: ["You need to one-touch this", "That was too slow"],
+            duration: "Not recommended; substitute Passing Pairs instead",
+            simplifications: ["Allow unlimited touches for the wall player", "Walk instead of sprint"],
+          },
+          ages9to11: {
+            approach: "Introduce the pattern with two touches allowed for the wall player, build toward one touch",
+            keyPhrases: ["Pass and go!", "Into the space, not the feet!"],
+            avoidSaying: ["You should already know this"],
+            duration: "8-10 minutes",
+            simplifications: ["Two touches allowed for the wall player", "Shorter channel (8 paces)"],
+          },
+          ages12to14: {
+            approach: "Full one-touch demand, add defenders and chained combinations",
+            keyPhrases: ["Disguise your pass", "Read the defender's weight before you go"],
+            duration: "12-15 minutes",
+            challenges: ["Weak foot wall pass", "Passive then active defender", "Double Wall combination"],
+          },
+        },
+        commonMisconceptions: {
+          "The wall player just stands there and taps it back":
+            "The wall player is actively reading the runner's speed and angle to time and weight the return pass correctly - it's an active role, not a passive one.",
+          "This only works with fast players":
+            "Timing and disguise matter more than raw speed - a well-timed wall pass beats a faster defender who reacts late.",
+        },
+      },
+      parentCommunication: {
+        ifAsked:
+          "We're working on the 'give-and-go' - a classic soccer combination where your child passes to a teammate and sprints into space to receive it right back. It teaches quick decision-making and teamwork, not just individual skill.",
+        newsletter:
+          "This week: Wall Pass Combinations! Players practiced the give-and-go in groups of three - pass, sprint, and receive a one-touch return pass. This is one of the most useful patterns in real games because it uses teamwork to beat a defender.",
+        whatToWatchFor: [
+          "Does your child sprint immediately after passing, or stand and watch?",
+          "Can they receive a moving pass and keep it under control at speed?",
+          "Are they starting to look for a teammate to combine with during games?",
+        ],
+      },
+      safety: {
+        commonRisks: [
+          {
+            risk: "Collisions between groups running in adjacent channels",
+            prevention: "Space channels at least 5-6 paces apart; stagger start times",
+            response: "Check players for injury; widen spacing before continuing",
+          },
+          {
+            risk: "Sprained ankle from a hard cut while sprinting onto the return pass",
+            prevention: "Proper warm-up before this activity; remind players to accelerate under control",
+            response: "Rest and assess; ice if needed",
+          },
+        ],
+        inclusionConsiderations: {
+          speedDifferences: "Allow players who move at different paces to walk the pattern while others sprint - the passing and timing lesson still applies",
+          skillGaps: "Pair less confident passers with a strong wall player initially, then rotate everyone through all three roles",
+        },
+      },
+      coachReflection: {
+        afterActivity: [
+          "Were players sprinting immediately after their pass?",
+          "Was the wall player's return pass consistently one touch and into space?",
+          "Did the rotation keep everyone engaged in all three roles?",
+        ],
+        forImprovement: [
+          "Which groups need the channel shortened next time?",
+          "Who is ready for the weak-foot or defended challenge?",
+          "How can I connect this more explicitly to today's small-sided game?",
+        ],
+      },
+    },
   },
   {
     slug: "receiving-under-pressure",
@@ -4380,7 +4683,8 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "end-zone-game",
     name: "End Zone Game",
-    description: "Possession game where teams score by dribbling into end zone",
+    description:
+      "A possession game where teams score by dribbling the ball under control into the opponent's end zone instead of shooting at a goal - rewards spacing, quick decisions between dribbling and passing, and supporting the ball carrier.",
     sport: "soccer",
     activityType: "game",
     difficulty: "beginner",
@@ -4389,50 +4693,368 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     durationMinutes: 15,
     skillsDeveloped: ["when-to-dribble-vs-pass", "finding-space", "support-play"],
     setupInstructions:
-      "Create a 35x25 yard field with 5-yard end zones at each end. Two equal teams.",
+      "EQUIPMENT CHECKLIST\n□ Cones to mark the field and end zones\n□ Pinnies for two teams\n□ 1-2 balls (spare nearby for quick restarts)\n\nSPACE: 35x25 paces, with a 5-pace end zone at each end\n\nSETUP STEPS\n1. Mark a 35x25 pace field\n2. Mark a 5-pace end zone across the full width at each end\n3. Split into two even teams with pinnies\n4. All players are outfield - no goalkeepers\n5. Start with the ball in the middle of the field\n\nDIAGRAM\n┌───────┬───────────────────┬───────┐\n│ END   │                   │ END   │\n│ ZONE  │      35x25         │ ZONE  │\n│ (5pc) │      paces         │ (5pc) │\n└───────┴───────────────────┴───────┘\n\n○ = players spread across the middle, attacking either end zone",
     howToPlay:
-      "1. Teams try to dribble ball under control into opponent's end zone\n2. Must be in control of ball when entering end zone to score\n3. After a score, other team gets ball from their end zone\n4. No goalkeepers - all outfield players",
+      'PHASE 1: GATHER & EXPLAIN (60 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: Center of the field\n\nSAY: "This is End Zone Game! Instead of a goal, you score by dribbling the ball UNDER CONTROL into your opponent\'s end zone - that\'s this strip at their end!"\n\nSAY: "You have to be in control of the ball when you cross the line - if you just kick it in and chase, it doesn\'t count! After a score, the other team restarts from their own end zone. No goalkeepers - everyone plays!"\n\n\nPHASE 2: ROUND 1 - FREE PLAY (4 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Play ball! Work it forward and find a way into their end zone!"\n\nCoach Position: Outside the field, moving to see both end zones\n\nWATCH FOR:\n□ Are players spreading across the width, or bunching in the middle?\n□ Are they rushing into the end zone without control?\n□ Is anyone supporting the ball carrier, or standing and watching?\n\nPHRASES TO USE:\n• "Spread out - use the whole width!"\n• "Slow down - control it before you cross the line!"\n• "Get close to support your teammate!"\n\n\nPHASE 3: TEACHING MOMENT (45 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Everyone freeze! Watch this - if I sprint the ball toward the end zone with no control, what happens?"\n\nDEMO: Kick the ball ahead too far and lose it before the line.\n\nSAY: "See? No score! Now watch when I keep it close and controlled..."\n\nDEMO: Dribble in with the ball tight, cross the line in control.\n\nSAY: "That counts! Sometimes that means passing to a teammate in space instead of trying to dribble through everyone yourself!"\n\n\nPHASE 4: ROUND 2 - APPLY THE LESSON (4 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Same game - but now think about when to dribble and when to pass. Play on!"\n\nCoach Position: Roaming, calling out good decisions\n\nPHRASES TO USE:\n• "Great decision - passing when you were surrounded!"\n• "Nice controlled run into the zone!"\n• "Good support - you gave your teammate an option!"\n\n\nPHASE 5: CHALLENGE ROUND (4 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nChoose ONE:\n\nOption A - Receive in End Zone:\nSAY: "New rule - you can only score by RECEIVING a pass in the end zone, not dribbling in yourself! This forces you to find a teammate!"\n\nOption B - Time Limit:\nSAY: "Once your team has the ball, you have 30 seconds to score or you lose possession! Keep it moving!"\n\nRun the challenge for the remaining time.\n\n\nPHASE 6: WRAP UP (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Great game! What helped you score - dribbling in, or passing to a teammate?"\n\nListen for: "Passing when I was surrounded," "Dribbling when I had space," "Staying spread out"\n\nSAY: "Reading when to dribble and when to pass is one of the biggest decisions in real games. Awesome work - water break!"',
+    diagram:
+      "┌───────┬───────────────────┬───────┐\n│ END   │                   │ END   │\n│ ZONE  │      35x25         │ ZONE  │\n│ (5pc) │      paces         │ (5pc) │\n└───────┴───────────────────┴───────┘\n\n○ = players spread across the middle, attacking either end zone",
     coachingPoints: [
-      "Width in attack",
-      "Quick ball circulation",
-      "Recognize when to dribble vs pass",
-      "Support the ball carrier",
+      "WIDTH IN ATTACK → Say: 'Spread out across the whole field - use all the space you have!'",
+      "QUICK BALL CIRCULATION → Say: 'Move the ball fast - don't let defenders set up!'",
+      "DRIBBLE VS PASS → Say: 'If you're surrounded, look for the pass - if you've got space, take it yourself!'",
+      "SUPPORT THE BALL CARRIER → Say: 'Get close and give your teammate an easy option!'",
     ],
     questionsToAsk: [
-      "When should you try to score vs keep possession?",
-      "How do you create space to dribble into the zone?",
-      "Where should you be when your teammate has the ball?",
+      "'When should you try to score versus keep possession?' → Looking for: when you have control and space vs. when you should recycle the ball",
+      "'How do you create space to dribble into the zone?' → Spreading out, drawing defenders away, using width",
+      "'Where should you be when your teammate has the ball?' → Close enough to support, in space they could actually pass to",
+      "'What made that last score work?' → Develops reflection on the dribble-vs-pass decision that just happened",
     ],
     commonMistakes: [
-      "Rushing into end zone without control",
-      "Not spreading out",
-      "Everyone chasing the ball",
+      "RUSHING INTO THE END ZONE WITHOUT CONTROL → Say: 'Slow down - it only counts if you're in control when you cross!'",
+      "NOT SPREADING OUT → Say: 'Use the whole width of the field - don't bunch up!'",
+      "EVERYONE CHASING THE BALL → Say: 'If you're not near the ball, find open space instead!'",
+      "DRIBBLING WHEN SURROUNDED → Say: 'Look up - is a teammate open for a pass?'",
     ],
     variations: [
       {
         name: "Receive in End Zone",
-        description: "Must receive pass in end zone (not dribble) to score",
+        description:
+          "Players must receive a pass inside the end zone to score rather than dribbling in - forces teams to find a target player instead of running the ball in solo.",
         difficulty: "intermediate",
       },
       {
         name: "Time Limit",
-        description: "Must score within 30 seconds or lose possession",
+        description:
+          "Once a team wins the ball, they must score within 30 seconds or possession turns over - speeds up decision-making and ball circulation.",
+        difficulty: "advanced",
+      },
+      {
+        name: "Two-Touch End Zone",
+        description:
+          "Limit every player to two touches maximum, rewarding quick combination play to break into the end zone.",
         difficulty: "advanced",
       },
     ],
-    makeEasier: "Wider field, larger end zones",
-    makeHarder: "Smaller end zones, add neutral player for defending team",
-    equipmentNeeded: ["Cones", "Pinnies", "Balls"],
+    makeEasier:
+      "SIGNS THEY'RE STRUGGLING:\n• Nobody reaching the end zone in control\n• Constant bunching around the ball\n• Same few players touching the ball every time\n\nSOLUTIONS:\n• Widen the field or enlarge the end zones to 8-10 paces\n• Allow a score even with a slightly loose touch at first, tightening the rule as they improve\n• Add a rule that every player must touch the ball before a team can score\n• Coach pauses play to point out open space and easy passing options",
+    makeHarder:
+      "SIGNS THEY'RE READY:\n• Scoring regularly with clean, controlled entries\n• Good spacing and quick decisions between dribble and pass\n• Asking for more challenge\n\nSOLUTIONS:\n• Shrink the end zones to 3 paces\n• Add a neutral player who always supports the defending team\n• Add the Time Limit variation to speed up decisions\n• Require a pass before any score counts (Receive in End Zone)",
+    equipmentNeeded: ["Cones", "Pinnies", "1-2 balls"],
     spaceRequired: "medium",
     indoorSuitable: false,
     appropriateStages: ["fundamentals", "skill-building"],
     tags: ["game", "possession", "dribbling", "tactical"],
     featured: true,
+    comprehensiveGuide: {
+      quickReference: {
+        oneSentence:
+          "A possession game where teams score by dribbling under control into the opponent's end zone - builds spacing, quick dribble-vs-pass decisions, and support play.",
+        keyPhrases: [
+          "Spread out - use the whole width!",
+          "Slow down - control it before you cross!",
+          "Get close and support the ball carrier!",
+        ],
+        setupDiagram: "35x25 pace field with a 5-pace end zone at each end, two teams, no goalkeepers",
+        quickProgression: {
+          easier: "Wider field, larger end zones, everyone-touches rule",
+          harder: "Smaller end zones, neutral defender, time limit",
+        },
+      },
+      completeScript: {
+        beforeYouStart: {
+          preparation: [
+            "Mark a 35x25 pace field with a 5-pace end zone at each end",
+            "Split into two even teams with pinnies",
+            "Confirm all players understand there are no goalkeepers - everyone attacks and defends",
+            "Have a spare ball ready for instant restarts after a score",
+          ],
+          mindset:
+            "The 'control required to score' rule is the whole lesson - it punishes rushing and rewards exactly the decision-making (dribble vs. pass, when to go, when to support) that shows up in real games. Resist the urge to referee every close call strictly at first; let the teaching moment introduce the standard, then hold it consistently.",
+        },
+        segments: [
+          {
+            phase: "Gather & Explain",
+            duration: "60 seconds",
+            coachPosition: "Center of the field",
+            script:
+              "SAY: 'Dribble under control into their end zone to score - no control, no score!' Point out both end zones and confirm no goalkeepers.",
+            anticipatedResponses: {
+              "What if I kick it in and chase it?": "Doesn't count - you have to be in control when you cross the line.",
+              "Can I pass into the end zone?": "Yes, if a teammate is there to receive it in control!",
+            },
+            troubleshooting: {
+              "Confusion about the end zone boundary": ["Walk the line with them before starting"],
+            },
+          },
+          {
+            phase: "Round 1 - Free Play",
+            duration: "4 minutes",
+            coachPosition: "Outside the field, moving to see both end zones",
+            script:
+              "Let it play. Call out: 'Spread out!' 'Control it before you cross!' Watch for bunching and rushed entries.",
+            troubleshooting: {
+              "Everyone bunching in the middle": [
+                "Pause briefly: 'Two players go stand near an end zone - see the space open up?'",
+              ],
+              "Rushed, uncontrolled entries": [
+                "Call it out kindly: 'Close, but you lost control - try again slower next time!'",
+              ],
+            },
+          },
+          {
+            phase: "Teaching Moment",
+            duration: "45 seconds",
+            coachPosition: "Center, everyone gathered",
+            script:
+              "Demo a rushed, out-of-control entry (no score) vs. a controlled dribble-in (scores). 'Sometimes that control comes from passing to an open teammate instead of forcing it yourself.'",
+          },
+          {
+            phase: "Round 2 - Apply the Lesson",
+            duration: "4 minutes",
+            coachPosition: "Roaming, calling out good decisions",
+            script: "Play resumes. Praise good dribble-vs-pass reads and supportive positioning.",
+          },
+          {
+            phase: "Challenge Round",
+            duration: "4 minutes",
+            coachPosition: "Roaming",
+            script:
+              "Pick one: Receive in End Zone (forces passing) or Time Limit (forces tempo). Match the choice to what Round 2 revealed.",
+          },
+          {
+            phase: "Wrap Up",
+            duration: "30 seconds",
+            coachPosition: "Center",
+            script:
+              "ASK: 'What helped you score - dribbling in or passing to a teammate?' Connect to reading the game in real matches. Water break!",
+          },
+        ],
+      },
+      troubleshooting: {
+        gameBalance: {
+          tooEasy: {
+            symptoms: [
+              "Scoring very easily with little defensive resistance",
+              "No real decision-making required",
+            ],
+            solutions: [
+              "Shrink the end zones",
+              "Add a neutral player supporting the defense",
+              "Add the Time Limit variation",
+              "Require a pass before any score counts",
+            ],
+          },
+          tooHard: {
+            symptoms: [
+              "Nobody controlling the ball into the zone",
+              "Constant loose touches and turnovers before the line",
+            ],
+            solutions: [
+              "Widen the field or enlarge the end zones",
+              "Loosen the control standard temporarily, tightening as they improve",
+              "Require every player to touch the ball before scoring, spreading possession",
+            ],
+          },
+        },
+        playerBehavior: {
+          bunchingInMiddle: {
+            symptoms: ["All players clustered around the ball regardless of position"],
+            approach:
+              "Pause briefly and physically walk two players toward an end zone: 'See how much space just opened up?'",
+          },
+          oneOrTwoPlayersDominatingBall: {
+            symptoms: ["Same players touching the ball on nearly every possession"],
+            approach:
+              "Add a rule that every player must touch the ball before a team can score in the end zone.",
+          },
+          arguingOverControlCalls: {
+            symptoms: ["Disputes about whether a player was 'in control' crossing the line"],
+            approach:
+              "Coach makes the call and moves on quickly; explain the standard once clearly rather than re-litigating each time.",
+          },
+        },
+        environmentalIssues: {
+          unclearEndZoneBoundary: {
+            symptoms: ["Disputes about whether the ball crossed into the end zone"],
+            solution: "Use brightly colored or extra cones to make the end zone line unmistakable.",
+          },
+          unevenTeamSizes: {
+            symptoms: ["One team dominating possession due to a numbers advantage"],
+            solution: "Rebalance teams immediately, or add a neutral player to the smaller team.",
+          },
+        },
+      },
+      skillConnections: {
+        primarySkills: [
+          {
+            skill: "When to Dribble vs Pass",
+            domain: "Tactical",
+            howItDevelops:
+              "The control-required-to-score rule directly punishes forcing a dribble through defenders and rewards recognizing when passing to an open teammate is the better option.",
+            levelIndicators: {
+              1: "Always tries to dribble in regardless of pressure, losing the ball often",
+              2: "Occasionally passes when surrounded, but usually after already losing control",
+              3: "Regularly reads pressure and chooses dribble or pass appropriately",
+              4: "Makes quick, mostly correct decisions under moderate pressure",
+              5: "Consistently picks the higher-percentage option and executes it under real defensive pressure",
+            },
+            assessmentNotes:
+              "Watch what happens when a dribbler meets 2+ defenders - do they force it, or find the pass?",
+          },
+          {
+            skill: "Finding Space",
+            domain: "Tactical",
+            howItDevelops:
+              "Because the whole width of the field is usable and there's no fixed goal to crowd around, players must actively find space to receive and to attack the end zone.",
+            levelIndicators: {
+              1: "Stays near the ball regardless of space elsewhere",
+              2: "Occasionally moves to open space but inconsistently",
+              3: "Regularly finds space to support or receive",
+              4: "Proactively creates space by moving before the ball arrives",
+              5: "Consistently exploits the most valuable open space on the field",
+            },
+            assessmentNotes: "Watch off-ball movement, not just what happens on the ball.",
+          },
+        ],
+        secondarySkills: [
+          {
+            skill: "Support Play",
+            domain: "Tactical",
+            howItDevelops:
+              "Because a controlled entry often requires a pass, players learn to position themselves as a genuine passing option for the ball carrier.",
+          },
+          {
+            skill: "Teamwork",
+            domain: "Psychological",
+            howItDevelops:
+              "Scoring depends on combining with teammates rather than solo dribbling, reinforcing collaborative attacking play.",
+          },
+        ],
+      },
+      developmentalContext: {
+        whyThisActivity:
+          "Replacing a goal with a control-required end zone strips away shooting mechanics and isolates the exact decision that separates good attacking play from rushed attacking play: dribble or pass, and when. It's an ideal format for teaching spacing and decision-making before adding shooting into the mix.",
+        whenToUseIt: {
+          idealFor: [
+            "Introducing the dribble-vs-pass decision in a game context",
+            "Reinforcing width and spacing principles",
+            "A main activity for fundamentals or skill-building groups building game understanding",
+          ],
+          avoidWhen: [
+            "The session's focus is specifically on shooting technique",
+            "Group size is too small to create meaningful width (fewer than 8 players)",
+          ],
+        },
+        progressionPath: {
+          before: [
+            {
+              activity: "Passing Combinations",
+              reason: "Builds the passing execution this game requires under game pressure",
+            },
+            {
+              activity: "Gates Dribbling",
+              reason: "Establishes head-up dribbling awareness before adding decision-making pressure",
+            },
+          ],
+          after: [
+            {
+              activity: "Small-Sided Game 5v5",
+              reason: "Reintroduces shooting and a fixed goal, applying the spacing and decision habits just built",
+            },
+            {
+              activity: "4v4 to Small Goals",
+              reason: "Keeps the small-goal, no-goalkeeper format while adding a finishing dimension",
+            },
+          ],
+        },
+        ageAdaptations: {
+          ages6to8: {
+            approach:
+              "Simplify the control rule to be forgiving early on, and keep the field smaller so the game stays fast and fun.",
+            keyPhrases: ["Keep the ball close as you go in!", "Find your open teammate!"],
+            avoidSaying: ["That didn't count, you weren't in control"],
+            duration: "8-10 minutes",
+            simplifications: [
+              "Smaller field, larger end zones",
+              "Loosen the control standard for the first few sessions",
+              "Fewer players per team (4v4) for more touches",
+            ],
+          },
+          ages9to11: {
+            approach:
+              "Enforce the control rule consistently and start introducing the dribble-vs-pass question directly in the debrief.",
+            keyPhrases: ["Control it before you cross!", "Dribble or pass - what's the smarter choice?"],
+            avoidSaying: ["You should always pass" ,"You should always dribble"],
+            duration: "12-15 minutes",
+            challenges: ["Receive in End Zone", "Time Limit"],
+          },
+          ages12to14: {
+            approach:
+              "Use the full format with tactical debriefs on spacing, tempo, and reading defensive shape.",
+            keyPhrases: ["What did the defense give you?", "How did you create that space?"],
+            avoidSaying: ["Just play, don't overthink it"],
+            duration: "15 minutes",
+            challenges: ["Time Limit", "Two-Touch End Zone", "Neutral defender"],
+          },
+        },
+        commonMisconceptions: {
+          "This is just dribbling practice":
+            "The control-required rule makes passing just as valid a path to scoring as dribbling - it's really a decision-making game, not a dribbling drill.",
+          "No goalkeepers means no defense matters":
+            "Without goalkeepers, every outfield player has to contribute to defending the full width of the end zone, actually increasing defensive responsibility for everyone.",
+        },
+      },
+      parentCommunication: {
+        ifAsked:
+          "End Zone Game replaces the goal with a strip of field your child has to dribble into under control - it strips away shooting and isolates the decision of when to dribble and when to pass, which is one of the most important reads in real games.",
+        newsletter:
+          "This week: End Zone Game! Instead of scoring in a goal, players had to dribble the ball under control into the opponent's end zone - and it only counted if they were truly in control when they crossed the line. This built spacing, quick decisions between dribbling and passing, and supporting teammates.",
+        whatToWatchFor: [
+          "Does your child slow down and control the ball before entering the end zone, or rush it?",
+          "Are they spreading out across the field, or bunching near the ball?",
+          "Do they recognize when to pass to an open teammate instead of forcing a dribble?",
+        ],
+      },
+      safety: {
+        commonRisks: [
+          {
+            risk: "Collisions near the end zone line as multiple players converge",
+            prevention: "Keep end zones a reasonable width (5+ paces) so entries aren't overly congested",
+            response: "Check players involved; briefly pause play if needed",
+          },
+          {
+            risk: "Overexertion from continuous open play without natural stoppages",
+            prevention: "Build in water breaks between rounds; sub players if the roster allows",
+            response: "Pull a tired player out for a short rest, then rotate back in",
+          },
+        ],
+        inclusionConsiderations: {
+          mobilityDifferences: "Allow a walking or reduced-speed version; assign a role with a shorter running distance",
+          attentionChallenges: "Use clear, consistent restart cues so transitions after a score don't cause confusion",
+        },
+      },
+      coachReflection: {
+        afterActivity: [
+          "Were players controlling the ball before entering the end zone, or rushing it?",
+          "Did teams use the full width of the field, or stay bunched?",
+          "Were dribble-vs-pass decisions improving as the session went on?",
+          "Did the control rule need to be enforced more loosely or more strictly for this group?",
+        ],
+        forImprovement: [
+          "Should I adjust field or end zone size next time?",
+          "Which players need more encouragement to pass rather than force a dribble?",
+          "Which challenge variation fit this group's readiness?",
+          "How can I connect this more explicitly to shooting-based games in the next session?",
+        ],
+      },
+    },
   },
   {
     slug: "ball-tag",
     name: "Ball Tag",
-    description: "Fun conditioning game where everyone dribbles while playing tag",
+    description:
+      "Everyone dribbles a ball while 2-3 taggers try to tag them - also dribbling their own ball. A high-energy conditioning game that forces players to keep the ball close while scanning for danger, changing direction, and shielding under pressure.",
     sport: "soccer",
     activityType: "conditioning",
     difficulty: "beginner",
@@ -4441,41 +5063,340 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     durationMinutes: 8,
     skillsDeveloped: ["ball-control", "agility-change-of-direction"],
     setupInstructions:
-      "Use a 25x25 yard grid. Everyone has a ball. Select 2-3 taggers who wear pinnies.",
+      "EQUIPMENT CHECKLIST\n□ 1 ball per player\n□ 4 cones (grid corners)\n□ 2-3 pinnies (taggers)\n\nSPACE: 25x25 paces (shrink for fewer players, expand for more)\n\nSETUP STEPS\n1. Mark a 25x25 pace grid with 4 corner cones\n2. Choose 2-3 taggers and give them pinnies\n3. Everyone else spreads out inside the grid, each with a ball\n4. Taggers ALSO have a ball - they dribble while tagging, they don't chase empty-handed\n5. On 'GO', taggers try to tag any player with a light touch on the shoulder or back\n\nDIAGRAM\n┌────────────────────────────────┐\n│  ○     ○        ●(pinny)   ○   │\n│      ○      ○         ○        │\n│  ○        ●(pinny)      ○      │\n│      ○         ○     ○         │  25 paces\n│  ○      ●(pinny)    ○      ○   │\n└────────────────────────────────┘\n            25 paces\n\n○ = player dribbling   ●(pinny) = tagger dribbling",
     howToPlay:
-      "1. Everyone dribbles inside the grid, including taggers\n2. Taggers try to tag other players while dribbling\n3. If tagged, do 10 ball taps and return to the game\n4. Rotate taggers every 90 seconds",
+      'PHASE 1: GATHER & EXPLAIN (45 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: Center of grid\n\nSAY: "Everyone grab a ball! I need 2-3 taggers to wear a pinny. Taggers - you ALSO have a ball, so you\'re dribbling while you tag, just like everyone else!"\n\nSAY: "If you get tagged, don\'t stop moving - do 10 quick toe taps right where you are, then jump back into the game! Nobody sits out."\n\nSAY: "Keep your ball close and your head up - the taggers could be anywhere. Ready... GO!"\n\n\nPHASE 2: ROUND 1 (2 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: Outside the grid, moving around the perimeter\n\nLOOK FOR:\n□ Are players keeping the ball close while scanning for taggers?\n□ Are they changing direction to escape, or just running in straight lines?\n□ Are taggers actually dribbling, or abandoning their ball to chase?\n\nPHRASES TO USE:\n• "Eyes up - where are the taggers?"\n• "Small touches - keep that ball close!"\n• "Nice change of direction to get away!"\n\nAfter 90 seconds: "New taggers! Pinnies over here!" - rotate to fresh taggers.\n\n\nPHASE 3: TEACHING MOMENT (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Everyone freeze and watch this."\n\nDEMO: Show shielding the ball with your body while changing direction away from an approaching tagger, using the foot farthest from the tagger to touch the ball.\n\nSAY: "See how I put my body BETWEEN the tagger and my ball? That protects it while I get away!"\n\n\nPHASE 4: ROUND 2 - NEW TAGGERS (2 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "New taggers, everyone else keep dribbling! Remember - shield your ball, change direction, stay alert!"\n\nCoach Position: Roaming, giving specific feedback\n\nPHRASES TO USE:\n• "Great shielding - body between the ball and the tagger!"\n• "Keep scanning - don\'t just watch your feet!"\n• "Nice escape - sudden direction change!"\n\n\nPHASE 5: CHALLENGE ROUND (2 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Last round - shrinking grid! I\'m going to make the space smaller, so you\'ll need even better control and awareness!"\n\nMove cones in to shrink the grid by a few paces. Add one more tagger if the group handles it well.\n\nSAY: "Ready... GO! Stay calm, keep the ball close!"\n\n\nPHASE 6: WRAP UP (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Great energy! What helped you avoid the taggers?"\n\nListen for: "Watching around me," "Changing direction," "Keeping the ball close"\n\nSAY: "That\'s exactly what keeps the ball safe in a real game too - close control and awareness. Water break!"',
+    diagram:
+      "┌────────────────────────────────┐\n│  ○     ○        ●(pinny)   ○   │\n│      ○      ○         ○        │\n│  ○        ●(pinny)      ○      │\n│      ○         ○     ○         │\n│  ○      ●(pinny)    ○      ○   │\n└────────────────────────────────┘\n\n○ = player dribbling   ●(pinny) = tagger dribbling",
     coachingPoints: [
-      "Keep ball close while looking around",
-      "Change direction suddenly to escape",
-      "Use your body to shield",
-      "Stay alert - know where taggers are",
+      "KEEP THE BALL CLOSE → Say: 'Small touches - keep that ball close so nobody can poke it away!'",
+      "SCAN FOR TAGGERS → Say: 'Eyes up! Where are the taggers right now?'",
+      "SHIELD WITH YOUR BODY → Say: 'Put your body between the ball and the tagger!'",
+      "CHANGE DIRECTION TO ESCAPE → Say: 'Don't just run straight - cut away suddenly!'",
     ],
     questionsToAsk: [
-      "How do you escape the taggers?",
-      "How do you keep control while running?",
+      "'How do you escape a tagger who's close behind you?' → Sudden change of direction, using your body to shield",
+      "'What happens if you only look at your feet?' → You can't see the taggers coming - looking up matters more",
+      "'How is this like protecting the ball in a real game?' → Shielding, close control, and awareness under pressure",
+      "'What did you do differently as a tagger?' → Still had to control your own ball while chasing - harder than it looks!",
     ],
-    commonMistakes: ["Losing the ball while running", "Not keeping head up"],
+    commonMistakes: [
+      "BIG TOUCHES THAT PUSH THE BALL AWAY → Say: 'Smaller touches - keep it close to your feet!'",
+      "STARING AT THE BALL INSTEAD OF SCANNING → Say: 'Quick peeks at the ball, longer looks around you!'",
+      "TAGGERS ABANDONING THEIR BALL TO CHASE → Say: 'Taggers, your ball stays with you too - dribble while you tag!'",
+      "RUNNING IN STRAIGHT LINES → Say: 'Cut and change direction - straight lines are easy to catch!'",
+    ],
     variations: [
       {
         name: "Freeze Ball Tag",
         description:
-          "Tagged players freeze, can be freed by another player passing through their legs",
+          "Tagged players freeze in place with legs apart, and can be freed by another player passing their ball through the frozen player's legs.",
+        difficulty: "intermediate",
+      },
+      {
+        name: "Team Ball Tag",
+        description:
+          "Split into two teams - one team of taggers, one team dribbling. Switch roles halfway through and compare how long each team lasted before all being tagged once.",
+        difficulty: "beginner",
+      },
+      {
+        name: "Shrinking Grid Tag",
+        description:
+          "Gradually shrink the grid every 30-45 seconds throughout the round, forcing tighter control and quicker decisions as space disappears.",
         difficulty: "intermediate",
       },
     ],
-    makeEasier: "Fewer taggers, larger grid",
-    makeHarder: "More taggers, smaller grid",
-    equipmentNeeded: ["Cones", "1 ball per player", "Pinnies"],
+    makeEasier:
+      "SIGNS THEY'RE STRUGGLING:\n• Ball constantly getting knocked away or lost\n• Players freezing instead of moving when a tagger is near\n• Collisions between players\n• Frustration or players avoiding the game\n\nSOLUTIONS:\n• Reduce to 1-2 taggers\n• Make the grid larger (30x30 paces)\n• Allow players to freeze safely and call 'safe!' for a 3-second break\n• Slow the pace - walking dribble only for a round",
+    makeHarder:
+      "SIGNS THEY'RE READY:\n• Ball rarely lost even under pressure\n• Players comfortably scanning while dribbling\n• Easily escaping taggers with direction changes\n• Looking for more challenge\n\nSOLUTIONS:\n• Add more taggers (up to 4-5)\n• Shrink the grid\n• Require weak-foot touches only\n• No pinnies - taggers blend in, so everyone must stay alert to anyone",
+    equipmentNeeded: ["Cones (4 for grid)", "1 ball per player", "Pinnies (2-3)"],
     spaceRequired: "medium",
     indoorSuitable: true,
     appropriateStages: ["fundamentals", "skill-building"],
     tags: ["conditioning", "dribbling", "fun", "agility"],
     featured: false,
+    comprehensiveGuide: {
+      quickReference: {
+        oneSentence:
+          "Everyone dribbles inside a grid while 2-3 taggers (also dribbling) try to tag them - builds close control, scanning, and shielding under pressure.",
+        keyPhrases: [
+          "Small touches - keep it close!",
+          "Eyes up - where are the taggers?",
+          "Shield with your body!",
+        ],
+        setupDiagram:
+          "25x25 pace grid, 2-3 taggers in pinnies, everyone (including taggers) dribbles their own ball",
+        quickProgression: {
+          easier: "Fewer taggers, larger grid, allow a safe call",
+          harder: "More taggers, smaller grid, weak foot only, no pinnies",
+        },
+      },
+      completeScript: {
+        beforeYouStart: {
+          preparation: [
+            "Mark a 25x25 pace grid with 4 cones",
+            "Have pinnies ready for 2-3 taggers",
+            "Count balls - every player, including taggers, needs one",
+            "Decide your rotation schedule (every 90 seconds works well)",
+          ],
+          mindset:
+            "This is conditioning wrapped in fun - the real teaching point is close control while scanning. Every time you say 'eyes up' or 'small touches' you're reinforcing the exact habits that protect the ball in a real game.",
+        },
+        segments: [
+          {
+            phase: "Gather & Explain",
+            duration: "45 seconds",
+            coachPosition: "Center of grid",
+            script:
+              "SAY: 'Everyone grab a ball, 2-3 taggers wear pinnies. Taggers dribble too! Tagged? 10 toe taps and jump back in.' Ready... GO!",
+            anticipatedResponses: {
+              "What if I get tagged a lot?":
+                "That's okay! More toe taps, more touches on the ball - it's still practice.",
+              "Can taggers just chase without dribbling?":
+                "No - taggers keep their ball too, that's what makes it fair and fun for everyone.",
+            },
+          },
+          {
+            phase: "Round 1",
+            duration: "2 minutes",
+            coachPosition: "Outside grid, moving around perimeter",
+            script:
+              "Call out encouragement: 'Eyes up!' 'Small touches!' 'Nice escape!' Rotate taggers at 90 seconds.",
+            troubleshooting: {
+              "Taggers abandoning their ball": [
+                "Remind loudly: 'Taggers, your ball stays with you too!'",
+              ],
+              "Players bunching in a corner": [
+                "Call out: 'Spread out - use the whole grid!'",
+              ],
+            },
+          },
+          {
+            phase: "Teaching Moment",
+            duration: "30 seconds",
+            coachPosition: "Center, everyone gathered",
+            script:
+              "Demo shielding: body between the ball and an approaching tagger, using the far foot to touch the ball. 'That protects the ball while you get away!'",
+          },
+          {
+            phase: "Round 2 - New Taggers",
+            duration: "2 minutes",
+            coachPosition: "Roaming",
+            script:
+              "Fresh taggers rotate in. Give individual feedback on shielding and scanning.",
+          },
+          {
+            phase: "Challenge Round",
+            duration: "2 minutes",
+            coachPosition: "Roaming",
+            script:
+              "Shrink the grid a few paces, optionally add a tagger. 'Stay calm, keep the ball close!'",
+          },
+          {
+            phase: "Wrap Up",
+            duration: "30 seconds",
+            coachPosition: "Center",
+            script:
+              "ASK: 'What helped you avoid the taggers?' Connect to games: close control and awareness keep the ball safe. Water break!",
+          },
+        ],
+      },
+      troubleshooting: {
+        gameBalance: {
+          tooEasy: {
+            symptoms: [
+              "Nobody getting tagged",
+              "Players not even looking for taggers",
+              "Low energy",
+            ],
+            solutions: [
+              "Add more taggers",
+              "Shrink the grid",
+              "Remove pinnies so taggers blend in",
+              "Require weak-foot touches",
+            ],
+          },
+          tooHard: {
+            symptoms: [
+              "Constant ball loss",
+              "Players freezing in fear of being tagged",
+              "Frustration or tears",
+            ],
+            solutions: [
+              "Reduce to 1-2 taggers",
+              "Enlarge the grid",
+              "Allow a 'safe' call for a 3-second breather",
+              "Slow to walking-pace dribble for a round",
+            ],
+          },
+        },
+        playerBehavior: {
+          taggersNotDribbling: {
+            symptoms: ["Taggers leave their ball to chase with hands or feet free"],
+            approach:
+              "SAY: 'Taggers keep their ball too - that's the whole game!' Pause and restart if it keeps happening.",
+          },
+          avoidingTheGame: {
+            symptoms: ["A player hugging the edge of the grid to avoid taggers"],
+            approach:
+              "SAY: 'Everyone needs the whole grid - come play in the middle with us!' Pair a hesitant player with a confident one briefly.",
+          },
+        },
+        environmentalIssues: {
+          crowdedGrid: {
+            symptoms: ["Frequent collisions", "Balls tangling together"],
+            solution: "Enlarge the grid or reduce the number of players per grid; run two smaller grids side by side.",
+          },
+        },
+      },
+      skillConnections: {
+        primarySkills: [
+          {
+            skill: "Ball Control",
+            domain: "technical",
+            howItDevelops:
+              "Players must keep the ball tight to their feet with small touches while under the added stress of being chased - building the close control needed in traffic during games.",
+            levelIndicators: {
+              1: "Ball frequently rolls away, especially when scanning for taggers",
+              2: "Reasonable control when moving straight, loses it on direction changes",
+              3: "Consistent close control while scanning and changing direction",
+              4: "Tight control even under direct pressure from a tagger",
+              5: "Full control while simultaneously tracking multiple taggers",
+            },
+            assessmentNotes: "Watch touch size and how often the ball gets more than a stride away from the player's feet.",
+          },
+          {
+            skill: "Agility - Change of Direction",
+            domain: "physical",
+            howItDevelops:
+              "Escaping taggers requires sudden, sharp cuts while maintaining ball control - the same movement pattern used to lose a defender in games.",
+            levelIndicators: {
+              1: "Only runs in straight lines; rarely cuts to escape",
+              2: "Attempts direction changes but loses the ball",
+              3: "Controlled cuts that keep the ball close",
+              4: "Sharp, fast direction changes under pressure",
+              5: "Anticipates the tagger's angle and cuts before being caught",
+            },
+            assessmentNotes: "Watch how players respond when a tagger closes in - do they cut, or just speed up in the same direction?",
+          },
+        ],
+        secondarySkills: [
+          {
+            skill: "Confidence",
+            domain: "psychological",
+            howItDevelops:
+              "Successfully evading taggers repeatedly builds belief in one's ability to keep the ball under pressure.",
+          },
+        ],
+        physicalDevelopment: {
+          cardiovascular: "Continuous movement for the full duration builds aerobic conditioning",
+          agility: "Constant direction changes to evade taggers",
+        },
+        psychologicalDevelopment: {
+          resilience: "Being tagged and immediately re-entering the game (no sitting out) builds a bounce-back mindset",
+        },
+      },
+      developmentalContext: {
+        whyThisActivity:
+          "Ball Tag disguises conditioning and close-control practice as a chase game young players love. Because taggers also dribble, everyone - tagger and dribbler alike - is practicing ball control simultaneously, and the constant scanning for danger builds the same head-up awareness needed to protect the ball in a crowded game.",
+        whenToUseIt: {
+          idealFor: [
+            "Early in practice as an energetic warm-up",
+            "When the group needs a conditioning boost disguised as fun",
+            "Reinforcing close control after a technical block",
+          ],
+          avoidWhen: [
+            "Space is too small or crowded for safe running",
+            "Group is very young and easily overwhelmed by chase games",
+          ],
+        },
+        progressionPath: {
+          before: [
+            { activity: "Traffic Lights", reason: "Establishes basic dribbling control at different speeds" },
+            { activity: "Musical Balls", reason: "Introduces reacting quickly while moving among others" },
+          ],
+          after: [
+            { activity: "Gates Dribbling", reason: "Applies head-up dribbling with a clearer objective" },
+            { activity: "Shark Attack", reason: "Raises the stakes with defenders actively hunting the ball" },
+          ],
+        },
+        ageAdaptations: {
+          ages6to8: {
+            approach: "Keep it playful - frame taggers as friendly monsters or animals, celebrate every escape",
+            keyPhrases: ["Keep your ball safe!", "Look around you!", "Great escape!"],
+            avoidSaying: ["You got tagged too much", "Try harder"],
+            duration: "5-6 minutes",
+            simplifications: ["1-2 taggers only", "Larger grid", "Allow a 'safe zone' cone in the corner"],
+          },
+          ages9to11: {
+            approach: "Add competitive framing and specific technical feedback on shielding",
+            keyPhrases: ["Shield with your body!", "Cut away, don't just sprint!"],
+            duration: "7-8 minutes",
+            challenges: ["Shrinking grid", "More taggers", "Weak-foot touches"],
+          },
+          ages12to14: {
+            approach: "Use as a high-intensity conditioning finisher with technical demands layered in",
+            keyPhrases: ["Control under fatigue counts too", "Scan constantly, not just when a tagger is close"],
+            duration: "8-10 minutes",
+            challenges: ["No pinnies (taggers blend in)", "Weak-foot only", "Team-based tag"],
+          },
+        },
+        commonMisconceptions: {
+          "It's just running around, not real soccer training":
+            "Close control under pressure while scanning the environment is exactly what protects the ball in games - this activity trains that instinct directly.",
+          "Taggers aren't really practicing anything":
+            "Taggers are dribbling the entire time too, so they get the same touches and control demands as everyone else, plus the added challenge of doing it while pursuing.",
+        },
+      },
+      parentCommunication: {
+        ifAsked:
+          "Ball Tag is a fun chase game where everyone - including the taggers - dribbles a ball the whole time. It builds close ball control and the habit of looking up to scan for danger, which is exactly what keeps the ball safe in a real game.",
+        newsletter:
+          "This week: Ball Tag! Every player dribbled a ball while 2-3 'taggers' (also dribbling) tried to tag them. The skill underneath the fun: keeping the ball close while scanning your surroundings - a habit that protects the ball in crowded games.",
+        whatToWatchFor: [
+          "Does your child keep the ball close with small touches, or let it roll away?",
+          "Do they look up to scan for danger, or only watch their feet?",
+          "Can they change direction quickly without losing control?",
+        ],
+      },
+      safety: {
+        commonRisks: [
+          {
+            risk: "Collisions between players moving in different directions",
+            prevention: "Adequate grid size for the number of players; remind players to keep their heads up",
+            response: "Check for injury; consider enlarging the grid if collisions repeat",
+          },
+          {
+            risk: "Rolled ankles on sharp direction changes",
+            prevention: "Proper warm-up before this activity; encourage controlled rather than reckless cuts",
+            response: "Rest and assess; ice if needed",
+          },
+        ],
+        inclusionConsiderations: {
+          mobilityDifferences: "Allow walking instead of running; designate a smaller personal zone within the grid",
+          anxietyAroundBeingChased: "Offer a 'safe' call option or a corner cone where a player can pause briefly without penalty",
+        },
+      },
+      coachReflection: {
+        afterActivity: [
+          "Were players keeping the ball close, or losing it frequently?",
+          "Did taggers stay engaged and keep dribbling their own ball?",
+          "Was the energy level and enjoyment high throughout?",
+        ],
+        forImprovement: [
+          "Was the grid size right for this group's skill level?",
+          "Which players need more direct coaching on shielding?",
+          "Should I rotate taggers more or less often next time?",
+        ],
+      },
+    },
   },
   {
     slug: "passing-pairs",
     name: "Passing Pairs",
-    description: "Simple partner passing to cool down and focus on technique",
+    description:
+      "Partners pass back and forth at a calm, controlled pace to close out practice - a technique-focused cooldown that reinforces clean passing and receiving mechanics without the intensity of a game.",
     sport: "soccer",
     activityType: "cooldown",
     difficulty: "beginner",
@@ -4483,35 +5404,321 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     maxPlayers: 24,
     durationMinutes: 6,
     skillsDeveloped: ["passing-short", "receiving-first-touch"],
-    setupInstructions: "Partners stand 10-15 yards apart. One ball per pair.",
+    setupInstructions:
+      "EQUIPMENT CHECKLIST\n□ 1 ball per pair\n□ Optional: 2 cones per pair to mark standing spots\n\nSPACE: 10-15 paces between partners\n\nSETUP STEPS\n1. Split into pairs\n2. Partners stand 10-15 paces apart, facing each other\n3. One ball per pair\n4. Plenty of room between pairs so passes don't cross paths\n\nDIAGRAM\nA                                    B\n○ ⚽ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ → ○\n\n     10-15 paces apart\n\n○ = player   ⚽ = ball",
     howToPlay:
-      "1. Pass back and forth, focusing on technique\n2. Receive with inside of foot, pass with inside\n3. Two touches: one to control, one to pass\n4. Switch to different passes: outside of foot, driven pass",
+      'PHASE 1: GATHER & EXPLAIN (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: Walking between pairs\n\nSAY: "Let\'s bring the energy down and finish with some clean passing. Find a partner, 10-15 paces apart. This is about QUALITY, not speed."\n\nSAY: "Inside of your foot to pass, inside of your foot to receive. Two touches: one to control, one to pass back. Let\'s go!"\n\n\nPHASE 2: ROUND 1 - TWO-TOUCH PASSING (90 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Pass and receive, nice and calm. Focus on your technique, not how fast you can go."\n\nCoach Position: Walking slowly between pairs\n\nLOOK FOR:\n□ Is the passing foot locked at the ankle?\n□ Is the first touch soft, staying close for the next pass?\n□ Are players following through toward their target?\n\nPHRASES TO USE:\n• "Lock that ankle - firm surface for the ball!"\n• "Soft touch to control, then pass."\n• "Follow through toward your partner\'s feet."\n\n\nPHASE 3: TEACHING MOMENT (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Everyone watch this pair for a second."\n\nDEMO: Show a toe-poked pass that wobbles off target, then a locked-ankle inside-of-foot pass that rolls smoothly and accurately.\n\nSAY: "See the difference? Locked ankle, flat surface of your foot - that\'s what makes the ball go exactly where you want it."\n\n\nPHASE 4: ROUND 2 - DIFFERENT PASSES (90 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Same calm pace, but now mix it up - try a pass with the outside of your foot, then a firmer driven pass with the laces."\n\nCoach Position: Roaming, quiet individual feedback\n\nPHRASES TO USE:\n• "Talk to your partner - call for it!"\n• "Nice and soft on that first touch."\n• "Good - I saw you use your other foot too!"\n\n\nPHASE 5: CHALLENGE ROUND - ONE TOUCH (90 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "For our last minute and a half, see if you can play one-touch passes back and forth. If you lose the rhythm, that\'s okay - just restart with two touches."\n\nRun challenge calmly. Praise good technique over speed.\n\n\nPHASE 6: WRAP UP (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Nice calm finish, everyone. What made your passes accurate today?"\n\nListen for: "Locking my ankle," "Following through," "Soft first touch"\n\nSAY: "Exactly - clean technique is what makes passing look easy in games. Great practice today, everyone - see you next time!"',
+    diagram:
+      "A                                    B\n○ ⚽ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ → ○\n\n     10-15 paces apart\n\n○ = player   ⚽ = ball",
     coachingPoints: [
-      "Lock ankle when passing",
-      "Follow through to target",
-      "Soft first touch",
-      "Communicate with partner",
+      "LOCK YOUR ANKLE → Say: 'Lock that ankle - give the ball a firm, flat surface!'",
+      "FOLLOW THROUGH TO TARGET → Say: 'Follow your foot toward your partner's feet after you pass!'",
+      "SOFT FIRST TOUCH → Say: 'Cushion the ball with a soft touch, keep it close for your next pass!'",
+      "COMMUNICATE WITH YOUR PARTNER → Say: 'Call for the ball and tell them where you want it!'",
     ],
     questionsToAsk: [
-      "What makes a good pass?",
-      "Where should your first touch go?",
+      "'What makes a good pass?' → Locked ankle, inside of foot, follows through to the target",
+      "'Where should your first touch go?' → Close to your feet, set up for your next pass",
+      "'Why does calm, slow practice still help you in a fast game?' → Clean technique becomes automatic, so it holds up under speed",
+      "'How do you know your partner is ready for the pass?' → Eye contact, calling for it, body facing you",
     ],
-    commonMistakes: ["Ankle not locked", "Toe poking the ball"],
+    commonMistakes: [
+      "ANKLE NOT LOCKED → Say: 'Lock it firm - a loose ankle sends the ball off target!'",
+      "TOE POKING THE BALL → Say: 'Use the inside of your foot, not your toe - bigger surface, more control!'",
+      "FIRST TOUCH TOO HEAVY → Say: 'Softer touch - cushion it like catching an egg!'",
+      "NOT COMMUNICATING → Say: 'Call for it! Let your partner know you're ready!'",
+    ],
     variations: [
       {
         name: "One Touch",
-        description: "Challenge to play one-touch passes",
+        description:
+          "Challenge partners to play one-touch passes back and forth without controlling first - tests technique and timing under a calm, controlled version of game speed.",
         difficulty: "intermediate",
       },
+      {
+        name: "Moving Pairs",
+        description:
+          "Partners slowly shuffle side to side or forward/backward while passing, requiring the passer to adjust the weight and angle of each pass to a moving target.",
+        difficulty: "intermediate",
+      },
+      {
+        name: "Weak Foot Only",
+        description:
+          "Both passing and receiving must be done with the weak foot only - keeps the pace calm while adding a real technical challenge.",
+        difficulty: "beginner",
+      },
     ],
-    makeEasier: "Closer together",
-    makeHarder: "Farther apart, one-touch only",
-    equipmentNeeded: ["1 ball per pair"],
+    makeEasier:
+      "SIGNS THEY'RE STRUGGLING:\n• Passes consistently miss the partner\n• Ball bounces or wobbles instead of rolling smoothly\n• First touch sends the ball too far away\n\nSOLUTIONS:\n• Move partners closer together (6-8 paces)\n• Allow unlimited touches instead of two-touch\n• Coach demonstrates the locked-ankle technique up close\n• Use a slightly deflated or softer ball if available",
+    makeHarder:
+      "SIGNS THEY'RE READY:\n• Passes consistently accurate and well-weighted\n• First touch is soft and sets up the next pass smoothly\n• Comfortable switching between inside and outside of foot\n\nSOLUTIONS:\n• Increase distance to 15-20 paces\n• Require one-touch passing\n• Weak foot only\n• Add gentle movement (Moving Pairs variation)",
+    equipmentNeeded: ["1 ball per pair", "Cones (optional, to mark spots)"],
     spaceRequired: "small",
     indoorSuitable: true,
     appropriateStages: ["fundamentals", "skill-building", "development"],
     tags: ["cooldown", "passing", "technique", "partners"],
     featured: false,
+    comprehensiveGuide: {
+      quickReference: {
+        oneSentence:
+          "Calm partner passing to close out practice - locked ankle, soft first touch, and communication, without the intensity of a game.",
+        keyPhrases: [
+          "Lock that ankle!",
+          "Soft touch to control, then pass.",
+          "Call for it - communicate with your partner!",
+        ],
+        setupDiagram: "Partners stand 10-15 paces apart, one ball per pair, calm and controlled pace",
+        quickProgression: {
+          easier: "Closer together, unlimited touches, coach demonstrates up close",
+          harder: "Farther apart, one-touch only, weak foot only, add movement",
+        },
+      },
+      completeScript: {
+        beforeYouStart: {
+          preparation: [
+            "Pair players up, ideally by similar passing ability",
+            "Set standing distance at 10-15 paces, adjustable per pair",
+            "Have one ball ready per pair",
+            "Plan this as the calm-down close to practice, after the higher-intensity work",
+          ],
+          mindset:
+            "This is a cooldown - the pace should feel noticeably calmer than the rest of practice. Your job is to reinforce clean technique in a low-pressure setting, not to push intensity. Quiet, specific feedback works better here than big energetic calls.",
+        },
+        segments: [
+          {
+            phase: "Gather & Explain",
+            duration: "30 seconds",
+            coachPosition: "Walking between pairs",
+            script:
+              "SAY: 'Let's bring the energy down and finish with clean passing. Inside of foot, two touches, quality over speed.'",
+            anticipatedResponses: {
+              "Can we go faster?":
+                "Not yet - let's get the technique clean first, then we can add speed later in the round.",
+            },
+          },
+          {
+            phase: "Round 1 - Two-Touch Passing",
+            duration: "90 seconds",
+            coachPosition: "Walking slowly between pairs",
+            script:
+              "Reinforce locked ankle, soft first touch, follow through. Keep the tone calm and encouraging.",
+            troubleshooting: {
+              "Passes going wide or short": [
+                "Move the pair closer together temporarily to rebuild accuracy",
+              ],
+            },
+          },
+          {
+            phase: "Teaching Moment",
+            duration: "30 seconds",
+            coachPosition: "At one pair, everyone watching",
+            script:
+              "Show a toe-poked pass vs. a locked-ankle inside-of-foot pass. 'That's what makes the ball go exactly where you want it.'",
+          },
+          {
+            phase: "Round 2 - Different Passes",
+            duration: "90 seconds",
+            coachPosition: "Roaming, quiet feedback",
+            script:
+              "Introduce outside-of-foot and driven passes at the same calm pace. Encourage communication between partners.",
+          },
+          {
+            phase: "Challenge Round - One Touch",
+            duration: "90 seconds",
+            coachPosition: "Roaming",
+            script:
+              "Invite one-touch passing for those ready. 'If you lose the rhythm, restart with two touches - no pressure.'",
+          },
+          {
+            phase: "Wrap Up",
+            duration: "30 seconds",
+            coachPosition: "Center, calling everyone in",
+            script:
+              "ASK: 'What made your passes accurate today?' Close practice on a positive, calm note.",
+          },
+        ],
+      },
+      troubleshooting: {
+        gameBalance: {
+          tooEasy: {
+            symptoms: [
+              "Consistently accurate passes with no effort",
+              "Players asking to speed up or add competition",
+            ],
+            solutions: [
+              "Increase distance",
+              "Require one-touch",
+              "Weak foot only",
+              "Add gentle movement while passing",
+            ],
+          },
+          tooHard: {
+            symptoms: [
+              "Frequent missed or wobbly passes",
+              "Ball bouncing away from the receiver",
+              "Frustration building at the end of practice",
+            ],
+            solutions: [
+              "Shorten the distance",
+              "Allow unlimited touches",
+              "Slow down and demonstrate technique up close",
+            ],
+          },
+        },
+        playerBehavior: {
+          rushingThePace: {
+            symptoms: ["Players kicking the ball hard or racing through reps"],
+            approach:
+              "SAY: 'This is our calm finish - slow it down, focus on technique.' Model the pace you want by demonstrating a slow, clean pass yourself.",
+          },
+          sideConversations: {
+            symptoms: ["Pairs chatting instead of passing"],
+            approach:
+              "Gently redirect: 'Let's get a few more clean passes in before we chat - you can talk while you pass!'",
+          },
+        },
+        environmentalIssues: {
+          crossingPasses: {
+            symptoms: ["Balls from different pairs colliding"],
+            solution: "Space pairs further apart or stagger their facing direction.",
+          },
+        },
+      },
+      skillConnections: {
+        primarySkills: [
+          {
+            skill: "Passing (Short)",
+            domain: "technical",
+            howItDevelops:
+              "Repetition at a calm pace lets players focus entirely on locking the ankle and following through, building muscle memory for clean technique that holds up when the game speeds up.",
+            levelIndicators: {
+              1: "Toe-pokes the ball; inconsistent direction",
+              2: "Uses inside of foot but ankle is loose; passes wobble",
+              3: "Locked ankle, consistent accuracy at short range",
+              4: "Accurate with both feet; can vary pass weight",
+              5: "Disguises intent and varies pass type while staying accurate",
+            },
+            assessmentNotes: "Watch foot surface (inside vs. toe) and whether the ankle looks locked at contact.",
+          },
+          {
+            skill: "Receiving / First Touch",
+            domain: "technical",
+            howItDevelops:
+              "Controlling the ball with a soft first touch and setting it up for the next pass builds the cushioning technique needed to receive under any speed.",
+            levelIndicators: {
+              1: "First touch sends the ball far away, needing extra steps",
+              2: "Ball stays roughly nearby but not set up for the next action",
+              3: "Consistent soft touch, ball ready for the next pass",
+              4: "First touch already angled toward the next intended pass",
+              5: "Can receive on either foot with equal quality",
+            },
+            assessmentNotes: "Watch how far the ball travels after the first touch and whether it's still under control.",
+          },
+        ],
+        secondarySkills: [
+          {
+            skill: "Confidence",
+            domain: "psychological",
+            howItDevelops:
+              "Ending practice with a low-pressure activity where technique clearly improves builds a sense of progress and competence.",
+          },
+        ],
+        physicalDevelopment: {
+          coordination: "Fine motor control of foot placement for accurate passing",
+        },
+        psychologicalDevelopment: {
+          teamwork: "Simple communication with a partner about timing and target",
+        },
+      },
+      developmentalContext: {
+        whyThisActivity:
+          "Passing Pairs works as a cooldown because it lowers physical intensity while keeping players technically engaged. The calm pace is exactly what allows players to isolate and correct small technique errors - locked ankle, follow-through, soft touch - that get lost in the speed of a game or a high-intensity drill.",
+        whenToUseIt: {
+          idealFor: [
+            "End of practice, after higher-intensity games or conditioning",
+            "Early technical sessions when first introducing passing mechanics",
+            "Any time a calm, low-pressure passing reset is useful",
+          ],
+          avoidWhen: [
+            "Players are still highly energized and need to burn off energy first",
+            "Used as the main technical focus of a session (better as a bookend)",
+          ],
+        },
+        progressionPath: {
+          before: [
+            { activity: "4v4 to Small Goals", reason: "A higher-intensity activity that this cooldown follows" },
+            { activity: "World Cup", reason: "High-energy game that benefits from a calm technical close" },
+          ],
+          after: [
+            { activity: "Wall Pass Combinations", reason: "Builds on clean passing technique with movement and timing" },
+            { activity: "Rondo 4v1", reason: "Applies the same passing technique under pressure and decision-making" },
+          ],
+        },
+        ageAdaptations: {
+          ages6to8: {
+            approach: "Keep instructions simple and playful; focus on just two things - inside of foot, soft touch",
+            keyPhrases: ["Push the ball gently to your friend!", "Catch it soft with your foot!"],
+            avoidSaying: ["Lock your ankle", "That was wrong"],
+            duration: "4-5 minutes",
+            simplifications: ["Closer distance (6-8 paces)", "Unlimited touches", "Bigger, softer ball if available"],
+          },
+          ages9to11: {
+            approach: "Introduce specific technical language and two-touch discipline",
+            keyPhrases: ["Lock that ankle!", "Soft touch, then pass"],
+            duration: "5-6 minutes",
+            simplifications: ["10-12 paces apart", "Two-touch standard"],
+          },
+          ages12to14: {
+            approach: "Push toward one-touch precision and varied pass types as a genuine technical challenge",
+            keyPhrases: ["Disguise your pass", "Vary the weight to control the tempo"],
+            duration: "6-8 minutes",
+            challenges: ["One-touch passing", "Weak foot only", "Moving pairs"],
+          },
+        },
+        commonMisconceptions: {
+          "A cooldown activity doesn't need real coaching":
+            "The calm pace is actually an ideal teaching environment - players can hear and apply technical feedback without the distraction of speed or competition.",
+          "Passing is a solved skill once players can do it at all":
+            "Even experienced players benefit from returning to slow, deliberate reps - it's how professionals maintain technique too.",
+        },
+      },
+      parentCommunication: {
+        ifAsked:
+          "We finish most practices with Passing Pairs - a calm, partner passing activity that lets players focus purely on technique: locking the ankle, following through, and receiving softly. It's how we reinforce clean fundamentals without the pressure of a game.",
+        newsletter:
+          "This week we closed practice with Passing Pairs - simple partner passing at a calm pace, focused entirely on technique. Locked ankle, soft first touch, and clear communication with a partner. A great one to practice in the backyard!",
+        whatToWatchFor: [
+          "Does your child use the inside of their foot, or poke with their toe?",
+          "Is their first touch soft and controlled, or does the ball bounce away?",
+          "Do they communicate with their partner about when they're ready?",
+        ],
+      },
+      safety: {
+        commonRisks: [
+          {
+            risk: "Balls from neighboring pairs colliding",
+            prevention: "Space pairs generously apart, especially with larger groups",
+            response: "Pause, reset spacing, resume",
+          },
+        ],
+        inclusionConsiderations: {
+          skillGaps: "Pair players of similar passing ability, or place a stronger passer with a developing one and shorten the distance",
+          fatigueConsiderations: "Because this is a cooldown, it's naturally low-impact - a good fit for players managing fatigue late in practice",
+        },
+      },
+      coachReflection: {
+        afterActivity: [
+          "Did the pace genuinely feel calmer than the rest of practice?",
+          "Were players locking their ankle and following through consistently?",
+          "Did communication between partners improve over the activity?",
+        ],
+        forImprovement: [
+          "Which pairs need closer distance or more touches allowed next time?",
+          "Who is ready for one-touch or weak-foot challenges?",
+          "Is this the right length to close out practice, or does it need to be shorter/longer?",
+        ],
+      },
+    },
   },
   {
     slug: "world-cup-game",
@@ -4618,7 +5825,8 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "copy-cat-dribbling",
     name: "Copy Cat Dribbling",
-    description: "Follow the leader dribbling game where players mirror the coach or leader",
+    description:
+      "A follow-the-leader dribbling warmup where players mirror the coach (or a rotating player leader) through speed changes, direction changes, stops, and turns - all while keeping their own ball under control. Builds dribbling touch and the habit of watching ahead while still handling the ball.",
     sport: "soccer",
     activityType: "warmup",
     difficulty: "beginner",
@@ -4627,39 +5835,336 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     durationMinutes: 6,
     skillsDeveloped: ["dribbling", "agility-coordination"],
     setupInstructions:
-      "Open space, each player has a ball. Coach leads from the front.",
+      "EQUIPMENT CHECKLIST\n□ 1 ball per player\n□ Optional: 4 cones to mark boundary\n\nSPACE: 20x20 paces (expand for larger groups)\n\nSETUP STEPS\n1. Mark a loose 20x20 pace area (cones optional for younger groups)\n2. Leader (coach first, then rotating players) stands at the front where everyone can see\n3. Players spread out behind and around the leader, each with a ball, leaving 1-2 paces of space to move\n4. Leader dribbles forward with the group following and copying every move\n\nDIAGRAM\n┌────────────────────────────────┐\n│           ★ LEADER              │\n│                                  │\n│    ○   ○   ○   ○   ○           │\n│      ○   ○   ○   ○             │  20 paces\n│    ○   ○   ○   ○   ○           │\n└────────────────────────────────┘\n            20 paces\n\n★ = leader (dribbling)   ○ = followers (each with a ball)",
     howToPlay:
-      "1. Players dribble following the leader\n2. Leader performs different moves - players copy\n3. Include: speed changes, direction changes, stops, turns\n4. Rotate leader every 60-90 seconds",
+      'PHASE 1: GATHER & EXPLAIN (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: Front of the group\n\nSAY: "I\'m the leader - everyone spread out behind me with your ball. Whatever I do, you copy! Speed changes, turns, stops - watch me and match it!"\n\nDEMO: Dribble forward slowly, then speed up, then stop with your foot on the ball.\n\nSAY: "Ready? Stay close enough to see me, but give yourself room to move. Let\'s go!"\n\n\nPHASE 2: ROUND 1 - FOLLOW THE LEADER (90 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: Leading from the front, dribbling\n\nMix in: slow dribble, fast dribble, sudden stop (foot on ball), turn and change direction, zigzag.\n\nLOOK FOR:\n□ Are players watching the leader, or only staring at their own ball?\n□ Are they keeping the ball close while reacting to changes?\n□ Are they staying in the group, or falling behind?\n\nPHRASES TO USE:\n• "Eyes on me - what am I doing next?"\n• "Quick reactions - match my speed!"\n• "Great stop - foot right on top of the ball!"\n\n\nPHASE 3: TEACHING MOMENT (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Everyone freeze and watch."\n\nDEMO: Show dribbling with quick glances up at the leader instead of staring down at the ball the whole time.\n\nSAY: "See how I take quick peeks at the ball but mostly watch what\'s happening ahead? That\'s how you copy fast without losing your own ball!"\n\n\nPHASE 4: ROUND 2 - NEW LEADER (90 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Who wants to be the leader now? Pick someone - everyone else, follow and copy their moves!"\n\nRotate leader every 60-90 seconds so multiple players get a turn.\n\nCoach Position: Alongside the group, coaching from within\n\nPHRASES TO USE:\n• "Nice creative move, leader!"\n• "Great copying - right with them!"\n• "Use different parts of your foot - inside, outside, sole!"\n\n\nPHASE 5: CHALLENGE ROUND - FREEZE COPY (60 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "This time, when the leader freezes, everyone freezes in the EXACT same position - ball trapped under your foot, body shape and all!"\n\nRun a few rounds of the leader moving and freezing suddenly. Celebrate players who match the freeze closely.\n\n\nPHASE 6: WRAP UP (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Great following, everyone! What helped you copy so quickly?"\n\nListen for: "Watching ahead," "Quick touches," "Staying close to the leader"\n\nSAY: "That\'s exactly the skill you need in games - watching what\'s happening around you while still controlling the ball. Let\'s get started with today\'s practice!"',
+    diagram:
+      "┌────────────────────────────────┐\n│           ★ LEADER              │\n│                                  │\n│    ○   ○   ○   ○   ○           │\n│      ○   ○   ○   ○             │\n│    ○   ○   ○   ○   ○           │\n└────────────────────────────────┘\n\n★ = leader (dribbling)   ○ = followers (each with a ball)",
     coachingPoints: [
-      "Keep ball close while watching leader",
-      "Quick reactions",
-      "Use different parts of foot",
+      "KEEP BALL CLOSE WHILE WATCHING LEADER → Say: 'Small touches on your ball, big eyes on the leader!'",
+      "QUICK REACTIONS TO CHANGES → Say: 'The second the leader changes, you change too!'",
+      "USE DIFFERENT PARTS OF YOUR FOOT → Say: 'Try the inside, outside, and sole of your foot, just like the leader!'",
+      "STAY CLOSE BUT GIVE YOURSELF ROOM → Say: 'Close enough to see, far enough to have space to move!'",
     ],
     questionsToAsk: [
-      "How do you watch and dribble at the same time?",
-      "Which moves were hardest to copy?",
+      "'How do you watch the leader and dribble your own ball at the same time?' → Quick glances down, mostly eyes up",
+      "'Which moves were hardest to copy?' → Usually sudden stops or fast direction changes - normal to find those tricky",
+      "'What happens if you only look at your ball?' → You fall behind because you can't see what the leader does next",
+      "'How is this like watching the game around you?' → Awareness of what's happening while still controlling the ball",
     ],
-    commonMistakes: ["Watching only the ball", "Getting too far behind"],
+    commonMistakes: [
+      "WATCHING ONLY THE BALL → Say: 'Quick peeks down, mostly eyes on the leader!'",
+      "GETTING TOO FAR BEHIND → Say: 'Stay close to the group - hustle to catch up!'",
+      "BIG TOUCHES THAT LOSE CONTROL → Say: 'Small touches - keep that ball close while you move!'",
+      "COPYING LATE INSTEAD OF RIGHT AWAY → Say: 'React the moment you see the change, not a few seconds later!'",
+    ],
     variations: [
       {
         name: "Freeze Copy",
-        description: "Must freeze in exact same position as leader",
+        description:
+          "When the leader freezes, everyone must freeze in the exact same body position and foot-on-ball position - adds a fun precision challenge.",
         difficulty: "intermediate",
       },
+      {
+        name: "Leader Says",
+        description:
+          "Simon-Says twist: players only copy the move if the leader says 'Copy cat!' first. If they copy a move without the phrase, they do 3 toe taps as a fun reset.",
+        difficulty: "intermediate",
+      },
+      {
+        name: "Small Group Leaders",
+        description:
+          "Split into groups of 4-5, each with their own player leader, so more players get leadership turns and reaction times increase with more frequent rotations.",
+        difficulty: "beginner",
+      },
     ],
-    makeEasier: "Slower pace, simpler moves",
-    makeHarder: "Faster pace, complex combinations",
-    equipmentNeeded: ["1 ball per player"],
+    makeEasier:
+      "SIGNS THEY'RE STRUGGLING:\n• Constantly losing the ball while trying to watch the leader\n• Falling far behind the group\n• Confused or frustrated by fast changes\n\nSOLUTIONS:\n• Slow the leader's pace and simplify moves (just speed changes and stops first)\n• Shrink the group size or space so the leader is easier to see\n• Coach leads more slowly and calls out moves out loud as a verbal cue\n• Allow a beat of delay before copying is expected",
+    makeHarder:
+      "SIGNS THEY'RE READY:\n• Copying moves almost instantly with the ball still under control\n• Comfortable with speed changes, turns, and stops\n• Looking for more challenge or getting bored\n\nSOLUTIONS:\n• Faster pace and more complex combinations of moves\n• Add Freeze Copy or Leader Says variations\n• Require weak-foot touches during certain segments\n• Rotate leaders more frequently so reading a new leader's style becomes part of the challenge",
+    equipmentNeeded: ["1 ball per player", "Cones (optional, for boundary)"],
     spaceRequired: "medium",
     indoorSuitable: true,
     appropriateStages: ["fundamentals", "skill-building"],
     tags: ["warmup", "dribbling", "following", "fun"],
     featured: false,
+    comprehensiveGuide: {
+      quickReference: {
+        oneSentence:
+          "Players dribble while copying a leader's speed changes, turns, and stops - building dribbling touch and the habit of watching ahead instead of down at the ball.",
+        keyPhrases: [
+          "Small touches, big eyes on the leader!",
+          "React the second things change!",
+          "Close enough to see, room enough to move!",
+        ],
+        setupDiagram: "20x20 pace open area; leader at front, players spread out behind with a ball each",
+        quickProgression: {
+          easier: "Slower pace, simpler moves, coach calls out moves verbally",
+          harder: "Faster pace, complex combinations, weak foot, Freeze Copy or Leader Says",
+        },
+      },
+      completeScript: {
+        beforeYouStart: {
+          preparation: [
+            "Mark a loose 20x20 pace area, cones optional",
+            "Decide your opening sequence of moves as the first leader (slow, fast, stop, turn)",
+            "Plan roughly when you'll hand leadership to players",
+            "Have the group spread with enough space to move without colliding",
+          ],
+          mindset:
+            "This is a fun opener that quietly trains the 'watch ahead while controlling the ball' habit players need in games. Keep energy high and playful - the learning happens through repetition, not lecturing.",
+        },
+        segments: [
+          {
+            phase: "Gather & Explain",
+            duration: "30 seconds",
+            coachPosition: "Front of the group",
+            script:
+              "SAY: 'I'm the leader - copy whatever I do!' Demo a slow dribble, speed up, then stop. 'Stay close enough to see, room enough to move. Go!'",
+            anticipatedResponses: {
+              "What if I can't see you?":
+                "Move to where you can - staying visible to the leader is part of the game!",
+            },
+          },
+          {
+            phase: "Round 1 - Follow the Leader",
+            duration: "90 seconds",
+            coachPosition: "Leading from the front",
+            script:
+              "Mix slow/fast dribble, sudden stops, turns, zigzags. Call out encouragement: 'Eyes on me!' 'Quick reactions!'",
+            troubleshooting: {
+              "Group falling behind": [
+                "Slow down and simplify moves until the group catches up",
+              ],
+              "Players staring only at the ball": [
+                "Remind loudly: 'Quick peeks down, mostly eyes up!'",
+              ],
+            },
+          },
+          {
+            phase: "Teaching Moment",
+            duration: "30 seconds",
+            coachPosition: "Front, everyone gathered",
+            script:
+              "Demo quick glances at the ball vs. staring down constantly. 'That's how you copy fast without losing your own ball!'",
+          },
+          {
+            phase: "Round 2 - New Leader",
+            duration: "90 seconds",
+            coachPosition: "Coaching from within the group",
+            script:
+              "Rotate leadership among players every 60-90 seconds. Praise creative moves and good copying.",
+          },
+          {
+            phase: "Challenge Round - Freeze Copy",
+            duration: "60 seconds",
+            coachPosition: "Leading or watching player-leader",
+            script:
+              "When the leader freezes, everyone freezes in the same position. Celebrate close matches.",
+          },
+          {
+            phase: "Wrap Up",
+            duration: "30 seconds",
+            coachPosition: "Center",
+            script:
+              "ASK: 'What helped you copy so quickly?' Connect to games: watching around you while controlling the ball. Move into practice.",
+          },
+        ],
+      },
+      troubleshooting: {
+        gameBalance: {
+          tooEasy: {
+            symptoms: [
+              "Copying instantly with no ball control issues",
+              "Players adding their own extra flair",
+              "Looking bored or asking for more challenge",
+            ],
+            solutions: [
+              "Faster pace and complex move combinations",
+              "Add Freeze Copy or Leader Says variation",
+              "Require weak-foot touches",
+              "More frequent leader rotation",
+            ],
+          },
+          tooHard: {
+            symptoms: [
+              "Losing the ball frequently while trying to watch the leader",
+              "Falling far behind the group",
+              "Frustration or giving up on copying",
+            ],
+            solutions: [
+              "Slow the pace and simplify moves",
+              "Shrink the group size or space",
+              "Call out moves verbally as an extra cue",
+              "Allow a short delay before copying is expected",
+            ],
+          },
+        },
+        playerBehavior: {
+          fallingBehind: {
+            symptoms: ["One or more players consistently trailing the group"],
+            approach:
+              "SAY: 'Hustle to catch up - stay part of the group!' Consider slowing the pace briefly for everyone.",
+          },
+          reluctantLeaders: {
+            symptoms: ["Players hesitant to take a turn leading"],
+            approach:
+              "Offer a simple starting move ('just try a slow dribble and a stop') to lower the pressure of leading.",
+          },
+        },
+        environmentalIssues: {
+          crowdingBehindLeader: {
+            symptoms: ["Players bunched too close, balls colliding"],
+            solution: "Remind players to keep 1-2 paces of personal space; widen the area if needed.",
+          },
+        },
+      },
+      skillConnections: {
+        primarySkills: [
+          {
+            skill: "Dribbling",
+            domain: "technical",
+            howItDevelops:
+              "Constantly reacting to a leader's speed and direction changes forces players to control the ball with varied touches rather than one repetitive pattern.",
+            levelIndicators: {
+              1: "Loses the ball whenever the leader changes speed or direction",
+              2: "Keeps some control but reacts late to changes",
+              3: "Reacts promptly and keeps the ball close through most changes",
+              4: "Smooth, controlled touches through fast transitions",
+              5: "Anticipates the leader's next move and adjusts touch before it happens",
+            },
+            assessmentNotes: "Watch touch frequency and ball distance from feet during leader transitions.",
+          },
+          {
+            skill: "Agility & Coordination",
+            domain: "physical",
+            howItDevelops:
+              "Copying sudden stops, turns, and speed changes while controlling a ball trains the coordination between eyes, feet, and body needed for quick game decisions.",
+            levelIndicators: {
+              1: "Slow, delayed reactions to leader's changes",
+              2: "Reacts but body control is stiff or off-balance",
+              3: "Smooth, timely reactions with good balance",
+              4: "Quick, fluid movement matching the leader closely",
+              5: "Anticipates and moves with minimal delay, fully balanced",
+            },
+            assessmentNotes: "Watch balance and timing on stops and direction changes.",
+          },
+        ],
+        secondarySkills: [
+          {
+            skill: "Coachability",
+            domain: "psychological",
+            howItDevelops:
+              "Following a leader's instructions and adjusting quickly builds the habit of responding to cues from a coach or teammate.",
+          },
+        ],
+        physicalDevelopment: {
+          coordination: "Eye-body-foot coordination while reacting to visual cues",
+          agility: "Sudden stops and direction changes",
+        },
+        psychologicalDevelopment: {
+          confidence: "Taking a turn as leader builds comfort being watched and setting the pace for others",
+        },
+      },
+      developmentalContext: {
+        whyThisActivity:
+          "Copy Cat Dribbling turns 'watch and react' into a fun game rather than a lecture. Because players must track the leader while still controlling their own ball, it directly builds the head-up awareness that separates players who see the game from those who only see their own feet.",
+        whenToUseIt: {
+          idealFor: [
+            "Opening warmup at the very start of practice",
+            "Getting a new or younger group comfortable with the ball early",
+            "A quick energizer between more structured activities",
+          ],
+          avoidWhen: [
+            "Space is too tight for a group to move together safely",
+            "Group is very large (over 20) - consider Small Group Leaders variation instead",
+          ],
+        },
+        progressionPath: {
+          before: [
+            { activity: "Ball Mastery Circle", reason: "Builds basic ball comfort before adding a following/reacting demand" },
+          ],
+          after: [
+            { activity: "Traffic Lights", reason: "Applies similar reactive dribbling with specific speed cues" },
+            { activity: "Gates Dribbling", reason: "Shifts from following a leader to independently scanning for targets" },
+          ],
+        },
+        ageAdaptations: {
+          ages6to8: {
+            approach: "Keep it playful and imaginative - frame moves as 'animal walks' or silly actions",
+            keyPhrases: ["Watch me and copy!", "Great job matching me!"],
+            avoidSaying: ["You're too slow", "Pay attention"],
+            duration: "4-5 minutes",
+            simplifications: ["Slower pace", "Simple moves only (walk, stop, turn)", "Coach stays as leader the whole time"],
+          },
+          ages9to11: {
+            approach: "Let players take leadership turns and introduce Freeze Copy",
+            keyPhrases: ["React fast!", "Nice creative move!"],
+            duration: "6 minutes",
+            challenges: ["Freeze Copy", "Weak foot segments", "Faster leader rotation"],
+          },
+          ages12to14: {
+            approach: "Use as a quick, competitive-feeling opener with Leader Says or small-group leaders",
+            keyPhrases: ["Anticipate, don't just react", "Push the pace"],
+            duration: "5-6 minutes",
+            challenges: ["Leader Says", "Small Group Leaders", "Weak foot only rounds"],
+          },
+        },
+        commonMisconceptions: {
+          "It's just a fun game, not real training":
+            "The reactive, head-up dribbling this builds is exactly what players need to handle the ball while tracking teammates, opponents, and space in games.",
+          "Only the leader is really practicing":
+            "Every follower is dribbling and reacting the entire time - the leader is simply setting the pattern everyone practices against.",
+        },
+      },
+      parentCommunication: {
+        ifAsked:
+          "Copy Cat Dribbling is our follow-the-leader warmup - everyone dribbles a ball while copying speed changes, turns, and stops from a leader. It's a fun way to build ball control and the habit of watching ahead instead of staring down at their feet.",
+        newsletter:
+          "This week we opened practice with Copy Cat Dribbling - players followed a leader (coach, then teammates) through speed changes, turns, and freezes, all while controlling their own ball. It's a playful way to build the head-up dribbling habit that helps in games.",
+        whatToWatchFor: [
+          "Does your child keep the ball close while watching the leader, or lose it when reacting?",
+          "Can they react quickly to sudden changes in speed or direction?",
+          "Are they comfortable taking a turn as the leader?",
+        ],
+      },
+      safety: {
+        commonRisks: [
+          {
+            risk: "Collisions between players following closely behind the leader",
+            prevention: "Remind players to keep 1-2 paces of personal space",
+            response: "Check for injury; widen spacing before continuing",
+          },
+          {
+            risk: "Tripping during sudden stops or direction changes",
+            prevention: "Encourage controlled rather than reckless movements",
+            response: "Rest and assess; slow the pace if it recurs",
+          },
+        ],
+        inclusionConsiderations: {
+          mobilityDifferences: "Allow walking instead of running; a player leader can adjust pace naturally when leading",
+          visualProcessingNeeds: "Pair with a buddy who calls out the leader's moves verbally as an extra cue",
+        },
+      },
+      coachReflection: {
+        afterActivity: [
+          "Were players watching the leader, or mostly staring at their own ball?",
+          "Did the group stay together, or did players fall behind?",
+          "Did player-leaders get a genuine turn to lead confidently?",
+        ],
+        forImprovement: [
+          "Was the pace right for this group, or did I need to slow down/speed up?",
+          "Which players need more direct encouragement to take a leader turn?",
+          "Should I introduce Freeze Copy or Leader Says sooner next time?",
+        ],
+      },
+    },
   },
   {
     slug: "volcano-dribble",
     name: "Volcano Dribble",
-    description: "Dribble around 'volcanos' (cones) without touching them",
+    description:
+      "Players dribble freely through a field scattered with cone 'volcanoes,' keeping their head up to avoid setting them off. A playful, imaginative warmup that builds close ball control and spatial awareness for young players.",
     sport: "soccer",
     activityType: "warmup",
     difficulty: "beginner",
@@ -4668,39 +6173,342 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     durationMinutes: 6,
     skillsDeveloped: ["dribbling", "ball-control"],
     setupInstructions:
-      "Set up 15-20 cones randomly in a 30x30 grid. Each player has a ball.",
+      "EQUIPMENT CHECKLIST\n□ 15-20 cones ('volcanoes')\n□ 1 ball per player\n\nSPACE: 30x30 paces\n\nSETUP STEPS\n1. Scatter 15-20 cones RANDOMLY throughout a 30x30 pace grid (not in rows or lines!)\n2. Leave enough space between cones for players to dribble through safely\n3. Each player starts with a ball, spread out around the edges of the grid\n4. Explain the 'volcano' theme before starting - cones are volcanoes that erupt if touched\n\nDIAGRAM\n┌────────────────────────────────┐\n│  ▲      ▲        ▲     ▲       │\n│      ▲       ▲        ▲        │\n│  ▲       ▲         ▲     ▲     │\n│      ▲        ▲       ▲        │  30 paces\n│  ▲      ▲        ▲     ▲       │\n└────────────────────────────────┘\n            30 paces\n\n▲ = volcano (cone)   players dribble freely between them, each with a ball",
     howToPlay:
-      "1. Players dribble freely avoiding the 'volcanos' (cones)\n2. If you touch a volcano, it 'erupts' - do 5 toe taps\n3. Coach can call 'Lava flow!' - everyone must freeze\n4. Keep count of how many times you touched a volcano",
+      'PHASE 1: GATHER & EXPLAIN (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: Center of grid\n\nSAY: "Welcome to the volcano field! Each cone is a sleeping volcano. Your job is to dribble your ball anywhere you want, but DON\'T wake up the volcanoes!"\n\nSAY: "If you touch a volcano with your ball or your foot, it erupts - you do 5 quick toe taps right there, then keep exploring. Ready, explorers? GO!"\n\n\nPHASE 2: ROUND 1 - FREE DRIBBLING (90 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: Walking around the outside of the grid\n\nLOOK FOR:\n□ Are players looking up to spot volcanoes, or staring only at the ball?\n□ Are they using small touches to steer around cones?\n□ Are they spreading out across the whole grid?\n\nPHRASES TO USE:\n• "Heads up, explorers - where are the volcanoes?"\n• "Small touches to steer around them!"\n• "Great save - you almost woke that one up!"\n\n\nPHASE 3: TEACHING MOMENT (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Everyone freeze and watch me."\n\nDEMO: Show a big, careless touch that sends the ball straight into a cone, then a small controlled touch that curves smoothly around it.\n\nSAY: "See how a SMALL touch lets me turn quickly? Big touches send your ball right into trouble!"\n\n\nPHASE 4: ROUND 2 - LAVA FLOW FREEZE (90 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "New rule - when I shout \'LAVA FLOW!\' everyone freezes instantly with the ball under your foot! Last one to freeze does 3 toe taps!"\n\nRun free dribbling, calling "Lava flow!" every 15-20 seconds.\n\nCoach Position: Roaming, calling out the freeze\n\nPHRASES TO USE:\n• "Fast feet, fast freeze!"\n• "Ball trapped and still - nice!"\n\n\nPHASE 5: CHALLENGE ROUND (60 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Last round! Try to make it the WHOLE time without waking a single volcano. Count how many times you avoid one - that\'s your explorer score!"\n\nRun a final calmer, focused round. Celebrate anyone with a clean run or a big personal improvement.\n\n\nPHASE 6: WRAP UP (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Amazing exploring! What helped you avoid the volcanoes?"\n\nListen for: "Looking up," "Small touches," "Going slow near them"\n\nSAY: "That\'s exactly what helps you control the ball around defenders in a real game too! Let\'s keep that same head-up dribbling going into practice!"',
+    diagram:
+      "┌────────────────────────────────┐\n│  ▲      ▲        ▲     ▲       │\n│      ▲       ▲        ▲        │\n│  ▲       ▲         ▲     ▲     │\n│      ▲        ▲       ▲        │\n│  ▲      ▲        ▲     ▲       │\n└────────────────────────────────┘\n\n▲ = volcano (cone)   players dribble freely between them, each with a ball",
     coachingPoints: [
-      "Head up to see the volcanos",
-      "Small touches to change direction",
-      "Use different surfaces of foot",
+      "HEAD UP TO SEE THE VOLCANOES → Say: 'Eyes up, explorer - where are the volcanoes around you?'",
+      "SMALL TOUCHES TO CHANGE DIRECTION → Say: 'Little touches let you steer around them quickly!'",
+      "USE DIFFERENT SURFACES OF YOUR FOOT → Say: 'Try the inside, outside, even the bottom of your foot!'",
+      "SLOW DOWN NEAR VOLCANOES → Say: 'Go a little slower when you're close - more control, fewer eruptions!'",
     ],
     questionsToAsk: [
-      "How do you avoid the volcanos?",
-      "What part of your foot helps you turn quickly?",
+      "'How do you avoid the volcanoes?' → Looking up and taking small touches to steer around them",
+      "'What part of your foot helps you turn quickly?' → Inside or outside of the foot for a quick change of direction",
+      "'What happens when you take a big touch near a volcano?' → The ball goes too far and often bumps the cone",
+      "'How is dodging volcanoes like avoiding a defender?' → Small touches and head-up awareness keep the ball safe either way",
     ],
-    commonMistakes: ["Looking down at ball", "Big touches that lose control"],
+    commonMistakes: [
+      "LOOKING DOWN AT THE BALL → Say: 'Quick peeks at your ball, longer looks at the volcanoes around you!'",
+      "BIG TOUCHES THAT LOSE CONTROL → Say: 'Smaller touches - keep that ball close so you can steer!'",
+      "ALL CROWDING IN ONE EMPTY AREA → Say: 'Explore the WHOLE volcano field - there's room everywhere!'",
+      "PANICKING NEAR A VOLCANO → Say: 'Stay calm, slow down, and take a small touch around it!'",
+    ],
     variations: [
       {
-        name: "Moving Volcanos",
-        description: "Some players are 'volcanos' that slowly move",
+        name: "Moving Volcanoes",
+        description:
+          "One or two players become 'volcanoes' themselves, slowly walking through the grid - everyone else must now dodge both cones and moving volcano-players.",
         difficulty: "intermediate",
       },
+      {
+        name: "Color-Coded Volcanoes",
+        description:
+          "Use two cone colors - touching one color means 5 toe taps, touching the other means a quick 360-degree turn with the ball before continuing.",
+        difficulty: "beginner",
+      },
+      {
+        name: "Partner Volcano Watch",
+        description:
+          "Players pair up and call out warnings to their partner ('Volcano on your left!') as they both dribble - adds a communication and teamwork layer.",
+        difficulty: "beginner",
+      },
     ],
-    makeEasier: "Fewer volcanos, larger spaces",
-    makeHarder: "More volcanos, smaller spaces, faster pace",
+    makeEasier:
+      "SIGNS THEY'RE STRUGGLING:\n• Constantly bumping volcanoes even at a slow pace\n• Ball frequently rolling away from their feet\n• Frustration or avoiding parts of the grid entirely\n\nSOLUTIONS:\n• Use fewer volcanoes (8-10) with more space between them\n• Enlarge the grid\n• Allow walking pace only for a round\n• Coach calls out 'volcano ahead!' as an extra warning cue",
+    makeHarder:
+      "SIGNS THEY'RE READY:\n• Weaving through volcanoes smoothly with no eruptions\n• Comfortable keeping head up most of the time\n• Looking bored or asking to go faster\n\nSOLUTIONS:\n• Add more volcanoes (up to 25) and shrink the grid\n• Faster overall pace\n• Add Moving Volcanoes variation\n• Require weak-foot touches only near volcanoes",
     equipmentNeeded: ["Cones (15-20)", "1 ball per player"],
     spaceRequired: "medium",
     indoorSuitable: true,
     appropriateStages: ["fundamentals"],
     tags: ["warmup", "dribbling", "awareness", "fun"],
     featured: false,
+    comprehensiveGuide: {
+      quickReference: {
+        oneSentence:
+          "Dribble freely through a field of cone 'volcanoes' without setting them off - builds close control and head-up awareness through imaginative play.",
+        keyPhrases: [
+          "Eyes up, explorer!",
+          "Small touches to steer around them!",
+          "Slow down when you're close!",
+        ],
+        setupDiagram: "30x30 pace grid with 15-20 cones scattered randomly (not in rows); 1 ball per player",
+        quickProgression: {
+          easier: "Fewer volcanoes, larger grid, walking pace",
+          harder: "More volcanoes, smaller grid, faster pace, Moving Volcanoes",
+        },
+      },
+      completeScript: {
+        beforeYouStart: {
+          preparation: [
+            "Scatter 15-20 cones randomly across a 30x30 pace grid - avoid rows or patterns",
+            "Leave enough gaps between cones for safe dribbling lanes",
+            "Have a ball ready for every player",
+            "Decide when you'll call 'Lava flow!' during Round 2",
+          ],
+          mindset:
+            "This is imaginative play doing technical work - lean into the volcano theme with enthusiasm. Young players engage far more with 'don't wake the volcano' than 'avoid the cone,' and the fun framing is what keeps them dribbling with their head up the whole time.",
+        },
+        segments: [
+          {
+            phase: "Gather & Explain",
+            duration: "30 seconds",
+            coachPosition: "Center of grid",
+            script:
+              "SAY: 'Each cone is a sleeping volcano - don't wake them up!' Explain the eruption consequence (5 toe taps). 'Ready, explorers? GO!'",
+            anticipatedResponses: {
+              "What if I touch a lot of volcanoes?":
+                "That's okay! Just do your toe taps and keep exploring - every explorer wakes one up sometimes.",
+            },
+          },
+          {
+            phase: "Round 1 - Free Dribbling",
+            duration: "90 seconds",
+            coachPosition: "Walking around the outside of the grid",
+            script:
+              "Encourage: 'Heads up!' 'Small touches!' Celebrate near-misses and good control.",
+            troubleshooting: {
+              "Players bunching in one open area": [
+                "Call out: 'Explore the whole volcano field!'",
+              ],
+              "Frequent big touches into cones": [
+                "Demonstrate small touches up close with a struggling player",
+              ],
+            },
+          },
+          {
+            phase: "Teaching Moment",
+            duration: "30 seconds",
+            coachPosition: "Center, everyone gathered",
+            script:
+              "Demo a big careless touch into a cone vs. a small controlled touch around it. 'Small touches let me turn quickly!'",
+          },
+          {
+            phase: "Round 2 - Lava Flow Freeze",
+            duration: "90 seconds",
+            coachPosition: "Roaming, calling the freeze",
+            script:
+              "Call 'Lava flow!' every 15-20 seconds; players freeze with the ball trapped underfoot. Praise fast, controlled freezes.",
+          },
+          {
+            phase: "Challenge Round",
+            duration: "60 seconds",
+            coachPosition: "Roaming, quietly observing",
+            script:
+              "Final calmer round - challenge players to go the whole time without an eruption. Celebrate clean runs and personal improvement.",
+          },
+          {
+            phase: "Wrap Up",
+            duration: "30 seconds",
+            coachPosition: "Center",
+            script:
+              "ASK: 'What helped you avoid the volcanoes?' Connect to games: head-up control keeps the ball safe from defenders too.",
+          },
+        ],
+      },
+      troubleshooting: {
+        gameBalance: {
+          tooEasy: {
+            symptoms: [
+              "No eruptions at all, even moving quickly",
+              "Players weaving effortlessly",
+              "Looking for more challenge",
+            ],
+            solutions: [
+              "Add more volcanoes and shrink the grid",
+              "Increase pace",
+              "Add Moving Volcanoes variation",
+              "Require weak-foot touches near volcanoes",
+            ],
+          },
+          tooHard: {
+            symptoms: [
+              "Frequent eruptions even at a slow pace",
+              "Ball control breaking down often",
+              "Frustration or avoidance of busy areas",
+            ],
+            solutions: [
+              "Fewer volcanoes with more spacing",
+              "Enlarge the grid",
+              "Walking pace only for a round",
+              "Coach calls out warnings as an extra cue",
+            ],
+          },
+        },
+        playerBehavior: {
+          avoidingBusyAreas: {
+            symptoms: ["Players clustering in the one open corner of the grid"],
+            approach:
+              "SAY: 'There's room everywhere - be a brave explorer and try a busier part of the field!' Guide by example, dribbling into a denser area yourself.",
+          },
+          frustrationAfterEruptions: {
+            symptoms: ["A player upset or discouraged after repeated eruptions"],
+            approach:
+              "Reframe positively: 'Every explorer wakes up a volcano sometimes - that's how you learn where they are!' Offer a simpler section of the grid.",
+          },
+        },
+        environmentalIssues: {
+          conesTooClose: {
+            symptoms: ["Very little room to dribble between volcanoes", "Frequent unavoidable touches"],
+            solution: "Quickly spread cones further apart mid-activity, or remove a few volcanoes.",
+          },
+        },
+      },
+      skillConnections: {
+        primarySkills: [
+          {
+            skill: "Dribbling",
+            domain: "technical",
+            howItDevelops:
+              "Navigating a dense, randomly scattered obstacle field forces constant small adjustments in touch and direction - core dribbling control under a fun, low-pressure constraint.",
+            levelIndicators: {
+              1: "Frequent eruptions even moving slowly; ball often escapes control",
+              2: "Occasional eruptions; touches still often too big",
+              3: "Consistent small touches; navigates most of the field cleanly",
+              4: "Smooth, controlled dribbling through dense volcano clusters",
+              5: "Weaves confidently at speed with minimal eruptions, head mostly up",
+            },
+            assessmentNotes: "Watch touch size and how close the ball stays to the feet near volcanoes.",
+          },
+          {
+            skill: "Ball Control",
+            domain: "technical",
+            howItDevelops:
+              "Freezing the ball instantly under the foot during 'Lava Flow' calls builds the stopping and trapping technique used constantly in games.",
+            levelIndicators: {
+              1: "Ball rolls away when trying to stop",
+              2: "Stops the ball but takes an extra touch to control it",
+              3: "Consistent, quick stop with foot on ball",
+              4: "Instant, balanced stop even mid-dribble",
+              5: "Stops instantly while maintaining full body balance and awareness",
+            },
+            assessmentNotes: "Watch how quickly and cleanly players trap the ball on the 'Lava flow!' call.",
+          },
+        ],
+        secondarySkills: [
+          {
+            skill: "Agility & Coordination",
+            domain: "physical",
+            howItDevelops:
+              "Constant small direction changes to avoid cones build coordinated, controlled movement.",
+          },
+          {
+            skill: "Enjoyment of Play",
+            domain: "psychological",
+            howItDevelops:
+              "The imaginative volcano theme keeps repetitive touches feeling like play rather than a drill.",
+          },
+        ],
+        physicalDevelopment: {
+          coordination: "Fine foot-eye coordination while navigating a dense obstacle field",
+          agility: "Frequent small direction changes",
+        },
+        psychologicalDevelopment: {
+          enjoyment: "Imaginative framing keeps young players engaged through repetition",
+          resilience: "Recovering positively from an 'eruption' and continuing to explore",
+        },
+      },
+      developmentalContext: {
+        whyThisActivity:
+          "Volcano Dribble uses imaginative play to get young players doing hundreds of quality touches without it feeling like repetitive drilling. The randomly scattered cones (rather than a fixed pattern) force genuine head-up scanning and reactive touch adjustments, both foundational for later dribbling under pressure.",
+        whenToUseIt: {
+          idealFor: [
+            "Opening warmup with younger or newer players",
+            "Building comfort with close control in a low-pressure, playful setting",
+            "Sessions that benefit from an imaginative, high-engagement start",
+          ],
+          avoidWhen: [
+            "Working with older or more advanced players who need a sharper technical challenge",
+            "Very limited space where 15-20 cones can't be spread out safely",
+          ],
+        },
+        progressionPath: {
+          before: [
+            { activity: "Ball Mastery Circle", reason: "Establishes basic close control before adding obstacles" },
+          ],
+          after: [
+            { activity: "Gates Dribbling", reason: "Shifts from avoiding obstacles to purposefully seeking targets" },
+            { activity: "Inside-Outside Slalom", reason: "Introduces a structured cone pattern and specific foot-surface technique" },
+          ],
+        },
+        ageAdaptations: {
+          ages6to8: {
+            approach: "Lean fully into the imaginative volcano theme - use excited, playful narration throughout",
+            keyPhrases: ["Don't wake the volcano!", "Great exploring!", "Careful, lava!"],
+            avoidSaying: ["You keep messing up", "Be more careful"],
+            duration: "5-6 minutes",
+            simplifications: ["Fewer volcanoes (8-10)", "Larger grid", "Walking pace allowed"],
+          },
+          ages9to11: {
+            approach: "Usable occasionally as a fun changeup, but simplify the theme and shorten - most groups this age are ready for Gates Dribbling or Inside-Outside Slalom instead",
+            keyPhrases: ["Small touches, quick eyes!", "Beat your own eruption count!"],
+            duration: "4-5 minutes if used",
+            simplifications: ["Fewer explanatory cues needed", "Can add Moving Volcanoes for extra challenge"],
+          },
+          ages12to14: {
+            approach: "Not typically used at this age - the obstacle-avoidance format is usually too simple; substitute Gates Dribbling or Inside-Outside Slalom for a comparable warmup with more technical demand",
+            keyPhrases: ["N/A - use an age-appropriate alternative"],
+            duration: "Not recommended",
+          },
+        },
+        commonMisconceptions: {
+          "It's just running around cones, not real skill work":
+            "The random scatter forces genuine head-up scanning and reactive small touches - the same demands as dribbling around defenders, just framed playfully for young players.",
+          "The theme doesn't matter, only the cones do":
+            "For this age group, the imaginative framing is what sustains focus and effort through dozens of repetitive touches - the theme is part of what makes the training work.",
+        },
+      },
+      parentCommunication: {
+        ifAsked:
+          "Volcano Dribble is an imaginative warmup where cones become 'volcanoes' your child dribbles around without touching. It's a playful way to build close ball control and get them looking up while they dribble, instead of staring down at their feet.",
+        newsletter:
+          "This week: Volcano Dribble! Cones became sleeping volcanoes scattered across the field, and players dribbled around them without setting them off. A fun, imaginative way to build ball control and head-up awareness - ask your child to show you their 'volcano dodge' move at home!",
+        whatToWatchFor: [
+          "Does your child look up while dribbling, or only watch the ball?",
+          "Are they using small touches to change direction, or big ones that lose control?",
+          "Do they stay engaged and positive even after an 'eruption'?",
+        ],
+      },
+      safety: {
+        commonRisks: [
+          {
+            risk: "Tripping over cones scattered throughout the grid",
+            prevention: "Use low-profile cones; ensure adequate spacing between them",
+            response: "Check for injury; adjust cone spacing if tripping is frequent",
+          },
+          {
+            risk: "Collisions between players dribbling in a dense area",
+            prevention: "Encourage spreading out across the whole grid; remind players to keep heads up",
+            response: "Check players; redirect toward less crowded areas",
+          },
+        ],
+        inclusionConsiderations: {
+          mobilityDifferences: "Allow walking instead of dribbling at speed; assign a personal 'zone' with fewer volcanoes",
+          visionImpairments: "Use bright, high-contrast cones and consider a buddy system for extra awareness",
+        },
+      },
+      coachReflection: {
+        afterActivity: [
+          "Were players looking up and scanning, or mostly watching the ball?",
+          "Did the volcano theme keep energy and engagement high?",
+          "Was the cone density right for this group's skill level?",
+        ],
+        forImprovement: [
+          "Should I add or remove volcanoes next time?",
+          "Which players need extra encouragement after eruptions?",
+          "Is this group ready to progress to Gates Dribbling or Inside-Outside Slalom?",
+        ],
+      },
+    },
   },
   {
     slug: "numbers-game-warmup",
     name: "Numbers Game Warmup",
-    description: "Coach calls numbers for different movements while dribbling",
+    description:
+      "Coach calls numbers for different dribbling movements - players react instantly while keeping the ball under control. Builds close control, reaction speed, and listening skills in a fast-moving warm-up.",
     sport: "soccer",
     activityType: "warmup",
     difficulty: "beginner",
@@ -4709,44 +6517,388 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     durationMinutes: 7,
     skillsDeveloped: ["dribbling", "agility-coordination"],
     setupInstructions:
-      "30x30 grid, each player has a ball. Review number commands first.",
+      "EQUIPMENT CHECKLIST\n□ 1 ball per player\n□ 4 cones for grid corners\n□ Whistle or loud voice for calling numbers\n\nSPACE: 30x30 paces (shrink for fewer players)\n\nSETUP STEPS\n1. Mark a 30x30 pace grid with 4 corner cones\n2. Each player brings a ball into the grid\n3. Teach the 5 number commands before starting - walk through each one slowly\n4. Players spread out with a ball each, ready to dribble freely\n\nDIAGRAM\n┌────────────────────────────────┐\n│  ○      ○         ○      ○    │\n│      ○        ○         ○     │\n│  ○        ○         ○         │  30 paces\n│      ○         ○        ○     │\n│  ○      ○         ○      ○    │\n└────────────────────────────────┘\n        30 paces\n\n○ = player with own ball, dribbling freely inside the grid",
     howToPlay:
-      "Number commands:\n1 = Stop ball with sole\n2 = Speed dribble\n3 = Turn around (any turn)\n4 = Change direction (cut)\n5 = Do a skill move\nPlayers dribble freely, coach calls numbers.",
+      'PHASE 1: GATHER & EXPLAIN (60 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: Center of grid, ball at feet\n\nSAY: "Grab a ball and find your own space in the grid! I\'m going to call out numbers, and each number means a different move. Let\'s learn them first."\n\nDEMO each command slowly:\nSAY: "Number 1 - stop the ball dead with the SOLE of your foot, like a stop sign! Number 2 - SPEED dribble, push it and run! Number 3 - turn all the way around, any turn you know! Number 4 - change direction, cut the ball sharply! Number 5 - do your best skill move!"\n\nSAY: "Everyone dribble around now - when I call a number, do that move as fast as you can!"\n\n\nPHASE 2: ROUND 1 - SLOW CALLING (90 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: Center, turning to see the whole grid\n\nCall numbers slowly with a few seconds between each: "1!... 2!... 3!..."\n\nLOOK FOR:\n□ Are players keeping their heads up to hear the call?\n□ Is the ball staying close on the sole-stop (number 1)?\n□ Are they actually changing direction on number 4, not just slowing down?\n\nPHRASES TO USE:\n• "Nice and quick - I like that reaction!"\n• "Ball close, ball close!"\n• "Big turn - all the way around!"\n\n\nPHASE 3: TEACHING MOMENT (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Everyone freeze and watch me for number 5."\n\nDEMO a simple skill move (step-over or scissor) slowly, then at speed.\n\nSAY: "Number 5 doesn\'t have to be fancy - any move that gets past an imaginary defender counts! Pick ONE move and get really good at it today."\n\n\nPHASE 4: ROUND 2 - MIXED SPEED (90 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Same numbers, but now I\'ll mix up how fast I call them! Stay ready!"\n\nCall numbers with varying pace - some quick back-to-back, some with a pause.\n\nCoach Position: Roam through the grid, calling from different spots\n\nWATCH FOR:\n□ Players who freeze or hesitate when calls come fast\n□ Ball control breaking down under quicker calling\n\nPHRASES TO USE:\n• "Stay light on your feet - ready for anything!"\n• "Great job staying under control!"\n\n\nPHASE 5: CHALLENGE ROUND (90 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Challenge round! This time I might call TWO numbers in a row - do them both, in order!"\n\nCall combinations like "3, then 5!" or "2, then 1!"\n\nSAY: "If you mess up, no big deal - just reset and keep going. I want to see you trying hard moves!"\n\n\nPHASE 6: WRAP UP (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Great listening and great feet! Which number was hardest for you?"\n\nListen for specific answers, validate: "That\'s a tough one - keep practicing it!"\n\nSAY: "That quick reaction is exactly what you need in a game when things change fast. Water break!"',
+    diagram:
+      "┌────────────────────────────────┐\n│  ○      ○         ○      ○    │\n│      ○        ○         ○     │\n│  ○        ○         ○         │\n│      ○         ○        ○     │\n│  ○      ○         ○      ○    │\n└────────────────────────────────┘",
     coachingPoints: [
-      "React quickly to numbers",
-      "Keep ball under control",
-      "Practice different skills on command",
+      "QUICK REACTION → Say: 'Ears open - react the moment you hear the number!'",
+      "BALL STAYS CLOSE → Say: 'Ball close, ball close - like it's tied to your shoelaces!'",
+      "SOLE STOP UNDER CONTROL → Say: 'Trap it dead - sole on top, ball stops still!'",
+      "COMMIT TO THE MOVE → Say: 'Big turn, sharp cut - don't do it halfway!'",
     ],
     questionsToAsk: [
-      "Which number is hardest for you?",
-      "What move do you do for number 5?",
+      "'Which number is hardest for you?' → Builds self-awareness of weaker skills",
+      "'What move do you do for number 5?' → Encourages having a go-to move ready",
+      "'How did you keep your ball close during the speed dribble?' → Looking for: small, quick touches",
+      "'What happens if you don't react fast enough?' → Looking for: ball control breaks down or you fall behind the group",
     ],
-    commonMistakes: ["Forgetting the numbers", "Slow reactions"],
+    commonMistakes: [
+      "FORGETTING THE NUMBERS → Say: 'No worries - watch a friend and jump back in!'",
+      "SLOW REACTIONS → Say: 'Ears up! The second you hear it, go!'",
+      "BALL DRIFTING AWAY ON THE STOP → Say: 'Sole comes down soft but firm - trap it right under you!'",
+      "HALF-HEARTED SKILL MOVES → Say: 'Sell it! Big move, like you're beating a real defender!'",
+    ],
     variations: [
       {
         name: "Player Caller",
-        description: "A player becomes the number caller",
+        description:
+          "A player becomes the number caller for a round instead of the coach. Builds confidence and keeps engagement high.",
         difficulty: "beginner",
       },
       {
         name: "Add Colors",
-        description: "Use both numbers and colors for different actions",
+        description:
+          "Layer in cone colors around the grid - number tells the move, color tells which direction to dribble toward.",
         difficulty: "intermediate",
       },
+      {
+        name: "Elimination Freeze",
+        description:
+          "Anyone who reacts to the wrong number or loses control does 3 toe taps before rejoining - keeps stakes low while adding a consequence.",
+        difficulty: "intermediate",
+      },
+      {
+        name: "Partner Numbers",
+        description:
+          "Players pair up; one calls numbers for their partner for 30 seconds, then switch roles.",
+        difficulty: "beginner",
+      },
     ],
-    makeEasier: "Fewer numbers (1-3 only)",
-    makeHarder: "More numbers, faster calling, add combinations",
-    equipmentNeeded: ["1 ball per player", "Cones for grid"],
+    makeEasier:
+      "SIGNS THEY'RE STRUGGLING:\n• Forgetting which number means which move\n• Losing the ball on every call\n• Freezing instead of reacting\n\nSOLUTIONS:\n• Drop to 3 numbers only (1-3) until comfortable\n• Slow the calling pace, longer pause between calls\n• Post a visual reminder (call out the move name alongside the number for a round)\n• Let them watch a stronger player once before trying",
+    makeHarder:
+      "SIGNS THEY'RE READY:\n• Reacting instantly with no ball loss\n• Numbers 1-5 all look clean and controlled\n• Getting bored or asking to go faster\n\nSOLUTIONS:\n• Call numbers faster or back-to-back\n• Call two-number combinations in order\n• Add weak-foot-only rounds\n• Introduce new numbers (6 = sit on ball, 7 = 360 with a specific turn)",
+    equipmentNeeded: ["1 ball per player", "4 cones for grid corners"],
     spaceRequired: "medium",
     indoorSuitable: true,
     appropriateStages: ["fundamentals", "skill-building"],
     tags: ["warmup", "dribbling", "listening", "reactions"],
     featured: false,
+    comprehensiveGuide: {
+      quickReference: {
+        oneSentence:
+          "Players dribble freely and instantly react to coach-called numbers, each tied to a specific ball-control move - builds reaction speed and close control.",
+        keyPhrases: [
+          "Ears open - react the moment you hear it!",
+          "Ball close, ball close!",
+          "Commit to the move - sell it!",
+        ],
+        setupDiagram:
+          "30x30 pace grid, 1 ball per player, spread out and dribbling freely",
+        quickProgression: {
+          easier: "Fewer numbers, slower calling, visual/verbal reminders",
+          harder: "Faster calling, two-number combinations, weak foot only",
+        },
+      },
+      completeScript: {
+        beforeYouStart: {
+          preparation: [
+            "Mark a 30x30 pace grid with 4 corner cones",
+            "Decide the 5 number commands ahead of time so calling is automatic",
+            "Have a loud, clear calling voice or a whistle ready",
+            "Scan for open space - players need room to speed dribble on number 2",
+          ],
+          mindset:
+            "This is a listening-and-reacting warm-up first, technique second. Keep your calling energetic and varied in pace - the value comes from unpredictability. Praise fast reactions loudly; technique polish comes later in practice.",
+        },
+        segments: [
+          {
+            phase: "Gather & Explain",
+            duration: "60 seconds",
+            coachPosition: "Center of grid",
+            script:
+              "Teach all 5 numbers with a slow demo of each. 'Number 1 stop, 2 speed, 3 turn, 4 cut, 5 skill move.' Have them dribble freely, then start calling.",
+            anticipatedResponses: {
+              "I forget which number is which":
+                "That's okay - watch a friend and copy them, you'll remember by round 2!",
+              "What if I don't know a skill move for number 5?":
+                "Any move works - even just a quick fake one way and go the other!",
+            },
+            troubleshooting: {
+              "Players bunching in the middle": [
+                "Remind them to find their own space before starting",
+              ],
+            },
+          },
+          {
+            phase: "Round 1 - Slow Calling",
+            duration: "90 seconds",
+            coachPosition: "Center, turning to see the whole grid",
+            script:
+              "Call numbers slowly with gaps between. Praise fast reactions and controlled sole-stops.",
+            troubleshooting: {
+              "Ball drifting away on stops": [
+                "Cue 'soft but firm sole' and demo again quickly",
+              ],
+            },
+          },
+          {
+            phase: "Teaching Moment",
+            duration: "30 seconds",
+            coachPosition: "Center, everyone watching",
+            script:
+              "Demo number 5 skill move slowly then at speed. 'Pick one move and get good at it today.'",
+          },
+          {
+            phase: "Round 2 - Mixed Speed",
+            duration: "90 seconds",
+            coachPosition: "Roaming through the grid",
+            script:
+              "Vary calling pace - quick bursts and pauses. Watch for hesitation under faster calling.",
+          },
+          {
+            phase: "Challenge Round",
+            duration: "90 seconds",
+            coachPosition: "Roaming",
+            script:
+              "Call two-number combinations in order. Normalize mistakes: 'reset and keep going.'",
+          },
+          {
+            phase: "Wrap Up",
+            duration: "30 seconds",
+            coachPosition: "Center",
+            script:
+              "ASK: 'Which number was hardest?' Connect to games: reacting fast when things change. Water break!",
+          },
+        ],
+      },
+      troubleshooting: {
+        gameBalance: {
+          tooEasy: {
+            symptoms: [
+              "Zero ball loss on any call",
+              "Instant reactions every time",
+              "Players asking to go faster",
+            ],
+            solutions: [
+              "Call faster",
+              "Add two-number combinations",
+              "Weak foot only",
+              "Add new numbers (6, 7)",
+            ],
+          },
+          tooHard: {
+            symptoms: [
+              "Frequent freezing",
+              "Ball lost on most calls",
+              "Numbers mixed up constantly",
+            ],
+            solutions: [
+              "Reduce to 3 numbers",
+              "Slow the calling pace",
+              "Say the move name alongside the number",
+            ],
+          },
+        },
+        playerBehavior: {
+          notReacting: {
+            symptoms: ["Delayed response", "Copying neighbors instead of reacting"],
+            approach:
+              "SAY: 'Ears up - you've got this! Listen for YOUR cue.' Call their name before the number for a round to rebuild confidence.",
+          },
+          losingBallControl: {
+            symptoms: ["Ball bouncing away", "Chasing the ball instead of controlling it"],
+            approach:
+              "SAY: 'Slow your feet down, keep the ball close - speed comes after control.' Praise any improvement immediately.",
+          },
+        },
+        environmentalIssues: {
+          noisyEnvironment: {
+            symptoms: ["Players not hearing the call"],
+            solution: "Use a whistle plus a hand signal for each number as backup.",
+          },
+          overcrowdedGrid: {
+            symptoms: ["Frequent collisions", "No room to speed dribble"],
+            solution: "Widen the grid or split into two smaller groups running simultaneously.",
+          },
+        },
+      },
+      skillConnections: {
+        primarySkills: [
+          {
+            skill: "Dribbling",
+            domain: "technical",
+            howItDevelops:
+              "Constant switching between control moves (stop, speed, turn, cut, skill) builds the toolbox players draw on in real games when situations change instantly.",
+            levelIndicators: {
+              1: "Loses ball on most number calls; needs to look down constantly",
+              2: "Can execute simple numbers (1, 2) but struggles with turns and cuts",
+              3: "Executes all 5 numbers with control at moderate speed",
+              4: "Reacts instantly and cleanly even with fast, mixed calling",
+              5: "Combines numbers fluidly, adds personal flair to skill moves",
+            },
+            assessmentNotes:
+              "Watch how many touches it takes to regain control after each call, and whether reaction time shortens as the round progresses.",
+          },
+          {
+            skill: "Agility & Coordination",
+            domain: "physical",
+            howItDevelops:
+              "Rapid, unpredictable direction and speed changes on command build the same quick-reaction footwork needed to react to opponents and the ball in games.",
+            levelIndicators: {
+              1: "Stiff, delayed movements; loses balance on turns",
+              2: "Moves but with noticeable lag between hearing and reacting",
+              3: "Smooth transitions between moves at moderate speed",
+              4: "Quick, balanced reactions even at fast calling pace",
+              5: "Anticipates and reacts with minimal lag, stays balanced throughout",
+            },
+          },
+        ],
+        secondarySkills: [
+          {
+            skill: "Coachability",
+            domain: "psychological",
+            howItDevelops:
+              "Listening for a verbal cue and translating it into immediate action builds the habit of processing and acting on coaching instructions quickly.",
+          },
+        ],
+        physicalDevelopment: {
+          agility: "Rapid direction and speed changes on command",
+          coordination: "Foot-eye coordination adjusting touch to each move",
+          cardiovascular: "Continuous light movement throughout the warm-up",
+        },
+        psychologicalDevelopment: {
+          listening: "Processing a verbal cue and reacting instantly",
+          confidence: "Successfully executing moves builds comfort with the ball",
+        },
+      },
+      developmentalContext: {
+        whyThisActivity:
+          "Numbers Game Warmup packs reaction training, listening skills, and a review of core dribbling moves into a short, high-energy opener. It gets every player touching the ball constantly while training them to react to a cue rather than just free-dribble - a habit that transfers directly to reacting to teammates, opponents, and coaches in games.",
+        whenToUseIt: {
+          idealFor: [
+            "First activity of practice (raises heart rate, reviews technique)",
+            "Reviewing multiple dribbling moves quickly",
+            "Days when attention needs a fast-paced, game-like warm-up",
+          ],
+          avoidWhen: [
+            "Players haven't yet learned basic ball control (introduce Ball Mastery Circle first)",
+            "Very large groups without enough space to speed dribble safely",
+          ],
+        },
+        progressionPath: {
+          before: [
+            {
+              activity: "Ball Mastery Circle",
+              reason: "Builds the basic touches (stop, turn) this activity calls on",
+            },
+          ],
+          after: [
+            {
+              activity: "Gates Dribbling",
+              reason: "Applies the same close control while adding spatial decision-making",
+            },
+            {
+              activity: "Copy Cat Dribbling",
+              reason: "Extends reactive dribbling into a partner-following format",
+            },
+          ],
+        },
+        ageAdaptations: {
+          ages6to8: {
+            approach:
+              "Keep it playful - frame numbers as a fun game, not a test. Use only 3 numbers to start.",
+            keyPhrases: [
+              "Let's play the numbers game!",
+              "You've got this - just react!",
+              "Great try, that was fast!",
+            ],
+            avoidSaying: ["You got that wrong", "Too slow"],
+            duration: "5-6 minutes",
+            simplifications: [
+              "Start with 3 numbers instead of 5",
+              "Slower calling pace",
+              "Demo each number again mid-activity if needed",
+            ],
+          },
+          ages9to11: {
+            approach: "Add speed and combinations once all 5 numbers are solid.",
+            keyPhrases: [
+              "Stay ready for anything!",
+              "Can you do two in a row?",
+              "Nice quick reaction!",
+            ],
+            challenges: [
+              "Two-number combinations",
+              "Faster calling pace",
+              "Weak foot rounds",
+            ],
+            duration: "7-8 minutes",
+          },
+          ages12to14: {
+            approach: "Use as a fast technical review; add competitive or fitness elements.",
+            keyPhrases: [
+              "React and go - no hesitation!",
+              "How does this help you in a game?",
+            ],
+            challenges: [
+              "Player-led calling",
+              "New/invented numbers",
+              "Combined with light conditioning",
+            ],
+            coachRole: "Facilitate self-directed practice; hand off calling duties",
+          },
+        },
+        commonMisconceptions: {
+          "It's just a memory game":
+            "The memory piece is secondary - the real training is instant reaction while maintaining ball control under a surprise cue.",
+          "Doesn't need to be taken seriously since it's a warm-up":
+            "Warm-ups set the tone and touch count for the whole practice; sloppy technique here becomes sloppy technique later.",
+        },
+      },
+      parentCommunication: {
+        ifAsked:
+          "Numbers Game Warmup gets your child listening for a cue and instantly reacting with the ball - it's training the same quick decision-making they need when the game situation suddenly changes.",
+        newsletter:
+          "This week's warm-up: Numbers Game! Players dribble freely and react instantly to called-out numbers, each tied to a different move - stopping, speed dribbling, turning, cutting, and skill moves. Great for building quick reactions and ball control at home too - just call out a number and see how fast they react!",
+        whatToWatchFor: [
+          "Does your child react quickly or hesitate before moving?",
+          "Can they keep the ball close during the speed dribble?",
+          "Do they have a go-to skill move they're proud of for number 5?",
+        ],
+      },
+      safety: {
+        commonRisks: [
+          {
+            risk: "Collisions during speed dribbling in a crowded grid",
+            prevention: "Size the grid to the group; remind players to scan for space",
+            response: "Check players for injury; widen the grid if collisions recur",
+          },
+          {
+            risk: "Rolled ankles on sharp direction changes (number 4)",
+            prevention: "Ensure a proper warm-up has happened before this activity if used mid-practice",
+            response: "Rest, check for swelling, reduce intensity for the rest of the session",
+          },
+        ],
+        inclusionConsiderations: {
+          hearingDifferences:
+            "Pair a hand signal with each number so players who struggle to hear the call still have a visual cue",
+          processingSpeedDifferences:
+            "Allow extra reaction time or fewer numbers for players who need it; never single out slower reactions",
+        },
+      },
+      coachReflection: {
+        afterActivity: [
+          "Were players reacting quickly or lagging behind the calls?",
+          "Did I vary my calling pace enough to keep it engaging?",
+          "Was the grid the right size for the group?",
+          "Which number needs more review before next practice?",
+        ],
+        forImprovement: [
+          "Should I add or remove a number command next time?",
+          "Who would benefit from being the caller to build confidence?",
+          "How can I connect this more explicitly to in-game reactions?",
+        ],
+      },
+    },
   },
   {
     slug: "partner-mirror-warmup",
     name: "Partner Mirror Warmup",
-    description: "Partners face each other, one leads dribbling moves and other mirrors",
+    description:
+      "Partners face each other with a ball each - one leads dribbling moves, the other mirrors them in real time. Builds close control, balance, and the habit of reading a body rather than a ball, with a full role-reversal to work both directions.",
     sport: "soccer",
     activityType: "warmup",
     difficulty: "intermediate",
@@ -4755,44 +6907,392 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     durationMinutes: 8,
     skillsDeveloped: ["agility-coordination", "dribbling"],
     setupInstructions:
-      "Partners 3-4 yards apart, each with a ball, facing each other.",
+      "EQUIPMENT CHECKLIST\n□ 1 ball per player (2 per pair)\n□ Cones to mark pair spots (optional)\n\nSPACE: small - each pair needs roughly a 4x4 pace box\n\nSETUP STEPS\n1. Split into pairs, matched roughly by size/ability where possible\n2. Each pair finds their own 4x4 pace space, spread out from other pairs\n3. Partners face each other 3-4 paces apart, each with a ball\n4. Decide who leads first - the other partner mirrors\n\nDIAGRAM\n┌────────────────────────────────┐\n│   ○ ⚽        ⚽ ○              │\n│                                │\n│        ○ ⚽    ⚽ ○            │  4 paces\n│                                │\n│   ○ ⚽        ⚽ ○              │\n└────────────────────────────────┘\n     3-4 paces between partners\n\n○ ⚽ = player with ball, facing partner across the gap",
     howToPlay:
-      "1. One partner is the leader, performs moves\n2. Other partner mirrors (opposite direction)\n3. Include: side-to-side, forward-back, turns, skills\n4. Switch leader every 45 seconds",
+      'PHASE 1: GATHER & EXPLAIN (60 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: Center, demoing with an assistant or a player\n\nSAY: "Find a partner and grab a ball each! You\'re going to face each other like a mirror. One of you LEADS - you make dribbling moves. The other one MIRRORS - copies the move like you\'re looking in a mirror!"\n\nDEMO: Side-to-side taps, partner mirrors opposite direction.\n\nSAY: "Watch your partner\'s HIPS, not their ball - that\'s the secret. Hips tell you where they\'re about to go before the ball does!"\n\n\nPHASE 2: ROUND 1 - LEADER PRACTICE (90 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Leaders, start slow - side to side, forward and back. Followers, mirror it! Ready... GO!"\n\nCoach Position: Walk between pairs, watching hip-reading\n\nLOOK FOR:\n□ Is the follower watching hips or ball?\n□ Are both partners staying balanced, low center of gravity?\n□ Is the leader going too fast for their partner to follow?\n\nPHRASES TO USE:\n• "Leaders - slow enough that your partner can follow!"\n• "Followers - eyes on their hips!"\n• "Nice and smooth, not jerky!"\n\n\nPHASE 3: TEACHING MOMENT (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Everyone freeze and watch us."\n\nDEMO with an assistant: exaggerate a hip fake one direction then go the other. Show how watching the ball would fool the follower, but watching hips reveals the real move.\n\nSAY: "See how the hips moved BEFORE the ball? That\'s what you\'re reading!"\n\n\nPHASE 4: SWITCH LEADER (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Switch! Followers, now YOU lead. Leaders, now YOU mirror!"\n\n\nPHASE 5: ROUND 2 - ADD TURNS AND SKILLS (90 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "This time, leaders can add turns and skill moves, not just side to side! Followers, stay balanced and ready to react!"\n\nCoach moves between pairs with specific feedback:\n• "Great read on that turn!"\n• "Leader - give your partner a chance, not too fast!"\n\nSwitch leader again halfway through this round.\n\n\nPHASE 6: CHALLENGE ROUND (60 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Challenge round - leaders, try to trick your partner with a fake! Followers, stay sharp!"\n\nRun briefly, celebrate good reads and good fakes both.\n\n\nPHASE 7: WRAP UP (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Nice work! How did you know what your partner was about to do?"\n\nListen for: "Watched their hips," "Watched their body, not the ball"\n\nSAY: "That\'s exactly how you read opponents and teammates in a real game! Water break!"',
+    diagram:
+      "┌────────────────────────────────┐\n│   ○ ⚽        ⚽ ○              │\n│                                │\n│        ○ ⚽    ⚽ ○            │\n│                                │\n│   ○ ⚽        ⚽ ○              │\n└────────────────────────────────┘",
     coachingPoints: [
-      "Watch partner's hips, not their ball",
-      "Stay balanced and ready to react",
-      "Smooth, controlled movements",
+      "READ THE HIPS → Say: 'Watch their hips, not their ball - hips tell you what's coming!'",
+      "STAY BALANCED → Say: 'Low and light on your toes, ready to move any direction!'",
+      "LEADER SETS THE PACE → Say: 'Go slow enough your partner can actually follow you!'",
+      "SMOOTH MOVEMENTS → Say: 'Controlled and smooth, not jerky - like a real mirror!'",
     ],
     questionsToAsk: [
-      "How do you anticipate what your partner will do?",
-      "Which movements are hardest to mirror?",
+      "'How do you anticipate what your partner will do?' → Looking for: watching hips/shoulders, not the ball",
+      "'Which movements are hardest to mirror?' → Builds self-awareness of coordination gaps",
+      "'What happens if the leader goes too fast?' → Looking for: the follower falls behind or loses ball control",
+      "'How is reading your partner like reading an opponent in a game?' → Connects to 1v1 defending and anticipation",
     ],
-    commonMistakes: ["Watching the ball instead of partner", "Slow reactions"],
+    commonMistakes: [
+      "WATCHING THE BALL INSTEAD OF PARTNER → Say: 'Eyes up on their hips - the ball is a distraction!'",
+      "SLOW REACTIONS → Say: 'Stay light on your toes, ready to move the instant they do!'",
+      "LEADER GOING TOO FAST → Say: 'Slow down - give your partner a real chance to mirror you!'",
+      "STANDING TOO UPRIGHT → Say: 'Bend your knees, get low - that's how you move quickly!'",
+    ],
     variations: [
       {
         name: "No Ball Mirror",
-        description: "Start without balls, just movement",
+        description:
+          "Start without balls, just body movement mirroring - isolates the hip-reading skill before adding ball control on top.",
         difficulty: "beginner",
       },
       {
         name: "Add Passes",
-        description: "Include passing back and forth in the mirror",
+        description:
+          "Include a pass back and forth mixed into the mirrored movements - leader dribbles, then passes, follower must mirror the movement and receive.",
         difficulty: "advanced",
       },
+      {
+        name: "Three-Person Mirror",
+        description:
+          "Groups of 3 - one leader, two followers must both mirror simultaneously. Adds awareness of others.",
+        difficulty: "intermediate",
+      },
+      {
+        name: "Silent Signal Switch",
+        description:
+          "Leader and follower switch roles on a coach signal (whistle or clap) without stopping movement - keeps both partners alert throughout.",
+        difficulty: "intermediate",
+      },
     ],
-    makeEasier: "Slower movements, no ball first",
-    makeHarder: "Faster movements, add skills",
+    makeEasier:
+      "SIGNS THEY'RE STRUGGLING:\n• Constantly looking at the ball instead of their partner\n• Falling badly out of sync\n• Losing ball control while trying to mirror\n\nSOLUTIONS:\n• Drop the ball entirely for a round (No Ball Mirror variation)\n• Slow the leader's pace way down\n• Shrink movements to just side-to-side taps before adding turns/skills\n• Pair a stronger player as leader with a developing player as follower first",
+    makeHarder:
+      "SIGNS THEY'RE READY:\n• Mirroring smoothly even with turns and skill moves\n• Anticipating direction changes before they fully happen\n• Staying balanced and in control throughout\n\nSOLUTIONS:\n• Leader adds fakes and change-of-pace to test the follower's read\n• Add passing into the mirrored sequence\n• Faster switching between leader and follower roles\n• Move to Three-Person Mirror for a harder tracking challenge",
     equipmentNeeded: ["1 ball per player"],
     spaceRequired: "small",
     indoorSuitable: true,
     appropriateStages: ["skill-building", "development"],
     tags: ["warmup", "coordination", "reactions", "partners"],
     featured: false,
+    comprehensiveGuide: {
+      quickReference: {
+        oneSentence:
+          "Partners face off with a ball each - one leads dribbling moves, the other mirrors by reading hips and body position rather than the ball.",
+        keyPhrases: [
+          "Watch their hips, not their ball!",
+          "Stay low and light on your toes!",
+          "Smooth and controlled, like a real mirror!",
+        ],
+        setupDiagram:
+          "Pairs 3-4 paces apart, each with a ball, in their own 4x4 pace space",
+        quickProgression: {
+          easier: "No ball first, slower leader pace, side-to-side only",
+          harder: "Add fakes, passing, faster role switches, three-person groups",
+        },
+      },
+      completeScript: {
+        beforeYouStart: {
+          preparation: [
+            "Pair players, roughly matching size/ability where possible",
+            "Space pairs at least 2-3 paces apart from other pairs",
+            "Plan a demo with an assistant coach or a confident player",
+            "Decide your switch-leader timing (every 45 seconds is a good default)",
+          ],
+          mindset:
+            "This is about reading a body, not a ball - the core skill of anticipating an opponent. Keep repeating 'watch the hips' until it becomes automatic. Leaders should be coached to set a fair pace, not to try to 'beat' their partner.",
+        },
+        segments: [
+          {
+            phase: "Gather & Explain",
+            duration: "60 seconds",
+            coachPosition: "Center, demoing with an assistant",
+            script:
+              "Demo leader/follower roles. 'Watch their hips, not their ball - hips tell you what's coming.' Assign initial leader in each pair.",
+            anticipatedResponses: {
+              "What if I can't guess what they'll do?":
+                "That's normal at first - keep watching hips, it gets easier fast!",
+            },
+          },
+          {
+            phase: "Round 1 - Leader Practice",
+            duration: "90 seconds",
+            coachPosition: "Walking between pairs",
+            script:
+              "Leaders go slow and simple (side-to-side, forward-back). Coach reminds followers to watch hips, leaders to set a fair pace.",
+            troubleshooting: {
+              "Leader going too fast": [
+                "Cue: 'Slow down - give your partner a real chance!'",
+              ],
+              "Follower staring at the ball": [
+                "Cue: 'Eyes up on their hips, not the ball!'",
+              ],
+            },
+          },
+          {
+            phase: "Teaching Moment",
+            duration: "30 seconds",
+            coachPosition: "Center, everyone watching",
+            script:
+              "Demo a hip fake with an assistant. 'See how the hips moved before the ball? That's what you're reading.'",
+          },
+          {
+            phase: "Switch Leader",
+            duration: "30 seconds",
+            coachPosition: "Center",
+            script: "Call the switch clearly so both partners get equal leader time.",
+          },
+          {
+            phase: "Round 2 - Add Turns and Skills",
+            duration: "90 seconds",
+            coachPosition: "Roaming between pairs",
+            script:
+              "Leaders add turns and skill moves. Coach gives specific feedback on reads and pacing, switches leader again mid-round.",
+          },
+          {
+            phase: "Challenge Round",
+            duration: "60 seconds",
+            coachPosition: "Roaming",
+            script:
+              "Leaders try one fake to test their partner's read. Celebrate both good fakes and good reads.",
+          },
+          {
+            phase: "Wrap Up",
+            duration: "30 seconds",
+            coachPosition: "Center",
+            script:
+              "ASK: 'How did you know what your partner would do?' Connect to reading opponents in games. Water break!",
+          },
+        ],
+      },
+      troubleshooting: {
+        gameBalance: {
+          tooEasy: {
+            symptoms: [
+              "Perfect mirroring even with fakes and turns",
+              "Followers anticipating before the leader fully moves",
+              "Pairs asking for more challenge",
+            ],
+            solutions: [
+              "Add fakes and change-of-pace",
+              "Faster leader-follower switching",
+              "Move to Three-Person Mirror",
+              "Add passing into the sequence",
+            ],
+          },
+          tooHard: {
+            symptoms: [
+              "Constant desync between partners",
+              "Ball control breaking down while trying to mirror",
+              "Frustration or giving up on mirroring",
+            ],
+            solutions: [
+              "Drop the ball for a round (No Ball Mirror)",
+              "Slow the leader way down",
+              "Simplify to side-to-side only",
+              "Re-pair for a better ability match",
+            ],
+          },
+        },
+        playerBehavior: {
+          mismatchedPairs: {
+            symptoms: ["One partner dominating, other disengaged"],
+            approach:
+              "SAY: 'Leaders, this is about teamwork, not showing off - help your partner succeed.' Re-pair if the gap is too wide.",
+          },
+          racingInsteadOfMirroring: {
+            symptoms: ["Leader speeding up to try to 'beat' the follower"],
+            approach:
+              "SAY: 'This isn't a race - the goal is a perfect mirror, not going fast.' Re-demo at a fair pace.",
+          },
+        },
+        environmentalIssues: {
+          crowdedSpace: {
+            symptoms: ["Pairs bumping into neighboring pairs"],
+            solution: "Widen spacing between pairs or reduce group size dribbling at once.",
+          },
+        },
+      },
+      skillConnections: {
+        primarySkills: [
+          {
+            skill: "Agility & Coordination",
+            domain: "physical",
+            howItDevelops:
+              "Mirroring a partner's dribbling moves in real time trains quick, balanced reactions and body control under a moving visual cue.",
+            levelIndicators: {
+              1: "Consistently out of sync; loses balance mirroring simple moves",
+              2: "Mirrors basic side-to-side movement but lags on turns",
+              3: "Mirrors most movements smoothly with occasional delay",
+              4: "Mirrors turns and skill moves in near-real time",
+              5: "Anticipates the leader's move before it fully develops",
+            },
+            assessmentNotes:
+              "Watch the gap in timing between leader and follower - does it shrink as the round goes on?",
+          },
+          {
+            skill: "Dribbling",
+            domain: "technical",
+            howItDevelops:
+              "Both leader and follower must keep the ball under close control while performing varied moves and reacting to a partner, reinforcing touch quality under distraction.",
+            levelIndicators: {
+              1: "Ball control breaks down whenever attention shifts to the partner",
+              2: "Can dribble simple moves while mirroring, loses control on turns",
+              3: "Maintains control through most mirrored movements",
+              4: "Controls ball smoothly even during fakes and skill moves",
+              5: "Full control while also disguising own movement as leader",
+            },
+          },
+        ],
+        secondarySkills: [
+          {
+            skill: "1v1 Defending",
+            domain: "tactical",
+            howItDevelops:
+              "Reading a partner's hips and body shape to anticipate movement is the same visual read used to defend a dribbler 1v1.",
+          },
+          {
+            skill: "Teamwork",
+            domain: "psychological",
+            howItDevelops:
+              "Leaders must set a pace their partner can follow, building an early sense of working with a teammate rather than against them.",
+          },
+        ],
+        physicalDevelopment: {
+          agility: "Quick, balanced reactions to a partner's changing movement",
+          coordination: "Ball control while visually tracking another person",
+        },
+        psychologicalDevelopment: {
+          teamwork: "Leader adjusts pace to help partner succeed",
+          confidence: "Successfully reading and mirroring builds visual-processing confidence",
+        },
+      },
+      developmentalContext: {
+        whyThisActivity:
+          "Partner Mirror Warmup trains players to read a body instead of a ball - the exact visual skill used to anticipate an opponent's move in 1v1 defending or to read a teammate's run in support play. Doing it with a ball each keeps touches high while building this awareness.",
+        whenToUseIt: {
+          idealFor: [
+            "Warm-up before defending or 1v1 focused sessions",
+            "Building partner communication and teamwork early in practice",
+            "Groups that already have solid individual ball control",
+          ],
+          avoidWhen: [
+            "Players haven't yet built basic dribbling control (introduce Ball Mastery Circle first)",
+            "Group has an odd number and no way to form pairs or a trio",
+          ],
+        },
+        progressionPath: {
+          before: [
+            {
+              activity: "Ball Mastery Circle",
+              reason: "Establishes basic close control needed to mirror while dribbling",
+            },
+          ],
+          after: [
+            {
+              activity: "1v1 to Goal",
+              reason: "Applies the same hip-reading skill against a live, competitive opponent",
+            },
+            {
+              activity: "Copy Cat Dribbling",
+              reason: "Extends reactive mirroring into a chase-and-follow dribbling format",
+            },
+          ],
+        },
+        ageAdaptations: {
+          ages6to8: {
+            approach:
+              "Keep it playful and simple - frame it as a literal mirror game. Skip the ball at first if coordination is still developing.",
+            keyPhrases: [
+              "Be a mirror - copy your friend!",
+              "Watch their tummy button, not the ball!",
+              "Nice copying!",
+            ],
+            avoidSaying: ["You're out of sync", "That was wrong"],
+            duration: "5-6 minutes",
+            simplifications: [
+              "No ball mirror first",
+              "Side-to-side movement only",
+              "Longer leader turns so followers aren't rushed to switch",
+            ],
+          },
+          ages9to11: {
+            approach: "Add turns, skill moves, and quicker role switching.",
+            keyPhrases: [
+              "Read their hips before they move!",
+              "Can you copy this turn?",
+              "Great anticipation!",
+            ],
+            challenges: [
+              "Add turns and skill moves",
+              "Faster leader-follower switches",
+              "Leader fakes to test the follower",
+            ],
+            duration: "8 minutes",
+          },
+          ages12to14: {
+            approach: "Connect explicitly to defending; add competitive elements.",
+            keyPhrases: [
+              "This is exactly how you read a dribbler in a game!",
+              "What cues tell you the move before it happens?",
+            ],
+            challenges: [
+              "Three-person mirror groups",
+              "Combine with passing sequences",
+              "Fastest-reaction mini competitions",
+            ],
+            coachRole: "Facilitate discussion linking this to defending and reading play",
+          },
+        },
+        commonMisconceptions: {
+          "It's just a coordination game, not soccer-specific":
+            "Reading hips instead of the ball is the exact visual skill elite defenders use to anticipate a dribbler - it's directly transferable.",
+          "The ball is the important part to watch":
+            "The ball moves last - hips and shoulders reveal intent first, which is the whole teaching point.",
+        },
+      },
+      parentCommunication: {
+        ifAsked:
+          "Partner Mirror Warmup pairs kids up to copy each other's dribbling moves - it trains them to read a person's body instead of just the ball, which is exactly how good defenders anticipate an opponent in games.",
+        newsletter:
+          "This week's warm-up: Partner Mirror! Players paired up, one leading dribbling moves and the other mirroring in real time. The big lesson: watch hips, not the ball, to predict what's coming next. A fun one to try at home - stand across from your child and take turns leading a simple mirror game, no ball needed!",
+        whatToWatchFor: [
+          "Does your child watch their partner's body or the ball?",
+          "Are they staying balanced and low, ready to move?",
+          "Do they set a fair pace for their partner when leading?",
+        ],
+      },
+      safety: {
+        commonRisks: [
+          {
+            risk: "Collisions between pairs in a crowded space",
+            prevention: "Space pairs well apart; size the area to the group",
+            response: "Check players; increase spacing if it recurs",
+          },
+          {
+            risk: "Ankle rolls on quick direction changes",
+            prevention: "Ensure players are properly warmed up first; keep leader pace reasonable",
+            response: "Rest and check for swelling; reduce intensity",
+          },
+        ],
+        inclusionConsiderations: {
+          coordinationDifferences:
+            "Start without a ball and with slow, simple movements; pair thoughtfully so both partners can succeed",
+          visionImpairments:
+            "Use verbal cues alongside movement; allow closer partner spacing",
+        },
+      },
+      coachReflection: {
+        afterActivity: [
+          "Were followers watching hips or still tracking the ball?",
+          "Did leaders set a fair, followable pace?",
+          "Were pairs well-matched in ability?",
+          "Did I switch leaders often enough for both to get equal reps?",
+        ],
+        forImprovement: [
+          "Should I re-pair anyone next time for a better match?",
+          "Which variation fits this group's current level?",
+          "How can I connect this more explicitly to defending in a scrimmage later in practice?",
+        ],
+      },
+    },
   },
   {
     slug: "passing-accuracy-challenge",
     name: "Passing Accuracy Challenge",
-    description: "Hit targets with passes to score points",
+    description:
+      "Players pass through cone gates of varying widths to score points, rewarding precise inside-of-foot technique over power. Builds passing accuracy, weight of pass, and the discipline to hit a specific target.",
     sport: "soccer",
     activityType: "technical",
     difficulty: "beginner",
@@ -4801,48 +7301,378 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     durationMinutes: 10,
     skillsDeveloped: ["passing-short"],
     setupInstructions:
-      "Set up 5-6 cone gates of varying widths at 10-20 yards distance.",
+      "EQUIPMENT CHECKLIST\n□ 10-12 cones (2 per gate for 5-6 gates)\n□ 1 ball per player (or shared between a line)\n□ Cone or marker for the passing line\n\nSPACE: 20x25 paces\n\nSETUP STEPS\n1. Set up 5-6 cone gates at varying widths: narrow (1 pace), medium (2 paces), wide (3 paces)\n2. Place gates 10-20 paces from the passing line, spread across the width of the area\n3. Mark a passing line with a cone or line on the ground\n4. Players line up behind the passing line with balls, one at a time\n\nDIAGRAM\n┌────────────────────────────────┐\n│  ⊏⊐    ⊏──⊐   ⊏────⊐   ⊏⊐   ⊏──⊐   │  10-20 paces\n│  (3pt)  (2pt)   (1pt)  (3pt) (2pt) │\n│                                │\n│                                │\n│  - - - - - - - - - - - - - -  │  passing line\n│        ○  ○  ○  ○  ○          │\n└────────────────────────────────┘\n\n⊏⊐ = narrow gate (1 pace, 3 points)  ⊏──⊐ = medium gate (2 paces, 2 points)  ⊏────⊐ = wide gate (3 paces, 1 point)",
     howToPlay:
-      "1. Players line up with balls\n2. Pass through gates to score points\n3. Narrow gate = 3 points, medium = 2 points, wide = 1 point\n4. Each player gets 5 attempts, most points wins",
+      'PHASE 1: GATHER & EXPLAIN (60 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: By the passing line\n\nSAY: "See these gates? The narrow ones are worth 3 points, medium gates are 2 points, and the wide ones are 1 point. Your job is to pass the ball THROUGH a gate using the inside of your foot!"\n\nDEMO: Plant foot pointing at the target gate, lock your ankle, strike through the middle of the ball with the inside of your foot, follow through toward the target.\n\nSAY: "Lock your ankle - foot stays firm, like a hockey stick. Point your belly button at the gate you\'re aiming for!"\n\n\nPHASE 2: ROUND 1 - FREE ATTEMPTS (2-3 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Everyone gets 5 passes. Pick your gates, call out your target before you pass, and let\'s count points! Next player up when the ball is struck."\n\nCoach Position: Beside the line, calling out scores\n\nLOOK FOR:\n□ Is the plant foot pointing at the target?\n□ Is the ankle locked (inside of foot, not toe)?\n□ Are they following through toward the gate?\n\nPHRASES TO USE:\n• "Nice, lock that ankle!"\n• "Point your belly button at the gate!"\n• "Follow through - finish toward your target!"\n\n\nPHASE 3: TEACHING MOMENT (45 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Everyone come watch this one pass."\n\nDEMO: Show a toe-poked pass (ball skips unpredictably) vs. a locked-ankle inside-of-foot pass (ball rolls true).\n\nSAY: "See the difference? Toe poke - the ball bounces all over. Inside of the foot, ankle locked - it rolls straight and true. That\'s your target technique!"\n\n\nPHASE 4: ROUND 2 - CALL YOUR SHOT (2-3 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "This round, call out which gate you\'re aiming for BEFORE you strike - narrow, medium, or wide. Try to beat your Round 1 score!"\n\nCoach moves along the line with specific feedback:\n• "Great plant foot - right at the target!"\n• "Slow down, set your foot first, then strike"\n\n\nPHASE 5: CHALLENGE ROUND (2 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nChoose ONE challenge:\n\nOption A - Weak Foot Only:\nSAY: "This round, every pass must be with your weak foot! It\'s okay if it feels harder - focus on the technique!"\n\nOption B - Only Narrow Gates Count:\nSAY: "This round, only narrow gates score points - go for precision!"\n\nRun challenge, celebrate effort and improvement.\n\n\nPHASE 6: WRAP UP (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Great passing! What helped you hit more gates?"\n\nListen for: "Locking my ankle," "Pointing my foot at the target," "Following through"\n\nSAY: "That\'s exactly the technique you need to find a teammate in a game! Water break!"',
+    diagram:
+      "┌────────────────────────────────┐\n│  ⊏⊐    ⊏──⊐   ⊏────⊐   ⊏⊐   ⊏──⊐   │\n│  (3pt)  (2pt)   (1pt)  (3pt) (2pt) │\n│                                │\n│  - - - - - - - - - - - - - -  │\n│        ○  ○  ○  ○  ○          │\n└────────────────────────────────┘",
     coachingPoints: [
-      "Plant foot pointing at target",
-      "Lock ankle, strike through middle of ball",
-      "Follow through toward target",
+      "LOCK THE ANKLE → Say: 'Ankle locked firm, like a hockey stick - not floppy!'",
+      "PLANT FOOT AIMS THE PASS → Say: 'Point your belly button and your plant foot right at the gate!'",
+      "INSIDE OF THE FOOT → Say: 'Use the flat part - show me your inside of the foot like a high-five!'",
+      "FOLLOW THROUGH → Say: 'Finish your swing toward the target - don't stab and stop!'",
     ],
     questionsToAsk: [
-      "Where do you look when passing?",
-      "How do you adjust for different distances?",
+      "'Where do you look when passing?' → Looking for: at the target/gate, with a quick check of the ball before striking",
+      "'How do you adjust for different distances?' → Looking for: more follow-through and hip drive for longer passes, softer touch for closer ones",
+      "'Why does the narrow gate score more points?' → Looking for: it takes more precision and control to hit",
+      "'What's the difference between a toe poke and an inside-of-foot pass?' → Looking for: inside-of-foot is more accurate and controlled",
     ],
     commonMistakes: [
-      "Toe poking",
-      "Not following through",
-      "Looking up too early",
+      "TOE POKING → Say: 'Turn your foot sideways - use the inside, not the toe!'",
+      "NOT FOLLOWING THROUGH → Say: 'Don't stop at contact - swing your leg through toward the gate!'",
+      "LOOKING UP TOO EARLY → Say: 'Eyes on the ball through contact, then look up to check your target!'",
+      "RUSHING THE SHOT → Say: 'Take a breath, plant your foot, then strike - no need to rush!'",
     ],
     variations: [
       {
         name: "Moving Target",
-        description: "Partner moves side to side as target",
+        description:
+          "A partner stands in the gate and moves side to side; players must time and place the pass to reach the moving target through the gate.",
         difficulty: "intermediate",
       },
       {
         name: "Weak Foot Only",
-        description: "All passes with non-dominant foot",
+        description:
+          "All passes must be struck with the non-dominant foot, isolating two-footed development.",
         difficulty: "intermediate",
       },
+      {
+        name: "Partner Passing Gates",
+        description:
+          "Pairs pass back and forth through a shared gate from either side, combining accuracy with receiving and giving continuous reps.",
+        difficulty: "beginner",
+      },
+      {
+        name: "Beat the Clock",
+        description:
+          "Players get 30 seconds to score as many points as possible across all gates, adding a time-pressure element to the accuracy challenge.",
+        difficulty: "advanced",
+      },
     ],
-    makeEasier: "Wider gates, closer distances",
-    makeHarder: "Narrower gates, further distances, add time limit",
-    equipmentNeeded: ["Cones", "Balls"],
+    makeEasier:
+      "SIGNS THEY'RE STRUGGLING:\n• Consistently missing every gate\n• Toe-poking instead of using inside of foot\n• Ball skipping or bouncing unpredictably\n\nSOLUTIONS:\n• Widen all gates or remove the narrow ones temporarily\n• Move the passing line closer (5-8 paces)\n• Let them walk through the strike in slow motion first\n• Focus feedback on ONE cue at a time (start with 'lock your ankle')",
+    makeHarder:
+      "SIGNS THEY'RE READY:\n• Consistently hitting medium and wide gates\n• Clean inside-of-foot technique with good follow-through\n• Asking to try farther gates or harder challenges\n\nSOLUTIONS:\n• Move the passing line farther back (20-25 paces)\n• Only narrow gates count for points\n• Add the Moving Target variation\n• Weak foot only, or add a time limit (Beat the Clock)",
+    equipmentNeeded: ["10-12 cones", "1 ball per player"],
     spaceRequired: "medium",
     indoorSuitable: true,
     appropriateStages: ["fundamentals", "skill-building"],
     tags: ["passing", "accuracy", "technique", "competition"],
     featured: false,
+    comprehensiveGuide: {
+      quickReference: {
+        oneSentence:
+          "Players pass through cone gates of varying widths - narrow gates score more points - to build accurate inside-of-foot passing technique.",
+        keyPhrases: [
+          "Lock your ankle - firm like a hockey stick!",
+          "Point your belly button at the target!",
+          "Follow through toward the gate!",
+        ],
+        setupDiagram:
+          "20x25 paces, 5-6 gates of varying widths (1-3 paces) at 10-20 paces from the passing line",
+        quickProgression: {
+          easier: "Wider gates, closer distance, one cue at a time",
+          harder: "Farther distance, narrow gates only, weak foot, time limit",
+        },
+      },
+      completeScript: {
+        beforeYouStart: {
+          preparation: [
+            "Set up 5-6 gates with clearly different widths (narrow/medium/wide)",
+            "Mark point values for each gate width before starting",
+            "Mark a clear passing line",
+            "Have balls ready so the line keeps moving quickly",
+          ],
+          mindset:
+            "This is about rewarding CONTROL over power. Keep circling back to 'lock your ankle' and 'point your foot at the target' - these two cues fix most passing errors. Praise a well-struck pass that misses over a lucky toe-poke that scores.",
+        },
+        segments: [
+          {
+            phase: "Gather & Explain",
+            duration: "60 seconds",
+            coachPosition: "By the passing line",
+            script:
+              "Explain gate point values. Demo the technique: plant foot at target, lock ankle, inside of foot, follow through. 'Lock your ankle, point your belly button at the gate.'",
+            anticipatedResponses: {
+              "Which gate should I aim for?":
+                "Try a mix - go for the big points sometimes, safe points other times!",
+              "My pass keeps going sideways":
+                "Check your plant foot - is it pointing at the gate?",
+            },
+          },
+          {
+            phase: "Round 1 - Free Attempts",
+            duration: "2-3 minutes",
+            coachPosition: "Beside the line, calling scores",
+            script:
+              "Each player gets 5 attempts. Coach calls out points scored and gives one technique cue per player.",
+            troubleshooting: {
+              "Line moving too slowly": [
+                "Have 2 lines/gates running at once if space allows",
+              ],
+              "Toe-poking common": [
+                "Pause and re-demo the inside-of-foot cue individually",
+              ],
+            },
+          },
+          {
+            phase: "Teaching Moment",
+            duration: "45 seconds",
+            coachPosition: "By the passing line, everyone gathered",
+            script:
+              "Demo toe poke vs. locked-ankle inside-of-foot pass side by side. 'See the difference? That's your target technique.'",
+          },
+          {
+            phase: "Round 2 - Call Your Shot",
+            duration: "2-3 minutes",
+            coachPosition: "Along the line",
+            script:
+              "Players call their target gate before striking. Coach gives feedback tied to plant foot and follow-through.",
+          },
+          {
+            phase: "Challenge Round",
+            duration: "2 minutes",
+            coachPosition: "Along the line",
+            script:
+              "Pick one challenge: weak foot only or narrow-gates-only. Celebrate effort and technique over final score.",
+          },
+          {
+            phase: "Wrap Up",
+            duration: "30 seconds",
+            coachPosition: "By the passing line",
+            script:
+              "ASK: 'What helped you hit more gates?' Connect to finding a teammate in a game. Water break!",
+          },
+        ],
+      },
+      troubleshooting: {
+        gameBalance: {
+          tooEasy: {
+            symptoms: [
+              "Everyone consistently hitting narrow gates",
+              "Perfect technique on every attempt",
+              "Players asking for a bigger challenge",
+            ],
+            solutions: [
+              "Move the line farther back",
+              "Only narrow gates score",
+              "Weak foot only",
+              "Add a time limit",
+            ],
+          },
+          tooHard: {
+            symptoms: [
+              "Missing every gate",
+              "Frustration building",
+              "Reverting to kicking as hard as possible",
+            ],
+            solutions: [
+              "Widen the gates",
+              "Move the line closer",
+              "Slow-motion technique walk-throughs",
+              "Focus on one cue at a time",
+            ],
+          },
+        },
+        playerBehavior: {
+          rushingShots: {
+            symptoms: ["Striking without setting up", "Off-balance passes"],
+            approach:
+              "SAY: 'No rush - take a breath, plant your foot, then strike.' Have them pause and check plant-foot position before every attempt for a round.",
+          },
+          discouragedByMisses: {
+            symptoms: ["Giving up after a few misses", "Blaming the gate width"],
+            approach:
+              "SAY: 'Even the pros miss - I care about your technique, not just the score.' Praise well-struck misses specifically.",
+          },
+        },
+        environmentalIssues: {
+          longLineWaitTimes: {
+            symptoms: ["Players standing around bored between turns"],
+            solution: "Run two lines to two sets of gates simultaneously, or give players a ball each and rotate quickly.",
+          },
+          windyConditions: {
+            symptoms: ["Balls curving off target unpredictably"],
+            solution: "Widen gates slightly to account for wind, or move to a more sheltered area.",
+          },
+        },
+      },
+      skillConnections: {
+        primarySkills: [
+          {
+            skill: "Passing (Short)",
+            domain: "technical",
+            howItDevelops:
+              "Direct, repeated practice striking a ball with the inside of the foot at a specific target builds the exact technique needed to accurately find a teammate in games.",
+            levelIndicators: {
+              1: "Passes lack direction; uses toe or random foot surface",
+              2: "Can hit wide gates consistently, misses medium/narrow",
+              3: "Hits medium gates regularly with locked-ankle technique",
+              4: "Consistently threads narrow gates; appropriate weight for distance",
+              5: "Can call and hit any gate on demand, including with weak foot",
+            },
+            assessmentNotes:
+              "Watch plant-foot direction and ankle lock at contact - these two cues predict accuracy better than watching the ball's path alone.",
+          },
+        ],
+        secondarySkills: [
+          {
+            skill: "Creating Passing Angles",
+            domain: "tactical",
+            howItDevelops:
+              "Choosing which gate to attack based on point value and difficulty builds early decision-making about pass selection.",
+          },
+          {
+            skill: "Confidence",
+            domain: "psychological",
+            howItDevelops:
+              "Visible, countable success (points scored) on a repeatable technical task builds confidence in passing ability.",
+          },
+        ],
+        physicalDevelopment: {
+          coordination: "Foot-eye coordination striking a stationary ball at a specific target",
+        },
+        psychologicalDevelopment: {
+          focus: "Maintaining technique precision under simple competitive pressure",
+          goalSetting: "Trying to beat a personal point total",
+        },
+      },
+      developmentalContext: {
+        whyThisActivity:
+          "Passing Accuracy Challenge isolates the single most important passing technique - locked ankle, inside of the foot, plant foot aimed at target - and gives players immediate, visible feedback (did it go through the gate?) on whether they executed it. The point-value system rewards precision over just kicking the ball hard.",
+        whenToUseIt: {
+          idealFor: [
+            "Early technical block of practice, after a dribbling warm-up",
+            "Introducing or reinforcing short passing technique",
+            "Building two-footed passing ability (via weak-foot rounds)",
+          ],
+          avoidWhen: [
+            "Very large groups without enough space for multiple gate sets (lines get too long)",
+            "Players need live, game-like passing under pressure (use Passing Combinations or Rondo instead)",
+          ],
+        },
+        progressionPath: {
+          before: [
+            {
+              activity: "Passing Pairs",
+              reason: "Introduces basic inside-of-foot passing technique with a live partner",
+            },
+          ],
+          after: [
+            {
+              activity: "Passing Combinations",
+              reason: "Applies accurate passing within moving, game-like combination play",
+            },
+            {
+              activity: "Wall Pass Combinations",
+              reason: "Adds a second player and timing to the accuracy skill built here",
+            },
+          ],
+        },
+        ageAdaptations: {
+          ages6to8: {
+            approach:
+              "Emphasize fun and effort over precise point totals; celebrate any pass that goes through a gate.",
+            keyPhrases: [
+              "Point your foot at the gate!",
+              "Nice and smooth - flat part of your foot!",
+              "You got one through - great job!",
+            ],
+            avoidSaying: ["That was way off", "You need to be more accurate"],
+            duration: "6-8 minutes",
+            simplifications: [
+              "Wider gates only",
+              "Closer passing distance (6-8 paces)",
+              "Fewer gates so the line moves fast",
+            ],
+          },
+          ages9to11: {
+            approach: "Introduce the point-scoring system fully and encourage calling the shot.",
+            keyPhrases: [
+              "Call your gate before you strike!",
+              "Lock that ankle!",
+              "Beat your last score!",
+            ],
+            challenges: [
+              "Call your shot before passing",
+              "Weak foot rounds",
+              "Narrow-gate-only scoring",
+            ],
+            duration: "10 minutes",
+          },
+          ages12to14: {
+            approach: "Add time pressure and connect explicitly to game passing decisions.",
+            keyPhrases: [
+              "Why would you pick a low-point safe pass in a game?",
+              "Precision under time pressure - go!",
+            ],
+            challenges: [
+              "Beat the Clock variation",
+              "Moving Target variation",
+              "Combine with a defender closing down the passer",
+            ],
+            coachRole: "Facilitate discussion on when precision vs. speed matters in real passing decisions",
+          },
+        },
+        commonMisconceptions: {
+          "Harder passes are always better":
+            "In a real game, the right pass is often the SAFE one (wide gate) - precision and decision-making matter more than always going for the hardest option.",
+          "Power matters more than technique":
+            "A well-struck, controlled pass with a locked ankle is more accurate and more useful to a teammate than a hard, uncontrolled one.",
+        },
+      },
+      parentCommunication: {
+        ifAsked:
+          "Passing Accuracy Challenge has your child pass a ball through cone gates - the narrower the gate, the more points it's worth. It rewards controlled, technically correct passing over just kicking the ball hard, which is exactly what makes a pass useful to a teammate in a real game.",
+        newsletter:
+          "This week: Passing Accuracy Challenge! Players tried to thread passes through cone gates of different widths, scoring more points for narrower gates. The key technique: lock your ankle, use the inside of your foot, and point your plant foot at the target. A great one to recreate in the backyard with two chairs or shoes as a gate!",
+        whatToWatchFor: [
+          "Is your child using the inside of their foot, or toe-poking the ball?",
+          "Does their plant foot point toward the target before they strike?",
+          "Are they following through toward where they're aiming?",
+        ],
+      },
+      safety: {
+        commonRisks: [
+          {
+            risk: "Players struck by stray balls from adjacent gates or lines",
+            prevention: "Space gates and lines well apart; angle gates away from other groups",
+            response: "Check for injury; adjust spacing if it recurs",
+          },
+          {
+            risk: "Overuse strain from repeated kicking on one foot",
+            prevention: "Include weak-foot reps to balance load between both legs",
+            response: "Rest if any discomfort is reported",
+          },
+        ],
+        inclusionConsiderations: {
+          mobilityDifferences:
+            "Allow a stationary or shorter run-up to the ball; adjust distance to the gate as needed",
+          visionImpairments:
+            "Use bright, high-contrast cones for gates; consider verbal distance/direction cues",
+        },
+      },
+      coachReflection: {
+        afterActivity: [
+          "Were players locking their ankle and using the inside of the foot?",
+          "Did the point-value system motivate without causing frustration?",
+          "Was the passing distance appropriate for this group's skill level?",
+          "Did I give each player individual technique feedback, not just a score?",
+        ],
+        forImprovement: [
+          "Should gate distances or widths change for next time?",
+          "Who needs closer one-on-one technique coaching?",
+          "How can I connect this more to live passing under pressure next session?",
+        ],
+      },
+    },
   },
   {
     slug: "first-touch-box",
     name: "First Touch Box",
-    description: "Receive passes and control ball within a small box",
+    description:
+      "A receiver stands inside a small marked box while servers around the perimeter pass in from different angles - every first touch must keep the ball inside the box. Builds cushioned, controlled receiving under angle and speed variation.",
     sport: "soccer",
     activityType: "technical",
     difficulty: "intermediate",
@@ -4851,40 +7681,365 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     durationMinutes: 10,
     skillsDeveloped: ["receiving-first-touch"],
     setupInstructions:
-      "Create 3x3 yard boxes. One receiver in box, partners around perimeter.",
+      "EQUIPMENT CHECKLIST\n□ 4 cones per box (3x3 pace box)\n□ 1 ball\n□ Extra cones if running multiple boxes at once\n\nSPACE: 3x3 paces per box, plus room around the perimeter for servers\n\nSETUP STEPS\n1. Mark a 3x3 pace box with 4 cones\n2. One receiver stands inside the box\n3. Remaining players (servers) spread around the perimeter, 4-6 paces from the box, at different angles\n4. First server starts with the ball\n\nDIAGRAM\n┌────────────────────────────────┐\n│        ○ (server)              │\n│                                │\n│   ○              ○            │  3x3 pace box\n│ (server)    ┌───┐   (server)  │  in the middle\n│             │ ○ │              │\n│             └───┘              │\n│   ○              ○            │\n│ (server)    ○    (server)      │\n│          (server)              │\n└────────────────────────────────┘\n\n┌───┐ = box (3x3 paces)  ○ inside = receiver  ○ around = servers passing in from different angles",
     howToPlay:
-      "1. Servers pass to receiver from different angles\n2. Receiver must control ball inside the box\n3. First touch must keep ball in the box\n4. If ball leaves box, that's a point against\n5. Rotate receiver every 8-10 passes",
+      'PHASE 1: GATHER & EXPLAIN (60 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: Beside the box\n\nSAY: "One player stands in the box - that\'s the receiver. Everyone else spreads around outside and passes the ball IN to the receiver, one at a time, from different angles!"\n\nSAY: "Receiver - your job is to control the ball with your FIRST touch and keep it INSIDE the box. If it rolls out, that\'s a point against you!"\n\nDEMO: Cushion a pass with the inside of the foot, ball stays in a small area.\n\nSAY: "Soft feet, like the ball is landing on a pillow! Get your body behind it and cushion, don\'t stab at it!"\n\n\nPHASE 2: ROUND 1 - RECEIVER 1 (90 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "First receiver in the box! Servers, pass it in whenever you\'re ready, mix up your angles! Ready... GO!"\n\nCoach Position: Just outside the box, watching the receiver\'s body position\n\nLOOK FOR:\n□ Is the receiver checking their shoulder before the ball arrives?\n□ Is the touch cushioned or does the ball bounce away?\n□ Is their body opening toward where they want to go?\n\nPHRASES TO USE:\n• "Soft touch - like a pillow!"\n• "Check your shoulder before it arrives!"\n• "Nice - that stayed right in the box!"\n\nCount points against, rotate to next receiver after 8-10 passes.\n\n\nPHASE 3: TEACHING MOMENT (45 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Everyone watch this touch."\n\nDEMO: Show a stiff-leg touch (ball bounces out) vs. a cushioned touch with body behind the ball (ball stays put).\n\nSAY: "See how my leg went soft and gave with the ball? That absorbs the pace. A stiff leg just bounces it right back out!"\n\n\nPHASE 4: ROUND 2 - ROTATE THROUGH RECEIVERS (3-4 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "New receiver in! Same job - cushion it, keep it in the box. Servers, keep mixing up your angles and pace!"\n\nRotate every 8-10 passes so everyone gets receiver reps.\n\nCoach moves around the box giving individual feedback:\n• "Great - body was already open before it arrived!"\n• "Get lower, bend those knees to cushion it!"\n\n\nPHASE 5: CHALLENGE ROUND (2 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Challenge round! Servers, add a bit more pace to your passes now. Receiver, stay calm and soft with your touch!"\n\nRun briefly, celebrate composed touches under the extra pace.\n\n\nPHASE 6: WRAP UP (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Great work! What helped you keep the ball in the box?"\n\nListen for: "Soft touch," "Getting my body behind it," "Checking before it arrived"\n\nSAY: "That first touch is the most important touch in soccer - it sets up everything you do next! Water break!"',
+    diagram:
+      "┌────────────────────────────────┐\n│        ○ (server)              │\n│                                │\n│   ○              ○            │\n│ (server)    ┌───┐   (server)  │\n│             │ ○ │              │\n│             └───┘              │\n│   ○              ○            │\n│ (server)    ○    (server)      │\n│          (server)              │\n└────────────────────────────────┘",
     coachingPoints: [
-      "Get body behind the ball",
-      "Cushion the ball",
-      "First touch away from pressure",
-      "Stay on your toes, ready to adjust",
+      "BODY BEHIND THE BALL → Say: 'Get in line with it - body behind, ready to cushion!'",
+      "CUSHION, DON'T STAB → Say: 'Soft feet, like the ball is landing on a pillow!'",
+      "FIRST TOUCH AWAY FROM PRESSURE → Say: 'Touch it into space, not stuck right at your feet!'",
+      "CHECK YOUR SHOULDER EARLY → Say: 'Look before it arrives - know what you'll do with your touch!'",
     ],
     questionsToAsk: [
-      "Where should your first touch go?",
-      "How do you prepare your body before the ball arrives?",
+      "'Where should your first touch go?' → Looking for: into open space inside the box, away from where a defender would be",
+      "'How do you prepare your body before the ball arrives?' → Looking for: checking shoulder, opening body, getting on toes",
+      "'Why does a stiff leg make the ball bounce away?' → Looking for: no give/cushion means the ball's pace transfers straight back out",
+      "'What would happen if you didn't move your feet before the pass arrived?' → Looking for: you'd be flat-footed and slow to react",
     ],
-    commonMistakes: ["Stiff leg on reception", "Letting ball bounce too high"],
+    commonMistakes: [
+      "STIFF LEG ON RECEPTION → Say: 'Relax that ankle and knee - let it give a little to cushion the ball!'",
+      "LETTING BALL BOUNCE TOO HIGH → Say: 'Get low and get there early - meet the ball, don't wait for it!'",
+      "STANDING STILL AND FLAT-FOOTED → Say: 'Stay on your toes, ready to move any direction!'",
+      "NOT CHECKING SHOULDER FIRST → Say: 'Peek before it arrives - know where you're touching it before the ball gets there!'",
+    ],
     variations: [
       {
         name: "Smaller Box",
-        description: "2x2 yard box for more precision",
+        description:
+          "Shrink to a 2x2 pace box, demanding a tighter, more precise first touch with less room for error.",
         difficulty: "advanced",
       },
       {
         name: "Air Balls",
-        description: "Servers throw/chip balls in the air",
+        description:
+          "Servers throw or chip balls into the air instead of rolling passes, adding a bouncing/aerial cushioning challenge.",
+        difficulty: "advanced",
+      },
+      {
+        name: "Two-Touch Finish",
+        description:
+          "After controlling with touch one, receiver must play a clean second touch to a named server - links first touch to a purposeful next action.",
+        difficulty: "intermediate",
+      },
+      {
+        name: "Passive Pressure",
+        description:
+          "One server stands just outside the box as a light passive defender, so the receiver must also decide which direction to open their body to shield the ball.",
         difficulty: "advanced",
       },
     ],
-    makeEasier: "Larger box, softer passes",
-    makeHarder: "Smaller box, faster passes, add time pressure",
-    equipmentNeeded: ["Cones", "Balls"],
+    makeEasier:
+      "SIGNS THEY'RE STRUGGLING:\n• Ball constantly bouncing out of the box\n• Stiff-legged, flinching touches\n• Standing flat-footed, not moving to the ball\n\nSOLUTIONS:\n• Enlarge the box to 4x4 or 5x5 paces\n• Servers use slower, softer passes\n• Reduce servers to 2-3 angles instead of a full perimeter\n• Coach demos the cushioning touch again up close, 1-on-1",
+    makeHarder:
+      "SIGNS THEY'RE READY:\n• Consistently keeping the ball in the box with a calm first touch\n• Opening their body toward space before the ball arrives\n• Asking for more challenge\n\nSOLUTIONS:\n• Shrink to the Smaller Box variation\n• Add Air Balls for aerial control\n• Add Passive Pressure from one server\n• Require a purposeful second touch (Two-Touch Finish)",
+    equipmentNeeded: ["4 cones per box", "1 ball"],
     spaceRequired: "small",
     indoorSuitable: true,
     appropriateStages: ["skill-building", "development"],
     tags: ["first touch", "receiving", "control", "technique"],
     featured: true,
+    comprehensiveGuide: {
+      quickReference: {
+        oneSentence:
+          "A receiver in a small box must control passes from servers at different angles with a cushioned first touch that stays inside the box.",
+        keyPhrases: [
+          "Soft feet, like a pillow!",
+          "Body behind the ball, ready to cushion!",
+          "Check your shoulder before it arrives!",
+        ],
+        setupDiagram:
+          "3x3 pace box, one receiver inside, servers spread around the perimeter at different angles",
+        quickProgression: {
+          easier: "Bigger box, softer passes, fewer server angles",
+          harder: "Smaller box, air balls, passive pressure, two-touch requirement",
+        },
+      },
+      completeScript: {
+        beforeYouStart: {
+          preparation: [
+            "Mark a clear 3x3 pace box with 4 cones",
+            "Position servers around the full perimeter for varied angles",
+            "Plan rotation order so every player gets receiver reps",
+            "Have a demo ready showing cushioned vs. stiff-leg touches side by side",
+          ],
+          mindset:
+            "This is about quality of touch, not quantity of passes. Slow the pace down if touches are sloppy - a good first touch under control matters more than rushing through reps. Rotate frequently so nobody gets stuck as a server the whole time.",
+        },
+        segments: [
+          {
+            phase: "Gather & Explain",
+            duration: "60 seconds",
+            coachPosition: "Beside the box",
+            script:
+              "Explain receiver and server roles. Demo a cushioned touch. 'Soft feet, like the ball is landing on a pillow.'",
+            anticipatedResponses: {
+              "What if the ball bounces out?":
+                "No worries - that's how we learn! Reset and try again.",
+              "Can I use any part of my foot?":
+                "Try the inside of your foot first - it gives you the most control.",
+            },
+          },
+          {
+            phase: "Round 1 - Receiver 1",
+            duration: "90 seconds",
+            coachPosition: "Just outside the box",
+            script:
+              "First receiver in. Servers pass from varied angles. Coach cues 'soft touch' and 'check your shoulder.' Count points against, rotate after 8-10 passes.",
+            troubleshooting: {
+              "Ball bouncing out often": [
+                "Slow server pace and shrink the passing distance temporarily",
+              ],
+            },
+          },
+          {
+            phase: "Teaching Moment",
+            duration: "45 seconds",
+            coachPosition: "Beside the box, everyone watching",
+            script:
+              "Demo stiff-leg touch vs. cushioned touch. 'See how my leg gave with the ball? That absorbs the pace.'",
+          },
+          {
+            phase: "Round 2 - Rotate Through Receivers",
+            duration: "3-4 minutes",
+            coachPosition: "Moving around the box",
+            script:
+              "Rotate receivers every 8-10 passes so everyone gets reps. Give individual feedback on body position and touch quality.",
+          },
+          {
+            phase: "Challenge Round",
+            duration: "2 minutes",
+            coachPosition: "Beside the box",
+            script:
+              "Servers add pace. Receiver stays calm and composed. Celebrate controlled touches under the extra speed.",
+          },
+          {
+            phase: "Wrap Up",
+            duration: "30 seconds",
+            coachPosition: "Beside the box",
+            script:
+              "ASK: 'What helped you keep the ball in the box?' Connect to the first touch being the most important touch in soccer. Water break!",
+          },
+        ],
+      },
+      troubleshooting: {
+        gameBalance: {
+          tooEasy: {
+            symptoms: [
+              "Ball never leaves the box regardless of pass speed",
+              "Receiver looks bored, not challenged",
+              "Perfect control on every touch",
+            ],
+            solutions: [
+              "Shrink to Smaller Box",
+              "Add Air Balls",
+              "Add Passive Pressure",
+              "Require a controlled second touch out",
+            ],
+          },
+          tooHard: {
+            symptoms: [
+              "Ball leaves the box on nearly every pass",
+              "Visible frustration or flinching",
+              "Receiver avoiding eye contact with incoming passes",
+            ],
+            solutions: [
+              "Enlarge the box",
+              "Slow down server pace",
+              "Reduce to 2-3 server angles",
+              "1-on-1 demo repetition with the coach",
+            ],
+          },
+        },
+        playerBehavior: {
+          serversRushingPasses: {
+            symptoms: ["Passes too hard or too fast for the group's level"],
+            approach:
+              "SAY: 'Match your pass speed to what your receiver can handle - we're building control, not testing power.'",
+          },
+          receiverFlinching: {
+            symptoms: ["Pulling leg away from the ball", "Closing eyes on contact"],
+            approach:
+              "SAY: 'Watch it all the way onto your foot - it won't hurt, I promise! Let's slow it down and try again.'",
+          },
+        },
+        environmentalIssues: {
+          multipleBoxesInterfering: {
+            symptoms: ["Balls from one box rolling into another"],
+            solution: "Space boxes at least 5-6 paces apart, or stagger activity timing between groups.",
+          },
+        },
+      },
+      skillConnections: {
+        primarySkills: [
+          {
+            skill: "Receiving / First Touch",
+            domain: "technical",
+            howItDevelops:
+              "Repeated reception from varied angles under a constraint (stay in the box) forces players to cushion the ball and control its pace rather than just stopping it under their feet.",
+            levelIndicators: {
+              1: "Ball bounces off foot or out of the box on most touches",
+              2: "Can control the ball but it stays trapped directly underfoot",
+              3: "Controls ball into open space within the box; body opens toward play",
+              4: "First touch sets up an immediate next action even under varied pace/angle",
+              5: "Creative, disguised first touch; controls air balls and pressure equally well",
+            },
+            assessmentNotes:
+              "Watch whether the receiver checks their shoulder before the ball arrives, and whether the touch moves the ball into space rather than stopping it dead.",
+          },
+        ],
+        secondarySkills: [
+          {
+            skill: "Finding Space",
+            domain: "tactical",
+            howItDevelops:
+              "Deciding where inside the small box to direct the first touch mirrors finding the best space to receive in a real game.",
+          },
+          {
+            skill: "Confidence",
+            domain: "psychological",
+            howItDevelops:
+              "Successfully controlling passes from multiple angles under a visible constraint (the box) builds trust in one's own first touch.",
+          },
+        ],
+        physicalDevelopment: {
+          coordination: "Foot-eye coordination adjusting to varied pass speed and angle",
+          balance: "Staying balanced on toes, ready to move and cushion in any direction",
+        },
+        psychologicalDevelopment: {
+          composure: "Staying calm and controlled even as pace and pressure increase",
+        },
+      },
+      developmentalContext: {
+        whyThisActivity:
+          "First Touch Box isolates receiving technique from everything else - no dribbling, no shooting, just repeated reps of cushioning a ball under varied angle and pace. The small box gives instant, visible feedback: did the ball stay in or roll out? That immediate feedback loop accelerates learning the most important touch in soccer.",
+        whenToUseIt: {
+          idealFor: [
+            "Technical block after a dribbling-focused warm-up",
+            "Introducing or reinforcing first-touch fundamentals",
+            "Small groups where every player needs frequent receiver reps",
+          ],
+          avoidWhen: [
+            "Players haven't yet built basic passing technique among the servers (weak passes make the drill hard to run)",
+            "Very large groups without room for multiple boxes",
+          ],
+        },
+        progressionPath: {
+          before: [
+            {
+              activity: "Passing Pairs",
+              reason: "Builds the passing technique the servers rely on in this activity",
+            },
+          ],
+          after: [
+            {
+              activity: "Turn and Face",
+              reason: "Adds turning and attacking after the first touch, building on control developed here",
+            },
+            {
+              activity: "Receiving Under Pressure",
+              reason: "Introduces a live defender to the receiving skill built in the box",
+            },
+          ],
+        },
+        ageAdaptations: {
+          ages6to8: {
+            approach:
+              "Keep the box large and passes gentle; celebrate any successful controlled touch.",
+            keyPhrases: [
+              "Soft, soft feet - like a pillow!",
+              "Nice catch with your foot!",
+              "You kept it in - great job!",
+            ],
+            avoidSaying: ["That went out again", "You need to be better at this"],
+            duration: "6-7 minutes",
+            simplifications: [
+              "Larger box (5x5 paces)",
+              "Slow, rolling passes only",
+              "Fewer server angles (2-3)",
+            ],
+          },
+          ages9to11: {
+            approach: "Introduce the point-against system and rotate briskly through receivers.",
+            keyPhrases: [
+              "Check your shoulder before it arrives!",
+              "Where's the open space in the box?",
+              "Great cushion on that one!",
+            ],
+            challenges: [
+              "Full perimeter of servers",
+              "Slightly faster pace passes",
+              "Two-Touch Finish variation",
+            ],
+            duration: "10 minutes",
+          },
+          ages12to14: {
+            approach: "Add pressure and speed; connect explicitly to receiving under a marker in games.",
+            keyPhrases: [
+              "How does this first touch set up your next move?",
+              "Stay composed even with someone close!",
+            ],
+            challenges: [
+              "Smaller Box variation",
+              "Air Balls variation",
+              "Passive Pressure variation",
+            ],
+            coachRole: "Facilitate discussion linking first touch quality to tempo of play",
+          },
+        },
+        commonMisconceptions: {
+          "The first touch should just stop the ball":
+            "A great first touch moves the ball into useful space for the next action, not just dead at the receiver's feet.",
+          "This only matters for skilled/older players":
+            "First touch quality is foundational at every age - poor first touch is the single biggest cause of turnovers in youth games.",
+        },
+      },
+      parentCommunication: {
+        ifAsked:
+          "First Touch Box has your child receive passes from different angles inside a small square, and their first touch has to keep the ball inside it. It's training the single most important touch in soccer - the one that sets up everything that happens next.",
+        newsletter:
+          "This week: First Touch Box! One player stood in a small square while teammates passed in from all around - the challenge was to control every pass with a soft, cushioned first touch that stayed inside the box. You can recreate this at home against a wall: cushion the return pass so it doesn't bounce away!",
+        whatToWatchFor: [
+          "Does your child's touch cushion the ball or does it bounce away?",
+          "Are they checking over their shoulder before the pass arrives?",
+          "Do they stay on their toes, ready to move, or stand flat-footed?",
+        ],
+      },
+      safety: {
+        commonRisks: [
+          {
+            risk: "Receiver struck by a server pass from an unexpected angle",
+            prevention: "Servers pass one at a time, in a clear rotation, not simultaneously",
+            response: "Check for injury; slow the rotation pace",
+          },
+          {
+            risk: "Ankle strain from awkward reaching for a mis-hit pass",
+            prevention: "Keep pass pace appropriate to the group's skill level",
+            response: "Rest and check for swelling if discomfort is reported",
+          },
+        ],
+        inclusionConsiderations: {
+          visionImpairments:
+            "Use a brightly colored or audible ball; verbal cue from the server before passing ('coming to your left foot')",
+          mobilityDifferences:
+            "Enlarge the box and allow the receiver more time between passes",
+        },
+      },
+      coachReflection: {
+        afterActivity: [
+          "Was the box sized appropriately for this group's skill level?",
+          "Did every player get enough receiver reps through rotation?",
+          "Were touches cushioned or still stiff/stabbing?",
+          "Did servers vary their angles and pace enough to challenge receivers?",
+        ],
+        forImprovement: [
+          "Should the box size change for next session?",
+          "Who needs individual reception coaching before the next practice?",
+          "Is this group ready for a variation like Air Balls or Passive Pressure?",
+        ],
+      },
+    },
   },
   {
     slug: "turn-and-face",
@@ -4941,7 +8096,8 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "heading-progression",
     name: "Heading Progression",
-    description: "Safe heading technique from basic to game-like situations",
+    description:
+      "A carefully staged progression from seated to running headers, building safe technique - forehead contact, eyes open, firm neck - before ball speed or player movement increases. Designed to match the introduction age for defensive heading and never rush players into contact before technique is solid.",
     sport: "soccer",
     activityType: "technical",
     difficulty: "intermediate",
@@ -4950,40 +8106,394 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     durationMinutes: 10,
     skillsDeveloped: ["heading-defensive"],
     setupInstructions:
-      "Partners facing each other, 5 yards apart. Use appropriate size ball.",
+      "EQUIPMENT CHECKLIST\n□ 1 ball per pair (use a size-appropriate, properly inflated ball - lighter/softer for younger or newer players)\n□ Cones to mark pair spots (optional)\n\nSPACE: small - each pair needs roughly a 5x5 pace box\n\nSETUP STEPS\n1. Split into pairs\n2. Partners face each other 5 paces apart, each pair with its own space\n3. One partner is the tosser, the other is the header, to start\n4. Review the 5-stage progression before starting - NEVER skip straight to jumping headers\n\nDIAGRAM\n┌────────────────────────────────┐\n│   ○ (header)      ○ (tosser)   │\n│                                │  5 paces\n│   ○ (header)      ○ (tosser)   │\n└────────────────────────────────┘\n\n○ = player  5 paces between partners  tosser gently underhand-tosses the ball to the header's forehead height",
     howToPlay:
-      "Progression:\n1. Sit and head (partner tosses gently)\n2. Kneel and head\n3. Stand and head\n4. Jump and head\n5. Running jump and head",
+      'PHASE 1: GATHER & EXPLAIN (60 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: Center, with an assistant or player for demo\n\nSAY: "We\'re going to build heading step by step - we NEVER jump straight to hard headers. Today\'s rule: forehead only, eyes open the whole time, and we go through every stage before moving on."\n\nDEMO: Show forehead contact point, eyes open, neck firm - "watch the ball onto your forehead."\n\nSAY: "Toss gently and UNDERHAND to your partner\'s forehead - never a hard throw!"\n\n\nPHASE 2: STAGE 1 - SIT AND HEAD (90 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Headers, sit down. Tossers, gently toss so the ball drops right onto their forehead. Headers, meet it with your forehead - eyes open the whole time!"\n\nCoach Position: Walking between pairs\n\nLOOK FOR:\n□ Are eyes staying open through contact?\n□ Is contact on the forehead, not the top of the head?\n□ Is the neck firm, not floppy?\n\nPHRASES TO USE:\n• "Watch it all the way onto your forehead!"\n• "Firm neck - like you\'re saying no with your whole head!"\n• "Nice, eyes open the whole time!"\n\n\nPHASE 3: STAGE 2 - KNEEL AND HEAD (60 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Up onto your knees now - same technique, just a bit higher!"\n\nRun briefly with the same cues as Stage 1.\n\n\nPHASE 4: TEACHING MOMENT (45 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Everyone watch this."\n\nDEMO: Show top-of-head contact (wobbly, no control) vs. forehead contact with firm neck (controlled, directed). \n\nSAY: "See the difference? Forehead and firm neck - that\'s what gives you control over where the header goes."\n\n\nPHASE 5: STAGE 3 - STAND AND HEAD (90 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Now standing! Same technique - forehead, eyes open, firm neck. Tossers, keep it gentle and accurate to their forehead height."\n\nCoach moves through pairs with feedback:\n• "Great firm neck on that one!"\n• "Keep those eyes open - I saw them close!"\n\n\nPHASE 6: STAGE 4 - JUMP AND HEAD, IF READY (90 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nONLY progress here if Stages 1-3 look clean and controlled for this group.\n\nSAY: "If your technique has been solid, let\'s add a small jump - time your jump so you meet the ball at the TOP, not after it drops!"\n\nSAY: "Small jumps only - this is about timing, not power!"\n\n\nPHASE 7: SWITCH ROLES & CHALLENGE (60 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Switch! Tossers become headers!"\n\nRun through the stages again for the new header, at whatever stage is appropriate for this group.\n\nOptional for advanced/older groups only: brief running jump and head with a longer, gentle toss - forehead technique must still be clean.\n\n\nPHASE 8: WRAP UP (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Great, careful work today! What part of your head should contact the ball?"\n\nListen for: "Forehead," "Eyes open," "Firm neck"\n\nSAY: "That\'s exactly right - technique first, always. We build power and speed only once that\'s automatic. Water break!"',
+    diagram:
+      "┌────────────────────────────────┐\n│   ○ (header)      ○ (tosser)   │\n│                                │\n│   ○ (header)      ○ (tosser)   │\n└────────────────────────────────┘",
     coachingPoints: [
-      "Eyes open, watch the ball",
-      "Use forehead, not top of head",
-      "Neck muscles firm",
-      "Arms out for balance",
+      "FOREHEAD, NOT TOP OF HEAD → Say: 'Watch the ball onto your forehead - not the crown of your head!'",
+      "EYES OPEN THROUGH CONTACT → Say: 'Keep your eyes open the whole time - watch it all the way in!'",
+      "FIRM NECK → Say: 'Firm neck, like you're saying no with your whole head - don't let it wobble!'",
+      "MEET THE BALL, DON'T WAIT → Say: 'Go get it - attack the ball, don't let it hit you!'",
     ],
     questionsToAsk: [
-      "What part of your head contacts the ball?",
-      "How do you generate power?",
+      "'What part of your head contacts the ball?' → Looking for: the forehead, not the top or side of the head",
+      "'How do you generate power?' → Looking for: firm neck and driving the whole upper body through the ball, not just snapping the neck",
+      "'Why do we go through every stage instead of jumping straight to running headers?' → Looking for: technique has to be solid and safe before adding speed or height",
+      "'What would happen if your eyes were closed at contact?' → Looking for: you'd mistime it or hit the wrong part of your head",
     ],
-    commonMistakes: ["Closing eyes", "Using top of head", "Neck too loose"],
+    commonMistakes: [
+      "CLOSING EYES → Say: 'Eyes open the whole way - I promise it won't hurt if you watch it in!'",
+      "USING TOP OF HEAD → Say: 'Forehead, not the top - tilt your chin down slightly to find it!'",
+      "NECK TOO LOOSE → Say: 'Firm it up - tighten your neck like you're bracing for it!'",
+      "WAITING FOR THE BALL INSTEAD OF MEETING IT → Say: 'Step in and meet it - don't just stand there and let it arrive!'",
+    ],
     variations: [
       {
         name: "Target Headers",
-        description: "Head ball back through cone gate",
+        description:
+          "Once standing headers are clean and controlled, header directs the ball back through a cone gate to practice accuracy and direction.",
         difficulty: "advanced",
       },
       {
         name: "Defensive Headers",
-        description: "Head ball high and far",
+        description:
+          "Header practices heading the ball high and far (as if clearing danger from their own goal), reinforcing the defensive heading technique this activity builds toward.",
         difficulty: "advanced",
       },
+      {
+        name: "Balloon Warm-Up",
+        description:
+          "For younger or first-time headers, practice the forehead-contact motion against a balloon before ever using a real ball - removes any fear of impact while technique is learned.",
+        difficulty: "beginner",
+      },
+      {
+        name: "Partner Count Challenge",
+        description:
+          "Once technique is solid at the standing stage, partners count how many clean, forehead-contact headers they can complete in a row without ball loss - keeps focus on control rather than power.",
+        difficulty: "intermediate",
+      },
     ],
-    makeEasier: "Start with lighter ball, seated position",
-    makeHarder: "Moving service, add competition",
-    equipmentNeeded: ["Balls"],
+    makeEasier:
+      "SIGNS THEY'RE STRUGGLING:\n• Flinching or closing eyes before contact\n• Contact on top of head or off-center\n• Visible fear or reluctance to attempt headers\n\nSOLUTIONS:\n• Stay at the seated or kneeling stage longer - do not progress until technique is clean\n• Use a lighter/softer ball, or the Balloon Warm-Up variation with no ball contact at all\n• Tosser stands closer and tosses even more gently\n• Never force a header - let a hesitant player toss only, and reintroduce heading gradually across future sessions",
+    makeHarder:
+      "SIGNS THEY'RE READY:\n• Clean forehead contact, eyes open, firm neck at the standing stage\n• Comfortable and confident, asking to try more\n• Coach has directly observed correct technique repeatedly, not just once\n\nSOLUTIONS:\n• Progress to the jump-and-head stage, with a strict focus on timing the jump to meet the ball at its highest point\n• Add Target Headers for directional accuracy\n• Add Defensive Headers for the high-and-far clearing technique\n• Only for older, technically ready groups: a brief, gentle running jump and head",
+    equipmentNeeded: ["1 ball per pair"],
     spaceRequired: "small",
     indoorSuitable: true,
-    appropriateStages: ["skill-building", "development"],
+    appropriateStages: ["development"],
     tags: ["heading", "technique", "aerial"],
     featured: false,
+    comprehensiveGuide: {
+      quickReference: {
+        oneSentence:
+          "A staged progression from seated to standing (and, only when ready, jumping) headers that builds safe forehead-contact technique before adding speed or height.",
+        keyPhrases: [
+          "Forehead, not the top of your head!",
+          "Eyes open the whole time!",
+          "Firm neck - like saying no with your whole head!",
+        ],
+        setupDiagram:
+          "Pairs 5 paces apart, one tosser and one header, each pair with its own small space",
+        quickProgression: {
+          easier: "Stay at seated/kneeling stage, softer ball, or Balloon Warm-Up with no ball contact",
+          harder: "Progress to jump-and-head only once standing technique is clean, then add Target/Defensive Headers",
+        },
+      },
+      completeScript: {
+        beforeYouStart: {
+          preparation: [
+            "Confirm the ball is appropriately sized and inflated for the age group",
+            "Pair players and space them 5 paces apart in their own area",
+            "Decide in advance how far this group is likely ready to progress today (many groups should stop before jumping headers)",
+            "Have a demo partner ready to show forehead vs. top-of-head contact",
+          ],
+          mindset:
+            "This is a technique-first, safety-first activity - never let enthusiasm push the group past a stage where technique isn't yet clean and controlled. It is completely fine, and often correct, to spend the whole session at the seated and kneeling stages. Repeat 'forehead, eyes open, firm neck' constantly - these three cues are the whole activity.",
+        },
+        segments: [
+          {
+            phase: "Gather & Explain",
+            duration: "60 seconds",
+            coachPosition: "Center, with a demo partner",
+            script:
+              "Demo forehead contact, eyes open, firm neck. 'We never jump straight to hard headers - toss gently, underhand, to the forehead.'",
+            anticipatedResponses: {
+              "Does this hurt?":
+                "Not with good technique - forehead and firm neck, and it's just a gentle toss to start.",
+              "Can we skip to jumping?":
+                "Not yet - we earn each stage by showing clean technique first!",
+            },
+          },
+          {
+            phase: "Stage 1 - Sit and Head",
+            duration: "90 seconds",
+            coachPosition: "Walking between pairs",
+            script:
+              "Headers seated, tossers gently drop the ball to forehead height. Coach cues eyes open and firm neck throughout.",
+            troubleshooting: {
+              "Player flinching or turning away": [
+                "Pause, reassure, and consider the Balloon Warm-Up variation instead of a real ball",
+              ],
+              "Tosses too hard or inaccurate": [
+                "Coach demos a proper gentle underhand toss and has the tosser mirror it",
+              ],
+            },
+          },
+          {
+            phase: "Stage 2 - Kneel and Head",
+            duration: "60 seconds",
+            coachPosition: "Walking between pairs",
+            script: "Same technique from kneeling. Reinforce the same three cues.",
+          },
+          {
+            phase: "Teaching Moment",
+            duration: "45 seconds",
+            coachPosition: "Center, everyone watching",
+            script:
+              "Demo top-of-head contact (wobbly, uncontrolled) vs. forehead with firm neck (controlled). 'That's what gives you control over where it goes.'",
+          },
+          {
+            phase: "Stage 3 - Stand and Head",
+            duration: "90 seconds",
+            coachPosition: "Moving through pairs",
+            script:
+              "Standing headers with the same technique. Individual feedback on neck firmness and eye contact through the header.",
+          },
+          {
+            phase: "Stage 4 - Jump and Head (if ready)",
+            duration: "90 seconds",
+            coachPosition: "Moving through pairs, closely observing",
+            script:
+              "Only for pairs with clean standing technique. Small jumps, timed to meet the ball at its highest point. 'This is about timing, not power.'",
+            troubleshooting: {
+              "Technique breaking down under the jump": [
+                "Drop that pair back to the standing stage for the rest of the session",
+              ],
+            },
+          },
+          {
+            phase: "Switch Roles & Challenge",
+            duration: "60 seconds",
+            coachPosition: "Roaming",
+            script:
+              "Switch tosser and header. Repeat the appropriate stage for the new header. Optional brief running header only for advanced, technically clean groups.",
+          },
+          {
+            phase: "Wrap Up",
+            duration: "30 seconds",
+            coachPosition: "Center",
+            script:
+              "ASK: 'What part of your head contacts the ball?' Reinforce technique-first mindset. Water break!",
+          },
+        ],
+      },
+      troubleshooting: {
+        gameBalance: {
+          tooEasy: {
+            symptoms: [
+              "Clean forehead contact at every stage with no hesitation",
+              "Confident, controlled jump-and-head technique",
+              "Asking for more challenge",
+            ],
+            solutions: [
+              "Add Target Headers for accuracy",
+              "Add Defensive Headers for power and distance",
+              "Progress to a brief, gentle running header for older/ready groups only",
+            ],
+          },
+          tooHard: {
+            symptoms: [
+              "Flinching, eyes closing, or turning away from the ball",
+              "Off-center or top-of-head contact repeatedly",
+              "Visible reluctance or anxiety",
+            ],
+            solutions: [
+              "Drop back a stage (or all the way to Balloon Warm-Up)",
+              "Use a softer/lighter ball",
+              "Slow the toss and shorten the distance",
+              "Never force it - let a hesitant player toss only today",
+            ],
+          },
+        },
+        playerBehavior: {
+          rushingStages: {
+            symptoms: ["Players asking to skip ahead to jumping/running headers"],
+            approach:
+              "SAY: 'We earn each stage - once your seated and standing technique is clean every time, we move on.' Hold the line on progression.",
+          },
+          fearOfContact: {
+            symptoms: ["Turning head away", "Using hands instead", "Refusing to attempt"],
+            approach:
+              "SAY: 'No pressure - let's try the balloon first, or you can toss for your partner today.' Never force a header; reintroduce gradually over future sessions.",
+          },
+        },
+        environmentalIssues: {
+          overinflatedOrHeavyBall: {
+            symptoms: ["Players wincing on contact", "Reluctance to head the ball"],
+            solution: "Use a properly inflated, age-appropriate size ball; switch to a lighter ball if available.",
+          },
+          crowdedPairs: {
+            symptoms: ["Balls from neighboring pairs interfering"],
+            solution: "Space pairs at least 2-3 paces apart from each other.",
+          },
+        },
+      },
+      skillConnections: {
+        primarySkills: [
+          {
+            skill: "Heading - Defensive",
+            domain: "technical",
+            howItDevelops:
+              "The staged progression builds forehead contact, open eyes, and neck firmness in a low-risk, low-speed environment before ever adding jump timing or game speed - directly building toward safely clearing a ball away from danger.",
+            levelIndicators: {
+              1: "Afraid of ball, closes eyes",
+              2: "Makes contact but poor direction/power",
+              3: "Consistent contact, can direct header",
+              4: "Good power and direction, wins aerial duels",
+              5: "Dominant in the air, heads to teammates",
+            },
+            assessmentNotes:
+              "Watch eye behavior at the moment of contact and whether the header times a jump to meet the ball at its highest point rather than waiting for it to drop - these predict readiness for the next stage better than raw confidence does.",
+          },
+        ],
+        secondarySkills: [
+          {
+            skill: "Confidence",
+            domain: "psychological",
+            howItDevelops:
+              "Succeeding at each low-pressure stage before advancing builds genuine confidence in heading rather than forced bravado around a skill many players are initially nervous about.",
+          },
+        ],
+        physicalDevelopment: {
+          coordination: "Timing head-to-ball contact and, at later stages, timing a jump to meet the ball",
+          balance: "Maintaining balance on landing after jump headers",
+        },
+        psychologicalDevelopment: {
+          courage: "Building comfort with heading gradually rather than through forced exposure",
+          patience: "Learning that mastering a stage comes before earning the next one",
+        },
+      },
+      developmentalContext: {
+        whyThisActivity:
+          "Heading Progression exists to slow down a skill that's easy to rush and easy to get wrong. Heading is a technical, aerial skill with real safety considerations, and this activity's entire structure - seated, then kneeling, then standing, and only then jumping - is designed to build correct forehead-contact technique at low speed before any element of pace, height, or contact risk is added. It matches the recommended introduction age for defensive heading and should never be compressed to save time.",
+        whenToUseIt: {
+          idealFor: [
+            "First formal introduction to heading technique",
+            "Technical block with a group that has the appropriate introduction age and readiness for heading",
+            "Refreshing/reinforcing technique before a season begins",
+          ],
+          avoidWhen: [
+            "Group is below the appropriate introduction age for heading - use the Balloon Warm-Up variation or skip heading entirely for younger groups",
+            "Any player reports recent head injury or concussion symptoms - exclude them from all heading that session",
+            "Balls are overinflated, oversized, or otherwise not appropriately sized for the group",
+          ],
+        },
+        progressionPath: {
+          before: [
+            {
+              activity: "Ball Mastery Circle",
+              reason: "Builds general ball comfort and body control before introducing head contact",
+            },
+          ],
+          after: [
+            {
+              activity: "Crossing and Finishing",
+              reason: "Applies aerial technique to a game-like crossing and attacking header context",
+            },
+          ],
+        },
+        ageAdaptations: {
+          ages6to8: {
+            approach:
+              "Heading is not typically introduced at this age - the technique and safety demands are beyond most 6-8 year-olds' readiness. Where a version of this activity is used, keep it entirely no-contact: teach the concept (forehead, eyes open) using a balloon or very light foam ball, purely as familiarization, not a heading drill.",
+            keyPhrases: [
+              "You'll learn real heading when you're a bit older!",
+              "Let's practice with the balloon - watch it onto your forehead!",
+              "Great watching - eyes open the whole time!",
+            ],
+            avoidSaying: ["Head it hard", "Everyone needs to head the ball today"],
+            duration: "3-5 minutes, Balloon Warm-Up only",
+            simplifications: [
+              "Balloon or very light foam ball only - no real ball contact",
+              "No jumping or standing headers",
+              "Frame entirely as a future skill they're getting a preview of",
+            ],
+          },
+          ages9to11: {
+            approach:
+              "This is close to the recommended introduction age for defensive heading (typically around 11) - move through the seated, kneeling, and standing stages carefully and patiently. Most groups at this age should stay at or below the standing stage; only progress to jump-and-head for players who are clearly ready and have shown clean technique repeatedly.",
+            keyPhrases: [
+              "Forehead, eyes open, firm neck - every single time!",
+              "We earn the next stage by showing clean technique!",
+              "No rush - this is about doing it right!",
+            ],
+            challenges: [
+              "Standing headers with consistent technique",
+              "Jump-and-head only for clearly ready players",
+            ],
+            duration: "8-10 minutes",
+          },
+          ages12to14: {
+            approach:
+              "Full progression is appropriate, including jump and light running headers, once technique is confirmed. Connect explicitly to using headers to defend or attack in games.",
+            keyPhrases: [
+              "Time your jump to meet it at the top!",
+              "How would you use this to clear danger in a real game?",
+            ],
+            challenges: [
+              "Target Headers for accuracy",
+              "Defensive Headers for power and distance",
+              "Brief running headers for technically clean players",
+            ],
+            coachRole: "Facilitate discussion on when and why to head the ball in game situations",
+          },
+        },
+        commonMisconceptions: {
+          "Heading is just about being brave enough to do it":
+            "Heading is a technical skill built on correct forehead contact and timing - courage without technique leads to poor contact and unnecessary risk.",
+          "More power always means a better header":
+            "Control and correct technique matter more than power, especially for younger and newer players - direction and timing come before force.",
+          "Every player should progress through all 5 stages in one session":
+            "Many groups, especially younger or first-time headers, should stay at the seated, kneeling, or standing stage for multiple sessions before ever adding a jump.",
+        },
+      },
+      parentCommunication: {
+        ifAsked:
+          "Heading Progression is a slow, staged introduction to heading technique - we start seated with gentle tosses and only add standing, and eventually jumping, once your child shows correct forehead contact, open eyes, and a firm neck every time. We never rush this skill, and younger or first-time headers may stay at the early, no-jump stages for a while - that's expected and correct.",
+        newsletter:
+          "This week (for our older groups): Heading Progression. We build heading technique in careful stages - seated, kneeling, standing, and only then jumping - always with a gentle, controlled toss and a focus on forehead contact, open eyes, and a firm neck. Younger groups are not doing live heading yet; we introduce this skill at the age-appropriate stage.",
+        whatToWatchFor: [
+          "Does your child keep their eyes open through contact, or do they flinch/close their eyes?",
+          "Are they making contact with their forehead, not the top of their head?",
+          "Do they seem comfortable and confident, or hesitant - and are we respecting that pace?",
+        ],
+      },
+      safety: {
+        commonRisks: [
+          {
+            risk: "Incorrect technique (top-of-head contact, closed eyes) increasing discomfort or injury risk",
+            prevention: "Strict stage-by-stage progression; never advance a player whose technique isn't clean",
+            response: "Stop, re-demo technique 1-on-1, drop back a stage",
+          },
+          {
+            risk: "Heading introduced before appropriate readiness or age",
+            prevention: "Follow the introduction-age guidance; use no-contact alternatives (Balloon Warm-Up) for younger groups",
+            response: "Substitute a non-heading variation for that player or group",
+          },
+          {
+            risk: "Head/neck strain from a ball that is overinflated, oversized, or thrown too hard",
+            prevention: "Use a properly sized, correctly inflated ball; tossers always use a gentle underhand toss",
+            response: "Stop and reset the toss technique; check the player for discomfort",
+          },
+          {
+            risk: "Undisclosed recent head injury",
+            prevention: "Ask before the session if anyone has had a recent head knock or concussion",
+            response: "Exclude that player from heading for the session; refer to standard concussion protocol",
+          },
+        ],
+        inclusionConsiderations: {
+          concussionHistoryOrMedicalConcerns:
+            "Any player with a recent head injury, concussion history, or parent/guardian request should be excluded from live heading and given a non-contact role (tosser, or the Balloon Warm-Up alternative)",
+          anxietyAroundContact:
+            "Never force a hesitant player to head a ball; let them toss and progress at their own pace across future sessions",
+        },
+      },
+      coachReflection: {
+        afterActivity: [
+          "Did every player show clean forehead contact before progressing to the next stage?",
+          "Did I hold the line on not rushing to jumping/running headers?",
+          "Were any players hesitant, and did I respect that pace without pressure?",
+          "Was the ball appropriately sized and inflated for this group?",
+        ],
+        forImprovement: [
+          "Which players need more seated/standing reps before their next heading session?",
+          "Should I check in with parents about any player's comfort level with heading?",
+          "Is this group ready for Target Headers or Defensive Headers next time?",
+        ],
+      },
+    },
   },
   {
     slug: "juggling-challenge",
@@ -5198,40 +8708,399 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     durationMinutes: 10,
     skillsDeveloped: ["dribbling-with-speed", "agility-coordination"],
     setupInstructions:
-      "Two or more teams. Set up cone course - zigzag, straight line, or combination.",
+      "EQUIPMENT CHECKLIST\n□ 1 ball per team\n□ 12-16 cones (6-8 per lane, 2 paces apart)\n□ Pinnies to mark teams (optional)\n□ 1 spare ball per lane (in case one goes flat or rolls off)\n\nSPACE: 20x8 paces per lane (two or more lanes, at least 8 paces apart so lanes don't cross)\n\nSETUP STEPS\n1. Split players into teams of 4-6\n2. Set up one zigzag lane per team - 6-8 cones, 2 paces apart\n3. Place a start/tag cone at the near end of each lane\n4. Line each team up single file behind their lane's start cone\n5. Give the first dribbler on each team a ball\n\nDIAGRAM\n┌──────────────────────────────────────┐\n│ Team A                                │\n│ ○○○○  ▲  ▲  ▲  ▲  ▲  ▲                │  8 paces\n│                                        │\n│ Team B                                │\n│ ○○○○  ▲  ▲  ▲  ▲  ▲  ▲                │\n└──────────────────────────────────────┘\n        20 paces (zigzag lane, cones 2 paces apart)\n\n○ = waiting teammates, ▲ = cone, ball starts with front player",
     howToPlay:
-      "1. First player dribbles through course and back\n2. Tags next player who goes\n3. First team to finish wins\n4. Vary the dribbling technique required",
+      'PHASE 1: GATHER & EXPLAIN (45 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: Between the two lanes, visible to both teams\n\nSAY: "Line up behind your team\'s cones! First person has the ball. When I say go, dribble through every cone, then sprint the ball straight back and tag the next player\'s hand!"\n\nDEMO: Walk the zigzag slowly, touching the ball at every cone with inside and outside of the foot.\n\nSAY: "The ball has to go through every gap - no skipping cones! Tag hands - don\'t throw the ball!"\n\n\nPHASE 2: PRACTICE RUN & TEACHING MOMENT (105 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Everyone gets one practice run - no racing yet. Just find your rhythm with the cones."\n\nCoach Position: Walking the lanes, one at a time\n\nWATCH FOR:\n□ Are they using both feet or just their strong foot?\n□ Is the ball staying within a step of them at each cone?\n□ Are they slowing all the way to a stop, or keeping some pace?\n\nPHRASES TO USE:\n• "Small touches through the cones!"\n• "A little speed is okay - just stay in control!"\n• "Nice - you used your other foot there!"\n\nGather everyone at the last cone: "Watch this." DEMO: small, tight touches between cones, then one bigger touch with the outside of the foot to push into the open space after the last cone.\n\nSAY: "Small touches in the tight spots. Bigger touches once you\'re clear. That\'s how you go fast AND stay in control."\n\n\nPHASE 3: ROUND 1 - RELAY RACE (2-3 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Now we race! Same rules - every cone gap, tag the next hand. Ready... GO!"\n\nCoach Position: At the finish/tag line, calling out both lanes\n\nWATCH FOR: Ball getting kicked too far ahead at cones; players cutting corners instead of weaving through\n\nPHRASES TO USE:\n• "Slow down through the cones, speed up after!"\n• "Great tag - go go go!"\n• "Cheer your teammate home!"\n\nEnd when both teams finish: "Great effort both teams! Reset and go again."\n\n\nPHASE 4: ROUND 2 - SKILL MOVE RELAY (2 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "This time, at the very last cone, do one skill move - a step-over or a cut - before you sprint home!"\n\nCoach Position: Near the last cone in each lane\n\nPHRASES TO USE:\n• "Nice move - now go!"\n• "Doesn\'t have to be fancy - just controlled!"\n\n\nPHASE 5: CHALLENGE ROUND - WEAK FOOT (1-2 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Final round - only your weak foot touches the ball through the cones! This is hard - it\'s okay to slow way down."\n\nCoach Position: Roaming between lanes\n\nPHRASES TO USE:\n• "Slower is fine - just control it with that foot!"\n• "That\'s a tough skill - nice effort!"\n\n\nPHASE 6: WRAP UP (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "What helped you go fast AND keep the ball close?"\n\nListen for: "small touches," "using both feet," "looking ahead"\n\nSAY: "Exactly - close control lets you actually use your speed. Water break!"',
+    diagram:
+      "┌──────────────────────────────────────┐\n│ Team A                                │\n│ ○○○○  ▲  ▲  ▲  ▲  ▲  ▲                │\n│                                        │\n│ Team B                                │\n│ ○○○○  ▲  ▲  ▲  ▲  ▲  ▲                │\n└──────────────────────────────────────┘\n        20 paces (zigzag lane, cones 2 paces apart)",
     coachingPoints: [
-      "Close control around cones",
-      "Accelerate in open spaces",
-      "Use outside of foot for speed",
-      "Keep head up when possible",
+      "CLOSE CONTROL THROUGH CONES → Say: 'Small touches - keep the ball close through the tight spots!'",
+      "ACCELERATE IN THE OPEN → Say: 'Once you're clear of the last cone, push it out and sprint!'",
+      "USE BOTH FEET → Say: 'Try the outside of your foot on that side, inside coming back!'",
+      "HEAD UP WHEN YOU CAN → Say: 'Quick glances at your teammate waiting to tag - not just down at the ball!'",
     ],
     questionsToAsk: [
-      "How do you go faster without losing control?",
-      "What part of foot is best for speed?",
+      "'How do you go faster without losing the ball?' → Looking for: smaller touches near cones, bigger touches in open space",
+      "'What part of your foot works best for speed?' → Outside of the foot for longer touches in open ground",
+      "'What happened when you rushed through the cones?' → Looking for: they notice the ball got away from them",
+      "'How does cheering for your teammate help the team?' → Builds effort and belonging, not just individual speed",
     ],
-    commonMistakes: ["Ball too far ahead", "Slowing down too much at cones"],
+    commonMistakes: [
+      "BALL TOO FAR AHEAD → Say: 'Bring it back close - the ball should never get more than a step away!'",
+      "SLOWING TO A CRAWL AT EVERY CONE → Say: 'You can keep some speed - just shorten your touches!'",
+      "CUTTING CONES INSTEAD OF WEAVING → Say: 'Ball has to go through every gap - no shortcuts!'",
+      "THROWING THE BALL TO THE NEXT PLAYER → Say: 'Hand tag only - the ball stays with the runner!'",
+    ],
     variations: [
       {
         name: "Weak Foot Only",
-        description: "Must use non-dominant foot",
+        description:
+          "Must use non-dominant foot for the entire lane. Slower is expected - reward control over speed.",
         difficulty: "intermediate",
       },
       {
         name: "Skill Move Required",
-        description: "Must do a move at each cone",
+        description:
+          "Must complete a step-over, cut, or scissor at the final cone before sprinting home.",
         difficulty: "intermediate",
       },
+      {
+        name: "Called Technique",
+        description:
+          "Coach calls out 'inside foot!' or 'outside foot!' mid-run and players must switch immediately, without stopping the ball.",
+        difficulty: "advanced",
+      },
     ],
-    makeEasier: "Wider cone spacing, shorter course",
-    makeHarder: "Tighter cones, longer course, add penalties for errors",
+    makeEasier:
+      "SIGNS THEY'RE STRUGGLING:\n• Ball rolling away at almost every cone\n• Walking instead of dribbling\n• Team frustration building during slow runs\n• Running around cones instead of weaving through\n\nSOLUTIONS:\n• Widen cone spacing to 3 paces\n• Shorten the lane to 4-5 cones\n• Allow a 'reset touch' if the ball gets away\n• Run one technique-only round with no racing\n• Pair a stronger dribbler with a struggling one for a combined run",
+    makeHarder:
+      "SIGNS THEY'RE READY:\n• Ball always within a step, even at speed\n• Racing without slowing dramatically at cones\n• Asking to go again or race a friend\n\nSOLUTIONS:\n• Narrow cone spacing to 1.5 paces\n• Add a second lap for each runner\n• Weak foot only for the whole lane\n• Require a specific skill move at a marked cone\n• Add a jogging defender who applies light pressure without tackling",
     equipmentNeeded: ["Cones", "Balls"],
     spaceRequired: "medium",
     indoorSuitable: true,
     appropriateStages: ["fundamentals", "skill-building"],
     tags: ["dribbling", "speed", "relay", "competition"],
     featured: false,
+    comprehensiveGuide: {
+      quickReference: {
+        oneSentence:
+          "Team relay dribbling through a zigzag cone course - builds close control at speed and the discipline to slow down in tight spots and accelerate in open space.",
+        keyPhrases: [
+          "Small touches through the cones, big touches after!",
+          "Keep it close - never more than a step away!",
+          "Cheer your teammate home!",
+        ],
+        setupDiagram:
+          "Two or more parallel 20-pace zigzag lanes, 6-8 cones per lane 2 paces apart, teams lined up single file at the start",
+        quickProgression: {
+          easier: "Wider cone spacing, shorter lane, allow reset touches",
+          harder: "Narrower cones, weak foot only, add a required skill move",
+        },
+      },
+      completeScript: {
+        beforeYouStart: {
+          preparation: [
+            "Set up one zigzag lane per team, at least 8 paces apart so lanes don't cross",
+            "Count cones needed: 6-8 per lane, 2 paces apart",
+            "Split into even teams of 4-6 players",
+            "Have a spare ball ready per lane in case one goes flat or rolls off",
+          ],
+          mindset:
+            "This is a technical activity wearing a relay costume - the racing makes it fun, but your job is close control under speed pressure. Praise controlled dribbling over raw speed; a player who finishes third with the ball glued to their feet is doing it right.",
+        },
+        segments: [
+          {
+            phase: "Gather & Explain",
+            duration: "45 seconds",
+            coachPosition: "Between the two lanes, visible to both teams",
+            script:
+              "SAY: 'Dribble through every cone, then sprint back and tag the next hand!' Demo the zigzag slowly. 'Ball touches every gap - no skipping!'",
+            anticipatedResponses: {
+              "Can I just run around the cones?":
+                "The ball has to weave through every gap - that's the whole point!",
+              "What if I drop the ball?":
+                "Grab it, get it back close, and keep going - no penalty for a mistake.",
+            },
+          },
+          {
+            phase: "Practice Run & Teaching Moment",
+            duration: "105 seconds",
+            coachPosition: "Walking the lanes, then gathering both teams at the last cone",
+            script:
+              "One practice run, no racing. Then demo: small touches between cones, one bigger touch to accelerate after the last cone. 'Small in the tight spots, bigger once you're clear.'",
+            troubleshooting: {
+              "Everyone racing on the practice run": [
+                "Stop and reset: 'This one's for finding your rhythm - no racing yet!'",
+              ],
+            },
+          },
+          {
+            phase: "Round 1 - Relay Race",
+            duration: "2-3 minutes",
+            coachPosition: "At the finish/tag line, calling out both lanes",
+            script:
+              "'Ready... GO!' Call encouragement to both lanes equally. End with a shared cheer regardless of which team finished first.",
+            troubleshooting: {
+              "Ball flying off at cones": [
+                "Slow down through the cones - speed up after!",
+              ],
+              "Players cutting corners": [
+                "Ball has to go through every gap - no shortcuts!",
+              ],
+            },
+          },
+          {
+            phase: "Round 2 - Skill Move Relay",
+            duration: "2 minutes",
+            coachPosition: "Near the last cone in each lane",
+            script:
+              "'One skill move at the last cone before you sprint home!' Praise attempts even if the move is rough.",
+          },
+          {
+            phase: "Challenge Round - Weak Foot",
+            duration: "1-2 minutes",
+            coachPosition: "Roaming between lanes",
+            script:
+              "'Only your weak foot touches the ball!' Expect - and normalize - a much slower pace. 'It's okay to slow way down for this one.'",
+          },
+          {
+            phase: "Wrap Up",
+            duration: "30 seconds",
+            coachPosition: "Between both teams",
+            script:
+              "ASK: 'What helped you go fast AND keep the ball close?' Connect to games: close control lets you actually use your speed. Water break!",
+          },
+        ],
+      },
+      troubleshooting: {
+        gameBalance: {
+          tooEasy: {
+            symptoms: [
+              "Finishing the lane without slowing down at all",
+              "Perfect control at full speed",
+              "Asking to race again immediately",
+            ],
+            solutions: [
+              "Narrow cone spacing",
+              "Weak foot only",
+              "Add a required skill move",
+              "Add a second lap",
+              "Add a light-pressure jogging defender",
+            ],
+          },
+          tooHard: {
+            symptoms: [
+              "Ball escaping at almost every cone",
+              "Walking instead of dribbling",
+              "Team members frustrated waiting for slow runs",
+            ],
+            solutions: [
+              "Widen cone spacing",
+              "Shorten the lane",
+              "Allow reset touches",
+              "Run a technique-only round with no racing",
+            ],
+          },
+        },
+        playerBehavior: {
+          racingReckless: {
+            symptoms: [
+              "Kicking the ball far ahead and chasing it",
+              "Knocking over cones",
+              "Ignoring teammates waiting to tag",
+            ],
+            approach:
+              "SAY: 'A fast time with the ball gone doesn't count - control first!' Slow the pace for one round if needed.",
+          },
+          impatientWaiting: {
+            symptoms: [
+              "Team members wandering off while waiting to run",
+              "Not cheering for the runner",
+              "Arguing about turn order",
+            ],
+            approach:
+              "Give waiting players a job: 'Everyone not running is cheering loud for your teammate!'",
+          },
+        },
+        environmentalIssues: {
+          wetOrSlickGround: {
+            symptoms: ["Players slipping on tight turns near cones"],
+            solution: "Widen cone spacing and reduce racing intensity; emphasize control over speed.",
+          },
+          unevenTeamSizes: {
+            symptoms: ["One team finishing rounds much faster or slower"],
+            solution: "Rebalance teams, or have a faster team run an extra lap to even out total reps.",
+          },
+        },
+      },
+      skillConnections: {
+        primarySkills: [
+          {
+            skill: "Dribbling with Speed",
+            domain: "Technical",
+            howItDevelops:
+              "The relay format forces players to find the balance between close control at the cones and pushing pace in open space - the core skill of dribbling at speed in a real game.",
+            levelIndicators: {
+              1: "Loses the ball at most cones; walks the whole lane",
+              2: "Gets through the lane but ball drifts a step or more away",
+              3: "Ball stays close through cones; some acceleration after",
+              4: "Clear speed change between tight and open sections",
+              5: "Full speed with tight control throughout; uses both feet fluidly",
+            },
+            assessmentNotes:
+              "Watch the gap between player and ball at each cone, and whether they actually accelerate once clear of the last cone.",
+          },
+          {
+            skill: "Agility & Coordination",
+            domain: "Physical",
+            howItDevelops:
+              "Rapid, repeated direction changes around cones at increasing speed build footwork coordination and body control.",
+            levelIndicators: {
+              1: "Stiff, wide turns; stumbles at direction changes",
+              2: "Completes turns but slows dramatically each time",
+              3: "Smooth turns with minor speed loss",
+              4: "Fluid direction changes at near-full speed",
+              5: "No visible speed loss through turns; balanced and quick",
+            },
+            assessmentNotes:
+              "Watch footwork and balance through the zigzag, not just ball control.",
+          },
+        ],
+        secondarySkills: [
+          {
+            skill: "Teamwork",
+            domain: "Psychological",
+            howItDevelops:
+              "Relay format ties individual performance to team outcome, and cheering teammates on builds a shared sense of effort.",
+          },
+          {
+            skill: "Confidence",
+            domain: "Psychological",
+            howItDevelops:
+              "Racing in front of teammates, especially on the weak-foot challenge round, builds comfort performing skills under mild social pressure.",
+          },
+        ],
+      },
+      developmentalContext: {
+        whyThisActivity:
+          "Most young dribblers default to one speed - either cautious and slow everywhere, or fast and out of control everywhere. Speed Dribbling Relay forces the specific skill of modulating pace: small controlled touches in tight spaces, bigger accelerating touches in the open. The relay format adds fun competitive pressure that mimics the urgency of a real match without adding an opponent yet.",
+        whenToUseIt: {
+          idealFor: [
+            "Mid-practice, after a technical warm-up, before small-sided games",
+            "When players have solid dribbling basics but play at one speed",
+            "Building team energy and enthusiasm mid-session",
+          ],
+          avoidWhen: [
+            "Very first activity of a session (players need some ball-touch warm-up first)",
+            "Group has fewer than 8 players (relay needs real teams)",
+            "Slick or wet ground where turning at speed is unsafe",
+          ],
+        },
+        progressionPath: {
+          before: [
+            {
+              activity: "Gates Dribbling",
+              reason: "Builds head-up, controlled dribbling before adding a speed and racing element",
+            },
+            {
+              activity: "Traffic Lights",
+              reason: "Introduces controlling the ball at different speeds on command",
+            },
+          ],
+          after: [
+            {
+              activity: "Inside-Outside Slalom",
+              reason: "Adds tighter, more technical cone work once speed control is solid",
+            },
+            {
+              activity: "Dribble Sprints",
+              reason: "Isolates pure straight-line speed dribbling without the turning element",
+            },
+            {
+              activity: "Coerver Moves Circuit",
+              reason: "Adds specific skill moves at speed, building on the skill-move variation here",
+            },
+          ],
+        },
+        ageAdaptations: {
+          ages6to8: {
+            approach: "Frame as a fun race with a partner - focus on finishing, not winning",
+            keyPhrases: [
+              "Can you keep the ball close the WHOLE way?",
+              "Cheer for your team!",
+              "Great try - go again!",
+            ],
+            avoidSaying: ["You're too slow", "Your team lost because of you"],
+            duration: "6-7 minutes, fewer rounds",
+            simplifications: [
+              "Wider cone spacing",
+              "Shorter lane (4 cones)",
+              "Skip the weak-foot challenge round",
+            ],
+          },
+          ages9to11: {
+            approach: "Introduce the speed-vs-control tradeoff explicitly, add the skill move round",
+            keyPhrases: [
+              "Small touches, then big touches - what's the difference?",
+              "Beat your own time first, then race",
+            ],
+            duration: "8-10 minutes, full progression",
+            challenges: [
+              "Skill move requirement",
+              "Weak foot challenge round",
+              "Called technique variation",
+            ],
+          },
+          ages12to14: {
+            approach:
+              "This activity is typically used at younger stages; for older or mixed-ability groups, run it briefly as a technical warm-up with the harder variations layered in immediately",
+            keyPhrases: [
+              "How does this transfer to breaking away on a counter-attack?",
+              "What's your top speed with full control?",
+            ],
+            duration: "5-6 minutes as a warm-up, move quickly to challenge variations",
+            challenges: [
+              "Called Technique variation from the start",
+              "Add a light-pressure defender",
+            ],
+          },
+        },
+        commonMisconceptions: {
+          "Faster is always better":
+            "Uncontrolled speed that loses the ball is slower in a real game than controlled pace - the relay rewards the balance, not raw sprinting.",
+          "This is just a fitness drill":
+            "The primary goal is technical: modulating touch size and speed while keeping the ball close, which directly transfers to breaking away with the ball in games.",
+        },
+      },
+      parentCommunication: {
+        ifAsked:
+          "Speed Dribbling Relay teaches your child to control the ball at different speeds - small touches in tight spaces, bigger touches to accelerate in open ground. It's the skill that lets a player actually use their speed with the ball instead of losing it when they try to go fast.",
+        newsletter:
+          "This week: Speed Dribbling Relay! Teams raced through zigzag cone courses, tagging teammates relay-style. The coaching focus was 'small touches in the tight spots, bigger touches once you're clear' - the exact skill that lets kids dribble fast without losing the ball. Ask your child to show you their fastest controlled dribble at home!",
+        whatToWatchFor: [
+          "Does your child slow down through tight spaces and speed up in open ones, or dribble at one speed the whole time?",
+          "Can they keep the ball close even when going fast?",
+          "Are they starting to use their weaker foot without being asked?",
+        ],
+      },
+      safety: {
+        commonRisks: [
+          {
+            risk: "Rolled ankles on sharp turns at speed",
+            prevention: "Adequate warm-up beforehand; reasonable cone spacing for the group's skill level",
+            response: "Stop the activity, check the player, rest and ice if needed",
+          },
+          {
+            risk: "Collisions between adjacent lanes",
+            prevention: "Keep lanes at least 8 paces apart; mark lane boundaries clearly",
+            response: "Check both players for injury before resuming",
+          },
+          {
+            risk: "Tripping over cones during the sprint-back",
+            prevention: "Keep the tag/return path clear of cones; use low-profile cones",
+            response: "Check for injury; adjust the return path if it happens more than once",
+          },
+        ],
+        inclusionConsiderations: {
+          mobilityDifferences: "Allow walking the lane instead of running; shorten the lane; pair for a combined run",
+          attentionChallenges: "Shorter rounds, clear single-instruction cues, assign a consistent tag partner",
+          skillGaps: "Mix stronger and weaker dribblers across teams so no team is consistently last",
+        },
+      },
+      coachReflection: {
+        afterActivity: [
+          "Were players actually changing speed, or dribbling at one pace the whole time?",
+          "Did the relay format add energy without causing recklessness?",
+          "Was cone spacing appropriate for this group's skill level?",
+          "Did every player get roughly equal reps?",
+        ],
+        forImprovement: [
+          "Should lanes be longer or shorter next time?",
+          "Which variation got the best mix of effort and control?",
+          "Who needs individual work on weak-foot dribbling before the next relay?",
+        ],
+      },
+    },
   },
   {
     slug: "combination-play-circuit",
@@ -5608,45 +9477,385 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     durationMinutes: 12,
     skillsDeveloped: ["when-to-dribble-vs-pass", "finding-space"],
     setupInstructions:
-      "25x20 yard field. No goals - score by stopping ball on opponent's end line.",
+      "EQUIPMENT CHECKLIST\n□ 4 corner cones\n□ Pinnies, 2 colors\n□ 3-4 balls (games restart often early on)\n\nSPACE: 25x20 paces\n\nSETUP STEPS\n1. Mark a 25x20 pace rectangle with a cone at each corner\n2. The two short 20-pace ends are the scoring lines - no goals needed\n3. Split into two teams of 3, different colored pinnies\n4. Each team defends one end line and attacks the other\n5. Start the ball in the center with a coach roll-in\n\nDIAGRAM\n┌────────────────────────────────────┐  ← Team B scores here\n│  ▲                              ▲   │     (dribble across w/ control)\n│                                      │\n│              ●                      │  20 paces\n│                                      │\n│  ▲                              ▲   │\n└────────────────────────────────────┘  ← Team A scores here\n              25 paces\n\n▲ = corner cone, ● = ball start (center)",
     howToPlay:
-      "1. 3v3 teams try to dribble across opponent's end line\n2. Ball must be under control when crossing line\n3. After goal, other team starts with ball\n4. Encourages dribbling and width",
+      'PHASE 1: GATHER & EXPLAIN (60 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: Sideline, both teams gathered\n\nSAY: "No goals today - you score by dribbling the ball all the way across your opponent\'s end line with control. If it\'s not under control when it crosses, no goal!"\n\nDEMO: Walk a ball across a line, stopping it just past.\n\nSAY: "After a goal, the other team gets the ball and we restart from the middle. Ready? Let\'s go!"\n\n\nPHASE 2: ROUND 1 - FREE PLAY (3-4 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Play! Find the space!"\n\nCoach Position: Sideline, moving along the length of the field\n\nWATCH FOR:\n□ Are players spreading across the full width, or bunching in the middle?\n□ Are they dribbling into defenders instead of around them?\n□ Are teams transitioning quickly after a goal or turnover?\n\nPHRASES TO USE:\n• "Use the WHOLE field - side to side!"\n• "Is there a defender there, or is there space?"\n• "Quick restart - go go go!"\n\n\nPHASE 3: TEACHING MOMENT (45 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Everyone freeze and look here."\n\nDEMO: Show a player dribbling straight into a crowd of defenders versus dribbling toward the open side of the field.\n\nSAY: "See how much easier it is to get to the line when there\'s nobody there? Attack the SPACE, not the defender!"\n\n\nPHASE 4: ROUND 2 - APPLY THE LESSON (3-4 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Same game - this time, really use the width. Find the open side!"\n\nCoach Position: Roaming along the sideline, giving specific feedback\n\nPHRASES TO USE:\n• "Great - you found the open space!"\n• "Could you have passed there instead of dribbling into traffic?"\n• "Nice quick restart!"\n\n\nPHASE 5: CHALLENGE ROUND - WIDE ZONES (2-3 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "New rule - if you score in the outside third of the line, it\'s worth 2 points! Middle is still 1."\n\nRun the round, tally points out loud to keep energy up.\n\n\nPHASE 6: WRAP UP (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "What made it easier to get across the line?"\n\nListen for: "Space," "spreading out," "passing instead of dribbling into a crowd"\n\nSAY: "Exactly - finding space and knowing when to pass instead of dribble. That\'s real soccer thinking! Water break!"',
+    diagram:
+      "┌────────────────────────────────────┐  ← Team B scores here\n│  ▲                              ▲   │\n│                                      │\n│              ●                      │\n│                                      │\n│  ▲                              ▲   │\n└────────────────────────────────────┘  ← Team A scores here\n              25 paces",
     coachingPoints: [
-      "Use the full width",
-      "Recognize when to dribble vs pass",
-      "Attack spaces, not defenders",
-      "Transition quickly",
+      "USE THE FULL WIDTH → Say: 'Spread out side to side - don't all crowd the middle!'",
+      "DRIBBLE VS PASS DECISION → Say: 'Is a defender right there? Then look for a pass instead of dribbling into them!'",
+      "ATTACK SPACE, NOT DEFENDERS → Say: 'Run at the open grass, not the player guarding it!'",
+      "TRANSITION QUICKLY → Say: 'Ball changes hands - get moving right away, don't wait!'",
     ],
     questionsToAsk: [
-      "Where is the open space?",
-      "When should you take on a defender?",
-      "How do you create space for teammates?",
+      "'Where is the open space?' → Looking for: scanning the width of the field, not just straight ahead",
+      "'When should you take on a defender?' → When there's clear space to beat them into, not when they're the only path forward",
+      "'How do you create space for teammates?' → Spreading wide pulls defenders away from the middle",
+      "'What changed after we added the wide zone bonus?' → Looking for: players noticing they spread out more on their own",
     ],
     commonMistakes: [
-      "Too narrow - everyone in middle",
-      "Forcing through defenders",
-      "Slow transition",
+      "TOO NARROW - EVERYONE IN THE MIDDLE → Say: 'Spread out! Use the sidelines - that's open space!'",
+      "FORCING THROUGH DEFENDERS → Say: 'If they're right there, look for a teammate instead!'",
+      "SLOW TRANSITION AFTER A GOAL → Say: 'New ball, new attack - get moving fast!'",
+      "STANDING STILL WAITING FOR THE BALL → Say: 'Keep moving to open space so your teammate can find you!'",
     ],
     variations: [
       {
         name: "Wide Zones",
-        description: "Create wide channels worth bonus points",
+        description:
+          "Mark the outer thirds of each end line as bonus zones worth 2 points instead of 1, rewarding width and switching the point of attack.",
         difficulty: "intermediate",
       },
       {
         name: "Must Receive",
-        description: "Must receive pass over line (not dribble)",
+        description:
+          "A goal only counts if the scorer receives a pass before crossing the line under control (no solo dribble-through goals) - forces at least one pass per attack.",
         difficulty: "intermediate",
       },
+      {
+        name: "Two-Touch Limit",
+        description:
+          "Players get a maximum of two touches before they must pass or the ball is turned over - speeds up decision-making and combination play.",
+        difficulty: "advanced",
+      },
     ],
-    makeEasier: "Wider field, larger end zones",
-    makeHarder: "Narrower field, must receive in end zone",
+    makeEasier:
+      "SIGNS THEY'RE STRUGGLING:\n• No goals scored in several minutes\n• Everyone bunched in the center chasing the ball\n• Same player dribbling into 3 defenders repeatedly\n• Frustration or players disengaging\n\nSOLUTIONS:\n• Widen the field to give more space to spread out\n• Enlarge the scoring line into a full end zone (a few paces deep) instead of a thin line\n• Reduce to 2v2 temporarily if numbers allow\n• Coach calls out 'Look for the space over there!' during play",
+    makeHarder:
+      "SIGNS THEY'RE READY:\n• Goals coming easily and often\n• Players naturally spreading to use full width\n• Making passing decisions without prompting\n\nSOLUTIONS:\n• Narrow the field to reduce space\n• Require a pass before the ball can cross the line (Must Receive variation)\n• Add a two-touch limit\n• Play first to a target score for added stakes",
     equipmentNeeded: ["Cones", "Pinnies", "Balls"],
     spaceRequired: "small",
     indoorSuitable: true,
     appropriateStages: ["fundamentals", "skill-building"],
     tags: ["game", "dribbling", "small-sided", "width"],
     featured: false,
+    comprehensiveGuide: {
+      quickReference: {
+        oneSentence:
+          "3v3 game where you score by dribbling under control across the opponent's end line - no goals needed, and the wide-open field rewards width and smart dribble-vs-pass decisions.",
+        keyPhrases: [
+          "Use the whole field - side to side!",
+          "Attack the space, not the defender!",
+          "Quick restart after every goal!",
+        ],
+        setupDiagram:
+          "25x20 pace rectangle, cone at each corner, both short ends are scoring lines, 3v3 teams",
+        quickProgression: {
+          easier: "Wider field, deeper scoring zone, drop to 2v2",
+          harder: "Narrower field, require a pass before scoring, two-touch limit",
+        },
+      },
+      completeScript: {
+        beforeYouStart: {
+          preparation: [
+            "Mark a 25x20 pace rectangle with corner cones",
+            "Confirm both short ends are clearly the scoring lines",
+            "Split into even teams of 3 with different colored pinnies",
+            "Have 3-4 balls ready since restarts happen often early on",
+          ],
+          mindset:
+            "Removing the goal changes everything - without a fixed target, players must actually read where the open space is. Your job is to keep pointing at space, not just praising goals. A team that spreads out and moves the ball well but doesn't score yet is doing the skill correctly.",
+        },
+        segments: [
+          {
+            phase: "Gather & Explain",
+            duration: "60 seconds",
+            coachPosition: "Sideline, both teams gathered",
+            script:
+              "SAY: 'Dribble the ball under control all the way across the opponent's end line to score - no goals needed!' Demo stopping the ball just past the line. 'Quick restart after every goal!'",
+            anticipatedResponses: {
+              "What if the ball crosses but I don't have control?":
+                "No goal - the ball has to be with you, under control, when it crosses.",
+              "Can we pass across the line?":
+                "Not in the base game - you have to dribble it across yourself. We'll add passing goals in a later round.",
+            },
+          },
+          {
+            phase: "Round 1 - Free Play",
+            duration: "3-4 minutes",
+            coachPosition: "Sideline, moving along the length of the field",
+            script:
+              "Let them play with minimal interruption. Call out width and space cues as they arise.",
+            troubleshooting: {
+              "Everyone crowding the middle": [
+                "Spread out! There's open space on the sides!",
+              ],
+              "One player dribbling into every defender": [
+                "Is there a teammate open? Look before you dribble in!",
+              ],
+            },
+          },
+          {
+            phase: "Teaching Moment",
+            duration: "45 seconds",
+            coachPosition: "Center of the field, both teams gathered",
+            script:
+              "Demo dribbling into a crowd versus dribbling toward open space. 'Attack the space, not the defender!'",
+          },
+          {
+            phase: "Round 2 - Apply the Lesson",
+            duration: "3-4 minutes",
+            coachPosition: "Roaming the sideline",
+            script:
+              "'Really use the width this time!' Give individual feedback on space recognition and pass-vs-dribble choices.",
+          },
+          {
+            phase: "Challenge Round - Wide Zones",
+            duration: "2-3 minutes",
+            coachPosition: "Sideline, calling out the score",
+            script:
+              "'Outside third of the line is worth 2 points now!' Keep energy high by announcing scores as they happen.",
+          },
+          {
+            phase: "Wrap Up",
+            duration: "30 seconds",
+            coachPosition: "Center, both teams gathered",
+            script:
+              "ASK: 'What made it easier to get across the line?' Connect to real games: finding space and choosing pass vs. dribble. Water break!",
+          },
+        ],
+      },
+      troubleshooting: {
+        gameBalance: {
+          tooEasy: {
+            symptoms: [
+              "Goals scored almost every possession",
+              "Defenders never getting close to the ball carrier",
+              "Players looking unchallenged or bored",
+            ],
+            solutions: [
+              "Narrow the field",
+              "Require a pass before scoring (Must Receive)",
+              "Add a two-touch limit",
+              "Play to a target score for stakes",
+            ],
+          },
+          tooHard: {
+            symptoms: [
+              "No goals scored in several minutes",
+              "Same player getting stripped of the ball repeatedly",
+              "Visible frustration",
+            ],
+            solutions: [
+              "Widen the field",
+              "Deepen the scoring line into a zone",
+              "Temporarily drop to 2v2",
+              "Coach points out open space verbally during play",
+            ],
+          },
+        },
+        playerBehavior: {
+          ballHogging: {
+            symptoms: [
+              "Same player dribbling every possession",
+              "Teammates standing and watching",
+              "Frustration from players not getting touches",
+            ],
+            approach:
+              "SAY: 'Everyone needs the ball this round - if you've scored twice, look to pass this time!' Praise assists as much as goals.",
+          },
+          bunchingInMiddle: {
+            symptoms: [
+              "All 6 players clustered in the center of the field",
+              "Wide space going completely unused",
+            ],
+            approach:
+              "SAY: 'I see open space on both sides - who's going to use it?' Point out the empty zones out loud.",
+          },
+        },
+        environmentalIssues: {
+          unevenFieldSurface: {
+            symptoms: ["Ball bouncing unpredictably, affecting first touch"],
+            solution: "Shrink the field slightly to the flattest available area, or slow the pace of play.",
+          },
+          notEnoughSpaceForField: {
+            symptoms: ["25x20 paces doesn't fit the available area"],
+            solution: "Shrink proportionally (e.g., 18x14 paces) and drop to 2v2 if needed to keep the game open.",
+          },
+        },
+      },
+      skillConnections: {
+        primarySkills: [
+          {
+            skill: "When to Dribble vs Pass",
+            domain: "Tactical",
+            howItDevelops:
+              "With no fixed goal to aim at, players must constantly judge whether dribbling forward or passing to a teammate is the better option based on where defenders and space are.",
+            levelIndicators: {
+              1: "Always dribbles, regardless of pressure",
+              2: "Occasionally passes, usually only when completely stuck",
+              3: "Passes under clear pressure; dribbles into open space",
+              4: "Reads pressure before it fully arrives and decides early",
+              5: "Consistently makes the higher-percentage choice under pressure",
+            },
+            assessmentNotes:
+              "Watch what a player does when a defender closes in - do they force a dribble or look for an outlet?",
+          },
+          {
+            skill: "Finding Space",
+            domain: "Tactical",
+            howItDevelops:
+              "The wide field and lack of a fixed goal reward players who spread out and attack open areas rather than converging on the ball.",
+            levelIndicators: {
+              1: "Clusters near the ball regardless of position",
+              2: "Occasionally moves to open space when reminded",
+              3: "Positions in open space without prompting most of the time",
+              4: "Actively repositions to create width and depth",
+              5: "Constantly adjusts position to stay useful and open",
+            },
+            assessmentNotes:
+              "Watch off-ball movement, not just what the ball carrier does.",
+          },
+        ],
+        secondarySkills: [
+          {
+            skill: "Support Play",
+            domain: "Tactical",
+            howItDevelops:
+              "Teammates must offer passing options in open space to make the 'when to pass' decision available at all.",
+          },
+          {
+            skill: "Teamwork",
+            domain: "Psychological",
+            howItDevelops:
+              "Scoring requires recognizing and using teammates, not just individual dribbling - reinforces shared success.",
+          },
+        ],
+      },
+      developmentalContext: {
+        whyThisActivity:
+          "Removing the goal is a small change with a big effect: players can no longer aim at a fixed target, so they have to actually read the game to find where scoring is possible. This makes 3v3 Line Soccer an excellent bridge between individual dribbling and true tactical decision-making about when to dribble and when to pass.",
+        whenToUseIt: {
+          idealFor: [
+            "After dribbling technical work, to apply it in a game context",
+            "Introducing the dribble-vs-pass decision for the first time",
+            "Small groups (6-12) where a full small-sided game isn't practical",
+          ],
+          avoidWhen: [
+            "Group doesn't yet have basic dribbling control (do technical work first)",
+            "Space is too cramped for a 25x20 pace rectangle even scaled down",
+          ],
+        },
+        progressionPath: {
+          before: [
+            {
+              activity: "Gates Dribbling",
+              reason: "Builds purposeful, head-up dribbling before adding opponents and a scoring decision",
+            },
+            {
+              activity: "1v1 to Goal",
+              reason: "Introduces the basic 1v1 decision-making this game scales up to 3v3",
+            },
+          ],
+          after: [
+            {
+              activity: "2v2 with Mini Goals",
+              reason: "Adds real goals and tighter combination play once space-finding is solid",
+            },
+            {
+              activity: "4v4 to Small Goals",
+              reason: "Scales up numbers and adds more structured attacking patterns",
+            },
+          ],
+        },
+        ageAdaptations: {
+          ages6to8: {
+            approach: "Keep it playful - celebrate any goal, don't over-coach the tactics yet",
+            keyPhrases: [
+              "Can you find the open space?",
+              "Great teamwork on that one!",
+              "Everybody gets a turn with the ball!",
+            ],
+            avoidSaying: ["You should have passed there", "That was the wrong choice"],
+            duration: "8-9 minutes, mostly free play with light guidance",
+            simplifications: [
+              "Wider field or deeper scoring zone",
+              "Skip the Must Receive and Two-Touch variations",
+              "Drop to 2v2 if a team is short",
+            ],
+          },
+          ages9to11: {
+            approach: "Name the dribble-vs-pass decision explicitly and reinforce it with the teaching moment",
+            keyPhrases: [
+              "Is that a dribble or a pass situation?",
+              "Where's the open space right now?",
+            ],
+            duration: "10-12 minutes, full progression including Wide Zones",
+            challenges: [
+              "Wide Zones bonus scoring",
+              "Must Receive variation",
+            ],
+          },
+          ages12to14: {
+            approach: "Focus on tactical patterns - switching play, exploiting overloads created by width",
+            keyPhrases: [
+              "How did spreading wide create the goal?",
+              "What patterns is the other team using?",
+            ],
+            duration: "10-12 minutes, add Two-Touch Limit for tempo",
+            challenges: [
+              "Two-Touch Limit variation",
+              "Play to a target score with a tactical debrief between games",
+            ],
+          },
+        },
+        commonMisconceptions: {
+          "Without a goal, it's not real soccer practice":
+            "Removing the goal isolates the exact decision - dribble or pass - that a fixed goal often lets players skip by just kicking toward it.",
+          "Wide Zones just makes it a scoring gimmick":
+            "The bonus zones create a real tactical incentive to use the width of the field, which is a core attacking principle in the full game.",
+        },
+      },
+      parentCommunication: {
+        ifAsked:
+          "3v3 Line Soccer removes the goal - kids score by dribbling the ball under control across the other team's end line. Without a fixed target, they have to actually look for open space and decide whether to dribble or pass, which is exactly the decision-making real games demand.",
+        newsletter:
+          "This week: 3v3 Line Soccer! No goals - just wide open end lines to dribble across under control. The focus was using the WHOLE field and deciding when to dribble versus pass to a teammate. Ask your child which is usually the smarter choice when a defender is right in front of them!",
+        whatToWatchFor: [
+          "Does your child spread out to open space, or cluster near the ball?",
+          "Are they starting to pass when a defender is in the way instead of forcing a dribble?",
+          "Do they restart quickly after a goal, or need reminders?",
+        ],
+      },
+      safety: {
+        commonRisks: [
+          {
+            risk: "Collisions near the end lines during close races to score",
+            prevention: "Ensure adequate space beyond the end lines to slow down safely",
+            response: "Check players involved; remind about controlled stops near boundaries",
+          },
+          {
+            risk: "Ankle rolls on quick direction changes in open space",
+            prevention: "Confirm even playing surface before starting; adequate warm-up",
+            response: "Rest and assess; ice if needed",
+          },
+          {
+            risk: "Overexertion from constant running in a small, fast-paced game",
+            prevention: "Build in the wrap-up water break; watch for signs of fatigue during rounds",
+            response: "Substitute or pause the game for a breather",
+          },
+        ],
+        inclusionConsiderations: {
+          mobilityDifferences: "Allow a designated 'safe zone' where a player can receive without being closely marked; adjust field size",
+          attentionChallenges: "Shorter rounds with frequent restarts already built in; clear, single-cue reminders during play",
+          skillGaps: "Mix experience levels across both teams so no team is consistently overwhelmed",
+        },
+      },
+      coachReflection: {
+        afterActivity: [
+          "Were players spreading out to use the width, or clustering in the middle?",
+          "Did I see improved dribble-vs-pass decisions between Round 1 and Round 2?",
+          "Was the field size appropriate for this group's numbers and skill level?",
+          "Did every player get meaningful touches on the ball?",
+        ],
+        forImprovement: [
+          "Should the field be wider or narrower next time?",
+          "Which variation created the best decision-making pressure?",
+          "Who needs individual reps on recognizing open space before the next game?",
+        ],
+      },
+    },
   },
   {
     slug: "2v2-mini-goals",
@@ -5660,45 +9869,385 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     durationMinutes: 12,
     skillsDeveloped: ["support-play", "1v1-dribbling-moves"],
     setupInstructions:
-      "20x15 yard field with mini goals (pugg or cones) at each end. Pairs compete.",
+      "EQUIPMENT CHECKLIST\n□ 2 mini goals (pugg goals or 2 cones per goal)\n□ Pinnies, 2 colors\n□ 2-3 balls\n\nSPACE: 20x15 paces\n\nSETUP STEPS\n1. Set up one mini goal at each short end of a 20x15 pace field\n2. Split into pairs (2v2), different colored pinnies\n3. Extra pairs wait on the sideline to rotate in (winners stay on, or round robin)\n4. Start with a kickoff from the center\n\nDIAGRAM\n┌──────────────────────────────────┐\n│      ⊏⊐                          │  15 paces\n│                                    │\n│                    ●               │\n│                                    │\n│                          ⊏⊐        │\n└──────────────────────────────────┘\n              20 paces\n\n⊏⊐ = mini goal, ● = kickoff spot",
     howToPlay:
-      "1. 2v2 games to 3 goals\n2. Winners stay on, losers rotate\n3. Or play round robin tournament\n4. Focus on individual skills and basic combinations",
+      'PHASE 1: GATHER & EXPLAIN (60 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: Sideline, both pairs gathered\n\nSAY: "2v2, first team to 3 goals! Winners stay on, next pair rotates in. You and your partner have to work together - one of you can\'t do it alone!"\n\nDEMO: Show a quick give-and-go between two coaches or players.\n\nSAY: "When your partner has the ball, don\'t just stand there - give them somewhere to pass! Ready... KICKOFF!"\n\n\nPHASE 2: ROUND 1 - GAMES TO 3 (4-5 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Play! First to 3 wins - next pair\'s on deck!"\n\nCoach Position: Sideline, moving to stay level with the ball\n\nWATCH FOR:\n□ Are both players chasing the ball at once?\n□ Is the player without the ball finding space to receive?\n□ Are players talking to each other?\n\nPHRASES TO USE:\n• "Where\'s your support?"\n• "Talk to your partner - call for it!"\n• "Nice - you gave them an option!"\n\nRotate pairs in as games finish.\n\n\nPHASE 3: TEACHING MOMENT (45 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Everyone watch this."\n\nDEMO: Show two players both chasing the ball into a corner (bad), then show one player holding width to give the ball carrier an easy pass (good).\n\nSAY: "See how much easier that is? One of you goes to the ball, the other finds space to help. That\'s support!"\n\n\nPHASE 4: ROUND 2 - APPLY THE LESSON (4-5 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Same games - this time, remember: one to the ball, one to space!"\n\nCoach Position: Roaming sideline, giving pair-specific feedback\n\nPHRASES TO USE:\n• "Great support run!"\n• "Could you have passed instead of forcing that shot?"\n• "Nice - you two are talking to each other!"\n\n\nPHASE 5: CHALLENGE ROUND - FOUR GOALS (2-3 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "New rule - each team now has TWO goals to attack! Scan for whichever one is open."\n\nRun the round with two mini goals per end.\n\n\nPHASE 6: WRAP UP (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "What made it easier to score?"\n\nListen for: "Passing," "supporting," "talking to my partner"\n\nSAY: "Exactly - even in a small game, you\'re never really alone out there. Water break!"',
+    diagram:
+      "┌──────────────────────────────────┐\n│      ⊏⊐                          │\n│                                    │\n│                    ●               │\n│                                    │\n│                          ⊏⊐        │\n└──────────────────────────────────┘\n              20 paces",
     coachingPoints: [
-      "Support your partner",
-      "Quick decisions",
-      "Take on 1v1 situations",
-      "Communicate",
+      "SUPPORT YOUR PARTNER → Say: 'If they've got the ball, find space to give them an option!'",
+      "QUICK DECISIONS → Say: 'Shoot, pass, or dribble - decide fast, don't hold it too long!'",
+      "TAKE ON 1V1 SITUATIONS → Say: 'If there's space to beat your defender, go for it!'",
+      "COMMUNICATE → Say: 'Call for the ball - your partner can't read your mind!'",
     ],
     questionsToAsk: [
-      "When should you pass vs dribble?",
-      "How do you help your partner?",
-      "What do you do when you don't have the ball?",
+      "'When should you pass vs dribble?' → When a defender is committed to you and your partner is open",
+      "'How do you help your partner?' → Looking for: moving to open space, not standing still",
+      "'What do you do when you don't have the ball?' → Find space, offer a passing option, don't just watch",
+      "'What happened when you both went to the ball at once?' → Looking for: they notice it left the goal undefended and no one open to pass to",
     ],
     commonMistakes: [
-      "Both going to ball",
-      "Not supporting partner",
-      "Forcing shots",
+      "BOTH PLAYERS GOING TO THE BALL → Say: 'One of you goes, one of you gives an option somewhere else!'",
+      "NOT SUPPORTING YOUR PARTNER → Say: 'Move to space - give them someone to pass to!'",
+      "FORCING SHOTS FROM BAD ANGLES → Say: 'Is there a better angle, or a pass to your partner?'",
+      "STANDING STILL OFF THE BALL → Say: 'Keep moving - find the space where you'd help most!'",
     ],
     variations: [
       {
         name: "Four Goals",
-        description: "Each team can score in two goals",
+        description:
+          "Each team defends and attacks two mini goals instead of one, forcing constant scanning for the open target.",
         difficulty: "intermediate",
       },
       {
         name: "Touch Limit",
-        description: "Maximum 3 touches per player",
+        description:
+          "Maximum 3 touches per player before passing or shooting - speeds up decisions and rewards early support.",
         difficulty: "intermediate",
       },
+      {
+        name: "3v2 Overload",
+        description:
+          "One team plays with an extra attacker to practice recognizing and exploiting a numbers-up situation; rotate the extra player between teams.",
+        difficulty: "advanced",
+      },
     ],
-    makeEasier: "Larger field, bigger goals",
-    makeHarder: "Smaller field, touch restrictions",
+    makeEasier:
+      "SIGNS THEY'RE STRUGGLING:\n• Both players chasing the ball every time\n• No goals scored in several minutes\n• Partner never receives a pass\n• Frustration or disengagement\n\nSOLUTIONS:\n• Widen the field and enlarge the goals\n• Coach freezes play to point out an open pass\n• Assign roles for a round: one player stays 'home' near the goal, one attacks\n• Allow an extra touch or two before requiring a pass",
+    makeHarder:
+      "SIGNS THEY'RE READY:\n• Goals coming from combination play, not just individual dribbling\n• Off-ball player consistently finding space\n• Making quick decisions under light pressure\n\nSOLUTIONS:\n• Add the Touch Limit variation\n• Narrow the field to increase pressure\n• Add Four Goals to demand more scanning\n• Play first-to-5 instead of first-to-3 for longer possessions to defend",
     equipmentNeeded: ["Mini goals or cones", "Pinnies", "Balls"],
     spaceRequired: "small",
     indoorSuitable: true,
     appropriateStages: ["fundamentals", "skill-building", "development"],
     tags: ["game", "2v2", "small-sided", "competition"],
     featured: true,
+    comprehensiveGuide: {
+      quickReference: {
+        oneSentence:
+          "Fast-paced 2v2 to mini goals - the smallest number where 'support your partner' actually matters, teaching players they're never alone with the ball.",
+        keyPhrases: [
+          "One to the ball, one to space!",
+          "Talk to your partner!",
+          "Quick decision - shoot, pass, or dribble!",
+        ],
+        setupDiagram:
+          "20x15 pace field, one mini goal at each short end, 2v2 with extra pairs rotating in from the sideline",
+        quickProgression: {
+          easier: "Bigger field and goals, assign a 'home' and 'attacker' role for a round",
+          harder: "Touch limit, narrower field, Four Goals variation",
+        },
+      },
+      completeScript: {
+        beforeYouStart: {
+          preparation: [
+            "Set up a 20x15 pace field with a mini goal at each end",
+            "Split players into pairs with different colored pinnies",
+            "Plan rotation: winners stay on, or a round-robin schedule if more than 4 players",
+            "Have 2-3 balls ready near the field",
+          ],
+          mindset:
+            "2v2 is the smallest number of players where support actually changes the game - with just one teammate, players quickly feel the cost of both chasing the ball. Your job is to make 'support' concrete: point at the exact spot the off-ball player should be standing.",
+        },
+        segments: [
+          {
+            phase: "Gather & Explain",
+            duration: "60 seconds",
+            coachPosition: "Sideline, both pairs gathered",
+            script:
+              "SAY: 'First to 3 goals wins, winners stay on!' Demo a quick give-and-go. 'Don't just stand there when your partner has it - give them an option!'",
+            anticipatedResponses: {
+              "What if we lose - do we sit out the whole time?":
+                "You rotate right back in for the next game - everyone plays a lot.",
+              "Can I just dribble the whole way?":
+                "You can try, but watch how much easier it is when your partner helps.",
+            },
+          },
+          {
+            phase: "Round 1 - Games to 3",
+            duration: "4-5 minutes",
+            coachPosition: "Sideline, moving to stay level with the ball",
+            script:
+              "Let pairs play with light guidance. Prompt off-ball movement and communication as it comes up.",
+            troubleshooting: {
+              "Both players chasing the ball": [
+                "One of you goes to the ball, one of you finds space!",
+              ],
+              "No one scoring": [
+                "Widen the goal or field slightly for that pair if it's a big skill gap",
+              ],
+            },
+          },
+          {
+            phase: "Teaching Moment",
+            duration: "45 seconds",
+            coachPosition: "Center of the field, all players gathered",
+            script:
+              "Demo two players both chasing the ball versus one going to the ball while the other holds width. 'One to the ball, one to space!'",
+          },
+          {
+            phase: "Round 2 - Apply the Lesson",
+            duration: "4-5 minutes",
+            coachPosition: "Roaming sideline",
+            script:
+              "'Remember - one to the ball, one to space!' Give pair-specific feedback on support runs and communication.",
+          },
+          {
+            phase: "Challenge Round - Four Goals",
+            duration: "2-3 minutes",
+            coachPosition: "Sideline, calling out both goals",
+            script:
+              "'Two goals each now - find the open one!' Praise players who scan before committing to a shot.",
+          },
+          {
+            phase: "Wrap Up",
+            duration: "30 seconds",
+            coachPosition: "Center, both pairs gathered",
+            script:
+              "ASK: 'What made it easier to score?' Connect to games: you're never really alone with the ball. Water break!",
+          },
+        ],
+      },
+      troubleshooting: {
+        gameBalance: {
+          tooEasy: {
+            symptoms: [
+              "Goals scored on nearly every possession",
+              "No real defensive resistance",
+              "Pairs looking unchallenged",
+            ],
+            solutions: [
+              "Add Touch Limit",
+              "Narrow the field",
+              "Add Four Goals to increase decision demands",
+              "Play first-to-5 for longer defensive stretches",
+            ],
+          },
+          tooHard: {
+            symptoms: [
+              "No goals scored across multiple rotations",
+              "Same pair dominating every game",
+              "Visible frustration from weaker pairs",
+            ],
+            solutions: [
+              "Widen the field and enlarge the goals",
+              "Rebalance pairs for skill level",
+              "Assign a 'home' and 'attacker' role to simplify decisions",
+            ],
+          },
+        },
+        playerBehavior: {
+          bothChasingBall: {
+            symptoms: [
+              "Both teammates converging on the ball at once",
+              "Goal left completely open",
+              "No passing options ever available",
+            ],
+            approach:
+              "SAY: 'Freeze! Where's your open teammate right now?' Point out the space they should be using.",
+          },
+          notCommunicating: {
+            symptoms: [
+              "Players surprised when a pass comes to them",
+              "No calling for the ball",
+              "Missed connections on easy passes",
+            ],
+            approach:
+              "SAY: 'Call your partner's name when you want the ball!' Model it yourself from the sideline.",
+          },
+        },
+        environmentalIssues: {
+          goalsMovingOrTippingOver: {
+            symptoms: ["Mini goals shifting position or falling during play"],
+            solution: "Use weighted or pugg-style goals if available, or anchor cone goals with extra cones.",
+          },
+          unevenPairSkill: {
+            symptoms: ["One pair winning every single game"],
+            solution: "Re-pair players so skill is balanced across all pairs, or add a handicap (must complete 2 passes before shooting) for the stronger pair.",
+          },
+        },
+      },
+      skillConnections: {
+        primarySkills: [
+          {
+            skill: "Support Play",
+            domain: "Tactical",
+            howItDevelops:
+              "With only one teammate, the cost of not supporting is immediate and obvious - players quickly learn that moving to open space is what makes their partner's job possible.",
+            levelIndicators: {
+              1: "Always chases the ball regardless of partner's position",
+              2: "Occasionally moves to space, usually by accident",
+              3: "Regularly finds space to support the ball carrier",
+              4: "Times support runs to arrive exactly when needed",
+              5: "Anticipates and creates support angles before they're needed",
+            },
+            assessmentNotes:
+              "Watch the off-ball player, not the ball carrier - are they moving with purpose or standing still?",
+          },
+          {
+            skill: "1v1 Dribbling Moves",
+            domain: "Technical",
+            howItDevelops:
+              "The small field and open space regularly create 1v1 moments where a player must beat a defender individually to create a scoring chance.",
+            levelIndicators: {
+              1: "Avoids 1v1 situations, always looks to pass immediately",
+              2: "Attempts a move but loses the ball most of the time",
+              3: "Successfully beats a defender with a basic move sometimes",
+              4: "Reads which move fits the defender's positioning",
+              5: "Confidently creates and finishes 1v1 opportunities",
+            },
+            assessmentNotes:
+              "Watch decision quality in 1v1 moments - do they know when to take on a defender versus pass?",
+          },
+        ],
+        secondarySkills: [
+          {
+            skill: "Finding Space",
+            domain: "Tactical",
+            howItDevelops:
+              "The off-ball partner must continuously reposition to stay useful, reinforcing the habit of finding open space.",
+          },
+          {
+            skill: "Teamwork",
+            domain: "Psychological",
+            howItDevelops:
+              "Success is tied directly to one other person - players learn that communicating and cooperating with a partner produces better outcomes than playing alone.",
+          },
+        ],
+      },
+      developmentalContext: {
+        whyThisActivity:
+          "2v2 is the smallest game format where support play truly matters - in 1v1 there's no partner to support, but in 2v2 every player immediately feels the difference between having help and not. The mini goals keep scoring frequent and fun, and the fast rotation keeps everyone engaged even in a large group.",
+        whenToUseIt: {
+          idealFor: [
+            "After players have basic 1v1 dribbling and passing skills",
+            "Introducing the concept of off-ball support for the first time",
+            "Large groups needing high-repetition small-sided games with quick rotation",
+          ],
+          avoidWhen: [
+            "Players don't yet have any dribbling or passing basics (build those first)",
+            "Space is too small to fit even a compact 20x15 pace field",
+          ],
+        },
+        progressionPath: {
+          before: [
+            {
+              activity: "3v3 Line Soccer",
+              reason: "Introduces small-sided dribble-vs-pass decisions before adding a scoring target",
+            },
+            {
+              activity: "1v1 to Goal",
+              reason: "Builds the individual dribbling foundation this game's 1v1 moments rely on",
+            },
+          ],
+          after: [
+            {
+              activity: "4v4 to Small Goals",
+              reason: "Scales the support-play concept up to a bigger group with more combinations",
+            },
+            {
+              activity: "Positional Rondo",
+              reason: "Refines support angles and passing under pressure in a possession-focused format",
+            },
+          ],
+        },
+        ageAdaptations: {
+          ages6to8: {
+            approach: "Keep it fun and simple - celebrate goals and passes equally, don't over-explain positioning",
+            keyPhrases: [
+              "Can you find a space to help your partner?",
+              "Great pass!",
+              "Everybody scores, everybody helps!",
+            ],
+            avoidSaying: ["You should have passed", "That was a bad shot"],
+            duration: "8-9 minutes, mostly free play",
+            simplifications: [
+              "Bigger goals and field",
+              "Skip Touch Limit and 3v2 Overload variations",
+              "Assign simple roles (one stays back, one attacks) if needed",
+            ],
+          },
+          ages9to11: {
+            approach: "Name the support concept explicitly and reinforce with the teaching moment",
+            keyPhrases: [
+              "One to the ball, one to space - whose job is which right now?",
+              "What's the fastest way to score - dribble or pass?",
+            ],
+            duration: "10-12 minutes, full progression including Four Goals",
+            challenges: [
+              "Four Goals variation",
+              "Touch Limit variation",
+            ],
+          },
+          ages12to14: {
+            approach: "Focus on quick combination play and reading overloads",
+            keyPhrases: [
+              "How did that give-and-go create the goal?",
+              "What did you see before you made that pass?",
+            ],
+            duration: "10-12 minutes, add 3v2 Overload for tactical reads",
+            challenges: [
+              "3v2 Overload variation",
+              "Touch Limit for tempo under pressure",
+            ],
+          },
+        },
+        commonMisconceptions: {
+          "2v2 is just a smaller version of a real game":
+            "Its small size is exactly the point - it isolates the support-play decision in a way that's harder to see clearly in a bigger, busier game.",
+          "The player without the ball isn't doing anything important":
+            "The off-ball player's positioning directly determines whether their partner has a good option - it's an active job, not a passive one.",
+        },
+      },
+      parentCommunication: {
+        ifAsked:
+          "2v2 with Mini Goals is a fast small-sided game where your child learns that soccer isn't just about the player with the ball. With only one teammate, they quickly feel what happens when both players chase the ball versus when one moves to open space to help.",
+        newsletter:
+          "This week: 2v2 with Mini Goals! Pairs competed to score on mini goals, with the coaching focus on 'one to the ball, one to space.' It's a fast way for kids to feel the value of supporting a teammate instead of both chasing the ball. Ask your child what their job was when they didn't have the ball!",
+        whatToWatchFor: [
+          "Does your child move to open space when their partner has the ball, or just watch?",
+          "Are they starting to pass to an open teammate instead of forcing every shot themselves?",
+          "Do they communicate with their partner during play?",
+        ],
+      },
+      safety: {
+        commonRisks: [
+          {
+            risk: "Collisions near the mini goals during close scoring attempts",
+            prevention: "Ensure goals aren't right against a wall or fence; leave run-off space behind them",
+            response: "Check players involved; remind about controlled shots near the goal",
+          },
+          {
+            risk: "Overexertion from the fast, near-constant movement of small-sided play",
+            prevention: "Rotate pairs regularly; keep the water break at the end predictable",
+            response: "Pull a visibly tired player for an extra rotation off",
+          },
+          {
+            risk: "Ankle rolls on quick cuts in the confined space",
+            prevention: "Confirm even playing surface; adequate warm-up before starting",
+            response: "Rest and assess; ice if needed",
+          },
+        ],
+        inclusionConsiderations: {
+          mobilityDifferences: "Enlarge the field slightly for that pairing, or pair with a supportive, communicative partner",
+          attentionChallenges: "Shorter games (first to 2 instead of 3), clear single-instruction cues between rotations",
+          skillGaps: "Pair thoughtfully so no pairing is dramatically mismatched; rotate partners between games",
+        },
+      },
+      coachReflection: {
+        afterActivity: [
+          "Were players finding support positions, or both chasing the ball?",
+          "Did communication between partners improve across rounds?",
+          "Was the field and goal size appropriate for this group?",
+          "Did rotation keep everyone playing enough without long waits?",
+        ],
+        forImprovement: [
+          "Should the field be bigger or smaller next time?",
+          "Which variation created the best support-play learning?",
+          "Which pairings need to be reshuffled for better balance?",
+        ],
+      },
+    },
   },
   {
     slug: "6v6-half-field",
@@ -5764,24 +10313,28 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     durationMinutes: 10,
     skillsDeveloped: ["ball-control", "agility-coordination"],
     setupInstructions:
-      "Create a circle (15-20 yards diameter). All players with a ball inside.",
+      "EQUIPMENT CHECKLIST\n□ 1 ball per player\n□ 8-10 cones to mark the circle boundary\n\nSPACE: 15-20 paces diameter (scale to group size - more players need a bigger circle)\n\nSETUP STEPS\n1. Place cones in a large circle, 15-20 paces across\n2. Every player starts inside the circle with their own ball\n3. Explain the 'ball goes out → 10 toe taps and return' rule before starting\n4. On the whistle, everyone begins dribbling and shielding\n\nDIAGRAM\n          ▲    ▲    ▲\n       ▲    ○●   ○●    ▲\n      ▲    ○●  ○●  ○●    ▲    18 paces\n       ▲    ○●   ○●    ▲\n          ▲    ▲    ▲\n              18 paces\n\n▲ = boundary cone, ○● = player with ball, all inside the circle",
     howToPlay:
-      "1. Everyone dribbles in the circle\n2. Try to kick others' balls out while protecting yours\n3. If your ball goes out, do 10 toe taps and return\n4. Play in rounds: when the coach blows the whistle, the round ends. Anyone who kept their ball in the circle the whole round (without it going out) scores a point. Reset and play another round\n5. Most points after a set number of rounds is 'King'",
+      'PHASE 1: GATHER & EXPLAIN (45 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: Edge of the circle\n\nSAY: "Everyone in the circle with your ball! Your job: keep your ball inside while trying to knock other balls out. If your ball goes out, do 10 toe taps and hop right back in - you\'re never out of the game!"\n\nDEMO: Show shielding the ball with your body while another ball approaches.\n\nSAY: "We\'ll play in rounds. When I blow the whistle, the round ends - if your ball never left the circle, you score a point! Ready... GO!"\n\n\nPHASE 2: ROUND 1 - FREE PLAY (2 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Protect your ball, look for opportunities to knock out someone else\'s!"\n\nCoach Position: Just outside the circle, walking the perimeter\n\nWATCH FOR:\n□ Are players keeping the ball close, or leaving it exposed?\n□ Are they using their body to shield, or just their feet?\n□ Are they watching for approaching challengers?\n\nPHRASES TO USE:\n• "Ball close, body between the ball and danger!"\n• "Nice recovery - right back in!"\n• "Heads up - who\'s coming for you?"\n\nWHISTLE: "Freeze! Whose ball stayed in the whole time? That\'s a point!"\n\n\nPHASE 3: TEACHING MOMENT (45 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Everyone watch this."\n\nDEMO: Show shielding with the body sideways to an approaching opponent, ball on the far foot, versus standing square with the ball exposed.\n\nSAY: "See how my body is BETWEEN my ball and the challenge? That\'s shielding - use your whole body, not just your foot!"\n\n\nPHASE 4: ROUND 2 - APPLY THE LESSON (2-3 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "New round! Use your body to shield this time. First to 3 points is doing great!"\n\nCoach Position: Roaming the perimeter, calling out specific technique\n\nPHRASES TO USE:\n• "Great shielding - your body\'s in the way!"\n• "Nice recovery after that one - back in fast!"\n• "Smart - you picked a good moment to challenge!"\n\nWHISTLE at the end: tally points.\n\n\nPHASE 5: CHALLENGE ROUND - PARTNERS (2-3 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "This round, you\'ve got a partner - protect each other\'s balls as a team!"\n\nRun the round in pairs, tally combined points.\n\n\nPHASE 6: WRAP UP (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "What helped you protect your ball the longest?"\n\nListen for: "Shielding with my body," "keeping it close," "watching for people"\n\nSAY: "Exactly - protecting the ball under pressure is a game skill you\'ll use constantly! Water break!"',
+    diagram:
+      "          ▲    ▲    ▲\n       ▲    ○●   ○●    ▲\n      ▲    ○●  ○●  ○●    ▲\n       ▲    ○●   ○●    ▲\n          ▲    ▲    ▲\n              18 paces",
     coachingPoints: [
-      "Protect your ball with body",
-      "Head up to see opponents",
-      "Timing of challenges",
-      "Use your body to shield",
+      "PROTECT YOUR BALL WITH YOUR BODY → Say: 'Body between the ball and the danger - like a shield!'",
+      "HEAD UP TO SEE OPPONENTS → Say: 'Quick glances around - who's coming for your ball?'",
+      "TIME YOUR CHALLENGES → Say: 'Wait for the right moment - don't just chase every ball you see!'",
+      "USE YOUR BODY TO SHIELD → Say: 'Turn sideways so your body is a wall between the ball and them!'",
     ],
     questionsToAsk: [
-      "How do you protect your ball?",
-      "When should you attack vs defend?",
-      "What part of foot do you use to shield?",
+      "'How do you protect your ball?' → Looking for: body positioning, keeping the ball on the far foot from a challenger",
+      "'When should you attack vs defend?' → Attack when your ball is safe and an opponent's is exposed; defend when someone's closing in",
+      "'What part of your foot do you use to shield?' → Whichever foot is farthest from the challenger, with your body blocking the approach",
+      "'What happened when you tried to attack and protect at the same time?' → Looking for: they notice it's hard to do both - sometimes you have to choose",
     ],
     commonMistakes: [
-      "Ball too far from body",
-      "Only focused on attacking",
-      "Not shielding",
+      "BALL TOO FAR FROM THE BODY → Say: 'Keep it close - an exposed ball is an easy target!'",
+      "ONLY FOCUSED ON ATTACKING → Say: 'Check on your own ball first - is it safe right now?'",
+      "NOT SHIELDING → Say: 'Turn your body so it's between the ball and the challenge!'",
+      "GIVING UP AFTER LOSING THE BALL → Say: 'Quick toe taps and right back in - every round is a fresh start!'",
     ],
     variations: [
       {
@@ -5795,15 +10348,349 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
         description: "Play as pairs - protect each other",
         difficulty: "intermediate",
       },
+      {
+        name: "Double Ball",
+        description:
+          "Each player protects two balls at once instead of one, dramatically raising the ball-control and body-shielding challenge while keeping the constant-participation, no-elimination format.",
+        difficulty: "advanced",
+      },
     ],
-    makeEasier: "Larger circle, must stop ball before returning",
-    makeHarder: "Smaller circle, no re-entry",
+    makeEasier:
+      "SIGNS THEY'RE STRUGGLING:\n• Ball going out almost immediately, every round\n• Standing frozen instead of moving/shielding\n• Frustration building after repeated toe-tap penalties\n• Low point totals across rounds\n\nSOLUTIONS:\n• Make the circle larger to give more room\n• Require the ball to stop fully before returning (slows the pace)\n• Shorten rounds to build confidence with quick wins\n• Coach calls out 'shield!' as a reminder during play",
+    makeHarder:
+      "SIGNS THEY'RE READY:\n• Easily keeping their ball in for full rounds\n• Actively and successfully challenging others\n• Looking for more of a test\n\nSOLUTIONS:\n• Shrink the circle\n• Use the No Re-entry variation with older/more competitive groups\n• Add Double Ball for a tougher control challenge\n• Require a specific shielding technique (weak foot only) each round",
     equipmentNeeded: ["Cones", "1 ball per player"],
     spaceRequired: "small",
     indoorSuitable: true,
     appropriateStages: ["fundamentals", "skill-building"],
     tags: ["game", "1v1", "shielding", "fun", "competition"],
     featured: true,
+    comprehensiveGuide: {
+      quickReference: {
+        oneSentence:
+          "Free-for-all in a circle where everyone protects their own ball while trying to knock out others' - builds shielding, close control, and bounce-back resilience since a lost ball is just a quick toe-tap penalty, not elimination.",
+        keyPhrases: [
+          "Body between the ball and the danger!",
+          "Quick toe taps and right back in!",
+          "Protect first, attack second!",
+        ],
+        setupDiagram:
+          "15-20 pace circle marked with cones, every player inside with their own ball",
+        quickProgression: {
+          easier: "Larger circle, require the ball to stop before returning, shorter rounds",
+          harder: "Smaller circle, Double Ball, No Re-entry for older/competitive groups",
+        },
+      },
+      completeScript: {
+        beforeYouStart: {
+          preparation: [
+            "Mark a 15-20 pace circle with cones, sized to the group (bigger group, bigger circle)",
+            "Confirm every player has their own ball",
+            "Decide round length in advance (60-90 seconds works well)",
+            "Have a whistle or clear verbal signal ready for round starts/ends",
+          ],
+          mindset:
+            "This activity is built around bouncing back - losing your ball is a quick toe-tap penalty, not being knocked out, which is deliberate. Praise recoveries as much as successful shielding; a player who loses their ball three times but gets right back in each time is showing exactly the resilience this game is designed to build.",
+        },
+        segments: [
+          {
+            phase: "Gather & Explain",
+            duration: "45 seconds",
+            coachPosition: "Edge of the circle",
+            script:
+              "SAY: 'Protect your ball, try to knock out others! Ball goes out - 10 toe taps and back in!' Demo shielding. 'We play in rounds - keep your ball in the whole round for a point!'",
+            anticipatedResponses: {
+              "What if I never touch anyone else's ball?":
+                "That's fine! Protecting your own ball the whole round still earns you a point.",
+              "Can I just run away with my ball?":
+                "You have to stay inside the circle boundary - shielding, not hiding.",
+            },
+          },
+          {
+            phase: "Round 1 - Free Play",
+            duration: "2 minutes",
+            coachPosition: "Just outside the circle, walking the perimeter",
+            script:
+              "Observe and lightly coach. Whistle to end: 'Whose ball stayed in the whole time? Point!'",
+            troubleshooting: {
+              "Ball exposed and unshielded": [
+                "Keep it close - body between the ball and danger!",
+              ],
+              "Player frozen and not moving": [
+                "Keep dribbling - staying still makes you an easy target!",
+              ],
+            },
+          },
+          {
+            phase: "Teaching Moment",
+            duration: "45 seconds",
+            coachPosition: "Center of the circle, all players gathered",
+            script:
+              "Demo shielding with body sideways to a challenger versus standing square and exposed. 'Body between the ball and the challenge!'",
+          },
+          {
+            phase: "Round 2 - Apply the Lesson",
+            duration: "2-3 minutes",
+            coachPosition: "Roaming the perimeter",
+            script:
+              "'Use your body to shield this round!' Call out specific technique praise as it happens.",
+          },
+          {
+            phase: "Challenge Round - Partners",
+            duration: "2-3 minutes",
+            coachPosition: "Perimeter, tallying pairs' combined points",
+            script:
+              "'Protect each other's balls as a team this round!' Praise pairs who communicate and cover for each other.",
+          },
+          {
+            phase: "Wrap Up",
+            duration: "30 seconds",
+            coachPosition: "Center of the circle",
+            script:
+              "ASK: 'What helped you protect your ball the longest?' Connect to games: shielding under pressure. Water break!",
+          },
+        ],
+      },
+      troubleshooting: {
+        gameBalance: {
+          tooEasy: {
+            symptoms: [
+              "Almost nobody's ball ever leaves the circle",
+              "Players look unchallenged or bored",
+              "No real challenges happening",
+            ],
+            solutions: [
+              "Shrink the circle",
+              "Add Double Ball",
+              "Use No Re-entry with an older/competitive group",
+              "Require weak-foot shielding for a round",
+            ],
+          },
+          tooHard: {
+            symptoms: [
+              "Balls going out constantly, every few seconds",
+              "Players spending more time doing toe taps than playing",
+              "Visible frustration",
+            ],
+            solutions: [
+              "Enlarge the circle",
+              "Require the ball to stop before returning to slow the pace",
+              "Shorten rounds so points come more often",
+              "Temporarily reduce numbers in the circle if it's overcrowded",
+            ],
+          },
+        },
+        playerBehavior: {
+          onlyAttacking: {
+            symptoms: [
+              "Players chasing others' balls while leaving their own completely exposed",
+              "Frequent complaints about being 'ganged up on'",
+            ],
+            approach:
+              "SAY: 'Check on your own ball first - is it safe right now?' Praise players who balance attack and defense.",
+          },
+          overlyPhysical: {
+            symptoms: [
+              "Pushing or using arms instead of the ball to challenge",
+              "Contact that goes beyond a fair kick at the ball",
+            ],
+            approach:
+              "Stop play immediately: 'Feet only, no hands or pushing - shield with your body, not your arms.' Reset and continue.",
+          },
+        },
+        environmentalIssues: {
+          circleTooSmallForNumbers: {
+            symptoms: ["Constant congestion, balls colliding immediately"],
+            solution: "Enlarge the circle or split into two smaller circles running simultaneously.",
+          },
+          conesGettingKicked: {
+            symptoms: ["Boundary cones scattered mid-round from stray touches"],
+            solution: "Use larger, more visible cones and periodically reset boundary lines between rounds.",
+          },
+        },
+      },
+      skillConnections: {
+        primarySkills: [
+          {
+            skill: "Ball Control",
+            domain: "Technical",
+            howItDevelops:
+              "Constant close-quarters dribbling while under threat forces tight, controlled touches - the ball has to stay glued to the feet or it becomes an easy target.",
+            levelIndicators: {
+              1: "Ball frequently a step or more away; easily knocked out",
+              2: "Ball usually close but escapes under any pressure",
+              3: "Maintains close control under mild pressure",
+              4: "Keeps tight control even while actively shielding and scanning",
+              5: "Effortless close control while simultaneously assessing threats and opportunities",
+            },
+            assessmentNotes:
+              "Watch how close the ball stays during both calm moments and active challenges.",
+          },
+          {
+            skill: "Agility & Coordination",
+            domain: "Physical",
+            howItDevelops:
+              "Constant small adjustments - turning, shielding, pivoting away from challengers - build reactive footwork and balance in tight space.",
+            levelIndicators: {
+              1: "Stiff, slow to react to approaching challengers",
+              2: "Reacts but often loses balance or the ball",
+              3: "Turns and repositions smoothly under moderate pressure",
+              4: "Quick, balanced adjustments even with multiple nearby challengers",
+              5: "Fluid, anticipatory movement that avoids challenges before they fully develop",
+            },
+            assessmentNotes:
+              "Watch footwork and balance specifically during shielding turns, not just straight-line dribbling.",
+          },
+        ],
+        secondarySkills: [
+          {
+            skill: "1v1 Defending",
+            domain: "Tactical",
+            howItDevelops:
+              "Choosing when and how to challenge for another player's ball builds early defensive timing and decision-making.",
+          },
+          {
+            skill: "Resilience",
+            domain: "Psychological",
+            howItDevelops:
+              "The quick toe-tap-and-return rule means losing the ball has an immediate, low-stakes recovery built in - players practice bouncing back rather than dwelling on a mistake.",
+          },
+        ],
+      },
+      developmentalContext: {
+        whyThisActivity:
+          "King of the Ring packs close control, shielding, and 1v1 awareness into one high-energy, low-setup game - and its built-in 'toe taps and back in' rule means no player is ever sitting out after a mistake. That resilience-by-design is why this activity stays in the no-elimination default even though a competitive elimination variation exists for older groups.",
+        whenToUseIt: {
+          idealFor: [
+            "After ball mastery work, to add pressure and opponents",
+            "Building shielding technique before introducing 1v1 to a goal",
+            "High-energy activity mid-practice that keeps every player constantly involved",
+          ],
+          avoidWhen: [
+            "Group is very young or new to soccer and doesn't yet have basic close control",
+            "Space is too small to fit a circle proportional to the group size",
+          ],
+        },
+        progressionPath: {
+          before: [
+            {
+              activity: "Ball Mastery Circle",
+              reason: "Builds basic ball comfort before adding opponents and pressure",
+            },
+            {
+              activity: "Traffic Lights",
+              reason: "Introduces ball control at different speeds needed for shielding under pressure",
+            },
+          ],
+          after: [
+            {
+              activity: "Shark Attack",
+              reason: "Adds a designated active defender concept building on shielding skills here",
+            },
+            {
+              activity: "1v1 to Goal",
+              reason: "Transitions shielding and close control into a directional, goal-scoring 1v1",
+            },
+          ],
+        },
+        ageAdaptations: {
+          ages6to8: {
+            approach: "Frame entirely as fun and forgiving - the toe-tap penalty is a game, not a punishment",
+            keyPhrases: [
+              "Keep your ball safe like a treasure!",
+              "Quick taps and you're back in!",
+              "Great protecting!",
+            ],
+            avoidSaying: ["You lost", "You're bad at protecting your ball"],
+            duration: "6-7 minutes, shorter rounds",
+            simplifications: [
+              "Larger circle",
+              "Skip Double Ball and No Re-entry entirely",
+              "Emphasize protecting over attacking",
+            ],
+          },
+          ages9to11: {
+            approach: "Introduce shielding technique explicitly and add the Partners variation",
+            keyPhrases: [
+              "Show me your shielding body position",
+              "When's a smart moment to challenge?",
+            ],
+            duration: "8-10 minutes, full progression through Partners",
+            challenges: [
+              "Weak-foot shielding rounds",
+              "Partners variation",
+            ],
+          },
+          ages12to14: {
+            approach:
+              "This is the group where No Re-entry can be introduced if the group is competitive and mixed-ability concerns don't apply - otherwise keep the default constant-participation format",
+            keyPhrases: [
+              "How does shielding here connect to holding the ball up front in a game?",
+              "What's your strategy - protect first or attack first?",
+            ],
+            duration: "8-10 minutes, Double Ball or (selectively) No Re-entry",
+            challenges: [
+              "Double Ball variation",
+              "No Re-entry, only for competitive, similarly-matched groups",
+            ],
+          },
+        },
+        commonMisconceptions: {
+          "It's just chaotic running around":
+            "The circle boundary and toe-tap rule create real structure - players are constantly making shielding and timing decisions, not just running.",
+          "Losing your ball means you're out":
+            "In the default format, losing the ball is a brief penalty, not elimination - the game is designed to keep everyone playing and to build resilience after a mistake.",
+        },
+      },
+      parentCommunication: {
+        ifAsked:
+          "King of the Ring has every player protecting their own ball inside a circle while trying to knock out others'. If your child's ball gets knocked out, they do a quick set of toe taps and hop right back in - nobody sits out. It builds ball control, shielding with the body, and bouncing back from a mistake without it being a big deal.",
+        newsletter:
+          "This week: King of the Ring! Every player had their own ball to protect inside a circle, shielding it with their body while looking for chances to knock out others. If a ball got knocked out, a quick set of toe taps got that player right back in - nobody sat out. Ask your child to show you their best shielding stance!",
+        whatToWatchFor: [
+          "Does your child use their body to shield the ball, or leave it exposed?",
+          "Do they bounce back quickly after losing the ball, or get discouraged?",
+          "Are they balancing protecting their own ball with challenging for others'?",
+        ],
+      },
+      safety: {
+        commonRisks: [
+          {
+            risk: "Collisions between players in the crowded circle",
+            prevention: "Size the circle appropriately for the number of players; remind about controlled movement",
+            response: "Check both players; briefly pause to reset spacing if collisions repeat",
+          },
+          {
+            risk: "Overly physical challenges (pushing, using arms/hands)",
+            prevention: "Set the 'feet only' rule clearly before starting; watch closely in early rounds",
+            response: "Stop play immediately, reset the rule, resume calmly",
+          },
+          {
+            risk: "Tripping over stray balls from outside the immediate play area",
+            prevention: "Keep the toe-tap penalty zone clear and close to the boundary, not scattered",
+            response: "Check for injury; tidy stray balls between rounds",
+          },
+        ],
+        inclusionConsiderations: {
+          mobilityDifferences: "Allow walking instead of running; assign a slightly larger personal space within the circle",
+          attentionChallenges: "Shorter rounds with frequent whistle resets already built in; clear single-cue reminders",
+          confidenceConcerns: "Emphasize the toe-tap-and-return rule heavily so no player feels singled out or eliminated",
+        },
+      },
+      coachReflection: {
+        afterActivity: [
+          "Were players shielding with their bodies, or just their feet?",
+          "Did players recover quickly and re-engage after losing their ball?",
+          "Was the circle size appropriate for this group?",
+          "Did the Partners round build cooperation without slowing the pace too much?",
+        ],
+        forImprovement: [
+          "Should the circle be bigger or smaller next time?",
+          "Is this group ready for Double Ball, or should we stay at the base format?",
+          "Who needs individual reps on shielding technique before the next game?",
+        ],
+      },
+    },
   },
   {
     slug: "target-goals-game",
@@ -5817,50 +10704,390 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     durationMinutes: 15,
     skillsDeveloped: ["finding-space", "passing-short"],
     setupInstructions:
-      "35x25 yard field. Each team has 3 small goals to defend (spread across end line).",
+      "EQUIPMENT CHECKLIST\n□ 6 mini goals (3 per team) or 12 cones\n□ Pinnies, 2 colors\n□ 3-4 balls\n\nSPACE: 35x25 paces\n\nSETUP STEPS\n1. Mark a 35x25 pace field\n2. Place 3 small goals along each end line - one center, two in the corners\n3. Split into two teams of 4-5, different colored pinnies\n4. Corner goals are worth 2 points, the center goal is worth 1\n5. Kickoff from the center\n\nDIAGRAM\n⊏⊐          ⊏⊐          ⊏⊐   ← Team B's goals (corners = 2 pts, middle = 1 pt)\n                                  25 paces\n                    ●\n⊏⊐          ⊏⊐          ⊏⊐   ← Team A's goals\n            35 paces\n\n⊏⊐ = mini goal, ● = kickoff spot",
     howToPlay:
-      "1. 4v4 or 5v5 game\n2. Can score in any of opponent's 3 goals\n3. Goals in corner goals worth 2 points\n4. Encourages width and switching play",
+      'PHASE 1: GATHER & EXPLAIN (60 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: Sideline, both teams gathered\n\nSAY: "You\'ve got THREE goals to attack - the corner goals are worth 2 points, the middle goal is worth 1. Same for your own goals - defend all three!"\n\nDEMO: Point out all three goals on each end.\n\nSAY: "Scan before you shoot - which goal is open? Ready... KICKOFF!"\n\n\nPHASE 2: ROUND 1 - FREE PLAY (4-5 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Play! Look for the open goal!"\n\nCoach Position: Sideline, positioned to see all three goals on the attacking end\n\nWATCH FOR:\n□ Are players only attacking the center goal, ignoring the corners?\n□ Are defenders bunched in the middle, leaving corners open?\n□ Are teams switching the ball side to side, or forcing everything through the middle?\n\nPHRASES TO USE:\n• "Scan all three goals before you shoot!"\n• "Corner\'s open - worth more too!"\n• "Switch it - other side\'s open!"\n\n\nPHASE 3: TEACHING MOMENT (60 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Everyone freeze and look here."\n\nDEMO: Show attacking the crowded center goal versus switching the ball to the far side where a corner goal is undefended.\n\nSAY: "See how switching the point of attack opened up that corner goal? When one side is crowded, the other side usually has space - and it\'s worth more!"\n\n\nPHASE 4: ROUND 2 - APPLY THE LESSON (4-5 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Same game - this time really look to switch the ball and find the open goal, especially the corners!"\n\nCoach Position: Roaming the sideline, giving team-specific feedback\n\nPHRASES TO USE:\n• "Great switch - that opened the corner!"\n• "Who\'s defending the middle goal right now?"\n• "Nice - you created a 2v1 on that side!"\n\n\nPHASE 5: CHALLENGE ROUND - MUST SWITCH (3-4 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "New rule - you must pass the ball to the other side of the field at least once before you can score!"\n\nRun the round, praise successful switches even if the resulting shot misses.\n\n\nPHASE 6: WRAP UP (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "How did you find the open goal?"\n\nListen for: "Switching the ball," "scanning," "looking at the corners"\n\nSAY: "Exactly - reading which side is open and switching the ball there is real game-winning tactics! Water break!"',
+    diagram:
+      "⊏⊐          ⊏⊐          ⊏⊐\n                                  25 paces\n                    ●\n⊏⊐          ⊏⊐          ⊏⊐\n            35 paces",
     coachingPoints: [
-      "Scan for open goal",
-      "Switch point of attack",
-      "Create overloads on weak side",
-      "Defend in numbers",
+      "SCAN FOR THE OPEN GOAL → Say: 'Check all three before you decide - which one's undefended?'",
+      "SWITCH THE POINT OF ATTACK → Say: 'One side crowded? Switch it to the open side!'",
+      "CREATE OVERLOADS ON THE WEAK SIDE → Say: 'Get numbers over where the defense is thin!'",
+      "DEFEND IN NUMBERS → Say: 'Don't leave a goal alone - cover for each other!'",
     ],
     questionsToAsk: [
-      "Which goal is easiest to score in?",
-      "How do you create a 2v1 on a goal?",
-      "How do you defend 3 goals?",
+      "'Which goal is easiest to score in?' → Looking for: the one with fewer or no defenders, not just the nearest one",
+      "'How do you create a 2v1 on a goal?' → Overloading one side with an extra attacker while the ball is still central",
+      "'How do you defend three goals with four defenders?' → Looking for: compact shape, quick shifting, communication about who covers what",
+      "'What happened after we added the Must Switch rule?' → Looking for: they notice the far side opens up once the ball moves there",
     ],
     commonMistakes: [
-      "Only attacking central goal",
-      "Not switching play",
-      "Defenders bunched in middle",
+      "ONLY ATTACKING THE CENTRAL GOAL → Say: 'Check the corners - they're worth more and often more open!'",
+      "NOT SWITCHING PLAY → Say: 'This side's crowded - can you get it to the other side?'",
+      "DEFENDERS BUNCHED IN THE MIDDLE → Say: 'Spread out - you've got three goals to cover, not one!'",
+      "FORCING A SHOT INTO A DEFENDED GOAL → Say: 'Is there an open goal, or should you switch the ball first?'",
     ],
     variations: [
       {
         name: "Must Switch",
-        description: "Must pass to other side of field before scoring",
+        description:
+          "Team must complete at least one pass to the opposite side of the field before a goal counts, forcing deliberate switching of play.",
         difficulty: "intermediate",
       },
       {
         name: "Moving Goals",
-        description: "Coach moves one goal during play",
+        description:
+          "Coach relocates one goal along the end line during play, requiring teams to constantly rescan rather than memorize a fixed layout.",
+        difficulty: "advanced",
+      },
+      {
+        name: "Numbered Goals",
+        description:
+          "Coach calls out a number (1, 2, or 3) mid-game - only that goal counts for the next 30 seconds, forcing immediate tactical adjustment from both teams.",
         difficulty: "advanced",
       },
     ],
-    makeEasier: "Fewer goals (2 per team)",
-    makeHarder: "Smaller goals, add touch restrictions",
+    makeEasier:
+      "SIGNS THEY'RE STRUGGLING:\n• Constant scoring on only the center goal, ignoring corners entirely\n• No passes switching sides at all\n• Defenders never adjusting position\n• Frustration from a team that can't find any opening\n\nSOLUTIONS:\n• Reduce to 2 goals per team instead of 3\n• Enlarge the goals\n• Coach calls out 'Check the far side!' during play as a reminder\n• Pause play briefly to point out an open goal",
+    makeHarder:
+      "SIGNS THEY'RE READY:\n• Regularly switching the point of attack without prompting\n• Scoring in corner goals as often as the center\n• Defense adjusting shape to cover the open side\n\nSOLUTIONS:\n• Add touch restrictions (2-touch maximum)\n• Shrink the goals\n• Add Must Switch or Numbered Goals\n• Require a minimum number of passes before any shot",
     equipmentNeeded: ["Mini goals or cones", "Pinnies", "Balls"],
     spaceRequired: "medium",
     indoorSuitable: false,
     appropriateStages: ["skill-building", "development"],
     tags: ["game", "decision-making", "width", "tactical"],
     featured: false,
+    comprehensiveGuide: {
+      quickReference: {
+        oneSentence:
+          "Small-sided game with three goals per team (corners worth more) that rewards scanning, switching the point of attack, and exploiting the side the defense has left thin.",
+        keyPhrases: [
+          "Scan all three before you shoot!",
+          "Crowded side? Switch it!",
+          "Get numbers where the defense is thin!",
+        ],
+        setupDiagram:
+          "35x25 pace field, 3 mini goals per end (1 center worth 1 point, 2 corners worth 2 points each), 4v4 or 5v5",
+        quickProgression: {
+          easier: "Fewer goals (2 per team), bigger goals, coach cues about open sides",
+          harder: "Touch restrictions, smaller goals, Must Switch or Numbered Goals variations",
+        },
+      },
+      completeScript: {
+        beforeYouStart: {
+          preparation: [
+            "Mark a 35x25 pace field",
+            "Place 3 small goals per end line: center (1 point) and two corners (2 points each)",
+            "Split into balanced teams of 4-5",
+            "Have 3-4 balls ready near the field",
+          ],
+          mindset:
+            "The point of three goals with different values isn't just variety - it's forcing a real tactical read every single possession: where is the defense thin, and is it worth the extra points to attack there? Keep asking 'which goal, and why' rather than just praising any goal scored.",
+        },
+        segments: [
+          {
+            phase: "Gather & Explain",
+            duration: "60 seconds",
+            coachPosition: "Sideline, both teams gathered",
+            script:
+              "SAY: 'Three goals each end - corners worth 2, middle worth 1. Defend all three!' Point out all six goals. 'Scan before you shoot!'",
+            anticipatedResponses: {
+              "Do we have to defend all three goals equally?":
+                "You choose how to cover them, but leaving one wide open is risky - especially the corners.",
+              "Can we just always shoot at the corner for more points?":
+                "You can try, but if it's defended, a switch to the open goal is usually the smarter play.",
+            },
+          },
+          {
+            phase: "Round 1 - Free Play",
+            duration: "4-5 minutes",
+            coachPosition: "Sideline, positioned to see all three attacking goals",
+            script:
+              "Let teams play with light guidance. Prompt scanning and switching cues as patterns emerge.",
+            troubleshooting: {
+              "Only attacking the center goal": [
+                "Check the corners - they're worth more and often open!",
+              ],
+              "No switching happening": [
+                "This side's crowded - can you get it across?",
+              ],
+            },
+          },
+          {
+            phase: "Teaching Moment",
+            duration: "60 seconds",
+            coachPosition: "Center of the field, both teams gathered",
+            script:
+              "Demo attacking a crowded center goal versus switching to an open corner. 'Switching the point of attack opened that goal - and it's worth more!'",
+          },
+          {
+            phase: "Round 2 - Apply the Lesson",
+            duration: "4-5 minutes",
+            coachPosition: "Roaming the sideline",
+            script:
+              "'Really look to switch and find the open goal!' Give team-specific feedback on scanning and defensive shifting.",
+          },
+          {
+            phase: "Challenge Round - Must Switch",
+            duration: "3-4 minutes",
+            coachPosition: "Sideline, tracking whether the switch happened before each goal",
+            script:
+              "'Must pass to the other side before you can score!' Praise good switches even when the resulting shot misses.",
+          },
+          {
+            phase: "Wrap Up",
+            duration: "30 seconds",
+            coachPosition: "Center, both teams gathered",
+            script:
+              "ASK: 'How did you find the open goal?' Connect to real games: switching play to exploit the weak side. Water break!",
+          },
+        ],
+      },
+      troubleshooting: {
+        gameBalance: {
+          tooEasy: {
+            symptoms: [
+              "Goals scored almost every possession without real defensive resistance",
+              "No real decision-making visible - just shooting at whatever's closest",
+              "Players looking unchallenged",
+            ],
+            solutions: [
+              "Add touch restrictions",
+              "Shrink the goals",
+              "Add Must Switch or Numbered Goals",
+              "Require a minimum pass count before shooting",
+            ],
+          },
+          tooHard: {
+            symptoms: [
+              "No goals scored across several minutes",
+              "Teams unable to create any opening",
+              "Visible frustration from both teams",
+            ],
+            solutions: [
+              "Reduce to 2 goals per team",
+              "Enlarge the goals",
+              "Coach calls out open-side cues during play",
+              "Pause briefly to point out the open goal",
+            ],
+          },
+        },
+        playerBehavior: {
+          tunnelVision: {
+            symptoms: [
+              "Every attack aimed at the same single goal regardless of coverage",
+              "Ignoring open corners entirely",
+            ],
+            approach:
+              "SAY: 'Freeze - which of the three goals is actually open right now?' Point it out if needed.",
+          },
+          defendersBunching: {
+            symptoms: [
+              "All defenders clustered in front of the center goal",
+              "Corner goals left completely uncovered",
+            ],
+            approach:
+              "SAY: 'You've got three goals to cover, not one - who's got the corners?' Encourage verbal defensive communication.",
+          },
+        },
+        environmentalIssues: {
+          goalsShiftingOutOfPosition: {
+            symptoms: ["Cone or mini goals knocked out of place during play"],
+            solution: "Use weighted goals if available, or briefly reset positions between rounds.",
+          },
+          fieldTooLargeForGroup: {
+            symptoms: ["Players spread too thin, long gaps between plays"],
+            solution: "Shrink the field proportionally and reduce to 2 goals per team if numbers are on the smaller end.",
+          },
+        },
+      },
+      skillConnections: {
+        primarySkills: [
+          {
+            skill: "Finding Space",
+            domain: "Tactical",
+            howItDevelops:
+              "With three scoring targets to defend, the attacking team must constantly identify which area of the field the defense has left open and move the ball or their bodies there.",
+            levelIndicators: {
+              1: "Attacks the same goal regardless of defensive coverage",
+              2: "Occasionally notices an open goal after prompting",
+              3: "Regularly identifies the open goal without prompting",
+              4: "Actively repositions teammates and the ball to create openings",
+              5: "Reads and exploits defensive shape before it's even settled",
+            },
+            assessmentNotes:
+              "Watch whether a player's first look is at the nearest goal or a genuine scan of all three.",
+          },
+          {
+            skill: "Passing (Short)",
+            domain: "Technical",
+            howItDevelops:
+              "Switching the point of attack and building 2v1 overloads both require accurate, well-timed short passing under the pressure of a live game.",
+            levelIndicators: {
+              1: "Passes are inconsistent in accuracy and often mistimed",
+              2: "Completes simple passes but rarely switches sides",
+              3: "Reliable short passing, including occasional switches",
+              4: "Confidently switches play and links passes to create overloads",
+              5: "Combines passing with movement to consistently unlock the defense",
+            },
+            assessmentNotes:
+              "Watch pass accuracy specifically on switch-of-play attempts, which are technically harder than short combination passes.",
+          },
+        ],
+        secondarySkills: [
+          {
+            skill: "Creating Passing Angles",
+            domain: "Tactical",
+            howItDevelops:
+              "Off-ball players must position themselves to receive a switch pass, reinforcing the skill of offering a clear passing angle.",
+          },
+          {
+            skill: "Positional Awareness",
+            domain: "Tactical",
+            howItDevelops:
+              "Defending three goals with fewer defenders than goals requires constant awareness of where teammates are covering and where gaps remain.",
+          },
+        ],
+      },
+      developmentalContext: {
+        whyThisActivity:
+          "A single goal lets players get away with predictable, direct attacking - there's only one target, so there's only one real decision. Adding three goals with different point values forces a genuine tactical read on every possession: where is space, and is it worth the extra reward to go there? This is one of the clearest ways to teach switching the point of attack in a game-realistic format.",
+        whenToUseIt: {
+          idealFor: [
+            "Groups that already have basic passing and off-ball movement",
+            "Introducing the tactical concept of switching play",
+            "Mid-to-late practice, after technical work on passing and receiving",
+          ],
+          avoidWhen: [
+            "Group doesn't yet have reliable short passing (build that first)",
+            "Field space can't accommodate a 35x25 pace area even scaled down",
+            "Very young or first-season players who need simpler single-goal games first",
+          ],
+        },
+        progressionPath: {
+          before: [
+            {
+              activity: "2v2 with Mini Goals",
+              reason: "Introduces multi-goal decision-making at a smaller, simpler scale before adding a third goal and bigger numbers",
+            },
+            {
+              activity: "Positional Rondo",
+              reason: "Builds passing under pressure and scanning the field before applying it in a scoring context",
+            },
+          ],
+          after: [
+            {
+              activity: "6v6 Half Field Game",
+              reason: "Scales the switching-play concept into a larger, more structured attacking and defending game",
+            },
+            {
+              activity: "Small-Sided Game 5v5",
+              reason: "Applies the tactical reads from this game in a standard-goal, full-tactics context",
+            },
+          ],
+        },
+        ageAdaptations: {
+          ages6to8: {
+            approach:
+              "This activity is typically introduced later, once players have basic passing; for an advanced younger group, simplify heavily and keep the focus purely on 'which goal is open?' without scoring value differences",
+            keyPhrases: [
+              "Which goal has nobody in front of it?",
+              "Great look - you found the open one!",
+            ],
+            duration: "6-8 minutes if used at all, with 2 equal-value goals instead of 3",
+            simplifications: [
+              "Two goals of equal value instead of three",
+              "Skip all variations",
+              "Coach actively points out open goals",
+            ],
+          },
+          ages9to11: {
+            approach: "Introduce the concept of point values and switching play explicitly",
+            keyPhrases: [
+              "Corner's worth more - is it open?",
+              "Where's the switch pass?",
+            ],
+            duration: "10-12 minutes, full progression through Must Switch",
+            challenges: [
+              "Must Switch variation",
+              "Coach-called reminders about corner values",
+            ],
+          },
+          ages12to14: {
+            approach: "Focus on quick tactical reads and defensive shape under changing conditions",
+            keyPhrases: [
+              "How did the defense's shape create that opening?",
+              "What's the fastest way to exploit an overload?",
+            ],
+            duration: "12-15 minutes, full progression including advanced variations",
+            challenges: [
+              "Moving Goals variation",
+              "Numbered Goals variation",
+            ],
+          },
+        },
+        commonMisconceptions: {
+          "More goals just means more chaos":
+            "The different point values give every possession a real tactical decision - it's structured decision-making, not chaos.",
+          "Corner goals are always the right choice because they're worth more":
+            "If a corner goal is heavily defended, the lower-value open goal is still the smarter, higher-percentage choice - the lesson is reading the defense, not just chasing points.",
+        },
+      },
+      parentCommunication: {
+        ifAsked:
+          "Target Goals Game gives each team three goals to attack, with the corner goals worth more points. Your child has to scan the field, decide which goal is actually open, and often pass the ball to the other side to get there. It's a fun way to teach the tactical idea of 'switching play' that's central to real soccer.",
+        newsletter:
+          "This week: Target Goals Game! Each team defended three goals - two corners worth 2 points, one middle goal worth 1. The coaching focus was scanning the field and switching the ball to the open side instead of always attacking the same spot. Ask your child which goal was usually easiest to score in and why!",
+        whatToWatchFor: [
+          "Does your child check all the options before attacking, or always go to the same spot?",
+          "Are they starting to pass the ball across the field to find open space?",
+          "Do they communicate with teammates about which goals to defend?",
+        ],
+      },
+      safety: {
+        commonRisks: [
+          {
+            risk: "Collisions near corner goals during crowded attacking moments",
+            prevention: "Ensure adequate space around each goal; avoid placing goals too close to field boundaries or obstacles",
+            response: "Check players involved; remind about controlled play near goals",
+          },
+          {
+            risk: "Overexertion from covering a wider field with three goals to defend",
+            prevention: "Monitor fatigue, especially in the later challenge rounds; rotate substitutes if available",
+            response: "Substitute a visibly tired player or add a brief pause",
+          },
+          {
+            risk: "Ankle rolls from quick direction changes while switching to cover open goals",
+            prevention: "Confirm even outdoor playing surface before starting; adequate warm-up",
+            response: "Rest and assess; ice if needed",
+          },
+        ],
+        inclusionConsiderations: {
+          mobilityDifferences: "Assign a fixed goal to defend rather than requiring full-field coverage; adjust field size",
+          attentionChallenges: "Use consistent goal numbering/coloring to reduce cognitive load; shorter rounds with clear cues",
+          skillGaps: "Mix passing ability across both teams so no team is consistently unable to complete a switch",
+        },
+      },
+      coachReflection: {
+        afterActivity: [
+          "Were players genuinely scanning all three goals, or defaulting to the same one?",
+          "Did switching play increase between Round 1 and Round 2?",
+          "Was the field and goal setup appropriately challenging for this group?",
+          "Did defenders adjust their shape to cover the open side?",
+        ],
+        forImprovement: [
+          "Should goal values or placement change next time?",
+          "Which variation produced the clearest switching-play behavior?",
+          "Who needs individual work on scanning before shooting?",
+        ],
+      },
+    },
   },
   {
     slug: "dribble-sprints",
     name: "Dribble Sprints",
-    description: "Sprint conditioning with the ball at feet",
+    description:
+      "Sprint conditioning with the ball pushed just ahead of the feet - players chase down their own push, sprint through the line, and repeat under growing fatigue. Builds speed dribbling and the discipline to keep touches controlled when tired.",
     sport: "soccer",
     activityType: "conditioning",
     difficulty: "intermediate",
@@ -5869,45 +11096,406 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     durationMinutes: 10,
     skillsDeveloped: ["dribbling-with-speed", "speed"],
     setupInstructions:
-      "Set up start line and finish line 30-40 yards apart. Each player has a ball.",
+      "EQUIPMENT CHECKLIST\n□ 1 ball per player\n□ 2 cones per lane (start + finish)\n□ Extra cones if marking multiple parallel lanes\n\nSPACE: 30-35 paces long, 3 paces wide per lane\n\nSETUP STEPS\n1. Place a start cone and a finish cone 30-35 paces apart\n2. If running more than 6 players, mark 2-3 parallel lanes 3 paces apart so sprinters do not collide\n3. Line players up behind the start cone, one ball each\n4. Decide your rep count in advance - start at 6, build to 8\n\nDIAGRAM\nSTART                                          FINISH\n▲                                                   ▲\n○●   ○●   ○●   ○●   ○●   ○●\n\n◄──────────────── 30-35 paces ────────────────►\n\n▲ = cone   ○ = player   ● = ball",
     howToPlay:
-      "1. Sprint with ball from start to finish\n2. Walk back to start\n3. Rest time equals work time\n4. Repeat 6-8 times",
+      'PHASE 1: GATHER & EXPLAIN (60 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: At the start line\n\nSAY: "Grab a ball and a spot behind this cone! This is Dribble Sprints - push the ball ahead and race yourself to the finish line!"\n\nDEMO: Push the ball 2-3 paces ahead, sprint onto it, push again, sprint through the finish.\n\nSAY: "See how I\'m not tapping it every step? I\'m pushing it ahead so I can actually run, then catching up. Close enough nobody can steal it, far enough that you can sprint!"\n\n\nPHASE 2: ROUND 1 - FIND YOUR SPEED (3 minutes, 3 reps)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "One at a time - GO! Sprint to the finish, then WALK back to start. That walk is your rest - use all of it!"\n\nSend players off five seconds apart so the lane stays clear.\n\nCoach Position: Beside the lane, watching touches\n\nWATCH FOR:\n□ Are they pushing the ball ahead or tapping it every step?\n□ Is the ball staying inside 2-3 paces, not drifting away?\n□ Are they using the full walk back, or rushing the next rep?\n\nPHRASES TO USE:\n• "Push it ahead - now sprint onto it!"\n• "Bigger touch, more speed!"\n• "Full walk back - that\'s your rest!"\n\n\nPHASE 3: TEACHING MOMENT (45 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Everyone watch. Fresh legs, my touches are big and confident. Now watch what happens when I get tired..."\n\nDEMO: Show a tired-legs rep where the ball drifts too far, then correct it with a bigger, more purposeful touch.\n\nSAY: "See how it almost got away? Tired is exactly when you have to think MORE about your touch, not less. Controlled touches even with heavy legs - that\'s the whole point!"\n\n\nPHASE 4: ROUND 2 - STAY CONTROLLED WHEN TIRED (3 minutes, 3 reps)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Same thing - sprint, walk back, rest fully. This time, compete with YOURSELF. Can rep 6 look as sharp as rep 1?"\n\nCoach Position: Moving along the lane, calling out individual reps\n\nPHRASES TO USE:\n• "That rep looked as sharp as your first one!"\n• "Stay tall - don\'t let tired legs round your shoulders!"\n• "Big touch - don\'t let it get away from you!"\n\n\nPHASE 5: CHALLENGE ROUND (2 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nChoose ONE challenge:\n\nOption A - With Turn:\nSAY: "This time, sprint out, turn tight around the finish cone, and sprint all the way back to start!"\n\nOption B - Relay Race:\nSAY: "Split into two teams! Sprint down, back, tag the next player. Fastest team wins!"\n\nRun the challenge. Celebrate effort, not just raw speed.\n\n\nPHASE 6: WRAP UP (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Great sprints! What got harder as we went - your legs, your touch, or both?"\n\nListen for: "My touch got sloppy when I was tired," "Legs were heavy but I kept pushing"\n\nSAY: "That\'s exactly why we train this - so your first touch is still sharp in the second half of a game, even when you\'re gassed. Water break!"',
+    diagram:
+      "▲                                                   ▲\n○●   ○●   ○●   ○●   ○●   ○●\n\n◄──────────────── 30-35 paces ────────────────►\n\n▲ = cone   ○ = player   ● = ball",
     coachingPoints: [
-      "Push ball ahead and chase",
-      "Longer touches at speed",
-      "Stay controlled when tired",
-      "Compete with yourself",
+      "PUSH AHEAD, DON'T TAP → Say: 'Push it ahead 2-3 paces, then sprint onto it - don't tap every step!'",
+      "USE THE FULL REST → Say: 'Walk all the way back - that rest is what lets you sprint full speed again!'",
+      "STAY CONTROLLED WHEN TIRED → Say: 'Big touch, tall posture - don't let tired legs shrink your touch!'",
+      "COMPETE WITH YOURSELF → Say: 'Try to make your last rep look just as sharp as your first!'",
     ],
     questionsToAsk: [
-      "How far ahead should the ball be?",
-      "How do you stay fast when tired?",
+      "'How far ahead should the ball be?' → Far enough to sprint, close enough nobody can steal it - about 2-3 paces",
+      "'How do you stay fast when you're tired?' → Looking for: bigger, more purposeful touches instead of giving up on technique",
+      "'Why walk back instead of jog?' → Full recovery lets the next rep be a real sprint, which is the point",
+      "'What position runs the most repeat sprints in a real game?' → Connects the drill to actual match demands",
     ],
-    commonMistakes: ["Ball too close at speed", "Slowing down too much"],
+    commonMistakes: [
+      "BALL TOO CLOSE AT SPEED → Say: 'You can't sprint if you're tapping every step - push it further ahead!'",
+      "SLOWING DOWN TOO MUCH LATE IN THE SET → Say: 'One more full effort, then real rest!'",
+      "JOGGING INSTEAD OF WALKING BACK → Say: 'Walk it back - you need that rest to sprint your best next time!'",
+      "BALL DRIFTING SIDEWAYS → Say: 'Push it straight ahead - chasing sideways wastes your sprint!'",
+    ],
     variations: [
       {
         name: "With Turn",
-        description: "Sprint out, turn around cone, sprint back",
+        description:
+          "Sprint out, turn tight around the finish cone, and sprint all the way back to start without stopping.",
         difficulty: "intermediate",
       },
       {
         name: "Relay Race",
-        description: "Teams compete in dribble relay",
+        description:
+          "Split into teams of 3-4. Each player sprints down and back with the ball before tagging the next teammate; fastest team wins.",
         difficulty: "beginner",
       },
+      {
+        name: "Gassers",
+        description:
+          "Extend to three lengths in a row (down-back-down) before the walk-back rest, building repeat-sprint endurance for older or fitter groups.",
+        difficulty: "advanced",
+      },
     ],
-    makeEasier: "Shorter distance, more rest",
-    makeHarder: "Longer distance, less rest, add finish at end",
+    makeEasier:
+      "SIGNS THEY'RE STRUGGLING:\n• Ball getting away from them at speed\n• Gasping, unable to complete all reps\n• Touches falling apart by rep 3-4\n• Skipping the walk-back rest because they're winded\n\nSOLUTIONS:\n• Shorten the distance to 15-20 paces\n• Add more rest between reps\n• Reduce to 4-5 total reps\n• Allow a bigger first touch out so the ball is easier to chase\n• Run in smaller groups so nobody feels rushed by the line behind them",
+    makeHarder:
+      "SIGNS THEY'RE READY:\n• Touches stay sharp through all 6-8 reps\n• Recovering quickly, asking for more\n• Barely breathing hard by the end\n\nSOLUTIONS:\n• Extend distance to 40-50 paces\n• Shorten the rest - jog back instead of walk\n• Add the turn variation every rep\n• Increase to 8-10 reps\n• Add a defender chasing the last 10 paces to simulate game pressure",
     equipmentNeeded: ["Cones", "1 ball per player"],
     spaceRequired: "medium",
     indoorSuitable: true,
     appropriateStages: ["skill-building", "development"],
     tags: ["conditioning", "dribbling", "speed", "fitness"],
     featured: false,
+    comprehensiveGuide: {
+      quickReference: {
+        oneSentence:
+          "Sprint with the ball pushed ahead, walk back to recover, and repeat - builds speed dribbling and the discipline to keep touches controlled under fatigue.",
+        keyPhrases: [
+          "Push it ahead, then sprint onto it!",
+          "Big touch, tall posture when you're tired!",
+          "Full walk back - that's your rest!",
+        ],
+        setupDiagram:
+          "30-35 pace straight lane(s), start cone and finish cone, 1 ball per player",
+        quickProgression: {
+          easier: "Shorter distance, more rest, fewer reps",
+          harder:
+            "Longer distance, shorter rest, add the turn or a chasing defender",
+        },
+      },
+      completeScript: {
+        beforeYouStart: {
+          preparation: [
+            "Measure and cone off a 30-35 pace lane (add parallel lanes if running more than 6 at once)",
+            "Confirm every player has their own ball",
+            "Decide the rep count in advance - start at 6, build to 8",
+            "Plan a five-second send-off gap between players so lanes stay clear",
+          ],
+          mindset:
+            "This is a conditioning drill wearing a technical disguise. Your main job is protecting quality of touch as fatigue sets in - it's tempting to let form slip once legs get heavy, but that's exactly when the training value lives. Be a broken record: 'push it ahead, big touch, stay tall.'",
+        },
+        segments: [
+          {
+            phase: "Gather & Explain",
+            duration: "60 seconds",
+            coachPosition: "At the start line",
+            script:
+              "SAY: 'Push the ball ahead, sprint onto it, repeat to the finish!' Demo 2-3 pushes. 'Ball stays close enough nobody can steal it, far enough that you can sprint.'",
+            anticipatedResponses: {
+              "How far should I push it?":
+                "About 2-3 paces - far enough to run onto, close enough to control.",
+              "Do I run back too?": "No - walk back, that's your rest!",
+            },
+            troubleshooting: {
+              "Players bunching at the start cone": [
+                "Send them off one at a time with a five-second gap",
+              ],
+            },
+          },
+          {
+            phase: "Round 1 - Find Your Speed",
+            duration: "3 minutes (3 reps)",
+            coachPosition: "Beside the lane, watching touches",
+            script:
+              "Send one player at a time. Call out: 'Push it ahead - sprint onto it!' Confirm the full walk-back rest between reps.",
+            troubleshooting: {
+              "Ball drifting too far ahead": [
+                "Smaller pushes - just enough to sprint onto",
+              ],
+              "Players jogging instead of walking back": [
+                "Remind them the walk IS the rest - jogging cuts recovery short",
+              ],
+            },
+          },
+          {
+            phase: "Teaching Moment",
+            duration: "45 seconds",
+            coachPosition: "At the start line, everyone gathered",
+            script:
+              "Demo a tired-legs rep where the touch gets sloppy, then correct it. 'When you're tired is exactly when you have to think MORE about your touch, not less.'",
+          },
+          {
+            phase: "Round 2 - Stay Controlled When Tired",
+            duration: "3 minutes (3 reps)",
+            coachPosition: "Moving along the lane",
+            script:
+              "Challenge players to match rep 1's quality by rep 6. Call out individual reps by name for specific feedback.",
+          },
+          {
+            phase: "Challenge Round",
+            duration: "2 minutes",
+            coachPosition: "At the finish cone, or splitting teams for the relay",
+            script:
+              "Pick one: With Turn (sprint-turn-sprint back) or Relay Race (teams of 3-4). Celebrate effort over raw speed.",
+          },
+          {
+            phase: "Wrap Up",
+            duration: "30 seconds",
+            coachPosition: "At the start line",
+            script:
+              "ASK: 'What got harder as we went - legs, touch, or both?' Connect to game fitness: sharp touch in the second half even when tired. Water break!",
+          },
+        ],
+      },
+      troubleshooting: {
+        gameBalance: {
+          tooEasy: {
+            symptoms: [
+              "Touches stay perfect through all reps",
+              "Barely breathing hard",
+              "Asking for more reps",
+            ],
+            solutions: [
+              "Extend the distance",
+              "Shorten the rest",
+              "Add the turn variation",
+              "Add a chasing defender on the last stretch",
+            ],
+          },
+          tooHard: {
+            symptoms: [
+              "Ball escaping on multiple reps",
+              "Unable to complete the full set",
+              "Touches falling apart early",
+            ],
+            solutions: [
+              "Shorten the distance",
+              "Add rest between reps",
+              "Reduce total reps",
+              "Allow a bigger first push so the ball is easier to chase",
+            ],
+          },
+        },
+        playerBehavior: {
+          racingEachOther: {
+            symptoms: [
+              "Players sprinting off before their turn",
+              "Crowding the start cone",
+            ],
+            approach:
+              "Assign a clear send-off order and a five-second gap; praise the player who waits their turn and still sprints hard.",
+          },
+          cuttingRestShort: {
+            symptoms: ["Jogging back instead of walking", "Starting the next rep early"],
+            approach:
+              "SAY: 'The walk back is part of the drill - use all of it so your next sprint is a real sprint.'",
+          },
+          sloppyTouchesLate: {
+            symptoms: ["Ball drifting wide or too far ahead on later reps"],
+            approach:
+              "Call it out kindly in the moment: 'Big touch, stay tall!' and praise the next rep when it improves.",
+          },
+        },
+        environmentalIssues: {
+          wetOrSlickGround: {
+            symptoms: ["Players slipping on turns or sprints"],
+            solution: "Shorten distance, reduce speed expectations, or move indoors if suitable.",
+          },
+          notEnoughSpaceForLanes: {
+            symptoms: ["Only one lane possible, long wait between turns"],
+            solution:
+              "Run reps individually with a shorter rest interval, or split the group into two smaller sets.",
+          },
+        },
+      },
+      skillConnections: {
+        primarySkills: [
+          {
+            skill: "Dribbling with Speed",
+            domain: "Technical",
+            howItDevelops:
+              "Pushing the ball ahead and sprinting onto it builds the touch weight and running rhythm needed to carry the ball at pace in open space.",
+            levelIndicators: {
+              1: "Taps the ball every step; cannot sprint at real speed",
+              2: "Occasional bigger touches, but ball often drifts away",
+              3: "Consistent 2-3 pace pushes; sprints at close to full speed",
+              4: "Adjusts touch size to speed; controlled even at top pace",
+              5: "Sprints at full speed with the ball tight enough to beat a chasing defender",
+            },
+            assessmentNotes:
+              "Watch touch spacing at full speed. Does the ball stay retrievable, or does it get away on 2+ reps?",
+          },
+          {
+            skill: "Speed",
+            domain: "Physical",
+            howItDevelops:
+              "Repeated maximal sprints with brief recovery build acceleration and top-end speed, and teach players to sustain effort across multiple reps.",
+            levelIndicators: {
+              1: "Cannot maintain top speed past rep 2-3",
+              2: "Noticeable drop-off in speed by rep 4-5",
+              3: "Holds close to top speed through most reps",
+              4: "Consistent speed across all reps with proper recovery use",
+              5: "Minimal drop-off even under a shortened-rest challenge",
+            },
+            assessmentNotes:
+              "Time or eyeball the last rep against the first - a big gap signals a fitness or pacing issue.",
+          },
+        ],
+        secondarySkills: [
+          {
+            skill: "Resilience",
+            domain: "Psychological",
+            howItDevelops:
+              "Holding technique together on the later, tiring reps builds the mental toughness to maintain quality under fatigue.",
+          },
+          {
+            skill: "Agility & Coordination",
+            domain: "Physical",
+            howItDevelops:
+              "The turn variation demands a controlled change of direction at speed, reinforcing balance and body control.",
+          },
+        ],
+      },
+      developmentalContext: {
+        whyThisActivity:
+          "Most conditioning drills sacrifice technique for effort. Dribble Sprints keeps the ball involved so players practice exactly the skill that breaks down late in games: controlling the ball while tired. It builds real fitness while reinforcing that a big, confident touch beats a nervous, tight one.",
+        whenToUseIt: {
+          idealFor: [
+            "Mid-to-late practice, after a full warm-up",
+            "Building toward game-speed conditioning",
+            "Reinforcing that technique should not disappear under fatigue",
+          ],
+          avoidWhen: [
+            "Players have not warmed up (injury risk)",
+            "Space cannot fit at least one safe 30-pace lane",
+            "The group needs low-intensity technical work that day",
+          ],
+        },
+        progressionPath: {
+          before: [
+            {
+              activity: "Speed Dribbling Relay",
+              reason: "Introduces dribbling at pace in a lower-fatigue, game-like format first",
+            },
+            {
+              activity: "Gates Dribbling",
+              reason: "Builds comfort dribbling with purpose before adding sprint conditioning",
+            },
+          ],
+          after: [
+            {
+              activity: "Box to Box Runs",
+              reason: "Extends the conditioning demand to a longer, ball-optional shuttle format",
+            },
+            {
+              activity: "Dribblers vs Defenders",
+              reason: "Adds a chasing defender so speed dribbling happens under real pressure",
+            },
+          ],
+        },
+        ageAdaptations: {
+          ages6to8: {
+            approach:
+              "Not typically used at this age - 6-8 year olds get better conditioning value from games with a built-in chase, like Ball Tag or Shark Attack, than from structured sprint reps. If used at all, keep it short and playful.",
+            keyPhrases: ["Race the ball to the line!", "Can you beat your own time?"],
+            avoidSaying: ["This is your fitness test", "You're too slow"],
+            duration: "3-4 minutes if used at all",
+            simplifications: [
+              "Shorten to 15 paces",
+              "Frame every rep as a fun race, not a fitness rep",
+              "3-4 reps maximum",
+            ],
+          },
+          ages9to11: {
+            approach:
+              "Introduce the format with clear technique cues; keep the competitive frame light - beat your own time rather than compare to teammates.",
+            keyPhrases: ["Push it ahead, sprint onto it!", "Beat your last rep!"],
+            avoidSaying: ["You're the slowest one", "That was a bad rep"],
+            duration: "8-10 minutes, 5-6 reps",
+            challenges: ["Add the turn variation", "Relay teams for fun competition"],
+          },
+          ages12to14: {
+            approach:
+              "Full conditioning intent - connect explicitly to game fitness demands and let players self-monitor their own effort and quality.",
+            keyPhrases: [
+              "Where does this show up in a real game?",
+              "Match your rep 1 quality on rep 8",
+            ],
+            avoidSaying: ["Just get through it"],
+            duration: "10-12 minutes, 6-8 reps",
+            challenges: [
+              "Extend the distance",
+              "Add a chasing defender on the last 10 paces",
+              "Shorten recovery to build repeat-sprint ability",
+            ],
+          },
+        },
+        commonMisconceptions: {
+          "This is just running, not soccer training":
+            "Dribbling at speed under fatigue is exactly what happens in transition moments in real games - it's conditioning and a technical skill at once.",
+          "Faster reps are always better":
+            "A fast rep with the ball drifting away teaches bad habits; controlled speed beats reckless speed.",
+          "Walking back is wasted time":
+            "The walk-back is the recovery that allows a full-effort sprint next time - cutting it short lowers the quality of every following rep.",
+        },
+      },
+      parentCommunication: {
+        ifAsked:
+          "Dribble Sprints builds your child's speed while keeping the ball under control - it's conditioning that also sharpens their first touch under fatigue, which shows up in the closing minutes of real games.",
+        newsletter:
+          "This week: Dribble Sprints! Players sprinted with the ball pushed just ahead of their feet, walked back to recover, and repeated. We're building game fitness and teaching players to keep their touch sharp even when tired - exactly what shows up late in a match.",
+        whatToWatchFor: [
+          "Does your child push the ball ahead to actually sprint, or tap it every step?",
+          "Do they use the full walk-back to recover, or rush the next rep?",
+          "Does their touch stay controlled on the later reps, or fall apart when tired?",
+          "Are they competing with themselves rather than comparing to teammates?",
+        ],
+      },
+      safety: {
+        commonRisks: [
+          {
+            risk: "Hamstring or muscle strain from sprinting without a warm-up",
+            prevention:
+              "Always run this after a full dynamic warm-up, never as the first activity of practice",
+            response:
+              "Stop the player immediately, rest, ice if needed, and do not return to sprinting that session",
+          },
+          {
+            risk: "Collisions between adjacent lanes",
+            prevention:
+              "Space lanes at least 3 paces apart; send players off with a gap, not simultaneously",
+            response: "Pause the drill, check players, widen lanes before resuming",
+          },
+          {
+            risk: "Rolled ankle on the turn variation",
+            prevention:
+              "Require a controlled, wide turn around the cone rather than a sharp cut at full speed",
+            response: "Rest, ice if needed, reduce intensity for the remainder of the session",
+          },
+        ],
+        inclusionConsiderations: {
+          mobilityDifferences:
+            "Allow a fast walk or jog instead of a sprint; shorten the distance so effort level matches, not literal speed",
+          enduranceDifferences:
+            "Reduce rep count or add extra rest for players still building fitness; frame success as effort, not finishing time",
+          attentionChallenges:
+            "Keep reps short with a clear individual send-off cue so waiting time doesn't lead to wandering",
+        },
+      },
+      coachReflection: {
+        afterActivity: [
+          "Did touches stay controlled through the later reps, or fall apart under fatigue?",
+          "Was the walk-back rest actually being used, or were players rushing?",
+          "Did the rep count match this group's conditioning level?",
+          "Were lanes spaced safely with no near-collisions?",
+        ],
+        forImprovement: [
+          "Should I adjust distance or rep count next time?",
+          "Who needs an easier version to keep their technique intact?",
+          "Which challenge variation fit this group best?",
+          "How can I tie this more explicitly to game moments in the debrief?",
+        ],
+      },
+    },
   },
   {
     slug: "box-to-box-runs",
     name: "Box to Box Runs",
-    description: "Shuttle runs simulating midfielder workload",
+    description:
+      "Full-length shuttle runs between penalty boxes that simulate a box-to-box midfielder's workload - sprint the length of the field, jog back, and go again. Builds top-end speed, repeat-sprint endurance, and the mental toughness to keep pushing late in a match.",
     sport: "soccer",
     activityType: "conditioning",
     difficulty: "advanced",
@@ -5915,43 +11503,374 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     maxPlayers: 24,
     durationMinutes: 12,
     skillsDeveloped: ["speed"],
-    setupInstructions: "Full field available, or marked 60-yard course.",
+    setupInstructions:
+      "EQUIPMENT CHECKLIST\n□ 4 cones (mark each penalty box line if the field is not already marked)\n□ Stopwatch or phone timer for rest intervals\n□ Optional: 1 ball per player for the With Ball variation\n\nSPACE: Full field length (about 60-70 paces box-to-box), or a marked 60-pace course\n\nSETUP STEPS\n1. Use the two penalty box lines as start/finish, or mark two lines 60 paces apart with cones\n2. Line players up along the starting line\n3. Set a rest interval - start at 60 seconds between reps\n4. Decide rep count in advance based on the group's conditioning level (start at 6)\n\nDIAGRAM\nBOX LINE                                              BOX LINE\n▲───────────────────────────────────────────────────▲\n○  ○  ○  ○  ○  ○\n\n◄──────────────── 60-70 paces ────────────────►\n\n▲ = cone/box line   ○ = player",
     howToPlay:
-      "1. Start on penalty box line\n2. Sprint to opposite penalty box line\n3. Jog back\n4. Immediately sprint again\n5. Repeat 6-10 times with 60-second rest between sets",
+      'PHASE 1: GATHER & EXPLAIN (60 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: At one box line\n\nSAY: "This is Box to Box Runs - sprint the full length of the field, jog back, and go again. This is exactly what a box-to-box midfielder does in a real game, over and over!"\n\nSAY: "Sprint means SPRINT - full effort. Jog back means an actual jog, not a walk, not another sprint. That jog is your recovery AND your transition back to ready position."\n\nSAY: "We\'ll do sets of 6, with 60 seconds rest after each. Pace yourself - this is a marathon of sprints, not one all-out effort!"\n\n\nPHASE 2: ROUND 1 - BUILD THE RHYTHM (4 minutes, 3 reps)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Everyone on the line. Ready... SPRINT!"\n\nSend the group together (or in a tight wave if the group is large).\n\nCoach Position: At the far line, timing rest\n\nWATCH FOR:\n□ Are they sprinting the full distance, or easing up early?\n□ Is the jog back an actual jog, not a walk?\n□ Are arms driving, or hanging low and loose?\n\nPHRASES TO USE:\n• "All the way through the line - don\'t slow down early!"\n• "Drive those arms!"\n• "Jog it back - keep moving!"\n\nRun 3 reps with the 60-second rest between each.\n\n\nPHASE 3: TEACHING MOMENT (45 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Everyone gather up. Watch my arms when I sprint - driving hard, elbows back. That\'s what pulls your legs along when they get tired."\n\nDEMO: Show a sprint with strong arm drive, then a lazy-arm sprint for comparison.\n\nSAY: "And on the jog back - shoulders relaxed, breathing controlled. That jog is where you get ready for the NEXT sprint. Don\'t waste it by walking, but don\'t waste your legs by sprinting it either!"\n\n\nPHASE 4: ROUND 2 - HOLD YOUR PACE (4 minutes, 3 reps)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Same as before - but I want rep 6 to look just as strong as rep 1. That\'s mental toughness!"\n\nCoach Position: Alternating ends, calling out effort\n\nPHRASES TO USE:\n• "That\'s a strong finish - keep it up!"\n• "I see you slowing early - one more gear!"\n• "Great jog pace - controlled and ready!"\n\n\nPHASE 5: CHALLENGE ROUND (2 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nChoose ONE:\n\nOption A - With Ball:\nSAY: "This time, dribble the ball on your way back instead of jogging empty-handed. Controlled touches - this is still recovery, not a race!"\n\nOption B - Partner Work:\nSAY: "Partner up! Your partner passes you the ball as you arrive at each end - one touch to control, then go again!"\n\nRun the challenge for the remaining reps.\n\n\nPHASE 6: WRAP UP (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Tough work! What was harder - the sprinting or staying mentally locked in on rep 6?"\n\nListen for: "Staying focused was hard," "My legs were fine but my mind wanted to quit"\n\nSAY: "That mental piece is exactly what separates players in the last 15 minutes of a real game. Great effort - water break!"',
+    diagram:
+      "▲───────────────────────────────────────────────────▲\n○  ○  ○  ○  ○  ○\n\n◄──────────────── 60-70 paces ────────────────►\n\n▲ = cone/box line   ○ = player",
     coachingPoints: [
-      "Pace yourself - it's multiple sprints",
-      "Drive with arms",
-      "Quick recovery jog back",
-      "Mental toughness when tired",
+      "PACE YOURSELF → Say: 'This is a marathon of sprints - hold something back for rep 6, not just rep 1!'",
+      "DRIVE WITH YOUR ARMS → Say: 'Elbows back, arms pumping - that's what pulls tired legs along!'",
+      "JOG MEANS JOG → Say: 'Keep moving on the way back - a real jog, not a walk, not a second sprint!'",
+      "STAY LOCKED IN LATE → Say: 'Make your last rep look just as strong as your first - that's mental toughness!'",
     ],
     questionsToAsk: [
-      "How do you recover during the jog?",
-      "What position runs the most in a game?",
+      "'How do you recover during the jog back?' → Controlled breathing, relaxed shoulders, staying ready to sprint again",
+      "'What position runs the most distance in a real game?' → Central midfielders - box-to-box running is literally their job",
+      "'Why not just walk back instead of jogging?' → Looking for: jogging keeps the body warm and transitions faster into the next sprint",
+      "'What's harder by rep 5 or 6 - your legs or your focus?' → Builds self-awareness about mental fatigue, not just physical",
     ],
     commonMistakes: [
-      "Going too hard too early",
-      "Walking instead of jogging back",
+      "GOING TOO HARD TOO EARLY → Say: 'Save something - this is 6 sprints, not 1!'",
+      "WALKING INSTEAD OF JOGGING BACK → Say: 'Keep jogging - walking wastes the recovery rhythm!'",
+      "SLOWING DOWN BEFORE THE LINE → Say: 'Run through the line, not to it - finish every rep!'",
+      "LETTING ARMS GO LIMP WHEN TIRED → Say: 'Drive your arms - they'll pull your legs along!'",
     ],
     variations: [
       {
         name: "With Ball",
-        description: "Dribble on the way back",
+        description:
+          "Dribble the ball under control on the jog back instead of running empty-handed - keeps technical touches involved in the conditioning.",
         difficulty: "advanced",
       },
       {
         name: "Partner Work",
-        description: "Partner passes to you at each end",
+        description:
+          "Partner passes the ball to you as you arrive at each line; take one controlled touch before turning to go again.",
+        difficulty: "advanced",
+      },
+      {
+        name: "Timed Splits",
+        description:
+          "Time each sprint and challenge players to stay within 2 seconds of their fastest rep by rep 6 - makes the mental toughness goal concrete and measurable.",
         difficulty: "advanced",
       },
     ],
-    makeEasier: "Shorter distance, more rest between reps",
-    makeHarder: "Add ball work, less rest, more reps",
-    equipmentNeeded: ["Cones"],
+    makeEasier:
+      "SIGNS THEY'RE STRUGGLING:\n• Sprints getting visibly slower by rep 3-4\n• Walking instead of jogging back\n• Gasping, unable to hold form\n• Skipping full effort on later reps\n\nSOLUTIONS:\n• Shorten the distance to 40-45 paces\n• Extend rest to 90 seconds between reps\n• Reduce to 4-5 total reps\n• Allow a slower jog-back pace\n• Split into smaller groups so nobody feels pressured by faster teammates",
+    makeHarder:
+      "SIGNS THEY'RE READY:\n• Rep 6 looks nearly as fast as rep 1\n• Recovering quickly during the jog\n• Asking to add more reps\n\nSOLUTIONS:\n• Add ball work on the return jog\n• Shorten rest to 45 seconds\n• Increase to 8-10 reps\n• Add a competitive element - fastest average time wins\n• Combine with the Partner Work variation for a technical-conditioning blend",
+    equipmentNeeded: ["Cones", "Stopwatch or timer"],
     spaceRequired: "large",
     indoorSuitable: false,
     appropriateStages: ["development"],
     tags: ["conditioning", "running", "endurance", "fitness"],
     featured: false,
+    comprehensiveGuide: {
+      quickReference: {
+        oneSentence:
+          "Full-field shuttle sprints between penalty boxes with a jog-back recovery - builds the repeat-sprint speed and mental toughness of a box-to-box midfielder.",
+        keyPhrases: [
+          "Sprint through the line, not to it!",
+          "Drive your arms - they pull tired legs along!",
+          "Make rep 6 look like rep 1!",
+        ],
+        setupDiagram: "Full field length or a marked 60-70 pace course between two lines",
+        quickProgression: {
+          easier: "Shorter distance, longer rest, fewer reps",
+          harder: "Longer distance or more reps, shorter rest, add ball work",
+        },
+      },
+      completeScript: {
+        beforeYouStart: {
+          preparation: [
+            "Confirm both box lines or mark a 60-70 pace course with cones",
+            "Bring a stopwatch or phone timer to enforce consistent rest intervals",
+            "Decide the rep count in advance based on this group's fitness level",
+            "This activity is for the development stage and older - confirm the group has the conditioning base for repeat maximal sprints",
+          ],
+          mindset:
+            "This is pure conditioning with a soccer-specific shape. Your job is pacing and honesty - players will want to sprint rep 1 all-out and coast by rep 4. Push for consistency across the whole set, not just a fast start. Reinforce that finishing strong is the actual skill being trained.",
+        },
+        segments: [
+          {
+            phase: "Gather & Explain",
+            duration: "60 seconds",
+            coachPosition: "At one box line",
+            script:
+              "SAY: 'Sprint the full length, jog back, repeat. Pace yourself - this is 6 sprints, not 1.' Explain the 60-second rest between reps.",
+            anticipatedResponses: {
+              "How hard should I go?":
+                "Full effort every sprint - but save enough that rep 6 looks like rep 1.",
+              "Can I walk back instead of jog?":
+                "No - jog keeps you warm and ready for the next sprint.",
+            },
+            troubleshooting: {
+              "Group bunching at the start line": [
+                "Send off in a staggered line or small waves",
+              ],
+            },
+          },
+          {
+            phase: "Round 1 - Build the Rhythm",
+            duration: "4 minutes (3 reps)",
+            coachPosition: "At the far line, timing rest",
+            script:
+              "Send the group together. Call out: 'All the way through the line!' Time the 60-second rest strictly.",
+            troubleshooting: {
+              "Players slowing before the line": [
+                "Move the finish cone a pace or two further so they run through it",
+              ],
+              "Walking instead of jogging back": [
+                "Remind them jog keeps the rhythm - walking breaks it",
+              ],
+            },
+          },
+          {
+            phase: "Teaching Moment",
+            duration: "45 seconds",
+            coachPosition: "At the start line, everyone gathered",
+            script:
+              "Demo strong arm drive vs. lazy arms. 'Driving arms pull tired legs along - that's free speed.'",
+          },
+          {
+            phase: "Round 2 - Hold Your Pace",
+            duration: "4 minutes (3 reps)",
+            coachPosition: "Alternating ends",
+            script:
+              "Challenge players to match rep 1's effort on rep 6. Call out individual effort by name.",
+          },
+          {
+            phase: "Challenge Round",
+            duration: "2 minutes",
+            coachPosition: "Roaming between lines",
+            script:
+              "Pick one: With Ball (dribble the jog back) or Partner Work (receive a pass at each end). Keep the intensity of the sprint itself unchanged.",
+          },
+          {
+            phase: "Wrap Up",
+            duration: "30 seconds",
+            coachPosition: "At one line",
+            script:
+              "ASK: 'What was harder - your legs or staying mentally locked in?' Connect to game moments late in a match. Water break!",
+          },
+        ],
+      },
+      troubleshooting: {
+        gameBalance: {
+          tooEasy: {
+            symptoms: [
+              "Rep 6 nearly as fast as rep 1",
+              "Barely breathing hard by the end",
+              "Asking for more reps",
+            ],
+            solutions: [
+              "Add more reps",
+              "Shorten the rest interval",
+              "Add ball work on the jog back",
+              "Introduce timed splits with a target",
+            ],
+          },
+          tooHard: {
+            symptoms: [
+              "Sprints falling apart by rep 3-4",
+              "Walking instead of jogging",
+              "Unable to complete the full set",
+            ],
+            solutions: [
+              "Shorten the distance",
+              "Extend the rest interval",
+              "Reduce total reps",
+              "Split into smaller groups by fitness level",
+            ],
+          },
+        },
+        playerBehavior: {
+          pacingTooAggressively: {
+            symptoms: ["All-out effort on rep 1, big drop-off by rep 3"],
+            approach:
+              "SAY: 'Save something - imagine you have to do this 6 times, because you do!' Praise even pacing after the fact.",
+          },
+          cuttingTheJogShort: {
+            symptoms: ["Walking or stopping during the recovery jog"],
+            approach:
+              "Remind them the jog is part of the drill, not optional rest - keep the legs moving to stay ready.",
+          },
+          racingTeammatesUnsafely: {
+            symptoms: ["Players veering into each other's lanes to compete"],
+            approach:
+              "Assign lanes or staggered starts; redirect competitiveness toward beating their own previous rep time.",
+          },
+        },
+        environmentalIssues: {
+          heatOrHumidity: {
+            symptoms: ["Players fatiguing much faster than usual", "Excessive sweating, flushed faces"],
+            solution: "Extend rest intervals, reduce total reps, and ensure water breaks between sets.",
+          },
+          hardOrUnevenSurface: {
+            symptoms: ["Complaints of shin or joint discomfort"],
+            solution: "Reduce total volume for the session or move to a softer surface if available.",
+          },
+        },
+      },
+      skillConnections: {
+        primarySkills: [
+          {
+            skill: "Speed",
+            domain: "Physical",
+            howItDevelops:
+              "Repeated maximal-effort sprints over a long distance with structured recovery build both top-end speed and the ability to repeat sprints without significant drop-off - the core physical demand of central midfield play.",
+            levelIndicators: {
+              1: "Cannot complete the full rep count at a sprint effort",
+              2: "Completes the set but with major speed drop-off by the final reps",
+              3: "Holds reasonably consistent pace across most reps",
+              4: "Minimal drop-off across the full set; recovers well during the jog",
+              5: "Maintains near-identical pace from rep 1 to rep 6+ even under a shortened-rest challenge",
+            },
+            assessmentNotes:
+              "Compare the pace of the first and last rep. A large, consistent gap signals a conditioning base that needs building.",
+          },
+        ],
+        secondarySkills: [
+          {
+            skill: "Resilience",
+            domain: "Psychological",
+            howItDevelops:
+              "Staying mentally locked in and finishing each rep strong when legs are heavy builds the toughness needed for the closing stages of real matches.",
+          },
+          {
+            skill: "Agility & Coordination",
+            domain: "Physical",
+            howItDevelops:
+              "Transitioning cleanly from sprint to jog to sprint again reinforces body control and running mechanics under fatigue.",
+          },
+        ],
+      },
+      developmentalContext: {
+        whyThisActivity:
+          "Central midfielders in particular cover enormous distance at high intensity across a match. Box to Box Runs trains that exact physical profile - repeated maximal sprints with incomplete recovery - while the arm-drive and pacing cues keep it technically informative, not just exhausting.",
+        whenToUseIt: {
+          idealFor: [
+            "Development-stage players building a genuine fitness base",
+            "Pre-season or early-season conditioning blocks",
+            "Reinforcing pacing and mental toughness under physical fatigue",
+          ],
+          avoidWhen: [
+            "Players have not been conditioned gradually toward this volume",
+            "Extreme heat or humidity without adjusted rest",
+            "The session already contains heavy sprint volume elsewhere",
+          ],
+        },
+        progressionPath: {
+          before: [
+            {
+              activity: "Dribble Sprints",
+              reason: "Builds sprint conditioning at a shorter distance with the ball involved first",
+            },
+            {
+              activity: "Pressing Game Fitness",
+              reason: "Introduces repeat-effort conditioning inside a game context before pure running volume",
+            },
+          ],
+          after: [
+            {
+              activity: "6v6 Half Field Game",
+              reason: "Applies the repeat-sprint fitness just built to a game with real transition moments",
+            },
+            {
+              activity: "Transition Game",
+              reason: "Tests whether the conditioning translates to quick defensive-to-attacking sprints",
+            },
+          ],
+        },
+        ageAdaptations: {
+          ages9to11: {
+            approach:
+              "Not typically used in this full form - if introducing the concept early, shorten distance dramatically and frame it as a game, not a fitness test.",
+            keyPhrases: ["Race to the line and back!", "Can you beat your own time?"],
+            avoidSaying: ["This is your fitness test", "You have to finish all the reps"],
+            duration: "Shorten to 25-30 pace distance, 3-4 reps, if used at all",
+            simplifications: [
+              "Much shorter distance",
+              "Longer rest between reps",
+              "Frame it as a race, not conditioning",
+            ],
+          },
+          ages12to14: {
+            approach:
+              "Full conditioning intent for the development stage - introduce pacing strategy and connect explicitly to specific positions and match minutes.",
+            keyPhrases: [
+              "Where does this show up in the last 15 minutes of a game?",
+              "Pace yourself like it's 6 sprints, not 1",
+            ],
+            avoidSaying: ["Just push through it", "Last place has to run again"],
+            duration: "10-12 minutes, 6-8 reps",
+            challenges: [
+              "Add ball work on the return jog",
+              "Shorten rest to build repeat-sprint ability",
+              "Introduce timed splits",
+            ],
+          },
+        },
+        commonMisconceptions: {
+          "This is just running, not real training":
+            "Repeat-sprint ability with incomplete recovery is one of the most match-specific fitness qualities in soccer, especially for central midfielders.",
+          "Going all-out every rep is the goal":
+            "An all-out rep 1 followed by a collapsed rep 4 is worse training than steady, sustainable effort across the whole set - pacing is part of the skill.",
+          "Walking back is fine as long as you sprint hard":
+            "Walking breaks the physiological rhythm the jog is designed to build - it changes what the drill is training.",
+        },
+      },
+      parentCommunication: {
+        ifAsked:
+          "Box to Box Runs builds the repeat-sprint fitness players need to keep working hard for a full match, not just the first 20 minutes - it's specifically designed around what midfielders do most in a real game.",
+        newsletter:
+          "This week: Box to Box Runs! Players sprinted the length of the field, jogged back, and repeated it six times - simulating the running demands of a real match. We're building the fitness and mental toughness to still be sharp in the closing minutes of a game.",
+        whatToWatchFor: [
+          "Does your child's pace stay consistent across all the reps, or fall off sharply?",
+          "Are they jogging back with purpose, or walking?",
+          "Do they finish the set with effort still intact, or fade early?",
+          "Are they pacing themselves smartly rather than sprinting rep 1 and quitting on rep 3?",
+        ],
+      },
+      safety: {
+        commonRisks: [
+          {
+            risk: "Hamstring, calf, or groin strain from repeated maximal sprints",
+            prevention:
+              "Require a complete dynamic warm-up before this activity; never run it cold",
+            response:
+              "Stop the player immediately, rest, ice if needed, and do not continue sprinting that session",
+          },
+          {
+            risk: "Heat exhaustion from a high-volume running activity",
+            prevention:
+              "Adjust rep count and rest to conditions; ensure water is available and breaks are taken in hot weather",
+            response:
+              "Move the player to shade, provide water, monitor closely, and seek medical attention if symptoms persist",
+          },
+          {
+            risk: "Overuse injury from too much volume too soon in a season",
+            prevention:
+              "Build up rep count and distance gradually over several weeks rather than starting at maximum volume",
+            response: "Reduce volume immediately if players report joint or shin discomfort",
+          },
+        ],
+        inclusionConsiderations: {
+          fitnessDifferences:
+            "Group players by current conditioning level where possible; reduce reps or extend rest for those still building their base",
+          enduranceDifferences:
+            "Allow a slower jog-back pace and longer rest without singling anyone out",
+          attentionChallenges:
+            "Use a visible countdown or clear verbal cues for start/stop so transitions between sprint and jog are unambiguous",
+        },
+      },
+      coachReflection: {
+        afterActivity: [
+          "Did pace stay reasonably consistent from rep 1 to the final rep?",
+          "Was the rest interval actually enforced, or did it drift shorter or longer?",
+          "Did the rep count match this group's current conditioning level?",
+          "Were there any signs of heat stress or overexertion I should note for next time?",
+        ],
+        forImprovement: [
+          "Should I adjust distance, rep count, or rest interval next time?",
+          "Who needs a gradual build-up before running the full version?",
+          "Which challenge variation fit this group's needs?",
+          "How can I connect this more explicitly to specific match moments in the debrief?",
+        ],
+      },
+    },
   },
   {
     slug: "soccer-tennis-conditioning",
@@ -6055,7 +11974,8 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "soccer-bowling",
     name: "Soccer Bowling",
-    description: "Knock down cones by passing/shooting - bowling with a soccer ball",
+    description:
+      "Bowling with a soccer ball - players strike shots at ten cones set up in a bowling-pin triangle, scoring points for knockdowns and bonus points for a spare or strike. A fun, low-pressure way to build shooting accuracy and technique.",
     sport: "soccer",
     activityType: "fun",
     difficulty: "beginner",
@@ -6064,36 +11984,341 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     durationMinutes: 10,
     skillsDeveloped: ["shooting"],
     setupInstructions:
-      "Set up 10 cones in bowling pin formation. Teams line up 15 yards away.",
+      "EQUIPMENT CHECKLIST\n□ 10 cones (bowling pins)\n□ 1-2 balls\n□ 1 marker cone for the shooting line\n\nSPACE: 15 paces long, 5 paces wide\n\nSETUP STEPS\n1. Set up 10 cones in a bowling-pin triangle: 4 cones in the back row, then 3, then 2, then 1 lead cone in front, each row 1 pace apart\n2. Place a shooting line marker 15 paces from the lead cone\n3. Split players into small groups or a line behind the shooting marker\n4. Keep spare cones and a ball supply nearby for quick resets\n\nDIAGRAM\n              ▲ ▲ ▲ ▲\n               ▲ ▲ ▲\n                ▲ ▲\n                 ▲\n\n\n\n                 ○●\n            SHOOTING LINE\n\n▲ = cone (pin)   ○ = shooter   ● = ball   (15 paces from lead cone)",
     howToPlay:
-      "1. Each player gets two 'rolls' (shots) to knock down cones\n2. One point per cone knocked down\n3. Spare (all cones in two shots) = 15 points\n4. Strike (all cones in one shot) = 20 points\n5. Teams take turns bowling",
+      'PHASE 1: GATHER & EXPLAIN (45 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: Beside the shooting line\n\nSAY: "This is Soccer Bowling! Just like real bowling - ten pins, two rolls, and you\'re trying to knock them all down!"\n\nDEMO: Take one shot from the line at the lead cone.\n\nSAY: "Each cone you knock down is a point. Knock them ALL down in your two shots, that\'s a SPARE - 15 points! Knock them ALL down in ONE shot, that\'s a STRIKE - 20 points!"\n\n\nPHASE 2: ROUND 1 - FIRST FRAME (3 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Everyone gets two shots. First shot, then we reset any standing cones for shot two. Let\'s go - who\'s up first?"\n\nRun through the group, one bowler at a time, resetting cones between players.\n\nCoach Position: Beside the pins, resetting and counting\n\nWATCH FOR:\n□ Are they aiming at the lead cone or just kicking randomly?\n□ Are they striking through the ball or toe-poking?\n□ Is everyone getting a turn quickly so nobody waits too long?\n\nPHRASES TO USE:\n• "Aim right at that front cone!"\n• "Big swing through the ball!"\n• "Nice knockdown - count it up!"\n\n\nPHASE 3: TEACHING MOMENT (45 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Everyone watch. I\'m aiming at the LEAD cone - if I hit that one dead center, it can knock down the ones behind it too!"\n\nDEMO: Strike the lead cone, showing the follow-through toward the target.\n\nSAY: "See my foot keeps going AFTER I hit the ball? That follow-through is what gives you both power and accuracy!"\n\n\nPHASE 4: ROUND 2 - FULL FRAME WITH SCORING (3 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "New frame! Keep track of your score - can you beat your first frame?"\n\nRun through the group again, tracking scores out loud.\n\nPHRASES TO USE:\n• "That\'s a spare! 15 points!"\n• "So close to a strike - great aim!"\n• "Nice follow-through - that\'s why it had power!"\n\n\nPHASE 5: CHALLENGE ROUND (2 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nChoose ONE:\n\nOption A - Long Distance Bowling:\nSAY: "Move the line back! Same rules, longer shots!"\n\nOption B - Weak Foot Bowling:\nSAY: "This frame, only your weak foot can shoot! It\'s okay if it\'s not as accurate yet!"\n\nRun the challenge frame. Celebrate every knockdown.\n\n\nPHASE 6: WRAP UP (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Great bowling! What helped you knock down more pins?"\n\nListen for: "Aiming at the front one," "Following through," "Keeping my head down over the ball"\n\nSAY: "Those are the exact same things that make you accurate shooting at a real goal! Nice work - water break!"',
+    diagram:
+      "              ▲ ▲ ▲ ▲\n               ▲ ▲ ▲\n                ▲ ▲\n                 ▲\n\n\n\n                 ○●\n            SHOOTING LINE\n\n▲ = cone (pin)   ○ = shooter   ● = ball   (15 paces from lead cone)",
     coachingPoints: [
-      "Aim for the lead cone",
-      "Strike through the ball",
-      "Follow through to target",
+      "AIM FOR THE LEAD CONE → Say: 'Hit the front pin dead center - it can take down the ones behind it too!'",
+      "STRIKE THROUGH THE BALL → Say: 'Big swing through the middle of the ball, not a little poke!'",
+      "FOLLOW THROUGH TO TARGET → Say: 'Let your foot keep going toward the pins after you strike it!'",
+      "HEAD DOWN, EYES ON THE BALL → Say: 'Watch the ball right up until you strike it!'",
     ],
-    questionsToAsk: ["Where do you aim?", "How do you get power and accuracy?"],
-    commonMistakes: ["Aiming too high", "Toe poking", "Not following through"],
+    questionsToAsk: [
+      "'Where do you aim?' → The lead cone, dead center, so it can topple others behind it",
+      "'How do you get power and accuracy at the same time?' → Looking for: a full swing with a strong follow-through, not just a hard kick",
+      "'What's the difference between a spare and a strike?' → Spare = all pins in two shots, strike = all pins in one shot",
+      "'How is this like shooting on a real goal?' → Picking a target and striking through the ball cleanly",
+    ],
+    commonMistakes: [
+      "AIMING TOO HIGH → Say: 'Keep it low - a rolling shot knocks down pins better than one that flies over them!'",
+      "TOE POKING → Say: 'Use your laces or the inside of your foot - a bigger surface means more control!'",
+      "NOT FOLLOWING THROUGH → Say: 'Let your foot keep swinging toward the pins after contact!'",
+      "RUSHING THE SHOT → Say: 'Take a breath, pick your target, then shoot!'",
+    ],
     variations: [
       {
         name: "Long Distance Bowling",
-        description: "Bowl from further away",
+        description:
+          "Move the shooting line back to 20-25 paces for a bigger power and accuracy challenge.",
         difficulty: "intermediate",
       },
       {
         name: "Weak Foot Bowling",
-        description: "Must use non-dominant foot",
+        description:
+          "Every shot must be taken with the non-dominant foot - keep expectations light since accuracy naturally drops.",
         difficulty: "intermediate",
       },
+      {
+        name: "Team Bowling League",
+        description:
+          "Split into teams of 2-3 who combine their frame scores across several rounds; highest team total after 3 frames wins.",
+        difficulty: "beginner",
+      },
     ],
-    makeEasier: "Closer to pins, fewer pins",
-    makeHarder: "Further from pins, weak foot only",
-    equipmentNeeded: ["Cones (10)", "Balls"],
+    makeEasier:
+      "SIGNS THEY'RE STRUGGLING:\n• Shots consistently missing all cones\n• Ball flying well over the pins\n• Frustration building after a few misses\n\nSOLUTIONS:\n• Move the shooting line closer, to 8-10 paces\n• Use fewer, more spread-out cones so a hit is easier\n• Allow a rolling start-up touch before the shot\n• Widen the pin triangle so more shots make contact",
+    makeHarder:
+      "SIGNS THEY'RE READY:\n• Regularly getting spares or strikes\n• Shots consistently hitting the intended target\n• Asking for a bigger challenge\n\nSOLUTIONS:\n• Move the shooting line back to 20-25 paces\n• Weak foot only\n• Require calling which cone they are aiming for before shooting\n• Add a time limit per shot to build quick decision-making",
+    equipmentNeeded: ["10 cones", "1-2 balls"],
     spaceRequired: "small",
     indoorSuitable: true,
     appropriateStages: ["fundamentals", "skill-building"],
     tags: ["fun", "shooting", "accuracy", "game"],
     featured: false,
+    comprehensiveGuide: {
+      quickReference: {
+        oneSentence:
+          "Bowling with a soccer ball - strike shots at ten cones set in a pin triangle, scoring points for knockdowns and bonuses for a spare or strike.",
+        keyPhrases: [
+          "Aim for the lead cone!",
+          "Strike through the ball, then follow through!",
+          "Head down, eyes on the ball!",
+        ],
+        setupDiagram: "10 cones in a bowling-pin triangle, shooting line 15 paces away",
+        quickProgression: {
+          easier: "Closer shooting line, fewer or wider-spread cones",
+          harder: "Longer distance, weak foot only, call your target",
+        },
+      },
+      completeScript: {
+        beforeYouStart: {
+          preparation: [
+            "Set up 10 cones in a bowling-pin triangle (4-3-2-1 rows, 1 pace apart)",
+            "Mark a shooting line 15 paces from the lead cone",
+            "Have spare cones ready for quick resets between shooters",
+            "Decide turn order so waiting time stays short",
+          ],
+          mindset:
+            "This is a shooting technique activity wearing a game costume. The scoring keeps it fun, but your coaching focus should stay on strike technique and follow-through - the score is just the hook that keeps them engaged with a repetitive, high-touch shooting task.",
+        },
+        segments: [
+          {
+            phase: "Gather & Explain",
+            duration: "45 seconds",
+            coachPosition: "Beside the shooting line",
+            script:
+              "SAY: 'Ten pins, two rolls - knock them all down!' Demo one shot. Explain spare (15 points) and strike (20 points).",
+            anticipatedResponses: {
+              "What if I miss everything?": "That's okay - zero this frame, try again next frame!",
+              "Do I have to use my strong foot?": "For now yes - we'll try weak foot in the challenge round!",
+            },
+            troubleshooting: {
+              "Cones scattering unevenly": ["Reset to the triangle formation before each new shooter"],
+            },
+          },
+          {
+            phase: "Round 1 - First Frame",
+            duration: "3 minutes",
+            coachPosition: "Beside the pins, resetting and counting",
+            script:
+              "Run through the group one at a time. Call out: 'Aim at the front cone!' Reset cones between shots.",
+            troubleshooting: {
+              "Long wait between turns": ["Run two lines with two pin setups if space allows"],
+              "Toe-poking shots": ["Cue: 'Use your laces - bigger surface, more control!'"],
+            },
+          },
+          {
+            phase: "Teaching Moment",
+            duration: "45 seconds",
+            coachPosition: "At the shooting line, everyone gathered",
+            script:
+              "Demo striking the lead cone with a full follow-through. 'My foot keeps going after contact - that's power AND accuracy.'",
+          },
+          {
+            phase: "Round 2 - Full Frame with Scoring",
+            duration: "3 minutes",
+            coachPosition: "Beside the pins, tracking scores aloud",
+            script:
+              "Run a second frame. Call out scores and celebrate spares and strikes enthusiastically.",
+          },
+          {
+            phase: "Challenge Round",
+            duration: "2 minutes",
+            coachPosition: "Beside the shooting line",
+            script:
+              "Pick one: Long Distance Bowling or Weak Foot Bowling. Celebrate every knockdown, not just spares and strikes.",
+          },
+          {
+            phase: "Wrap Up",
+            duration: "30 seconds",
+            coachPosition: "Beside the pins",
+            script:
+              "ASK: 'What helped you knock down more pins?' Connect to real shooting: picking a target, striking through, following through. Water break!",
+          },
+        ],
+      },
+      troubleshooting: {
+        gameBalance: {
+          tooEasy: {
+            symptoms: [
+              "Everyone striking or getting spares regularly",
+              "No real challenge left",
+            ],
+            solutions: [
+              "Move the shooting line back",
+              "Weak foot only",
+              "Require calling the target cone before shooting",
+              "Add a time limit per shot",
+            ],
+          },
+          tooHard: {
+            symptoms: [
+              "Shots consistently missing all cones",
+              "Frustration building after repeated misses",
+            ],
+            solutions: [
+              "Move the shooting line closer",
+              "Use fewer, wider-spread cones",
+              "Allow a rolling start-up touch before the shot",
+              "Widen the pin triangle",
+            ],
+          },
+        },
+        playerBehavior: {
+          longWaitBetweenTurns: {
+            symptoms: ["Players losing focus while waiting", "Side conversations, wandering"],
+            approach: "Run two lines with two pin setups if space allows, or shorten each turn to one shot per pass.",
+          },
+          arguingOverScore: {
+            symptoms: ["Disputes about how many cones fell or who touched the ball first"],
+            approach: "Coach calls the official count; keep it light and move on quickly to the next shooter.",
+          },
+          rushingShots: {
+            symptoms: ["Shooting without setting up, poor technique on most attempts"],
+            approach: "SAY: 'Take a breath, pick your target, then shoot!' Slow the pace down deliberately.",
+          },
+        },
+        environmentalIssues: {
+          windyConditions: {
+            symptoms: ["Cones blowing over between shots", "Ball drifting off line"],
+            solution: "Use heavier cones, move to a sheltered area, or switch to disc cones.",
+          },
+          unevenSurfaceAffectingRoll: {
+            symptoms: ["Ball bouncing or curving unpredictably before reaching the pins"],
+            solution: "Move to a flatter section of the field, or shorten the shooting distance.",
+          },
+        },
+      },
+      skillConnections: {
+        primarySkills: [
+          {
+            skill: "Shooting",
+            domain: "Technical",
+            howItDevelops:
+              "Repeated shots at a fixed target build strike technique, accuracy, and the follow-through habit that carries directly to shooting at goal.",
+            levelIndicators: {
+              1: "Inconsistent contact; ball often misses all cones",
+              2: "Occasionally hits the target area but lacks power or accuracy",
+              3: "Regularly strikes cleanly and hits the intended area",
+              4: "Consistently aims for and hits specific cones with a strong follow-through",
+              5: "Reliably produces spares and strikes by placing shots precisely",
+            },
+            assessmentNotes:
+              "Watch the plant foot, contact point, and follow-through direction - not just whether cones fall.",
+          },
+        ],
+        secondarySkills: [
+          {
+            skill: "Confidence",
+            domain: "Psychological",
+            howItDevelops:
+              "Frequent, low-pressure scoring opportunities in a fun format build shooting confidence that carries into game situations.",
+          },
+        ],
+      },
+      developmentalContext: {
+        whyThisActivity:
+          "Young players often avoid shooting practice that feels repetitive or high-pressure. Soccer Bowling disguises pure shooting repetition as a fun, scorable game, giving players dozens of shots at a fixed target with instant, visible feedback.",
+        whenToUseIt: {
+          idealFor: [
+            "Introducing or reinforcing shooting technique in a low-pressure format",
+            "Building shooting confidence in younger or newer players",
+            "A fun station within a rotation of skill stations",
+          ],
+          avoidWhen: [
+            "The group needs game-realistic shooting under defensive pressure",
+            "Space cannot fit a safe 15-pace shooting lane",
+          ],
+        },
+        progressionPath: {
+          before: [
+            {
+              activity: "Shooting Technique Stations",
+              reason: "Introduces the basic strike mechanics this activity then reinforces through repetition",
+            },
+            {
+              activity: "Passing Accuracy Challenge",
+              reason: "Builds the same target-striking accuracy with a lower-stakes passing action first",
+            },
+          ],
+          after: [
+            {
+              activity: "World Cup",
+              reason: "Moves shooting technique into a live, game-realistic scoring environment",
+            },
+            {
+              activity: "Crossing and Finishing",
+              reason: "Applies accurate striking technique to first-time finishes under more game-like conditions",
+            },
+          ],
+        },
+        ageAdaptations: {
+          ages6to8: {
+            approach:
+              "Keep it playful and celebratory - the scoring system (spare, strike) is exciting at this age. Focus feedback on effort and contact, not accuracy.",
+            keyPhrases: ["Can you knock down the front one?", "Big swing through the ball!"],
+            avoidSaying: ["You missed again", "That wasn't a real strike"],
+            duration: "6-7 minutes",
+            simplifications: [
+              "Move the line closer, 8-10 paces",
+              "Use fewer, larger-spaced cones",
+              "Skip strict scoring - just celebrate knockdowns",
+            ],
+          },
+          ages9to11: {
+            approach: "Introduce the full scoring system and technique cues about follow-through and target selection.",
+            keyPhrases: ["Aim for the lead cone!", "Can you beat your last frame?"],
+            avoidSaying: ["You should be better at this by now"],
+            duration: "8-10 minutes",
+            challenges: ["Long Distance Bowling", "Weak Foot Bowling"],
+          },
+          ages12to14: {
+            approach: "Add precision demands - calling targets, competing on consistency, connecting to real shooting scenarios.",
+            keyPhrases: ["Call your target before you shoot", "Where would this shot go on a real goal?"],
+            avoidSaying: ["This is too easy for you"],
+            duration: "10 minutes",
+            challenges: ["Team Bowling League", "Call-your-target rule", "Time limit per shot"],
+          },
+        },
+        commonMisconceptions: {
+          "This is just a fun game, not real training":
+            "Every shot is a genuine repetition of shooting technique - the fun format just increases how many quality reps players willingly take.",
+          "Power matters more than accuracy":
+            "A well-placed shot at the lead cone often topples several pins; a hard shot that misses scores nothing - accuracy and technique matter more than raw power.",
+        },
+      },
+      parentCommunication: {
+        ifAsked:
+          "Soccer Bowling is shooting practice in disguise - your child gets dozens of repetitions striking a target, which builds the technique and confidence they need to shoot accurately at a real goal.",
+        newsletter:
+          "This week: Soccer Bowling! Players took turns striking shots at ten cones set up like bowling pins, scoring points for every knockdown and bonus points for a spare or strike. It's a fun way to build shooting accuracy and follow-through technique.",
+        whatToWatchFor: [
+          "Does your child follow through toward the target after striking the ball?",
+          "Are they aiming at a specific cone, or just kicking generally in that direction?",
+          "Is their confidence building shot to shot, even after a miss?",
+        ],
+      },
+      safety: {
+        commonRisks: [
+          {
+            risk: "Tripping over cones set up in the shooting lane",
+            prevention: "Keep cones clearly visible and only in the pin area, not the shooter's approach path",
+            response: "Check the player, reset the area, and remind players to stay behind the shooting line",
+          },
+          {
+            risk: "Players standing too close to the pins during someone else's shot",
+            prevention: "Establish a clear waiting area away from the pin zone and shooting lane",
+            response: "Pause play, reposition players, and reinforce the waiting area before continuing",
+          },
+          {
+            risk: "Ball rebounding unpredictably off cones toward bystanders",
+            prevention: "Keep non-shooting players behind the shooter or well off to the side, not downrange",
+            response: "Check for injury; adjust standing positions before the next shot",
+          },
+        ],
+        inclusionConsiderations: {
+          mobilityDifferences: "Allow a stationary or walking approach to the shot rather than a running strike",
+          visionImpairments: "Use brightly colored cones and verbal guidance on target direction",
+          attentionChallenges: "Keep turns short and frequent so waiting time between shots stays brief",
+        },
+      },
+      coachReflection: {
+        afterActivity: [
+          "Were players following through toward the target, or just poking at the ball?",
+          "Was the shooting distance appropriately challenging for this group?",
+          "Did everyone get enough turns given the group size and time available?",
+          "Were players building confidence, or getting frustrated by misses?",
+        ],
+        forImprovement: [
+          "Should I adjust the shooting distance next time?",
+          "Who needs extra encouragement or a closer distance to build confidence?",
+          "Which variation would fit this group's skill level best next time?",
+          "How can I connect the scoring more explicitly to real shooting technique in the debrief?",
+        ],
+      },
+    },
   },
   {
     slug: "dribblers-vs-defenders",
@@ -6149,7 +12374,8 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
   {
     slug: "four-goals-chaos",
     name: "Four Goals Chaos",
-    description: "Scrimmage with four goals - anyone can score in any goal",
+    description:
+      "A small-sided scrimmage with a goal on each side of the square - either team can score in any of the four, so the picture is always changing. Forces constant scanning, quick decisions, and switching the point of attack to find the open goal.",
     sport: "soccer",
     activityType: "fun",
     difficulty: "intermediate",
@@ -6157,45 +12383,356 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     maxPlayers: 16,
     durationMinutes: 15,
     skillsDeveloped: ["finding-space", "positional-awareness"],
-    setupInstructions: "40x40 yard square. Small goal at each side. Two teams.",
+    setupInstructions:
+      "EQUIPMENT CHECKLIST\n□ 4 small goals (2 cones each, 3 paces wide) or 8 cones\n□ Pinnies for two teams\n□ 2-3 balls (one in play, spares nearby)\n\nSPACE: 40x40 paces\n\nSETUP STEPS\n1. Mark a 40x40 pace square\n2. Place one small goal (3 paces wide) at the midpoint of each of the four sides\n3. Split into two even teams with pinnies\n4. Both teams can attack and defend ALL four goals - there are no assigned sides\n\nDIAGRAM\n┌─────────────⊏⊐─────────────┐\n│                             │\n│                             │\n⊏⊐          40x40           ⊏⊐\n│           paces             │\n│                             │\n└─────────────⊏⊐─────────────┘\n\n⊏⊐ = goal (3 paces wide, one per side)",
     howToPlay:
-      "1. Each team can score in any of the four goals\n2. After scoring, other team gets ball\n3. Emphasizes vision, switching play, and chaos\n4. Most goals in 10 minutes wins",
+      'PHASE 1: GATHER & EXPLAIN (60 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: Center of the square\n\nSAY: "Welcome to Four Goals Chaos! There\'s a goal on every side - and BOTH teams can score in ANY of them. No assigned goals, no offside, just find the open one!"\n\nSAY: "After a goal, the other team gets the ball right away and we keep playing. Most goals after 10 minutes of play wins. Ready? Let\'s go!"\n\n\nPHASE 2: ROUND 1 - OPEN CHAOS (4 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Play ball! Find the open goal!"\n\nCoach Position: Outside the square, moving to see all four goals\n\nWATCH FOR:\n□ Are players fixated on one goal even when it\'s crowded?\n□ Is anyone scanning before receiving the ball?\n□ Is defending organized, or is everyone chasing the ball?\n\nPHRASES TO USE:\n• "Check over your shoulder - what\'s open?"\n• "Nice switch to the open side!"\n• "Who\'s covering the far goal?"\n\n\nPHASE 3: TEACHING MOMENT (45 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Everyone freeze! Look around - right now, which goal is the MOST open?"\n\nLet players point and answer.\n\nSAY: "That\'s the skill! You can\'t just run at the first goal you see - scan ALL FOUR, then attack the one with the fewest defenders. Same in a real game - scan for space before you decide!"\n\n\nPHASE 4: ROUND 2 - APPLY THE LESSON (4 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Same game - but now I want to see you SWITCH the point of attack when a goal gets crowded. Play on!"\n\nCoach Position: Roaming, calling out good scanning\n\nPHRASES TO USE:\n• "Great switch - found the open one!"\n• "Talk to each other on defense - who has who?"\n• "Quick decision - don\'t hold it too long!"\n\n\nPHASE 5: CHALLENGE ROUND (4 minutes)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nChoose ONE:\n\nOption A - Assigned Goals:\nSAY: "New rule - each team now defends two specific goals and attacks the other two. More structure, still fast!"\n\nOption B - Moving Goals:\nSAY: "Once a minute, I\'ll have one player from each team move their goal to a new spot! Stay aware - the picture keeps changing!"\n\nRun the challenge for the remaining time.\n\n\nPHASE 6: WRAP UP (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Great chaos! What did you have to do differently with four goals instead of one?"\n\nListen for: "Look around more," "Talk to my teammates on defense," "Switch the ball to the open side"\n\nSAY: "That constant scanning is exactly what the best players do in every real game - even with just one goal to defend! Nice work - water break!"',
+    diagram:
+      "┌─────────────⊏⊐─────────────┐\n│                             │\n│                             │\n⊏⊐          40x40           ⊏⊐\n│           paces             │\n│                             │\n└─────────────⊏⊐─────────────┘\n\n⊏⊐ = goal (3 paces wide, one per side)",
     coachingPoints: [
-      "Scan constantly - many options",
-      "Quick decision-making",
-      "Switch to open goal",
-      "Defend all four goals",
+      "SCAN CONSTANTLY → Say: 'Check over your shoulder - which goal is open right now?'",
+      "QUICK DECISIONS → Say: 'See it, decide, go - don't hold the ball while you think!'",
+      "SWITCH TO THE OPEN GOAL → Say: 'If this side is crowded, switch the point of attack!'",
+      "TALK ON DEFENSE → Say: 'Call out who you have - four goals means everyone has to communicate!'",
     ],
     questionsToAsk: [
-      "Which goal is most open?",
-      "How do you defend four goals?",
-      "What do you look for?",
+      "'Which goal is most open right now?' → Develops constant scanning habits",
+      "'How do you defend four goals with one team?' → Looking for: communication, covering the nearest threat, and quick recovery runs",
+      "'What do you look for before deciding where to attack?' → Space, numbers, and which goal has the fewest defenders",
+      "'How is this like a real game with only one goal?' → Scanning for space and open passing lanes never stops, even with one target",
     ],
     commonMistakes: [
-      "Tunnel vision on one goal",
-      "Poor defensive organization",
-      "Not scanning",
+      "TUNNEL VISION ON ONE GOAL → Say: 'Lift your head - there are three other goals to check!'",
+      "POOR DEFENSIVE ORGANIZATION → Say: 'Talk to each other - who's covering which goal?'",
+      "NOT SCANNING BEFORE RECEIVING → Say: 'Check your shoulder before the ball arrives, not after!'",
+      "HOLDING THE BALL TOO LONG → Say: 'See the open goal, then go - quick decisions win this game!'",
     ],
     variations: [
       {
         name: "Assigned Goals",
-        description: "Each team has two goals to attack",
+        description:
+          "Each team defends two specific goals and attacks the other two - adds structure while keeping the switching-play demand.",
         difficulty: "intermediate",
       },
       {
         name: "Moving Goals",
-        description: "Players can pick up and move one goal each minute",
+        description:
+          "Once a minute, one player per team relocates their team's goal to a new spot on the square, keeping the picture constantly changing.",
+        difficulty: "advanced",
+      },
+      {
+        name: "Two-Touch Chaos",
+        description:
+          "Limit every player to two touches maximum, forcing faster scanning and quicker decisions about which goal to attack.",
         difficulty: "advanced",
       },
     ],
-    makeEasier: "Fewer goals, assigned attack goals",
-    makeHarder: "More chaos, no goalkeepers",
-    equipmentNeeded: ["4 small goals", "Pinnies", "Balls"],
+    makeEasier:
+      "SIGNS THEY'RE STRUGGLING:\n• Constant confusion about which goal to attack or defend\n• Nobody scoring, low-quality chances\n• Players standing still, overwhelmed by options\n\nSOLUTIONS:\n• Reduce to two goals instead of four\n• Assign each team specific goals to attack and defend\n• Enlarge the goals to 4-5 paces wide\n• Coach calls out the open goal periodically to guide decisions",
+    makeHarder:
+      "SIGNS THEY'RE READY:\n• Quickly identifying and switching to open goals\n• Organized, communicating defense\n• Asking for more challenge\n\nSOLUTIONS:\n• Remove goalkeepers if currently used\n• Add the Moving Goals variation\n• Limit touches to two per player\n• Shrink the goals to 2 paces wide for a bigger accuracy demand",
+    equipmentNeeded: ["4 small goals", "Pinnies", "2-3 balls"],
     spaceRequired: "medium",
     indoorSuitable: false,
     appropriateStages: ["skill-building", "development"],
     tags: ["fun", "game", "chaos", "decision-making"],
     featured: true,
+    comprehensiveGuide: {
+      quickReference: {
+        oneSentence:
+          "A four-goal scrimmage where either team can score anywhere - forces constant scanning, quick decisions, and switching play to find the open goal.",
+        keyPhrases: [
+          "Check over your shoulder - what's open?",
+          "Switch to the open side!",
+          "Talk to each other on defense!",
+        ],
+        setupDiagram:
+          "40x40 pace square, one small goal on each side, two teams, both can score in any goal",
+        quickProgression: {
+          easier: "Fewer goals, assigned attacking goals, bigger goals",
+          harder: "Moving goals, two-touch limit, no goalkeepers",
+        },
+      },
+      completeScript: {
+        beforeYouStart: {
+          preparation: [
+            "Mark a 40x40 pace square and place a small goal at the midpoint of each side",
+            "Split into two even teams with pinnies",
+            "Have 2-3 balls ready so restarts after a goal are instant",
+            "Decide your time cap in advance (10 minutes of play is standard)",
+          ],
+          mindset:
+            "The chaos is the point - resist the urge to over-organize it early. Let players feel the disorientation of four goals first, then use the teaching moment to introduce scanning and switching as the solution they discover, not a rule you hand them.",
+        },
+        segments: [
+          {
+            phase: "Gather & Explain",
+            duration: "60 seconds",
+            coachPosition: "Center of the square",
+            script:
+              "SAY: 'Four goals, either team can score in any of them! After a goal, the other team restarts immediately.' Point out all four goals.",
+            anticipatedResponses: {
+              "Which goal is mine?": "All of them - and you have to defend all four too!",
+              "What happens after a goal?": "Other team gets the ball right away - keep playing!",
+            },
+            troubleshooting: {
+              "Confusion about which goal to defend": [
+                "Let the first minute of chaos play out before correcting - it's the learning moment",
+              ],
+            },
+          },
+          {
+            phase: "Round 1 - Open Chaos",
+            duration: "4 minutes",
+            coachPosition: "Outside the square, moving to see all four goals",
+            script:
+              "Let it play. Call out: 'What's open?' 'Nice switch!' Watch for tunnel vision and disorganized defending.",
+            troubleshooting: {
+              "Everyone chasing the ball in a pack": [
+                "Point out an open goal: 'Look - nobody's defending that one!'",
+              ],
+              "One goal never attacked": ["Highlight it: 'That goal's wide open the whole time!'"],
+            },
+          },
+          {
+            phase: "Teaching Moment",
+            duration: "45 seconds",
+            coachPosition: "Center, everyone gathered",
+            script:
+              "Freeze play. ASK: 'Which goal is most open right now?' Let them point and answer. 'Scan all four, then attack the least-defended one.'",
+          },
+          {
+            phase: "Round 2 - Apply the Lesson",
+            duration: "4 minutes",
+            coachPosition: "Roaming, calling out good scanning",
+            script: "Play resumes. Praise switches of play and organized defensive calls.",
+          },
+          {
+            phase: "Challenge Round",
+            duration: "4 minutes",
+            coachPosition: "Roaming",
+            script:
+              "Pick one: Assigned Goals (more structure) or Moving Goals (more chaos). Match the choice to how the group handled Round 2.",
+          },
+          {
+            phase: "Wrap Up",
+            duration: "30 seconds",
+            coachPosition: "Center",
+            script:
+              "ASK: 'What did four goals make you do differently?' Connect to scanning and communication in any real game. Water break!",
+          },
+        ],
+      },
+      troubleshooting: {
+        gameBalance: {
+          tooEasy: {
+            symptoms: [
+              "Goals coming very easily with little resistance",
+              "No real defensive organization needed",
+            ],
+            solutions: [
+              "Remove goalkeepers",
+              "Add the Moving Goals variation",
+              "Limit touches to two per player",
+              "Shrink goal size",
+            ],
+          },
+          tooHard: {
+            symptoms: [
+              "Nobody scoring across multiple minutes",
+              "Total confusion about roles",
+              "Players standing still, overwhelmed",
+            ],
+            solutions: [
+              "Reduce to two goals",
+              "Assign attacking goals per team",
+              "Enlarge the goals",
+              "Coach calls out the open goal periodically",
+            ],
+          },
+        },
+        playerBehavior: {
+          ballWatching: {
+            symptoms: ["Players following the ball instead of tracking open goals"],
+            approach:
+              "SAY: 'Don't just watch the ball - watch the goals too!' Point out an open goal mid-play.",
+          },
+          oneGoalIgnored: {
+            symptoms: ["One goal never gets attacked or defended the whole round"],
+            approach: "Highlight it out loud: 'That goal's been open the entire time - who's going to use it?'",
+          },
+          argumentsOverWhichGoal: {
+            symptoms: ["Players disputing who should be defending which goal"],
+            approach:
+              "Keep it simple: 'Everyone defends the nearest threat - if you're closest, you're responsible.'",
+          },
+        },
+        environmentalIssues: {
+          unevenGoalSpacing: {
+            symptoms: ["One or two goals much easier to reach than others"],
+            solution: "Re-measure and re-center all four goals on their sides before continuing.",
+          },
+          notEnoughBallsForQuickRestarts: {
+            symptoms: ["Long pauses after goals while chasing down the ball"],
+            solution: "Keep 2-3 spare balls at the halfway point for instant restarts.",
+          },
+        },
+      },
+      skillConnections: {
+        primarySkills: [
+          {
+            skill: "Finding Space",
+            domain: "Tactical",
+            howItDevelops:
+              "With four possible scoring targets, players must constantly identify which space and which goal offer the best opportunity, sharpening their ability to read open space under pressure.",
+            levelIndicators: {
+              1: "Attacks the nearest goal regardless of defensive numbers",
+              2: "Occasionally recognizes an open goal but reacts slowly",
+              3: "Regularly identifies and moves toward open space and goals",
+              4: "Anticipates where space will open and positions early",
+              5: "Consistently exploits the least-defended goal before defenders can react",
+            },
+            assessmentNotes:
+              "Watch decision speed after receiving the ball - do they scan before or after they already have possession?",
+          },
+          {
+            skill: "Positional Awareness",
+            domain: "Tactical",
+            howItDevelops:
+              "Defending four goals at once forces players to understand their position relative to teammates, opponents, and multiple targets simultaneously.",
+            levelIndicators: {
+              1: "Ball-watches; unaware of goals behind or beside them",
+              2: "Aware of the nearest goal only",
+              3: "Tracks 2-3 goals and adjusts position accordingly",
+              4: "Maintains awareness of all four goals and communicates coverage",
+              5: "Organizes teammates' positioning proactively based on the full picture",
+            },
+            assessmentNotes:
+              "Listen for communication - are players calling out coverage, or reacting silently and late?",
+          },
+        ],
+        secondarySkills: [
+          {
+            skill: "Teamwork",
+            domain: "Psychological",
+            howItDevelops:
+              "Defending four goals is impossible without communication and shared responsibility, building collaborative defensive habits.",
+          },
+          {
+            skill: "Support Play",
+            domain: "Tactical",
+            howItDevelops:
+              "Attackers must support the ball carrier toward whichever goal is open, reinforcing off-ball movement in service of a fluid target.",
+          },
+        ],
+      },
+      developmentalContext: {
+        whyThisActivity:
+          "Most small-sided games have one clear target, which lets players get away with tunnel vision. Four Goals Chaos removes that crutch - with four live targets, scanning and quick decision-making become necessary just to function, not optional extras.",
+        whenToUseIt: {
+          idealFor: [
+            "Reinforcing scanning habits built in warm-up activities like Gates Dribbling",
+            "Building communication and organization on defense",
+            "A high-energy, high-fun main activity for skill-building or development groups",
+          ],
+          avoidWhen: [
+            "The group is brand new to small-sided games and needs a single clear target first",
+            "Fewer than 10 players are available (the chaos needs enough bodies to matter)",
+          ],
+        },
+        progressionPath: {
+          before: [
+            {
+              activity: "Small-Sided Game 5v5",
+              reason: "Builds comfort with basic small-sided game structure and a single goal before adding chaos",
+            },
+            {
+              activity: "Gates Dribbling",
+              reason: "Establishes the head-up scanning habit this game then demands under game pressure",
+            },
+          ],
+          after: [
+            {
+              activity: "6v6 Half Field Game",
+              reason: "Returns to a single-goal format so players apply their sharpened scanning to standard game shape",
+            },
+            {
+              activity: "Positional Rondo",
+              reason: "Reinforces the same scanning and quick-decision demands in a possession-focused format",
+            },
+          ],
+        },
+        ageAdaptations: {
+          ages9to11: {
+            approach:
+              "Introduce with a walkthrough of all four goals before playing; keep early rounds untimed so players adjust to the format without pressure.",
+            keyPhrases: ["Which goal is open?", "Look before you decide!"],
+            avoidSaying: ["You should already know which goal to defend"],
+            duration: "10-12 minutes",
+            simplifications: ["Start with two goals, add the other two once comfortable", "Bigger goals"],
+          },
+          ages12to14: {
+            approach:
+              "Run the full four-goal chaos format with organized defensive expectations and tactical debriefs between rounds.",
+            keyPhrases: ["Talk to your teammates - who's covering what?", "Switch the point of attack!"],
+            avoidSaying: ["Just figure it out yourselves"],
+            duration: "15 minutes",
+            challenges: ["Moving Goals", "Two-Touch Chaos", "No goalkeepers"],
+          },
+        },
+        commonMisconceptions: {
+          "This is just disorganized fun, not real tactics":
+            "Scanning four live targets and organizing defensive coverage on the fly is advanced tactical thinking - the chaos is the training stimulus, not a bug.",
+          "More goals means less defense matters":
+            "Defending four goals actually demands MORE communication and organization than defending one, not less.",
+        },
+      },
+      parentCommunication: {
+        ifAsked:
+          "Four Goals Chaos gives your child four possible scoring targets at once, which forces them to constantly look around and make quick decisions - exactly the awareness that separates players who see the whole game from players who only see the ball.",
+        newsletter:
+          "This week: Four Goals Chaos! With a goal on every side of the field and both teams able to score anywhere, players had to scan constantly and communicate on defense. This game builds the vision and quick decision-making that carries into every real match, even with just one goal.",
+        whatToWatchFor: [
+          "Does your child scan around before deciding where to attack?",
+          "Are they communicating with teammates about defensive coverage?",
+          "Do they switch the point of attack when their first option is crowded?",
+        ],
+      },
+      safety: {
+        commonRisks: [
+          {
+            risk: "Collisions near crowded goals",
+            prevention: "Keep goals adequately spaced and remind players to play under control near the goal mouth",
+            response: "Check players involved; briefly pause play if needed",
+          },
+          {
+            risk: "Disorientation leading to running into another play near a different goal",
+            prevention: "Ensure the square is large enough for the number of players (40x40 paces for 10-16 players)",
+            response: "Pause and reset positioning if the space feels too crowded",
+          },
+        ],
+        inclusionConsiderations: {
+          cognitiveLoad:
+            "Some players may find tracking four goals overwhelming at first - start with two goals and add the other two once they're comfortable",
+          attentionChallenges:
+            "Assign a single goal to focus on initially, expanding to full awareness of all four as confidence builds",
+        },
+      },
+      coachReflection: {
+        afterActivity: [
+          "Were players scanning before receiving the ball, or only after?",
+          "Was defensive communication happening, or was it disorganized chasing?",
+          "Did the group need more or less structure (fewer goals, assigned goals) than I planned for?",
+          "Which players showed the biggest improvement in decision speed over the session?",
+        ],
+        forImprovement: [
+          "Should I start with fewer goals next time and build up?",
+          "Which challenge variation fit this group's readiness level?",
+          "How can I make the defensive communication expectation clearer next time?",
+          "Who needs individual follow-up on scanning habits?",
+        ],
+      },
+    },
   },
   {
     slug: "partner-stretching",
@@ -6293,5 +12830,668 @@ export const SOCCER_ACTIVITIES: ActivityContent[] = [
     appropriateStages: ["skill-building", "development"],
     tags: ["cooldown", "juggling", "teamwork", "fun"],
     featured: false,
+  },
+  {
+    slug: "inside-outside-slalom",
+    name: "Inside-Outside Slalom",
+    description: "Players weave through their own lane of cones, alternating inside and outside touches on every step to build the two-surface control that lets them change direction without stopping the ball.",
+    sport: "soccer",
+    activityType: "technical",
+    difficulty: "beginner",
+    minPlayers: 4,
+    maxPlayers: 20,
+    durationMinutes: 8,
+    skillsDeveloped: ["dribbling-with-inside-outside", "ball-control"],
+    setupInstructions:
+      "EQUIPMENT CHECKLIST\n□ 1 ball per player\n□ 5 cones per lane (4-6 lanes depending on group size)\n□ Pinnies (optional, for partner variation)\n\nSPACE: 20x15 paces (adjust lane count to group size)\n\nSETUP STEPS\n1. Lay out 4-6 parallel lanes, each with 5 cones spaced 2 paces apart\n2. Mark a START line at one end of every lane and a FINISH line at the other\n3. Put 1-2 players per lane with a ball each\n4. If more players than lane space, pair up and alternate turns quickly - keep waits under 10 seconds\n\nDIAGRAM\n┌──────────────────────────────────────┐\nSTART ▲   ▲   ▲   ▲   ▲  FINISH   Lane 1\nSTART ▲   ▲   ▲   ▲   ▲  FINISH   Lane 2\nSTART ▲   ▲   ▲   ▲   ▲  FINISH   Lane 3\nSTART ▲   ▲   ▲   ▲   ▲  FINISH   Lane 4\n└──────────────────────────────────────┘\n        2 paces between cones",
+    howToPlay:
+      'PHASE 1: GATHER & EXPLAIN (45 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: Front of the lanes, ball at feet\n\nSAY: "Everyone grab a ball and stand at the start of your lane! Today we\'re using TWO parts of your foot - the inside and the outside - like two doors that open different ways."\n\nDEMO: Touch the ball with the inside of your foot - it rolls toward your other leg. Touch with the outside - it rolls away.\n\nSAY: "Inside pulls it in, outside pushes it out. We\'re going to use both to weave through the cones without stopping!"\n\n\nPHASE 2: ROUND 1 - WALK IT THROUGH (90 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "First time through, go slow. At every cone, touch with inside, then outside, then inside again - inside, outside, inside, outside!"\n\nCoach Position: Walk alongside a lane, then move to the next\n\nWATCH FOR:\n□ Are they using both surfaces, or just the inside?\n□ Is the ball staying within a small pocket near their feet?\n□ Are they stopping to switch feet?\n\nPHRASES TO USE:\n• "Small touches - the ball is right there with you!"\n• "Which part of your foot just touched it?"\n• "Don\'t stop - keep the rhythm going!"\n\n\nPHASE 3: TEACHING MOMENT (45 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Everyone come here and watch." \n\nDEMO: Go through 2 cones slowly, narrating: "Inside touch - ball moves this way. Outside touch - ball moves that way. See how I never stop moving?"\n\nSAY: "The ball should feel like it\'s glued to your feet the whole time - not way out in front."\n\n\nPHASE 4: ROUND 2 - BEAT YOUR TIME (90 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "This time, go as fast as you can while staying in control. I\'ll count how long it takes you. Ready... GO!"\n\nCoach Position: Roaming, timing individuals\n\nFEEDBACK:\n• "Nice - I saw inside AND outside that time!"\n• "Slow down just a touch so you don\'t lose it around cone 3!"\n• "Great rhythm - inside, outside, inside, outside!"\n\n\nPHASE 5: CHALLENGE ROUND (90 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nChoose ONE challenge:\n\nOption A - Weak Foot Only:\nSAY: "This time, ONLY your weaker foot touches the ball - both inside and outside on that same foot. It\'s okay to go slower!"\n\nOption B - Called Touches:\nSAY: "I\'ll call out \'inside\' or \'outside\' as you go - you touch with whichever I call!"\n\nRun the challenge. Celebrate every attempt, especially on the weak foot.\n\n\nPHASE 6: WRAP UP (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Great work! Which touch felt easier today - inside or outside?"\n\nListen for: "inside" (most common at this age) - normalize it\n\nSAY: "That\'s totally normal - outside just needs more practice, and every practice you do makes it feel more natural. In a game, having both means a defender never knows which way you\'re going. Water break!"',
+    diagram:
+      "┌──────────────────────────────────────┐\nSTART ▲   ▲   ▲   ▲   ▲  FINISH   Lane 1\nSTART ▲   ▲   ▲   ▲   ▲  FINISH   Lane 2\nSTART ▲   ▲   ▲   ▲   ▲  FINISH   Lane 3\n└──────────────────────────────────────┘",
+    coachingPoints: [
+      "ALTERNATE SURFACES → Say: 'Inside, outside, inside, outside - like a rhythm!'",
+      "SMALL TOUCHES → Say: 'The ball stays close, like it's glued to your feet!'",
+      "NO STOPPING → Say: 'Keep moving through the whole lane - don't pause to switch feet!'",
+      "BOTH FEET EVENTUALLY → Say: 'Your strong foot first, then let's try your other one too!'",
+    ],
+    questionsToAsk: [
+      "'Which touch pulls the ball toward you, and which pushes it away?' → Builds the mental model of inside vs. outside",
+      "'What happens to the ball if your touch is too big?' → It escapes the lane / rolls into a cone",
+      "'Why would a defender have a harder time if you can use both feet surfaces?' → Unpredictability, more directions to go",
+      "'How is this like changing direction in a real game?' → Beating a defender by cutting a different way",
+    ],
+    commonMistakes: [
+      "ONLY USING INSIDE → Say: 'Now show me the outside of your foot - point your toes in and roll it out!'",
+      "BIG TOUCHES THAT LOSE THE BALL → Say: 'Tiny touches - just enough to keep moving!'",
+      "STOPPING TO SWITCH FEET → Say: 'Keep your feet moving even between touches - no full stops!'",
+      "LOOKING ONLY AT THE BALL → Say: 'Quick peek at the ball, then peek at the next cone!'",
+    ],
+    variations: [
+      {
+        name: "Called Touches",
+        description: "Coach or a teammate calls 'inside' or 'outside' as the player approaches each cone, forcing a quick decision instead of a memorized pattern.",
+        difficulty: "intermediate",
+      },
+      {
+        name: "Weak Foot Lane",
+        description: "Entire lane must be completed using only the non-dominant foot for both inside and outside touches.",
+        difficulty: "intermediate",
+      },
+      {
+        name: "Partner Shadow",
+        description: "A partner without a ball mirrors the dribbler's footwork one step behind, reinforcing the movement pattern.",
+        difficulty: "beginner",
+      },
+      {
+        name: "Race Lanes",
+        description: "Two players in parallel lanes race side by side, first to a controlled finish wins.",
+        difficulty: "advanced",
+      },
+    ],
+    makeEasier:
+      "SIGNS THEY'RE STRUGGLING:\n• Ball rolls away or hits cones repeatedly\n• Only ever uses inside of foot\n• Stops completely between every cone\n• Frustrated or wants to skip cones\n\nSOLUTIONS:\n• Widen cone spacing to 3 paces\n• Remove alternating requirement - let them use any foot part first, add inside/outside later\n• Reduce to 3 cones per lane\n• Coach walks beside them narrating each touch\n• Let them dribble around cones instead of directly at them at first",
+    makeHarder:
+      "SIGNS THEY'RE READY:\n• Smooth, unbroken rhythm through the whole lane\n• Comfortable with both surfaces on strong foot\n• Getting bored or asking to go faster\n\nSOLUTIONS:\n• Narrow cone spacing to 1.5 paces\n• Require weak foot for the whole lane\n• Add a timed element (beat your best)\n• Add a defender at the end of the lane to beat with a final move\n• Combine with a finish (shoot after the last cone)",
+    equipmentNeeded: ["1 ball per player", "5 cones per lane (20-30 total)"],
+    spaceRequired: "medium",
+    indoorSuitable: true,
+    appropriateStages: ["fundamentals", "skill-building"],
+    tags: [
+      "technical",
+      "dribbling",
+      "inside-outside",
+      "ball-control",
+      "beginner-friendly",
+      "individual",
+    ],
+    featured: true,
+    comprehensiveGuide: {
+      quickReference: {
+        oneSentence:
+          "Dribble through a personal cone lane alternating inside and outside touches on every step - the foundation move for changing direction with the ball.",
+        keyPhrases: [
+          "Inside, outside, inside, outside - like a rhythm!",
+          "Small touches - the ball stays with you!",
+          "Keep moving - no stopping to switch feet!",
+        ],
+        setupDiagram: "4-6 lanes of 5 cones, 2 paces apart, one ball per player",
+        quickProgression: {
+          easier: "Wider cone spacing, drop the strict alternating pattern, fewer cones",
+          harder: "Narrower spacing, weak foot only, timed races, called touches",
+        },
+      },
+      completeScript: {
+        beforeYouStart: {
+          preparation: [
+            "Lay out 4-6 lanes of 5 cones each, 2 paces apart",
+            "Count cones needed: 5 per lane",
+            "Decide pairing if group is larger than available lanes",
+            "Have a ball ready per player",
+          ],
+          mindset:
+            "This is a technique activity, not a race - at least not yet. Your job is to get players feeling the difference between inside and outside touches. Most players default to inside only; your repeated cue is simply 'now the outside' until it becomes automatic. Celebrate any attempt at the outside touch, even a clumsy one.",
+        },
+        segments: [
+          {
+            phase: "Gather & Explain",
+            duration: "45 seconds",
+            coachPosition: "Front of the lanes",
+            script:
+              "SAY: 'Inside pulls the ball in, outside pushes it away. We're going to use both to weave through the cones.' Demo one touch of each.",
+            anticipatedResponses: {
+              "Which foot do I use?":
+                "Start with your strong foot - we'll try the other one later!",
+              "What if I miss a cone?":
+                "Keep going - just get back in the rhythm at the next one.",
+            },
+            troubleshooting: {
+              "Players don't know left from right foot instinctively": [
+                "Point to the ball: 'touch it with THIS side' while demonstrating",
+              ],
+            },
+          },
+          {
+            phase: "Round 1 - Walk It Through",
+            duration: "90 seconds",
+            coachPosition: "Walking alongside a lane",
+            script:
+              "Encourage slow, deliberate alternation: 'Inside, outside, inside, outside.' Praise any outside-foot attempt.",
+            troubleshooting: {
+              "Ball escaping the lane": [
+                "Have them slow down further or widen the lane temporarily",
+              ],
+              "Only using inside foot": [
+                "Stand at one cone and say 'outside' as they arrive at it",
+              ],
+            },
+          },
+          {
+            phase: "Teaching Moment",
+            duration: "45 seconds",
+            coachPosition: "At the front cone, everyone gathered",
+            script:
+              "Demo two cones slowly, narrating each touch: 'Inside - ball moves this way. Outside - ball moves that way. I never stop moving.'",
+          },
+          {
+            phase: "Round 2 - Beat Your Time",
+            duration: "90 seconds",
+            coachPosition: "Roaming, timing individuals informally",
+            script:
+              "Personal challenge to go faster while staying controlled. Specific feedback on which surfaces you saw them use.",
+          },
+          {
+            phase: "Challenge Round",
+            duration: "90 seconds",
+            coachPosition: "Roaming",
+            script:
+              "Pick one challenge: weak foot only, or called touches (you or a partner calls 'inside'/'outside' as they approach each cone).",
+          },
+          {
+            phase: "Wrap Up",
+            duration: "30 seconds",
+            coachPosition: "Front of lanes",
+            script:
+              "ASK: 'Which touch felt easier today?' Normalize that inside usually feels easier at first. Connect to games: two options means a defender can't guess which way you're going.",
+          },
+        ],
+      },
+      troubleshooting: {
+        gameBalance: {
+          tooEasy: {
+            symptoms: [
+              "Smooth, fast laps with no ball loss",
+              "Asking to go faster or add something",
+            ],
+            solutions: [
+              "Narrow the cone spacing",
+              "Require weak foot",
+              "Add a timed race",
+              "Add a finishing move or shot after the last cone",
+            ],
+          },
+          tooHard: {
+            symptoms: [
+              "Ball repeatedly hits cones or rolls away",
+              "Frequent full stops",
+              "Visible frustration",
+            ],
+            solutions: [
+              "Widen cone spacing to 3-4 paces",
+              "Drop the strict alternating requirement temporarily",
+              "Reduce to 3 cones",
+              "Coach walks alongside narrating each touch",
+            ],
+          },
+        },
+        playerBehavior: {
+          avoidingOutsideFoot: {
+            symptoms: [
+              "Uses inside touch for every cone, including ones that should be outside",
+              "Turns their body awkwardly to use inside instead",
+            ],
+            approach:
+              "SAY: 'Show me the outside of your foot!' and physically point to the outside edge of their shoe if needed. Keep it light - this is genuinely a harder skill and takes reps.",
+          },
+          rushing: {
+            symptoms: ["Sprinting through and losing the ball constantly"],
+            approach:
+              "SAY: 'Control first, speed is round 2!' Slow the whole group down together.",
+          },
+        },
+        environmentalIssues: {
+          notEnoughSpaceForLanes: {
+            symptoms: ["Lanes overlapping or too short"],
+            solution:
+              "Reduce to 3 cones per lane and run more players through fewer lanes with quick rotations.",
+          },
+        },
+      },
+      skillConnections: {
+        primarySkills: [
+          {
+            skill: "Dribbling with Inside/Outside",
+            domain: "Technical",
+            howItDevelops:
+              "This is the most direct, isolated repetition of the exact touch pattern the skill requires - alternating inside and outside surfaces at a controlled pace before adding speed or defenders.",
+            levelIndicators: {
+              1: "Uses only inside touch; ball escapes lane frequently; must stop between cones",
+              2: "Attempts outside touch but it's heavy; alternates slowly and inconsistently",
+              3: "Smooth inside/outside alternation at a jogging pace through the whole lane",
+              4: "Fast, controlled alternation with minimal touches; comfortable on both feet",
+              5: "Effortless rhythm at speed; could add a move or finish without losing control",
+            },
+            assessmentNotes:
+              "Watch whether the outside touch is present at all, not just how clean it is. Presence before precision.",
+          },
+        ],
+        secondarySkills: [
+          {
+            skill: "Ball Control",
+            domain: "Technical",
+            howItDevelops:
+              "Keeping the ball in a tight pocket near the feet through repeated small touches builds the same close control needed in traffic during games.",
+          },
+        ],
+        physicalDevelopment: {
+          coordination: "Foot-eye coordination alternating between two touch surfaces",
+          balance: "Weight transfer between touches while moving forward",
+        },
+        psychologicalDevelopment: {
+          persistence: "Continuing to attempt the harder outside touch instead of reverting to only inside",
+        },
+      },
+      developmentalContext: {
+        whyThisActivity:
+          "Inside/outside dribbling was a known gap - players had no dedicated repetition for the outside-of-foot touch. This activity isolates the exact touch pattern in a low-pressure, no-defender setting so players can build the motor pattern before applying it in games or 1v1 situations.",
+        whenToUseIt: {
+          idealFor: [
+            "Early in practice as a technical warm-up",
+            "Right before Gates Dribbling or 1v1-focused activities",
+            "When players default to only using their inside foot in games",
+          ],
+          avoidWhen: [
+            "Very limited space for multiple lanes",
+            "Group needs pure fun/game format that day (pair with a game like Volcano Dribble instead)",
+          ],
+        },
+        progressionPath: {
+          before: [
+            { activity: "Ball Mastery Circle", reason: "General ball comfort before an isolated touch pattern" },
+            { activity: "Volcano Dribble", reason: "Free dribbling with light obstacle awareness" },
+          ],
+          after: [
+            { activity: "Gates Dribbling", reason: "Applies inside/outside touches while also scanning for gates" },
+            { activity: "Copy Cat Dribbling", reason: "Reinforces both surfaces in a reactive, playful format" },
+          ],
+        },
+        ageAdaptations: {
+          ages6to8: {
+            approach: "Keep it playful - frame inside/outside as 'two doors' rather than technical terms",
+            keyPhrases: [
+              "Open the inside door, open the outside door!",
+              "Can you feel the difference?",
+            ],
+            avoidSaying: ["You're doing it wrong", "That's the wrong foot"],
+            duration: "6-7 minutes",
+            simplifications: ["Wider spacing", "3 cones instead of 5", "No strict alternating pattern required"],
+          },
+          ages9to11: {
+            approach: "Add the language of 'surfaces' and connect explicitly to beating a defender",
+            keyPhrases: ["Which surface fools a defender the most?", "Beat your last time"],
+            challenges: ["Weak foot lane", "Called touches", "Timed races"],
+            duration: "8-10 minutes",
+          },
+          ages12to14: {
+            approach: "Connect directly to game application and let them self-assess weak-foot gaps",
+            keyPhrases: ["Where would this beat a real defender?", "What's your weaker surface - let's target it"],
+            challenges: ["Add a defender at lane's end", "Combine with a finish"],
+            coachRole: "Facilitate self-assessment of which surface needs more work",
+          },
+        },
+        commonMisconceptions: {
+          "This is just a warm-up, not real training":
+            "Isolated touch repetition is exactly how the motor pattern for changing direction gets built - it directly transfers to 1v1 and game situations.",
+          "Kids should go straight to game speed":
+            "Speed without the correct touch surfaces just reinforces the inside-only habit. Slow, correct reps first.",
+        },
+      },
+      parentCommunication: {
+        ifAsked:
+          "We worked on using both the inside AND outside of the foot to dribble - most kids naturally default to only the inside, so this builds the second 'gear' that lets them change direction quickly and become harder to defend.",
+        newsletter:
+          "This week: Inside-Outside Slalom! Players wove through cone lanes alternating touches with the inside and outside of their foot. At home, set up two shoes or water bottles a few steps apart and practice touching the ball with each side of the foot in turn - no pressure, just feel for the difference.",
+        whatToWatchFor: [
+          "Does your child use only their inside foot, or are they starting to try the outside too?",
+          "Can they keep the ball close while changing direction, or does it get away from them?",
+          "Are they willing to practice with their weaker foot?",
+        ],
+      },
+      safety: {
+        commonRisks: [
+          {
+            risk: "Tripping over cones when rushing",
+            prevention: "Keep cone spacing appropriate to age/skill; remind to control speed before racing",
+            response: "Check for injury; reset cones if knocked over",
+          },
+          {
+            risk: "Ankle rolls on quick direction changes",
+            prevention: "Ensure a proper warm-up before this activity; don't start at maximum speed",
+            response: "Rest, ice if needed, reduce intensity for the rest of the session",
+          },
+        ],
+        inclusionConsiderations: {
+          mobilityDifferences: "Widen spacing and allow walking pace; focus on touch quality over speed",
+          coordinationChallenges: "Start with only 2-3 cones and build up; pair with a peer buddy",
+        },
+      },
+      coachReflection: {
+        afterActivity: [
+          "Did most players attempt the outside touch, even imperfectly?",
+          "Was the ball staying close, or drifting away from players?",
+          "Did the challenge round match the group's readiness?",
+        ],
+        forImprovement: [
+          "Who needs more 1-on-1 attention on the outside touch next practice?",
+          "Should lane spacing change next time?",
+          "How can I connect this more directly to the upcoming game activity?",
+        ],
+      },
+    },
+  },
+  {
+    slug: "traffic-cop-dribble",
+    name: "Traffic Cop Dribble",
+    description: "A fast-reaction dribbling game where players freely dribble in open space and must instantly switch to whichever touch - inside or outside - the 'Traffic Cop' calls out, building automatic use of both surfaces under game-like pressure to react.",
+    sport: "soccer",
+    activityType: "warmup",
+    difficulty: "beginner",
+    minPlayers: 6,
+    maxPlayers: 24,
+    durationMinutes: 7,
+    skillsDeveloped: ["dribbling-with-inside-outside", "agility-coordination"],
+    setupInstructions:
+      "EQUIPMENT CHECKLIST\n□ 1 ball per player\n□ Cones to mark a grid boundary\n□ Pinnie or whistle for the 'Traffic Cop' (optional, for fun)\n\nSPACE: 20x20 paces (adjust to group size)\n\nSETUP STEPS\n1. Mark a grid boundary with cones\n2. Everyone starts inside the grid with a ball\n3. Coach begins as the 'Traffic Cop' - a player can take over later\n4. Review the calls before starting: 'Inside!', 'Outside!', 'Freeze!'\n\nDIAGRAM\n┌────────────────────────────────┐\n│   ○●     ○●        ○●          │\n│         ○●    ○●               │\n│   ○●          ○●     ○●        │  20 paces\n│        ○●          ○●          │\n│   ○●        ○●         ○●      │\n└────────────────────────────────┘\n        20 paces\n○● = player with ball, spread throughout",
+    howToPlay:
+      'PHASE 1: GATHER & EXPLAIN (45 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nCoach Position: Center of grid, ball at feet\n\nSAY: "Everyone spread out with your ball and dribble around gently. I\'m the Traffic Cop! When I call \'Inside!\' your very next touch is with the inside of your foot. When I call \'Outside!\' your next touch is with the outside. When I call \'Freeze!\' stop the ball dead!"\n\nDEMO: Call each one yourself and show the touch.\n\nSAY: "Ready? Spread out - here we go!"\n\n\nPHASE 2: ROUND 1 - SLOW CALLS (90 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Dribbling free - listen for my call!"\n\nCoach Position: Center or edge, calling every 4-5 seconds\n\nCall pattern: "Inside!" ... pause ... "Outside!" ... pause ... "Freeze!" ... pause ... "Inside!"\n\nWATCH FOR:\n□ Are they touching with the correct surface, or just touching the ball at all?\n□ Is the ball staying close enough to react quickly?\n□ Are they colliding with others - heads up?\n\nPHRASES TO USE:\n• "Which part of your foot did that call ask for?"\n• "Keep the ball close so you\'re ready!"\n• "Nice reaction!"\n\n\nPHASE 3: TEACHING MOMENT (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Everyone freeze and look at me. If I call \'Inside\' and you touch it with the outside, that\'s okay - this is hard! Let\'s all try one \'Inside\' together." Call it, everyone does it together, check the touch.\n\n\nPHASE 4: ROUND 2 - FASTER CALLS (90 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Same game, but I\'ll call faster now. Stay ready!"\n\nCoach Position: Roaming through the grid\n\nCall every 2-3 seconds, mixing up the order. Give specific praise for correct surface use.\n\n\nPHASE 5: CHALLENGE ROUND (90 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nChoose ONE challenge:\n\nOption A - Player Traffic Cop:\nSAY: "Who wants to be the Traffic Cop?" Pick a player to make the calls - great for confidence and it lets you watch the whole group.\n\nOption B - Color Cop (see Variations):\nUse colored cones instead of words - hold up a color, players respond with the matching touch.\n\nRun the challenge. Rotate the Cop role if using Option A so several kids get a turn.\n\n\nPHASE 6: WRAP UP (30 seconds)\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSAY: "Great listening and reacting! Which call tricked you the most today?"\n\nListen for: "Outside" (most common) - normalize it as the harder one\n\nSAY: "That reacting-fast feeling is exactly what happens in a game when a defender is closing you down - you don\'t have time to think, your feet just know what to do. That\'s what we\'re building. Water break!"',
+    diagram:
+      "┌────────────────────────────────┐\n│   ○●     ○●        ○●          │\n│         ○●    ○●               │\n│   ○●          ○●     ○●        │\n│        ○●          ○●          │\n│   ○●        ○●         ○●      │\n└────────────────────────────────┘",
+    coachingPoints: [
+      "MATCH THE CALL → Say: 'The touch has to match the word - inside means inside!'",
+      "STAY REACTION-READY → Say: 'Keep the ball close so you can react the instant you hear the call!'",
+      "HEADS UP FOR TEAMMATES → Say: 'Eyes up so you don't bump into anyone while you're listening!'",
+      "IT'S OKAY TO MISS → Say: 'If you touch the wrong side, just get the next one right - keep going!'",
+    ],
+    questionsToAsk: [
+      "'How did you know which part of your foot to use?' → Builds conscious awareness of the two surfaces",
+      "'Which call tricked you the most?' → Most players will say 'outside' - normalizes it as the harder skill",
+      "'How is this like a game, when a defender is right next to you?' → Fast decisions under pressure, not planned moves",
+      "'What happens if your ball drifts too far away while you're listening?' → You can't react fast enough",
+    ],
+    commonMistakes: [
+      "TOUCHING WITH THE WRONG SURFACE → Say: 'Freeze - which side did I call? Try that touch now.'",
+      "BALL TOO FAR TO REACT → Say: 'Keep it in your bubble so you're always ready!'",
+      "NOT REACTING AT ALL → Say: 'Every call needs a touch - even a small one counts!'",
+      "WATCHING THE COP INSTEAD OF THE BALL → Say: 'Ears on me, eyes mostly on your ball and the space around you!'",
+    ],
+    variations: [
+      {
+        name: "Color Cop",
+        description: "Coach holds up colored cones instead of calling words - red cone means inside, blue means outside - adding a visual reaction element.",
+        difficulty: "beginner",
+      },
+      {
+        name: "Opposite Day",
+        description: "For an older or more advanced group only: the calls are reversed - 'Inside' means touch with the outside, and vice versa. Genuinely tricky; use sparingly and expect lots of laughing mistakes.",
+        difficulty: "advanced",
+      },
+      {
+        name: "Partner Cop",
+        description: "Partners take turns calling for each other one-on-one instead of a single group-wide caller.",
+        difficulty: "intermediate",
+      },
+    ],
+    makeEasier:
+      "Slow the calls down to every 5-6 seconds, use a larger grid so there's less collision risk, and let players glance down at their feet before reacting.",
+    makeHarder:
+      "Speed up the calls to every 1-2 seconds, shrink the grid, and introduce Opposite Day (see Variations) for a group ready for real confusion and laughter.",
+    equipmentNeeded: ["1 ball per player", "Cones for grid boundary", "Colored cones (optional, for Color Cop)"],
+    spaceRequired: "medium",
+    indoorSuitable: true,
+    appropriateStages: ["fundamentals", "skill-building"],
+    tags: [
+      "warmup",
+      "dribbling",
+      "inside-outside",
+      "reactions",
+      "fun",
+      "listening",
+    ],
+    featured: true,
+    comprehensiveGuide: {
+      quickReference: {
+        oneSentence:
+          "Free-dribble in open space and instantly switch to whichever touch - inside or outside - the Traffic Cop calls, building automatic reactions with both surfaces.",
+        keyPhrases: [
+          "The touch has to match the call!",
+          "Keep the ball close so you can react!",
+          "It's okay to miss - just get the next one!",
+        ],
+        setupDiagram: "20x20 paces open grid, one ball per player, coach or player calling from center",
+        quickProgression: {
+          easier: "Slower calls, bigger grid, glance-down allowed",
+          harder: "Rapid calls, smaller grid, Opposite Day",
+        },
+      },
+      completeScript: {
+        beforeYouStart: {
+          preparation: [
+            "Mark a grid boundary sized to the group",
+            "Decide who calls first (usually the coach for round 1)",
+            "Review the three calls out loud before starting",
+          ],
+          mindset:
+            "This activity is about automaticity, not perfection - players won't get every call right, and that's fine. The goal is that both surfaces start to feel available to them under time pressure, not just the comfortable inside touch. Keep energy high and treat wrong touches as funny, not wrong.",
+        },
+        segments: [
+          {
+            phase: "Gather & Explain",
+            duration: "45 seconds",
+            coachPosition: "Center of grid",
+            script:
+              "SAY: 'Inside means touch with the inside, Outside means touch with the outside, Freeze means stop it dead.' Demo each call.",
+            anticipatedResponses: {
+              "What if I mess up?":
+                "Totally fine - just get the next one right!",
+              "Can I choose which foot?":
+                "Yes, either foot is fine, as long as it's the right side of the foot.",
+            },
+            troubleshooting: {
+              "Players freeze up and don't move at all": [
+                "Simplify to just two calls (Inside/Outside) until they're comfortable",
+              ],
+            },
+          },
+          {
+            phase: "Round 1 - Slow Calls",
+            duration: "90 seconds",
+            coachPosition: "Center, calling every 4-5 seconds",
+            script:
+              "Call each option with a pause between. Praise correct surface use specifically, not just 'good job'.",
+            troubleshooting: {
+              "Players colliding": ["Remind everyone to keep heads up between calls"],
+              "Everyone using inside regardless of call": [
+                "Slow down further and isolate 'Outside' calls only for a few reps",
+              ],
+            },
+          },
+          {
+            phase: "Teaching Moment",
+            duration: "30 seconds",
+            coachPosition: "Center, everyone gathered",
+            script:
+              "Do one call together as a group and check everyone's touch matches. Normalize mistakes on the outside touch.",
+          },
+          {
+            phase: "Round 2 - Faster Calls",
+            duration: "90 seconds",
+            coachPosition: "Roaming through the grid",
+            script:
+              "Speed up to every 2-3 seconds. Mix the order unpredictably.",
+          },
+          {
+            phase: "Challenge Round",
+            duration: "90 seconds",
+            coachPosition: "Roaming or handing off the caller role",
+            script:
+              "Pick a player Traffic Cop, or switch to Color Cop. Rotate the caller role so multiple kids get a turn leading.",
+          },
+          {
+            phase: "Wrap Up",
+            duration: "30 seconds",
+            coachPosition: "Center",
+            script:
+              "ASK: 'Which call tricked you most?' Connect to games: reacting fast to a defender without time to think.",
+          },
+        ],
+      },
+      troubleshooting: {
+        gameBalance: {
+          tooEasy: {
+            symptoms: ["Everyone reacting correctly and quickly", "Asking for faster calls"],
+            solutions: ["Speed up call frequency", "Shrink the grid", "Introduce Opposite Day"],
+          },
+          tooHard: {
+            symptoms: ["Frequent wrong touches on every call", "Players stopping instead of reacting", "Frustration"],
+            solutions: ["Slow calls down", "Drop to only two calls (Inside/Outside)", "Allow a glance down at the ball"],
+          },
+        },
+        playerBehavior: {
+          alwaysUsingInside: {
+            symptoms: ["Touches with inside regardless of the call"],
+            approach:
+              "SAY: 'Freeze - show me the outside of your foot!' Isolate 'Outside' calls for a stretch until it starts to register.",
+          },
+          collisions: {
+            symptoms: ["Players bumping into each other while reacting to calls"],
+            approach:
+              "Widen the grid temporarily and remind players to keep their heads up between touches, not just at the call.",
+          },
+        },
+        environmentalIssues: {
+          tooLoudToHearCalls: {
+            symptoms: ["Players missing calls due to noise or distance"],
+            solution: "Use a whistle plus hand signal (point down for Freeze, sweep in for Inside, sweep out for Outside) alongside the verbal call.",
+          },
+        },
+      },
+      skillConnections: {
+        primarySkills: [
+          {
+            skill: "Dribbling with Inside/Outside",
+            domain: "Technical",
+            howItDevelops:
+              "Reacting to an unpredictable external call forces players to retrieve both touch surfaces under time pressure, moving the skill from a memorized pattern (like a slalom) toward the instinctive, game-speed decision-making the skill ultimately requires.",
+            levelIndicators: {
+              1: "Touches the ball on any call but rarely matches the correct surface",
+              2: "Matches the correct surface roughly half the time, mostly on inside calls",
+              3: "Matches the correct surface consistently at a moderate call pace",
+              4: "Reacts correctly even at fast call pace without looking down",
+              5: "Reacts instantly and can also react to the Player Cop / Opposite Day variations",
+            },
+            assessmentNotes:
+              "Watch specifically for outside-touch accuracy under pressure - that's the harder half of this skill and the best signal of real progress.",
+          },
+        ],
+        secondarySkills: [
+          {
+            skill: "Agility & Coordination",
+            domain: "Physical",
+            howItDevelops:
+              "Rapid reaction to an auditory cue while managing a ball and other moving players builds reactive agility alongside the technical touch.",
+          },
+        ],
+        physicalDevelopment: {
+          reactionTime: "Responding to an unpredictable verbal cue while moving",
+          coordination: "Foot-eye-ear coordination under time pressure",
+        },
+        psychologicalDevelopment: {
+          resilience: "Recovering quickly and cheerfully from a wrong-surface touch",
+          confidence: "Volunteering to be the Traffic Cop in front of the group",
+        },
+      },
+      developmentalContext: {
+        whyThisActivity:
+          "Inside-Outside Slalom builds the touch pattern in a controlled, predictable order. Traffic Cop Dribble is the necessary next step: it strips away the predictability so players have to retrieve the correct surface on demand, which is much closer to what a real defender forces them to do. It's also a pure fundamentals-stage game format - no lines, constant touches, high fun.",
+        whenToUseIt: {
+          idealFor: [
+            "Right after Inside-Outside Slalom, in the same session",
+            "As an energizing warm-up before a technical or game segment",
+            "When players show the pattern in isolation but revert to inside-only in games",
+          ],
+          avoidWhen: [
+            "Space is too tight for players to move and react safely",
+            "Group is brand new to inside/outside touches with zero prior exposure (start with the Slalom first)",
+          ],
+        },
+        progressionPath: {
+          before: [
+            { activity: "Inside-Outside Slalom", reason: "Introduces the touch pattern in a controlled, predictable order first" },
+            { activity: "Volcano Dribble", reason: "General free-dribbling comfort in open space" },
+          ],
+          after: [
+            { activity: "Gates Dribbling", reason: "Applies both touches while also scanning for targets" },
+            { activity: "1v1 to Goal", reason: "Live defender pressure where both surfaces become genuinely useful" },
+          ],
+        },
+        ageAdaptations: {
+          ages6to8: {
+            approach: "Keep the Traffic Cop framing playful - it's a game, not a test",
+            keyPhrases: ["Freeze like a statue!", "Which door did I open - inside or outside?"],
+            avoidSaying: ["You got it wrong", "Pay attention"],
+            duration: "5-6 minutes",
+            simplifications: ["Only two calls (Inside/Outside), drop Freeze", "Slower call pace", "Bigger grid"],
+          },
+          ages9to11: {
+            approach: "Let a player take the Cop role early - builds ownership and leadership",
+            keyPhrases: ["Cop's in charge - listen up!", "React, don't think!"],
+            challenges: ["Faster call pace", "Color Cop", "Smaller grid"],
+            duration: "7-8 minutes",
+          },
+          ages12to14: {
+            approach: "Introduce Opposite Day and connect explicitly to reading a defender's body language",
+            keyPhrases: ["A defender gives you way less warning than I do - stay ready", "What made Opposite Day so hard?"],
+            challenges: ["Opposite Day", "Very fast call pace", "Smaller grid with more players"],
+            coachRole: "Facilitate discussion connecting reaction speed to real defensive pressure",
+          },
+        },
+        commonMisconceptions: {
+          "This is just a fun filler game":
+            "The unpredictable, fast-reaction format is exactly what closes the gap between a memorized cone pattern and using both touches instinctively in a real game.",
+          "Getting the call wrong means they're behind":
+            "Wrong touches are expected and useful information for the coach, not a sign of failure - this is a genuinely harder skill (the outside touch) still being built.",
+        },
+      },
+      parentCommunication: {
+        ifAsked:
+          "We played a reaction game where kids had to instantly switch between touching the ball with the inside or outside of their foot on a call - it builds the same 'two gears' skill as our cone slalom, but under game-like time pressure instead of a predictable pattern.",
+        newsletter:
+          "This week: Traffic Cop Dribble! Kids dribbled freely and had to react instantly to calls of 'Inside!' or 'Outside!' - a fun way to build the reflexes for using both sides of the foot. At home, you can be the Traffic Cop yourself with a ball in the yard - just call out the two words while they dribble.",
+        whatToWatchFor: [
+          "Does your child react quickly, or do they need to stop and think first?",
+          "Are they starting to use the outside touch as readily as the inside?",
+          "Do they enjoy the reactive, game-like format more than a structured drill?",
+        ],
+      },
+      safety: {
+        commonRisks: [
+          {
+            risk: "Collisions between players focused on listening rather than looking",
+            prevention: "Adequate grid size for the group; remind players to keep heads up between calls",
+            response: "Check players involved; reinforce spacing before resuming",
+          },
+          {
+            risk: "Ankle rolls on quick reactive direction changes",
+            prevention: "Ensure a general warm-up happened earlier in the session",
+            response: "Rest, ice if needed, reduce call speed for the rest of the activity",
+          },
+        ],
+        inclusionConsiderations: {
+          hearingDifferences: "Pair verbal calls with a hand signal or use Color Cop instead of words",
+          attentionChallenges: "Shorter rounds, slower call pace, pair with a peer buddy for extra cueing",
+        },
+      },
+      coachReflection: {
+        afterActivity: [
+          "Were players starting to react correctly to 'Outside' calls, or still defaulting to inside?",
+          "Did the call pace match the group's readiness?",
+          "Did letting a player be the Traffic Cop go well - who should get a turn next time?",
+        ],
+        forImprovement: [
+          "Should I slow down or speed up the calls next time?",
+          "Who specifically needs more outside-touch reps 1-on-1?",
+          "How well did this connect to the game activity that followed?",
+        ],
+      },
+    },
   },
 ];
