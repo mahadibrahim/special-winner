@@ -41,6 +41,10 @@ export default function SessionLive({ sessionId }: { sessionId: string }) {
   // connectivity and reports failure to the coach instead.
   const pendingTransitionRef = useRef<"in_progress" | null>(null);
   const retryingTransition = useRef(false);
+  // Mirror of `stage` for callbacks that must read the current stage without
+  // re-subscribing (the reconnect loop) — updated every render.
+  const stageRef = useRef<Stage>(stage);
+  stageRef.current = stage;
 
   const persistQueue = useCallback(() => {
     try {
@@ -129,7 +133,13 @@ export default function SessionLive({ sessionId }: { sessionId: string }) {
           body: JSON.stringify({ status, ...extra }),
         });
         if (!res.ok) throw new Error(String(res.status));
-        if (pendingTransitionRef.current === status) pendingTransitionRef.current = null;
+        // Any successful status write supersedes a queued start — clearing
+        // unconditionally ensures a successful "completed" can never be
+        // followed by a retried "in_progress" that would revert the session
+        // server-side. Accepted quirk: a session completed while its start
+        // PUT never landed ends with startedAt null (server-side backfill
+        // deliberately not done).
+        pendingTransitionRef.current = null;
         setOffline(false);
         return true;
       } catch {
@@ -145,6 +155,12 @@ export default function SessionLive({ sessionId }: { sessionId: string }) {
   // online listener and the interval can't double-fire it concurrently.
   const retryPendingTransition = useCallback(async () => {
     if (!pendingTransitionRef.current || retryingTransition.current) return;
+    // Once the session is done, a stale queued start must never fire — it
+    // would revert the completed session server-side. Drop it instead.
+    if (stageRef.current === "done") {
+      pendingTransitionRef.current = null;
+      return;
+    }
     retryingTransition.current = true;
     try {
       // transition() clears pendingTransitionRef on success.
