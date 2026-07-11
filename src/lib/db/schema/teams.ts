@@ -358,6 +358,11 @@ export const attendance = pgTable(
       .notNull()
       .references(() => rosters.id, { onDelete: "cascade" }),
     gameId: uuid("game_id").references(() => games.id, { onDelete: "cascade" }),
+    // Coach session lifecycle: precise lineage from a field-mode check-off
+    // to its practice session. Null on rows from the standalone tracker.
+    sessionPlanId: uuid("session_plan_id").references(() => sessionPlans.id, {
+      onDelete: "set null",
+    }),
     eventDate: timestamp("event_date", { withTimezone: true }).notNull(),
     eventType: eventTypeEnum("event_type").default("practice").notNull(),
     status: attendanceStatusEnum("status").default("present").notNull(),

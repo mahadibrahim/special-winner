@@ -119,3 +119,6 @@ export * from "./payroll";
 
 // Program Blueprint (sequence distribution lineage + warning dismissals)
 export * from "./blueprint";
+
+// Coach session lifecycle: field-mode quick-capture inbox (glows/observations)
+export * from "./session-lifecycle";

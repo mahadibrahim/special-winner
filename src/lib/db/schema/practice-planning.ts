@@ -260,6 +260,9 @@ export const sessionPlans = pgTable(
     scheduledDate: timestamp("scheduled_date").notNull(),
     durationMinutes: integer("duration_minutes").notNull(),
     status: sessionStatusEnum("status").default("draft").notNull(),
+    // Coach session lifecycle: stamped server-side when the coach starts
+    // field mode (status -> in_progress). Never overwritten on retry.
+    startedAt: timestamp("started_at"),
     // Session structure with activities
     segments: jsonb("segments").$type<
       {
