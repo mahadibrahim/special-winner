@@ -5570,6 +5570,8 @@ export const SOCCER_SKILLS: SkillContent[] = [
     stage: "skill-building",
     description:
       "The ability to dribble at speed while maintaining close control of the ball, using bigger touches with the outside or top of the foot (laces) to cover ground quickly without losing possession.",
+    introductionAge: 9,
+    assessmentMethod: "observation",
     progressionLevels: {
       1: "Loses control as soon as pace increases; must stop completely to regain the ball and dribbles head-down throughout",
       2: "Dribbles at jogging pace with control but loses the ball when accelerating quickly; control breaks down around 70% speed",
@@ -5598,6 +5600,9 @@ export const SOCCER_SKILLS: SkillContent[] = [
       "Start at half speed and build up - notice where your control breaks down",
       "Smooth acceleration, not jerky starts - like a race car",
     ],
+    tags: ["technical", "dribbling", "speed", "running with the ball"],
+    isCore: true,
+    sortOrder: 8,
     comprehensiveGuide: {
       levelDetails: {
         1: {
@@ -5800,6 +5805,8 @@ export const SOCCER_SKILLS: SkillContent[] = [
     stage: "skill-building",
     description:
       "The ability to position off the ball so a teammate has a clear lane to pass to, adjusting body position and location as the ball and defenders move.",
+    introductionAge: 9,
+    assessmentMethod: "observation",
     progressionLevels: {
       1: "Stands in direct lines behind defenders or teammates with no adjustment, making themselves unpassable",
       2: "Sometimes moves to get clear of a defender but movement is often too small or too late to open a real lane",
@@ -5828,6 +5835,9 @@ export const SOCCER_SKILLS: SkillContent[] = [
       "Position yourself so you can play forward the moment you receive",
       "Look for gaps between defenders, not just open grass",
     ],
+    tags: ["tactical", "passing", "positioning", "support play"],
+    isCore: true,
+    sortOrder: 22,
     comprehensiveGuide: {
       levelDetails: {
         1: {
@@ -6028,6 +6038,8 @@ export const SOCCER_SKILLS: SkillContent[] = [
     stage: "fundamentals",
     description:
       "A player's genuine engagement with and love for playing soccer, shown through positive attitude, willingness to participate, and enthusiasm during practice and games.",
+    introductionAge: 6,
+    assessmentMethod: "observation",
     progressionLevels: {
       1: "Shows reluctance or disengagement, needs coaxing to join in, and may express not wanting to play",
       2: "Enjoys some activities (like games) but not others (like drills), with enjoyment dependent on external factors",
@@ -6056,6 +6068,9 @@ export const SOCCER_SKILLS: SkillContent[] = [
       "I just want you to enjoy being here - no pressure",
       "Your effort is what matters most to me - have fun with it",
     ],
+    tags: ["psychological", "enjoyment", "motivation", "fun"],
+    isCore: true,
+    sortOrder: 33,
     comprehensiveGuide: {
       levelDetails: {
         1: {

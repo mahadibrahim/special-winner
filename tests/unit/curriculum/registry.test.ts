@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CURRICULUM_CONTENT, validateRegistry } from "@/lib/curriculum/content";
+import type { CurriculumContent } from "@/lib/curriculum/content/types";
 
 describe("curriculum registry", () => {
   it("has the four weighted domains and at least four stages", () => {
@@ -326,7 +327,9 @@ describe("curriculum registry", () => {
     it("matches the true counts from folding both recovered generations plus the wave-2 sport guidance floor", () => {
       // 29 (coach-prompts.ts) + 30 (coach-training-modules.ts promptsData)
       // + 4 wave-2 additions (2 hockey + 2 baseball, see coach-guidance.ts)
-      expect(CURRICULUM_CONTENT.coachGuidance.prompts).toHaveLength(63);
+      // + 78 Directive 1 skill-linked during_practice prompts (26 soccer
+      // skills x 3 prompts each, see SOCCER_SKILL_PROMPTS in coach-guidance.ts)
+      expect(CURRICULUM_CONTENT.coachGuidance.prompts).toHaveLength(141);
       // 12 (coach-resources.ts) + 9 (coach-training-modules.ts resourcesData)
       // + 2 wave-2 additions (1 hockey + 1 baseball article)
       // + 1 Phase 2 addition (assessment calibration guide)
@@ -372,6 +375,104 @@ describe("curriculum registry", () => {
 
     it("validateRegistry still passes with coach guidance content loaded", () => {
       expect(validateRegistry(CURRICULUM_CONTENT)).toEqual([]);
+    });
+
+    // Directive 1 (curriculum-refinery refine wave, 2026-07-11): skill-linked
+    // during_practice prompts, wired to coach_prompts.skill_id by the loader
+    // (scripts/curriculum-load.ts's applyCoachGuidance) via the `skill` field
+    // convention documented in coach-guidance.ts's module header.
+    describe("skill-linked during_practice prompts (Directive 1)", () => {
+      it("every soccer skill has 2-3 skill-linked during_practice prompts, sport+stage set", () => {
+        const soccerSkillSlugs = new Set(
+          CURRICULUM_CONTENT.skills
+            .filter((s) => s.sport === "soccer")
+            .map((s) => s.slug),
+        );
+        const skillLinked = CURRICULUM_CONTENT.coachGuidance.prompts.filter(
+          (p) => typeof p.skill === "string",
+        );
+        expect(skillLinked.length).toBeGreaterThan(0);
+        expect(
+          skillLinked.every(
+            (p) => p.sport === "soccer" && p.triggerContext === "during_practice",
+          ),
+        ).toBe(true);
+
+        const bySkill = new Map<string, number>();
+        for (const p of skillLinked) {
+          bySkill.set(p.skill as string, (bySkill.get(p.skill as string) ?? 0) + 1);
+        }
+        for (const slug of soccerSkillSlugs) {
+          const count = bySkill.get(slug) ?? 0;
+          expect(count).toBeGreaterThanOrEqual(2);
+          expect(count).toBeLessThanOrEqual(3);
+        }
+        // No skill-linked prompt references a slug outside the real registry
+        // (e.g. a stray e2e-* test fixture slug).
+        for (const slug of bySkill.keys()) {
+          expect(soccerSkillSlugs.has(slug)).toBe(true);
+        }
+      });
+
+      it("skill-linked prompts mix question/tip/encouragement and every question is isQuestionBased", () => {
+        const skillLinked = CURRICULUM_CONTENT.coachGuidance.prompts.filter(
+          (p) => typeof p.skill === "string",
+        );
+        const types = new Set(skillLinked.map((p) => p.promptType));
+        expect(types.has("question")).toBe(true);
+        expect(types.has("tip")).toBe(true);
+        expect(types.has("encouragement")).toBe(true);
+        expect(
+          skillLinked
+            .filter((p) => p.promptType === "question")
+            .every((p) => p.isQuestionBased === true),
+        ).toBe(true);
+      });
+
+      it("validateRegistry rejects a coach prompt with an unresolvable skill slug, and requires sport alongside skill", () => {
+        const base = CURRICULUM_CONTENT.coachGuidance.prompts[0];
+        const unresolvable: CurriculumContent = {
+          ...CURRICULUM_CONTENT,
+          coachGuidance: {
+            ...CURRICULUM_CONTENT.coachGuidance,
+            prompts: [
+              ...CURRICULUM_CONTENT.coachGuidance.prompts,
+              {
+                ...base,
+                sport: "soccer",
+                skill: "not-a-real-skill-slug",
+                content:
+                  "Unit-test-only prompt: references a skill slug that does not exist in the registry.",
+              },
+            ],
+          },
+        };
+        const violations = validateRegistry(unresolvable);
+        expect(
+          violations.some((v) => v.includes('unknown skill "not-a-real-skill-slug"')),
+        ).toBe(true);
+
+        const missingSport: CurriculumContent = {
+          ...CURRICULUM_CONTENT,
+          coachGuidance: {
+            ...CURRICULUM_CONTENT.coachGuidance,
+            prompts: [
+              ...CURRICULUM_CONTENT.coachGuidance.prompts,
+              {
+                ...base,
+                sport: undefined,
+                skill: "ball-control",
+                content:
+                  "Unit-test-only prompt: sets skill without sport, which should fail validation.",
+              },
+            ],
+          },
+        };
+        const sportViolations = validateRegistry(missingSport);
+        expect(
+          sportViolations.some((v) => v.includes('sets "skill" without "sport"')),
+        ).toBe(true);
+      });
     });
   });
 });
