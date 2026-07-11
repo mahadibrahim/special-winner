@@ -58,6 +58,10 @@ export const GET: APIRoute = async (context) => {
       .select({ id: teams.id })
       .from(teams)
       .where(inArray(teams.seasonId, seasonIdsQ));
+    const superAdminRoleIdsQ = db2
+      .select({ id: roles.id })
+      .from(roles)
+      .where(eq(roles.name, "super_admin"));
 
     // Get user IDs who have roles tied to this organization or its entities,
     // and users explicitly granted access via user_organization_access (the
@@ -65,8 +69,11 @@ export const GET: APIRoute = async (context) => {
     // who have no role but belong to the org). Independent — run in parallel.
     const [orgUserRoles, orgAccessRows] = await Promise.all([
       // Role-holders:
-      //   - global-scoped (super-admins are visible in every org's view
-      //     since they administer the whole platform)
+      //   - global-scoped super_admins only (platform owners are visible in
+      //     every org's view). Other global-scoped roles — the legacy parent
+      //     grant from resolvePerson — must NOT leak users across tenants;
+      //     customers appear via their user_organization_access row instead
+      //     (granted at registration/booking, backfilled by migration 0082).
       //   - org-scoped roles for this org
       //   - location/program/team-scoped roles for entities under this org
       getDb()
@@ -74,7 +81,10 @@ export const GET: APIRoute = async (context) => {
         .from(userRoles)
         .where(
           or(
-            eq(userRoles.scopeType, "global"),
+            and(
+              eq(userRoles.scopeType, "global"),
+              inArray(userRoles.roleId, superAdminRoleIdsQ)
+            ),
             and(
               eq(userRoles.scopeType, "organization"),
               eq(userRoles.scopeId, auth.organizationId)

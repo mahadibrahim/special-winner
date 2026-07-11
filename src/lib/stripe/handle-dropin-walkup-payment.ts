@@ -16,6 +16,7 @@
 import type Stripe from "stripe";
 import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
+import { ensureDropInCustomerMembership } from "@/lib/organization/ensure-membership";
 import {
   dropInBookings,
   dropInSessions,
@@ -148,6 +149,10 @@ export async function handleDropInWalkUpPayment(
   // behind it, so it is deliberately NOT reported to GA4 Ads / Meta as a
   // conversion — only to PostHog for internal revenue reporting.
   if (result.status === "processed") {
+    // Booking makes this user a customer of the org (directory visibility +
+    // role-assignment gate). After the tx so it can never roll back a booking.
+    await ensureDropInCustomerMembership(db, userId, sessionDbId);
+
     // Confirmation email — awaited so the send completes before the function
     // freezes; logged-but-not-thrown on failure.
     await awaitDispatch(

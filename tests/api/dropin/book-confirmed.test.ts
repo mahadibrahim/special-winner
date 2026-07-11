@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import { getDb } from "@/lib/db";
 import { dropInBookings } from "@/lib/db/schema/drop-in";
 import { users } from "@/lib/db/schema/users";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
+import { userOrganizationAccess } from "@/lib/db/schema/organizations";
 import { createConfirmedBookingFreePath } from "@/lib/dropin/booking";
 import { createTestDropInSession } from "../../utils/dropin-helpers";
 
@@ -103,5 +104,48 @@ describe("createConfirmedBookingFreePath", () => {
     if (!result.ok) {
       expect(result.error.code).toBe("non_free_rate");
     }
+  });
+});
+
+describe("createConfirmedBookingFreePath — org membership", () => {
+  it("booking a drop-in session grants org membership to the booker", async () => {
+    const ctx = await createTestDropInSession({
+      capacity: 16,
+      sessionRateCents: 0,
+      memberRateCents: 0,
+    });
+
+    const [u] = await getDb()
+      .insert(users)
+      .values({
+        email: `t-${Date.now()}-${Math.random()}@t.example`,
+        firstName: "T",
+        lastName: "Member",
+      })
+      .returning();
+
+    const result = await createConfirmedBookingFreePath({
+      sessionId: ctx.sessionId,
+      userId: u.id,
+      source: "online_booking",
+    });
+    expect(result.ok).toBe(true);
+
+    const rows = await getDb()
+      .select()
+      .from(userOrganizationAccess)
+      .where(
+        and(
+          eq(userOrganizationAccess.userId, u.id),
+          eq(userOrganizationAccess.organizationId, ctx.organizationId),
+        ),
+      );
+    expect(rows.length).toBe(1);
+    expect(rows[0].role).toBe("parent");
+
+    // Cleanup: bookings RESTRICT user deletion, so remove them first; the
+    // user delete then cascades the access row.
+    await getDb().delete(dropInBookings).where(eq(dropInBookings.userId, u.id));
+    await getDb().delete(users).where(eq(users.id, u.id));
   });
 });

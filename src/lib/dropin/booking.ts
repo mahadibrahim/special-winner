@@ -31,6 +31,7 @@ import { assignTeam } from "./team-assignment";
 import { dispatchBookingConfirmation } from "./messages/dispatch";
 import { awaitDispatch } from "@/lib/notifications/await-dispatch";
 import { getActiveMembershipForOrg } from "@/lib/memberships/get-active-membership";
+import { ensureDropInCustomerMembership } from "@/lib/organization/ensure-membership";
 import type { BrandId } from "@/lib/branding/themes";
 
 export interface BookingError {
@@ -277,6 +278,10 @@ export async function createConfirmedBookingFreePath(opts: {
   // Confirmation email — awaited so the send completes before the function
   // freezes; outside the tx so a messaging failure can't roll back the booking.
   if (bookingResult.ok) {
+    // Booking makes this user a customer of the org (directory visibility +
+    // role-assignment gate). After the tx so it can never roll back a booking.
+    await ensureDropInCustomerMembership(db, opts.userId, opts.sessionId);
+
     await awaitDispatch(
       "dropin confirmation",
       () => dispatchBookingConfirmation(bookingResult.bookingId, opts.brand),
