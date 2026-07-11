@@ -13,6 +13,7 @@ import { sendRegistrationConfirmationEmail } from "@/lib/email/send";
 import { awaitEmailSend } from "@/lib/notifications/await-dispatch";
 import type { BrandId } from "@/lib/branding/themes";
 import { isRegistrationClosed } from "@/lib/programs/registration-window";
+import { ensureCustomerOrgMembership } from "@/lib/organization/ensure-membership";
 import { effectivePriceCents } from "@/lib/programs/early-bird";
 
 export type RegistrationKind = "created" | "resumed" | "waitlisted";
@@ -187,6 +188,27 @@ export async function createRegistration(
     throw new RegistrationError(400, "Registration for this season has closed");
   }
 
+  // Resolve the owning org once — used by the membership grant below and the
+  // team-linkage / invitee lookups later.
+  const [orgRow] = await db
+    .select({ organizationId: locations.organizationId })
+    .from(seasons)
+    .innerJoin(programs, eq(seasons.programId, programs.id))
+    .innerJoin(locations, eq(programs.locationId, locations.id))
+    .where(eq(seasons.id, seasonId));
+  const organizationId = orgRow?.organizationId ?? null;
+
+  // Any account that reaches a valid, open season is a customer of this org.
+  // Membership drives the admin directory and the role-assignment gate.
+  // Best-effort: a grant failure must never break registration.
+  if (organizationId) {
+    try {
+      await ensureCustomerOrgMembership(db, user.id, organizationId);
+    } catch (err) {
+      console.error("[createRegistration] org membership grant failed:", err);
+    }
+  }
+
   const [existingReg] = await db
     .select()
     .from(registrations)
@@ -305,17 +327,11 @@ export async function createRegistration(
       }
 
       if (input.teamToken) {
-        const [orgRow] = await db
-          .select({ organizationId: locations.organizationId })
-          .from(seasons)
-          .innerJoin(programs, eq(seasons.programId, programs.id))
-          .innerJoin(locations, eq(programs.locationId, locations.id))
-          .where(eq(seasons.id, seasonId));
         await linkRegistrationToTeam({
           db,
           teamToken: input.teamToken,
           registrationId: waitlisted.id,
-          organizationId: orgRow?.organizationId ?? null,
+          organizationId,
           user,
           registrantEmail: user.email,
         });
@@ -336,18 +352,6 @@ export async function createRegistration(
     input.registrationType === "deposit" && season.depositCents
       ? season.depositCents
       : effectivePriceCents(season);
-
-  // Resolve the org once (used for both team-member linkage and invitee lookup).
-  let organizationId: string | null = null;
-  if (input.teamToken) {
-    const [orgRow] = await db
-      .select({ organizationId: locations.organizationId })
-      .from(seasons)
-      .innerJoin(programs, eq(seasons.programId, programs.id))
-      .innerJoin(locations, eq(programs.locationId, locations.id))
-      .where(eq(seasons.id, seasonId));
-    organizationId = orgRow?.organizationId ?? null;
-  }
 
   // Team-invitee share: when joining via a `?team=` token, the captain may have
   // assigned this email a specific share. Resolve it BEFORE the insert so we can
