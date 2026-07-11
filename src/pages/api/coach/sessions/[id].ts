@@ -302,12 +302,19 @@ export const PUT: APIRoute = async (context) => {
         .from(sessionPlans)
         .where(eq(sessionPlans.id, id));
 
-      updateData.status = data.status;
-      if (data.status === "in_progress" && !current?.startedAt) {
-        updateData.startedAt = new Date();
-      }
-      if (data.status === "completed" && !current?.completedAt) {
-        updateData.completedAt = new Date();
+      if (data.status === "in_progress" && current?.completedAt) {
+        // A queued offline "start" retry from the live-session client must
+        // never revert a completed session; treat it as a no-op (200,
+        // current state returned) — this matches retry-safe transition
+        // semantics. All other fields in this same request still apply.
+      } else {
+        updateData.status = data.status;
+        if (data.status === "in_progress" && !current?.startedAt) {
+          updateData.startedAt = new Date();
+        }
+        if (data.status === "completed" && !current?.completedAt) {
+          updateData.completedAt = new Date();
+        }
       }
     }
     if (data.segments !== undefined) updateData.segments = data.segments;

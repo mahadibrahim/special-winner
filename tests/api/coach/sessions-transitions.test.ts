@@ -66,4 +66,23 @@ describe("Session lifecycle transitions", () => {
       }), 200);
     expect(second.session.completedAt).toBe(first.session.completedAt);
   });
+
+  it("ignores a stale in_progress transition once the session is completed", async () => {
+    // GET's select list omits startedAt, so use a no-op PUT (empty body) to
+    // read back the full row -- including startedAt -- via .returning().
+    const before = await expectJson(
+      await apiFetch(`/api/coach/sessions/${sessionId}`, {
+        method: "PUT", cookie: coachCookie, body: JSON.stringify({}),
+      }), 200);
+    expect(before.session.status).toBe("completed");
+
+    const retry = await expectJson(
+      await apiFetch(`/api/coach/sessions/${sessionId}`, {
+        method: "PUT", cookie: coachCookie, body: JSON.stringify({ status: "in_progress" }),
+      }), 200);
+
+    expect(retry.session.status).toBe("completed");
+    expect(retry.session.completedAt).toBe(before.session.completedAt);
+    expect(retry.session.startedAt).toBe(before.session.startedAt);
+  });
 });
