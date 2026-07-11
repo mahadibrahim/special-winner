@@ -80,4 +80,28 @@ describe("admin gate: location-scoped location_admin", () => {
     const res = await apiFetch("/api/admin/users?limit=1", { cookie: orgBAdminCookie });
     expect(res.status).toBe(403);
   });
+
+  // Org-level configuration is Organization Admin territory ("no access"
+  // decision): a location-scoped admin must not read or mutate org-wide
+  // config even though they pass the general org gate.
+  it("location-scoped admin cannot reach org-level endpoints (403)", async () => {
+    for (const path of [
+      "/api/admin/sports",
+      "/api/admin/locations",
+      "/api/admin/organizations/settings",
+      "/api/admin/stripe-connect/status",
+    ]) {
+      const res = await apiFetch(path, { cookie: orgAAdminCookie });
+      expect(res.status, path).toBe(403);
+    }
+  });
+
+  it("org-wide admin still reaches org-level endpoints", async () => {
+    const superCookie = await getAuthCookie(
+      "admin@test.aspiresports.com",
+      "TestAdmin123!",
+    );
+    const res = await apiFetch("/api/admin/sports", { cookie: superCookie });
+    expect(res.status).toBe(200);
+  });
 });

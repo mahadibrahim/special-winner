@@ -3,7 +3,7 @@ import { getDb } from "@/lib/db";
 import { organizations } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { requireOrgAdminAccess } from "@/lib/auth";
+import { requireOrgWideAdminAccess } from "@/lib/auth";
 import { clearDomainCache } from "@/lib/organization/domain-resolver";
 
 const externalStoreSchema = z.object({
@@ -69,7 +69,7 @@ const bodySchema = z.object({
 });
 
 export const GET: APIRoute = async (context) => {
-  const auth = await requireOrgAdminAccess(context);
+  const auth = await requireOrgWideAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   try {
@@ -107,7 +107,7 @@ export const GET: APIRoute = async (context) => {
 };
 
 export const PATCH: APIRoute = async (context) => {
-  const auth = await requireOrgAdminAccess(context);
+  const auth = await requireOrgWideAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   try {

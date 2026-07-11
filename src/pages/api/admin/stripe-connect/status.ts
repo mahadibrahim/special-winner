@@ -7,12 +7,12 @@ import {
   createAccountDashboardLink,
 } from "@/lib/stripe/connect";
 import { eq } from "drizzle-orm";
-import { requireOrgAdminAccess } from "@/lib/auth";
+import { requireOrgWideAdminAccess } from "@/lib/auth";
 
 export const GET: APIRoute = async (context) => {
   try {
     // Check admin authentication
-    const auth = await requireOrgAdminAccess(context);
+    const auth = await requireOrgWideAdminAccess(context);
     if (!auth.authorized) return auth.response;
 
     const url = new URL(context.request.url);

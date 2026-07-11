@@ -644,3 +644,27 @@ export async function requireOrgAdminAccess(context: APIContext): Promise<
     locationScope: "all",
   };
 }
+
+/**
+ * Org-level guard: requireOrgAdminAccess restricted to ORG-WIDE admins
+ * (global super_admin or location_admin@organization). Location-scoped
+ * admins manage their location's operations, not org configuration — use
+ * this on endpoints exposing org-wide config (settings, Stripe Connect,
+ * sports catalog, location management).
+ */
+export async function requireOrgWideAdminAccess(
+  context: APIContext,
+): Promise<Awaited<ReturnType<typeof requireOrgAdminAccess>>> {
+  const auth = await requireOrgAdminAccess(context);
+  if (!auth.authorized) return auth;
+  if (auth.locationScope !== "all") {
+    return {
+      authorized: false,
+      response: new Response(
+        JSON.stringify({ error: "Forbidden: requires organization-wide admin" }),
+        { status: 403, headers: { "Content-Type": "application/json" } },
+      ),
+    };
+  }
+  return auth;
+}
