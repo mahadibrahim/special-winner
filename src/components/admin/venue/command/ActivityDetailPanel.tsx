@@ -17,7 +17,7 @@
  * WalkInFlow is rendered as an in-panel overlay when an open slot is clicked.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
@@ -119,6 +119,10 @@ export function ActivityDetailPanel({ session, locationId, timezone, onClose, on
   const [photoOverrides, setPhotoOverrides] = useState<Record<string, string>>({});
   const [showWalkIn, setShowWalkIn] = useState(false);
   const [rowBusy, setRowBusy] = useState<Record<string, boolean>>({});
+  // Holds cancelled locally but possibly still present in an in-flight poll
+  // response. The poll filters these out so a stale response can't resurrect
+  // a just-cancelled row; ids are dropped once the server stops returning them.
+  const cancelledIdsRef = useRef<Set<string>>(new Set());
 
   const eventKind = sessionKindToEventKind(session.kind);
 
@@ -142,7 +146,17 @@ export function ActivityDetailPanel({ session, locationId, timezone, onClose, on
           return;
         }
         const body = await res.json();
-        if (alive) setRows(body.rows ?? []);
+        if (alive) {
+          const serverRows: RowData[] = body.rows ?? [];
+          // Drop rows we've cancelled locally (stale in-flight responses can
+          // still contain them); once the server no longer returns an id, it
+          // has caught up — stop tracking it.
+          const serverIds = new Set(serverRows.map((r) => r.targetId));
+          for (const id of cancelledIdsRef.current) {
+            if (!serverIds.has(id)) cancelledIdsRef.current.delete(id);
+          }
+          setRows(serverRows.filter((r) => !cancelledIdsRef.current.has(r.targetId)));
+        }
       } catch (err) {
         if (alive) setError(err instanceof Error ? err.message : "Network error");
       } finally {
@@ -202,6 +216,7 @@ export function ActivityDetailPanel({ session, locationId, timezone, onClose, on
         throw new Error(b.error ?? `Failed (${res.status})`);
       }
       toast.success(`Hold released — slot is open again`);
+      cancelledIdsRef.current.add(row.targetId);
       setRows((prev) => prev?.filter((r) => r.targetId !== row.targetId) ?? prev);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not cancel hold");
