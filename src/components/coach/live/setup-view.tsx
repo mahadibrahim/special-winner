@@ -30,8 +30,8 @@ export default function SetupView({
         <section>
           <h2 className="mb-2 font-medium text-ink">Tonight's focus</h2>
           <ul className="list-disc pl-5 text-sm text-ink">
-            {session.objectives.map((o) => (
-              <li key={o}>{o}</li>
+            {session.objectives.map((o, i) => (
+              <li key={`${i}-${o}`}>{o}</li>
             ))}
           </ul>
         </section>
@@ -59,11 +59,11 @@ export default function SetupView({
         <section>
           <h2 className="mb-2 font-medium text-ink">Bring</h2>
           <ul className="space-y-1" data-testid="setup-equipment">
-            {equipment.map((e) => (
-              <li key={e} className="flex min-h-11 items-center gap-3">
-                <input type="checkbox" className="size-5" id={`eq-${e}`} />
-                <label htmlFor={`eq-${e}`} className="text-ink">
-                  {e}
+            {equipment.map((e, i) => (
+              <li key={`${i}-${e}`}>
+                <label className="flex min-h-11 items-center gap-3">
+                  <input type="checkbox" className="size-5" />
+                  <span className="text-ink">{e}</span>
                 </label>
               </li>
             ))}

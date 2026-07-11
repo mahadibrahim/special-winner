@@ -35,6 +35,12 @@ export default function SessionLive({ sessionId }: { sessionId: string }) {
   const queueRef = useRef<QueueState>(emptyQueue);
   const [, forceRender] = useState(0);
   const flushing = useRef(false);
+  // A failed "in_progress" PUT is queued here and retried by the reconnect
+  // loop — the coach has already moved to field mode optimistically.
+  // "completed" is deliberately excluded: wrap-up's Finish requires
+  // connectivity and reports failure to the coach instead.
+  const pendingTransitionRef = useRef<"in_progress" | null>(null);
+  const retryingTransition = useRef(false);
 
   const persistQueue = useCallback(() => {
     try {
@@ -85,17 +91,6 @@ export default function SessionLive({ sessionId }: { sessionId: string }) {
     };
   }, [sessionId, flushNow]);
 
-  // Reconnect + backoff flush.
-  useEffect(() => {
-    const onOnline = () => void flushNow();
-    window.addEventListener("online", onOnline);
-    const interval = setInterval(() => void flushNow(), 20_000);
-    return () => {
-      window.removeEventListener("online", onOnline);
-      clearInterval(interval);
-    };
-  }, [flushNow]);
-
   const capture = useCallback(
     (c: CaptureInput) => {
       queueRef.current = enqueueCapture(queueRef.current, c);
@@ -134,9 +129,11 @@ export default function SessionLive({ sessionId }: { sessionId: string }) {
           body: JSON.stringify({ status, ...extra }),
         });
         if (!res.ok) throw new Error(String(res.status));
+        if (pendingTransitionRef.current === status) pendingTransitionRef.current = null;
         setOffline(false);
         return true;
       } catch {
+        if (status === "in_progress") pendingTransitionRef.current = "in_progress";
         setOffline(true);
         return false;
       }
@@ -144,16 +141,44 @@ export default function SessionLive({ sessionId }: { sessionId: string }) {
     [sessionId],
   );
 
+  // Re-attempt a queued "in_progress" transition. In-flight guarded so the
+  // online listener and the interval can't double-fire it concurrently.
+  const retryPendingTransition = useCallback(async () => {
+    if (!pendingTransitionRef.current || retryingTransition.current) return;
+    retryingTransition.current = true;
+    try {
+      // transition() clears pendingTransitionRef on success.
+      await transition(pendingTransitionRef.current);
+    } finally {
+      retryingTransition.current = false;
+    }
+  }, [transition]);
+
+  // Reconnect + backoff flush (queued status transition first, then captures).
+  useEffect(() => {
+    const sync = () => {
+      void retryPendingTransition().then(() => flushNow());
+    };
+    window.addEventListener("online", sync);
+    const interval = setInterval(sync, 20_000);
+    return () => {
+      window.removeEventListener("online", sync);
+      clearInterval(interval);
+    };
+  }, [flushNow, retryPendingTransition]);
+
   if (loadError) {
     return (
-      <div className="mx-auto max-w-lg p-4">
-        <ErrorBanner message="Couldn't load this session. Check your connection and try again." />
-        <button
-          className="mt-4 min-h-11 w-full rounded-lg border px-4 font-medium"
-          onClick={() => location.reload()}
-        >
-          Retry
-        </button>
+      <div className="flex min-h-screen items-center justify-center p-4">
+        <div className="w-full max-w-lg">
+          <ErrorBanner message="Couldn't load this session. Check your connection and try again." />
+          <button
+            className="mt-4 min-h-11 w-full rounded-lg border px-4 font-medium"
+            onClick={() => location.reload()}
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
@@ -167,6 +192,8 @@ export default function SessionLive({ sessionId }: { sessionId: string }) {
       {offline && (
         <div
           data-testid="offline-pill"
+          role="status"
+          aria-live="polite"
           className="sticky top-0 z-10 bg-amber-100 px-4 py-2 text-center text-sm text-amber-900"
         >
           Offline — {pendingCount > 0 ? `${pendingCount} unsaved, ` : ""}will sync when back
