@@ -24,6 +24,8 @@ import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { SendLinkActions } from "@/components/admin/check-in/SendLinkActions";
 import { AvatarUploader } from "@/components/admin/check-in/AvatarUploader";
 import { WalkInFlow } from "./WalkInFlow";
+import { useVisiblePoll } from "@/lib/hooks/use-visible-poll";
+import { formatAgo } from "@/lib/venue/format-ago";
 import type { VenueTodaySession } from "@/lib/venue/today-types";
 import type { PersonCardTarget } from "@/components/admin/person/PersonCard";
 
@@ -127,62 +129,88 @@ export function ActivityDetailPanel({ session, locationId, timezone, onClose, on
   const eventKind = sessionKindToEventKind(session.kind);
 
   // ── Fetch roster ───────────────────────────────────────────────────────────
+  const aliveRef = useRef(true);
+  useEffect(() => {
+    aliveRef.current = true;
+    return () => {
+      aliveRef.current = false;
+    };
+  }, []);
+
   useEffect(() => {
     if (!eventKind) {
       setLoading(false);
       setRows([]);
-      return;
     }
+  }, [eventKind]);
 
-    let alive = true;
-    const load = async () => {
-      try {
-        const res = await fetch(
-          `/api/admin/check-in/event?kind=${eventKind}&id=${session.id}`,
-        );
-        if (!res.ok) {
-          const b = await res.json().catch(() => ({}));
-          if (alive) setError(b.error ?? `Failed (${res.status})`);
-          return;
-        }
-        const body = await res.json();
-        if (alive) {
-          const serverRows: RowData[] = body.rows ?? [];
-          // Drop rows we've cancelled locally (stale in-flight responses can
-          // still contain them); once the server no longer returns an id, it
-          // has caught up — stop tracking it.
-          const serverIds = new Set(serverRows.map((r) => r.targetId));
-          for (const id of cancelledIdsRef.current) {
-            if (!serverIds.has(id)) cancelledIdsRef.current.delete(id);
-          }
-          setRows(serverRows.filter((r) => !cancelledIdsRef.current.has(r.targetId)));
-        }
-      } catch (err) {
-        if (alive) setError(err instanceof Error ? err.message : "Network error");
-      } finally {
-        if (alive) setLoading(false);
+  const load = async () => {
+    if (!eventKind) return;
+    try {
+      const res = await fetch(
+        `/api/admin/check-in/event?kind=${eventKind}&id=${session.id}`,
+      );
+      if (!res.ok) {
+        const b = await res.json().catch(() => ({}));
+        if (aliveRef.current) setError(b.error ?? `Failed (${res.status})`);
+        return;
       }
-    };
+      const body = await res.json();
+      if (aliveRef.current) {
+        const serverRows: RowData[] = body.rows ?? [];
+        // Drop rows we've cancelled locally (stale in-flight responses can
+        // still contain them); once the server no longer returns an id, it
+        // has caught up — stop tracking it.
+        const serverIds = new Set(serverRows.map((r) => r.targetId));
+        for (const id of cancelledIdsRef.current) {
+          if (!serverIds.has(id)) cancelledIdsRef.current.delete(id);
+        }
+        setRows(serverRows.filter((r) => !cancelledIdsRef.current.has(r.targetId)));
+        setError(null);
+      }
+    } catch (err) {
+      if (aliveRef.current) setError(err instanceof Error ? err.message : "Network error");
+    } finally {
+      if (aliveRef.current) setLoading(false);
+    }
+  };
 
-    load();
-    // Poll every 5 s (same cadence as existing Drawer)
-    const interval = setInterval(load, 5_000);
-    return () => {
-      alive = false;
-      clearInterval(interval);
-    };
-  }, [eventKind, session.id]);
+  // Poll every 5 s (same cadence as existing Drawer), pausing while hidden.
+  const { lastRunAt } = useVisiblePoll(load, 5_000);
+
+  // Local 1s ticker so the "updated Ns ago" stamp advances between polls.
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNowTick(Date.now()), 1_000);
+    return () => clearInterval(t);
+  }, []);
 
   // ── Check-in action ────────────────────────────────────────────────────────
   const checkIn = async (row: RowData) => {
-    if (row.rowKind === "roster_entry") return; // game attendance not in v1
-    await fetch("/api/admin/check-in/check-in", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ kind: row.rowKind, targetId: row.targetId }),
-    });
-    // Polling will refresh state shortly
-    onAction?.(session.id);
+    if (row.rowKind === "roster_entry" || rowBusy[row.targetId]) return;
+    setRowBusy((p) => ({ ...p, [row.targetId]: true }));
+    try {
+      const res = await fetch("/api/admin/check-in/check-in", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: row.rowKind, targetId: row.targetId }),
+      });
+      if (!res.ok) {
+        const b = await res.json().catch(() => ({}));
+        throw new Error(b.error ?? `Check-in failed (${res.status})`);
+      }
+      // Optimistic flip so the desk sees "Here" immediately, not at the next poll.
+      setRows((prev) =>
+        prev?.map((r) =>
+          r.targetId === row.targetId ? { ...r, checkedInAt: new Date().toISOString() } : r,
+        ) ?? prev,
+      );
+      onAction?.(session.id);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Check-in failed — try again");
+    } finally {
+      setRowBusy((p) => ({ ...p, [row.targetId]: false }));
+    }
   };
 
   // ── Held-row actions (resend pay link / cancel hold) ───────────────────────
@@ -268,6 +296,11 @@ export function ActivityDetailPanel({ session, locationId, timezone, onClose, on
               <p className="text-xs text-[#4b463e] mt-0.5">
                 {fmtTime(session.startsAt, timezone)}–{fmtTime(session.endsAt, timezone)}
               </p>
+              {lastRunAt && (
+                <span className="text-[10.5px] text-[#8a8175]">
+                  updated {formatAgo(Math.floor((nowTick - lastRunAt) / 1000))} ago
+                </span>
+              )}
             </div>
             <button
               type="button"
@@ -306,9 +339,14 @@ export function ActivityDetailPanel({ session, locationId, timezone, onClose, on
 
         {/* ── Body ─────────────────────────────────────────────────────────── */}
         <div className="flex-1 overflow-y-auto">
-          {error && (
+          {error && rows === null && (
             <div className="p-4">
               <ErrorBanner message={error} />
+            </div>
+          )}
+          {error && rows !== null && (
+            <div className="px-4 py-1.5 text-[11px] text-amber-800 bg-amber-50 border-b border-amber-200">
+              Refresh failed — retrying…
             </div>
           )}
           {loading && !rows && (
@@ -429,7 +467,7 @@ export function ActivityDetailPanel({ session, locationId, timezone, onClose, on
                   <button
                     type="button"
                     onClick={() => checkIn(row)}
-                    disabled={row.rowKind === "roster_entry"}
+                    disabled={row.rowKind === "roster_entry" || rowBusy[row.targetId]}
                     className="text-xs px-3 py-1.5 rounded bg-[#1c1a17] text-[#fffdf8] flex-shrink-0 disabled:opacity-40 disabled:cursor-not-allowed font-semibold"
                     title={
                       row.rowKind === "roster_entry"
@@ -437,7 +475,7 @@ export function ActivityDetailPanel({ session, locationId, timezone, onClose, on
                         : undefined
                     }
                   >
-                    Check in
+                    {rowBusy[row.targetId] ? "…" : "Check in"}
                   </button>
                 )}
               </div>
