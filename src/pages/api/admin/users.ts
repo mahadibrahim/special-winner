@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import { users, userRoles, roles, locations, programs, teams, seasons, familyMembers } from "@/lib/db/schema";
 import { userOrganizationAccess } from "@/lib/db/schema/organizations";
-import { eq, asc, desc, ilike, or, and, sql, inArray } from "drizzle-orm";
+import { eq, asc, desc, ilike, or, and, sql, inArray, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { requireOrgAdminAccess } from "@/lib/auth";
 import { requireUserInOrg } from "@/lib/auth/require-resource-ownership";
@@ -332,28 +332,51 @@ export const POST: APIRoute = async (context) => {
       );
     }
 
-    // The recipient must already belong to this organization. The role's
-    // SCOPE is validated against the caller's org below, but without this the
-    // endpoint would attach an org-scoped role to ANY user account in the
-    // system (e.g. someone who only belongs to a different org), pulling an
-    // outsider into the tenant. Staff are added to the org first (invite /
-    // membership); this endpoint only assigns or changes roles for existing
-    // members. requireUserInOrg matches the membership definition used by the
-    // GET list (org access rows + org/location/program/team-scoped roles), so
-    // it won't reject a legitimate member.
-    const membership = await requireUserInOrg(
-      auth.organizationId,
-      result.data.userId,
-    );
-    if (!membership.ok) {
-      return new Response(
-        JSON.stringify({ error: "User is not a member of this organization" }),
-        { status: 404, headers: { "Content-Type": "application/json" } },
+    const { scopeType } = result.data;
+
+    if (scopeType === "global") {
+      // Global-scope assignment (super_admin is the only global role) is a
+      // platform-level operation, not a tenant one: only a super-admin caller
+      // may perform it, and the recipient deliberately does NOT have to belong
+      // to the caller's org — elevating someone to platform admin is
+      // inherently cross-org. The org-membership gate below must not apply
+      // here (it doesn't count global-scoped roles as membership, so it would
+      // even reject existing super-admins). requireOrgAdminAccess above does
+      // NOT distinguish super_admin from location_admin, so re-check.
+      const assignerRoles = (context.locals.userRoles ?? []).map((r) => r.name);
+      if (!assignerRoles.includes("super_admin")) {
+        return new Response(
+          JSON.stringify({ error: "Only super-admins can assign global roles" }),
+          { status: 403 },
+        );
+      }
+      if (result.data.roleName !== "super_admin") {
+        return new Response(
+          JSON.stringify({ error: "Only super_admin uses global scope" }),
+          { status: 400 },
+        );
+      }
+    } else {
+      // The recipient must already belong to this organization. The role's
+      // SCOPE is validated against the caller's org below, but without this the
+      // endpoint would attach an org-scoped role to ANY user account in the
+      // system (e.g. someone who only belongs to a different org), pulling an
+      // outsider into the tenant. Staff are added to the org first (invite /
+      // membership); this endpoint only assigns or changes roles for existing
+      // members.
+      const membership = await requireUserInOrg(
+        auth.organizationId,
+        result.data.userId,
       );
+      if (!membership.ok) {
+        return new Response(
+          JSON.stringify({ error: "User is not a member of this organization" }),
+          { status: 404, headers: { "Content-Type": "application/json" } },
+        );
+      }
     }
 
     // Verify the scope is valid for this organization
-    const { scopeType } = result.data;
     // For org-scoped roles, default scopeId to the current org if missing —
     // the UI dialog doesn't expose a scope picker, so callers send the
     // role name only. Explicitly-provided scopeIds still get validated.
@@ -400,26 +423,6 @@ export const POST: APIRoute = async (context) => {
       }
     }
 
-    // Only super-admins can promote another user to super_admin (the only
-    // role that uses scopeType="global"). The auth check earlier in this
-    // handler (requireOrgAdminAccess) does NOT distinguish super_admin from
-    // location_admin, so we have to re-check here.
-    if (scopeType === "global") {
-      const assignerRoles = (context.locals.userRoles ?? []).map((r) => r.name);
-      if (!assignerRoles.includes("super_admin")) {
-        return new Response(
-          JSON.stringify({ error: "Only super-admins can assign global roles" }),
-          { status: 403 },
-        );
-      }
-      if (result.data.roleName !== "super_admin") {
-        return new Response(
-          JSON.stringify({ error: "Only super_admin uses global scope" }),
-          { status: 400 },
-        );
-      }
-    }
-
     // Find the role by name — explicit orderBy for CI determinism.
     // Roles rows are created lazily on first assignment (there is no
     // roles-table seed migration; newer enum values like "referee" won't
@@ -445,12 +448,16 @@ export const POST: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Role not found" }), { status: 404 });
     }
 
-    // Check if user already has this role with same scope
+    // Check if user already has this role with same scope. Compare against
+    // the resolved scopeId (null for global roles) so the same role at a
+    // different scope — e.g. coach in two orgs — is still assignable.
     const existingRole = await getDb().query.userRoles.findFirst({
-      where: (ur) =>
-        eq(ur.userId, result.data.userId) &&
-        eq(ur.roleId, role.id) &&
-        eq(ur.scopeType, result.data.scopeType),
+      where: and(
+        eq(userRoles.userId, result.data.userId),
+        eq(userRoles.roleId, role.id),
+        eq(userRoles.scopeType, result.data.scopeType),
+        scopeId === null ? isNull(userRoles.scopeId) : eq(userRoles.scopeId, scopeId),
+      ),
       orderBy: (t, { asc }) => asc(t.createdAt),
     });
 

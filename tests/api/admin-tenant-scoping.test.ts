@@ -686,6 +686,99 @@ describe("user role assignment: membership gate", () => {
 });
 
 // ============================================================================
+// 9e. Global-scope (super_admin) assignment is platform-level, not org-gated
+// ============================================================================
+
+describe("user role assignment: global scope (super_admin elevation)", () => {
+  it("super_admin elevation does not hit the org-membership gate (409 duplicate, never 404 not-a-member)", async () => {
+    // The seeded platform admin's ONLY role is global-scoped super_admin, and
+    // requireUserInOrg does not count global roles as membership — so if the
+    // membership gate applied to global assignments, this request would 404
+    // ("not a member"). Elevation is a platform-level operation guarded by the
+    // assigner-is-super-admin check instead; the handler must fall through to
+    // the duplicate check and 409 (they already hold the role). No row is
+    // written either way.
+    const meRes = await orgA("/api/auth/me", {
+      method: "GET",
+      cookie: adminACookie,
+    });
+    const me = await meRes.json();
+    expect(me.user?.id).toBeTruthy();
+
+    const res = await orgA("/api/admin/users", {
+      method: "POST",
+      cookie: adminACookie,
+      body: JSON.stringify({
+        userId: me.user.id,
+        roleName: "super_admin",
+        scopeType: "global",
+      }),
+    });
+    const json = await expectJson(res, 409);
+    expect(json.error).toMatch(/already has this role/i);
+  });
+});
+
+// ============================================================================
+// 9f. Duplicate-role check matches the target user's actual grants
+// ============================================================================
+
+describe("user role assignment: duplicate check", () => {
+  let coachUserId: string;
+
+  beforeAll(async () => {
+    const usersRes = await orgA(
+      `/api/admin/users?search=${encodeURIComponent("coach@test.aspiresports.com")}`,
+      { method: "GET", cookie: adminACookie },
+    );
+    const usersJson = await expectJson(usersRes, 200);
+    const coach = (usersJson.users as any[]).find(
+      (u) => u.email === "coach@test.aspiresports.com",
+    );
+    expect(coach).toBeDefined();
+    coachUserId = coach.id;
+  });
+
+  it("assigning a role the target does not hold succeeds even when other users hold same-scope roles", async () => {
+    // Regression: the duplicate check was `eq(..) && eq(..) && eq(..)`, which
+    // JS-reduces to the last condition — any user_roles row with the same
+    // scopeType (from ANY user) made every assignment 409. The seeded coach
+    // holds only the coach role; granting referee must succeed.
+    const res = await orgA("/api/admin/users", {
+      method: "POST",
+      cookie: adminACookie,
+      body: JSON.stringify({
+        userId: coachUserId,
+        roleName: "referee",
+        scopeType: "organization",
+      }),
+    });
+    const json = await expectJson(res, 201);
+    expect(json.userRole?.id).toBeTruthy();
+
+    // Clean up so re-runs against the shared staging DB stay deterministic.
+    const del = await orgA(`/api/admin/users?userRoleId=${json.userRole.id}`, {
+      method: "DELETE",
+      cookie: adminACookie,
+    });
+    expect(del.status).toBe(200);
+  });
+
+  it("assigning a role the target already holds → 409", async () => {
+    const res = await orgA("/api/admin/users", {
+      method: "POST",
+      cookie: adminACookie,
+      body: JSON.stringify({
+        userId: coachUserId,
+        roleName: "coach",
+        scopeType: "organization",
+      }),
+    });
+    expect(res.status).toBe(409);
+  });
+});
+
+// ============================================================================
 // 10. Same-org operations: legitimate flows still work (regression smoke)
 // ============================================================================
 
