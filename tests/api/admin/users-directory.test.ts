@@ -3,7 +3,7 @@ import { getAdminCookie, apiFetch, expectJson } from "../setup/test-helpers";
 import { getDb } from "@/lib/db";
 import { users, userRoles, familyMembers } from "@/lib/db/schema";
 import { roles } from "@/lib/db/schema";
-import { organizations, userOrganizationAccess } from "@/lib/db/schema/organizations";
+import { organizations, userOrganizationAccess, locations } from "@/lib/db/schema/organizations";
 import { eq, inArray } from "drizzle-orm";
 
 const ENDPOINT = "/api/admin/users";
@@ -233,5 +233,48 @@ describe("Users directory: tenant isolation for global-role holders", () => {
     });
     const json = await expectJson(res, 200);
     expect(json.users.find((u: any) => u.email === "admin@test.aspiresports.com")).toBeDefined();
+  });
+});
+
+describe("Users directory: location-scoped role enrichment", () => {
+  const enrichSuffix = Math.random().toString(36).slice(2, 10);
+  const email = `enrich-locadmin-${enrichSuffix}@test.example`;
+  let userId: string;
+  let locationName: string;
+
+  beforeAll(async () => {
+    const db = getDb();
+    const [orgA] = await db.select({ id: organizations.id }).from(organizations)
+      .where(eq(organizations.slug, "aspire-sports")).limit(1);
+    const [loc] = await db.select({ id: locations.id, name: locations.name }).from(locations)
+      .where(eq(locations.organizationId, orgA.id)).limit(1);
+    locationName = loc.name;
+    const [locAdminRole] = await db.select({ id: roles.id }).from(roles)
+      .where(eq(roles.name, "location_admin")).limit(1);
+
+    const [u] = await db.insert(users)
+      .values({ email, passwordHash: "x", firstName: "Enrich", lastName: "LocAdmin" })
+      .returning();
+    userId = u.id;
+    await db.insert(userRoles).values({
+      userId: u.id, roleId: locAdminRole.id, scopeType: "location", scopeId: loc.id,
+    });
+  });
+
+  afterAll(async () => {
+    await getDb().delete(users).where(eq(users.id, userId));
+  });
+
+  it("location-scoped roles carry the location name", async () => {
+    const adminCookie = await getAdminCookie();
+    const res = await apiFetch(`${ENDPOINT}?search=${encodeURIComponent(email)}`, {
+      cookie: adminCookie,
+    });
+    const json = await expectJson(res, 200);
+    const u = json.users.find((x: any) => x.email === email);
+    expect(u).toBeDefined();
+    const role = u.roles.find((r: any) => r.scopeType === "location");
+    expect(role).toBeDefined();
+    expect(role.locationName).toBe(locationName);
   });
 });

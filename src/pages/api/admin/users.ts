@@ -189,10 +189,39 @@ export const GET: APIRoute = async (context) => {
             .where(inArray(userRoles.userId, pageUserIds))
         : [];
 
-    const rolesByUser = new Map<string, Array<Omit<(typeof allRoleRows)[number], "userId">>>();
+    // Location-scoped roles carry the location's name so the directory can
+    // render "Location Admin · Powell" instead of a bare scope id.
+    const locationScopeIds = [
+      ...new Set(
+        allRoleRows
+          .filter((r) => r.scopeType === "location" && r.scopeId !== null)
+          .map((r) => r.scopeId as string),
+      ),
+    ];
+    const locationNames = new Map<string, string>(
+      locationScopeIds.length > 0
+        ? (
+            await getDb()
+              .select({ id: locations.id, name: locations.name })
+              .from(locations)
+              .where(inArray(locations.id, locationScopeIds))
+          ).map((l) => [l.id, l.name])
+        : [],
+    );
+
+    const rolesByUser = new Map<
+      string,
+      Array<Omit<(typeof allRoleRows)[number], "userId"> & { locationName: string | null }>
+    >();
     for (const { userId, ...role } of allRoleRows) {
       const list = rolesByUser.get(userId) ?? [];
-      list.push(role);
+      list.push({
+        ...role,
+        locationName:
+          role.scopeType === "location" && role.scopeId
+            ? (locationNames.get(role.scopeId) ?? null)
+            : null,
+      });
       rolesByUser.set(userId, list);
     }
 
@@ -431,6 +460,52 @@ export const POST: APIRoute = async (context) => {
       if (!team) {
         return new Response(JSON.stringify({ error: "Team not found in this organization" }), { status: 404 });
       }
+    }
+
+    // Redundancy guards: don't stack roles a broader grant already covers.
+    // (super_admin → super_admin deliberately falls through to the duplicate
+    // check below so the caller gets "already has this role".)
+    const targetRoles = await getDb()
+      .select({
+        name: roles.name,
+        scopeType: userRoles.scopeType,
+        scopeId: userRoles.scopeId,
+      })
+      .from(userRoles)
+      .innerJoin(roles, eq(userRoles.roleId, roles.id))
+      .where(eq(userRoles.userId, result.data.userId));
+
+    const targetIsSuperAdmin = targetRoles.some(
+      (r) => r.name === "super_admin" && r.scopeType === "global",
+    );
+    if (
+      targetIsSuperAdmin &&
+      !(result.data.roleName === "super_admin" && scopeType === "global")
+    ) {
+      return new Response(
+        JSON.stringify({
+          error: "User is a platform super admin — additional roles are redundant",
+        }),
+        { status: 409, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    if (
+      result.data.roleName === "location_admin" &&
+      scopeType === "location" &&
+      targetRoles.some(
+        (r) =>
+          r.name === "location_admin" &&
+          r.scopeType === "organization" &&
+          r.scopeId === auth.organizationId,
+      )
+    ) {
+      return new Response(
+        JSON.stringify({
+          error: "User is already an organization admin for this organization",
+        }),
+        { status: 409, headers: { "Content-Type": "application/json" } },
+      );
     }
 
     // Find the role by name — explicit orderBy for CI determinism.
