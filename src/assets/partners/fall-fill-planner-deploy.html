@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow"><link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚽</text></svg>"></head><body><title>SoccerOne — League Marketing Planner</title>
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow"><link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚽</text></svg>"></head><body><title>SoccerOne — League Marketing Planner</title>
 <style>
   :root {
     --paper: #f7f8f2;
@@ -190,7 +190,8 @@
     <h1>League Marketing Planner</h1>
     <p class="sub">Pick a season, adjust assumptions, and see where registrations come from — new marketing,
     renewals from last season, and the email list — plus what each channel costs in money and staff time.
-    $1,050/team · $120/solo. Winter seasons convert hotter; awareness compounds every season.</p>
+    $1,050/team · $120/solo — futsal teams (from Winter 1) price lower. Winter converts hotter; awareness compounds
+    but plateaus, and new acquisition saturates as the local player pool gets consumed.</p>
   </header>
 
   <div class="presets" role="group" aria-label="Scenario presets">
@@ -245,7 +246,7 @@
       <div class="panel">
         <h2>Worthington capacity used</h2>
         <div class="meter" aria-hidden="true"><div class="band" id="mBand"></div><div class="fill" id="mFill"></div></div>
-        <div class="meter-notes"><span id="mLeft">–</span><span>target fill 40–60%</span><span>~140 weekly team slots</span></div>
+        <div class="meter-notes"><span id="mLeft">–</span><span>target fill 40–60%</span><span>~140 weekly soccer slots</span></div>
       </div>
 
       <div class="panel">
@@ -265,6 +266,9 @@
     mostly go unsold. WhatsApp broadcasts go only to explicitly opted-in contacts (WABA requirement), costed at
     marketing-conversation rates. Paid ads: $2,000/month cap for the first six months of operation, $1,000/month after
     (decided 2026-07-11), hard-enforced at the payment card, 3:1 scale rule. The Founding Ten giveaway runs in Fall 2026 only.
+    New-audience acquisition is damped by a finite addressable-player pool (the demand ceiling) and awareness plateaus.
+    Futsal pricing is a planning assumption — no futsal offer is priced yet. The capacity meter tracks soccer fields only;
+    futsal teams use the separate court capacity.
     Leagues operated by Aspire Sports.</p>
   </footer>
 </div>
@@ -408,6 +412,9 @@
       ["emailConv", "Email list → registration, per season", 0.5, 8, 0.1, pct],
       ["waOpt", "WhatsApp opt-in share of list", 10, 50, 1, pct],
       ["waConv", "WhatsApp broadcast → registration", 1, 10, 0.5, pct],
+      ["tam", "Addressable players (annual, ~12 mi)", 1000, 8000, 250, raw],
+      ["fs", "Futsal share of teams (from Winter 1)", 0, 50, 1, pct],
+      ["fsPrice", "Futsal team price", 400, 900, 25, usd],
       ["aware", "Awareness lift per season", 0, 30, 1, pct],
       ["w1", "Winter 1 demand multiplier", 0.8, 1.6, 0.05, x],
       ["w2", "Winter 2 demand multiplier", 0.8, 1.6, 0.05, x],
@@ -415,9 +422,9 @@
       ["summer", "Summer demand multiplier", 0.6, 1.4, 0.05, x]
     ],
     preset: {
-      worst: { teamRenew: 55, soloRenew: 45, emailConv: 1.5, waOpt: 20, waConv: 2, aware: 5, w1: 1.15, w2: 1.1, spring: 0.85, summer: 0.8 },
-      likely: { teamRenew: 70, soloRenew: 55, emailConv: 3, waOpt: 30, waConv: 4, aware: 12, w1: 1.25, w2: 1.2, spring: 0.9, summer: 0.85 },
-      best: { teamRenew: 80, soloRenew: 65, emailConv: 5, waOpt: 40, waConv: 6, aware: 20, w1: 1.4, w2: 1.3, spring: 1.0, summer: 0.95 }
+      worst: { teamRenew: 55, soloRenew: 45, emailConv: 1.5, waOpt: 20, waConv: 2, aware: 5, w1: 1.15, w2: 1.1, spring: 0.85, summer: 0.8, tam: 1500, fs: 15, fsPrice: 600 },
+      likely: { teamRenew: 70, soloRenew: 55, emailConv: 3, waOpt: 30, waConv: 4, aware: 12, w1: 1.25, w2: 1.2, spring: 0.9, summer: 0.85, tam: 3000, fs: 25, fsPrice: 650 },
+      best: { teamRenew: 80, soloRenew: 65, emailConv: 5, waOpt: 40, waConv: 6, aware: 20, w1: 1.4, w2: 1.3, spring: 1.0, summer: 0.95, tam: 6000, fs: 35, fsPrice: 700 }
     }
   };
   var OTHER_CONTACTS = { worst: 20, likely: 80, best: 150 }; // pickup nights, walk-ins, GBP — per season
@@ -442,18 +449,19 @@
   // ---------- simulation across the five seasons ----------
   function simulate() {
     var out = [];
-    var list = 0, prevTeams = 0, prevSolos = 0;
+    var list = 0, prevTeams = 0, prevSolos = 0, cumNew = 0;
     for (var i = 0; i < SEASONS.length; i++) {
       var sm = seasonMult(i);
-      var am = Math.pow(1 + state.g.aware / 100, i);
+      var am = Math.min(Math.pow(1 + state.g.aware / 100, i), 1.6); // awareness plateaus
+      var sat = Math.max(0, 1 - cumNew / state.g.tam); // remaining addressable demand
       var rows = [];
       var qImp = 0, actions = 0, newTeams = 0, newSolos = 0, cash = 0, forgone = 0, hours = 0, adds = 0;
 
       CHANNELS.forEach(function (c) {
         var active = state.on[c.id] && !(c.fallOnly && i > 0);
         var base = c.compute(state.vals[c.id], state.statics[c.id], i);
-        var teams = active ? Math.round(base.teams * sm * am) : 0;
-        var solos = active ? Math.round(base.solos * sm * am) : 0;
+        var teams = active ? Math.round(base.teams * sm * am * sat) : 0;
+        var solos = active ? Math.round(base.solos * sm * am * sat) : 0;
         var row = { id: c.id, name: c.name, color: c.color, on: active,
           teams: teams, solos: solos,
           cash: active ? base.cash : 0, forgone: active ? base.forgone : 0,
@@ -476,7 +484,7 @@
         meta: "Last season's players coming back — the cheapest registration there is. ~2 staff hrs (renewal push)." });
 
       // email list conversions (list as of season start)
-      var eRegs = i > 0 ? list * state.g.emailConv / 100 * sm : 0;
+      var eRegs = i > 0 ? list * state.g.emailConv / 100 * sm * sat : 0;
       var eTeams = Math.round(eRegs * 0.08), eSolos = Math.round(eRegs * 0.92);
       rows.push({ id: "email", name: "Email list", color: "var(--s9)", on: i > 0,
         teams: eTeams, solos: eSolos, cash: 0, forgone: 0, hours: i > 0 ? 3 : 0,
@@ -484,7 +492,7 @@
 
       // WhatsApp broadcasts to the opted-in share of the list
       var optedIn = i > 0 ? list * state.g.waOpt / 100 : 0;
-      var wRegs = optedIn * state.g.waConv / 100 * sm;
+      var wRegs = optedIn * state.g.waConv / 100 * sm * sat;
       var wTeams = Math.round(wRegs * 0.08), wSolos = Math.round(wRegs * 0.92);
       var waCash = i > 0 ? Math.round(optedIn * 12 * 0.025) : 0;
       rows.push({ id: "wa", name: "WhatsApp", color: "var(--s10)", on: i > 0,
@@ -496,7 +504,30 @@
       cash += waCash;
       hours += (i > 0 ? 7 : 0); // renewals 2 + email 3 + WhatsApp 2
 
-      var revenue = teams * TEAM_PRICE + solos * SOLO_PRICE;
+      // blended pricing: futsal share (from Winter 1) at futsal prices — planning assumption, futsal offer not yet priced
+      var fsShare = i === 0 ? 0 : state.g.fs / 100;
+      var fsSolo = Math.round(state.g.fsPrice * 0.13);
+      var tp = Math.round((1 - fsShare) * TEAM_PRICE + fsShare * state.g.fsPrice);
+      var sp = Math.round((1 - fsShare) * SOLO_PRICE + fsShare * fsSolo);
+
+      // hard capacity clamp: demand beyond the soccer-slot ceiling doesn't book — best case means sellout
+      var soccerEqRaw = (teams + solos / ROSTER) * (1 - fsShare);
+      var capped = soccerEqRaw > WORTH_SLOTS;
+      if (capped) {
+        var capK = WORTH_SLOTS / soccerEqRaw;
+        rows.forEach(function (r) { r.teams = Math.round(r.teams * capK); r.solos = Math.round(r.solos * capK); });
+        teams = 0; solos = 0; newTeams = 0; newSolos = 0;
+        rows.forEach(function (r) {
+          if (!r.on) return;
+          teams += r.teams; solos += r.solos;
+          if (r.id !== "renew" && r.id !== "email" && r.id !== "wa") { newTeams += r.teams; newSolos += r.solos; }
+        });
+      }
+      var eRow = rows[rows.length - 2], wRow = rows[rows.length - 1];
+
+      var revenue = teams * tp + solos * sp;
+      // consume addressable demand: newly-acquired players (not renewals), post-clamp
+      cumNew += (newTeams + eRow.teams + wRow.teams) * ROSTER + (newSolos + eRow.solos + wRow.solos);
       // list grows: campaign adds + every registrant (rosters) + other capture
       var listStart = list;
       list += adds + teams * ROSTER + solos + state.other;
@@ -505,6 +536,8 @@
         teams: teams, solos: solos, regs: teams + solos, revenue: revenue,
         newTeams: newTeams, newSolos: newSolos,
         prevRegs: prevTeams + prevSolos, optedIn: optedIn,
+        tp: tp, sp: sp, fsShare: fsShare, sat: sat, capped: capped,
+        soccerTeamEq: (teams + solos / ROSTER) * (1 - fsShare),
         cash: cash, forgone: forgone, loaded: cash + forgone, hours: hours,
         qImp: qImp, actions: actions,
         listStart: listStart, listEnd: list,
@@ -529,7 +562,7 @@
   gCard.innerHTML = '<summary><div class="ch-head"><span class="chip" style="background:var(--accent-fill)"></span>' +
     '<span class="ch-name">Growth &amp; seasons</span><span class="ch-sum" id="sum-growth"></span><span class="caret">▶</span></div></summary>' +
     '<div class="ch-body">' + slidersHtml("g", GROWTH.sliders) +
-    '<div class="ch-meta">Winter converts hotter than fall/spring/summer; awareness lifts reach and conversions each season; renewals and the email list turn past seasons into future registrations.</div></div>';
+    '<div class="ch-meta">Winter converts hotter than fall/spring/summer; awareness lifts reach and conversions each season (plateaus at 1.6×); renewals and the email list turn past seasons into future registrations. New acquisition is damped as the addressable-player pool gets consumed — the natural demand ceiling. Futsal teams (from Winter 1) price lower than soccer; futsal pricing is a planning assumption until the offer exists.</div></div>';
   chRoot.appendChild(gCard);
 
   CHANNELS.forEach(function (c) {
@@ -649,12 +682,12 @@
     // season strip
     document.getElementById("seasonStrip").innerHTML = simCache.map(function (s, k) {
       return '<button type="button" class="season" data-season="' + k + '" aria-pressed="' + (k === i) + '">' +
-        '<div class="sn">' + s.season + '</div><div class="sv">' + fmt$(s.revenue) + '</div>' +
+        '<div class="sn">' + s.season + (s.capped ? ' · <span style="color:var(--accent-text)">sold out</span>' : "") + '</div><div class="sv">' + fmt$(s.revenue) + '</div>' +
         '<div class="ss">' + s.teams + ' teams · ' + s.solos + ' solos</div></button>';
     }).join("");
 
     document.getElementById("sum-growth").innerHTML =
-      "renew <b>" + fmtP(state.g.teamRenew, 0) + "</b> teams · email <b>" + fmtP(state.g.emailConv) + "</b> · awareness <b>+" + fmtP(state.g.aware, 0) + "</b>/season";
+      "renew <b>" + fmtP(state.g.teamRenew, 0) + "</b> · market <b>" + fmtN(state.g.tam) + "</b> · futsal <b>" + fmtP(state.g.fs, 0) + "</b> @ <b>" + fmt$(state.g.fsPrice) + "</b>";
 
     // per-channel summaries for the selected season
     t.rows.forEach(function (r) {
@@ -663,7 +696,7 @@
       var card = document.getElementById("card-" + r.id);
       card.classList.toggle("off", !r.on);
       sumEl.innerHTML = r.on
-        ? "→ <b>" + (r.teams ? r.teams + "t · " : "") + r.solos + "s · " + fmt$(r.teams * TEAM_PRICE + r.solos * SOLO_PRICE) + "</b> · " + fmt$(r.cash) + " · " + r.hours + "h"
+        ? "→ <b>" + (r.teams ? r.teams + "t · " : "") + r.solos + "s · " + fmt$(r.teams * t.tp + r.solos * t.sp) + "</b> · " + fmt$(r.cash) + " · " + r.hours + "h"
         : (CHANNELS.find(function (c) { return c.id === r.id; }).fallOnly && state.season > 0 ? "Fall 2026 only" : "off");
       var meta = document.getElementById("meta-" + r.id);
       if (meta) meta.textContent = r.meta;
@@ -710,11 +743,11 @@
     document.getElementById("f3").textContent = fmtN(t.newTeams + t.newSolos);
 
     // capacity
-    var pctUsed = t.teamEq / WORTH_SLOTS * 100;
+    var pctUsed = t.soccerTeamEq / WORTH_SLOTS * 100;
     document.getElementById("mFill").style.width = Math.min(100, pctUsed) + "%";
     var band = document.getElementById("mBand");
     band.style.left = "40%"; band.style.width = "20%"; band.style.right = "auto";
-    document.getElementById("mLeft").textContent = t.teamEq.toFixed(1) + " team-eq = " + pctUsed.toFixed(1) + "% of slots";
+    document.getElementById("mLeft").textContent = t.soccerTeamEq.toFixed(1) + " soccer team-eq = " + pctUsed.toFixed(1) + "% of soccer slots" + (t.fsShare ? " (+" + Math.round(t.fsShare * 100) + "% of teams on futsal courts)" : "");
 
     document.getElementById("oList").innerHTML = "<b>" + fmtN(t.listStart) + "</b> contacts at season start → <b>" +
       fmtN(t.listEnd) + "</b> at season end (giveaway entries + every registered player + pickup/walk-in capture). " +
@@ -766,7 +799,7 @@
     var r = simCache[state.season].rows.find(function (q) { return q.id === row.dataset.src; });
     if (!r) return;
     tip.innerHTML = "<b>" + r.name + "</b><br>" + r.teams + " teams · " + r.solos + " solos<br>" +
-      "revenue " + fmt$(r.teams * TEAM_PRICE + r.solos * SOLO_PRICE) +
+      "revenue " + fmt$(r.teams * simCache[state.season].tp + r.solos * simCache[state.season].sp) +
       "<br>cash " + fmt$(r.cash) + (r.forgone ? " · forgone " + fmt$(r.forgone) : "") + " · " + r.hours + " staff hrs" +
       "<br><span style='opacity:0.8'>" + r.meta + "</span>";
     tip.style.display = "block";
