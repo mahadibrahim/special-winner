@@ -7,7 +7,7 @@ import { getLocationIdsForUser } from "@/lib/auth/location-scope";
 import { getDb } from "@/lib/db";
 import { locations } from "@/lib/db/schema/organizations";
 import { eq, asc } from "drizzle-orm";
-import { formatStripDate } from "@/lib/admin/week-strip";
+import { parseStripDate, formatStripDate } from "@/lib/admin/week-strip";
 
 export const prerender = false;
 
@@ -56,8 +56,10 @@ const today = formatStripDate(new Date());
 
 // Deep-link params — shareable /admin/venue?date=&view=&session= URLs.
 // Validate everything; fall back to safe defaults rather than trusting the query string.
+// parseStripDate (same pattern as day/[date].astro) rejects both malformed
+// strings and calendar-invalid dates like 2026-13-99.
 const dateParam = Astro.url.searchParams.get("date");
-const initialDate = dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam) ? dateParam : today;
+const initialDate = dateParam && parseStripDate(dateParam) ? dateParam : today;
 
 const viewParam = Astro.url.searchParams.get("view");
 const initialView = viewParam === "week" ? "week" : "day";

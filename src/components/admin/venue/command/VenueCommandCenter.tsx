@@ -132,6 +132,11 @@ export function VenueCommandCenter({
   // its own URL.
   useEffect(() => {
     const params = new URLSearchParams()
+    // Preserve the super-admin ?locationId= override (resolved server-side in
+    // index.astro) — rebuilding params from scratch would silently drop it, so
+    // a refresh/bookmark/share after hydration would land on the default location.
+    const locationIdParam = new URLSearchParams(window.location.search).get("locationId")
+    if (locationIdParam) params.set("locationId", locationIdParam)
     params.set("date", date)
     if (view !== "day") params.set("view", view)
     if (openSessionId) params.set("session", openSessionId)
