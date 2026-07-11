@@ -43,6 +43,28 @@ describe("capture queue", () => {
     expect(buildEnvelope(q)?.consumedClientIds).toEqual(["c1", "c2", "c3"]);
   });
 
+  it("attendance re-marked to a different status mid-flight survives flush", () => {
+    let q = enqueueAttendance(emptyQueue, "r1", "absent");
+    const envelope = buildEnvelope(q)!;
+    q = enqueueAttendance(q, "r1", "present"); // re-marked mid-flight
+    q = markFlushed(q, envelope);
+    expect(q.attendance).toEqual({ r1: "present" });
+
+    // Opposite: status NOT re-marked (same as flushed) is removed.
+    let q2 = enqueueAttendance(emptyQueue, "r1", "absent");
+    const envelope2 = buildEnvelope(q2)!;
+    q2 = markFlushed(q2, envelope2);
+    expect(q2.attendance).toEqual({});
+  });
+
+  it("markFlushed removes flushed consumedClientIds", () => {
+    let q = enqueueConsume(emptyQueue, ["c1", "c2"]);
+    const envelope = buildEnvelope(q)!;
+    q = enqueueConsume(q, ["c3"]); // arrives mid-flight
+    q = markFlushed(q, envelope);
+    expect(q.consumedClientIds).toEqual(["c3"]);
+  });
+
   it("serialize/restore round-trips; restore tolerates garbage", () => {
     const q = enqueueAttendance(enqueueCapture(emptyQueue, cap("c1")), "r2", "late");
     expect(restoreQueue(serializeQueue(q))).toEqual(q);
