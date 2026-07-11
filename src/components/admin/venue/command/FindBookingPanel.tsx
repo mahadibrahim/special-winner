@@ -33,6 +33,7 @@ type BookingResult = {
   timeLabel: string
   waiverSigned: boolean
   checkedIn: boolean
+  status: "confirmed" | "pending_claim"
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -90,6 +91,9 @@ function ResultRow({ result }: { result: BookingResult }) {
         <div className="flex gap-1.5 mt-1.5 flex-wrap">
           <StatusChip ok={result.waiverSigned} okLabel="Waiver" badLabel="No waiver" />
           <StatusChip ok={result.checkedIn} okLabel="Here" badLabel="Not in" />
+          {result.status === "pending_claim" && (
+            <StatusChip ok={false} okLabel="" badLabel="Awaiting payment" />
+          )}
         </div>
       </div>
     </div>
@@ -159,7 +163,7 @@ export function FindBookingPanel({ onClose }: Props) {
             Find booking
           </SheetTitle>
           <p className="text-[12px] text-[#8a8175] mt-0.5">
-            Search today&apos;s confirmed drop-in bookings and field rentals.
+            Search today&apos;s drop-in bookings and field rentals.
           </p>
         </SheetHeader>
 

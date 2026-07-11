@@ -18,6 +18,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { SendLinkActions } from "@/components/admin/check-in/SendLinkActions";
@@ -40,6 +41,7 @@ interface RowData {
   familyMemberId: string | null;
   recipientUserId: string | null;
   paid: boolean;
+  status: "confirmed" | "pending_claim";
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -116,6 +118,7 @@ export function ActivityDetailPanel({ session, locationId, timezone, onClose, on
   const [error, setError] = useState<string | null>(null);
   const [photoOverrides, setPhotoOverrides] = useState<Record<string, string>>({});
   const [showWalkIn, setShowWalkIn] = useState(false);
+  const [rowBusy, setRowBusy] = useState<Record<string, boolean>>({});
 
   const eventKind = sessionKindToEventKind(session.kind);
 
@@ -166,6 +169,45 @@ export function ActivityDetailPanel({ session, locationId, timezone, onClose, on
     });
     // Polling will refresh state shortly
     onAction?.(session.id);
+  };
+
+  // ── Held-row actions (resend pay link / cancel hold) ───────────────────────
+  const resendLink = async (row: RowData) => {
+    setRowBusy((p) => ({ ...p, [row.targetId]: true }));
+    try {
+      const res = await fetch("/api/admin/check-in/send-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "drop_in_booking", targetId: row.targetId, channel: "sms" }),
+      });
+      if (!res.ok) throw new Error(`Failed (${res.status})`);
+      toast.success(`Pay link re-sent to ${row.name}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not resend link");
+    } finally {
+      setRowBusy((p) => ({ ...p, [row.targetId]: false }));
+    }
+  };
+
+  const cancelHold = async (row: RowData) => {
+    setRowBusy((p) => ({ ...p, [row.targetId]: true }));
+    try {
+      const res = await fetch("/api/admin/venue/cancel-hold", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId: row.targetId }),
+      });
+      if (!res.ok) {
+        const b = await res.json().catch(() => ({}));
+        throw new Error(b.error ?? `Failed (${res.status})`);
+      }
+      toast.success(`Hold released — slot is open again`);
+      setRows((prev) => prev?.filter((r) => r.targetId !== row.targetId) ?? prev);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not cancel hold");
+    } finally {
+      setRowBusy((p) => ({ ...p, [row.targetId]: false }));
+    }
   };
 
   // ── Capacity math ──────────────────────────────────────────────────────────
@@ -275,15 +317,17 @@ export function ActivityDetailPanel({ session, locationId, timezone, onClose, on
                 className="flex items-center gap-3 px-4 py-2.5 border-b border-[#efe9dc]"
               >
                 {/* Avatar / photo upload */}
-                <AvatarUploader
-                  kind={row.rowKind}
-                  targetId={row.targetId}
-                  photoUrl={effectivePhotoUrl}
-                  name={row.name}
-                  onUploaded={(url) =>
-                    setPhotoOverrides((prev) => ({ ...prev, [row.targetId]: url }))
-                  }
-                />
+                <div className={row.status === "pending_claim" ? "opacity-60" : undefined}>
+                  <AvatarUploader
+                    kind={row.rowKind}
+                    targetId={row.targetId}
+                    photoUrl={effectivePhotoUrl}
+                    name={row.name}
+                    onUploaded={(url) =>
+                      setPhotoOverrides((prev) => ({ ...prev, [row.targetId]: url }))
+                    }
+                  />
+                </div>
 
                 {/* Name + status chips */}
                 <div className="flex-1 min-w-0">
@@ -318,11 +362,17 @@ export function ActivityDetailPanel({ session, locationId, timezone, onClose, on
                       okLabel="photo ✓"
                       badLabel="no photo"
                     />
-                    <StatusChip
-                      ok={isPaid}
-                      okLabel="paid ✓"
-                      badLabel="unpaid"
-                    />
+                    {row.status === "pending_claim" ? (
+                      <span className="text-[10.5px] font-bold rounded px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200">
+                        ⏳ awaiting payment
+                      </span>
+                    ) : (
+                      <StatusChip
+                        ok={isPaid}
+                        okLabel="paid ✓"
+                        badLabel="unpaid"
+                      />
+                    )}
                     {isHere && (
                       <span className="text-[10.5px] font-bold rounded px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200">
                         checked in ✓
@@ -336,8 +386,27 @@ export function ActivityDetailPanel({ session, locationId, timezone, onClose, on
                   <SendLinkActions kind={row.rowKind} targetId={row.targetId} />
                 )}
 
-                {/* Check-in or "Here" */}
-                {isHere ? (
+                {/* Check-in / "Here" / held-row actions */}
+                {row.status === "pending_claim" ? (
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => resendLink(row)}
+                      disabled={rowBusy[row.targetId]}
+                      className="text-xs px-2 py-1 rounded border border-[#e4ddcf] bg-[#f6f1e7] text-[#4b463e] font-semibold disabled:opacity-40"
+                    >
+                      Resend link
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => cancelHold(row)}
+                      disabled={rowBusy[row.targetId]}
+                      className="text-xs px-2 py-1 rounded border border-rose-200 bg-rose-50 text-rose-700 font-semibold disabled:opacity-40"
+                    >
+                      Cancel hold
+                    </button>
+                  </div>
+                ) : isHere ? (
                   <span className="text-xs font-black text-emerald-700 flex-shrink-0">
                     ✓ Here
                   </span>
@@ -363,7 +432,7 @@ export function ActivityDetailPanel({ session, locationId, timezone, onClose, on
           {/* Empty state */}
           {rows?.length === 0 && !loading && (
             <div className="text-sm text-[#8a8175] text-center py-8">
-              No confirmed bookings yet.
+              No bookings yet.
             </div>
           )}
 
