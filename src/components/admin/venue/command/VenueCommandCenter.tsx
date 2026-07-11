@@ -24,8 +24,11 @@
  *   Clicking a calendar ActivityBlock / NowStrip card → open ActivityDetailPanel.
  *   Walk-ins are started from the ActivityDetailPanel's roster panel (open-slot
  *   "+ add walk-in" rows), not from a direct calendar cell click.
- *   Clicking a NeedsAttentionQueue action → currently logs to console (hook for
- *   future detail panel / external links).
+ *   Clicking a NeedsAttentionQueue action → routed via attentionActionTarget()
+ *   (src/lib/venue/attention-action.ts): opens the session detail panel when
+ *   sessionId is present, else navigates to /messages or /admin/refund-requests.
+ *   Items with no reachable target (waiver/photo/ref without a session) render
+ *   no action button.
  *   ActivityDetailPanel roster row name → opens PersonCard for that person.
  */
 
@@ -33,6 +36,7 @@ import { useState, useCallback } from "react"
 import { Zap } from "lucide-react"
 import { useVenueToday } from "@/lib/hooks/use-venue-today"
 import { groupAttention } from "@/lib/venue/group-attention"
+import { attentionActionTarget } from "@/lib/venue/attention-action"
 import { formatAgo } from "@/lib/venue/format-ago"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { formatStripDate, parseStripDate } from "@/lib/admin/week-strip"
@@ -177,20 +181,13 @@ export function VenueCommandCenter({ locationId, date: initialDate }: Props) {
 
   // ── Attention action handler ────────────────────────────────────────────────
   const handleAttentionAction = useCallback((item: VenueAttentionItem) => {
-    // If the item has a sessionId, open that session's detail panel
-    if (item.sessionId) {
-      setOpenSessionId(item.sessionId)
-      return
+    const target = attentionActionTarget(item)
+    if (!target) return
+    if (target.type === "session") {
+      setOpenSessionId(target.sessionId)
+    } else {
+      window.location.href = target.href
     }
-    // For message / request kinds without a sessionId, navigate to inbox/requests
-    if (item.kind === "message") {
-      window.location.href = "/admin/messages"
-    } else if (item.kind === "request") {
-      window.location.href = "/admin/registrations"
-    }
-    // Items without a sessionId (waiver, photo, ref) currently no-op; they link
-    // to their session when sessionId is present; a future detail panel could
-    // be wired for standalone waiver/photo/ref actions.
   }, [])
 
   // ── Derived data ───────────────────────────────────────────────────────────

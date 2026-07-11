@@ -17,6 +17,7 @@
 
 import { useState } from "react"
 import { attentionTotal } from "@/lib/venue/group-attention"
+import { attentionActionTarget } from "@/lib/venue/attention-action"
 import { EmptyState } from "@/components/ui/empty-state"
 import type { VenueAttentionItem } from "@/lib/venue/today-types"
 
@@ -134,7 +135,9 @@ function AttentionGroupSection({
             </div>
             <div className="text-[11.5px] text-[#8a8175] truncate">{item.subtitle}</div>
           </div>
-          <ActionButton kind={item.kind} onClick={() => onAction(item)} />
+          {attentionActionTarget(item) !== null && (
+            <ActionButton kind={item.kind} onClick={() => onAction(item)} />
+          )}
         </div>
       ))}
 
