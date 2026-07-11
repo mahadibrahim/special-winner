@@ -176,7 +176,7 @@ export function NeedsAttentionQueue({ groups, onAction }: Props) {
       {groups.length === 0 && (
         <EmptyState
           title="All clear"
-          description="Nothing needs attention right now."
+          description="Nothing needs attention for this location. Org-wide items live in the sidebar Inbox."
           className="py-8"
         />
       )}
