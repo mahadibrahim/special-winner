@@ -73,7 +73,7 @@ import type { CoachGuidanceContent } from "./types";
 // coach_prompts.skill_id instead of leaving these sport/stage-only. Content
 // echoes each skill's actual coachingTips/commonMistakes/description from
 // soccer/skills.ts rather than generic filler, and is pitched to the skill's
-// stage: fundamentals-stage skills (ages ~4-8) use simple, concrete language;
+// stage: fundamentals-stage skills (ages 6-8) use simple, concrete language;
 // skill-building/development-stage skills (ages 9-14) use more tactical
 // vocabulary, matching soccer/skills.ts's own age-graded coachingTips.
 const SOCCER_SKILL_PROMPTS: Record<string, unknown>[] = [
@@ -284,7 +284,8 @@ const SOCCER_SKILL_PROMPTS: Record<string, unknown>[] = [
     triggerContext: "during_practice" as const,
     promptType: "tip" as const,
     title: "Watch the Plant Foot",
-    content: "Watch the plant foot on a shot — if it lands too far from the ball, it usually sails over the bar.",
+    content:
+      "Watch the plant foot on a shot — if it lands too far behind the ball, players lean back and the shot sails over the bar.",
     priority: 7,
     frequency: "random" as const,
     isQuestionBased: false,

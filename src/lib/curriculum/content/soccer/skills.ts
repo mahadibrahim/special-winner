@@ -6038,7 +6038,7 @@ export const SOCCER_SKILLS: SkillContent[] = [
     stage: "fundamentals",
     description:
       "A player's genuine engagement with and love for playing soccer, shown through positive attitude, willingness to participate, and enthusiasm during practice and games.",
-    introductionAge: 4,
+    introductionAge: 6,
     assessmentMethod: "observation",
     progressionLevels: {
       1: "Shows reluctance or disengagement, needs coaxing to join in, and may express not wanting to play",
