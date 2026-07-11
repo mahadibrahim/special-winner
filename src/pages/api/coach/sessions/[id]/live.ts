@@ -9,7 +9,7 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import {
-  sessionPlans, activities, skills, teams, seasons, programs,
+  sessionPlans, activities, teams, seasons, programs,
   rosters, registrations, familyMembers, attendance, users,
 } from "@/lib/db/schema";
 import { sessionCaptures } from "@/lib/db/schema/session-lifecycle";
@@ -21,6 +21,7 @@ import { getSessionChips } from "@/lib/curriculum/reinforcement";
 import { groupNoun } from "@/lib/programs/group-noun";
 import { deriveEquipment } from "@/lib/sessions/equipment";
 import { orderPromptPool } from "@/lib/sessions/prompt-pool";
+import { resolveSessionChipSkillSlugs } from "@/lib/sessions/session-chips";
 import type { LivePrompt, LiveSegment } from "@/lib/sessions/types";
 
 const json = (body: unknown, status: number) =>
@@ -189,15 +190,12 @@ export const GET: APIRoute = async (context) => {
       );
     const attendanceByRoster = new Map(attendanceRows.map((r) => [r.rosterId, r.status]));
 
-    // Glow/grow chips for the wrap-up seed (same resolution as glows GET).
-    const skillSlugRows = planSkillIds.length
-      ? await db
-          .select({ slug: skills.slug })
-          .from(skills)
-          .where(inArray(skills.id, planSkillIds))
-          .orderBy(asc(skills.slug))
-      : [];
-    const glowChips = getSessionChips({ skillSlugs: skillSlugRows.map((s) => s.slug) });
+    // Glow/grow chips for the wrap-up seed — resolved via the shared
+    // helper (session-chips.ts), NOT planSkillIds, so this can never drift
+    // from the glows POST's legal chip set (Fix 1: the helper additionally
+    // unions sessionActivityUsage rows, the source the glows POST
+    // validates against, which planSkillIds above doesn't include).
+    const glowChips = getSessionChips({ skillSlugs: await resolveSessionChipSkillSlugs(id) });
 
     const captureRows = await db
       .select({

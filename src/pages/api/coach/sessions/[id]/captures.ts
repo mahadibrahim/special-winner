@@ -156,7 +156,7 @@ export const POST: APIRoute = async (context) => {
           .onConflictDoUpdate({
             target: [attendance.rosterId, attendance.sessionPlanId],
             targetWhere: sql`session_plan_id IS NOT NULL`,
-            set: { status: a.status },
+            set: { status: a.status, updatedAt: new Date() },
           });
         attendanceUpdated += 1;
       }

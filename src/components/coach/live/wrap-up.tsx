@@ -40,12 +40,19 @@ export default function WrapUp({
     () => new Map(payload.roster.map((r) => [r.rosterId, r])),
     [payload.roster],
   );
-  // Pending captures = server-known unconsumed + still-queued ones.
+  // Pending captures = server-known unconsumed + still-queued ones, minus
+  // anything whose consumption is already queued (even if the flush that
+  // records it server-side hasn't landed yet) — a capture queued for
+  // consumption must not be re-offered.
   const captures = useMemo(() => {
     const server = payload.captures.filter((c) => !c.consumedAt);
     const queuedIds = new Set(queue.captures.map((c) => c.clientId));
-    return [...server.filter((c) => !queuedIds.has(c.clientId)), ...queue.captures];
-  }, [payload.captures, queue.captures]);
+    const consumedIds = new Set(queue.consumedClientIds);
+    return [
+      ...server.filter((c) => !queuedIds.has(c.clientId) && !consumedIds.has(c.clientId)),
+      ...queue.captures.filter((c) => !consumedIds.has(c.clientId)),
+    ];
+  }, [payload.captures, queue.captures, queue.consumedClientIds]);
 
   if (finished) {
     return (
