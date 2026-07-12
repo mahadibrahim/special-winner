@@ -37,6 +37,15 @@ test("coach runs a session end to end", async ({ page }) => {
   // Create tonight's session through the API with the page's cookies.
   const players = await page.request.get("/api/coach/players");
   const teamId = (await players.json()).players[0].team.id;
+
+  // Attach a diagram-bearing activity to the game segment so the drill
+  // visuals (setup + field mode) are exercised. Tolerate a seed without
+  // diagrams — the visuals assertions are gated on finding one.
+  const activitiesRes = await page.request.get("/api/coach/activities?limit=50");
+  const diagramActivity = ((await activitiesRes.json()).activities as {
+    id: string; name: string; diagram: string | null;
+  }[]).find((a) => a.diagram);
+
   const created = await page.request.post("/api/coach/sessions", {
     data: {
       teamId,
@@ -46,7 +55,15 @@ test("coach runs a session end to end", async ({ page }) => {
       status: "planned",
       segments: [
         { order: 0, name: "Warmup", type: "warmup", durationMinutes: 10 },
-        { order: 1, name: "Small games", type: "game", durationMinutes: 35 },
+        {
+          order: 1,
+          name: "Small games",
+          type: "game",
+          durationMinutes: 35,
+          ...(diagramActivity
+            ? { activityId: diagramActivity.id, activityName: diagramActivity.name }
+            : {}),
+        },
       ],
     },
   });
@@ -59,6 +76,11 @@ test("coach runs a session end to end", async ({ page }) => {
   // the fixed-bottom Start button (same workaround as referee-closeout.spec).
   await page.evaluate(() => document.querySelector("astro-dev-toolbar")?.remove());
   await expect(page.getByTestId("setup-segments")).toContainText("Warmup");
+  if (diagramActivity) {
+    // Drill visuals in setup: the diagram segment exposes a disclosure.
+    await page.getByTestId("setup-diagram-toggle-1").click();
+    await expect(page.getByTestId("setup-diagram-1")).toBeVisible();
+  }
   await page.getByTestId("start-session").click();
 
   // Field mode: attendance sheet only shows when some player lacks a
@@ -73,6 +95,16 @@ test("coach runs a session end to end", async ({ page }) => {
   await expect(page.getByTestId("current-segment")).toContainText("Warmup");
   await page.getByTestId("advance-segment").click();
   await expect(page.getByTestId("current-segment")).toContainText("Small games");
+  if (diagramActivity) {
+    // Drill visuals in field mode: current segment's setup on demand.
+    await page.getByTestId("field-diagram-toggle").click();
+    await expect(page.getByTestId("field-diagram")).toBeVisible();
+    await expect(page.getByTestId("field-diagram")).toContainText(
+      diagramActivity.diagram!.split("\n").at(-1)!.trim(),
+    );
+    await page.getByTestId("field-diagram-toggle").click();
+    await expect(page.getByTestId("field-diagram")).toBeHidden();
+  }
 
   // Quick capture on the first player — and deterministically wait for its
   // flush to complete BEFORE ending the session. This pins the ordering that

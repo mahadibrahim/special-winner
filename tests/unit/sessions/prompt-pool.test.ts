@@ -7,6 +7,7 @@ const p = (id: string, priority: number, skillId: string | null): LivePrompt => 
 });
 const seg = (activitySkillIds: string[]): LiveSegment => ({
   order: 0, name: "s", type: "technical", durationMinutes: 10, activitySkillIds,
+  activityDiagram: null,
 });
 
 describe("orderPromptPool", () => {

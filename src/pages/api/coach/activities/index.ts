@@ -42,6 +42,7 @@ export const GET: APIRoute = async (context) => {
         skillsDeveloped: activities.skillsDeveloped,
         setupInstructions: activities.setupInstructions,
         howToPlay: activities.howToPlay,
+        diagram: activities.diagram,
         coachingPoints: activities.coachingPoints,
         questionsToAsk: activities.questionsToAsk,
         commonMistakes: activities.commonMistakes,

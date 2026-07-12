@@ -41,15 +41,30 @@ export default function SetupView({
         <h2 className="mb-2 font-medium text-ink">Plan</h2>
         <ol className="space-y-2" data-testid="setup-segments">
           {segments.map((s) => (
-            <li
-              key={s.order}
-              className="flex items-baseline justify-between rounded-xl border border-border bg-paper p-3"
-            >
-              <span className="text-ink">
-                {s.name}
-                {s.activityName ? ` — ${s.activityName}` : ""}
-              </span>
-              <span className="text-sm text-ink-muted">{s.durationMinutes} min</span>
+            <li key={s.order} className="rounded-xl border border-border bg-paper p-3">
+              <div className="flex items-baseline justify-between">
+                <span className="text-ink">
+                  {s.name}
+                  {s.activityName ? ` — ${s.activityName}` : ""}
+                </span>
+                <span className="text-sm text-ink-muted">{s.durationMinutes} min</span>
+              </div>
+              {s.activityDiagram && (
+                <details className="mt-2">
+                  <summary
+                    data-testid={`setup-diagram-toggle-${s.order}`}
+                    className="min-h-11 cursor-pointer list-none py-2 text-sm text-ink-muted underline"
+                  >
+                    Setup diagram
+                  </summary>
+                  <pre
+                    data-testid={`setup-diagram-${s.order}`}
+                    className="overflow-x-auto rounded-lg bg-cream-2 p-3 font-mono text-xs leading-snug text-ink"
+                  >
+                    {s.activityDiagram}
+                  </pre>
+                </details>
+              )}
             </li>
           ))}
         </ol>
