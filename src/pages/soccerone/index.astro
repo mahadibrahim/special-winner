@@ -7,6 +7,7 @@ import HomeTonightStrip from '@/components/soccerone/HomeTonightStrip';
 import HomeSignupStrip from '@/components/soccerone/HomeSignupStrip';
 import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
 import { HOME_GOOGLE_RATING, HOME_REVIEWS } from '@/lib/soccerone/home-reviews';
+import { SOCCERONE_ORG_JSONLD } from '@/lib/seo/soccerone-jsonld';
 
 // Live season data — same org-scoped fetch + filters as leagues.astro.
 // The homepage features the first upcoming open ADULT season (youth as
@@ -90,8 +91,8 @@ setMarketingEdgeCache(Astro); // after fetches; a degraded (empty-seasons) rende
 
 <BaseLayout
   favicon="/soccerone-favicon.svg"
-  title="SoccerOne Columbus | Indoor Soccer Leagues, Pickup & Field Rentals"
-  description="Columbus's indoor soccer chain. Adult leagues, youth weekend leagues, pickup, and field rentals at Worthington (3 fields) and Downtown (1 field). Futsal courts open September."
+  title="SoccerOne (Soccer One) Columbus | Indoor Soccer Leagues, Pickup & Field Rentals"
+  description="SoccerOne — Soccer One Indoor Soccer, Columbus. Adult leagues, youth weekend leagues, pickup, and field rentals at Worthington and Downtown Columbus. Futsal courts open September."
   navigation={false}
   footer={false}
   bodyClass="min-h-screen flex flex-col bg-[#0a0a0d] text-white antialiased"
@@ -103,6 +104,7 @@ setMarketingEdgeCache(Astro); // after fetches; a degraded (empty-seasons) rende
       href="https://fonts.googleapis.com/css2?family=Anton&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(SOCCERONE_ORG_JSONLD)} />
   </Fragment>
 
   <SoccerOneHeader />
