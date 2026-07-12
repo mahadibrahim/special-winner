@@ -94,11 +94,14 @@ Delete a line to veto it; unchecked survivors are fair game for refine.
 - [ ] Coach-facing note on US Soccer heading volume limits for ages 11-13
       (≤30 min/wk) at the curriculum/stage level, not just inside
       heading-progression (found: refine 2026-07-11)
-- [ ] OWNER FEEDBACK (2026-07-12, rehearsal film review): every soccer
+- [x] OWNER FEEDBACK (2026-07-12, rehearsal film review): every soccer
       activity must have a usable visual representation for the coach flow
       — audit `diagram`/`setupDiagram` coverage and quality across all
       activities; author missing ones (consistent format the product can
-      render on a phone)
+      render on a phone) (refine 2026-07-12: 25 authored, 15 reworked,
+      4 basketball width fixes, format enforced by
+      tests/unit/curriculum/diagrams.test.ts; product rendering of
+      `diagram` in setup/field mode is a separate non-refinery follow-up)
 - [ ] OWNER FEEDBACK (2026-07-12): enforce "everybody engaged all the
       time" as a hard authoring principle — audit ALL activities for
       elimination-without-reentry, lines/waiting, and spectator patterns;
