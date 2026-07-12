@@ -34,7 +34,7 @@ The hero status chip ("OPEN · CLOSES AUG 30") needs the registration deadline. 
 - Test: `tests/api/public-seasons-registration-closes.test.ts` (create)
 
 **Interfaces:**
-- Produces: every season object in `GET /api/public/seasons` responses gains `registrationCloses: string | null` (a `YYYY-MM-DD` date column serialized by Drizzle, nullable). Task 6 consumes it.
+- Produces: every season object in `GET /api/public/seasons` responses gains `registrationCloses: string | null`. NOTE (amended after Task 1 review): the column is a `timestamp`, not a `date` — Drizzle returns a JS `Date` and `JSON.stringify` serializes it as a full ISO-8601 instant (e.g. `2026-08-30T23:59:59.000Z`), nullable. Consumers must parse with `new Date(...)` and format with an explicit `timeZone` (org-local `America/New_York`). Task 6 consumes it.
 
 - [ ] **Step 1: Write the failing test**
 
@@ -52,6 +52,11 @@ describe("GET /api/public/seasons", () => {
     expect(Array.isArray(body.seasons)).toBe(true);
     for (const season of body.seasons) {
       expect(season).toHaveProperty("registrationCloses");
+      // Timestamp column: null or an ISO-8601 string Date can parse.
+      if (season.registrationCloses !== null) {
+        expect(typeof season.registrationCloses).toBe("string");
+        expect(Number.isNaN(new Date(season.registrationCloses).getTime())).toBe(false);
+      }
     }
   });
 });
@@ -715,14 +720,18 @@ const [adultSeasons, youthSeasons] = await Promise.all([
 const featured = adultSeasons[0] ?? youthSeasons[0] ?? null;
 const youthOpen = youthSeasons.length > 0;
 
+// startDate is a date-only column ("YYYY-MM-DD"): parsing yields UTC
+// midnight, so format in UTC or the day shifts in negative-offset zones.
 const featuredStart = featured?.startDate
   ? new Date(featured.startDate).toLocaleDateString('en-US', {
-      weekday: 'short', month: 'short', day: 'numeric',
+      weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC',
     })
   : null;
+// registrationCloses is a timestamp (full ISO instant): display the
+// deadline in the org's local timezone, not the server's.
 const featuredCloses = featured?.registrationCloses
   ? new Date(featured.registrationCloses).toLocaleDateString('en-US', {
-      weekday: 'short', month: 'short', day: 'numeric',
+      weekday: 'short', month: 'short', day: 'numeric', timeZone: 'America/New_York',
     })
   : null;
 const featuredPrice = featured
