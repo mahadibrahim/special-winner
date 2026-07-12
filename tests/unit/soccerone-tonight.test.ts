@@ -9,7 +9,7 @@ import {
 
 describe("todayWindow", () => {
   it("spans from now until the next local midnight in America/New_York", () => {
-    // 2026-07-12T18:00:00Z == 2:00 PM EDT on Sat Jul 12.
+    // 2026-07-12T18:00:00Z == 2:00 PM EDT on Sun Jul 12.
     const now = new Date("2026-07-12T18:00:00Z");
     const { fromIso, toIso } = todayWindow(now);
     expect(fromIso).toBe(now.toISOString());
