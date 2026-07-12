@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react"
 import { Search, Loader2, UserRound } from "lucide-react"
+import { toast } from "sonner"
+import { ErrorBanner } from "@/components/ui/error-banner"
 import type { PersonCardTarget } from "@/components/admin/person/PersonCard"
 
 // ─── Result types (from /api/admin/lookup) ────────────────────────────────────
@@ -126,6 +128,9 @@ export function CommandSearchBar({ onOpenPerson, onWalkIn, onFindBooking }: Prop
         if (!alive) return
         console.error("[CommandSearchBar] fetch failed:", err)
         setError("Search failed — please try again.")
+        // Also toast: the dropdown (and its inline error) closes on blur, so
+        // without this the failure would vanish without the desk ever seeing it.
+        toast.error("Search failed — try again")
       })
       .finally(() => {
         if (alive) setIsLoading(false)
@@ -189,7 +194,9 @@ export function CommandSearchBar({ onOpenPerson, onWalkIn, onFindBooking }: Prop
             )}
 
             {error && !isLoading && (
-              <div className="px-3 py-3 text-sm text-rose-700">{error}</div>
+              <div className="px-3 py-3">
+                <ErrorBanner message={error} />
+              </div>
             )}
 
             {!isLoading && !error && data && !hasResults && (

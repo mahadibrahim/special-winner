@@ -328,7 +328,34 @@ export function VenueCommandCenter({
       {/* ── Now / Next strip ──────────────────────────────────────────────── */}
       <div className="mb-4">
         {data ? (
-          <NowStrip sessions={data.sessions} timezone={data.timezone} onOpenActivity={handleOpenActivity} />
+          data.sessions.length === 0 ? (
+            /* Empty DAY (no sessions at all, not just none right now) — invite
+               the desk to start something rather than showing a bare strip. */
+            <EmptyState
+              title="Nothing scheduled today"
+              description="Start a pickup game or add a walk-in to get the day moving."
+              className="bg-[#fffdf8] border border-[#e4ddcf] rounded-2xl"
+            >
+              <div className="flex gap-2 justify-center">
+                <button
+                  type="button"
+                  onClick={handleStartPickup}
+                  className="px-3 py-1.5 rounded-lg bg-[#1c1a17] text-[#fffdf8] text-xs font-bold"
+                >
+                  Start pickup game
+                </button>
+                <button
+                  type="button"
+                  onClick={handleWalkIn}
+                  className="px-3 py-1.5 rounded-lg border border-[#e4ddcf] bg-[#f6f1e7] text-[#4b463e] text-xs font-bold"
+                >
+                  + Walk-in
+                </button>
+              </div>
+            </EmptyState>
+          ) : (
+            <NowStrip sessions={data.sessions} timezone={data.timezone} onOpenActivity={handleOpenActivity} />
+          )
         ) : (
           <EmptyState
             title="No sessions loaded"

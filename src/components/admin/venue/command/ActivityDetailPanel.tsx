@@ -20,6 +20,7 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ErrorBanner } from "@/components/ui/error-banner";
+import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { SendLinkActions } from "@/components/admin/check-in/SendLinkActions";
 import { AvatarUploader } from "@/components/admin/check-in/AvatarUploader";
@@ -507,9 +508,10 @@ export function ActivityDetailPanel({ session, locationId, timezone, onClose, on
 
           {/* Empty state */}
           {rows?.length === 0 && !loading && (
-            <div className="text-sm text-[#8a8175] text-center py-8">
-              No bookings yet.
-            </div>
+            <EmptyState
+              title="No bookings yet"
+              description="Add a walk-in below to fill the first slot."
+            />
           )}
 
           {/* Open slots — dropin/class/camp only */}

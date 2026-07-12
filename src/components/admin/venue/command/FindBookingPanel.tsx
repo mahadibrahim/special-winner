@@ -23,6 +23,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Input } from "@/components/ui/input"
+import { ErrorBanner } from "@/components/ui/error-banner"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -213,7 +214,9 @@ export function FindBookingPanel({ onClose, onOpenSession }: Props) {
 
           {/* Error */}
           {!isLoading && error && (
-            <div className="px-4 py-4 text-[12px] text-rose-700">{error}</div>
+            <div className="px-4 py-3">
+              <ErrorBanner message={error} />
+            </div>
           )}
 
           {/* Idle (nothing typed) */}

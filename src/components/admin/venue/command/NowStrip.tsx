@@ -2,6 +2,7 @@
 
 import { useMemo } from "react"
 import { deriveNowNext } from "@/lib/venue/derive-now-next"
+import { EmptyState } from "@/components/ui/empty-state"
 import type { VenueTodaySession } from "@/lib/venue/today-types"
 
 // ─── Kind → accent colour (left border on the card) ──────────────────────────
@@ -71,9 +72,11 @@ export function NowStrip({ sessions, timezone, onOpenActivity }: Props) {
 
   if (now.length === 0 && next.length === 0) {
     return (
-      <div className="text-sm text-ink-muted py-2">
-        No sessions scheduled for the rest of today.
-      </div>
+      <EmptyState
+        title="Nothing on right now"
+        description="The next sessions will appear here as they approach."
+        className="bg-[#fffdf8] border border-[#e4ddcf] rounded-2xl"
+      />
     )
   }
 
