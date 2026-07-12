@@ -182,3 +182,13 @@ Feed `expiredHolds` through the same `promoteNextWaitlister` loop (concatenate w
 - [ ] tsc; `./scripts/with-bws.sh npm run build`; full unit suite; branch-overlap API subsets (kiosk, check-in, dropin, self-serve, venue-hold-visibility, booking-search, cron); Playwright serial: venue-command-center, pickup-mode, check-in-flow, the new self-serve payment spec; live smoke: create hold → open link on "phone" (browser) → pay test card → roster flips to confirmed.
 - [ ] Migration check: CI validates on ephemeral Postgres; confirm migration file committed and idempotent.
 - [ ] PR: findings→task mapping, the enum-split rationale, backfill note (existing stranded holds enter the lifecycle at deploy; first sweep releases stale ones — strictly better than unpayable). Wait for CI green. Post-merge: monitor test-full; then close Tracker P1 with a comment linking the PR.
+
+---
+
+## Plan amendment (Task 1 finding, 2026-07-12)
+
+Drizzle's migrate() wraps ALL pending migration files in ONE transaction (verified empirically in Task 1 — see .superpowers/sdd/payment-task-1-report.md), so new enum values cannot be used by a backfill in the same PR regardless of file splitting. Amended approach:
+- This PR ships additive-only migration 0084 (enum values + reminder_sent_at). Discrimination in code is status-only (clean).
+- Legacy stranded walk-in holds (status pending_claim, promotion_expires_at NULL) remain passive "awaiting claim" rows for a few hours post-deploy — acceptable.
+- Task 8 gains a step: AFTER this PR merges and migrate-prod completes, open an immediate follow-up PR containing ONLY the backfill migration (spec §1's UPDATE), auto-merged under the standing authorization. The sweep then owns all legacy rows.
+- Task 4's reminder query should add the partial index suggested in the Task 1 report if query shape warrants (implementer's call, documented either way).
