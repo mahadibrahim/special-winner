@@ -7,16 +7,36 @@
  * cryptographically-random promotion token + expiry derived from the
  * org's rate-card `promotionWindowMinutes` (default 30).
  *
- * `expireOverduePromotions()` is the inverse: any pending_claim rows whose
- * window has elapsed are flipped to `cancelled` with reason
- * `expired_promotion`, and the next waitlister on each affected session
- * is promoted in turn.
+ * `expireOverduePromotions()` sweeps THREE kinds of stale holds, all
+ * feeding the same `promoteNextWaitlister` loop so a freed slot is always
+ * offered to the next waitlister on that session:
  *
- * Both run inside DB transactions with row-level locking on the booking
- * being modified to keep concurrent cron ticks + cancellations safe.
+ *   1. Overdue waitlist promotions — `pending_claim` rows whose
+ *      `promotionExpiresAt` has elapsed — flipped to `cancelled` with
+ *      reason `expired_promotion`.
+ *   2. Overdue walk-in payment holds — `pending_payment` rows (see
+ *      src/pages/api/kiosk/[locationSlug]/walkin/start.ts) whose
+ *      `promotionExpiresAt` (set to `createdAt + WALK_IN_HOLD_TTL_MS` at
+ *      creation) has elapsed — flipped to `cancelled` with reason
+ *      `expired_payment_hold`.
+ *   3. Legacy stranded walk-in holds — `pending_claim` rows with
+ *      `promotionExpiresAt IS NULL` and `createdAt` older than
+ *      `WALK_IN_HOLD_TTL_MS`. These predate the `pending_payment` status
+ *      (no SQL backfill was possible — see the "no-SQL-backfill amendment"
+ *      in docs/superpowers/plans/2026-07-12-walkin-remote-payment.md) and
+ *      will never be converted by a migration, so the sweep treats them
+ *      exactly like a payment hold: `cancelled` with reason
+ *      `expired_payment_hold`. Once the branch has been live for
+ *      `WALK_IN_HOLD_TTL_MS`, every remaining `pending_claim` row is a
+ *      genuine promotion (has a non-null `promotionExpiresAt`), so this
+ *      branch goes quiet but stays as a permanent guard.
+ *
+ * Both `promoteNextWaitlister` and `expireOverduePromotions` run inside DB
+ * transactions with row-level locking on the booking being modified to
+ * keep concurrent cron ticks + cancellations safe.
  */
 import crypto from "node:crypto";
-import { and, asc, eq, lte } from "drizzle-orm";
+import { and, asc, eq, isNull, lt, lte } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   dropInBookings,
@@ -25,6 +45,7 @@ import {
 } from "@/lib/db/schema/drop-in";
 import { dispatchWaitlistPromoted } from "./messages/dispatch";
 import { awaitDispatch } from "@/lib/notifications/await-dispatch";
+import { WALK_IN_HOLD_TTL_MS } from "@/pages/api/kiosk/[locationSlug]/walkin/start";
 
 export interface PromotionResult {
   promoted: boolean;
@@ -125,6 +146,7 @@ export async function promoteNextWaitlister(
 
 export interface ExpireResult {
   expired: number;
+  expiredPaymentHolds: number;
   promotedNext: number;
 }
 
@@ -133,6 +155,7 @@ export async function expireOverduePromotions(
 ): Promise<ExpireResult> {
   const db = getDb();
 
+  // 1. Overdue waitlist promotions.
   const expiredRows = await db
     .update(dropInBookings)
     .set({
@@ -150,13 +173,62 @@ export async function expireOverduePromotions(
     )
     .returning({ id: dropInBookings.id, sessionId: dropInBookings.sessionId });
 
+  // 2. Overdue walk-in payment holds.
+  const expiredHolds = await db
+    .update(dropInBookings)
+    .set({
+      status: "cancelled",
+      cancellationReason: "expired_payment_hold",
+      cancelledAt: now,
+      updatedAt: now,
+    })
+    .where(
+      and(
+        eq(dropInBookings.status, "pending_payment"),
+        lte(dropInBookings.promotionExpiresAt, now),
+      ),
+    )
+    .returning({ id: dropInBookings.id, sessionId: dropInBookings.sessionId });
+
+  // 3. Legacy stranded walk-in holds: pre-payment-build pending_claim rows
+  // that never got a promotionExpiresAt because no migration backfill was
+  // possible (see the module doc header). Treated exactly like a payment
+  // hold once older than the same TTL.
+  const legacyCutoff = new Date(now.getTime() - WALK_IN_HOLD_TTL_MS);
+  const expiredLegacyHolds = await db
+    .update(dropInBookings)
+    .set({
+      status: "cancelled",
+      cancellationReason: "expired_payment_hold",
+      cancelledAt: now,
+      updatedAt: now,
+    })
+    .where(
+      and(
+        eq(dropInBookings.status, "pending_claim"),
+        isNull(dropInBookings.promotionExpiresAt),
+        lt(dropInBookings.createdAt, legacyCutoff),
+      ),
+    )
+    .returning({ id: dropInBookings.id, sessionId: dropInBookings.sessionId });
+
+  const allExpiredRows = [
+    ...expiredRows,
+    ...expiredHolds,
+    ...expiredLegacyHolds,
+  ];
+
   let promotedNext = 0;
-  for (const row of expiredRows) {
+  for (const row of allExpiredRows) {
     const result = await promoteNextWaitlister(row.sessionId);
     if (result.promoted) promotedNext += 1;
   }
 
-  return { expired: expiredRows.length, promotedNext };
+  return {
+    expired: expiredRows.length,
+    expiredPaymentHolds: expiredHolds.length + expiredLegacyHolds.length,
+    promotedNext,
+  };
 }
 
 /**

@@ -52,8 +52,10 @@ const json = (body: unknown, status: number) =>
 // How long a walk-in payment hold occupies its slot before the
 // expire-pending-claims sweep releases it. Keep in sync with the
 // walkin_session token TTL minted below (ttlHours) — the pay link should
-// not outlive the hold it pays for.
-const WALK_IN_HOLD_TTL_MS = 2 * 3_600_000;
+// not outlive the hold it pays for. Exported so src/lib/dropin/promotion.ts
+// can reuse the same constant for its sweep window instead of duplicating
+// the magic number.
+export const WALK_IN_HOLD_TTL_MS = 2 * 3_600_000;
 
 function computeAge(dobStr: string): number {
   const dob = new Date(dobStr);

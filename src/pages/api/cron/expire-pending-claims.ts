@@ -1,13 +1,16 @@
 /**
  * POST /api/cron/expire-pending-claims
  *
- * Cron entry point for the drop-in pending-claim expiry sweep. Mirrors
+ * Cron entry point for the drop-in expiry sweep. Mirrors
  * /api/cron/tick-activity-tracker (same auth header, same misconfigured-
  * in-prod behavior, same response shape).
  *
  * Runs every 5 minutes via netlify/functions/scheduled-expire-pending-claims.ts;
  * the manual endpoint exists so we can hand-trigger from CI / curl during
- * pilots.
+ * pilots. `expireOverduePromotions` (src/lib/dropin/promotion.ts) sweeps
+ * overdue waitlist promotions, overdue walk-in payment holds, and legacy
+ * stranded walk-in holds — see that module's doc header for the three
+ * branches.
  */
 import type { APIRoute } from "astro";
 import { expireOverduePromotions } from "@/lib/dropin/promotion";
@@ -46,7 +49,7 @@ export const POST: APIRoute = async ({ request }) => {
     const elapsedMs = Date.now() - startedAt;
 
     console.info(
-      `[cron] Drop-in pending-claim expiry: expired=${result.expired} promotedNext=${result.promotedNext} in ${elapsedMs}ms`,
+      `[cron] Drop-in expiry: expired=${result.expired} expiredPaymentHolds=${result.expiredPaymentHolds} promotedNext=${result.promotedNext} in ${elapsedMs}ms`,
     );
 
     return new Response(JSON.stringify({ ...result, elapsedMs }), {
@@ -68,9 +71,9 @@ export const POST: APIRoute = async ({ request }) => {
 export const GET: APIRoute = async () =>
   new Response(
     JSON.stringify({
-      description: "Drop-in pending-claim expiry cron endpoint",
+      description: "Drop-in expiry cron endpoint (waitlist promotions + walk-in payment holds)",
       usage:
-        "POST with header x-cron-secret: $CRON_SECRET to expire overdue pending_claim rows. Intended for scheduled callers only.",
+        "POST with header x-cron-secret: $CRON_SECRET to expire overdue pending_claim/pending_payment rows. Intended for scheduled callers only.",
     }),
     { status: 200, headers: { "Content-Type": "application/json" } },
   );
