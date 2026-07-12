@@ -38,6 +38,7 @@ export const dropInBookingStatusEnum = pgEnum("drop_in_booking_status", [
   "confirmed",
   "waitlisted",
   "pending_claim",
+  "pending_payment",
   "cancelled",
   "no_show",
 ]);
@@ -57,6 +58,7 @@ export const dropInCancellationReasonEnum = pgEnum("drop_in_cancellation_reason"
   "admin_override",
   "session_cancelled",
   "expired_promotion",
+  "expired_payment_hold",
 ]);
 export const skillLevelEnum = pgEnum("skill_level", [
   "recreational",
@@ -146,6 +148,10 @@ export const dropInBookings = pgTable(
     checkedInAt: timestamp("checked_in_at", { withTimezone: true }),
     cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
     cancellationReason: dropInCancellationReasonEnum("cancellation_reason"),
+    // Stamped when the single pre-expiry payment reminder is sent for a
+    // pending_payment hold. NULL means not yet reminded (or not applicable).
+    // Stamp-then-send so a crashed send can't double-fire.
+    reminderSentAt: timestamp("reminder_sent_at", { withTimezone: true }),
     waiverSigned: boolean("waiver_signed").notNull().default(false),
     waiverSignedAt: timestamp("waiver_signed_at", { withTimezone: true }),
     waiverSignedBy: text("waiver_signed_by"),
