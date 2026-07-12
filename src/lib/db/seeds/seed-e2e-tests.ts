@@ -2956,10 +2956,12 @@ async function seedE2ETests() {
       { slug: "soccerone-worthington-fall-coed-30", name: "Co-Ed 30+ — Fall", dayOfWeek: "sun" },
       { slug: "soccerone-worthington-fall-mens-c", name: "Men's C — Fall", dayOfWeek: "mon" },
       { slug: "soccerone-worthington-fall-womens-open", name: "Women's Open — Fall", dayOfWeek: "wed" },
-      // Futsal on Tuesday mirrors the prod catalog shape — it exercises the
-      // location page's fall-row dedupe (no doubled futsal suffix) and the
-      // LEAGUES + FUTSAL tag variant, which plain sun/mon/wed fixtures can't.
+      // Futsal on Tuesday + Thursday mirrors the prod catalog shape — it
+      // exercises the location page's fall-row dedupe branches (no doubled
+      // futsal suffix; live Thursday suppresses the static pickup row) and
+      // the LEAGUES + FUTSAL tag variant, which plain sun/mon/wed can't.
       { slug: "soccerone-worthington-fall-coed-futsal", name: "Co-Ed Futsal — Fall", dayOfWeek: "tue" },
+      { slug: "soccerone-worthington-fall-mens-futsal", name: "Men's Futsal — Fall", dayOfWeek: "thu" },
     ] as const;
 
     for (const fixture of worthingtonFallSeasons) {
