@@ -70,14 +70,18 @@ const teamPriceStr = featured?.teamPrice != null ? fmtPrice(featured.teamPrice) 
 const soloPriceStr = featured?.price != null ? fmtPrice(featured.price) : null;
 const depositStr = featured?.deposit != null ? fmtPrice(featured.deposit) : null;
 
-// Fall block heading derives its kickoff date from the live season rather
-// than hardcoding "Sep 14" — falls back to generic copy only when
-// unreachable (the block itself is gated on `featured`).
-const fallKickoffDate = featured?.startDate
-  ? new Date(featured.startDate).toLocaleDateString('en-US', {
-      month: 'short', day: 'numeric', timeZone: 'America/New_York',
-    })
-  : null;
+// Every fall-date mention on the page derives from the live featured season
+// (no hardcoded calendar dates), so the page stays internally consistent
+// on any data (fixture dates on staging, real dates in prod).
+// startDate/endDate are date-only columns ("YYYY-MM-DD"): parsing yields
+// UTC midnight, so format in UTC — America/New_York would shift the date
+// back a day (same convention as the homepage's featuredStart).
+const formatSeasonDate = (d: string) =>
+  new Date(d).toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', timeZone: 'UTC',
+  });
+const fallKickoffDate = featured?.startDate ? formatSeasonDate(featured.startDate) : null;
+const fallEndDate = featured?.endDate ? formatSeasonDate(featured.endDate) : null;
 
 // What's Happening — "THE FALL RHYTHM" list groups the fetched adult
 // seasons by dayOfWeek (Sunday→Saturday) and joins each day's season
@@ -237,7 +241,7 @@ setMarketingEdgeCache(Astro); // after fetches; a degraded (empty-seasons) rende
           <div>
             <div class="kicker-bar"></div>
             <h2 class="sec-title">What's Happening</h2>
-            <p class="sec-desc">The real rhythm of the building — light through summer, full tilt when fall leagues kick off Sep 14.</p>
+            <p class="sec-desc">The real rhythm of the building — light through summer, full tilt when fall leagues kick off{fallKickoffDate ? ` ${fallKickoffDate}` : ''}.</p>
           </div>
           {hasFallSchedule && (
             <div class="hap-toggle" role="tablist">
@@ -285,7 +289,7 @@ setMarketingEdgeCache(Astro); // after fetches; a degraded (empty-seasons) rende
               <div class="week-row"><span class="wr-day">Thursday</span><span class="wr-what"><b>Open pickup</b> on both fields + make-up games · <b>Men's futsal</b> on the courts</span><span class="wr-tag wr-tag--futsal">PICKUP + FUTSAL</span></div>
               <div class="week-row week-row--live"><span class="wr-day">Fri · Sat</span><span class="wr-what"><b>Pickup, rentals &amp; events</b> — open late · <b>youth leagues Saturday morning</b></span><span class="wr-tag">OPEN PLAY</span></div>
             </div>
-            <p class="hap-note">Fall rhythm runs Sep 14 – Nov 8 · 7-game seasons, every team plays every week, no playoffs.</p>
+            <p class="hap-note">{fallKickoffDate && fallEndDate ? `Fall rhythm runs ${fallKickoffDate} – ${fallEndDate} · ` : 'Fall rhythm: '}7-game seasons, every team plays every week, no playoffs.</p>
           </Fragment>
         )}
       </div>
@@ -412,7 +416,9 @@ setMarketingEdgeCache(Astro); // after fetches; a degraded (empty-seasons) rende
                 on the new courts. <b>7 games in 7 weeks, every team plays every week, no playoffs.</b>
               </p>
               <div class="fall-facts">
-                <span class="fall-fact">SEP 14 – NOV 8</span>
+                {fallKickoffDate && fallEndDate && (
+                  <span class="fall-fact">{`${fallKickoffDate} – ${fallEndDate}`.toUpperCase()}</span>
+                )}
                 <span class="fall-fact">6–11PM GAME SLOTS</span>
                 <span class="fall-fact">YOUR DIVISION = YOUR NIGHT</span>
                 <span class="fall-fact">REFS RATED EVERY GAME</span>
