@@ -79,3 +79,5 @@ Additive migration ships first in the same PR (repo auto-migrates on merge). The
 - The payment endpoint is authorized by location slug + rate limit (kiosk model). It already validates booking↔location; the PayCard adds no new auth surface, but the API test must prove a cross-location booking id is rejected.
 - Webhook lag: the client shows "Payment processing…" until the poll reflects `confirmed`; no client-side status writes.
 - Message sends cost money; the reminder is bounded to one per booking by `reminderSentAt`.
+
+> **Amendment note (2026-07-12):** the backfill described below was superseded — no SQL backfill ships (enum-use-in-migration breaks from-empty CI runs); the expiry sweep handles legacy rows in code. See the plan amendment.
