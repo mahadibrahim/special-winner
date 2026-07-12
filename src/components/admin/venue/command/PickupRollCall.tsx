@@ -50,6 +50,7 @@ interface RowData {
   familyMemberId: string | null;
   recipientUserId: string | null;
   paid: boolean;
+  status: "confirmed" | "pending_claim";
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -384,11 +385,17 @@ export function PickupRollCall({ sessionId, sessionTitle, onClose }: Props) {
                       okLabel="waiver ✓"
                       badLabel="waiver out"
                     />
-                    <StatusChip
-                      ok={isPaid}
-                      okLabel="paid ✓"
-                      badLabel="unpaid"
-                    />
+                    {row.status === "pending_claim" ? (
+                      <span className="text-[10.5px] font-bold rounded px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200">
+                        ⏳ awaiting payment
+                      </span>
+                    ) : (
+                      <StatusChip
+                        ok={isPaid}
+                        okLabel="paid ✓"
+                        badLabel="unpaid"
+                      />
+                    )}
                     {isCheckedIn && (
                       <span className="text-[10.5px] font-bold rounded px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200">
                         checked in ✓

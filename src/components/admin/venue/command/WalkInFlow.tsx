@@ -331,7 +331,7 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
                         : form.phone
                           ? `SMS (${form.phone})`
                           : "SMS"}
-                    . The slot is held for 2 hours. Collect{" "}
+                    . The slot is held until it&apos;s paid or released from the roster. Collect{" "}
                     <strong>{amtStr}</strong> when they arrive (kiosk self-pay
                     or desk).
                   </p>
@@ -351,8 +351,9 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
                     <strong>
                       {form.firstName} {form.lastName}
                     </strong>{" "}
-                    — the slot stays held for 2 hours. Payment is collected
-                    when they arrive (kiosk self-pay or desk).
+                    — the slot stays held until it&apos;s paid or released from
+                    the roster. Payment is collected when they arrive (kiosk
+                    self-pay or desk).
                   </div>
                 </>
               )}
@@ -626,14 +627,14 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
                   icon: "📧",
                   title: "Email a waiver link",
                   subtitle:
-                    "They sign on their phone; slot holds 2h — collect payment at the desk or kiosk",
+                    "They sign on their phone; slot holds until it's paid or released — collect payment at the desk or kiosk",
                 },
                 {
                   method: "link_sms" as PayMethod,
                   icon: "📲",
                   title: "Text a waiver link",
                   subtitle:
-                    "They sign on their phone; slot holds 2h — collect payment at the desk or kiosk",
+                    "They sign on their phone; slot holds until it's paid or released — collect payment at the desk or kiosk",
                 },
                 {
                   method: "kiosk" as PayMethod,

@@ -186,7 +186,7 @@ export async function getVenueDayData(
       // super-admin-only, but this activity block is visible to
       // location_admins on the venue command center. Land back on the same
       // day with the game's session panel open.
-      href: `/admin/venue?date=${date}&session=${g.id}`,
+      href: `/admin/venue?date=${date}&session=${g.id}&locationId=${locationId}`,
       resourceName: g.fieldNumber ? `Field ${g.fieldNumber}` : null,
       blockId: null,
     };
@@ -224,6 +224,10 @@ export async function getVenueDayData(
   // grouped query for every drop-in session in the day window — not
   // per-session — to keep this a fixed number of queries regardless of how
   // many sessions the day has.
+  // NOTE: this intentionally diverges from getVenueReports' `booked` metric
+  // (lib/admin/venue-reports.ts), which counts status='confirmed' only —
+  // the day board answers "how full is this slot right now" (holds count),
+  // reports answer "how many people actually booked" (holds don't count).
   const dropInSessionIds = dropInRows.map((s) => s.id);
   const bookingCounts = dropInSessionIds.length
     ? await db
