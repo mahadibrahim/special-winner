@@ -20,6 +20,7 @@ import { venues } from "@/lib/db/schema/teams";
 import { locations } from "@/lib/db/schema/organizations";
 import { requireOrgAdminAccess } from "@/lib/auth";
 import { getEffectiveLocationIds } from "@/lib/admin/active-venue";
+import { promoteNextWaitlister } from "@/lib/dropin/promotion";
 
 export const prerender = false;
 const json = (b: unknown, s: number) =>
@@ -39,6 +40,7 @@ export const POST: APIRoute = async (context) => {
       id: dropInBookings.id,
       status: dropInBookings.status,
       checkedInAt: dropInBookings.checkedInAt,
+      sessionId: dropInBookings.sessionId,
       locationId: venues.locationId,
       orgId: locations.organizationId,
     })
@@ -84,10 +86,28 @@ export const POST: APIRoute = async (context) => {
     return json({ error: "This person has already checked in — the hold can't be released" }, 409);
   }
 
-  await db
+  const cancelledRows = await db
     .update(dropInBookings)
     .set({ status: "cancelled", cancelledAt: new Date(), cancellationReason: "admin_override" })
-    .where(and(eq(dropInBookings.id, bookingId), eq(dropInBookings.status, "pending_payment")));
+    .where(and(eq(dropInBookings.id, bookingId), eq(dropInBookings.status, "pending_payment")))
+    .returning({ id: dropInBookings.id });
+
+  // Every other release path — the expiry sweep (expireOverduePromotions)
+  // and customer/admin cancels via processCancelRefund — promotes the next
+  // waitlister into the freed slot. The desk cancel must too, or a manual
+  // release leaves the slot unfilled while people sit waitlisted. Guarded
+  // on the UPDATE actually cancelling a row (the status predicate makes it
+  // a no-op if a concurrent payment just confirmed the booking — no slot
+  // was freed, so nobody should be promoted). Fire-and-log, same as
+  // refund.ts: a promotion failure must not turn a successful cancel into
+  // a 500.
+  if (cancelledRows.length > 0) {
+    try {
+      await promoteNextWaitlister(row.sessionId);
+    } catch (err) {
+      console.error("[cancel-hold] promote-next failed", err);
+    }
+  }
 
   return json({ ok: true }, 200);
 };

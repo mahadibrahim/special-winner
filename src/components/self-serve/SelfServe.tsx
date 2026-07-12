@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import { KIOSK_RETURN_SLUG_KEY } from "@/lib/kiosk/return-slug";
 import { WaiverCard } from "./WaiverCard";
@@ -91,15 +91,43 @@ export default function SelfServe({
     }
   }, [returnSlug]);
 
+  // Always-current mirrors of the completion flags. maybeConsume can be
+  // invoked from a long-lived callback chain — the payment poll below runs
+  // for up to a minute off the closure captured when polling STARTED — so
+  // its fallback reads must come from refs, not from that (potentially
+  // stale) render's state bindings. Without this, a customer who signs the
+  // waiver or adds a photo WHILE their payment is settling would never see
+  // the confirmation screen until a reload: the poll's final maybeConsume
+  // would see waiver/photo as they were when the poll began.
+  const waiverDoneRef = useRef(waiverDone);
+  waiverDoneRef.current = waiverDone;
+  const photoDoneRef = useRef(photoDone);
+  photoDoneRef.current = photoDone;
+  const paymentDoneRef = useRef(paymentDone);
+  paymentDoneRef.current = paymentDone;
+  const allDoneRef = useRef(allDone);
+  allDoneRef.current = allDone;
+
   const maybeConsume = async (
     overrideWaiver?: boolean,
     overridePhoto?: boolean,
     overridePayment?: boolean,
   ) => {
-    const effectiveWaiver = overrideWaiver ?? waiverDone;
-    const effectivePhoto = overridePhoto ?? photoDone;
-    const effectivePayment = overridePayment ?? paymentDone;
-    if (effectiveWaiver && effectivePhoto && effectivePayment && !allDone) {
+    // Overrides exist because a caller's own setState hasn't re-rendered
+    // (and thus refreshed the refs) yet within the same tick; every flag
+    // the caller did NOT just flip falls back to the live ref value.
+    const effectiveWaiver = overrideWaiver ?? waiverDoneRef.current;
+    const effectivePhoto = overridePhoto ?? photoDoneRef.current;
+    const effectivePayment = overridePayment ?? paymentDoneRef.current;
+    if (
+      effectiveWaiver &&
+      effectivePhoto &&
+      effectivePayment &&
+      !allDoneRef.current
+    ) {
+      // Set the ref immediately so a concurrent caller in the same tick
+      // can't double-consume before the state update lands.
+      allDoneRef.current = true;
       try {
         await fetch(`/api/self-serve/${token}/consume`, { method: "POST" });
       } catch {
@@ -111,12 +139,12 @@ export default function SelfServe({
 
   const onWaiverDone = () => {
     setWaiverDone(true);
-    setTimeout(() => maybeConsume(true, photoDone, paymentDone), 0);
+    setTimeout(() => maybeConsume(true), 0);
   };
 
   const onPhotoDone = () => {
     setPhotoDone(true);
-    setTimeout(() => maybeConsume(waiverDone, true, paymentDone), 0);
+    setTimeout(() => maybeConsume(undefined, true), 0);
   };
 
   // PayCard confirmed client-side. Don't mark payment done here — start
@@ -155,7 +183,11 @@ export default function SelfServe({
           if (body.outstanding?.payment === false) {
             setPaymentProcessing(false);
             setPaymentDone(true);
-            setTimeout(() => maybeConsume(waiverDone, photoDone, true), 0);
+            // Only payment is overridden — waiver/photo fall back to
+            // maybeConsume's refs, which are always current even though
+            // this callback's closure dates from when polling started
+            // (the customer may have signed/photographed mid-poll).
+            setTimeout(() => maybeConsume(undefined, undefined, true), 0);
             return;
           }
         }
@@ -175,9 +207,9 @@ export default function SelfServe({
     return () => {
       cancelled = true;
     };
-    // waiverDone/photoDone are read via maybeConsume's own default params
-    // (fresh closure each render isn't needed here — the override args
-    // above always carry the current values).
+    // maybeConsume is deliberately not a dep: the instance captured here
+    // may be stale, but it reads every completion flag through refs, so a
+    // stale instance still sees current values.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paymentProcessing, token]);
 

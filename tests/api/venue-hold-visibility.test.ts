@@ -254,7 +254,34 @@ describe("Venue hold visibility (pending_payment pay-link holds)", () => {
     expect(row.status).toBe("pending_payment");
   });
 
-  it("cancel-hold cancels a pending booking and refuses a confirmed one", async () => {
+  it("cancel-hold cancels a pending booking, promotes the next waitlister, and refuses a re-cancel", async () => {
+    // Seed a waitlisted booking on the same session BEFORE the desk cancel:
+    // every release path (expiry sweep, customer/admin cancel via
+    // processCancelRefund) promotes the next waitlister into the freed
+    // slot, and the desk cancel must match — a manual release that leaves
+    // the slot unfilled while people sit waitlisted would be the one
+    // asymmetric path.
+    const db = getDb();
+    const [waitlistUser] = await db
+      .insert(users)
+      .values({
+        email: `hold-visibility-waitlist-${UNIQUE_SUFFIX}@t.example`,
+        firstName: "Waitlisted",
+        lastName: "Booking",
+      })
+      .returning();
+    const [waitlistedBooking] = await db
+      .insert(dropInBookings)
+      .values({
+        sessionId,
+        userId: waitlistUser.id,
+        status: "waitlisted",
+        source: "online_booking",
+        paymentMethod: "card_online",
+        amountPaidCents: 0,
+      })
+      .returning();
+
     const ok = await apiFetch("/api/admin/venue/cancel-hold", {
       method: "POST",
       cookie: adminCookie,
@@ -271,6 +298,23 @@ describe("Venue hold visibility (pending_payment pay-link holds)", () => {
     const rows = (await again.json()).rows;
     expect(rows.find((r: any) => r.targetId === heldBookingId)).toBeUndefined();
 
+    // The seeded waitlister was promoted into the freed slot: status
+    // flipped to pending_claim with a claim token and expiry window set
+    // (promoteNextWaitlister's contract — same as the sweep asserts in
+    // tests/api/dropin/expire-payment-holds.test.ts).
+    const [promoted] = await db
+      .select({
+        status: dropInBookings.status,
+        promotionToken: dropInBookings.promotionToken,
+        promotionExpiresAt: dropInBookings.promotionExpiresAt,
+      })
+      .from(dropInBookings)
+      .where(eq(dropInBookings.id, waitlistedBooking.id))
+      .limit(1);
+    expect(promoted.status).toBe("pending_claim");
+    expect(promoted.promotionToken).toBeTruthy();
+    expect(promoted.promotionExpiresAt).not.toBeNull();
+
     // Confirm a cancelled booking can't be cancelled again (409, not 200).
     const again2 = await apiFetch("/api/admin/venue/cancel-hold", {
       method: "POST",
@@ -278,7 +322,6 @@ describe("Venue hold visibility (pending_payment pay-link holds)", () => {
       body: JSON.stringify({ bookingId: heldBookingId }),
     });
     expect(again2.status).toBe(409);
-
   });
 
   it("refuses a confirmed booking (409, not 200)", async () => {
