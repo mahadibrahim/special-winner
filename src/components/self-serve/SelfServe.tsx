@@ -20,6 +20,13 @@ interface Context {
    *  payment endpoint, which is slug/UUID-scoped by location. */
   locationSlug?: string | null;
   bookingId?: string | null;
+  /** The booking behind the token was cancelled (expiry sweep / admin
+   *  cancel) — the hold no longer exists. Render the honest released
+   *  state, never the checked-in screen. */
+  cancelled?: boolean;
+  /** A Stripe refund is on record for the booking (e.g. a payment that
+   *  settled after the sweep was auto-refunded by the webhook). */
+  refunded?: boolean;
   expiresAt: string;
 }
 
@@ -62,6 +69,11 @@ export default function SelfServe({
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const [paymentPollTimedOut, setPaymentPollTimedOut] = useState(false);
   const [allDone, setAllDone] = useState(false);
+  // The hold behind this link was cancelled — either it arrived that way
+  // (link opened after the expiry sweep) or the poll below discovered a
+  // mid-session cancellation. Overrides every other screen.
+  const [holdCancelled, setHoldCancelled] = useState(context.cancelled ?? false);
+  const [holdRefunded, setHoldRefunded] = useState(context.refunded ?? false);
 
   // The kiosk this tab belongs to, if any. Prefer the ?kiosk= query param;
   // fall back to the slug the kiosk stashed in sessionStorage before
@@ -126,9 +138,21 @@ export default function SelfServe({
         if (res.ok) {
           const body = (await res.json()) as {
             outstanding?: { payment?: boolean };
+            cancelled?: boolean;
+            refunded?: boolean;
           };
+          if (cancelled) return;
+          // Mid-poll cancellation: the sweep released the hold while the
+          // customer's payment was settling. Stop polling and show the
+          // honest released state — the webhook auto-refunds a captured
+          // charge in this exact race, which `refunded` reflects.
+          if (body.cancelled === true) {
+            setPaymentProcessing(false);
+            setHoldCancelled(true);
+            setHoldRefunded(body.refunded === true);
+            return;
+          }
           if (body.outstanding?.payment === false) {
-            if (cancelled) return;
             setPaymentProcessing(false);
             setPaymentDone(true);
             setTimeout(() => maybeConsume(waiverDone, photoDone, true), 0);
@@ -156,6 +180,20 @@ export default function SelfServe({
     // above always carry the current values).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paymentProcessing, token]);
+
+  // Cancelled wins over EVERYTHING below — a released hold must never show
+  // the checked-in confirmation (the slot is gone), and with the context's
+  // outstanding flags all false a cancelled booking would otherwise fall
+  // straight into the nothingOutstanding branch.
+  if (holdCancelled) {
+    return (
+      <HoldReleasedScreen
+        displayName={context.displayName}
+        summary={context.summary}
+        refunded={holdRefunded}
+      />
+    );
+  }
 
   // Nothing left to do — either the customer just finished every card, or
   // they opened the link with the waiver/photo/payment already on file.
@@ -197,7 +235,8 @@ export default function SelfServe({
           <div className="space-y-2">
             {paymentPollTimedOut && (
               <p className="text-xs text-stone-500">
-                Still confirming your payment. If you were charged, you're all set — otherwise
+                We couldn't confirm your payment yet. If your card was charged,
+                please see the front desk and they'll sort it out — otherwise
                 you can try again below.
               </p>
             )}
@@ -223,6 +262,46 @@ export default function SelfServe({
       {context.outstanding.photo && (
         <PhotoCard token={token} done={photoDone} onDone={onPhotoDone} />
       )}
+    </div>
+  );
+}
+
+/**
+ * The hold behind this link was cancelled — the expiry sweep released the
+ * slot (or the front desk cancelled it). Honest terminal state: says what
+ * happened, covers the money (refunded vs. will-be-refunded), and points
+ * the customer at the front desk to rebook. Deliberately NOT the
+ * checked-in screen — the customer has no slot.
+ */
+function HoldReleasedScreen({
+  displayName,
+  summary,
+  refunded,
+}: {
+  displayName: string;
+  summary: string;
+  refunded: boolean;
+}) {
+  return (
+    <div className="space-y-4">
+      <header>
+        <h1 className="text-xl font-semibold">Hi {displayName}</h1>
+        {summary && <p className="text-sm text-stone-600">{summary}</p>}
+      </header>
+      <div className="p-6 rounded-lg border border-amber-200 bg-amber-50 text-amber-900">
+        <h2 className="text-lg font-semibold mb-2">
+          Your hold expired and the slot was released
+        </h2>
+        <p className="text-sm leading-relaxed">
+          {refunded
+            ? "Any charge on your card has been refunded."
+            : "If your card was charged, the payment will be refunded automatically."}
+        </p>
+        <p className="mt-2 text-sm leading-relaxed">
+          Want to play? See the front desk — if the session still has room,
+          they can set you up with a new spot.
+        </p>
+      </div>
     </div>
   );
 }

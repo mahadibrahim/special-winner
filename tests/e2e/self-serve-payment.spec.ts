@@ -98,12 +98,6 @@ test.describe("Self-serve PayCard", { tag: "@critical" }, () => {
       expect(waiverBox, "waiver heading should have a layout box").not.toBeNull();
       expect(payBox!.y).toBeLessThan(waiverBox!.y);
 
-      // Amount correctness: the walk-up rate (2100 cents → $21.00) is the
-      // "Session" line of the breakdown once the PaymentIntent loads —
-      // distinct from the session rate (1200 cents) so this can't pass by
-      // coincidence.
-      await expect(page.getByText("$21.00")).toBeVisible({ timeout: 20_000 });
-
       // Card visibility: race the Stripe Elements iframe mounting against an
       // honest error banner (Stripe not configured in this run) — mirrors
       // registration-guest-flow.spec.ts's pattern. Never submit a card.
@@ -119,6 +113,18 @@ test.describe("Self-serve PayCard", { tag: "@critical" }, () => {
         iframeMounted || hasErrorBanner,
         "expected the Stripe PaymentElement iframe to mount or an error banner explaining why not",
       ).toBe(true);
+
+      // Amount correctness — ONLY when the payment form actually mounted.
+      // The amount breakdown renders from the PaymentIntent response, so a
+      // Stripe-not-configured run (the error-banner arm above) legitimately
+      // has no $ figure to assert; requiring $21.00 unconditionally would
+      // make this test demand Stripe when the tolerant race deliberately
+      // doesn't. When the form mounted, the "Session" line must be the
+      // walk-up rate (2100 cents → $21.00) — deliberately distinct from the
+      // session rate (1200 cents) so this can't pass by coincidence.
+      if (iframeMounted) {
+        await expect(page.getByText("$21.00")).toBeVisible({ timeout: 10_000 });
+      }
 
       // Boundary: this spec stops here. Completing payment would require
       // driving Stripe's test-card iframe and asserting the webhook flips

@@ -223,6 +223,60 @@ describe("GET /api/self-serve/[token] (context) — walk-in payment hold", () =>
     expect(body.outstanding.payment).toBe(false);
     expect(body.amountDueCents).toBe(0);
     expect(body.locationSlug).toBeNull();
+    expect(body.cancelled).toBe(false);
+    expect(body.refunded).toBe(false);
+  });
+
+  it("cancelled booking: cancelled true, refunded false, nothing outstanding/payable", async () => {
+    const { token, bookingId } = await startWalkIn("cancelled");
+
+    // Simulate the expiry sweep releasing the hold.
+    await getDb()
+      .update(dropInBookings)
+      .set({
+        status: "cancelled",
+        cancellationReason: "expired_payment_hold",
+        cancelledAt: new Date(),
+      })
+      .where(eq(dropInBookings.id, bookingId));
+
+    const res = await fetch(`${BASE}/api/self-serve/${token}`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+
+    expect(body.cancelled).toBe(true);
+    expect(body.refunded).toBe(false);
+    // A released hold has nothing actionable — the page must not offer
+    // the pay/waiver/photo cards for a slot that no longer exists.
+    expect(body.outstanding.payment).toBe(false);
+    expect(body.outstanding.waiver).toBe(false);
+    expect(body.outstanding.photo).toBe(false);
+    expect(body.amountDueCents).toBe(0);
+    expect(body.locationSlug).toBeNull();
+  });
+
+  it("cancelled booking with a refund on record: refunded true", async () => {
+    const { token, bookingId } = await startWalkIn("cancelled-refunded");
+
+    // The late-payment auto-refund path (handle-dropin-walkin-payment.ts)
+    // leaves the booking cancelled with a stripeRefundId recorded.
+    await getDb()
+      .update(dropInBookings)
+      .set({
+        status: "cancelled",
+        cancellationReason: "expired_payment_hold",
+        cancelledAt: new Date(),
+        stripePaymentIntentId: "pi_context_test",
+        stripeRefundId: "re_context_test",
+      })
+      .where(eq(dropInBookings.id, bookingId));
+
+    const res = await fetch(`${BASE}/api/self-serve/${token}`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+
+    expect(body.cancelled).toBe(true);
+    expect(body.refunded).toBe(true);
   });
 
   // Cancel + hard-delete the fixture session so it doesn't linger on the

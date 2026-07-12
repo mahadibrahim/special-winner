@@ -7,12 +7,13 @@
 import type { APIRoute } from "astro";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
+import { dropInBookings, dropInSessions, dropInRateCard } from "@/lib/db/schema/drop-in";
 import { fieldRentals } from "@/lib/db/schema/field-rentals";
 import { venues } from "@/lib/db/schema/teams";
 import { locations } from "@/lib/db/schema/organizations";
 import { verifyToken } from "@/lib/check-in/tokens-db";
 import { resolveSigner } from "@/lib/check-in/resolve-signer";
+import { resolveRate } from "@/lib/dropin/pricing";
 import { formatEmailDateTime, DEFAULT_TIMEZONE } from "@/lib/email/format";
 
 export const prerender = false;
@@ -56,6 +57,13 @@ export const GET: APIRoute = async ({ params }) => {
   // PayCard carries it as a prop even though the payment endpoint itself
   // only needs the token (targetId is re-derived server-side from it).
   let bookingId: string | null = null;
+  // True when the booking behind the token was cancelled (expiry sweep,
+  // admin cancel-hold, …). The page must render an honest "hold released"
+  // state — never the checked-in screen. `refunded` accompanies it: true
+  // when a Stripe refund is on record for the booking (the late-payment
+  // auto-refund in handle-dropin-walkin-payment.ts, or any other refund).
+  let cancelled = false;
+  let refunded = false;
 
   // drop_in_booking and walkin_session tokens both point at a dropInBookings
   // row (walk-in kiosk holds mint walkin_session; regular drop-in bookings
@@ -68,15 +76,16 @@ export const GET: APIRoute = async ({ params }) => {
       .select({
         status: dropInBookings.status,
         waiverSigned: dropInBookings.waiverSigned,
+        stripeRefundId: dropInBookings.stripeRefundId,
         startsAt: dropInSessions.startsAt,
         venueName: venues.name,
         timezone: locations.timezone,
         sportLabel: dropInSessions.sportOrClassLabel,
-        // Walk-up-rate-precedence, same derivation as
-        // src/pages/api/admin/check-in/event.ts:~95 — walk-up rate wins
-        // when set, else the session rate, else free.
-        walkUpRateCents: dropInSessions.walkUpRateCents,
+        // Rate-override fields for resolveRate below.
         sessionRateCents: dropInSessions.sessionRateCents,
+        memberRateCents: dropInSessions.memberRateCents,
+        walkUpRateCents: dropInSessions.walkUpRateCents,
+        organizationId: dropInSessions.organizationId,
         locationSlug: locations.slug,
       })
       .from(dropInBookings)
@@ -92,11 +101,34 @@ export const GET: APIRoute = async ({ params }) => {
         ? `Walk-in registration — ${b.sportLabel} on ${formatEmailDateTime(b.startsAt, b.timezone ?? DEFAULT_TIMEZONE)} at ${b.venueName}`
         : `${b.sportLabel} on ${formatEmailDateTime(b.startsAt, b.timezone ?? DEFAULT_TIMEZONE)} at ${b.venueName}`;
     spaceName = b.venueName;
-    outstanding.waiver = !b.waiverSigned;
-    outstanding.payment = b.status === "pending_payment";
-    if (outstanding.payment) {
-      amountDueCents = b.walkUpRateCents ?? b.sessionRateCents ?? 0;
-      locationSlug = b.locationSlug;
+    if (b.status === "cancelled") {
+      // Hold released (expiry sweep / admin cancel). Nothing is actionable
+      // — leave every outstanding flag false so the page can't offer the
+      // waiver/photo/pay cards for a slot that no longer exists.
+      cancelled = true;
+      refunded = b.stripeRefundId !== null;
+    } else {
+      outstanding.waiver = !b.waiverSigned;
+      outstanding.payment = b.status === "pending_payment";
+      if (outstanding.payment) {
+        // Amount must match what /api/kiosk/[locationSlug]/walkin/payment
+        // will actually charge — the SAME resolveRate(..., "walk_up") path
+        // (pricing.ts), NOT check-in/event.ts's walkUp ?? session fallback
+        // chain: the two diverge when the session has no walk-up override
+        // (resolveRate falls back to the rate card's default walk-up rate,
+        // not the session rate). Read-only here — payment.ts upserts the
+        // rate card on demand; a GET shouldn't write, so mirror its
+        // missing-card fallback constant instead.
+        const [rateCard] = await db
+          .select()
+          .from(dropInRateCard)
+          .where(eq(dropInRateCard.organizationId, b.organizationId))
+          .limit(1);
+        amountDueCents = rateCard
+          ? resolveRate(b, null, null, rateCard, "walk_up").amountCents
+          : 1700;
+        locationSlug = b.locationSlug;
+      }
     }
   } else if (tok.kind === "field_rental") {
     const [r] = await db
@@ -131,6 +163,8 @@ export const GET: APIRoute = async ({ params }) => {
       amountDueCents,
       locationSlug,
       bookingId,
+      cancelled,
+      refunded,
       expiresAt: tok.expiresAt,
     },
     200,

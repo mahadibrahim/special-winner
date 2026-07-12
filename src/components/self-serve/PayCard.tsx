@@ -15,12 +15,18 @@ import { ErrorBanner } from "@/components/ui/error-banner";
 // Mirrors src/components/kiosk/WalkInWizard.tsx's stripe-js loading —
 // module-level cache so repeated mounts (e.g. this card re-rendering while
 // SelfServe polls) reuse the same loadStripe() promise instead of
-// re-initializing Stripe.js.
+// re-initializing Stripe.js. Unlike the wizard, the promise is resolved
+// into state (see below) so a stripe.js load FAILURE renders an
+// ErrorBanner instead of a permanently blank card: a rejected promise
+// handed straight to <Elements> just leaves the form empty forever. A
+// rejected promise is also evicted from the cache so a retry re-attempts
+// the network load instead of replaying the cached failure.
 const stripePromiseCache = new Map<string, Promise<StripeJs | null>>();
 function getStripePromise(publishableKey: string): Promise<StripeJs | null> {
   let p = stripePromiseCache.get(publishableKey);
   if (!p) {
     p = loadStripe(publishableKey);
+    p.catch(() => stripePromiseCache.delete(publishableKey));
     stripePromiseCache.set(publishableKey, p);
   }
   return p;
@@ -67,6 +73,45 @@ export function PayCard({
   const [amounts, setAmounts] = useState<PaymentAmounts | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // Resolved stripe.js instance. Kept in state (not a raw promise handed
+  // to <Elements>) so load failures surface as an ErrorBanner.
+  const [stripeInstance, setStripeInstance] = useState<StripeJs | null>(null);
+  const [stripeLoadError, setStripeLoadError] = useState<string | null>(null);
+  // Bumping retries the stripe.js load after a failure (cache was evicted).
+  const [stripeLoadAttempt, setStripeLoadAttempt] = useState(0);
+
+  useEffect(() => {
+    if (!publishableKey) {
+      // Misconfiguration (env var missing) — an honest banner beats a
+      // blank card or a loadStripe throw.
+      setStripeLoadError(
+        "Payments aren't set up on this page. Please see the front desk to pay.",
+      );
+      return;
+    }
+    let cancelled = false;
+    setStripeLoadError(null);
+    getStripePromise(publishableKey)
+      .then((s) => {
+        if (cancelled) return;
+        if (!s) {
+          setStripeLoadError(
+            "The secure payment form couldn't be loaded. Please see the front desk to pay.",
+          );
+          return;
+        }
+        setStripeInstance(s);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setStripeLoadError(
+          "Couldn't load the secure payment form — check your connection and try again.",
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [publishableKey, stripeLoadAttempt]);
 
   useEffect(() => {
     if (!locationSlug) {
@@ -133,9 +178,24 @@ export function PayCard({
 
       <ErrorBanner message={loadError} onDismiss={() => setLoadError(null)} />
 
-      {!loading && clientSecret && (
+      {stripeLoadError && (
+        <div className="space-y-2">
+          <ErrorBanner message={stripeLoadError} />
+          {Boolean(publishableKey) && (
+            <button
+              type="button"
+              onClick={() => setStripeLoadAttempt((n) => n + 1)}
+              className="w-full px-4 py-2 rounded border bg-stone-50 text-sm"
+            >
+              Try again
+            </button>
+          )}
+        </div>
+      )}
+
+      {!loading && clientSecret && stripeInstance && (
         <Elements
-          stripe={getStripePromise(publishableKey)}
+          stripe={stripeInstance}
           options={{ clientSecret, appearance: { theme: "stripe" } }}
         >
           <PayCardForm
