@@ -159,6 +159,35 @@ export async function handleDropInCheckoutComplete(
       ? `${sessionRow.sportOrClassLabel} ${sessionRow.formatLabel}`
       : sessionRow.sportOrClassLabel;
 
+    // Duplicate-user guard, under the same session lock. Two reasons:
+    //   1. If this user already holds an ACTIVE row on the session, a second
+    //      insert would trip the partial unique index
+    //      (drop_in_bookings_one_active_per_user_session) and poison the
+    //      webhook with a permanent retry loop.
+    //   2. It's the backstop for redelivered events whose PaymentIntent is
+    //      no longer findable on the row: after an overflow booking is
+    //      promoted and claim-PAID (handle-dropin-claim-payment.ts), the
+    //      row's stripePaymentIntentId is replaced by the claim payment's
+    //      PI — a redelivery of the ORIGINAL checkout event then misses the
+    //      PI-based dedupe above and would re-insert here without this guard.
+    const [activeForUser] = await tx
+      .select({ id: dropInBookings.id, status: dropInBookings.status })
+      .from(dropInBookings)
+      .where(
+        and(
+          eq(dropInBookings.sessionId, sessionDbId),
+          eq(dropInBookings.userId, userId),
+          sql`${dropInBookings.status} IN ('confirmed', 'waitlisted', 'pending_claim', 'pending_payment')`,
+        ),
+      )
+      .limit(1);
+    if (activeForUser) {
+      return {
+        status: "skipped",
+        reason: `user ${userId} already has an active booking (${activeForUser.status}) on session ${sessionDbId}`,
+      };
+    }
+
     // Re-check capacity under the lock — the last-spot race. The customer
     // paid while the session filled up elsewhere; the shared gate treats
     // confirmed + pending_payment + pending_claim as occupying a seat.

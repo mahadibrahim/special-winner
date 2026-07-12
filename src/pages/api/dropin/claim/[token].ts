@@ -1,24 +1,44 @@
 /**
  * GET  /api/dropin/claim/:token  → returns the pending-claim booking
  *                                  metadata so the UI can show the user
- *                                  what they're claiming.
- * POST /api/dropin/claim/:token  → completes the claim. For free-path
- *                                  bookings the row already carries the
- *                                  paid state from earlier — we simply
- *                                  flip pending_claim → confirmed and
- *                                  clear the token. For paid claims the
- *                                  caller follows up with /api/dropin/bookings
- *                                  to get a Checkout Session URL using
- *                                  this booking row's amount.
+ *                                  what they're claiming — including
+ *                                  whether confirming REQUIRES PAYMENT.
+ * POST /api/dropin/claim/:token  → completes the claim.
  *
- * Token is one-time: clearing it on POST blocks replay.
+ * Payment semantics (the transactional capacity gate's overflow policy —
+ * see docs/superpowers/specs/2026-07-12-transactional-capacity-gate-design.md):
+ *
+ *   - A normal promoted waitlister's row carries whatever paid state it
+ *     had; the POST flips pending_claim → confirmed and clears the token.
+ *   - An overflow booking (paid Checkout that lost the last-spot race) was
+ *     REFUNDED in full when it was waitlisted — `stripeRefundId` is set.
+ *     Its `amountPaidCents` records the original charge, but that money
+ *     went BACK to the customer, so the row is NOT paid. For these rows:
+ *       · GET returns `paymentRequired: true` + `amountDueCents`
+ *       · a bare POST is REFUSED (422) — no free seat on a refunded charge
+ *       · POST with body `{ action: "pay" }` creates a Stripe Checkout
+ *         Session (metadata.type "dropin_claim_payment"; PaymentIntent
+ *         metadata routes payment_intent.succeeded to
+ *         handle-dropin-claim-payment.ts, which flips THIS row to
+ *         confirmed once the new charge settles) and returns
+ *         `{ paymentRequired: true, checkoutUrl }`.
+ *
+ * Token is one-time: clearing it on free-confirm POST blocks replay. For
+ * paid claims the token survives until the webhook confirms the row (the
+ * claim page must stay reachable while the customer is mid-checkout);
+ * the webhook clears it.
  */
 import type { APIRoute } from "astro";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
+import { dropInBookings, dropInSessions, dropInRateCard } from "@/lib/db/schema/drop-in";
 import { findClaimByToken } from "@/lib/dropin/promotion";
 import { assignTeam } from "@/lib/dropin/team-assignment";
+import { resolveRate } from "@/lib/dropin/pricing";
+import { getActiveMembershipForUser } from "@/lib/dropin/booking";
+import { createDropInCheckoutSession } from "@/lib/dropin/create-checkout";
+import { computeSurchargeCents } from "@/lib/payments/surcharge";
+import { stripe } from "@/lib/stripe/client";
 
 export const prerender = false;
 
@@ -40,6 +60,42 @@ async function loadClaimWithOrg(token: string) {
   return { row, sessionOrgId: session?.organizationId ?? null };
 }
 
+/** A refunded row's original charge went back to the customer — claiming
+ *  it requires paying again. `stripeRefundId` is the durable marker the
+ *  overflow refund stamps (and it is never cleared while the row is still
+ *  pending_claim), so this cannot flip back to "free" on a re-read. */
+function claimRequiresPayment(row: { stripeRefundId: string | null }): boolean {
+  return row.stripeRefundId !== null;
+}
+
+/** Resolve what a paying claimant owes: their personal rate (member rate
+ *  honored, same as a fresh booking) plus the card surcharge — identical
+ *  math to the checkout the pay action mints. */
+async function resolveAmountDueCents(row: {
+  sessionId: string;
+  userId: string;
+}): Promise<number | null> {
+  const db = getDb();
+  const [session] = await db
+    .select()
+    .from(dropInSessions)
+    .where(eq(dropInSessions.id, row.sessionId))
+    .limit(1);
+  if (!session) return null;
+  const [rateCard] = await db
+    .select()
+    .from(dropInRateCard)
+    .where(eq(dropInRateCard.organizationId, session.organizationId))
+    .limit(1);
+  if (!rateCard) return null;
+  const membership = await getActiveMembershipForUser(
+    row.userId,
+    session.organizationId,
+  );
+  const rate = resolveRate(session, { id: row.userId }, membership, rateCard);
+  return rate.amountCents + computeSurchargeCents(rate.amountCents, "card");
+}
+
 export const GET: APIRoute = async ({ params, locals }) => {
   const token = params.token;
   if (!token) return json({ error: "Token required" }, 400);
@@ -52,6 +108,11 @@ export const GET: APIRoute = async ({ params, locals }) => {
     return json({ error: "Token invalid" }, 404);
   }
 
+  const paymentRequired = claimRequiresPayment(row);
+  const amountDueCents = paymentRequired
+    ? await resolveAmountDueCents(row)
+    : null;
+
   return json(
     {
       bookingId: row.id,
@@ -59,13 +120,18 @@ export const GET: APIRoute = async ({ params, locals }) => {
       userId: row.userId,
       promotionExpiresAt: row.promotionExpiresAt,
       paymentMethod: row.paymentMethod,
+      // amountPaidCents records the ORIGINAL charge, which for refunded
+      // overflow rows went back to the customer — the UI must key its
+      // "already paid" copy on paymentRequired, not on this figure.
       amountPaidCents: row.amountPaidCents,
+      paymentRequired,
+      amountDueCents,
     },
     200,
   );
 };
 
-export const POST: APIRoute = async ({ params, locals }) => {
+export const POST: APIRoute = async ({ params, request, locals, url }) => {
   if (!locals.user) return json({ error: "Unauthorized" }, 401);
 
   const token = params.token;
@@ -81,6 +147,91 @@ export const POST: APIRoute = async ({ params, locals }) => {
     return json({ error: "This claim is for a different user" }, 403);
   }
 
+  // Body is optional (the original free-confirm contract sends none).
+  let action: string | null = null;
+  try {
+    const body = await request.json();
+    if (body && typeof body.action === "string") action = body.action;
+  } catch {
+    // No/invalid body → bare confirm attempt.
+  }
+
+  if (claimRequiresPayment(row)) {
+    // The original charge on this booking was refunded (overflow policy) —
+    // this seat is NOT paid for. Never free-confirm it.
+    if (action !== "pay") {
+      return json(
+        {
+          error:
+            "Your original payment for this session was refunded when it filled up, so this spot needs to be paid for before it can be confirmed.",
+          paymentRequired: true,
+        },
+        422,
+      );
+    }
+    if (!stripe) return json({ error: "Stripe not configured" }, 500);
+
+    const db = getDb();
+    const [session] = await db
+      .select()
+      .from(dropInSessions)
+      .where(eq(dropInSessions.id, row.sessionId))
+      .limit(1);
+    if (!session) return json({ error: "Session not found" }, 404);
+    const [rateCard] = await db
+      .select()
+      .from(dropInRateCard)
+      .where(eq(dropInRateCard.organizationId, session.organizationId))
+      .limit(1);
+    if (!rateCard) return json({ error: "Rate card not configured" }, 500);
+
+    const membership = await getActiveMembershipForUser(
+      locals.user.id,
+      session.organizationId,
+    );
+    const rate = resolveRate(session, locals.user, membership, rateCard);
+    const totalCents =
+      rate.amountCents + computeSurchargeCents(rate.amountCents, "card");
+
+    const checkout = await createDropInCheckoutSession({
+      db,
+      session,
+      user: { id: locals.user.id, email: locals.user.email },
+      rate,
+      // Waiver was signed with the original booking; carry it through for
+      // metadata completeness (the claim fulfillment path doesn't re-read it
+      // — the booking row already stores the signed waiver).
+      waiverSignedAt: row.waiverSignedAt ?? new Date(),
+      waiverName: row.waiverSignedBy ?? "On file",
+      origin: url.origin,
+      overrides: {
+        // checkout.session.completed for this type is deliberately ignored
+        // (no row insert — the row exists); fulfillment rides on
+        // payment_intent.succeeded → handle-dropin-claim-payment.ts.
+        metadataType: "dropin_claim_payment",
+        paymentIntentMetadata: {
+          type: "dropin_claim_payment",
+          booking_id: row.id,
+          session_id: row.sessionId,
+          organization_id: session.organizationId,
+        },
+        // One Checkout Session (→ one PaymentIntent) per booking+amount:
+        // a double-clicked Pay button reuses the same session instead of
+        // minting a second chargeable checkout.
+        idempotencyKey: `${row.id}:claim-pay:${totalCents}`,
+      },
+    });
+
+    return json(
+      {
+        paymentRequired: true,
+        checkoutUrl: checkout.checkoutUrl,
+        checkoutSessionId: checkout.checkoutSessionId,
+      },
+      200,
+    );
+  }
+
   const db = getDb();
   return await db.transaction(async (tx) => {
     // Re-lock the row inside the transaction.
@@ -92,6 +243,18 @@ export const POST: APIRoute = async ({ params, locals }) => {
       .for("update");
     if (!locked || locked.status !== "pending_claim") {
       return json({ error: "Claim no longer valid" }, 409);
+    }
+    // Re-check the payment discriminator under the lock — the unlocked read
+    // above could race the overflow refund/webhook stamping stripeRefundId.
+    if (claimRequiresPayment(locked)) {
+      return json(
+        {
+          error:
+            "Your original payment for this session was refunded when it filled up, so this spot needs to be paid for before it can be confirmed.",
+          paymentRequired: true,
+        },
+        422,
+      );
     }
 
     // Re-run team assignment with the now-current confirmed roster.

@@ -13,6 +13,12 @@ interface ClaimInfo {
   promotionExpiresAt: string;
   paymentMethod: string;
   amountPaidCents: number;
+  /** True when the row's original charge was refunded (overflow policy) —
+   *  confirming this claim requires paying again. */
+  paymentRequired: boolean;
+  /** What the claimant owes (personal rate + card surcharge) when
+   *  paymentRequired; null otherwise. */
+  amountDueCents: number | null;
 }
 
 interface ClaimPageProps {
@@ -83,6 +89,32 @@ export default function ClaimPage({ token, isAuthenticated }: ClaimPageProps) {
     }
   };
 
+  // Payment step for refunded (overflow) claims: the original charge went
+  // back to the customer when the session filled up, so confirming this
+  // spot means paying for it — the endpoint mints a Stripe Checkout Session
+  // and the webhook confirms the booking once the charge settles.
+  const payAndClaim = async () => {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/dropin/claim/${token}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "pay" }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.checkoutUrl) {
+        toast.error(json.error ?? "Could not start payment");
+        setBusy(false);
+        return;
+      }
+      window.location.href = json.checkoutUrl;
+      // No setBusy(false) on success — we're navigating away to Stripe.
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Network error");
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="max-w-md mx-auto space-y-6">
       <header>
@@ -104,10 +136,18 @@ export default function ClaimPage({ token, isAuthenticated }: ClaimPageProps) {
           )}
         </div>
 
-        {info.paymentMethod === "card_online" && info.amountPaidCents > 0 && (
+        {info.paymentRequired ? (
           <p className="text-sm text-stone-600">
-            Already paid — claim confirms your spot.
+            Your earlier payment was refunded when this session filled up —
+            pay now to lock in this spot.
           </p>
+        ) : (
+          info.paymentMethod === "card_online" &&
+          info.amountPaidCents > 0 && (
+            <p className="text-sm text-stone-600">
+              Already paid — claim confirms your spot.
+            </p>
+          )
         )}
 
         {!isAuthenticated && (
@@ -117,8 +157,20 @@ export default function ClaimPage({ token, isAuthenticated }: ClaimPageProps) {
         )}
 
         {isAuthenticated && (
-          <Button onClick={claim} disabled={busy || expired} className="w-full">
-            {busy ? "Working…" : expired ? "Expired" : "Confirm my spot"}
+          <Button
+            onClick={info.paymentRequired ? payAndClaim : claim}
+            disabled={busy || expired}
+            className="w-full"
+          >
+            {busy
+              ? "Working…"
+              : expired
+                ? "Expired"
+                : info.paymentRequired
+                  ? info.amountDueCents != null
+                    ? `Pay $${(info.amountDueCents / 100).toFixed(2)} & confirm`
+                    : "Pay & confirm"
+                  : "Confirm my spot"}
           </Button>
         )}
 

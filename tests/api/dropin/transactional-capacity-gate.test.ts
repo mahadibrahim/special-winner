@@ -43,7 +43,8 @@ import { createConfirmedBookingFreePath } from "@/lib/dropin/booking";
 import { promoteNextWaitlister } from "@/lib/dropin/promotion";
 import { processCancelRefund } from "@/lib/dropin/refund";
 import { handleDropInCheckoutComplete } from "@/lib/stripe/handle-dropin-checkout-complete";
-import { apiFetch } from "../setup/test-helpers";
+import { handleDropInClaimPayment } from "@/lib/stripe/handle-dropin-claim-payment";
+import { apiFetch, getParentCookie } from "../setup/test-helpers";
 import {
   createTestDropInSession,
   resolveDefaultOrgForHttpTests,
@@ -394,6 +395,9 @@ describe("promoteNextWaitlister honors waitlistPriority", () => {
       .returning();
 
     // Overflow-refund join — priority 100, created LATER than `early`.
+    // stripeRefundId is set: only refund-SETTLED overflow rows are
+    // promotable (unsettled ones are deliberately skipped — see the
+    // dedicated refund-failure test below).
     await new Promise((resolve) => setTimeout(resolve, 5));
     const overflow = await insertTestUser("prio-overflow");
     const [overflowRow] = await getDb()
@@ -406,6 +410,8 @@ describe("promoteNextWaitlister honors waitlistPriority", () => {
         paymentMethod: "card_online",
         amountPaidCents: 1500,
         waitlistPriority: 100,
+        stripePaymentIntentId: `pi_test_prio_${Date.now()}`,
+        stripeRefundId: `re_test_prio_${Date.now()}`,
       })
       .returning();
 
@@ -431,6 +437,252 @@ describe("promoteNextWaitlister honors waitlistPriority", () => {
     const nextPromotion = await promoteNextWaitlister(ctx.sessionId);
     expect(nextPromotion.promoted).toBe(true);
     expect(nextPromotion.bookingId).toBe(earlyRow.id);
+  });
+});
+
+describe("refunded overflow claim requires payment (C1 regression)", () => {
+  // The invariant set under test: a customer ends in exactly one of
+  // paid-and-confirmed OR refunded-and-must-pay-to-confirm. An overflow
+  // booking was REFUNDED when it was waitlisted — promoting it must not
+  // hand the seat over for free just because amountPaidCents records the
+  // (returned) original charge.
+  it("full flow: overflow → refund settles → promote → claim REQUIRES payment → claim payment confirms", async () => {
+    refundCreateMock.mockClear();
+    const fakeRefundId = `re_test_c1_${Date.now()}`;
+    refundCreateMock.mockResolvedValue({ id: fakeRefundId });
+
+    // The overflow customer is the parent fixture user — the claim POST is
+    // auth-gated to the booking's owner, and the parent is the only seeded
+    // account this suite can sign in as over HTTP.
+    const parentCookie = await getParentCookie();
+    const [parentUser] = await getDb()
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, "parent@test.aspiresports.com"))
+      .limit(1);
+    expect(parentUser).toBeDefined();
+
+    // Session must live in the org that HTTP requests to localhost resolve
+    // to — the claim endpoints are multi-tenant-guarded.
+    const defaultOrg = await resolveDefaultOrgForHttpTests();
+    const ctx = await createTestDropInSession({
+      organizationId: defaultOrg.organizationId,
+      venueId: defaultOrg.venueId,
+      capacity: 1,
+      sessionRateCents: 1500,
+      sportOrClassLabel: `claim-pay-c1-${Date.now()}`,
+    });
+
+    // Someone else takes the only seat; the parent's paid Checkout then
+    // completes → overflow: waitlisted front-of-line + auto-refunded.
+    const seatHolder = await insertTestUser("c1-seatholder");
+    await insertConfirmedRow(ctx.sessionId, seatHolder.id, 1500);
+
+    const originalPiId = `pi_test_c1_${Date.now()}`;
+    const overflowResult = await handleDropInCheckoutComplete(
+      makeDropinCheckoutSession({
+        checkoutSessionId: `cs_test_c1_${Date.now()}`,
+        paymentIntentId: originalPiId,
+        dropInSessionId: ctx.sessionId,
+        userId: parentUser.id,
+        amountTotal: 1500,
+      }),
+    );
+    expect(overflowResult.status).toBe("overflow");
+    if (overflowResult.status !== "overflow") throw new Error("expected overflow");
+
+    // The seat frees up → the refund-settled overflow row is promoted.
+    const seatRow = await getDb()
+      .select()
+      .from(dropInBookings)
+      .where(eq(dropInBookings.sessionId, ctx.sessionId));
+    const seatBookingId = seatRow.find((r) => r.status === "confirmed")!.id;
+    const cancel = await processCancelRefund(seatBookingId, {});
+    expect(cancel.ok).toBe(true);
+    expect(cancel.promotedNextBookingId).toBe(overflowResult.bookingId);
+
+    const promoted = await getBookingById(overflowResult.bookingId);
+    expect(promoted.status).toBe("pending_claim");
+    expect(promoted.promotionToken).toBeTruthy();
+    expect(promoted.stripeRefundId).toBe(fakeRefundId);
+    const token = promoted.promotionToken!;
+
+    // GET: the claim advertises that payment is required — NOT "already
+    // paid" (the recorded amountPaidCents was refunded).
+    const getRes = await apiFetch(`/api/dropin/claim/${token}`);
+    expect(getRes.status).toBe(200);
+    const getBody = await getRes.json();
+    expect(getBody.paymentRequired).toBe(true);
+    expect(getBody.amountDueCents).toBeGreaterThan(0);
+
+    // POST (bare free-confirm) — REFUSED. This is the exact free-seat bug:
+    // before the fix this flipped the row to confirmed without recharging.
+    const freeConfirm = await apiFetch(`/api/dropin/claim/${token}`, {
+      method: "POST",
+      cookie: parentCookie,
+    });
+    expect(freeConfirm.status).toBe(422);
+    const freeBody = await freeConfirm.json();
+    expect(freeBody.paymentRequired).toBe(true);
+    expect(freeBody.error).toMatch(/refunded/i);
+
+    const stillPending = await getBookingById(overflowResult.bookingId);
+    expect(stillPending.status).toBe("pending_claim"); // NOT confirmed
+
+    // Claim payment settles (fulfillment rides payment_intent.succeeded →
+    // handleDropInClaimPayment; the checkout minting itself needs a live
+    // Stripe client and is exercised at the endpoint level in dev/staging).
+    const claimPiId = `pi_test_c1_claim_${Date.now()}`;
+    const paid = await handleDropInClaimPayment({
+      id: claimPiId,
+      metadata: { type: "dropin_claim_payment", booking_id: overflowResult.bookingId },
+      amount_received: 1545,
+      amount: 1545,
+    } as unknown as Stripe.PaymentIntent);
+    expect(paid.status).toBe("processed");
+
+    const confirmed = await getBookingById(overflowResult.bookingId);
+    expect(confirmed.status).toBe("confirmed");
+    expect(confirmed.amountPaidCents).toBe(1545);
+    expect(confirmed.stripePaymentIntentId).toBe(claimPiId);
+    // The stale refund marker belongs to the ORIGINAL payment — cleared so
+    // the row doesn't lie about its live charge.
+    expect(confirmed.stripeRefundId).toBeNull();
+    expect(confirmed.promotionToken).toBeNull();
+    expect(confirmed.promotionExpiresAt).toBeNull();
+  });
+});
+
+describe("unsettled overflow refunds block promotion (I1)", () => {
+  it("refund fails → row NOT promoted while a later priority-0 waitlister is → redelivery refunds → row promotable", async () => {
+    refundCreateMock.mockClear();
+    refundCreateMock.mockRejectedValueOnce(new Error("stripe outage"));
+    const fakeRefundId = `re_test_i1_${Date.now()}`;
+    refundCreateMock.mockResolvedValueOnce({ id: fakeRefundId });
+
+    const ctx = await createTestDropInSession({ capacity: 1, sessionRateCents: 1500 });
+    const seatHolder = await insertTestUser("i1-seatholder");
+    const seatRow = await insertConfirmedRow(ctx.sessionId, seatHolder.id, 1500);
+
+    // Overflow whose refund FAILS — charged, waitlisted, NOT refunded.
+    const overflowUser = await insertTestUser("i1-overflow");
+    const paymentIntentId = `pi_test_i1_${Date.now()}`;
+    const checkoutSession = makeDropinCheckoutSession({
+      checkoutSessionId: `cs_test_i1_${Date.now()}`,
+      paymentIntentId,
+      dropInSessionId: ctx.sessionId,
+      userId: overflowUser.id,
+      amountTotal: 1500,
+    });
+    const overflowResult = await handleDropInCheckoutComplete(checkoutSession);
+    expect(overflowResult.status).toBe("overflow");
+    if (overflowResult.status !== "overflow") throw new Error("expected overflow");
+    let overflowRow = await getBookingById(overflowResult.bookingId);
+    expect(overflowRow.stripeRefundId).toBeNull();
+
+    // A voluntary waitlister joins LATER at priority 0.
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const voluntary = await insertTestUser("i1-voluntary");
+    const [voluntaryRow] = await getDb()
+      .insert(dropInBookings)
+      .values({
+        sessionId: ctx.sessionId,
+        userId: voluntary.id,
+        status: "waitlisted",
+        source: "online_booking",
+        paymentMethod: "card_online",
+        amountPaidCents: 0,
+        waitlistPriority: 0,
+      })
+      .returning();
+
+    // Seat frees → promotion must SKIP the unsettled overflow row (its
+    // payment is still held and scheduled for the redelivery-retry refund;
+    // promoting it would both hand out a claim against doomed money AND
+    // move it out of `waitlisted`, the status the retry branch matches).
+    const cancel = await processCancelRefund(seatRow.id, {});
+    expect(cancel.ok).toBe(true);
+    expect(cancel.promotedNextBookingId).toBe(voluntaryRow.id);
+
+    overflowRow = await getBookingById(overflowResult.bookingId);
+    expect(overflowRow.status).toBe("waitlisted"); // skipped, still waiting
+
+    // Webhook redelivery retries the refund — and the row must still be in
+    // the status the retry branch matches (waitlisted).
+    const redelivery = await handleDropInCheckoutComplete(checkoutSession);
+    expect(redelivery.status).toBe("skipped");
+    if (redelivery.status !== "skipped") throw new Error("expected skipped");
+    expect(redelivery.reason).toContain("retried overflow refund");
+
+    overflowRow = await getBookingById(overflowResult.bookingId);
+    expect(overflowRow.stripeRefundId).toBe(fakeRefundId);
+
+    // With the refund settled the row is promotable again — it's the only
+    // remaining waitlisted row, and the promotion no longer skips it.
+    const promo = await promoteNextWaitlister(ctx.sessionId);
+    expect(promo.promoted).toBe(true);
+    expect(promo.bookingId).toBe(overflowResult.bookingId);
+  });
+});
+
+describe("original-checkout redelivery after a claim payment (duplicate-user guard)", () => {
+  it("skips without inserting a duplicate row once the claim payment replaced the row's PaymentIntent", async () => {
+    refundCreateMock.mockClear();
+    refundCreateMock.mockResolvedValue({ id: `re_test_guard_${Date.now()}` });
+
+    const ctx = await createTestDropInSession({ capacity: 1, sessionRateCents: 1500 });
+    const seatHolder = await insertTestUser("guard-seatholder");
+    const seatRow = await insertConfirmedRow(ctx.sessionId, seatHolder.id, 1500);
+
+    const overflowUser = await insertTestUser("guard-overflow");
+    const originalPiId = `pi_test_guard_${Date.now()}`;
+    const checkoutSession = makeDropinCheckoutSession({
+      checkoutSessionId: `cs_test_guard_${Date.now()}`,
+      paymentIntentId: originalPiId,
+      dropInSessionId: ctx.sessionId,
+      userId: overflowUser.id,
+      amountTotal: 1500,
+    });
+    const overflowResult = await handleDropInCheckoutComplete(checkoutSession);
+    expect(overflowResult.status).toBe("overflow");
+    if (overflowResult.status !== "overflow") throw new Error("expected overflow");
+
+    // Seat frees → refund-settled row promotes → claim payment confirms it
+    // (replacing the row's stripePaymentIntentId with the claim PI).
+    await processCancelRefund(seatRow.id, {});
+    const claimPiId = `pi_test_guard_claim_${Date.now()}`;
+    const paid = await handleDropInClaimPayment({
+      id: claimPiId,
+      metadata: { type: "dropin_claim_payment", booking_id: overflowResult.bookingId },
+      amount_received: 1545,
+      amount: 1545,
+    } as unknown as Stripe.PaymentIntent);
+    expect(paid.status).toBe("processed");
+
+    const rowCountBefore = (
+      await getDb()
+        .select()
+        .from(dropInBookings)
+        .where(eq(dropInBookings.sessionId, ctx.sessionId))
+    ).length;
+
+    // Redelivery of the ORIGINAL checkout event: its PI is no longer on any
+    // row (the claim payment replaced it), so the PI-based dedupe misses —
+    // the duplicate-user guard must catch it before it re-inserts.
+    const redelivery = await handleDropInCheckoutComplete(checkoutSession);
+    expect(redelivery.status).toBe("skipped");
+    if (redelivery.status !== "skipped") throw new Error("expected skipped");
+    expect(redelivery.reason).toContain("already has an active booking");
+
+    const rowsAfter = await getDb()
+      .select()
+      .from(dropInBookings)
+      .where(eq(dropInBookings.sessionId, ctx.sessionId));
+    expect(rowsAfter).toHaveLength(rowCountBefore); // no duplicate row
+    const confirmed = rowsAfter.filter((r) => r.status === "confirmed");
+    expect(confirmed).toHaveLength(1);
+    expect(confirmed[0].id).toBe(overflowResult.bookingId);
+    expect(confirmed[0].stripePaymentIntentId).toBe(claimPiId);
   });
 });
 

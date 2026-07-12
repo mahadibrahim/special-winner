@@ -59,6 +59,29 @@
  *                                      line — a webhook redelivery will also
  *                                      retry automatically (see
  *                                      handle-dropin-checkout-complete.ts).
+ *                                      NOTE: a manual dashboard refund does
+ *                                      NOT stamp the row's stripe_refund_id,
+ *                                      and un-stamped overflow rows are
+ *                                      deliberately excluded from waitlist
+ *                                      promotion — after refunding manually,
+ *                                      also set the row's stripe_refund_id to
+ *                                      the refund id so the customer becomes
+ *                                      promotable again.
+ *   - `dropin_claim_late_payment_refunded` — A claim payment (paying to
+ *                                      confirm a promoted overflow booking —
+ *                                      see handle-dropin-claim-payment.ts)
+ *                                      settled after the claim was swept, or
+ *                                      the seat was already bought by a
+ *                                      different payment. The charge was
+ *                                      auto-refunded in full — no manual
+ *                                      action needed, but money moved.
+ *   - `dropin_claim_late_refund_failed` — Same claim-payment case, but the
+ *                                      auto-refund threw (or Stripe wasn't
+ *                                      configured). The customer was CHARGED
+ *                                      for a seat they don't have. Manual
+ *                                      refund needed via the Stripe dashboard
+ *                                      using the `stripePaymentIntentId` in
+ *                                      the log line.
  */
 
 export type AlertTag =
@@ -67,6 +90,8 @@ export type AlertTag =
   | "dropin_late_refund_failed"
   | "dropin_overflow_refunded"
   | "dropin_overflow_refund_failed"
+  | "dropin_claim_late_payment_refunded"
+  | "dropin_claim_late_refund_failed"
   | "rental_late_refund_failed";
 
 export type AlertContext = Record<string, unknown>;
