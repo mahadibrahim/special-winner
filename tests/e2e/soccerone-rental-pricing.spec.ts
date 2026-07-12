@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test"
 import { waitForHydration } from "../utils/test-helpers"
 
 // SoccerOne is resolved by host; soccerone.localhost is a valid dev host.
-// The SoccerOne org isn't in the CI seed (provisioned by scripts/seed-soccerone-org.ts),
+// The SoccerOne org IS seeded in CI (npm run seed:soccerone via .github/actions/setup),
 // so when availability isn't present we skip rather than fail.
 const BASE = (process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:4321").replace("localhost", "soccerone.localhost")
 

@@ -44,6 +44,7 @@ Every page `<head>` must include:
 - **Section labels**: `text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted` (e.g., "§ COACH DASHBOARD")
 - **Drop cap**: Add `.drop-cap` class for editorial first-paragraph treatment
 - **Rule lines**: `.rule` (thin border divider), `.rule-heavy` (2px ink)
+- **No eyebrow text**: Do not place kicker/eyebrow labels above headlines unless absolutely necessary. Headlines and supporting copy carry the message on their own. When status, date, or audience info must surface near a heading, use one of these treatments instead: a status chip docked to the card/section corner, the info woven into the meta row or first sentence of copy, or a bare accent bar with no text. Data labels inside key-value blocks and captions under content are fine — this rule targets text above headlines. (App-chrome "§" section labels above are navigation, not eyebrows, and remain allowed.)
 
 **Do not use**: Inter, Roboto, Arial, Geist, or system-ui as primary fonts.
 

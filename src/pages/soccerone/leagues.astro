@@ -16,6 +16,13 @@ let seasons: any[] = [];
 try {
   const url = new URL('/api/public/seasons', Astro.url);
   url.searchParams.set('audience', audience);
+  // Dev-only guard: Astro.url reconstructs from the forwarded Host header,
+  // so a port-less Host (e.g. `curl -H "Host: soccerone.localhost"`) yields
+  // port 80 and the self-fetch misses the dev server. Pin the dev port.
+  // Do NOT rewrite the hostname to localhost: undici silently drops an
+  // explicit Host header (forbidden fetch header), so the tenant must stay
+  // in the URL or org resolution falls back to the default org.
+  if (url.hostname.endsWith('.localhost') && !url.port) url.port = '4321';
   const res = await fetch(url, {
     headers: { Host: Astro.request.headers.get('host') ?? '' },
   });
