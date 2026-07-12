@@ -1,7 +1,5 @@
 import {
   Calendar,
-  ClipboardCheck,
-  UserPlus,
   Search,
   Inbox,
   Megaphone,
@@ -19,13 +17,18 @@ import type { NavGroup } from "./nav-super-admin";
 // Venue-manager sidebar. Every item's data is scoped to the manager's locations
 // via getEffectiveLocationIds. Grouped for scanability; Casual play / Rosters /
 // Reports items are added by sub-project-2 Tasks 2–4 as their pages land.
+//
+// Check-in and walk-up registration used to be separate nav entries pointing
+// at their own pages. Both flows now live inside the command center
+// (/admin/venue) as panels, so Command center is the single front-desk
+// entry point. The old pages still exist as 308 redirects to /admin/venue
+// for bookmarks in the wild — see src/pages/admin/venue/check-in/index.astro
+// and src/pages/admin/venue/walk-up.astro.
 export const VENUE_MANAGER_NAV: NavGroup[] = [
   {
     name: "Front desk",
     items: [
       { name: "Command center", href: "/admin/venue", icon: Calendar },
-      { name: "Check-in", href: "/admin/venue/check-in", icon: ClipboardCheck },
-      { name: "Walk-up reg", href: "/admin/venue/walk-up", icon: UserPlus },
     ],
   },
   {
