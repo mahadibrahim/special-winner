@@ -24,6 +24,16 @@ export interface RateCard {
   defaultWalkUpRateCents: number;
 }
 
+/**
+ * Fallback walk-up rate for the narrow window where a caller needs a price
+ * before any `dropInRateCard` row exists for the org. Mirrors
+ * `dropInRateCard.defaultWalkUpRateCents`'s own schema default (see
+ * `src/lib/db/schema/drop-in.ts`) — kept as one named constant instead of
+ * the literal `1700` repeated across `walkin/start.ts`, `walkin/payment.ts`,
+ * and the self-serve token context endpoint.
+ */
+export const DEFAULT_WALK_UP_RATE_CENTS = 1700;
+
 export interface SessionRateOverrides {
   sessionRateCents: number | null;
   memberRateCents: number | null;

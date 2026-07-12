@@ -5,13 +5,17 @@
  *
  * Step 1: Who's playing? (adult / child, name, DOB, contact)
  * Step 2: Waiver (sign on device / text link)
- * Step 3: How they'll finish signing up (email|SMS a waiver link, or kiosk self-pay hand-off)
+ * Step 3: How they'll finish signing up (email|SMS a pay link, or kiosk self-pay hand-off)
  *
  * On submit: POST /api/kiosk/[locationId]/walkin/start with walkInToPayload(...).
  * The locationId doubles as the [locationSlug] param — the kiosk auth resolves
  * UUIDs as well as human slugs (see kiosk-auth.ts).
  *
  * For payment method "link": show a success state with the self-serve URL.
+ * The link is a real pay link — the same walkin_session token PayCard
+ * serves collects the waiver, a photo, AND payment, and the hold behind it
+ * genuinely lasts 2 hours (see docs/superpowers/plans/
+ * 2026-07-12-walkin-remote-payment.md, Task 6 + Task 7).
  * For payment method "kiosk": show a hand-off instruction (go to kiosk device).
  * On success: call onDone() so the roster panel refetches.
  */
@@ -227,11 +231,16 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
       if (payMethod === "link_email" || payMethod === "link_sms") {
         const channel = payMethod === "link_email" ? "email" : "sms";
         try {
+          // kind MUST be "walkin_session" — that's the token kind
+          // walkin/start.ts already minted for this booking (returned as
+          // body.url below) and the ONLY kind /walkin/payment.ts accepts.
+          // A "drop_in_booking"-kind token here would mint a DIFFERENT,
+          // waiver/photo-only token that PayCard can never pay against.
           const sendRes = await fetch("/api/admin/check-in/send-link", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              kind: "drop_in_booking",
+              kind: "walkin_session",
               targetId: bookingId,
               channel,
             }),
@@ -285,7 +294,8 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
                 Hand off to kiosk device
               </h3>
               <p className="text-sm text-[#4b463e] max-w-xs">
-                The booking is created. Hand the device to{" "}
+                The booking is created and held for 2 hours. Hand the device
+                to{" "}
                 <strong>
                   {form.firstName} {form.lastName}
                 </strong>{" "}
@@ -308,10 +318,10 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
               {result.sent ? (
                 <>
                   <h3 className="text-lg font-bold text-[#1c1a17]">
-                    Waiver link sent
+                    Pay link sent
                   </h3>
                   <p className="text-sm text-[#4b463e] max-w-xs">
-                    Sent the waiver link to{" "}
+                    Sent the pay link to{" "}
                     <strong>
                       {form.firstName} {form.lastName}
                     </strong>{" "}
@@ -331,9 +341,10 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
                         : form.phone
                           ? `SMS (${form.phone})`
                           : "SMS"}
-                    . The slot is held until it&apos;s paid or released from the roster. Collect{" "}
-                    <strong>{amtStr}</strong> when they arrive (kiosk self-pay
-                    or desk).
+                    . They can sign, add a photo, and pay{" "}
+                    <strong>{amtStr}</strong> right from their phone — the
+                    slot is held for 2 hours. If it&apos;s not paid by then,
+                    it releases back to the schedule.
                   </p>
                 </>
               ) : (
@@ -346,7 +357,7 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
                     className="text-sm text-amber-900 max-w-xs bg-amber-50 border border-amber-200 rounded-lg px-3 py-2"
                   >
                     We couldn&apos;t {result.method === "link_sms" ? "text" : "email"} the
-                    waiver link
+                    pay link
                     {result.method === "link_sms" && !hasPhone
                       ? " (no mobile number was entered)"
                       : ""}
@@ -354,9 +365,10 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
                     <strong>
                       {form.firstName} {form.lastName}
                     </strong>{" "}
-                    — the slot stays held until it&apos;s paid or released from
-                    the roster. Payment is collected when they arrive (kiosk
-                    self-pay or desk).
+                    — they can sign, add a photo, and pay{" "}
+                    <strong>{amtStr}</strong> right from their phone. The slot
+                    is held for 2 hours; if it&apos;s not paid by then, it
+                    releases back to the schedule.
                   </div>
                 </>
               )}
@@ -503,7 +515,7 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
                 />
               </div>
               <div>
-                <FieldLabel>Mobile (for waiver link + receipt)</FieldLabel>
+                <FieldLabel>Mobile (for pay link + receipt)</FieldLabel>
                 <TextInput
                   value={form.phone}
                   onChange={(v) => set("phone", v)}
@@ -628,16 +640,16 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
                 {
                   method: "link_email" as PayMethod,
                   icon: "📧",
-                  title: "Email a waiver link",
+                  title: "Email a pay link",
                   subtitle:
-                    "They sign on their phone; slot holds until it's paid or released — collect payment at the desk or kiosk",
+                    "They sign, add a photo, and pay right from their phone — slot held for 2 hours",
                 },
                 {
                   method: "link_sms" as PayMethod,
                   icon: "📲",
-                  title: "Text a waiver link",
+                  title: "Text a pay link",
                   subtitle:
-                    "They sign on their phone; slot holds until it's paid or released — collect payment at the desk or kiosk",
+                    "They sign, add a photo, and pay right from their phone — slot held for 2 hours",
                 },
                 {
                   method: "kiosk" as PayMethod,
@@ -697,11 +709,11 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
               : payMethod === "kiosk"
                 ? "Create booking & hand off to kiosk ›"
                 : payMethod === "link_email"
-                  ? "Create booking & email waiver link ›"
-                  : "Create booking & text waiver link ›"}
+                  ? "Create booking & email pay link ›"
+                  : "Create booking & text pay link ›"}
           </button>
           <p className="text-[11.5px] text-[#8a8175] text-center mt-2">
-            On success: added to the roster, slot held for payment.
+            On success: added to the roster, slot held for 2 hours or until paid.
           </p>
         </div>
       </form>

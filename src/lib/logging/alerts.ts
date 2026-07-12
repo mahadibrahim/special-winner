@@ -26,10 +26,26 @@
  *                                      We tried to auto-refund and it threw.
  *                                      The customer was CHARGED for a slot
  *                                      they don't have. Manual refund needed.
+ *   - `dropin_late_payment_refunded` — A walk-in payment settled AFTER the
+ *                                      expiry sweep cancelled the hold
+ *                                      (customer paid mid-sweep). The charge
+ *                                      was auto-refunded in full — no manual
+ *                                      action needed, but the on-call human
+ *                                      should know money moved: the customer
+ *                                      paid for a slot they no longer have.
+ *   - `dropin_late_refund_failed`    — Same late-payment-on-swept-hold case,
+ *                                      but the auto-refund threw (or Stripe
+ *                                      wasn't configured). The customer was
+ *                                      CHARGED for a released slot. Manual
+ *                                      refund needed via the Stripe dashboard
+ *                                      using the `stripePaymentIntentId` in
+ *                                      the log line.
  */
 
 export type AlertTag =
   | "dropin_refund_failed"
+  | "dropin_late_payment_refunded"
+  | "dropin_late_refund_failed"
   | "rental_late_refund_failed";
 
 export type AlertContext = Record<string, unknown>;

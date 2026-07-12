@@ -174,7 +174,9 @@ export const POST: APIRoute = async (context) => {
     .limit(1);
   if (
     existingBooking &&
-    ["confirmed", "waitlisted", "pending_claim"].includes(existingBooking.status)
+    ["confirmed", "waitlisted", "pending_payment", "pending_claim"].includes(
+      existingBooking.status,
+    )
   ) {
     return json(
       {

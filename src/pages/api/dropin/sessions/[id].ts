@@ -26,7 +26,10 @@ import { stripe } from "@/lib/stripe/client";
 
 export const prerender = false;
 
-const ACTIVE_BOOKING_STATUSES = ["confirmed", "waitlisted", "pending_claim"];
+// pending_payment (kiosk walk-in hold) is included so a customer who
+// already holds a walk-in hold sees "already booked" instead of a duplicate
+// "Book now" CTA on the public session page — see BookButton.tsx.
+const ACTIVE_BOOKING_STATUSES = ["confirmed", "waitlisted", "pending_payment", "pending_claim"];
 
 const json = (body: unknown, status: number) =>
   new Response(JSON.stringify(body), {
@@ -56,9 +59,17 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
     return json({ error: "Forbidden" }, 403);
   }
 
+  // confirmedCount backs the capacity meter AND the "is this session full"
+  // check the public page uses to switch the CTA to "Join waitlist" — it
+  // must count every status that actually occupies a slot, not just
+  // 'confirmed'. A pending_payment walk-in hold or a pending_claim promoted
+  // waitlister both hold a real seat (the sweep in expireOverduePromotions
+  // is what releases it, nothing before that) — undercounting here would
+  // let a guest see room that doesn't exist and try to book into an
+  // already-held slot.
   const [counts] = await db
     .select({
-      confirmedCount: sql<number>`COUNT(*) FILTER (WHERE status = 'confirmed')::int`,
+      confirmedCount: sql<number>`COUNT(*) FILTER (WHERE status IN ('confirmed', 'pending_payment', 'pending_claim'))::int`,
       waitlistCount: sql<number>`COUNT(*) FILTER (WHERE status IN ('waitlisted', 'pending_claim'))::int`,
     })
     .from(dropInBookings)

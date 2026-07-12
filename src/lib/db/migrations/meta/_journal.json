@@ -589,6 +589,13 @@
       "when": 1783799508853,
       "tag": "0083_many_surge",
       "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1783859749932,
+      "tag": "0084_bouncy_night_thrasher",
+      "breakpoints": true
     }
   ]
 }

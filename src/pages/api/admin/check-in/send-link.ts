@@ -24,6 +24,7 @@ const VALID_KINDS: SelfServiceKind[] = [
   "drop_in_booking",
   "field_rental",
   "roster_entry",
+  "walkin_session",
 ];
 const VALID_CHANNELS = ["email", "sms", "qr"] as const;
 type Channel = (typeof VALID_CHANNELS)[number];
@@ -68,6 +69,13 @@ export const POST: APIRoute = async (context) => {
   if (channel === "sms" && !signer.recipientPhone)
     return json({ error: "No phone on file for the signer" }, 422);
 
+  // walkin_session is the pay-link kind PayCard actually serves — its hold
+  // (and its own original token, minted by walkin/start.ts) both live for
+  // 2h, not the default 6h. Pass the same TTL here so a resend that has to
+  // mint fresh (the rare case where the original token already expired)
+  // doesn't outlive the hold it pays for. mintToken reuses the live token
+  // from walkin/start.ts in the ordinary case, so this only matters on the
+  // fresh-mint fallback path.
   const token = await mintToken({
     kind,
     targetId,
@@ -78,17 +86,36 @@ export const POST: APIRoute = async (context) => {
     recipientEmail: signer.recipientEmail,
     recipientPhone: signer.recipientPhone,
     createdByUserId: auth.user.id,
+    ...(kind === "walkin_session" ? { ttlHours: 2 } : {}),
   });
 
   const appUrl = import.meta.env.PUBLIC_APP_URL ?? "http://localhost:4321";
   const url = `${appUrl}/self-serve/${token.token}`;
 
+  // walkin_session's link collects payment (PayCard) alongside waiver +
+  // photo — say so honestly. The other kinds (regular drop-in bookings,
+  // field rentals, roster entries) never mint a pending-payment token, so
+  // their copy stays waiver/photo-only.
+  const isPayLink = kind === "walkin_session";
+  const emailSubject = isPayLink
+    ? "Complete payment to keep your spot"
+    : "Finish your booking — quick waiver and photo";
+  const emailBody = isPayLink
+    ? `<p>Hi ${signer.displayName},</p><p>Your spot is being held. <a href="${url}">Tap here to sign, add a photo, and pay</a> to keep it.</p><p>The hold lasts 2 hours from when it was created — link expires in 2 hours.<br>— Aspire Sports</p>`
+    : `<p>Hi ${signer.displayName},</p><p>A few quick items remain for your booking. <a href="${url}">Tap here to finish</a>.</p><p>Link expires in 6 hours.<br>— Aspire Sports</p>`;
+  const emailText = isPayLink
+    ? `Hi ${signer.displayName},\n\nYour spot is being held. Tap below to sign, add a photo, and pay to keep it:\n${url}\n\nThe hold lasts 2 hours from when it was created — link expires in 2 hours.\n— Aspire Sports`
+    : `Hi ${signer.displayName},\n\nA few quick items remain for your booking. Tap below to finish:\n${url}\n\nLink expires in 6 hours.\n— Aspire Sports`;
+  const smsBody = isPayLink
+    ? `${signer.displayName}: your spot is held for 2 hours — sign, add a photo, and pay here: ${url}`
+    : `${signer.displayName}: finish your Aspire Sports booking (waiver + photo): ${url}`;
+
   if (channel === "email") {
     const r = await sendEmail({
       to: signer.recipientEmail!,
-      subject: "Finish your booking — quick waiver and photo",
-      html: `<p>Hi ${signer.displayName},</p><p>A few quick items remain for your booking. <a href="${url}">Tap here to finish</a>.</p><p>Link expires in 6 hours.<br>— Aspire Sports</p>`,
-      text: `Hi ${signer.displayName},\n\nA few quick items remain for your booking. Tap below to finish:\n${url}\n\nLink expires in 6 hours.\n— Aspire Sports`,
+      subject: emailSubject,
+      html: emailBody,
+      text: emailText,
     });
     if (!r.success) {
       return json(
@@ -99,7 +126,7 @@ export const POST: APIRoute = async (context) => {
   } else if (channel === "sms") {
     const smsResult = await sendSms({
       to: signer.recipientPhone!,
-      body: `${signer.displayName}: finish your Aspire Sports booking (waiver + photo): ${url}`,
+      body: smsBody,
       organizationId: orgId,
     });
     if (!smsResult.ok) {

@@ -5,11 +5,12 @@
  *
  * The kiosk is facility (location) scoped. Seeds drop-in sessions for today
  * (UTC) in two spaces of the seeded facility and exercises:
- *   - Adult walk-in: start → pending_claim booking + walkin_session token
+ *   - Adult walk-in: start → pending_payment hold (2h expiry) + walkin_session token
  *   - Minor walk-in: start with parent fields → family_member row created
  *   - payment: returns clientSecret (Stripe), or skips if not configured
  *   - sessions: today's sessions across every space, each with a space name
  *   - Error paths: bad session ID, missing parent for minor, consumed token
+ *   - Duplicate guard: a second start for the same user+session returns 409
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { apiFetch, getAdminCookie } from "../setup/test-helpers";
@@ -186,7 +187,7 @@ describe("POST /api/kiosk/[locationSlug]/walkin/start + /payment", () => {
       walkinToken = body.token;
     });
 
-    it("creates the booking row in pending_claim with correct fields", async () => {
+    it("creates the booking row in pending_payment with a 2h expiry and correct fields", async () => {
       // bookingId set by previous test
       expect(bookingId).toBeDefined();
 
@@ -198,10 +199,17 @@ describe("POST /api/kiosk/[locationSlug]/walkin/start + /payment", () => {
         .limit(1);
 
       expect(booking).toBeDefined();
-      expect(booking.status).toBe("pending_claim");
+      expect(booking.status).toBe("pending_payment");
       expect(booking.source).toBe("walk_up");
       expect(booking.paymentMethod).toBe("card_online");
       expect(booking.amountPaidCents).toBe(0);
+
+      // promotionExpiresAt is set ~2h out (allow slack for test runtime).
+      expect(booking.promotionExpiresAt).not.toBeNull();
+      const expiresInMs =
+        new Date(booking.promotionExpiresAt as unknown as string).getTime() - Date.now();
+      expect(expiresInMs).toBeGreaterThan(2 * 3_600_000 - 60_000);
+      expect(expiresInMs).toBeLessThanOrEqual(2 * 3_600_000 + 60_000);
 
       // userId must resolve to the new adult user created from contact.email
       const [user] = await db
@@ -211,6 +219,28 @@ describe("POST /api/kiosk/[locationSlug]/walkin/start + /payment", () => {
         .limit(1);
       expect(user).toBeDefined();
       expect(booking.userId).toBe(user.id);
+    });
+
+    it("returns 409 when the same user starts a second walk-in on the same session", async () => {
+      const res = await apiFetch(
+        `/api/kiosk/${locationId}/walkin/start`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            sessionId,
+            contact: {
+              firstName: "Alex",
+              lastName: "WalkinAdult",
+              email: ADULT_EMAIL,
+              phone: "6145550001",
+              dob: "1992-03-15",
+            },
+          }),
+        },
+      );
+      expect(res.status).toBe(409);
+      const body = await res.json();
+      expect(body.error).toMatch(/already/i);
     });
 
     it("mints a walkin_session token targeting the booking", async () => {
@@ -488,10 +518,13 @@ describe("POST /api/kiosk/[locationSlug]/walkin/start + /payment", () => {
   // Fixture cleanup: these sessions are seeded for TODAY at the shared
   // staging DB. The day board (venue-day-data.ts) has no status filter on
   // sessions, so a merely-cancelled session would still show up — cancel
-  // (releases the pending_claim bookings created above) then hard-delete
-  // each session so nothing lingers on the roster for the e2e
-  // activity-roster test to trip over. Best-effort: failures here shouldn't
-  // fail the suite.
+  // then hard-delete each session so nothing lingers on the roster for the
+  // e2e activity-roster test to trip over. The hard-delete cascades onto
+  // dropInBookings regardless of the pending_payment holds created above
+  // (session cancel's own refund-eligible status list predates
+  // pending_payment — see the walk-in remote payment plan's reader
+  // inventory — but the cascade delete cleans them up either way).
+  // Best-effort: failures here shouldn't fail the suite.
   afterAll(async () => {
     const adminCookie = await getAdminCookie().catch(() => null);
     if (!adminCookie) return;

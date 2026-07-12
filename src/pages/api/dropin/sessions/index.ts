@@ -85,11 +85,16 @@ export const GET: APIRoute = async ({ url, locals }) => {
       memberRateCents: dropInSessions.memberRateCents,
       venueId: dropInSessions.venueId,
       venueName: venues.name,
+      // Includes pending_payment (walk-in holds) and pending_claim (promoted
+      // waitlisters) — both occupy a real seat until the expiry sweep
+      // releases them, so the browse list's capacity meter/badge would
+      // otherwise show open spots that aren't really open. Mirrors the
+      // same fix in dropin/sessions/[id].ts.
       confirmedCount: sql<number>`(
         SELECT COUNT(*)::int
         FROM ${dropInBookings}
         WHERE ${dropInBookings.sessionId} = ${dropInSessions.id}
-          AND ${dropInBookings.status} = 'confirmed'
+          AND ${dropInBookings.status} IN ('confirmed', 'pending_payment', 'pending_claim')
       )`,
     })
     .from(dropInSessions)

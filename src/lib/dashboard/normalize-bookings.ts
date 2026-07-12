@@ -5,7 +5,13 @@ import type { StatusTone } from "@/lib/dashboard/dashboard-ui";
 export interface DropInBookingRow {
   id: string;
   sessionId: string;
-  status: "confirmed" | "waitlisted" | "pending_claim" | "cancelled" | "no_show";
+  status:
+    | "confirmed"
+    | "waitlisted"
+    | "pending_payment"
+    | "pending_claim"
+    | "cancelled"
+    | "no_show";
   teamAssignment: string | null;
   checkedInAt: string | null;
   session: {
@@ -51,6 +57,7 @@ function dropInStatus(s: DropInBookingRow["status"]): { label: string; tone: Sta
   switch (s) {
     case "confirmed": return { label: "Confirmed", tone: "confirmed" };
     case "waitlisted": return { label: "Waitlisted", tone: "pending" };
+    case "pending_payment": return { label: "Complete payment", tone: "action" };
     case "pending_claim": return { label: "Pending claim", tone: "action" };
     case "cancelled": return { label: "Cancelled", tone: "pending" };
     case "no_show": return { label: "No show", tone: "pending" };

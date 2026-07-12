@@ -44,12 +44,12 @@ interface RowData {
   familyMemberId: string | null;
   recipientUserId: string | null;
   paid: boolean;
-  status: "confirmed" | "pending_claim";
-  // Only meaningful when status === "pending_claim" — see event.ts's module
-  // comment. Distinguishes a walk-in pay-link hold (desk can cancel/resend)
-  // from a promoted waitlister (desk cannot cancel here; different claim
-  // link, expires on its own).
-  holdKind: "walk_up" | "promotion" | null;
+  // `status` alone is the discriminator between the two hold kinds — see
+  // event.ts's module comment:
+  //   - pending_payment → walk-in pay-link hold (desk can cancel/resend)
+  //   - pending_claim   → promoted waitlister (desk cannot cancel here;
+  //     different claim link, expires on its own)
+  status: "confirmed" | "pending_payment" | "pending_claim";
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -242,12 +242,17 @@ export function ActivityDetailPanel({ session, locationId, timezone, onClose, on
     }
   };
 
-  // ── Held-row actions (resend waiver link / cancel hold) ─────────────────────
+  // ── Held-row actions (resend pay link / cancel hold) ─────────────────────
+  // kind MUST be "walkin_session" — that's the token kind walkin/start.ts
+  // minted for this booking and the ONLY kind /walkin/payment.ts accepts.
+  // A "drop_in_booking"-kind token here would mint a DIFFERENT, waiver/
+  // photo-only token that PayCard can never pay against (see Task 6/7 of
+  // docs/superpowers/plans/2026-07-12-walkin-remote-payment.md).
   const sendLinkViaChannel = async (row: RowData, channel: "sms" | "email") => {
     const res = await fetch("/api/admin/check-in/send-link", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ kind: "drop_in_booking", targetId: row.targetId, channel }),
+      body: JSON.stringify({ kind: "walkin_session", targetId: row.targetId, channel }),
     });
     if (!res.ok) throw new Error(`Failed (${res.status})`);
   };
@@ -261,10 +266,10 @@ export function ActivityDetailPanel({ session, locationId, timezone, onClose, on
     try {
       try {
         await sendLinkViaChannel(row, "sms");
-        toast.success(`Waiver link re-sent by text to ${row.name}`);
+        toast.success(`Pay link re-sent by text to ${row.name}`);
       } catch {
         await sendLinkViaChannel(row, "email");
-        toast.success(`Waiver link re-sent by email to ${row.name}`);
+        toast.success(`Pay link re-sent by email to ${row.name}`);
       }
     } catch {
       toast.error(`Could not resend link to ${row.name} — text and email both failed`);
@@ -412,7 +417,7 @@ export function ActivityDetailPanel({ session, locationId, timezone, onClose, on
                 className="flex items-center gap-3 px-4 py-2.5 border-b border-[#efe9dc]"
               >
                 {/* Avatar / photo upload */}
-                <div className={row.status === "pending_claim" ? "opacity-60" : undefined}>
+                <div className={row.status !== "confirmed" ? "opacity-60" : undefined}>
                   <AvatarUploader
                     kind={row.rowKind}
                     targetId={row.targetId}
@@ -457,9 +462,13 @@ export function ActivityDetailPanel({ session, locationId, timezone, onClose, on
                       okLabel="photo ✓"
                       badLabel="no photo"
                     />
-                    {row.status === "pending_claim" ? (
+                    {row.status === "pending_payment" ? (
                       <span className="text-[10.5px] font-bold rounded px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200">
                         ⏳ awaiting payment
+                      </span>
+                    ) : row.status === "pending_claim" ? (
+                      <span className="text-[10.5px] font-bold rounded px-1.5 py-0.5 bg-[#f6f1e7] text-[#8a8175] border border-[#e4ddcf]">
+                        awaiting claim
                       </span>
                     ) : (
                       <StatusChip
@@ -476,13 +485,19 @@ export function ActivityDetailPanel({ session, locationId, timezone, onClose, on
                   </div>
                 </div>
 
-                {/* Send link (waiver/photo incomplete) */}
-                {needsSendLink && (
+                {/* Send link (waiver/photo incomplete) — NOT for pending_payment
+                    rows: those get the "Resend pay link" action below instead,
+                    which mints the walkin_session token (waiver + photo + pay).
+                    SendLinkActions always mints a drop_in_booking-kind token,
+                    which /walkin/payment.ts rejects — rendering it here would
+                    let the desk send a link that shows the pay card but can
+                    never complete a payment. */}
+                {needsSendLink && row.status !== "pending_payment" && (
                   <SendLinkActions kind={row.rowKind} targetId={row.targetId} />
                 )}
 
                 {/* Check-in / "Here" / held-row actions */}
-                {row.status === "pending_claim" && row.holdKind === "walk_up" ? (
+                {row.status === "pending_payment" ? (
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     <button
                       type="button"
@@ -490,7 +505,7 @@ export function ActivityDetailPanel({ session, locationId, timezone, onClose, on
                       disabled={rowBusy[row.targetId]}
                       className="text-xs px-2 py-1 rounded border border-[#e4ddcf] bg-[#f6f1e7] text-[#4b463e] font-semibold disabled:opacity-40"
                     >
-                      Resend waiver link
+                      Resend pay link
                     </button>
                     <button
                       type="button"

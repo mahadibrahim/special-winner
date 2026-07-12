@@ -28,6 +28,8 @@ interface DetailResponse {
     memberRateCents: number | null;
   };
   venueName: string | null;
+  /** Confirmed + pending-payment holds + pending-claim promotions — every
+   *  status that occupies a real seat (see dropin/sessions/[id].ts). */
   confirmedCount: number;
   waitlistCount: number;
   rateCard: {
@@ -251,7 +253,7 @@ export default function SessionDetail({
         <div>
           <div className="flex items-center justify-between text-sm text-ink-2">
             <span>
-              {data.confirmedCount} / {session.capacity} confirmed
+              {data.confirmedCount} / {session.capacity} taken
             </span>
             <span>
               {data.waitlistCount > 0 ? `${data.waitlistCount} on waitlist` : ""}

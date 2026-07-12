@@ -1,26 +1,32 @@
 /**
- * Held pay-link walk-in bookings (status `pending_claim`) must be visible
- * across the venue backend, not just invisible-until-paid:
- *   - GET /api/admin/check-in/event includes pending_claim rows with `status`.
+ * Held pay-link walk-in bookings must be visible across the venue backend,
+ * not just invisible-until-paid:
+ *   - GET /api/admin/check-in/event includes hold rows with `status`.
  *   - GET /api/admin/venue-day/[date] reports a real `capacityCurrent` for
- *     drop-in blocks that counts confirmed + pending_claim bookings.
+ *     drop-in blocks that counts confirmed + held bookings.
  *   - POST /api/admin/venue/cancel-hold lets the desk release a hold early,
  *     is tenant-scoped (cross-org admin gets 404), and refuses to touch a
  *     confirmed booking (409).
  *
- * Fixture: real pending_claim bookings are created the same way a kiosk
- * pay-link hold is created in production — via
- * POST /api/kiosk/{locationId}/walkin/start — against a drop-in session
- * seeded for TODAY at the E2E rental venue (mirrors
- * tests/api/kiosk/walkin.test.ts and tests/api/booking-search.test.ts).
+ * Fixture: real bookings are created the same way a kiosk pay-link hold is
+ * created in production — via POST /api/kiosk/{locationId}/walkin/start —
+ * against a drop-in session seeded for TODAY at the E2E rental venue
+ * (mirrors tests/api/kiosk/walkin.test.ts and tests/api/booking-search.test.ts).
+ * That fixture lands in `pending_payment` status (2h expiry) — see
+ * walkin/start.ts — which is the current, live walk-in hold status: all
+ * three read paths this file exercises (check-in/event.ts,
+ * venue-day-data.ts, cancel-hold.ts) key off `status === "pending_payment"`.
+ * `pending_claim` is a different state — a promoted waitlister's claim
+ * window, not a walk-in pay-link hold — and is exercised by
+ * tests/api/dropin/expire-payment-holds.test.ts instead.
  *
  * The tenant-scoping test needs a *second* held booking that belongs to a
  * DIFFERENT org. Org B's fixture ids are resolved via the test-only
  * GET /api/test/org-fixtures?slug=orgb endpoint (same pattern as
- * tests/api/admin-tenant-scoping.test.ts) and a second pending_claim
- * booking is created there via the same kiosk walk-in flow — the kiosk
- * resolves its org from the location segment directly, not from the
- * request host, so this works over the same localhost base URL used by
+ * tests/api/admin-tenant-scoping.test.ts) and a second held booking is
+ * created there via the same kiosk walk-in flow — the kiosk resolves its
+ * org from the location segment directly, not from the request host, so
+ * this works over the same localhost base URL used by
  * `admin@test.aspiresports.com` (Org A / HQ).
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
@@ -59,7 +65,7 @@ async function startWalkin(
   return body.bookingId as string;
 }
 
-describe("Venue hold visibility (pending_claim pay-link holds)", () => {
+describe("Venue hold visibility (pending_payment pay-link holds)", () => {
   let adminCookie: string;
   let locationId: string;
   let sessionId: string;
@@ -203,7 +209,7 @@ describe("Venue hold visibility (pending_claim pay-link holds)", () => {
     }
   });
 
-  it("includes pending_claim rows with status in the event roster", async () => {
+  it("includes pending_payment hold rows with status in the event roster", async () => {
     const res = await apiFetch(
       `/api/admin/check-in/event?kind=drop_in_session&id=${sessionId}`,
       { cookie: adminCookie },
@@ -212,10 +218,10 @@ describe("Venue hold visibility (pending_claim pay-link holds)", () => {
     const body = await res.json();
     const held = body.rows.find((r: any) => r.targetId === heldBookingId);
     expect(held).toBeDefined();
-    expect(held.status).toBe("pending_claim");
+    expect(held.status).toBe("pending_payment");
   });
 
-  it("reports a real capacityCurrent for the drop-in block (confirmed + pending_claim)", async () => {
+  it("reports a real capacityCurrent for the drop-in block (confirmed + pending_payment)", async () => {
     const res = await apiFetch(
       `/api/admin/venue-day/${dateStr}?locationId=${locationId}`,
       { cookie: adminCookie },
@@ -239,16 +245,43 @@ describe("Venue hold visibility (pending_claim pay-link holds)", () => {
     });
     expect(res.status).toBe(404);
 
-    // Untouched — still pending_claim.
+    // Untouched — still pending_payment.
     const [row] = await getDb()
       .select({ status: dropInBookings.status })
       .from(dropInBookings)
       .where(eq(dropInBookings.id, heldBookingIdOrgB))
       .limit(1);
-    expect(row.status).toBe("pending_claim");
+    expect(row.status).toBe("pending_payment");
   });
 
-  it("cancel-hold cancels a pending booking and refuses a confirmed one", async () => {
+  it("cancel-hold cancels a pending booking, promotes the next waitlister, and refuses a re-cancel", async () => {
+    // Seed a waitlisted booking on the same session BEFORE the desk cancel:
+    // every release path (expiry sweep, customer/admin cancel via
+    // processCancelRefund) promotes the next waitlister into the freed
+    // slot, and the desk cancel must match — a manual release that leaves
+    // the slot unfilled while people sit waitlisted would be the one
+    // asymmetric path.
+    const db = getDb();
+    const [waitlistUser] = await db
+      .insert(users)
+      .values({
+        email: `hold-visibility-waitlist-${UNIQUE_SUFFIX}@t.example`,
+        firstName: "Waitlisted",
+        lastName: "Booking",
+      })
+      .returning();
+    const [waitlistedBooking] = await db
+      .insert(dropInBookings)
+      .values({
+        sessionId,
+        userId: waitlistUser.id,
+        status: "waitlisted",
+        source: "online_booking",
+        paymentMethod: "card_online",
+        amountPaidCents: 0,
+      })
+      .returning();
+
     const ok = await apiFetch("/api/admin/venue/cancel-hold", {
       method: "POST",
       cookie: adminCookie,
@@ -265,6 +298,23 @@ describe("Venue hold visibility (pending_claim pay-link holds)", () => {
     const rows = (await again.json()).rows;
     expect(rows.find((r: any) => r.targetId === heldBookingId)).toBeUndefined();
 
+    // The seeded waitlister was promoted into the freed slot: status
+    // flipped to pending_claim with a claim token and expiry window set
+    // (promoteNextWaitlister's contract — same as the sweep asserts in
+    // tests/api/dropin/expire-payment-holds.test.ts).
+    const [promoted] = await db
+      .select({
+        status: dropInBookings.status,
+        promotionToken: dropInBookings.promotionToken,
+        promotionExpiresAt: dropInBookings.promotionExpiresAt,
+      })
+      .from(dropInBookings)
+      .where(eq(dropInBookings.id, waitlistedBooking.id))
+      .limit(1);
+    expect(promoted.status).toBe("pending_claim");
+    expect(promoted.promotionToken).toBeTruthy();
+    expect(promoted.promotionExpiresAt).not.toBeNull();
+
     // Confirm a cancelled booking can't be cancelled again (409, not 200).
     const again2 = await apiFetch("/api/admin/venue/cancel-hold", {
       method: "POST",
@@ -272,7 +322,6 @@ describe("Venue hold visibility (pending_claim pay-link holds)", () => {
       body: JSON.stringify({ bookingId: heldBookingId }),
     });
     expect(again2.status).toBe(409);
-
   });
 
   it("refuses a confirmed booking (409, not 200)", async () => {
@@ -477,12 +526,12 @@ describe("Venue hold visibility — location-scoped admin, cross-location", () =
     });
     expect(res.status).toBe(404);
 
-    // Untouched — still pending_claim.
+    // Untouched — still pending_payment.
     const [row] = await getDb()
       .select({ status: dropInBookings.status })
       .from(dropInBookings)
       .where(eq(dropInBookings.id, otherLocationHeldBookingId))
       .limit(1);
-    expect(row.status).toBe("pending_claim");
+    expect(row.status).toBe("pending_payment");
   });
 });

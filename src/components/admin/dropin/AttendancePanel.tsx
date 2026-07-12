@@ -11,7 +11,13 @@ export interface RosterEntry {
   firstName: string | null;
   lastName: string | null;
   email: string;
-  status: "confirmed" | "waitlisted" | "pending_claim" | "cancelled" | "no_show";
+  status:
+    | "confirmed"
+    | "waitlisted"
+    | "pending_payment"
+    | "pending_claim"
+    | "cancelled"
+    | "no_show";
   paymentMethod: string;
   amountPaidCents: number;
   teamAssignment: string | null;

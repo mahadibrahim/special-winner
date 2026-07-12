@@ -25,7 +25,13 @@ interface Game {
 interface Booking {
   id: string;
   sessionId: string;
-  status: "confirmed" | "waitlisted" | "pending_claim" | "cancelled" | "no_show";
+  status:
+    | "confirmed"
+    | "waitlisted"
+    | "pending_payment"
+    | "pending_claim"
+    | "cancelled"
+    | "no_show";
   session: {
     sportOrClassLabel: string;
     formatLabel: string | null;

@@ -26,7 +26,13 @@ interface FieldRental {
 interface Booking {
   id: string;
   sessionId: string;
-  status: "confirmed" | "waitlisted" | "pending_claim" | "cancelled" | "no_show";
+  status:
+    | "confirmed"
+    | "waitlisted"
+    | "pending_payment"
+    | "pending_claim"
+    | "cancelled"
+    | "no_show";
   checkedInAt: string | null;
   session: {
     sportOrClassLabel: string;
@@ -158,6 +164,20 @@ export default function PlayAttention() {
                 collected.push({
                   kind: "expiring_hold",
                   label: `Confirm your spot — ${b.session.sportOrClassLabel}`,
+                  sublabel: fmtDateTime(b.session.startsAt),
+                  href: "/dashboard/bookings",
+                });
+              }
+
+              // Walk-in kiosk hold awaiting payment. No self-serve token is
+              // available in this response, so the link goes to the general
+              // bookings dashboard rather than a payment URL — see
+              // MyDropInBookings/BookButton for the same "no minted token
+              // here" boundary.
+              if (b.status === "pending_payment") {
+                collected.push({
+                  kind: "expiring_hold",
+                  label: `Complete payment — ${b.session.sportOrClassLabel}`,
                   sublabel: fmtDateTime(b.session.startsAt),
                   href: "/dashboard/bookings",
                 });

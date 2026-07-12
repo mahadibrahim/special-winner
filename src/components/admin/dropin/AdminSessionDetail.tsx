@@ -50,6 +50,8 @@ interface DetailResponse {
   };
   venue: { id: string; name: string } | null;
   roster: RosterEntry[];
+  // Walk-in pay-link holds (status pending_payment) — see [id].ts's comment.
+  holds: RosterEntry[];
   waitlist: RosterEntry[];
   cancelled: RosterEntry[];
 }
@@ -169,6 +171,26 @@ export function AdminSessionDetail({ sessionId }: AdminSessionDetailProps) {
     void bookingId;
   };
 
+  const cancelHold = async (bookingId: string) => {
+    setBusy(true);
+    try {
+      const res = await fetch("/api/admin/venue/cancel-hold", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error ?? "Could not cancel hold");
+        return;
+      }
+      toast.success("Hold released — slot is open again");
+      await reload();
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (loading) return <LoadingSkeleton />;
   if (error) return <ErrorBanner message={error} />;
   if (!data) return null;
@@ -253,6 +275,14 @@ export function AdminSessionDetail({ sessionId }: AdminSessionDetailProps) {
           </div>
           <div>
             <div className="text-xs uppercase tracking-wider text-ink-muted">
+              Holds
+            </div>
+            <div className="text-2xl font-semibold text-ink">
+              {data.holds.length}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs uppercase tracking-wider text-ink-muted">
               Waitlist
             </div>
             <div className="text-2xl font-semibold text-ink">
@@ -314,6 +344,41 @@ export function AdminSessionDetail({ sessionId }: AdminSessionDetailProps) {
           onChange={reload}
         />
       </section>
+
+      {data.holds.length > 0 && (
+        <section>
+          <h2 className="text-xl font-semibold text-ink mb-3">Holds</h2>
+          <ul className="rounded-lg border border-border bg-cream-2 divide-y divide-border">
+            {data.holds.map((h) => (
+              <li
+                key={h.id}
+                className="px-4 py-3 flex items-center justify-between gap-3"
+              >
+                <div>
+                  <div className="font-medium text-ink">
+                    {h.firstName} {h.lastName}
+                  </div>
+                  <div className="text-xs text-ink-muted">{h.email}</div>
+                  <div className="text-xs text-amber-700 mt-0.5">
+                    ⏳ awaiting payment
+                    {h.promotionExpiresAt &&
+                      ` · held until ${new Date(h.promotionExpiresAt).toLocaleString()}`}
+                  </div>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => cancelHold(h.id)}
+                  className="text-rose-700"
+                >
+                  Cancel hold
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {data.waitlist.length > 0 && (
         <section>
