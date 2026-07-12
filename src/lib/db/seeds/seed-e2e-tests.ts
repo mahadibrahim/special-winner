@@ -2857,33 +2857,66 @@ async function seedE2ETests() {
     // dayOfWeek rhythm) would be unverifiable without these fixtures.
     // Idempotent get-or-create, mirroring the Downtown program/season
     // pattern above.
+    //
+    // Slug is bare "worthington" (not "soccerone-worthington") to match
+    // prod: gosoccerone.com resolves to the single Aspire org, whose real
+    // location slugs are bare (see soccerone-routing.ts:5-11 and
+    // rent.astro's locationSlug). The `locations` unique constraint is
+    // per-org (organizationId, slug) — see organizations.ts:203 — so a
+    // bare "worthington" row scoped to the SoccerOne fixture org cannot
+    // collide with the Aspire staging org's own "worthington" row.
     let [soccerOneWorthington] = await db
       .select()
       .from(locations)
       .where(
         and(
           eq(locations.organizationId, soccerOneOrg.id),
-          eq(locations.slug, "soccerone-worthington"),
+          eq(locations.slug, "worthington"),
         ),
       )
       .limit(1);
 
     if (!soccerOneWorthington) {
-      [soccerOneWorthington] = await db
-        .insert(locations)
-        .values({
-          organizationId: soccerOneOrg.id,
-          name: "SoccerOne Worthington",
-          slug: "soccerone-worthington",
-          city: "Worthington",
-          state: "OH",
-          country: "US",
-          timezone: "America/New_York",
-          active: true,
-          sortOrder: 2,
-        })
-        .returning();
-      console.log(`   ✓ Created SoccerOne Worthington location: ${soccerOneWorthington.id}`);
+      // One-time migration: earlier seed runs created this fixture under
+      // the retired "soccerone-worthington" slug. Rename it in place
+      // (org-scoped lookup, so this can only touch the SoccerOne org's own
+      // row) rather than inserting a duplicate — keeps the FKs from the
+      // program/seasons below pointed at the same row.
+      const [legacyWorthington] = await db
+        .select()
+        .from(locations)
+        .where(
+          and(
+            eq(locations.organizationId, soccerOneOrg.id),
+            eq(locations.slug, "soccerone-worthington"),
+          ),
+        )
+        .limit(1);
+
+      if (legacyWorthington) {
+        [soccerOneWorthington] = await db
+          .update(locations)
+          .set({ slug: "worthington" })
+          .where(eq(locations.id, legacyWorthington.id))
+          .returning();
+        console.log(`   ✓ Renamed legacy SoccerOne Worthington location slug: ${soccerOneWorthington.id}`);
+      } else {
+        [soccerOneWorthington] = await db
+          .insert(locations)
+          .values({
+            organizationId: soccerOneOrg.id,
+            name: "SoccerOne Worthington",
+            slug: "worthington",
+            city: "Worthington",
+            state: "OH",
+            country: "US",
+            timezone: "America/New_York",
+            active: true,
+            sortOrder: 2,
+          })
+          .returning();
+        console.log(`   ✓ Created SoccerOne Worthington location: ${soccerOneWorthington.id}`);
+      }
     } else {
       console.log(`   ✓ SoccerOne Worthington location already exists: ${soccerOneWorthington.id}`);
     }
