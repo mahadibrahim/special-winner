@@ -100,8 +100,11 @@ Delete a line to veto it; unchecked survivors are fair game for refine.
       activities; author missing ones (consistent format the product can
       render on a phone) (refine 2026-07-12: 25 authored, 15 reworked,
       4 basketball width fixes, format enforced by
-      tests/unit/curriculum/diagrams.test.ts; product rendering of
-      `diagram` in setup/field mode is a separate non-refinery follow-up)
+      tests/unit/curriculum/diagrams.test.ts; `setupDiagram` audit: it is
+      a prose quick-reference summary, present on all 31 activities that
+      have a comprehensiveGuide — the 24 without are the existing "thin
+      activities" backlog item; product rendering of `diagram` in
+      setup/field mode is a separate non-refinery follow-up)
 - [ ] OWNER FEEDBACK (2026-07-12): enforce "everybody engaged all the
       time" as a hard authoring principle — audit ALL activities for
       elimination-without-reentry, lines/waiting, and spectator patterns;
