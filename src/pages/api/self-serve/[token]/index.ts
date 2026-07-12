@@ -13,7 +13,7 @@ import { venues } from "@/lib/db/schema/teams";
 import { locations } from "@/lib/db/schema/organizations";
 import { verifyToken } from "@/lib/check-in/tokens-db";
 import { resolveSigner } from "@/lib/check-in/resolve-signer";
-import { resolveRate } from "@/lib/dropin/pricing";
+import { resolveRate, DEFAULT_WALK_UP_RATE_CENTS } from "@/lib/dropin/pricing";
 import { formatEmailDateTime, DEFAULT_TIMEZONE } from "@/lib/email/format";
 
 export const prerender = false;
@@ -37,9 +37,7 @@ export const GET: APIRoute = async ({ params }) => {
   const tok = v.token;
 
   const signer = await resolveSigner(tok.kind, tok.targetId, tok.organizationId);
-  // walkin_session legitimately returns null from resolveSigner — the token
-  // row carries contact info. All other kinds must resolve.
-  if (!signer && tok.kind !== "walkin_session") {
+  if (!signer) {
     return json({ error: "Target gone" }, 410);
   }
 
@@ -126,7 +124,7 @@ export const GET: APIRoute = async ({ params }) => {
           .limit(1);
         amountDueCents = rateCard
           ? resolveRate(b, null, null, rateCard, "walk_up").amountCents
-          : 1700;
+          : DEFAULT_WALK_UP_RATE_CENTS;
         locationSlug = b.locationSlug;
       }
     }

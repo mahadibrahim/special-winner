@@ -3,17 +3,21 @@
  * the link. Centralizes the parent-vs-self routing so the send-link
  * endpoint, the self-serve page, and the kiosk all agree.
  *
- * - drop_in_booking: signer = booking's user. (Drop-in is adult-only
- *   today. If youth drop-in ships, expand this helper.)
+ * - drop_in_booking / walkin_session: both kinds' `targetId` is a
+ *   `drop_in_bookings.id` (walk-in kiosk holds mint `walkin_session`;
+ *   regular drop-in bookings mint `drop_in_booking` — see
+ *   `walkin/start.ts` and `send-link.ts`). Signer = booking's user.
+ *   (Drop-in is adult-only today. If youth drop-in ships, expand this
+ *   helper.) Sharing one query means an admin resend for a walk-in hold
+ *   (kind `walkin_session`) is tenant-scoped exactly like a regular
+ *   drop-in resend — see the send-link endpoint's `walkin_session`
+ *   support, added so resend mints/reuses the SAME token kind the
+ *   self-serve PayCard actually accepts (payment.ts hard-rejects any
+ *   other kind).
  * - field_rental: signer = renterUser if set; else the typed
  *   renterName/email/phone (admin-created with no account).
  * - roster_entry: load the registration's family_member. If parentUserId
  *   set → signer is the parent. If selfUserId set → adult self.
- * - walkin_session: target is a self_service_tokens row whose
- *   recipient_* fields already carry the typed contact info from the
- *   kiosk form. Returns null to signal "the token row carries it" —
- *   the caller (the self-serve context endpoint) should read directly
- *   from selfServiceTokens.recipientEmail/Phone/UserId in that case.
  *
  * Every lookup is scoped to `orgId` (the caller's organization). A target
  * that belongs to another org resolves to null — identical to "not found" —
@@ -55,7 +59,7 @@ export async function resolveSigner(
 ): Promise<ResolvedSigner | null> {
   const db = getDb();
 
-  if (kind === "drop_in_booking") {
+  if (kind === "drop_in_booking" || kind === "walkin_session") {
     const [row] = await db
       .select({
         bookingId: dropInBookings.id,
@@ -203,6 +207,7 @@ export async function resolveSigner(
     };
   }
 
-  // walkin_session — caller resolves from selfServiceTokens.recipient_*
+  // Every SelfServiceKind is handled by an `if` above — this is a defensive
+  // fallback only, kept so the function's return type stays total.
   return null;
 }

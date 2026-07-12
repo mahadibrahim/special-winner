@@ -24,7 +24,7 @@ import { requireKioskLocation } from "@/lib/check-in/kiosk-auth";
 import { verifyToken } from "@/lib/check-in/tokens-db";
 import { stripe } from "@/lib/stripe/client";
 import { computeSurchargeCents } from "@/lib/payments/surcharge";
-import { resolveRate } from "@/lib/dropin/pricing";
+import { resolveRate, DEFAULT_WALK_UP_RATE_CENTS } from "@/lib/dropin/pricing";
 import { dropInPaymentDescription } from "@/lib/dropin/checkout-line-item";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 
@@ -95,7 +95,13 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
   // pending_claim is accepted too for pre-cutover stranded holds still
   // reachable through an unexpired kiosk token.
   if (booking.status !== "pending_payment" && booking.status !== "pending_claim") {
-    return json({ error: `Booking is no longer pending (status: ${booking.status})` }, 409);
+    return json(
+      {
+        error:
+          "This booking is no longer awaiting payment — check with the front desk.",
+      },
+      409,
+    );
   }
 
   // --- Load session for rate resolution and venue partner info ---
@@ -152,7 +158,7 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
   // The card surcharge below is still added on top → walk-up base + surcharge.
   const amountCents = rateCard
     ? resolveRate(sessionRow, null, null, rateCard, "walk_up").amountCents
-    : 1700;
+    : DEFAULT_WALK_UP_RATE_CENTS;
 
   // Kiosk walk-in is always a card payment — apply the same card surcharge
   // the online drop-in checkout adds, so a walk-in costs the customer the

@@ -93,13 +93,14 @@ export function BookButton({
     );
   }
   if (alreadyBookedStatus === "pending_payment") {
-    // Walk-in kiosk hold — no self-serve payment link is available here
-    // (that's Task 6's PayCard surface; this page doesn't mint tokens).
-    // Just stop the visitor from double-booking a session they already
-    // hold a slot on.
+    // Walk-in kiosk hold — this page doesn't mint self-serve tokens (that's
+    // the PayCard surface, reached via the pay link texted/emailed at
+    // check-in), so it can't offer a "Pay now" action here. Just stop the
+    // visitor from double-booking a session they already hold a slot on,
+    // without contradicting the pay link they may already be holding.
     return (
       <Button size="lg" disabled className="w-full">
-        Hold pending payment — see front desk to pay
+        Hold pending payment — use the pay link we sent, or see the front desk
       </Button>
     );
   }

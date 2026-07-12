@@ -12,22 +12,13 @@
  * created in production — via POST /api/kiosk/{locationId}/walkin/start —
  * against a drop-in session seeded for TODAY at the E2E rental venue
  * (mirrors tests/api/kiosk/walkin.test.ts and tests/api/booking-search.test.ts).
- * As of the walk-in remote payment work, that fixture now lands in
- * `pending_payment` status (2h expiry) rather than `pending_claim` — see
- * walkin/start.ts.
- *
- * SEQUENCING NOTE (walk-in remote payment plan, Task 2 vs Task 5): the
- * three read paths this file exercises — check-in/event.ts,
- * venue-day-data.ts, and cancel-hold.ts — still key off `status ===
- * "pending_claim"` and are NOT updated by Task 2 (that's Task 5's job,
- * per docs/superpowers/plans/2026-07-12-walkin-remote-payment.md). So,
- * on this branch between Task 2 and Task 5 landing, a `pending_payment`
- * hold is temporarily INVISIBLE to the roster/capacity endpoints and
- * cancel-hold refuses to touch it. The three tests below assert the
- * CORRECT end-state (hold visible, capacity counts it, cancel-hold
- * accepts it) and are expected to fail until Task 5's backend changes
- * land on this same branch — this is intentional, not a Task 2 bug;
- * see the Task 2 report for the full explanation.
+ * That fixture lands in `pending_payment` status (2h expiry) — see
+ * walkin/start.ts — which is the current, live walk-in hold status: all
+ * three read paths this file exercises (check-in/event.ts,
+ * venue-day-data.ts, cancel-hold.ts) key off `status === "pending_payment"`.
+ * `pending_claim` is a different state — a promoted waitlister's claim
+ * window, not a walk-in pay-link hold — and is exercised by
+ * tests/api/dropin/expire-payment-holds.test.ts instead.
  *
  * The tenant-scoping test needs a *second* held booking that belongs to a
  * DIFFERENT org. Org B's fixture ids are resolved via the test-only
@@ -74,7 +65,7 @@ async function startWalkin(
   return body.bookingId as string;
 }
 
-describe("Venue hold visibility (pending_claim pay-link holds)", () => {
+describe("Venue hold visibility (pending_payment pay-link holds)", () => {
   let adminCookie: string;
   let locationId: string;
   let sessionId: string;
@@ -219,8 +210,6 @@ describe("Venue hold visibility (pending_claim pay-link holds)", () => {
   });
 
   it("includes pending_payment hold rows with status in the event roster", async () => {
-    // See the file-header sequencing note: expected to fail until Task 5
-    // widens check-in/event.ts's status filter to include pending_payment.
     const res = await apiFetch(
       `/api/admin/check-in/event?kind=drop_in_session&id=${sessionId}`,
       { cookie: adminCookie },
@@ -233,8 +222,6 @@ describe("Venue hold visibility (pending_claim pay-link holds)", () => {
   });
 
   it("reports a real capacityCurrent for the drop-in block (confirmed + pending_payment)", async () => {
-    // See the file-header sequencing note: expected to fail until Task 5
-    // widens venue-day-data.ts's status filter to include pending_payment.
     const res = await apiFetch(
       `/api/admin/venue-day/${dateStr}?locationId=${locationId}`,
       { cookie: adminCookie },
@@ -268,9 +255,6 @@ describe("Venue hold visibility (pending_claim pay-link holds)", () => {
   });
 
   it("cancel-hold cancels a pending booking and refuses a confirmed one", async () => {
-    // See the file-header sequencing note: the first assertion (200) is
-    // expected to fail until Task 5 updates cancel-hold.ts to accept
-    // pending_payment (currently it only accepts pending_claim).
     const ok = await apiFetch("/api/admin/venue/cancel-hold", {
       method: "POST",
       cookie: adminCookie,

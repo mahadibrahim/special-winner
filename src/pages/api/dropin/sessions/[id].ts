@@ -59,9 +59,17 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
     return json({ error: "Forbidden" }, 403);
   }
 
+  // confirmedCount backs the capacity meter AND the "is this session full"
+  // check the public page uses to switch the CTA to "Join waitlist" — it
+  // must count every status that actually occupies a slot, not just
+  // 'confirmed'. A pending_payment walk-in hold or a pending_claim promoted
+  // waitlister both hold a real seat (the sweep in expireOverduePromotions
+  // is what releases it, nothing before that) — undercounting here would
+  // let a guest see room that doesn't exist and try to book into an
+  // already-held slot.
   const [counts] = await db
     .select({
-      confirmedCount: sql<number>`COUNT(*) FILTER (WHERE status = 'confirmed')::int`,
+      confirmedCount: sql<number>`COUNT(*) FILTER (WHERE status IN ('confirmed', 'pending_payment', 'pending_claim'))::int`,
       waitlistCount: sql<number>`COUNT(*) FILTER (WHERE status IN ('waitlisted', 'pending_claim'))::int`,
     })
     .from(dropInBookings)

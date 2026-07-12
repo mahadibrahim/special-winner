@@ -38,7 +38,7 @@ import { venues } from "@/lib/db/schema/teams";
 import { resolvePerson } from "@/lib/registrations/resolve-person";
 import { requireKioskLocation } from "@/lib/check-in/kiosk-auth";
 import { mintToken } from "@/lib/check-in/tokens-db";
-import { resolveRate } from "@/lib/dropin/pricing";
+import { resolveRate, DEFAULT_WALK_UP_RATE_CENTS } from "@/lib/dropin/pricing";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 
 export const prerender = false;
@@ -176,7 +176,7 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
   // Kiosk walk-ins always pay the walk-up rate (no membership lookup here).
   const amountDueCents = rateCard
     ? resolveRate(session, null, null, rateCard, "walk_up").amountCents
-    : 1700;
+    : DEFAULT_WALK_UP_RATE_CENTS;
 
   // --- Create or find booker user ---
   // For adults: contact IS the booker.

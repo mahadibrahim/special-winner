@@ -290,7 +290,7 @@ function HoldReleasedScreen({
       </header>
       <div className="p-6 rounded-lg border border-amber-200 bg-amber-50 text-amber-900">
         <h2 className="text-lg font-semibold mb-2">
-          Your hold expired and the slot was released
+          This hold has been released
         </h2>
         <p className="text-sm leading-relaxed">
           {refunded

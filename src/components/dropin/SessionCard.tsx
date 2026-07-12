@@ -16,6 +16,8 @@ export interface SessionCardData {
   sessionRateCents: number | null;
   memberRateCents: number | null;
   venueName: string | null;
+  /** Confirmed + pending-payment holds + pending-claim promotions — every
+   *  status that occupies a real seat (see dropin/sessions/index.ts). */
   confirmedCount: number;
 }
 
