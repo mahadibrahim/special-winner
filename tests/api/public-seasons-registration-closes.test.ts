@@ -10,6 +10,11 @@ describe("GET /api/public/seasons", () => {
     expect(Array.isArray(body.seasons)).toBe(true);
     for (const season of body.seasons) {
       expect(season).toHaveProperty("registrationCloses");
+      // Timestamp column: null or an ISO-8601 string Date can parse.
+      if (season.registrationCloses !== null) {
+        expect(typeof season.registrationCloses).toBe("string");
+        expect(Number.isNaN(new Date(season.registrationCloses).getTime())).toBe(false);
+      }
     }
   });
 });
