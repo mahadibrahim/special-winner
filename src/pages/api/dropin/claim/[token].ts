@@ -176,8 +176,9 @@ export const POST: APIRoute = async ({ params, request, locals, url }) => {
         422,
       );
     }
-    if (!stripe) return json({ error: "Stripe not configured" }, 500);
-
+    // NOTE: the Stripe-configured check deliberately comes AFTER the amount
+    // is resolved (below) — a zero-due claim confirms without touching
+    // Stripe and must work even when no Stripe client is configured.
     const db = getDb();
     const [session] = await db
       .select()
@@ -245,6 +246,8 @@ export const POST: APIRoute = async ({ params, request, locals, url }) => {
         );
       });
     }
+
+    if (!stripe) return json({ error: "Stripe not configured" }, 500);
 
     const checkout = await createDropInCheckoutSession({
       db,
