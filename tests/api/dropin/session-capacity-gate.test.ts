@@ -21,7 +21,11 @@ import { describe, it, expect } from "vitest";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { venues } from "@/lib/db/schema/teams";
+import { dropInBookings } from "@/lib/db/schema/drop-in";
+import { users } from "@/lib/db/schema/users";
 import { apiFetch } from "../setup/test-helpers";
+import { createConfirmedBookingFreePath } from "@/lib/dropin/booking";
+import { processCancelRefund } from "@/lib/dropin/refund";
 import {
   createTestDropInSession,
   resolveDefaultOrgForHttpTests,
@@ -80,5 +84,70 @@ describe("GET /api/dropin/sessions/:id — public capacity gate", () => {
     expect(afterBody.session.capacity - afterBody.confirmedCount).toBe(
       afterBody.session.capacity - beforeBody.confirmedCount - 1,
     );
+  });
+
+  it("does not double-count a pending_claim row in both confirmedCount and waitlistCount", async () => {
+    // A promoted waitlister (pending_claim) occupies a seat — it belongs in
+    // confirmedCount (taken) — but it is no longer "waiting", so it must
+    // NOT also appear in waitlistCount. Before the fix, waitlistCount
+    // counted `status IN ('waitlisted', 'pending_claim')`, double-reporting
+    // the same row as both taken and still-waiting.
+    const defaultOrg = await resolveDefaultOrgForHttpTests();
+    const ctx = await createTestDropInSession({
+      organizationId: defaultOrg.organizationId,
+      venueId: defaultOrg.venueId,
+      capacity: 1,
+      sessionRateCents: 0,
+      memberRateCents: 0,
+      sportOrClassLabel: `waitlist-dbl-count-${Date.now()}`,
+    });
+
+    const db = getDb();
+    const [seatUser] = await db
+      .insert(users)
+      .values({
+        email: `wl-dbl-seat-${Date.now()}-${Math.random()}@t.example`,
+        firstName: "Seat",
+        lastName: "User",
+      })
+      .returning();
+    const seatBooking = await createConfirmedBookingFreePath({
+      sessionId: ctx.sessionId,
+      userId: seatUser.id,
+      source: "online_booking",
+    });
+    expect(seatBooking.ok).toBe(true);
+
+    const [waiter] = await db
+      .insert(users)
+      .values({
+        email: `wl-dbl-waiter-${Date.now()}-${Math.random()}@t.example`,
+        firstName: "Wait",
+        lastName: "User",
+      })
+      .returning();
+    await db.insert(dropInBookings).values({
+      sessionId: ctx.sessionId,
+      userId: waiter.id,
+      status: "waitlisted",
+      source: "online_booking",
+      paymentMethod: "card_online",
+      amountPaidCents: 0,
+    });
+
+    // Cancel the confirmed seat — promotes the waitlister to pending_claim.
+    if (!seatBooking.ok) throw new Error("seat booking should be ok");
+    const cancel = await processCancelRefund(seatBooking.bookingId, {});
+    expect(cancel.ok).toBe(true);
+    expect(cancel.promotedNextBookingId).toBeTruthy();
+
+    const res = await apiFetch(`/api/dropin/sessions/${ctx.sessionId}`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+
+    // The promoted row is taken (counted in confirmedCount)...
+    expect(body.confirmedCount).toBe(1);
+    // ...and must NOT also show up as still-waiting.
+    expect(body.waitlistCount).toBe(0);
   });
 });

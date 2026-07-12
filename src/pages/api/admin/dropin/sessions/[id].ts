@@ -89,6 +89,7 @@ export const GET: APIRoute = async (context) => {
       teamAssignment: dropInBookings.teamAssignment,
       checkedInAt: dropInBookings.checkedInAt,
       promotionExpiresAt: dropInBookings.promotionExpiresAt,
+      waitlistPriority: dropInBookings.waitlistPriority,
       createdAt: dropInBookings.createdAt,
     })
     .from(dropInBookings)
@@ -106,9 +107,18 @@ export const GET: APIRoute = async (context) => {
       // now — not queued behind capacity) — rendered as their own "holds"
       // section, mirroring the venue command center's treatment.
       holds: bookings.filter((b) => b.status === "pending_payment"),
-      waitlist: bookings.filter(
-        (b) => b.status === "waitlisted" || b.status === "pending_claim",
-      ),
+      // Sorted in REAL promotion order (waitlistPriority DESC, then
+      // createdAt ASC — the same ordering promoteNextWaitlister uses), so
+      // what the admin sees as "next up" matches who actually gets the
+      // next freed seat. Overflow-refunded rows (priority 100) queue-jump
+      // voluntary joins.
+      waitlist: bookings
+        .filter((b) => b.status === "waitlisted" || b.status === "pending_claim")
+        .sort(
+          (a, b) =>
+            b.waitlistPriority - a.waitlistPriority ||
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+        ),
       cancelled: bookings.filter(
         (b) => b.status === "cancelled" || b.status === "no_show",
       ),

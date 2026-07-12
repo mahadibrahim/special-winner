@@ -6,6 +6,7 @@ import { handleDropInCheckoutComplete } from "./handle-dropin-checkout-complete"
 import { handleFieldRentalCheckoutComplete } from "./handle-field-rental-checkout-complete";
 import { handleDropInWalkUpPayment } from "./handle-dropin-walkup-payment";
 import { handleDropinWalkinPayment } from "./handle-dropin-walkin-payment";
+import { handleDropInClaimPayment } from "./handle-dropin-claim-payment";
 import { handleFieldRentalWalkUpPayment } from "./handle-field-rental-walkup-payment";
 import { handlePaymentFailed } from "./handle-payment-failed";
 import { handleRegistrationPaymentSucceeded } from "./handle-registration-payment-succeeded";
@@ -209,6 +210,17 @@ async function dispatch(event: Stripe.Event): Promise<void> {
         const result = await handleDropinWalkinPayment(paymentIntent);
         console.log(
           `[stripe webhook] payment_intent.succeeded (dropin walkin) → ${result.status}`,
+          result,
+        );
+      } else if (paymentIntent.metadata?.type === "dropin_claim_payment") {
+        // Paying to confirm a promoted overflow booking — flips the existing
+        // pending_claim row to confirmed (see handle-dropin-claim-payment.ts).
+        // The corresponding checkout.session.completed event carries
+        // metadata.type "dropin_claim_payment" too and is deliberately
+        // ignored by the branch above (no row insert — the row exists).
+        const result = await handleDropInClaimPayment(paymentIntent);
+        console.log(
+          `[stripe webhook] payment_intent.succeeded (dropin claim payment) → ${result.status}`,
           result,
         );
       } else if (paymentIntent.metadata?.type === "field_rental_walk_up") {

@@ -67,10 +67,15 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
   // is what releases it, nothing before that) — undercounting here would
   // let a guest see room that doesn't exist and try to book into an
   // already-held slot.
+  // waitlistCount counts ONLY `waitlisted` — pending_claim is deliberately
+  // excluded because it's already counted above as taken (a promoted
+  // waitlister mid-claim-window occupies the seat, not the queue). Counting
+  // it in both places double-reported the same row as both "taken" and
+  // "still waiting".
   const [counts] = await db
     .select({
       confirmedCount: sql<number>`COUNT(*) FILTER (WHERE status IN ('confirmed', 'pending_payment', 'pending_claim'))::int`,
-      waitlistCount: sql<number>`COUNT(*) FILTER (WHERE status IN ('waitlisted', 'pending_claim'))::int`,
+      waitlistCount: sql<number>`COUNT(*) FILTER (WHERE status = 'waitlisted')::int`,
     })
     .from(dropInBookings)
     .where(eq(dropInBookings.sessionId, sessionId));

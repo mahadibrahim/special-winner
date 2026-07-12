@@ -35,6 +35,25 @@ export async function createDropInCheckoutSession(opts: {
   /** Request origin (e.g. `url.origin`) — success/cancel redirects return to
    *  the domain the customer booked from. Falls back to PUBLIC_APP_URL. */
   origin?: string;
+  /**
+   * Fulfillment-contract overrides — used by the claim-payment flow
+   * (api/dropin/claim/[token].ts), which pays for an EXISTING pending_claim
+   * booking row instead of creating a new one on webhook:
+   *   - `metadataType` replaces the checkout session's `metadata.type`
+   *     ("dropin_booking" by default) so checkout.session.completed does NOT
+   *     route to the row-inserting handler;
+   *   - `paymentIntentMetadata` is stamped onto the PaymentIntent so
+   *     payment_intent.succeeded routes to the row-flipping handler;
+   *   - `idempotencyKey` dedupes repeated create calls (e.g. double-clicked
+   *     "Pay" button) into one Checkout Session / one PaymentIntent, the
+   *     same protection walkin/payment.ts gets from its PI idempotency key.
+   * Default (undefined) preserves the original booking-flow contract.
+   */
+  overrides?: {
+    metadataType: string;
+    paymentIntentMetadata: Record<string, string>;
+    idempotencyKey: string;
+  };
 }): Promise<{ checkoutUrl: string | null; checkoutSessionId: string }> {
   const { db, session, user, rate, waiverSignedAt, waiverName } = opts;
 
@@ -76,46 +95,54 @@ export async function createDropInCheckoutSession(opts: {
 
   const appUrl = opts.origin ?? import.meta.env.PUBLIC_APP_URL ?? "http://localhost:4321";
 
-  const checkoutSession = await stripe.checkout.sessions.create({
-    mode: "payment",
-    payment_method_types: ["card"],
-    customer_email: user.email,
-    line_items: buildDropInCheckoutLineItems({
-      sportOrClassLabel: session.sportOrClassLabel,
-      formatLabel: session.formatLabel,
-      startsAt: session.startsAt,
-      venueName: venue?.name ?? null,
-      timezone: org?.timezone ?? null,
-      baseAmountCents: rate.amountCents,
-      surchargeCents,
-    }),
-    metadata: {
-      type: "dropin_booking",
-      session_id: session.id,
-      user_id: user.id,
-      payment_method: rate.paymentMethod,
-      membership_id: rate.membershipId ?? "",
-      organization_id: session.organizationId,
-      waiver_signed_at: waiverSignedAt.toISOString(),
-      waiver_name: waiverName,
-      ...(opts.extraMetadata ?? {}),
+  const checkoutSession = await stripe.checkout.sessions.create(
+    {
+      mode: "payment",
+      payment_method_types: ["card"],
+      customer_email: user.email,
+      line_items: buildDropInCheckoutLineItems({
+        sportOrClassLabel: session.sportOrClassLabel,
+        formatLabel: session.formatLabel,
+        startsAt: session.startsAt,
+        venueName: venue?.name ?? null,
+        timezone: org?.timezone ?? null,
+        baseAmountCents: rate.amountCents,
+        surchargeCents,
+      }),
+      metadata: {
+        type: opts.overrides?.metadataType ?? "dropin_booking",
+        session_id: session.id,
+        user_id: user.id,
+        payment_method: rate.paymentMethod,
+        membership_id: rate.membershipId ?? "",
+        organization_id: session.organizationId,
+        waiver_signed_at: waiverSignedAt.toISOString(),
+        waiver_name: waiverName,
+        ...(opts.extraMetadata ?? {}),
+      },
+      payment_intent_data: {
+        description: paymentDescription,
+        ...(opts.overrides?.paymentIntentMetadata
+          ? { metadata: opts.overrides.paymentIntentMetadata }
+          : {}),
+        ...(partnerStripeAccountId
+          ? {
+              application_fee_amount: applicationFeeCents,
+              transfer_data: { destination: partnerStripeAccountId },
+            }
+          : {}),
+      },
+      // Carry the checkout session id back so the success page can resolve the
+      // booking for guests who aren't signed in (existing-account guests don't
+      // get a login session — see guest-checkout). Stripe substitutes the
+      // literal {CHECKOUT_SESSION_ID} placeholder with the real id.
+      success_url: `${appUrl}/dropin/${session.id}?booking=success&checkout_session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${appUrl}/dropin/${session.id}?booking=cancelled`,
     },
-    payment_intent_data: {
-      description: paymentDescription,
-      ...(partnerStripeAccountId
-        ? {
-            application_fee_amount: applicationFeeCents,
-            transfer_data: { destination: partnerStripeAccountId },
-          }
-        : {}),
-    },
-    // Carry the checkout session id back so the success page can resolve the
-    // booking for guests who aren't signed in (existing-account guests don't
-    // get a login session — see guest-checkout). Stripe substitutes the
-    // literal {CHECKOUT_SESSION_ID} placeholder with the real id.
-    success_url: `${appUrl}/dropin/${session.id}?booking=success&checkout_session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${appUrl}/dropin/${session.id}?booking=cancelled`,
-  });
+    opts.overrides?.idempotencyKey
+      ? { idempotencyKey: opts.overrides.idempotencyKey }
+      : undefined,
+  );
 
   return { checkoutUrl: checkoutSession.url, checkoutSessionId: checkoutSession.id };
 }

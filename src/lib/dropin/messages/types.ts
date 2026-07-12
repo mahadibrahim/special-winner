@@ -76,6 +76,10 @@ export interface PaymentReminderContext extends DropInBaseContext {
   selfServeUrl: string;
 }
 
+export interface OverflowRefundedContext extends DropInBaseContext {
+  booking: DropInMessageBooking;
+}
+
 export interface BookingCancelledByAdminContext extends DropInBaseContext {
   booking: DropInMessageBooking;
   /**

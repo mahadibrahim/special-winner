@@ -36,7 +36,7 @@
  * keep concurrent cron ticks + cancellations safe.
  */
 import crypto from "node:crypto";
-import { and, asc, eq, isNull, lt, lte } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, lt, lte, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   dropInBookings,
@@ -80,7 +80,23 @@ export async function promoteNextWaitlister(
     const windowMinutes =
       rateCard?.promotionWindowMinutes ?? DEFAULT_PROMOTION_WINDOW_MINUTES;
 
-    // Lock the next waitlister row.
+    // Lock the next waitlister row. Front-of-line first (waitlistPriority
+    // DESC — the transactional capacity gate's overflow-refund path stamps
+    // 100 on a customer who already paid and got squeezed out by the
+    // last-spot race; a voluntary waitlist join stays at the default 0),
+    // then oldest-first (createdAt ASC) as the tiebreaker within a
+    // priority tier so FIFO still holds among equals.
+    //
+    // SKIP unsettled overflow rows: an overflow booking (priority >= 100)
+    // whose charge is still held (amountPaidCents > 0) with no refund on
+    // record (stripeRefundId IS NULL) is in the refund-failed/refund-pending
+    // state. Promoting it would (1) let the claim path confirm a seat on
+    // the strength of a payment that the webhook-redelivery retry is about
+    // to refund, and (2) move the row out of `waitlisted` — the exact
+    // status the retry branch in handle-dropin-checkout-complete.ts
+    // matches — so the retry would skip forever and strand the charge.
+    // The row stays waitlisted until the redelivered webhook settles the
+    // refund and stamps stripeRefundId; then it becomes promotable.
     const [next] = await tx
       .select()
       .from(dropInBookings)
@@ -88,9 +104,10 @@ export async function promoteNextWaitlister(
         and(
           eq(dropInBookings.sessionId, sessionId),
           eq(dropInBookings.status, "waitlisted"),
+          sql`NOT (${dropInBookings.amountPaidCents} > 0 AND ${dropInBookings.stripeRefundId} IS NULL AND ${dropInBookings.waitlistPriority} >= 100)`,
         ),
       )
-      .orderBy(asc(dropInBookings.createdAt))
+      .orderBy(desc(dropInBookings.waitlistPriority), asc(dropInBookings.createdAt))
       .limit(1)
       .for("update");
     if (!next) return { promoted: false };
