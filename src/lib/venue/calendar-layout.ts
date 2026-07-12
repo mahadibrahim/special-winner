@@ -107,9 +107,14 @@ export function assignLanes(blocks: LaneBlock[]): Map<string, LaneAssignment> {
   const result = new Map<string, LaneAssignment>();
   if (blocks.length === 0) return result;
 
+  // Final tiebreak on id: for identical (rowStart, rowEnd) intervals the
+  // upstream row order is unspecified (DB result order), so without a
+  // deterministic tiebreak an identical-interval pile could swap lanes
+  // between reloads.
   const sorted = [...blocks].sort((a, b) => {
     if (a.rowStart !== b.rowStart) return a.rowStart - b.rowStart;
-    return b.rowEnd - a.rowEnd;
+    if (a.rowEnd !== b.rowEnd) return b.rowEnd - a.rowEnd;
+    return a.id.localeCompare(b.id);
   });
 
   // Union-find over block ids to build connected overlap clusters.

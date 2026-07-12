@@ -141,5 +141,43 @@ describe("calendar-layout", () => {
     it("returns an empty map for no blocks", () => {
       expect(assignLanes([]).size).toBe(0);
     });
+
+    // Determinism: upstream row order is unspecified (DB result order), so
+    // an identical-interval pile must land on the SAME lanes regardless of
+    // input order — otherwise blocks visibly swap positions between reloads.
+    it("assigns identical-interval piles the same lanes regardless of input order", () => {
+      const blocks = ["s3", "s0", "s4", "s1", "s2"].map((id) => ({
+        id,
+        rowStart: 4,
+        rowEnd: 8,
+      }));
+      const shuffled = [blocks[4], blocks[1], blocks[3], blocks[0], blocks[2]];
+
+      const lanesA = assignLanes(blocks);
+      const lanesB = assignLanes(shuffled);
+      for (const b of blocks) {
+        expect(lanesB.get(b.id)).toEqual(lanesA.get(b.id));
+      }
+      // And the assignment itself is pinned: id order (localeCompare) wins
+      // the tiebreak, so s0..s4 get lanes 0..4.
+      for (let i = 0; i < 5; i++) {
+        expect(lanesA.get(`s${i}`)).toEqual({ lane: i, laneCount: 5 });
+      }
+    });
+
+    // Composed clamp→lanes interaction: two off-hours sessions that only
+    // "overlap" AFTER clamping to the grid window (e.g. two pickup games
+    // logged at 1am and 3am, both clamped to row 1 of an 8am grid) must
+    // still split into separate lanes — lanes resolve the VISUAL overlap.
+    it("lanes two off-hours sessions clamped onto the same row", () => {
+      const a = clampRowsToWindow(-14, -10, 26); // → rows 1–2
+      const b = clampRowsToWindow(-10, -7, 26);  // → rows 1–2
+      const lanes = assignLanes([
+        { id: "a", rowStart: a.rowStart, rowEnd: a.rowEnd },
+        { id: "b", rowStart: b.rowStart, rowEnd: b.rowEnd },
+      ]);
+      expect(lanes.get("a")).toEqual({ lane: 0, laneCount: 2 });
+      expect(lanes.get("b")).toEqual({ lane: 1, laneCount: 2 });
+    });
   });
 });
