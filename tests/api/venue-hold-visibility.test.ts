@@ -441,23 +441,30 @@ describe("Venue hold visibility — location-scoped admin, cross-location", () =
   });
 
   afterAll(async () => {
-    if (createdUserId) {
-      await getDb().delete(users).where(inArray(users.id, [createdUserId]));
-    }
+    // Each cleanup step is fault-isolated so one failure can't skip the rest.
     // locAdminCookie is scoped to Location A only and can't act on Location
     // B's session — use an unscoped org admin to cancel + hard-delete the
     // fixture session so it stops cluttering the shared "today" board.
     if (sessionBId) {
-      const orgAAdminCookie = await getAdminCookie().catch(() => null);
-      if (orgAAdminCookie) {
+      try {
+        const orgAAdminCookie = await getAdminCookie();
         await apiFetch(`/api/admin/dropin/sessions/${sessionBId}/cancel`, {
           method: "POST",
           cookie: orgAAdminCookie,
-        }).catch(() => null);
+        });
         await apiFetch(`/api/admin/dropin/sessions/${sessionBId}`, {
           method: "DELETE",
           cookie: orgAAdminCookie,
-        }).catch(() => null);
+        });
+      } catch {
+        /* best-effort */
+      }
+    }
+    if (createdUserId) {
+      try {
+        await getDb().delete(users).where(inArray(users.id, [createdUserId]));
+      } catch {
+        /* best-effort */
       }
     }
   });
