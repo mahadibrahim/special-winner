@@ -125,6 +125,11 @@ export function ActivityDetailPanel({ session, locationId, timezone, onClose, on
   // response. The poll filters these out so a stale response can't resurrect
   // a just-cancelled row; ids are dropped once the server stops returning them.
   const cancelledIdsRef = useRef<Set<string>>(new Set());
+  // Rows checked in locally (optimistic flip) whose checkedInAt may still be
+  // null in a stale in-flight poll response captured pre-checkin. The poll
+  // overlays the optimistic timestamp so the button can't flicker back to
+  // "Check in"; an entry is dropped once the server returns a real checkedInAt.
+  const checkedInIdsRef = useRef<Map<string, string>>(new Map());
 
   const eventKind = sessionKindToEventKind(session.kind);
 
@@ -165,7 +170,21 @@ export function ActivityDetailPanel({ session, locationId, timezone, onClose, on
         for (const id of cancelledIdsRef.current) {
           if (!serverIds.has(id)) cancelledIdsRef.current.delete(id);
         }
-        setRows(serverRows.filter((r) => !cancelledIdsRef.current.has(r.targetId)));
+        // Overlay optimistic check-ins: a stale response captured pre-checkin
+        // still has checkedInAt null — keep the optimistic timestamp until the
+        // server catches up (returns non-null), then stop tracking the id.
+        const nextRows = serverRows
+          .filter((r) => !cancelledIdsRef.current.has(r.targetId))
+          .map((r) => {
+            const optimistic = checkedInIdsRef.current.get(r.targetId);
+            if (optimistic === undefined) return r;
+            if (r.checkedInAt !== null) {
+              checkedInIdsRef.current.delete(r.targetId);
+              return r;
+            }
+            return { ...r, checkedInAt: optimistic };
+          });
+        setRows(nextRows);
         setError(null);
       }
     } catch (err) {
@@ -200,9 +219,13 @@ export function ActivityDetailPanel({ session, locationId, timezone, onClose, on
         throw new Error(b.error ?? `Check-in failed (${res.status})`);
       }
       // Optimistic flip so the desk sees "Here" immediately, not at the next poll.
+      // Also record it so a stale in-flight poll response (captured pre-checkin,
+      // checkedInAt still null) can't revert the flip — see checkedInIdsRef.
+      const optimisticAt = new Date().toISOString();
+      checkedInIdsRef.current.set(row.targetId, optimisticAt);
       setRows((prev) =>
         prev?.map((r) =>
-          r.targetId === row.targetId ? { ...r, checkedInAt: new Date().toISOString() } : r,
+          r.targetId === row.targetId ? { ...r, checkedInAt: optimisticAt } : r,
         ) ?? prev,
       );
       onAction?.(session.id);
