@@ -296,6 +296,11 @@ export const sessionPlans = pgTable(
         description?: string;
         activitySuggestions?: string[];
         coachingScript?: string;
+        // Distribution skill-linkage fix: the activity the distribution
+        // engine resolved for this position at generation time (see
+        // sequence-instantiation.ts and adapted.ts). Absent on legacy
+        // snapshots and on positions where nothing resolved.
+        resolvedActivityId?: string;
       }[]
     >(),
     // Post-session reflection

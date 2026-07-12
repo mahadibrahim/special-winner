@@ -1,7 +1,8 @@
 /**
  * Adapted-state pure function (Program Blueprint T9; T9/T10 review fix
- * revised the source of truth, mechanics unchanged). See "The coach seam"
- * in docs/superpowers/specs/2026-07-10-program-blueprint-design.md:
+ * revised the source of truth, mechanics unchanged; distribution
+ * skill-linkage fix revised the activityId comparison, see below). See
+ * "The coach seam" in docs/superpowers/specs/2026-07-10-program-blueprint-design.md:
  *
  *   "Adapted state: computed, not coach-managed — a prescribed session
  *   whose segments differ from its template's structure counts as
@@ -31,17 +32,36 @@
  * notes? }` per entry. `session_plans.prescribedStructure` (same file,
  * shape matches `practice_templates.structure` at the moment it was copied)
  * carries `{ name, type, durationMinutes, description?,
- * activitySuggestions?, coachingScript? }` per entry.
+ * activitySuggestions?, coachingScript?, resolvedActivityId? }` per entry.
  *
  * Two things fall out of comparing those shapes honestly:
  *
- * 1. Templates never carry a resolved `activityId` — only free-text
- *    `activitySuggestions` (candidate names for a coach to pick from).
- *    So "does this position's activityId differ from the template's"
- *    always compares against "no activity". A segment where the coach
- *    picked a concrete activity the template only suggested in the
- *    abstract counts as a real divergence — the plan said "try one of
- *    these", the delivered session says "here is specifically which one".
+ * 1. HISTORY, revised by the distribution skill-linkage fix: templates
+ *    themselves still never carry a resolved `activityId` — only free-text
+ *    `activitySuggestions` (candidate names). That part is unchanged. What
+ *    changed is that a session's own SNAPSHOT (`prescribedStructure`,
+ *    frozen at generation time) now CAN carry a `resolvedActivityId`, when
+ *    the distribution engine resolved one of a position's suggestions to a
+ *    real activity at generation time (sequence-instantiation.ts). Before
+ *    this fix, "does this position's activityId differ from the
+ *    template's" always compared against "no activity", so ANY concrete
+ *    activityId on the session counted as a divergence — even one the
+ *    distribution engine itself put there. That made every
+ *    skill-resolved, freshly-generated session read as "adapted" on
+ *    arrival, which is wrong: the plan said "here is specifically which
+ *    one" (via resolution), and the delivered session ran exactly that.
+ *    The comparison is now per-position: `session[i].activityId` vs.
+ *    `prescribed[i].resolvedActivityId` (both normalized to `null` when
+ *    absent) — they must differ to count as adapted. A segment where the
+ *    coach picked a concrete activity the template only suggested in the
+ *    abstract (no resolution happened, or the coach picked something
+ *    other than what was resolved) still counts as a real divergence,
+ *    exactly as before. Legacy snapshots (generated pre-fix, no
+ *    `resolvedActivityId` on any position) preserve the OLD behavior
+ *    exactly: `prescribed[i].resolvedActivityId` is `undefined` →
+ *    normalized to `null`, so any concrete session `activityId` still
+ *    diverges from "no activity" — old sessions are not retroactively
+ *    reclassified.
  *
  * 2. `name` is intentionally EXCLUDED from the comparison, even though
  *    both shapes carry one and a freshly-generated prescribed session's
@@ -58,8 +78,9 @@
  *   - segment counts differ (a segment was added or removed), OR
  *   - any position (by array order, see below) differs in
  *     `durationMinutes`, OR
- *   - any position has a concrete `activityId` set (template positions
- *     never have one, so any non-null/non-empty value is a divergence).
+ *   - any position's session `activityId` differs from that position's
+ *     prescribed `resolvedActivityId` (both normalized to `null` when
+ *     absent/falsy).
  *
  * Segments are compared by their position in the array, sorted by each
  * segment's own `order` field first — `order` is `idx + 1` at generation
@@ -85,6 +106,12 @@ export interface AdaptedSessionSegment {
 export interface AdaptedPrescribedSegment {
   name: string;
   durationMinutes: number;
+  /** Distribution skill-linkage fix: the activity the distribution engine
+   * resolved for this position at generation time, when its
+   * activitySuggestions matched something. Undefined/null on legacy
+   * snapshots and on positions where nothing resolved — see module
+   * docstring item 1. */
+  resolvedActivityId?: string | null;
 }
 
 export function isAdapted(
@@ -98,7 +125,9 @@ export function isAdapted(
 
   for (let i = 0; i < session.length; i++) {
     if (session[i].durationMinutes !== prescribed[i].durationMinutes) return true;
-    if (session[i].activityId) return true; // prescribed positions never carry one
+    const sessionAct = session[i].activityId ?? null;
+    const prescribedAct = prescribed[i].resolvedActivityId ?? null;
+    if (sessionAct !== prescribedAct) return true;
   }
 
   return false;
