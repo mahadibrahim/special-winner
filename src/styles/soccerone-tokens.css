@@ -51,6 +51,15 @@
   --so-lime-a35: rgba(163, 230, 53, 0.35);
   --so-lime-a80: rgba(163, 230, 53, 0.8);
 
+  /* Complementary accents (2026-07 homepage rebuild) — amber for commerce/
+     sponsorship surfaces, sky for people/hiring surfaces. Lime stays the
+     primary brand voice; these appear only on secondary bands. */
+  --so-amber: #fbbf24;
+  --so-amber-a25: rgba(251, 191, 36, 0.25);
+  --so-sky: #38bdf8;
+  --so-sky-soft: #7dd3fc;
+  --so-sky-a25: rgba(56, 189, 248, 0.25);
+
   /* Downtown facility accent — the deliberate navy cast used on
      downtown-branded cards, badges, and map art. NOT interchangeable
      with the ink/surface scale. */
