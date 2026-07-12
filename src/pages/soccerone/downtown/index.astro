@@ -4,14 +4,15 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 import SoccerOneHeader from '@/components/soccerone/SoccerOneHeader.astro';
 import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
 import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
+import { DOWNTOWN_JSONLD } from '@/lib/seo/soccerone-jsonld';
 import { setMarketingEdgeCache } from '@/lib/http/edge-cache';
 setMarketingEdgeCache(Astro);
 ---
 
 <BaseLayout
   favicon="/soccerone-favicon.svg"
-  title="Downtown Columbus — SoccerOne | Indoor Soccer · 980 E Starr Ave"
-  description="SoccerOne Downtown Columbus: 1 FIFA-approved indoor turf field in the heart of the city. After-work pickup, corporate leagues, and field rentals. 980 E Starr Ave. Open 4pm–12am."
+  title="Soccer ONE Indoor Soccer — Downtown Columbus | SoccerOne · 980 E Starr Ave"
+  description="Soccer ONE Indoor Soccer, Downtown Columbus — indoor turf in the heart of the city. After-work pickup, corporate leagues, and field rentals. 980 E Starr Ave. Open 4pm–12am."
   navigation={false}
   footer={false}
   bodyClass="min-h-screen flex flex-col bg-[#0a0a0d] text-white antialiased"
@@ -23,6 +24,7 @@ setMarketingEdgeCache(Astro);
       href="https://fonts.googleapis.com/css2?family=Anton&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(DOWNTOWN_JSONLD)} />
   </Fragment>
 
   <SoccerOneHeader currentFacility="downtown" />

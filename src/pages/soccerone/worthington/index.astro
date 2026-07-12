@@ -4,14 +4,15 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 import SoccerOneHeader from '@/components/soccerone/SoccerOneHeader.astro';
 import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
 import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
+import { WORTHINGTON_JSONLD } from '@/lib/seo/soccerone-jsonld';
 import { setMarketingEdgeCache } from '@/lib/http/edge-cache';
 setMarketingEdgeCache(Astro);
 ---
 
 <BaseLayout
   favicon="/soccerone-favicon.svg"
-  title="Worthington — SoccerOne | 3 Indoor Fields · 535 Lakeview Plaza Blvd"
-  description="SoccerOne Worthington: 3 FIFA-approved indoor turf fields, adult leagues, youth programs, pickup, and field rentals. 535 Lakeview Plaza Blvd, Worthington OH. Open 4pm–12am daily."
+  title="Worthington — SoccerOne (Soccer One) | Indoor Soccer · 535 Lakeview Plaza Blvd"
+  description="SoccerOne Worthington — Soccer One indoor soccer. Two 110×60 boarded fields with sand-filled turf, adult leagues, youth weekend leagues, pickup, and field rentals. Futsal courts open September. 535 Lakeview Plaza Blvd, Worthington OH."
   navigation={false}
   footer={false}
   bodyClass="min-h-screen flex flex-col bg-[#0a0a0d] text-white antialiased"
@@ -23,6 +24,7 @@ setMarketingEdgeCache(Astro);
       href="https://fonts.googleapis.com/css2?family=Anton&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(WORTHINGTON_JSONLD)} />
   </Fragment>
 
   <SoccerOneHeader currentFacility="worthington" />
