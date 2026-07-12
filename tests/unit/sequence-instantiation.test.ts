@@ -211,6 +211,117 @@ describe("buildDraftSessionPlans", () => {
       }),
     ).toThrow(/unknown template/);
   });
+
+  describe("activityIdByName resolution (distribution skill-linkage fix)", () => {
+    const templateC: TemplateForBuild = {
+      id: "tpl-c",
+      name: "Passing Circuit",
+      totalDurationMinutes: 30,
+      structure: [
+        {
+          name: "Warmup",
+          type: "warmup",
+          durationMinutes: 10,
+          activitySuggestions: ["Ghost Runner", "World Cup"],
+        },
+        {
+          name: "Main game",
+          type: "technical",
+          durationMinutes: 20,
+          activitySuggestions: ["Unresolvable Drill Name"],
+        },
+      ],
+      equipmentNeeded: null,
+      focusSkillIds: null,
+    };
+    const templatesByIdC = new Map([["tpl-c", templateC]]);
+    const entriesC: SequenceEntryForBuild[] = [
+      { position: 1, templateId: "tpl-c", objectives: null, notes: null },
+    ];
+
+    it("resolves the FIRST matching suggestion name into segment.activityId/activityName and prescribedStructure.resolvedActivityId", () => {
+      const activityIdByName = new Map([
+        ["Ghost Runner", { id: "act-ghost", name: "Ghost Runner" }],
+        ["World Cup", { id: "act-worldcup", name: "World Cup" }],
+      ]);
+      const [plan] = buildDraftSessionPlans({
+        teamId: "team-1",
+        coachUserId: "coach-1",
+        entries: entriesC,
+        templatesById: templatesByIdC,
+        dates: [dates[0]],
+        activityIdByName,
+      });
+
+      // First segment: both suggestions are in the map -- takes the FIRST
+      // one in suggestion order ("Ghost Runner"), not the map's own order.
+      expect(plan.segments[0]).toMatchObject({
+        activityId: "act-ghost",
+        activityName: "Ghost Runner",
+      });
+      // Second segment: its only suggestion isn't in the map -- omit both
+      // fields entirely rather than setting them to undefined/null.
+      expect(plan.segments[1]).not.toHaveProperty("activityId");
+      expect(plan.segments[1]).not.toHaveProperty("activityName");
+
+      // Snapshot mirrors the same resolution per position.
+      expect(plan.prescribedStructure?.[0]).toMatchObject({
+        resolvedActivityId: "act-ghost",
+      });
+      expect(plan.prescribedStructure?.[1]).not.toHaveProperty("resolvedActivityId");
+      // The snapshot still carries the template's own fields verbatim.
+      expect(plan.prescribedStructure?.[0].activitySuggestions).toEqual([
+        "Ghost Runner",
+        "World Cup",
+      ]);
+    });
+
+    it("leaves segments untouched (no activityId) when no name in the map matches", () => {
+      const activityIdByName = new Map([
+        ["Some Other Drill", { id: "act-other", name: "Some Other Drill" }],
+      ]);
+      const [plan] = buildDraftSessionPlans({
+        teamId: "team-1",
+        coachUserId: "coach-1",
+        entries: entriesC,
+        templatesById: templatesByIdC,
+        dates: [dates[0]],
+        activityIdByName,
+      });
+      expect(plan.segments[0]).not.toHaveProperty("activityId");
+      expect(plan.segments[1]).not.toHaveProperty("activityId");
+      expect(plan.prescribedStructure?.[0]).not.toHaveProperty("resolvedActivityId");
+      expect(plan.prescribedStructure?.[1]).not.toHaveProperty("resolvedActivityId");
+    });
+
+    it("works with no activityIdByName map passed at all (back-compat)", () => {
+      const [plan] = buildDraftSessionPlans({
+        teamId: "team-1",
+        coachUserId: "coach-1",
+        entries: entriesC,
+        templatesById: templatesByIdC,
+        dates: [dates[0]],
+      });
+      expect(plan.segments[0]).not.toHaveProperty("activityId");
+      expect(plan.prescribedStructure?.[0]).not.toHaveProperty("resolvedActivityId");
+    });
+
+    it("segments with no activitySuggestions at all are also left untouched", () => {
+      const activityIdByName = new Map([
+        ["Doesn't matter", { id: "act-x", name: "Doesn't matter" }],
+      ]);
+      const [plan] = buildDraftSessionPlans({
+        teamId: "team-1",
+        coachUserId: "coach-1",
+        entries,
+        templatesById, // templateA/templateB from outer describe -- no activitySuggestions
+        dates: [dates[0]],
+        activityIdByName,
+      });
+      expect(plan.segments[0]).not.toHaveProperty("activityId");
+      expect(plan.prescribedStructure?.[0]).not.toHaveProperty("resolvedActivityId");
+    });
+  });
 });
 
 describe("computeSequenceProgress", () => {

@@ -100,6 +100,7 @@ export const GET: APIRoute = async (context) => {
             id: activities.id,
             skillsDeveloped: activities.skillsDeveloped,
             equipmentNeeded: activities.equipmentNeeded,
+            diagram: activities.diagram,
           })
           .from(activities)
           .where(inArray(activities.id, activityIds))
@@ -117,6 +118,9 @@ export const GET: APIRoute = async (context) => {
       activitySkillIds: s.activityId
         ? (activityById.get(s.activityId)?.skillsDeveloped ?? [])
         : [],
+      activityDiagram: s.activityId
+        ? (activityById.get(s.activityId)?.diagram ?? null)
+        : null,
     }));
 
     const equipment = deriveEquipment(
