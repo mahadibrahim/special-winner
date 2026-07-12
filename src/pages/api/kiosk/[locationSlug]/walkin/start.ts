@@ -49,6 +49,12 @@ const json = (body: unknown, status: number) =>
     headers: { "Content-Type": "application/json" },
   });
 
+// How long a walk-in payment hold occupies its slot before the
+// expire-pending-claims sweep releases it. Keep in sync with the
+// walkin_session token TTL minted below (ttlHours) — the pay link should
+// not outlive the hold it pays for.
+const WALK_IN_HOLD_TTL_MS = 2 * 3_600_000;
+
 function computeAge(dobStr: string): number {
   const dob = new Date(dobStr);
   const now = new Date();
@@ -226,44 +232,73 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
     "pending_payment",
   ] as const;
 
-  const booking = await db.transaction(async (tx) => {
-    const [existingActive] = await tx
-      .select({ id: dropInBookings.id })
-      .from(dropInBookings)
-      .where(
-        and(
-          eq(dropInBookings.sessionId, session.id),
-          eq(dropInBookings.userId, bookerUserId),
-          inArray(dropInBookings.status, ACTIVE_BOOKING_STATUSES),
-        ),
-      )
-      .limit(1);
-    if (existingActive) {
-      return null;
-    }
+  const holdResult = await db.transaction(
+    async (
+      tx,
+    ): Promise<
+      | { kind: "created"; row: typeof dropInBookings.$inferSelect }
+      | { kind: "duplicate" }
+      | { kind: "session_gone" }
+    > => {
+      // Lock the session row FIRST — this serializes concurrent walk-in
+      // starts on the same session, so the existence check below can't
+      // race a parallel insert (the check + insert would otherwise be a
+      // TOCTOU window the partial unique index can't backstop, since its
+      // predicate doesn't cover pending_payment). Mirrors
+      // createConfirmedBookingFreePath in src/lib/dropin/booking.ts.
+      const [lockedSession] = await tx
+        .select({ id: dropInSessions.id, status: dropInSessions.status })
+        .from(dropInSessions)
+        .where(eq(dropInSessions.id, session.id))
+        .for("update");
+      // Re-check under the lock: the earlier (unlocked) validation could
+      // have raced a session cancel/delete.
+      if (!lockedSession || lockedSession.status !== "scheduled") {
+        return { kind: "session_gone" };
+      }
 
-    const [row] = await tx
-      .insert(dropInBookings)
-      .values({
-        sessionId: session.id,
-        userId: bookerUserId,
-        status: "pending_payment",
-        source: "walk_up",
-        paymentMethod: "card_online",
-        amountPaidCents: 0,
-        promotionExpiresAt: new Date(Date.now() + 2 * 3_600_000),
-        // At-facility kiosk: no brand host signal. Column default ("aspire") applies.
-      })
-      .returning();
-    return row;
-  });
+      const [existingActive] = await tx
+        .select({ id: dropInBookings.id })
+        .from(dropInBookings)
+        .where(
+          and(
+            eq(dropInBookings.sessionId, session.id),
+            eq(dropInBookings.userId, bookerUserId),
+            inArray(dropInBookings.status, ACTIVE_BOOKING_STATUSES),
+          ),
+        )
+        .limit(1);
+      if (existingActive) {
+        return { kind: "duplicate" };
+      }
 
-  if (!booking) {
+      const [row] = await tx
+        .insert(dropInBookings)
+        .values({
+          sessionId: session.id,
+          userId: bookerUserId,
+          status: "pending_payment",
+          source: "walk_up",
+          paymentMethod: "card_online",
+          amountPaidCents: 0,
+          promotionExpiresAt: new Date(Date.now() + WALK_IN_HOLD_TTL_MS),
+          // At-facility kiosk: no brand host signal. Column default ("aspire") applies.
+        })
+        .returning();
+      return { kind: "created", row };
+    },
+  );
+
+  if (holdResult.kind === "session_gone") {
+    return json({ error: "Session is not open for registration" }, 422);
+  }
+  if (holdResult.kind === "duplicate") {
     return json(
       { error: "This person already has an active booking for this session" },
       409,
     );
   }
+  const booking = holdResult.row;
 
   // --- Mint self-service token ---
   const recipientEmail = bookerEmail;
