@@ -14,8 +14,11 @@
  *      NOTE: drop_in_booking_status has no `pending_payment` value. We reuse
  *      `pending_claim` here to represent "booking exists but payment not yet
  *      completed". Semantically: the walk-in slot is "claimed" but pending
- *      finalization, which aligns with how the expire-pending-claims sweep
- *      eventually reclaims the slot if payment never completes.
+ *      finalization. Unlike waitlist-promotion pending_claim rows, walk-in
+ *      holds never get a `promotionExpiresAt`, so the expire-pending-claims
+ *      sweep (which only targets rows with that column set) does NOT reclaim
+ *      them — they persist until paid or released from the command-center
+ *      roster. (An expiry redesign for walk-in holds is separately planned.)
  *      A follow-up migration should add a `pending_payment` enum value to
  *      make the walk-in state unambiguous.
  *   8. Mint a `walkin_session` self-service token pointing at the booking
@@ -209,8 +212,9 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
 
   // --- Insert drop_in_bookings in pending_claim status ---
   // STATUS CHOICE: We reuse `pending_claim` (no `pending_payment` enum value exists).
-  // See module-level comment for rationale. The expire-pending-claims sweep
-  // handles cleanup if payment never completes.
+  // See module-level comment for rationale. No promotionExpiresAt is set, so
+  // this row is NOT touched by the expire-pending-claims sweep — it persists
+  // until paid or released from the command-center roster.
   const [booking] = await db
     .insert(dropInBookings)
     .values({

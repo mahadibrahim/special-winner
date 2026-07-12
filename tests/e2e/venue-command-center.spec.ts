@@ -21,9 +21,9 @@ test("venue command center renders and opens an activity roster", async ({
   await expect(page).toHaveTitle(/command center/i);
 
   // NeedsAttentionQueue renders the "Needs attention" h2 once data loads.
-  // Target the heading specifically: the "Nothing needs attention right now"
-  // empty-state text also matches /needs attention/i, so a plain getByText is
-  // a strict-mode violation (2 matches).
+  // Target the heading specifically: the "All clear — Nothing needs attention
+  // for this location…" empty-state text also matches /needs attention/i, so
+  // a plain getByText is a strict-mode violation (2 matches).
   await expect(
     page.getByRole("heading", { name: /needs attention/i }),
   ).toBeVisible({ timeout: 60_000 });

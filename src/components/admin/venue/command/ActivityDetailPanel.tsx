@@ -243,18 +243,31 @@ export function ActivityDetailPanel({ session, locationId, timezone, onClose, on
   };
 
   // ── Held-row actions (resend waiver link / cancel hold) ─────────────────────
+  const sendLinkViaChannel = async (row: RowData, channel: "sms" | "email") => {
+    const res = await fetch("/api/admin/check-in/send-link", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kind: "drop_in_booking", targetId: row.targetId, channel }),
+    });
+    if (!res.ok) throw new Error(`Failed (${res.status})`);
+  };
+
+  // Tries SMS first (the common case at a front desk); if that send fails —
+  // e.g. no phone on file — retries once via email before giving up, so a
+  // missing/bad phone number doesn't strand the desk with no way to reach
+  // the family.
   const resendLink = async (row: RowData) => {
     setRowBusy((p) => ({ ...p, [row.targetId]: true }));
     try {
-      const res = await fetch("/api/admin/check-in/send-link", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind: "drop_in_booking", targetId: row.targetId, channel: "sms" }),
-      });
-      if (!res.ok) throw new Error(`Failed (${res.status})`);
-      toast.success(`Waiver link re-sent to ${row.name}`);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Could not resend link");
+      try {
+        await sendLinkViaChannel(row, "sms");
+        toast.success(`Waiver link re-sent by text to ${row.name}`);
+      } catch {
+        await sendLinkViaChannel(row, "email");
+        toast.success(`Waiver link re-sent by email to ${row.name}`);
+      }
+    } catch {
+      toast.error(`Could not resend link to ${row.name} — text and email both failed`);
     } finally {
       setRowBusy((p) => ({ ...p, [row.targetId]: false }));
     }

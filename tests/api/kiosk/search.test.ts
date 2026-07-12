@@ -9,8 +9,8 @@
  *   - empty / short query → returns empty results
  *   - unknown location segment → 404
  */
-import { describe, it, expect, beforeAll } from "vitest";
-import { apiFetch } from "../setup/test-helpers";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { apiFetch, getAdminCookie } from "../setup/test-helpers";
 import { getDb } from "@/lib/db";
 import { dropInBookings, dropInSessions, dropInRateCard } from "@/lib/db/schema/drop-in";
 import { users } from "@/lib/db/schema/users";
@@ -179,5 +179,25 @@ describe("GET /api/kiosk/[locationSlug]/search", () => {
       `/api/kiosk/00000000-0000-0000-0000-000000000000/search?q=test`,
     );
     expect(res.status).toBe(404);
+  });
+
+  // Fixture cleanup: this session is seeded for TODAY at the shared staging
+  // DB. The day board (venue-day-data.ts) has no status filter on sessions,
+  // so a merely-cancelled session would still show up — cancel (releases
+  // the confirmed booking created above) then hard-delete it so it doesn't
+  // linger on the roster for the e2e activity-roster test to trip over.
+  // Best-effort: a failure here shouldn't fail the suite.
+  afterAll(async () => {
+    if (!sessionId) return;
+    const adminCookie = await getAdminCookie().catch(() => null);
+    if (!adminCookie) return;
+    await apiFetch(`/api/admin/dropin/sessions/${sessionId}/cancel`, {
+      method: "POST",
+      cookie: adminCookie,
+    }).catch(() => null);
+    await apiFetch(`/api/admin/dropin/sessions/${sessionId}`, {
+      method: "DELETE",
+      cookie: adminCookie,
+    }).catch(() => null);
   });
 });

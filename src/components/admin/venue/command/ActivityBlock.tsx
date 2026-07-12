@@ -102,6 +102,7 @@ export function ActivityBlock({ session, onClick, compact = false, timezone = "A
             <span
               className="shrink-0 text-[9.5px] font-bold bg-stone-800/80 text-white rounded px-1 leading-tight whitespace-nowrap"
               title={`Off-hours — actually starts ${formatTime(session.startsAt, timezone)}`}
+              aria-label={`Off-hours session — actually starts ${formatTime(session.startsAt, timezone)}`}
             >
               ⤴ {formatTime(session.startsAt, timezone)}
             </span>
@@ -118,7 +119,10 @@ export function ActivityBlock({ session, onClick, compact = false, timezone = "A
             <span className="truncate">{session.title}</span>
           </div>
           {clamped && (
-            <span className="inline-block text-[9.5px] font-bold bg-stone-800/80 text-white rounded px-1 mt-0.5 leading-tight">
+            <span
+              className="inline-block text-[9.5px] font-bold bg-stone-800/80 text-white rounded px-1 mt-0.5 leading-tight"
+              aria-label={`Off-hours session — actually starts ${formatTime(session.startsAt, timezone)}`}
+            >
               off-hours · {formatTime(session.startsAt, timezone)}
             </span>
           )}

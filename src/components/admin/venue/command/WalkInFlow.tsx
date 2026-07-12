@@ -341,7 +341,10 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
                   <h3 className="text-lg font-bold text-amber-800">
                     Link NOT sent — share it manually
                   </h3>
-                  <div className="text-sm text-amber-900 max-w-xs bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  <div
+                    role="alert"
+                    className="text-sm text-amber-900 max-w-xs bg-amber-50 border border-amber-200 rounded-lg px-3 py-2"
+                  >
                     We couldn&apos;t {result.method === "link_sms" ? "text" : "email"} the
                     waiver link
                     {result.method === "link_sms" && !hasPhone
