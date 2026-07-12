@@ -22,6 +22,7 @@ export default function FieldMode({
   const { session, segments, prompts, roster } = payload;
   const [segmentIndex, setSegmentIndex] = useState(0);
   const [promptCycle, setPromptCycle] = useState(0);
+  const [showDiagram, setShowDiagram] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [sheetRosterId, setSheetRosterId] = useState<string | null>(null);
   // Attendance sheet shows once on first entry unless every player already
@@ -57,6 +58,7 @@ export default function FieldMode({
           onClick={() => {
             setSegmentIndex((i) => Math.min(i + 1, segments.length - 1));
             setPromptCycle(0);
+            setShowDiagram(false);
           }}
           className="min-h-11 rounded-xl border-2 border-border bg-paper p-6 text-left"
         >
@@ -71,6 +73,26 @@ export default function FieldMode({
           {segment.notes && <p className="mt-2 text-sm text-ink">{segment.notes}</p>}
           <p className="mt-3 text-xs text-ink-muted">Tap when you move on</p>
         </button>
+      )}
+
+      {segment?.activityDiagram && (
+        <div>
+          <button
+            data-testid="field-diagram-toggle"
+            onClick={() => setShowDiagram((v) => !v)}
+            className="min-h-11 rounded-xl border border-border bg-paper px-4 text-sm text-ink"
+          >
+            {showDiagram ? "Hide setup" : "See setup"}
+          </button>
+          {showDiagram && (
+            <pre
+              data-testid="field-diagram"
+              className="mt-2 overflow-x-auto rounded-xl bg-cream-2 p-3 font-mono text-xs leading-snug text-ink"
+            >
+              {segment.activityDiagram}
+            </pre>
+          )}
+        </div>
       )}
 
       {prompt && (

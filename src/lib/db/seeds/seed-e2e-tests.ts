@@ -2734,6 +2734,18 @@ async function seedE2ETests() {
   if (!soccerOneOrg) {
     console.log("   ⚠️  Skipping — SoccerOne org not provisioned. Run scripts/seed-soccerone-org.ts first.");
   } else {
+    // The fixture org must be active or domain resolution rejects it and the
+    // org-scoped public APIs return empty on soccerone hosts — a soft-archived
+    // fixture silently blanks the SoccerOne e2e surface. Self-heal it here so
+    // a stale org state can't invalidate the fixtures seeded below.
+    if (soccerOneOrg.status !== "active") {
+      await db
+        .update(organizations)
+        .set({ status: "active" })
+        .where(eq(organizations.id, soccerOneOrg.id));
+      console.log(`   ✓ Reactivated SoccerOne org (was ${soccerOneOrg.status})`);
+    }
+
     // 12a. SoccerOne Downtown location (provisioned by Phase 1).
     const [soccerOneDowntown] = await db
       .select()

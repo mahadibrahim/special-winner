@@ -23,10 +23,13 @@ describe("PORTALS registry", () => {
     expect(names).not.toContain("Check-in");
   });
 
-  it("venue portal carries the venue-manager nav (Check-in present, Seasons absent)", () => {
+  it("venue portal carries the venue-manager nav (Command center present, Check-in and Seasons absent)", () => {
     const venue = PORTALS.find((p) => p.id === "venue")!;
     const names = venue.nav.flatMap((g) => g.items).map((i) => i.name);
-    expect(names).toContain("Check-in");
+    // Command center replaced the old Check-in page as the single
+    // front-desk path (38cb532d); this test lagged behind that change.
+    expect(names).toContain("Command center");
+    expect(names).not.toContain("Check-in");
     expect(names).not.toContain("Seasons");
   });
 

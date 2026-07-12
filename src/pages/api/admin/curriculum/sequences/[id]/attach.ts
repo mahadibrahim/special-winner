@@ -1,15 +1,17 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import {
+  activities,
   curriculumSequenceEntries,
   practiceTemplates,
+  programs,
   seasons,
   sessionPlans,
   teams,
 } from "@/lib/db/schema";
 import { organizations } from "@/lib/db/schema/organizations";
 import { sequenceAttachments } from "@/lib/db/schema/blueprint";
-import { eq, asc, inArray, sql } from "drizzle-orm";
+import { eq, asc, and, inArray, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { requireOrgAdminAccess } from "@/lib/auth";
 import {
@@ -126,10 +128,13 @@ export const POST: APIRoute = async (context) => {
 
     const db = getDb();
 
-    // PK lookup — no orderBy needed on limit(1).
+    // PK lookup — no orderBy needed on limit(1). Joined to programs for
+    // sportId, which the activity-resolution step below needs to scope its
+    // suggestion-name lookup to the right sport.
     const [season] = await db
-      .select({ id: seasons.id, endDate: seasons.endDate })
+      .select({ id: seasons.id, endDate: seasons.endDate, sportId: programs.sportId })
       .from(seasons)
+      .innerJoin(programs, eq(seasons.programId, programs.id))
       .where(eq(seasons.id, data.seasonId))
       .limit(1);
 
@@ -159,6 +164,46 @@ export const POST: APIRoute = async (context) => {
     const templatesById = new Map<string, TemplateForBuild>(
       templateRows.map((t) => [t.id, t]),
     );
+
+    // Distribution skill-linkage fix: resolve template segments' free-text
+    // activitySuggestions to real activity ids BEFORE generating drafts, so
+    // generated sessions carry a concrete activityId/activityName instead
+    // of just a suggestion name — this is what lets skill-matched prompts
+    // and curated glow chips work on prescribed sessions (they derive
+    // skills from segment activityIds, not from suggestion text).
+    const suggestionNames = [
+      ...new Set(
+        templateRows.flatMap((t) =>
+          (t.structure ?? []).flatMap((s) => s.activitySuggestions ?? []),
+        ),
+      ),
+    ];
+    let activityIdByName: Map<string, { id: string; name: string }> | undefined;
+    if (suggestionNames.length > 0) {
+      const activityRows = await db
+        .select({ id: activities.id, name: activities.name, createdAt: activities.createdAt })
+        .from(activities)
+        .where(
+          and(
+            inArray(activities.name, suggestionNames),
+            eq(activities.sportId, season.sportId),
+            or(isNull(activities.organizationId), eq(activities.organizationId, auth.organizationId)),
+            eq(activities.active, true),
+          ),
+        )
+        // Multi-tenant query hazard (CLAUDE.md): more than one activity can
+        // share a name (e.g. two orgs both seeding "World Cup"). Keep the
+        // FIRST row per name below, ordered oldest-first, so which row wins
+        // under a duplicate name is deterministic across runs rather than
+        // whatever order Postgres happens to return.
+        .orderBy(asc(activities.createdAt));
+      activityIdByName = new Map();
+      for (const row of activityRows) {
+        if (!activityIdByName.has(row.name)) {
+          activityIdByName.set(row.name, { id: row.id, name: row.name });
+        }
+      }
+    }
 
     // Safety re-check FIRST, before anything is written -- distribution is
     // the last gate (see module docstring). Evaluated against the season's
@@ -260,6 +305,7 @@ export const POST: APIRoute = async (context) => {
         dates,
         status: "planned",
         sequenceAttachmentId: null,
+        activityIdByName,
       });
       const fresh = drafts.filter(
         (d) =>
