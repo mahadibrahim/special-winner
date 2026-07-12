@@ -15,6 +15,7 @@
 import type { APIRoute } from "astro";
 import { getVenueDayData } from "@/lib/admin/venue-day-data";
 import { buildVenueToday } from "@/lib/venue/build-today";
+import { getNavBadges } from "@/lib/admin/nav-badges";
 import { getLocationIdsForUser } from "@/lib/auth/location-scope";
 import { requireSameLocation } from "@/lib/auth/require-resource-ownership";
 import { parseStripDate } from "@/lib/admin/week-strip";
@@ -111,6 +112,21 @@ export const GET: APIRoute = async ({ url, locals }) => {
 
   // --- Data fetch + shape ---
   try {
+    // Kick off the nav badges query alongside getVenueDayData rather than
+    // after it — badges need only orgId/allowedIds/userId, all resolved
+    // above, so its ~1-RTT cost overlaps dayData's fetch instead of
+    // stacking serially after it (see venue-today-perf-report.md).
+    const badgesPromise = getNavBadges(orgId, {
+      locationIds: allowedIds,
+      userId: locals.user.id,
+      inboxScope: "org",
+    });
+    // buildVenueToday awaits this in its own try/catch below (fail-soft).
+    // If dayData turns out to be null, badgesPromise is never awaited —
+    // attach a no-op handler so a rejection there doesn't surface as an
+    // unhandled promise rejection.
+    badgesPromise.catch(() => {});
+
     const dayData = await getVenueDayData(locationId, dateParam);
     if (!dayData) {
       return json({ error: "Location not found" }, 404);
@@ -123,6 +139,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       locals.user.id,
       allowedIds,
       timezone,
+      badgesPromise,
     );
 
     return json(payload);

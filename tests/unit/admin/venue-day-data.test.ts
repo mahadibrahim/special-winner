@@ -12,7 +12,13 @@ vi.mock("@/lib/db", () => ({
         innerJoin: () => ({
           innerJoin: () => ({
             innerJoin: () => ({
+              // gameRows joins home AND away teams (two chained leftJoins
+              // against an aliased teams table) since the self-join merge
+              // — see venue-day-data.ts.
               leftJoin: () => ({
+                leftJoin: () => ({
+                  where: () => Promise.resolve([]),
+                }),
                 where: () => Promise.resolve([]),
               }),
               where: () => Promise.resolve([]),

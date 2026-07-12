@@ -25,6 +25,7 @@ import { programs, seasons } from "@/lib/db/schema/programs";
 import { locations } from "@/lib/db/schema/organizations";
 import { venueResources, resourceBlocks } from "@/lib/db/schema/scheduling";
 import { and, count, eq, gte, inArray, lt, ne, notInArray } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 
 export type ActivityType =
   | "league_game"
@@ -98,82 +99,227 @@ export async function getVenueDayData(
 ): Promise<VenueDayData | null> {
   const db = getDb();
 
-  const [loc] = await db
-    .select({ id: locations.id, name: locations.name })
-    .from(locations)
-    .where(eq(locations.id, locationId))
-    .limit(1);
-  if (!loc) return null;
-
   const dayStart = new Date(`${date}T00:00:00.000Z`);
   const dayEnd = new Date(`${date}T23:59:59.999Z`);
 
-  // --- Games ---
-  // Join through venue → location, plus the program (for programType =
-  // tournament vs. league) and home/away team names for the title.
+  // --- Wave 1: independent queries, fired concurrently ---
+  // None of these depend on another query's result — batching them into one
+  // Promise.all collapses what used to be up to 6 sequential RTTs into 1.
   const homeTeams = teams; // alias is implicit via separate select for clarity
-  const gameRows = await db
-    .select({
-      id: games.id,
-      scheduledAt: games.scheduledAt,
-      durationMinutes: games.durationMinutes,
-      fieldNumber: games.fieldNumber,
-      programType: programs.programType,
-      homeTeamName: homeTeams.name,
-      venueName: venues.name,
-    })
-    .from(games)
-    .innerJoin(venues, eq(games.venueId, venues.id))
-    .innerJoin(seasons, eq(games.seasonId, seasons.id))
-    .innerJoin(programs, eq(seasons.programId, programs.id))
-    .leftJoin(homeTeams, eq(games.homeTeamId, homeTeams.id))
-    .where(
-      and(
-        eq(venues.locationId, locationId),
-        gte(games.scheduledAt, dayStart),
-        lt(games.scheduledAt, dayEnd),
-        // Cancelled and postponed games don't occupy the field at their
-        // scheduled slot — keep scheduled/in_progress/completed so the board
-        // remains a full record of the day (unlike the arrivals-focused
-        // check-in day view, which shows scheduled/in_progress only).
-        notInArray(games.status, ["cancelled", "postponed"]),
-      ),
-    );
+  const awayTeams = alias(teams, "away_teams");
 
-  // For the title we also want the away team name. Resolve in a follow-up
-  // pass to avoid the self-join complexity.
-  const awayTeamRows = await db
-    .select({ gameId: games.id, name: teams.name })
-    .from(games)
-    .innerJoin(venues, eq(games.venueId, venues.id))
-    .leftJoin(teams, eq(games.awayTeamId, teams.id))
-    .where(
-      and(
-        eq(venues.locationId, locationId),
-        gte(games.scheduledAt, dayStart),
-        lt(games.scheduledAt, dayEnd),
-      ),
-    );
-  const awayNameById = new Map<string, string | null>(
-    awayTeamRows.map((r) => [r.gameId, r.name]),
+  const [locRows, gameRows, dropInRows, rentalRows, rawResourceRows] =
+    await Promise.all([
+      db
+        .select({ id: locations.id, name: locations.name })
+        .from(locations)
+        .where(eq(locations.id, locationId))
+        .limit(1),
+
+      // --- Games ---
+      // Join through venue → location, plus the program (for programType =
+      // tournament vs. league) and home/away team names for the title. Both
+      // home and away team names are resolved in this single query via a
+      // second aliased join against `teams`, avoiding a near-duplicate
+      // second query just to look up the away team name.
+      db
+        .select({
+          id: games.id,
+          scheduledAt: games.scheduledAt,
+          durationMinutes: games.durationMinutes,
+          fieldNumber: games.fieldNumber,
+          programType: programs.programType,
+          homeTeamName: homeTeams.name,
+          awayTeamName: awayTeams.name,
+          venueName: venues.name,
+        })
+        .from(games)
+        .innerJoin(venues, eq(games.venueId, venues.id))
+        .innerJoin(seasons, eq(games.seasonId, seasons.id))
+        .innerJoin(programs, eq(seasons.programId, programs.id))
+        .leftJoin(homeTeams, eq(games.homeTeamId, homeTeams.id))
+        .leftJoin(awayTeams, eq(games.awayTeamId, awayTeams.id))
+        .where(
+          and(
+            eq(venues.locationId, locationId),
+            gte(games.scheduledAt, dayStart),
+            lt(games.scheduledAt, dayEnd),
+            // Cancelled and postponed games don't occupy the field at their
+            // scheduled slot — keep scheduled/in_progress/completed so the
+            // board remains a full record of the day (unlike the
+            // arrivals-focused check-in day view, which shows
+            // scheduled/in_progress only).
+            notInArray(games.status, ["cancelled", "postponed"]),
+          ),
+        ),
+
+      // --- Drop-in sessions (pickup + class) ---
+      db
+        .select({
+          id: dropInSessions.id,
+          kind: dropInSessions.kind,
+          label: dropInSessions.sportOrClassLabel,
+          format: dropInSessions.formatLabel,
+          startsAt: dropInSessions.startsAt,
+          endsAt: dropInSessions.endsAt,
+          capacity: dropInSessions.capacity,
+          venueName: venues.name,
+          resourceName: venueResources.name,
+        })
+        .from(dropInSessions)
+        .innerJoin(venues, eq(dropInSessions.venueId, venues.id))
+        .leftJoin(
+          venueResources,
+          eq(dropInSessions.bookableResourceId, venueResources.id),
+        )
+        .where(
+          and(
+            eq(venues.locationId, locationId),
+            gte(dropInSessions.startsAt, dayStart),
+            lt(dropInSessions.startsAt, dayEnd),
+            // A cancelled session's field time is released — it must not
+            // render on the board. `completed` stays visible: the board is
+            // a record of the whole day, and the desk may still open a
+            // finished session's roster (late check-in, attendance
+            // review). This deliberately differs from the
+            // arrivals-focused check-in day view (lib/check-in/day-view.ts),
+            // which lists `scheduled` only.
+            ne(dropInSessions.status, "cancelled"),
+          ),
+        ),
+
+      // --- Field rentals ---
+      db
+        .select({
+          id: fieldRentals.id,
+          startsAt: fieldRentals.startsAt,
+          endsAt: fieldRentals.endsAt,
+          fieldNumber: fieldRentals.fieldNumber,
+          renterName: fieldRentals.renterName,
+          venueName: venues.name,
+        })
+        .from(fieldRentals)
+        .innerJoin(venues, eq(fieldRentals.venueId, venues.id))
+        .where(
+          and(
+            eq(venues.locationId, locationId),
+            gte(fieldRentals.startsAt, dayStart),
+            lt(fieldRentals.startsAt, dayEnd),
+            // Cancelled rentals release the slot — hide them. Everything
+            // else stays: pending_payment holds occupy the slot (same
+            // logic as pending_claim bookings counting toward drop-in
+            // capacity — see the schema's active-slot unique index), and
+            // completed/no_show are the day's history.
+            ne(fieldRentals.status, "cancelled"),
+          ),
+        ),
+
+      // --- Field resources (field-time ledger columns) ---
+      db
+        .select({
+          id: venueResources.id,
+          venueId: venueResources.venueId,
+          venueName: venues.name,
+          name: venueResources.name,
+          fieldNumber: venueResources.fieldNumber,
+        })
+        .from(venueResources)
+        .innerJoin(venues, eq(venueResources.venueId, venues.id))
+        .where(
+          and(
+            eq(venues.locationId, locationId),
+            eq(venueResources.active, true),
+            // A deactivated space must not contribute board columns (the
+            // Worthington "Field 3" ghost-column bug).
+            eq(venues.active, true),
+          ),
+        )
+        .orderBy(venues.name, venueResources.sortOrder),
+    ]);
+
+  const [loc] = locRows;
+  if (!loc) return null;
+
+  // --- Wave 1 derived JS (no queries) ---
+  const gameIds = gameRows.map((g) => g.id);
+  const dropInSessionIds = dropInRows.map((s) => s.id);
+
+  const resourceCountByVenue = new Map<string, number>();
+  for (const r of rawResourceRows) {
+    resourceCountByVenue.set(r.venueId, (resourceCountByVenue.get(r.venueId) ?? 0) + 1);
+  }
+  const resourceRows = rawResourceRows.map((r) => ({
+    ...r,
+    displayName: resourceDisplayName(
+      r.venueName,
+      r.name,
+      resourceCountByVenue.get(r.venueId) ?? 1,
+    ),
+  }));
+  const resourceIds = resourceRows.map((r) => r.id);
+  const resourceNameById = new Map(resourceRows.map((r) => [r.id, r.name]));
+  const venueNameByResourceId = new Map(
+    resourceRows.map((r) => [r.id, r.venueName]),
   );
 
-  // Ref assignments for the day's games — one query, set lookup.
-  const gameIds = gameRows.map((g) => g.id);
-  const officialRows =
+  // --- Wave 2: queries keyed off wave-1 results, independent of each other ---
+  const [officialRows, bookingCounts, manualRows] = await Promise.all([
+    // Ref assignments for the day's games — one query, set lookup.
     gameIds.length > 0
-      ? await db
+      ? db
           .select({ gameId: gameOfficials.gameId })
           .from(gameOfficials)
           .where(inArray(gameOfficials.gameId, gameIds))
-      : [];
+      : Promise.resolve([]),
+
+    // Booked-count per session: confirmed + pending_payment (walk-in
+    // pay-link holds) + pending_claim (waitlist promotions) all occupy a
+    // slot, so all three count toward "how full is this block". One
+    // grouped query for every drop-in session in the day window — not
+    // per-session — to keep this a fixed number of queries regardless of
+    // how many sessions the day has.
+    // NOTE: this intentionally diverges from getVenueReports' `booked`
+    // metric (lib/admin/venue-reports.ts), which counts status='confirmed'
+    // only — the day board answers "how full is this slot right now"
+    // (holds count), reports answer "how many people actually booked"
+    // (holds don't count).
+    dropInSessionIds.length
+      ? db
+          .select({ sessionId: dropInBookings.sessionId, n: count() })
+          .from(dropInBookings)
+          .where(
+            and(
+              inArray(dropInBookings.sessionId, dropInSessionIds),
+              inArray(dropInBookings.status, ["confirmed", "pending_payment", "pending_claim"]),
+            ),
+          )
+          .groupBy(dropInBookings.sessionId)
+      : Promise.resolve([]),
+
+    // External (Good Rec / email) + maintenance holds live ONLY in the
+    // ledger — this is where the partner's bookings become visible.
+    resourceIds.length > 0
+      ? db
+          .select()
+          .from(resourceBlocks)
+          .where(
+            and(
+              inArray(resourceBlocks.resourceId, resourceIds),
+              inArray(resourceBlocks.sourceType, ["external", "maintenance"]),
+              lt(resourceBlocks.startsAt, dayEnd),
+              gte(resourceBlocks.endsAt, dayStart),
+            ),
+          )
+      : Promise.resolve([]),
+  ]);
+
   const gamesWithRef = new Set(officialRows.map((r) => r.gameId));
 
   const gameBlocks: ActivityBlock[] = gameRows.map((g) => {
     const duration = g.durationMinutes ?? 60;
     const endAt = new Date(g.scheduledAt.getTime() + duration * 60_000);
     const home = g.homeTeamName ?? "TBD";
-    const away = awayNameById.get(g.id) ?? "TBD";
+    const away = g.awayTeamName ?? "TBD";
     const type: ActivityType =
       g.programType === "tournament" ? "tournament_game" : "league_game";
     return {
@@ -197,63 +343,6 @@ export async function getVenueDayData(
     };
   });
 
-  // --- Drop-in sessions (pickup + class) ---
-  const dropInRows = await db
-    .select({
-      id: dropInSessions.id,
-      kind: dropInSessions.kind,
-      label: dropInSessions.sportOrClassLabel,
-      format: dropInSessions.formatLabel,
-      startsAt: dropInSessions.startsAt,
-      endsAt: dropInSessions.endsAt,
-      capacity: dropInSessions.capacity,
-      venueName: venues.name,
-      resourceName: venueResources.name,
-    })
-    .from(dropInSessions)
-    .innerJoin(venues, eq(dropInSessions.venueId, venues.id))
-    .leftJoin(
-      venueResources,
-      eq(dropInSessions.bookableResourceId, venueResources.id),
-    )
-    .where(
-      and(
-        eq(venues.locationId, locationId),
-        gte(dropInSessions.startsAt, dayStart),
-        lt(dropInSessions.startsAt, dayEnd),
-        // A cancelled session's field time is released — it must not render
-        // on the board. `completed` stays visible: the board is a record of
-        // the whole day, and the desk may still open a finished session's
-        // roster (late check-in, attendance review). This deliberately
-        // differs from the arrivals-focused check-in day view
-        // (lib/check-in/day-view.ts), which lists `scheduled` only.
-        ne(dropInSessions.status, "cancelled"),
-      ),
-    );
-
-  // Booked-count per session: confirmed + pending_payment (walk-in pay-link
-  // holds) + pending_claim (waitlist promotions) all occupy a slot, so all
-  // three count toward "how full is this block". One grouped query for
-  // every drop-in session in the day window — not per-session — to keep
-  // this a fixed number of queries regardless of how many sessions the day
-  // has.
-  // NOTE: this intentionally diverges from getVenueReports' `booked` metric
-  // (lib/admin/venue-reports.ts), which counts status='confirmed' only —
-  // the day board answers "how full is this slot right now" (holds count),
-  // reports answer "how many people actually booked" (holds don't count).
-  const dropInSessionIds = dropInRows.map((s) => s.id);
-  const bookingCounts = dropInSessionIds.length
-    ? await db
-        .select({ sessionId: dropInBookings.sessionId, n: count() })
-        .from(dropInBookings)
-        .where(
-          and(
-            inArray(dropInBookings.sessionId, dropInSessionIds),
-            inArray(dropInBookings.status, ["confirmed", "pending_payment", "pending_claim"]),
-          ),
-        )
-        .groupBy(dropInBookings.sessionId)
-    : [];
   const countBySession = new Map(bookingCounts.map((r) => [r.sessionId, r.n]));
 
   const dropInBlocks: ActivityBlock[] = dropInRows.map((s) => ({
@@ -272,32 +361,6 @@ export async function getVenueDayData(
     blockId: null,
   }));
 
-  // --- Field rentals ---
-  const rentalRows = await db
-    .select({
-      id: fieldRentals.id,
-      startsAt: fieldRentals.startsAt,
-      endsAt: fieldRentals.endsAt,
-      fieldNumber: fieldRentals.fieldNumber,
-      renterName: fieldRentals.renterName,
-      venueName: venues.name,
-    })
-    .from(fieldRentals)
-    .innerJoin(venues, eq(fieldRentals.venueId, venues.id))
-    .where(
-      and(
-        eq(venues.locationId, locationId),
-        gte(fieldRentals.startsAt, dayStart),
-        lt(fieldRentals.startsAt, dayEnd),
-        // Cancelled rentals release the slot — hide them. Everything else
-        // stays: pending_payment holds occupy the slot (same logic as
-        // pending_claim bookings counting toward drop-in capacity — see the
-        // schema's active-slot unique index), and completed/no_show are the
-        // day's history.
-        ne(fieldRentals.status, "cancelled"),
-      ),
-    );
-
   const rentalBlocks: ActivityBlock[] = rentalRows.map((r) => ({
     id: r.id,
     type: "rental",
@@ -313,64 +376,6 @@ export async function getVenueDayData(
     resourceName: `Field ${r.fieldNumber}`,
     blockId: null,
   }));
-
-  // --- Field resources + manual holds (field-time ledger) ---
-  const rawResourceRows = await db
-    .select({
-      id: venueResources.id,
-      venueId: venueResources.venueId,
-      venueName: venues.name,
-      name: venueResources.name,
-      fieldNumber: venueResources.fieldNumber,
-    })
-    .from(venueResources)
-    .innerJoin(venues, eq(venueResources.venueId, venues.id))
-    .where(
-      and(
-        eq(venues.locationId, locationId),
-        eq(venueResources.active, true),
-        // A deactivated space must not contribute board columns (the
-        // Worthington "Field 3" ghost-column bug).
-        eq(venues.active, true),
-      ),
-    )
-    .orderBy(venues.name, venueResources.sortOrder);
-
-  const resourceCountByVenue = new Map<string, number>();
-  for (const r of rawResourceRows) {
-    resourceCountByVenue.set(r.venueId, (resourceCountByVenue.get(r.venueId) ?? 0) + 1);
-  }
-  const resourceRows = rawResourceRows.map((r) => ({
-    ...r,
-    displayName: resourceDisplayName(
-      r.venueName,
-      r.name,
-      resourceCountByVenue.get(r.venueId) ?? 1,
-    ),
-  }));
-
-  const resourceIds = resourceRows.map((r) => r.id);
-  const resourceNameById = new Map(resourceRows.map((r) => [r.id, r.name]));
-  const venueNameByResourceId = new Map(
-    resourceRows.map((r) => [r.id, r.venueName]),
-  );
-
-  // External (Good Rec / email) + maintenance holds live ONLY in the
-  // ledger — this is where the partner's bookings become visible.
-  const manualRows =
-    resourceIds.length > 0
-      ? await db
-          .select()
-          .from(resourceBlocks)
-          .where(
-            and(
-              inArray(resourceBlocks.resourceId, resourceIds),
-              inArray(resourceBlocks.sourceType, ["external", "maintenance"]),
-              lt(resourceBlocks.startsAt, dayEnd),
-              gte(resourceBlocks.endsAt, dayStart),
-            ),
-          )
-      : [];
 
   const manualBlocks: ActivityBlock[] = manualRows.map((m) => ({
     id: m.id,

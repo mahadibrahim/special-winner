@@ -20,7 +20,7 @@ import type {
   VenueTodaySession,
   VenueAttentionItem,
 } from "@/lib/venue/today-types";
-import { getNavBadges } from "@/lib/admin/nav-badges";
+import { getNavBadges, type NavBadges } from "@/lib/admin/nav-badges";
 
 /** Maps ActivityType → the VenueTodaySession kind union. */
 function mapKind(
@@ -45,6 +45,16 @@ export async function buildVenueToday(
   userId: string,
   locationIds: string[],
   timezone: string = "America/New_York",
+  // Callers that already know orgId/userId/locationIds before dayData is
+  // ready (i.e. every real caller) should kick off getNavBadges concurrently
+  // with getVenueDayData and pass the in-flight promise here, so its ~1-RTT
+  // cost overlaps dayData's fetch instead of stacking after it. Falls back
+  // to calling getNavBadges itself for callers that don't pre-start it.
+  badgesPromise: Promise<NavBadges> = getNavBadges(orgId, {
+    locationIds,
+    userId,
+    inboxScope: "org",
+  }),
 ): Promise<VenueTodayPayload> {
   // Build a map of resourceName → resource for spaceId resolution.
   // We key on resourceName (string) because ActivityBlock exposes resourceName
@@ -122,11 +132,7 @@ export async function buildVenueToday(
   let requestAttention: VenueAttentionItem[] = [];
   let messageAttention: VenueAttentionItem[] = [];
   try {
-    const badges = await getNavBadges(orgId, {
-      locationIds,
-      userId,
-      inboxScope: "org",
-    });
+    const badges = await badgesPromise;
     if (badges.refundsPending > 0) {
       requestAttention = [
         {
