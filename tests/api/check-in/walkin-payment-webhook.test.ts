@@ -1,9 +1,15 @@
 /**
  * Unit/integration tests for handleDropinWalkinPayment.
  *
- * Seeds drop-in sessions and pending_claim bookings directly, then calls
- * the handler at the library level (no HTTP). Mirrors the structure of
+ * Seeds drop-in sessions and pending bookings directly, then calls the
+ * handler at the library level (no HTTP). Mirrors the structure of
  * tests/api/rentals/webhook.test.ts.
+ *
+ * The handler accepts bookings in either `pending_payment` (current hold
+ * status — see walkin/start.ts) or `pending_claim` (legacy, pre-cutover
+ * stranded holds). Most cases here exercise `pending_claim` fixtures since
+ * that was the original shape of this suite; a dedicated case below covers
+ * the `pending_payment` path.
  */
 import { describe, it, expect, beforeAll } from "vitest";
 import type Stripe from "stripe";
@@ -81,6 +87,22 @@ async function seedPendingClaimBooking(sessionId: string, userId = testUserId) {
   return booking;
 }
 
+async function seedPendingPaymentBooking(sessionId: string, userId = testUserId) {
+  const [booking] = await getDb()
+    .insert(dropInBookings)
+    .values({
+      sessionId,
+      userId,
+      status: "pending_payment",
+      source: "walk_up",
+      paymentMethod: "card_online",
+      amountPaidCents: 0,
+      promotionExpiresAt: new Date(Date.now() + 2 * 3_600_000),
+    })
+    .returning();
+  return booking;
+}
+
 // ── tests ────────────────────────────────────────────────────────────────────
 
 describe("handleDropinWalkinPayment", () => {
@@ -104,6 +126,38 @@ describe("handleDropinWalkinPayment", () => {
     expect(result.paidCents).toBe(1500);
 
     // Re-fetch and assert DB state
+    const [row] = await getDb()
+      .select()
+      .from(dropInBookings)
+      .where(eq(dropInBookings.id, booking.id));
+
+    expect(row).toBeDefined();
+    expect(row!.status).toBe("confirmed");
+    expect(row!.amountPaidCents).toBe(1500);
+    expect(row!.stripePaymentIntentId).toBe(fakePiId);
+    expect(row!.promotionExpiresAt).toBeNull();
+  });
+
+  it("happy path: flips pending_payment booking to confirmed and clears promotionExpiresAt", async () => {
+    const session = await seedSession(20);
+    const booking = await seedPendingPaymentBooking(session.id);
+    expect(booking.promotionExpiresAt).not.toBeNull();
+
+    const fakePiId = `pi_test_dropin_wh_pp_${Date.now()}`;
+    const fakePI = {
+      id: fakePiId,
+      metadata: { type: "dropin_walkin", booking_id: booking.id },
+      amount_received: 1500,
+      amount: 1500,
+    } as unknown as Stripe.PaymentIntent;
+
+    const result = await handleDropinWalkinPayment(fakePI);
+
+    expect(result.status).toBe("processed");
+    if (result.status !== "processed") throw new Error("handler did not process");
+    expect(result.bookingId).toBe(booking.id);
+    expect(result.paidCents).toBe(1500);
+
     const [row] = await getDb()
       .select()
       .from(dropInBookings)

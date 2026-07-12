@@ -1,26 +1,41 @@
 /**
- * Held pay-link walk-in bookings (status `pending_claim`) must be visible
- * across the venue backend, not just invisible-until-paid:
- *   - GET /api/admin/check-in/event includes pending_claim rows with `status`.
+ * Held pay-link walk-in bookings must be visible across the venue backend,
+ * not just invisible-until-paid:
+ *   - GET /api/admin/check-in/event includes hold rows with `status`.
  *   - GET /api/admin/venue-day/[date] reports a real `capacityCurrent` for
- *     drop-in blocks that counts confirmed + pending_claim bookings.
+ *     drop-in blocks that counts confirmed + held bookings.
  *   - POST /api/admin/venue/cancel-hold lets the desk release a hold early,
  *     is tenant-scoped (cross-org admin gets 404), and refuses to touch a
  *     confirmed booking (409).
  *
- * Fixture: real pending_claim bookings are created the same way a kiosk
- * pay-link hold is created in production — via
- * POST /api/kiosk/{locationId}/walkin/start — against a drop-in session
- * seeded for TODAY at the E2E rental venue (mirrors
- * tests/api/kiosk/walkin.test.ts and tests/api/booking-search.test.ts).
+ * Fixture: real bookings are created the same way a kiosk pay-link hold is
+ * created in production — via POST /api/kiosk/{locationId}/walkin/start —
+ * against a drop-in session seeded for TODAY at the E2E rental venue
+ * (mirrors tests/api/kiosk/walkin.test.ts and tests/api/booking-search.test.ts).
+ * As of the walk-in remote payment work, that fixture now lands in
+ * `pending_payment` status (2h expiry) rather than `pending_claim` — see
+ * walkin/start.ts.
+ *
+ * SEQUENCING NOTE (walk-in remote payment plan, Task 2 vs Task 5): the
+ * three read paths this file exercises — check-in/event.ts,
+ * venue-day-data.ts, and cancel-hold.ts — still key off `status ===
+ * "pending_claim"` and are NOT updated by Task 2 (that's Task 5's job,
+ * per docs/superpowers/plans/2026-07-12-walkin-remote-payment.md). So,
+ * on this branch between Task 2 and Task 5 landing, a `pending_payment`
+ * hold is temporarily INVISIBLE to the roster/capacity endpoints and
+ * cancel-hold refuses to touch it. The three tests below assert the
+ * CORRECT end-state (hold visible, capacity counts it, cancel-hold
+ * accepts it) and are expected to fail until Task 5's backend changes
+ * land on this same branch — this is intentional, not a Task 2 bug;
+ * see the Task 2 report for the full explanation.
  *
  * The tenant-scoping test needs a *second* held booking that belongs to a
  * DIFFERENT org. Org B's fixture ids are resolved via the test-only
  * GET /api/test/org-fixtures?slug=orgb endpoint (same pattern as
- * tests/api/admin-tenant-scoping.test.ts) and a second pending_claim
- * booking is created there via the same kiosk walk-in flow — the kiosk
- * resolves its org from the location segment directly, not from the
- * request host, so this works over the same localhost base URL used by
+ * tests/api/admin-tenant-scoping.test.ts) and a second held booking is
+ * created there via the same kiosk walk-in flow — the kiosk resolves its
+ * org from the location segment directly, not from the request host, so
+ * this works over the same localhost base URL used by
  * `admin@test.aspiresports.com` (Org A / HQ).
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
@@ -203,7 +218,9 @@ describe("Venue hold visibility (pending_claim pay-link holds)", () => {
     }
   });
 
-  it("includes pending_claim rows with status in the event roster", async () => {
+  it("includes pending_payment hold rows with status in the event roster", async () => {
+    // See the file-header sequencing note: expected to fail until Task 5
+    // widens check-in/event.ts's status filter to include pending_payment.
     const res = await apiFetch(
       `/api/admin/check-in/event?kind=drop_in_session&id=${sessionId}`,
       { cookie: adminCookie },
@@ -212,10 +229,12 @@ describe("Venue hold visibility (pending_claim pay-link holds)", () => {
     const body = await res.json();
     const held = body.rows.find((r: any) => r.targetId === heldBookingId);
     expect(held).toBeDefined();
-    expect(held.status).toBe("pending_claim");
+    expect(held.status).toBe("pending_payment");
   });
 
-  it("reports a real capacityCurrent for the drop-in block (confirmed + pending_claim)", async () => {
+  it("reports a real capacityCurrent for the drop-in block (confirmed + pending_payment)", async () => {
+    // See the file-header sequencing note: expected to fail until Task 5
+    // widens venue-day-data.ts's status filter to include pending_payment.
     const res = await apiFetch(
       `/api/admin/venue-day/${dateStr}?locationId=${locationId}`,
       { cookie: adminCookie },
@@ -239,16 +258,19 @@ describe("Venue hold visibility (pending_claim pay-link holds)", () => {
     });
     expect(res.status).toBe(404);
 
-    // Untouched — still pending_claim.
+    // Untouched — still pending_payment.
     const [row] = await getDb()
       .select({ status: dropInBookings.status })
       .from(dropInBookings)
       .where(eq(dropInBookings.id, heldBookingIdOrgB))
       .limit(1);
-    expect(row.status).toBe("pending_claim");
+    expect(row.status).toBe("pending_payment");
   });
 
   it("cancel-hold cancels a pending booking and refuses a confirmed one", async () => {
+    // See the file-header sequencing note: the first assertion (200) is
+    // expected to fail until Task 5 updates cancel-hold.ts to accept
+    // pending_payment (currently it only accepts pending_claim).
     const ok = await apiFetch("/api/admin/venue/cancel-hold", {
       method: "POST",
       cookie: adminCookie,
@@ -477,12 +499,12 @@ describe("Venue hold visibility — location-scoped admin, cross-location", () =
     });
     expect(res.status).toBe(404);
 
-    // Untouched — still pending_claim.
+    // Untouched — still pending_payment.
     const [row] = await getDb()
       .select({ status: dropInBookings.status })
       .from(dropInBookings)
       .where(eq(dropInBookings.id, otherLocationHeldBookingId))
       .limit(1);
-    expect(row.status).toBe("pending_claim");
+    expect(row.status).toBe("pending_payment");
   });
 });

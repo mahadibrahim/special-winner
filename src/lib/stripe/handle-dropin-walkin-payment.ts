@@ -5,13 +5,17 @@
  * `event.type === "payment_intent.succeeded"` AND
  * `metadata.type === "dropin_walkin"`.
  *
- * Flips the pending_claim walk-in booking to `confirmed`. Cancelled-guard
- * protects against late-arriving webhooks after a refund/cancel.
+ * Flips a pending walk-in booking to `confirmed`. Cancelled-guard protects
+ * against late-arriving webhooks after a refund/cancel.
  *
  * The booking row is created by POST /api/kiosk/[locationSlug]/walkin/start
- * in `pending_claim` status; the PaymentIntent is attached by
+ * in `pending_payment` status (2h hold; see that module's comment for the
+ * full lifecycle); the PaymentIntent is attached by
  * POST /api/kiosk/[locationSlug]/walkin/payment. This handler completes
- * the flow once Stripe confirms the charge.
+ * the flow once Stripe confirms the charge. `pending_claim` is also
+ * accepted here for backward compatibility with pre-cutover stranded
+ * walk-in holds (rows created before the pending_payment status existed) —
+ * see the walk-in remote payment plan's amendment.
  */
 import type Stripe from "stripe";
 import { eq } from "drizzle-orm";
@@ -64,7 +68,7 @@ export async function handleDropinWalkinPayment(
     if (row.status === "confirmed") {
       return { status: "skipped", reason: `booking ${bookingId} already confirmed` };
     }
-    if (row.status !== "pending_claim") {
+    if (row.status !== "pending_claim" && row.status !== "pending_payment") {
       return {
         status: "skipped",
         reason: `booking ${bookingId} in unexpected status ${row.status}`,

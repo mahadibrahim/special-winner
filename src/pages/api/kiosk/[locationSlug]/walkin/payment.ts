@@ -8,7 +8,8 @@
  * Flow:
  *   1. requireKioskLocation(slug) — authorize the kiosk facility
  *   2. verifyToken(token) — must be kind=walkin_session
- *   3. Load dropInBookings by tok.targetId — must still be pending_claim
+ *   3. Load dropInBookings by tok.targetId — must still be pending_payment
+ *      (or the legacy pending_claim, for pre-cutover stranded holds)
  *   4. Load dropInSessions → dropInRateCard for amountDueCents
  *   5. Create Stripe PaymentIntent (base + card surcharge) with a
  *      human-readable description and Connect-aware transfer
@@ -90,7 +91,10 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
     .limit(1);
 
   if (!booking) return json({ error: "Booking not found" }, 404);
-  if (booking.status !== "pending_claim") {
+  // pending_payment is the current hold status (see walkin/start.ts);
+  // pending_claim is accepted too for pre-cutover stranded holds still
+  // reachable through an unexpired kiosk token.
+  if (booking.status !== "pending_payment" && booking.status !== "pending_claim") {
     return json({ error: `Booking is no longer pending (status: ${booking.status})` }, 409);
   }
 

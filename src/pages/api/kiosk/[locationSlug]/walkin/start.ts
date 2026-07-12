@@ -10,22 +10,27 @@
  *   4. Create or find the booker user record (parent for minors, self for adults)
  *   5. For minors: create a family_members row (parent_user_id path)
  *   6. Resolve amountDueCents from session override or org rate card
- *   7. Insert a dropInBookings row in `pending_claim` status
- *      NOTE: drop_in_booking_status has no `pending_payment` value. We reuse
- *      `pending_claim` here to represent "booking exists but payment not yet
- *      completed". Semantically: the walk-in slot is "claimed" but pending
- *      finalization. Unlike waitlist-promotion pending_claim rows, walk-in
- *      holds never get a `promotionExpiresAt`, so the expire-pending-claims
- *      sweep (which only targets rows with that column set) does NOT reclaim
- *      them — they persist until paid or released from the command-center
- *      roster. (An expiry redesign for walk-in holds is separately planned.)
- *      A follow-up migration should add a `pending_payment` enum value to
- *      make the walk-in state unambiguous.
+ *   7. Inside one transaction: reject (409) if the booker already has an
+ *      active booking on this session, otherwise insert a dropInBookings
+ *      row in `pending_payment` status with `promotionExpiresAt = now + 2h`.
+ *      Real lifecycle now: the hold is a genuine payment-pending state —
+ *      `expireOverduePromotions` (src/lib/dropin/promotion.ts) sweeps and
+ *      cancels holds whose `promotionExpiresAt` has passed (freeing the
+ *      slot for the waitlist), and a pre-expiry reminder is dispatched
+ *      to the booker before that happens. See docs/superpowers/plans/
+ *      2026-07-12-walkin-remote-payment.md for the full design.
+ *      DUPLICATE GUARD: the partial unique index
+ *      `drop_in_bookings_one_active_per_user_session` predicates on
+ *      `status IN ('confirmed','waitlisted','pending_claim')` — it predates
+ *      `pending_payment` and can't be extended by an additive migration
+ *      without a same-transaction enum-use hazard (see the Task 1 report).
+ *      So the "one active hold per user+session" rule is enforced here at
+ *      the application layer instead of by the DB constraint.
  *   8. Mint a `walkin_session` self-service token pointing at the booking
  *   9. Return { token, url, bookingId, amountDueCents }
  */
 import type { APIRoute } from "astro";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInSessions, dropInBookings, dropInRateCard } from "@/lib/db/schema/drop-in";
 import { users } from "@/lib/db/schema/users";
@@ -210,23 +215,55 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
     });
   }
 
-  // --- Insert drop_in_bookings in pending_claim status ---
-  // STATUS CHOICE: We reuse `pending_claim` (no `pending_payment` enum value exists).
-  // See module-level comment for rationale. No promotionExpiresAt is set, so
-  // this row is NOT touched by the expire-pending-claims sweep — it persists
-  // until paid or released from the command-center roster.
-  const [booking] = await db
-    .insert(dropInBookings)
-    .values({
-      sessionId: session.id,
-      userId: bookerUserId,
-      status: "pending_claim",
-      source: "walk_up",
-      paymentMethod: "card_online",
-      amountPaidCents: 0,
-      // At-facility kiosk: no brand host signal. Column default ("aspire") applies.
-    })
-    .returning();
+  // --- Duplicate-hold guard + insert, atomically ---
+  // See module-level comment: the DB unique index doesn't cover
+  // pending_payment, so a second hold on the same session for the same
+  // booker is rejected here rather than by a constraint violation.
+  const ACTIVE_BOOKING_STATUSES = [
+    "confirmed",
+    "waitlisted",
+    "pending_claim",
+    "pending_payment",
+  ] as const;
+
+  const booking = await db.transaction(async (tx) => {
+    const [existingActive] = await tx
+      .select({ id: dropInBookings.id })
+      .from(dropInBookings)
+      .where(
+        and(
+          eq(dropInBookings.sessionId, session.id),
+          eq(dropInBookings.userId, bookerUserId),
+          inArray(dropInBookings.status, ACTIVE_BOOKING_STATUSES),
+        ),
+      )
+      .limit(1);
+    if (existingActive) {
+      return null;
+    }
+
+    const [row] = await tx
+      .insert(dropInBookings)
+      .values({
+        sessionId: session.id,
+        userId: bookerUserId,
+        status: "pending_payment",
+        source: "walk_up",
+        paymentMethod: "card_online",
+        amountPaidCents: 0,
+        promotionExpiresAt: new Date(Date.now() + 2 * 3_600_000),
+        // At-facility kiosk: no brand host signal. Column default ("aspire") applies.
+      })
+      .returning();
+    return row;
+  });
+
+  if (!booking) {
+    return json(
+      { error: "This person already has an active booking for this session" },
+      409,
+    );
+  }
 
   // --- Mint self-service token ---
   const recipientEmail = bookerEmail;
