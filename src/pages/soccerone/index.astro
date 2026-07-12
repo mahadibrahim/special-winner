@@ -679,6 +679,10 @@ setMarketingEdgeCache(Astro); // AFTER fetches — never cache a failed render
       padding: 0.5rem 1rem;
       border-radius: 0 0 0 var(--so-radius-md);
     }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
     .status-dock-dot {
       width: 7px; height: 7px; border-radius: 50%; background: var(--so-ink);
       animation: pulse 2s ease-in-out infinite;
