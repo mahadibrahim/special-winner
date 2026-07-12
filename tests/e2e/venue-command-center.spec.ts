@@ -57,6 +57,113 @@ test("venue command center renders and opens an activity roster", async ({
   }
 });
 
+// Collision layout: two sessions on the SAME field whose time windows
+// deliberately overlap must render side-by-side (Google-Calendar-style
+// lanes), not stacked. Before the lane layout, the later block rendered on
+// top of the earlier one and silently intercepted clicks meant for
+// whichever block was underneath — the historical root cause of flakes in
+// the "opens an activity roster" test above. This test drives both blocks
+// through a real click and asserts each opens its OWN roster panel.
+test("overlapping same-space sessions render side-by-side and both stay clickable", async ({
+  page,
+}) => {
+  test.setTimeout(90_000);
+  await signInAsAdmin(page);
+
+  const venuesRes = await page.request.get("/api/admin/venues");
+  expect(venuesRes.ok()).toBeTruthy();
+  const venuesBody = (await venuesRes.json()) as {
+    venues: { id: string; location: { id: string } }[];
+  };
+  const venue = venuesBody.venues.find((v) => v.id === E2E_RENTAL_VENUE_ID);
+  expect(
+    venue,
+    "E2E rental venue not seeded — run `npm run db:seed:e2e` first",
+  ).toBeDefined();
+
+  // Both sessions omit bookableResourceId, so both default to the venue's
+  // Field 1 (see sessions/index.ts) — same space column on the board.
+  // Jitter the base start time so repeated CI runs on the same calendar day
+  // don't collide with other fixtures' ledger slots in this file.
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const base = new Date(`${dateStr}T14:00:00.000Z`);
+  base.setUTCMinutes(base.getUTCMinutes() + (Date.now() % 60));
+  const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+
+  const titleA = `collision-a-${suffix}`;
+  const titleB = `collision-b-${suffix}`;
+  const startsAtA = base;
+  const endsAtA = new Date(base.getTime() + 60 * 60_000);
+  const startsAtB = new Date(base.getTime() + 30 * 60_000); // overlaps A
+  const endsAtB = new Date(startsAtB.getTime() + 60 * 60_000);
+
+  async function createSession(
+    title: string,
+    startsAt: Date,
+    endsAt: Date,
+  ): Promise<string> {
+    const res = await page.request.post("/api/admin/dropin/sessions", {
+      data: {
+        venueId: E2E_RENTAL_VENUE_ID,
+        kind: "pickup",
+        sportOrClassLabel: title,
+        startsAt: startsAt.toISOString(),
+        endsAt: endsAt.toISOString(),
+        capacity: 10,
+      },
+    });
+    // 409 = session row created but the field-time ledger flagged a
+    // conflict — expected here since A and B deliberately overlap on the
+    // same field. The session row itself still exists either way (see the
+    // held-pay-link-walk-in test above for the same pattern).
+    expect([200, 201, 409]).toContain(res.status());
+    const body = (await res.json()) as { session?: { id: string } };
+    expect(body.session?.id).toBeTruthy();
+    return body.session!.id;
+  }
+
+  const sessionIdA = await createSession(titleA, startsAtA, endsAtA);
+  const sessionIdB = await createSession(titleB, startsAtB, endsAtB);
+
+  // Cleanup in finally regardless of assertion outcome — otherwise a failed
+  // run leaks a `collision-*` block onto the shared staging board.
+  try {
+    await page.goto(`/admin/venue?date=${dateStr}`, {
+      waitUntil: "domcontentloaded",
+    });
+    await waitForHydration(page);
+
+    const blockA = page.locator("[data-activity-block]", { hasText: titleA });
+    const blockB = page.locator("[data-activity-block]", { hasText: titleB });
+    await expect(blockA).toBeVisible({ timeout: 30_000 });
+    await expect(blockB).toBeVisible({ timeout: 30_000 });
+
+    // Center each in the viewport before clicking — same rationale as the
+    // "opens an activity roster" test: Playwright's default
+    // scrollIntoViewIfNeeded can land an element under AdminLayout's sticky
+    // header, which then intercepts the click.
+    await blockA.evaluate((el) => el.scrollIntoView({ block: "center" }));
+    await blockA.click();
+    const panel = page.getByRole("dialog");
+    await expect(panel).toBeVisible({ timeout: 10_000 });
+    await expect(panel.getByRole("heading", { name: titleA })).toBeVisible();
+    await panel.getByRole("button", { name: /close/i }).click();
+    await expect(panel).not.toBeVisible();
+
+    await blockB.evaluate((el) => el.scrollIntoView({ block: "center" }));
+    await blockB.click();
+    await expect(panel).toBeVisible({ timeout: 10_000 });
+    await expect(panel.getByRole("heading", { name: titleB })).toBeVisible();
+  } finally {
+    await page.request
+      .delete(`/api/admin/dropin/sessions/${sessionIdA}`)
+      .catch(() => null);
+    await page.request
+      .delete(`/api/admin/dropin/sessions/${sessionIdB}`)
+      .catch(() => null);
+  }
+});
+
 test("venue command center deep link opens the detail panel on load", async ({
   page,
 }) => {

@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { blockRows, clampRowsToWindow, columnsForSpaces } from "@/lib/venue/calendar-layout"
+import { assignLanes, blockRows, clampRowsToWindow, columnsForSpaces } from "@/lib/venue/calendar-layout"
 import { parseStripDate } from "@/lib/admin/week-strip"
 import { todayInTimeZone } from "@/lib/venue/today-in-tz"
 import { ActivityBlock } from "./ActivityBlock"
@@ -128,6 +128,48 @@ export function ScheduleCalendar({
     const map = new Map<string, Array<{ rowStart: number; rowEnd: number }>>()
     for (const sp of spaces) {
       map.set(sp.id, openSlots(payload.sessions, sp.id, timeZone))
+    }
+    return map
+  }, [payload.sessions, spaces, timeZone])
+
+  // Day-view: per-space collision layout. Clamp each session's rows to the
+  // grid window FIRST, then run assignLanes over the clamped rows — lanes
+  // resolve the overlap that's actually visible onscreen, not a session's
+  // true (possibly off-hours, unclamped) time window. See
+  // clampRowsToWindow's doc comment for why clamping has to happen at all.
+  const laidOutBySpace = useMemo(() => {
+    const map = new Map<
+      string,
+      Array<{
+        session: VenueTodaySession
+        rowStart: number
+        rowEnd: number
+        clamped: boolean
+        lane: number
+        laneCount: number
+      }>
+    >()
+    for (const sp of spaces) {
+      const spaceSessions = payload.sessions.filter((s) => s.spaceId === sp.id)
+      const clampedBlocks = spaceSessions.map((session) => {
+        const rawRows = blockRows(session.startsAt, session.endsAt, DAY_START_HOUR, timeZone)
+        const { rowStart, rowEnd, clamped } = clampRowsToWindow(
+          rawRows.rowStart,
+          rawRows.rowEnd,
+          TOTAL_ROWS,
+        )
+        return { session, rowStart, rowEnd, clamped }
+      })
+      const lanes = assignLanes(
+        clampedBlocks.map((b) => ({ id: b.session.id, rowStart: b.rowStart, rowEnd: b.rowEnd })),
+      )
+      map.set(
+        sp.id,
+        clampedBlocks.map((b) => {
+          const assignment = lanes.get(b.session.id) ?? { lane: 0, laneCount: 1 }
+          return { ...b, ...assignment }
+        }),
+      )
     }
     return map
   }, [payload.sessions, spaces, timeZone])
@@ -321,9 +363,7 @@ export function ScheduleCalendar({
 
             {/* ── Activity blocks per space ── */}
             {spaceColumns.map((col) => {
-              const spaceSessions = payload.sessions.filter(
-                (s) => s.spaceId === col.id
-              )
+              const laidOutSessions = laidOutBySpace.get(col.id) ?? []
               const slots = openSlotsBySpace.get(col.id) ?? []
 
               return (
@@ -347,45 +387,35 @@ export function ScheduleCalendar({
                     </div>
                   ))}
 
-                  {/* Activity blocks */}
-                  {spaceSessions.map((session) => {
-                    // Clamp to the rendered grid window — a session outside
-                    // business hours (e.g. a pickup game started just after
-                    // midnight) would otherwise get a negative/overflowing
-                    // `top` offset and visually escape the calendar
-                    // container, overlapping page chrome above it and
-                    // eating clicks meant for the block. See
-                    // clampRowsToWindow's doc comment for the full story.
-                    const rawRows = blockRows(
-                      session.startsAt,
-                      session.endsAt,
-                      DAY_START_HOUR,
-                      timeZone,
-                    )
-                    const { rowStart, rowEnd, clamped } = clampRowsToWindow(
-                      rawRows.rowStart,
-                      rawRows.rowEnd,
-                      TOTAL_ROWS,
-                    )
-                    return (
-                      <div
-                        key={session.id}
-                        className="absolute inset-x-1"
-                        style={{
-                          top:    `${(rowStart - 1) * ROW_HEIGHT_PX + 2}px`,
-                          height: `${(rowEnd - rowStart) * ROW_HEIGHT_PX - 4}px`,
-                        }}
-                      >
-                        <ActivityBlock
-                          session={session}
-                          onClick={onOpenActivity}
-                          compact={(rowEnd - rowStart) <= 2}
-                          timezone={timeZone}
-                          clamped={clamped}
-                        />
-                      </div>
-                    )
-                  })}
+                  {/* Activity blocks — laid out into side-by-side lanes
+                      (Google-Calendar style) so overlapping same-space
+                      sessions don't stack on top of each other and steal
+                      clicks aimed at the block underneath. Row clamping
+                      (see clampRowsToWindow's doc comment) already ran in
+                      laidOutBySpace, before lane assignment. */}
+                  {laidOutSessions.map(({ session, rowStart, rowEnd, clamped, lane, laneCount }) => (
+                    <div
+                      key={session.id}
+                      className="absolute"
+                      style={{
+                        top:    `${(rowStart - 1) * ROW_HEIGHT_PX + 2}px`,
+                        height: `${(rowEnd - rowStart) * ROW_HEIGHT_PX - 4}px`,
+                        // 4px matches the column's previous inset-x-1 edge
+                        // margin; lanes split the remaining width with a
+                        // 2px gap between adjacent blocks.
+                        left:   `calc(4px + (100% - 8px) * ${lane} / ${laneCount})`,
+                        width:  `calc((100% - 8px) / ${laneCount} - 2px)`,
+                      }}
+                    >
+                      <ActivityBlock
+                        session={session}
+                        onClick={onOpenActivity}
+                        compact={(rowEnd - rowStart) <= 2 || laneCount >= 3}
+                        timezone={timeZone}
+                        clamped={clamped}
+                      />
+                    </div>
+                  ))}
                 </div>
               )
             })}
