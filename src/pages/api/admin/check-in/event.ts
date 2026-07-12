@@ -2,7 +2,13 @@
  * GET /api/admin/check-in/event?kind=&id=
  * Returns event header + the people rows for the event:
  *   - drop_in_session → bookings (confirmed + pending_claim pay-link holds;
- *                        each row carries `status` so the desk can see holds)
+ *                        each row carries `status` so the desk can see holds.
+ *                        pending_claim rows also carry `holdKind`, since
+ *                        pending_claim is shared by two unrelated flows: a
+ *                        walk-in pay-link hold (kiosk/walkin/start, no
+ *                        promotionExpiresAt) and a promoted waitlister
+ *                        (lib/dropin/promotion.ts, promotionExpiresAt set).
+ *                        The desk can only cancel the former.)
  *   - field_rental    → single renter row
  *   - game            → combined roster from home + away teams
  */
@@ -68,6 +74,7 @@ export const GET: APIRoute = async (context) => {
         sessionRateCents: dropInSessions.sessionRateCents,
         walkUpRateCents: dropInSessions.walkUpRateCents,
         status: dropInBookings.status,
+        promotionExpiresAt: dropInBookings.promotionExpiresAt,
       })
       .from(dropInBookings)
       .innerJoin(users, eq(users.id, dropInBookings.userId))
@@ -110,6 +117,16 @@ export const GET: APIRoute = async (context) => {
               recipientUserId: r.userId,
               paid,
               status: r.status as "confirmed" | "pending_claim",
+              // Only meaningful for pending_claim rows — see module comment.
+              // promotionExpiresAt is set by promoteNextWaitlister and never
+              // set by the kiosk walk-in flow, so its presence discriminates
+              // a promoted-waitlister hold from a walk-in pay-link hold.
+              holdKind:
+                r.status === "pending_claim"
+                  ? r.promotionExpiresAt !== null
+                    ? ("promotion" as const)
+                    : ("walk_up" as const)
+                  : null,
             };
           })
           // Confirmed rows first so held (pending_claim) ones group at the bottom.
@@ -157,6 +174,7 @@ export const GET: APIRoute = async (context) => {
             familyMemberId: null,
             recipientUserId: r.renterUserId,
             paid: true, // field rentals are always paid at booking time
+            status: "confirmed" as const,
           },
         ],
       },
@@ -252,6 +270,7 @@ export const GET: APIRoute = async (context) => {
             familyMemberId: r.familyMemberId,
             recipientUserId: r.parentUserId ?? r.selfUserId,
             paid: true, // rostered players paid at registration
+            status: "confirmed" as const,
           };
         }),
       },

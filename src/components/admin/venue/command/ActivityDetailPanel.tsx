@@ -45,6 +45,11 @@ interface RowData {
   recipientUserId: string | null;
   paid: boolean;
   status: "confirmed" | "pending_claim";
+  // Only meaningful when status === "pending_claim" — see event.ts's module
+  // comment. Distinguishes a walk-in pay-link hold (desk can cancel/resend)
+  // from a promoted waitlister (desk cannot cancel here; different claim
+  // link, expires on its own).
+  holdKind: "walk_up" | "promotion" | null;
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -464,7 +469,7 @@ export function ActivityDetailPanel({ session, locationId, timezone, onClose, on
                 )}
 
                 {/* Check-in / "Here" / held-row actions */}
-                {row.status === "pending_claim" ? (
+                {row.status === "pending_claim" && row.holdKind === "walk_up" ? (
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     <button
                       type="button"
@@ -483,6 +488,13 @@ export function ActivityDetailPanel({ session, locationId, timezone, onClose, on
                       Cancel hold
                     </button>
                   </div>
+                ) : row.status === "pending_claim" ? (
+                  // Promoted-waitlister hold — no cancel/resend cluster; the
+                  // customer claims via their own promotion link, or the
+                  // expire-pending-claims cron reclaims the slot.
+                  <span className="text-xs font-medium text-[#8a8175] flex-shrink-0">
+                    awaiting claim
+                  </span>
                 ) : isHere ? (
                   <span className="text-xs font-black text-emerald-700 flex-shrink-0">
                     ✓ Here
