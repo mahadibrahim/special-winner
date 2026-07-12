@@ -44,6 +44,7 @@ import { attentionActionTarget } from "@/lib/venue/attention-action"
 import { formatAgo } from "@/lib/venue/format-ago"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { formatStripDate, parseStripDate } from "@/lib/admin/week-strip"
+import { todayInTimeZone } from "@/lib/venue/today-in-tz"
 import { ErrorBanner } from "@/components/ui/error-banner"
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton"
 import { EmptyState } from "@/components/ui/empty-state"
@@ -112,16 +113,20 @@ export function VenueCommandCenter({
     // day is shown; only day→day "Today" button resets date.
   }, [])
 
-  const handleToday = useCallback(() => {
-    setDate(formatStripDate(new Date()))
-    setView("day")
-  }, [])
-
   // ── Data ───────────────────────────────────────────────────────────────────
   const { data, isLoading, isStale, lastUpdatedAt, nowTick, error } = useVenueToday({
     date,
     locationId,
   })
+
+  // "Today" must be the venue's wall-clock date, not the UTC date — a
+  // UTC-derived formatStripDate(new Date()) would send evening desk staff
+  // east of UTC to tomorrow's (empty) board. Uses the payload's own
+  // timezone so it agrees with what the board is actually showing.
+  const handleToday = useCallback(() => {
+    setDate(todayInTimeZone(data?.timezone ?? "America/New_York"))
+    setView("day")
+  }, [data?.timezone])
 
   // ── Panel state ────────────────────────────────────────────────────────────
   const [openSessionId, setOpenSessionId] = useState<string | null>(initialSessionId)

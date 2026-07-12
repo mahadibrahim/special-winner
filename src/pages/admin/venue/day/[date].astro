@@ -7,7 +7,8 @@ import { getLocationIdsForUser } from "@/lib/auth/location-scope";
 import { getDb } from "@/lib/db";
 import { locations } from "@/lib/db/schema/organizations";
 import { eq, asc } from "drizzle-orm";
-import { parseStripDate, formatStripDate } from "@/lib/admin/week-strip";
+import { parseStripDate } from "@/lib/admin/week-strip";
+import { todayInTimeZone } from "@/lib/venue/today-in-tz";
 
 export const prerender = false;
 
@@ -18,7 +19,10 @@ const isSuperAdmin = userRoles.some((r) => r.name === "super_admin");
 
 const dateParam = Astro.params.date as string;
 if (!parseStripDate(dateParam)) {
-  return Astro.redirect(`/admin/venue/day/${formatStripDate(new Date())}`, 302);
+  // Redirect target must be the location's wall-clock "today", not the UTC
+  // date — see /admin/venue/index.astro and /api/admin/venue/today.ts.
+  const timezone = Astro.locals.organization?.timezone ?? "America/New_York";
+  return Astro.redirect(`/admin/venue/day/${todayInTimeZone(timezone)}`, 302);
 }
 
 // Resolve the active location:

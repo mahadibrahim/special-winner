@@ -7,7 +7,8 @@ import { getLocationIdsForUser } from "@/lib/auth/location-scope";
 import { getDb } from "@/lib/db";
 import { locations } from "@/lib/db/schema/organizations";
 import { eq, asc } from "drizzle-orm";
-import { parseStripDate, formatStripDate } from "@/lib/admin/week-strip";
+import { parseStripDate } from "@/lib/admin/week-strip";
+import { todayInTimeZone } from "@/lib/venue/today-in-tz";
 
 export const prerender = false;
 
@@ -52,7 +53,12 @@ const [loc] = await getDb()
   .limit(1);
 locationName = loc?.name ?? "Venue";
 
-const today = formatStripDate(new Date());
+// "Today" must be the location's wall-clock date, not the UTC date — an
+// evening desk-staff shift east of UTC would otherwise always land on
+// tomorrow's (empty) board. Mirrors the timezone resolution in
+// /api/admin/venue/today.ts.
+const timezone = Astro.locals.organization?.timezone ?? "America/New_York";
+const today = todayInTimeZone(timezone);
 
 // Deep-link params — shareable /admin/venue?date=&view=&session= URLs.
 // Validate everything; fall back to safe defaults rather than trusting the query string.

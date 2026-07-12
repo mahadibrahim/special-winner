@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react"
 import { blockRows, clampRowsToWindow, columnsForSpaces } from "@/lib/venue/calendar-layout"
-import { formatStripDate, parseStripDate } from "@/lib/admin/week-strip"
+import { parseStripDate } from "@/lib/admin/week-strip"
+import { todayInTimeZone } from "@/lib/venue/today-in-tz"
 import { ActivityBlock } from "./ActivityBlock"
 import { WeekGrid } from "./WeekGrid"
 import type { VenueTodayPayload, VenueTodaySession } from "@/lib/venue/today-types"
@@ -135,7 +136,9 @@ export function ScheduleCalendar({
   // floor width so headers don't overlap when a location has many fields.
   const gridTemplate = `${GUTTER_WIDTH}px repeat(${numSpaces}, minmax(110px, 1fr))`
 
-  const today = formatStripDate(new Date())
+  // Timezone-aware "today" so the Today button / highlight agree with the
+  // venue's wall clock, not UTC (see src/lib/venue/today-in-tz.ts).
+  const today = todayInTimeZone(timeZone)
   const isToday = payload.date === today
 
   return (
