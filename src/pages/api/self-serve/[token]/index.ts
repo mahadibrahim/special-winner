@@ -47,15 +47,37 @@ export const GET: APIRoute = async ({ params }) => {
   // The space (venue) name — lets the completion screen say "head to X".
   let spaceName: string | null = null;
   const outstanding = { waiver: false, photo: false, payment: false };
+  // Populated only for drop-in bookings (kiosk walk-ins and, in principle,
+  // any other drop_in_booking whose status is pending_payment — see the
+  // shared resolver below). 0 / null when payment isn't outstanding.
+  let amountDueCents = 0;
+  let locationSlug: string | null = null;
+  // Booking id for the same drop_in_booking/walkin_session cases below —
+  // PayCard carries it as a prop even though the payment endpoint itself
+  // only needs the token (targetId is re-derived server-side from it).
+  let bookingId: string | null = null;
 
-  if (tok.kind === "drop_in_booking") {
+  // drop_in_booking and walkin_session tokens both point at a dropInBookings
+  // row (walk-in kiosk holds mint walkin_session; regular drop-in bookings
+  // mint drop_in_booking) — same joins, same "is payment outstanding" rule.
+  // Sharing the query means a drop_in_booking token honestly reflects
+  // outstanding.payment too, if a future flow ever mints one against a
+  // pending_payment row (none does today — see the Task 6 report).
+  if (tok.kind === "drop_in_booking" || tok.kind === "walkin_session") {
     const [b] = await db
       .select({
+        status: dropInBookings.status,
+        waiverSigned: dropInBookings.waiverSigned,
         startsAt: dropInSessions.startsAt,
         venueName: venues.name,
         timezone: locations.timezone,
         sportLabel: dropInSessions.sportOrClassLabel,
-        waiverSigned: dropInBookings.waiverSigned,
+        // Walk-up-rate-precedence, same derivation as
+        // src/pages/api/admin/check-in/event.ts:~95 — walk-up rate wins
+        // when set, else the session rate, else free.
+        walkUpRateCents: dropInSessions.walkUpRateCents,
+        sessionRateCents: dropInSessions.sessionRateCents,
+        locationSlug: locations.slug,
       })
       .from(dropInBookings)
       .innerJoin(dropInSessions, eq(dropInSessions.id, dropInBookings.sessionId))
@@ -64,9 +86,18 @@ export const GET: APIRoute = async ({ params }) => {
       .where(eq(dropInBookings.id, tok.targetId))
       .limit(1);
     if (!b) return json({ error: "Booking gone" }, 410);
-    summary = `${b.sportLabel} on ${formatEmailDateTime(b.startsAt, b.timezone ?? DEFAULT_TIMEZONE)} at ${b.venueName}`;
+    bookingId = tok.targetId;
+    summary =
+      tok.kind === "walkin_session"
+        ? `Walk-in registration — ${b.sportLabel} on ${formatEmailDateTime(b.startsAt, b.timezone ?? DEFAULT_TIMEZONE)} at ${b.venueName}`
+        : `${b.sportLabel} on ${formatEmailDateTime(b.startsAt, b.timezone ?? DEFAULT_TIMEZONE)} at ${b.venueName}`;
     spaceName = b.venueName;
     outstanding.waiver = !b.waiverSigned;
+    outstanding.payment = b.status === "pending_payment";
+    if (outstanding.payment) {
+      amountDueCents = b.walkUpRateCents ?? b.sessionRateCents ?? 0;
+      locationSlug = b.locationSlug;
+    }
   } else if (tok.kind === "field_rental") {
     const [r] = await db
       .select({
@@ -87,10 +118,6 @@ export const GET: APIRoute = async ({ params }) => {
   } else if (tok.kind === "roster_entry") {
     summary = `Today's game`;
     outstanding.waiver = true;
-  } else if (tok.kind === "walkin_session") {
-    summary = `Walk-in registration`;
-    outstanding.waiver = true;
-    outstanding.payment = true;
   }
 
   return json(
@@ -101,6 +128,9 @@ export const GET: APIRoute = async ({ params }) => {
       summary,
       spaceName,
       outstanding,
+      amountDueCents,
+      locationSlug,
+      bookingId,
       expiresAt: tok.expiresAt,
     },
     200,

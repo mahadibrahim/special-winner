@@ -47,7 +47,13 @@ try {
           <p class="text-sm">{error}</p>
         </div>
       ) : (
-        <SelfServe client:load token={token} context={context} kioskSlug={kioskSlug} />
+        <SelfServe
+          client:load
+          token={token}
+          context={context}
+          kioskSlug={kioskSlug}
+          publishableKey={import.meta.env.STRIPE_PUBLISHABLE_KEY ?? ""}
+        />
       )}
     </div>
   </main>
