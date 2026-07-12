@@ -33,12 +33,14 @@ import type { BrandId } from "@/lib/branding/themes";
 import { renderBookingConfirmation } from "./booking-confirmation";
 import { renderWaitlistPromoted } from "./waitlist-promoted";
 import { renderBookingCancelledByAdmin } from "./booking-cancelled-by-admin";
+import { renderPaymentReminder } from "./payment-reminder";
 import type {
   BookingConfirmationContext,
   BookingCancelledByAdminContext,
   DropInBaseContext,
   DropInMessageRecipient,
   MessageVariants,
+  PaymentReminderContext,
   WaitlistPromotedContext,
 } from "./types";
 
@@ -370,6 +372,38 @@ export async function dispatchWaitlistPromoted(
   };
 
   const variants = await renderWaitlistPromoted(ctx);
+  return await dispatch(user, variants, session.organizationId, brand);
+}
+
+/**
+ * Dispatch the one-shot payment-hold reminder. Fired by
+ * `sendDuePaymentReminders` (src/lib/dropin/payment-reminder.ts) for a
+ * `pending_payment` walk-in hold within 30 minutes of `promotionExpiresAt`.
+ * `selfServeUrl` and `expiresAt` are resolved by the caller (the self-serve
+ * link derivation lives in payment-reminder.ts, not here — this function is
+ * purely channel/copy dispatch, mirroring dispatchWaitlistPromoted's split).
+ * Brand is read from the booking row (drop_in_bookings.brand, migration 0042).
+ */
+export async function dispatchPaymentReminder(
+  bookingId: string,
+  selfServeUrl: string,
+  expiresAt: Date,
+): Promise<DropInDispatchResult> {
+  const booking = await loadBooking(bookingId);
+  if (!booking) return { ok: false, reason: "booking_not_found" };
+  const session = await loadSessionContext(booking.sessionId);
+  if (!session) return { ok: false, reason: "session_not_found" };
+  const user = await loadUser(booking.userId);
+  if (!user) return { ok: false, reason: "user_not_found" };
+
+  const brand: BrandId = booking.brand;
+  const ctx: PaymentReminderContext = {
+    ...baseCtx(session, recipientFromUser(user), brand),
+    expiresAt,
+    selfServeUrl,
+  };
+
+  const variants = await renderPaymentReminder(ctx);
   return await dispatch(user, variants, session.organizationId, brand);
 }
 

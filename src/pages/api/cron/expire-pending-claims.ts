@@ -7,13 +7,24 @@
  *
  * Runs every 5 minutes via netlify/functions/scheduled-expire-pending-claims.ts;
  * the manual endpoint exists so we can hand-trigger from CI / curl during
- * pilots. `expireOverduePromotions` (src/lib/dropin/promotion.ts) sweeps
- * overdue waitlist promotions, overdue walk-in payment holds, and legacy
- * stranded walk-in holds — see that module's doc header for the three
- * branches.
+ * pilots. Two passes run in order, both idempotent per tick:
+ *
+ *   1. `sendDuePaymentReminders` (src/lib/dropin/payment-reminder.ts) —
+ *      stamps + sends the one-shot pre-expiry reminder for `pending_payment`
+ *      walk-in holds closing within 30 minutes. Runs BEFORE the expiry pass
+ *      so a hold that's about to be expired by pass 2 in this same tick
+ *      still gets its reminder attempt (acceptable ordering — the reminder
+ *      window and the expiry sweep both run every 5 minutes, so "reminded
+ *      then expired in the same tick" only happens for holds that were
+ *      already inside the last few minutes of their window).
+ *   2. `expireOverduePromotions` (src/lib/dropin/promotion.ts) sweeps
+ *      overdue waitlist promotions, overdue walk-in payment holds, and
+ *      legacy stranded walk-in holds — see that module's doc header for the
+ *      three branches.
  */
 import type { APIRoute } from "astro";
 import { expireOverduePromotions } from "@/lib/dropin/promotion";
+import { sendDuePaymentReminders } from "@/lib/dropin/payment-reminder";
 import { captureServerException } from "@/lib/observability/server-error";
 import { warmDbConnection } from "@/lib/db/retry";
 
@@ -45,14 +56,15 @@ export const POST: APIRoute = async ({ request }) => {
     // transient Railway CONNECT_TIMEOUT blips that otherwise fail the run.
     await warmDbConnection();
     const startedAt = Date.now();
+    const reminderResult = await sendDuePaymentReminders();
     const result = await expireOverduePromotions();
     const elapsedMs = Date.now() - startedAt;
 
     console.info(
-      `[cron] Drop-in expiry: expired=${result.expired} expiredPaymentHolds=${result.expiredPaymentHolds} promotedNext=${result.promotedNext} in ${elapsedMs}ms`,
+      `[cron] Drop-in expiry: reminded=${reminderResult.reminded} expired=${result.expired} expiredPaymentHolds=${result.expiredPaymentHolds} promotedNext=${result.promotedNext} in ${elapsedMs}ms`,
     );
 
-    return new Response(JSON.stringify({ ...result, elapsedMs }), {
+    return new Response(JSON.stringify({ ...result, ...reminderResult, elapsedMs }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
@@ -71,9 +83,9 @@ export const POST: APIRoute = async ({ request }) => {
 export const GET: APIRoute = async () =>
   new Response(
     JSON.stringify({
-      description: "Drop-in expiry cron endpoint (waitlist promotions + walk-in payment holds)",
+      description: "Drop-in expiry cron endpoint (payment reminders + waitlist promotions + walk-in payment holds)",
       usage:
-        "POST with header x-cron-secret: $CRON_SECRET to expire overdue pending_claim/pending_payment rows. Intended for scheduled callers only.",
+        "POST with header x-cron-secret: $CRON_SECRET to send due pending_payment reminders, then expire overdue pending_claim/pending_payment rows. Intended for scheduled callers only.",
     }),
     { status: 200, headers: { "Content-Type": "application/json" } },
   );

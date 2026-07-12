@@ -69,6 +69,13 @@ export interface WaitlistPromotedContext extends DropInBaseContext {
   promotionExpiresAt: Date;
 }
 
+export interface PaymentReminderContext extends DropInBaseContext {
+  /** When the payment hold (promotionExpiresAt) closes. */
+  expiresAt: Date;
+  /** Self-serve link the recipient uses to complete payment. */
+  selfServeUrl: string;
+}
+
 export interface BookingCancelledByAdminContext extends DropInBaseContext {
   booking: DropInMessageBooking;
   /**
