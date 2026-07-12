@@ -142,7 +142,7 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
   }, [hasPhone, hasEmail]);
 
   // ── Submit ─────────────────────────────────────────────────────────────────
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSubmitError(null);
     setBusy(true);
@@ -176,6 +176,17 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
     if (form.mode === "child" && !hasEmail) missing.push("parent email");
     if (missing.length) {
       setSubmitError(`Missing: ${missing.join(", ")}.`);
+      setBusy(false);
+      return;
+    }
+
+    // Empty fields are handled above by the aggregated banner; this catches
+    // format problems (malformed email, bad date) via the native validators
+    // that noValidate on the <form> would otherwise silence entirely.
+    const formEl = e.currentTarget;
+    if (!formEl.checkValidity()) {
+      setSubmitError("Some values look invalid — check the highlighted fields.");
+      formEl.reportValidity();
       setBusy(false);
       return;
     }
@@ -412,7 +423,10 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
+      {/* noValidate: empty-field validation goes through the aggregated
+          ErrorBanner in handleSubmit (native tooltips only show one field at a
+          time); format validity is still checked via checkValidity() there. */}
+      <form onSubmit={handleSubmit} noValidate className="flex-1 overflow-y-auto">
         {/* ── Step 1: Who's playing? ──────────────────────────────────────── */}
         <div className="px-4 py-4 border-b border-[#efe9dc]">
           <h4 className="flex items-center text-sm font-semibold text-[#1c1a17] mb-3">

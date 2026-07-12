@@ -204,4 +204,27 @@ test("held pay-link walk-in shows in the roster with resend/cancel actions", asy
   await expect(panel.getByText(heldRowName)).not.toBeVisible({
     timeout: 15_000,
   });
+
+  // ---- Walk-in flow validation (Task 9): submitting the empty form must
+  // surface the aggregated missing-fields ErrorBanner — not be silently
+  // blocked by native browser tooltips (the form is noValidate). The panel
+  // is still open on a capacity-10 session, so open-slot rows are present.
+  const openSlotRow = panel
+    .getByRole("button", { name: /open slot — add walk-in/i })
+    .first();
+  await expect(openSlotRow).toBeVisible({ timeout: 15_000 });
+  await openSlotRow.click();
+
+  // WalkInFlow overlay is open (heading "Add to <session title>").
+  await expect(
+    panel.getByRole("heading", { name: /add to /i }),
+  ).toBeVisible({ timeout: 10_000 });
+
+  // With no contact entered, the auto-correct effect lands on kiosk self-pay;
+  // /create booking/i matches the submit button in every method variant.
+  await panel.getByRole("button", { name: /create booking/i }).click();
+  await expect(panel.getByRole("alert")).toContainText(/Missing:/, {
+    timeout: 10_000,
+  });
+  await expect(panel.getByRole("alert")).toContainText(/date of birth/i);
 });
