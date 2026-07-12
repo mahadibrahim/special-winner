@@ -3,15 +3,70 @@ export const prerender = false;
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import SoccerOneHeader from '@/components/soccerone/SoccerOneHeader.astro';
 import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
+import HomeTonightStrip from '@/components/soccerone/HomeTonightStrip';
+import HomeSignupStrip from '@/components/soccerone/HomeSignupStrip';
 import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
+import { HOME_GOOGLE_RATING, HOME_REVIEWS } from '@/lib/soccerone/home-reviews';
+
+// Live season data — same org-scoped fetch + filters as leagues.astro.
+// The homepage features the first upcoming open ADULT season (youth as
+// fallback) and separately tracks whether any youth season is open so the
+// Youth Leagues card can show a live "now registering" state.
+async function fetchOpenSeasons(audience: 'adult' | 'youth') {
+  try {
+    const url = new URL('/api/public/seasons', Astro.url);
+    url.searchParams.set('audience', audience);
+    const res = await fetch(url, {
+      headers: { Host: Astro.request.headers.get('host') ?? '' },
+    });
+    if (!res.ok) return [];
+    const body = await res.json();
+    const todayIso = new Date().toISOString().slice(0, 10);
+    return (body.seasons ?? [])
+      .filter((s: any) => s.signupMode !== 'interest')
+      .filter((s: any) => !s.startDate || String(s.startDate).slice(0, 10) >= todayIso);
+  } catch (err) {
+    console.error(`[soccerone/home] failed to load ${audience} seasons`, err);
+    return [];
+  }
+}
+
+const [adultSeasons, youthSeasons] = await Promise.all([
+  fetchOpenSeasons('adult'),
+  fetchOpenSeasons('youth'),
+]);
+
+const featured = adultSeasons[0] ?? youthSeasons[0] ?? null;
+const youthOpen = youthSeasons.length > 0;
+
+// startDate is a date-only column ("YYYY-MM-DD"): parsing yields UTC
+// midnight, so format in UTC or the day shifts in negative-offset zones.
+const featuredStart = featured?.startDate
+  ? new Date(featured.startDate).toLocaleDateString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC',
+    })
+  : null;
+// registrationCloses is a timestamp (full ISO instant): display the
+// deadline in the org's local timezone, not the server's.
+const featuredCloses = featured?.registrationCloses
+  ? new Date(featured.registrationCloses).toLocaleDateString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric', timeZone: 'America/New_York',
+    })
+  : null;
+const featuredPrice = featured
+  ? (featured.teamPrice
+      ? `$${featured.price}/player · $${featured.teamPrice}/team`
+      : `$${featured.price}/player`)
+  : null;
+
 import { setMarketingEdgeCache } from '@/lib/http/edge-cache';
-setMarketingEdgeCache(Astro);
+setMarketingEdgeCache(Astro); // AFTER fetches — never cache a failed render
 ---
 
 <BaseLayout
   favicon="/soccerone-favicon.svg"
   title="SoccerOne Columbus | Indoor Soccer Leagues, Pickup & Field Rentals"
-  description="Columbus's indoor soccer chain. Two facilities now open — Worthington (3 fields) and Downtown (1 field). Adult leagues, youth programs, pickup, and field rentals."
+  description="Columbus's indoor soccer chain. Adult leagues, youth weekend leagues, pickup, and field rentals at Worthington (3 fields) and Downtown (1 field). Futsal courts open September."
   navigation={false}
   footer={false}
   bodyClass="min-h-screen flex flex-col bg-[#0a0a0d] text-white antialiased"
@@ -61,43 +116,64 @@ setMarketingEdgeCache(Astro);
         </h1>
 
         <p class="hero-sub">
-          Four indoor fields across <span class="hero-loc">Worthington &amp; Downtown Columbus</span>.<br />
-          Leagues, pickup, and rentals — every night, year-round. Youth programs coming 2027.
+          Indoor soccer across <span class="hero-loc">Worthington &amp; Downtown Columbus</span> —
+          adult leagues, pickup, and rentals every night, youth leagues on weekend mornings.
+          Futsal courts arrive this September.
         </p>
 
-        <!-- Facility selector -->
-        <div class="hero-facility-selector" role="group" aria-label="Select a facility">
-          <div class="hero-facility-card hero-facility-card--primary">
-            <a href="/worthington" class="hfc-main">
-              <div class="hfb-header"><span class="hfb-name">WORTHINGTON</span><span class="hfb-badge">3 FIELDS</span></div>
-              <div class="hfb-address">535 Lakeview Plaza Blvd · 4pm–12am daily</div>
-            </a>
-            <div class="hfc-formats">
-              <a href="/leagues?location=worthington" class="hfc-fmt" aria-label="Leagues at Worthington">Leagues</a>
-              <a href="/pickup?facility=worthington" class="hfc-fmt" aria-label="Pickup at Worthington">Pickup</a>
-              <a href="/rent?facility=worthington" class="hfc-fmt" aria-label="Rent a field at Worthington">Rent</a>
+        <!-- What's open now + what's next -->
+        <div class="hero-actions">
+          {featured && (
+            <div class="season-card">
+              <span class="status-dock">
+                <span class="status-dock-dot" aria-hidden="true"></span>
+                OPEN{featuredCloses ? ` · CLOSES ${featuredCloses.toUpperCase()}` : ''}
+              </span>
+              <div>
+                <div class="season-name">{featured.name}</div>
+                <div class="season-meta">
+                  <span><b>Adult:</b> Coed · Premier · Women's</span>
+                  {youthOpen && <span><b>Youth:</b> Sat &amp; Sun mornings</span>}
+                  {featuredStart && <span>Kicks off <b>{featuredStart}</b></span>}
+                  {featuredPrice && <span>{featuredPrice}</span>}
+                </div>
+              </div>
+              <div class="season-cta-row">
+                <a
+                  href={`/register/${featured.id}`}
+                  class="season-cta"
+                  data-so-register-cta
+                  data-season-id={featured.id}
+                  data-level={featured.skillLevel ?? 'open'}
+                  data-gender={featured.divisionGender ?? 'unknown'}
+                  data-venue={featured.location?.slug ?? ''}
+                  data-term={featured.termSlug ?? ''}
+                  data-mode={featured.signupModes?.includes('team') ? 'team' : 'individual'}
+                >
+                  Register for Fall →
+                </a>
+                <span class="season-cta-note">Team &amp; free-agent spots · both facilities</span>
+              </div>
             </div>
-          </div>
+          )}
 
-          <div class="hero-facility-card">
-            <a href="/downtown" class="hfc-main">
-              <div class="hfb-header"><span class="hfb-name">DOWNTOWN</span><span class="hfb-badge">1 FIELD</span></div>
-              <div class="hfb-address">980 E Starr Ave · 4pm–12am daily</div>
-            </a>
-            <div class="hfc-formats">
-              <a href="/leagues?location=downtown" class="hfc-fmt" aria-label="Leagues at Downtown">Leagues</a>
-              <a href="/pickup?facility=downtown" class="hfc-fmt" aria-label="Pickup at Downtown">Pickup</a>
-              <a href="/rent?facility=downtown" class="hfc-fmt" aria-label="Rent a field at Downtown">Rent</a>
-            </div>
-          </div>
+          <a href="#futsal" class="futsal-card">
+            <span class="date-dock">SEP '26</span>
+            <div class="futsal-title">Futsal courts at Worthington</div>
+            <p class="futsal-copy">Dedicated hard courts open this September. Fast, technical, small-sided.</p>
+            <span class="futsal-link">Get first access ↓</span>
+          </a>
+        </div>
 
-          <span class="hero-future-chip">
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-              <circle cx="5" cy="5" r="4.5" stroke="currentColor" stroke-width="1"/>
-              <path d="M5 3v2.5L6.5 7" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
-            </svg>
-            More locations coming
-          </span>
+        <!-- Location line (replaces the old facility selector cards) -->
+        <div class="location-line">
+          <a href="/worthington" class="ll-item"><span class="ll-name">WORTHINGTON</span> 3 fields · 535 Lakeview Plaza Blvd</a>
+          <span class="ll-div" aria-hidden="true"></span>
+          <a href="/downtown" class="ll-item"><span class="ll-name">DOWNTOWN</span> 1 field · 980 E Starr Ave</a>
+          <span class="ll-div" aria-hidden="true"></span>
+          <span>4PM–12AM DAILY · WEEKEND MORNINGS FOR YOUTH</span>
+          <span class="ll-div" aria-hidden="true"></span>
+          <span class="ll-soon">More locations coming</span>
         </div>
       </div>
 
@@ -646,61 +722,101 @@ setMarketingEdgeCache(Astro);
     }
     .hero-loc { color: var(--so-lime); font-weight: 500; }
 
-    /* Facility selector in hero */
-    .hero-facility-selector {
-      display: flex;
-      flex-wrap: wrap;
+    /* Hero action row: what's open now (season card) + what's next (futsal) */
+    .hero-actions {
+      display: grid;
+      grid-template-columns: 1.7fr 1fr;
       gap: 1rem;
-      align-items: flex-start;
+      margin-bottom: 1.25rem;
+      align-items: stretch;
       animation: heroReveal 1s ease-out 0.65s both;
     }
+    .hero-actions > .futsal-card:only-child { max-width: 480px; }
 
-    .hfb-header { display: flex; align-items: center; gap: 0.625rem; }
+    .season-card {
+      position: relative;
+      display: flex; flex-direction: column; justify-content: space-between; gap: 1.25rem;
+      background: linear-gradient(120deg, var(--so-lime-a12), var(--so-lime-a04) 65%);
+      border: 1px solid var(--so-lime-a40);
+      border-radius: var(--so-radius-lg);
+      padding: 1.75rem 1.75rem 1.5rem;
+      box-shadow: 0 0 40px rgba(163,230,53,0.07);
+      overflow: hidden;
+    }
+    .status-dock {
+      position: absolute; top: 0; right: 0;
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      background: var(--so-lime); color: var(--so-ink);
+      font-family: var(--so-font-mono); font-size: 0.625rem; font-weight: 700; letter-spacing: 0.08em;
+      padding: 0.5rem 1rem;
+      border-radius: 0 0 0 var(--so-radius-md);
+    }
+    .status-dock-dot {
+      width: 7px; height: 7px; border-radius: 50%; background: var(--so-ink);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    .season-name {
+      font-family: var(--so-font-display);
+      font-size: clamp(1.75rem, 3vw, 2.5rem);
+      line-height: 1; letter-spacing: 0.01em; text-transform: uppercase;
+      margin-bottom: 0.75rem; padding-right: 11rem; color: #fff;
+    }
+    .season-meta { display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; font-size: 0.875rem; color: rgba(255,255,255,0.7); }
+    .season-meta b { color: #fff; font-weight: 600; }
+    .season-cta-row { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+    .season-cta {
+      display: inline-flex; align-items: center; gap: 0.625rem;
+      background: var(--so-lime); color: var(--so-ink);
+      font-size: 1rem; font-weight: 700; letter-spacing: 0.03em; text-decoration: none;
+      padding: 0.9rem 1.75rem; border-radius: var(--so-radius-sm); white-space: nowrap;
+    }
+    .season-cta:hover { background: var(--so-lime-bright); }
+    .season-cta-note { font-size: 0.75rem; color: rgba(255,255,255,0.4); }
 
-    .hfb-name {
-      font-family: var(--so-font-body);
-      font-size: 0.875rem;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      color: #ffffff;
+    .futsal-card {
+      position: relative;
+      display: flex; flex-direction: column; justify-content: space-between; gap: 1rem;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: var(--so-radius-lg);
+      padding: 1.75rem 1.5rem 1.5rem;
+      text-decoration: none;
+      overflow: hidden;
+      transition: border-color 0.15s;
+    }
+    .futsal-card:hover { border-color: var(--so-lime-a40); }
+    .date-dock {
+      position: absolute; top: 0; right: 0;
+      font-family: var(--so-font-mono); font-size: 0.625rem; font-weight: 700; letter-spacing: 0.08em;
+      color: var(--so-lime); background: var(--so-lime-a12);
+      border-left: 1px solid var(--so-lime-a25); border-bottom: 1px solid var(--so-lime-a25);
+      padding: 0.5rem 1rem;
+      border-radius: 0 0 0 var(--so-radius-md);
+    }
+    .futsal-title {
+      font-family: var(--so-font-display);
+      font-size: clamp(1.5rem, 2.4vw, 2rem);
+      line-height: 1.02; text-transform: uppercase; letter-spacing: 0.01em;
+      padding-right: 5.5rem; color: #fff;
+    }
+    .futsal-copy { font-size: 0.875rem; color: rgba(255,255,255,0.55); line-height: 1.5; }
+    .futsal-link {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      font-size: 0.875rem; font-weight: 700; letter-spacing: 0.03em; color: var(--so-lime);
+      border-bottom: 1px solid var(--so-lime-a25); padding-bottom: 0.25rem; width: fit-content;
     }
 
-    .hfb-badge {
-      font-family: var(--so-font-mono);
-      font-size: 0.5625rem;
-      font-weight: 600;
-      letter-spacing: 0.1em;
-      background: var(--so-lime);
-      color: var(--so-ink);
-      padding: 2px 6px;
-      border-radius: 3px;
+    .location-line {
+      display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap;
+      font-family: var(--so-font-mono); font-size: 0.6875rem; letter-spacing: 0.05em;
+      color: rgba(255,255,255,0.45); padding: 0.75rem 0.25rem;
+      animation: heroReveal 1s ease-out 0.8s both;
     }
-
-    .hfb-address {
-      font-size: 0.8125rem;
-      color: rgba(255,255,255,0.45);
-    }
-    .hero-future-chip {
-      display: flex;
-      align-items: center;
-      gap: 0.375rem;
-      font-size: 0.6875rem;
-      font-weight: 500;
-      color: rgba(255,255,255,0.25);
-      letter-spacing: 0.04em;
-      align-self: center;
-      padding: 0.375rem 0.75rem;
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: var(--so-radius-pill);
-    }
-
-    /* Hero facility cards — launchpad style */
-    .hero-facility-card { background: rgba(255,255,255,0.05); border: 1px solid var(--so-lime-a15); border-radius: var(--so-radius-md); padding: 1rem 1.1rem; flex: 1; min-width: 260px; max-width: 420px; }
-    .hero-facility-card--primary { background: var(--so-lime-a08); border-color: var(--so-lime-a30); }
-    .hfc-main { display: block; text-decoration: none; color: #fff; }
-    .hfc-formats { display: flex; gap: 0.45rem; margin-top: 0.75rem; }
-    .hfc-fmt { flex: 1; text-align: center; font-family: var(--so-font-mono); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.04em; color: #fff; background: rgba(0,0,0,0.35); border: 1px solid var(--so-lime-a15); border-radius: var(--so-radius-sm); padding: 0.55rem 0.4rem; text-decoration: none; transition: all 0.14s; }
-    .hfc-fmt:hover { background: var(--so-lime); color: var(--so-ink); border-color: var(--so-lime); font-weight: 600; }
+    .ll-item { display: inline-flex; align-items: baseline; gap: 0.5rem; text-decoration: none; }
+    .ll-item:hover .ll-name { color: var(--so-lime); }
+    .ll-name { color: rgba(255,255,255,0.85); font-weight: 600; letter-spacing: 0.08em; }
+    .ll-div { width: 1px; height: 14px; background: rgba(255,255,255,0.15); align-self: center; }
+    .ll-soon { color: rgba(255,255,255,0.28); }
 
     /* Scroll indicator */
     .hero-scroll {
@@ -1127,6 +1243,7 @@ setMarketingEdgeCache(Astro);
     @media (prefers-reduced-motion: reduce) {
       .pc-aurora, .pc-dot { animation: none; }
       .play-card:hover { transform: none; }
+      .status-dock-dot { animation: none; }
     }
 
     .pc-num {
@@ -1611,8 +1728,9 @@ setMarketingEdgeCache(Astro);
     @media (max-width: 768px) {
       .hero { min-height: 85vh; }
       .hero-content { padding: 0 1.5rem 3rem; }
-      .hero-facility-selector { flex-direction: column; }
-      .hero-facility-card { max-width: 100%; }
+      .hero-actions { grid-template-columns: 1fr; }
+      .season-name { padding-right: 0; margin-top: 1.5rem; }
+      .futsal-title { padding-right: 0; margin-top: 1.5rem; }
       .numbers-grid { flex-wrap: wrap; gap: 1.5rem; }
       .stat-divider { display: none; }
       .stat-block { min-width: 120px; }
