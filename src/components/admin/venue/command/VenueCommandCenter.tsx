@@ -402,8 +402,12 @@ export function VenueCommandCenter({
       </div>
 
       {/* ── Activity detail panel (slide-over) ────────────────────────────── */}
+      {/* key: remount per session so switching sessions while the panel is open
+          fetches the new roster immediately and resets per-session state/refs
+          (rowBusy, cancelledIdsRef) instead of carrying them across sessions. */}
       {openSession && (
         <ActivityDetailPanel
+          key={openSession.id}
           session={openSession}
           locationId={locationId}
           timezone={data?.timezone ?? "America/New_York"}
@@ -458,8 +462,11 @@ export function VenueCommandCenter({
       )}
 
       {/* ── Pickup roll call (full-panel overlay) ──────────────────────────── */}
+      {/* key: remount per session so replacing the open roll call with a
+          different session's fetches the new roster immediately. */}
       {pickupRollCall && (
         <PickupRollCall
+          key={pickupRollCall.sessionId}
           sessionId={pickupRollCall.sessionId}
           sessionTitle={pickupRollCall.sessionTitle}
           onClose={() => setPickupRollCall(null)}
