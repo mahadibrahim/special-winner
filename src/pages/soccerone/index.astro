@@ -143,7 +143,9 @@ setMarketingEdgeCache(Astro); // AFTER fetches — never cache a failed render
               <div>
                 <div class="season-name">{featured.name}</div>
                 <div class="season-meta">
-                  <span><b>Adult:</b> Coed · Premier · Women's</span>
+                  {featured.program?.audienceType !== 'parents' && (
+                    <span><b>Adult:</b> Coed · Premier · Women's</span>
+                  )}
                   {youthOpen && <span><b>Youth:</b> Sat &amp; Sun mornings</span>}
                   {featuredStart && <span>Kicks off <b>{featuredStart}</b></span>}
                   {featuredPrice && <span>{featuredPrice}</span>}
