@@ -50,18 +50,23 @@
  *    skill-resolved, freshly-generated session read as "adapted" on
  *    arrival, which is wrong: the plan said "here is specifically which
  *    one" (via resolution), and the delivered session ran exactly that.
- *    The comparison is now per-position: `session[i].activityId` vs.
- *    `prescribed[i].resolvedActivityId` (both normalized to `null` when
- *    absent) — they must differ to count as adapted. A segment where the
- *    coach picked a concrete activity the template only suggested in the
- *    abstract (no resolution happened, or the coach picked something
- *    other than what was resolved) still counts as a real divergence,
- *    exactly as before. Legacy snapshots (generated pre-fix, no
+ *    The comparison is now a MULTISET check, not positional: the sorted
+ *    list of the session's concrete `activityId`s vs. the sorted list of
+ *    the snapshot's `resolvedActivityId`s — adapted if they differ in
+ *    size or in any element. Multiset rather than per-position because
+ *    the session is re-sorted by its mutable `order` while the snapshot
+ *    is frozen in generation order: a coach cosmetically REORDERING two
+ *    same-duration segments with different resolved ids would compare
+ *    cross-wise under a positional check and wrongly flip to "adapted".
+ *    Reorders are cosmetic (the same protection item 2 gives to renames);
+ *    the SET of drills being run is what's structural. A segment where
+ *    the coach picked a concrete activity nothing was resolved for, or
+ *    swapped/cleared a resolved one, still counts as a real divergence —
+ *    the multisets differ. Legacy snapshots (generated pre-fix, no
  *    `resolvedActivityId` on any position) preserve the OLD behavior
- *    exactly: `prescribed[i].resolvedActivityId` is `undefined` →
- *    normalized to `null`, so any concrete session `activityId` still
- *    diverges from "no activity" — old sessions are not retroactively
- *    reclassified.
+ *    exactly: their multiset is empty, so any concrete session
+ *    `activityId` still diverges from "no activity" — old sessions are
+ *    not retroactively reclassified.
  *
  * 2. `name` is intentionally EXCLUDED from the comparison, even though
  *    both shapes carry one and a freshly-generated prescribed session's
@@ -78,18 +83,20 @@
  *   - segment counts differ (a segment was added or removed), OR
  *   - any position (by array order, see below) differs in
  *     `durationMinutes`, OR
- *   - any position's session `activityId` differs from that position's
- *     prescribed `resolvedActivityId` (both normalized to `null` when
- *     absent/falsy).
+ *   - the multiset of the session's concrete `activityId`s differs from
+ *     the multiset of the snapshot's `resolvedActivityId`s (see item 1 —
+ *     the activity check is deliberately order-insensitive).
  *
- * Segments are compared by their position in the array, sorted by each
- * segment's own `order` field first — `order` is `idx + 1` at generation
- * time (sequence-instantiation.ts) and the PUT that lets a coach reorder
- * segments (api/coach/sessions/[id].ts) writes back whatever `order`
- * values the client sends, so re-sorting by `order` rather than trusting
- * array-as-stored is the more defensive read. A reorder that swaps two
- * segments with different durations is caught by the per-position
- * duration check above without needing any extra "position identity" —
+ * For the DURATION check, segments are compared by their position in the
+ * array, sorted by each segment's own `order` field first — `order` is
+ * `idx + 1` at generation time (sequence-instantiation.ts) and the PUT
+ * that lets a coach reorder segments (api/coach/sessions/[id].ts) writes
+ * back whatever `order` values the client sends, so re-sorting by `order`
+ * rather than trusting array-as-stored is the more defensive read. A
+ * reorder that swaps two segments with DIFFERENT durations still reads as
+ * adapted via this positional duration check (pre-existing, accepted
+ * behavior); a reorder of same-duration segments is invisible to it,
+ * which is exactly why the activity check above must not be positional —
  * there is nothing else to key a positional match on since segments
  * carry no stable id of their own.
  */
@@ -125,9 +132,26 @@ export function isAdapted(
 
   for (let i = 0; i < session.length; i++) {
     if (session[i].durationMinutes !== prescribed[i].durationMinutes) return true;
-    const sessionAct = session[i].activityId ?? null;
-    const prescribedAct = prescribed[i].resolvedActivityId ?? null;
-    if (sessionAct !== prescribedAct) return true;
+  }
+
+  // Activity comparison is a MULTISET check, not positional — see module
+  // docstring item 1. The session is sorted by its mutable `order` while
+  // the snapshot is frozen in generation order, so a cosmetic reorder of
+  // two same-duration segments with different resolved ids would compare
+  // cross-wise under a positional check and wrongly flip to "adapted".
+  // The SET of drills being run is what's structural; where they sit in
+  // the timeline is not.
+  const sessionActs = session
+    .map((s) => s.activityId ?? null)
+    .filter((x): x is string => x !== null)
+    .sort();
+  const prescribedActs = prescribed
+    .map((p) => p.resolvedActivityId ?? null)
+    .filter((x): x is string => x !== null)
+    .sort();
+  if (sessionActs.length !== prescribedActs.length) return true;
+  for (let i = 0; i < sessionActs.length; i++) {
+    if (sessionActs[i] !== prescribedActs[i]) return true;
   }
 
   return false;

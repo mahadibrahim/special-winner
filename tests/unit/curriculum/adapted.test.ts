@@ -159,5 +159,46 @@ describe("isAdapted", () => {
       ];
       expect(isAdapted(session, template)).toBe(true);
     });
+
+    // The activity comparison is a MULTISET check, not positional: a coach
+    // cosmetically reordering segments (session re-sorted by its mutable
+    // `order`, snapshot frozen in generation order) must not flip the
+    // session to "adapted" when the same drills are still being run.
+    it("reordering same-duration segments with different resolved ids is NOT adapted", () => {
+      const template = [
+        { name: "Drill A", durationMinutes: 15, resolvedActivityId: "act-a" },
+        { name: "Drill B", durationMinutes: 15, resolvedActivityId: "act-b" },
+      ];
+      // Coach swapped the two segments; same durations, same drills.
+      const session = [
+        { name: "Drill B", durationMinutes: 15, order: 1, activityId: "act-b" },
+        { name: "Drill A", durationMinutes: 15, order: 2, activityId: "act-a" },
+      ];
+      expect(isAdapted(session, template)).toBe(false);
+    });
+
+    it("swapping one activity for another across a multi-segment session is adapted", () => {
+      const template = [
+        { name: "Drill A", durationMinutes: 15, resolvedActivityId: "act-a" },
+        { name: "Drill B", durationMinutes: 15, resolvedActivityId: "act-b" },
+      ];
+      const session = [
+        { name: "Drill A", durationMinutes: 15, order: 1, activityId: "act-a" },
+        { name: "Drill B", durationMinutes: 15, order: 2, activityId: "act-c" }, // b -> c
+      ];
+      expect(isAdapted(session, template)).toBe(true);
+    });
+
+    it("clearing one of several resolved activities is adapted", () => {
+      const template = [
+        { name: "Drill A", durationMinutes: 15, resolvedActivityId: "act-a" },
+        { name: "Drill B", durationMinutes: 15, resolvedActivityId: "act-b" },
+      ];
+      const session = [
+        { name: "Drill A", durationMinutes: 15, order: 1, activityId: "act-a" },
+        { name: "Drill B", durationMinutes: 15, order: 2, activityId: null }, // cleared
+      ];
+      expect(isAdapted(session, template)).toBe(true);
+    });
   });
 });
