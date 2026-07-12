@@ -56,7 +56,7 @@ export async function collectTodayForPerson(
   const { familyMemberId, linkedUserId, allowedLocationIds, todayUtc, isSelf, personPhotoUrl } = opts;
   const hasPhoto = Boolean(personPhotoUrl);
 
-  // UTC day bounds — same pattern as check-in/day.ts
+  // UTC day bounds — same pattern as lib/check-in/day-view.ts
   const dayStart = new Date(
     Date.UTC(
       todayUtc.getUTCFullYear(),

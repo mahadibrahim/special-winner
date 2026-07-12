@@ -11,8 +11,8 @@
  *   - sessions: today's sessions across every space, each with a space name
  *   - Error paths: bad session ID, missing parent for minor, consumed token
  */
-import { describe, it, expect, beforeAll } from "vitest";
-import { apiFetch } from "../setup/test-helpers";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { apiFetch, getAdminCookie } from "../setup/test-helpers";
 import { getDb } from "@/lib/db";
 import {
   dropInSessions,
@@ -48,6 +48,8 @@ describe("POST /api/kiosk/[locationSlug]/walkin/start + /payment", () => {
   let locationId: string;
   // A session seeded in a second space, to prove /sessions spans the facility.
   let secondSessionId: string;
+  // Set once the minor-walk-in test seeds its own session slot.
+  let minorSessionId: string;
 
   beforeAll(async () => {
     const db = getDb();
@@ -313,6 +315,7 @@ describe("POST /api/kiosk/[locationSlug]/walkin/start + /payment", () => {
           sessionRateCents: 800,
         })
         .returning();
+      minorSessionId = minorSession.id;
 
       const res = await apiFetch(
         `/api/kiosk/${locationId}/walkin/start`,
@@ -480,5 +483,28 @@ describe("POST /api/kiosk/[locationSlug]/walkin/start + /payment", () => {
       const spaces = new Set(seeded.map((s) => s.spaceName));
       expect(spaces.size).toBe(2);
     });
+  });
+
+  // Fixture cleanup: these sessions are seeded for TODAY at the shared
+  // staging DB. The day board (venue-day-data.ts) has no status filter on
+  // sessions, so a merely-cancelled session would still show up — cancel
+  // (releases the pending_claim bookings created above) then hard-delete
+  // each session so nothing lingers on the roster for the e2e
+  // activity-roster test to trip over. Best-effort: failures here shouldn't
+  // fail the suite.
+  afterAll(async () => {
+    const adminCookie = await getAdminCookie().catch(() => null);
+    if (!adminCookie) return;
+    for (const id of [sessionId, secondSessionId, minorSessionId]) {
+      if (!id) continue;
+      await apiFetch(`/api/admin/dropin/sessions/${id}/cancel`, {
+        method: "POST",
+        cookie: adminCookie,
+      }).catch(() => null);
+      await apiFetch(`/api/admin/dropin/sessions/${id}`, {
+        method: "DELETE",
+        cookie: adminCookie,
+      }).catch(() => null);
+    }
   });
 });

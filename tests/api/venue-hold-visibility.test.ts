@@ -67,6 +67,7 @@ describe("Venue hold visibility (pending_claim pay-link holds)", () => {
   let heldBookingId: string;
   // Belongs to Org B — used only by the tenant-scoping test.
   let heldBookingIdOrgB: string;
+  let orgBSessionId: string;
 
   beforeAll(async () => {
     adminCookie = await getAdminCookie();
@@ -156,12 +157,50 @@ describe("Venue hold visibility (pending_claim pay-link holds)", () => {
         walkUpRateCents: 1900,
       })
       .returning();
+    orgBSessionId = orgBSession.id;
 
     heldBookingIdOrgB = await startWalkin(
       orgBFixtures.locationId,
       orgBSession.id,
       "orgb",
     );
+  });
+
+  // Fixture cleanup: these drop-in sessions are seeded for TODAY at the
+  // shared staging DB, and the day board (venue-day-data.ts) has no status
+  // filter on sessions — a cancelled-but-not-deleted session would still
+  // show up on the board. Cancel (releases/refunds any still-active
+  // bookings — heldBookingIdOrgB and the "refuses a confirmed booking" test's
+  // confirmedBooking are both left un-cancelled by earlier tests on purpose)
+  // then hard-delete each session so nothing lingers on the roster for the
+  // e2e activity-roster test to trip over. Best-effort: a failure here
+  // shouldn't fail the suite.
+  afterAll(async () => {
+    await apiFetch(`/api/admin/dropin/sessions/${sessionId}/cancel`, {
+      method: "POST",
+      cookie: adminCookie,
+    }).catch(() => null);
+    await apiFetch(`/api/admin/dropin/sessions/${sessionId}`, {
+      method: "DELETE",
+      cookie: adminCookie,
+    }).catch(() => null);
+
+    if (orgBSessionId) {
+      const orgBAdminCookie = await getAuthCookie(
+        "admin-orgb@test.aspiresports.com",
+        "TestAdmin123!",
+      ).catch(() => null);
+      if (orgBAdminCookie) {
+        await apiFetch(`/api/admin/dropin/sessions/${orgBSessionId}/cancel`, {
+          method: "POST",
+          cookie: orgBAdminCookie,
+        }).catch(() => null);
+        await apiFetch(`/api/admin/dropin/sessions/${orgBSessionId}`, {
+          method: "DELETE",
+          cookie: orgBAdminCookie,
+        }).catch(() => null);
+      }
+    }
   });
 
   it("includes pending_claim rows with status in the event roster", async () => {
@@ -303,6 +342,7 @@ describe("Venue hold visibility — location-scoped admin, cross-location", () =
   let locAdminCookie: string;
   let otherLocationHeldBookingId: string;
   let createdUserId: string;
+  let sessionBId: string;
 
   beforeAll(async () => {
     const db = getDb();
@@ -365,6 +405,7 @@ describe("Venue hold visibility — location-scoped admin, cross-location", () =
         walkUpRateCents: 1900,
       })
       .returning();
+    sessionBId = sessionB.id;
 
     otherLocationHeldBookingId = await startWalkin(locationB.id, sessionB.id, "loc-b");
 
@@ -400,8 +441,31 @@ describe("Venue hold visibility — location-scoped admin, cross-location", () =
   });
 
   afterAll(async () => {
+    // Each cleanup step is fault-isolated so one failure can't skip the rest.
+    // locAdminCookie is scoped to Location A only and can't act on Location
+    // B's session — use an unscoped org admin to cancel + hard-delete the
+    // fixture session so it stops cluttering the shared "today" board.
+    if (sessionBId) {
+      try {
+        const orgAAdminCookie = await getAdminCookie();
+        await apiFetch(`/api/admin/dropin/sessions/${sessionBId}/cancel`, {
+          method: "POST",
+          cookie: orgAAdminCookie,
+        });
+        await apiFetch(`/api/admin/dropin/sessions/${sessionBId}`, {
+          method: "DELETE",
+          cookie: orgAAdminCookie,
+        });
+      } catch {
+        /* best-effort */
+      }
+    }
     if (createdUserId) {
-      await getDb().delete(users).where(inArray(users.id, [createdUserId]));
+      try {
+        await getDb().delete(users).where(inArray(users.id, [createdUserId]));
+      } catch {
+        /* best-effort */
+      }
     }
   });
 

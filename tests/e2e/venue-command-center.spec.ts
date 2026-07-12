@@ -21,9 +21,9 @@ test("venue command center renders and opens an activity roster", async ({
   await expect(page).toHaveTitle(/command center/i);
 
   // NeedsAttentionQueue renders the "Needs attention" h2 once data loads.
-  // Target the heading specifically: the "Nothing needs attention right now"
-  // empty-state text also matches /needs attention/i, so a plain getByText is
-  // a strict-mode violation (2 matches).
+  // Target the heading specifically: the "All clear — Nothing needs attention
+  // for this location…" empty-state text also matches /needs attention/i, so
+  // a plain getByText is a strict-mode violation (2 matches).
   await expect(
     page.getByRole("heading", { name: /needs attention/i }),
   ).toBeVisible({ timeout: 60_000 });
@@ -144,87 +144,103 @@ test("held pay-link walk-in shows in the roster with resend/cancel actions", asy
   expect(createBody.session?.id).toBeTruthy();
   const sessionId = createBody.session!.id;
 
-  // ---- Create the held (pending_claim) booking via the kiosk API — the
-  // same way a real pay-link walk-in hold is created in production. ----
-  const walkinRes = await page.request.post(
-    `/api/kiosk/${locationId}/walkin/start`,
-    {
-      data: {
-        sessionId,
-        contact: {
-          firstName: "Held",
-          lastName: `Walkin${suffix.slice(-4)}`,
-          email: `command-center-held-${suffix}@walkin-test.invalid`,
-          phone: "6145550199",
-          dob: "1990-01-01",
+  // Everything from here runs inside try/finally so the fixture session is
+  // cleaned up even when an assertion mid-test fails — otherwise each failed
+  // run leaks one `command-center-held-*` block onto the shared staging board.
+  try {
+    // ---- Create the held (pending_claim) booking via the kiosk API — the
+    // same way a real pay-link walk-in hold is created in production. ----
+    const walkinRes = await page.request.post(
+      `/api/kiosk/${locationId}/walkin/start`,
+      {
+        data: {
+          sessionId,
+          contact: {
+            firstName: "Held",
+            lastName: `Walkin${suffix.slice(-4)}`,
+            email: `command-center-held-${suffix}@walkin-test.invalid`,
+            phone: "6145550199",
+            dob: "1990-01-01",
+          },
         },
       },
-    },
-  );
-  expect(walkinRes.ok(), await walkinRes.text()).toBeTruthy();
+    );
+    expect(walkinRes.ok(), await walkinRes.text()).toBeTruthy();
 
-  // ---- Open the session panel via Find booking (Task 7): land on the board
-  // with no deep link, search for the held walk-in's unique name, and click
-  // the result row through to the same roster panel a deep link would open.
-  // Exercises the FindBookingPanel → onOpenSession → ActivityDetailPanel path
-  // end-to-end instead of just deep-linking around it. ----
-  await page.goto(`/admin/venue?date=${dateStr}`, {
-    waitUntil: "domcontentloaded",
-  });
-  await waitForHydration(page);
+    // ---- Open the session panel via Find booking (Task 7): land on the board
+    // with no deep link, search for the held walk-in's unique name, and click
+    // the result row through to the same roster panel a deep link would open.
+    // Exercises the FindBookingPanel → onOpenSession → ActivityDetailPanel path
+    // end-to-end instead of just deep-linking around it. ----
+    await page.goto(`/admin/venue?date=${dateStr}`, {
+      waitUntil: "domcontentloaded",
+    });
+    await waitForHydration(page);
 
-  await page.getByRole("button", { name: /find booking/i }).click();
-  const searchSheet = page.getByRole("dialog", { name: /find booking/i });
-  await expect(searchSheet).toBeVisible({ timeout: 10_000 });
+    await page.getByRole("button", { name: /find booking/i }).click();
+    const searchSheet = page.getByRole("dialog", { name: /find booking/i });
+    await expect(searchSheet).toBeVisible({ timeout: 10_000 });
 
-  // Search matches firstName OR lastName individually (ilike per-column, not
-  // a concatenated full-name match) — query on the unique last name only.
-  const searchQuery = `Walkin${suffix.slice(-4)}`;
-  await searchSheet.getByPlaceholder(/name or last 4 of phone/i).fill(searchQuery);
+    // Search matches firstName OR lastName individually (ilike per-column, not
+    // a concatenated full-name match) — query on the unique last name only.
+    const searchQuery = `Walkin${suffix.slice(-4)}`;
+    await searchSheet.getByPlaceholder(/name or last 4 of phone/i).fill(searchQuery);
 
-  const heldRowName = new RegExp(`Held Walkin${suffix.slice(-4)}`, "i");
-  const resultRow = searchSheet.getByRole("button", { name: heldRowName });
-  await expect(resultRow).toBeVisible({ timeout: 10_000 });
-  await resultRow.click();
+    const heldRowName = new RegExp(`Held Walkin${suffix.slice(-4)}`, "i");
+    const resultRow = searchSheet.getByRole("button", { name: heldRowName });
+    await expect(resultRow).toBeVisible({ timeout: 10_000 });
+    await resultRow.click();
 
-  // Search panel closes, session roster panel opens with the same booking.
-  await expect(searchSheet).not.toBeVisible();
-  const panel = page.getByRole("dialog");
-  await expect(panel).toBeVisible({ timeout: 60_000 });
-  await expect(panel.getByText(/awaiting payment/i)).toBeVisible({
-    timeout: 15_000,
-  });
-  await expect(panel.getByText(heldRowName)).toBeVisible();
-  await expect(
-    panel.getByRole("button", { name: /resend waiver link/i }),
-  ).toBeVisible();
+    // Search panel closes, session roster panel opens with the same booking.
+    await expect(searchSheet).not.toBeVisible();
+    const panel = page.getByRole("dialog");
+    await expect(panel).toBeVisible({ timeout: 60_000 });
+    await expect(panel.getByText(/awaiting payment/i)).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(panel.getByText(heldRowName)).toBeVisible();
+    await expect(
+      panel.getByRole("button", { name: /resend waiver link/i }),
+    ).toBeVisible();
 
-  // ---- Cancel the hold and confirm the row disappears. ----
-  await panel.getByRole("button", { name: /cancel hold/i }).click();
-  await expect(panel.getByText(heldRowName)).not.toBeVisible({
-    timeout: 15_000,
-  });
+    // ---- Cancel the hold and confirm the row disappears. ----
+    await panel.getByRole("button", { name: /cancel hold/i }).click();
+    await expect(panel.getByText(heldRowName)).not.toBeVisible({
+      timeout: 15_000,
+    });
 
-  // ---- Walk-in flow validation (Task 9): submitting the empty form must
-  // surface the aggregated missing-fields ErrorBanner — not be silently
-  // blocked by native browser tooltips (the form is noValidate). The panel
-  // is still open on a capacity-10 session, so open-slot rows are present.
-  const openSlotRow = panel
-    .getByRole("button", { name: /open slot — add walk-in/i })
-    .first();
-  await expect(openSlotRow).toBeVisible({ timeout: 15_000 });
-  await openSlotRow.click();
+    // ---- Walk-in flow validation (Task 9): submitting the empty form must
+    // surface the aggregated missing-fields ErrorBanner — not be silently
+    // blocked by native browser tooltips (the form is noValidate). The panel
+    // is still open on a capacity-10 session, so open-slot rows are present.
+    const openSlotRow = panel
+      .getByRole("button", { name: /open slot — add walk-in/i })
+      .first();
+    await expect(openSlotRow).toBeVisible({ timeout: 15_000 });
+    await openSlotRow.click();
 
-  // WalkInFlow overlay is open (heading "Add to <session title>").
-  await expect(
-    panel.getByRole("heading", { name: /add to /i }),
-  ).toBeVisible({ timeout: 10_000 });
+    // WalkInFlow overlay is open (heading "Add to <session title>").
+    await expect(
+      panel.getByRole("heading", { name: /add to /i }),
+    ).toBeVisible({ timeout: 10_000 });
 
-  // With no contact entered, the auto-correct effect lands on kiosk self-pay;
-  // /create booking/i matches the submit button in every method variant.
-  await panel.getByRole("button", { name: /create booking/i }).click();
-  await expect(panel.getByRole("alert")).toContainText(/Missing:/, {
-    timeout: 10_000,
-  });
-  await expect(panel.getByRole("alert")).toContainText(/date of birth/i);
+    // With no contact entered, the auto-correct effect lands on kiosk self-pay;
+    // /create booking/i matches the submit button in every method variant.
+    await panel.getByRole("button", { name: /create booking/i }).click();
+    await expect(panel.getByRole("alert")).toContainText(/Missing:/, {
+      timeout: 10_000,
+    });
+    await expect(panel.getByRole("alert")).toContainText(/date of birth/i);
+  } finally {
+    // ---- Fixture cleanup: cancel releases any still-active hold (satisfying
+    // the DELETE endpoint's "no active bookings" guard on failure paths where
+    // the UI cancel never ran), then hard-delete the session. Best-effort —
+    // cleanup failure must not mask the assertions above. ----
+    await page.request
+      .post(`/api/admin/dropin/sessions/${sessionId}/cancel`, { data: {} })
+      .catch(() => null);
+    await page.request
+      .delete(`/api/admin/dropin/sessions/${sessionId}`)
+      .catch(() => null);
+  }
 });
