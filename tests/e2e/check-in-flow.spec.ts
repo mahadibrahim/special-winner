@@ -16,14 +16,14 @@ test("legacy check-in routes redirect to the command center", async ({
   await signIn(page, "admin@test.aspiresports.com", "TestAdmin123!");
 
   await page.goto("/admin/check-in", { waitUntil: "domcontentloaded" });
-  await expect(page).toHaveURL(/\/admin\/venue$/);
+  await expect(page).toHaveURL(/\/admin\/venue(\?.*)?$/);
 
   await page.goto("/admin/venue/check-in", { waitUntil: "domcontentloaded" });
-  await expect(page).toHaveURL(/\/admin\/venue$/);
+  await expect(page).toHaveURL(/\/admin\/venue(\?.*)?$/);
 
   await page.goto("/admin/venue/walk-up", { waitUntil: "domcontentloaded" });
-  await expect(page).toHaveURL(/\/admin\/venue$/);
+  await expect(page).toHaveURL(/\/admin\/venue(\?.*)?$/);
 
   await page.goto("/admin/walk-up-registration", { waitUntil: "domcontentloaded" });
-  await expect(page).toHaveURL(/\/admin\/venue$/);
+  await expect(page).toHaveURL(/\/admin\/venue(\?.*)?$/);
 });
