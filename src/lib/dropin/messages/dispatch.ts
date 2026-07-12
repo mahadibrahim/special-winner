@@ -34,12 +34,14 @@ import { renderBookingConfirmation } from "./booking-confirmation";
 import { renderWaitlistPromoted } from "./waitlist-promoted";
 import { renderBookingCancelledByAdmin } from "./booking-cancelled-by-admin";
 import { renderPaymentReminder } from "./payment-reminder";
+import { renderOverflowRefunded } from "./overflow-refunded";
 import type {
   BookingConfirmationContext,
   BookingCancelledByAdminContext,
   DropInBaseContext,
   DropInMessageRecipient,
   MessageVariants,
+  OverflowRefundedContext,
   PaymentReminderContext,
   WaitlistPromotedContext,
 } from "./types";
@@ -404,6 +406,39 @@ export async function dispatchPaymentReminder(
   };
 
   const variants = await renderPaymentReminder(ctx);
+  return await dispatch(user, variants, session.organizationId, brand);
+}
+
+/**
+ * Dispatch the transactional-capacity-gate overflow notice. Fired by
+ * handle-dropin-checkout-complete.ts's `refundOverflowPayment` once the
+ * Stripe refund for an overflow booking has actually succeeded (never
+ * before — see that module's comment on why a failed refund must not send
+ * this message). Brand is read from the booking row (drop_in_bookings.brand,
+ * migration 0042).
+ */
+export async function dispatchOverflowRefunded(
+  bookingId: string,
+): Promise<DropInDispatchResult> {
+  const booking = await loadBooking(bookingId);
+  if (!booking) return { ok: false, reason: "booking_not_found" };
+  const session = await loadSessionContext(booking.sessionId);
+  if (!session) return { ok: false, reason: "session_not_found" };
+  const user = await loadUser(booking.userId);
+  if (!user) return { ok: false, reason: "user_not_found" };
+
+  const brand: BrandId = booking.brand;
+  const ctx: OverflowRefundedContext = {
+    ...baseCtx(session, recipientFromUser(user), brand),
+    booking: {
+      id: booking.id,
+      amountPaidCents: booking.amountPaidCents,
+      paymentMethod: booking.paymentMethod,
+      teamAssignment: booking.teamAssignment,
+    },
+  };
+
+  const variants = await renderOverflowRefunded(ctx);
   return await dispatch(user, variants, session.organizationId, brand);
 }
 

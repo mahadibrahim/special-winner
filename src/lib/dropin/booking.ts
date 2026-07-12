@@ -26,7 +26,7 @@ import {
 import { users } from "@/lib/db/schema/users";
 import { and, eq, sql } from "drizzle-orm";
 import { resolveRate, type ResolvedRate } from "./pricing";
-import { checkMembersOnly, checkCapacity, checkGenderCap } from "./gates";
+import { checkMembersOnly, checkGenderCap } from "./gates";
 import { assignTeam } from "./team-assignment";
 import { dispatchBookingConfirmation } from "./messages/dispatch";
 import { awaitDispatch } from "@/lib/notifications/await-dispatch";
@@ -113,6 +113,10 @@ export async function createConfirmedBookingFreePath(opts: {
 
     // Existing active booking? Bail before we try to insert (the partial
     // unique index would also catch it but we want a clean error code).
+    // pending_payment (a kiosk walk-in hold) counts too — the free-path
+    // orchestrator is the online-booking entry point, and a customer who
+    // already holds a walk-in payment hold on this session shouldn't be
+    // able to also grab a free-rate seat online.
     const existing = await tx
       .select({ id: dropInBookings.id })
       .from(dropInBookings)
@@ -120,7 +124,7 @@ export async function createConfirmedBookingFreePath(opts: {
         and(
           eq(dropInBookings.sessionId, opts.sessionId),
           eq(dropInBookings.userId, opts.userId),
-          sql`${dropInBookings.status} IN ('confirmed', 'waitlisted', 'pending_claim')`,
+          sql`${dropInBookings.status} IN ('confirmed', 'waitlisted', 'pending_claim', 'pending_payment')`,
         ),
       );
     if (existing.length > 0) {
@@ -171,20 +175,15 @@ export async function createConfirmedBookingFreePath(opts: {
       };
     }
 
-    const [confirmedRow] = await tx
-      .select({ c: sql<number>`count(*)::int` })
-      .from(dropInBookings)
-      .where(
-        and(
-          eq(dropInBookings.sessionId, opts.sessionId),
-          eq(dropInBookings.status, "confirmed"),
-        ),
-      );
-    const capGate = checkCapacity(session, confirmedRow?.c ?? 0);
-    if (!capGate.ok) {
+    // Capacity: confirmed + pending_payment (kiosk holds) + pending_claim
+    // (promoted waitlisters mid-claim-window) all occupy a real seat — see
+    // checkSessionCapacityLocked's doc comment. The session row is already
+    // FOR-UPDATE-locked above, which is this helper's precondition.
+    const capCheck = await checkSessionCapacityLocked(tx, opts.sessionId);
+    if (capCheck.full) {
       return {
         ok: false,
-        error: { code: capGate.reason, message: "Session is full" },
+        error: { code: "session_full", message: "Session is full" },
       };
     }
 
@@ -303,6 +302,60 @@ export async function getActiveMembershipForUser(
   dbOrTx?: Parameters<typeof getActiveMembershipForOrg>[2],
 ): Promise<import("./pricing").MembershipForPricing | null> {
   return await getActiveMembershipForOrg(userId, organizationId, dbOrTx);
+}
+
+/** A Drizzle transaction handle, as passed into `db.transaction(async (tx) => ...)`. */
+export type DropInTx = Parameters<
+  Parameters<ReturnType<typeof getDb>["transaction"]>[0]
+>[0];
+
+export interface SessionCapacityStatus {
+  /** Bookings currently occupying a seat (see status list below). */
+  taken: number;
+  capacity: number;
+  full: boolean;
+}
+
+/**
+ * Shared capacity gate for every confirm point that can hand out a real
+ * seat: the free-path orchestrator, the paid Checkout webhook, and the
+ * walk-in kiosk hold. A seat is occupied by `confirmed` (booked),
+ * `pending_payment` (a kiosk walk-in mid-payment — the physical person is
+ * standing at the venue holding the slot), or `pending_claim` (a promoted
+ * waitlister inside their claim window) — none of those should be sellable
+ * to a second person.
+ *
+ * CALLER CONTRACT: the caller must already hold `SELECT ... FOR UPDATE` on
+ * the `sessionId` row in the SAME transaction `tx` before calling this —
+ * that lock is what makes the count-then-decide read consistent under
+ * concurrent confirm attempts on the same session. This function does not
+ * take the lock itself (a second, redundant `FOR UPDATE` here would still
+ * be correct but wastes a round trip — every call site already locks the
+ * session for its own team-assignment/rate-resolution logic first).
+ */
+export async function checkSessionCapacityLocked(
+  tx: DropInTx,
+  sessionId: string,
+): Promise<SessionCapacityStatus> {
+  const [session] = await tx
+    .select({ capacity: dropInSessions.capacity })
+    .from(dropInSessions)
+    .where(eq(dropInSessions.id, sessionId))
+    .limit(1);
+  const capacity = session?.capacity ?? 0;
+
+  const [row] = await tx
+    .select({ c: sql<number>`count(*)::int` })
+    .from(dropInBookings)
+    .where(
+      and(
+        eq(dropInBookings.sessionId, sessionId),
+        sql`${dropInBookings.status} IN ('confirmed', 'pending_payment', 'pending_claim')`,
+      ),
+    );
+  const taken = row?.c ?? 0;
+
+  return { taken, capacity, full: taken >= capacity };
 }
 
 async function fetchGenderCounts(

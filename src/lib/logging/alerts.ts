@@ -40,12 +40,33 @@
  *                                      refund needed via the Stripe dashboard
  *                                      using the `stripePaymentIntentId` in
  *                                      the log line.
+ *   - `dropin_overflow_refunded`     — The transactional capacity gate caught
+ *                                      the last-spot race: a Checkout
+ *                                      completed for a session that filled up
+ *                                      elsewhere while payment was in flight.
+ *                                      The booking was waitlisted front-of-
+ *                                      line (priority 100) and the charge was
+ *                                      auto-refunded in full — no manual
+ *                                      action needed, but the on-call human
+ *                                      should know money moved.
+ *   - `dropin_overflow_refund_failed` — Same overflow case, but the auto-
+ *                                      refund threw (or Stripe wasn't
+ *                                      configured). The customer was CHARGED
+ *                                      and is waitlisted, not confirmed, and
+ *                                      NOT yet refunded. Manual refund needed
+ *                                      via the Stripe dashboard using the
+ *                                      `stripePaymentIntentId` in the log
+ *                                      line — a webhook redelivery will also
+ *                                      retry automatically (see
+ *                                      handle-dropin-checkout-complete.ts).
  */
 
 export type AlertTag =
   | "dropin_refund_failed"
   | "dropin_late_payment_refunded"
   | "dropin_late_refund_failed"
+  | "dropin_overflow_refunded"
+  | "dropin_overflow_refund_failed"
   | "rental_late_refund_failed";
 
 export type AlertContext = Record<string, unknown>;

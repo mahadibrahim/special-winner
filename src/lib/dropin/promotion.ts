@@ -36,7 +36,7 @@
  * keep concurrent cron ticks + cancellations safe.
  */
 import crypto from "node:crypto";
-import { and, asc, eq, isNull, lt, lte } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, lt, lte } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   dropInBookings,
@@ -80,7 +80,12 @@ export async function promoteNextWaitlister(
     const windowMinutes =
       rateCard?.promotionWindowMinutes ?? DEFAULT_PROMOTION_WINDOW_MINUTES;
 
-    // Lock the next waitlister row.
+    // Lock the next waitlister row. Front-of-line first (waitlistPriority
+    // DESC — the transactional capacity gate's overflow-refund path stamps
+    // 100 on a customer who already paid and got squeezed out by the
+    // last-spot race; a voluntary waitlist join stays at the default 0),
+    // then oldest-first (createdAt ASC) as the tiebreaker within a
+    // priority tier so FIFO still holds among equals.
     const [next] = await tx
       .select()
       .from(dropInBookings)
@@ -90,7 +95,7 @@ export async function promoteNextWaitlister(
           eq(dropInBookings.status, "waitlisted"),
         ),
       )
-      .orderBy(asc(dropInBookings.createdAt))
+      .orderBy(desc(dropInBookings.waitlistPriority), asc(dropInBookings.createdAt))
       .limit(1)
       .for("update");
     if (!next) return { promoted: false };
