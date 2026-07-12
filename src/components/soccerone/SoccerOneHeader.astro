@@ -26,7 +26,7 @@ const { currentFacility = "" } = Astro.props;
         aria-current={currentFacility === 'worthington' ? 'page' : undefined}
       >
         <span class="tab-name">WORTHINGTON</span>
-        <span class="tab-sub">3 FIELDS</span>
+        <span class="tab-sub">2 FIELDS</span>
       </a>
       <a
         href="/downtown"
@@ -64,7 +64,7 @@ const { currentFacility = "" } = Astro.props;
     <!-- Facility selector mobile -->
     <div class="mobile-facility-row">
       <a href="/worthington" class={`mobile-facility-btn ${currentFacility === 'worthington' ? 'active' : ''}`}>
-        WORTHINGTON &mdash; 3 FIELDS
+        WORTHINGTON &mdash; 2 FIELDS
       </a>
       <a href="/downtown" class={`mobile-facility-btn ${currentFacility === 'downtown' ? 'active' : ''}`}>
         DOWNTOWN &mdash; 1 FIELD

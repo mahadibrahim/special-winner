@@ -1,0 +1,634 @@
+<title>SoccerOne Worthington — Proposed Location Page</title>
+<style>
+  /* ============================================================
+     Mockup v1 of the proposed /worthington location page.
+     Single-theme by design: production SoccerOne dark/lime idiom.
+     Anton/DM Sans/JetBrains Mono are CDN-loaded in prod; closest
+     system fallbacks here.
+     Content sources: aspire-sports-ops/marketing/data/soccerone-venue.md,
+     operations/decisions/2026-07-11-worthington-fall-division-nights.md,
+     brand yard-sign directional map. All facts real; no fabrication.
+  ============================================================ */
+  :root {
+    --ink: #0a0a0d;
+    --surface: #101014;
+    --lime: #a3e635;
+    --lime-bright: #bef264;
+    --lime-a04: rgba(163,230,53,0.04);
+    --lime-a08: rgba(163,230,53,0.08);
+    --lime-a12: rgba(163,230,53,0.12);
+    --lime-a15: rgba(163,230,53,0.15);
+    --lime-a20: rgba(163,230,53,0.20);
+    --lime-a25: rgba(163,230,53,0.25);
+    --lime-a40: rgba(163,230,53,0.40);
+    --lime-a50: rgba(163,230,53,0.50);
+    --lime-a70: rgba(163,230,53,0.70);
+    --sky: #38bdf8;
+    --muted: rgba(255,255,255,0.45);
+    --border: rgba(255,255,255,0.08);
+    --display: 'Anton', 'Arial Narrow', Impact, 'Helvetica Neue Condensed', sans-serif;
+    --body: 'DM Sans', -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+    --radius-sm: 6px; --radius-md: 10px; --radius-lg: 14px; --radius-pill: 999px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { color-scheme: dark; }
+  body { background: var(--ink); color: #fff; font-family: var(--body); -webkit-font-smoothing: antialiased; }
+  .mono { font-family: var(--mono); }
+  a { color: inherit; }
+
+  /* ---- MOCKUP REVIEW BAR ---- */
+  .review-bar {
+    position: sticky; top: 0; z-index: 100;
+    background: #1c1c22; border-bottom: 1px solid var(--border);
+    padding: 0.6rem 1.5rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+    font-size: 0.8125rem; color: rgba(255,255,255,0.75);
+  }
+  .review-bar strong { color: #fff; }
+  .legend-chip { display: inline-flex; align-items: center; gap: 0.375rem; font-family: var(--mono); font-size: 0.625rem; letter-spacing: 0.08em; }
+  .legend-swatch { width: 10px; height: 10px; border-radius: 2px; }
+  .ls-new { background: var(--lime); } .ls-removed { background: #f87171; } .ls-media { background: var(--sky); }
+  .review-toggle { margin-left: auto; background: none; border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.75); font-family: var(--mono); font-size: 0.625rem; padding: 0.375rem 0.75rem; border-radius: var(--radius-pill); cursor: pointer; }
+  .review-toggle:hover, .review-toggle:focus-visible { border-color: var(--lime); color: var(--lime); outline: none; }
+  .anno { position: absolute; top: -11px; left: 16px; z-index: 5; font-family: var(--mono); font-size: 0.5625rem; font-weight: 600; letter-spacing: 0.1em; padding: 3px 9px; border-radius: 3px; }
+  .anno--new { background: var(--lime); color: var(--ink); }
+  .anno--media { background: var(--sky); color: #082f49; }
+  .anno-host { position: relative; }
+  .anno-host--new { outline: 1.5px dashed var(--lime-a50); outline-offset: 4px; border-radius: var(--radius-md); }
+  .anno-host--media { outline: 1.5px dashed rgba(56,189,248,0.5); outline-offset: 4px; border-radius: var(--radius-md); }
+  body.annotations-off .anno { display: none; }
+  body.annotations-off .anno-host--new, body.annotations-off .anno-host--media { outline: none; }
+  .removed-note { max-width: 1280px; margin: 0 auto; padding: 1rem 2rem; }
+  .removed-note-box { border: 1.5px dashed rgba(248,113,113,0.4); border-radius: var(--radius-md); padding: 0.75rem 1.25rem; display: flex; gap: 0.875rem; align-items: center; flex-wrap: wrap; font-size: 0.8125rem; color: rgba(255,255,255,0.5); }
+  .removed-tag { font-family: var(--mono); font-size: 0.5625rem; font-weight: 600; letter-spacing: 0.1em; background: #f87171; color: #450a0a; padding: 3px 9px; border-radius: 3px; }
+  .removed-note-box s { color: rgba(255,255,255,0.35); }
+  body.annotations-off .removed-note { display: none; }
+
+  /* ---- HEADER ---- */
+  .so-header { display: flex; align-items: center; justify-content: space-between; padding: 1.1rem 2rem; max-width: 1280px; margin: 0 auto; }
+  .so-logo { font-family: var(--display); font-size: 1.375rem; letter-spacing: 0.03em; text-decoration: none; }
+  .so-logo span { color: var(--lime); }
+  .so-nav { display: flex; gap: 1.75rem; font-size: 0.875rem; color: rgba(255,255,255,0.6); }
+  .so-nav a { text-decoration: none; } .so-nav a:hover { color: #fff; }
+
+  /* ============================================================
+     HERO — SHRUNK (~55vh), real venue footage, priority CTAs
+  ============================================================ */
+  .f-hero { position: relative; min-height: 55vh; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; background: #0a120c; }
+  .f-hero-bg {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse 70% 50% at 30% 20%, rgba(163,230,53,0.06), transparent 60%),
+      linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.55) 55%, rgba(10,10,13,0.96) 100%),
+      linear-gradient(150deg, #12210f 0%, #0a120c 55%, #06090a 100%);
+  }
+  .f-hero-bg::after {
+    content: 'ACTUAL VENUE FOOTAGE — brand/data/assets/motion-samples/soccerone-reel-silent.mp4 (muted loop, poster from a venue still)';
+    position: absolute; top: 1rem; right: 1.25rem; max-width: 46ch;
+    font-family: var(--mono); font-size: 0.5625rem; letter-spacing: 0.08em; line-height: 1.6;
+    color: rgba(255,255,255,0.3); border: 1px solid rgba(255,255,255,0.12); border-radius: 3px; padding: 4px 8px;
+  }
+  .f-hero-inner { position: relative; z-index: 5; max-width: 1280px; margin: 0 auto; width: 100%; padding: 4.5rem 2rem 2rem; }
+  .f-breadcrumb { font-family: var(--mono); font-size: 0.6875rem; letter-spacing: 0.05em; color: rgba(255,255,255,0.4); margin-bottom: 0.875rem; }
+  .f-breadcrumb a { text-decoration: none; } .f-breadcrumb a:hover { color: var(--lime); }
+  .f-title { font-family: var(--display); font-size: clamp(3rem, 8vw, 6.5rem); line-height: 0.95; letter-spacing: 0.01em; text-transform: uppercase; }
+  .f-sub { font-size: 1.0625rem; color: rgba(255,255,255,0.65); line-height: 1.55; max-width: 620px; margin-top: 0.875rem; }
+  .f-sub b { color: #fff; font-weight: 600; }
+
+  /* Priority CTA row — leagues > pickup > classes/camps */
+  .f-cta-row { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: stretch; margin-top: 1.5rem; }
+  .f-cta {
+    display: flex; flex-direction: column; justify-content: center; gap: 2px;
+    text-decoration: none; border-radius: var(--radius-md); padding: 0.8rem 1.4rem;
+  }
+  .f-cta-label { font-size: 0.9375rem; font-weight: 700; letter-spacing: 0.02em; }
+  .f-cta-note { font-family: var(--mono); font-size: 0.5625rem; letter-spacing: 0.06em; }
+  .f-cta--primary { background: var(--lime); color: var(--ink); }
+  .f-cta--primary:hover { background: var(--lime-bright); }
+  .f-cta--primary .f-cta-note { color: rgba(10,10,13,0.65); }
+  .f-cta--secondary { background: rgba(255,255,255,0.06); border: 1.5px solid var(--lime-a40); color: #fff; }
+  .f-cta--secondary:hover { border-color: var(--lime); }
+  .f-cta--secondary .f-cta-note { color: var(--lime-a70); }
+  .f-cta--tertiary { background: none; border: 1px solid rgba(255,255,255,0.18); color: rgba(255,255,255,0.75); }
+  .f-cta--tertiary:hover { border-color: rgba(255,255,255,0.4); color: #fff; }
+  .f-cta--tertiary .f-cta-note { color: rgba(255,255,255,0.35); }
+
+  .f-fact-line {
+    display: flex; align-items: center; gap: 1.1rem; flex-wrap: wrap; margin-top: 1.5rem; padding-bottom: 0.25rem;
+    font-family: var(--mono); font-size: 0.6875rem; letter-spacing: 0.05em; color: rgba(255,255,255,0.45);
+  }
+  .ffl-div { width: 1px; height: 13px; background: rgba(255,255,255,0.15); }
+  .f-fact-line b { color: rgba(255,255,255,0.85); font-weight: 600; }
+
+  /* ---- SECTION SCAFFOLD (no numerals — kicker bar only) ---- */
+  .sec { padding: 4.5rem 0; }
+  .sec-inner { max-width: 1280px; margin: 0 auto; padding: 0 2rem; }
+  .kicker-bar { width: 32px; height: 3px; background: var(--lime); margin-bottom: 1.1rem; }
+  .sec-title { font-family: var(--display); font-size: clamp(1.9rem, 3.6vw, 3rem); line-height: 1.02; text-transform: uppercase; letter-spacing: 0.01em; }
+  .sec-desc { font-size: 1rem; color: var(--muted); max-width: 560px; line-height: 1.6; margin-top: 0.625rem; }
+
+  /* ============================================================
+     WHAT'S HAPPENING — two-state (summer-light now, fall rhythm)
+  ============================================================ */
+  .happening { background: var(--surface); border-top: 1px solid var(--border); }
+  .hap-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 2rem; }
+  .hap-toggle { display: inline-flex; border: 1px solid var(--lime-a25); border-radius: var(--radius-pill); overflow: hidden; }
+  .hap-tab { font-family: var(--mono); font-size: 0.6875rem; letter-spacing: 0.08em; padding: 0.55rem 1.1rem; background: none; border: none; color: rgba(255,255,255,0.55); cursor: pointer; }
+  .hap-tab--on { background: var(--lime); color: var(--ink); font-weight: 700; }
+
+  /* Summer (current) state — honest, light */
+  .now-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1rem; }
+  .now-card { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-left: 3px solid var(--lime); border-radius: var(--radius-md); padding: 1.25rem 1.25rem 1.1rem; display: flex; flex-direction: column; gap: 0.4rem; }
+  .now-when { font-family: var(--mono); font-size: 0.625rem; letter-spacing: 0.1em; color: var(--lime); }
+  .now-what { font-family: var(--display); font-size: 1.25rem; text-transform: uppercase; letter-spacing: 0.01em; }
+  .now-note { font-size: 0.875rem; color: var(--muted); line-height: 1.5; }
+  .now-link { font-size: 0.8125rem; font-weight: 700; color: var(--lime); text-decoration: none; margin-top: 0.35rem; width: fit-content; border-bottom: 1px solid var(--lime-a25); padding-bottom: 2px; }
+
+  /* Fall rhythm state — the real confirmed night map */
+  .week-list { display: none; flex-direction: column; border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .week-row { display: grid; grid-template-columns: 130px 1fr auto; gap: 1rem; align-items: center; padding: 0.9rem 1.25rem; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.02); }
+  .week-row:last-child { border-bottom: none; }
+  .week-row--live { background: var(--lime-a04); }
+  .wr-day { font-family: var(--display); font-size: 1.125rem; text-transform: uppercase; letter-spacing: 0.02em; }
+  .wr-what { font-size: 0.9rem; color: rgba(255,255,255,0.75); line-height: 1.45; }
+  .wr-what b { color: #fff; font-weight: 600; }
+  .wr-tag { font-family: var(--mono); font-size: 0.5625rem; letter-spacing: 0.08em; color: var(--lime-a70); border: 1px solid var(--lime-a25); padding: 2px 8px; border-radius: var(--radius-pill); white-space: nowrap; }
+  .wr-tag--futsal { color: #7dd3fc; border-color: rgba(56,189,248,0.3); }
+  .happening.show-fall .week-list { display: flex; }
+  .happening.show-fall .now-grid { display: none; }
+  .hap-note { margin-top: 1.1rem; font-size: 0.8125rem; color: rgba(255,255,255,0.35); }
+
+  /* ============================================================
+     THE BUILDING — real specs, no FIFA language
+  ============================================================ */
+  .building { background: var(--ink); }
+  .build-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 3rem; align-items: start; margin-top: 2rem; }
+  .spec-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  .spec-card { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 1.25rem; }
+  .spec-num { font-family: var(--display); font-size: 2rem; line-height: 1; letter-spacing: 0.02em; color: var(--lime); }
+  .spec-name { font-size: 0.9375rem; font-weight: 700; margin-top: 0.375rem; }
+  .spec-note { font-size: 0.8125rem; color: var(--muted); line-height: 1.5; margin-top: 0.25rem; }
+  .diff-list { display: flex; flex-direction: column; gap: 1rem; }
+  .diff-item { display: flex; gap: 0.875rem; align-items: flex-start; }
+  .diff-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--lime); flex-shrink: 0; margin-top: 7px; }
+  .diff-title { font-size: 0.9375rem; font-weight: 700; }
+  .diff-copy { font-size: 0.875rem; color: var(--muted); line-height: 1.55; }
+
+  /* Field diagram */
+  .field-figure { margin-top: 2.25rem; border: 1px solid var(--lime-a20); border-radius: var(--radius-lg); padding: 1.5rem; background: rgba(255,255,255,0.02); }
+  .field-figure svg { width: 100%; height: auto; display: block; }
+  .field-caption { font-family: var(--mono); font-size: 0.625rem; letter-spacing: 0.08em; color: rgba(255,255,255,0.4); margin-top: 0.75rem; text-align: center; }
+
+  /* ============================================================
+     MEDIA STRIP — home for the footage/photo pipeline
+  ============================================================ */
+  .media-strip { background: var(--surface); border-top: 1px solid var(--border); }
+  .media-grid { display: grid; grid-template-columns: 2fr 1fr 1fr; grid-auto-rows: 180px; gap: 0.75rem; margin-top: 2rem; }
+  .media-tile { position: relative; border-radius: var(--radius-md); overflow: hidden; background: linear-gradient(145deg, #15200f, #0c1310); border: 1px solid var(--border); display: flex; align-items: flex-end; }
+  .media-tile--tall { grid-row: span 2; }
+  .media-label { font-family: var(--mono); font-size: 0.5625rem; letter-spacing: 0.08em; color: rgba(255,255,255,0.45); padding: 0.6rem 0.8rem; }
+  .media-play { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 44px; height: 44px; border-radius: 50%; background: rgba(163,230,53,0.15); border: 1.5px solid var(--lime-a50); display: flex; align-items: center; justify-content: center; color: var(--lime); font-size: 0.9rem; }
+
+  /* ============================================================
+     FALL LEAGUES — pricing & answers (conversion block)
+  ============================================================ */
+  .fall-block { background: var(--lime); color: var(--ink); }
+  .fall-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 3rem; align-items: center; }
+  .fall-title { font-family: var(--display); font-size: clamp(2.1rem, 4.5vw, 3.6rem); line-height: 0.98; text-transform: uppercase; }
+  .fall-copy { font-size: 1rem; color: rgba(10,10,13,0.7); line-height: 1.6; max-width: 540px; margin-top: 0.875rem; }
+  .fall-copy b { font-weight: 700; }
+  .fall-facts { display: flex; gap: 0.625rem; flex-wrap: wrap; margin-top: 1.25rem; }
+  .fall-fact { font-family: var(--mono); font-size: 0.625rem; font-weight: 600; letter-spacing: 0.08em; border: 1.5px solid rgba(10,10,13,0.35); padding: 0.4rem 0.8rem; border-radius: var(--radius-pill); }
+  .price-card { background: var(--ink); color: #fff; border-radius: var(--radius-lg); padding: 1.75rem; position: relative; overflow: hidden; }
+  .price-dock { position: absolute; top: 0; right: 0; background: var(--lime); color: var(--ink); font-family: var(--mono); font-size: 0.5625rem; font-weight: 700; letter-spacing: 0.08em; padding: 0.45rem 0.9rem; border-radius: 0 0 0 var(--radius-md); }
+  .price-rows { display: flex; flex-direction: column; gap: 0.7rem; margin: 0.5rem 0 1.25rem; }
+  .price-row { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; border-bottom: 1px dashed rgba(255,255,255,0.12); padding-bottom: 0.6rem; }
+  .pr-label { font-size: 0.875rem; color: rgba(255,255,255,0.65); }
+  .pr-val { font-family: var(--display); font-size: 1.25rem; letter-spacing: 0.02em; }
+  .pr-val small { font-family: var(--body); font-size: 0.75rem; color: rgba(255,255,255,0.45); font-weight: 400; }
+  .price-cta { display: block; text-align: center; background: var(--lime); color: var(--ink); font-weight: 700; font-size: 0.9375rem; text-decoration: none; padding: 0.85rem 1rem; border-radius: var(--radius-sm); }
+  .price-cta:hover { background: var(--lime-bright); }
+  .price-note { font-size: 0.75rem; color: rgba(255,255,255,0.4); text-align: center; margin-top: 0.6rem; }
+
+  /* ============================================================
+     GOOD TO KNOW — answers the rest of the questions
+  ============================================================ */
+  .know { background: var(--ink); }
+  .know-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem 2.5rem; margin-top: 2rem; }
+  .know-item { border-top: 1px solid var(--border); padding-top: 1rem; }
+  .know-q { font-size: 0.9375rem; font-weight: 700; }
+  .know-a { font-size: 0.875rem; color: var(--muted); line-height: 1.55; margin-top: 0.3rem; }
+
+  /* ============================================================
+     HOURS & DIRECTIONS — yard-sign style directional map
+  ============================================================ */
+  .directions { background: var(--surface); border-top: 1px solid var(--border); }
+  .dir-grid { display: grid; grid-template-columns: 1fr 1.1fr; gap: 3rem; align-items: center; margin-top: 2rem; }
+  .dir-facts { display: flex; flex-direction: column; gap: 1.1rem; }
+  .dir-fact-label { font-family: var(--mono); font-size: 0.5625rem; font-weight: 600; letter-spacing: 0.12em; color: var(--lime-a70); }
+  .dir-fact-val { font-size: 1rem; color: rgba(255,255,255,0.85); margin-top: 2px; }
+  .dir-fact-val.mono { font-size: 0.9rem; }
+  .dir-cta { display: inline-flex; margin-top: 0.5rem; background: var(--lime); color: var(--ink); font-weight: 700; font-size: 0.875rem; text-decoration: none; padding: 0.7rem 1.3rem; border-radius: var(--radius-sm); width: fit-content; }
+  .map-panel { background: #131316; border: 1px solid var(--lime-a20); border-radius: var(--radius-lg); padding: 1.5rem; }
+  .map-panel svg { width: 100%; height: auto; display: block; }
+  .map-caption { font-family: var(--mono); font-size: 0.5625rem; letter-spacing: 0.1em; color: rgba(255,255,255,0.35); text-align: center; margin-top: 0.75rem; }
+
+  /* ---- SIGNUP STRIP (reused from home) ---- */
+  .signup-strip { background: var(--ink); border-top: 1px solid var(--border); }
+  .signup-inner { max-width: 1280px; margin: 0 auto; padding: 2.25rem 2rem; display: flex; align-items: center; gap: 2rem; flex-wrap: wrap; }
+  .signup-title { font-family: var(--display); font-size: 1.6rem; line-height: 1; text-transform: uppercase; margin-bottom: 0.3rem; }
+  .signup-sub { font-size: 0.9rem; color: var(--muted); }
+  .signup-form { display: flex; gap: 0.625rem; flex-wrap: wrap; align-items: center; }
+  .signup-input { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); border-radius: var(--radius-sm); color: #fff; font-size: 0.9375rem; padding: 0.75rem 1rem; width: 240px; }
+  .signup-btn { background: var(--lime); color: var(--ink); border: none; font-weight: 700; font-size: 0.9375rem; padding: 0.75rem 1.4rem; border-radius: var(--radius-sm); cursor: pointer; }
+  .signup-or { font-family: var(--mono); font-size: 0.625rem; color: rgba(255,255,255,0.35); }
+  .signup-wa { border: 1.5px solid rgba(37,211,102,0.5); color: #4ade80; font-size: 0.875rem; font-weight: 600; text-decoration: none; padding: 0.65rem 1.2rem; border-radius: var(--radius-sm); }
+
+  /* ---- BOTTOM CTA STRIP ---- */
+  .bottom-cta { background: var(--surface); border-top: 1px solid var(--border); }
+  .bc-inner { max-width: 1280px; margin: 0 auto; padding: 3rem 2rem; display: flex; align-items: center; justify-content: space-between; gap: 2rem; flex-wrap: wrap; }
+  .bc-title { font-family: var(--display); font-size: clamp(1.6rem, 3vw, 2.4rem); text-transform: uppercase; line-height: 1; }
+  .bc-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+  .bc-btn { background: var(--lime); color: var(--ink); font-weight: 700; font-size: 0.9rem; text-decoration: none; padding: 0.8rem 1.5rem; border-radius: var(--radius-sm); }
+  .bc-btn--ghost { background: none; border: 1.5px solid var(--lime-a40); color: var(--lime); }
+
+  .footer-stub { max-width: 1280px; margin: 0 auto; padding: 2rem; display: flex; justify-content: space-between; gap: 2rem; flex-wrap: wrap; color: rgba(255,255,255,0.3); font-size: 0.8125rem; }
+
+  @media (max-width: 1000px) {
+    .build-grid, .fall-grid, .dir-grid { grid-template-columns: 1fr; gap: 2rem; }
+    .media-grid { grid-template-columns: 1fr 1fr; }
+    .so-nav { display: none; }
+  }
+  @media (max-width: 640px) {
+    .spec-cards { grid-template-columns: 1fr; }
+    .week-row { grid-template-columns: 90px 1fr; }
+    .wr-tag { display: none; }
+    .media-grid { grid-template-columns: 1fr; grid-auto-rows: 150px; }
+    .signup-input { width: 100%; }
+  }
+</style>
+
+<!-- ============ MOCKUP REVIEW BAR ============ -->
+<div class="review-bar">
+  <strong>Proposed /worthington · v2</strong>
+  <span class="legend-chip"><span class="legend-swatch ls-new"></span> NEW / REWORKED</span>
+  <span class="legend-chip"><span class="legend-swatch ls-media"></span> REAL ASSET SLOT</span>
+  <span class="legend-chip"><span class="legend-swatch ls-removed"></span> REMOVED</span>
+  <button class="review-toggle" id="toggleAnno" type="button">HIDE ANNOTATIONS</button>
+</div>
+
+<!-- ============ HEADER — PRODUCTION SoccerOneHeader, UNCHANGED ============ -->
+<header class="so-header">
+  <a href="#" class="so-logo">SOCCER<span>ONE</span></a>
+  <nav class="so-nav"><a href="#">Leagues</a><a href="#">Pickup</a><a href="#">Rent a Field</a><a href="#">Memberships</a><a href="#">Locations</a></nav>
+</header>
+
+<!-- ============ HERO — shrunk, real footage, priority CTAs ============ -->
+<section class="anno-host anno-host--media f-hero">
+  <span class="anno anno--media">HERO SHRUNK ~55VH · REAL VENUE REEL AS BACKGROUND</span>
+  <div class="f-hero-bg"></div>
+  <div class="f-hero-inner">
+    <nav class="f-breadcrumb"><a href="#">Locations</a> / Worthington</nav>
+    <h1 class="f-title">Worthington</h1>
+    <p class="f-sub">
+      Columbus's newest indoor soccer venue. <b>Two 110×60 boarded fields</b>, <b>futsal courts</b>
+      arriving September, sand-filled turf, and games as late as 1am.
+    </p>
+
+    <div class="f-cta-row">
+      <a href="#fall" class="f-cta f-cta--primary">
+        <span class="f-cta-label">Register for Fall Leagues →</span>
+        <span class="f-cta-note">$1,000/TEAM EARLY-BIRD THRU AUG 3 · CLOSES SEP 3</span>
+      </a>
+      <a href="#" class="f-cta f-cta--secondary">
+        <span class="f-cta-label">Play Pickup</span>
+        <span class="f-cta-note">DROP IN · SEE THIS WEEK'S SESSIONS</span>
+      </a>
+      <a href="#" class="f-cta f-cta--tertiary">
+        <span class="f-cta-label">Classes &amp; Camps</span>
+        <span class="f-cta-note">LAUNCHING 2027 · GET NOTIFIED</span>
+      </a>
+    </div>
+
+    <div class="f-fact-line">
+      <span><b>535 Lakeview Plaza Blvd</b>, Worthington OH</span>
+      <span class="ffl-div"></span>
+      <span>OPEN 4PM–LATE · GAMES AS LATE AS 1AM</span>
+      <span class="ffl-div"></span>
+      <span><b>PLENTY OF FREE PARKING</b></span>
+      <span class="ffl-div"></span>
+      <span>YOUTH LEAGUES SAT &amp; SUN MORNINGS</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ REMOVED ============ -->
+<div class="removed-note">
+  <div class="removed-note-box">
+    <span class="removed-tag">REMOVED</span>
+    <span><s>Fabricated "typical week" scoreboard (incl. "Academy — Coming 2027" schedule cells)</s> · <s>all "FIFA-approved turf" claims</s> · <s>"3 fields" count</s> · <s>section numerals</s> · <s>map placeholder</s></span>
+  </div>
+</div>
+
+<!-- ============ WHAT'S HAPPENING — two-state ============ -->
+<section class="anno-host anno-host--new sec happening" id="happening">
+  <span class="anno anno--new">NEW · REAL SCHEDULE — SUMMER STATE NOW, FALL RHYTHM FROM THE CATALOG (dayOfWeek/startTime already in prod)</span>
+  <div class="sec-inner">
+    <div class="hap-head">
+      <div>
+        <div class="kicker-bar"></div>
+        <h2 class="sec-title">What's Happening</h2>
+        <p class="sec-desc">The real rhythm of the building — light through summer, full tilt when fall leagues kick off Sep 14.</p>
+      </div>
+      <div class="hap-toggle" role="tablist">
+        <button class="hap-tab hap-tab--on" id="tabNow" type="button">NOW · SUMMER</button>
+        <button class="hap-tab" id="tabFall" type="button">THE FALL RHYTHM</button>
+      </div>
+    </div>
+
+    <!-- Summer (current) — honest and light -->
+    <div class="now-grid">
+      <div class="now-card">
+        <span class="now-when">THU · FRI · SAT NIGHTS</span>
+        <span class="now-what">Drop-In Pickup</span>
+        <p class="now-note">Show up and play — balanced teams, kicks off on time. Live session times pulled from the schedule.</p>
+        <a href="#" class="now-link">See sessions →</a>
+      </div>
+      <div class="now-card">
+        <span class="now-when">SAT &amp; SUN MORNINGS</span>
+        <span class="now-what">Youth Leagues</span>
+        <p class="now-note">Boys' and girls' leagues — game-day energy before lunch.</p>
+        <a href="#" class="now-link">Youth leagues →</a>
+      </div>
+      <div class="now-card">
+        <span class="now-when">ANY DAY · BY THE HOUR</span>
+        <span class="now-what">Field Rentals</span>
+        <p class="now-note">Book either field for training, parties, or team practice — online in two minutes.</p>
+        <a href="#" class="now-link">Book a field →</a>
+      </div>
+      <div class="now-card">
+        <span class="now-when">OPEN NOW · CLOSES SEP 3</span>
+        <span class="now-what">Fall Registration</span>
+        <p class="now-note">Nine adult divisions plus futsal. Early-bird team pricing through Aug 3.</p>
+        <a href="#fall" class="now-link">Grab your spot →</a>
+      </div>
+    </div>
+
+    <!-- Fall rhythm — the confirmed night map (from the prod catalog) -->
+    <div class="week-list">
+      <div class="week-row"><span class="wr-day">Sunday</span><span class="wr-what"><b>30+/40+ night</b> — Co-Ed 30+, Co-Ed 40+, Men's 30+ · 6–11pm</span><span class="wr-tag">LEAGUES</span></div>
+      <div class="week-row"><span class="wr-day">Monday</span><span class="wr-what"><b>Men's night</b> — Men's C &amp; Men's D · 6–11pm</span><span class="wr-tag">LEAGUES</span></div>
+      <div class="week-row"><span class="wr-day">Tuesday</span><span class="wr-what"><b>Co-Ed rec night</b> — Co-Ed C &amp; D on the fields · Co-Ed futsal on the courts</span><span class="wr-tag wr-tag--futsal">LEAGUES + FUTSAL</span></div>
+      <div class="week-row"><span class="wr-day">Wednesday</span><span class="wr-what"><b>Women's night</b> — Women's Open &amp; Co-Ed B · 6–11pm</span><span class="wr-tag">LEAGUES</span></div>
+      <div class="week-row"><span class="wr-day">Thursday</span><span class="wr-what"><b>Open pickup</b> on both fields + make-up games · Men's futsal on the courts</span><span class="wr-tag wr-tag--futsal">PICKUP + FUTSAL</span></div>
+      <div class="week-row week-row--live"><span class="wr-day">Fri · Sat</span><span class="wr-what"><b>Pickup, rentals &amp; events</b> — open late · <b>youth leagues Saturday morning</b></span><span class="wr-tag">OPEN PLAY</span></div>
+    </div>
+    <p class="hap-note">Fall rhythm runs Sep 14 – Nov 8 · 7-game seasons, every team plays every week, no playoffs.</p>
+  </div>
+</section>
+
+<!-- ============ THE BUILDING — real specs ============ -->
+<section class="anno-host anno-host--new sec building">
+  <span class="anno anno--new">NEW · REAL SPECS FROM soccerone-venue.md — FIFA LANGUAGE GONE</span>
+  <div class="sec-inner">
+    <div class="kicker-bar"></div>
+    <h2 class="sec-title">The Building</h2>
+    <p class="sec-desc">Built new in 2026 — not a retrofit. Here's exactly what you play on.</p>
+
+    <div class="build-grid">
+      <div>
+        <div class="spec-cards">
+          <div class="spec-card">
+            <div class="spec-num">2</div>
+            <div class="spec-name">Soccer fields — 110 × 60 ft</div>
+            <p class="spec-note">Sized for an intense 6v6 or a comfortable 7v7. Fully boarded — the ball stays in, the game stays fast.</p>
+          </div>
+          <div class="spec-card">
+            <div class="spec-num">2+</div>
+            <div class="spec-name">Futsal courts — Sept 2026</div>
+            <p class="spec-note">Dedicated hard courts, separate from the fields. Futsal leagues run without touching field time.</p>
+          </div>
+          <div class="spec-card">
+            <div class="spec-num">1AM</div>
+            <div class="spec-name">Open late</div>
+            <p class="spec-note">Games regularly run as late as 1am — later than any comparable venue in Columbus.</p>
+          </div>
+          <div class="spec-card">
+            <div class="spec-num">2026</div>
+            <div class="spec-name">Newest venue in Columbus</div>
+            <p class="spec-note">Brand-new construction, clean and well-maintained — players say so in the reviews.</p>
+          </div>
+        </div>
+
+        <!-- Field diagram -->
+        <div class="field-figure" aria-label="Field diagram">
+          <svg viewBox="0 0 560 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="20" y="20" width="520" height="180" rx="8" stroke="#a3e635" stroke-width="2" fill="rgba(163,230,53,0.04)"/>
+            <line x1="280" y1="20" x2="280" y2="200" stroke="rgba(163,230,53,0.35)" stroke-width="1.5"/>
+            <circle cx="280" cy="110" r="34" stroke="rgba(163,230,53,0.35)" stroke-width="1.5"/>
+            <rect x="20" y="75" width="26" height="70" stroke="rgba(255,255,255,0.4)" stroke-width="1.5"/>
+            <rect x="514" y="75" width="26" height="70" stroke="rgba(255,255,255,0.4)" stroke-width="1.5"/>
+            <text x="280" y="14" fill="rgba(255,255,255,0.6)" font-family="monospace" font-size="11" text-anchor="middle">110 FT</text>
+            <text x="12" y="110" fill="rgba(255,255,255,0.6)" font-family="monospace" font-size="11" text-anchor="middle" transform="rotate(-90 12 110)">60 FT</text>
+            <text x="280" y="216" fill="rgba(163,230,53,0.7)" font-family="monospace" font-size="10" text-anchor="middle">FULLY BOARDED · SAND-FILLED TURF</text>
+          </svg>
+          <p class="field-caption">EACH OF THE TWO FIELDS · BEST AT 6V6–7V7</p>
+        </div>
+      </div>
+
+      <div class="diff-list">
+        <div class="diff-item"><span class="diff-dot"></span><div>
+          <div class="diff-title">Sand-filled turf — no rubber crumb</div>
+          <p class="diff-copy">Truer roll, softer landings, and no black pellets in your socks, your car, or your washing machine.</p>
+        </div></div>
+        <div class="diff-item"><span class="diff-dot"></span><div>
+          <div class="diff-title">Fully boarded fields</div>
+          <p class="diff-copy">No throw-ins, no chasing balls — play off the walls and keep the tempo up.</p>
+        </div></div>
+        <div class="diff-item"><span class="diff-dot"></span><div>
+          <div class="diff-title">A real halftime, every match</div>
+          <p class="diff-copy">Games aren't piled back-to-back. Two 24-minute halves with a proper break.</p>
+        </div></div>
+        <div class="diff-item"><span class="diff-dot"></span><div>
+          <div class="diff-title">Rate your ref after every game</div>
+          <p class="diff-copy">Every match ends with a text or email to rate your referee — ratings feed continuous evaluation of the ref pool.</p>
+        </div></div>
+        <div class="diff-item"><span class="diff-dot"></span><div>
+          <div class="diff-title">Plenty of spectator room</div>
+          <p class="diff-copy">Seating and standing space for the people who came to watch you.</p>
+        </div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ MEDIA STRIP — footage pipeline home ============ -->
+<section class="anno-host anno-host--media sec media-strip">
+  <span class="anno anno--media">NEW · MEDIA HOME — TILES FILL FROM THE GROWING FOOTAGE/PHOTO LIBRARY (venue MOVs exist today; grid grows as the pipeline does)</span>
+  <div class="sec-inner">
+    <div class="kicker-bar"></div>
+    <h2 class="sec-title">Inside the Building</h2>
+    <div class="media-grid">
+      <div class="media-tile media-tile--tall"><span class="media-play">▶</span><span class="media-label">VENUE REEL · soccerone-reel-silent.mp4</span></div>
+      <div class="media-tile"><span class="media-label">FIELD STILL · IMG_3944</span></div>
+      <div class="media-tile"><span class="media-label">PICKUP NIGHT · IMG_4011</span></div>
+      <div class="media-tile"><span class="media-label">TURF DETAIL · IMG_3946</span></div>
+      <div class="media-tile"><span class="media-label">LOBBY / CHECK-IN · IMG_3948</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FALL LEAGUES — pricing answers ============ -->
+<section class="anno-host anno-host--new sec fall-block" id="fall">
+  <span class="anno anno--new">NEW · CONVERSION BLOCK — REAL PRICING &amp; DEADLINES (live-bound to the season catalog)</span>
+  <div class="sec-inner">
+    <div class="fall-grid">
+      <div>
+        <h2 class="fall-title">Fall leagues<br />kick off Sep 14.</h2>
+        <p class="fall-copy">
+          Nine adult divisions at Worthington — Co-Ed, Men's, Women's, and 30+/40+ tiers — plus futsal
+          on the new courts. <b>7 games in 7 weeks, every team plays every week, no playoffs.</b>
+        </p>
+        <div class="fall-facts">
+          <span class="fall-fact">SEP 14 – NOV 8</span>
+          <span class="fall-fact">6–11PM GAME SLOTS</span>
+          <span class="fall-fact">YOUR DIVISION = YOUR NIGHT</span>
+          <span class="fall-fact">REFS RATED EVERY GAME</span>
+        </div>
+      </div>
+      <div class="price-card">
+        <span class="price-dock">OPEN · CLOSES WED SEP 3</span>
+        <div class="price-rows">
+          <div class="price-row"><span class="pr-label">Team — early-bird thru Aug 3</span><span class="pr-val">$1,000</span></div>
+          <div class="price-row"><span class="pr-label">Team — after Aug 3</span><span class="pr-val">$1,050</span></div>
+          <div class="price-row"><span class="pr-label">Solo / free agent</span><span class="pr-val">$120</span></div>
+          <div class="price-row"><span class="pr-label">Hold your spot</span><span class="pr-val">$200 <small>deposit</small></span></div>
+        </div>
+        <a href="#" class="price-cta">Register for Fall →</a>
+        <p class="price-note">Secure checkout · powered by Aspire Sports</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ GOOD TO KNOW ============ -->
+<section class="anno-host anno-host--new sec know">
+  <span class="anno anno--new">NEW · ANSWERS THE REST OF THE QUESTIONS</span>
+  <div class="sec-inner">
+    <div class="kicker-bar"></div>
+    <h2 class="sec-title">Good to Know</h2>
+    <div class="know-grid">
+      <div class="know-item"><div class="know-q">What do I wear?</div><p class="know-a">Turf shoes or firm-ground cleats and shinguards on the fields; flat-soled shoes on the futsal courts. No metal studs.</p></div>
+      <div class="know-item"><div class="know-q">Can I come alone?</div><p class="know-a">Yes — register solo for any division ($120) and we'll place you on a team, or just drop in for pickup any session.</p></div>
+      <div class="know-item"><div class="know-q">Is there parking?</div><p class="know-a">Plenty — a big free lot right outside the door at Lakeview Plaza. You will not circle the block.</p></div>
+      <div class="know-item"><div class="know-q">Can people watch?</div><p class="know-a">Plenty of spectator seating and standing room. Kids welcome with an adult.</p></div>
+      <div class="know-item"><div class="know-q">What about kids' programs?</div><p class="know-a">Youth leagues run Saturday and Sunday mornings now. Classes, academies, and camps launch in 2027 — join the list to hear first.</p></div>
+      <div class="know-item"><div class="know-q">How late are you open?</div><p class="know-a">Doors open at 4pm; league slots run 6–11pm and open play regularly goes as late as 1am.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ HOURS & DIRECTIONS — yard-sign map ============ -->
+<section class="anno-host anno-host--new sec directions">
+  <span class="anno anno--new">NEW · DIRECTIONAL MAP ADAPTED FROM THE YARD-SIGN DESIGN (replaces the map placeholder)</span>
+  <div class="sec-inner">
+    <div class="kicker-bar"></div>
+    <h2 class="sec-title">Getting Here</h2>
+    <div class="dir-grid">
+      <div class="dir-facts">
+        <div><div class="dir-fact-label">ADDRESS</div><div class="dir-fact-val">535 Lakeview Plaza Blvd, Worthington, OH 43085</div></div>
+        <div><div class="dir-fact-label">HOURS</div><div class="dir-fact-val mono">4:00 PM – late (games as late as 1AM) · youth Sat &amp; Sun AM</div></div>
+        <div><div class="dir-fact-label">FROM I-270</div><div class="dir-fact-val">Exit 23 → north on US-23 / High St → east on Campus View Blvd → south on Sancus Blvd → west on Lakeview Plaza Blvd.</div></div>
+        <div><div class="dir-fact-label">PARKING</div><div class="dir-fact-val"><b>Plenty of parking</b> — big free lot right outside the door.</div></div>
+        <a href="#" class="dir-cta">Open in Google Maps →</a>
+      </div>
+      <div class="map-panel" aria-label="Directional map">
+        <!-- Geography corrected: I-270 runs along the SOUTH of the map; the
+             venue sits NE of the I-270/US-23 interchange (Exit 23). -->
+        <svg viewBox="0 0 460 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- I-270 arc — SOUTH (bottom) -->
+          <path d="M20 250 Q 230 292 440 250" stroke="#f1f1f4" stroke-width="5" stroke-linecap="round"/>
+          <rect x="330" y="238" width="62" height="24" rx="4" fill="#f1f1f4"/>
+          <text x="361" y="255" fill="#0a0a0d" font-family="monospace" font-size="13" font-weight="700" text-anchor="middle">I-270</text>
+          <!-- US-23 / High St vertical on the west side -->
+          <path d="M110 15 L110 268" stroke="#f1f1f4" stroke-width="4" stroke-linecap="round"/>
+          <rect x="84" y="150" width="52" height="22" rx="4" fill="#f1f1f4"/>
+          <text x="110" y="166" fill="#0a0a0d" font-family="monospace" font-size="12" font-weight="700" text-anchor="middle">US-23</text>
+          <!-- Exit marker at the interchange (south-west) -->
+          <circle cx="110" cy="258" r="6" fill="#a3e635"/>
+          <text x="128" y="262" fill="#f1f1f4" font-family="monospace" font-size="11">EXIT 23</text>
+          <!-- Campus View Blvd east, Sancus Blvd south, Lakeview Plaza west -->
+          <path d="M110 70 L330 70" stroke="#f1f1f4" stroke-width="2.5"/>
+          <text x="220" y="62" fill="#f1f1f4" font-family="monospace" font-size="10" text-anchor="middle">CAMPUS VIEW BLVD</text>
+          <path d="M330 70 L330 140" stroke="#f1f1f4" stroke-width="2.5"/>
+          <text x="342" y="108" fill="#f1f1f4" font-family="monospace" font-size="10">SANCUS BLVD</text>
+          <path d="M330 140 L246 140" stroke="#f1f1f4" stroke-width="2.5"/>
+          <text x="288" y="158" fill="#f1f1f4" font-family="monospace" font-size="10" text-anchor="middle">LAKEVIEW PLAZA</text>
+          <!-- Lime route: north on US-23, east on Campus View, south on Sancus, west on Lakeview -->
+          <path d="M110 252 L110 70 L330 70 L330 140 L256 140" stroke="#a3e635" stroke-width="3.5" stroke-dasharray="1 8" stroke-linecap="round"/>
+          <!-- Pin -->
+          <circle cx="246" cy="140" r="9" fill="#a3e635"/>
+          <circle cx="246" cy="140" r="3.5" fill="#0a0a0d"/>
+          <text x="246" y="124" fill="#ffffff" font-family="Arial Narrow, Impact" font-size="15" text-anchor="middle" letter-spacing="1">SOCCERONE</text>
+          <!-- North indicator -->
+          <text x="435" y="24" fill="rgba(255,255,255,0.5)" font-family="monospace" font-size="12" text-anchor="middle">N ↑</text>
+        </svg>
+        <p class="map-caption">SAME MAP AS THE YARD SIGNS — I-270 TO THE SOUTH, VENUE NE OF EXIT 23</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ SIGNUP STRIP (reused island) ============ -->
+<section class="anno-host anno-host--new signup-strip">
+  <span class="anno anno--new" style="left:2rem;">REUSED · HomeSignupStrip ISLAND — EMAIL/WHATSAPP CTA REPEATED PER DIRECTIVE</span>
+  <div class="signup-inner">
+    <div style="flex:1; min-width:260px;">
+      <div class="signup-title">Never miss a kickoff.</div>
+      <p class="signup-sub">Schedules, open-spot alerts, and a welcome code — plus first word when the futsal courts open.</p>
+    </div>
+    <div class="signup-form">
+      <input class="signup-input" type="email" placeholder="you@email.com" aria-label="Email address">
+      <button class="signup-btn" type="button">Sign Up</button>
+      <span class="signup-or">OR</span>
+      <a href="#" class="signup-wa">Join on WhatsApp</a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ BOTTOM CTA ============ -->
+<section class="bottom-cta">
+  <div class="bc-inner">
+    <h2 class="bc-title">Ready to play at Worthington?</h2>
+    <div class="bc-actions">
+      <a href="#fall" class="bc-btn">Register for Fall</a>
+      <a href="#" class="bc-btn bc-btn--ghost">See Pickup Sessions</a>
+      <a href="#" class="bc-btn bc-btn--ghost">Book a Field</a>
+    </div>
+  </div>
+</section>
+
+<div class="removed-note" style="padding-top:0;">
+  <div class="removed-note-box" style="border-color: rgba(163,230,53,0.35);">
+    <span class="removed-tag" style="background: var(--lime); color: var(--ink);">UNCHANGED</span>
+    <span>Production <b>SoccerOneHeader</b> (top) and <b>SoccerOneFooter</b> (here) stay exactly as they are — this rework touches only the page body between them.</span>
+  </div>
+</div>
+
+<footer class="footer-stub">
+  <span>SOCCERONE — mockup v2 for design review; all facts from aspire-sports-ops (venue doc, fall night mapping, promo pricing)</span>
+  <span>Live sources: seasons API (dayOfWeek/startTime in catalog) · /api/dropin/sessions · footage: brand/data/motion + stock-cache</span>
+</footer>
+
+<script>
+  const btn = document.getElementById('toggleAnno');
+  btn.addEventListener('click', () => {
+    const off = document.body.classList.toggle('annotations-off');
+    btn.textContent = off ? 'SHOW ANNOTATIONS' : 'HIDE ANNOTATIONS';
+  });
+  const hap = document.getElementById('happening');
+  const tabNow = document.getElementById('tabNow');
+  const tabFall = document.getElementById('tabFall');
+  tabNow.addEventListener('click', () => { hap.classList.remove('show-fall'); tabNow.classList.add('hap-tab--on'); tabFall.classList.remove('hap-tab--on'); });
+  tabFall.addEventListener('click', () => { hap.classList.add('show-fall'); tabFall.classList.add('hap-tab--on'); tabNow.classList.remove('hap-tab--on'); });
+</script>

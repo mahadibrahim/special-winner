@@ -2851,6 +2851,166 @@ async function seedE2ETests() {
     }
     console.log(`   ✓ SoccerOne Season: ${soccerOneSeason.name} (status=${soccerOneSeason.status})`);
 
+    // 12c-2. SoccerOne Worthington location + adult program + fall seasons.
+    // Staging has no Worthington location or seasons yet, so the rebuilt
+    // /worthington page's live season bindings (hero CTA, fall pricing,
+    // dayOfWeek rhythm) would be unverifiable without these fixtures.
+    // Idempotent get-or-create, mirroring the Downtown program/season
+    // pattern above.
+    //
+    // Slug is bare "worthington" (not "soccerone-worthington") to match
+    // prod: gosoccerone.com resolves to the single Aspire org, whose real
+    // location slugs are bare (see soccerone-routing.ts:5-11 and
+    // rent.astro's locationSlug). The `locations` unique constraint is
+    // per-org (organizationId, slug) — see organizations.ts:203 — so a
+    // bare "worthington" row scoped to the SoccerOne fixture org cannot
+    // collide with the Aspire staging org's own "worthington" row.
+    let [soccerOneWorthington] = await db
+      .select()
+      .from(locations)
+      .where(
+        and(
+          eq(locations.organizationId, soccerOneOrg.id),
+          eq(locations.slug, "worthington"),
+        ),
+      )
+      .limit(1);
+
+    if (!soccerOneWorthington) {
+      // One-time migration: earlier seed runs created this fixture under
+      // the retired "soccerone-worthington" slug. Rename it in place
+      // (org-scoped lookup, so this can only touch the SoccerOne org's own
+      // row) rather than inserting a duplicate — keeps the FKs from the
+      // program/seasons below pointed at the same row.
+      const [legacyWorthington] = await db
+        .select()
+        .from(locations)
+        .where(
+          and(
+            eq(locations.organizationId, soccerOneOrg.id),
+            eq(locations.slug, "soccerone-worthington"),
+          ),
+        )
+        .limit(1);
+
+      if (legacyWorthington) {
+        [soccerOneWorthington] = await db
+          .update(locations)
+          .set({ slug: "worthington" })
+          .where(eq(locations.id, legacyWorthington.id))
+          .returning();
+        console.log(`   ✓ Renamed legacy SoccerOne Worthington location slug: ${soccerOneWorthington.id}`);
+      } else {
+        [soccerOneWorthington] = await db
+          .insert(locations)
+          .values({
+            organizationId: soccerOneOrg.id,
+            name: "SoccerOne Worthington",
+            slug: "worthington",
+            city: "Worthington",
+            state: "OH",
+            country: "US",
+            timezone: "America/New_York",
+            active: true,
+            sortOrder: 2,
+          })
+          .returning();
+        console.log(`   ✓ Created SoccerOne Worthington location: ${soccerOneWorthington.id}`);
+      }
+    } else {
+      console.log(`   ✓ SoccerOne Worthington location already exists: ${soccerOneWorthington.id}`);
+    }
+
+    let [soccerOneWorthingtonProgram] = await db
+      .select()
+      .from(programs)
+      .where(eq(programs.slug, "soccerone-worthington-adult-7v7"))
+      .limit(1);
+
+    if (!soccerOneWorthingtonProgram) {
+      [soccerOneWorthingtonProgram] = await db
+        .insert(programs)
+        .values({
+          sportId: soccerOneSport.id,
+          locationId: soccerOneWorthington.id,
+          name: "Worthington Adult 7v7",
+          slug: "soccerone-worthington-adult-7v7",
+          programType: "league",
+          audienceType: "adults",
+          active: true,
+          isTest: false,
+        })
+        .returning();
+    }
+    console.log(`   ✓ SoccerOne Worthington Program: ${soccerOneWorthingtonProgram.name}`);
+
+    // Fall fixture dates: ~9 weeks out start, ~16 weeks out end, registration
+    // closes ~7 weeks out (a timestamp) — all future so the /worthington live
+    // bindings (featured season, registrationCloses, price) stay verifiable
+    // on re-seed. Refreshed on every run, mirroring the Downtown season above.
+    const worthingtonFallStart = new Date(Date.now() + 9 * 7 * 24 * 60 * 60 * 1000);
+    const worthingtonFallEnd = new Date(Date.now() + 16 * 7 * 24 * 60 * 60 * 1000);
+    const worthingtonRegCloses = new Date(Date.now() + 7 * 7 * 24 * 60 * 60 * 1000);
+
+    const worthingtonFallSeasons = [
+      { slug: "soccerone-worthington-fall-coed-30", name: "Co-Ed 30+ — Fall", dayOfWeek: "sun" },
+      { slug: "soccerone-worthington-fall-mens-c", name: "Men's C — Fall", dayOfWeek: "mon" },
+      { slug: "soccerone-worthington-fall-womens-open", name: "Women's Open — Fall", dayOfWeek: "wed" },
+      // Futsal on Tuesday + Thursday mirrors the prod catalog shape — it
+      // exercises the location page's fall-row dedupe branches (no doubled
+      // futsal suffix; live Thursday suppresses the static pickup row) and
+      // the LEAGUES + FUTSAL tag variant, which plain sun/mon/wed can't.
+      { slug: "soccerone-worthington-fall-coed-futsal", name: "Co-Ed Futsal — Fall", dayOfWeek: "tue" },
+      { slug: "soccerone-worthington-fall-mens-futsal", name: "Men's Futsal — Fall", dayOfWeek: "thu" },
+    ] as const;
+
+    for (const fixture of worthingtonFallSeasons) {
+      let [worthingtonSeason] = await db
+        .select()
+        .from(seasons)
+        .where(eq(seasons.slug, fixture.slug))
+        .limit(1);
+
+      if (!worthingtonSeason) {
+        [worthingtonSeason] = await db
+          .insert(seasons)
+          .values({
+            programId: soccerOneWorthingtonProgram.id,
+            name: fixture.name,
+            slug: fixture.slug,
+            status: "open",
+            isTest: false,
+            startDate: worthingtonFallStart.toISOString().slice(0, 10),
+            endDate: worthingtonFallEnd.toISOString().slice(0, 10),
+            registrationCloses: worthingtonRegCloses,
+            priceCents: 12000,
+            teamPriceCents: 105000,
+            depositCents: 20000,
+            signupModes: ["individual", "team"],
+            dayOfWeek: fixture.dayOfWeek,
+            startTime: "18:00",
+            endTime: "23:00",
+          })
+          .returning();
+      } else {
+        // Keep future-dated on re-runs — the shared CI/staging DB
+        // accumulates, and a stale startDate/registrationCloses would
+        // silently fall out of the "open" live-until window (see the SQL
+        // twin in src/pages/api/public/seasons.ts).
+        [worthingtonSeason] = await db
+          .update(seasons)
+          .set({
+            status: "open",
+            startDate: worthingtonFallStart.toISOString().slice(0, 10),
+            endDate: worthingtonFallEnd.toISOString().slice(0, 10),
+            registrationCloses: worthingtonRegCloses,
+          })
+          .where(eq(seasons.id, worthingtonSeason.id))
+          .returning();
+      }
+      console.log(`   ✓ SoccerOne Worthington Season: ${worthingtonSeason.name} (dayOfWeek=${worthingtonSeason.dayOfWeek})`);
+    }
+
     // 12d. SoccerOne rental-enabled venue.
     let [soccerOneVenue] = await db
       .select()
