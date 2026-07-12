@@ -289,6 +289,80 @@ describe("POST /api/kiosk/[locationSlug]/walkin/start + /payment", () => {
     });
   });
 
+  // ── ADULT walk-in, no DOB ─────────────────────────────────────────────────
+  // Owner decision 2026-07-12: DOB is optional for adult walk-ins. Same
+  // session slot is safe to reuse — the duplicate-hold guard is per
+  // (session, userId), and this uses a distinct email/user.
+
+  describe("adult walk-in with dob omitted", () => {
+    it("returns 200 and creates the booking without requiring contact.dob", async () => {
+      const res = await apiFetch(
+        `/api/kiosk/${locationId}/walkin/start`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            sessionId,
+            contact: {
+              firstName: "Nodob",
+              lastName: "WalkinAdult",
+              email: `walkin-nodob-${UNIQUE_SUFFIX}@walkin-test.invalid`,
+              phone: "6145550005",
+              // dob deliberately omitted
+            },
+          }),
+        },
+      );
+      const body = await res.json();
+      expect(res.status).toBe(200);
+      expect(typeof body.bookingId).toBe("string");
+
+      // No family_members row should exist for this adult — the walk-in
+      // start endpoint only creates one for minors (resolvePerson is never
+      // called on the adult path), so a missing DOB never touches the
+      // NOT NULL family_members.birth_date column.
+      const db = getDb();
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, `walkin-nodob-${UNIQUE_SUFFIX}@walkin-test.invalid`))
+        .limit(1);
+      expect(user).toBeDefined();
+      const rows = await db
+        .select()
+        .from(familyMembers)
+        .where(eq(familyMembers.selfUserId, user.id));
+      expect(rows.length).toBe(0);
+    });
+
+    it("returns 422 when dob is omitted but a parent payload is present (can't verify minor status)", async () => {
+      const res = await apiFetch(
+        `/api/kiosk/${locationId}/walkin/start`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            sessionId,
+            contact: {
+              firstName: "Nodob",
+              lastName: "Child",
+              email: `walkin-nodob-child-${UNIQUE_SUFFIX}@walkin-test.invalid`,
+              phone: "6145550006",
+              // dob deliberately omitted
+            },
+            parent: {
+              firstName: "Parent",
+              lastName: "Guardian",
+              email: `walkin-nodob-parent-${UNIQUE_SUFFIX}@walkin-test.invalid`,
+              phone: "6145550007",
+            },
+          }),
+        },
+      );
+      expect(res.status).toBe(422);
+      const body = await res.json();
+      expect(body.error).toMatch(/dob/i);
+    });
+  });
+
   // ── MINOR walk-in ─────────────────────────────────────────────────────────
 
   describe("minor walk-in (contact is <18, parent required)", () => {

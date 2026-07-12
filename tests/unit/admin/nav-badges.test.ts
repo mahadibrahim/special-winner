@@ -35,4 +35,18 @@ describe("getNavBadges", () => {
     const b = await getNavBadges("org_1", { locationIds: ["loc_1"], userId: "u_1" });
     expect(b).toEqual({ refundsPending: 3, inbox: 5, attention: 0 });
   });
+
+  it("inboxScope: 'org' keeps refunds location-scoped but does not throw building the org-wide inbox where clause", async () => {
+    // The mocked DB layer doesn't assert on WHERE clause contents (it returns
+    // positional counts regardless), so this locks in that the "org" branch
+    // is reachable and returns the same shape — the actual WHERE-clause
+    // scoping distinction is exercised end-to-end by the kiosk/venue API
+    // suites, not this unit-level mock.
+    const b = await getNavBadges("org_1", {
+      locationIds: ["loc_1"],
+      userId: "u_1",
+      inboxScope: "org",
+    });
+    expect(b).toEqual({ refundsPending: 3, inbox: 5, attention: 0 });
+  });
 });

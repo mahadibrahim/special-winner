@@ -6,9 +6,18 @@
  *
  *   1. requireKioskLocation(slug) — resolve facility + org
  *   2. Validate the target session (a space in this facility, status=scheduled)
- *   3. Validate contact / parent fields; reject minors without parent info
+ *   3. Validate contact / parent fields; reject minors without parent info.
+ *      contact.dob is optional for adults (owner decision 2026-07-12) but
+ *      required whenever a `parent` payload is sent (the child/COPPA path) —
+ *      without it we can't compute age and gate minor status at all.
  *   4. Create or find the booker user record (parent for minors, self for adults)
- *   5. For minors: create a family_members row (parent_user_id path)
+ *   5. For minors: create a family_members row (parent_user_id path). Adults
+ *      never get a family_members row here — only a `users` row — so a
+ *      missing DOB never touches the NOT NULL family_members.birth_date
+ *      column (see resolvePerson: kind:"self" dedupes purely on
+ *      selfUserId, never birthDate, so this endpoint intentionally skips it
+ *      for the adult walk-in path rather than needing a sentinel DOB like
+ *      add-walkup-to-pickup.ts's ADULT_SENTINEL_DOB).
  *   6. Resolve amountDueCents from session override or org rate card
  *   7. Inside one transaction: reject (409) if the booker already has an
  *      active booking on this session, otherwise insert a dropInBookings
@@ -104,20 +113,35 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
   const contactLastName = (contact.lastName as string | undefined)?.trim();
   const contactEmail = (contact.email as string | undefined)?.trim().toLowerCase();
   const contactPhone = (contact.phone as string | undefined)?.trim() ?? null;
-  const contactDob = (contact.dob as string | undefined)?.trim();
+  const contactDobRaw = (contact.dob as string | undefined)?.trim();
+  const contactDob = contactDobRaw && contactDobRaw.length > 0 ? contactDobRaw : undefined;
 
   if (!contactFirstName) return json({ error: "contact.firstName is required" }, 422);
   if (!contactLastName) return json({ error: "contact.lastName is required" }, 422);
   if (!contactEmail) return json({ error: "contact.email is required" }, 422);
-  if (!contactDob) return json({ error: "contact.dob is required" }, 422);
 
-  // Validate dob format
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(contactDob)) {
+  // DOB is optional for adult self walk-ins (owner decision 2026-07-12) but
+  // still required whenever the caller is submitting a child (signalled by a
+  // `parent` payload, the same signal WalkInFlow/WalkInWizard use to decide
+  // whether to collect parent fields) — without a DOB we can't verify age
+  // for the COPPA path. `body.parent` is only ever sent by the client when
+  // the submitter believes this is a minor.
+  if (!contactDob && parent) {
+    return json({ error: "contact.dob is required for minors" }, 422);
+  }
+
+  // Validate dob format when present.
+  if (contactDob && !/^\d{4}-\d{2}-\d{2}$/.test(contactDob)) {
     return json({ error: "contact.dob must be YYYY-MM-DD" }, 422);
   }
 
-  const age = computeAge(contactDob);
-  const isMinor = age < 18;
+  // No DOB → treat as an adult (minors always carry a DOB per the check
+  // above). When a DOB IS present, age still gates minor status regardless
+  // of whether `parent` was sent — this is what already protects against a
+  // real minor's DOB being submitted without parent info (see the
+  // isMinor-required-parent-fields check below).
+  const age = contactDob ? computeAge(contactDob) : null;
+  const isMinor = age !== null && age < 18;
 
   // For minors, parent fields are required
   const parentFirstName = (parent?.firstName as string | undefined)?.trim();
@@ -214,12 +238,14 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
   // resolvePerson dedupes on (parentUserId, name, birthDate) and avoids the
   // self/parent XOR constraint race — replaces the hand-rolled lookup.
   if (isMinor) {
+    // isMinor is only ever true when contactDob was present and parsed
+    // (see the age computation above) — non-null assertion is safe here.
     await resolvePerson(db, {
       kind: "dependent",
       parentUserId: bookerUserId,
       firstName: contactFirstName,
       lastName: contactLastName,
-      birthDate: contactDob,
+      birthDate: contactDob!,
     });
   }
 

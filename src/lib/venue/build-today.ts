@@ -111,18 +111,22 @@ export async function buildVenueToday(
 
   // request + message: reuse getNavBadges counts, scoped to this call.
   // requestAttention (refundsPending) is genuinely location-scoped via
-  // locationIds. messageAttention (inbox) is scoped to conversations
-  // assigned to *this viewer* (scope.userId), not to the location — the
-  // conversations table has no location column. That's why this count can
-  // legitimately be lower than (or unrelated to) the org-wide sidebar Inbox
-  // badge, which for a super-admin queries with no scope at all (see
-  // getNavBadges in nav-badges.ts). We create synthetic attention items from
-  // the badge counts so the command-center can show a badge without a full
-  // item list (Phase-3 can expand to item-level detail).
+  // locationIds. messageAttention (inbox) is deliberately requested
+  // org-wide (inboxScope: "org") so it always agrees with the sidebar's
+  // Inbox badge (owner decision 2026-07-12) — the conversations table has
+  // no location column, so a location-scoped inbox count was really an
+  // "assigned to me" count, not a location count, and could silently
+  // diverge from the sidebar number. We create synthetic attention items
+  // from the badge counts so the command-center can show a badge without a
+  // full item list (Phase-3 can expand to item-level detail).
   let requestAttention: VenueAttentionItem[] = [];
   let messageAttention: VenueAttentionItem[] = [];
   try {
-    const badges = await getNavBadges(orgId, { locationIds, userId });
+    const badges = await getNavBadges(orgId, {
+      locationIds,
+      userId,
+      inboxScope: "org",
+    });
     if (badges.refundsPending > 0) {
       requestAttention = [
         {

@@ -39,6 +39,18 @@ describe("buildVenueToday attention badges", () => {
     );
   });
 
+  it("requests an org-wide inbox count (matching the sidebar) while keeping refunds location-scoped", async () => {
+    getNavBadgesMock.mockResolvedValue({ refundsPending: 0, inbox: 0, attention: 0 });
+
+    await buildVenueToday(baseDayData, "org_1", "user_1", ["loc_1", "loc_2"]);
+
+    expect(getNavBadgesMock).toHaveBeenCalledWith("org_1", {
+      locationIds: ["loc_1", "loc_2"],
+      userId: "user_1",
+      inboxScope: "org",
+    });
+  });
+
   it("fails soft (empty attention) AND logs when getNavBadges throws", async () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     getNavBadgesMock.mockRejectedValue(new Error("boom"));

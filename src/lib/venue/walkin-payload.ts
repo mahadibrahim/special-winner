@@ -3,6 +3,9 @@
  *
  * The kiosk endpoint (`/api/kiosk/[locationSlug]/walkin/start`) accepts:
  *   { sessionId, contact: { firstName, lastName, email, phone, dob }, parent?: { ... } }
+ * `contact.dob` is required only when `parent` is present (child/COPPA path)
+ * or when it happens to resolve to an under-18 age — adult walk-ins may omit
+ * it entirely (owner decision 2026-07-12).
  *
  * The command center extends this with `paymentMethod` and `linkChannel` so the
  * caller knows how to deliver payment after the booking is created. These extra
@@ -17,7 +20,11 @@ export interface WalkInForm {
   /** Email for adult (required); empty string when child (parent email used). */
   email: string;
   phone: string;
-  /** Date of birth YYYY-MM-DD — required by the kiosk endpoint. */
+  /**
+   * Date of birth YYYY-MM-DD. Required by the kiosk endpoint for child mode
+   * (COPPA age gate — minors need parent info attached). Optional for adult
+   * self walk-ins (owner decision 2026-07-12) — pass "" when not collected.
+   */
   dob: string;
   sessionId: string;
   // Child-mode: parent contact (required for minors per the kiosk endpoint)

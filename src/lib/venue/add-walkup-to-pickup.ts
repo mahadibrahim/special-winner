@@ -249,9 +249,12 @@ async function sendWaiverLink(opts: {
   const appUrl = import.meta.env.PUBLIC_APP_URL ?? "http://localhost:4321";
   const url = `${appUrl}/self-serve/${token.token}`;
 
+  // This booking is inserted as CONFIRMED (step 4 above) with no payment
+  // step in the pickup flow — copy must not claim "payment" is outstanding.
+  // Mirrors the non-pay-link copy in send-link.ts's isPayLink split.
   const smsResult = await sendSms({
     to: e164,
-    body: `Finish your Aspire Sports pickup booking (waiver + payment): ${url}`,
+    body: `Finish your Aspire Sports pickup booking (waiver + photo): ${url}`,
     organizationId: orgId,
   });
 

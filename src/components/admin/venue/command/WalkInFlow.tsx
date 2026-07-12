@@ -173,7 +173,9 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
     const missing: string[] = [];
     if (!mappedForm.firstName) missing.push("first name");
     if (!mappedForm.lastName) missing.push("last name");
-    if (!mappedForm.dob) missing.push("date of birth");
+    // DOB is COPPA-required for child mode only — owner decision 2026-07-12
+    // drops it for adult walk-ins (see kiosk endpoint + resolvePerson trace).
+    if (form.mode === "child" && !mappedForm.dob) missing.push("date of birth");
     if (form.mode === "adult" && !hasEmail) missing.push("email");
     if (form.mode === "child" && (!form.parentFirstName.trim() || !form.parentLastName.trim()))
       missing.push("parent name");
@@ -491,13 +493,15 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
           </div>
 
           <div className="mb-2">
-            <FieldLabel>Date of birth</FieldLabel>
+            <FieldLabel>
+              Date of birth{form.mode === "adult" ? " (optional)" : ""}
+            </FieldLabel>
             <TextInput
               value={form.dob}
               onChange={(v) => set("dob", v)}
               placeholder="YYYY-MM-DD"
               type="date"
-              required
+              required={form.mode === "child"}
             />
           </div>
 
