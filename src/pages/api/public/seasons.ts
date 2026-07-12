@@ -105,7 +105,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
       .innerJoin(locations, eq(programs.locationId, locations.id))
       .leftJoin(ageGroups, eq(seasons.ageGroupId, ageGroups.id))
       .where(and(...conditions))
-      .orderBy(asc(seasons.startDate));
+      // Secondary sort key: startDate ties (same-day seasons) are common on
+      // the shared CI DB, and an unordered tiebreak silently picks a
+      // different "featured" row across runs (repo multi-tenant query hazard).
+      .orderBy(asc(seasons.startDate), asc(seasons.createdAt));
 
     // Get registration counts for all seasons
     const seasonIds = rows.map((r) => r.season.id);

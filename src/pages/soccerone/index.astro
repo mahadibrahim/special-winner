@@ -44,6 +44,7 @@ const [adultSeasons, youthSeasons] = await Promise.all([
 ]);
 
 const featured = adultSeasons[0] ?? youthSeasons[0] ?? null;
+const adultFeatured = adultSeasons[0] ?? null;
 // The audience=youth filter passes age-unbounded adult seasons; only a
 // program explicitly authored for youth should light the youth chip.
 // (Repo convention: youth programs have audienceType "parents" — the
@@ -70,8 +71,21 @@ const featuredPrice = featured
       : `$${featured.price}/player`)
   : null;
 
+// The Adult Leagues card must never advertise a youth season — bind it to
+// the first open ADULT season, not the youth-fallback `featured`.
+const adultStart = adultFeatured?.startDate
+  ? new Date(adultFeatured.startDate).toLocaleDateString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC',
+    })
+  : null;
+const adultCloses = adultFeatured?.registrationCloses
+  ? new Date(adultFeatured.registrationCloses).toLocaleDateString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric', timeZone: 'America/New_York',
+    })
+  : null;
+
 import { setMarketingEdgeCache } from '@/lib/http/edge-cache';
-setMarketingEdgeCache(Astro); // AFTER fetches — never cache a failed render
+setMarketingEdgeCache(Astro); // after fetches; a degraded (empty-seasons) render may cache for 60s — SWR refreshes it
 ---
 
 <BaseLayout
@@ -165,7 +179,11 @@ setMarketingEdgeCache(Astro); // AFTER fetches — never cache a failed render
                 >
                   Register{featured.termLabel ? ` for ${featured.termLabel}` : ''} →
                 </a>
-                <span class="season-cta-note">Team &amp; free-agent spots · both facilities</span>
+                <span class="season-cta-note">
+                  {featured.program?.audienceType === 'parents'
+                    ? 'Youth spots · Sat & Sun mornings'
+                    : 'Team & free-agent spots · both facilities'}
+                </span>
               </div>
             </div>
           )}
@@ -249,17 +267,17 @@ setMarketingEdgeCache(Astro); // AFTER fetches — never cache a failed render
             <span class="pc-aurora" aria-hidden="true"></span>
             <h3 class="pc-title">Adult Leagues</h3>
             <p class="pc-desc">Coed, Premier, and Women's divisions. 7-game seasons across both sites.</p>
-            {featured ? (
+            {adultFeatured ? (
               <>
                 <div class="pc-detail">
                   <span class="pc-detail-item">
                     <span class="detail-label">NOW REGISTERING</span>
-                    <span class="detail-val">{featured.name}{featuredStart ? ` · starts ${featuredStart}` : ''}</span>
+                    <span class="detail-val">{adultFeatured.name}{adultStart ? ` · starts ${adultStart}` : ''}</span>
                   </span>
-                  {featuredCloses && (
+                  {adultCloses && (
                     <span class="pc-detail-item">
                       <span class="detail-label">REGISTRATION CLOSES</span>
-                      <span class="detail-val">{featuredCloses}</span>
+                      <span class="detail-val">{adultCloses}</span>
                     </span>
                   )}
                 </div>
@@ -420,9 +438,18 @@ setMarketingEdgeCache(Astro); // AFTER fetches — never cache a failed render
           <div class="cta-band-left">
             <h2 class="cta-band-heading">{featured.termLabel ? `${featured.termLabel} leagues are open.` : 'Leagues are open.'}<br />Grab your spot.</h2>
             <p class="cta-band-sub">
-              Adult divisions at both facilities{youthOpen ? ', youth leagues on weekend mornings' : ''}.
-              {featuredStart ? ` 7-game season starts ${featuredStart}` : ''}{featuredCloses ? ` — ` : ''}
-              {featuredCloses && <b>registration closes {featuredCloses}</b>}.
+              {featured.program?.audienceType === 'parents'
+                ? 'Youth leagues on Saturday & Sunday mornings.'
+                : `Adult divisions at both facilities${youthOpen ? ', youth leagues on weekend mornings' : ''}.`}
+              {(featuredStart || featuredCloses) && (
+                <>
+                  {' '}{featuredStart && `7-game season starts ${featuredStart}`}
+                  {featuredStart && featuredCloses && ' — '}
+                  {featuredCloses && (
+                    <b>{featuredStart ? 'registration' : 'Registration'} closes {featuredCloses}</b>
+                  )}.
+                </>
+              )}
             </p>
           </div>
           <div class="cta-band-right">

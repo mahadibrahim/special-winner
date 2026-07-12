@@ -64,5 +64,6 @@ export function skillChip(
     case "intermediate": return "INTERMEDIATE";
     case "advanced":     return "ADVANCED";
     case "all_levels":   return "OPEN";
+    default: return "OPEN";
   }
 }

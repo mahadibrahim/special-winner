@@ -53,5 +53,6 @@ describe("skillChip", () => {
     expect(skillChip("intermediate")).toBe("INTERMEDIATE");
     expect(skillChip("advanced")).toBe("ADVANCED");
     expect(skillChip("all_levels")).toBe("OPEN");
+    expect(skillChip("mystery_level" as never)).toBe("OPEN");
   });
 });
