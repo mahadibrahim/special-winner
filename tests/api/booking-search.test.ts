@@ -8,7 +8,7 @@
  *   - matching booking is found by name
  *   - empty / short query returns empty results
  */
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { apiFetch, getAdminCookie } from "./setup/test-helpers";
 import { getDb } from "@/lib/db";
 import { dropInBookings, dropInSessions, dropInRateCard } from "@/lib/db/schema/drop-in";
@@ -99,6 +99,22 @@ describe("GET /api/admin/booking-search", () => {
       })
       .returning();
     bookingId = booking.id;
+  });
+
+  // Fixture cleanup: this session is seeded for TODAY at the shared staging
+  // DB — cancel (releases the confirmed booking) then hard-delete it so it
+  // doesn't linger on the venue day board for the e2e activity-roster test
+  // to trip over. Best-effort: a failure here shouldn't fail the suite.
+  afterAll(async () => {
+    if (!sessionId) return;
+    await apiFetch(`/api/admin/dropin/sessions/${sessionId}/cancel`, {
+      method: "POST",
+      cookie: adminCookie,
+    }).catch(() => null);
+    await apiFetch(`/api/admin/dropin/sessions/${sessionId}`, {
+      method: "DELETE",
+      cookie: adminCookie,
+    }).catch(() => null);
   });
 
   it("returns 401 without auth", async () => {

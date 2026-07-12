@@ -227,4 +227,16 @@ test("held pay-link walk-in shows in the roster with resend/cancel actions", asy
     timeout: 10_000,
   });
   await expect(panel.getByRole("alert")).toContainText(/date of birth/i);
+
+  // ---- Fixture cleanup: this session was created for TODAY on the shared
+  // staging board and would otherwise accumulate one `command-center-held-*`
+  // block per run (the hold was already cancelled above, so the DELETE's
+  // "no active bookings" guard passes). Best-effort — cleanup failure must
+  // not fail the assertions above. ----
+  await page.request
+    .post(`/api/admin/dropin/sessions/${sessionId}/cancel`, { data: {} })
+    .catch(() => null);
+  await page.request
+    .delete(`/api/admin/dropin/sessions/${sessionId}`)
+    .catch(() => null);
 });

@@ -24,7 +24,7 @@ import { fieldRentals } from "@/lib/db/schema/field-rentals";
 import { programs, seasons } from "@/lib/db/schema/programs";
 import { locations } from "@/lib/db/schema/organizations";
 import { venueResources, resourceBlocks } from "@/lib/db/schema/scheduling";
-import { and, count, eq, gte, inArray, lt } from "drizzle-orm";
+import { and, count, eq, gte, inArray, lt, ne, notInArray } from "drizzle-orm";
 
 export type ActivityType =
   | "league_game"
@@ -132,6 +132,11 @@ export async function getVenueDayData(
         eq(venues.locationId, locationId),
         gte(games.scheduledAt, dayStart),
         lt(games.scheduledAt, dayEnd),
+        // Cancelled and postponed games don't occupy the field at their
+        // scheduled slot — keep scheduled/in_progress/completed so the board
+        // remains a full record of the day (unlike the arrivals-focused
+        // check-in day view, which shows scheduled/in_progress only).
+        notInArray(games.status, ["cancelled", "postponed"]),
       ),
     );
 
@@ -216,6 +221,13 @@ export async function getVenueDayData(
         eq(venues.locationId, locationId),
         gte(dropInSessions.startsAt, dayStart),
         lt(dropInSessions.startsAt, dayEnd),
+        // A cancelled session's field time is released — it must not render
+        // on the board. `completed` stays visible: the board is a record of
+        // the whole day, and the desk may still open a finished session's
+        // roster (late check-in, attendance review). This deliberately
+        // differs from the arrivals-focused check-in day view
+        // (lib/check-in/day-view.ts), which lists `scheduled` only.
+        ne(dropInSessions.status, "cancelled"),
       ),
     );
 
@@ -276,6 +288,12 @@ export async function getVenueDayData(
         eq(venues.locationId, locationId),
         gte(fieldRentals.startsAt, dayStart),
         lt(fieldRentals.startsAt, dayEnd),
+        // Cancelled rentals release the slot — hide them. Everything else
+        // stays: pending_payment holds occupy the slot (same logic as
+        // pending_claim bookings counting toward drop-in capacity — see the
+        // schema's active-slot unique index), and completed/no_show are the
+        // day's history.
+        ne(fieldRentals.status, "cancelled"),
       ),
     );
 
