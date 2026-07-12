@@ -21,6 +21,8 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { eq, asc, and, sql, inArray, isNull } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
+  activities,
+  programs,
   skills,
   skillDomains,
   developmentStages,
@@ -444,6 +446,168 @@ describe("Blueprint distribution engine — attach + attach-preview", () => {
           ),
         );
       expect(attachmentRows).toHaveLength(1); // only the (a) run's row persists
+    });
+  });
+
+  describe("Distribution skill-linkage fix — activitySuggestions resolve to real activity ids", () => {
+    it("(k) generated segments carry activityId when a template's suggestion resolves, and prescribedStructure carries resolvedActivityId", async () => {
+      const db = getDb();
+
+      // The attach endpoint scopes activity resolution to the SEASON's
+      // sport (season -> program -> sport), so the fixture activity must
+      // carry the program's sportId -- NOT orgASportId (sports[0]), which
+      // on a shared DB can be a different sport than programs[0]'s.
+      const [programRow] = await db
+        .select({ sportId: programs.sportId })
+        .from(programs)
+        .where(eq(programs.id, programId))
+        .limit(1);
+      expect(programRow, "fixture program row should exist").toBeTruthy();
+      const seasonSportId = programRow.sportId;
+
+      // Fixture activity: name matches the suggestion the fixture template
+      // below carries. Global (organizationId omitted) so it resolves
+      // regardless of which org's admin cookie runs this suite, same
+      // pattern as glows.test.ts's grow-fixture activity.
+      const fixtureActivityName = `Skill-Linkage Fixture Drill ${testSlug("sl")}`;
+      const [fixtureActivity] = await db
+        .insert(activities)
+        .values({
+          sportId: seasonSportId,
+          name: fixtureActivityName,
+          slug: testSlug("skill-linkage-fixture-drill"),
+          durationMinutes: 15,
+          howToPlay: "Fixture activity for the distribution skill-linkage test.",
+          active: true,
+        })
+        .returning({ id: activities.id });
+
+      const skillLinkTplRes = await apiFetch("/api/admin/curriculum/templates", {
+        method: "POST",
+        cookie: adminCookie,
+        body: JSON.stringify({
+          sportId: orgASportId,
+          stageId: developmentStageId,
+          name: testSlug("distribution-skill-linkage-tpl"),
+          totalDurationMinutes: 30,
+          structure: [
+            {
+              name: "Fixture drill segment",
+              type: "technical",
+              durationMinutes: 20,
+              // Unresolvable name listed FIRST -- exercises "take the first
+              // name that actually resolves", not just "first in the array".
+              activitySuggestions: ["Nonexistent Drill Name", fixtureActivityName],
+            },
+            {
+              name: "Unresolved segment",
+              type: "cooldown",
+              durationMinutes: 10,
+              activitySuggestions: ["Still Nonexistent"],
+            },
+          ],
+        }),
+      });
+      const skillLinkTemplateId = (await expectJson(skillLinkTplRes, 201)).template.id;
+
+      const skillLinkSeqRes = await apiFetch(SEQUENCES_ENDPOINT, {
+        method: "POST",
+        cookie: adminCookie,
+        body: JSON.stringify({
+          sportId: orgASportId,
+          developmentStageId,
+          programType: "league",
+          name: testSlug("distribution-skill-linkage-sequence"),
+        }),
+      });
+      const skillLinkSequenceId = (await expectJson(skillLinkSeqRes, 201)).sequence.id;
+      await expectJson(
+        await apiFetch(`${SEQUENCES_ENDPOINT}/${skillLinkSequenceId}/entries`, {
+          method: "PUT",
+          cookie: adminCookie,
+          body: JSON.stringify({ entries: [{ templateId: skillLinkTemplateId }] }),
+        }),
+        200,
+      );
+
+      const skillLinkSeasonJson = await expectJson(
+        await apiFetch("/api/admin/seasons", {
+          method: "POST",
+          cookie: adminCookie,
+          body: JSON.stringify({
+            programId,
+            name: "Distribution Skill-Linkage Season",
+            slug: testSlug("dist-skill-linkage-season"),
+            startDate: "2026-09-01",
+            endDate: "2026-12-15",
+            priceCents: 15000,
+            status: "draft",
+            minAge: 12,
+            maxAge: 14,
+          }),
+        }),
+        201,
+      );
+      const skillLinkSeasonId = skillLinkSeasonJson.season.id;
+      const skillLinkTeamJson = await expectJson(
+        await apiFetch("/api/admin/teams", {
+          method: "POST",
+          cookie: adminCookie,
+          body: JSON.stringify({
+            seasonId: skillLinkSeasonId,
+            name: testSlug("dist-skill-linkage-team"),
+            coachUserId,
+          }),
+        }),
+        201,
+      );
+      const skillLinkTeamId = skillLinkTeamJson.team.id;
+
+      const attachRes = await apiFetch(`${SEQUENCES_ENDPOINT}/${skillLinkSequenceId}/attach`, {
+        method: "POST",
+        cookie: adminCookie,
+        body: JSON.stringify({
+          seasonId: skillLinkSeasonId,
+          weekday: recurrence.weekday,
+          startDate: recurrence.startDate,
+          timeOfDay: recurrence.timeOfDay,
+          count: 1,
+        }),
+      });
+      const attachJson = await expectJson(attachRes, 200);
+      const teamResult = attachJson.results.find((r: any) => r.teamId === skillLinkTeamId);
+      expect(teamResult.created).toBe(1);
+
+      const [generatedSession] = await db
+        .select()
+        .from(sessionPlans)
+        .where(eq(sessionPlans.teamId, skillLinkTeamId));
+      expect(generatedSession).toBeTruthy();
+
+      // Segment 0's second suggestion resolved -- activityId/activityName set.
+      const segments = generatedSession.segments as any[];
+      expect(segments[0].activityId).toBe(fixtureActivity.id);
+      expect(segments[0].activityName).toBe(fixtureActivityName);
+      // Segment 1's only suggestion never resolves -- no activityId at all.
+      expect(segments[1].activityId).toBeUndefined();
+
+      // The prescribedStructure snapshot mirrors the same resolution.
+      const prescribed = generatedSession.prescribedStructure as any[];
+      expect(prescribed[0].resolvedActivityId).toBe(fixtureActivity.id);
+      expect(prescribed[1].resolvedActivityId).toBeUndefined();
+
+      // Cleanup -- sequence/template are test-scoped; season/team follow
+      // the suite's existing convention of leaving them in place (delete
+      // requires super-admin access, not worth the extra fixture wiring).
+      await apiFetch(`${SEQUENCES_ENDPOINT}/${skillLinkSequenceId}`, {
+        method: "DELETE",
+        cookie: adminCookie,
+      });
+      await apiFetch(`/api/admin/curriculum/templates/${skillLinkTemplateId}`, {
+        method: "DELETE",
+        cookie: adminCookie,
+      });
+      await db.delete(activities).where(eq(activities.id, fixtureActivity.id));
     });
   });
 

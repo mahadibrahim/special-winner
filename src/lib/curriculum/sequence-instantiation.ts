@@ -9,6 +9,19 @@
  * Weekly repetition must repeat the WALL TIME, not the UTC instant —
  * naive `+7 * 24h` drifts by an hour across DST boundaries. We resolve
  * each local date+time to UTC individually via Intl (no tz library needed).
+ *
+ * Distribution skill-linkage fix: `prescribedStructure` (the generation-time
+ * snapshot, see `DraftSessionPlan` below) is no longer just the template's
+ * `structure` copied verbatim — it also carries `resolvedActivityId` per
+ * position when the caller passes an `activityIdByName` map (built by the
+ * attach endpoint from the template's free-text `activitySuggestions`).
+ * `segments` gets the same resolution (`activityId`/`activityName`), which
+ * is what makes downstream skill-matched prompts and curated glow chips
+ * possible on a prescribed session — before this fix, generated segments
+ * carried suggestion NAMES only, never a real activity id, so skill
+ * derivation from segments starved to generics on every distributed
+ * session. Still no DB access here: this module only does the lookup
+ * against a map the caller already resolved.
  */
 
 export interface RecurrenceInput {
@@ -169,6 +182,29 @@ export interface BuildDraftsInput {
    * a generated session is distinguishable from "coach happened to pick the
    * same template." Defaults to null (unset) for callers that don't pass one. */
   sequenceAttachmentId?: string | null;
+  /** Distribution skill-linkage fix: resolves a template segment's free-text
+   * `activitySuggestions` (candidate names) to a real activity row. Keyed by
+   * activity name EXACTLY as it appears in a suggestion — the caller (the
+   * attach endpoint) owns matching/case normalization and org/sport scoping
+   * when building this map; this module stays DB-free and just does the
+   * lookup. Optional — omitted entirely, segments/snapshot are generated
+   * exactly as before (back-compat for any caller that hasn't wired
+   * resolution yet, and for templates with no suggestions at all). */
+  activityIdByName?: Map<string, { id: string; name: string }>;
+}
+
+/**
+ * Snapshot shape of `session_plans.prescribedStructure` — the template's
+ * `structure` copied verbatim (see `prescribedStructure` below), PLUS
+ * `resolvedActivityId` per position when the distribution skill-linkage fix
+ * resolved that position's `activitySuggestions` to a real activity at
+ * generation time. Kept distinct from `TemplateSegment` (the template's own
+ * shape, which never carries a resolved id) so a template row itself never
+ * looks like it has been resolved — only a session's frozen snapshot of it
+ * can.
+ */
+export interface PrescribedSegmentSnapshot extends TemplateSegment {
+  resolvedActivityId?: string;
 }
 
 /** Shape matches session_plans insert columns exactly. */
@@ -185,6 +221,8 @@ export interface DraftSessionPlan {
     name: string;
     type: string;
     durationMinutes: number;
+    activityId?: string;
+    activityName?: string;
     notes?: string;
   }[];
   focusSkillIds: string[] | null;
@@ -199,7 +237,27 @@ export interface DraftSessionPlan {
   // (adapted.ts) compares completed sessions against, so a later edit to
   // the LIVE template row can never retroactively relabel history. Null
   // only when the template itself has no structure at generation time.
-  prescribedStructure: TemplateSegment[] | null;
+  //
+  // Distribution skill-linkage fix: also carries `resolvedActivityId` per
+  // position — the generation-TIME resolution of that position's
+  // `activitySuggestions`, frozen alongside the rest of the snapshot for
+  // the same reason (a later template edit or activity rename must not
+  // retroactively change what this session was actually generated with).
+  prescribedStructure: PrescribedSegmentSnapshot[] | null;
+}
+
+/** First activitySuggestion (in order) that resolves via the map, or
+ * undefined when none do / there's no map / no suggestions at all. */
+function resolveSegmentActivity(
+  suggestions: string[] | undefined,
+  activityIdByName: Map<string, { id: string; name: string }> | undefined,
+): { id: string; name: string } | undefined {
+  if (!activityIdByName || !suggestions) return undefined;
+  for (const name of suggestions) {
+    const resolved = activityIdByName.get(name);
+    if (resolved) return resolved;
+  }
+  return undefined;
 }
 
 export function buildDraftSessionPlans(
@@ -227,19 +285,31 @@ export function buildDraftSessionPlans(
       scheduledDate: input.dates[i],
       durationMinutes: template.totalDurationMinutes,
       status: input.status ?? "draft",
-      segments: (template.structure ?? []).map((s, idx) => ({
-        order: idx + 1,
-        name: s.name,
-        type: s.type,
-        durationMinutes: s.durationMinutes,
-        ...(s.description ? { notes: s.description } : {}),
-      })),
+      segments: (template.structure ?? []).map((s, idx) => {
+        const resolved = resolveSegmentActivity(s.activitySuggestions, input.activityIdByName);
+        return {
+          order: idx + 1,
+          name: s.name,
+          type: s.type,
+          durationMinutes: s.durationMinutes,
+          ...(s.description ? { notes: s.description } : {}),
+          ...(resolved ? { activityId: resolved.id, activityName: resolved.name } : {}),
+        };
+      }),
       focusSkillIds: template.focusSkillIds,
       objectives: entry.objectives,
       equipmentNeeded: template.equipmentNeeded,
       preSessionNotes: entry.notes,
       sequenceAttachmentId: input.sequenceAttachmentId ?? null,
-      prescribedStructure: template.structure ?? null,
+      prescribedStructure: template.structure
+        ? template.structure.map((s) => {
+            const resolved = resolveSegmentActivity(s.activitySuggestions, input.activityIdByName);
+            return {
+              ...s,
+              ...(resolved ? { resolvedActivityId: resolved.id } : {}),
+            };
+          })
+        : null,
     });
   }
   return plans;

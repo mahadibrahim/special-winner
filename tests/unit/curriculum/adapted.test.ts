@@ -88,4 +88,117 @@ describe("isAdapted", () => {
     ];
     expect(isAdapted(session, template)).toBe(false);
   });
+
+  // Distribution skill-linkage fix: prescribedStructure can now carry a
+  // resolvedActivityId (the suggestion the distribution engine resolved at
+  // generation time). A session is "delivered" — not adapted — as long as
+  // the coach never changed which activity is actually attached, i.e. the
+  // session's own activityId still equals what was resolved at generation.
+  describe("resolvedActivityId semantics", () => {
+    it("legacy snapshot (no resolvedActivityId) + a concrete session activityId still counts as adapted (unchanged legacy behavior)", () => {
+      const template = [{ name: "Technical", durationMinutes: 20 }]; // no resolvedActivityId
+      const session = [
+        {
+          name: "Technical",
+          durationMinutes: 20,
+          order: 1,
+          activityId: "11111111-1111-1111-1111-111111111111",
+        },
+      ];
+      expect(isAdapted(session, template)).toBe(true);
+    });
+
+    it("new snapshot with a matching resolvedActivityId is NOT adapted", () => {
+      const template = [
+        {
+          name: "Technical",
+          durationMinutes: 20,
+          resolvedActivityId: "11111111-1111-1111-1111-111111111111",
+        },
+      ];
+      const session = [
+        {
+          name: "Technical",
+          durationMinutes: 20,
+          order: 1,
+          activityId: "11111111-1111-1111-1111-111111111111",
+        },
+      ];
+      expect(isAdapted(session, template)).toBe(false);
+    });
+
+    it("swapped activityId (coach picked a different activity than resolved) is adapted", () => {
+      const template = [
+        {
+          name: "Technical",
+          durationMinutes: 20,
+          resolvedActivityId: "11111111-1111-1111-1111-111111111111",
+        },
+      ];
+      const session = [
+        {
+          name: "Technical",
+          durationMinutes: 20,
+          order: 1,
+          activityId: "22222222-2222-2222-2222-222222222222",
+        },
+      ];
+      expect(isAdapted(session, template)).toBe(true);
+    });
+
+    it("resolved snapshot + coach clearing the activity is adapted", () => {
+      const template = [
+        {
+          name: "Technical",
+          durationMinutes: 20,
+          resolvedActivityId: "11111111-1111-1111-1111-111111111111",
+        },
+      ];
+      const session = [
+        { name: "Technical", durationMinutes: 20, order: 1, activityId: null },
+      ];
+      expect(isAdapted(session, template)).toBe(true);
+    });
+
+    // The activity comparison is a MULTISET check, not positional: a coach
+    // cosmetically reordering segments (session re-sorted by its mutable
+    // `order`, snapshot frozen in generation order) must not flip the
+    // session to "adapted" when the same drills are still being run.
+    it("reordering same-duration segments with different resolved ids is NOT adapted", () => {
+      const template = [
+        { name: "Drill A", durationMinutes: 15, resolvedActivityId: "act-a" },
+        { name: "Drill B", durationMinutes: 15, resolvedActivityId: "act-b" },
+      ];
+      // Coach swapped the two segments; same durations, same drills.
+      const session = [
+        { name: "Drill B", durationMinutes: 15, order: 1, activityId: "act-b" },
+        { name: "Drill A", durationMinutes: 15, order: 2, activityId: "act-a" },
+      ];
+      expect(isAdapted(session, template)).toBe(false);
+    });
+
+    it("swapping one activity for another across a multi-segment session is adapted", () => {
+      const template = [
+        { name: "Drill A", durationMinutes: 15, resolvedActivityId: "act-a" },
+        { name: "Drill B", durationMinutes: 15, resolvedActivityId: "act-b" },
+      ];
+      const session = [
+        { name: "Drill A", durationMinutes: 15, order: 1, activityId: "act-a" },
+        { name: "Drill B", durationMinutes: 15, order: 2, activityId: "act-c" }, // b -> c
+      ];
+      expect(isAdapted(session, template)).toBe(true);
+    });
+
+    it("clearing one of several resolved activities is adapted", () => {
+      const template = [
+        { name: "Drill A", durationMinutes: 15, resolvedActivityId: "act-a" },
+        { name: "Drill B", durationMinutes: 15, resolvedActivityId: "act-b" },
+      ];
+      const session = [
+        { name: "Drill A", durationMinutes: 15, order: 1, activityId: "act-a" },
+        { name: "Drill B", durationMinutes: 15, order: 2, activityId: null }, // cleared
+      ];
+      expect(isAdapted(session, template)).toBe(true);
+    });
+  });
 });
