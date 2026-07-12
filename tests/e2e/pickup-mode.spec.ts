@@ -46,8 +46,13 @@ test("pickup mode: create game then rapid-add an attendee", async ({
     await waitForHydration(page);
 
     // ── 2. Open the Start pickup game sheet ─────────────────────────────────
+    // .first() — on an empty day the empty-state quick actions render a second
+    // "Start pickup game" button below the header one; either opens the sheet,
+    // but the strict-mode locator needs a single target (broke post-merge on
+    // CI, where the seeded day board is empty).
     await page
       .getByRole("button", { name: "Start pickup game" })
+      .first()
       .click();
 
     // Wait for the sheet to open — the SheetTitle text appears
