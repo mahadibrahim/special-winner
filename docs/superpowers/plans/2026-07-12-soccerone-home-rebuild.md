@@ -1264,7 +1264,7 @@ Replace the `<section class="cta-band">` contents so the band only renders with 
       <section class="cta-band" aria-label="League registration CTA">
         <div class="cta-band-inner">
           <div class="cta-band-left">
-            <h2 class="cta-band-heading">Fall leagues are open.<br />Grab your spot.</h2>
+            <h2 class="cta-band-heading">{featured.termLabel ? `${featured.termLabel} leagues are open.` : 'Leagues are open.'}<br />Grab your spot.</h2>
             <p class="cta-band-sub">
               Adult divisions at both facilities{youthOpen ? ', youth leagues on weekend mornings' : ''}.
               {featuredStart ? ` 7-game season starts ${featuredStart}` : ''}{featuredCloses ? ` — ` : ''}
