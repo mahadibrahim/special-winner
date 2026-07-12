@@ -70,7 +70,8 @@ function claimRequiresPayment(row: { stripeRefundId: string | null }): boolean {
 
 /** Resolve what a paying claimant owes: their personal rate (member rate
  *  honored, same as a fresh booking) plus the card surcharge — identical
- *  math to the checkout the pay action mints. */
+ *  math to the checkout the pay action mints. A $0 rate means no card
+ *  charge happens at all, so the flat card surcharge doesn't apply. */
 async function resolveAmountDueCents(row: {
   sessionId: string;
   userId: string;
@@ -93,7 +94,13 @@ async function resolveAmountDueCents(row: {
     session.organizationId,
   );
   const rate = resolveRate(session, { id: row.userId }, membership, rateCard);
-  return rate.amountCents + computeSurchargeCents(rate.amountCents, "card");
+  return totalDueCents(rate.amountCents);
+}
+
+/** Base rate + card surcharge; $0 base → $0 total (no charge, no surcharge). */
+function totalDueCents(baseAmountCents: number): number {
+  if (baseAmountCents === 0) return 0;
+  return baseAmountCents + computeSurchargeCents(baseAmountCents, "card");
 }
 
 export const GET: APIRoute = async ({ params, locals }) => {
@@ -190,8 +197,54 @@ export const POST: APIRoute = async ({ params, request, locals, url }) => {
       session.organizationId,
     );
     const rate = resolveRate(session, locals.user, membership, rateCard);
-    const totalCents =
-      rate.amountCents + computeSurchargeCents(rate.amountCents, "card");
+    const totalCents = totalDueCents(rate.amountCents);
+
+    // Zero-due claim: the claimant's CURRENT rate resolves to $0 (e.g. they
+    // gained an unlimited/allotment membership between the overflow refund
+    // and the claim). Stripe rejects zero-amount Checkout Sessions, and
+    // there is nothing to charge — confirm directly, recording the
+    // membership as the payment method. The row's original PI/refund pair
+    // stays as settled history (amountPaidCents drops to 0: no money is
+    // retained for this seat — the original charge was refunded in full).
+    if (totalCents === 0) {
+      return await db.transaction(async (tx) => {
+        const [locked] = await tx
+          .select()
+          .from(dropInBookings)
+          .where(eq(dropInBookings.id, row.id))
+          .limit(1)
+          .for("update");
+        if (!locked || locked.status !== "pending_claim") {
+          return json({ error: "Claim no longer valid" }, 409);
+        }
+        const [sessionRow] = await tx
+          .select()
+          .from(dropInSessions)
+          .where(eq(dropInSessions.id, locked.sessionId))
+          .limit(1);
+        if (!sessionRow) return json({ error: "Session not found" }, 404);
+        const team = assignTeam(sessionRow, "all_levels", []);
+
+        await tx
+          .update(dropInBookings)
+          .set({
+            status: "confirmed",
+            paymentMethod: rate.paymentMethod,
+            membershipId: rate.membershipId,
+            amountPaidCents: 0,
+            promotionToken: null,
+            promotionExpiresAt: null,
+            teamAssignment: locked.teamAssignment ?? team,
+            updatedAt: new Date(),
+          })
+          .where(eq(dropInBookings.id, locked.id));
+
+        return json(
+          { ok: true, bookingId: locked.id, paymentRequired: false },
+          200,
+        );
+      });
+    }
 
     const checkout = await createDropInCheckoutSession({
       db,

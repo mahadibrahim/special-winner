@@ -70,6 +70,11 @@ type HandlerResult =
   | { status: "processed"; bookingId: string; paidCents: number }
   | { status: "overflow"; bookingId: string };
 
+/** Internal transaction outcome — `duplicate_user` needs post-commit money
+ *  handling (never a Stripe call inside the tx) before it collapses into a
+ *  `skipped` HandlerResult. */
+type TxResult = HandlerResult | { status: "duplicate_user"; activeStatus: string };
+
 export async function handleDropInCheckoutComplete(
   session: Stripe.Checkout.Session,
 ): Promise<HandlerResult> {
@@ -133,7 +138,7 @@ export async function handleDropInCheckoutComplete(
   let itemLabel = "";
   let itemCategory = "";
 
-  const result: HandlerResult = await db.transaction(async (tx) => {
+  const txResult: TxResult = await db.transaction(async (tx) => {
     // Lock the parent session row to serialize team-assignment AND the
     // capacity gate below with any concurrent bookings (free-path, another
     // Checkout completion, a kiosk hold, or a promotion). Lock ordering:
@@ -182,10 +187,11 @@ export async function handleDropInCheckoutComplete(
       )
       .limit(1);
     if (activeForUser) {
-      return {
-        status: "skipped",
-        reason: `user ${userId} already has an active booking (${activeForUser.status}) on session ${sessionDbId}`,
-      };
+      // Resolved after the tx commits: a LIVE duplicate charge (this PI is
+      // unrefunded and owned by no row) is refunded; a redelivery of an
+      // already-refunded charge is quietly skipped. See
+      // resolveDuplicateUserCharge below.
+      return { status: "duplicate_user", activeStatus: activeForUser.status };
     }
 
     // Re-check capacity under the lock — the last-spot race. The customer
@@ -297,6 +303,21 @@ export async function handleDropInCheckoutComplete(
       paidCents: session.amount_total ?? 0,
     };
   });
+
+  // Duplicate-user outcome: decide (outside the tx) whether this charge is a
+  // LIVE duplicate that must be refunded or a harmless redelivery.
+  if (txResult.status === "duplicate_user") {
+    const baseReason = `user ${userId} already has an active booking (${txResult.activeStatus}) on session ${sessionDbId}`;
+    if (!paymentIntentId) {
+      return { status: "skipped", reason: baseReason };
+    }
+    return {
+      status: "skipped",
+      reason: `${baseReason} — ${await resolveDuplicateUserCharge(paymentIntentId)}`,
+    };
+  }
+
+  const result: HandlerResult = txResult;
 
   if (result.status === "overflow") {
     // Booking makes this user a customer of the org — they're genuinely
@@ -420,11 +441,116 @@ async function refundOverflowPayment(
       { bookingId, brand },
     );
   } catch (err) {
+    // Self-heal: Stripe refuses to refund an already-fully-refunded charge.
+    // That means the money is ALREADY back with the customer — most likely
+    // an out-of-band refund (staff via the dashboard after a
+    // dropin_overflow_refund_failed alert). Resolve the refund id from the
+    // PaymentIntent and stamp the row so the durable marker is armed and
+    // the row becomes promotable again (unsettled overflow rows are
+    // deliberately excluded from waitlist promotion).
+    if (isAlreadyRefundedError(err)) {
+      try {
+        const refunds = await stripe.refunds.list({
+          payment_intent: paymentIntentId,
+          limit: 1,
+        });
+        const settled = refunds.data[0];
+        if (settled) {
+          await db
+            .update(dropInBookings)
+            .set({ stripeRefundId: settled.id, updatedAt: new Date() })
+            .where(eq(dropInBookings.id, bookingId));
+          await logAlert("dropin_overflow_refunded", {
+            message:
+              "checkout overflow — charge was already refunded out-of-band; stamped the settled refund on the row",
+            bookingId,
+            stripePaymentIntentId: paymentIntentId,
+            stripeRefundId: settled.id,
+          });
+          await awaitDispatch(
+            "dropin overflow refunded",
+            () => dispatchOverflowRefunded(bookingId),
+            { bookingId, brand },
+          );
+          return;
+        }
+      } catch {
+        // Fall through to the generic failure alert below.
+      }
+    }
     const message = err instanceof Error ? err.message : String(err);
     await logAlert("dropin_overflow_refund_failed", {
       bookingId,
       stripePaymentIntentId: paymentIntentId,
       error: message,
     });
+  }
+}
+
+/** Stripe refuses a second full refund of the same charge with this error
+ *  code — for our purposes that means "the money is already back". */
+function isAlreadyRefundedError(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    (err as { code?: string }).code === "charge_already_refunded"
+  );
+}
+
+/**
+ * A completed checkout whose PaymentIntent is recorded on NO booking row,
+ * for a user who already holds an active booking on the session. Two ways
+ * to get here:
+ *
+ *   - LIVE duplicate: the customer paid twice (e.g. two checkout tabs; the
+ *     pre-mint 409 in bookings/index.ts kills most of these, but two
+ *     concurrent first-time checkouts can both mint). The second charge
+ *     bought nothing → refund it, loudly.
+ *   - Redelivery: the original overflow charge was refunded and the row's
+ *     PI was later replaced by a claim payment — the incoming PI is already
+ *     fully refunded, so the refund attempt is refused by Stripe and we
+ *     skip quietly.
+ *
+ * The refund attempt itself is the discriminator: `charge_already_refunded`
+ * = redelivery; success = live duplicate (idempotency key
+ * `${pi.id}:duplicate-refund` dedupes concurrent deliveries). No row is
+ * stamped — no row owns this PaymentIntent.
+ *
+ * Returns the reason suffix for the handler's skip result.
+ */
+async function resolveDuplicateUserCharge(
+  paymentIntentId: string,
+): Promise<string> {
+  if (!stripe) {
+    await logAlert("dropin_duplicate_refund_failed", {
+      stripePaymentIntentId: paymentIntentId,
+      error: "stripe-not-configured",
+    });
+    return `duplicate charge NOT refunded (stripe not configured) — manual refund required for ${paymentIntentId}`;
+  }
+  try {
+    const refund = await stripe.refunds.create(
+      { payment_intent: paymentIntentId },
+      { idempotencyKey: `${paymentIntentId}:duplicate-refund` },
+    );
+    // LOUD: money moved without a human in the loop.
+    await logAlert("dropin_duplicate_refunded", {
+      message:
+        "duplicate paid checkout for a user with an existing active booking — charge auto-refunded",
+      stripePaymentIntentId: paymentIntentId,
+      stripeRefundId: refund.id,
+    });
+    return `duplicate charge auto-refunded (${refund.id})`;
+  } catch (err) {
+    if (isAlreadyRefundedError(err)) {
+      // Redelivery of a charge whose refund already settled — quiet skip.
+      return `charge already refunded — redelivery`;
+    }
+    const message = err instanceof Error ? err.message : String(err);
+    await logAlert("dropin_duplicate_refund_failed", {
+      stripePaymentIntentId: paymentIntentId,
+      error: message,
+    });
+    return `duplicate charge refund FAILED — manual refund required for ${paymentIntentId}`;
   }
 }

@@ -68,7 +68,7 @@ export async function handleDropInClaimPayment(
     | { status: "processed"; bookingId: string; paidCents: number };
 
   const classified:
-    | { kind: "done"; result: HandlerResult }
+    | { kind: "done"; result: HandlerResult; alertUnexpectedStatus?: string }
     | { kind: "late_refund"; recordOnRow: boolean } = await db.transaction(
     async (tx) => {
     const [row] = await tx
@@ -126,12 +126,18 @@ export async function handleDropInClaimPayment(
     }
 
     if (row.status !== "pending_claim") {
+      // Unreachable by design (claim checkouts are only minted from
+      // pending_claim rows and the other terminal statuses are handled
+      // above) — but money just landed on a row the flow can't account
+      // for, so scream rather than only skip. Manual follow-up: refund the
+      // PaymentIntent if the customer has no seat.
       return {
         kind: "done" as const,
         result: {
           status: "skipped" as const,
           reason: `booking ${bookingId} in unexpected status ${row.status}`,
         },
+        alertUnexpectedStatus: row.status,
       };
     }
 
@@ -168,6 +174,16 @@ export async function handleDropInClaimPayment(
       paidCents,
       classified.recordOnRow,
     );
+  }
+
+  if (classified.alertUnexpectedStatus) {
+    await logAlert("dropin_claim_unexpected_status", {
+      bookingId,
+      bookingStatus: classified.alertUnexpectedStatus,
+      stripePaymentIntentId: paymentIntent.id,
+      paidCents,
+      error: `claim payment landed on a ${classified.alertUnexpectedStatus} booking`,
+    });
   }
 
   const result = classified.result;

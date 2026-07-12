@@ -33,7 +33,7 @@
  * (paid webhook) rather than double-booking the seat.
  */
 import { describe, it, expect, vi } from "vitest";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type Stripe from "stripe";
 import { getDb } from "@/lib/db";
 import { dropInBookings } from "@/lib/db/schema/drop-in";
@@ -44,7 +44,8 @@ import { promoteNextWaitlister } from "@/lib/dropin/promotion";
 import { processCancelRefund } from "@/lib/dropin/refund";
 import { handleDropInCheckoutComplete } from "@/lib/stripe/handle-dropin-checkout-complete";
 import { handleDropInClaimPayment } from "@/lib/stripe/handle-dropin-claim-payment";
-import { apiFetch, getParentCookie } from "../setup/test-helpers";
+import { apiFetch, getAuthCookie, getParentCookie } from "../setup/test-helpers";
+import { memberships, membershipTiers } from "@/lib/db/schema/memberships";
 import {
   createTestDropInSession,
   resolveDefaultOrgForHttpTests,
@@ -55,16 +56,25 @@ import {
 // handle-dropin-checkout-complete.ts is untouched. vi.mock is hoisted above
 // the imports above at runtime, so handleDropInCheckoutComplete picks up
 // the mocked client.
-const { refundCreateMock } = vi.hoisted(() => ({
+const { refundCreateMock, refundListMock } = vi.hoisted(() => ({
   refundCreateMock: vi.fn(),
+  refundListMock: vi.fn(),
 }));
 vi.mock("@/lib/stripe/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/stripe/client")>();
   return {
     ...actual,
-    stripe: { refunds: { create: refundCreateMock } },
+    stripe: { refunds: { create: refundCreateMock, list: refundListMock } },
   };
 });
+
+/** The error shape Stripe throws for a second full refund of the same
+ *  charge — the discriminator the duplicate/self-heal paths key on. */
+function alreadyRefundedError() {
+  return Object.assign(new Error("Charge has already been refunded."), {
+    code: "charge_already_refunded",
+  });
+}
 
 async function insertTestUser(label: string) {
   const [u] = await getDb()
@@ -668,11 +678,16 @@ describe("original-checkout redelivery after a claim payment (duplicate-user gua
 
     // Redelivery of the ORIGINAL checkout event: its PI is no longer on any
     // row (the claim payment replaced it), so the PI-based dedupe misses —
-    // the duplicate-user guard must catch it before it re-inserts.
+    // the duplicate-user guard must catch it before it re-inserts. The
+    // guard's refund attempt is refused by Stripe (this PI was already
+    // refunded by the overflow path) → quiet redelivery skip.
+    refundCreateMock.mockClear();
+    refundCreateMock.mockRejectedValueOnce(alreadyRefundedError());
     const redelivery = await handleDropInCheckoutComplete(checkoutSession);
     expect(redelivery.status).toBe("skipped");
     if (redelivery.status !== "skipped") throw new Error("expected skipped");
     expect(redelivery.reason).toContain("already has an active booking");
+    expect(redelivery.reason).toContain("already refunded");
 
     const rowsAfter = await getDb()
       .select()
@@ -683,6 +698,298 @@ describe("original-checkout redelivery after a claim payment (duplicate-user gua
     expect(confirmed).toHaveLength(1);
     expect(confirmed[0].id).toBe(overflowResult.bookingId);
     expect(confirmed[0].stripePaymentIntentId).toBe(claimPiId);
+  });
+});
+
+describe("paid-mint duplicate pre-check (POST /api/dropin/bookings)", () => {
+  it("409s a paid booking attempt when the user already holds an active booking — before any Checkout Session is minted", async () => {
+    const parentCookie = await getParentCookie();
+    const [parentUser] = await getDb()
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, "parent@test.aspiresports.com"))
+      .limit(1);
+    expect(parentUser).toBeDefined();
+
+    const defaultOrg = await resolveDefaultOrgForHttpTests();
+    const ctx = await createTestDropInSession({
+      organizationId: defaultOrg.organizationId,
+      venueId: defaultOrg.venueId,
+      capacity: 10,
+      sessionRateCents: 1500,
+      sportOrClassLabel: `dup-premint-${Date.now()}`,
+    });
+
+    // Existing kiosk hold for the same user — the "other tab / other
+    // channel" state a second paid checkout would double-charge.
+    await getDb()
+      .insert(dropInBookings)
+      .values({
+        sessionId: ctx.sessionId,
+        userId: parentUser.id,
+        status: "pending_payment",
+        source: "walk_up",
+        paymentMethod: "card_online",
+        amountPaidCents: 0,
+        promotionExpiresAt: new Date(Date.now() + 2 * 3_600_000),
+      });
+
+    const res = await apiFetch("/api/dropin/bookings", {
+      method: "POST",
+      cookie: parentCookie,
+      body: JSON.stringify({
+        sessionId: ctx.sessionId,
+        waiverAccepted: true,
+        waiverName: "Parent Tester",
+      }),
+    });
+    expect(res.status, await res.clone().text()).toBe(409);
+    const body = await res.json();
+    expect(body.error?.code).toBe("already_booked");
+  });
+});
+
+describe("duplicate paid checkout at the webhook (duplicate-user guard branches)", () => {
+  it("LIVE duplicate: refunds the second charge exactly once with the duplicate-refund key", async () => {
+    refundCreateMock.mockClear();
+    const dupRefundId = `re_test_dup_${Date.now()}`;
+    refundCreateMock.mockResolvedValueOnce({ id: dupRefundId });
+
+    // Session NOT full — the duplicate-user guard, not the capacity gate,
+    // must be what stops the insert.
+    const ctx = await createTestDropInSession({ capacity: 10, sessionRateCents: 1500 });
+    const user = await insertTestUser("dup-live");
+    await insertConfirmedRow(ctx.sessionId, user.id, 1500);
+
+    const dupPiId = `pi_test_dup_${Date.now()}`;
+    const result = await handleDropInCheckoutComplete(
+      makeDropinCheckoutSession({
+        checkoutSessionId: `cs_test_dup_${Date.now()}`,
+        paymentIntentId: dupPiId,
+        dropInSessionId: ctx.sessionId,
+        userId: user.id,
+        amountTotal: 1500,
+      }),
+    );
+
+    expect(result.status).toBe("skipped");
+    if (result.status !== "skipped") throw new Error("expected skipped");
+    expect(result.reason).toContain("already has an active booking");
+    expect(result.reason).toContain(`auto-refunded (${dupRefundId})`);
+
+    expect(refundCreateMock).toHaveBeenCalledTimes(1);
+    expect(refundCreateMock).toHaveBeenCalledWith(
+      { payment_intent: dupPiId },
+      { idempotencyKey: `${dupPiId}:duplicate-refund` },
+    );
+
+    // No second row was inserted.
+    const rows = await getDb()
+      .select()
+      .from(dropInBookings)
+      .where(eq(dropInBookings.sessionId, ctx.sessionId));
+    expect(rows).toHaveLength(1);
+  });
+
+  it("redelivery: an already-refunded charge is skipped quietly without a refund", async () => {
+    refundCreateMock.mockClear();
+    refundCreateMock.mockRejectedValueOnce(alreadyRefundedError());
+
+    const ctx = await createTestDropInSession({ capacity: 10, sessionRateCents: 1500 });
+    const user = await insertTestUser("dup-redeliver");
+    await insertConfirmedRow(ctx.sessionId, user.id, 1500);
+
+    const result = await handleDropInCheckoutComplete(
+      makeDropinCheckoutSession({
+        checkoutSessionId: `cs_test_dupre_${Date.now()}`,
+        paymentIntentId: `pi_test_dupre_${Date.now()}`,
+        dropInSessionId: ctx.sessionId,
+        userId: user.id,
+        amountTotal: 1500,
+      }),
+    );
+
+    expect(result.status).toBe("skipped");
+    if (result.status !== "skipped") throw new Error("expected skipped");
+    expect(result.reason).toContain("already has an active booking");
+    expect(result.reason).toContain("already refunded");
+    expect(result.reason).not.toContain("auto-refunded (");
+    expect(refundCreateMock).toHaveBeenCalledTimes(1); // the refused attempt
+
+    const rows = await getDb()
+      .select()
+      .from(dropInBookings)
+      .where(eq(dropInBookings.sessionId, ctx.sessionId));
+    expect(rows).toHaveLength(1);
+  });
+});
+
+describe("overflow refund retry self-heals an out-of-band refund", () => {
+  it("charge_already_refunded on retry → resolves the settled refund, stamps the row, row becomes promotable", async () => {
+    refundCreateMock.mockClear();
+    refundListMock.mockClear();
+    // First delivery: refund fails outright (network) → row unrefunded.
+    refundCreateMock.mockRejectedValueOnce(new Error("stripe outage"));
+    // Redelivery: Stripe now refuses — staff refunded out-of-band in the
+    // dashboard in the meantime. The retry must self-heal by resolving the
+    // settled refund and stamping it.
+    refundCreateMock.mockRejectedValueOnce(alreadyRefundedError());
+    const oobRefundId = `re_test_oob_${Date.now()}`;
+    refundListMock.mockResolvedValueOnce({ data: [{ id: oobRefundId }] });
+
+    const ctx = await createTestDropInSession({ capacity: 1, sessionRateCents: 1500 });
+    const seatHolder = await insertTestUser("oob-seatholder");
+    await insertConfirmedRow(ctx.sessionId, seatHolder.id, 1500);
+
+    const overflowUser = await insertTestUser("oob-overflow");
+    const paymentIntentId = `pi_test_oob_${Date.now()}`;
+    const checkoutSession = makeDropinCheckoutSession({
+      checkoutSessionId: `cs_test_oob_${Date.now()}`,
+      paymentIntentId,
+      dropInSessionId: ctx.sessionId,
+      userId: overflowUser.id,
+      amountTotal: 1500,
+    });
+
+    const first = await handleDropInCheckoutComplete(checkoutSession);
+    expect(first.status).toBe("overflow");
+    if (first.status !== "overflow") throw new Error("expected overflow");
+    let row = await getBookingById(first.bookingId);
+    expect(row.stripeRefundId).toBeNull();
+
+    const redelivery = await handleDropInCheckoutComplete(checkoutSession);
+    expect(redelivery.status).toBe("skipped");
+    expect(refundListMock).toHaveBeenCalledWith({
+      payment_intent: paymentIntentId,
+      limit: 1,
+    });
+
+    row = await getBookingById(first.bookingId);
+    expect(row.stripeRefundId).toBe(oobRefundId); // stamped from the PI's settled refund
+    expect(row.status).toBe("waitlisted");
+
+    // Settled marker in place → the row is promotable again.
+    const promo = await promoteNextWaitlister(ctx.sessionId);
+    expect(promo.promoted).toBe(true);
+    expect(promo.bookingId).toBe(first.bookingId);
+  });
+});
+
+describe("zero-due claim (membership gained after the overflow refund)", () => {
+  it("pay action confirms directly with the membership payment method — no Stripe session", async () => {
+    const email = "adult-self@test.aspiresports.com";
+    const cookie = await getAuthCookie(email, "TestParent123!");
+    const db = getDb();
+    const [selfUser] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, email))
+      .limit(1);
+    expect(selfUser).toBeDefined();
+
+    const defaultOrg = await resolveDefaultOrgForHttpTests();
+
+    // Clean slate on the shared CI DB: the partial unique index
+    // memberships_one_active_per_user_org allows only one active membership
+    // per user+org, and a leaked row from a past run would break the insert.
+    await db
+      .delete(memberships)
+      .where(
+        and(
+          eq(memberships.userId, selfUser.id),
+          eq(memberships.organizationId, defaultOrg.organizationId),
+        ),
+      );
+
+    // Unlimited-pickup membership gained between the overflow refund and
+    // the claim. Cleaned up in finally — other suites resolve rates for
+    // this fixture user in the same org.
+    const [tier] = await db
+      .insert(membershipTiers)
+      .values({
+        organizationId: defaultOrg.organizationId,
+        name: `zero-due-test-${Date.now()}`,
+        monthlyPriceCents: 5000,
+        benefits: { unlimited_pickup: true },
+      })
+      .returning();
+    const [membershipRow] = await db
+      .insert(memberships)
+      .values({
+        userId: selfUser.id,
+        organizationId: defaultOrg.organizationId,
+        tierId: tier.id,
+        status: "active",
+        billingInterval: "month",
+      })
+      .returning();
+
+    try {
+      const ctx = await createTestDropInSession({
+        organizationId: defaultOrg.organizationId,
+        venueId: defaultOrg.venueId,
+        capacity: 5,
+        sessionRateCents: 1500,
+        sportOrClassLabel: `zero-due-claim-${Date.now()}`,
+      });
+
+      // A promoted refunded-overflow row for this user (the exact state the
+      // claim-pay action sees).
+      const token = `tok_zero_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      const [claimRow] = await db
+        .insert(dropInBookings)
+        .values({
+          sessionId: ctx.sessionId,
+          userId: selfUser.id,
+          status: "pending_claim",
+          source: "online_booking",
+          paymentMethod: "card_online",
+          amountPaidCents: 1500,
+          waitlistPriority: 100,
+          stripePaymentIntentId: `pi_test_zero_${Date.now()}`,
+          stripeRefundId: `re_test_zero_${Date.now()}`,
+          promotedAt: new Date(),
+          promotionExpiresAt: new Date(Date.now() + 30 * 60_000),
+          promotionToken: token,
+        })
+        .returning();
+
+      // GET reflects the zero amount due.
+      const getRes = await apiFetch(`/api/dropin/claim/${token}`);
+      expect(getRes.status).toBe(200);
+      const getBody = await getRes.json();
+      expect(getBody.paymentRequired).toBe(true);
+      expect(getBody.amountDueCents).toBe(0);
+
+      // Bare free-confirm is still refused (payment discriminator, not
+      // amount, gates the free path).
+      const bare = await apiFetch(`/api/dropin/claim/${token}`, {
+        method: "POST",
+        cookie,
+      });
+      expect(bare.status).toBe(422);
+
+      // Pay action: nothing to charge → direct confirm, no checkoutUrl.
+      const pay = await apiFetch(`/api/dropin/claim/${token}`, {
+        method: "POST",
+        cookie,
+        body: JSON.stringify({ action: "pay" }),
+      });
+      expect(pay.status, await pay.clone().text()).toBe(200);
+      const payBody = await pay.json();
+      expect(payBody.ok).toBe(true);
+      expect(payBody.checkoutUrl).toBeUndefined();
+
+      const confirmed = await getBookingById(claimRow.id);
+      expect(confirmed.status).toBe("confirmed");
+      expect(confirmed.paymentMethod).toBe("member_unlimited");
+      expect(confirmed.membershipId).toBe(membershipRow.id);
+      expect(confirmed.amountPaidCents).toBe(0);
+      expect(confirmed.promotionToken).toBeNull();
+    } finally {
+      await db.delete(memberships).where(eq(memberships.id, membershipRow.id));
+      await db.delete(membershipTiers).where(eq(membershipTiers.id, tier.id));
+    }
   });
 });
 

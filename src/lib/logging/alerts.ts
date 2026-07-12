@@ -82,6 +82,29 @@
  *                                      refund needed via the Stripe dashboard
  *                                      using the `stripePaymentIntentId` in
  *                                      the log line.
+ *   - `dropin_claim_unexpected_status` — A claim payment settled for a
+ *                                      booking that is neither pending_claim
+ *                                      nor confirmed nor cancelled (e.g.
+ *                                      waitlisted/pending_payment/no_show).
+ *                                      Unreachable by design — money landed
+ *                                      on a row the flow can't account for.
+ *                                      Investigate the booking and refund
+ *                                      the `stripePaymentIntentId` manually
+ *                                      if the customer has no seat.
+ *   - `dropin_duplicate_refunded`    — A paid checkout completed for a user
+ *                                      who ALREADY holds an active booking on
+ *                                      the session (duplicate charge, e.g.
+ *                                      two checkout tabs racing past the
+ *                                      pre-mint 409). The duplicate charge
+ *                                      was auto-refunded in full — no manual
+ *                                      action needed, but money moved.
+ *   - `dropin_duplicate_refund_failed` — Same duplicate-charge case, but the
+ *                                      auto-refund threw (or Stripe wasn't
+ *                                      configured). The customer was CHARGED
+ *                                      twice and only seated once. Manual
+ *                                      refund needed via the Stripe dashboard
+ *                                      using the `stripePaymentIntentId` in
+ *                                      the log line.
  */
 
 export type AlertTag =
@@ -92,6 +115,9 @@ export type AlertTag =
   | "dropin_overflow_refund_failed"
   | "dropin_claim_late_payment_refunded"
   | "dropin_claim_late_refund_failed"
+  | "dropin_claim_unexpected_status"
+  | "dropin_duplicate_refunded"
+  | "dropin_duplicate_refund_failed"
   | "rental_late_refund_failed";
 
 export type AlertContext = Record<string, unknown>;

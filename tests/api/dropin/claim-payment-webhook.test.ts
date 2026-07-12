@@ -226,6 +226,40 @@ describe("handleDropInClaimPayment", () => {
     expect(row.stripeRefundId).toBe(retryRefundId);
   });
 
+  it("unexpected status (e.g. waitlisted): skips without touching the row or money — and alerts", async () => {
+    const ctx = await createTestDropInSession({ capacity: 1, sessionRateCents: 1500 });
+    const user = await insertTestUser("claim-wh-unexpected");
+    // A claim payment should never land on a waitlisted row — unreachable
+    // by design, but money arriving here must scream (logAlert
+    // dropin_claim_unexpected_status fires; asserted via the skip reason,
+    // the alert itself is fail-soft stderr + PostHog).
+    const [row] = await getDb()
+      .insert(dropInBookings)
+      .values({
+        sessionId: ctx.sessionId,
+        userId: user.id,
+        status: "waitlisted",
+        source: "online_booking",
+        paymentMethod: "card_online",
+        amountPaidCents: 1500,
+        waitlistPriority: 100,
+      })
+      .returning();
+
+    refundCreateMock.mockClear();
+    const result = await handleDropInClaimPayment(
+      makeClaimPI(row.id, `pi_test_claim_unexpected_${Date.now()}`),
+    );
+
+    expect(result.status).toBe("skipped");
+    if (result.status !== "skipped") throw new Error("expected skipped");
+    expect(result.reason).toContain("unexpected status waitlisted");
+    expect(refundCreateMock).not.toHaveBeenCalled();
+
+    const after = await getBookingById(row.id);
+    expect(after.status).toBe("waitlisted"); // untouched
+  });
+
   it("skips when metadata has no booking_id or the booking does not exist", async () => {
     const noMeta = await handleDropInClaimPayment({
       id: "pi_claim_noop",

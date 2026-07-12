@@ -102,8 +102,20 @@ export default function ClaimPage({ token, isAuthenticated }: ClaimPageProps) {
         body: JSON.stringify({ action: "pay" }),
       });
       const json = await res.json();
-      if (!res.ok || !json.checkoutUrl) {
+      if (!res.ok) {
         toast.error(json.error ?? "Could not start payment");
+        setBusy(false);
+        return;
+      }
+      // Zero-due claim (e.g. a membership now covers the session): the
+      // endpoint confirms directly with nothing to charge.
+      if (json.ok && !json.checkoutUrl) {
+        toast.success("Spot confirmed");
+        window.location.href = `/dropin/${info.sessionId}?booking=success`;
+        return;
+      }
+      if (!json.checkoutUrl) {
+        toast.error("Could not start payment");
         setBusy(false);
         return;
       }
