@@ -231,11 +231,12 @@ export async function getVenueDayData(
       ),
     );
 
-  // Booked-count per session: confirmed + pending_claim (pay-link holds) both
-  // occupy a slot, so both count toward "how full is this block". One
-  // grouped query for every drop-in session in the day window — not
-  // per-session — to keep this a fixed number of queries regardless of how
-  // many sessions the day has.
+  // Booked-count per session: confirmed + pending_payment (walk-in pay-link
+  // holds) + pending_claim (waitlist promotions) all occupy a slot, so all
+  // three count toward "how full is this block". One grouped query for
+  // every drop-in session in the day window — not per-session — to keep
+  // this a fixed number of queries regardless of how many sessions the day
+  // has.
   // NOTE: this intentionally diverges from getVenueReports' `booked` metric
   // (lib/admin/venue-reports.ts), which counts status='confirmed' only —
   // the day board answers "how full is this slot right now" (holds count),
@@ -248,7 +249,7 @@ export async function getVenueDayData(
         .where(
           and(
             inArray(dropInBookings.sessionId, dropInSessionIds),
-            inArray(dropInBookings.status, ["confirmed", "pending_claim"]),
+            inArray(dropInBookings.status, ["confirmed", "pending_payment", "pending_claim"]),
           ),
         )
         .groupBy(dropInBookings.sessionId)

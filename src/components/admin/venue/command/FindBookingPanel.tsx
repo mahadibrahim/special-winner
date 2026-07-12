@@ -37,7 +37,7 @@ type BookingResult = {
   timeLabel: string
   waiverSigned: boolean
   checkedIn: boolean
-  status: "confirmed" | "pending_claim"
+  status: "confirmed" | "pending_payment" | "pending_claim"
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -106,8 +106,11 @@ function ResultRow({ result, onSelect }: { result: BookingResult; onSelect: (res
         <div className="flex gap-1.5 mt-1.5 flex-wrap">
           <StatusChip ok={result.waiverSigned} okLabel="Waiver" badLabel="No waiver" />
           <StatusChip ok={result.checkedIn} okLabel="Here" badLabel="Not in" />
-          {result.status === "pending_claim" && (
+          {result.status === "pending_payment" && (
             <StatusChip ok={false} okLabel="" badLabel="Awaiting payment" />
+          )}
+          {result.status === "pending_claim" && (
+            <StatusChip ok={false} okLabel="" badLabel="Awaiting claim" />
           )}
         </div>
       </div>

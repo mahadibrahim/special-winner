@@ -87,7 +87,7 @@ test("venue command center deep link opens the detail panel on load", async ({
   ).toBeVisible();
 });
 
-// Held (pending_claim) pay-link walk-ins must surface in the roster with
+// Held (pending_payment) pay-link walk-ins must surface in the roster with
 // resend-link / cancel-hold actions (Task 6). The fixture booking is created
 // the same way a real kiosk pay-link hold is created in production — via
 // POST /api/admin/dropin/sessions (real admin action) then
@@ -148,7 +148,7 @@ test("held pay-link walk-in shows in the roster with resend/cancel actions", asy
   // cleaned up even when an assertion mid-test fails — otherwise each failed
   // run leaks one `command-center-held-*` block onto the shared staging board.
   try {
-    // ---- Create the held (pending_claim) booking via the kiosk API — the
+    // ---- Create the held (pending_payment) booking via the kiosk API — the
     // same way a real pay-link walk-in hold is created in production. ----
     const walkinRes = await page.request.post(
       `/api/kiosk/${locationId}/walkin/start`,

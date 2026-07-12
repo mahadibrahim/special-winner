@@ -101,6 +101,11 @@ export const GET: APIRoute = async (context) => {
       session,
       venue,
       roster: bookings.filter((b) => b.status === "confirmed"),
+      // Walk-in pay-link holds. Kept out of `roster` (not yet paid/confirmed)
+      // and out of `waitlist` (they occupy a physical slot at the venue right
+      // now — not queued behind capacity) — rendered as their own "holds"
+      // section, mirroring the venue command center's treatment.
+      holds: bookings.filter((b) => b.status === "pending_payment"),
       waitlist: bookings.filter(
         (b) => b.status === "waitlisted" || b.status === "pending_claim",
       ),

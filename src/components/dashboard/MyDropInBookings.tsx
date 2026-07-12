@@ -19,6 +19,7 @@ interface Booking {
   status:
     | "confirmed"
     | "waitlisted"
+    | "pending_payment"
     | "pending_claim"
     | "cancelled"
     | "no_show";
@@ -50,6 +51,7 @@ function statusTone(status: Booking["status"]): StatusTone {
   switch (status) {
     case "confirmed":
       return "confirmed";
+    case "pending_payment":
     case "pending_claim":
       return "action";
     case "waitlisted":
@@ -65,6 +67,8 @@ function statusLabel(status: Booking["status"]): string {
       return "Confirmed";
     case "waitlisted":
       return "Waitlisted";
+    case "pending_payment":
+      return "Complete payment";
     case "pending_claim":
       return "Pending claim";
     case "cancelled":

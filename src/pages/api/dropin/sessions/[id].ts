@@ -26,7 +26,10 @@ import { stripe } from "@/lib/stripe/client";
 
 export const prerender = false;
 
-const ACTIVE_BOOKING_STATUSES = ["confirmed", "waitlisted", "pending_claim"];
+// pending_payment (kiosk walk-in hold) is included so a customer who
+// already holds a walk-in hold sees "already booked" instead of a duplicate
+// "Book now" CTA on the public session page — see BookButton.tsx.
+const ACTIVE_BOOKING_STATUSES = ["confirmed", "waitlisted", "pending_payment", "pending_claim"];
 
 const json = (body: unknown, status: number) =>
   new Response(JSON.stringify(body), {

@@ -73,6 +73,7 @@ export const POST: APIRoute = async (context) => {
         inArray(dropInBookings.status, [
           "confirmed",
           "waitlisted",
+          "pending_payment",
           "pending_claim",
         ]),
       ),

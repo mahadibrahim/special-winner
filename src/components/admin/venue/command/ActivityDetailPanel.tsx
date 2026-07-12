@@ -44,12 +44,12 @@ interface RowData {
   familyMemberId: string | null;
   recipientUserId: string | null;
   paid: boolean;
-  status: "confirmed" | "pending_claim";
-  // Only meaningful when status === "pending_claim" — see event.ts's module
-  // comment. Distinguishes a walk-in pay-link hold (desk can cancel/resend)
-  // from a promoted waitlister (desk cannot cancel here; different claim
-  // link, expires on its own).
-  holdKind: "walk_up" | "promotion" | null;
+  // `status` alone is the discriminator between the two hold kinds — see
+  // event.ts's module comment:
+  //   - pending_payment → walk-in pay-link hold (desk can cancel/resend)
+  //   - pending_claim   → promoted waitlister (desk cannot cancel here;
+  //     different claim link, expires on its own)
+  status: "confirmed" | "pending_payment" | "pending_claim";
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -412,7 +412,7 @@ export function ActivityDetailPanel({ session, locationId, timezone, onClose, on
                 className="flex items-center gap-3 px-4 py-2.5 border-b border-[#efe9dc]"
               >
                 {/* Avatar / photo upload */}
-                <div className={row.status === "pending_claim" ? "opacity-60" : undefined}>
+                <div className={row.status !== "confirmed" ? "opacity-60" : undefined}>
                   <AvatarUploader
                     kind={row.rowKind}
                     targetId={row.targetId}
@@ -457,9 +457,13 @@ export function ActivityDetailPanel({ session, locationId, timezone, onClose, on
                       okLabel="photo ✓"
                       badLabel="no photo"
                     />
-                    {row.status === "pending_claim" ? (
+                    {row.status === "pending_payment" ? (
                       <span className="text-[10.5px] font-bold rounded px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200">
                         ⏳ awaiting payment
+                      </span>
+                    ) : row.status === "pending_claim" ? (
+                      <span className="text-[10.5px] font-bold rounded px-1.5 py-0.5 bg-[#f6f1e7] text-[#8a8175] border border-[#e4ddcf]">
+                        awaiting claim
                       </span>
                     ) : (
                       <StatusChip
@@ -482,7 +486,7 @@ export function ActivityDetailPanel({ session, locationId, timezone, onClose, on
                 )}
 
                 {/* Check-in / "Here" / held-row actions */}
-                {row.status === "pending_claim" && row.holdKind === "walk_up" ? (
+                {row.status === "pending_payment" ? (
                   <div className="flex items-center gap-1.5 flex-shrink-0">
                     <button
                       type="button"

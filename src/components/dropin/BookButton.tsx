@@ -92,6 +92,17 @@ export function BookButton({
       </Button>
     );
   }
+  if (alreadyBookedStatus === "pending_payment") {
+    // Walk-in kiosk hold — no self-serve payment link is available here
+    // (that's Task 6's PayCard surface; this page doesn't mint tokens).
+    // Just stop the visitor from double-booking a session they already
+    // hold a slot on.
+    return (
+      <Button size="lg" disabled className="w-full">
+        Hold pending payment — see front desk to pay
+      </Button>
+    );
+  }
 
   const submitBooking = async () => {
     setBusy(true);
