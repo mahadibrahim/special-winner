@@ -333,11 +333,15 @@ test("held pay-link walk-in shows in the roster with resend/cancel actions", asy
 
     // With no contact entered, the auto-correct effect lands on kiosk self-pay;
     // /create booking/i matches the submit button in every method variant.
+    // The form defaults to adult mode, and DOB is optional for adults (owner
+    // decision 2026-07-12) — so the aggregated banner lists name/email but
+    // must NOT list "date of birth" here.
     await panel.getByRole("button", { name: /create booking/i }).click();
     await expect(panel.getByRole("alert")).toContainText(/Missing:/, {
       timeout: 10_000,
     });
-    await expect(panel.getByRole("alert")).toContainText(/date of birth/i);
+    await expect(panel.getByRole("alert")).not.toContainText(/date of birth/i);
+    await expect(panel.getByRole("alert")).toContainText(/first name/i);
   } finally {
     // ---- Fixture cleanup: cancel releases any still-active hold (satisfying
     // the DELETE endpoint's "no active bookings" guard on failure paths where

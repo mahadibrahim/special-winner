@@ -13,14 +13,28 @@ export type NavBadges = {
   attention: number;
 };
 
-export type NavBadgeScope = { locationIds: string[]; userId: string };
+export type NavBadgeScope = {
+  locationIds: string[];
+  userId: string;
+  /**
+   * Controls only the inbox count's scoping, independent of refunds:
+   * - "assigned" (default): conversations assigned to scope.userId — the
+   *   normal venue-manager sidebar behavior.
+   * - "org": org-wide unread count, ignoring assignment — used by the venue
+   *   command center's needs-attention queue so its inbox badge always
+   *   matches the sidebar's org-wide Inbox number (owner decision
+   *   2026-07-12), even while refunds stay location-scoped.
+   */
+  inboxScope?: "assigned" | "org";
+};
 
 /**
  * Sidebar badge counts.
  * - No scope (super-admin): org-wide counts + attention feed length.
  * - Scope (venue manager): refunds limited to scope.locationIds; inbox limited
- *   to conversations assigned to scope.userId; attention is 0 (the attention
- *   feed is a super-admin cross-org view, not shown on the venue Home).
+ *   to conversations assigned to scope.userId (unless scope.inboxScope is
+ *   "org" — see NavBadgeScope); attention is 0 (the attention feed is a
+ *   super-admin cross-org view, not shown on the venue Home).
  * Callers must fail-soft (the API route swallows errors).
  */
 export async function getNavBadges(orgId: string, scope?: NavBadgeScope): Promise<NavBadges> {
@@ -46,7 +60,7 @@ export async function getNavBadges(orgId: string, scope?: NavBadgeScope): Promis
     isNull(conversations.lastOutboundAt),
     gt(conversations.lastInboundAt, conversations.lastOutboundAt),
   );
-  const inboxWhere = scope
+  const inboxWhere = scope && scope.inboxScope !== "org"
     ? and(
         eq(conversations.organizationId, orgId),
         eq(conversations.assignedStaffId, scope.userId),

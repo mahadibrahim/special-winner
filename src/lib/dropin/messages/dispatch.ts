@@ -53,7 +53,7 @@ export interface DropInDispatchResult {
   error?: string;
 }
 
-interface UserChannelInfo {
+export interface UserChannelInfo {
   id: string;
   email: string | null;
   firstName: string | null;
@@ -175,7 +175,25 @@ async function loadBooking(bookingId: string): Promise<BookingContextRow | null>
   };
 }
 
-function resolveChannelOrder(u: UserChannelInfo): DropInChannel[] {
+/** Shared default candidate order — email-first when the user has no
+ * explicit preference. Passed explicitly (not just relied on as the
+ * parameter default) so callers reading this file can see every dispatch
+ * site's effective order at a glance. */
+export const DEFAULT_CHANNEL_ORDER: DropInChannel[] = ["email", "sms", "telegram"];
+
+/**
+ * `preferredOrder` sets the message-type-specific default candidate order —
+ * used only as a fallback. Precedence (highest first):
+ *   1. `u.primaryChannel` (explicit user preference, e.g. messagingPrimaryChannel)
+ *      — always authoritative, regardless of message type.
+ *   2. `u.fallbackChannel` (explicit user preference) — second in line.
+ *   3. `preferredOrder` (defaults to DEFAULT_CHANNEL_ORDER, i.e. email-first)
+ *      — fills in the rest for channels the user hasn't explicitly ranked.
+ */
+export function resolveChannelOrder(
+  u: UserChannelInfo,
+  preferredOrder: DropInChannel[] = DEFAULT_CHANNEL_ORDER,
+): DropInChannel[] {
   const hasEmail = Boolean(u.email);
   const hasSms = Boolean(u.phone && u.phoneVerified);
   const hasTelegram = Boolean(u.telegramChatId);
@@ -186,14 +204,20 @@ function resolveChannelOrder(u: UserChannelInfo): DropInChannel[] {
     (c === "telegram" && hasTelegram);
 
   const order: DropInChannel[] = [];
-  const primary = (u.primaryChannel as DropInChannel | null) ??
-    (hasEmail ? "email" : hasSms ? "sms" : hasTelegram ? "telegram" : null);
+  const primary =
+    (u.primaryChannel as DropInChannel | null) ??
+    preferredOrder.find((c) => canSend(c)) ??
+    null;
   if (primary && canSend(primary) && !order.includes(primary)) order.push(primary);
 
   const fallback = u.fallbackChannel as DropInChannel | null;
   if (fallback && canSend(fallback) && !order.includes(fallback)) order.push(fallback);
 
-  for (const c of ["email", "sms", "telegram"] as DropInChannel[]) {
+  for (const c of preferredOrder) {
+    if (canSend(c) && !order.includes(c)) order.push(c);
+  }
+  // Safety net in case a caller passes a preferredOrder missing a channel.
+  for (const c of DEFAULT_CHANNEL_ORDER) {
     if (canSend(c) && !order.includes(c)) order.push(c);
   }
   return order;
@@ -248,8 +272,11 @@ async function dispatch(
   variants: MessageVariants,
   organizationId: string,
   brand?: BrandId,
+  /** Per-call channel-order override — see resolveChannelOrder's docstring
+   * for precedence. Omit to use the shared email-first default. */
+  preferredOrder?: DropInChannel[],
 ): Promise<DropInDispatchResult> {
-  const order = resolveChannelOrder(user);
+  const order = resolveChannelOrder(user, preferredOrder);
   if (order.length === 0) {
     return { ok: false, reason: "no_channel_available" };
   }
@@ -383,7 +410,17 @@ export async function dispatchWaitlistPromoted(
  * link derivation lives in payment-reminder.ts, not here — this function is
  * purely channel/copy dispatch, mirroring dispatchWaitlistPromoted's split).
  * Brand is read from the booking row (drop_in_bookings.brand, migration 0042).
+ *
+ * Channel order: SMS-first when the user has a verified phone, email
+ * otherwise — a hold about to expire needs the fastest-to-notice channel.
+ * This is a per-message default only (PAYMENT_REMINDER_ORDER below), passed
+ * as an explicit override to dispatch()/resolveChannelOrder() — it does NOT
+ * change the shared DEFAULT_CHANNEL_ORDER other message types still use. A
+ * user's explicit `messagingPrimaryChannel` (and fallbackChannel) preference
+ * remains authoritative and wins over this default regardless.
  */
+export const PAYMENT_REMINDER_CHANNEL_ORDER: DropInChannel[] = ["sms", "email", "telegram"];
+
 export async function dispatchPaymentReminder(
   bookingId: string,
   selfServeUrl: string,
@@ -404,7 +441,13 @@ export async function dispatchPaymentReminder(
   };
 
   const variants = await renderPaymentReminder(ctx);
-  return await dispatch(user, variants, session.organizationId, brand);
+  return await dispatch(
+    user,
+    variants,
+    session.organizationId,
+    brand,
+    PAYMENT_REMINDER_CHANNEL_ORDER,
+  );
 }
 
 /**
