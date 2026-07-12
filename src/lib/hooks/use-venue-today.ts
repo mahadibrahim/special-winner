@@ -12,6 +12,7 @@ import type { VenueTodayPayload } from "@/lib/venue/today-types";
  */
 
 const POLL_INTERVAL_MS = 7_000;
+const FETCH_TIMEOUT_MS = 10_000;
 
 type Args = { date: string; locationId: string | null };
 
@@ -20,6 +21,7 @@ export type UseVenueTodayResult = {
   isLoading: boolean;
   isStale: boolean;
   lastUpdatedAt: number | null;
+  nowTick: number;
   refetch: () => void;
   error: Error | null;
 };
@@ -29,6 +31,7 @@ export function useVenueToday({ date, locationId }: Args): UseVenueTodayResult {
   const [isLoading, setLoading] = useState(true);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
   const [error, setError] = useState<Error | null>(null);
+  const [nowTick, setNowTick] = useState(() => Date.now());
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const inFlight = useRef(false);
 
@@ -38,9 +41,12 @@ export function useVenueToday({ date, locationId }: Args): UseVenueTodayResult {
   fetchDataRef.current = async () => {
     if (inFlight.current) return;
     inFlight.current = true;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
     try {
       const res = await fetch(
         `/api/admin/venue/today?date=${encodeURIComponent(date)}&locationId=${encodeURIComponent(locationId ?? "")}`,
+        { signal: controller.signal },
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = (await res.json()) as VenueTodayPayload;
@@ -50,6 +56,7 @@ export function useVenueToday({ date, locationId }: Args): UseVenueTodayResult {
     } catch (e) {
       setError(e as Error);
     } finally {
+      clearTimeout(timeout);
       inFlight.current = false;
       setLoading(false);
     }
@@ -93,14 +100,22 @@ export function useVenueToday({ date, locationId }: Args): UseVenueTodayResult {
     };
   }, [date, locationId]);
 
+  // 1-second ticker so staleness (and any "Ns ago" stamp derived from it)
+  // updates live in the UI rather than only on the next poll/render.
+  useEffect(() => {
+    const t = setInterval(() => setNowTick(Date.now()), 1_000);
+    return () => clearInterval(t);
+  }, []);
+
   const isStale =
-    lastUpdatedAt !== null && Date.now() - lastUpdatedAt > POLL_INTERVAL_MS * 2;
+    lastUpdatedAt !== null && nowTick - lastUpdatedAt > POLL_INTERVAL_MS * 2;
 
   return {
     data,
     isLoading,
     isStale,
     lastUpdatedAt,
+    nowTick,
     refetch: () => void fetchDataRef.current(),
     error,
   };

@@ -49,6 +49,10 @@ export async function getVenueReports(
       checkedIn: sql<number>`count(*) filter (where ${dropInBookings.checkedInAt} is not null)::int`,
       walkUps: sql<number>`count(*) filter (where ${dropInBookings.source} = 'walk_up')::int`,
       noShows: sql<number>`count(*) filter (where ${dropInBookings.status} = 'no_show')::int`,
+      // NOTE: confirmed only — deliberately diverges from the venue day
+      // board's booked count (lib/admin/venue-day-data.ts), which also
+      // counts pending_claim holds ("how full is this slot right now").
+      // This report answers "how many people actually booked".
       booked: sql<number>`count(*) filter (where ${dropInBookings.status} = 'confirmed')::int`,
     })
     .from(dropInBookings)

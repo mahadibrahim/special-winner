@@ -1,5 +1,6 @@
 ---
-// Moved to /admin/venue/walk-up. 301 redirect preserves any in-the-wild
-// bookmarks or stale links.
-return Astro.redirect("/admin/venue/walk-up", 301);
+// Walk-up registration now lives inside the command center. 301 redirect
+// preserves any in-the-wild bookmarks or stale links (redirects straight to
+// /admin/venue rather than through the now-retired /admin/venue/walk-up hop).
+return Astro.redirect("/admin/venue", 301);
 ---

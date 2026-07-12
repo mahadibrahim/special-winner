@@ -34,8 +34,10 @@ const CONTEXTUAL_ROUTES = new Set<string>([
   "/admin/curriculum/assessment-coverage", // from curriculum overview's Quick Links card
 
   "/admin/media/shoots/bulk",
-  "/admin/venue/walk-up",      // in venue nav as "Walk-up reg"
-  "/admin/venue/check-in",     // in venue nav as "Check-in"
+  // /admin/venue/walk-up and /admin/venue/check-in were retired as separate
+  // nav entries (Task 12, command-center-polish) — both are now 308-redirect
+  // stubs to /admin/venue, so isRedirectStub() below excludes them without
+  // needing an allowlist entry.
   // Always-reachable utility pages.
   "/admin/unauthorized",
   "/admin/organizations", // super-admin-only org switcher; intentionally unlinked

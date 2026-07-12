@@ -1,13 +1,18 @@
 /**
  * GET /api/admin/booking-search?q=<name|phone>
  *
- * Admin-gated booking search. Returns today's confirmed drop-in bookings +
- * field rentals across all locations the caller can see (org/location-scoped
- * via allowedLocationIds — same pattern as /api/admin/person/[id]).
+ * Admin-gated booking search. Returns today's drop-in bookings (confirmed +
+ * pending_claim pay-link holds) + field rentals across all locations the
+ * caller can see (org/location-scoped via allowedLocationIds — same pattern
+ * as /api/admin/person/[id]).
  *
  * Search matches:
  *  - Drop-in: user's first or last name (ilike) or last-4 of phone.
  *  - Field rental: renterName (ilike) or last-4 of renterPhone.
+ *
+ * Each result carries `status` ("confirmed" | "pending_claim") so the desk
+ * can see a held pay-link booking before it converts. Field rentals are
+ * confirmed-only today, so their status is always "confirmed".
  *
  * Returns at most 20 results. Sub-2-char query → empty results. 401 if
  * unauthenticated or non-admin.
@@ -104,6 +109,7 @@ export const GET: APIRoute = async (context) => {
     const dropInRows = await db
       .select({
         bookingId: dropInBookings.id,
+        sessionId: dropInSessions.id,
         checkedInAt: dropInBookings.checkedInAt,
         waiverSigned: dropInBookings.waiverSigned,
         sessionLabel: dropInSessions.sportOrClassLabel,
@@ -112,6 +118,7 @@ export const GET: APIRoute = async (context) => {
         firstName: users.firstName,
         lastName: users.lastName,
         phone: users.phone,
+        status: dropInBookings.status,
       })
       .from(dropInBookings)
       .innerJoin(dropInSessions, eq(dropInSessions.id, dropInBookings.sessionId))
@@ -120,7 +127,7 @@ export const GET: APIRoute = async (context) => {
       .where(
         and(
           inArray(venues.locationId, allowedLocationIds),
-          eq(dropInBookings.status, "confirmed"),
+          inArray(dropInBookings.status, ["confirmed", "pending_claim"]),
           gte(dropInSessions.startsAt, todayStart),
           lt(dropInSessions.startsAt, todayEnd),
           or(
@@ -162,10 +169,17 @@ export const GET: APIRoute = async (context) => {
     type Result = {
       kind: "drop_in_booking" | "field_rental";
       targetId: string;
+      // The Venue Command Center session id this result's roster panel lives
+      // under — for drop-ins that's the dropInSessions row; for rentals the
+      // "session" IS the rental (see venue-day-data.ts rentalBlocks, which use
+      // fieldRentals.id as the block id). Always non-null today: both kinds
+      // are today-only, so the session is guaranteed to exist on the board.
+      sessionId: string;
       name: string;
       timeLabel: string;
       waiverSigned: boolean;
       checkedIn: boolean;
+      status: "confirmed" | "pending_claim";
     };
 
     const results: Result[] = [];
@@ -176,10 +190,12 @@ export const GET: APIRoute = async (context) => {
       results.push({
         kind: "drop_in_booking",
         targetId: row.bookingId,
+        sessionId: row.sessionId,
         name,
         timeLabel: `${row.sessionLabel} — ${time}`,
         waiverSigned: row.waiverSigned,
         checkedIn: row.checkedInAt !== null,
+        status: row.status as "confirmed" | "pending_claim",
       });
     }
 
@@ -188,10 +204,14 @@ export const GET: APIRoute = async (context) => {
       results.push({
         kind: "field_rental",
         targetId: row.rentalId,
+        // The rental block's session id on the Venue Day board is the rental
+        // id itself (see venue-day-data.ts).
+        sessionId: row.rentalId,
         name: row.renterName,
         timeLabel: `Field ${row.fieldNumber} — ${time}`,
         waiverSigned: row.waiverSigned,
         checkedIn: row.checkedInAt !== null,
+        status: "confirmed" as const,
       });
     }
 

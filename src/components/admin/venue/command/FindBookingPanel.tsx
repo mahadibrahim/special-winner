@@ -23,22 +23,28 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { Input } from "@/components/ui/input"
+import { ErrorBanner } from "@/components/ui/error-banner"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type BookingResult = {
   kind: "drop_in_booking" | "field_rental"
   targetId: string
+  // Venue Command Center session id backing this booking's roster panel.
+  // Null when the booking has no session view to open (row renders inert).
+  sessionId: string | null
   name: string
   timeLabel: string
   waiverSigned: boolean
   checkedIn: boolean
+  status: "confirmed" | "pending_claim"
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface Props {
   onClose: () => void
+  onOpenSession: (sessionId: string) => void
 }
 
 // ─── Chip (mirrors ActivityDetailPanel StatusChip) ────────────────────────────
@@ -66,10 +72,20 @@ function StatusChip({ ok, okLabel, badLabel }: ChipProps) {
 
 // ─── Result row ───────────────────────────────────────────────────────────────
 
-function ResultRow({ result }: { result: BookingResult }) {
+function ResultRow({ result, onSelect }: { result: BookingResult; onSelect: (result: BookingResult) => void }) {
   const isRental = result.kind === "field_rental"
+  const isOpenable = result.sessionId !== null
+
   return (
-    <div className="flex items-start gap-3 px-4 py-3 border-b border-[#e4ddcf] last:border-b-0">
+    <button
+      type="button"
+      disabled={!isOpenable}
+      title={isOpenable ? undefined : "No session view for this booking"}
+      onClick={() => onSelect(result)}
+      className={`w-full flex items-start gap-3 px-4 py-3 border-b border-[#e4ddcf] last:border-b-0 text-left transition-colors ${
+        isOpenable ? "hover:bg-[#f5f0e8] cursor-pointer" : "cursor-default opacity-70"
+      }`}
+    >
       {/* Icon */}
       <div className="mt-0.5 flex-shrink-0 w-7 h-7 rounded-full bg-[#f5f0e8] flex items-center justify-center">
         {isRental ? (
@@ -90,15 +106,18 @@ function ResultRow({ result }: { result: BookingResult }) {
         <div className="flex gap-1.5 mt-1.5 flex-wrap">
           <StatusChip ok={result.waiverSigned} okLabel="Waiver" badLabel="No waiver" />
           <StatusChip ok={result.checkedIn} okLabel="Here" badLabel="Not in" />
+          {result.status === "pending_claim" && (
+            <StatusChip ok={false} okLabel="" badLabel="Awaiting payment" />
+          )}
         </div>
       </div>
-    </div>
+    </button>
   )
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
-export function FindBookingPanel({ onClose }: Props) {
+export function FindBookingPanel({ onClose, onOpenSession }: Props) {
   const [q, setQ] = useState("")
   const [debounced, setDebounced] = useState("")
   const [results, setResults] = useState<BookingResult[] | null>(null)
@@ -147,6 +166,12 @@ export function FindBookingPanel({ onClose }: Props) {
   const isShortQuery = q.trim().length > 0 && q.trim().length < 2
   const isIdle = q.trim().length === 0
 
+  const handleSelect = (result: BookingResult) => {
+    if (result.sessionId === null) return
+    onOpenSession(result.sessionId)
+    onClose()
+  }
+
   return (
     <Sheet open onOpenChange={(open) => { if (!open) onClose() }}>
       <SheetContent
@@ -159,7 +184,7 @@ export function FindBookingPanel({ onClose }: Props) {
             Find booking
           </SheetTitle>
           <p className="text-[12px] text-[#8a8175] mt-0.5">
-            Search today&apos;s confirmed drop-in bookings and field rentals.
+            Search today&apos;s drop-in bookings and field rentals.
           </p>
         </SheetHeader>
 
@@ -189,7 +214,9 @@ export function FindBookingPanel({ onClose }: Props) {
 
           {/* Error */}
           {!isLoading && error && (
-            <div className="px-4 py-4 text-[12px] text-rose-700">{error}</div>
+            <div className="px-4 py-3">
+              <ErrorBanner message={error} />
+            </div>
           )}
 
           {/* Idle (nothing typed) */}
@@ -220,7 +247,7 @@ export function FindBookingPanel({ onClose }: Props) {
                 {results.length} {results.length === 1 ? "match" : "matches"}
               </div>
               {results.map((r) => (
-                <ResultRow key={`${r.kind}-${r.targetId}`} result={r} />
+                <ResultRow key={`${r.kind}-${r.targetId}`} result={r} onSelect={handleSelect} />
               ))}
             </div>
           )}

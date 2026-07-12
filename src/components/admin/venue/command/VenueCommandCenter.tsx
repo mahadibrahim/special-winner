@@ -21,20 +21,30 @@
  *   CommandSearchBar → onWalkIn → stub (walk-in requires a session; use the open-slot
  *     rows in ActivityDetailPanel, or open a session first from the calendar).
  *   CommandSearchBar → onFindBooking → opens FindBookingPanel (today's confirmed bookings search).
+ *   FindBookingPanel result row → onOpenSession → closes the search panel and opens that
+ *   booking's session roster panel (ActivityDetailPanel). Guarded: if the session isn't in
+ *   the currently-loaded today payload, shows a toast instead of silently no-op-ing.
  *   Clicking a calendar ActivityBlock / NowStrip card → open ActivityDetailPanel.
  *   Walk-ins are started from the ActivityDetailPanel's roster panel (open-slot
  *   "+ add walk-in" rows), not from a direct calendar cell click.
- *   Clicking a NeedsAttentionQueue action → currently logs to console (hook for
- *   future detail panel / external links).
+ *   Clicking a NeedsAttentionQueue action → routed via attentionActionTarget()
+ *   (src/lib/venue/attention-action.ts): opens the session detail panel when
+ *   sessionId is present, else navigates to /messages or /admin/refund-requests.
+ *   Items with no reachable target (waiver/photo/ref without a session) render
+ *   no action button.
  *   ActivityDetailPanel roster row name → opens PersonCard for that person.
  */
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { Zap } from "lucide-react"
+import { toast } from "sonner"
 import { useVenueToday } from "@/lib/hooks/use-venue-today"
 import { groupAttention } from "@/lib/venue/group-attention"
+import { attentionActionTarget } from "@/lib/venue/attention-action"
+import { formatAgo } from "@/lib/venue/format-ago"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { formatStripDate, parseStripDate } from "@/lib/admin/week-strip"
+import { todayInTimeZone } from "@/lib/venue/today-in-tz"
 import { ErrorBanner } from "@/components/ui/error-banner"
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton"
 import { EmptyState } from "@/components/ui/empty-state"
@@ -65,24 +75,27 @@ function addWeeks(dateStr: string, delta: number): string {
   return addDays(dateStr, delta * 7)
 }
 
-function secondsAgo(ts: number): number {
-  return Math.floor((Date.now() - ts) / 1000)
-}
-
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface Props {
   locationId: string
   date: string
+  initialView?: View
+  initialSessionId?: string | null
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function VenueCommandCenter({ locationId, date: initialDate }: Props) {
+export function VenueCommandCenter({
+  locationId,
+  date: initialDate,
+  initialView = "day",
+  initialSessionId = null,
+}: Props) {
   useHydrationBeacon()
 
   // ── View / navigation state ────────────────────────────────────────────────
-  const [view, setView]     = useState<View>("day")
+  const [view, setView]     = useState<View>(initialView)
   const [date, setDate]     = useState(initialDate)
 
   const handlePrev = useCallback(() => {
@@ -100,23 +113,45 @@ export function VenueCommandCenter({ locationId, date: initialDate }: Props) {
     // day is shown; only day→day "Today" button resets date.
   }, [])
 
-  const handleToday = useCallback(() => {
-    setDate(formatStripDate(new Date()))
-    setView("day")
-  }, [])
-
   // ── Data ───────────────────────────────────────────────────────────────────
-  const { data, isLoading, isStale, lastUpdatedAt, error } = useVenueToday({
+  const { data, isLoading, isStale, lastUpdatedAt, nowTick, error } = useVenueToday({
     date,
     locationId,
   })
 
+  // "Today" must be the venue's wall-clock date, not the UTC date — a
+  // UTC-derived formatStripDate(new Date()) would send evening desk staff
+  // east of UTC to tomorrow's (empty) board. Uses the payload's own
+  // timezone so it agrees with what the board is actually showing.
+  const handleToday = useCallback(() => {
+    setDate(todayInTimeZone(data?.timezone ?? "America/New_York"))
+    setView("day")
+  }, [data?.timezone])
+
   // ── Panel state ────────────────────────────────────────────────────────────
-  const [openSessionId, setOpenSessionId] = useState<string | null>(null)
+  const [openSessionId, setOpenSessionId] = useState<string | null>(initialSessionId)
 
   const openSession: VenueTodaySession | undefined = data?.sessions.find(
     (s) => s.id === openSessionId,
   )
+
+  // ── URL sync — deep-linkable date/view/session state ──────────────────────
+  // replaceState (not push): arrow-key date browsing must not spam history;
+  // Back returns to the previous PAGE with the last-visited state intact in
+  // its own URL.
+  useEffect(() => {
+    const params = new URLSearchParams()
+    // Preserve the super-admin ?locationId= override (resolved server-side in
+    // index.astro) — rebuilding params from scratch would silently drop it, so
+    // a refresh/bookmark/share after hydration would land on the default location.
+    const locationIdParam = new URLSearchParams(window.location.search).get("locationId")
+    if (locationIdParam) params.set("locationId", locationIdParam)
+    params.set("date", date)
+    if (view !== "day") params.set("view", view)
+    if (openSessionId) params.set("session", openSessionId)
+    const url = `${window.location.pathname}?${params.toString()}`
+    window.history.replaceState(null, "", url)
+  }, [date, view, openSessionId])
 
   const handleOpenActivity = useCallback((sessionId: string) => {
     setOpenSessionId(sessionId)
@@ -164,6 +199,23 @@ export function VenueCommandCenter({ locationId, date: initialDate }: Props) {
     setFindBookingOpen(true)
   }, [])
 
+  // ── Find-booking result → open its session's roster panel ─────────────────
+  // Booking-search is today-only, so the session should always be on the
+  // board — but guard against a stale/not-yet-loaded today payload (or a
+  // session on a location the board isn't currently showing) rather than
+  // silently closing the panel with nothing happening.
+  const handleOpenSessionFromSearch = useCallback(
+    (sessionId: string) => {
+      if (!data?.sessions.some((s) => s.id === sessionId)) {
+        toast.error("That booking's session isn't on today's board")
+        return
+      }
+      setFindBookingOpen(false)
+      setOpenSessionId(sessionId)
+    },
+    [data],
+  )
+
   // ── Start-pickup-game handler ──────────────────────────────────────────────
   const handleStartPickup = useCallback(() => {
     setStartPickupOpen(true)
@@ -180,26 +232,19 @@ export function VenueCommandCenter({ locationId, date: initialDate }: Props) {
 
   // ── Attention action handler ────────────────────────────────────────────────
   const handleAttentionAction = useCallback((item: VenueAttentionItem) => {
-    // If the item has a sessionId, open that session's detail panel
-    if (item.sessionId) {
-      setOpenSessionId(item.sessionId)
-      return
+    const target = attentionActionTarget(item)
+    if (!target) return
+    if (target.type === "session") {
+      setOpenSessionId(target.sessionId)
+    } else {
+      window.location.href = target.href
     }
-    // For message / request kinds without a sessionId, navigate to inbox/requests
-    if (item.kind === "message") {
-      window.location.href = "/admin/messages"
-    } else if (item.kind === "request") {
-      window.location.href = "/admin/registrations"
-    }
-    // Items without a sessionId (waiver, photo, ref) currently no-op; they link
-    // to their session when sessionId is present; a future detail panel could
-    // be wired for standalone waiver/photo/ref actions.
   }, [])
 
   // ── Derived data ───────────────────────────────────────────────────────────
   const attentionGroups = data ? groupAttention(data.attention) : []
   const locationName    = data?.locationName ?? "Venue"
-  const staleSecs       = lastUpdatedAt !== null ? secondsAgo(lastUpdatedAt) : null
+  const staleSecs       = lastUpdatedAt !== null ? Math.floor((nowTick - lastUpdatedAt) / 1000) : null
 
   // ── Initial skeleton ───────────────────────────────────────────────────────
   if (isLoading && !data) {
@@ -238,24 +283,30 @@ export function VenueCommandCenter({ locationId, date: initialDate }: Props) {
           </div>
           <h1 className="text-2xl font-semibold text-[#1c1a17] mt-0.5 mb-0 flex items-center gap-2 flex-wrap">
             Today
-            {/* Live pulse indicator */}
-            <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 ml-1">
-              <span
-                className="w-2 h-2 rounded-full bg-emerald-600 animate-ping-sm"
-                style={{
-                  animation: "venue-pulse 2s infinite",
-                }}
-              />
-              LIVE
-              {staleSecs !== null && isStale && (
-                <span className="text-[#8a8175] font-normal">
-                  · updated {staleSecs}s ago
-                </span>
-              )}
-              {staleSecs !== null && !isStale && (
-                <span className="text-emerald-700">· updated {staleSecs}s ago</span>
-              )}
-            </span>
+            {isStale ? (
+              /* Stale indicator — honest freshness signal, no pulse animation */
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-700 ml-1">
+                <span className="w-2 h-2 rounded-full bg-amber-500" />
+                STALE
+                {staleSecs !== null && (
+                  <span className="text-amber-700">· updated {formatAgo(staleSecs)} ago</span>
+                )}
+              </span>
+            ) : (
+              /* Live pulse indicator */
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-700 ml-1">
+                <span
+                  className="w-2 h-2 rounded-full bg-emerald-600 animate-ping-sm"
+                  style={{
+                    animation: "venue-pulse 2s infinite",
+                  }}
+                />
+                LIVE
+                {staleSecs !== null && (
+                  <span className="text-emerald-700">· updated {formatAgo(staleSecs)} ago</span>
+                )}
+              </span>
+            )}
           </h1>
         </div>
 
@@ -279,17 +330,37 @@ export function VenueCommandCenter({ locationId, date: initialDate }: Props) {
         </div>
       )}
 
-      {/* Hard fetch error while we have stale data */}
-      {error && data && (
-        <div className="mb-3">
-          <ErrorBanner message={`Refresh error: ${error.message}`} />
-        </div>
-      )}
-
       {/* ── Now / Next strip ──────────────────────────────────────────────── */}
       <div className="mb-4">
         {data ? (
-          <NowStrip sessions={data.sessions} timezone={data.timezone} onOpenActivity={handleOpenActivity} />
+          data.sessions.length === 0 ? (
+            /* Empty DAY (no sessions at all, not just none right now) — invite
+               the desk to start something rather than showing a bare strip. */
+            <EmptyState
+              title="Nothing scheduled today"
+              description="Start a pickup game or add a walk-in to get the day moving."
+              className="bg-[#fffdf8] border border-[#e4ddcf] rounded-2xl"
+            >
+              <div className="flex gap-2 justify-center">
+                <button
+                  type="button"
+                  onClick={handleStartPickup}
+                  className="px-3 py-1.5 rounded-lg bg-[#1c1a17] text-[#fffdf8] text-xs font-bold"
+                >
+                  Start pickup game
+                </button>
+                <button
+                  type="button"
+                  onClick={handleWalkIn}
+                  className="px-3 py-1.5 rounded-lg border border-[#e4ddcf] bg-[#f6f1e7] text-[#4b463e] text-xs font-bold"
+                >
+                  + Walk-in
+                </button>
+              </div>
+            </EmptyState>
+          ) : (
+            <NowStrip sessions={data.sessions} timezone={data.timezone} onOpenActivity={handleOpenActivity} />
+          )
         ) : (
           <EmptyState
             title="No sessions loaded"
@@ -363,8 +434,12 @@ export function VenueCommandCenter({ locationId, date: initialDate }: Props) {
       </div>
 
       {/* ── Activity detail panel (slide-over) ────────────────────────────── */}
+      {/* key: remount per session so switching sessions while the panel is open
+          fetches the new roster immediately and resets per-session state/refs
+          (rowBusy, cancelledIdsRef) instead of carrying them across sessions. */}
       {openSession && (
         <ActivityDetailPanel
+          key={openSession.id}
           session={openSession}
           locationId={locationId}
           timezone={data?.timezone ?? "America/New_York"}
@@ -403,7 +478,10 @@ export function VenueCommandCenter({ locationId, date: initialDate }: Props) {
 
       {/* ── Find booking panel (sheet) ──────────────────────────────────────── */}
       {findBookingOpen && (
-        <FindBookingPanel onClose={() => setFindBookingOpen(false)} />
+        <FindBookingPanel
+          onClose={() => setFindBookingOpen(false)}
+          onOpenSession={handleOpenSessionFromSearch}
+        />
       )}
 
       {/* ── Start pickup game (sheet) ───────────────────────────────────────── */}
@@ -416,8 +494,11 @@ export function VenueCommandCenter({ locationId, date: initialDate }: Props) {
       )}
 
       {/* ── Pickup roll call (full-panel overlay) ──────────────────────────── */}
+      {/* key: remount per session so replacing the open roll call with a
+          different session's fetches the new roster immediately. */}
       {pickupRollCall && (
         <PickupRollCall
+          key={pickupRollCall.sessionId}
           sessionId={pickupRollCall.sessionId}
           sessionTitle={pickupRollCall.sessionTitle}
           onClose={() => setPickupRollCall(null)}

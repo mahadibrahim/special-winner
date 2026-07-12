@@ -2,6 +2,7 @@
 
 import { useMemo } from "react"
 import { weekStrip, formatStripDate } from "@/lib/admin/week-strip"
+import { todayInTimeZone } from "@/lib/venue/today-in-tz"
 import { ActivityBlock } from "./ActivityBlock"
 import type { VenueTodayPayload, VenueTodaySession } from "@/lib/venue/today-types"
 
@@ -30,7 +31,9 @@ export function WeekGrid({ payload, onPrev, onNext, onOpenActivity, timezone = "
   }, [payload.date])
 
   const days = useMemo(() => weekStrip(anchor), [anchor])
-  const todayStr = formatStripDate(new Date())
+  // Timezone-aware "today" so the emerald "today" highlight in the week
+  // header matches the venue's wall clock, not UTC.
+  const todayStr = todayInTimeZone(timezone)
 
   // Group sessions by space for display
   const sessionsBySpace = useMemo(() => {
@@ -130,6 +133,9 @@ export function WeekGrid({ payload, onPrev, onNext, onOpenActivity, timezone = "
                 ) : (
                   sessionsForDay.map((s) => (
                     <div key={s.id} className="h-6">
+                      {/* Deliberately never passes `clamped`: week cells are
+                          list-stacked (no row positioning), so nothing gets
+                          clamped to a grid window here. */}
                       <ActivityBlock
                         session={s}
                         onClick={onOpenActivity}

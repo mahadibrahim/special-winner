@@ -1,7 +1,14 @@
 /**
  * GET /api/admin/check-in/event?kind=&id=
  * Returns event header + the people rows for the event:
- *   - drop_in_session → bookings (confirmed only)
+ *   - drop_in_session → bookings (confirmed + pending_claim pay-link holds;
+ *                        each row carries `status` so the desk can see holds.
+ *                        pending_claim rows also carry `holdKind`, since
+ *                        pending_claim is shared by two unrelated flows: a
+ *                        walk-in pay-link hold (kiosk/walkin/start, no
+ *                        promotionExpiresAt) and a promoted waitlister
+ *                        (lib/dropin/promotion.ts, promotionExpiresAt set).
+ *                        The desk can only cancel the former.)
  *   - field_rental    → single renter row
  *   - game            → combined roster from home + away teams
  */
@@ -66,6 +73,8 @@ export const GET: APIRoute = async (context) => {
         amountPaidCents: dropInBookings.amountPaidCents,
         sessionRateCents: dropInSessions.sessionRateCents,
         walkUpRateCents: dropInSessions.walkUpRateCents,
+        status: dropInBookings.status,
+        promotionExpiresAt: dropInBookings.promotionExpiresAt,
       })
       .from(dropInBookings)
       .innerJoin(users, eq(users.id, dropInBookings.userId))
@@ -73,7 +82,7 @@ export const GET: APIRoute = async (context) => {
       .where(
         and(
           eq(dropInBookings.sessionId, id),
-          eq(dropInBookings.status, "confirmed"),
+          inArray(dropInBookings.status, ["confirmed", "pending_claim"]),
         ),
       );
 
@@ -88,26 +97,40 @@ export const GET: APIRoute = async (context) => {
           fieldNumber: null,
           venueName: session.venueName,
         },
-        rows: rows.map((r) => {
-          // Effective rate for this booking: walk-up rate takes precedence when set,
-          // otherwise fall back to session rate. A null/0 rate means the session is
-          // free, so the booking is implicitly paid.
-          const effectiveRate = r.walkUpRateCents ?? r.sessionRateCents ?? 0;
-          const paid = r.amountPaidCents > 0 || effectiveRate === 0;
-          return {
-            rowKind: "drop_in_booking" as const,
-            targetId: r.bookingId,
-            name: `${r.firstName ?? ""} ${r.lastName ?? ""}`.trim() || r.email,
-            subtitle: `adult · ${formatPhone(r.phone)}`,
-            photoUrl: r.avatarUrl,
-            waiverSigned: r.waiverSigned,
-            checkedInAt: r.checkedInAt ? r.checkedInAt.toISOString() : null,
-            isMinor: false,
-            familyMemberId: null,
-            recipientUserId: r.userId,
-            paid,
-          };
-        }),
+        rows: rows
+          .map((r) => {
+            // Effective rate for this booking: walk-up rate takes precedence when set,
+            // otherwise fall back to session rate. A null/0 rate means the session is
+            // free, so the booking is implicitly paid.
+            const effectiveRate = r.walkUpRateCents ?? r.sessionRateCents ?? 0;
+            const paid = r.amountPaidCents > 0 || effectiveRate === 0;
+            return {
+              rowKind: "drop_in_booking" as const,
+              targetId: r.bookingId,
+              name: `${r.firstName ?? ""} ${r.lastName ?? ""}`.trim() || r.email,
+              subtitle: `adult · ${formatPhone(r.phone)}`,
+              photoUrl: r.avatarUrl,
+              waiverSigned: r.waiverSigned,
+              checkedInAt: r.checkedInAt ? r.checkedInAt.toISOString() : null,
+              isMinor: false,
+              familyMemberId: null,
+              recipientUserId: r.userId,
+              paid,
+              status: r.status as "confirmed" | "pending_claim",
+              // Only meaningful for pending_claim rows — see module comment.
+              // promotionExpiresAt is set by promoteNextWaitlister and never
+              // set by the kiosk walk-in flow, so its presence discriminates
+              // a promoted-waitlister hold from a walk-in pay-link hold.
+              holdKind:
+                r.status === "pending_claim"
+                  ? r.promotionExpiresAt !== null
+                    ? ("promotion" as const)
+                    : ("walk_up" as const)
+                  : null,
+            };
+          })
+          // Confirmed rows first so held (pending_claim) ones group at the bottom.
+          .sort((a, b) => (a.status === b.status ? 0 : a.status === "confirmed" ? -1 : 1)),
       },
       200,
     );
@@ -151,6 +174,7 @@ export const GET: APIRoute = async (context) => {
             familyMemberId: null,
             recipientUserId: r.renterUserId,
             paid: true, // field rentals are always paid at booking time
+            status: "confirmed" as const,
           },
         ],
       },
@@ -246,6 +270,7 @@ export const GET: APIRoute = async (context) => {
             familyMemberId: r.familyMemberId,
             recipientUserId: r.parentUserId ?? r.selfUserId,
             paid: true, // rostered players paid at registration
+            status: "confirmed" as const,
           };
         }),
       },

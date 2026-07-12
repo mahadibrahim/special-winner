@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
 
 interface Props {
@@ -11,12 +12,10 @@ interface Props {
 
 export function SendLinkActions({ kind, targetId, onSent }: Props) {
   const [busy, setBusy] = useState<"email" | "sms" | "qr" | null>(null);
-  const [toast, setToast] = useState<{ kind: "success" | "error"; text: string } | null>(null);
   const [qrUrl, setQrUrl] = useState<string | null>(null);
 
   const send = async (channel: "email" | "sms" | "qr") => {
     setBusy(channel);
-    setToast(null);
     try {
       const res = await fetch("/api/admin/check-in/send-link", {
         method: "POST",
@@ -25,23 +24,17 @@ export function SendLinkActions({ kind, targetId, onSent }: Props) {
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setToast({ kind: "error", text: body.error ?? `Send failed (${res.status})` });
+        toast.error(body.error ?? `Send failed (${res.status})`);
         return;
       }
       if (channel === "qr") {
         setQrUrl(body.url);
       } else {
-        setToast({
-          kind: "success",
-          text: `Sent to ${body.recipient ?? "recipient"}`,
-        });
+        toast.success("Link sent");
         onSent?.();
       }
     } catch (err) {
-      setToast({
-        kind: "error",
-        text: err instanceof Error ? err.message : "Network error",
-      });
+      toast.error(err instanceof Error ? err.message : "Network error");
     } finally {
       setBusy(null);
     }
@@ -75,14 +68,6 @@ export function SendLinkActions({ kind, targetId, onSent }: Props) {
           {busy === "qr" ? "..." : "Show QR"}
         </button>
       </div>
-
-      {toast && (
-        toast.kind === "error" ? (
-          <div className="text-xs text-rose-700">{toast.text}</div>
-        ) : (
-          <div className="text-xs text-emerald-700">{toast.text}</div>
-        )
-      )}
 
       {qrUrl && (
         <div

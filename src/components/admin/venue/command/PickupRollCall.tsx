@@ -33,6 +33,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { usePickupAdd } from "@/lib/hooks/use-pickup-add";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
+import { useVisiblePoll } from "@/lib/hooks/use-visible-poll";
+import { formatAgo } from "@/lib/venue/format-ago";
 
 // ─── Types matching the check-in event endpoint response ─────────────────────
 
@@ -48,6 +50,7 @@ interface RowData {
   familyMemberId: string | null;
   recipientUserId: string | null;
   paid: boolean;
+  status: "confirmed" | "pending_claim";
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -110,39 +113,45 @@ export function PickupRollCall({ sessionId, sessionTitle, onClose }: Props) {
   const [rosterLoading, setRosterLoading] = useState(true);
   const [rosterError, setRosterError] = useState<string | null>(null);
 
-  // ── Roster fetch + 5 s poll ────────────────────────────────────────────────
+  // ── Roster fetch + visibility-aware poll ───────────────────────────────────
+  const aliveRef = useRef(true);
   useEffect(() => {
-    let alive = true;
-
-    const load = async () => {
-      try {
-        const res = await fetch(
-          `/api/admin/check-in/event?kind=drop_in_session&id=${sessionId}`,
-        );
-        if (!res.ok) {
-          const b = await res.json().catch(() => ({}));
-          if (alive) setRosterError((b as { error?: string }).error ?? `Failed (${res.status})`);
-          return;
-        }
-        const body = await res.json();
-        if (alive) {
-          setRows((body as { rows?: RowData[] }).rows ?? []);
-          setRosterError(null);
-        }
-      } catch (err) {
-        if (alive) setRosterError(err instanceof Error ? err.message : "Network error");
-      } finally {
-        if (alive) setRosterLoading(false);
-      }
-    };
-
-    load();
-    const interval = setInterval(load, 5_000);
+    aliveRef.current = true;
     return () => {
-      alive = false;
-      clearInterval(interval);
+      aliveRef.current = false;
     };
-  }, [sessionId]);
+  }, []);
+
+  const load = async () => {
+    try {
+      const res = await fetch(
+        `/api/admin/check-in/event?kind=drop_in_session&id=${sessionId}`,
+      );
+      if (!res.ok) {
+        const b = await res.json().catch(() => ({}));
+        if (aliveRef.current) setRosterError((b as { error?: string }).error ?? `Failed (${res.status})`);
+        return;
+      }
+      const body = await res.json();
+      if (aliveRef.current) {
+        setRows((body as { rows?: RowData[] }).rows ?? []);
+        setRosterError(null);
+      }
+    } catch (err) {
+      if (aliveRef.current) setRosterError(err instanceof Error ? err.message : "Network error");
+    } finally {
+      if (aliveRef.current) setRosterLoading(false);
+    }
+  };
+
+  const { lastRunAt } = useVisiblePoll(load, 5_000);
+
+  // Local 1s ticker so the "updated Ns ago" stamp advances between polls.
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNowTick(Date.now()), 1_000);
+    return () => clearInterval(t);
+  }, []);
 
   // ── Submit handler ─────────────────────────────────────────────────────────
   const handleAdd = useCallback(
@@ -308,13 +317,18 @@ export function PickupRollCall({ sessionId, sessionTitle, onClose }: Props) {
         {/* ── Attendance list ───────────────────────────────────────────────── */}
         <div className="flex-1 overflow-y-auto">
           {/* Roster section header */}
-          <div className="px-4 py-2 border-b border-[#efe9dc] bg-[#f6f1e7]">
+          <div className="px-4 py-2 border-b border-[#efe9dc] bg-[#f6f1e7] flex items-center justify-between gap-2">
             <span className="text-[11px] font-bold uppercase tracking-widest text-[#4b463e]">
               Attendance
               {rows !== null && (
                 <span className="ml-1.5 text-[#8a8175]">({rows.length})</span>
               )}
             </span>
+            {lastRunAt && (
+              <span className="text-[10.5px] font-normal normal-case tracking-normal text-[#8a8175]">
+                updated {formatAgo(Math.floor((nowTick - lastRunAt) / 1000))} ago
+              </span>
+            )}
           </div>
 
           {/* Roster error */}
@@ -371,11 +385,17 @@ export function PickupRollCall({ sessionId, sessionTitle, onClose }: Props) {
                       okLabel="waiver ✓"
                       badLabel="waiver out"
                     />
-                    <StatusChip
-                      ok={isPaid}
-                      okLabel="paid ✓"
-                      badLabel="unpaid"
-                    />
+                    {row.status === "pending_claim" ? (
+                      <span className="text-[10.5px] font-bold rounded px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200">
+                        ⏳ awaiting payment
+                      </span>
+                    ) : (
+                      <StatusChip
+                        ok={isPaid}
+                        okLabel="paid ✓"
+                        badLabel="unpaid"
+                      />
+                    )}
                     {isCheckedIn && (
                       <span className="text-[10.5px] font-bold rounded px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200">
                         checked in ✓

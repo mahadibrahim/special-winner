@@ -17,6 +17,7 @@
 
 import { useState } from "react"
 import { attentionTotal } from "@/lib/venue/group-attention"
+import { attentionActionTarget } from "@/lib/venue/attention-action"
 import { EmptyState } from "@/components/ui/empty-state"
 import type { VenueAttentionItem } from "@/lib/venue/today-types"
 
@@ -134,7 +135,9 @@ function AttentionGroupSection({
             </div>
             <div className="text-[11.5px] text-[#8a8175] truncate">{item.subtitle}</div>
           </div>
-          <ActionButton kind={item.kind} onClick={() => onAction(item)} />
+          {attentionActionTarget(item) !== null && (
+            <ActionButton kind={item.kind} onClick={() => onAction(item)} />
+          )}
         </div>
       ))}
 
@@ -173,7 +176,7 @@ export function NeedsAttentionQueue({ groups, onAction }: Props) {
       {groups.length === 0 && (
         <EmptyState
           title="All clear"
-          description="Nothing needs attention right now."
+          description="Nothing needs attention for this location. Org-wide items live in the sidebar Inbox."
           className="py-8"
         />
       )}

@@ -7,7 +7,8 @@ import { getLocationIdsForUser } from "@/lib/auth/location-scope";
 import { getDb } from "@/lib/db";
 import { locations } from "@/lib/db/schema/organizations";
 import { eq, asc } from "drizzle-orm";
-import { formatStripDate } from "@/lib/admin/week-strip";
+import { parseStripDate } from "@/lib/admin/week-strip";
+import { todayInTimeZone } from "@/lib/venue/today-in-tz";
 
 export const prerender = false;
 
@@ -52,7 +53,24 @@ const [loc] = await getDb()
   .limit(1);
 locationName = loc?.name ?? "Venue";
 
-const today = formatStripDate(new Date());
+// "Today" must be the location's wall-clock date, not the UTC date — an
+// evening desk-staff shift east of UTC would otherwise always land on
+// tomorrow's (empty) board. Mirrors the timezone resolution in
+// /api/admin/venue/today.ts.
+const timezone = Astro.locals.organization?.timezone ?? "America/New_York";
+const today = todayInTimeZone(timezone);
+
+// Deep-link params — shareable /admin/venue?date=&view=&session= URLs.
+// Validate everything; fall back to safe defaults rather than trusting the query string.
+// parseStripDate (same pattern as day/[date].astro) rejects both malformed
+// strings and calendar-invalid dates like 2026-13-99.
+const dateParam = Astro.url.searchParams.get("date");
+const initialDate = dateParam && parseStripDate(dateParam) ? dateParam : today;
+
+const viewParam = Astro.url.searchParams.get("view");
+const initialView = viewParam === "week" ? "week" : "day";
+
+const initialSessionId = Astro.url.searchParams.get("session");
 ---
 
 <BaseLayout
@@ -70,7 +88,9 @@ const today = formatStripDate(new Date());
     <VenueCommandCenter
       client:load
       locationId={locationId}
-      date={today}
+      date={initialDate}
+      initialView={initialView}
+      initialSessionId={initialSessionId}
     />
   </AdminLayout>
 </BaseLayout>

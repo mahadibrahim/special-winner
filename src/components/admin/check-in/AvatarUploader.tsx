@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { toast } from "sonner";
 
 interface Props {
   kind: "drop_in_booking" | "field_rental" | "roster_entry";
@@ -41,12 +42,16 @@ export function AvatarUploader({ kind, targetId, photoUrl, name, onUploaded }: P
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(body.error ?? `Upload failed (${res.status})`);
+        const message = body.error ?? `Upload failed (${res.status})`;
+        setError(message);
+        toast.error("Photo upload failed — try again");
         return;
       }
       onUploaded?.(body.url);
+      toast.success("Photo saved");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Network error");
+      toast.error("Photo upload failed — try again");
     } finally {
       setBusy(false);
     }

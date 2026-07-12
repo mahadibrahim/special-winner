@@ -51,13 +51,19 @@ export function columnsForSpaces(spaces: { id: string; name: string }[]) {
  * this as "<element> subtree intercepts pointer events" on click). Clamping
  * keeps every block's rendered box inside the container, at least one row
  * tall, regardless of how far outside business hours it actually falls.
+ *
+ * `clamped` is true whenever the block's true time window fell (fully or
+ * partly) outside the grid — callers use this to render an "off-hours" chip
+ * so a clamped block (which visually lands right at 8am/9pm) doesn't get
+ * mistaken for a normal on-the-hour session.
  */
 export function clampRowsToWindow(
   rowStart: number,
   rowEnd: number,
   totalRows: number,
-): { rowStart: number; rowEnd: number } {
+): { rowStart: number; rowEnd: number; clamped: boolean } {
   const clampedStart = Math.min(Math.max(rowStart, 1), totalRows);
   const clampedEnd = Math.min(Math.max(rowEnd, clampedStart + 1), totalRows + 1);
-  return { rowStart: clampedStart, rowEnd: clampedEnd };
+  const clamped = rowStart < 1 || rowEnd > totalRows + 1;
+  return { rowStart: clampedStart, rowEnd: clampedEnd, clamped };
 }

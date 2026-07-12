@@ -109,10 +109,16 @@ export async function buildVenueToday(
       sessionId: b.id,
     }));
 
-  // request + message: reuse getNavBadges counts, scoped to this location.
-  // We create synthetic attention items from the badge counts so the
-  // command-center can show a badge without a full item list (Phase-3 can
-  // expand to item-level detail).
+  // request + message: reuse getNavBadges counts, scoped to this call.
+  // requestAttention (refundsPending) is genuinely location-scoped via
+  // locationIds. messageAttention (inbox) is scoped to conversations
+  // assigned to *this viewer* (scope.userId), not to the location — the
+  // conversations table has no location column. That's why this count can
+  // legitimately be lower than (or unrelated to) the org-wide sidebar Inbox
+  // badge, which for a super-admin queries with no scope at all (see
+  // getNavBadges in nav-badges.ts). We create synthetic attention items from
+  // the badge counts so the command-center can show a badge without a full
+  // item list (Phase-3 can expand to item-level detail).
   let requestAttention: VenueAttentionItem[] = [];
   let messageAttention: VenueAttentionItem[] = [];
   try {
@@ -137,8 +143,11 @@ export async function buildVenueToday(
         },
       ];
     }
-  } catch {
-    // Fail-soft: attention items are non-critical
+  } catch (err) {
+    // Fail-soft: attention items are non-critical, but a silent catch here
+    // previously masked a live audit finding (badges call failing looked
+    // identical to "genuinely zero"). Log so a real failure is visible.
+    console.error("[build-today] attention badges failed:", err);
   }
 
   const attention: VenueAttentionItem[] = [

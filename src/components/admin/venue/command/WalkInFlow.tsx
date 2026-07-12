@@ -5,7 +5,7 @@
  *
  * Step 1: Who's playing? (adult / child, name, DOB, contact)
  * Step 2: Waiver (sign on device / text link)
- * Step 3: Take payment (send pay link email|SMS, or kiosk self-pay hand-off)
+ * Step 3: How they'll finish signing up (email|SMS a waiver link, or kiosk self-pay hand-off)
  *
  * On submit: POST /api/kiosk/[locationId]/walkin/start with walkInToPayload(...).
  * The locationId doubles as the [locationSlug] param — the kiosk auth resolves
@@ -16,10 +16,12 @@
  * On success: call onDone() so the roster panel refetches.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { walkInToPayload } from "@/lib/venue/walkin-payload";
 import type { WalkInForm } from "@/lib/venue/walkin-payload";
 import type { VenueTodaySession } from "@/lib/venue/today-types";
+import { ErrorBanner } from "@/components/ui/error-banner";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -126,8 +128,21 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
   const set = (k: keyof FormState, v: string) =>
     setForm((prev) => ({ ...prev, [k]: v }));
 
+  // ── Contact-derived availability ─────────────────────────────────────────
+  const contactPhone = form.mode === "child" ? form.parentPhone.trim() : form.phone.trim();
+  const contactEmail = form.mode === "child" ? form.parentEmail.trim() : form.email.trim();
+  const hasPhone = contactPhone.length > 0;
+  const hasEmail = contactEmail.length > 0;
+
+  // Auto-correct selections when the contact fields that back them disappear.
+  useEffect(() => {
+    if (!hasPhone && payMethod === "link_sms") setPayMethod(hasEmail ? "link_email" : "kiosk");
+    if (!hasPhone && waiverMethod === "sms") setWaiverMethod("device");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasPhone, hasEmail]);
+
   // ── Submit ─────────────────────────────────────────────────────────────────
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSubmitError(null);
     setBusy(true);
@@ -150,6 +165,31 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
           }
         : {}),
     };
+
+    const missing: string[] = [];
+    if (!mappedForm.firstName) missing.push("first name");
+    if (!mappedForm.lastName) missing.push("last name");
+    if (!mappedForm.dob) missing.push("date of birth");
+    if (form.mode === "adult" && !hasEmail) missing.push("email");
+    if (form.mode === "child" && (!form.parentFirstName.trim() || !form.parentLastName.trim()))
+      missing.push("parent name");
+    if (form.mode === "child" && !hasEmail) missing.push("parent email");
+    if (missing.length) {
+      setSubmitError(`Missing: ${missing.join(", ")}.`);
+      setBusy(false);
+      return;
+    }
+
+    // Empty fields are handled above by the aggregated banner; this catches
+    // format problems (malformed email, bad date) via the native validators
+    // that noValidate on the <form> would otherwise silence entirely.
+    const formEl = e.currentTarget;
+    if (!formEl.checkValidity()) {
+      setSubmitError("Some values look invalid — check the highlighted fields.");
+      formEl.reportValidity();
+      setBusy(false);
+      return;
+    }
 
     const payOption =
       payMethod === "kiosk"
@@ -268,10 +308,10 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
               {result.sent ? (
                 <>
                   <h3 className="text-lg font-bold text-[#1c1a17]">
-                    Payment link sent
+                    Waiver link sent
                   </h3>
                   <p className="text-sm text-[#4b463e] max-w-xs">
-                    Sent {amtStr} payment link to{" "}
+                    Sent the waiver link to{" "}
                     <strong>
                       {form.firstName} {form.lastName}
                     </strong>{" "}
@@ -291,21 +331,30 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
                         : form.phone
                           ? `SMS (${form.phone})`
                           : "SMS"}
-                    . The slot is held for 2 hours.
+                    . The slot is held until it&apos;s paid or released from the roster. Collect{" "}
+                    <strong>{amtStr}</strong> when they arrive (kiosk self-pay
+                    or desk).
                   </p>
                 </>
               ) : (
                 <>
-                  <h3 className="text-lg font-bold text-[#1c1a17]">
-                    Booking created — copy &amp; share the link
+                  <h3 className="text-lg font-bold text-amber-800">
+                    Link NOT sent — share it manually
                   </h3>
-                  <p className="text-sm text-[#4b463e] max-w-xs">
-                    Share this payment link (<strong>{amtStr}</strong>) with{" "}
+                  <div className="text-sm text-amber-900 max-w-xs bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    We couldn&apos;t {result.method === "link_sms" ? "text" : "email"} the
+                    waiver link
+                    {result.method === "link_sms" && !hasPhone
+                      ? " (no mobile number was entered)"
+                      : ""}
+                    . Copy it below and share it with{" "}
                     <strong>
                       {form.firstName} {form.lastName}
-                    </strong>
-                    . The slot is held for 2 hours.
-                  </p>
+                    </strong>{" "}
+                    — the slot stays held until it&apos;s paid or released from
+                    the roster. Payment is collected when they arrive (kiosk
+                    self-pay or desk).
+                  </div>
                 </>
               )}
               <div className="w-full max-w-xs">
@@ -316,10 +365,17 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
                   <button
                     type="button"
                     onClick={() => {
-                      navigator.clipboard.writeText(result.url).then(() => {
-                        setCopied(true);
-                        setTimeout(() => setCopied(false), 2000);
-                      });
+                      navigator.clipboard
+                        .writeText(result.url)
+                        .then(() => {
+                          setCopied(true);
+                          setTimeout(() => setCopied(false), 2000);
+                        })
+                        .catch(() =>
+                          toast.error(
+                            "Copy failed — long-press or select the link text to copy manually",
+                          ),
+                        );
                     }}
                     className="flex-shrink-0 text-xs px-2 py-1 rounded bg-[#1c1a17] text-[#fffdf8] font-semibold"
                   >
@@ -368,7 +424,10 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
+      {/* noValidate: empty-field validation goes through the aggregated
+          ErrorBanner in handleSubmit (native tooltips only show one field at a
+          time); format validity is still checked via checkValidity() there. */}
+      <form onSubmit={handleSubmit} noValidate className="flex-1 overflow-y-auto">
         {/* ── Step 1: Who's playing? ──────────────────────────────────────── */}
         <div className="px-4 py-4 border-b border-[#efe9dc]">
           <h4 className="flex items-center text-sm font-semibold text-[#1c1a17] mb-3">
@@ -521,11 +580,14 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
             </button>
             <button
               type="button"
-              onClick={() => setWaiverMethod("sms")}
+              onClick={() => hasPhone && setWaiverMethod("sms")}
+              disabled={!hasPhone}
               className={`text-xs px-3 py-1.5 rounded-lg border font-semibold transition-colors ${
-                waiverMethod === "sms"
-                  ? "bg-[#1c1a17] text-[#fffdf8] border-[#1c1a17]"
-                  : "border-[#e4ddcf] bg-[#f6f1e7] text-[#4b463e] hover:border-[#4b463e]"
+                !hasPhone
+                  ? "opacity-50 cursor-not-allowed border-[#e4ddcf] bg-[#f6f1e7] text-[#4b463e]"
+                  : waiverMethod === "sms"
+                    ? "bg-[#1c1a17] text-[#fffdf8] border-[#1c1a17]"
+                    : "border-[#e4ddcf] bg-[#f6f1e7] text-[#4b463e] hover:border-[#4b463e]"
               }`}
             >
               Text link to phone
@@ -539,17 +601,21 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
           )}
           {waiverMethod === "sms" && (
             <p className="text-[11.5px] text-[#8a8175] mt-2">
-              Waiver + pay link sent to their mobile number after booking is
-              created.
+              Waiver link sent to their mobile after the booking is created.
+            </p>
+          )}
+          {!hasPhone && (
+            <p className="text-[11.5px] text-[#8a8175] mt-2">
+              Add a mobile number above to text
             </p>
           )}
         </div>
 
-        {/* ── Step 3: Take payment ─────────────────────────────────────────── */}
+        {/* ── Step 3: How they'll finish signing up ────────────────────────── */}
         <div className="px-4 py-4">
           <h4 className="flex items-center text-sm font-semibold text-[#1c1a17] mb-3">
             <StepBadge n={3} />
-            Take payment
+            How they&apos;ll finish signing up
           </h4>
 
           {/* Payment method cards */}
@@ -559,14 +625,16 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
                 {
                   method: "link_email" as PayMethod,
                   icon: "📧",
-                  title: "Email a pay link",
-                  subtitle: "They pay on their phone; slot holds 2h until paid",
+                  title: "Email a waiver link",
+                  subtitle:
+                    "They sign on their phone; slot holds until it's paid or released — collect payment at the desk or kiosk",
                 },
                 {
                   method: "link_sms" as PayMethod,
                   icon: "📲",
-                  title: "Text a pay link",
-                  subtitle: "They pay on their phone; slot holds 2h until paid",
+                  title: "Text a waiver link",
+                  subtitle:
+                    "They sign on their phone; slot holds until it's paid or released — collect payment at the desk or kiosk",
                 },
                 {
                   method: "kiosk" as PayMethod,
@@ -576,34 +644,44 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
                     "Hand device to customer — they tap/insert card at the kiosk",
                 },
               ] satisfies { method: PayMethod; icon: string; title: string; subtitle: string }[]
-            ).map(({ method, icon, title, subtitle }) => (
-              <button
-                key={method}
-                type="button"
-                onClick={() => setPayMethod(method)}
-                className={`w-full flex items-center gap-3 border rounded-xl px-3 py-2.5 text-left transition-shadow ${
-                  payMethod === method
-                    ? "border-[#1c1a17] shadow-[0_0_0_2px_rgba(28,26,23,0.12)] bg-[#fffdf8]"
-                    : "border-[#e4ddcf] bg-[#fffdf8] hover:border-[#4b463e]"
-                }`}
-              >
-                <div className="w-9 h-9 rounded-lg bg-[#f6f1e7] flex items-center justify-center text-lg flex-shrink-0">
-                  {icon}
-                </div>
-                <div className="min-w-0">
-                  <div className="font-bold text-[13.5px] text-[#1c1a17]">{title}</div>
-                  <div className="text-[11.5px] text-[#8a8175] truncate">{subtitle}</div>
-                </div>
-              </button>
-            ))}
+            ).map(({ method, icon, title, subtitle }) => {
+              const disabled =
+                method === "link_sms" ? !hasPhone : method === "link_email" ? !hasEmail : false;
+              const displaySubtitle = disabled
+                ? method === "link_sms"
+                  ? "Add a mobile number above to text"
+                  : "Add an email above to send"
+                : subtitle;
+              return (
+                <button
+                  key={method}
+                  type="button"
+                  onClick={() => !disabled && setPayMethod(method)}
+                  disabled={disabled}
+                  className={`w-full flex items-center gap-3 border rounded-xl px-3 py-2.5 text-left transition-shadow ${
+                    disabled
+                      ? "opacity-50 cursor-not-allowed border-[#e4ddcf] bg-[#fffdf8]"
+                      : payMethod === method
+                        ? "border-[#1c1a17] shadow-[0_0_0_2px_rgba(28,26,23,0.12)] bg-[#fffdf8]"
+                        : "border-[#e4ddcf] bg-[#fffdf8] hover:border-[#4b463e]"
+                  }`}
+                >
+                  <div className="w-9 h-9 rounded-lg bg-[#f6f1e7] flex items-center justify-center text-lg flex-shrink-0">
+                    {icon}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-bold text-[13.5px] text-[#1c1a17]">{title}</div>
+                    <div className="text-[11.5px] text-[#8a8175] truncate">
+                      {displaySubtitle}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
           </div>
 
           {/* Submit error */}
-          {submitError && (
-            <div className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2 mb-3">
-              {submitError}
-            </div>
-          )}
+          <ErrorBanner message={submitError} className="mb-3" />
 
           {/* Submit */}
           <button
@@ -616,8 +694,8 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
               : payMethod === "kiosk"
                 ? "Create booking & hand off to kiosk ›"
                 : payMethod === "link_email"
-                  ? "Create booking & email pay link ›"
-                  : "Create booking & text pay link ›"}
+                  ? "Create booking & email waiver link ›"
+                  : "Create booking & text waiver link ›"}
           </button>
           <p className="text-[11.5px] text-[#8a8175] text-center mt-2">
             On success: added to the roster, slot held for payment.
