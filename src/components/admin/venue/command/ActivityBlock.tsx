@@ -33,6 +33,14 @@ type Props = {
   /** Compact mode: used by WeekGrid for condensed blocks. */
   compact?: boolean
   timezone?: string
+  /**
+   * True when the block's true time window fell (fully or partly) outside
+   * the rendered grid window and had to be clamped to stay on-screen — see
+   * `clampRowsToWindow`'s doc comment. Renders an "off-hours" chip so a
+   * clamped block (visually sitting right at the grid's open/close edge)
+   * isn't mistaken for a normal on-the-hour session.
+   */
+  clamped?: boolean
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -48,7 +56,7 @@ function formatTime(iso: string, timeZone: string): string {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function ActivityBlock({ session, onClick, compact = false, timezone = "America/New_York" }: Props) {
+export function ActivityBlock({ session, onClick, compact = false, timezone = "America/New_York", clamped = false }: Props) {
   const [showPop, setShowPop] = useState(false)
   const style = KIND_STYLES[session.kind]
   const refWarn = session.refAssigned === false
@@ -84,8 +92,15 @@ export function ActivityBlock({ session, onClick, compact = false, timezone = "A
 
       {compact ? (
         /* Compact / week-view rendering */
-        <div className="text-[10px] font-bold leading-tight truncate">
-          {style.icon} {session.title}
+        <div className="flex items-center gap-1 min-w-0">
+          {clamped && (
+            <span className="shrink-0 text-[9.5px] font-bold bg-stone-800/80 text-white rounded px-1 leading-tight">
+              off-hours
+            </span>
+          )}
+          <div className="text-[10px] font-bold leading-tight truncate">
+            {style.icon} {session.title}
+          </div>
         </div>
       ) : (
         /* Full / day-view rendering */
@@ -94,6 +109,11 @@ export function ActivityBlock({ session, onClick, compact = false, timezone = "A
             <span>{style.icon}</span>
             <span className="truncate">{session.title}</span>
           </div>
+          {clamped && (
+            <span className="inline-block text-[9.5px] font-bold bg-stone-800/80 text-white rounded px-1 mt-0.5 leading-tight">
+              off-hours · {formatTime(session.startsAt, timezone)}
+            </span>
+          )}
           <div className="text-[11px] opacity-90 mt-0.5 leading-tight truncate">
             {[timeRange, capStr, session.checkedIn > 0 ? `${session.checkedIn} here` : null]
               .filter(Boolean)

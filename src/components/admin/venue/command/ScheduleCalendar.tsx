@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { blockRows, clampRowsToWindow, columnsForSpaces } from "@/lib/venue/calendar-layout"
 import { formatStripDate, parseStripDate } from "@/lib/admin/week-strip"
 import { ActivityBlock } from "./ActivityBlock"
@@ -95,8 +95,30 @@ export function ScheduleCalendar({
   onToday,
   onOpenActivity,
 }: Props) {
-  const spaces       = payload.spaces
   const timeZone     = payload.timezone
+
+  // Hide-empty-fields toggle: default ON (hidden) — a command-center screen
+  // with a dozen-plus field columns and nothing scheduled on most of them
+  // is the norm-breaker the audit flagged, and an empty column offers no
+  // click affordance anyway. Toggle reveals them for hold-planning.
+  const [hideEmpty, setHideEmpty] = useState(true)
+
+  const activeSpaceIds = useMemo(
+    () => new Set(payload.sessions.map((s) => s.spaceId)),
+    [payload.sessions],
+  )
+
+  const visibleSpaces = useMemo(() => {
+    if (!hideEmpty) return payload.spaces
+    const filtered = payload.spaces.filter((sp) => activeSpaceIds.has(sp.id))
+    // Guard: an all-empty day would filter every column away and render a
+    // broken/columnless grid — fall back to showing all spaces.
+    return filtered.length > 0 ? filtered : payload.spaces
+  }, [hideEmpty, payload.spaces, activeSpaceIds])
+
+  const hiddenSpaceCount = payload.spaces.length - visibleSpaces.length
+
+  const spaces       = visibleSpaces
   const spaceColumns = useMemo(() => columnsForSpaces(spaces), [spaces])
   const numSpaces    = spaces.length
 
@@ -109,8 +131,9 @@ export function ScheduleCalendar({
     return map
   }, [payload.sessions, spaces, timeZone])
 
-  // The grid template: gutter col + one col per space
-  const gridTemplate = `${GUTTER_WIDTH}px repeat(${numSpaces}, minmax(0, 1fr))`
+  // The grid template: gutter col + one col per space, with a legible
+  // floor width so headers don't overlap when a location has many fields.
+  const gridTemplate = `${GUTTER_WIDTH}px repeat(${numSpaces}, minmax(110px, 1fr))`
 
   const today = formatStripDate(new Date())
   const isToday = payload.date === today
@@ -151,28 +174,46 @@ export function ScheduleCalendar({
           </span>
         </div>
 
-        {/* Day / Week toggle */}
-        <div className="flex bg-[#fffdf8] border border-[#e4ddcf] rounded-xl p-[3px]">
-          <button
-            onClick={() => onView("day")}
-            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
-              view === "day"
-                ? "bg-ink text-cream"
-                : "text-ink-muted hover:text-ink"
-            }`}
-          >
-            Day
-          </button>
-          <button
-            onClick={() => onView("week")}
-            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
-              view === "week"
-                ? "bg-ink text-cream"
-                : "text-ink-muted hover:text-ink"
-            }`}
-          >
-            Week
-          </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Empty-fields toggle (day view only — week view condenses spaces into a legend) */}
+          {view === "day" && (
+            <button
+              onClick={() => setHideEmpty((v) => !v)}
+              className="px-3 py-1.5 border border-[#e4ddcf] bg-[#fffdf8] rounded-lg text-xs font-semibold text-ink-muted hover:text-ink hover:bg-cream min-h-[36px]"
+              aria-pressed={hideEmpty}
+              title={
+                hideEmpty
+                  ? `${hiddenSpaceCount} field${hiddenSpaceCount === 1 ? "" : "s"} with nothing scheduled today are hidden`
+                  : "Showing every field, including empty ones"
+              }
+            >
+              Empty fields: {hideEmpty ? "hidden" : "shown"}
+            </button>
+          )}
+
+          {/* Day / Week toggle */}
+          <div className="flex bg-[#fffdf8] border border-[#e4ddcf] rounded-xl p-[3px]">
+            <button
+              onClick={() => onView("day")}
+              className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
+                view === "day"
+                  ? "bg-ink text-cream"
+                  : "text-ink-muted hover:text-ink"
+              }`}
+            >
+              Day
+            </button>
+            <button
+              onClick={() => onView("week")}
+              className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
+                view === "week"
+                  ? "bg-ink text-cream"
+                  : "text-ink-muted hover:text-ink"
+              }`}
+            >
+              Week
+            </button>
+          </div>
         </div>
       </div>
 
@@ -201,7 +242,8 @@ export function ScheduleCalendar({
               {spaces.map((sp) => (
                 <div
                   key={sp.id}
-                  className="px-3 py-2.5 text-center font-bold text-[13px] text-ink border-l border-[#efe9dc]"
+                  title={sp.name}
+                  className="px-3 py-2.5 text-center font-bold text-[13px] text-ink border-l border-[#efe9dc] truncate"
                 >
                   {sp.name}
                 </div>
@@ -215,7 +257,7 @@ export function ScheduleCalendar({
             style={{
               gridTemplateColumns: gridTemplate,
               gridTemplateRows:    `repeat(${TOTAL_ROWS}, ${ROW_HEIGHT_PX}px)`,
-              minWidth:            `${GUTTER_WIDTH + numSpaces * 120}px`,
+              minWidth:            `${GUTTER_WIDTH + numSpaces * 110}px`,
             }}
           >
             {/* ── Horizontal hour lines (full-width, behind everything) ── */}
@@ -317,7 +359,7 @@ export function ScheduleCalendar({
                       DAY_START_HOUR,
                       timeZone,
                     )
-                    const { rowStart, rowEnd } = clampRowsToWindow(
+                    const { rowStart, rowEnd, clamped } = clampRowsToWindow(
                       rawRows.rowStart,
                       rawRows.rowEnd,
                       TOTAL_ROWS,
@@ -336,6 +378,7 @@ export function ScheduleCalendar({
                           onClick={onOpenActivity}
                           compact={(rowEnd - rowStart) <= 2}
                           timezone={timeZone}
+                          clamped={clamped}
                         />
                       </div>
                     )

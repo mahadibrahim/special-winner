@@ -40,23 +40,31 @@ describe("calendar-layout", () => {
     // session starting at 00:41). Unclamped, ScheduleCalendar would render
     // this at a large negative `top` offset, escaping the grid container.
     it("clamps a block that starts and ends before the grid window", () => {
-      expect(clampRowsToWindow(-14, -10, 26)).toEqual({ rowStart: 1, rowEnd: 2 });
+      expect(clampRowsToWindow(-14, -10, 26)).toEqual({ rowStart: 1, rowEnd: 2, clamped: true });
     });
 
     it("clamps a block that starts and ends after the grid window", () => {
-      expect(clampRowsToWindow(40, 44, 26)).toEqual({ rowStart: 26, rowEnd: 27 });
+      expect(clampRowsToWindow(40, 44, 26)).toEqual({ rowStart: 26, rowEnd: 27, clamped: true });
     });
 
     it("clamps only the overflowing edge when a block straddles the window start", () => {
-      expect(clampRowsToWindow(-3, 4, 26)).toEqual({ rowStart: 1, rowEnd: 4 });
+      expect(clampRowsToWindow(-3, 4, 26)).toEqual({ rowStart: 1, rowEnd: 4, clamped: true });
     });
 
     it("clamps only the overflowing edge when a block straddles the window end", () => {
-      expect(clampRowsToWindow(24, 30, 26)).toEqual({ rowStart: 24, rowEnd: 27 });
+      expect(clampRowsToWindow(24, 30, 26)).toEqual({ rowStart: 24, rowEnd: 27, clamped: true });
     });
 
     it("leaves an in-window block untouched", () => {
-      expect(clampRowsToWindow(3, 5, 26)).toEqual({ rowStart: 3, rowEnd: 5 });
+      expect(clampRowsToWindow(3, 5, 26)).toEqual({ rowStart: 3, rowEnd: 5, clamped: false });
+    });
+
+    // Off-hours audit case: a 2:00 AM session (well before an 8am-start grid)
+    // must be flagged so the UI can render an "off-hours" chip instead of
+    // silently rendering a clamped block that looks like a normal 8am slot.
+    it("flags clamped blocks so the UI can mark off-hours sessions", () => {
+      expect(clampRowsToWindow(-10, -7, 26)).toMatchObject({ rowStart: 1, rowEnd: 2, clamped: true });
+      expect(clampRowsToWindow(3, 5, 26)).toMatchObject({ rowStart: 3, rowEnd: 5, clamped: false });
     });
   });
 });
