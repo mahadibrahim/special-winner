@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { eq } from "drizzle-orm";
+import { asc, eq, isNotNull } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { sessionPlans } from "@/lib/db/schema";
+import { activities, sessionPlans } from "@/lib/db/schema";
 import {
   getCoachCookie, getParentCookie, apiFetch, expectJson, resetCookies,
 } from "../setup/test-helpers";
@@ -10,6 +10,7 @@ describe("GET /api/coach/sessions/[id]/live", () => {
   let coachCookie: string;
   let parentCookie: string;
   let sessionId: string;
+  let diagramActivity: { id: string; name: string; diagram: string | null };
 
   beforeAll(async () => {
     coachCookie = await getCoachCookie();
@@ -18,6 +19,16 @@ describe("GET /api/coach/sessions/[id]/live", () => {
       await apiFetch("/api/coach/players", { method: "GET", cookie: coachCookie }), 200);
     expect(playersJson.players.length).toBeGreaterThan(0);
     const teamId = playersJson.players[0].team.id;
+
+    // Any global activity with a setup diagram (deterministic pick — the
+    // shared CI DB accumulates rows, so no bare findFirst).
+    [diagramActivity] = await getDb()
+      .select({ id: activities.id, name: activities.name, diagram: activities.diagram })
+      .from(activities)
+      .where(isNotNull(activities.diagram))
+      .orderBy(asc(activities.slug))
+      .limit(1);
+    expect(diagramActivity?.diagram).toBeTruthy();
 
     const created = await expectJson(
       await apiFetch("/api/coach/sessions", {
@@ -30,7 +41,17 @@ describe("GET /api/coach/sessions/[id]/live", () => {
           status: "planned",
           equipmentNeeded: ["Cones"],
           objectives: ["First touch"],
-          segments: [{ order: 0, name: "Warmup", type: "warmup", durationMinutes: 10 }],
+          segments: [
+            { order: 0, name: "Warmup", type: "warmup", durationMinutes: 10 },
+            {
+              order: 1,
+              name: "Main drill",
+              type: "technical",
+              durationMinutes: 15,
+              activityId: diagramActivity.id,
+              activityName: diagramActivity.name,
+            },
+          ],
         }),
       }), 201);
     sessionId = created.session.id;
@@ -54,6 +75,10 @@ describe("GET /api/coach/sessions/[id]/live", () => {
     expect(payload.equipment).toContain("Cones");
     expect(Array.isArray(payload.segments)).toBe(true);
     expect(payload.segments[0].activitySkillIds).toEqual([]);
+    // Segments carry the activity's setup diagram (drill visuals, owner
+    // directive 2026-07-12): null without an activity, the DB value with one.
+    expect(payload.segments[0].activityDiagram).toBeNull();
+    expect(payload.segments[1].activityDiagram).toBe(diagramActivity.diagram);
     expect(Array.isArray(payload.prompts)).toBe(true);
     expect(Array.isArray(payload.roster)).toBe(true);
     expect(payload.roster.length).toBeGreaterThan(0);

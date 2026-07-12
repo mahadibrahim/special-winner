@@ -9,6 +9,7 @@ export interface LiveSegment {
   activityName?: string;
   notes?: string;
   activitySkillIds: string[]; // resolved server-side; [] when no activity
+  activityDiagram: string | null; // resolved server-side; ASCII setup diagram, null when absent
 }
 
 export interface LivePlayer {
