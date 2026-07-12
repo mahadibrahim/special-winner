@@ -176,7 +176,11 @@ export async function handleDropInCheckoutComplete(
     //      PI — a redelivery of the ORIGINAL checkout event then misses the
     //      PI-based dedupe above and would re-insert here without this guard.
     const [activeForUser] = await tx
-      .select({ id: dropInBookings.id, status: dropInBookings.status })
+      .select({
+        id: dropInBookings.id,
+        status: dropInBookings.status,
+        stripePaymentIntentId: dropInBookings.stripePaymentIntentId,
+      })
       .from(dropInBookings)
       .where(
         and(
@@ -187,6 +191,20 @@ export async function handleDropInCheckoutComplete(
       )
       .limit(1);
     if (activeForUser) {
+      // Belt-and-braces: if the active row is owned by THIS PaymentIntent,
+      // this is a straight redelivery that slipped past both the ledger and
+      // the pre-transaction PI dedupe (fail-open ledger + concurrent
+      // deliveries racing the insert). Never hand the active row's own live
+      // payment to the duplicate-refund path — quiet skip.
+      if (
+        paymentIntentId &&
+        activeForUser.stripePaymentIntentId === paymentIntentId
+      ) {
+        return {
+          status: "skipped",
+          reason: `duplicate webhook for payment_intent ${paymentIntentId} — active booking ${activeForUser.id} already owns it`,
+        };
+      }
       // Resolved after the tx commits: a LIVE duplicate charge (this PI is
       // unrefunded and owned by no row) is refunded; a redelivery of an
       // already-refunded charge is quietly skipped. See

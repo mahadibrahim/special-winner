@@ -791,6 +791,45 @@ describe("duplicate paid checkout at the webhook (duplicate-user guard branches)
     expect(rows).toHaveLength(1);
   });
 
+  it("never refunds the active row's OWN PaymentIntent (ledger fail-open redelivery)", async () => {
+    refundCreateMock.mockClear();
+
+    const ctx = await createTestDropInSession({ capacity: 10, sessionRateCents: 1500 });
+    const user = await insertTestUser("dup-own-pi");
+    const piId = `pi_test_ownpi_${Date.now()}`;
+    const checkoutSession = makeDropinCheckoutSession({
+      checkoutSessionId: `cs_test_ownpi_${Date.now()}`,
+      paymentIntentId: piId,
+      dropInSessionId: ctx.sessionId,
+      userId: user.id,
+      amountTotal: 1500,
+    });
+
+    // First delivery seats the customer normally.
+    const first = await handleDropInCheckoutComplete(checkoutSession);
+    expect(first.status).toBe("processed");
+
+    // Replay the exact same event. Serially the pre-tx PI dedupe catches
+    // this; the guard's own-PI check (activeForUser.stripePaymentIntentId
+    // === incoming PI → quiet skip) is the backstop for the interleaving a
+    // serial test cannot stage — two concurrent deliveries both passing the
+    // pre-tx check before either inserts. This test pins the invariant the
+    // two layers jointly guarantee: replaying a seated customer's event
+    // NEVER refunds their live payment and NEVER duplicates their row,
+    // whichever layer catches it.
+    const second = await handleDropInCheckoutComplete(checkoutSession);
+    expect(second.status).toBe("skipped");
+    expect(refundCreateMock).not.toHaveBeenCalled();
+
+    const rows = await getDb()
+      .select()
+      .from(dropInBookings)
+      .where(eq(dropInBookings.sessionId, ctx.sessionId));
+    expect(rows).toHaveLength(1);
+    expect(rows[0].status).toBe("confirmed");
+    expect(rows[0].stripeRefundId).toBeNull();
+  });
+
   it("redelivery: an already-refunded charge is skipped quietly without a refund", async () => {
     refundCreateMock.mockClear();
     refundCreateMock.mockRejectedValueOnce(alreadyRefundedError());
