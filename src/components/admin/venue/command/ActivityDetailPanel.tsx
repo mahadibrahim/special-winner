@@ -236,7 +236,7 @@ export function ActivityDetailPanel({ session, locationId, timezone, onClose, on
     }
   };
 
-  // ── Held-row actions (resend pay link / cancel hold) ───────────────────────
+  // ── Held-row actions (resend waiver link / cancel hold) ─────────────────────
   const resendLink = async (row: RowData) => {
     setRowBusy((p) => ({ ...p, [row.targetId]: true }));
     try {
