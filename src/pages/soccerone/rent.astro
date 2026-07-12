@@ -11,7 +11,7 @@ import { DEFAULT_BOOKING_WINDOW_DAYS, resolveBookingWindowDays } from '@/lib/mem
 
 const facility = Astro.url.searchParams.get('facility') || 'worthington';
 const facilityLabel = facility === 'downtown' ? 'Downtown' : 'Worthington';
-const fieldCount = facility === 'downtown' ? '1 field' : '3 fields';
+const fieldCount = facility === 'downtown' ? '1 field' : '2 fields';
 
 // Brands share one org — the facility param maps straight onto the org's
 // location slugs ('downtown' / 'worthington').
@@ -50,7 +50,7 @@ const fmt = (cents: number) => {
 <BaseLayout
   favicon="/soccerone-favicon.svg"
   title={`Field Rentals — SoccerOne | ${facilityLabel}`}
-  description="Book an indoor soccer field at SoccerOne. Worthington (3 fields) and Downtown (1 field). Seasonal tiered rates, members save 10–25%. Open 4pm–12am daily."
+  description="Book an indoor soccer field at SoccerOne. Worthington (2 fields) and Downtown (1 field). Seasonal tiered rates, members save 10–25%. Open 4pm–12am daily."
   navigation={false}
   footer={false}
   bodyClass="min-h-screen flex flex-col bg-[#0a0a0d] text-white antialiased"
@@ -121,7 +121,7 @@ const fmt = (cents: number) => {
             href="/rent?facility=worthington"
             class={`ff-tab ${facility === 'worthington' ? 'ff-tab--active' : ''}`}
           >
-            WORTHINGTON · 3 FIELDS
+            WORTHINGTON · 2 FIELDS
           </a>
           <a
             href="/rent?facility=downtown"

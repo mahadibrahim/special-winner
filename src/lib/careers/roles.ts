@@ -25,7 +25,7 @@ export const CAREER_ROLES: CareerRole[] = [
       "Officiate 7v7 adult matches across our Worthington and Downtown facilities. Games run evenings and weekends, year-round.",
     points: [
       "Coed, men's, and women's divisions from rec to competitive",
-      "Indoor, FIFA-approved turf — no rainouts",
+      "Indoor, sand-filled turf — no rainouts",
       "Tell us your grade and experience; newer officials welcome to apply",
     ],
   },
@@ -46,7 +46,7 @@ export const CAREER_ROLES: CareerRole[] = [
     title: "Facility Crew",
     timing: "Ongoing",
     blurb:
-      "Front desk, drop-in check-in, and day-of operations that keep four indoor fields running from 4 PM to midnight.",
+      "Front desk, drop-in check-in, and day-of operations that keep three indoor fields running from 4 PM to midnight.",
     points: [
       "Evening and weekend shifts across both facilities",
       "Customer-facing — you're the first person every player meets",
