@@ -1,0 +1,1 @@
+ALTER TABLE "drop_in_bookings" ADD COLUMN IF NOT EXISTS "waitlist_priority" integer DEFAULT 0 NOT NULL;

@@ -152,6 +152,13 @@ export const dropInBookings = pgTable(
     // pending_payment hold. NULL means not yet reminded (or not applicable).
     // Stamp-then-send so a crashed send can't double-fire.
     reminderSentAt: timestamp("reminder_sent_at", { withTimezone: true }),
+    // Front-of-line ordering for promoteNextWaitlister: default 0 for a
+    // normal waitlist join; the paid-checkout overflow path (a customer who
+    // paid, got squeezed out by a same-instant confirm on the last spot, and
+    // was auto-refunded) stamps 100 so they queue-jump everyone who joined
+    // the waitlist voluntarily. promoteNextWaitlister orders by this column
+    // DESC, then createdAt ASC, so ties within a priority tier stay FIFO.
+    waitlistPriority: integer("waitlist_priority").notNull().default(0),
     waiverSigned: boolean("waiver_signed").notNull().default(false),
     waiverSignedAt: timestamp("waiver_signed_at", { withTimezone: true }),
     waiverSignedBy: text("waiver_signed_by"),

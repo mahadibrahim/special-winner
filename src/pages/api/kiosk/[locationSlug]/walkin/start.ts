@@ -19,9 +19,13 @@
  *      for the adult walk-in path rather than needing a sentinel DOB like
  *      add-walkup-to-pickup.ts's ADULT_SENTINEL_DOB).
  *   6. Resolve amountDueCents from session override or org rate card
- *   7. Inside one transaction: reject (409) if the booker already has an
- *      active booking on this session, otherwise insert a dropInBookings
- *      row in `pending_payment` status with `promotionExpiresAt = now + 2h`.
+ *   7. Inside one transaction: reject (409) if the session is already at
+ *      capacity (checkSessionCapacityLocked — confirmed + pending_payment +
+ *      pending_claim all count as occupying a seat, so a kiosk attendant
+ *      can't hand out a hold for a seat that's already spoken for) or if the
+ *      booker already has an active booking on this session, otherwise
+ *      insert a dropInBookings row in `pending_payment` status with
+ *      `promotionExpiresAt = now + 2h`.
  *      Real lifecycle now: the hold is a genuine payment-pending state —
  *      `expireOverduePromotions` (src/lib/dropin/promotion.ts) sweeps and
  *      cancels holds whose `promotionExpiresAt` has passed (freeing the
@@ -48,6 +52,7 @@ import { resolvePerson } from "@/lib/registrations/resolve-person";
 import { requireKioskLocation } from "@/lib/check-in/kiosk-auth";
 import { mintToken } from "@/lib/check-in/tokens-db";
 import { resolveRate, DEFAULT_WALK_UP_RATE_CENTS } from "@/lib/dropin/pricing";
+import { checkSessionCapacityLocked } from "@/lib/dropin/booking";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 
 export const prerender = false;
@@ -267,13 +272,18 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
       | { kind: "created"; row: typeof dropInBookings.$inferSelect }
       | { kind: "duplicate" }
       | { kind: "session_gone" }
+      | { kind: "session_full" }
     > => {
       // Lock the session row FIRST — this serializes concurrent walk-in
-      // starts on the same session, so the existence check below can't
-      // race a parallel insert (the check + insert would otherwise be a
-      // TOCTOU window the partial unique index can't backstop, since its
-      // predicate doesn't cover pending_payment). Mirrors
-      // createConfirmedBookingFreePath in src/lib/dropin/booking.ts.
+      // starts on the same session, so the existence/capacity checks below
+      // can't race a parallel insert (the check + insert would otherwise be
+      // a TOCTOU window the partial unique index can't backstop, since its
+      // predicate doesn't cover pending_payment). Lock ordering: every
+      // transaction that touches both the session row and a booking row
+      // locks the session first — same order as createConfirmedBookingFreePath
+      // and handle-dropin-checkout-complete.ts. (handle-dropin-walkin-payment.ts
+      // locks only a booking row and never the session row in its
+      // transaction, so it can't deadlock against this ordering.)
       const [lockedSession] = await tx
         .select({ id: dropInSessions.id, status: dropInSessions.status })
         .from(dropInSessions)
@@ -283,6 +293,15 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
       // have raced a session cancel/delete.
       if (!lockedSession || lockedSession.status !== "scheduled") {
         return { kind: "session_gone" };
+      }
+
+      // Capacity gate — shared with the free-path orchestrator and the
+      // paid Checkout webhook (checkSessionCapacityLocked). A kiosk hold
+      // occupies a real physical seat just like a confirmed booking, so it
+      // must not be handed out past capacity.
+      const capCheck = await checkSessionCapacityLocked(tx, session.id);
+      if (capCheck.full) {
+        return { kind: "session_full" };
       }
 
       const [existingActive] = await tx
@@ -319,6 +338,9 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
 
   if (holdResult.kind === "session_gone") {
     return json({ error: "Session is not open for registration" }, 422);
+  }
+  if (holdResult.kind === "session_full") {
+    return json({ error: "Session is full" }, 409);
   }
   if (holdResult.kind === "duplicate") {
     return json(

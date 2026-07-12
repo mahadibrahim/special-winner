@@ -62,15 +62,22 @@ export const GET: APIRoute = async (context) => {
       status: dropInSessions.status,
       venueId: dropInSessions.venueId,
       venueName: venues.name,
+      // confirmedCount includes pending_payment (kiosk holds) and
+      // pending_claim (promoted waitlisters mid-claim-window) — both occupy
+      // a real seat, same definition the transactional capacity gate uses
+      // (checkSessionCapacityLocked) and the public session-detail endpoint
+      // mirrors. waitlistCount counts ONLY `waitlisted`: pending_claim is
+      // already counted above as taken, so including it here too
+      // double-reported the same row as both taken and still-waiting.
       confirmedCount: sql<number>`(
         SELECT COUNT(*)::int FROM ${dropInBookings}
         WHERE ${dropInBookings.sessionId} = ${dropInSessions.id}
-          AND ${dropInBookings.status} = 'confirmed'
+          AND ${dropInBookings.status} IN ('confirmed', 'pending_payment', 'pending_claim')
       )`,
       waitlistCount: sql<number>`(
         SELECT COUNT(*)::int FROM ${dropInBookings}
         WHERE ${dropInBookings.sessionId} = ${dropInSessions.id}
-          AND ${dropInBookings.status} IN ('waitlisted', 'pending_claim')
+          AND ${dropInBookings.status} = 'waitlisted'
       )`,
     })
     .from(dropInSessions)

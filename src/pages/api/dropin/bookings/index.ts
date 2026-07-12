@@ -16,7 +16,7 @@
  * partner account net of our `partnerApplicationFeePct` cut.
  */
 import type { APIRoute } from "astro";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   dropInSessions,
@@ -193,6 +193,39 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
   }
 
   // Paid path → Stripe Checkout. Booking row created on webhook.
+  //
+  // Duplicate pre-check BEFORE money can move: the free path's orchestrator
+  // rejects `already_booked` inside its transaction, but the paid path used
+  // to mint a Checkout Session unconditionally — a user with an existing
+  // active booking (second tab, kiosk hold, waitlist spot) could complete a
+  // payment that buys nothing. The webhook's duplicate-user guard would
+  // catch the row insert, but the charge would already exist; kill the
+  // duplicate here, before Stripe is involved. (Not race-proof on its own —
+  // two concurrent first-time checkouts pass this check; the webhook guard
+  // + auto-refund is the transactional backstop.)
+  const [existingActive] = await db
+    .select({ status: dropInBookings.status })
+    .from(dropInBookings)
+    .where(
+      and(
+        eq(dropInBookings.sessionId, sessionId),
+        eq(dropInBookings.userId, locals.user.id),
+        sql`${dropInBookings.status} IN ('confirmed', 'waitlisted', 'pending_claim', 'pending_payment')`,
+      ),
+    )
+    .limit(1);
+  if (existingActive) {
+    return json(
+      {
+        error: {
+          code: "already_booked",
+          message: "You already have an active booking on this session",
+        },
+      },
+      409,
+    );
+  }
+
   if (!stripe) {
     return json({ error: "Stripe not configured" }, 500);
   }
