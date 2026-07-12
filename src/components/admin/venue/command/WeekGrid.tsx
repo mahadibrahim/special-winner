@@ -130,6 +130,9 @@ export function WeekGrid({ payload, onPrev, onNext, onOpenActivity, timezone = "
                 ) : (
                   sessionsForDay.map((s) => (
                     <div key={s.id} className="h-6">
+                      {/* Deliberately never passes `clamped`: week cells are
+                          list-stacked (no row positioning), so nothing gets
+                          clamped to a grid window here. */}
                       <ActivityBlock
                         session={s}
                         onClick={onOpenActivity}

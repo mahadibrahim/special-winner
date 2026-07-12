@@ -93,9 +93,17 @@ export function ActivityBlock({ session, onClick, compact = false, timezone = "A
       {compact ? (
         /* Compact / week-view rendering */
         <div className="flex items-center gap-1 min-w-0">
+          {/* The real start time is the binding info here: a fully
+              off-hours block always collapses to a 1-row compact block, and
+              the hover popover is suppressed in compact mode — so this chip
+              is the only place the true time surfaces without opening the
+              panel. If width is ever tight, drop the word before the time. */}
           {clamped && (
-            <span className="shrink-0 text-[9.5px] font-bold bg-stone-800/80 text-white rounded px-1 leading-tight">
-              off-hours
+            <span
+              className="shrink-0 text-[9.5px] font-bold bg-stone-800/80 text-white rounded px-1 leading-tight whitespace-nowrap"
+              title={`Off-hours — actually starts ${formatTime(session.startsAt, timezone)}`}
+            >
+              ⤴ {formatTime(session.startsAt, timezone)}
             </span>
           )}
           <div className="text-[10px] font-bold leading-tight truncate">
