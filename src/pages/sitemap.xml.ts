@@ -6,22 +6,28 @@
 // Aspire URLs only, served identically on every brand domain).
 import type { APIRoute } from "astro";
 import { isSoccerOneHost } from "@/lib/organization/soccerone-routing";
-import { soccerOneSitemapXml } from "@/lib/seo/tenant-seo";
+import { aspireSitemapXml, soccerOneSitemapXml } from "@/lib/seo/tenant-seo";
 
 export const prerender = false;
+
+const XML_HEADERS = {
+  "Content-Type": "application/xml; charset=utf-8",
+  "Netlify-CDN-Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
+  "Cache-Control": "public, max-age=0, must-revalidate",
+};
 
 export const GET: APIRoute = ({ request, redirect }) => {
   const url = new URL(request.url);
   const host = request.headers.get("host") ?? url.host;
-  if (!isSoccerOneHost(host)) {
-    return redirect("/sitemap-index.xml", 301);
-  }
   const origin = `https://${host.split(":")[0].toLowerCase()}`;
-  return new Response(soccerOneSitemapXml(origin), {
-    headers: {
-      "Content-Type": "application/xml; charset=utf-8",
-      "Netlify-CDN-Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
-      "Cache-Control": "public, max-age=0, must-revalidate",
-    },
-  });
+  if (!isSoccerOneHost(host)) {
+    // Production: the @astrojs/sitemap build output is the complete Aspire
+    // map (prerendered pages + the shared SSR list). Dev/CI has no build
+    // artifacts, so serve the SSR list inline instead of 301ing into a 404.
+    if (import.meta.env.PROD) {
+      return redirect("/sitemap-index.xml", 301);
+    }
+    return new Response(aspireSitemapXml(origin), { headers: XML_HEADERS });
+  }
+  return new Response(soccerOneSitemapXml(origin), { headers: XML_HEADERS });
 };

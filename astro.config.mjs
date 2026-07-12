@@ -36,22 +36,9 @@ const PRIVATE_PREFIXES = [
 
 // Public SSR marketing pages. @astrojs/sitemap only auto-discovers
 // prerendered routes (output: "server"), so the SSR-rendered marketing
-// surface — home, audience hubs, category pages, directory pages — must be
-// listed explicitly. Dynamic slugs (/sports/[slug], /locations/[slug]) are
-// intentionally omitted: they're DB-driven and crawlable via the listed
-// index pages.
-const SSR_PUBLIC_PAGES = [
-  "/",
-  "/youth",
-  "/youth/leagues",
-  "/youth/camps",
-  "/adult",
-  "/adult/leagues",
-  "/adult/pickup",
-  "/adult/tournaments",
-  "/locations",
-  "/sports",
-];
+// surface must be listed explicitly. The list lives in a shared module so
+// the runtime dev/CI sitemap (src/pages/sitemap.xml.ts) serves the same set.
+import { ASPIRE_SSR_PUBLIC_PAGES as SSR_PUBLIC_PAGES } from './src/lib/seo/aspire-sitemap-pages.mjs';
 
 // https://astro.build/config
 export default defineConfig({

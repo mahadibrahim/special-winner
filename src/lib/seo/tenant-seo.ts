@@ -13,6 +13,8 @@
 // rewrite map lands in the sitemap automatically.
 
 import { SOCCERONE_MARKETING_REWRITES } from "@/lib/organization/soccerone-routing";
+// Plain .mjs module shared with astro.config.mjs (single source of truth).
+import { ASPIRE_SSR_PUBLIC_PAGES } from "@/lib/seo/aspire-sitemap-pages.mjs";
 
 /** Path prefixes crawlers should skip on every brand (auth/portal/API). */
 const DISALLOW = [
@@ -50,7 +52,20 @@ export function robotsTxt(origin: string): string {
  * omitted — a wrong/stale lastmod is worse than none.
  */
 export function soccerOneSitemapXml(origin: string): string {
-  const paths = Object.keys(SOCCERONE_MARKETING_REWRITES);
+  return sitemapXml(origin, Object.keys(SOCCERONE_MARKETING_REWRITES));
+}
+
+/**
+ * Dev/CI fallback sitemap for Aspire hosts, built from the same page list
+ * astro.config.mjs feeds @astrojs/sitemap. In production Aspire hosts are
+ * 301-redirected to the complete built /sitemap-index.xml instead — this
+ * exists because that build artifact doesn't exist on the dev server.
+ */
+export function aspireSitemapXml(origin: string): string {
+  return sitemapXml(origin, ASPIRE_SSR_PUBLIC_PAGES as string[]);
+}
+
+function sitemapXml(origin: string, paths: string[]): string {
   const urls = paths
     .map((p) => `  <url>\n    <loc>${origin}${p === "/" ? "/" : p}</loc>\n  </url>`)
     .join("\n");

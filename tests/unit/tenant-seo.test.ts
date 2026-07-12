@@ -35,3 +35,15 @@ describe("soccerOneSitemapXml", () => {
     expect(xml.trim().endsWith("</urlset>")).toBe(true);
   });
 });
+
+describe("aspireSitemapXml", () => {
+  it("serves the shared Aspire SSR page list and excludes private paths", async () => {
+    const { aspireSitemapXml } = await import("@/lib/seo/tenant-seo");
+    const xml = aspireSitemapXml("https://aspiresportsohio.com");
+    for (const loc of ["https://aspiresportsohio.com/", "https://aspiresportsohio.com/youth", "https://aspiresportsohio.com/adult/leagues"]) {
+      expect(xml).toContain(`<loc>${loc}</loc>`);
+    }
+    expect(xml).not.toContain("/partners/planner");
+    expect(xml).not.toContain("/admin");
+  });
+});
