@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useId } from "react";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ErrorBanner } from "@/components/ui/error-banner";
@@ -89,6 +89,7 @@ export interface PickupAlertSignupProps {
 
 export function PickupAlertSignup({ signedIn: signedInProp }: PickupAlertSignupProps) {
   useHydrationBeacon();
+  const uid = useId();
   const signedIn = useSignedIn(signedInProp);
 
   const [venues, setVenues] = useState<Array<{ id: string; name: string }>>([]);
@@ -231,8 +232,9 @@ export function PickupAlertSignup({ signedIn: signedInProp }: PickupAlertSignupP
       */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <label className="block text-xs font-medium text-ink-muted mb-1">Location</label>
+          <label htmlFor={`${uid}-venue`} className="block text-xs font-medium text-ink-muted mb-1">Location</label>
           <select
+            id={`${uid}-venue`}
             value={venueId}
             onChange={(e) => setVenueId(e.target.value)}
             className="w-full px-3 py-2 rounded-md bg-paper border border-border text-sm text-ink"
@@ -247,8 +249,9 @@ export function PickupAlertSignup({ signedIn: signedInProp }: PickupAlertSignupP
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-ink-muted mb-1">Sport</label>
+          <label htmlFor={`${uid}-sport`} className="block text-xs font-medium text-ink-muted mb-1">Sport</label>
           <select
+            id={`${uid}-sport`}
             value={sport}
             onChange={(e) => setSport(e.target.value)}
             className="w-full px-3 py-2 rounded-md bg-paper border border-border text-sm text-ink"
