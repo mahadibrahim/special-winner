@@ -164,88 +164,106 @@ export async function handleRegistrationPaymentSucceeded(
       .where(eq(registrations.id, registrationId));
 
     if (row) {
-      await awaitEmailSend("registration confirmation", () => sendRegistrationConfirmationEmail({
-        userId: row.user.id,
-        organizationId: row.location.organizationId ?? undefined,
-        registrationId,
-        parentEmail: row.user.email,
-        parentName: row.user.firstName || row.user.email.split("@")[0],
-        childName: `${row.familyMember.firstName} ${row.familyMember.lastName}`,
-        programName: row.program.name,
-        seasonName: row.season.name,
-        startDate: row.season.startDate,
-        endDate: row.season.endDate,
-        scheduleNotes: row.season.scheduleNotes || undefined,
-        locationName: row.location.name,
-        locationAddress:
-          [row.location.addressLine1, row.location.city, row.location.state]
-            .filter(Boolean)
-            .join(", ") || undefined,
-        amountDueCents: registration.amountDueCents,
-        paymentStatus: isFullyPaid ? "paid" : "deposit_paid",
-        registrationStatus: "confirmed",
-        brand: normalizeBrand(paymentIntent.metadata?.brand),
-      }), { registrationId });
+      // These four sends are mutually independent (two emails, an ops ping,
+      // and — only for guest checkout — a magic-link mint + email) and were
+      // previously awaited serially, roughly quadrupling this section's
+      // contribution to webhook ACK latency. awaitEmailSend/awaitDispatch and
+      // sendOpsPing already swallow their own failures (resolve, never
+      // reject — see their doc comments), and the guest-checkout branch below
+      // wraps createMagicLink + its send in its own try/catch, so none of
+      // these promises can reject; Promise.all is safe, but allSettled is
+      // used anyway as a belt-and-suspenders guard against a future change
+      // to one of those wrappers silently starting to throw.
+      const sends: Promise<unknown>[] = [
+        awaitEmailSend("registration confirmation", () => sendRegistrationConfirmationEmail({
+          userId: row.user.id,
+          organizationId: row.location.organizationId ?? undefined,
+          registrationId,
+          parentEmail: row.user.email,
+          parentName: row.user.firstName || row.user.email.split("@")[0],
+          childName: `${row.familyMember.firstName} ${row.familyMember.lastName}`,
+          programName: row.program.name,
+          seasonName: row.season.name,
+          startDate: row.season.startDate,
+          endDate: row.season.endDate,
+          scheduleNotes: row.season.scheduleNotes || undefined,
+          locationName: row.location.name,
+          locationAddress:
+            [row.location.addressLine1, row.location.city, row.location.state]
+              .filter(Boolean)
+              .join(", ") || undefined,
+          amountDueCents: registration.amountDueCents,
+          paymentStatus: isFullyPaid ? "paid" : "deposit_paid",
+          registrationStatus: "confirmed",
+          brand: normalizeBrand(paymentIntent.metadata?.brand),
+        }), { registrationId }),
 
-      await awaitEmailSend("payment receipt", () => sendPaymentReceiptEmail({
-        userId: row.user.id,
-        organizationId: row.location.organizationId ?? undefined,
-        registrationId,
-        parentEmail: row.user.email,
-        parentName: row.user.firstName || row.user.email.split("@")[0],
-        childName: `${row.familyMember.firstName} ${row.familyMember.lastName}`,
-        programName: row.program.name,
-        seasonName: row.season.name,
-        amountPaidCents: amountPaid,
-        paymentType: paymentTypeValue,
-        remainingBalanceCents: isFullyPaid ? undefined : newAmountDue,
-        receiptNumber: paymentIntent.id.replace(/^pi_(test_)?/, "").slice(0, 12),
-        brand: normalizeBrand(paymentIntent.metadata?.brand),
-      }), { registrationId });
+        awaitEmailSend("payment receipt", () => sendPaymentReceiptEmail({
+          userId: row.user.id,
+          organizationId: row.location.organizationId ?? undefined,
+          registrationId,
+          parentEmail: row.user.email,
+          parentName: row.user.firstName || row.user.email.split("@")[0],
+          childName: `${row.familyMember.firstName} ${row.familyMember.lastName}`,
+          programName: row.program.name,
+          seasonName: row.season.name,
+          amountPaidCents: amountPaid,
+          paymentType: paymentTypeValue,
+          remainingBalanceCents: isFullyPaid ? undefined : newAmountDue,
+          receiptNumber: paymentIntent.id.replace(/^pi_(test_)?/, "").slice(0, 12),
+          brand: normalizeBrand(paymentIntent.metadata?.brand),
+        }), { registrationId }),
 
-      await sendOpsPing(row.location.organizationId, {
-        kind: "registration_paid",
-        brand: registration.brand,
-        // Use the payment intent id, not registration.id: a registration can
-        // receive multiple payments (deposit, then balance/installments) and
-        // each one is a distinct payment event — keying on registration.id
-        // would dedupe every payment after the first against the initial ping.
-        eventId: paymentIntent.id,
-        label: `${row.familyMember.firstName} ${row.familyMember.lastName} · ${row.program.name} ${row.season.name}`,
-        amountCents: amountPaid,
-      });
+        sendOpsPing(row.location.organizationId, {
+          kind: "registration_paid",
+          brand: registration.brand,
+          // Use the payment intent id, not registration.id: a registration can
+          // receive multiple payments (deposit, then balance/installments) and
+          // each one is a distinct payment event — keying on registration.id
+          // would dedupe every payment after the first against the initial ping.
+          eventId: paymentIntent.id,
+          label: `${row.familyMember.firstName} ${row.familyMember.lastName} · ${row.program.name} ${row.season.name}`,
+          amountCents: amountPaid,
+        }),
+      ];
 
       if (paymentIntent.metadata?.via_guest_checkout === "true") {
-        try {
-          const link = await createMagicLink({
-            userId: registration.registeredByUserId,
-            organizationId: row.location.organizationId ?? undefined,
-            purpose: "login",
-            purposeContext: { redirectTo: `/dashboard?welcome=${registrationId}` },
-            deliveredChannel: "email",
-            deliveredTo: row.user.email,
-          });
-          await awaitEmailSend("guest magic-link login", () => sendMagicLinkLoginEmail({
-            userId: row.user.id,
-            organizationId: row.location.organizationId ?? undefined,
-            parentEmail: row.user.email,
-            parentName: row.user.firstName || row.user.email.split("@")[0],
-            // No request context in a webhook — derive the redemption domain
-            // from the charge's brand metadata so a gosoccerone.com purchase
-            // signs the customer in on gosoccerone.com.
-            magicLinkUrl: buildMagicLinkUrl(link.token, {
-              origin: originForBrand(paymentIntent.metadata?.brand),
-            }),
-            expiresIn: "15 minutes",
-            programName: row.program.name,
-            childName: `${row.familyMember.firstName} ${row.familyMember.lastName}`,
-            seasonName: row.season.name,
-            brand: normalizeBrand(paymentIntent.metadata?.brand),
-          }), { registrationId });
-        } catch (err) {
-          console.error("[stripe webhook] magic-link mint failed:", err);
-        }
+        sends.push(
+          (async () => {
+            try {
+              const link = await createMagicLink({
+                userId: registration.registeredByUserId,
+                organizationId: row.location.organizationId ?? undefined,
+                purpose: "login",
+                purposeContext: { redirectTo: `/dashboard?welcome=${registrationId}` },
+                deliveredChannel: "email",
+                deliveredTo: row.user.email,
+              });
+              await awaitEmailSend("guest magic-link login", () => sendMagicLinkLoginEmail({
+                userId: row.user.id,
+                organizationId: row.location.organizationId ?? undefined,
+                parentEmail: row.user.email,
+                parentName: row.user.firstName || row.user.email.split("@")[0],
+                // No request context in a webhook — derive the redemption domain
+                // from the charge's brand metadata so a gosoccerone.com purchase
+                // signs the customer in on gosoccerone.com.
+                magicLinkUrl: buildMagicLinkUrl(link.token, {
+                  origin: originForBrand(paymentIntent.metadata?.brand),
+                }),
+                expiresIn: "15 minutes",
+                programName: row.program.name,
+                childName: `${row.familyMember.firstName} ${row.familyMember.lastName}`,
+                seasonName: row.season.name,
+                brand: normalizeBrand(paymentIntent.metadata?.brand),
+              }), { registrationId });
+            } catch (err) {
+              console.error("[stripe webhook] magic-link mint failed:", err);
+            }
+          })(),
+        );
       }
+
+      await Promise.allSettled(sends);
     }
   } catch (err) {
     console.error("[stripe webhook] email payload build failed:", err);

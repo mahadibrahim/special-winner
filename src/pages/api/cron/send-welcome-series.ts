@@ -100,25 +100,48 @@ export const POST: APIRoute = async ({ request }) => {
   let sent = 0;
   let errored = 0;
 
+  // Batched replacement for the old per-candidate emailLogs SELECT: one
+  // inArray(userId) + inArray(emailType) query, grouped into a per-user Set
+  // in JS, instead of one query per candidate in the loop below. This map is
+  // the ONLY dedupe gate — sendWelcomeSeriesEmail always sends and logs, it
+  // does not re-check email_logs itself — so a failure here must abort the
+  // whole run rather than fall back to an empty map (which would treat every
+  // already-sent step as due and re-send it to every candidate). Left
+  // unguarded, same as the enroll UPDATE and candidate SELECT above: an
+  // error here fails the cron run and the scheduler's next invocation
+  // retries cleanly.
+  const sentTypesByUser = new Map<string, Set<string>>();
+  if (candidates.length > 0) {
+    const logs = await db
+      .select({ userId: emailLogs.userId, emailType: emailLogs.emailType })
+      .from(emailLogs)
+      .where(
+        and(
+          inArray(
+            emailLogs.userId,
+            candidates.map((c) => c.id),
+          ),
+          inArray(
+            emailLogs.emailType,
+            WELCOME_SERIES_STEPS.map((s) => s.emailType),
+          ),
+        ),
+      );
+    for (const log of logs) {
+      if (!log.userId) continue; // emailLogs.userId is nullable (ON DELETE SET NULL)
+      const set = sentTypesByUser.get(log.userId);
+      if (set) set.add(log.emailType);
+      else sentTypesByUser.set(log.userId, new Set([log.emailType]));
+    }
+  }
+
   for (const u of candidates) {
     let due: ReturnType<typeof dueWelcomeSeriesSteps>;
     try {
       // A welcome-series step is logged once it is attempted (success OR
       // failure); a failed send is not retried — one attempt per step, same
       // as the other transactional crons. The drip is otherwise idempotent.
-      const logs = await db
-        .select({ emailType: emailLogs.emailType })
-        .from(emailLogs)
-        .where(
-          and(
-            eq(emailLogs.userId, u.id),
-            inArray(
-              emailLogs.emailType,
-              WELCOME_SERIES_STEPS.map((s) => s.emailType),
-            ),
-          ),
-        );
-      const sentTypes = new Set(logs.map((l) => l.emailType));
+      const sentTypes = sentTypesByUser.get(u.id) ?? new Set<string>();
 
       due = dueWelcomeSeriesSteps({
         enrolledAt: u.enrolledAt!,
