@@ -27,6 +27,7 @@ import {
 } from "@/lib/consents/record";
 import { collectAdAttribution } from "@/lib/analytics/parse-cookies";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
+import { recordPhoneOptIn } from "@/lib/sms/opt-in";
 
 const guestRegistrantSchema = z.object({
   firstName: z.string().min(1),
@@ -66,6 +67,9 @@ const guestCheckoutSchema = z.union([
     teamToken: z.string().max(64).optional(),
     mediaAuthOptOuts: mediaAuthOptOutsSchema,
     paymentMethodCategory: z.enum(["bank", "card"]).optional(),
+    // SMS consent checkbox next to the phone field (unchecked by default).
+    // Only meaningful when a phone is provided.
+    smsConsent: z.boolean().optional(),
   }),
   // New adult self shape
   z.object({
@@ -79,6 +83,7 @@ const guestCheckoutSchema = z.union([
     teamToken: z.string().max(64).optional(),
     mediaAuthOptOuts: mediaAuthOptOutsSchema,
     paymentMethodCategory: z.enum(["bank", "card"]).optional(),
+    smsConsent: z.boolean().optional(),
   }),
 ]);
 
@@ -210,6 +215,10 @@ export const POST: APIRoute = async (context) => {
       mediaAuthOptOuts?: ReadonlyArray<"internal" | "promotional" | "public">;
       extraMetadata: Record<string, string>;
       paymentMethodCategory?: "bank" | "card";
+      /** Phone the registrant supplied, if any — gates the SMS opt-in write. */
+      phone?: string | null;
+      /** SMS consent checkbox state (unchecked by default; see SmsConsentCheckbox). */
+      smsConsent: boolean;
     }) {
       const {
         userRow,
@@ -227,6 +236,8 @@ export const POST: APIRoute = async (context) => {
         mediaAuthOptOuts,
         extraMetadata,
         paymentMethodCategory,
+        phone,
+        smsConsent,
       } = opts;
       void distinctIdForPosthog;
 
@@ -257,6 +268,25 @@ export const POST: APIRoute = async (context) => {
           });
         }
         throw err;
+      }
+
+      // Record SMS opt-in state for a supplied phone: opted_in only when the
+      // customer checked the consent box, else a pending row (never downgrades
+      // an existing opted_in). Reuses the org createRegistration already
+      // resolved. Best-effort — a failure here must not block checkout.
+      if (phone && regResult.organizationId) {
+        try {
+          await recordPhoneOptIn({
+            db,
+            organizationId: regResult.organizationId,
+            userId: userRow.id,
+            phone,
+            consented: smsConsent,
+            source: "registration_form",
+          });
+        } catch (err) {
+          console.error("Failed to record phone opt-in:", err);
+        }
       }
 
       if (regResult.kind !== "resumed" && waiverSigned) {
@@ -402,6 +432,8 @@ export const POST: APIRoute = async (context) => {
         mediaAuthOptOuts: data.mediaAuthOptOuts,
         extraMetadata: analyticsMetadata,
         paymentMethodCategory: data.paymentMethodCategory,
+        phone: r.phone ?? null,
+        smsConsent: data.smsConsent === true,
       });
     }
 
@@ -446,6 +478,8 @@ export const POST: APIRoute = async (context) => {
       mediaAuthOptOuts: data.mediaAuthOptOuts,
       extraMetadata: analyticsMetadata,
       paymentMethodCategory: "paymentMethodCategory" in data ? data.paymentMethodCategory : undefined,
+      phone: data.parent.phone ?? null,
+      smsConsent: data.smsConsent === true,
     });
   } catch (error) {
     console.error("Error in guest-checkout:", error);

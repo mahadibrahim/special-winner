@@ -4,6 +4,7 @@ import { users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { validateSession } from "@/lib/auth";
+import { recordPhoneOptIn } from "@/lib/sms/opt-in";
 
 const profileSchema = z.object({
   firstName: z.string().min(1, "First name is required").max(100),
@@ -22,6 +23,11 @@ const profileSchema = z.object({
     .enum(["male", "female", "other", "prefer_not_to_say"])
     .optional()
     .nullable(),
+  // Sent only by forms that collect a phone next to the SmsConsentCheckbox
+  // (e.g. the wizard's complete-your-profile step). When present, records
+  // phone opt-in state for the resolved organization; when absent, opt-in
+  // state is untouched.
+  smsConsent: z.boolean().optional(),
 });
 
 // GET - Get current user profile
@@ -109,6 +115,29 @@ export const PUT: APIRoute = async (context) => {
         gender: users.gender,
         avatarUrl: users.avatarUrl,
       });
+
+    // Record SMS opt-in state when the form collected a phone alongside the
+    // consent checkbox. Best-effort — a failure must not fail the profile save.
+    const organization = (
+      context.locals as unknown as { organization?: { id: string } | null }
+    ).organization;
+    if (
+      result.data.smsConsent !== undefined &&
+      result.data.phone &&
+      organization?.id
+    ) {
+      try {
+        await recordPhoneOptIn({
+          organizationId: organization.id,
+          userId: user.id,
+          phone: result.data.phone,
+          consented: result.data.smsConsent,
+          source: "registration_form",
+        });
+      } catch (err) {
+        console.error("Failed to record phone opt-in:", err);
+      }
+    }
 
     return new Response(JSON.stringify({ profile: updatedProfile }), {
       status: 200,
