@@ -341,6 +341,7 @@ anyone standing at the kiosk."
 `WaiverCard`, `PhotoCard`, `PayCard`, and `SelfServe`'s screens use hardcoded `bg-white`, `text-stone-600`, `bg-stone-900`, `emerald-*`, `amber-*`. Those do not respond to the SoccerOne token inversion, so **texted self-serve links on `gosoccerone.com` are illegible today** — this is a live bug, independent of the kiosk. It must be fixed before the kiosk renders these cards.
 
 **Files:**
+- Create: `src/components/self-serve/card-styles.ts`
 - Modify: `src/components/self-serve/WaiverCard.tsx`
 - Modify: `src/components/self-serve/PhotoCard.tsx`
 - Modify: `src/components/self-serve/PayCard.tsx`
@@ -350,11 +351,14 @@ anyone standing at the kiosk."
 **Interfaces:**
 - Produces: `WaiverCard` gains a `playerName: string` prop (used for the guardian consent line). All four files export unchanged component names.
 
-- [ ] **Step 1: Introduce shared card classes in `WaiverCard.tsx`**
+- [ ] **Step 1: Introduce shared card classes in their own module**
 
-At the top of the file, next to the existing imports:
+Create `src/components/self-serve/card-styles.ts` (a component file must not
+double as a style module — the cards, `PhotoCard`, and the kiosk all import
+from here):
 
-```tsx
+```ts
+// src/components/self-serve/card-styles.ts
 export const CARD_CLASS = "p-5 rounded-xl border border-border bg-paper space-y-3";
 export const DONE_CARD_CLASS =
   "p-4 rounded-xl border border-border bg-cream-2 text-sage text-sm flex items-center gap-2";
@@ -382,7 +386,7 @@ Mechanical substitution across `WaiverCard.tsx`, `PhotoCard.tsx`, `PayCard.tsx`,
 | `text-rose-700` | replace the whole `<div>` with `<ErrorBanner message={error} />` |
 | `border-stone-400` (spinner) | `border-ink-faint` |
 
-Apply the shared classes from Step 1 to the card wrappers, inputs, and buttons. Import them into the other three files from `./WaiverCard`.
+Apply the shared classes from Step 1 to the card wrappers, inputs, and buttons. Import them into all four files from `./card-styles`.
 
 In `SelfServe.tsx`, the header (`text-xl font-semibold` / `text-sm text-stone-600`) becomes:
 ```tsx
@@ -472,7 +476,7 @@ language that only existed in the walk-in wizard."
 - Modify: `src/components/self-serve/PhotoCard.tsx`
 
 **Interfaces:**
-- Consumes: `CARD_CLASS`, `PRIMARY_BTN`, `GHOST_BTN` from Task 3.
+- Consumes: `CARD_CLASS`, `DONE_CARD_CLASS`, `PRIMARY_BTN`, `GHOST_BTN` from `src/components/self-serve/card-styles.ts` (Task 3).
 - Produces: `PhotoCard` props unchanged (`{ token, done, onDone }`).
 
 - [ ] **Step 1: Rewrite `PhotoCard`**
@@ -483,7 +487,7 @@ language that only existed in the walk-in wizard."
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Camera, ImageIcon, RotateCcw } from "lucide-react";
 import { ErrorBanner } from "@/components/ui/error-banner";
-import { CARD_CLASS, DONE_CARD_CLASS, PRIMARY_BTN, GHOST_BTN } from "./WaiverCard";
+import { CARD_CLASS, DONE_CARD_CLASS, PRIMARY_BTN, GHOST_BTN } from "./card-styles";
 
 interface Props {
   token: string;
@@ -1636,4 +1640,4 @@ Flag the waiver wording explicitly in the PR body — it is legal copy and needs
 
 **Added beyond the spec:** the token-restyle of the self-serve cards (Task 3). The spec assumed the cards were reusable as-is; reading them showed they use hardcoded `stone-*`/`white` classes that are illegible under the SoccerOne inversion — which is a live bug for texted links today, and would have made the kiosk visually worse. The guardian consent line (Task 3, Step 3) is the same class of finding: it exists only in `WalkInWizard` and would have been silently dropped by the merge.
 
-**Type consistency:** `onToken(token: string)` is the shared resolver signature in Tasks 5 and 6. `reset()` is used by Tasks 6 and 7. `dayBoundsInTz(tz, now)` returns `{ start, end }` in Tasks 1 and 2. `WaiverCard` gains `playerName` in Task 3 and is passed it from `SelfServe` in the same task. `CARD_CLASS`/`PRIMARY_BTN`/`GHOST_BTN` are defined in Task 3 and consumed in Task 4.
+**Type consistency:** `onToken(token: string)` is the shared resolver signature in Tasks 5 and 6. `reset()` is used by Tasks 6 and 7. `dayBoundsInTz(tz, now)` returns `{ start, end }` in Tasks 1 and 2. `WaiverCard` gains `playerName` in Task 3 and is passed it from `SelfServe` in the same task. `CARD_CLASS`/`DONE_CARD_CLASS`/`PRIMARY_BTN`/`GHOST_BTN` live in `src/components/self-serve/card-styles.ts` (Task 3) and are consumed in Task 4.
