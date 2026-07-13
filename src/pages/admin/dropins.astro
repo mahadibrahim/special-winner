@@ -4,19 +4,22 @@ import { AdminLayout } from "@/components/admin/admin-layout";
 import { getPrimaryRoleName } from "@/lib/auth";
 import { SessionsList } from "@/components/admin/dropin/SessionsList";
 import { RateCardEditor } from "@/components/admin/dropin/RateCardEditor";
+import { HostsPanel } from "@/components/admin/dropin/HostsPanel";
 
 export const prerender = false;
 
 const user = Astro.locals.user!;
 const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
 
-type Tab = "sessions" | "rate-card";
+type Tab = "sessions" | "rate-card" | "hosts";
 const tabRaw = Astro.url.searchParams.get("tab");
-const tab: Tab = tabRaw === "rate-card" ? "rate-card" : "sessions";
+const tab: Tab =
+  tabRaw === "rate-card" ? "rate-card" : tabRaw === "hosts" ? "hosts" : "sessions";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "sessions", label: "Sessions" },
   { id: "rate-card", label: "Rate card" },
+  { id: "hosts", label: "Hosts" },
 ];
 ---
 
@@ -47,6 +50,7 @@ const TABS: { id: Tab; label: string }[] = [
       </div>
       {tab === "sessions" && <SessionsList client:load />}
       {tab === "rate-card" && <RateCardEditor client:load />}
+      {tab === "hosts" && <HostsPanel client:load />}
     </div>
   </AdminLayout>
 </BaseLayout>
