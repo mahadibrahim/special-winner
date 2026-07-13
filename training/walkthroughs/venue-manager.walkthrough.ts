@@ -3,14 +3,18 @@ import { signInAsAdmin, waitForHydration } from "../../tests/utils/test-helpers"
 import { createTour, registerVideoCapture } from "../lib/tour";
 
 /**
- * venue-manager — the venue command center's event-day overview, the
- * check-in station, walk-up registration, referee pay, media check-in
- * visibility, and end-of-day reports.
+ * venue-manager — the venue command center's event-day overview: opening a
+ * session's roster panel to check teams/families in or register a walk-in,
+ * referee pay, media check-in visibility, and end-of-day reports. Check-in
+ * and walk-up used to be their own pages; both are now reached by opening a
+ * session's roster panel on the command-center board (see 38cb532d), so
+ * this walkthrough drives that panel in place rather than navigating to the
+ * old (now-redirecting) /admin/venue/check-in and /admin/venue/walk-up URLs.
  *
- * act.team_check_in is the closest catalog match for the check-in page and
- * is tagged accordingly. The command-center tour itself has no catalog
- * counterpart (it's a cross-activity dashboard, not a single tracked
- * activity) so its steps are untagged.
+ * act.team_check_in is the closest catalog match for checking a team in via
+ * the roster panel and is tagged accordingly. The command-center tour
+ * itself has no catalog counterpart (it's a cross-activity dashboard, not a
+ * single tracked activity) so its own step is untagged.
  *
  * The tour `role` is "event_lead", NOT "venue_manager", deliberately: the
  * Phase 1 deck generator (src/lib/ops-catalog/views/training-deck.ts)
@@ -29,8 +33,9 @@ import { createTour, registerVideoCapture } from "../lib/tour";
  * Three more genuine catalog matches, added while expanding screenshot
  * coverage:
  *  - act.walk_on_registration (accountable role.front_of_house) is exactly
- *    what /admin/venue/walk-up's WalkUpRegistrationForm does — but
- *    front_of_house, not event_lead, is this file's Tour role's opposite:
+ *    what the roster panel's "Open slot — add walk-in" button starts
+ *    (WalkInFlow) — but front_of_house, not event_lead, is this file's Tour
+ *    role's opposite:
  *    role.event_lead is merely "informed" on this activity, so a plain
  *    `deckSlug` tag here would copy into a directory role.front_of_house's
  *    deck never reads. `deckRole: "front_of_house"` (see training/lib/tour.ts)
@@ -66,32 +71,41 @@ test(`${WORKFLOW} walkthrough`, async ({ page }) => {
     await waitForHydration(page);
   });
 
+  // /admin/venue/check-in and /admin/venue/walk-up (the routes these two
+  // steps used to page.goto() straight to) 308-redirect to /admin/venue as
+  // of 38cb532d — check-in and walk-up are no longer separate pages, they're
+  // both reached by opening a session's roster panel on this same board. The
+  // steps below open the panel in-place instead of navigating away, so the
+  // captured screenshots show the real current UI rather than two duplicate
+  // captures of the board (which is what a naive goto() would now produce).
   const activityBlock = page.locator("[data-activity-block]").first();
   if ((await activityBlock.count()) > 0) {
-    await tour.step(page, "Open an activity's roster panel", async () => {
-      await activityBlock.click();
-    });
+    await tour.step(
+      page,
+      "Open a session's roster panel — this is where teams and families check in",
+      async () => {
+        await activityBlock.click();
+      },
+      { deckSlug: "team_check_in" },
+    );
+
+    const addWalkInButton = page.getByText("Open slot — add walk-in").first();
+    await addWalkInButton.waitFor({ state: "visible", timeout: 5_000 }).catch(() => {});
+    if ((await addWalkInButton.count()) > 0) {
+      await tour.step(
+        page,
+        "Start the walk-in flow from an open slot",
+        async () => {
+          await addWalkInButton.click();
+        },
+        { deckSlug: "walk_on_registration", deckRole: "front_of_house" },
+      );
+    }
+    // If the first activity block has no open slots (e.g. it's a league
+    // game rather than a dropin/class/camp), the walk-in step above is
+    // skipped rather than failing — same defensive pattern the refsButton/
+    // shootLink steps below use for fixture-dependent UI.
   }
-
-  await tour.step(
-    page,
-    "Player/team check-in station",
-    async () => {
-      await page.goto("/admin/venue/check-in", { waitUntil: "domcontentloaded" });
-      await waitForHydration(page);
-    },
-    { deckSlug: "team_check_in" },
-  );
-
-  await tour.step(
-    page,
-    "Walk-up registration form",
-    async () => {
-      await page.goto("/admin/venue/walk-up", { waitUntil: "domcontentloaded" });
-      await waitForHydration(page);
-    },
-    { deckSlug: "walk_on_registration", deckRole: "front_of_house" },
-  );
 
   await tour.step(page, "Games — cross-season list", async () => {
     await page.goto("/admin/games", { waitUntil: "domcontentloaded" });

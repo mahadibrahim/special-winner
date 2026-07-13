@@ -70,29 +70,38 @@ Coach → Venue Manager → Director handoff ladder.
 per the Coach → Venue Manager → Director handoff ladder.
 
 1. Throughout the drop-in/clinic intake window, greet each walk-on
-   parent or adult player at the front-of-house station — the coach
-   running the session isn't the one who registers walk-ons.
-2. Open walk-up registration and collect the player/adult info: name,
-   date of birth (youth) or the adult registrant's own info, and an
-   emergency contact and phone number.
-3. Note any medical or allergy information the coach should know
-   before the player joins the session.
-4. Select the correct session/program the walk-on is joining so
-   they're added to the right roster, not just "today's activity."
-5. Capture payment before the player joins play — card only, no
-   cash accepted. Run the card at the desk and mark it paid once the
-   payment actually clears.
-6. Get the liability waiver signed. In person, that's the paper
-   waiver at the desk; note it as signed once collected — never let a
-   player join on a verbal "I'll sign later."
-7. Add the player to the session roster so the coach's headcount and
-   ratio check reflects them before they join.
-8. Once registration, payment, and waiver are all complete, the
-   walk-on counter increments automatically — confirm the player is
-   on the roster the coach sees before sending them to the field.
-9. If intake volume would push a session over its coach ratio cap,
-   tell the coach to close intake for that session and hold
-   additional walk-ons for the next available slot.
+   parent or adult player at the front desk — the coach running the
+   session isn't the one who registers walk-ons.
+2. On the venue command center board, find the session they're joining
+   and open it to reach its roster panel.
+3. Tap an open slot to start the walk-in flow.
+4. Step 1, who's playing: enter the player's name. For a minor, also
+   collect the parent's name and the parent's contact info; for an
+   adult, collect their own contact info. Note any medical or allergy
+   detail the coach should know before the player joins.
+5. Step 2, waiver: choose how they'll sign — right now on the desk
+   device, or by a text link they sign from their own phone.
+6. Step 3, how they'll finish signing up: choose to text or email them
+   a pay link, or hand them off to the kiosk to self-pay. There's no
+   cash or card-at-desk option — the guest completes payment on their
+   own device or the kiosk, not through you.
+7. Submitting creates the booking. For the link option, it sends
+   automatically — if the send fails, share the link shown on screen
+   by hand instead. Either way, the guest can sign the waiver, add a
+   photo, and pay right from their phone.
+8. The slot holds for 2 hours from creation. If it isn't paid by then,
+   the system sends one reminder before the hold expires and the slot
+   releases back to the schedule for the next walk-on or the waitlist.
+9. While the hold is open, the roster panel shows the row as "awaiting
+   payment" with Resend pay link and Cancel hold actions — use Resend
+   if the guest says they never got it, or Cancel hold to free the
+   slot right away if they change their mind.
+10. Once paid, the row clears to a normal confirmed booking and the
+    walk-on counter increments automatically. Check the player in from
+    the same roster panel when they arrive to play.
+11. If the session is already full, the roster panel won't offer an
+    open slot to register into — tell the guest to check back for a
+    later session or join the waitlist through registration.
 
 ## in_game
 
