@@ -1,4 +1,4 @@
-import { and, eq, gte, lte, lt, isNull, inArray, sql, desc } from "drizzle-orm";
+import { and, eq, gte, lte, lt, isNull, isNotNull, inArray, sql, desc, max, notExists } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   feedbackRequests,
@@ -76,7 +76,20 @@ async function orgsWithFeature(
   );
 }
 
-/** Scan 1: completed drop-in sessions → confirmed, non-no-show bookings. */
+/**
+ * Scan 1: completed drop-in sessions → confirmed, non-no-show bookings.
+ *
+ * The `notExists` clause anti-joins against feedback_requests on the exact
+ * dedupe key (kind + targetId + recipientUserId — the same key the unique
+ * index enforces). This is what stops the hourly rolling-window re-scan from
+ * re-fetching bookings that were already dispatched in a prior run: without
+ * it, every booking inside the DISPATCH_LOOKBACK_DAYS window comes back every
+ * hour and only gets filtered out downstream (by cooldown or insert
+ * conflict). Behaviorally identical — a booking with an existing row here was
+ * ALWAYS a no-op in this loop (either cooldown-skipped because the prior send
+ * landed, or insert-conflicted silently because a prior attempt is still
+ * pending) — this just stops paying query/JS cost to rediscover that fact.
+ */
 async function scanDropIns(now: Date, enabledOrgs: Set<string>): Promise<Candidate[]> {
   const db = getDb();
   const endedBefore = new Date(now.getTime() - POST_EVENT_DELAY_HOURS * HOUR_MS);
@@ -100,6 +113,18 @@ async function scanDropIns(now: Date, enabledOrgs: Set<string>): Promise<Candida
         lte(dropInSessions.endsAt, endedBefore),
         gte(dropInSessions.endsAt, endedAfter),
         inArray(dropInSessions.status, ["scheduled", "completed"]),
+        notExists(
+          db
+            .select({ one: sql`1` })
+            .from(feedbackRequests)
+            .where(
+              and(
+                eq(feedbackRequests.kind, "nps_drop_in"),
+                eq(feedbackRequests.targetId, dropInBookings.id),
+                eq(feedbackRequests.recipientUserId, dropInBookings.userId),
+              ),
+            ),
+        ),
       ),
     );
 
@@ -141,6 +166,22 @@ async function scanRentals(now: Date, enabledOrgs: Set<string>): Promise<Candida
         eq(fieldRentals.paymentStatus, "paid"),
         lte(fieldRentals.endsAt, endedBefore),
         gte(fieldRentals.endsAt, endedAfter),
+        // renterUserId can be null (no linked account) — notExists still
+        // works (a NULL renterUserId never equals an existing row's
+        // recipientUserId, so the subquery correctly finds nothing and the
+        // row survives to the `renterUserId !== null` JS filter below).
+        notExists(
+          db
+            .select({ one: sql`1` })
+            .from(feedbackRequests)
+            .where(
+              and(
+                eq(feedbackRequests.kind, "nps_field_rental"),
+                eq(feedbackRequests.targetId, fieldRentals.id),
+                eq(feedbackRequests.recipientUserId, fieldRentals.renterUserId),
+              ),
+            ),
+        ),
       ),
     );
 
@@ -187,6 +228,18 @@ async function scanSeasons(now: Date, enabledOrgs: Set<string>): Promise<Candida
         eq(registrations.status, "confirmed"),
         lt(seasons.endDate, today),
         gte(seasons.endDate, lookbackDate),
+        notExists(
+          db
+            .select({ one: sql`1` })
+            .from(feedbackRequests)
+            .where(
+              and(
+                eq(feedbackRequests.kind, "nps_season"),
+                eq(feedbackRequests.targetId, registrations.id),
+                eq(feedbackRequests.recipientUserId, registrations.registeredByUserId),
+              ),
+            ),
+        ),
       ),
     );
 
@@ -206,7 +259,20 @@ async function scanSeasons(now: Date, enabledOrgs: Set<string>): Promise<Candida
     }));
 }
 
-/** Scan 4: completed games with an official → adults on both rosters. */
+/**
+ * Scan 4: completed games with an official → adults on both rosters.
+ *
+ * Batched into a fixed number of queries regardless of game count M:
+ * 1. completedGames (unchanged — already a single query with joins)
+ * 2. all officials for all eligible games, via inArray(gameOfficials.gameId, …)
+ * 3. all roster recipients for all eligible teams, via inArray(rosters.teamId, …)
+ * 4. an anti-join existing-check against feedback_requests, via inArray on the
+ *    candidate (targetId, recipientUserId) pairs
+ *
+ * Replaces the previous 1 + 2M shape (one official query + one roster query
+ * per game) and the M-fold rediscovery of games that already got their asks
+ * sent in a prior hourly run.
+ */
 async function scanRefereeRatings(now: Date, enabledOrgs: Set<string>): Promise<Candidate[]> {
   const db = getDb();
   const updatedAfter = new Date(now.getTime() - DISPATCH_LOOKBACK_DAYS * DAY_MS);
@@ -234,36 +300,42 @@ async function scanRefereeRatings(now: Date, enabledOrgs: Set<string>): Promise<
     .where(and(eq(games.status, "completed"), gte(games.updatedAt, updatedAfter)))
     .orderBy(desc(games.scheduledAt));
 
-  const candidates: Candidate[] = [];
+  // Filter to eligible games (org flag on, at least one team) BEFORE the
+  // batch queries, so the inArray()s below only cover games we'll actually
+  // build candidates for — mirrors the original per-game `continue`s.
+  const eligibleGames = completedGames.filter(
+    (g) =>
+      enabledOrgs.has(g.organizationId) &&
+      (g.homeTeamId !== null || g.awayTeamId !== null),
+  );
+  if (eligibleGames.length === 0) return [];
 
-  for (const game of completedGames) {
-    if (!enabledOrgs.has(game.organizationId)) continue;
+  const gameIds = eligibleGames.map((g) => g.gameId);
+  const teamIds = [
+    ...new Set(
+      eligibleGames.flatMap((g) => [g.homeTeamId, g.awayTeamId]).filter((id): id is string => id !== null),
+    ),
+  ];
 
-    const teamIds = [game.homeTeamId, game.awayTeamId].filter(
-      (id): id is string => id !== null,
-    );
-    if (teamIds.length === 0) continue;
-
-    // Head referee = earliest-assigned official (explicit orderBy: the CI DB
-    // accumulates rows; see multi-tenant query hazards).
-    const [official] = await db
+  const [allOfficials, allRosterRows] = await Promise.all([
+    db
       .select({
+        gameId: gameOfficials.gameId,
         id: gameOfficials.id,
         userId: gameOfficials.userId,
         firstName: users.firstName,
         lastName: users.lastName,
+        createdAt: gameOfficials.createdAt,
       })
       .from(gameOfficials)
       .innerJoin(users, eq(gameOfficials.userId, users.id))
-      .where(eq(gameOfficials.gameId, game.gameId))
-      .orderBy(sql`${gameOfficials.createdAt} ASC`)
-      .limit(1);
-    if (!official) continue;
-
-    // Adults tied to both rosters: parents of youth players AND adult
-    // self-registrants — both are registrations.registeredByUserId.
-    const recipientRows = await db
-      .selectDistinct({ userId: registrations.registeredByUserId, brand: registrations.brand })
+      .where(inArray(gameOfficials.gameId, gameIds)),
+    db
+      .selectDistinct({
+        teamId: rosters.teamId,
+        userId: registrations.registeredByUserId,
+        brand: registrations.brand,
+      })
       .from(rosters)
       .innerJoin(registrations, eq(rosters.registrationId, registrations.id))
       .where(
@@ -272,20 +344,54 @@ async function scanRefereeRatings(now: Date, enabledOrgs: Set<string>): Promise<
           eq(rosters.status, "active"),
           eq(registrations.status, "confirmed"),
         ),
-      );
+      ),
+  ]);
+
+  // Head referee = earliest-assigned official per game (explicit ordering by
+  // createdAt, same tiebreak the original per-game `orderBy ASC limit 1` used).
+  const officialByGame = new Map<string, (typeof allOfficials)[number]>();
+  for (const o of allOfficials) {
+    const existing = officialByGame.get(o.gameId);
+    if (!existing || o.createdAt < existing.createdAt) officialByGame.set(o.gameId, o);
+  }
+
+  const recipientsByTeam = new Map<string, Array<{ userId: string; brand: string }>>();
+  for (const r of allRosterRows) {
+    const arr = recipientsByTeam.get(r.teamId);
+    if (arr) arr.push({ userId: r.userId, brand: r.brand });
+    else recipientsByTeam.set(r.teamId, [{ userId: r.userId, brand: r.brand }]);
+  }
+
+  const rawCandidates: Candidate[] = [];
+  for (const game of eligibleGames) {
+    const official = officialByGame.get(game.gameId);
+    if (!official) continue;
+
+    const gameTeamIds = [game.homeTeamId, game.awayTeamId].filter((id): id is string => id !== null);
+
+    // Adults tied to both rosters: parents of youth players AND adult
+    // self-registrants — both are registrations.registeredByUserId.
+    // De-dupe by userId across the two teams (mirrors the original
+    // selectDistinct scoped to this game's team pair).
+    const seen = new Map<string, string>(); // userId -> brand
+    for (const teamId of gameTeamIds) {
+      for (const r of recipientsByTeam.get(teamId) ?? []) {
+        if (!seen.has(r.userId)) seen.set(r.userId, r.brand);
+      }
+    }
 
     const refereeName = `${official.firstName ?? "The"} ${(official.lastName ?? "referee").charAt(0)}.`;
     const gameType = game.programType === "tournament" ? "tournament" : "league";
     const eventLabel = `${game.programName} — ${formatEventDate(game.scheduledAt)}`;
 
-    for (const recipient of recipientRows) {
-      if (recipient.userId === official.userId) continue; // never self-rate
-      candidates.push({
+    for (const [userId, brand] of seen) {
+      if (userId === official.userId) continue; // never self-rate
+      rawCandidates.push({
         organizationId: game.organizationId,
-        brand: recipient.brand,
+        brand,
         kind: "referee_rating",
         targetId: game.gameId,
-        recipientUserId: recipient.userId,
+        recipientUserId: userId,
         gameOfficialId: official.id,
         metadata: { eventLabel, gameType, refereeName },
         expiryDays: REFEREE_EXPIRY_DAYS,
@@ -293,47 +399,114 @@ async function scanRefereeRatings(now: Date, enabledOrgs: Set<string>): Promise<
     }
   }
 
-  return candidates;
-}
+  if (rawCandidates.length === 0) return rawCandidates;
 
-/** True when the recipient got ANY referee-rating ask in the cap window. */
-async function inRefereeDailyCap(recipientUserId: string, now: Date): Promise<boolean> {
-  const cutoff = new Date(now.getTime() - REFEREE_DAILY_CAP_HOURS * HOUR_MS);
-  const [row] = await getDb()
-    .select({ id: feedbackRequests.id })
+  // Anti-join: drop candidates whose exact (kind, targetId, recipientUserId,
+  // gameOfficialId) already exists — same reasoning as the NPS scans above.
+  // A pre-existing row here was always a no-op in this loop (cap-skipped if
+  // sent, insert-conflict-noop if still pending from a prior run).
+  const candidateGameIds = [...new Set(rawCandidates.map((c) => c.targetId))];
+  const candidateRecipientIds = [...new Set(rawCandidates.map((c) => c.recipientUserId))];
+  const existing = await db
+    .select({
+      targetId: feedbackRequests.targetId,
+      recipientUserId: feedbackRequests.recipientUserId,
+      gameOfficialId: feedbackRequests.gameOfficialId,
+    })
     .from(feedbackRequests)
     .where(
       and(
-        eq(feedbackRequests.recipientUserId, recipientUserId),
         eq(feedbackRequests.kind, "referee_rating"),
-        gte(feedbackRequests.sentAt, cutoff),
+        inArray(feedbackRequests.targetId, candidateGameIds),
+        inArray(feedbackRequests.recipientUserId, candidateRecipientIds),
       ),
-    )
-    .orderBy(sql`${feedbackRequests.sentAt} DESC`)
-    .limit(1);
-  return row !== undefined;
+    );
+  const existingKeys = new Set(
+    existing.map((r) => `${r.targetId}:${r.recipientUserId}:${r.gameOfficialId}`),
+  );
+
+  return rawCandidates.filter(
+    (c) => !existingKeys.has(`${c.targetId}:${c.recipientUserId}:${c.gameOfficialId}`),
+  );
 }
 
-/** True when this recipient already got this NPS kind within the cooldown. */
-async function inCooldown(
+/** Cooldown/cap cutoff for a kind: 24h for referee ratings, NPS_COOLDOWN_DAYS for NPS kinds. */
+function cutoffFor(kind: FeedbackRequestKind, now: Date): Date {
+  return kind === "referee_rating"
+    ? new Date(now.getTime() - REFEREE_DAILY_CAP_HOURS * HOUR_MS)
+    : new Date(now.getTime() - NPS_COOLDOWN_DAYS * DAY_MS);
+}
+
+/**
+ * Batched replacement for the old per-candidate `inCooldown` / `inRefereeDailyCap`
+ * queries: one `latest sentAt per (recipientUserId, kind)` lookup, computed
+ * with inArray + groupBy instead of N/R round trips. NULL sentAt rows (never
+ * sent — pending) are excluded by the query, matching the original
+ * `gte(sentAt, cutoff)` semantics where a NULL never satisfies `gte`.
+ */
+async function batchLatestSentAt(
+  recipientUserIds: string[],
+  kinds: FeedbackRequestKind[],
+): Promise<Map<string, Date>> {
+  if (recipientUserIds.length === 0 || kinds.length === 0) return new Map();
+  const db = getDb();
+  const rows = await db
+    .select({
+      recipientUserId: feedbackRequests.recipientUserId,
+      kind: feedbackRequests.kind,
+      latestSentAt: max(feedbackRequests.sentAt),
+    })
+    .from(feedbackRequests)
+    .where(
+      and(
+        inArray(feedbackRequests.recipientUserId, recipientUserIds),
+        inArray(feedbackRequests.kind, kinds),
+        isNotNull(feedbackRequests.sentAt),
+      ),
+    )
+    .groupBy(feedbackRequests.recipientUserId, feedbackRequests.kind);
+
+  const map = new Map<string, Date>();
+  for (const r of rows) {
+    if (r.latestSentAt) map.set(`${r.recipientUserId}:${r.kind}`, new Date(r.latestSentAt));
+  }
+  return map;
+}
+
+/** True when the batched map shows a recent-enough send for this recipient+kind. */
+function isInCooldownMap(
+  map: Map<string, Date>,
   recipientUserId: string,
   kind: FeedbackRequestKind,
   now: Date,
-): Promise<boolean> {
-  const cutoff = new Date(now.getTime() - NPS_COOLDOWN_DAYS * DAY_MS);
-  const [row] = await getDb()
-    .select({ id: feedbackRequests.id })
-    .from(feedbackRequests)
-    .where(
-      and(
-        eq(feedbackRequests.recipientUserId, recipientUserId),
-        eq(feedbackRequests.kind, kind),
-        gte(feedbackRequests.sentAt, cutoff),
-      ),
-    )
-    .orderBy(sql`${feedbackRequests.sentAt} DESC`)
-    .limit(1);
-  return row !== undefined;
+): boolean {
+  const latest = map.get(`${recipientUserId}:${kind}`);
+  if (!latest) return false;
+  return latest >= cutoffFor(kind, now);
+}
+
+/** Batched replacement for the old per-candidate recipient SELECT. */
+async function batchRecipients(
+  userIds: string[],
+): Promise<Map<string, { email: string; firstName: string | null }>> {
+  if (userIds.length === 0) return new Map();
+  const rows = await getDb()
+    .select({ id: users.id, email: users.email, firstName: users.firstName })
+    .from(users)
+    .where(inArray(users.id, userIds));
+  return new Map(rows.map((r) => [r.id, { email: r.email, firstName: r.firstName }]));
+}
+
+/** Batched replacement for the old per-candidate org-features SELECT. */
+async function batchOrgFeatures(
+  orgIds: string[],
+): Promise<Map<string, OrganizationFeatures | null>> {
+  if (orgIds.length === 0) return new Map();
+  const rows = await getDb()
+    .select({ id: organizations.id, features: organizations.features })
+    .from(organizations)
+    .where(inArray(organizations.id, orgIds));
+  return new Map(rows.map((r) => [r.id, r.features as OrganizationFeatures | null]));
 }
 
 /**
@@ -348,8 +521,25 @@ interface CreateSendOutcome {
   sent: boolean;
 }
 
-/** Insert the request (dedupe via unique index) and send the email. */
-async function createAndSend(candidate: Candidate, now: Date): Promise<CreateSendOutcome> {
+/**
+ * Insert the request (dedupe via unique index) and send the email.
+ *
+ * `recipient` and `smsOptIn` are pre-fetched by the caller via
+ * batchRecipients/batchOrgFeatures (inArray, once per run) rather than
+ * looked up here per-candidate. The insert itself stays per-candidate and
+ * synchronous with the send: candidates are processed in order, and a
+ * same-run recipient+kind collision (two candidates for the same person)
+ * must see the outcome of the earlier candidate before deciding whether to
+ * proceed — see the in-run `sentThisRun` sets in dispatchFeedbackRequests.
+ * That ordering guarantee is why sends stay a per-recipient loop instead of
+ * a bulk multi-row insert-then-send.
+ */
+async function createAndSend(
+  candidate: Candidate,
+  now: Date,
+  recipient: { email: string; firstName: string | null } | undefined,
+  smsOptIn: boolean,
+): Promise<CreateSendOutcome> {
   const db = getDb();
   const plaintext = generateFeedbackToken();
 
@@ -374,15 +564,6 @@ async function createAndSend(candidate: Candidate, now: Date): Promise<CreateSen
 
   const requestId = inserted[0].id;
 
-  const [recipient] = await db
-    .select({
-      email: users.email,
-      firstName: users.firstName,
-    })
-    .from(users)
-    .where(eq(users.id, candidate.recipientUserId))
-    .limit(1);
-
   if (!recipient?.email) {
     console.error(`[feedback] no recipient email for request ${requestId}; leaving pending`);
     return { created: true, sent: false };
@@ -394,14 +575,6 @@ async function createAndSend(candidate: Candidate, now: Date): Promise<CreateSen
   // codebase (e.g. send-balance-reminders.ts), or the "aspire"-brand path
   // (the common case) would throw on `origin.replace` inside buildFeedbackUrl.
   const surveyUrl = buildFeedbackUrl(plaintext, originForBrand(brand) ?? env.PUBLIC_APP_URL);
-
-  const [org] = await db
-    .select({ features: organizations.features })
-    .from(organizations)
-    .where(eq(organizations.id, candidate.organizationId))
-    .limit(1);
-  const smsOptIn =
-    (org?.features as OrganizationFeatures | null)?.enableSMS === true;
 
   try {
     const sendResult =
@@ -472,6 +645,13 @@ async function createAndSend(candidate: Candidate, now: Date): Promise<CreateSen
 /**
  * Retry rows stuck in `pending` (a previous run created the row but the send
  * threw). The plaintext token is gone, so re-token before resending.
+ *
+ * Cooldown/cap re-checks and the recipient lookup are batched up front
+ * (inArray + groupBy / inArray) instead of one query per row. An in-sweep
+ * `sentThisSweep` set replaces what the old per-row fresh-DB-query got for
+ * free: if an earlier row in this same 50-row batch just sent for the same
+ * recipient+kind, a later row for that recipient must still see it as
+ * capped/cooled-down.
  */
 async function resendPending(now: Date, result: DispatchResult): Promise<void> {
   const db = getDb();
@@ -488,6 +668,17 @@ async function resendPending(now: Date, result: DispatchResult): Promise<void> {
     .orderBy(sql`${feedbackRequests.createdAt} ASC`)
     .limit(50);
 
+  if (rows.length === 0) return;
+
+  const recipientIds = [...new Set(rows.map((r) => r.recipientUserId))];
+  const kinds = [...new Set(rows.map((r) => r.kind))];
+  const [cooldownMap, recipients] = await Promise.all([
+    batchLatestSentAt(recipientIds, kinds),
+    batchRecipients(recipientIds),
+  ]);
+
+  const sentThisSweep = new Set<string>(); // `${recipientUserId}:${kind}`
+
   for (const row of rows) {
     // The row's entire processing — including the re-token update and
     // recipient lookup — lives inside this try/catch. A transient DB error
@@ -495,30 +686,15 @@ async function resendPending(now: Date, result: DispatchResult): Promise<void> {
     // error, and let the sweep continue with the remaining rows instead of
     // aborting.
     try {
-      // Referee rows must re-check the daily cap here: if the latest game's
-      // send failed (row pending, sentAt null), an OLDER game's candidate
-      // for the same recipient passes the cap in the dispatch loop above
-      // and sends — retrying the pending latest-game row in this same run
-      // without a cap check would put two referee emails inside the 24h
-      // window. Capped rows stay pending this sweep; a future sweep after
-      // the window can retry them (subject to expiresAt).
-      if (
-        row.kind === "referee_rating" &&
-        (await inRefereeDailyCap(row.recipientUserId, now))
-      ) {
-        continue;
-      }
-
-      // Non-referee (NPS) rows must re-check the 90-day cooldown here for the
-      // same reason: a same-run send of the same kind for this recipient can
-      // land after this row was selected for the sweep, so without a
-      // re-check the pending retry could pair with it inside the cooldown
-      // window. Capped rows stay pending this sweep; a future sweep after
-      // the window can retry them (subject to expiresAt).
-      if (
-        row.kind !== "referee_rating" &&
-        (await inCooldown(row.recipientUserId, row.kind, now))
-      ) {
+      const key = `${row.recipientUserId}:${row.kind}`;
+      // Re-check the cap/cooldown here: if the latest candidate's send
+      // failed (row pending, sentAt null), an older candidate for the same
+      // recipient+kind can pass the check in the dispatch loop above and
+      // send — retrying this pending row in the same run without a re-check
+      // would put two asks inside the cooldown/cap window. Capped/cooled
+      // rows stay pending this sweep; a future sweep after the window can
+      // retry them (subject to expiresAt).
+      if (isInCooldownMap(cooldownMap, row.recipientUserId, row.kind, now) || sentThisSweep.has(key)) {
         continue;
       }
 
@@ -528,11 +704,7 @@ async function resendPending(now: Date, result: DispatchResult): Promise<void> {
         .set({ tokenHash: hashFeedbackToken(plaintext) })
         .where(eq(feedbackRequests.id, row.id));
 
-      const [recipient] = await db
-        .select({ email: users.email, firstName: users.firstName })
-        .from(users)
-        .where(eq(users.id, row.recipientUserId))
-        .limit(1);
+      const recipient = recipients.get(row.recipientUserId);
       if (!recipient?.email) continue;
 
       const brand = (row.brand === "soccerone" ? "soccerone" : "aspire") as BrandId;
@@ -574,6 +746,7 @@ async function resendPending(now: Date, result: DispatchResult): Promise<void> {
         .set({ status: "sent", sentAt: now })
         .where(eq(feedbackRequests.id, row.id));
       result.sent += 1;
+      sentThisSweep.add(key);
     } catch (err) {
       console.error(`[feedback] pending resend failed for request ${row.id}:`, err);
       result.errors += 1;
@@ -591,19 +764,37 @@ export async function dispatchFeedbackRequests(now: Date = new Date()): Promise<
     ...(await scanSeasons(now, npsOrgs)),
   ];
 
+  const npsKinds: FeedbackRequestKind[] = ["nps_drop_in", "nps_field_rental", "nps_season"];
+  const npsRecipientIds = [...new Set(candidates.map((c) => c.recipientUserId))];
+  const npsOrgIds = [...new Set(candidates.map((c) => c.organizationId))];
+  const [npsCooldownMap, npsRecipients, npsOrgFeatures] = await Promise.all([
+    batchLatestSentAt(npsRecipientIds, npsKinds),
+    batchRecipients(npsRecipientIds),
+    batchOrgFeatures(npsOrgIds),
+  ]);
+
+  // Tracks recipient+kind pairs that successfully sent earlier in THIS run —
+  // the in-memory equivalent of the old per-candidate fresh-DB cooldown
+  // query picking up a sibling candidate's just-committed send.
+  const sentThisRun = new Set<string>();
+
   // Each candidate is isolated: an unexpected throw (e.g. a transient DB
   // error) counts as an error and moves on, so one bad candidate can never
   // abort the rest of the run or skip the resendPending sweep below.
   for (const candidate of candidates) {
+    const key = `${candidate.recipientUserId}:${candidate.kind}`;
     try {
-      if (await inCooldown(candidate.recipientUserId, candidate.kind, now)) {
+      if (isInCooldownMap(npsCooldownMap, candidate.recipientUserId, candidate.kind, now) || sentThisRun.has(key)) {
         result.skippedCooldown += 1;
         continue;
       }
-      const outcome = await createAndSend(candidate, now);
+      const recipient = npsRecipients.get(candidate.recipientUserId);
+      const smsOptIn = npsOrgFeatures.get(candidate.organizationId)?.enableSMS === true;
+      const outcome = await createAndSend(candidate, now, recipient, smsOptIn);
       if (outcome.created) result.created += 1;
       if (outcome.sent) {
         result.sent += 1;
+        sentThisRun.add(key);
       } else if (outcome.created) {
         // Insert landed but the send (or the sent-marker update) failed.
         result.errors += 1;
@@ -626,16 +817,30 @@ export async function dispatchFeedbackRequests(now: Date = new Date()): Promise<
   const refOrgs = await orgsWithFeature("enableRefereeRatings");
   const refereeCandidates = await scanRefereeRatings(now, refOrgs);
 
+  const refRecipientIds = [...new Set(refereeCandidates.map((c) => c.recipientUserId))];
+  const refOrgIds = [...new Set(refereeCandidates.map((c) => c.organizationId))];
+  const [refCooldownMap, refRecipients, refOrgFeatures] = await Promise.all([
+    batchLatestSentAt(refRecipientIds, ["referee_rating"]),
+    batchRecipients(refRecipientIds),
+    batchOrgFeatures(refOrgIds),
+  ]);
+
+  const refSentThisRun = new Set<string>();
+
   for (const candidate of refereeCandidates) {
+    const key = `${candidate.recipientUserId}:${candidate.kind}`;
     try {
-      if (await inRefereeDailyCap(candidate.recipientUserId, now)) {
+      if (isInCooldownMap(refCooldownMap, candidate.recipientUserId, candidate.kind, now) || refSentThisRun.has(key)) {
         result.skippedCooldown += 1;
         continue;
       }
-      const outcome = await createAndSend(candidate, now);
+      const recipient = refRecipients.get(candidate.recipientUserId);
+      const smsOptIn = refOrgFeatures.get(candidate.organizationId)?.enableSMS === true;
+      const outcome = await createAndSend(candidate, now, recipient, smsOptIn);
       if (outcome.created) result.created += 1;
       if (outcome.sent) {
         result.sent += 1;
+        refSentThisRun.add(key);
       } else if (outcome.created) {
         result.errors += 1;
       }
