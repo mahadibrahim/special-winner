@@ -3,7 +3,7 @@ import { getDb } from "@/lib/db"
 import { users } from "@/lib/db/schema/users"
 import { phoneOptIns } from "@/lib/db/schema/phone-verifications"
 import { conversationMessages } from "@/lib/db/schema/conversations"
-import { eq } from "drizzle-orm"
+import { desc, eq } from "drizzle-orm"
 import { handleInboundWhatsApp } from "@/lib/messaging/inbound-whatsapp"
 import { createAdminOrgGameContext } from "../../utils/admin-org-game-context"
 
@@ -40,6 +40,15 @@ describe("handleInboundWhatsApp", () => {
     const userId = await seedUser(phone)
     await seedOptIn(userId, ctx.organizationId, phone)
 
+    // The externalMessageId is fixed, and the shared CI/staging DB keeps
+    // rows from previous runs — the un-ordered `.limit(1)` lookup below
+    // would pick a STALE row (different sender) and fail. Clear leftovers
+    // first so the query is deterministic (multi-tenant query hazard, see
+    // CLAUDE.md).
+    await getDb()
+      .delete(conversationMessages)
+      .where(eq(conversationMessages.externalMessageId, "wamid.TEST-1"))
+
     const result = await handleInboundWhatsApp({
       senderPhone: `+1${phone}`,
       body: "Is practice still on tonight?",
@@ -51,10 +60,14 @@ describe("handleInboundWhatsApp", () => {
     expect(result.parentUserId).toBe(userId)
 
     const db = getDb()
+    // orderBy newest-first per the CLAUDE.md multi-tenant convention: even
+    // with the cleanup delete above, a concurrent run on the shared staging
+    // DB could interleave — the un-ordered limit(1) must not pick its row.
     const [msg] = await db
       .select()
       .from(conversationMessages)
       .where(eq(conversationMessages.externalMessageId, "wamid.TEST-1"))
+      .orderBy(desc(conversationMessages.createdAt))
       .limit(1)
     expect(msg).toBeDefined()
     expect(msg.channel).toBe("whatsapp")

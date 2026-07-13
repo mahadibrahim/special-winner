@@ -56,6 +56,7 @@ import { fieldRentalRateCard } from "../schema/field-rentals";
 import { teamRegistrations } from "../schema/team-registrations";
 import { dropInSessions } from "../schema/drop-in";
 import { membershipTiers, memberships } from "../schema/memberships";
+import { phoneOptIns } from "../schema/phone-verifications";
 import {
   skillDomains,
   skills as curriculumSkills,
@@ -134,6 +135,13 @@ export const TEST_USERS = {
     firstName: "Test",
     lastName: "Player",
     birthDate: "1992-03-10",
+    // Verified + opted-in phone so SMS-first dispatch paths (payment-hold
+    // reminders, waiver-link resend) have a real fixture to exercise
+    // against with MESSAGING_MOCK=1. This account is otherwise narrowly
+    // used (dashboard-persona E2E only), so giving it a phone is low-risk —
+    // no existing spec asserts it lacks one. See the "player account" block
+    // in seedE2ETests() below for the phoneVerified + phone_opt_ins rows.
+    phone: "6145550175",
   },
   both: {
     email: "both@test.aspiresports.com",
@@ -2510,11 +2518,18 @@ async function seedE2ETests() {
         lastName: TEST_USERS.player.lastName,
         birthDate: TEST_USERS.player.birthDate,
         emailVerified: true,
+        phone: TEST_USERS.player.phone,
+        phoneVerified: true,
       })
       .returning();
   } else {
     await db.update(users)
-      .set({ passwordHash: playerPasswordHash, emailVerified: true })
+      .set({
+        passwordHash: playerPasswordHash,
+        emailVerified: true,
+        phone: TEST_USERS.player.phone,
+        phoneVerified: true,
+      })
       .where(eq(users.id, playerUser.id));
   }
   await db.delete(userRoles).where(eq(userRoles.userId, playerUser.id));
@@ -2524,6 +2539,25 @@ async function seedE2ETests() {
     scopeType: "organization",
     scopeId: org.id,
   });
+
+  // Opted-in phone_opt_ins row for the player's phone in the main e2e org —
+  // sendSms() gates on opt-in status, so SMS-path tests (payment-hold
+  // reminders, waiver-link resend) need this to actually reach the mock
+  // recorder instead of failing with reason "not_opted_in".
+  await db
+    .insert(phoneOptIns)
+    .values({
+      organizationId: org.id,
+      userId: playerUser.id,
+      phone: TEST_USERS.player.phone!,
+      status: "opted_in",
+      optedInAt: new Date(),
+      optInSource: "admin_added",
+    })
+    .onConflictDoUpdate({
+      target: [phoneOptIns.organizationId, phoneOptIns.phone],
+      set: { status: "opted_in", optedInAt: new Date(), optedOutAt: null },
+    });
 
   // Ensure exactly one self family_members row for the player user.
   // selfUserId has a UNIQUE constraint — only one row per user allowed.
