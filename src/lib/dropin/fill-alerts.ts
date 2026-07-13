@@ -8,7 +8,7 @@ import {
 import { pickupAlertSubscriptions, pickupAlertSends } from "@/lib/db/schema/hosts";
 import { users } from "@/lib/db/schema/users";
 import { venues } from "@/lib/db/schema/teams";
-import { sendSms } from "@/lib/sms/send";
+import { sendSms, normalizeUsPhone } from "@/lib/sms/send";
 import { buildShareBlurb } from "./share-blurb";
 import { deriveFillState } from "./fill-state";
 
@@ -16,16 +16,46 @@ const DAILY_CAP = 2;
 // All prod orgs are Ohio today; org-level tz can replace this when needed.
 const DISPLAY_TZ = "America/New_York";
 
+// TCPA-motivated quiet hours: never dispatch outside this local window, even
+// though the cron runs every 15 minutes around the clock. A session that
+// becomes eligible at 10pm just waits for the next in-window tick — it does
+// NOT get stamped/skipped, so it fires as soon as the window reopens.
+const DISPATCH_HOUR_START = 9; // 9am inclusive
+const DISPATCH_HOUR_END = 20; // 8pm exclusive
+
+function isWithinDispatchHours(now: Date): boolean {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    hour12: false,
+    timeZone: DISPLAY_TZ,
+  }).formatToParts(now);
+  const hourStr = parts.find((p) => p.type === "hour")?.value ?? "0";
+  let hour = Number(hourStr);
+  // Some ICU implementations report midnight as "24" with hour12:false.
+  if (hour === 24) hour = 0;
+  return hour >= DISPATCH_HOUR_START && hour < DISPATCH_HOUR_END;
+}
+
 /**
  * The "needs players" sweep. One blast per session EVER (fillAlertSentAt is
- * claimed via a conditional UPDATE before any SMS goes out — a crashed run
- * can't double-blast; the cost of a crash is a missed blast, not a double).
+ * claimed via a conditional UPDATE — a crashed run can't double-blast; the
+ * cost of a crash is a missed blast, not a double). Critically, the stamp is
+ * only claimed AFTER we've computed a non-empty list of recipients who would
+ * actually be texted (subscriber match + daily-cap + dedupe) — a sweep with
+ * zero eligible recipients leaves the session un-alerted so it can still
+ * fire once a subscriber shows up or the cap resets.
  * Per-user cap: max 2 fill-alert texts per UTC day across all sessions.
  * Eligibility is determined by deriveFillState (shared with browse cards and the host game view).
+ * Dispatch is also gated to 9am-8pm America/New_York (TCPA quiet hours) —
+ * outside that window the sweep no-ops entirely (see isWithinDispatchHours).
  */
 export async function runFillAlertSweep(
   now: Date = new Date(),
 ): Promise<{ sessionsAlerted: number; smsSent: number; smsSkipped: number }> {
+  if (!isWithinDispatchHours(now)) {
+    return { sessionsAlerted: 0, smsSent: 0, smsSkipped: 0 };
+  }
+
   const db = getDb();
   let sessionsAlerted = 0;
   let smsSent = 0;
@@ -94,17 +124,6 @@ export async function runFillAlertSweep(
     });
     if (state !== "needs_players") continue;
 
-    // Claim the blast (stamp-then-send).
-    const claimed = await db
-      .update(dropInSessions)
-      .set({ fillAlertSentAt: now, updatedAt: now })
-      .where(
-        and(eq(dropInSessions.id, session.id), isNull(dropInSessions.fillAlertSentAt)),
-      )
-      .returning({ id: dropInSessions.id });
-    if (claimed.length === 0) continue; // another run got it
-    sessionsAlerted++;
-
     // Matching subscribers with a phone, excluding active bookers.
     const subscribers = await db
       .select({
@@ -129,20 +148,21 @@ export async function runFillAlertSweep(
         ),
       );
 
-    const spotsLeft = session.capacity - session.confirmedCount;
-    const body = buildShareBlurb({
-      sport: session.sport,
-      venueName: session.venueName,
-      startsAt: session.startsAt,
-      spotsLeft,
-      url: `${appUrl}/dropin/${session.id}?src=fill-alert`,
-      timeZone: DISPLAY_TZ,
-    });
-
+    // Build the EFFECTIVE recipient list — dedupe, normalize phone, and
+    // apply the daily cap — BEFORE claiming the one-blast stamp. This must
+    // happen up front so a session with zero actual recipients never burns
+    // its stamp (see doc comment above).
     const seenUsers = new Set<string>();
+    const effectiveRecipients: Array<{ userId: string; phone: string }> = [];
     for (const sub of subscribers) {
       if (seenUsers.has(sub.userId)) continue; // overlapping subscriptions
       seenUsers.add(sub.userId);
+
+      const normalizedPhone = sub.phone ? normalizeUsPhone(sub.phone) : null;
+      if (!normalizedPhone) {
+        smsSkipped++;
+        continue;
+      }
 
       const [{ sentToday }] = await db
         .select({ sentToday: sql<number>`count(*)::int` })
@@ -155,8 +175,37 @@ export async function runFillAlertSweep(
         continue;
       }
 
+      effectiveRecipients.push({ userId: sub.userId, phone: normalizedPhone });
+    }
+
+    if (effectiveRecipients.length === 0) continue; // nobody to actually text — don't burn the stamp
+
+    // Claim the blast (stamp-then-send) — one blast per session ever. Only
+    // reached once we know there's at least one real recipient.
+    const claimed = await db
+      .update(dropInSessions)
+      .set({ fillAlertSentAt: now, updatedAt: now })
+      .where(
+        and(eq(dropInSessions.id, session.id), isNull(dropInSessions.fillAlertSentAt)),
+      )
+      .returning({ id: dropInSessions.id });
+    if (claimed.length === 0) continue; // another run got it
+    sessionsAlerted++;
+
+    const spotsLeft = session.capacity - session.confirmedCount;
+    const body =
+      buildShareBlurb({
+        sport: session.sport,
+        venueName: session.venueName,
+        startsAt: session.startsAt,
+        spotsLeft,
+        url: `${appUrl}/dropin/${session.id}?src=fill-alert`,
+        timeZone: DISPLAY_TZ,
+      }) + " Reply STOP to opt out.";
+
+    for (const recipient of effectiveRecipients) {
       const result = await sendSms({
-        to: sub.phone!,
+        to: recipient.phone,
         body,
         organizationId: session.organizationId,
       });
@@ -164,7 +213,7 @@ export async function runFillAlertSweep(
         smsSent++;
         await db
           .insert(pickupAlertSends)
-          .values({ sessionId: session.id, userId: sub.userId, sentAt: now });
+          .values({ sessionId: session.id, userId: recipient.userId, sentAt: now });
       } else {
         smsSkipped++;
       }

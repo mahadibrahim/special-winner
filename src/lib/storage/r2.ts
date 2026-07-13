@@ -128,12 +128,21 @@ export async function getSignedGetUrl(
 export async function getSignedPutUrl(
   key: string,
   contentType: string,
-  expiresInSeconds = 900
+  opts: { contentLength?: number; expiresInSeconds?: number } = {}
 ): Promise<string> {
+  const { contentLength, expiresInSeconds = 900 } = opts;
   if (process.env.R2_MOCK === "1") return `https://mock-r2.local/put/${key}`;
   return getSignedUrl(
     client(),
-    new PutObjectCommand({ Bucket: bucket(), Key: key, ContentType: contentType }),
+    new PutObjectCommand({
+      Bucket: bucket(),
+      Key: key,
+      ContentType: contentType,
+      // Binds the presigned URL to the declared size — a client can't lie
+      // about sizeBytes at request time and then PUT an arbitrarily larger
+      // body; R2 rejects a body whose length doesn't match this header.
+      ...(contentLength !== undefined ? { ContentLength: contentLength } : {}),
+    }),
     { expiresIn: expiresInSeconds }
   );
 }

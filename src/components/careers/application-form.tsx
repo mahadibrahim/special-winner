@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import type { UseFormRegisterReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -8,6 +8,7 @@ import { z } from "zod";
 import { Loader2, CheckCircle2 } from "lucide-react";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { TurnstileWidget } from "@/components/auth/turnstile-widget";
+import type { TurnstileWidgetHandle } from "@/components/auth/turnstile-widget";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import {
   jobApplicationSchema,
@@ -65,11 +66,20 @@ const inputClass =
 /** Signals the upload-url endpoint returned 503 storage_unavailable — the caller degrades to link inputs rather than showing a per-field error. */
 class StorageUnavailableError extends Error {}
 
-async function uploadHostMedia(kind: UploadKind, file: File): Promise<string> {
+async function uploadHostMedia(
+  kind: UploadKind,
+  file: File,
+  turnstileToken: string | null,
+): Promise<string> {
   const res = await fetch("/api/public/careers/upload-url", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ kind, contentType: file.type, sizeBytes: file.size }),
+    body: JSON.stringify({
+      kind,
+      contentType: file.type,
+      sizeBytes: file.size,
+      turnstileToken,
+    }),
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
@@ -90,6 +100,7 @@ async function uploadHostMedia(kind: UploadKind, file: File): Promise<string> {
 
 export default function ApplicationForm() {
   useHydrationBeacon();
+  const turnstileRef = useRef<TurnstileWidgetHandle | null>(null);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [resume, setResume] = useState<File | null>(null);
   const [resumeError, setResumeError] = useState<string | null>(null);
@@ -115,7 +126,13 @@ export default function ApplicationForm() {
     return async (file: File) => {
       setHostMedia((prev) => ({ ...prev, [kind]: { key: null, uploading: true, error: null } }));
       try {
-        const key = await uploadHostMedia(kind, file);
+        const key = await uploadHostMedia(kind, file, turnstileToken);
+        // Turnstile tokens are single-use — the upload-url call above just
+        // spent this one. Re-solve now so a fresh token is ready for the
+        // next media upload or the final application submit (there's
+        // usually a comfortable gap here while the applicant records/picks
+        // the next file, so the invisible re-solve has time to land).
+        turnstileRef.current?.reset();
         setHostMedia((prev) => ({ ...prev, [kind]: { key, uploading: false, error: null } }));
         setValue(HOST_MEDIA_FIELD[kind], key, { shouldValidate: true, shouldDirty: true });
       } catch (err) {
@@ -378,7 +395,11 @@ export default function ApplicationForm() {
         <input id="source" {...register("source")} className={inputClass} />
       </Field>
 
-      <TurnstileWidget onToken={(t) => setTurnstileToken(t)} onError={() => setTurnstileToken(null)} />
+      <TurnstileWidget
+        ref={turnstileRef}
+        onToken={(t) => setTurnstileToken(t)}
+        onError={() => setTurnstileToken(null)}
+      />
 
       <button
         type="submit"

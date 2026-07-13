@@ -269,6 +269,9 @@ export function PickupAlertSignup({ signedIn: signedInProp }: PickupAlertSignupP
       <Button onClick={subscribe} disabled={submitting} className="w-full sm:w-auto">
         {submitting ? "Subscribing..." : "Text me when games need players"}
       </Button>
+      <p className="text-xs text-ink-faint">
+        Msg frequency varies. Msg &amp; data rates may apply. Reply STOP to unsubscribe.
+      </p>
     </div>
   );
 }

@@ -41,10 +41,36 @@ function uniquePhone(): string {
   return `+1614${rand}`;
 }
 
-async function triggerSweep() {
+/**
+ * A Date pinned to a dispatch-hour local time (America/New_York) that keeps
+ * "today"'s UTC calendar date — 17:00 UTC is 1pm EDT / noon EST, comfortably
+ * inside the 9am-8pm dispatch window regardless of DST. Using a fixed hour
+ * (rather than raw `Date.now()`) makes every test in this file immune to the
+ * quiet-hours gate no matter what wall-clock time the suite happens to run
+ * at, while keeping the daily-cap UTC-day math (`dayStart` in
+ * runFillAlertSweep) aligned with rows inserted via `new Date()` elsewhere
+ * in this file (same UTC date, only the hour is pinned).
+ */
+function dispatchHourNow(): Date {
+  const d = new Date();
+  d.setUTCHours(17, 0, 0, 0);
+  return d;
+}
+
+/** 06:00 UTC — 2am EDT / 1am EST, well outside the 9am-8pm dispatch window
+ *  regardless of DST. Same UTC date as `dispatchHourNow()` so window/threshold
+ *  math relative to a session's startsAt stays comparable between the two. */
+function quietHourNow(): Date {
+  const d = new Date();
+  d.setUTCHours(6, 0, 0, 0);
+  return d;
+}
+
+async function triggerSweep(now: Date = dispatchHourNow()) {
   const res = await apiFetch("/api/cron/check-fill-alerts", {
     method: "POST",
     headers: { "x-cron-secret": CRON_SECRET },
+    body: JSON.stringify({ now: now.toISOString() }),
   });
   expect(res.status).toBe(200);
   return res.json();
@@ -99,11 +125,14 @@ async function makeSubscriber(
   return { ...user, phone, subscriptionId: sub.id };
 }
 
-/** A fresh org/venue + a scheduled pickup session 2h out, capacity 10,
- *  0 bookings — the default "eligible" fixture used by most cases. */
-async function makeEligibleSession() {
+/** A fresh org/venue + a scheduled pickup session 2h out (relative to
+ *  `referenceNow`, default the shared dispatch-hour "now"), capacity 10,
+ *  0 bookings — the default "eligible" fixture used by most cases. Sessions
+ *  are built relative to the same reference the sweep is triggered with so
+ *  window/threshold eligibility never depends on real wall-clock skew. */
+async function makeEligibleSession(referenceNow: Date = dispatchHourNow()) {
   return createTestDropInSession({
-    startsAt: new Date(Date.now() + 2 * 60 * 60_000),
+    startsAt: new Date(referenceNow.getTime() + 2 * 60 * 60_000),
     capacity: 10,
   });
 }
@@ -272,5 +301,42 @@ describe("Fill-alert cron sweep (POST /api/cron/check-fill-alerts)", () => {
       .from(dropInSessions)
       .where(eq(dropInSessions.id, fullCtx.sessionId));
     expect(fullSession.fillAlertSentAt).toBeNull();
+  });
+
+  it("does not stamp fillAlertSentAt when a session is eligible but has no matching subscriber", async () => {
+    if (!mockReady) return;
+    // Eligible in every other way, but nobody has subscribed at all — the
+    // effective-recipient list is empty, so the sweep must not burn the
+    // one-blast stamp (otherwise this session could never alert later once
+    // a real subscriber shows up).
+    const ctx = await makeEligibleSession();
+
+    const result = await triggerSweep();
+    expect(result.smsSent).toBe(0);
+
+    const db = getDb();
+    const [session] = await db
+      .select({ fillAlertSentAt: dropInSessions.fillAlertSentAt })
+      .from(dropInSessions)
+      .where(eq(dropInSessions.id, ctx.sessionId));
+    expect(session.fillAlertSentAt).toBeNull();
+  });
+
+  it("does not dispatch or stamp outside the 9am-8pm America/New_York quiet-hours window", async () => {
+    if (!mockReady) return;
+    const quietNow = quietHourNow();
+    const ctx = await makeEligibleSession(quietNow);
+    const subscriber = await makeSubscriber(ctx.organizationId);
+
+    await triggerSweep(quietNow);
+
+    expect((await inboxFor(subscriber.phone)).length).toBe(0);
+
+    const db = getDb();
+    const [session] = await db
+      .select({ fillAlertSentAt: dropInSessions.fillAlertSentAt })
+      .from(dropInSessions)
+      .where(eq(dropInSessions.id, ctx.sessionId));
+    expect(session.fillAlertSentAt).toBeNull();
   });
 });

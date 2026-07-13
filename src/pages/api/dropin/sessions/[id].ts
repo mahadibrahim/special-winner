@@ -84,16 +84,32 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
       )
       .limit(1);
     if (profile) {
+      // Resolve the photo URL defensively — this is a public, unauthenticated
+      // endpoint, and a signing failure must never break the whole booking
+      // page for a session that otherwise has everything it needs.
+      let photoUrl: string | null = null;
+      if (profile.photoKey) {
+        if (profile.photoKey.startsWith("https://")) {
+          // Link-mode application (no-R2 degrade path) stored a full URL —
+          // pass it through as-is rather than trying to sign it as an R2 key.
+          photoUrl = profile.photoKey;
+        } else if (process.env.R2_MOCK === "1") {
+          photoUrl = `https://mock-r2.local/${profile.photoKey}`;
+        } else {
+          try {
+            photoUrl = await getSignedGetUrl(profile.photoKey);
+          } catch (err) {
+            console.error("[dropin] failed to sign host photo URL", err);
+            photoUrl = null;
+          }
+        }
+      }
       host = {
         // users.firstName is nullable in the schema; a host profile without
         // one is unusual but shouldn't crash the public page.
         firstName: profile.firstName ?? "Your host",
         bio: profile.bio,
-        photoUrl: profile.photoKey
-          ? process.env.R2_MOCK === "1"
-            ? `https://mock-r2.local/${profile.photoKey}`
-            : await getSignedGetUrl(profile.photoKey)
-          : null,
+        photoUrl,
       };
     }
   }

@@ -5,6 +5,7 @@ import { pickupAlertSubscriptions } from "@/lib/db/schema/hosts";
 import { phoneOptIns } from "@/lib/db/schema/phone-verifications";
 import { users } from "@/lib/db/schema/users";
 import { venues } from "@/lib/db/schema/teams";
+import { normalizeUsPhone } from "@/lib/sms/send";
 
 export const prerender = false;
 
@@ -22,11 +23,19 @@ async function phoneReady(userId: string, organizationId: string): Promise<boole
     .where(eq(users.id, userId))
     .limit(1);
   if (!u?.phone) return false;
+  // phone_opt_ins.phone is stored E.164 (see fill-alerts.ts / send.ts); raw
+  // users.phone may not be — normalize before comparing or a differently
+  // formatted-but-equivalent number silently fails this check.
+  const normalizedPhone = normalizeUsPhone(u.phone);
+  if (!normalizedPhone) return false;
   const [optIn] = await db
     .select({ status: phoneOptIns.status })
     .from(phoneOptIns)
     .where(
-      and(eq(phoneOptIns.organizationId, organizationId), eq(phoneOptIns.phone, u.phone)),
+      and(
+        eq(phoneOptIns.organizationId, organizationId),
+        eq(phoneOptIns.phone, normalizedPhone),
+      ),
     )
     .orderBy(asc(phoneOptIns.createdAt))
     .limit(1);

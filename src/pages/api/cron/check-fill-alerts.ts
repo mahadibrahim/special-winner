@@ -40,12 +40,28 @@ export const POST: APIRoute = async ({ request }) => {
     });
   }
 
+  // Test-only `now` override so integration tests can exercise the
+  // quiet-hours gate deterministically instead of depending on wall-clock
+  // time-of-day when the suite happens to run. Gated behind the same flag
+  // as every other /api/test/** fixture; never available in prod.
+  let nowOverride: Date | undefined;
+  if (process.env.E2E_TEST_ENDPOINTS === "yes") {
+    const body: { now?: unknown } | null = await request
+      .clone()
+      .json()
+      .catch(() => null);
+    if (body && typeof body.now === "string") {
+      const parsed = new Date(body.now);
+      if (!Number.isNaN(parsed.getTime())) nowOverride = parsed;
+    }
+  }
+
   try {
     // Warm the DB connection (with retry) before any work — rides out the
     // transient Railway CONNECT_TIMEOUT blips that otherwise fail the run.
     await warmDbConnection();
     const startedAt = Date.now();
-    const result = await runFillAlertSweep();
+    const result = await runFillAlertSweep(nowOverride);
     const elapsedMs = Date.now() - startedAt;
 
     console.info(
