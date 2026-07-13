@@ -3,7 +3,7 @@ import { getDb } from "@/lib/db"
 import { users } from "@/lib/db/schema/users"
 import { phoneOptIns } from "@/lib/db/schema/phone-verifications"
 import { conversationMessages } from "@/lib/db/schema/conversations"
-import { eq } from "drizzle-orm"
+import { desc, eq } from "drizzle-orm"
 import { handleInboundWhatsApp } from "@/lib/messaging/inbound-whatsapp"
 import { createAdminOrgGameContext } from "../../utils/admin-org-game-context"
 
@@ -60,10 +60,14 @@ describe("handleInboundWhatsApp", () => {
     expect(result.parentUserId).toBe(userId)
 
     const db = getDb()
+    // orderBy newest-first per the CLAUDE.md multi-tenant convention: even
+    // with the cleanup delete above, a concurrent run on the shared staging
+    // DB could interleave — the un-ordered limit(1) must not pick its row.
     const [msg] = await db
       .select()
       .from(conversationMessages)
       .where(eq(conversationMessages.externalMessageId, "wamid.TEST-1"))
+      .orderBy(desc(conversationMessages.createdAt))
       .limit(1)
     expect(msg).toBeDefined()
     expect(msg.channel).toBe("whatsapp")
