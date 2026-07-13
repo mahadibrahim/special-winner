@@ -15,6 +15,12 @@ export interface SeasonEarlyBird {
   /** timestamp column — Date from drizzle, string once serialized */
   earlyBirdDeadline: Date | string | null;
   earlyBirdPriceCents: number | null;
+  /**
+   * The per-player list price. Optional so deadline-only callers still work,
+   * but pass it wherever you have it — it's what makes the "not a discount"
+   * guard below fire.
+   */
+  priceCents?: number | null;
 }
 
 export function isEarlyBirdActive(
@@ -27,6 +33,19 @@ export function isEarlyBirdActive(
     !season.earlyBirdDeadline ||
     season.earlyBirdPriceCents == null ||
     season.earlyBirdPriceCents <= 0
+  ) {
+    return false;
+  }
+  // An early-bird price at or above the list price is not a discount — it is a
+  // misconfiguration, and honoring it OVERCHARGES the customer. This is not
+  // hypothetical: the Fall 2026 seasons carried a team early-bird price
+  // ($1,000) in this per-player field alongside a $120 individual price, which
+  // billed solo registrants 8.3x. `early_bird_price_cents` is per-player only;
+  // the team path bills `team_price_cents` flat and never consults early-bird.
+  // Fall back to the list price rather than charging more than list.
+  if (
+    season.priceCents != null &&
+    season.earlyBirdPriceCents >= season.priceCents
   ) {
     return false;
   }
