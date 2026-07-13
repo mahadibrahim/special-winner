@@ -32,13 +32,15 @@
  *      slot for the waitlist), and a pre-expiry reminder is dispatched
  *      to the booker before that happens. See docs/superpowers/plans/
  *      2026-07-12-walkin-remote-payment.md for the full design.
- *      DUPLICATE GUARD: the partial unique index
- *      `drop_in_bookings_one_active_per_user_session` predicates on
- *      `status IN ('confirmed','waitlisted','pending_claim')` — it predates
- *      `pending_payment` and can't be extended by an additive migration
- *      without a same-transaction enum-use hazard (see the Task 1 report).
- *      So the "one active hold per user+session" rule is enforced here at
- *      the application layer instead of by the DB constraint.
+ *      DUPLICATE GUARD: migration 0086 extended the partial unique index
+ *      `drop_in_bookings_one_active_per_user_session` to predicate on
+ *      `status IN ('confirmed','waitlisted','pending_claim','pending_payment')`
+ *      — DB-level protection is restored now that scripts/db-migrate.ts
+ *      applies each migration file in its own transaction (see that
+ *      script's header; the Task 1 report has the original hazard). The
+ *      application-layer check inside the transaction below stays as
+ *      belt-and-suspenders (returns a clean 409 pre-insert instead of
+ *      surfacing a raw unique-violation from the DB).
  *   8. Mint a `walkin_session` self-service token pointing at the booking
  *   9. Return { token, url, bookingId, amountDueCents }
  */
