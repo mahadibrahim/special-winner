@@ -1,7 +1,13 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { registrations, familyMembers, users } from "@/lib/db/schema";
+import {
+  registrations,
+  familyMembers,
+  users,
+  accountCredits,
+  accountCreditRedemptions,
+} from "@/lib/db/schema";
 import { getParentCookie, apiFetch, expectJson, resetCookies } from "../setup/test-helpers";
 import { createAdminOrgGameContext } from "../../utils/admin-org-game-context";
 import { issueAccountCredit, getAccountCreditBalanceCents } from "@/lib/payments/account-credit";
@@ -23,6 +29,7 @@ describe("POST /api/payments/create-checkout — applyAccountCredit wiring", () 
   let seasonId: string;
   const cleanupRegistrationIds: string[] = [];
   const cleanupMemberIds: string[] = [];
+  const cleanupCreditIds: string[] = [];
 
   beforeAll(async () => {
     parentCookie = await getParentCookie();
@@ -37,9 +44,57 @@ describe("POST /api/payments/create-checkout — applyAccountCredit wiring", () 
     const ctx = await createAdminOrgGameContext();
     organizationId = ctx.organizationId;
     seasonId = ctx.seasonId;
+
+    // Self-healing, one-time cleanup: this test (and unrelated tests, e.g.
+    // refund-to-credit flows) share this fixture user+org's account-credit
+    // ledger, and prior failed/dirty runs can leave unredeemed balance
+    // behind (see .superpowers/sdd/credit-triage-report.md). Wipe any
+    // pre-existing *unredeemed* rows for this exact (userId, organizationId)
+    // pair before establishing our own baseline, using the same direct
+    // db-delete pattern as the afterAll cleanup below. Scoped strictly to
+    // this fixture identity — never touches other users/orgs.
+    const existingCredits = await getDb()
+      .select({ id: accountCredits.id, amountCents: accountCredits.amountCents })
+      .from(accountCredits)
+      .where(
+        and(
+          eq(accountCredits.userId, parentUserId),
+          eq(accountCredits.organizationId, organizationId),
+        ),
+      );
+
+    for (const credit of existingCredits) {
+      const [redeemedRow] = await getDb()
+        .select({
+          total: sql<string>`COALESCE(SUM(${accountCreditRedemptions.amountCents}), 0)`,
+        })
+        .from(accountCreditRedemptions)
+        .where(eq(accountCreditRedemptions.accountCreditId, credit.id));
+      const redeemed = Number(redeemedRow?.total ?? 0);
+      if (redeemed < credit.amountCents) {
+        // Unredeemed (or partially redeemed) stray balance — delete its
+        // redemption rows first (FK restrict on accountCreditId), then the
+        // issuance row itself.
+        await getDb()
+          .delete(accountCreditRedemptions)
+          .where(eq(accountCreditRedemptions.accountCreditId, credit.id))
+          .catch(() => {});
+        await getDb()
+          .delete(accountCredits)
+          .where(eq(accountCredits.id, credit.id))
+          .catch(() => {});
+      }
+    }
   });
 
   afterAll(async () => {
+    for (const id of cleanupCreditIds) {
+      await getDb()
+        .delete(accountCreditRedemptions)
+        .where(eq(accountCreditRedemptions.accountCreditId, id))
+        .catch(() => {});
+      await getDb().delete(accountCredits).where(eq(accountCredits.id, id)).catch(() => {});
+    }
     for (const id of cleanupRegistrationIds) {
       await getDb().delete(registrations).where(eq(registrations.id, id)).catch(() => {});
     }
@@ -77,11 +132,17 @@ describe("POST /api/payments/create-checkout — applyAccountCredit wiring", () 
         .returning();
       cleanupRegistrationIds.push(registration.id);
 
-      await issueAccountCredit({
+      const balanceBeforeIssue = await getAccountCreditBalanceCents(
+        parentUserId,
+        organizationId,
+      );
+
+      const credit = await issueAccountCredit({
         userId: parentUserId,
         organizationId,
         amountCents: 5000,
       });
+      cleanupCreditIds.push(credit.id);
 
       const res = await apiFetch("/api/payments/create-checkout", {
         method: "POST",
@@ -96,8 +157,14 @@ describe("POST /api/payments/create-checkout — applyAccountCredit wiring", () 
       expect(json.discountApplied).toBe(true);
       expect(json.creditAppliedCents).toBe(5000);
 
-      const balance = await getAccountCreditBalanceCents(parentUserId, organizationId);
-      expect(balance).toBe(0);
+      // Assert a DELTA rather than an absolute balance: this fixture
+      // user+org's account-credit ledger is shared across the whole suite,
+      // so its starting balance isn't guaranteed to be zero even after the
+      // beforeAll cleanup above (a concurrently-running test could add
+      // activity). We issued and fully redeemed exactly 5000, so the net
+      // change should be zero regardless of what else touches this ledger.
+      const balanceAfter = await getAccountCreditBalanceCents(parentUserId, organizationId);
+      expect(balanceAfter).toBe(balanceBeforeIssue);
     },
   );
 });
