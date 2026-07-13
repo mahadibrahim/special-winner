@@ -13,7 +13,7 @@
  * Returns at most 20 results. Empty / sub-2-char query → empty results.
  */
 import type { APIRoute } from "astro";
-import { and, eq, gte, ilike, lt, or } from "drizzle-orm";
+import { and, asc, eq, gte, ilike, lt, or } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
 import { fieldRentals } from "@/lib/db/schema/field-rentals";
@@ -100,6 +100,12 @@ export const GET: APIRoute = async ({ params, url }) => {
         ),
       ),
     )
+    // CLAUDE.md multi-tenant query hazard: any query with `.limit()` picking
+    // "a" set of rows out of a possibly-larger match set MUST have an
+    // explicit orderBy, or it returns an arbitrary (and on a shared DB,
+    // nondeterministic) subset. Soonest game first is what front desk wants;
+    // booking createdAt is the tiebreak for same-time sessions.
+    .orderBy(asc(dropInSessions.startsAt), asc(dropInBookings.createdAt))
     .limit(MAX_RESULTS);
 
   // ---- Field rentals ----
@@ -128,6 +134,8 @@ export const GET: APIRoute = async ({ params, url }) => {
         ),
       ),
     )
+    // Same CLAUDE.md multi-tenant orderBy rule as the drop-in query above.
+    .orderBy(asc(fieldRentals.startsAt), asc(fieldRentals.createdAt))
     .limit(MAX_RESULTS);
 
   type Result = {
