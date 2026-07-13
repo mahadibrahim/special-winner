@@ -159,19 +159,24 @@ export const POST: APIRoute = async (context) => {
     userRow = existing;
   }
 
-  // If this account already holds an active booking for the session,
-  // surface that instead of double-charging.
-  const [existingBooking] = await db
-    .select({ status: dropInBookings.status })
-    .from(dropInBookings)
-    .where(
-      and(
-        eq(dropInBookings.sessionId, data.sessionId),
-        eq(dropInBookings.userId, userRow.id),
-      ),
-    )
-    .orderBy(dropInBookings.createdAt)
-    .limit(1);
+  // existingBooking and membership are independent reads — both only need
+  // userRow.id (already resolved above) — fetch concurrently. If
+  // existingBooking turns out to block the request below, the membership
+  // read is simply discarded (plain SELECT, no side effects).
+  const [[existingBooking], membership] = await Promise.all([
+    db
+      .select({ status: dropInBookings.status })
+      .from(dropInBookings)
+      .where(
+        and(
+          eq(dropInBookings.sessionId, data.sessionId),
+          eq(dropInBookings.userId, userRow.id),
+        ),
+      )
+      .orderBy(dropInBookings.createdAt)
+      .limit(1),
+    getActiveMembershipForUser(userRow.id, session.organizationId),
+  ]);
   if (
     existingBooking &&
     ["confirmed", "waitlisted", "pending_payment", "pending_claim"].includes(
@@ -187,10 +192,6 @@ export const POST: APIRoute = async (context) => {
     );
   }
 
-  const membership = await getActiveMembershipForUser(
-    userRow.id,
-    session.organizationId,
-  );
   const rate = resolveRate(session, userRow, membership, rateCard);
   const waiverSignedAt = new Date();
 

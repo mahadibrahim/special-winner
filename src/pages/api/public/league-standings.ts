@@ -41,13 +41,15 @@ export const GET: APIRoute = async ({ url, locals }) => {
 
     const rules = rulesForSport(row.sportSlug);
 
-    const teamRows = await db
-      .select({ id: teamsTable.id, name: teamsTable.name })
-      .from(teamsTable)
-      .where(eq(teamsTable.seasonId, seasonId))
-      .orderBy(asc(teamsTable.name));
-
-    const gameRows = await db.select().from(gamesTable).where(eq(gamesTable.seasonId, seasonId));
+    // Independent reads (both scoped by seasonId only) — fetch concurrently.
+    const [teamRows, gameRows] = await Promise.all([
+      db
+        .select({ id: teamsTable.id, name: teamsTable.name })
+        .from(teamsTable)
+        .where(eq(teamsTable.seasonId, seasonId))
+        .orderBy(asc(teamsTable.name)),
+      db.select().from(gamesTable).where(eq(gamesTable.seasonId, seasonId)),
+    ]);
 
     const standings = computeStandings(
       teamRows,
