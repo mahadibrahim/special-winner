@@ -108,6 +108,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
     .select({
       defaultSessionRateCents: dropInRateCard.defaultSessionRateCents,
       defaultMemberRateCents: dropInRateCard.defaultMemberRateCents,
+      fillAlertThresholdPct: dropInRateCard.fillAlertThresholdPct,
+      fillAlertWindowHours: dropInRateCard.fillAlertWindowHours,
     })
     .from(dropInRateCard)
     .where(eq(dropInRateCard.organizationId, orgId))

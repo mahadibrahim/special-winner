@@ -19,6 +19,8 @@ interface ApiResponse {
   defaults: {
     defaultSessionRateCents: number;
     defaultMemberRateCents: number;
+    fillAlertThresholdPct: number;
+    fillAlertWindowHours: number;
   } | null;
 }
 
@@ -221,6 +223,8 @@ export default function SessionList() {
               defaultSessionRateCents={
                 data?.defaults?.defaultSessionRateCents ?? null
               }
+              fillAlertThresholdPct={data?.defaults?.fillAlertThresholdPct}
+              fillAlertWindowHours={data?.defaults?.fillAlertWindowHours}
             />
           ))}
         </div>

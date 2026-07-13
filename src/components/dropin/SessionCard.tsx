@@ -1,6 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
+import { deriveFillState, FILL_STATE_LABELS } from "@/lib/dropin/fill-state";
 
 export interface SessionCardData {
   id: string;
@@ -50,14 +51,29 @@ function priceLabel(
 interface SessionCardProps {
   session: SessionCardData;
   defaultSessionRateCents: number | null;
+  fillAlertThresholdPct?: number;
+  fillAlertWindowHours?: number;
 }
 
-export function SessionCard({ session, defaultSessionRateCents }: SessionCardProps) {
+export function SessionCard({
+  session,
+  defaultSessionRateCents,
+  fillAlertThresholdPct,
+  fillAlertWindowHours,
+}: SessionCardProps) {
   const fillPct = Math.min(
     100,
     Math.round((session.confirmedCount / Math.max(1, session.capacity)) * 100),
   );
   const isFull = session.confirmedCount >= session.capacity;
+  const fillState = deriveFillState({
+    confirmedCount: session.confirmedCount,
+    capacity: session.capacity,
+    startsAt: new Date(session.startsAt),
+    thresholdPct: fillAlertThresholdPct ?? 60,
+    windowHours: fillAlertWindowHours ?? 24,
+  });
+  const fillLabel = FILL_STATE_LABELS[fillState];
 
   return (
     <a
@@ -105,6 +121,18 @@ export function SessionCard({ session, defaultSessionRateCents }: SessionCardPro
         {session.membersOnly && (
           <Badge className="bg-amber-100 text-amber-900 border-amber-200 font-normal">
             Members only
+          </Badge>
+        )}
+        {fillLabel && (
+          <Badge
+            className={
+              fillState === "needs_players"
+                ? "bg-amber-100 text-amber-900 border-amber-200 font-normal"
+                : "font-normal"
+            }
+            variant={fillState === "needs_players" ? undefined : "secondary"}
+          >
+            {fillLabel}
           </Badge>
         )}
       </div>
