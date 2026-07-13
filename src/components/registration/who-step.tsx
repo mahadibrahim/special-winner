@@ -217,12 +217,6 @@ export function WhoStep({
                     Enter a 10-digit US number.
                   </div>
                 )}
-                <SmsConsentCheckbox
-                  id="sms-consent-profile"
-                  checked={smsConsent}
-                  onCheckedChange={setSmsConsent}
-                  className="mt-1.5"
-                />
               </div>
             )}
             {missing.birthDate && (
@@ -258,6 +252,16 @@ export function WhoStep({
               </select>
             </div>
           </div>
+          {/* SMS consent sits below the field grid so the required 10DLC
+              disclosure gets full width rather than a cramped grid column. */}
+          {missing.phone && (
+            <SmsConsentCheckbox
+              id="sms-consent-profile"
+              checked={smsConsent}
+              onCheckedChange={setSmsConsent}
+              className="mt-4"
+            />
+          )}
           {profileError && (
             <div className="text-sm text-destructive mt-2 whitespace-pre-line">
               {profileError}
