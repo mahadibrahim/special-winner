@@ -59,3 +59,23 @@ test.describe("SoccerOne homepage", () => {
     // submission is covered by the newsletter API tests.
   })
 })
+  test("hero card routes correctly in both modes (division vs term aggregate)", async ({ page }) => {
+    await page.goto(`${BASE}/`, { waitUntil: "domcontentloaded" });
+    const card = page.locator(".season-card");
+    if ((await card.count()) === 0) return; // no open seasons on this DB
+    const cta = card.locator(".season-cta");
+    const href = await cta.getAttribute("href");
+    const name = (await card.locator(".season-name").innerText()).trim();
+    // .season-name renders uppercased (CSS text-transform), so match case-insensitively.
+    if (/adult leagues$/i.test(name)) {
+      // Term-aggregate mode: multi-division terms sell the term and route
+      // to the division finder; no division-scoped analytics attr.
+      expect(href).toBe("/leagues");
+      expect(await cta.getAttribute("data-so-register-cta")).toBeNull();
+      await expect(card.getByText(/\d+ divisions/)).toBeVisible();
+    } else {
+      // Single-season mode: direct register link with analytics attrs.
+      expect(href).toMatch(/^\/register\/.+/);
+    }
+  });
+

@@ -48,6 +48,10 @@ const adultSeasons = await fetchOpenSeasons('adult');
 // card in "What's Happening" is static copy (Sat & Sun mornings), so no
 // youth season fetch is needed here.
 const featured = adultSeasons[0] ?? null;
+// Multi-division term (all fall divisions share a start date): route
+// register CTAs to the division finder instead of pre-picking whichever
+// division the createdAt tiebreak surfaces ('Co-Ed D' incident).
+const termAgg = aggregateFeaturedTerm(adultSeasons);
 
 // registrationCloses is a timestamp (full ISO instant): display the
 // deadline in the org's local timezone, not the server's.
@@ -149,6 +153,7 @@ const liveFallRows = DAY_ORDER
 
 const hasLiveThu = seasonsByDay.has('thu');
 
+import { aggregateFeaturedTerm } from '@/lib/soccerone/featured-term';
 import { setMarketingEdgeCache } from '@/lib/http/edge-cache';
 setMarketingEdgeCache(Astro); // after fetches; a degraded (empty-seasons) render may cache for 60s — SWR refreshes it
 ---
@@ -205,15 +210,17 @@ setMarketingEdgeCache(Astro); // after fetches; a degraded (empty-seasons) rende
         <div class="f-cta-row">
           {featured && (
             <a
-              href={`/register/${featured.id}`}
+              href={termAgg.multi ? '/leagues' : `/register/${featured.id}`}
               class="f-cta f-cta--primary"
-              data-so-register-cta
-              data-season-id={featured.id}
-              data-level={featured.skillLevel ?? 'open'}
-              data-gender={featured.divisionGender ?? 'unknown'}
-              data-venue={featured.location?.slug ?? ''}
-              data-term={featured.termSlug ?? ''}
-              data-mode={featured.signupModes?.includes('team') ? 'team' : 'individual'}
+              {...(termAgg.multi ? {} : {
+                'data-so-register-cta': true,
+                'data-season-id': featured.id,
+                'data-level': featured.skillLevel ?? 'open',
+                'data-gender': featured.divisionGender ?? 'unknown',
+                'data-venue': featured.location?.slug ?? '',
+                'data-term': featured.termSlug ?? '',
+                'data-mode': featured.signupModes?.includes('team') ? 'team' : 'individual',
+              })}
             >
               <span class="f-cta-label">Register for Fall Leagues →</span>
               {(earlyBirdActive || featuredCloses) && (
@@ -458,15 +465,17 @@ setMarketingEdgeCache(Astro); // after fetches; a degraded (empty-seasons) rende
                 )}
               </div>
               <a
-                href={`/register/${featured.id}`}
+                href={termAgg.multi ? '/leagues' : `/register/${featured.id}`}
                 class="price-cta"
-                data-so-register-cta
-                data-season-id={featured.id}
-                data-level={featured.skillLevel ?? 'open'}
-                data-gender={featured.divisionGender ?? 'unknown'}
-                data-venue={featured.location?.slug ?? ''}
-                data-term={featured.termSlug ?? ''}
-                data-mode={featured.signupModes?.includes('team') ? 'team' : 'individual'}
+                {...(termAgg.multi ? {} : {
+                  'data-so-register-cta': true,
+                  'data-season-id': featured.id,
+                  'data-level': featured.skillLevel ?? 'open',
+                  'data-gender': featured.divisionGender ?? 'unknown',
+                  'data-venue': featured.location?.slug ?? '',
+                  'data-term': featured.termSlug ?? '',
+                  'data-mode': featured.signupModes?.includes('team') ? 'team' : 'individual',
+                })}
               >Register for Fall →</a>
               <p class="price-note">Secure checkout · powered by Aspire Sports</p>
             </div>

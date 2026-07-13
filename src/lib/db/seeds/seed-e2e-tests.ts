@@ -2899,6 +2899,8 @@ async function seedE2ETests() {
           endDate: tenWeeksOut.toISOString().slice(0, 10),
           priceCents: 18000,
           maxParticipants: 80,
+          termSlug: "spring-2026",
+          termLabel: "Spring 2026",
         })
         .returning();
     } else {
@@ -2910,11 +2912,56 @@ async function seedE2ETests() {
         .set({
           startDate: sixWeeksOut.toISOString().slice(0, 10),
           endDate: tenWeeksOut.toISOString().slice(0, 10),
+          termSlug: "spring-2026",
+          termLabel: "Spring 2026",
         })
         .where(eq(seasons.id, soccerOneSeason.id))
         .returning();
     }
     console.log(`   ✓ SoccerOne Season: ${soccerOneSeason.name} (status=${soccerOneSeason.status})`);
+
+    // Sibling spring division — the earliest-starting term on staging must
+    // hold 2+ open seasons so the homepage's multi-division term-aggregate
+    // hero (featured-term.ts) renders against real fixture data.
+    let [soccerOneSeasonB] = await db
+      .select()
+      .from(seasons)
+      .where(and(
+        eq(seasons.programId, soccerOneSeason.programId),
+        eq(seasons.slug, "soccerone-adult-coed-b-spring-2026"),
+      ))
+      .limit(1);
+    if (!soccerOneSeasonB) {
+      [soccerOneSeasonB] = await db
+        .insert(seasons)
+        .values({
+          programId: soccerOneSeason.programId,
+          name: "Adult Coed B — Spring 2026",
+          slug: "soccerone-adult-coed-b-spring-2026",
+          status: "open",
+          isTest: false,
+          startDate: sixWeeksOut.toISOString().slice(0, 10),
+          endDate: tenWeeksOut.toISOString().slice(0, 10),
+          priceCents: 18000,
+          maxParticipants: 80,
+          termSlug: "spring-2026",
+          termLabel: "Spring 2026",
+        })
+        .returning();
+    } else {
+      [soccerOneSeasonB] = await db
+        .update(seasons)
+        .set({
+          status: "open",
+          startDate: sixWeeksOut.toISOString().slice(0, 10),
+          endDate: tenWeeksOut.toISOString().slice(0, 10),
+          termSlug: "spring-2026",
+          termLabel: "Spring 2026",
+        })
+        .where(eq(seasons.id, soccerOneSeasonB.id))
+        .returning();
+    }
+    console.log(`   ✓ SoccerOne Season: ${soccerOneSeasonB.name} (status=${soccerOneSeasonB.status})`);
 
     // 12c-1b. SoccerOne Downtown fall season — dayOfWeek-scheduled so the
     // rebuilt /downtown page's live "What's Happening" fall rows (derived
@@ -3111,6 +3158,10 @@ async function seedE2ETests() {
             dayOfWeek: fixture.dayOfWeek,
             startTime: "18:00",
             endTime: "23:00",
+            // Shared term across the division fixtures — exercises the
+            // multi-division term-aggregate hero (featured-term.ts).
+            termSlug: "fall-2026",
+            termLabel: "Fall 2026",
           })
           .returning();
       } else {
@@ -3125,6 +3176,8 @@ async function seedE2ETests() {
             startDate: worthingtonFallStart.toISOString().slice(0, 10),
             endDate: worthingtonFallEnd.toISOString().slice(0, 10),
             registrationCloses: worthingtonRegCloses,
+            termSlug: "fall-2026",
+            termLabel: "Fall 2026",
           })
           .where(eq(seasons.id, worthingtonSeason.id))
           .returning();
