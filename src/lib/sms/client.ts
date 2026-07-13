@@ -33,6 +33,12 @@ export function getSmsProvider(
 export function isSmsConfigured(
   env: SmsEnv = import.meta.env as unknown as SmsEnv,
 ): boolean {
+  // MESSAGING_MOCK=1 (see src/lib/messaging/mock.ts) reports "configured"
+  // without real Twilio/Zernio credentials, so channel-selection and
+  // opt-in logic in sendSms() runs for real while the actual network call
+  // is swapped for an in-memory record. Mirrors R2_MOCK's bypass of R2
+  // credential requirements.
+  if (process.env.MESSAGING_MOCK === "1") return true;
   if (getSmsProvider(env) === "zernio") {
     return isZernioSmsConfigured(env);
   }

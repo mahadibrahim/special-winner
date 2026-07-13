@@ -40,6 +40,15 @@ describe("handleInboundWhatsApp", () => {
     const userId = await seedUser(phone)
     await seedOptIn(userId, ctx.organizationId, phone)
 
+    // The externalMessageId is fixed, and the shared CI/staging DB keeps
+    // rows from previous runs — the un-ordered `.limit(1)` lookup below
+    // would pick a STALE row (different sender) and fail. Clear leftovers
+    // first so the query is deterministic (multi-tenant query hazard, see
+    // CLAUDE.md).
+    await getDb()
+      .delete(conversationMessages)
+      .where(eq(conversationMessages.externalMessageId, "wamid.TEST-1"))
+
     const result = await handleInboundWhatsApp({
       senderPhone: `+1${phone}`,
       body: "Is practice still on tonight?",

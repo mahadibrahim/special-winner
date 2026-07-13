@@ -3,6 +3,7 @@ import { getDb } from "@/lib/db";
 import { phoneOptIns } from "@/lib/db/schema/phone-verifications";
 import { getTwilioClient, getSmsFrom, isSmsConfigured, getSmsProvider } from "./client";
 import { createZernioSmsClientFromEnv } from "./zernio-sms";
+import { isMessagingMockEnabled, recordMockMessage } from "@/lib/messaging/mock";
 
 /**
  * SMS sending helper with built-in opt-in enforcement.
@@ -105,6 +106,20 @@ export async function sendSms(input: SendSmsInput): Promise<SendSmsResult> {
     input.body.length > MAX_SMS_LENGTH
       ? input.body.slice(0, MAX_SMS_LENGTH - 1) + "…"
       : input.body;
+
+  // Test mode: record instead of dispatching to the real provider. Every
+  // check above (configured, valid phone, opt-in) still ran for real —
+  // only the network call is swapped out. See src/lib/messaging/mock.ts.
+  if (isMessagingMockEnabled()) {
+    const mock = recordMockMessage({
+      channel: "sms",
+      to: input.to,
+      subject: null,
+      body,
+      organizationId: input.organizationId,
+    });
+    return { ok: true, messageId: mock.id };
+  }
 
   try {
     const { messageId } = await dispatchToProvider({ to: input.to, text: body });

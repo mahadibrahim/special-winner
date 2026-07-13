@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { isMessagingMockEnabled, recordMockMessage } from "@/lib/messaging/mock";
 
 // Initialize Resend client
 const resendApiKey = import.meta.env.RESEND_API_KEY;
@@ -6,6 +7,11 @@ const resendApiKey = import.meta.env.RESEND_API_KEY;
 export const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
 export function isEmailConfigured(): boolean {
+  // MESSAGING_MOCK=1 (see src/lib/messaging/mock.ts) reports "configured"
+  // without a real RESEND_API_KEY, so callers that gate on isEmailConfigured()
+  // (most of src/lib/email/send.ts) proceed to render + call sendEmail(),
+  // which records instead of sending. Mirrors R2_MOCK's credential bypass.
+  if (isMessagingMockEnabled()) return true;
   return resend !== null;
 }
 
@@ -42,6 +48,19 @@ export interface EmailOptions {
 }
 
 export async function sendEmail(options: EmailOptions): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  // Test mode: record instead of calling Resend. See src/lib/messaging/mock.ts.
+  if (isMessagingMockEnabled()) {
+    const to = Array.isArray(options.to) ? options.to.join(", ") : options.to;
+    const mock = recordMockMessage({
+      channel: "email",
+      to,
+      subject: options.subject,
+      body: options.text ?? options.html,
+      organizationId: null,
+    });
+    return { success: true, messageId: mock.id };
+  }
+
   if (!resend) {
     console.warn("Email not configured - RESEND_API_KEY not set");
     return { success: false, error: "Email service not configured" };
