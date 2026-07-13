@@ -8,6 +8,7 @@ import { createDepositIntentWithSavedCard } from "@/lib/stripe/saved-cards";
 import { stripe } from "@/lib/stripe/client";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
 import { isRegistrationClosed } from "@/lib/programs/registration-window";
+import { effectiveTeamPriceCents } from "@/lib/programs/early-bird";
 
 const DEPOSIT_AMOUNT_CENTS = 20000; // $200 (locked decision)
 
@@ -87,6 +88,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
         id: seasons.id,
         teamPriceCents: seasons.teamPriceCents,
         priceCents: seasons.priceCents,
+        earlyBirdDeadline: seasons.earlyBirdDeadline,
+        earlyBirdTeamPriceCents: seasons.earlyBirdTeamPriceCents,
         registrationCloses: seasons.registrationCloses,
         startDate: seasons.startDate,
       })
@@ -113,6 +116,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const inviteToken = generateInviteToken();
     const brand = brandFromHost(request.headers.get("host") ?? "");
 
+    // Team fee, early-bird aware. Snapshotted onto the row below, so the price
+    // is locked in at team-creation time — a captain who forms the team inside
+    // the window keeps the early-bird rate even if they pay after it closes.
+    const listTeamFeeCents = season.teamPriceCents ?? season.priceCents;
+    const teamFeeCents = effectiveTeamPriceCents(season, listTeamFeeCents);
+
     const inserted = await db
       .insert(teamRegistrations)
       .values({
@@ -126,7 +135,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         notes,
         status: "forming",
         brand,
-        teamFeeCents: season.teamPriceCents ?? season.priceCents,
+        teamFeeCents,
         depositCents: DEPOSIT_AMOUNT_CENTS,
         paymentDeadline: season.registrationCloses,
       })
@@ -141,7 +150,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       captainUserId,
       captainEmail,
       inviteToken,
-      teamFeeCents: season.teamPriceCents ?? season.priceCents,
+      teamFeeCents,
     });
   } catch (err) {
     console.error("[team-registrations] insert failed", err);
