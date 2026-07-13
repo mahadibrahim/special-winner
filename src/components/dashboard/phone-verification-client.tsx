@@ -17,12 +17,12 @@ export function PhoneVerificationClient({
   organizationId: string
   initialPhone: string
 }) {
-  async function handleVerified(phone: string) {
+  async function handleVerified(phone: string, smsConsent: boolean) {
     try {
       await fetch("/api/dashboard/settings/phone", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone, verified: true }),
+        body: JSON.stringify({ phone, verified: true, smsConsent }),
       })
     } catch (err) {
       console.error("Failed to persist verified phone:", err)

@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Phone, Check, Loader2, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { SmsConsentDisclosure } from "@/components/sms/sms-consent-disclosure"
+import { SmsConsentCheckbox } from "@/components/sms/sms-consent-checkbox"
 
 /**
  * PhoneVerificationForm — reusable two-step OTP flow.
@@ -24,7 +24,12 @@ export interface PhoneVerificationFormProps {
   organizationId: string
   purpose?: "registration" | "phone_change" | "recovery"
   defaultPhone?: string
-  onVerified: (phone: string) => void | Promise<void>
+  /**
+   * smsConsent reflects the SmsConsentCheckbox: true only when the customer
+   * affirmatively checked it. Verification succeeds either way — the OTP is
+   * transactional; the checkbox only governs recurring messages.
+   */
+  onVerified: (phone: string, smsConsent: boolean) => void | Promise<void>
   autoFocus?: boolean
 }
 
@@ -37,6 +42,7 @@ export function PhoneVerificationForm({
 }: PhoneVerificationFormProps) {
   const [step, setStep] = useState<"phone" | "code" | "done">("phone")
   const [phone, setPhone] = useState(defaultPhone)
+  const [smsConsent, setSmsConsent] = useState(false)
   const [code, setCode] = useState("")
   const [verificationId, setVerificationId] = useState<string | null>(null)
   const [expiresAt, setExpiresAt] = useState<Date | null>(null)
@@ -87,7 +93,7 @@ export function PhoneVerificationForm({
         throw new Error(data.error || "Incorrect code")
       }
       setStep("done")
-      await onVerified(data.phone)
+      await onVerified(data.phone, smsConsent)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Incorrect code")
     } finally {
@@ -137,7 +143,11 @@ export function PhoneVerificationForm({
               We'll text you a 6-digit code to verify this number.
             </p>
           </div>
-          <SmsConsentDisclosure />
+          <SmsConsentCheckbox
+            id="sms-consent-verify"
+            checked={smsConsent}
+            onCheckedChange={setSmsConsent}
+          />
           <Button
             onClick={handleSendCode}
             disabled={loading || !phone.trim()}

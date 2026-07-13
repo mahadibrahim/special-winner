@@ -94,6 +94,7 @@ export const PHONE_OPT_IN_STATUS = [
 
 export const PHONE_OPT_IN_SOURCE = [
   "registration_form",
+  "verify_phone_form",
   "welcome_reply_yes",
   "admin_added",
   "admin_recovery",

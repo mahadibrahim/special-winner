@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { SmsConsentDisclosure } from "@/components/sms/sms-consent-disclosure";
+import { SmsConsentCheckbox } from "@/components/sms/sms-consent-checkbox";
 import { normalizePhone, formatPhone } from "@/lib/phone";
 
 /**
@@ -30,6 +30,8 @@ export interface SelfProfileUpdate {
   phone?: string;
   birthDate?: string;
   gender?: string;
+  /** Only present when the form collected a phone; reflects the consent checkbox. */
+  smsConsent?: boolean;
 }
 
 export type WhoStepProps = {
@@ -116,6 +118,7 @@ export function WhoStep({
   const [firstName, setFirstName] = useState(selfProfile?.firstName ?? "");
   const [lastName, setLastName] = useState(selfProfile?.lastName ?? "");
   const [phone, setPhone] = useState(formatPhone(selfProfile?.phone ?? ""));
+  const [smsConsent, setSmsConsent] = useState(false);
   const [birthDate, setBirthDate] = useState(selfProfile?.birthDate ?? "");
   const [gender, setGender] = useState(selfProfile?.gender ?? "");
 
@@ -139,7 +142,10 @@ export function WhoStep({
     const update: SelfProfileUpdate = {};
     if (missing.firstName) update.firstName = firstName.trim();
     if (missing.lastName) update.lastName = lastName.trim();
-    if (missing.phone) update.phone = normalizedPhone;
+    if (missing.phone) {
+      update.phone = normalizedPhone;
+      update.smsConsent = smsConsent;
+    }
     if (missing.birthDate) update.birthDate = birthDate;
     if (gender) update.gender = gender;
     onCompleteProfile(update);
@@ -211,7 +217,6 @@ export function WhoStep({
                     Enter a 10-digit US number.
                   </div>
                 )}
-                <SmsConsentDisclosure className="mt-1.5" />
               </div>
             )}
             {missing.birthDate && (
@@ -247,6 +252,16 @@ export function WhoStep({
               </select>
             </div>
           </div>
+          {/* SMS consent sits below the field grid so the required 10DLC
+              disclosure gets full width rather than a cramped grid column. */}
+          {missing.phone && (
+            <SmsConsentCheckbox
+              id="sms-consent-profile"
+              checked={smsConsent}
+              onCheckedChange={setSmsConsent}
+              className="mt-4"
+            />
+          )}
           {profileError && (
             <div className="text-sm text-destructive mt-2 whitespace-pre-line">
               {profileError}
