@@ -41,6 +41,7 @@ interface DetailResponse {
   resolvedAmountCents: number | null;
   resolvedPaymentMethod: string | null;
   alreadyBookedStatus: string | null;
+  host: { firstName: string; photoUrl: string | null; bio: string | null } | null;
 }
 
 interface SessionDetailProps {
@@ -248,6 +249,24 @@ export default function SessionDetail({
           </Badge>
         )}
       </div>
+
+      {data.host && (
+        <div className="flex items-center gap-3 rounded-lg border border-cream-3 p-3">
+          {data.host.photoUrl && (
+            <img
+              src={data.host.photoUrl}
+              alt={`${data.host.firstName}, your host`}
+              className="h-12 w-12 rounded-full object-cover"
+            />
+          )}
+          <div>
+            <p className="font-medium text-ink">Hosted by {data.host.firstName} 👋</p>
+            {data.host.bio && (
+              <p className="text-sm text-ink-muted">{data.host.bio}</p>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="rounded-xl border border-cream-3 bg-paper p-5 space-y-4">
         <div>

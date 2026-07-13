@@ -20,9 +20,12 @@ import {
   dropInRateCard,
 } from "@/lib/db/schema/drop-in";
 import { venues } from "@/lib/db/schema/teams";
+import { users } from "@/lib/db/schema/users";
+import { hostProfiles } from "@/lib/db/schema/hosts";
 import { resolveRate } from "@/lib/dropin/pricing";
 import { getActiveMembershipForUser } from "@/lib/dropin/booking";
 import { stripe } from "@/lib/stripe/client";
+import { getSignedGetUrl } from "@/lib/storage/r2";
 
 export const prerender = false;
 
@@ -57,6 +60,42 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
   // Multi-tenant guard.
   if (locals.organization && row.session.organizationId !== locals.organization.id) {
     return json({ error: "Forbidden" }, 403);
+  }
+
+  // Host block — only shown for an active, org-scoped host profile. A
+  // paused/revoked host still has hostUserId set on old sessions, but the
+  // public page shouldn't surface them as a live host.
+  let host: { firstName: string; photoUrl: string | null; bio: string | null } | null = null;
+  if (row.session.hostUserId) {
+    const [profile] = await db
+      .select({
+        firstName: users.firstName,
+        bio: hostProfiles.bio,
+        photoKey: hostProfiles.photoKey,
+      })
+      .from(hostProfiles)
+      .innerJoin(users, eq(users.id, hostProfiles.userId))
+      .where(
+        and(
+          eq(hostProfiles.userId, row.session.hostUserId),
+          eq(hostProfiles.organizationId, row.session.organizationId),
+          eq(hostProfiles.status, "active"),
+        ),
+      )
+      .limit(1);
+    if (profile) {
+      host = {
+        // users.firstName is nullable in the schema; a host profile without
+        // one is unusual but shouldn't crash the public page.
+        firstName: profile.firstName ?? "Your host",
+        bio: profile.bio,
+        photoUrl: profile.photoKey
+          ? process.env.R2_MOCK === "1"
+            ? `https://mock-r2.local/${profile.photoKey}`
+            : await getSignedGetUrl(profile.photoKey)
+          : null,
+      };
+    }
   }
 
   // confirmedCount backs the capacity meter AND the "is this session full"
@@ -169,6 +208,7 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
       resolvedAmountCents,
       resolvedPaymentMethod,
       alreadyBookedStatus,
+      host,
     },
     200,
   );

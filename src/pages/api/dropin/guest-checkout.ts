@@ -55,6 +55,8 @@ const bodySchema = z.object({
   email: z.string().trim().toLowerCase().email().max(320),
   waiverAccepted: z.literal(true),
   waiverName: z.string().trim().min(1).max(200),
+  /** `?src=` from the share link the guest booked from (e.g. host-share). */
+  src: z.string().optional(),
 });
 
 const json = (body: unknown, status: number) =>
@@ -204,6 +206,7 @@ export const POST: APIRoute = async (context) => {
       waiverSignedAt,
       waiverSignedBy: data.waiverName,
       brand: brandFromHost(request.headers.get("host") ?? ""),
+      referralSource: data.src,
     });
     if (!result.ok) {
       const httpStatus = result.error.code === "session_not_found" ? 404 : 409;
@@ -235,6 +238,7 @@ export const POST: APIRoute = async (context) => {
     rate,
     waiverSignedAt,
     waiverName: data.waiverName,
+    referralSource: data.src,
     extraMetadata: {
       via_guest_checkout: "true",
       // Storefront brand — host-derived, since both brands share one org.

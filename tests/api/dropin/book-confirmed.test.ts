@@ -81,6 +81,58 @@ describe("createConfirmedBookingFreePath", () => {
     }
   });
 
+  it("persists a sanitized referralSource", async () => {
+    const ctx = await createTestDropInSession({
+      capacity: 16,
+      sessionRateCents: 0,
+      memberRateCents: 0,
+    });
+    const [u] = await getDb()
+      .insert(users)
+      .values({ email: `t-${Date.now()}-ref@t.example`, firstName: "T", lastName: "U" })
+      .returning();
+    const result = await createConfirmedBookingFreePath({
+      sessionId: ctx.sessionId,
+      userId: u.id,
+      source: "online_booking",
+      referralSource: "host-share",
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const [row] = await getDb()
+        .select({ referralSource: dropInBookings.referralSource })
+        .from(dropInBookings)
+        .where(eq(dropInBookings.id, result.bookingId));
+      expect(row.referralSource).toBe("host-share");
+    }
+  });
+
+  it("sanitizes an unsafe referralSource down to null", async () => {
+    const ctx = await createTestDropInSession({
+      capacity: 16,
+      sessionRateCents: 0,
+      memberRateCents: 0,
+    });
+    const [u] = await getDb()
+      .insert(users)
+      .values({ email: `t-${Date.now()}-refxss@t.example`, firstName: "T", lastName: "U" })
+      .returning();
+    const result = await createConfirmedBookingFreePath({
+      sessionId: ctx.sessionId,
+      userId: u.id,
+      source: "online_booking",
+      referralSource: "<script>alert(1)</script>",
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const [row] = await getDb()
+        .select({ referralSource: dropInBookings.referralSource })
+        .from(dropInBookings)
+        .where(eq(dropInBookings.id, result.bookingId));
+      expect(row.referralSource).toBe(null);
+    }
+  });
+
   it("returns non_free_rate when membership is missing on a paid session", async () => {
     // Default rate card: sessionRate=1500, memberRate=1200. With membership stub null,
     // resolveRate yields amountCents=1500 → orchestrator refuses (paid path).
