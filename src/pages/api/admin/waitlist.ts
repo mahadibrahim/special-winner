@@ -48,48 +48,6 @@ export const GET: APIRoute = async (context) => {
       conditions.push(eq(registrations.seasonId, seasonId));
     }
 
-    const waitlistedRegs = await getDb()
-      .select({
-        id: registrations.id,
-        status: registrations.status,
-        waitlistPosition: registrations.waitlistPosition,
-        waitlistExpiresAt: registrations.waitlistExpiresAt,
-        createdAt: registrations.createdAt,
-        familyMember: {
-          id: familyMembers.id,
-          firstName: familyMembers.firstName,
-          lastName: familyMembers.lastName,
-          birthDate: familyMembers.birthDate,
-        },
-        parent: {
-          id: users.id,
-          firstName: users.firstName,
-          lastName: users.lastName,
-          email: users.email,
-        },
-        season: {
-          id: seasons.id,
-          name: seasons.name,
-        },
-        program: {
-          id: programs.id,
-          name: programs.name,
-        },
-        sport: {
-          id: sports.id,
-          name: sports.name,
-        },
-      })
-      .from(registrations)
-      .innerJoin(familyMembers, eq(registrations.familyMemberId, familyMembers.id))
-      .innerJoin(users, eq(familyMembers.parentUserId, users.id))
-      .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
-      .innerJoin(programs, eq(seasons.programId, programs.id))
-      .innerJoin(locations, eq(programs.locationId, locations.id))
-      .innerJoin(sports, eq(programs.sportId, sports.id))
-      .where(and(...conditions))
-      .orderBy(asc(registrations.waitlistPosition), asc(registrations.createdAt));
-
     // Get season options for filter — same scope as the listing above so
     // the dropdown matches what's actually visible.
     const seasonConditions = [
@@ -99,16 +57,63 @@ export const GET: APIRoute = async (context) => {
     if (scopedLocationIds) {
       seasonConditions.push(inArray(locations.id, scopedLocationIds));
     }
-    const seasonOptions = await getDb()
-      .select({
-        id: seasons.id,
-        name: seasons.name,
-        programName: programs.name,
-      })
-      .from(seasons)
-      .innerJoin(programs, eq(seasons.programId, programs.id))
-      .innerJoin(locations, eq(programs.locationId, locations.id))
-      .where(and(...seasonConditions));
+
+    // The waitlist listing and the season filter options are independent of
+    // each other — run in parallel.
+    const [waitlistedRegs, seasonOptions] = await Promise.all([
+      getDb()
+        .select({
+          id: registrations.id,
+          status: registrations.status,
+          waitlistPosition: registrations.waitlistPosition,
+          waitlistExpiresAt: registrations.waitlistExpiresAt,
+          createdAt: registrations.createdAt,
+          familyMember: {
+            id: familyMembers.id,
+            firstName: familyMembers.firstName,
+            lastName: familyMembers.lastName,
+            birthDate: familyMembers.birthDate,
+          },
+          parent: {
+            id: users.id,
+            firstName: users.firstName,
+            lastName: users.lastName,
+            email: users.email,
+          },
+          season: {
+            id: seasons.id,
+            name: seasons.name,
+          },
+          program: {
+            id: programs.id,
+            name: programs.name,
+          },
+          sport: {
+            id: sports.id,
+            name: sports.name,
+          },
+        })
+        .from(registrations)
+        .innerJoin(familyMembers, eq(registrations.familyMemberId, familyMembers.id))
+        .innerJoin(users, eq(familyMembers.parentUserId, users.id))
+        .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+        .innerJoin(programs, eq(seasons.programId, programs.id))
+        .innerJoin(locations, eq(programs.locationId, locations.id))
+        .innerJoin(sports, eq(programs.sportId, sports.id))
+        .where(and(...conditions))
+        .orderBy(asc(registrations.waitlistPosition), asc(registrations.createdAt)),
+
+      getDb()
+        .select({
+          id: seasons.id,
+          name: seasons.name,
+          programName: programs.name,
+        })
+        .from(seasons)
+        .innerJoin(programs, eq(seasons.programId, programs.id))
+        .innerJoin(locations, eq(programs.locationId, locations.id))
+        .where(and(...seasonConditions)),
+    ]);
 
     return new Response(JSON.stringify({ waitlist: waitlistedRegs, seasons: seasonOptions }), {
       status: 200,

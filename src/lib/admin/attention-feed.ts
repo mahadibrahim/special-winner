@@ -35,19 +35,52 @@ export async function getAttentionFeed(orgId: string): Promise<AttentionItem[]> 
   const db = getDb();
   const items: AttentionItem[] = [];
 
-  // 1. Refund requests awaiting approval (org-scoped via location join).
-  const [refundCount] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(registrations)
-    .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
-    .innerJoin(programs, eq(seasons.programId, programs.id))
-    .innerJoin(locations, eq(programs.locationId, locations.id))
-    .where(
-      and(
-        eq(registrations.refundStatus, "pending_approval"),
-        eq(locations.organizationId, orgId),
+  // The two queries below are independent of each other — run in parallel.
+  const [[refundCount], capacityRows] = await Promise.all([
+    // 1. Refund requests awaiting approval (org-scoped via location join).
+    db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(registrations)
+      .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
+      .where(
+        and(
+          eq(registrations.refundStatus, "pending_approval"),
+          eq(locations.organizationId, orgId),
+        ),
       ),
-    );
+
+    // 2. Seasons at ≥85% capacity. Counts non-cancelled registrations per
+    // season vs. maxParticipants.
+    db.execute<{
+      season_id: string;
+      name: string;
+      location_name: string;
+      registered: number;
+      max_participants: number;
+    }>(sql`
+      SELECT
+        seasons.id           AS season_id,
+        seasons.name         AS name,
+        locations.name       AS location_name,
+        seasons.max_participants AS max_participants,
+        COALESCE((
+          SELECT COUNT(*)::int
+            FROM registrations
+           WHERE registrations.season_id = seasons.id
+             AND registrations.status NOT IN ('cancelled')
+        ), 0) AS registered
+      FROM seasons
+      INNER JOIN programs  ON programs.id   = seasons.program_id
+      INNER JOIN locations ON locations.id  = programs.location_id
+      WHERE locations.organization_id = ${orgId}
+        AND seasons.max_participants IS NOT NULL
+        AND seasons.max_participants > 0
+        AND seasons.status IN ('open', 'active')
+    `),
+  ]);
+
   const refundN = refundCount?.count ?? 0;
   if (refundN > 0) {
     items.push({
@@ -58,34 +91,6 @@ export async function getAttentionFeed(orgId: string): Promise<AttentionItem[]> 
     });
   }
 
-  // 2. Seasons at ≥85% capacity. Counts non-cancelled registrations per
-  // season vs. maxParticipants.
-  const capacityRows = await db.execute<{
-    season_id: string;
-    name: string;
-    location_name: string;
-    registered: number;
-    max_participants: number;
-  }>(sql`
-    SELECT
-      seasons.id           AS season_id,
-      seasons.name         AS name,
-      locations.name       AS location_name,
-      seasons.max_participants AS max_participants,
-      COALESCE((
-        SELECT COUNT(*)::int
-          FROM registrations
-         WHERE registrations.season_id = seasons.id
-           AND registrations.status NOT IN ('cancelled')
-      ), 0) AS registered
-    FROM seasons
-    INNER JOIN programs  ON programs.id   = seasons.program_id
-    INNER JOIN locations ON locations.id  = programs.location_id
-    WHERE locations.organization_id = ${orgId}
-      AND seasons.max_participants IS NOT NULL
-      AND seasons.max_participants > 0
-      AND seasons.status IN ('open', 'active')
-  `);
   // drizzle-orm returns rows on .rows for node-postgres adapter, or directly
   // on the array shape for postgres-js. Handle both for safety.
   const rows: any[] = Array.isArray(capacityRows)

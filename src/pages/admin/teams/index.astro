@@ -5,7 +5,7 @@ import { getPrimaryRoleName } from "@/lib/auth";
 import { TeamsList } from '../../../components/admin/teams-list';
 import { db } from '../../../lib/db';
 import { seasons, programs, users, userRoles, roles } from '../../../lib/db/schema';
-import { eq, asc, or } from 'drizzle-orm';
+import { eq, asc } from 'drizzle-orm';
 
 // Middleware guarantees user is an admin for /admin routes.
 const user = Astro.locals.user!;
@@ -16,18 +16,49 @@ let seasonsList: any[] = [];
 let coachesList: any[] = [];
 
 try {
-  const allSeasons = await db
-    .select({
-      id: seasons.id,
-      name: seasons.name,
-      program: {
-        id: programs.id,
-        name: programs.name,
-      },
-    })
-    .from(seasons)
-    .leftJoin(programs, eq(seasons.programId, programs.id))
-    .orderBy(asc(programs.name), asc(seasons.name));
+  // Three independent lookups — run in parallel. Coaches: single join
+  // (users -> userRoles -> roles) instead of the previous 3-hop cascade
+  // (role lookup -> userRoles -> users). selectDistinct because a coach can
+  // hold multiple `coach` userRoles rows (different scopes) that would
+  // otherwise duplicate them.
+  const [allSeasons, coachesFromRoles, allUsers] = await Promise.all([
+    db
+      .select({
+        id: seasons.id,
+        name: seasons.name,
+        program: {
+          id: programs.id,
+          name: programs.name,
+        },
+      })
+      .from(seasons)
+      .leftJoin(programs, eq(seasons.programId, programs.id))
+      .orderBy(asc(programs.name), asc(seasons.name)),
+
+    db
+      .selectDistinct({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        email: users.email,
+      })
+      .from(users)
+      .innerJoin(userRoles, eq(userRoles.userId, users.id))
+      .innerJoin(roles, eq(roles.id, userRoles.roleId))
+      .where(eq(roles.name, 'coach')),
+
+    // Also include admins as potential coaches
+    db
+      .select({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        email: users.email,
+      })
+      .from(users)
+      .orderBy(asc(users.lastName), asc(users.firstName))
+      .limit(100),
+  ]);
 
   seasonsList = allSeasons.map(s => ({
     id: s.id,
@@ -35,45 +66,7 @@ try {
     program: s.program,
   }));
 
-  // Fetch users who are coaches
-  const coachRole = await db.query.roles.findFirst({
-    where: eq(roles.name, 'coach'),
-  });
-
-  if (coachRole) {
-    const coachUserIds = await db
-      .select({ userId: userRoles.userId })
-      .from(userRoles)
-      .where(eq(userRoles.roleId, coachRole.id));
-
-    const uniqueCoachIds = [...new Set(coachUserIds.map(c => c.userId))];
-
-    if (uniqueCoachIds.length > 0) {
-      const coaches = await db
-        .select({
-          id: users.id,
-          firstName: users.firstName,
-          lastName: users.lastName,
-          email: users.email,
-        })
-        .from(users)
-        .where(or(...uniqueCoachIds.map(id => eq(users.id, id))));
-
-      coachesList = coaches;
-    }
-  }
-
-  // Also include admins as potential coaches
-  const allUsers = await db
-    .select({
-      id: users.id,
-      firstName: users.firstName,
-      lastName: users.lastName,
-      email: users.email,
-    })
-    .from(users)
-    .orderBy(asc(users.lastName), asc(users.firstName))
-    .limit(100);
+  coachesList = [...coachesFromRoles];
 
   // Merge and dedupe
   const seenIds = new Set(coachesList.map(c => c.id));

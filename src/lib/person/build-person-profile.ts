@@ -26,7 +26,6 @@ import {
   payments,
   programs,
   seasons,
-  teams,
 } from "@/lib/db/schema";
 import { userOrganizationAccess } from "@/lib/db/schema/organizations";
 import { consents } from "@/lib/db/schema/consents";
@@ -37,6 +36,7 @@ import { summarizePayments } from "./summarize-payments";
 import { computeOutstandingCents } from "./compute-outstanding";
 import { collectTodayForPerson } from "./collect-today";
 import { isKnownDob } from "./dob";
+import { buildOrgScopeCascade } from "@/lib/admin/org-scope-cascade";
 import type { PersonProfile, PersonFamilyMember } from "./person-types";
 
 // ---------------------------------------------------------------------------
@@ -113,19 +113,109 @@ async function buildFamilyMemberProfile(
   const inOrg = await isUserInOrg(linkedUserId, orgId, allowedLocationIds);
   if (!inOrg) return null;
 
-  // ----- Contact -----------------------------------------------------------
-  const [linkedUser] = await db
-    .select({
-      id: users.id,
-      email: users.email,
-      firstName: users.firstName,
-      lastName: users.lastName,
-      phone: users.phone,
-    })
-    .from(users)
-    .where(eq(users.id, linkedUserId));
-
   const isChild = fm.parentUserId !== null;
+
+  // ----- Type --------------------------------------------------------------
+  const type = derivePersonType(fm, false);
+
+  // ----- Everything below only depends on `fm`/`id`/`linkedUserId`, not on
+  // each other — run in one wave. `today` runs its own internal waves (see
+  // collect-today.ts) inside this same outer wave.
+  const [linkedUser, regRows, consentRows, mem, todayItems] = await Promise.all([
+    db
+      .select({
+        id: users.id,
+        email: users.email,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        phone: users.phone,
+      })
+      .from(users)
+      .where(eq(users.id, linkedUserId))
+      .then((rows) => rows[0]),
+
+    // ----- Registrations ---------------------------------------------------
+    db
+      .select({
+        registration: registrations,
+        paymentStatus: registrations.paymentStatus,
+        amountDueCents: registrations.amountDueCents,
+        amountPaidCents: registrations.amountPaidCents,
+        season: {
+          id: seasons.id,
+          name: seasons.name,
+          startDate: seasons.startDate,
+          endDate: seasons.endDate,
+        },
+        program: {
+          id: programs.id,
+          name: programs.name,
+        },
+      })
+      .from(registrations)
+      .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .where(eq(registrations.familyMemberId, id))
+      .orderBy(desc(registrations.createdAt)),
+
+    // ----- Consents ----------------------------------------------------------
+    // Active = most-recent row per (familyMemberId, type) with status='granted'
+    // and (expiresAt IS NULL OR expiresAt > now()).
+    db
+      .select({
+        type: consents.type,
+        status: consents.status,
+        signedAt: consents.signedAt,
+        expiresAt: consents.expiresAt,
+      })
+      .from(consents)
+      .where(
+        and(
+          eq(consents.familyMemberId, id),
+          eq(consents.status, "granted"),
+          or(
+            sql`${consents.expiresAt} IS NULL`,
+            sql`${consents.expiresAt} > NOW()`,
+          ),
+        ),
+      )
+      .orderBy(desc(consents.signedAt)),
+
+    // ----- Membership (adults only, via selfUserId) --------------------------
+    !isChild && fm.selfUserId
+      ? db
+          .select({
+            status: memberships.status,
+            currentPeriodEnd: memberships.currentPeriodEnd,
+            tierName: membershipTiers.name,
+          })
+          .from(memberships)
+          .innerJoin(membershipTiers, eq(memberships.tierId, membershipTiers.id))
+          .where(
+            and(
+              eq(memberships.userId, fm.selfUserId),
+              eq(memberships.organizationId, orgId),
+              inArray(memberships.status, ["active", "paused", "past_due"]),
+            ),
+          )
+          .orderBy(desc(memberships.createdAt))
+          .limit(1)
+          .then((rows) => rows[0])
+      : Promise.resolve(undefined),
+
+    collectTodayForPerson(db, {
+      familyMemberId: id,
+      linkedUserId,
+      allowedLocationIds,
+      todayUtc: new Date(),
+      // Adult-self: fm.selfUserId is set. Child (COPPA): fm.parentUserId is set.
+      // Only adult-self should have drop-in / field-rental items (those are
+      // keyed by userId and belong to the account holder, not a child).
+      isSelf: fm.selfUserId !== null,
+      personPhotoUrl: fm.photoUrl ?? null,
+    }),
+  ]);
+
   const contact = {
     name: linkedUser
       ? `${linkedUser.firstName ?? ""} ${linkedUser.lastName ?? ""}`.trim()
@@ -135,33 +225,7 @@ async function buildFamilyMemberProfile(
     isParentContact: isChild,
   };
 
-  // ----- Type --------------------------------------------------------------
-  const type = derivePersonType(fm, false);
-
-  // ----- Registrations + payments ------------------------------------------
-  const regRows = await db
-    .select({
-      registration: registrations,
-      paymentStatus: registrations.paymentStatus,
-      amountDueCents: registrations.amountDueCents,
-      amountPaidCents: registrations.amountPaidCents,
-      season: {
-        id: seasons.id,
-        name: seasons.name,
-        startDate: seasons.startDate,
-        endDate: seasons.endDate,
-      },
-      program: {
-        id: programs.id,
-        name: programs.name,
-      },
-    })
-    .from(registrations)
-    .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
-    .innerJoin(programs, eq(seasons.programId, programs.id))
-    .where(eq(registrations.familyMemberId, id))
-    .orderBy(desc(registrations.createdAt));
-
+  // ----- Payments (depends on regRows -> registrationIds) -------------------
   const registrationIds = regRows.map((r) => r.registration.id);
 
   const paymentRows =
@@ -200,29 +264,6 @@ async function buildFamilyMemberProfile(
   );
   paymentSummary = { ...paymentSummary, outstandingCents };
 
-  // ----- Consents ----------------------------------------------------------
-  // Active = most-recent row per (familyMemberId, type) with status='granted'
-  // and (expiresAt IS NULL OR expiresAt > now()).
-  const consentRows = await db
-    .select({
-      type: consents.type,
-      status: consents.status,
-      signedAt: consents.signedAt,
-      expiresAt: consents.expiresAt,
-    })
-    .from(consents)
-    .where(
-      and(
-        eq(consents.familyMemberId, id),
-        eq(consents.status, "granted"),
-        or(
-          sql`${consents.expiresAt} IS NULL`,
-          sql`${consents.expiresAt} > NOW()`,
-        ),
-      ),
-    )
-    .orderBy(desc(consents.signedAt));
-
   // Deduplicate by type, keeping only the most-recent row per type.
   const consentsByType = new Map<string, boolean>();
   for (const row of consentRows) {
@@ -234,36 +275,14 @@ async function buildFamilyMemberProfile(
     ([kind, granted]) => ({ kind, granted }),
   );
 
-  // ----- Membership (adults only, via selfUserId) --------------------------
-  let membership: PersonProfile["membership"] = null;
-  if (!isChild && fm.selfUserId) {
-    const [mem] = await db
-      .select({
-        status: memberships.status,
-        currentPeriodEnd: memberships.currentPeriodEnd,
-        tierName: membershipTiers.name,
-      })
-      .from(memberships)
-      .innerJoin(membershipTiers, eq(memberships.tierId, membershipTiers.id))
-      .where(
-        and(
-          eq(memberships.userId, fm.selfUserId),
-          eq(memberships.organizationId, orgId),
-          inArray(memberships.status, ["active", "paused", "past_due"]),
-        ),
-      )
-      .orderBy(desc(memberships.createdAt))
-      .limit(1);
-
-    if (mem) {
-      membership = {
+  const membership: PersonProfile["membership"] = mem
+    ? {
         plan: mem.tierName,
         renewsIso: mem.currentPeriodEnd
           ? mem.currentPeriodEnd.toISOString()
           : null,
-      };
-    }
-  }
+      }
+    : null;
 
   // ----- Flags -------------------------------------------------------------
   const flags: string[] = [];
@@ -287,17 +306,7 @@ async function buildFamilyMemberProfile(
     photoUrl: fm.photoUrl ?? null,
     contact,
     flags,
-    today: await collectTodayForPerson(db, {
-      familyMemberId: id,
-      linkedUserId,
-      allowedLocationIds,
-      todayUtc: new Date(),
-      // Adult-self: fm.selfUserId is set. Child (COPPA): fm.parentUserId is set.
-      // Only adult-self should have drop-in / field-rental items (those are
-      // keyed by userId and belong to the account holder, not a child).
-      isSelf: fm.selfUserId !== null,
-      personPhotoUrl: fm.photoUrl ?? null,
-    }),
+    today: todayItems,
     registrations: personRegistrations,
     payments: paymentSummary,
     membership,
@@ -363,15 +372,21 @@ async function buildUserProfile(
   // ----- Account-level billing (aggregate across all family registrations) --
   const familyMemberIds = fmRows.map((fm) => fm.id);
 
-  let allRegistrations: {
-    id: string;
-    paymentStatus: string;
-    amountDueCents: number;
-    amountPaidCents: number;
-  }[] = [];
-
-  if (familyMemberIds.length > 0) {
-    const regRows = await db
+  // Family-member registrations and the user's own (adult self-registrant
+  // path) registrations are independent of each other — run in parallel.
+  const [familyRegRows, selfRegRows] = await Promise.all([
+    familyMemberIds.length > 0
+      ? db
+          .select({
+            id: registrations.id,
+            paymentStatus: registrations.paymentStatus,
+            amountDueCents: registrations.amountDueCents,
+            amountPaidCents: registrations.amountPaidCents,
+          })
+          .from(registrations)
+          .where(inArray(registrations.familyMemberId, familyMemberIds))
+      : Promise.resolve([]),
+    db
       .select({
         id: registrations.id,
         paymentStatus: registrations.paymentStatus,
@@ -379,21 +394,15 @@ async function buildUserProfile(
         amountPaidCents: registrations.amountPaidCents,
       })
       .from(registrations)
-      .where(inArray(registrations.familyMemberId, familyMemberIds));
-    allRegistrations.push(...regRows);
-  }
+      .where(eq(registrations.registeredByUserId, id)),
+  ]);
 
-  // Also include the user's own registrations (adult self-registrant path).
-  const selfRegRows = await db
-    .select({
-      id: registrations.id,
-      paymentStatus: registrations.paymentStatus,
-      amountDueCents: registrations.amountDueCents,
-      amountPaidCents: registrations.amountPaidCents,
-    })
-    .from(registrations)
-    .where(eq(registrations.registeredByUserId, id));
-  allRegistrations.push(...selfRegRows);
+  const allRegistrations: {
+    id: string;
+    paymentStatus: string;
+    amountDueCents: number;
+    amountPaidCents: number;
+  }[] = [...familyRegRows, ...selfRegRows];
 
   // Deduplicate by ID
   const uniqueRegs = Array.from(
@@ -461,37 +470,10 @@ export async function isUserInOrg(
 ): Promise<boolean> {
   const db = getDb();
 
-  // Replicate the same multi-scope query as lookup.ts
-  // Build the scope conditions dynamically based on available location ids.
-  const programIds =
-    allowedLocationIds.length > 0
-      ? (
-          await db
-            .select({ id: programs.id })
-            .from(programs)
-            .where(inArray(programs.locationId, allowedLocationIds))
-        ).map((p) => p.id)
-      : [];
-
-  const seasonIds =
-    programIds.length > 0
-      ? (
-          await db
-            .select({ id: seasons.id })
-            .from(seasons)
-            .where(inArray(seasons.programId, programIds))
-        ).map((s) => s.id)
-      : [];
-
-  const teamIds =
-    seasonIds.length > 0
-      ? (
-          await db
-            .select({ id: teams.id })
-            .from(teams)
-            .where(inArray(teams.seasonId, seasonIds))
-        ).map((t) => t.id)
-      : [];
+  // Cascade (locations -> programs -> teams) as nested subqueries, not
+  // separately-awaited round trips — see org-scope-cascade.ts. Shared with
+  // lookup.ts's identical scope check.
+  const { programIds, teamIds } = buildOrgScopeCascade(allowedLocationIds);
 
   const scopeConditions = [
     eq(userRoles.scopeType, "global"),
@@ -507,7 +489,7 @@ export async function isUserInOrg(
           ),
         ]
       : []),
-    ...(programIds.length > 0
+    ...(programIds
       ? [
           and(
             eq(userRoles.scopeType, "program"),
@@ -515,7 +497,7 @@ export async function isUserInOrg(
           ),
         ]
       : []),
-    ...(teamIds.length > 0
+    ...(teamIds
       ? [
           and(
             eq(userRoles.scopeType, "team"),
@@ -535,6 +517,8 @@ export async function isUserInOrg(
 
   if (roleRow) return true;
 
+  // Genuine dependency: only worth checking user_organization_access when
+  // the role-scope check above came back empty.
   const [accessRow] = await db
     .select({ userId: userOrganizationAccess.userId })
     .from(userOrganizationAccess)
