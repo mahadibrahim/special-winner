@@ -1307,7 +1307,7 @@ const ROLE_SUMMARY_PARAGRAPH: Record<string, string> = {
   "role.facilities":
     "You keep the field, court, and equipment ready all day. You check equipment ahead of time, stage gear, set up parking and signage, prep the field or court and check lines before each match, then turn the field over and reset it between matches, log any field damage, and store equipment and handle trash at the end of the day.",
   "role.front_of_house":
-    "You run check-in, concessions, and the front-of-house experience for the day. You set up and count concessions inventory in the morning, handle walk-on registrations before games, manage spectators during play, and reconcile cash and lost-and-found at the end of the day.",
+    "You run check-in, concessions, and the front-of-house experience for the day. You set up and count concessions inventory in the morning, register walk-ons through the venue command center before games, manage spectators during play, and reconcile the day's card settlement and lost-and-found at the end of the day.",
   "role.director":
     "You hold organization-wide accountability rather than day-of duties. When something needs a final call — a rainout refund or reschedule decision, or a weekly safety review — it lands with you. You own the catalog and standards every other role works from, and you're the last stop when an issue can't be resolved on site.",
   "role.photographer":
@@ -2541,20 +2541,29 @@ const PORTAL_PAGES: Record<string, PortalPage[]> = {
     { path: "/referee/pay", description: "Your match pay history" },
   ],
   "role.venue_manager": [
-    { path: "/admin/venue", description: "Venue command center — today's event-day overview" },
+    {
+      path: "/admin/venue",
+      description:
+        "Venue command center — the single front-desk surface for the day: click a session for its roster panel to check drop-in, class, and camp players in or register a walk-in, and work the needs-attention queue. League games show their roster for reference only — per-player game attendance isn't tracked in the app",
+    },
     { path: "/admin/venue/day/[date]", description: "Run-of-show for a specific event day" },
-    { path: "/admin/venue/check-in", description: "Player/team check-in" },
-    { path: "/admin/venue/walk-up", description: "Walk-on registration" },
     { path: "/admin/venue/rosters", description: "Team rosters for the day" },
     { path: "/admin/venue/reports", description: "End-of-day reports" },
   ],
   "role.front_of_house": [
-    { path: "/admin/check-in", description: "Player/family check-in" },
-    { path: "/admin/venue/walk-up", description: "Walk-on registration and payment" },
+    {
+      path: "/admin/venue",
+      description:
+        "Venue command center — click a session to open its roster panel: check drop-in, class, and camp players in, or register a walk-in (they sign the waiver and pay from their own phone via a text/email link, or at the kiosk — the slot holds for 2 hours). League games show their roster for reference only",
+    },
   ],
   "role.event_lead": [
     { path: "/admin/game-day/today", description: "Run-of-show for today's matches" },
-    { path: "/admin/check-in", description: "Check-in support" },
+    {
+      path: "/admin/venue",
+      description:
+        "Venue command center — today's board and each match's roster, for reference while you check coaches, refs, and teams in face-to-face before kickoff (the app doesn't record per-player game attendance)",
+    },
   ],
   "role.photographer": [
     { path: "/media", description: "Media dashboard" },
@@ -2599,7 +2608,7 @@ const WALKTHROUGHS: Record<string, WalkthroughInfo> = {
   },
   "admin-sequencing": { roles: ["role.director"], label: "Curriculum sequencing and season attachment" },
   "referee-gameday": { roles: ["role.ref"], label: "Match assignment, scoring, and final report" },
-  "venue-manager": { roles: ["role.venue_manager"], label: "Venue command center, check-in, and reports" },
+  "venue-manager": { roles: ["role.venue_manager"], label: "Venue command center: check people in, register walk-ins, and reports" },
 };
 
 function renderWalkthroughsSlide(roleId: string, presentWorkflows: string[] | undefined): string | null {
@@ -2729,17 +2738,16 @@ const PRODUCT_TOUR: Record<string, TourStep[]> = {
   "role.venue_manager": [
     {
       slug: "command-center",
-      caption: "Venue command center — today's full event-day run-of-show in one view.",
-    },
-    {
-      slug: "check-in",
-      caption: "Check-in station — check players and teams in as they arrive.",
-    },
-    {
-      slug: "walk-up",
       caption:
-        "Walk-up registration — register and collect payment from a family that shows up without registering ahead.",
+        "Venue command center — today's full event-day run-of-show in one view. Click a session to open its roster panel: check drop-in, class, and camp players in, register a walk-in (they sign the waiver and pay from their own phone or the kiosk — the slot holds for 2 hours), or work the needs-attention queue. League games show their roster for reference.",
     },
+    // "check-in" and "walk-up" used to be their own tour slides for the
+    // now-retired /admin/venue/check-in and /admin/venue/walk-up pages
+    // (see 38cb532d). There's no separate screen to tour anymore — both
+    // flows live inside this same command-center screen's roster panel —
+    // so those slides were dropped rather than left pointing at dead UI.
+    // A follow-up recapture (training/walkthroughs/tour-venue.walkthrough.ts)
+    // could add real roster-panel / walk-in-flow screenshots here.
   ],
   "role.director": [
     {
@@ -2790,9 +2798,9 @@ const PRODUCT_TOUR: Record<string, TourStep[]> = {
 
 // role.venue_manager's tour is copied into role.event_lead's own tour
 // directory during screenshot capture (see training/walkthroughs' tour
-// specs) — both roles run the exact same command-center/check-in/walk-up
-// screens day-of, so role.event_lead reads the same PRODUCT_TOUR entry
-// rather than duplicating the array.
+// specs) — both roles run the exact same venue command center day-of, so
+// role.event_lead reads the same PRODUCT_TOUR entry rather than
+// duplicating the array.
 PRODUCT_TOUR["role.event_lead"] = PRODUCT_TOUR["role.venue_manager"];
 
 // Roles with genuinely no product surface — day-of work runs entirely off
