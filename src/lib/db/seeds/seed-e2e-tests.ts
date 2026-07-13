@@ -2781,19 +2781,50 @@ async function seedE2ETests() {
     }
 
     // 12a. SoccerOne Downtown location (provisioned by Phase 1).
-    const [soccerOneDowntown] = await db
+    // Slug is bare "downtown" (not "soccerone-downtown") to match prod:
+    // gosoccerone.com resolves to the single Aspire org, whose real
+    // location slugs are bare (see soccerone-routing.ts:5-11 and
+    // rent.astro's locationSlug). scripts/seed-soccerone-org.ts still
+    // provisions this fixture under the legacy "soccerone-downtown" slug on
+    // a fresh DB, so rename it in place here (org-scoped lookup, so this
+    // can only touch the SoccerOne org's own row) rather than inserting a
+    // duplicate — keeps the FKs from the program/season/venue below pointed
+    // at the same row. Mirrors the Worthington rename further down.
+    let [soccerOneDowntown] = await db
       .select()
       .from(locations)
       .where(
         and(
           eq(locations.organizationId, soccerOneOrg.id),
-          eq(locations.slug, "soccerone-downtown"),
+          eq(locations.slug, "downtown"),
         ),
       )
       .limit(1);
 
     if (!soccerOneDowntown) {
-      throw new Error("SoccerOne Downtown location missing — re-run scripts/seed-soccerone-org.ts");
+      const [legacyDowntown] = await db
+        .select()
+        .from(locations)
+        .where(
+          and(
+            eq(locations.organizationId, soccerOneOrg.id),
+            eq(locations.slug, "soccerone-downtown"),
+          ),
+        )
+        .limit(1);
+
+      if (!legacyDowntown) {
+        throw new Error("SoccerOne Downtown location missing — re-run scripts/seed-soccerone-org.ts");
+      }
+
+      [soccerOneDowntown] = await db
+        .update(locations)
+        .set({ slug: "downtown" })
+        .where(eq(locations.id, legacyDowntown.id))
+        .returning();
+      console.log(`   ✓ Renamed legacy SoccerOne Downtown location slug: ${soccerOneDowntown.id}`);
+    } else {
+      console.log(`   ✓ SoccerOne Downtown location already exists: ${soccerOneDowntown.id}`);
     }
 
     // 12b. SoccerOne sport (Soccer — org-scoped row).
@@ -2884,6 +2915,62 @@ async function seedE2ETests() {
         .returning();
     }
     console.log(`   ✓ SoccerOne Season: ${soccerOneSeason.name} (status=${soccerOneSeason.status})`);
+
+    // 12c-1b. SoccerOne Downtown fall season — dayOfWeek-scheduled so the
+    // rebuilt /downtown page's live "What's Happening" fall rows (derived
+    // from dayOfWeek exactly like Worthington's) have real data to render
+    // instead of hiding the fall tab entirely. Hangs off the existing
+    // Downtown program (soccerOneProgram, above) rather than a new one —
+    // Downtown only has the one adult program, unlike Worthington which
+    // got its own location + program.
+    let [soccerOneDowntownFallSeason] = await db
+      .select()
+      .from(seasons)
+      .where(eq(seasons.slug, "soccerone-downtown-fall-coed-6v6"))
+      .limit(1);
+
+    const downtownFallStart = new Date(Date.now() + 9 * 7 * 24 * 60 * 60 * 1000);
+    const downtownFallEnd = new Date(Date.now() + 16 * 7 * 24 * 60 * 60 * 1000);
+    const downtownRegCloses = new Date(Date.now() + 7 * 7 * 24 * 60 * 60 * 1000);
+
+    if (!soccerOneDowntownFallSeason) {
+      [soccerOneDowntownFallSeason] = await db
+        .insert(seasons)
+        .values({
+          programId: soccerOneProgram.id,
+          name: "Co-Ed 6v6 — Fall",
+          slug: "soccerone-downtown-fall-coed-6v6",
+          status: "open",
+          isTest: false,
+          startDate: downtownFallStart.toISOString().slice(0, 10),
+          endDate: downtownFallEnd.toISOString().slice(0, 10),
+          registrationCloses: downtownRegCloses,
+          priceCents: 12000,
+          teamPriceCents: 105000,
+          depositCents: 20000,
+          signupModes: ["individual", "team"],
+          dayOfWeek: "wed",
+          startTime: "18:00",
+          endTime: "23:00",
+        })
+        .returning();
+    } else {
+      // Keep future-dated on re-runs — mirrors the Worthington pattern
+      // below (shared CI/staging DB accumulates; a stale startDate/
+      // registrationCloses would silently fall out of the "open" live-
+      // until window — see the SQL twin in src/pages/api/public/seasons.ts).
+      [soccerOneDowntownFallSeason] = await db
+        .update(seasons)
+        .set({
+          status: "open",
+          startDate: downtownFallStart.toISOString().slice(0, 10),
+          endDate: downtownFallEnd.toISOString().slice(0, 10),
+          registrationCloses: downtownRegCloses,
+        })
+        .where(eq(seasons.id, soccerOneDowntownFallSeason.id))
+        .returning();
+    }
+    console.log(`   ✓ SoccerOne Downtown Fall Season: ${soccerOneDowntownFallSeason.name} (dayOfWeek=${soccerOneDowntownFallSeason.dayOfWeek})`);
 
     // 12c-2. SoccerOne Worthington location + adult program + fall seasons.
     // Staging has no Worthington location or seasons yet, so the rebuilt
