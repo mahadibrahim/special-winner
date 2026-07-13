@@ -10,6 +10,7 @@ import { users } from "@/lib/db/schema/users";
 import { venues } from "@/lib/db/schema/teams";
 import { sendSms } from "@/lib/sms/send";
 import { buildShareBlurb } from "./share-blurb";
+import { deriveFillState } from "./fill-state";
 
 const DAILY_CAP = 2;
 // All prod orgs are Ohio today; org-level tz can replace this when needed.
@@ -20,6 +21,7 @@ const DISPLAY_TZ = "America/New_York";
  * claimed via a conditional UPDATE before any SMS goes out — a crashed run
  * can't double-blast; the cost of a crash is a missed blast, not a double).
  * Per-user cap: max 2 fill-alert texts per UTC day across all sessions.
+ * Eligibility is determined by deriveFillState (shared with browse cards and the host game view).
  */
 export async function runFillAlertSweep(
   now: Date = new Date(),
@@ -29,8 +31,9 @@ export async function runFillAlertSweep(
   let smsSent = 0;
   let smsSkipped = 0;
 
-  // Eligible sessions: scheduled pickup, un-alerted, inside the org window,
-  // under the org threshold. Window/threshold come from each org's rate card.
+  // Eligible sessions: scheduled pickup, un-alerted, inside the org window.
+  // Window and threshold come from each org's rate card. Fill-state eligibility
+  // is determined in the loop by deriveFillState.
   // No drizzle-typing adaptation was needed here: interpolating the
   // dropInRateCard.fillAlertWindowHours column straight into
   // `make_interval(hours => ...)` type-checked and ran as-is (drizzle embeds
@@ -47,6 +50,7 @@ export async function runFillAlertSweep(
       capacity: dropInSessions.capacity,
       venueName: venues.name,
       thresholdPct: dropInRateCard.fillAlertThresholdPct,
+      windowHours: dropInRateCard.fillAlertWindowHours,
       confirmedCount: sql<number>`(
         SELECT COUNT(*)::int FROM ${dropInBookings}
         WHERE ${dropInBookings.sessionId} = ${dropInSessions.id}
@@ -80,9 +84,15 @@ export async function runFillAlertSweep(
   dayStart.setUTCHours(0, 0, 0, 0);
 
   for (const session of candidates) {
-    if (session.capacity <= 0) continue;
-    const pct = (session.confirmedCount / session.capacity) * 100;
-    if (pct >= session.thresholdPct) continue;
+    const state = deriveFillState({
+      confirmedCount: session.confirmedCount,
+      capacity: session.capacity,
+      startsAt: session.startsAt,
+      now,
+      thresholdPct: session.thresholdPct,
+      windowHours: session.windowHours,
+    });
+    if (state !== "needs_players") continue;
 
     // Claim the blast (stamp-then-send).
     const claimed = await db
