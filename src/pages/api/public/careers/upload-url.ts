@@ -22,7 +22,8 @@ const json = (body: unknown, status: number) =>
  * NOTE (ops, one-time): the R2 bucket needs a CORS rule allowing PUT from
  * the app origins for browser uploads to succeed. Documented in the PR.
  */
-const LIMITS = {
+// Client mirrors these limits via /api hints; import server-side only.
+export const HOST_UPLOAD_LIMITS = {
   photo: {
     maxBytes: 5 * 1024 * 1024,
     types: { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" },
@@ -49,8 +50,8 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
     return json({ error: "Invalid JSON body" }, 400);
   }
 
-  const kind = body.kind as keyof typeof LIMITS;
-  const spec = LIMITS[kind];
+  const kind = body.kind as keyof typeof HOST_UPLOAD_LIMITS;
+  const spec = HOST_UPLOAD_LIMITS[kind];
   if (!spec) return json({ error: "Unknown upload kind" }, 400);
 
   const ext = spec.types[body.contentType as keyof typeof spec.types];
