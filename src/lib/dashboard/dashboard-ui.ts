@@ -52,6 +52,7 @@ export const SECTION_ICONS = {
   calendar:  '<rect x="3" y="4.5" width="18" height="17" rx="2.5"/><path d="M3 10h18M8 2v5M16 2v5"/>',
   shield:    '<path d="M12 3 4 6v5c0 5 3.4 8.5 8 10 4.6-1.5 8-5 8-10V6l-8-3Z"/>',
   compass:   '<circle cx="12" cy="12" r="9"/><path d="m15 9-4 1-1 4 4-1 1-4Z"/>',
+  bell:      '<path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/>',
 } as const;
 
 export type SectionIcon = keyof typeof SECTION_ICONS;

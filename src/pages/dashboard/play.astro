@@ -9,6 +9,7 @@ import PlayExplore from "@/components/dashboard/play/PlayExplore";
 import MyDropInBookings from "@/components/dashboard/MyDropInBookings";
 import MyFieldRentals from "@/components/dashboard/MyFieldRentals";
 import MembershipCard from "@/components/dashboard/MembershipCard";
+import { MyPickupAlerts } from "@/components/dropin/PickupAlertSignup";
 import { getDashboardDestinations } from "@/lib/dashboard/persona";
 import { writeLastVisited } from "@/lib/dashboard/last-visited";
 import { currentBusinessHour } from "@/lib/time/business-timezone";
@@ -58,6 +59,13 @@ const { hasFamily, hasPlay } = await getDashboardDestinations(user.id);
               <MembershipCard client:load />
               <MyDropInBookings client:visible />
               <MyFieldRentals client:visible />
+            </div>
+          </DashboardSection>
+
+          {/* Pickup alerts — text me when games need players */}
+          <DashboardSection icon="bell" title="Pickup alerts" accent="default">
+            <div class="mt-1">
+              <MyPickupAlerts client:load />
             </div>
           </DashboardSection>
 
