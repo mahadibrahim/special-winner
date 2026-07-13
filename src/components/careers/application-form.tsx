@@ -450,19 +450,26 @@ function HostMediaField({
   onFile: (file: File) => void;
 }) {
   return (
-    <div>
+    <label className="block">
       <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted block mb-1">
         {label}
         <span className="text-primary-orange ml-1">*</span>
       </span>
       <p className="text-xs text-ink-faint mb-2">{hint}</p>
       {linksMode ? (
-        <input
-          type="url"
-          placeholder="https://… (YouTube, Loom, or Drive)"
-          {...linkProps}
-          className={inputClass}
-        />
+        media.key ? (
+          // Already uploaded before storage went down — keep the key and leave
+          // the success state alone rather than swapping in a stale-prefilled
+          // URL input the user could accidentally clear.
+          <p className="mt-1.5 text-xs text-primary-orange">Uploaded ✓</p>
+        ) : (
+          <input
+            type="url"
+            placeholder="https://… (YouTube, Loom, or Drive)"
+            {...linkProps}
+            className={inputClass}
+          />
+        )
       ) : (
         <>
           <input
@@ -482,6 +489,6 @@ function HostMediaField({
         </>
       )}
       {media.error && <FieldError>{media.error}</FieldError>}
-    </div>
+    </label>
   );
 }
