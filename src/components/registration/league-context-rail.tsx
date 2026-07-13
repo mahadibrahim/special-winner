@@ -20,6 +20,9 @@ export interface RailSeason {
   earlyBirdActive?: boolean;
   /** Early-bird-aware price in dollars (detail endpoint), preferred by priceLabel for solo/share. */
   effectivePrice?: number | null;
+  /** Early-bird-aware TEAM price + whether the team early-bird window is live. */
+  effectiveTeamPrice?: number | null;
+  teamEarlyBirdActive?: boolean;
 }
 
 interface Props {

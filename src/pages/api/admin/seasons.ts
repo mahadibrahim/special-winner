@@ -50,6 +50,13 @@ export const seasonSchema = z.object({
   minAge: z.number().int().min(0).optional().nullable(),
   maxAge: z.number().int().min(0).optional().nullable(),
   signupModes: z.array(z.enum(["individual", "team"])).min(1, "At least one signup mode is required").default(["individual"]),
+  // Early-bird. Both prices share earlyBirdDeadline; each replaces its own list
+  // price while the window is open. Aspire's leagues run a TEAM-only early-bird
+  // (solo pays flat list price by policy), but the per-player field is supported
+  // for camps/classes.
+  earlyBirdDeadline: z.string().optional().nullable(),
+  earlyBirdPriceCents: z.number().int().min(0).optional().nullable(),
+  earlyBirdTeamPriceCents: z.number().int().min(0).optional().nullable(),
   depositCents: z.number().int().min(0).optional().nullable(),
   allowDeposit: z.boolean().default(true),
   status: z.enum(["draft", "forming", "open", "closed", "active", "completed", "cancelled"]).default("draft"),
@@ -72,6 +79,39 @@ export const seasonSchema = z.object({
 ).refine(
   (data) => data.minAge == null || data.maxAge == null || data.maxAge >= data.minAge,
   { message: "Oldest age must be greater than or equal to youngest age", path: ["maxAge"] },
+).refine(
+  // An early-bird price must be a real discount. Reject at the write boundary:
+  // a team price typo'd into the per-player field is exactly what billed solo
+  // registrants $1,000 against a $120 list price (fixed in #392). The charge
+  // path also ignores non-discounts defensively, but nothing should be able to
+  // save one in the first place.
+  (data) =>
+    data.earlyBirdPriceCents == null ||
+    data.earlyBirdPriceCents < data.priceCents,
+  {
+    message:
+      "Early-bird player price must be LESS than the regular player price. To set an early-bird price for teams, use the team early-bird field.",
+    path: ["earlyBirdPriceCents"],
+  },
+).refine(
+  (data) =>
+    data.earlyBirdTeamPriceCents == null ||
+    data.teamPriceCents == null ||
+    data.earlyBirdTeamPriceCents < data.teamPriceCents,
+  {
+    message: "Early-bird team price must be LESS than the regular team price",
+    path: ["earlyBirdTeamPriceCents"],
+  },
+).refine(
+  // A price without a deadline never activates; a deadline alone is harmless
+  // but usually means the admin forgot the price.
+  (data) =>
+    (data.earlyBirdPriceCents == null && data.earlyBirdTeamPriceCents == null) ||
+    data.earlyBirdDeadline != null,
+  {
+    message: "Set an early-bird deadline, or the early-bird price never applies",
+    path: ["earlyBirdDeadline"],
+  },
 );
 
 export const GET: APIRoute = async (context) => {
@@ -104,6 +144,9 @@ export const GET: APIRoute = async (context) => {
           maxParticipants: seasons.maxParticipants,
           priceCents: seasons.priceCents,
           teamPriceCents: seasons.teamPriceCents,
+          earlyBirdDeadline: seasons.earlyBirdDeadline,
+          earlyBirdPriceCents: seasons.earlyBirdPriceCents,
+          earlyBirdTeamPriceCents: seasons.earlyBirdTeamPriceCents,
           signupModes: seasons.signupModes,
           depositCents: seasons.depositCents,
           allowDeposit: seasons.allowDeposit,
@@ -244,6 +287,9 @@ export const POST: APIRoute = async (context) => {
           maxParticipants: data.maxParticipants || null,
           priceCents: data.priceCents,
           teamPriceCents: data.teamPriceCents ?? null,
+          earlyBirdDeadline: data.earlyBirdDeadline ? new Date(data.earlyBirdDeadline) : null,
+          earlyBirdPriceCents: data.earlyBirdPriceCents ?? null,
+          earlyBirdTeamPriceCents: data.earlyBirdTeamPriceCents ?? null,
           halfDayPriceCents: data.halfDayPriceCents ?? null,
           minAge: data.minAge ?? null,
           maxAge: data.maxAge ?? null,
@@ -497,6 +543,9 @@ export const PUT: APIRoute = async (context) => {
         maxParticipants: validData.maxParticipants || null,
         priceCents: validData.priceCents,
         teamPriceCents: validData.teamPriceCents ?? null,
+        earlyBirdDeadline: validData.earlyBirdDeadline ? new Date(validData.earlyBirdDeadline) : null,
+        earlyBirdPriceCents: validData.earlyBirdPriceCents ?? null,
+        earlyBirdTeamPriceCents: validData.earlyBirdTeamPriceCents ?? null,
         halfDayPriceCents: validData.halfDayPriceCents ?? null,
         minAge: validData.minAge ?? null,
         maxAge: validData.maxAge ?? null,

@@ -1580,6 +1580,10 @@ async function seedE2ETests() {
         status: "open",
         priceCents: 12000, // $120 per-player (free-agent / solo path)
         teamPriceCents: 100000, // $1000 team fee (team path)
+        // Team-only early-bird ($900 < $1000 list), matching the real policy:
+        // captains get a discount, solo players never do. NO earlyBirdPriceCents
+        // here on purpose — a per-player early-bird would discount the solo path.
+        earlyBirdTeamPriceCents: 90000, // $900 while earlyBirdDeadline is live
         signupModes: ["team", "individual"], // team-capable → choose-mode shows "Bring a team"
         depositCents: 3000, // $30 individual deposit (team flow uses its own $200)
         allowDeposit: true,
@@ -1602,6 +1606,7 @@ async function seedE2ETests() {
         status: "open",
         maxParticipants: 30,
         teamPriceCents: 100000,
+        earlyBirdTeamPriceCents: 90000,
         signupModes: ["team", "individual"],
         earlyBirdDeadline: teamEarlyBirdDeadline,
         registrationCloses: registrationEnd,

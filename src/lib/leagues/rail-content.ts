@@ -23,9 +23,23 @@ export function priceLabel(
     deposit: number | null;
     /** Early-bird-aware price served by the season detail endpoint. */
     effectivePrice?: number | null;
+    /** Early-bird-aware TEAM price + whether the team window is live. */
+    effectiveTeamPrice?: number | null;
+    teamEarlyBirdActive?: boolean;
   },
 ): { amount: string; unit: string } {
-  if (mode === "team") return { amount: usd(season.teamPrice ?? season.price), unit: "team · early-bird" };
+  if (mode === "team") {
+    // Show the fee the team-create flow will actually charge, and only call it
+    // early-bird when the window is genuinely live. This label used to hardcode
+    // "· early-bird" next to the plain list price, which said early-bird even
+    // when no discount applied.
+    const teamList = season.teamPrice ?? season.price;
+    const amount = usd(season.effectiveTeamPrice ?? teamList);
+    return {
+      amount,
+      unit: season.teamEarlyBirdActive ? "team · early-bird" : "team",
+    };
+  }
   // Solo/share display the per-player price the charge path would use right
   // now — the early-bird price while active. Falls back to the list price for
   // callers that don't carry effectivePrice.
