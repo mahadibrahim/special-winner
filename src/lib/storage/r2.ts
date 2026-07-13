@@ -125,6 +125,19 @@ export async function getSignedGetUrl(
   );
 }
 
+export async function getSignedPutUrl(
+  key: string,
+  contentType: string,
+  expiresInSeconds = 900
+): Promise<string> {
+  if (process.env.R2_MOCK === "1") return `https://mock-r2.local/put/${key}`;
+  return getSignedUrl(
+    client(),
+    new PutObjectCommand({ Bucket: bucket(), Key: key, ContentType: contentType }),
+    { expiresIn: expiresInSeconds }
+  );
+}
+
 export async function putObject(
   key: string,
   body: Buffer | Uint8Array,
