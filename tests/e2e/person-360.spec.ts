@@ -97,7 +97,7 @@ test("search opens the person-360 card", async ({ page }) => {
  *       (Check in / + Walk-in for family / Add — all rendered by FooterCTAs in PersonCard).
  *   (b) The "Open full profile →" anchor (exact text, plain <a> link inside the
  *       scrollable body of the Sheet) navigates to /admin/people/[id] and the
- *       full-profile page renders (← People back link + type badge visible).
+ *       full-profile page renders (← Back to command center link + type badge visible).
  *
  * The "Open full profile →" link is a plain anchor rendered directly in PersonCard:
  *   <a href={`/admin/people/${profile.id}?as=${target.as}`}>Open full profile →</a>
@@ -172,8 +172,10 @@ test("person card shows action bar and navigates to full profile", async ({ page
   // PersonDetail calls useHydrationBeacon() so we can wait for hydration.
   await waitForHydration(page, { timeout: 30_000 });
 
-  // PersonDetail always renders a "← People" back link as its first element.
-  const backLink = page.getByRole("link", { name: /← People/i });
+  // PersonDetail always renders a "← Back to command center" back link as
+  // its first element (renamed from "← People" in b3a3b2a5, which fixed a
+  // dead /admin/people link but left this assertion stale).
+  const backLink = page.getByRole("link", { name: /← Back to command center/i });
   await expect(backLink).toBeVisible({ timeout: 10_000 });
 
   // PersonHeader renders the same type badge as PersonCard — assert it is

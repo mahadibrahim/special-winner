@@ -89,70 +89,74 @@ export const GET: APIRoute = async (context) => {
       whereClauses.push(eq(programs.isTest, false));
     }
 
-    const allSeasons = await getDb()
-      .select({
-        id: seasons.id,
-        name: seasons.name,
-        slug: seasons.slug,
-        startDate: seasons.startDate,
-        endDate: seasons.endDate,
-        registrationOpens: seasons.registrationOpens,
-        registrationCloses: seasons.registrationCloses,
-        maxParticipants: seasons.maxParticipants,
-        priceCents: seasons.priceCents,
-        teamPriceCents: seasons.teamPriceCents,
-        signupModes: seasons.signupModes,
-        depositCents: seasons.depositCents,
-        allowDeposit: seasons.allowDeposit,
-        status: seasons.status,
-        scheduleNotes: seasons.scheduleNotes,
-        termSlug: seasons.termSlug,
-        termLabel: seasons.termLabel,
-        divisionGender: seasons.divisionGender,
-        skillLevel: seasons.skillLevel,
-        dayOfWeek: seasons.dayOfWeek,
-        startTime: seasons.startTime,
-        endTime: seasons.endTime,
-        createdAt: seasons.createdAt,
-        program: {
-          id: programs.id,
-          name: programs.name,
-          slug: programs.slug,
-        },
-        sport: {
-          id: sports.id,
-          name: sports.name,
-          icon: sports.icon,
-          color: sports.color,
-        },
-        location: {
-          id: locations.id,
-          name: locations.name,
-        },
-        ageGroup: {
-          id: ageGroups.id,
-          name: ageGroups.name,
-          minAge: ageGroups.minAge,
-          maxAge: ageGroups.maxAge,
-        },
-      })
-      .from(seasons)
-      .innerJoin(programs, eq(seasons.programId, programs.id))
-      .innerJoin(sports, eq(programs.sportId, sports.id))
-      .innerJoin(locations, eq(programs.locationId, locations.id))
-      .leftJoin(ageGroups, eq(seasons.ageGroupId, ageGroups.id))
-      .where(and(...whereClauses))
-      .orderBy(asc(seasons.startDate));
+    // The season listing and per-season interest counts are independent of
+    // each other — run in parallel.
+    const [allSeasons, interestRows] = await Promise.all([
+      getDb()
+        .select({
+          id: seasons.id,
+          name: seasons.name,
+          slug: seasons.slug,
+          startDate: seasons.startDate,
+          endDate: seasons.endDate,
+          registrationOpens: seasons.registrationOpens,
+          registrationCloses: seasons.registrationCloses,
+          maxParticipants: seasons.maxParticipants,
+          priceCents: seasons.priceCents,
+          teamPriceCents: seasons.teamPriceCents,
+          signupModes: seasons.signupModes,
+          depositCents: seasons.depositCents,
+          allowDeposit: seasons.allowDeposit,
+          status: seasons.status,
+          scheduleNotes: seasons.scheduleNotes,
+          termSlug: seasons.termSlug,
+          termLabel: seasons.termLabel,
+          divisionGender: seasons.divisionGender,
+          skillLevel: seasons.skillLevel,
+          dayOfWeek: seasons.dayOfWeek,
+          startTime: seasons.startTime,
+          endTime: seasons.endTime,
+          createdAt: seasons.createdAt,
+          program: {
+            id: programs.id,
+            name: programs.name,
+            slug: programs.slug,
+          },
+          sport: {
+            id: sports.id,
+            name: sports.name,
+            icon: sports.icon,
+            color: sports.color,
+          },
+          location: {
+            id: locations.id,
+            name: locations.name,
+          },
+          ageGroup: {
+            id: ageGroups.id,
+            name: ageGroups.name,
+            minAge: ageGroups.minAge,
+            maxAge: ageGroups.maxAge,
+          },
+        })
+        .from(seasons)
+        .innerJoin(programs, eq(seasons.programId, programs.id))
+        .innerJoin(sports, eq(programs.sportId, sports.id))
+        .innerJoin(locations, eq(programs.locationId, locations.id))
+        .leftJoin(ageGroups, eq(seasons.ageGroupId, ageGroups.id))
+        .where(and(...whereClauses))
+        .orderBy(asc(seasons.startDate)),
 
-    // Per-season interest counts (forming demand signal). One grouped query.
-    const interestRows = await getDb()
-      .select({
-        seasonId: seasonInterest.seasonId,
-        count: sql<number>`count(*)::int`,
-      })
-      .from(seasonInterest)
-      .where(eq(seasonInterest.organizationId, auth.organizationId))
-      .groupBy(seasonInterest.seasonId);
+      // Per-season interest counts (forming demand signal). One grouped query.
+      getDb()
+        .select({
+          seasonId: seasonInterest.seasonId,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(seasonInterest)
+        .where(eq(seasonInterest.organizationId, auth.organizationId))
+        .groupBy(seasonInterest.seasonId),
+    ]);
     const interestMap = new Map(interestRows.map((r) => [r.seasonId, r.count]));
 
     const seasonsWithInterest = allSeasons.map((s) => ({

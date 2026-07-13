@@ -19,15 +19,13 @@ import {
   userRoles,
   roles,
   locations,
-  programs,
-  teams,
-  seasons,
 } from "@/lib/db/schema";
 import { userOrganizationAccess } from "@/lib/db/schema/organizations";
 import { familyMembers } from "@/lib/db/schema/registrations";
-import { and, eq, ilike, inArray, or, sql } from "drizzle-orm";
+import { and, eq, ilike, inArray, or } from "drizzle-orm";
 import { requireOrgAdminAccess } from "@/lib/auth";
 import { getEffectiveLocationIds } from "@/lib/admin/active-venue";
+import { buildOrgScopeCascade } from "@/lib/admin/org-scope-cascade";
 
 export const prerender = false;
 
@@ -61,11 +59,22 @@ export const GET: APIRoute = async (context) => {
     // deliberately keep the org/global role-scope membership unchanged
     // below so the super-admin who supports a venue manager remains
     // findable regardless of picker state.
-    const effectiveIds = await getEffectiveLocationIds({
-      userId: auth.user.id,
-      userRoles: auth.roles,
-      activeLocationId: context.locals.activeLocationId,
-    });
+    //
+    // Wave 1: resolve the picker/pin state, and (independently) the set of
+    // every user with org-level access — the latter has no dependency on
+    // locationIds at all.
+    const [effectiveIds, orgAccessRows] = await Promise.all([
+      getEffectiveLocationIds({
+        userId: auth.user.id,
+        userRoles: auth.roles,
+        activeLocationId: context.locals.activeLocationId,
+      }),
+      getDb()
+        .select({ userId: userOrganizationAccess.userId })
+        .from(userOrganizationAccess)
+        .where(eq(userOrganizationAccess.organizationId, auth.organizationId)),
+    ]);
+
     let locationIds: string[];
     if (effectiveIds === null) {
       // Super-admin with no pin: show every location in the current org.
@@ -83,29 +92,10 @@ export const GET: APIRoute = async (context) => {
       locationIds = effectiveIds;
     }
 
-    const orgPrograms = locationIds.length > 0
-      ? await getDb()
-          .select({ id: programs.id })
-          .from(programs)
-          .where(inArray(programs.locationId, locationIds))
-      : [];
-    const programIds = orgPrograms.map((p) => p.id);
-
-    const orgSeasons = programIds.length > 0
-      ? await getDb()
-          .select({ id: seasons.id })
-          .from(seasons)
-          .where(inArray(seasons.programId, programIds))
-      : [];
-    const seasonIds = orgSeasons.map((s) => s.id);
-
-    const orgTeams = seasonIds.length > 0
-      ? await getDb()
-          .select({ id: teams.id })
-          .from(teams)
-          .where(inArray(teams.seasonId, seasonIds))
-      : [];
-    const teamIds = orgTeams.map((t) => t.id);
+    // programs → seasons → teams as nested subqueries, not separately
+    // awaited round trips (see org-scope-cascade.ts — shared with
+    // build-person-profile.ts's isUserInOrg).
+    const { programIds, teamIds } = buildOrgScopeCascade(locationIds);
 
     const orgUserRoles = await getDb()
       .select({ userId: userRoles.userId })
@@ -120,19 +110,14 @@ export const GET: APIRoute = async (context) => {
           ...(locationIds.length > 0
             ? [and(eq(userRoles.scopeType, "location"), inArray(userRoles.scopeId, locationIds))]
             : []),
-          ...(programIds.length > 0
+          ...(programIds
             ? [and(eq(userRoles.scopeType, "program"), inArray(userRoles.scopeId, programIds))]
             : []),
-          ...(teamIds.length > 0
+          ...(teamIds
             ? [and(eq(userRoles.scopeType, "team"), inArray(userRoles.scopeId, teamIds))]
             : []),
         ),
       );
-
-    const orgAccessRows = await getDb()
-      .select({ userId: userOrganizationAccess.userId })
-      .from(userOrganizationAccess)
-      .where(eq(userOrganizationAccess.organizationId, auth.organizationId));
 
     const userIdsInOrg = [
       ...new Set([
@@ -150,27 +135,54 @@ export const GET: APIRoute = async (context) => {
 
     const like = `%${q}%`;
 
-    // --- Users (accounts) ---
-    const userMatches = await getDb()
-      .select({
-        id: users.id,
-        email: users.email,
-        firstName: users.firstName,
-        lastName: users.lastName,
-        emailVerified: users.emailVerified,
-      })
-      .from(users)
-      .where(
-        and(
-          inArray(users.id, userIdsInOrg),
-          or(
-            ilike(users.email, like),
-            ilike(users.firstName, like),
-            ilike(users.lastName, like),
+    // --- Users + people, independent of each other ---
+    const [userMatches, peopleMatches] = await Promise.all([
+      getDb()
+        .select({
+          id: users.id,
+          email: users.email,
+          firstName: users.firstName,
+          lastName: users.lastName,
+          emailVerified: users.emailVerified,
+        })
+        .from(users)
+        .where(
+          and(
+            inArray(users.id, userIdsInOrg),
+            or(
+              ilike(users.email, like),
+              ilike(users.firstName, like),
+              ilike(users.lastName, like),
+            ),
           ),
-        ),
-      )
-      .limit(MAX_RESULTS_PER_GROUP);
+        )
+        .limit(MAX_RESULTS_PER_GROUP),
+
+      // family_members rows whose parent or self user is in the org.
+      getDb()
+        .select({
+          id: familyMembers.id,
+          firstName: familyMembers.firstName,
+          lastName: familyMembers.lastName,
+          birthDate: familyMembers.birthDate,
+          parentUserId: familyMembers.parentUserId,
+          selfUserId: familyMembers.selfUserId,
+        })
+        .from(familyMembers)
+        .where(
+          and(
+            or(
+              inArray(familyMembers.parentUserId, userIdsInOrg),
+              inArray(familyMembers.selfUserId, userIdsInOrg),
+            ),
+            or(
+              ilike(familyMembers.firstName, like),
+              ilike(familyMembers.lastName, like),
+            ),
+          ),
+        )
+        .limit(MAX_RESULTS_PER_GROUP),
+    ]);
 
     // Attach role names per matched user so the operator can tell parents
     // from coaches in the result list.
@@ -195,32 +207,6 @@ export const GET: APIRoute = async (context) => {
       ...u,
       roles: roleNamesByUser.get(u.id) ?? [],
     }));
-
-    // --- People (family_members) ---
-    // family_members rows whose parent or self user is in the org.
-    const peopleMatches = await getDb()
-      .select({
-        id: familyMembers.id,
-        firstName: familyMembers.firstName,
-        lastName: familyMembers.lastName,
-        birthDate: familyMembers.birthDate,
-        parentUserId: familyMembers.parentUserId,
-        selfUserId: familyMembers.selfUserId,
-      })
-      .from(familyMembers)
-      .where(
-        and(
-          or(
-            inArray(familyMembers.parentUserId, userIdsInOrg),
-            inArray(familyMembers.selfUserId, userIdsInOrg),
-          ),
-          or(
-            ilike(familyMembers.firstName, like),
-            ilike(familyMembers.lastName, like),
-          ),
-        ),
-      )
-      .limit(MAX_RESULTS_PER_GROUP);
 
     return new Response(
       JSON.stringify({ users: usersOut, people: peopleMatches }),

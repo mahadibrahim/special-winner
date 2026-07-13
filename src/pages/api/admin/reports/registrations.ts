@@ -30,24 +30,205 @@ export const GET: APIRoute = async (context) => {
 
     const orgScope = eq(locations.organizationId, orgContext.organizationId);
 
-    // Total registrations by status (org-scoped via registrations -> seasons -> programs -> locations)
-    const registrationsByStatus = await getDb()
-      .select({
-        status: registrations.status,
-        count: sql<number>`COUNT(*)`,
-      })
-      .from(registrations)
-      .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
-      .innerJoin(programs, eq(seasons.programId, programs.id))
-      .innerJoin(locations, eq(programs.locationId, locations.id))
-      .where(
-        and(
-          orgScope,
-          gte(registrations.createdAt, start),
-          lte(registrations.createdAt, end)
+    // Registrations by time period — bucket expression comes from a
+    // closed map (never request input); see periodBucket for why.
+    const periodExpr = periodBucket(registrations.createdAt, groupBy);
+
+    // Calculate comparison with previous period
+    const periodDuration = end.getTime() - start.getTime();
+    const prevEnd = new Date(start.getTime() - 1);
+    const prevStart = new Date(prevEnd.getTime() - periodDuration);
+
+    // All 8 queries below are independent of each other — same
+    // org/date-range inputs, no cross-dependencies — run in parallel.
+    const [
+      registrationsByStatus,
+      registrationsByPeriod,
+      registrationsBySport,
+      registrationsByProgram,
+      paymentStatusBreakdown,
+      recentRegistrations,
+      uniqueFamiliesResult,
+      prevRegistrationsResult,
+    ] = await Promise.all([
+      // Total registrations by status (org-scoped via registrations -> seasons -> programs -> locations)
+      getDb()
+        .select({
+          status: registrations.status,
+          count: sql<number>`COUNT(*)`,
+        })
+        .from(registrations)
+        .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+        .innerJoin(programs, eq(seasons.programId, programs.id))
+        .innerJoin(locations, eq(programs.locationId, locations.id))
+        .where(
+          and(
+            orgScope,
+            gte(registrations.createdAt, start),
+            lte(registrations.createdAt, end)
+          )
         )
-      )
-      .groupBy(registrations.status);
+        .groupBy(registrations.status),
+
+      getDb()
+        .select({
+          period: periodExpr,
+          total: sql<number>`COUNT(*)`,
+          confirmed: sql<number>`COUNT(*) FILTER (WHERE ${registrations.status} = 'confirmed')`,
+          pending: sql<number>`COUNT(*) FILTER (WHERE ${registrations.status} = 'pending')`,
+          cancelled: sql<number>`COUNT(*) FILTER (WHERE ${registrations.status} = 'cancelled')`,
+          waitlisted: sql<number>`COUNT(*) FILTER (WHERE ${registrations.status} = 'waitlisted')`,
+        })
+        .from(registrations)
+        .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+        .innerJoin(programs, eq(seasons.programId, programs.id))
+        .innerJoin(locations, eq(programs.locationId, locations.id))
+        .where(
+          and(
+            orgScope,
+            gte(registrations.createdAt, start),
+            lte(registrations.createdAt, end)
+          )
+        )
+        .groupBy(periodExpr)
+        .orderBy(periodExpr),
+
+      // Registrations by sport
+      getDb()
+        .select({
+          sportId: sports.id,
+          sportName: sports.name,
+          total: sql<number>`COUNT(*)`,
+          confirmed: sql<number>`COUNT(*) FILTER (WHERE ${registrations.status} = 'confirmed')`,
+        })
+        .from(registrations)
+        .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+        .innerJoin(programs, eq(seasons.programId, programs.id))
+        .innerJoin(locations, eq(programs.locationId, locations.id))
+        .innerJoin(sports, eq(programs.sportId, sports.id))
+        .where(
+          and(
+            orgScope,
+            gte(registrations.createdAt, start),
+            lte(registrations.createdAt, end)
+          )
+        )
+        .groupBy(sports.id, sports.name)
+        .orderBy(desc(sql`COUNT(*)`)),
+
+      // Registrations by program
+      getDb()
+        .select({
+          programId: programs.id,
+          programName: programs.name,
+          sportName: sports.name,
+          total: sql<number>`COUNT(*)`,
+          confirmed: sql<number>`COUNT(*) FILTER (WHERE ${registrations.status} = 'confirmed')`,
+        })
+        .from(registrations)
+        .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+        .innerJoin(programs, eq(seasons.programId, programs.id))
+        .innerJoin(locations, eq(programs.locationId, locations.id))
+        .innerJoin(sports, eq(programs.sportId, sports.id))
+        .where(
+          and(
+            orgScope,
+            gte(registrations.createdAt, start),
+            lte(registrations.createdAt, end)
+          )
+        )
+        .groupBy(programs.id, programs.name, sports.name)
+        .orderBy(desc(sql`COUNT(*)`))
+        .limit(10),
+
+      // Payment status breakdown
+      getDb()
+        .select({
+          paymentStatus: registrations.paymentStatus,
+          count: sql<number>`COUNT(*)`,
+          totalAmountDue: sql<number>`COALESCE(SUM(${registrations.amountDueCents}), 0)`,
+          totalAmountPaid: sql<number>`COALESCE(SUM(${registrations.amountPaidCents}), 0)`,
+        })
+        .from(registrations)
+        .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+        .innerJoin(programs, eq(seasons.programId, programs.id))
+        .innerJoin(locations, eq(programs.locationId, locations.id))
+        .where(
+          and(
+            orgScope,
+            gte(registrations.createdAt, start),
+            lte(registrations.createdAt, end)
+          )
+        )
+        .groupBy(registrations.paymentStatus),
+
+      // Recent registrations
+      getDb()
+        .select({
+          id: registrations.id,
+          status: registrations.status,
+          paymentStatus: registrations.paymentStatus,
+          createdAt: registrations.createdAt,
+          familyMember: {
+            firstName: familyMembers.firstName,
+            lastName: familyMembers.lastName,
+          },
+          season: {
+            name: seasons.name,
+          },
+          program: {
+            name: programs.name,
+          },
+        })
+        .from(registrations)
+        .innerJoin(familyMembers, eq(registrations.familyMemberId, familyMembers.id))
+        .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+        .innerJoin(programs, eq(seasons.programId, programs.id))
+        .innerJoin(locations, eq(programs.locationId, locations.id))
+        .where(
+          and(
+            orgScope,
+            gte(registrations.createdAt, start),
+            lte(registrations.createdAt, end)
+          )
+        )
+        .orderBy(desc(registrations.createdAt))
+        .limit(10),
+
+      // Unique families/users who registered
+      getDb()
+        .select({
+          count: sql<number>`COUNT(DISTINCT ${registrations.registeredByUserId})`,
+        })
+        .from(registrations)
+        .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+        .innerJoin(programs, eq(seasons.programId, programs.id))
+        .innerJoin(locations, eq(programs.locationId, locations.id))
+        .where(
+          and(
+            orgScope,
+            gte(registrations.createdAt, start),
+            lte(registrations.createdAt, end)
+          )
+        ),
+
+      // Previous period, for the comparison
+      getDb()
+        .select({
+          count: sql<number>`COUNT(*)`,
+        })
+        .from(registrations)
+        .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+        .innerJoin(programs, eq(seasons.programId, programs.id))
+        .innerJoin(locations, eq(programs.locationId, locations.id))
+        .where(
+          and(
+            orgScope,
+            gte(registrations.createdAt, prevStart),
+            lte(registrations.createdAt, prevEnd)
+          )
+        ),
+    ]);
 
     const statusCounts: Record<string, number> = {};
     registrationsByStatus.forEach((r) => {
@@ -55,173 +236,6 @@ export const GET: APIRoute = async (context) => {
     });
 
     const totalRegistrations = Object.values(statusCounts).reduce((a, b) => a + b, 0);
-
-    // Registrations by time period — bucket expression comes from a
-    // closed map (never request input); see periodBucket for why.
-    const periodExpr = periodBucket(registrations.createdAt, groupBy);
-
-    const registrationsByPeriod = await getDb()
-      .select({
-        period: periodExpr,
-        total: sql<number>`COUNT(*)`,
-        confirmed: sql<number>`COUNT(*) FILTER (WHERE ${registrations.status} = 'confirmed')`,
-        pending: sql<number>`COUNT(*) FILTER (WHERE ${registrations.status} = 'pending')`,
-        cancelled: sql<number>`COUNT(*) FILTER (WHERE ${registrations.status} = 'cancelled')`,
-        waitlisted: sql<number>`COUNT(*) FILTER (WHERE ${registrations.status} = 'waitlisted')`,
-      })
-      .from(registrations)
-      .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
-      .innerJoin(programs, eq(seasons.programId, programs.id))
-      .innerJoin(locations, eq(programs.locationId, locations.id))
-      .where(
-        and(
-          orgScope,
-          gte(registrations.createdAt, start),
-          lte(registrations.createdAt, end)
-        )
-      )
-      .groupBy(periodExpr)
-      .orderBy(periodExpr);
-
-    // Registrations by sport
-    const registrationsBySport = await getDb()
-      .select({
-        sportId: sports.id,
-        sportName: sports.name,
-        total: sql<number>`COUNT(*)`,
-        confirmed: sql<number>`COUNT(*) FILTER (WHERE ${registrations.status} = 'confirmed')`,
-      })
-      .from(registrations)
-      .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
-      .innerJoin(programs, eq(seasons.programId, programs.id))
-      .innerJoin(locations, eq(programs.locationId, locations.id))
-      .innerJoin(sports, eq(programs.sportId, sports.id))
-      .where(
-        and(
-          orgScope,
-          gte(registrations.createdAt, start),
-          lte(registrations.createdAt, end)
-        )
-      )
-      .groupBy(sports.id, sports.name)
-      .orderBy(desc(sql`COUNT(*)`));
-
-    // Registrations by program
-    const registrationsByProgram = await getDb()
-      .select({
-        programId: programs.id,
-        programName: programs.name,
-        sportName: sports.name,
-        total: sql<number>`COUNT(*)`,
-        confirmed: sql<number>`COUNT(*) FILTER (WHERE ${registrations.status} = 'confirmed')`,
-      })
-      .from(registrations)
-      .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
-      .innerJoin(programs, eq(seasons.programId, programs.id))
-      .innerJoin(locations, eq(programs.locationId, locations.id))
-      .innerJoin(sports, eq(programs.sportId, sports.id))
-      .where(
-        and(
-          orgScope,
-          gte(registrations.createdAt, start),
-          lte(registrations.createdAt, end)
-        )
-      )
-      .groupBy(programs.id, programs.name, sports.name)
-      .orderBy(desc(sql`COUNT(*)`))
-      .limit(10);
-
-    // Payment status breakdown
-    const paymentStatusBreakdown = await getDb()
-      .select({
-        paymentStatus: registrations.paymentStatus,
-        count: sql<number>`COUNT(*)`,
-        totalAmountDue: sql<number>`COALESCE(SUM(${registrations.amountDueCents}), 0)`,
-        totalAmountPaid: sql<number>`COALESCE(SUM(${registrations.amountPaidCents}), 0)`,
-      })
-      .from(registrations)
-      .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
-      .innerJoin(programs, eq(seasons.programId, programs.id))
-      .innerJoin(locations, eq(programs.locationId, locations.id))
-      .where(
-        and(
-          orgScope,
-          gte(registrations.createdAt, start),
-          lte(registrations.createdAt, end)
-        )
-      )
-      .groupBy(registrations.paymentStatus);
-
-    // Recent registrations
-    const recentRegistrations = await getDb()
-      .select({
-        id: registrations.id,
-        status: registrations.status,
-        paymentStatus: registrations.paymentStatus,
-        createdAt: registrations.createdAt,
-        familyMember: {
-          firstName: familyMembers.firstName,
-          lastName: familyMembers.lastName,
-        },
-        season: {
-          name: seasons.name,
-        },
-        program: {
-          name: programs.name,
-        },
-      })
-      .from(registrations)
-      .innerJoin(familyMembers, eq(registrations.familyMemberId, familyMembers.id))
-      .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
-      .innerJoin(programs, eq(seasons.programId, programs.id))
-      .innerJoin(locations, eq(programs.locationId, locations.id))
-      .where(
-        and(
-          orgScope,
-          gte(registrations.createdAt, start),
-          lte(registrations.createdAt, end)
-        )
-      )
-      .orderBy(desc(registrations.createdAt))
-      .limit(10);
-
-    // Unique families/users who registered
-    const uniqueFamiliesResult = await getDb()
-      .select({
-        count: sql<number>`COUNT(DISTINCT ${registrations.registeredByUserId})`,
-      })
-      .from(registrations)
-      .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
-      .innerJoin(programs, eq(seasons.programId, programs.id))
-      .innerJoin(locations, eq(programs.locationId, locations.id))
-      .where(
-        and(
-          orgScope,
-          gte(registrations.createdAt, start),
-          lte(registrations.createdAt, end)
-        )
-      );
-
-    // Calculate comparison with previous period
-    const periodDuration = end.getTime() - start.getTime();
-    const prevEnd = new Date(start.getTime() - 1);
-    const prevStart = new Date(prevEnd.getTime() - periodDuration);
-
-    const prevRegistrationsResult = await getDb()
-      .select({
-        count: sql<number>`COUNT(*)`,
-      })
-      .from(registrations)
-      .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
-      .innerJoin(programs, eq(seasons.programId, programs.id))
-      .innerJoin(locations, eq(programs.locationId, locations.id))
-      .where(
-        and(
-          orgScope,
-          gte(registrations.createdAt, prevStart),
-          lte(registrations.createdAt, prevEnd)
-        )
-      );
 
     const prevCount = Number(prevRegistrationsResult[0]?.count || 0);
     const registrationChange = prevCount > 0

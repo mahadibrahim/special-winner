@@ -36,37 +36,46 @@ export const GET: APIRoute = async (context) => {
   const cutoff = new Date(Date.now() - WINDOW_DAYS * 24 * 60 * 60 * 1000);
 
   // Volume is bounded (90-day org window); aggregate in JS for clarity.
-  const rows = await db
-    .select({
-      score: npsResponses.score,
-      comment: npsResponses.comment,
-      reviewLinkClickedAt: npsResponses.reviewLinkClickedAt,
-      respondedAt: feedbackRequests.respondedAt,
-      kind: feedbackRequests.kind,
-      metadata: feedbackRequests.metadata,
-    })
-    .from(npsResponses)
-    .innerJoin(feedbackRequests, eq(npsResponses.requestId, feedbackRequests.id))
-    .where(
-      and(
-        eq(feedbackRequests.organizationId, orgContext.organizationId),
-        inArray(feedbackRequests.kind, [...NPS_KINDS]),
-        gte(feedbackRequests.respondedAt, cutoff),
-      ),
-    )
-    .orderBy(desc(feedbackRequests.respondedAt));
+  // All 3 queries below are independent of each other — run in parallel.
+  const [rows, sentRows, [org]] = await Promise.all([
+    db
+      .select({
+        score: npsResponses.score,
+        comment: npsResponses.comment,
+        reviewLinkClickedAt: npsResponses.reviewLinkClickedAt,
+        respondedAt: feedbackRequests.respondedAt,
+        kind: feedbackRequests.kind,
+        metadata: feedbackRequests.metadata,
+      })
+      .from(npsResponses)
+      .innerJoin(feedbackRequests, eq(npsResponses.requestId, feedbackRequests.id))
+      .where(
+        and(
+          eq(feedbackRequests.organizationId, orgContext.organizationId),
+          inArray(feedbackRequests.kind, [...NPS_KINDS]),
+          gte(feedbackRequests.respondedAt, cutoff),
+        ),
+      )
+      .orderBy(desc(feedbackRequests.respondedAt)),
 
-  const sentRows = await db
-    .select({ id: feedbackRequests.id })
-    .from(feedbackRequests)
-    .where(
-      and(
-        eq(feedbackRequests.organizationId, orgContext.organizationId),
-        inArray(feedbackRequests.kind, [...NPS_KINDS]),
-        inArray(feedbackRequests.status, ["sent", "responded"]),
-        gte(feedbackRequests.createdAt, cutoff),
+    db
+      .select({ id: feedbackRequests.id })
+      .from(feedbackRequests)
+      .where(
+        and(
+          eq(feedbackRequests.organizationId, orgContext.organizationId),
+          inArray(feedbackRequests.kind, [...NPS_KINDS]),
+          inArray(feedbackRequests.status, ["sent", "responded"]),
+          gte(feedbackRequests.createdAt, cutoff),
+        ),
       ),
-    );
+
+    db
+      .select({ settings: organizations.settings })
+      .from(organizations)
+      .where(eq(organizations.id, orgContext.organizationId))
+      .limit(1),
+  ]);
 
   const scores = rows.map((r) => r.score);
   const byKind = NPS_KINDS.map((kind) => {
@@ -100,11 +109,6 @@ export const GET: APIRoute = async (context) => {
       respondedAt: r.respondedAt?.toISOString() ?? "",
     }));
 
-  const [org] = await db
-    .select({ settings: organizations.settings })
-    .from(organizations)
-    .where(eq(organizations.id, orgContext.organizationId))
-    .limit(1);
   const settings = (org?.settings ?? {}) as OrganizationSettings;
   const reviewUrlConfigured = Boolean(
     settings.feedback?.googleReviewUrl?.aspire ||

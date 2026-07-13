@@ -33,32 +33,41 @@ let loadError: string | null = null;
 
 if (orgId) {
   try {
-    const rawSeasons = await getDb()
-      .select({
-        id: seasons.id,
-        seasonName: seasons.name,
-        programName: programs.name,
-        locationName: locations.name,
-        status: seasons.status,
-        maxParticipants: seasons.maxParticipants,
-        endDate: seasons.endDate,
-        registered: sql<number>`COALESCE((
-          SELECT COUNT(*)::int FROM ${registrations}
-            WHERE ${registrations.seasonId} = ${seasons.id}
-              AND ${registrations.status} <> 'cancelled'
-        ), 0)`,
-      })
-      .from(seasons)
-      .innerJoin(programs, eq(seasons.programId, programs.id))
-      .innerJoin(locations, eq(programs.locationId, locations.id))
-      .where(
-        and(
-          eq(locations.organizationId, orgId),
-          ne(seasons.status, "cancelled"),
-        ),
-      )
-      .orderBy(desc(seasons.createdAt))
-      .limit(6);
+    // The two queries below are independent of each other — run in parallel.
+    const [rawSeasons, locs] = await Promise.all([
+      getDb()
+        .select({
+          id: seasons.id,
+          seasonName: seasons.name,
+          programName: programs.name,
+          locationName: locations.name,
+          status: seasons.status,
+          maxParticipants: seasons.maxParticipants,
+          endDate: seasons.endDate,
+          registered: sql<number>`COALESCE((
+            SELECT COUNT(*)::int FROM ${registrations}
+              WHERE ${registrations.seasonId} = ${seasons.id}
+                AND ${registrations.status} <> 'cancelled'
+          ), 0)`,
+        })
+        .from(seasons)
+        .innerJoin(programs, eq(seasons.programId, programs.id))
+        .innerJoin(locations, eq(programs.locationId, locations.id))
+        .where(
+          and(
+            eq(locations.organizationId, orgId),
+            ne(seasons.status, "cancelled"),
+          ),
+        )
+        .orderBy(desc(seasons.createdAt))
+        .limit(6),
+
+      getDb()
+        .select({ id: locations.id, name: locations.name })
+        .from(locations)
+        .where(eq(locations.organizationId, orgId))
+        .orderBy(asc(locations.createdAt)),
+    ]);
 
     seasonCards = rawSeasons.map((s) => {
       const today = new Date();
@@ -79,11 +88,6 @@ if (orgId) {
       };
     });
 
-    const locs = await getDb()
-      .select({ id: locations.id, name: locations.name })
-      .from(locations)
-      .where(eq(locations.organizationId, orgId))
-      .orderBy(asc(locations.createdAt));
     venueList = locs;
   } catch (e) {
     loadError =
