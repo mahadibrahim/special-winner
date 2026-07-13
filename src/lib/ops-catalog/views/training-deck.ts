@@ -2554,7 +2554,7 @@ const PORTAL_PAGES: Record<string, PortalPage[]> = {
     {
       path: "/admin/venue",
       description:
-        "Venue command center — click a session to open its roster panel: check families and teams in, or register a walk-in (they sign the waiver and pay from their own phone via a text/email link, or at the kiosk — the slot holds for 2 hours)",
+        "Venue command center — click a session to open its roster panel: check drop-in, class, and camp players in, or register a walk-in (they sign the waiver and pay from their own phone via a text/email link, or at the kiosk — the slot holds for 2 hours). League games show their roster for reference only",
     },
   ],
   "role.event_lead": [
