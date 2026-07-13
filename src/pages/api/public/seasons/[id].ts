@@ -30,30 +30,44 @@ export const GET: APIRoute = async ({ params, locals }) => {
       });
     }
 
-    // Get season with related data, enforcing tenant scope via org join
-    const [result] = await db
-      .select({
-        season: seasons,
-        program: programs,
-        sport: sports,
-        location: locations,
-        ageGroup: ageGroups,
-      })
-      .from(seasons)
-      .innerJoin(programs, eq(seasons.programId, programs.id))
-      .innerJoin(sports, eq(programs.sportId, sports.id))
-      // NEW: enforce active org + matching tenant
-      .innerJoin(
-        organizations,
-        and(
-          eq(organizations.id, sports.organizationId),
-          eq(organizations.status, "active"),
-          eq(organizations.id, organization.id),
+    // Season (with related data, enforcing tenant scope via org join) and
+    // the registration count are independent reads — both only need `id`.
+    // Fetch concurrently; a not-found season just means the count read was
+    // wasted, which is fine (it's a plain, side-effect-free SELECT).
+    const [[result], [countResult]] = await Promise.all([
+      db
+        .select({
+          season: seasons,
+          program: programs,
+          sport: sports,
+          location: locations,
+          ageGroup: ageGroups,
+        })
+        .from(seasons)
+        .innerJoin(programs, eq(seasons.programId, programs.id))
+        .innerJoin(sports, eq(programs.sportId, sports.id))
+        // NEW: enforce active org + matching tenant
+        .innerJoin(
+          organizations,
+          and(
+            eq(organizations.id, sports.organizationId),
+            eq(organizations.status, "active"),
+            eq(organizations.id, organization.id),
+          ),
+        )
+        .innerJoin(locations, eq(programs.locationId, locations.id))
+        .leftJoin(ageGroups, eq(seasons.ageGroupId, ageGroups.id))
+        .where(eq(seasons.id, id)),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(registrations)
+        .where(
+          and(
+            eq(registrations.seasonId, id),
+            sql`${registrations.status} IN ('pending', 'confirmed')`
+          )
         ),
-      )
-      .innerJoin(locations, eq(programs.locationId, locations.id))
-      .leftJoin(ageGroups, eq(seasons.ageGroupId, ageGroups.id))
-      .where(eq(seasons.id, id));
+    ]);
 
     if (!result) {
       return new Response(JSON.stringify({ error: "Season not found" }), {
@@ -61,17 +75,6 @@ export const GET: APIRoute = async ({ params, locals }) => {
         headers: { "Content-Type": "application/json" },
       });
     }
-
-    // Get registration count
-    const [countResult] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(registrations)
-      .where(
-        and(
-          eq(registrations.seasonId, id),
-          sql`${registrations.status} IN ('pending', 'confirmed')`
-        )
-      );
 
     const registeredCount = countResult?.count || 0;
     const spotsLeft = result.season.maxParticipants

@@ -1,15 +1,12 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   users,
   userRoles,
   roles,
   familyMembers as familyMembersTable,
-  seasons,
-  programs,
-  locations,
 } from "@/lib/db/schema";
 import {
   createRegistration,
@@ -263,18 +260,13 @@ export const POST: APIRoute = async (context) => {
       }
 
       if (regResult.kind !== "resumed" && waiverSigned) {
-        const [orgRow] = await db
-          .select({ organizationId: locations.organizationId })
-          .from(seasons)
-          .innerJoin(programs, eq(seasons.programId, programs.id))
-          .innerJoin(locations, eq(programs.locationId, locations.id))
-          .where(eq(seasons.id, seasonId));
-        const organizationId = orgRow?.organizationId ?? null;
+        // organizationId was already resolved inside createRegistration —
+        // thread it through instead of re-querying the same season→org join.
         const baseConsent = {
           db,
           familyMemberId: familyMemberRow.id,
           registrationId: regResult.registration.id,
-          organizationId,
+          organizationId: regResult.organizationId,
           signedByUserId: userRow.id,
           signedByName: waiverSignedBy,
           ipAddress: clientAddress ?? null,
@@ -282,14 +274,23 @@ export const POST: APIRoute = async (context) => {
         };
         const personalConsentType =
           personKind === "self" ? "age_confirmation" : "parental";
-        if (!(await hasActiveConsent(db, familyMemberRow.id, personalConsentType))) {
-          await recordConsent({ ...baseConsent, type: personalConsentType });
-        }
-        await recordConsent({ ...baseConsent, type: "liability" });
-        await recordDefaultMediaAuth({
-          ...baseConsent,
-          optOutScopes: mediaAuthOptOuts ?? [],
-        });
+        const needsPersonalConsent = !(await hasActiveConsent(
+          db,
+          familyMemberRow.id,
+          personalConsentType,
+        ));
+        // Independent inserts (different consent rows, no shared uniqueness
+        // constraint) — run them concurrently.
+        await Promise.all([
+          needsPersonalConsent
+            ? recordConsent({ ...baseConsent, type: personalConsentType })
+            : Promise.resolve(),
+          recordConsent({ ...baseConsent, type: "liability" }),
+          recordDefaultMediaAuth({
+            ...baseConsent,
+            optOutScopes: mediaAuthOptOuts ?? [],
+          }),
+        ]);
       }
 
       // Step 4: if waitlisted (no payment), set session cookie for new users and return

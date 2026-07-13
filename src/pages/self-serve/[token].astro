@@ -1,6 +1,7 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import SelfServe from "@/components/self-serve/SelfServe";
+import { buildSelfServeContext } from "@/lib/self-serve/build-context";
 
 export const prerender = false;
 
@@ -17,17 +18,19 @@ const kioskSlug =
 let context: any = null;
 let error: string | null = null;
 
+// Call the context builder directly instead of fetch()-ing our own
+// `/api/self-serve/[token]` route — that self-HTTP round-trip re-ran the
+// entire middleware chain for a request that never left this process. The
+// API route still exists (and still returns this exact shape) for the
+// PayCard's client-side polling.
 try {
-  const url = new URL(`/api/self-serve/${token}`, Astro.url);
-  const res = await fetch(url, {
-    headers: { cookie: Astro.request.headers.get("cookie") ?? "" },
-  });
-  if (res.status === 410 || res.status === 404) {
+  const result = await buildSelfServeContext(token);
+  if (result.status === 410 || result.status === 404) {
     error = "This link has expired or is invalid. Please ask the front desk for a new one.";
-  } else if (!res.ok) {
-    error = `Couldn't load this link (${res.status}).`;
+  } else if (!result.ok) {
+    error = `Couldn't load this link (${result.status}).`;
   } else {
-    context = await res.json();
+    context = result.body;
   }
 } catch (err) {
   error = "Couldn't reach the server.";

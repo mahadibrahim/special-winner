@@ -109,35 +109,36 @@ export const GET: APIRoute = async ({ locals, url }) => {
       );
     }
 
-    // ── 2. Load teams ────────────────────────────────────────────────────────
-    const teams = await db
-      .select({ id: dropTeams.id, name: dropTeams.name })
-      .from(dropTeams)
-      .where(
-        and(
-          eq(dropTeams.dropSeasonId, season.id),
-          eq(dropTeams.organizationId, organization.id)
-        )
-      );
-
-    // ── 3. Load final matches ────────────────────────────────────────────────
-    const rawMatches = await db
-      .select({
-        homeTeamId: dropMatches.homeTeamId,
-        awayTeamId: dropMatches.awayTeamId,
-        homeFinalScore: dropMatches.homeFinalScore,
-        awayFinalScore: dropMatches.awayFinalScore,
-        homeBonusGoals: dropMatches.homeBonusGoals,
-        awayBonusGoals: dropMatches.awayBonusGoals,
-      })
-      .from(dropMatches)
-      .where(
-        and(
-          eq(dropMatches.dropSeasonId, season.id),
-          eq(dropMatches.organizationId, organization.id),
-          eq(dropMatches.status, "final")
-        )
-      );
+    // ── 2 & 3. Load teams + final matches — independent reads, both scoped
+    // by season.id + organization.id, neither depends on the other's result.
+    const [teams, rawMatches] = await Promise.all([
+      db
+        .select({ id: dropTeams.id, name: dropTeams.name })
+        .from(dropTeams)
+        .where(
+          and(
+            eq(dropTeams.dropSeasonId, season.id),
+            eq(dropTeams.organizationId, organization.id)
+          )
+        ),
+      db
+        .select({
+          homeTeamId: dropMatches.homeTeamId,
+          awayTeamId: dropMatches.awayTeamId,
+          homeFinalScore: dropMatches.homeFinalScore,
+          awayFinalScore: dropMatches.awayFinalScore,
+          homeBonusGoals: dropMatches.homeBonusGoals,
+          awayBonusGoals: dropMatches.awayBonusGoals,
+        })
+        .from(dropMatches)
+        .where(
+          and(
+            eq(dropMatches.dropSeasonId, season.id),
+            eq(dropMatches.organizationId, organization.id),
+            eq(dropMatches.status, "final")
+          )
+        ),
+    ]);
 
     // ── 4. Parse numeric strings → numbers ───────────────────────────────────
     const matchRows: MatchRow[] = rawMatches.map((m) => ({

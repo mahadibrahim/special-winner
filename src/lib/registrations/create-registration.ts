@@ -46,6 +46,9 @@ export type CreateRegistrationResult = {
   registration: typeof registrations.$inferSelect;
   requiresPayment: boolean;
   amountDueCents: number;
+  /** Owning org of the season, resolved once here — callers should thread
+   * this through instead of re-querying it (e.g. for consent recording). */
+  organizationId: string | null;
 };
 
 export class RegistrationError extends Error {
@@ -67,22 +70,36 @@ async function linkRegistrationToTeam(opts: {
   organizationId: string | null;
   user: { id: string };
   registrantEmail: string | null;
+  /**
+   * When the caller already resolved the team_registrations row for this
+   * token+org (e.g. via `resolveTeamInvitee` just before the insert), pass
+   * it here to skip the duplicate lookup. Only pass a definitively-resolved
+   * value (including `null` for "confirmed not found") — leave undefined if
+   * the caller never attempted the lookup, so this falls back to its own
+   * query rather than silently skipping linkage.
+   */
+  preloadedTeamReg?: typeof teamRegistrations.$inferSelect | null;
 }): Promise<void> {
-  const { db, teamToken, registrationId, organizationId, user, registrantEmail } =
+  const { db, teamToken, registrationId, organizationId, user, registrantEmail, preloadedTeamReg } =
     opts;
   try {
     if (!organizationId) return;
 
-    const [teamReg] = await db
-      .select()
-      .from(teamRegistrations)
-      .where(
-        and(
-          eq(teamRegistrations.inviteToken, teamToken),
-          eq(teamRegistrations.organizationId, organizationId),
-        ),
-      )
-      .limit(1);
+    const teamReg =
+      preloadedTeamReg !== undefined
+        ? preloadedTeamReg
+        : (
+            await db
+              .select()
+              .from(teamRegistrations)
+              .where(
+                and(
+                  eq(teamRegistrations.inviteToken, teamToken),
+                  eq(teamRegistrations.organizationId, organizationId),
+                ),
+              )
+              .limit(1)
+          )[0] ?? null;
     if (!teamReg) return;
 
     // Dedupe: there's no unique constraint on (teamRegistrationId, registrationId),
@@ -123,6 +140,9 @@ async function resolveTeamInvitee(opts: {
   registrantEmail: string | null;
 }): Promise<{
   teamRegistrationId: string;
+  /** Full row, so callers (e.g. `linkRegistrationToTeam`) can reuse it
+   * instead of re-querying by the same token+org. */
+  teamRegistration: typeof teamRegistrations.$inferSelect;
   invitee: typeof teamInvitees.$inferSelect | null;
 } | null> {
   const { db, teamToken, organizationId, registrantEmail } = opts;
@@ -130,7 +150,7 @@ async function resolveTeamInvitee(opts: {
     if (!organizationId || !registrantEmail) return null;
 
     const [teamReg] = await db
-      .select({ id: teamRegistrations.id })
+      .select()
       .from(teamRegistrations)
       .where(
         and(
@@ -154,7 +174,11 @@ async function resolveTeamInvitee(opts: {
       )
       .limit(1);
 
-    return { teamRegistrationId: teamReg.id, invitee: invitee ?? null };
+    return {
+      teamRegistrationId: teamReg.id,
+      teamRegistration: teamReg,
+      invitee: invitee ?? null,
+    };
   } catch (err) {
     console.error("Error resolving team invitee:", err);
     return null;
@@ -166,10 +190,25 @@ export async function createRegistration(
 ): Promise<CreateRegistrationResult> {
   const { db, user, familyMember, seasonId } = input;
 
-  const [season] = await db
-    .select()
-    .from(seasons)
-    .where(eq(seasons.id, seasonId));
+  // season and existingReg are independent reads (neither's WHERE depends on
+  // the other's result) — fetch them together. If season turns out invalid
+  // we throw below and simply discard the existingReg read; it's a plain
+  // SELECT with no side effects, so the wasted read on the error path is a
+  // fine trade for shaving a full RTT off the common (valid-season) path.
+  const [[season], [existingReg]] = await Promise.all([
+    db.select().from(seasons).where(eq(seasons.id, seasonId)),
+    db
+      .select()
+      .from(registrations)
+      .where(
+        and(
+          eq(registrations.seasonId, seasonId),
+          eq(registrations.familyMemberId, familyMember.id),
+        ),
+      )
+      .orderBy(asc(registrations.createdAt))
+      .limit(1),
+  ]);
 
   if (!season) {
     throw new RegistrationError(404, "Season not found");
@@ -209,18 +248,6 @@ export async function createRegistration(
     }
   }
 
-  const [existingReg] = await db
-    .select()
-    .from(registrations)
-    .where(
-      and(
-        eq(registrations.seasonId, seasonId),
-        eq(registrations.familyMemberId, familyMember.id),
-      ),
-    )
-    .orderBy(asc(registrations.createdAt))
-    .limit(1);
-
   if (existingReg) {
     const isPendingUnpaid =
       existingReg.status === "pending" && existingReg.paymentStatus === "unpaid";
@@ -240,6 +267,7 @@ export async function createRegistration(
         registration: resumedReg,
         requiresPayment: resumedReg.amountDueCents > 0,
         amountDueCents: resumedReg.amountDueCents,
+        organizationId,
       };
     }
     throw new RegistrationError(
@@ -342,6 +370,7 @@ export async function createRegistration(
         registration: waitlisted,
         requiresPayment: false,
         amountDueCents: amountDue,
+        organizationId,
       };
     }
   }
@@ -364,6 +393,12 @@ export async function createRegistration(
   // just pay the full season price like any individual registrant. This is the
   // simpler correct behavior — no phantom invitee rows for uninvited joiners.
   let matchedTeamInvitee: typeof teamInvitees.$inferSelect | null = null;
+  // Definitively-resolved team_registrations row from resolveTeamInvitee, so
+  // the linkRegistrationToTeam call below (same token+org) can reuse it
+  // instead of re-querying. Stays `undefined` (→ linkRegistrationToTeam does
+  // its own lookup) whenever resolveTeamInvitee didn't reach a conclusive
+  // answer — e.g. it threw, or organizationId/email were missing.
+  let resolvedTeamReg: typeof teamRegistrations.$inferSelect | null | undefined;
   if (input.teamToken) {
     const resolved = await resolveTeamInvitee({
       db,
@@ -371,6 +406,14 @@ export async function createRegistration(
       organizationId,
       registrantEmail: user.email,
     });
+    if (resolved) {
+      // A conclusive hit — reuse it in linkRegistrationToTeam below.
+      resolvedTeamReg = resolved.teamRegistration;
+    }
+    // A null result is ambiguous (token genuinely not found, OR
+    // resolveTeamInvitee's internal try/catch swallowed an error) — leave
+    // resolvedTeamReg undefined so linkRegistrationToTeam falls back to its
+    // own query rather than silently skipping linkage.
     if (resolved?.invitee && resolved.invitee.status !== "paid") {
       matchedTeamInvitee = resolved.invitee;
       amountDue = resolved.invitee.assignedShareCents;
@@ -404,6 +447,7 @@ export async function createRegistration(
       organizationId,
       user,
       registrantEmail: user.email,
+      preloadedTeamReg: resolvedTeamReg,
     });
 
     // Link the invitee row to this registration (status flips to "paid" on
@@ -426,5 +470,6 @@ export async function createRegistration(
     registration: created,
     requiresPayment: true,
     amountDueCents: amountDue,
+    organizationId,
   };
 }
