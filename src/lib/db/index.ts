@@ -48,9 +48,22 @@ if (connectionString) {
   // its own pool, so N warm isolates * max all draw against Railway's
   // shared max_connections (confirmed 100 on the staging instance, ~10 in
   // use at idle — see db-parallelism-report.md). 5 leaves comfortable
-  // headroom (20 concurrent warm isolates before saturating) for this
-  // app's traffic profile; tune via DB_POOL_MAX if that changes.
-  const poolMax = Number(process.env.DB_POOL_MAX) || 5;
+  // headroom (18 concurrent warm isolates before saturating, given the
+  // ~10-connection baseline) for this app's traffic profile; tune via
+  // DB_POOL_MAX if that changes.
+  //
+  // Parse defensively: postgres.js does `[...Array(options.max)]` at
+  // construction, so a negative or fractional value (DB_POOL_MAX=-1,
+  // =2.5) throws a RangeError at module load — 500ing every request until
+  // fixed. A typo during emergency tuning must not brick the app: require
+  // a finite value, floor it, require >= 1, clamp to 20 (anything higher
+  // is certainly a mistake against max_connections=100); anything else
+  // falls back to the default of 5.
+  const rawPoolMax = Math.floor(Number(process.env.DB_POOL_MAX));
+  const poolMax =
+    Number.isFinite(rawPoolMax) && rawPoolMax >= 1
+      ? Math.min(rawPoolMax, 20)
+      : 5;
 
   // For serverless environments, use a connection pool
   const client = postgres(connectionString, {
