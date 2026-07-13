@@ -54,7 +54,8 @@ import {
 } from "../schema";
 import { fieldRentalRateCard } from "../schema/field-rentals";
 import { teamRegistrations } from "../schema/team-registrations";
-import { dropInSessions } from "../schema/drop-in";
+import { dropInSessions, dropInBookings } from "../schema/drop-in";
+import { hostProfiles, hostGameReports } from "../schema/hosts";
 import { membershipTiers, memberships } from "../schema/memberships";
 import { phoneOptIns } from "../schema/phone-verifications";
 import {
@@ -162,6 +163,15 @@ export const TEST_USERS = {
     firstName: "Family",
     lastName: "Only",
   },
+  // Pickup host — authorized via an ACTIVE host_profiles row (not an RBAC
+  // role, see src/lib/auth/host.ts), so no userRoles assignment is needed.
+  // Used by tests/e2e/host-portal.spec.ts (claim → check-in → wrap-up).
+  host: {
+    email: "host@test.aspiresports.com",
+    password: "TestHost123!",
+    firstName: "Test",
+    lastName: "Host",
+  },
 };
 
 /**
@@ -199,6 +209,19 @@ export const E2E_TEAM_REG_TOKEN_ORG_B = "e2e-team-token-orgb-fixture-0001";
  *   rentalOpenMinute: 480 (8am), rentalCloseMinute: 1320 (10pm), fieldCount: 3
  */
 export const E2E_RENTAL_VENUE_ID = "4b237a78-868d-4e64-8487-f3dce687b603";
+
+/**
+ * Fixed UUIDs for the host portal fixtures (Task 15 —
+ * tests/e2e/host-portal.spec.ts). Fixed IDs so the spec can act on these
+ * sessions directly (claim by ID, navigate straight to /host/games/:id)
+ * instead of hunting for them in the dashboard's claimable list — that list
+ * is capped at 25 rows ordered by soonest start, and the shared dev/CI
+ * database accumulates many short-lived pickup fixtures from unrelated API
+ * test runs, so a 7-day-out fixture is not reliably on the visible page.
+ * See E2E_RENTAL_VENUE_ID above for the same fixed-ID-plus-upsert pattern.
+ */
+export const E2E_HOST_CLAIMABLE_SESSION_ID = "e981c7f2-2921-4eb5-9eee-07f75827c5b1";
+export const E2E_HOST_WRAPUP_SESSION_ID = "cc5be8dc-c19c-40ec-bf09-f4ff4dcca0de";
 
 /**
  * Phase 2 training-walkthrough fixture accounts. Kept fully separate from
@@ -947,6 +970,195 @@ async function seedRefereeCloseoutFixture(db: Database, orgId: string) {
   console.log(`   ✓ Referee close-out fixture match assigned (game ${game.id})`);
 }
 
+/**
+ * Host portal fixtures (Task 15 — tests/e2e/host-portal.spec.ts).
+ *
+ * - host_profiles: ACTIVE row for host@test.aspiresports.com in the main
+ *   org — idempotent on (userId, organizationId).
+ * - "e2e-host-fixture": a future (7 days out), unhosted pickup session with
+ *   one confirmed booking from the parent test user, so /host lists it as
+ *   claimable and its roster has someone to check in once claimed. Only
+ *   startsAt/endsAt are refreshed on re-seed — hostUserId is left alone so
+ *   a prior test run's claim doesn't get silently undone (the spec itself
+ *   tolerates either state).
+ * - "e2e-host-wrapup-fixture": an already-started (30 min ago) session
+ *   hosted by the host user. Fully reset on every seed run — startsAt/
+ *   endsAt re-pointed and any prior host_game_reports row deleted — so the
+ *   wrap-up spec can submit a fresh report every run.
+ */
+async function seedHostPortalFixture(
+  db: Database,
+  orgId: string,
+  venueId: string,
+  hostUserId: string,
+  parentUserId: string,
+) {
+  // One-time cleanup: earlier revisions of this fixture used
+  // select-by-formatLabel with a random-generated id instead of a fixed
+  // one. Delete any such stragglers (cascades to their bookings/reports)
+  // so re-seeding doesn't leave duplicate "e2e-host-fixture" rows behind
+  // that could confuse the spec's marker-text lookups.
+  await db.delete(dropInSessions).where(
+    or(
+      and(
+        eq(dropInSessions.formatLabel, "e2e-host-fixture"),
+        ne(dropInSessions.id, E2E_HOST_CLAIMABLE_SESSION_ID),
+      ),
+      and(
+        eq(dropInSessions.formatLabel, "e2e-host-wrapup-fixture"),
+        ne(dropInSessions.id, E2E_HOST_WRAPUP_SESSION_ID),
+      ),
+    ),
+  );
+
+  // Active host profile — idempotent on (userId, organizationId).
+  const [existingProfile] = await db
+    .select({ id: hostProfiles.id, status: hostProfiles.status })
+    .from(hostProfiles)
+    .where(
+      and(
+        eq(hostProfiles.userId, hostUserId),
+        eq(hostProfiles.organizationId, orgId),
+      ),
+    )
+    .limit(1);
+  if (!existingProfile) {
+    await db.insert(hostProfiles).values({
+      userId: hostUserId,
+      organizationId: orgId,
+      status: "active",
+    });
+  } else if (existingProfile.status !== "active") {
+    await db
+      .update(hostProfiles)
+      .set({ status: "active", updatedAt: new Date() })
+      .where(eq(hostProfiles.id, existingProfile.id));
+  }
+  console.log(`   ✓ Host profile ACTIVE for ${TEST_USERS.host.email} in org ${orgId}`);
+
+  // Future unhosted pickup session — fixed ID (see E2E_HOST_CLAIMABLE_SESSION_ID)
+  // so the spec can claim/navigate directly rather than searching for it in
+  // the (capped, noisy) claimable list. startsAt/endsAt refreshed to stay 7
+  // days out on re-seed; hostUserId is deliberately NOT in the update set —
+  // if a prior test run already claimed it, re-seeding must not un-claim it.
+  const claimableStart = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const claimableEnd = new Date(claimableStart.getTime() + 90 * 60 * 1000);
+  const [claimableSession] = await db
+    .insert(dropInSessions)
+    .values({
+      id: E2E_HOST_CLAIMABLE_SESSION_ID,
+      organizationId: orgId,
+      venueId,
+      kind: "pickup",
+      sportOrClassLabel: "soccer",
+      formatLabel: "e2e-host-fixture",
+      startsAt: claimableStart,
+      endsAt: claimableEnd,
+      capacity: 10,
+    })
+    .onConflictDoUpdate({
+      target: dropInSessions.id,
+      set: { startsAt: claimableStart, endsAt: claimableEnd },
+    })
+    .returning();
+  console.log(
+    `   ✓ Host claimable fixture session (${claimableSession.id}, hostUserId=${claimableSession.hostUserId ?? "none"})`,
+  );
+
+  // Confirmed player booking from the parent test user, so the roster has
+  // someone to check in once the host claims the game.
+  const [existingParentBooking] = await db
+    .select({ id: dropInBookings.id })
+    .from(dropInBookings)
+    .where(
+      and(
+        eq(dropInBookings.sessionId, claimableSession.id),
+        eq(dropInBookings.userId, parentUserId),
+        inArray(dropInBookings.status, [
+          "confirmed",
+          "waitlisted",
+          "pending_claim",
+          "pending_payment",
+        ]),
+      ),
+    )
+    .limit(1);
+  if (!existingParentBooking) {
+    await db.insert(dropInBookings).values({
+      sessionId: claimableSession.id,
+      userId: parentUserId,
+      status: "confirmed",
+      source: "online_booking",
+      paymentMethod: "card_online",
+      amountPaidCents: 1000,
+    });
+  }
+  console.log(`   ✓ Parent booking on host claimable fixture ensured`);
+
+  // Already-started hosted session for the wrap-up path — fixed ID (see
+  // E2E_HOST_WRAPUP_SESSION_ID), fully reset every run.
+  const wrapupStart = new Date(Date.now() - 30 * 60 * 1000);
+  const wrapupEnd = new Date(Date.now() + 60 * 60 * 1000);
+  const [wrapupSession] = await db
+    .insert(dropInSessions)
+    .values({
+      id: E2E_HOST_WRAPUP_SESSION_ID,
+      organizationId: orgId,
+      venueId,
+      kind: "pickup",
+      sportOrClassLabel: "soccer",
+      formatLabel: "e2e-host-wrapup-fixture",
+      startsAt: wrapupStart,
+      endsAt: wrapupEnd,
+      capacity: 10,
+      hostUserId,
+    })
+    .onConflictDoUpdate({
+      target: dropInSessions.id,
+      set: {
+        startsAt: wrapupStart,
+        endsAt: wrapupEnd,
+        hostUserId,
+        status: "scheduled",
+      },
+    })
+    .returning();
+
+  // Reset: delete any prior wrap-up report so the spec can submit fresh.
+  await db.delete(hostGameReports).where(eq(hostGameReports.sessionId, wrapupSession.id));
+
+  // Host's own comp booking — idempotent on (sessionId, userId).
+  const [existingCompBooking] = await db
+    .select({ id: dropInBookings.id })
+    .from(dropInBookings)
+    .where(
+      and(
+        eq(dropInBookings.sessionId, wrapupSession.id),
+        eq(dropInBookings.userId, hostUserId),
+        inArray(dropInBookings.status, [
+          "confirmed",
+          "waitlisted",
+          "pending_claim",
+          "pending_payment",
+        ]),
+      ),
+    )
+    .limit(1);
+  if (!existingCompBooking) {
+    await db.insert(dropInBookings).values({
+      sessionId: wrapupSession.id,
+      userId: hostUserId,
+      status: "confirmed",
+      source: "online_booking",
+      paymentMethod: "host_comp",
+      amountPaidCents: 0,
+    });
+  }
+  console.log(
+    `   ✓ Host wrap-up fixture session reset (${wrapupSession.id}, starts 30m ago, report cleared)`,
+  );
+}
+
 async function seedE2ETests() {
   assertNotProduction();
   console.log("🧪 Seeding E2E test data...\n");
@@ -1273,6 +1485,36 @@ async function seedE2ETests() {
     scopeId: org.id,
   });
   console.log(`   ✓ AdultSelf: ${adultSelfUser.email}`);
+
+  // Host user — no userRoles assignment: host authorization is an ACTIVE
+  // host_profiles row (see src/lib/auth/host.ts), not RBAC. The profile row
+  // itself is created below in seedHostPortalFixture(), once org/venue are
+  // available.
+  const hostPasswordHash = await hashPassword(TEST_USERS.host.password);
+  let [hostUser] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, TEST_USERS.host.email))
+    .limit(1);
+
+  if (!hostUser) {
+    [hostUser] = await db
+      .insert(users)
+      .values({
+        email: TEST_USERS.host.email,
+        passwordHash: hostPasswordHash,
+        firstName: TEST_USERS.host.firstName,
+        lastName: TEST_USERS.host.lastName,
+        emailVerified: true,
+      })
+      .returning();
+  } else {
+    await db
+      .update(users)
+      .set({ passwordHash: hostPasswordHash, emailVerified: true })
+      .where(eq(users.id, hostUser.id));
+  }
+  console.log(`   ✓ Host: ${hostUser.email}`);
 
   // Get or create sport — upsert so re-seeding resets name if a test mutated it
   console.log("\n3. Setting up programs...");
@@ -3434,6 +3676,10 @@ async function seedE2ETests() {
   console.log("\n17. Setting up referee close-out fixture...");
   await seedRefereeCloseoutFixture(db, org.id);
 
+  // Stage 18 — Host portal fixtures (Task 15).
+  console.log("\n18. Setting up host portal fixtures...");
+  await seedHostPortalFixture(db, org.id, venue.id, hostUser.id, parentUser.id);
+
   console.log("\n✅ E2E test data seeded successfully!");
   console.log("\n📋 Test Credentials:");
   console.log("─".repeat(50));
@@ -3449,6 +3695,7 @@ async function seedE2ETests() {
   console.log(`MediaStaff:  ${TEST_USERS.mediaStaff.email} / ${TEST_USERS.mediaStaff.password}`);
   console.log(`MediaEditor: ${TEST_USERS.mediaEditor.email} / ${TEST_USERS.mediaEditor.password}`);
   console.log(`TrainingReferee: ${TRAINING_USERS.referee.email} / ${TRAINING_USERS.referee.password}`);
+  console.log(`Host:        ${TEST_USERS.host.email} / ${TEST_USERS.host.password}`);
   console.log("─".repeat(50));
 }
 
