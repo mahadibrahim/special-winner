@@ -169,9 +169,23 @@ export const dropInBookings = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    uniqueIndex("drop_in_bookings_one_active_per_user_session")
+    // _v2: predicate extended to include 'pending_payment' (walk-in remote
+    // payment hold) — see migration 0086, which drops the original
+    // drop_in_bookings_one_active_per_user_session and creates this one.
+    // The _v2 RENAME is load-bearing, not cosmetic: db-migrate-bootstrap.ts
+    // verifies index migrations by NAME only, so a same-name drop+recreate
+    // would be marked already-applied on any populated DB (staging/prod)
+    // and silently skipped — the predicate would never actually widen
+    // there. (Durable fix — bootstrap comparing indexdef, not name — is a
+    // follow-up.) This is also the first migration in the repo to USE an
+    // enum value ('pending_payment', added by 0084) in a later file; safe
+    // now because scripts/db-migrate.ts applies each migration file in its
+    // own transaction (0084's ADD VALUE is committed long before 0086
+    // opens its transaction). Previously banned — see
+    // .superpowers/sdd/payment-task-1-report.md.
+    uniqueIndex("drop_in_bookings_one_active_per_user_session_v2")
       .on(table.sessionId, table.userId)
-      .where(sql`status IN ('confirmed', 'waitlisted', 'pending_claim')`),
+      .where(sql`status IN ('confirmed', 'waitlisted', 'pending_claim', 'pending_payment')`),
     index("drop_in_bookings_session_status_idx").on(table.sessionId, table.status),
     index("drop_in_bookings_user_status_idx").on(
       table.userId,

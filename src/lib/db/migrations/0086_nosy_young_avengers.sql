@@ -1,0 +1,24 @@
+-- Replaces the one-active-booking-per-user-per-session partial unique index
+-- with a _v2 whose predicate also covers 'pending_payment' (walk-in remote
+-- payment hold — see src/lib/db/schema/drop-in.ts). Restores DB-level
+-- duplicate-hold protection; the app-level guard in walkin/start stays as
+-- belt-and-suspenders.
+--
+-- Why a RENAME instead of same-name drop+recreate: db-migrate-bootstrap.ts
+-- verifies index migrations by NAME only. A same-name recreate would be
+-- marked already-applied on any populated DB (staging/prod) and silently
+-- skipped — the predicate would never widen there, with CI (from-empty)
+-- staying green. The new name makes bootstrap correctly report this
+-- migration pending until the _v2 index actually exists. (Durable fix —
+-- bootstrap comparing indexdef, not name — is a follow-up.)
+--
+-- 'pending_payment' was added to the drop_in_booking_status enum by 0084,
+-- already committed by the time this file's transaction opens under the
+-- per-file migration runner (scripts/db-migrate.ts) — see that script's
+-- header for why this couldn't ship before the runner existed.
+--
+-- Plain DROP + CREATE (no CONCURRENTLY) inside the file's own transaction —
+-- consistent with how the original index was created in 0024 and safe at
+-- current table sizes.
+DROP INDEX IF EXISTS "drop_in_bookings_one_active_per_user_session";--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "drop_in_bookings_one_active_per_user_session_v2" ON "drop_in_bookings" USING btree ("session_id","user_id") WHERE status IN ('confirmed', 'waitlisted', 'pending_claim', 'pending_payment');
