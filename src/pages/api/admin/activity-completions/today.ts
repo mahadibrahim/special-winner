@@ -49,13 +49,30 @@ export const GET: APIRoute = async (context) => {
   const dateParam = url.searchParams.get("date");
   const includeClosed = url.searchParams.get("includeClosed") === "1";
 
-  // Resolve org timezone — defaults to America/New_York per organizations schema.
-  const [orgRow] = await getDb()
-    .select({ timezone: organizations.timezone })
-    .from(organizations)
-    .where(eq(organizations.id, orgContext.organizationId))
-    .limit(1);
-  const tz = orgRow?.timezone ?? "America/New_York";
+  // Resolve org timezone. Middleware already resolves the org from the
+  // request host and populates locals.organization (with .timezone) for
+  // every request — re-querying it here duplicated a query on every call
+  // to this admin-dashboard endpoint. See
+  // .superpowers/sdd/perf-sweep-admin.md item 15.
+  //
+  // Defensive fallback: requireOrganizationContext() can resolve
+  // organizationId WITHOUT locals.organization being set — getOrganizationId()
+  // has a super-admin dev/CI fallback that picks the oldest org by
+  // createdAt when no domain maps to one, and that path never touches
+  // locals.organization. This route is admin-gated (requireSuperAdminAccess
+  // above), so in normal prod traffic locals.organization is always
+  // present; the query below only fires for that fallback case, or if the
+  // timezone column is ever explicitly null.
+  let tz = context.locals.organization?.timezone;
+  if (!tz) {
+    const [orgRow] = await getDb()
+      .select({ timezone: organizations.timezone })
+      .from(organizations)
+      .where(eq(organizations.id, orgContext.organizationId))
+      .limit(1);
+    tz = orgRow?.timezone ?? undefined;
+  }
+  tz = tz ?? "America/New_York";
 
   // Default "today" is today in the org's timezone, not UTC.
   const date =

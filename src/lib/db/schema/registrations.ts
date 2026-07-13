@@ -168,6 +168,16 @@ export const registrations = pgTable(
     uniqueIndex("registrations_member_season_active_uniq")
       .on(table.familyMemberId, table.seasonId)
       .where(sql`status NOT IN ('cancelled', 'refunded')`),
+    // Partial index on the pending-approval refund queue. refundStatus is
+    // NULL/'none' for the overwhelming majority of rows (refunds are rare),
+    // so a full-column index would waste space; this only indexes the
+    // handful of rows admins actually need to find fast. Backing query:
+    // nav-badges (every admin sidebar load) + attention-feed filter on
+    // refundStatus = 'pending_approval'. See
+    // .superpowers/sdd/perf-sweep-admin.md missing-index note.
+    index("registrations_refund_status_pending_idx")
+      .on(table.refundStatus)
+      .where(sql`refund_status = 'pending_approval'`),
   ],
 );
 
