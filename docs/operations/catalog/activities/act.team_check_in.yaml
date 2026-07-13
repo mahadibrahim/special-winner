@@ -1,10 +1,10 @@
 id: act.team_check_in
 name: Team check-in
 description: |
-  Each team's coach or captain checks in at the event lead's station
-  before their match, confirming roster present, jerseys, and any
-  guest-player paperwork. Used to gate kickoff and to record day-of
-  attendance.
+  Each team's coach or captain checks in with the event lead at the
+  front desk before their match, confirming roster present, jerseys,
+  and any guest-player paperwork. Used to gate kickoff and to record
+  day-of attendance.
 trigger: ~15 minutes before each kickoff
 phase: pre_game
 sport_tags: []
@@ -26,12 +26,15 @@ escalation_path: |
   Venue Manager → Director handoff ladder.
 sop_body: |
   1. About 15 minutes before kickoff, have both teams' coaches (youth
-     leagues) or captains (adult leagues) come to the front desk. Find
-     today's match on the venue command center board and open it — this
-     is the same board and roster panel families are checked in from,
-     there's no separate check-in station anymore.
-  2. In the roster panel, confirm which players are physically present
-     for today's match.
+     leagues) or captains (adult leagues) come to the front desk —
+     there's no separate check-in station anymore. Find today's match
+     on the venue command center board and open it: the roster panel
+     shows each team's lineup for reference.
+  2. Confirm in person which players are physically present for today's
+     match, checking who's there against the on-screen roster by eye.
+     The app doesn't record per-player attendance for league matches —
+     the check-in form you submit in step 7 is the day-of attendance
+     record, not anything you tap in the roster panel.
   3. Spot-check jerseys/uniforms match team colors so there's no
      confusion once play starts.
   4. If a guest player is being used (roster-eligible fill-in for a
@@ -48,7 +51,7 @@ sop_body: |
      ref and follow the format's forfeit/delay rule rather than
      starting short.
 tools:
-  - The venue command center roster panel (/admin/venue)
+  - The venue command center board (/admin/venue) — the match's roster, for reference
   - The team roster view (/admin/venue/rosters)
   - The team check-in form
   - Guest-player paperwork on file (reference)

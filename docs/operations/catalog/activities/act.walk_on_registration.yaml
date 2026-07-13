@@ -36,8 +36,7 @@ sop_body: |
   3. Tap an open slot to start the walk-in flow.
   4. Step 1, who's playing: enter the player's name. For a minor, also
      collect the parent's name and the parent's contact info; for an
-     adult, collect their own contact info. Note any medical or allergy
-     detail the coach should know before the player joins.
+     adult, collect their own contact info.
   5. Step 2, waiver: choose how they'll sign — right now on the desk
      device, or by a text link they sign from their own phone.
   6. Step 3, how they'll finish signing up: choose to text or email them
@@ -58,9 +57,18 @@ sop_body: |
   10. Once paid, the row clears to a normal confirmed booking and the
       walk-on counter increments automatically. Check the player in from
       the same roster panel when they arrive to play.
-  11. If the session is already full, the roster panel won't offer an
+  11. As you send the player over, tell the coach in person anything the
+      parent mentioned that the coach should know — a medical condition,
+      an allergy, a first-timer. The walk-in form has no field for this;
+      it's a word-of-mouth handoff, so don't skip it.
+  12. If the session is already full, the roster panel won't offer an
       open slot to register into — tell the guest to check back for a
       later session or join the waitlist through registration.
+  13. Open slots aren't the only limit — if walk-on volume would push a
+      session past its coach-to-player ratio, the coach can close intake
+      for that session even with slots showing open. Hold additional
+      walk-ons for the next available session rather than overloading
+      the group.
 tools:
   - The venue command center (/admin/venue) — roster panel and walk-in flow
   - The desk device or the guest's own phone (waiver signature, photo, payment)

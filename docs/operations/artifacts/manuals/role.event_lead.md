@@ -143,12 +143,15 @@ pool if scheduled ref no-shows.
 Venue Manager → Director handoff ladder.
 
 1. About 15 minutes before kickoff, have both teams' coaches (youth
-   leagues) or captains (adult leagues) come to the front desk. Find
-   today's match on the venue command center board and open it — this
-   is the same board and roster panel families are checked in from,
-   there's no separate check-in station anymore.
-2. In the roster panel, confirm which players are physically present
-   for today's match.
+   leagues) or captains (adult leagues) come to the front desk —
+   there's no separate check-in station anymore. Find today's match
+   on the venue command center board and open it: the roster panel
+   shows each team's lineup for reference.
+2. Confirm in person which players are physically present for today's
+   match, checking who's there against the on-screen roster by eye.
+   The app doesn't record per-player attendance for league matches —
+   the check-in form you submit in step 7 is the day-of attendance
+   record, not anything you tap in the roster panel.
 3. Spot-check jerseys/uniforms match team colors so there's no
    confusion once play starts.
 4. If a guest player is being used (roster-eligible fill-in for a

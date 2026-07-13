@@ -4,17 +4,22 @@ import { createTour, registerVideoCapture } from "../lib/tour";
 
 /**
  * venue-manager — the venue command center's event-day overview: opening a
- * session's roster panel to check teams/families in or register a walk-in,
+ * session's roster panel to check drop-in players in or register a walk-in,
  * referee pay, media check-in visibility, and end-of-day reports. Check-in
  * and walk-up used to be their own pages; both are now reached by opening a
  * session's roster panel on the command-center board (see 38cb532d), so
  * this walkthrough drives that panel in place rather than navigating to the
  * old (now-redirecting) /admin/venue/check-in and /admin/venue/walk-up URLs.
+ * Note: per-player game attendance for league matches is NOT tracked in-app
+ * (ActivityDetailPanel disables check-in for roster_entry rows — "Game
+ * attendance not tracked in v1"); a league match's roster shows for
+ * reference while the event lead runs the in-person team check-in.
  *
- * act.team_check_in is the closest catalog match for checking a team in via
- * the roster panel and is tagged accordingly. The command-center tour
- * itself has no catalog counterpart (it's a cross-activity dashboard, not a
- * single tracked activity) so its own step is untagged.
+ * act.team_check_in is the closest catalog match — the event lead's
+ * in-person team check-in, run against the roster panel's lineup as
+ * reference — and is tagged accordingly. The command-center tour itself has
+ * no catalog counterpart (it's a cross-activity dashboard, not a single
+ * tracked activity) so its own step is untagged.
  *
  * The tour `role` is "event_lead", NOT "venue_manager", deliberately: the
  * Phase 1 deck generator (src/lib/ops-catalog/views/training-deck.ts)
@@ -82,7 +87,7 @@ test(`${WORKFLOW} walkthrough`, async ({ page }) => {
   if ((await activityBlock.count()) > 0) {
     await tour.step(
       page,
-      "Open a session's roster panel — this is where teams and families check in",
+      "Open a session's roster panel — drop-in players check in here; a league match shows its roster for reference (per-player game attendance isn't tracked in-app)",
       async () => {
         await activityBlock.click();
       },

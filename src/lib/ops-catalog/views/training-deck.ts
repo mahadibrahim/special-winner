@@ -2544,7 +2544,7 @@ const PORTAL_PAGES: Record<string, PortalPage[]> = {
     {
       path: "/admin/venue",
       description:
-        "Venue command center — the single front-desk surface for the day: click any session for its roster panel to check people in or register a walk-in, work the needs-attention queue, and see the event-day overview",
+        "Venue command center — the single front-desk surface for the day: click a session for its roster panel to check drop-in, class, and camp players in or register a walk-in, and work the needs-attention queue. League games show their roster for reference only — per-player game attendance isn't tracked in the app",
     },
     { path: "/admin/venue/day/[date]", description: "Run-of-show for a specific event day" },
     { path: "/admin/venue/rosters", description: "Team rosters for the day" },
@@ -2559,7 +2559,11 @@ const PORTAL_PAGES: Record<string, PortalPage[]> = {
   ],
   "role.event_lead": [
     { path: "/admin/game-day/today", description: "Run-of-show for today's matches" },
-    { path: "/admin/venue", description: "Venue command center — check-in support for coaches, refs, and teams before kickoff" },
+    {
+      path: "/admin/venue",
+      description:
+        "Venue command center — today's board and each match's roster, for reference while you check coaches, refs, and teams in face-to-face before kickoff (the app doesn't record per-player game attendance)",
+    },
   ],
   "role.photographer": [
     { path: "/media", description: "Media dashboard" },
@@ -2735,7 +2739,7 @@ const PRODUCT_TOUR: Record<string, TourStep[]> = {
     {
       slug: "command-center",
       caption:
-        "Venue command center — today's full event-day run-of-show in one view. Click any session to open its roster panel: check people in, register a walk-in (they sign the waiver and pay from their own phone or the kiosk — the slot holds for 2 hours), or work the needs-attention queue.",
+        "Venue command center — today's full event-day run-of-show in one view. Click a session to open its roster panel: check drop-in, class, and camp players in, register a walk-in (they sign the waiver and pay from their own phone or the kiosk — the slot holds for 2 hours), or work the needs-attention queue. League games show their roster for reference.",
     },
     // "check-in" and "walk-up" used to be their own tour slides for the
     // now-retired /admin/venue/check-in and /admin/venue/walk-up pages
