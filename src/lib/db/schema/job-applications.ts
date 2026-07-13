@@ -5,6 +5,7 @@ import {
   varchar,
   text,
   timestamp,
+  boolean,
 } from "drizzle-orm/pg-core";
 import { organizations } from "./organizations";
 import { users } from "./users";
@@ -23,6 +24,7 @@ export const jobApplicationRoleEnum = pgEnum("job_application_role", [
   "referee",
   "coach",
   "staff",
+  "host",
 ]);
 
 export const jobApplications = pgTable("job_applications", {
@@ -42,6 +44,14 @@ export const jobApplications = pgTable("job_applications", {
   experience: text("experience").notNull(),
   availability: text("availability").array().default([]).notNull(), // weeknights | weekends | mornings
   resumeKey: text("resume_key"), // R2 object key, not a URL (signed URLs expire)
+  // --- Host-application-only fields (null for other roles) ---------------
+  // Bio lives in `experience` (the form labels it "Bio" for hosts).
+  dateOfBirth: varchar("date_of_birth", { length: 10 }), // YYYY-MM-DD
+  gamesPlayed: varchar("games_played", { length: 10 }), // 0 | 1-3 | 3-5 | 5+
+  weeklyCommitment: boolean("weekly_commitment"),
+  photoKey: text("photo_key"), // R2 keys under careers/hosts/
+  motivationVideoKey: text("motivation_video_key"),
+  demoVideoKey: text("demo_video_key"),
   source: varchar("source", { length: 200 }),
 
   status: varchar("status", { length: 30 }).default("new").notNull(), // new | archived | hired
