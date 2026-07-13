@@ -139,6 +139,12 @@ export const GET: APIRoute = async (context) => {
           ),
         ),
       )
+      // CLAUDE.md multi-tenant query hazard: any query with `.limit()` picking
+      // "a" set of rows out of a possibly-larger match set MUST have an
+      // explicit orderBy, or it returns an arbitrary (and on a shared DB,
+      // nondeterministic) subset. Soonest session first is what front desk
+      // wants; booking createdAt is the tiebreak for same-time sessions.
+      .orderBy(asc(dropInSessions.startsAt), asc(dropInBookings.createdAt))
       .limit(PER_KIND_LIMIT);
 
     // ---- Field rentals ----
@@ -166,6 +172,8 @@ export const GET: APIRoute = async (context) => {
           ),
         ),
       )
+      // Same CLAUDE.md multi-tenant orderBy rule as the drop-in query above.
+      .orderBy(asc(fieldRentals.startsAt), asc(fieldRentals.createdAt))
       .limit(PER_KIND_LIMIT);
 
     type Result = {
