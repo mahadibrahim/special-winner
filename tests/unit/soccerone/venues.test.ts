@@ -31,7 +31,10 @@ describe("getRentalVenuesByLocation()", () => {
   });
 
   it("returns only the org's rental-enabled venues at the given location slug", async () => {
-    const result = await getRentalVenuesByLocation(fixtureOrgId, "soccerone-downtown");
+    // Bare "downtown" (not "soccerone-downtown") — the seed renames the
+    // fixture location to the bare slug to match prod (see seed-e2e-tests.ts
+    // stage 12a and rent.astro's locationSlug).
+    const result = await getRentalVenuesByLocation(fixtureOrgId, "downtown");
     expect(result.length).toBeGreaterThan(0);
     for (const v of result) {
       expect(v.rentalEnabled).toBe(true);
@@ -44,8 +47,8 @@ describe("getRentalVenuesByLocation()", () => {
   });
 
   it("does not return venues when the location slug belongs to a different org", async () => {
-    // "soccerone-downtown" exists under the fixture org, not under `otherOrgId`.
-    const result = await getRentalVenuesByLocation(otherOrgId, "soccerone-downtown");
+    // "downtown" exists under the fixture org, not under `otherOrgId`.
+    const result = await getRentalVenuesByLocation(otherOrgId, "downtown");
     expect(result).toEqual([]);
   });
 });

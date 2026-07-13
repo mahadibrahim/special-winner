@@ -3,16 +3,146 @@ export const prerender = false;
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import SoccerOneHeader from '@/components/soccerone/SoccerOneHeader.astro';
 import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
-import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
 import { DOWNTOWN_JSONLD } from '@/lib/seo/soccerone-jsonld';
+import HomeSignupStrip from '@/components/soccerone/HomeSignupStrip';
+import { HOME_GOOGLE_RATING, HOME_REVIEWS } from '@/lib/soccerone/home-reviews';
+
+// Live season data — org-scoped fetch pinned to the Downtown location,
+// same pattern as src/pages/soccerone/worthington/index.astro:11-41.
+async function fetchOpenSeasons(audience: 'adult' | 'youth') {
+  try {
+    const url = new URL('/api/public/seasons', Astro.url);
+    // Prod (single-org cutover 2026-06-11) resolves gosoccerone.com to the
+    // single Aspire org, whose location slugs are bare (`worthington`,
+    // `downtown` — see src/lib/organization/soccerone-routing.ts:5-11 and
+    // rent.astro's locationSlug). The SoccerOne staging fixture org's seed
+    // uses the same bare slug (renamed from the legacy "soccerone-downtown"
+    // in seed-e2e-tests.ts stage 12a), so this stays correct on both.
+    url.searchParams.set('location', 'downtown');
+    url.searchParams.set('audience', audience);
+    // Dev-only guard: Astro.url reconstructs from the forwarded Host header,
+    // so a port-less Host (e.g. `curl -H "Host: soccerone.localhost"`) yields
+    // port 80 and the self-fetch misses the dev server. Pin the dev port.
+    // Do NOT rewrite the hostname to localhost: undici silently drops an
+    // explicit Host header (forbidden fetch header), so the tenant must stay
+    // in the URL or org resolution falls back to the default org.
+    if (url.hostname.endsWith('.localhost') && !url.port) url.port = '4321';
+    const res = await fetch(url, {
+      headers: { Host: Astro.request.headers.get('host') ?? '' },
+    });
+    if (!res.ok) return [];
+    const body = await res.json();
+    const todayIso = new Date().toISOString().slice(0, 10);
+    return (body.seasons ?? [])
+      .filter((s: any) => s.signupMode !== 'interest')
+      .filter((s: any) => !s.startDate || String(s.startDate).slice(0, 10) >= todayIso);
+  } catch (err) {
+    console.error('[soccerone/downtown] failed to load ' + audience + ' seasons', err);
+    return [];
+  }
+}
+
+const adultSeasons = await fetchOpenSeasons('adult');
+
+// The hero's priority register CTA and the fully-live Fall Leagues block
+// both need "a fall season" specifically — Downtown's catalog can also
+// carry non-fall seasons with no dayOfWeek (e.g. the individual-only
+// "Adult Coed — Spring 2026" fixture), which lack deposit/team pricing and
+// would render an incoherent Fall block if picked. Prefer the earliest
+// dayOfWeek-scheduled (fall) season; fall back to any open adult season so
+// the CTA still has somewhere to send players if no fall season exists yet.
+const fallCandidates = adultSeasons.filter((s: any) => s.dayOfWeek);
+const featured = fallCandidates[0] ?? adultSeasons[0] ?? null;
+
+// registrationCloses is a timestamp (full ISO instant): display the
+// deadline in the org's local timezone, not the server's.
+const featuredCloses = featured?.registrationCloses
+  ? new Date(featured.registrationCloses).toLocaleDateString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric', timeZone: 'America/New_York',
+    })
+  : null;
+
+// No early-bird promo here — that's a Worthington-only founder decision
+// ($1,000/team thru Aug 3). Downtown prints only live-catalog pricing.
+
+// Guarded price strings for the fall pricing block — never render "$null"
+// when a field is unset. Thousands-separated to match team-price formatting
+// (mirrors src/pages/soccerone/worthington/index.astro:70-73).
+const fmtPrice = (n: number) => `$${n.toLocaleString('en-US')}`;
+const teamPriceStr = featured?.teamPrice != null ? fmtPrice(featured.teamPrice) : null;
+const soloPriceStr = featured?.price != null ? fmtPrice(featured.price) : null;
+const depositStr = featured?.deposit != null ? fmtPrice(featured.deposit) : null;
+
+// Every fall-date mention on the page derives from the live featured season
+// (no hardcoded calendar dates). startDate/endDate are date-only columns
+// ("YYYY-MM-DD"): parsing yields UTC midnight, so format in UTC —
+// America/New_York would shift the date back a day.
+const formatSeasonDate = (d: string) =>
+  new Date(d).toLocaleDateString('en-US', {
+    month: 'short', day: 'numeric', timeZone: 'UTC',
+  });
+const fallKickoffDate = featured?.startDate ? formatSeasonDate(featured.startDate) : null;
+const fallEndDate = featured?.endDate ? formatSeasonDate(featured.endDate) : null;
+
+// What's Happening — "THE FALL RHYTHM" list groups the fetched adult
+// seasons by dayOfWeek (Sunday→Saturday) and joins each day's season
+// names + a formatted startTime–endTime range. Never fabricate: only
+// names/days pulled straight from the API. Unlike Worthington, NO static
+// night rows are appended here — Downtown has no founder-documented
+// weekly rhythm yet, so the list is exclusively live rows and the whole
+// fall tab hides when the catalog has no dayOfWeek-scheduled seasons.
+const DAY_ORDER = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'] as const;
+const DAY_NAMES: Record<string, string> = {
+  sun: 'Sunday', mon: 'Monday', tue: 'Tuesday', wed: 'Wednesday',
+  thu: 'Thursday', fri: 'Friday', sat: 'Saturday',
+};
+
+function formatTimeRange(start?: string | null, end?: string | null): string | null {
+  if (!start || !end) return null;
+  const toHour12 = (t: string) => {
+    const h = parseInt(t.slice(0, 2), 10) % 24;
+    const suffix = h >= 12 ? 'pm' : 'am';
+    const h12 = h % 12 === 0 ? 12 : h % 12;
+    return { h12, suffix };
+  };
+  const s = toHour12(start);
+  const e = toHour12(end);
+  return s.suffix === e.suffix
+    ? `${s.h12}–${e.h12}${e.suffix}`
+    : `${s.h12}${s.suffix}–${e.h12}${e.suffix}`;
+}
+
+const seasonsByDay = new Map<string, typeof adultSeasons>();
+for (const season of adultSeasons) {
+  if (!season.dayOfWeek) continue;
+  const list = seasonsByDay.get(season.dayOfWeek) ?? [];
+  list.push(season);
+  seasonsByDay.set(season.dayOfWeek, list);
+}
+
+// Hide the fall tab + list entirely when the catalog carries no
+// dayOfWeek-scheduled adult seasons yet (summer state only).
+const hasFallSchedule = seasonsByDay.size > 0;
+
+const liveFallRows = DAY_ORDER
+  .filter((day) => seasonsByDay.has(day))
+  .map((day) => {
+    const daySeasons = seasonsByDay.get(day) ?? [];
+    const names = daySeasons.map((s: any) => s.name).join(', ');
+    const hasFutsal = daySeasons.some((s: any) => /futsal/i.test(s.name ?? ''));
+    const timeStr = formatTimeRange(daySeasons[0]?.startTime, daySeasons[0]?.endTime);
+    const text = timeStr ? `${names} · ${timeStr}` : names;
+    return { day: DAY_NAMES[day], text, tag: hasFutsal ? 'LEAGUES + FUTSAL' : 'LEAGUES', hasFutsal };
+  });
+
 import { setMarketingEdgeCache } from '@/lib/http/edge-cache';
-setMarketingEdgeCache(Astro);
+setMarketingEdgeCache(Astro); // after fetches; a degraded (empty-seasons) render may cache for 60s — SWR refreshes it
 ---
 
 <BaseLayout
   favicon="/soccerone-favicon.svg"
   title="Soccer ONE Indoor Soccer — Downtown Columbus | SoccerOne · 980 E Starr Ave"
-  description="Soccer ONE Indoor Soccer, Downtown Columbus — indoor turf in the heart of the city. After-work pickup, corporate leagues, and field rentals. 980 E Starr Ave. Open 4pm–12am."
+  description="Soccer ONE Indoor Soccer, Downtown Columbus — one fast 130×45 field built for 6v6, minutes from downtown offices. After-work pickup, leagues, and field rentals. 980 E Starr Ave. Open 4pm–12am daily."
   navigation={false}
   footer={false}
   bodyClass="min-h-screen flex flex-col bg-[#0a0a0d] text-white antialiased"
@@ -32,414 +162,394 @@ setMarketingEdgeCache(Astro);
   <main class="facility-main">
 
     <!-- ============================================================
-         FACILITY HERO — urban downtown aesthetic, late-night energy
+         HERO — typographic (no Starr Ave footage yet), field-motif SVG,
+         priority CTAs
     ============================================================ -->
-    <section class="f-hero f-hero--downtown" aria-label="Downtown Columbus facility">
+    <section class="f-hero" aria-label="Downtown hero">
       <div class="f-hero-bg" aria-hidden="true">
-        <img
-          src="https://images.unsplash.com/photo-1763775594018-4a84eeadd83d?w=2000&q=80&fm=jpg"
-          alt="Downtown Columbus facility — indoor futsal court"
-          class="absolute inset-0 w-full h-full object-cover"
-          loading="eager"
-          decoding="async"
-        />
-        <div class="absolute inset-0 bg-gradient-to-b from-black/40 via-black/65 to-black"></div>
-        <div class="f-hero-bottom-stripe"></div>
+        <!-- video slot: swap for a <video> element (see the f-hero-video
+             pattern in src/pages/soccerone/worthington/index.astro) once a
+             5-minute Starr Ave phone shoot exists — wide field w/ players,
+             entrance, one detail. -->
+        <svg
+          class="f-hero-motif"
+          viewBox="0 0 1300 450"
+          preserveAspectRatio="xMidYMid slice"
+          fill="none"
+          aria-hidden="true"
+        >
+          <rect x="60" y="60" width="1180" height="330" rx="10" stroke="rgba(163,230,53,0.22)" stroke-width="2"/>
+          <line x1="650" y1="60" x2="650" y2="390" stroke="rgba(163,230,53,0.16)" stroke-width="1.5"/>
+          <circle cx="650" cy="225" r="60" stroke="rgba(163,230,53,0.16)" stroke-width="1.5"/>
+          <rect x="60" y="150" width="46" height="150" stroke="rgba(255,255,255,0.14)" stroke-width="1.5"/>
+          <rect x="1194" y="150" width="46" height="150" stroke="rgba(255,255,255,0.14)" stroke-width="1.5"/>
+          <text x="650" y="44" fill="rgba(163,230,53,0.4)" font-family="monospace" font-size="15" text-anchor="middle" letter-spacing="4">130 FT</text>
+          <text x="34" y="225" fill="rgba(163,230,53,0.4)" font-family="monospace" font-size="15" text-anchor="middle" letter-spacing="4" transform="rotate(-90 34 225)">45 FT</text>
+        </svg>
       </div>
 
-      <div class="f-hero-content">
-        <!-- Breadcrumb -->
-        <nav class="f-breadcrumb" aria-label="Breadcrumb">
-          <a href="/" class="fbc-link">SoccerOne</a>
-          <span class="fbc-sep" aria-hidden="true">—</span>
-          <span class="fbc-current">Downtown Columbus</span>
-        </nav>
+      <div class="f-hero-inner">
+        <nav class="f-breadcrumb" aria-label="Breadcrumb"><a href="/">Locations</a> / Downtown</nav>
+        <h1 class="f-title">Downtown</h1>
+        <p class="f-sub">
+          SoccerOne in the city — one fast <b>130×45 field built for 6v6</b>, minutes from
+          downtown offices. After-work pickup, leagues, and rentals on Starr Ave.
+        </p>
 
-        <div class="f-hero-block">
-          <div class="f-hero-left">
-            <div class="f-hero-tag-row">
-              <span class="f-tag f-tag--urban">URBAN</span>
-              <span class="f-tag f-tag--live">
-                <span class="live-dot"></span>
-                OPEN NOW
+        <div class="f-cta-row">
+          {featured && (
+            <a
+              href={`/register/${featured.id}`}
+              class="f-cta f-cta--primary"
+              data-so-register-cta
+              data-season-id={featured.id}
+              data-level={featured.skillLevel ?? 'open'}
+              data-gender={featured.divisionGender ?? 'unknown'}
+              data-venue={featured.location?.slug ?? ''}
+              data-term={featured.termSlug ?? ''}
+              data-mode={featured.signupModes?.includes('team') ? 'team' : 'individual'}
+            >
+              <span class="f-cta-label">Register for Fall Leagues →</span>
+              {featuredCloses && (
+                <span class="f-cta-note">CLOSES {featuredCloses.toUpperCase()}</span>
+              )}
+            </a>
+          )}
+          <a href="/pickup?facility=downtown" class="f-cta f-cta--secondary">
+            <span class="f-cta-label">Play Pickup</span>
+            <span class="f-cta-note">AFTER WORK · SEE THIS WEEK'S SESSIONS</span>
+          </a>
+          <a href="/rent?facility=downtown" class="f-cta f-cta--tertiary">
+            <span class="f-cta-label">Book the Field</span>
+            <span class="f-cta-note">BY THE HOUR · ONLINE IN TWO MINUTES</span>
+          </a>
+        </div>
+
+        <div class="f-fact-line">
+          <span><b>980 E Starr Ave</b>, Columbus OH · Milo-Grogan</span>
+          <span class="ffl-div"></span>
+          <span>OPEN 4PM–12AM DAILY</span>
+          <span class="ffl-div"></span>
+          <span><b>FREE LOT AT THE BUILDING</b></span>
+          <span class="ffl-div"></span>
+          <span>SAME ACCOUNT AS WORTHINGTON</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         WHAT'S HAPPENING — live-only fall rows, honest summer state
+    ============================================================ -->
+    <section class="sec happening" id="happening" aria-label="What's happening">
+      <div class="sec-inner">
+        <div class="hap-head">
+          <div>
+            <div class="kicker-bar"></div>
+            <h2 class="sec-title">What's Happening</h2>
+            <p class="sec-desc">The Starr Ave rhythm — pickup after work, leagues in season, the field yours by the hour in between.</p>
+          </div>
+          {hasFallSchedule && (
+            <div class="hap-toggle">
+              <button class="hap-tab hap-tab--on" id="tabNow" type="button">NOW · SUMMER</button>
+              <button class="hap-tab" id="tabFall" type="button">THE FALL RHYTHM</button>
+            </div>
+          )}
+        </div>
+
+        <div class="now-grid">
+          <div class="now-card">
+            <span class="now-when">EVENINGS · AFTER WORK</span>
+            <span class="now-what">Drop-In Pickup</span>
+            <p class="now-note">Show up and play — balanced teams on the fast 6v6 field. Live session times from the schedule.</p>
+            <a href="/pickup?facility=downtown" class="now-link">See sessions →</a>
+          </div>
+          <div class="now-card">
+            <span class="now-when">ANY DAY · BY THE HOUR</span>
+            <span class="now-what">Field Rental</span>
+            <p class="now-note">Book the field for training, a private game, or a company night — online in two minutes.</p>
+            <a href="/rent?facility=downtown" class="now-link">Book the field →</a>
+          </div>
+          {featured && (
+            <div class="now-card">
+              <span class="now-when">OPEN NOW{featuredCloses && ` · CLOSES ${featuredCloses.toUpperCase()}`}</span>
+              <span class="now-what">Fall Registration</span>
+              <p class="now-note">Downtown divisions from the live catalog. Card renders only when a season is open here.</p>
+              <a href="#fall" class="now-link">Grab your spot →</a>
+            </div>
+          )}
+        </div>
+
+        {hasFallSchedule && (
+          <Fragment>
+            <div class="week-list">
+              {liveFallRows.map((row) => (
+                <div class="week-row"><span class="wr-day">{row.day}</span><span class="wr-what">{row.text}</span><span class={row.hasFutsal ? 'wr-tag wr-tag--futsal' : 'wr-tag'}>{row.tag}</span></div>
+              ))}
+            </div>
+            <p class="hap-note">Season dates and deadlines derive from the live catalog — same plumbing as Worthington.</p>
+          </Fragment>
+        )}
+      </div>
+    </section>
+
+    <!-- ============================================================
+         THE FIELD — real, owner-confirmed specs only
+    ============================================================ -->
+    <section class="sec building" aria-label="The field">
+      <div class="sec-inner">
+        <div class="kicker-bar"></div>
+        <h2 class="sec-title">The Field</h2>
+        <p class="sec-desc">One field, built for speed. Tight dimensions mean quick touches, constant involvement, and nowhere to hide.</p>
+
+        <div class="build-grid">
+          <div>
+            <div class="spec-cards">
+              <div class="spec-card">
+                <div class="spec-num">130×45</div>
+                <div class="spec-name">One indoor field</div>
+                <p class="spec-note">Long and tight — the shape that makes 6v6 fast. More touches per player than any big-field format.</p>
+              </div>
+              <div class="spec-card">
+                <div class="spec-num">6v6</div>
+                <div class="spec-name">The Starr Ave format</div>
+                <p class="spec-note">Built for it. Small squads, short shifts, everyone involved in every play.</p>
+              </div>
+              <div class="spec-card">
+                <div class="spec-num">4–12</div>
+                <div class="spec-name">Open every day</div>
+                <p class="spec-note">4pm to midnight — after-work pickup to late-night runs.</p>
+              </div>
+              <div class="spec-card">
+                <div class="spec-num">1</div>
+                <div class="spec-name">Account for both venues</div>
+                <p class="spec-note">Your SoccerOne account and membership work here and at Worthington.</p>
+              </div>
+            </div>
+
+            <div class="field-figure" aria-label="Field diagram">
+              <svg viewBox="0 0 560 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="20" y="25" width="520" height="130" rx="8" stroke="#a3e635" stroke-width="2" fill="rgba(163,230,53,0.04)"/>
+                <line x1="280" y1="25" x2="280" y2="155" stroke="rgba(163,230,53,0.35)" stroke-width="1.5"/>
+                <circle cx="280" cy="90" r="26" stroke="rgba(163,230,53,0.35)" stroke-width="1.5"/>
+                <rect x="20" y="65" width="20" height="50" stroke="rgba(255,255,255,0.4)" stroke-width="1.5"/>
+                <rect x="520" y="65" width="20" height="50" stroke="rgba(255,255,255,0.4)" stroke-width="1.5"/>
+                <text x="280" y="16" fill="rgba(255,255,255,0.6)" font-family="monospace" font-size="11" text-anchor="middle">130 FT</text>
+                <text x="10" y="90" fill="rgba(255,255,255,0.6)" font-family="monospace" font-size="11" text-anchor="middle" transform="rotate(-90 10 90)">45 FT</text>
+                <text x="280" y="172" fill="rgba(163,230,53,0.7)" font-family="monospace" font-size="10" text-anchor="middle">BUILT FOR 6V6</text>
+              </svg>
+              <p class="field-caption">THE STARR AVE FIELD · FAST BY DESIGN</p>
+            </div>
+          </div>
+
+          <div class="diff-list">
+            <div class="diff-item"><span class="diff-dot"></span><div>
+              <div class="diff-title">The after-work field</div>
+              <p class="diff-copy">Minutes from downtown offices — on the field by 6, home at a human hour.</p>
+            </div></div>
+            <div class="diff-item"><span class="diff-dot"></span><div>
+              <div class="diff-title">6v6 means more ball</div>
+              <p class="diff-copy">Tighter field, smaller squads — you touch the ball every minute, not every quarter.</p>
+            </div></div>
+            <div class="diff-item"><span class="diff-dot"></span><div>
+              <div class="diff-title">Quiet pocket, easy in-and-out</div>
+              <p class="diff-copy">Tucked in Milo-Grogan with a lot at the door — no downtown parking hunt.</p>
+            </div></div>
+            <div class="diff-item"><span class="diff-dot"></span><div>
+              <div class="diff-title">Rated 4.7 on Google</div>
+              <p class="diff-copy">The Starr Ave building is the original SoccerOne — clean, friendly, and reviewed to prove it.</p>
+            </div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============================================================
+         SOCIAL PROOF — the 4.7 Google listing IS this building
+         (reuses home-reviews.ts / the homepage proof-section pattern)
+    ============================================================ -->
+    {HOME_GOOGLE_RATING && HOME_REVIEWS.length > 0 && (
+      <section class="sec proof-section" aria-label="Player reviews">
+        <div class="proof-inner">
+          <div class="proof-head">
+            <div>
+              <div class="kicker-bar"></div>
+              <h2 class="sec-title">Players Rate This Place</h2>
+            </div>
+            <div class="proof-rating">
+              <span class="proof-score">{HOME_GOOGLE_RATING.score}</span>
+              <span class="proof-stars">
+                <span class="stars" aria-hidden="true">★★★★★</span>
+                {/* This location's own listing (980 E Starr Ave) — not the
+                    aggregate "GOOGLE REVIEWS · COLUMBUS" source line the
+                    homepage shows, since that copy spans both venues. */}
+                <span class="proof-source">GOOGLE REVIEWS · THIS LOCATION</span>
               </span>
             </div>
-            <h1 class="f-hero-title">
-              <span class="fht-sub">DOWNTOWN</span>
-              COLUMBUS
-            </h1>
-            <div class="f-field-count">
-              <span class="fc-num">1</span>
-              <span class="fc-label">INDOOR FIELD</span>
-            </div>
-            <div class="f-hero-address">
-              980 E Starr Ave, Columbus, OH 43201
-            </div>
-            <div class="f-hero-hours mono">Open daily — 4:00 PM – 12:00 AM</div>
-
-            <!-- Downtown differentiators -->
-            <div class="dt-chips">
-              <span class="dt-chip">After-work pickup</span>
-              <span class="dt-chip">Corporate leagues</span>
-              <span class="dt-chip">Downtown location</span>
-            </div>
           </div>
-
-          <div class="f-hero-right">
-            <div class="f-hero-stats">
-              <div class="fhs-item">
-                <span class="fhs-num">200×85</span>
-                <span class="fhs-label">Full-size turf</span>
+          <div class="proof-grid">
+            {HOME_REVIEWS.map((r) => (
+              <div class="review-card">
+                <span class="rc-stars" aria-label={`${r.stars} stars`}>{'★'.repeat(r.stars)}</span>
+                <p class="rc-quote">"{r.quote}"</p>
+                <div class="rc-byline">
+                  <span class="rc-name">{r.name}</span>
+                  <span class="rc-context">{r.context}</span>
+                </div>
               </div>
-              <div class="fhs-div" aria-hidden="true"></div>
-              <div class="fhs-item">
-                <span class="fhs-num">7PM+</span>
-                <span class="fhs-label">Peak pickups</span>
+            ))}
+          </div>
+        </div>
+      </section>
+    )}
+
+    <!-- media strip lands when Starr Ave footage exists (see Worthington's for the pattern) -->
+
+    <!-- ============================================================
+         FALL LEAGUES — fully live from the downtown catalog
+    ============================================================ -->
+    {featured && (
+      <section class="sec fall-block" id="fall" aria-label="Fall leagues pricing">
+        <div class="sec-inner">
+          <div class="fall-grid">
+            <div>
+              <h2 class="fall-title">
+                {fallKickoffDate ? <>Fall leagues<br />kick off {fallKickoffDate}.</> : 'Fall leagues are coming.'}
+              </h2>
+              <p class="fall-copy">
+                Division names, night, and format straight from the live catalog — 6v6 on the fast field.
+                <b>7 games in 7 weeks, every team plays every week, no playoffs.</b>
+              </p>
+              <div class="fall-facts">
+                {fallKickoffDate && fallEndDate && (
+                  <span class="fall-fact">{`${fallKickoffDate} – ${fallEndDate}`.toUpperCase()}</span>
+                )}
+                <span class="fall-fact">6V6 FORMAT</span>
+                <span class="fall-fact">REFS RATED EVERY GAME</span>
               </div>
-              <div class="fhs-div" aria-hidden="true"></div>
-              <div class="fhs-item">
-                <span class="fhs-num">2 min</span>
-                <span class="fhs-label">From I-670</span>
+            </div>
+            <div class="price-card">
+              <span class="price-dock">OPEN{featuredCloses && ` · CLOSES ${featuredCloses.toUpperCase()}`}</span>
+              <div class="price-rows">
+                {teamPriceStr && (
+                  <div class="price-row"><span class="pr-label">Team</span><span class="pr-val">{teamPriceStr}</span></div>
+                )}
+                {soloPriceStr && (
+                  <div class="price-row"><span class="pr-label">Solo / free agent</span><span class="pr-val">{soloPriceStr}</span></div>
+                )}
+                {depositStr && (
+                  <div class="price-row"><span class="pr-label">Hold your spot</span><span class="pr-val">{depositStr} <small>deposit</small></span></div>
+                )}
               </div>
-            </div>
-            <div class="f-hero-ctas">
-              <a href="/rent?facility=downtown" class="f-cta-primary">Book the Field</a>
-              <a href="/pickup?facility=downtown" class="f-cta-secondary">View Pickup</a>
+              <a
+                href={`/register/${featured.id}`}
+                class="price-cta"
+                data-so-register-cta
+                data-season-id={featured.id}
+                data-level={featured.skillLevel ?? 'open'}
+                data-gender={featured.divisionGender ?? 'unknown'}
+                data-venue={featured.location?.slug ?? ''}
+                data-term={featured.termSlug ?? ''}
+                data-mode={featured.signupModes?.includes('team') ? 'team' : 'individual'}
+              >Register →</a>
+              <p class="price-note">Secure checkout · powered by Aspire Sports</p>
             </div>
           </div>
+        </div>
+      </section>
+    )}
+
+    <!-- ============================================================
+         GOOD TO KNOW
+    ============================================================ -->
+    <section class="sec know" aria-label="Good to know">
+      <div class="sec-inner">
+        <div class="kicker-bar"></div>
+        <h2 class="sec-title">Good to Know</h2>
+        <div class="know-grid">
+          <div class="know-item"><div class="know-q">What do I wear?</div><p class="know-a">Turf shoes or flat-soled trainers and shinguards. No metal studs.</p></div>
+          <div class="know-item"><div class="know-q">How big is a 6v6 squad?</div><p class="know-a">Six on the field; rosters usually carry 9–10 so you can rotate. Register solo and we'll place you.</p></div>
+          {/* Parking + roster guidance need an owner confirm — flagged in the PR body. */}
+          <div class="know-item"><div class="know-q">Is there parking?</div><p class="know-a">Free lot right at the building on Starr Ave.</p></div>
+          <div class="know-item"><div class="know-q">Can people watch?</div><p class="know-a">Yes — spectator seating and standing room along the field.</p></div>
+          <div class="know-item"><div class="know-q">Is it hard to find?</div><p class="know-a">It's tucked in a quiet pocket — look for the long white building between Gray St and Loew St, entrance on the Starr Ave side. Full directions below.</p></div>
+          <div class="know-item"><div class="know-q">How late are you open?</div><p class="know-a">4pm to midnight, every day.</p></div>
         </div>
       </div>
     </section>
 
     <!-- ============================================================
-         DOWNTOWN STORY — asymmetric layout
+         FINDING STARR AVE — wayfinding-forward directional map
     ============================================================ -->
-    <section class="dt-story" aria-label="About Downtown location">
-      <div class="dt-story-inner">
-        <div class="dt-story-text">
-          <span class="section-num-sm">01.</span>
-          <h2 class="dt-story-title">After-work.<br />On lunch.<br />Late-night.</h2>
-          <p class="dt-story-body">
-            Downtown Columbus runs on momentum. Our East Starr Ave location was built for players who want to get on the field without a 30-minute drive to the suburbs.
-          </p>
-          <p class="dt-story-body">
-            One field. Full turf. Stadium lighting. Book it in under two minutes and walk here from your office.
-          </p>
-
-          <div class="dt-callout">
-            <div class="dtc-icon" aria-hidden="true">
-              <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-                <circle cx="14" cy="14" r="12" stroke="#a3e635" stroke-width="1.5" fill="none"/>
-                <path d="M14 8v6l4 4" stroke="#a3e635" stroke-width="1.75" stroke-linecap="round"/>
-              </svg>
-            </div>
-            <div class="dtc-text">
-              <strong>Book at 5:00 PM, play at 6:00 PM.</strong>
-              Same-day bookings open at 7am. After-work time slots typically available Monday–Friday.
-            </div>
+    <section class="sec directions" aria-label="Finding Starr Ave">
+      <div class="sec-inner">
+        <div class="kicker-bar"></div>
+        <h2 class="sec-title">Finding Starr Ave</h2>
+        <p class="sec-desc">We're tucked in Milo-Grogan — two minutes off the highway, but trust the turns, not your instincts.</p>
+        <div class="dir-grid">
+          <div class="dir-facts">
+            <div><div class="dir-fact-label">ADDRESS</div><div class="dir-fact-val">980 E Starr Ave, Columbus, OH 43201</div></div>
+            <div><div class="dir-fact-label">HOURS</div><div class="dir-fact-val mono">4:00 PM – 12:00 AM daily</div></div>
+            <div><div class="dir-fact-label">FROM I-71</div><div class="dir-fact-val">E 5th Ave exit → east on 5th → right (south) on St Clair Ave → left (east) on E Starr Ave — we're the long white building on your left, between Gray St and Loew St.</div></div>
+            <div><div class="dir-fact-label">GONE TOO FAR?</div><div class="dir-fact-val">If you cross the railroad tracks or hit Dupont Ave, you've overshot — turn around, one block back.</div></div>
+            <a href="https://maps.google.com/?q=980+E+Starr+Ave,+Columbus,+OH+43201" target="_blank" rel="noopener noreferrer" class="dir-cta">Open in Google Maps →</a>
           </div>
-        </div>
-
-        <!-- Big number visual -->
-        <div class="dt-story-visual" aria-hidden="true">
-          <div class="dt-big-num">1</div>
-          <div class="dt-big-label">FIELD IN THE HEART OF COLUMBUS</div>
-          <div class="dt-feature-list">
-            <div class="dtf-item">
-              <span class="dtf-num mono">200 × 85</span>
-              <span class="dtf-label">Full-size indoor field (ft)</span>
-            </div>
-            <div class="dtf-item">
-              <span class="dtf-num mono">700+</span>
-              <span class="dtf-label">Lux LED lighting</span>
-            </div>
-            <div class="dtf-item">
-              <span class="dtf-num mono">$80</span>
-              <span class="dtf-label">Per hour standard rate</span>
-            </div>
-            <div class="dtf-item">
-              <span class="dtf-num mono">$64</span>
-              <span class="dtf-label">Per hour — Founder members</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ============================================================
-         THIS WEEK'S SCHEDULE
-    ============================================================ -->
-    <section class="schedule-section" aria-label="Downtown schedule">
-      <div class="schedule-inner">
-        <div class="schedule-header">
-          <div class="sh-left">
-            <span class="section-num-sm">02.</span>
-            <h2 class="schedule-title">This Week</h2>
-          </div>
-          <div class="sh-right">
-            <span class="schedule-date mono">A typical week</span>
-            <a href="/pickup?facility=downtown" class="view-all-link">All pickup games →</a>
-          </div>
-        </div>
-
-        <div class="schedule-board">
-          <div class="sb-header-row">
-            <div class="sbh-time">TIME</div>
-            <div class="sbh-col">THE FIELD</div>
-          </div>
-
-          <div class="sb-row">
-            <div class="sb-time mono">4:00 PM</div>
-            <div class="sb-cell sb-cell--open">
-              <span class="sbc-type">OPEN</span>
-              <span class="sbc-name">Available for rental</span>
-              <a href="/rent?facility=downtown" class="sb-book-link">Book →</a>
-            </div>
-          </div>
-
-          <div class="sb-row">
-            <div class="sb-time mono">5:00 PM</div>
-            <div class="sb-cell sb-cell--pickup">
-              <span class="sbc-type">PICKUP</span>
-              <span class="sbc-name">Early Pickup — Open to all levels</span>
-            </div>
-          </div>
-
-          <div class="sb-row">
-            <div class="sb-time mono">6:00 PM</div>
-            <div class="sb-cell sb-cell--open">
-              <span class="sbc-type">OPEN</span>
-              <span class="sbc-name">Available for rental</span>
-              <a href="/rent?facility=downtown" class="sb-book-link">Book →</a>
-            </div>
-          </div>
-
-          <div class="sb-row sb-row--prime">
-            <div class="sb-time mono">7:30 PM</div>
-            <div class="sb-cell sb-cell--pickup">
-              <span class="sbc-type">PICKUP</span>
-              <span class="sbc-name">After-Work Pickup (Competitive)</span>
-            </div>
-          </div>
-
-          <div class="sb-row sb-row--prime">
-            <div class="sb-time mono">9:00 PM</div>
-            <div class="sb-cell sb-cell--league">
-              <span class="sbc-type">LEAGUE</span>
-              <span class="sbc-name">Corporate Coed League — Match Night</span>
-            </div>
-          </div>
-
-          <div class="sb-row">
-            <div class="sb-time mono">10:30 PM</div>
-            <div class="sb-cell sb-cell--pickup">
-              <span class="sbc-type">PICKUP</span>
-              <span class="sbc-name">Late-Night Open Pickup</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ============================================================
-         FIELD SPECS
-    ============================================================ -->
-    <section class="specs-section" aria-label="Field specs">
-      <div class="specs-inner">
-        <div class="specs-header-row">
-          <div class="specs-left">
-            <span class="section-num-sm">03.</span>
-            <h2 class="specs-title">Field Specs</h2>
-          </div>
-          <a href="/rent?facility=downtown" class="specs-book-btn">Book the Field</a>
-        </div>
-
-        <div class="dt-specs-grid">
-          <div class="dt-spec-block">
-            <span class="dsb-label">SURFACE</span>
-            <span class="dsb-val">FieldTurf® Revolution 360</span>
-            <span class="dsb-sub">Synthetic turf surface</span>
-          </div>
-          <div class="dt-spec-block">
-            <span class="dsb-label">SIZE</span>
-            <span class="dsb-val mono">200 × 85 ft</span>
-            <span class="dsb-sub">Full-size indoor</span>
-          </div>
-          <div class="dt-spec-block">
-            <span class="dsb-label">LIGHTING</span>
-            <span class="dsb-val">700+ lux LED</span>
-            <span class="dsb-sub">Color-corrected for video</span>
-          </div>
-          <div class="dt-spec-block">
-            <span class="dsb-label">SCOREBOARD</span>
-            <span class="dsb-val">Digital + shot clock</span>
-            <span class="dsb-sub">Per-match display</span>
-          </div>
-          <div class="dt-spec-block">
-            <span class="dsb-label">STANDARD RATE</span>
-            <span class="dsb-val accent mono">From $110/hr</span>
-            <span class="dsb-sub">Members save 10% · Founders 25%</span>
-          </div>
-          <div class="dt-spec-block">
-            <span class="dsb-label">BOOKING WINDOW</span>
-            <span class="dsb-val mono">7 days ahead</span>
-            <span class="dsb-sub">14 days for Founder members</span>
-          </div>
-        </div>
-
-        <!-- Included amenities -->
-        <div class="dt-amenities">
-          <div class="dta-heading">Every rental includes:</div>
-          <div class="dta-list">
-            <span class="dta-item"><span class="dta-check">✓</span> Locker room access</span>
-            <span class="dta-item"><span class="dta-check">✓</span> Free street parking validated</span>
-            <span class="dta-item"><span class="dta-check">✓</span> Scoreboard + shot clock</span>
-            <span class="dta-item"><span class="dta-check">✓</span> Field equipment (cones, vests)</span>
-            <span class="dta-item"><span class="dta-check">✓</span> Referee available upon request (+$40)</span>
-            <span class="dta-item"><span class="dta-check">✓</span> Concierge scheduling support</span>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ============================================================
-         CORPORATE LEAGUE CTA
-    ============================================================ -->
-    <section class="corp-league" aria-label="Corporate leagues">
-      <div class="corp-inner">
-        <div class="corp-text">
-          <span class="corp-eyebrow">CORPORATE LEAGUES</span>
-          <h2 class="corp-title">Team bonding<br />that actually works.</h2>
-          <p class="corp-desc">
-            Columbus's top companies already play here. Our corporate coed league runs Tuesday and Thursday evenings — 7–10pm. Teams of 8–12 players. Season includes jerseys, referees, and end-of-season awards.
-          </p>
-          <div class="corp-stats">
-            <div class="corp-stat">
-              <span class="cs-num mono">12</span>
-              <span class="cs-label">Corporate teams active</span>
-            </div>
-            <div class="corp-stat">
-              <span class="cs-num mono">8</span>
-              <span class="cs-label">Week seasons</span>
-            </div>
-            <div class="corp-stat">
-              <span class="cs-num mono">$1,200</span>
-              <span class="cs-label">Team entry fee</span>
-            </div>
-          </div>
-          <a href="/leagues?facility=downtown" class="corp-cta">View Corporate League</a>
-        </div>
-        <div class="corp-visual" aria-hidden="true">
-          <!-- Diagonal accent with text -->
-          <div class="corp-visual-bg">
-            <div class="cv-big-text">CORP.</div>
-            <div class="cv-sub-text">COLUMBUS</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ============================================================
-         HOURS & DIRECTIONS
-    ============================================================ -->
-    <section class="info-section" aria-label="Hours and directions">
-      <div class="info-inner">
-        <div class="info-hours">
-          <span class="section-num-sm">04.</span>
-          <h2 class="info-title">Hours &amp; Directions</h2>
-          <div class="hours-grid">
-            <div class="hours-row">
-              <span class="hours-day">Monday – Friday</span>
-              <span class="hours-time mono">4:00 PM – 12:00 AM</span>
-            </div>
-            <div class="hours-row">
-              <span class="hours-day">Saturday</span>
-              <span class="hours-time mono">4:00 PM – 12:00 AM</span>
-            </div>
-            <div class="hours-row">
-              <span class="hours-day">Sunday</span>
-              <span class="hours-time mono">4:00 PM – 12:00 AM</span>
-            </div>
-            <div class="hours-note">Peak hours Mon–Fri 5pm–10pm. Recommended to book in advance.</div>
-          </div>
-          <div class="info-address-block">
-            <div class="iab-name">SoccerOne Downtown Columbus</div>
-            <div class="iab-addr">980 E Starr Ave<br />Columbus, OH 43201</div>
-            <div class="iab-parking">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;margin-top:2px">
-                <rect x="1" y="1" width="12" height="12" rx="2" stroke="rgba(163,230,53,0.5)" stroke-width="1.2"/>
-                <path d="M5 10V4h3a2 2 0 0 1 0 4H5" stroke="rgba(163,230,53,0.7)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              Validated parking at North Bank Garage (2 hrs with purchase)
-            </div>
-            <div class="iab-links">
-              <a href="https://maps.google.com/?q=980+E+Starr+Ave,+Columbus,+OH+43201" target="_blank" rel="noopener noreferrer" class="iab-link">Get Directions →</a>
-              <a href={`mailto:${SOCCERONE_CONTACT_EMAIL}`} class="iab-link">{SOCCERONE_CONTACT_EMAIL}</a>
-            </div>
-          </div>
-        </div>
-
-        <!-- Map placeholder for downtown -->
-        <div class="info-map">
-          <div class="map-placeholder">
-            <svg viewBox="0 0 400 300" fill="none" xmlns="http://www.w3.org/2000/svg" class="map-svg">
-              <rect width="400" height="300" fill="#080c18"/>
-              <!-- Streets - downtown grid -->
-              <line x1="0" y1="150" x2="400" y2="150" stroke="rgba(163,230,53,0.15)" stroke-width="4"/>
-              <line x1="200" y1="0" x2="200" y2="300" stroke="rgba(163,230,53,0.15)" stroke-width="4"/>
-              <line x1="0" y1="100" x2="400" y2="100" stroke="rgba(255,255,255,0.06)" stroke-width="2"/>
-              <line x1="0" y1="200" x2="400" y2="200" stroke="rgba(255,255,255,0.06)" stroke-width="2"/>
-              <line x1="100" y1="0" x2="100" y2="300" stroke="rgba(255,255,255,0.06)" stroke-width="2"/>
-              <line x1="300" y1="0" x2="300" y2="300" stroke="rgba(255,255,255,0.06)" stroke-width="2"/>
-              <!-- Dense downtown blocks -->
-              <rect x="5" y="5" width="90" height="90" rx="2" fill="rgba(100,130,200,0.06)" stroke="rgba(100,130,200,0.12)" stroke-width="1"/>
-              <rect x="105" y="5" width="90" height="90" rx="2" fill="rgba(100,130,200,0.05)" stroke="rgba(100,130,200,0.1)" stroke-width="1"/>
-              <rect x="205" y="5" width="90" height="90" rx="2" fill="rgba(100,130,200,0.07)" stroke="rgba(100,130,200,0.12)" stroke-width="1"/>
-              <rect x="305" y="5" width="90" height="90" rx="2" fill="rgba(100,130,200,0.05)" stroke="rgba(100,130,200,0.1)" stroke-width="1"/>
-              <rect x="5" y="105" width="90" height="40" rx="2" fill="rgba(100,130,200,0.05)" stroke="rgba(100,130,200,0.1)" stroke-width="1"/>
-              <rect x="305" y="105" width="90" height="40" rx="2" fill="rgba(100,130,200,0.06)" stroke="rgba(100,130,200,0.12)" stroke-width="1"/>
-              <rect x="5" y="205" width="90" height="90" rx="2" fill="rgba(100,130,200,0.05)" stroke="rgba(100,130,200,0.1)" stroke-width="1"/>
-              <rect x="105" y="205" width="90" height="90" rx="2" fill="rgba(100,130,200,0.06)" stroke="rgba(100,130,200,0.12)" stroke-width="1"/>
-              <rect x="305" y="205" width="90" height="90" rx="2" fill="rgba(100,130,200,0.05)" stroke="rgba(100,130,200,0.1)" stroke-width="1"/>
-              <!-- SoccerOne marker -->
-              <rect x="155" y="115" width="90" height="55" rx="4" fill="#a3e635"/>
-              <text x="200" y="142" text-anchor="middle" font-size="9" font-weight="bold" fill="#0a0a0d" font-family="monospace">SOCCERONE</text>
-              <text x="200" y="158" text-anchor="middle" font-size="7" fill="#0a0a0d" font-family="monospace">DOWNTOWN</text>
-              <!-- Location pin -->
-              <circle cx="200" cy="108" r="8" fill="#a3e635"/>
-              <circle cx="200" cy="108" r="3" fill="#0a0a0d"/>
-              <!-- Street labels -->
-              <text x="200" y="170" text-anchor="middle" font-size="7" fill="rgba(163,230,53,0.5)" font-family="monospace">E STARR AVE</text>
-              <text x="15" y="148" font-size="6" fill="rgba(255,255,255,0.3)" font-family="monospace">DOWNTOWN CBus</text>
+          <div class="map-panel" aria-label="Directional map">
+            <svg viewBox="0 0 460 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <!-- I-670 along the SOUTH + railroad -->
+              <path d="M20 262 Q 230 292 440 258" stroke="#f1f1f4" stroke-width="5" stroke-linecap="round"/>
+              <rect x="330" y="248" width="62" height="24" rx="4" fill="#f1f1f4"/>
+              <text x="361" y="265" fill="#0a0a0d" font-family="monospace" font-size="13" font-weight="700" text-anchor="middle">I-670</text>
+              <path d="M120 300 Q 260 210 440 205" stroke="rgba(241,241,244,0.35)" stroke-width="2" stroke-dasharray="7 5"/>
+              <text x="395" y="196" fill="rgba(241,241,244,0.5)" font-family="monospace" font-size="9">RAIL</text>
+              <!-- I-71 west edge -->
+              <path d="M46 15 L46 292" stroke="#f1f1f4" stroke-width="5" stroke-linecap="round"/>
+              <rect x="22" y="120" width="48" height="22" rx="4" fill="#f1f1f4"/>
+              <text x="46" y="136" fill="#0a0a0d" font-family="monospace" font-size="12" font-weight="700" text-anchor="middle">I-71</text>
+              <!-- E 5th Ave across the top -->
+              <path d="M46 55 L440 55" stroke="#f1f1f4" stroke-width="3"/>
+              <text x="250" y="47" fill="#f1f1f4" font-family="monospace" font-size="10" text-anchor="middle">E 5TH AVE</text>
+              <circle cx="46" cy="55" r="6" fill="#a3e635"/>
+              <text x="60" y="40" fill="#f1f1f4" font-family="monospace" font-size="10">5TH AVE EXIT</text>
+              <!-- St Clair south -->
+              <path d="M210 55 L210 235" stroke="#f1f1f4" stroke-width="2.5"/>
+              <text x="222" y="150" fill="#f1f1f4" font-family="monospace" font-size="10">ST CLAIR AVE</text>
+              <!-- Starr Ave east -->
+              <path d="M210 200 L360 200" stroke="#f1f1f4" stroke-width="2.5"/>
+              <text x="292" y="218" fill="#f1f1f4" font-family="monospace" font-size="10" text-anchor="middle">E STARR AVE</text>
+              <!-- Route -->
+              <path d="M46 55 L210 55 L210 200 L316 200" stroke="#a3e635" stroke-width="3.5" stroke-dasharray="1 8" stroke-linecap="round"/>
+              <!-- Pin: long white building between Gray & Loew -->
+              <rect x="300" y="176" width="52" height="14" rx="2" fill="rgba(241,241,244,0.25)" stroke="rgba(241,241,244,0.6)" stroke-width="1"/>
+              <circle cx="326" cy="200" r="9" fill="#a3e635"/>
+              <circle cx="326" cy="200" r="3.5" fill="#0a0a0d"/>
+              <text x="326" y="166" fill="#ffffff" font-family="Arial Narrow, Impact" font-size="15" text-anchor="middle" letter-spacing="1">SOCCERONE</text>
+              <text x="435" y="24" fill="rgba(255,255,255,0.5)" font-family="monospace" font-size="12" text-anchor="middle">N ↑</text>
             </svg>
-            <div class="map-overlay-label">
-              <div class="mol-name">SoccerOne Downtown</div>
-              <div class="mol-addr">980 E Starr Ave</div>
-            </div>
+            <p class="map-caption">TWO MINUTES OFF I-71 · THE LONG WHITE BUILDING NORTH OF STARR AVE</p>
           </div>
         </div>
       </div>
     </section>
 
     <!-- ============================================================
-         CTA STRIP
+         SIGNUP STRIP (reused island)
     ============================================================ -->
-    <section class="facility-cta-strip" aria-label="Get started">
-      <div class="fcs-inner">
-        <div class="fcs-text">
-          <h2 class="fcs-title">Book the Downtown field.</h2>
-          <p class="fcs-sub">Available today. Walk here from anywhere downtown.</p>
-        </div>
-        <div class="fcs-buttons">
-          <a href="/rent?facility=downtown" class="fcs-btn-primary">
-            Book a Field Now
-          </a>
-          <a href="/pickup?facility=downtown" class="fcs-btn-secondary">
-            See Pickup Games
-          </a>
-          <a href="/memberships" class="fcs-btn-ghost">
-            Memberships
-          </a>
+    <HomeSignupStrip client:load />
+
+    <!-- ============================================================
+         BOTTOM CTA
+    ============================================================ -->
+    <section class="bottom-cta" aria-label="Get started">
+      <div class="bc-inner">
+        <h2 class="bc-title">Ready to play on Starr Ave?</h2>
+        <div class="bc-actions">
+          {featured ? (
+            <a href="#fall" class="bc-btn">Register for Fall</a>
+          ) : (
+            <a href="/leagues" class="bc-btn">See Leagues</a>
+          )}
+          <a href="/pickup?facility=downtown" class="bc-btn bc-btn--ghost">See Pickup Sessions</a>
+          <a href="/rent?facility=downtown" class="bc-btn bc-btn--ghost">Book the Field</a>
         </div>
       </div>
     </section>
@@ -462,422 +572,310 @@ setMarketingEdgeCache(Astro);
 
     .facility-main { flex: 1; font-family: var(--so-font-body); }
 
-    /* ---- HERO ---- */
+    /* ============================================================
+       HERO — typographic (no footage), field-motif SVG, priority CTAs
+    ============================================================ */
     .f-hero {
       position: relative;
-      min-height: 70vh;
+      min-height: 55vh;
       display: flex;
       flex-direction: column;
       justify-content: flex-end;
       overflow: hidden;
-      background: #060812;
+      background: #0a120c;
     }
 
-    .f-hero-bg { position: absolute; inset: 0; z-index: 0; }
-
-    .f-hero-bottom-stripe {
+    .f-hero-bg {
       position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 3px;
-      background: linear-gradient(90deg, var(--so-lime) 0%, var(--so-lime-a30) 40%, transparent 80%);
+      inset: 0;
+      z-index: 0;
+      background:
+        radial-gradient(ellipse 70% 55% at 70% 15%, var(--so-lime-a07), transparent 60%),
+        linear-gradient(180deg, rgba(0,0,0,0.25) 0%, rgba(10,10,13,0.6) 55%, rgba(10,10,13,0.97) 100%),
+        linear-gradient(150deg, #0e1a12 0%, #0a1210 55%, #06090a 100%);
     }
+    .f-hero-motif { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0.5; }
 
-    .f-hero-content {
+    .f-hero-inner {
       position: relative;
-      z-index: 10;
+      z-index: 5;
       max-width: 1400px;
       margin: 0 auto;
       width: 100%;
-      padding: 2.5rem 2rem 4rem;
+      padding: 4.5rem 2rem 2rem;
     }
 
     .f-breadcrumb {
-      display: flex;
-      align-items: center;
-      gap: 0.625rem;
-      margin-bottom: 2.5rem;
-      animation: fadeUp 0.8s ease-out 0.1s both;
-    }
-    @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(12px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-    .fbc-link { font-size: 0.8125rem; font-weight: 500; color: var(--so-lime-a60); text-decoration: none; transition: color 0.15s; }
-    .fbc-link:hover { color: var(--so-lime); }
-    .fbc-sep { color: rgba(255,255,255,0.2); font-size: 0.75rem; }
-    .fbc-current { font-size: 0.8125rem; color: rgba(255,255,255,0.4); }
-
-    .f-hero-block {
-      display: flex;
-      align-items: flex-end;
-      justify-content: space-between;
-      gap: 3rem;
-      flex-wrap: wrap;
-    }
-
-    .f-hero-left { animation: fadeUp 0.8s ease-out 0.2s both; }
-    .f-hero-right { animation: fadeUp 0.8s ease-out 0.4s both; }
-
-    .f-hero-tag-row {
-      display: flex;
-      align-items: center;
-      gap: 0.625rem;
-      margin-bottom: 0.75rem;
-    }
-
-    .f-tag {
       font-family: var(--so-font-mono);
-      font-size: 0.5625rem;
-      font-weight: 600;
-      letter-spacing: 0.12em;
-      padding: 3px 8px;
-      border-radius: 3px;
+      font-size: 0.6875rem;
+      letter-spacing: 0.05em;
+      color: rgba(255,255,255,0.4);
+      margin-bottom: 0.875rem;
     }
-    .f-tag--urban {
-      background: rgba(100,160,255,0.1);
-      color: #93c5fd;
-      border: 1px solid rgba(100,160,255,0.2);
-    }
-    .f-tag--live {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      background: rgba(74,222,128,0.1);
-      color: #86efac;
-      border: 1px solid rgba(74,222,128,0.2);
-    }
-    .live-dot {
-      width: 5px;
-      height: 5px;
-      border-radius: 50%;
-      background: #86efac;
-      animation: blink 1.5s ease-in-out infinite;
-    }
-    @keyframes blink {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.3; }
+    .f-breadcrumb a { color: inherit; text-decoration: none; }
+    .f-breadcrumb a:hover { color: var(--so-lime); }
+
+    .f-title {
+      font-family: var(--so-font-display);
+      font-size: clamp(3rem, 8vw, 6.5rem);
+      line-height: 0.95;
+      letter-spacing: 0.01em;
+      text-transform: uppercase;
+      color: #ffffff;
     }
 
-    .f-hero-title {
-      font-family: var(--so-font-display);
-      font-size: clamp(3.5rem, 8vw, 7.5rem);
-      color: #ffffff;
-      line-height: 0.92;
-      letter-spacing: 0.01em;
-      margin-bottom: 0.75rem;
+    .f-sub {
+      font-size: 1.0625rem;
+      color: rgba(255,255,255,0.65);
+      line-height: 1.55;
+      max-width: 620px;
+      margin-top: 0.875rem;
+    }
+    .f-sub b { color: #fff; font-weight: 600; }
+
+    /* Priority CTA row — register > pickup > rent */
+    .f-cta-row {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      align-items: stretch;
+      margin-top: 1.5rem;
+    }
+    .f-cta {
       display: flex;
       flex-direction: column;
-      gap: 0;
+      justify-content: center;
+      gap: 2px;
+      text-decoration: none;
+      border-radius: var(--so-radius-md);
+      padding: 0.8rem 1.4rem;
     }
-    .fht-sub {
-      font-size: 0.4em;
-      color: var(--so-lime-a80);
-      letter-spacing: 0.08em;
-      line-height: 2;
-    }
+    .f-cta-label { font-size: 0.9375rem; font-weight: 700; letter-spacing: 0.02em; }
+    .f-cta-note { font-family: var(--so-font-mono); font-size: 0.5625rem; letter-spacing: 0.06em; }
+    .f-cta--primary { background: var(--so-lime); color: var(--so-ink); }
+    .f-cta--primary:hover { background: var(--so-lime-bright); }
+    .f-cta--primary .f-cta-note { color: rgba(10,10,13,0.65); }
+    .f-cta--secondary { background: rgba(255,255,255,0.06); border: 1.5px solid var(--so-lime-a40); color: #fff; }
+    .f-cta--secondary:hover { border-color: var(--so-lime); }
+    .f-cta--secondary .f-cta-note { color: var(--so-lime-a70); }
+    .f-cta--tertiary { background: none; border: 1px solid rgba(255,255,255,0.18); color: rgba(255,255,255,0.75); }
+    .f-cta--tertiary:hover { border-color: rgba(255,255,255,0.4); color: #fff; }
+    .f-cta--tertiary .f-cta-note { color: rgba(255,255,255,0.35); }
 
-    .f-field-count {
-      display: flex;
-      align-items: baseline;
-      gap: 0.5rem;
-      margin-bottom: 1rem;
-    }
-    .fc-num { font-family: var(--so-font-display); font-size: 3.5rem; color: var(--so-lime); line-height: 1; }
-    .fc-label { font-family: var(--so-font-mono); font-size: 0.75rem; font-weight: 600; letter-spacing: 0.1em; color: var(--so-lime-a60); align-self: center; }
-
-    .f-hero-address { font-size: 1rem; color: rgba(255,255,255,0.55); margin-bottom: 0.375rem; }
-    .f-hero-hours { font-family: var(--so-font-mono); font-size: 0.8125rem; color: var(--so-lime-a60); letter-spacing: 0.04em; margin-bottom: 1rem; }
-
-    .dt-chips { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-    .dt-chip {
-      font-size: 0.75rem;
-      font-weight: 500;
-      color: rgba(147,197,253,0.8);
-      background: rgba(100,160,255,0.08);
-      border: 1px solid rgba(100,160,255,0.15);
-      border-radius: 3px;
-      padding: 3px 10px;
-      letter-spacing: 0.02em;
-    }
-
-    .f-hero-stats {
+    .f-fact-line {
       display: flex;
       align-items: center;
-      gap: 1.5rem;
-      background: rgba(10,10,13,0.6);
-      border: 1px solid var(--so-lime-a15);
-      border-radius: var(--so-radius-md);
-      padding: 1.25rem 1.5rem;
-      backdrop-filter: blur(8px);
-      margin-bottom: 1.25rem;
-    }
-    .fhs-item { display: flex; flex-direction: column; gap: 2px; text-align: center; }
-    .fhs-num { font-family: var(--so-font-display); font-size: 1.5rem; color: var(--so-lime); letter-spacing: 0.02em; }
-    .fhs-label { font-family: var(--so-font-mono); font-size: 0.5rem; font-weight: 600; letter-spacing: 0.1em; color: rgba(255,255,255,0.4); }
-    .fhs-div { width: 1px; height: 36px; background: rgba(255,255,255,0.08); }
-
-    .f-hero-ctas { display: flex; gap: 0.875rem; flex-wrap: wrap; }
-    .f-cta-primary {
-      display: inline-block;
-      background: var(--so-lime);
-      color: var(--so-ink);
-      font-family: var(--so-font-body);
-      font-size: 0.875rem;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      text-decoration: none;
-      padding: 0.75rem 1.5rem;
-      border-radius: var(--so-radius-sm);
-      transition: background 0.15s;
-    }
-    .f-cta-primary:hover { background: var(--so-lime-bright); }
-    .f-cta-secondary {
-      display: inline-block;
-      background: rgba(255,255,255,0.06);
-      color: #ffffff;
-      font-family: var(--so-font-body);
-      font-size: 0.875rem;
-      font-weight: 600;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      text-decoration: none;
-      padding: 0.75rem 1.5rem;
-      border-radius: var(--so-radius-sm);
-      border: 1px solid rgba(255,255,255,0.12);
-      transition: background 0.15s, border-color 0.15s;
-    }
-    .f-cta-secondary:hover { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.2); }
-
-    /* ---- DT STORY ---- */
-    .dt-story {
-      background: var(--bg);
-      padding: 5rem 0;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .dt-story-inner {
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 0 2rem;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 5rem;
-      align-items: center;
-    }
-
-    .dt-story-title {
-      font-family: var(--so-font-display);
-      font-size: clamp(2.5rem, 5vw, 4rem);
-      color: #ffffff;
-      line-height: 1.02;
-      letter-spacing: 0.01em;
-      margin: 0.75rem 0 1.5rem;
-    }
-
-    .dt-story-body {
-      font-size: 1.0625rem;
-      color: var(--muted);
-      line-height: 1.7;
-      margin-bottom: 1.25rem;
-    }
-
-    .dt-callout {
-      display: flex;
-      align-items: flex-start;
-      gap: 0.875rem;
-      background: var(--so-lime-a05);
-      border: 1px solid var(--so-lime-a15);
-      border-radius: var(--so-radius-md);
-      padding: 1.25rem;
-      margin-top: 1rem;
-    }
-    .dtc-icon { flex-shrink: 0; margin-top: 1px; }
-    .dtc-text {
-      font-size: 0.9375rem;
-      color: rgba(255,255,255,0.6);
-      line-height: 1.55;
-    }
-    .dtc-text strong { color: #ffffff; font-weight: 600; }
-
-    /* Visual column */
-    .dt-story-visual {}
-
-    .dt-big-num {
-      font-family: var(--so-font-display);
-      font-size: clamp(10rem, 20vw, 18rem);
-      color: var(--so-lime-a07);
-      line-height: 0.9;
-      letter-spacing: 0.01em;
-      margin-bottom: 0.5rem;
-      pointer-events: none;
-      user-select: none;
-    }
-
-    .dt-big-label {
+      gap: 1.1rem;
+      flex-wrap: wrap;
+      margin-top: 1.5rem;
+      padding-bottom: 0.25rem;
       font-family: var(--so-font-mono);
-      font-size: 0.5625rem;
-      font-weight: 600;
-      letter-spacing: 0.12em;
-      color: var(--so-lime-a35);
-      margin-bottom: 2.5rem;
+      font-size: 0.6875rem;
+      letter-spacing: 0.05em;
+      color: rgba(255,255,255,0.45);
     }
+    .ffl-div { width: 1px; height: 13px; background: rgba(255,255,255,0.15); }
+    .f-fact-line b { color: rgba(255,255,255,0.85); font-weight: 600; }
 
-    .dt-feature-list {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1rem;
-    }
-
-    .dtf-item { display: flex; flex-direction: column; gap: 2px; }
-    .dtf-num {
+    /* ---- SECTION SCAFFOLD (no numerals — kicker bar only) ---- */
+    .sec { padding: 4.5rem 0; }
+    .sec-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
+    .kicker-bar { width: 32px; height: 3px; background: var(--so-lime); margin-bottom: 1.1rem; }
+    .sec-title {
       font-family: var(--so-font-display);
-      font-size: 2rem;
-      color: var(--so-lime);
-      letter-spacing: 0.02em;
-      line-height: 1;
+      font-size: clamp(1.9rem, 3.6vw, 3rem);
+      line-height: 1.02;
+      text-transform: uppercase;
+      letter-spacing: 0.01em;
+      color: #ffffff;
     }
-    .dtf-label {
-      font-size: 0.75rem;
-      color: rgba(255,255,255,0.4);
-      line-height: 1.4;
+    .sec-desc { font-size: 1rem; color: var(--muted); max-width: 560px; line-height: 1.6; margin-top: 0.625rem; }
+
+    /* ---- WHAT'S HAPPENING — two-state (summer light now, fall rhythm) ---- */
+    .happening { background: var(--bg-2); border-top: 1px solid var(--border); }
+    .hap-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap; margin-bottom: 2rem; }
+    .hap-toggle { display: inline-flex; border: 1px solid var(--so-lime-a25); border-radius: var(--so-radius-pill); overflow: hidden; }
+    .hap-tab { font-family: var(--so-font-mono); font-size: 0.6875rem; letter-spacing: 0.08em; padding: 0.55rem 1.1rem; background: none; border: none; color: rgba(255,255,255,0.55); cursor: pointer; }
+    .hap-tab--on { background: var(--so-lime); color: var(--so-ink); font-weight: 700; }
+
+    .now-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1rem; }
+    .now-card { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-left: 3px solid var(--so-lime); border-radius: var(--so-radius-md); padding: 1.25rem 1.25rem 1.1rem; display: flex; flex-direction: column; gap: 0.4rem; }
+    .now-when { font-family: var(--so-font-mono); font-size: 0.625rem; letter-spacing: 0.1em; color: var(--so-lime); }
+    .now-what { font-family: var(--so-font-display); font-size: 1.25rem; text-transform: uppercase; letter-spacing: 0.01em; }
+    .now-note { font-size: 0.875rem; color: var(--muted); line-height: 1.5; }
+    .now-link { font-size: 0.8125rem; font-weight: 700; color: var(--so-lime); text-decoration: none; margin-top: 0.35rem; width: fit-content; border-bottom: 1px solid var(--so-lime-a25); padding-bottom: 2px; }
+
+    .week-list { display: none; flex-direction: column; border: 1px solid var(--border); border-radius: var(--so-radius-lg); overflow: hidden; }
+    .week-row { display: grid; grid-template-columns: 130px 1fr auto; gap: 1rem; align-items: center; padding: 0.9rem 1.25rem; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.02); }
+    .week-row:last-child { border-bottom: none; }
+    .wr-day { font-family: var(--so-font-display); font-size: 1.125rem; text-transform: uppercase; letter-spacing: 0.02em; }
+    .wr-what { font-size: 0.9rem; color: rgba(255,255,255,0.75); line-height: 1.45; }
+    .wr-what b { color: #fff; font-weight: 600; }
+    .wr-tag { font-family: var(--so-font-mono); font-size: 0.5625rem; letter-spacing: 0.08em; color: var(--so-lime-a70); border: 1px solid var(--so-lime-a25); padding: 2px 8px; border-radius: var(--so-radius-pill); white-space: nowrap; }
+    .wr-tag--futsal { color: var(--so-sky-soft); border-color: var(--so-sky-a25); }
+    .happening.show-fall .week-list { display: flex; }
+    .happening.show-fall .now-grid { display: none; }
+    .hap-note { margin-top: 1.1rem; font-size: 0.8125rem; color: rgba(255,255,255,0.35); }
+
+    /* ---- THE FIELD — real, owner-confirmed specs only ---- */
+    .building { background: var(--bg); }
+    .build-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 3rem; align-items: start; margin-top: 2rem; }
+    .spec-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .spec-card { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: var(--so-radius-md); padding: 1.25rem; }
+    .spec-num { font-family: var(--so-font-display); font-size: 2rem; line-height: 1; letter-spacing: 0.02em; color: var(--so-lime); }
+    .spec-name { font-size: 0.9375rem; font-weight: 700; margin-top: 0.375rem; }
+    .spec-note { font-size: 0.8125rem; color: var(--muted); line-height: 1.5; margin-top: 0.25rem; }
+    .diff-list { display: flex; flex-direction: column; gap: 1rem; }
+    .diff-item { display: flex; gap: 0.875rem; align-items: flex-start; }
+    .diff-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--so-lime); flex-shrink: 0; margin-top: 7px; }
+    .diff-title { font-size: 0.9375rem; font-weight: 700; }
+    .diff-copy { font-size: 0.875rem; color: var(--muted); line-height: 1.55; }
+
+    /* Field diagram */
+    .field-figure { margin-top: 2.25rem; border: 1px solid var(--so-lime-a20); border-radius: var(--so-radius-lg); padding: 1.5rem; background: rgba(255,255,255,0.02); }
+    .field-figure svg { width: 100%; height: auto; display: block; }
+    .field-caption { font-family: var(--so-font-mono); font-size: 0.625rem; letter-spacing: 0.08em; color: rgba(255,255,255,0.4); margin-top: 0.75rem; text-align: center; }
+
+    @media (max-width: 1100px) {
+      .build-grid { grid-template-columns: 1fr; gap: 2rem; }
+    }
+    @media (max-width: 768px) {
+      .spec-cards { grid-template-columns: 1fr; }
+      .week-row { grid-template-columns: 90px 1fr; }
+      .wr-tag { display: none; }
     }
 
-    /* ---- SCHEDULE ---- */
-    .schedule-section { background: var(--bg-2); padding: 5rem 0; border-bottom: 1px solid var(--border); }
-    .schedule-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
-    .schedule-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; margin-bottom: 2.5rem; flex-wrap: wrap; }
-    .sh-left { display: flex; align-items: baseline; gap: 1rem; }
-    .sh-right { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; }
-    .section-num-sm { font-family: var(--so-font-display); font-size: 2.5rem; color: var(--so-lime-a15); line-height: 1; }
-    .schedule-title { font-family: var(--so-font-display); font-size: clamp(1.75rem, 3vw, 2.5rem); color: #ffffff; letter-spacing: 0.01em; line-height: 1; }
-    .schedule-date { font-family: var(--so-font-mono); font-size: 0.75rem; color: rgba(255,255,255,0.35); letter-spacing: 0.04em; }
-    .view-all-link { font-size: 0.875rem; font-weight: 500; color: var(--so-lime-a70); text-decoration: none; transition: color 0.15s; }
-    .view-all-link:hover { color: var(--so-lime); }
-
-    .schedule-board { border-radius: var(--so-radius-lg); border: 1px solid var(--border); overflow: hidden; overflow-x: auto; }
-    .sb-header-row { display: grid; grid-template-columns: 100px 1fr; background: rgba(255,255,255,0.03); border-bottom: 1px solid var(--border); }
-    .sbh-time, .sbh-col { font-family: var(--so-font-mono); font-size: 0.5625rem; font-weight: 600; letter-spacing: 0.12em; color: var(--so-lime-a50); padding: 0.75rem 1rem; }
-    .sbh-col { border-left: 1px solid var(--border); }
-    .sb-row { display: grid; grid-template-columns: 100px 1fr; border-bottom: 1px solid rgba(255,255,255,0.04); min-width: 400px; }
-    .sb-row:last-child { border-bottom: none; }
-    .sb-row--prime { background: var(--so-lime-a02); }
-    .sb-time { font-family: var(--so-font-mono); font-size: 0.75rem; font-weight: 600; color: rgba(255,255,255,0.4); padding: 1rem; display: flex; align-items: center; letter-spacing: 0.04em; }
-    .sb-cell { padding: 0.875rem 1rem; border-left: 1px solid rgba(255,255,255,0.04); display: flex; flex-direction: column; gap: 3px; }
-    .sbc-type { font-family: var(--so-font-mono); font-size: 0.5rem; font-weight: 600; letter-spacing: 0.1em; }
-    .sbc-name { font-size: 0.875rem; font-weight: 500; color: rgba(255,255,255,0.75); }
-    .sb-book-link { font-size: 0.6875rem; font-weight: 600; color: var(--so-lime-a60); text-decoration: none; transition: color 0.15s; }
-    .sb-book-link:hover { color: var(--so-lime); }
-    .sb-cell--league .sbc-type { color: var(--so-lime); }
-    .sb-cell--pickup .sbc-type { color: #67e8f9; }
-    .sb-cell--open { background: var(--so-lime-a02); }
-    .sb-cell--open .sbc-type { color: var(--so-lime-a40); }
-    .sb-cell--open .sbc-name { color: rgba(255,255,255,0.3); font-style: italic; }
-
-    /* ---- SPECS ---- */
-    .specs-section { background: var(--bg); padding: 5rem 0; border-bottom: 1px solid var(--border); }
-    .specs-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
-    .specs-header-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 2.5rem; flex-wrap: wrap; }
-    .specs-left { display: flex; align-items: baseline; gap: 1rem; }
-    .specs-title { font-family: var(--so-font-display); font-size: clamp(1.75rem, 3vw, 2.5rem); color: #ffffff; letter-spacing: 0.01em; line-height: 1; }
-    .specs-book-btn { display: inline-block; background: var(--so-lime); color: var(--so-ink); font-family: var(--so-font-body); font-size: 0.875rem; font-weight: 700; letter-spacing: 0.04em; text-decoration: none; padding: 0.625rem 1.375rem; border-radius: var(--so-radius-sm); transition: background 0.15s; }
-    .specs-book-btn:hover { background: var(--so-lime-bright); }
-
-    .dt-specs-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin-bottom: 2.5rem; }
-    .dt-spec-block { background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: var(--so-radius-md); padding: 1.5rem; display: flex; flex-direction: column; gap: 4px; }
-    .dsb-label { font-family: var(--so-font-mono); font-size: 0.5rem; font-weight: 600; letter-spacing: 0.14em; color: var(--so-lime-a50); }
-    .dsb-val { font-size: 1.125rem; font-weight: 600; color: #ffffff; line-height: 1.2; }
-    .dsb-val.mono { font-family: var(--so-font-mono); font-size: 1rem; }
-    .dsb-val.accent { color: var(--so-lime); }
-    .dsb-sub { font-size: 0.8125rem; color: var(--muted); }
-
-    .dt-amenities { background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: var(--so-radius-md); padding: 1.5rem 2rem; }
-    .dta-heading { font-family: var(--so-font-mono); font-size: 0.5625rem; font-weight: 600; letter-spacing: 0.12em; color: var(--so-lime-a50); margin-bottom: 1rem; }
-    .dta-list { display: flex; flex-wrap: wrap; gap: 0.625rem 2rem; }
-    .dta-item { display: flex; align-items: center; gap: 0.5rem; font-size: 0.9375rem; color: rgba(255,255,255,0.6); }
-    .dta-check { color: var(--so-lime); font-weight: 700; }
-
-    /* ---- CORPORATE LEAGUE ---- */
-    .corp-league { background: var(--so-ink); padding: 5rem 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
-    .corp-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center; }
-    .corp-eyebrow { font-family: var(--so-font-mono); font-size: 0.5625rem; font-weight: 600; letter-spacing: 0.14em; color: var(--so-lime-a60); display: block; margin-bottom: 1rem; }
-    .corp-title { font-family: var(--so-font-display); font-size: clamp(2rem, 4vw, 3.5rem); color: #ffffff; line-height: 1.02; letter-spacing: 0.01em; margin-bottom: 1.25rem; }
-    .corp-desc { font-size: 1.0625rem; color: var(--muted); line-height: 1.65; margin-bottom: 2rem; max-width: 480px; }
-    .corp-stats { display: flex; gap: 2.5rem; margin-bottom: 2rem; flex-wrap: wrap; }
-    .corp-stat { display: flex; flex-direction: column; gap: 3px; }
-    .cs-num { font-family: var(--so-font-display); font-size: 2rem; color: var(--so-lime); letter-spacing: 0.02em; line-height: 1; }
-    .cs-label { font-family: var(--so-font-mono); font-size: 0.5rem; font-weight: 600; letter-spacing: 0.1em; color: rgba(255,255,255,0.4); }
-    .corp-cta { display: inline-block; background: var(--so-lime); color: var(--so-ink); font-family: var(--so-font-body); font-size: 0.9375rem; font-weight: 700; letter-spacing: 0.04em; text-decoration: none; padding: 0.875rem 1.75rem; border-radius: var(--so-radius-sm); transition: background 0.15s; }
-    .corp-cta:hover { background: var(--so-lime-bright); }
-
-    .corp-visual { position: relative; display: flex; align-items: center; justify-content: center; }
-    .corp-visual-bg { background: var(--so-lime-a04); border: 1px solid var(--so-lime-a12); border-radius: var(--so-radius-lg); padding: 3rem 2rem; text-align: center; width: 100%; position: relative; overflow: hidden; }
-    .corp-visual-bg::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      right: -20px;
-      bottom: 0;
-      width: 60px;
-      background: var(--so-lime-a04);
-      transform: skewX(-8deg);
+    /* ---- SOCIAL PROOF — homepage proof-section pattern, this location's reviews ---- */
+    .proof-section { background: var(--bg-2); border-top: 1px solid var(--border); }
+    .proof-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
+    .proof-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 2rem; flex-wrap: wrap; margin-bottom: 2.5rem; }
+    .proof-rating { display: flex; align-items: center; gap: 1rem; }
+    .proof-score { font-family: var(--so-font-display); font-size: 3.5rem; line-height: 1; letter-spacing: 0.02em; color: #fff; }
+    .proof-stars { display: flex; flex-direction: column; gap: 0.25rem; }
+    .stars { color: var(--so-lime); font-size: 1.125rem; letter-spacing: 0.15em; }
+    .proof-source { font-family: var(--so-font-mono); font-size: 0.625rem; letter-spacing: 0.1em; color: rgba(255,255,255,0.4); }
+    .proof-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; }
+    .review-card {
+      background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: var(--so-radius-lg);
+      padding: 1.75rem 1.5rem; display: flex; flex-direction: column; gap: 1rem;
     }
-    .cv-big-text { font-family: var(--so-font-display); font-size: clamp(4rem, 10vw, 8rem); color: var(--so-lime-a12); letter-spacing: 0.02em; line-height: 1; }
-    .cv-sub-text { font-family: var(--so-font-mono); font-size: 0.75rem; font-weight: 600; letter-spacing: 0.14em; color: var(--so-lime-a30); margin-top: 0.5rem; }
+    .rc-stars { color: var(--so-lime); font-size: 0.875rem; letter-spacing: 0.12em; }
+    .rc-quote { font-size: 1rem; color: rgba(255,255,255,0.75); line-height: 1.6; flex: 1; }
+    .rc-byline { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+    .rc-name { font-size: 0.875rem; font-weight: 600; color: rgba(255,255,255,0.85); }
+    .rc-context {
+      font-family: var(--so-font-mono); font-size: 0.5625rem; letter-spacing: 0.08em;
+      color: var(--so-lime-a70); border: 1px solid var(--so-lime-a25);
+      padding: 2px 8px; border-radius: var(--so-radius-pill); white-space: nowrap;
+    }
+    @media (max-width: 1000px) { .proof-grid { grid-template-columns: 1fr; } }
 
-    /* ---- INFO SECTION ---- */
-    .info-section { background: var(--bg-2); padding: 5rem 0; border-bottom: 1px solid var(--border); }
-    .info-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: start; }
-    .info-title { font-family: var(--so-font-display); font-size: clamp(1.75rem, 3vw, 2.5rem); color: #ffffff; letter-spacing: 0.01em; margin: 0.5rem 0 2rem; }
-    .hours-grid { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--so-radius-md); overflow: hidden; margin-bottom: 2rem; }
-    .hours-row { display: flex; justify-content: space-between; align-items: center; padding: 0.875rem 1.25rem; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 0.9375rem; }
-    .hours-row:last-child { border-bottom: none; }
-    .hours-day { color: rgba(255,255,255,0.7); font-weight: 500; }
-    .hours-time { font-family: var(--so-font-mono); font-size: 0.875rem; color: var(--so-lime); }
-    .hours-note { font-size: 0.8125rem; color: rgba(255,255,255,0.3); padding: 0.75rem 1.25rem; border-top: 1px solid rgba(255,255,255,0.04); font-style: italic; }
-    .info-address-block { display: flex; flex-direction: column; gap: 0.375rem; }
-    .iab-name { font-weight: 700; font-size: 1rem; color: #ffffff; }
-    .iab-addr { font-size: 0.9375rem; color: var(--muted); line-height: 1.5; }
-    .iab-parking { display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.8125rem; color: var(--so-lime-a60); margin-top: 0.375rem; line-height: 1.5; }
-    .iab-links { display: flex; gap: 1.25rem; margin-top: 0.75rem; flex-wrap: wrap; }
-    .iab-link { font-size: 0.875rem; color: var(--so-lime-a70); text-decoration: none; transition: color 0.15s; }
-    .iab-link:hover { color: var(--so-lime); }
+    /* ---- FALL LEAGUES — pricing & answers (conversion block) ---- */
+    .fall-block { background: var(--so-lime); color: var(--so-ink); }
+    .fall-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 3rem; align-items: center; }
+    .fall-title { font-family: var(--so-font-display); font-size: clamp(2.1rem, 4.5vw, 3.6rem); line-height: 0.98; text-transform: uppercase; }
+    .fall-copy { font-size: 1rem; color: rgba(10,10,13,0.7); line-height: 1.6; max-width: 540px; margin-top: 0.875rem; }
+    .fall-copy b { font-weight: 700; }
+    .fall-facts { display: flex; gap: 0.625rem; flex-wrap: wrap; margin-top: 1.25rem; }
+    .fall-fact { font-family: var(--so-font-mono); font-size: 0.625rem; font-weight: 600; letter-spacing: 0.08em; border: 1.5px solid rgba(10,10,13,0.35); padding: 0.4rem 0.8rem; border-radius: var(--so-radius-pill); }
+    .price-card { background: var(--so-ink); color: #fff; border-radius: var(--so-radius-lg); padding: 1.75rem; position: relative; overflow: hidden; }
+    .price-dock { position: absolute; top: 0; right: 0; background: var(--so-lime); color: var(--so-ink); font-family: var(--so-font-mono); font-size: 0.5625rem; font-weight: 700; letter-spacing: 0.08em; padding: 0.45rem 0.9rem; border-radius: 0 0 0 var(--so-radius-md); }
+    .price-rows { display: flex; flex-direction: column; gap: 0.7rem; margin: 0.5rem 0 1.25rem; }
+    .price-row { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; border-bottom: 1px dashed rgba(255,255,255,0.12); padding-bottom: 0.6rem; }
+    .pr-label { font-size: 0.875rem; color: rgba(255,255,255,0.65); }
+    .pr-val { font-family: var(--so-font-display); font-size: 1.25rem; letter-spacing: 0.02em; }
+    .pr-val small { font-family: var(--so-font-body); font-size: 0.75rem; color: rgba(255,255,255,0.45); font-weight: 400; }
+    .price-cta { display: block; text-align: center; background: var(--so-lime); color: var(--so-ink); font-weight: 700; font-size: 0.9375rem; text-decoration: none; padding: 0.85rem 1rem; border-radius: var(--so-radius-sm); }
+    .price-cta:hover { background: var(--so-lime-bright); }
+    .price-note { font-size: 0.75rem; color: rgba(255,255,255,0.4); text-align: center; margin-top: 0.6rem; }
 
-    .info-map {}
-    .map-placeholder { border-radius: var(--so-radius-lg); overflow: hidden; border: 1px solid var(--border); position: relative; aspect-ratio: 4/3; background: var(--so-navy-deep); }
-    .map-svg { width: 100%; height: 100%; }
-    .map-overlay-label { position: absolute; bottom: 1rem; left: 1rem; background: rgba(10,10,13,0.85); border: 1px solid var(--so-lime-a20); border-radius: var(--so-radius-sm); padding: 0.625rem 1rem; backdrop-filter: blur(4px); }
-    .mol-name { font-family: var(--so-font-body); font-size: 0.8125rem; font-weight: 700; color: #ffffff; margin-bottom: 1px; }
-    .mol-addr { font-family: var(--so-font-mono); font-size: 0.625rem; color: var(--so-lime-a60); letter-spacing: 0.04em; }
+    /* ---- GOOD TO KNOW ---- */
+    .know { background: var(--bg); }
+    .know-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem 2.5rem; margin-top: 2rem; }
+    .know-item { border-top: 1px solid var(--border); padding-top: 1rem; }
+    .know-q { font-size: 0.9375rem; font-weight: 700; }
+    .know-a { font-size: 0.875rem; color: var(--muted); line-height: 1.55; margin-top: 0.3rem; }
 
-    /* ---- CTA STRIP ---- */
-    .facility-cta-strip { background: var(--so-surface); padding: 4rem 0; border-top: 1px solid var(--so-lime-a10); }
-    .fcs-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; gap: 3rem; flex-wrap: wrap; }
-    .fcs-title { font-family: var(--so-font-display); font-size: clamp(1.75rem, 3vw, 2.5rem); color: #ffffff; letter-spacing: 0.01em; margin-bottom: 0.5rem; }
-    .fcs-sub { font-size: 1rem; color: var(--muted); line-height: 1.5; }
-    .fcs-buttons { display: flex; gap: 0.875rem; flex-wrap: wrap; flex-shrink: 0; }
-    .fcs-btn-primary { display: inline-block; background: var(--so-lime); color: var(--so-ink); font-family: var(--so-font-body); font-size: 0.875rem; font-weight: 700; letter-spacing: 0.04em; text-decoration: none; padding: 0.875rem 1.5rem; border-radius: var(--so-radius-sm); transition: background 0.15s; white-space: nowrap; }
-    .fcs-btn-primary:hover { background: var(--so-lime-bright); }
-    .fcs-btn-secondary { display: inline-block; background: var(--so-lime-a08); color: var(--so-lime); font-family: var(--so-font-body); font-size: 0.875rem; font-weight: 600; letter-spacing: 0.04em; text-decoration: none; padding: 0.875rem 1.5rem; border-radius: var(--so-radius-sm); border: 1px solid var(--so-lime-a20); transition: background 0.15s; white-space: nowrap; }
-    .fcs-btn-secondary:hover { background: var(--so-lime-a14); }
-    .fcs-btn-ghost { display: inline-block; background: transparent; color: rgba(255,255,255,0.5); font-family: var(--so-font-body); font-size: 0.875rem; font-weight: 600; letter-spacing: 0.04em; text-decoration: none; padding: 0.875rem 1.5rem; border-radius: var(--so-radius-sm); border: 1px solid rgba(255,255,255,0.1); transition: border-color 0.15s, color 0.15s; white-space: nowrap; }
-    .fcs-btn-ghost:hover { border-color: rgba(255,255,255,0.2); color: rgba(255,255,255,0.75); }
+    /* ---- FINDING STARR AVE — yard-sign style directional map ---- */
+    .directions { background: var(--bg-2); border-top: 1px solid var(--border); }
+    .dir-grid { display: grid; grid-template-columns: 1fr 1.1fr; gap: 3rem; align-items: center; margin-top: 2rem; }
+    .dir-facts { display: flex; flex-direction: column; gap: 1.1rem; }
+    .dir-fact-label { font-family: var(--so-font-mono); font-size: 0.5625rem; font-weight: 600; letter-spacing: 0.12em; color: var(--so-lime-a70); }
+    .dir-fact-val { font-size: 1rem; color: rgba(255,255,255,0.85); margin-top: 2px; }
+    .dir-fact-val.mono { font-size: 0.9rem; }
+    .dir-cta { display: inline-flex; margin-top: 0.5rem; background: var(--so-lime); color: var(--so-ink); font-weight: 700; font-size: 0.875rem; text-decoration: none; padding: 0.7rem 1.3rem; border-radius: var(--so-radius-sm); width: fit-content; }
+    .map-panel { background: #131316; border: 1px solid var(--so-lime-a20); border-radius: var(--so-radius-lg); padding: 1.5rem; }
+    .map-panel svg { width: 100%; height: auto; display: block; }
+    .map-caption { font-family: var(--so-font-mono); font-size: 0.5625rem; letter-spacing: 0.1em; color: rgba(255,255,255,0.35); text-align: center; margin-top: 0.75rem; }
+
+    /* ---- BOTTOM CTA STRIP ---- */
+    .bottom-cta { background: var(--bg-2); border-top: 1px solid var(--border); }
+    .bc-inner { max-width: 1400px; margin: 0 auto; padding: 3rem 2rem; display: flex; align-items: center; justify-content: space-between; gap: 2rem; flex-wrap: wrap; }
+    .bc-title { font-family: var(--so-font-display); font-size: clamp(1.6rem, 3vw, 2.4rem); text-transform: uppercase; line-height: 1; }
+    .bc-actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+    .bc-btn { background: var(--so-lime); color: var(--so-ink); font-weight: 700; font-size: 0.9rem; text-decoration: none; padding: 0.8rem 1.5rem; border-radius: var(--so-radius-sm); }
+    .bc-btn--ghost { background: none; border: 1.5px solid var(--so-lime-a40); color: var(--so-lime); }
 
     /* ---- RESPONSIVE ---- */
     @media (max-width: 1100px) {
-      .dt-story-inner { grid-template-columns: 1fr; gap: 3rem; }
-      .corp-inner { grid-template-columns: 1fr; }
-      .info-inner { grid-template-columns: 1fr; }
-      .dt-specs-grid { grid-template-columns: 1fr 1fr; }
+      .fall-grid, .dir-grid { grid-template-columns: 1fr; gap: 2rem; }
     }
     @media (max-width: 768px) {
-      .f-hero-block { flex-direction: column; align-items: flex-start; }
-      .dt-specs-grid { grid-template-columns: 1fr; }
-      .fcs-inner { flex-direction: column; align-items: flex-start; }
-      .f-hero-stats { flex-wrap: wrap; }
-      .dt-feature-list { grid-template-columns: 1fr; }
+      .bc-inner { flex-direction: column; align-items: flex-start; }
     }
   </style>
+
+  <script>
+    import { trackDivisionRegisterClicked } from "@/lib/analytics/events";
+
+    // Conversion analytics on the server-rendered register CTAs (hero + fall block).
+    document.querySelectorAll<HTMLAnchorElement>("[data-so-register-cta]").forEach((el) => {
+      el.addEventListener("click", () => {
+        trackDivisionRegisterClicked({
+          seasonId: el.dataset.seasonId ?? "",
+          level: el.dataset.level ?? "open",
+          gender: el.dataset.gender ?? "unknown",
+          venue: el.dataset.venue ?? "",
+          mode: el.dataset.mode === "team" ? "team" : "individual",
+          term: el.dataset.term ?? "",
+        });
+      });
+    });
+  </script>
+
+  <script is:inline>
+    // What's Happening toggle — plain class flip, click-driven only (no
+    // window keydown listeners). No-ops when the fall tab is hidden
+    // (summer-only state, no dayOfWeek-scheduled seasons yet).
+    (function () {
+      var hap = document.getElementById("happening");
+      var tabNow = document.getElementById("tabNow");
+      var tabFall = document.getElementById("tabFall");
+      if (!hap || !tabNow || !tabFall) return;
+      tabNow.addEventListener("click", function () {
+        hap.classList.remove("show-fall");
+        tabNow.classList.add("hap-tab--on");
+        tabFall.classList.remove("hap-tab--on");
+      });
+      tabFall.addEventListener("click", function () {
+        hap.classList.add("show-fall");
+        tabFall.classList.add("hap-tab--on");
+        tabNow.classList.remove("hap-tab--on");
+      });
+    })();
+  </script>
+
+  <script is:inline>
+    // Respect prefers-reduced-motion — no autoplay video exists on this page
+    // yet (typographic hero), but this stays wired so a future video slot
+    // (see the f-hero-bg comment above) inherits the guard for free, exactly
+    // like Worthington's.
+    (function () {
+      if (!window.matchMedia || !window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+      document.querySelectorAll("video[autoplay]").forEach(function (video) {
+        video.pause();
+        video.removeAttribute("autoplay");
+      });
+    })();
+  </script>
 </BaseLayout>
