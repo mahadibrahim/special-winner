@@ -4,6 +4,7 @@ import { getDb } from "@/lib/db";
 import { dropInBookings } from "@/lib/db/schema/drop-in";
 import { users } from "@/lib/db/schema/users";
 import { venues } from "@/lib/db/schema/teams";
+import { hostGameReports } from "@/lib/db/schema/hosts";
 import { requireHostOfSession } from "@/lib/auth/host";
 
 export const prerender = false;
@@ -48,6 +49,12 @@ export const GET: APIRoute = async (context) => {
     .where(eq(venues.id, auth.session.venueId))
     .limit(1);
 
+  const [existingReport] = await db
+    .select({ id: hostGameReports.id })
+    .from(hostGameReports)
+    .where(eq(hostGameReports.sessionId, id))
+    .limit(1);
+
   const seated = roster.filter((r) =>
     ["confirmed", "pending_payment", "pending_claim"].includes(r.status),
   );
@@ -66,6 +73,7 @@ export const GET: APIRoute = async (context) => {
         teamColors: auth.session.teamColors,
         venueName: venue?.name ?? null,
         confirmedCount: seated.length,
+        reportSubmitted: !!existingReport,
       },
       roster,
       waitlistCount: roster.filter((r) => r.status === "waitlisted").length,

@@ -7,6 +7,20 @@ import { ErrorBanner } from "@/components/ui/error-banner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 
+/**
+ * Parses `{ error }` from a failed response body, falling back when the
+ * body isn't JSON (e.g. an HTML 500 page) — `res.json()` throws in that
+ * case, which would otherwise surface as an unhandled rejection instead
+ * of a readable error/toast message.
+ */
+async function errorMessage(res: Response, fallback: string): Promise<string> {
+  try {
+    return (await res.json()).error ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 interface HostGameSummary {
   id: string;
   sportOrClassLabel: string;
@@ -78,7 +92,7 @@ export default function HostDashboard() {
   const load = useCallback(async () => {
     try {
       const res = await fetch("/api/host/games");
-      if (!res.ok) throw new Error((await res.json()).error ?? "Could not load games");
+      if (!res.ok) throw new Error(await errorMessage(res, "Could not load games"));
       setData(await res.json());
       setError(null);
     } catch (err) {
@@ -97,7 +111,7 @@ export default function HostDashboard() {
       if (res.status === 409) {
         toast.error("Someone beat you to it — that game just got a host.");
       } else if (!res.ok) {
-        toast.error((await res.json()).error ?? "Could not claim the game");
+        toast.error(await errorMessage(res, "Could not claim the game"));
       }
       await load();
     } finally {

@@ -30,4 +30,31 @@ describe("buildShareBlurb", () => {
     expect(blurb).toContain("1 spot left");
     expect(blurb).not.toContain("null");
   });
+
+  it("does not double the word 'pickup' when the free-text label already contains it", () => {
+    const blurb = buildShareBlurb({
+      sport: "Evening Coed Pickup",
+      venueName: "Worthington",
+      startsAt: new Date("2026-07-14T23:00:00Z"),
+      spotsLeft: 4,
+      url: "https://x.test/g",
+      timeZone: "America/New_York",
+    });
+    expect(blurb).toContain("Evening Coed Pickup at Worthington");
+    expect(blurb).not.toContain("Pickup Evening Coed Pickup");
+    expect(blurb.match(/pickup/gi)?.length).toBe(1);
+  });
+
+  it("matches emoji on a sport word contained in a free-text label", () => {
+    const blurb = buildShareBlurb({
+      sport: "Evening Coed Soccer",
+      venueName: "Worthington",
+      startsAt: new Date("2026-07-14T23:00:00Z"),
+      spotsLeft: 4,
+      url: "https://x.test/g",
+      timeZone: "America/New_York",
+    });
+    expect(blurb.startsWith("⚽")).toBe(true);
+    expect(blurb).toContain("Pickup Evening Coed Soccer");
+  });
 });

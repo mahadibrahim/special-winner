@@ -7,6 +7,20 @@ import { ErrorBanner } from "@/components/ui/error-banner";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { buildShareBlurb } from "@/lib/dropin/share-blurb";
 
+/**
+ * Parses `{ error }` from a failed response body, falling back when the
+ * body isn't JSON (e.g. an HTML 500 page) — `res.json()` throws in that
+ * case, which would otherwise surface as an unhandled rejection instead
+ * of a readable error/toast message.
+ */
+async function errorMessage(res: Response, fallback: string): Promise<string> {
+  try {
+    return (await res.json()).error ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 interface RosterRow {
   bookingId: string;
   firstName: string;
@@ -29,6 +43,7 @@ interface GameDetail {
     teamColors: string[];
     venueName: string | null;
     status: string;
+    reportSubmitted: boolean;
   };
   roster: RosterRow[];
   waitlistCount: number;
@@ -47,8 +62,10 @@ export default function HostGameDay({ sessionId }: { sessionId: string }) {
     try {
       const res = await fetch(`/api/host/games/${sessionId}`);
       if (res.status === 404) throw new Error("This isn't one of your games.");
-      if (!res.ok) throw new Error("Could not load the game");
-      setData(await res.json());
+      if (!res.ok) throw new Error(await errorMessage(res, "Could not load the game"));
+      const body: GameDetail = await res.json();
+      setData(body);
+      setReported(body.session.reportSubmitted);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load the game");
@@ -81,8 +98,13 @@ export default function HostGameDay({ sessionId }: { sessionId: string }) {
         /* user dismissed — fall through to copy */
       }
     }
-    await navigator.clipboard.writeText(shareText);
-    toast.success("Copied — paste it into your group chat");
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("Clipboard API unavailable");
+      await navigator.clipboard.writeText(shareText);
+      toast.success("Copied — paste it into your group chat");
+    } catch {
+      toast.error("Couldn't copy — long-press the text to copy it manually");
+    }
   }
 
   async function mark(bookingId: string, action: "check_in" | "undo_check_in" | "no_show") {
@@ -119,7 +141,7 @@ export default function HostGameDay({ sessionId }: { sessionId: string }) {
       setReported(true);
       toast.error("Wrap-up was already submitted for this game.");
     } else if (!res.ok) {
-      toast.error((await res.json()).error ?? "Could not submit");
+      toast.error(await errorMessage(res, "Could not submit"));
     } else {
       setReported(true);
     }
@@ -201,6 +223,7 @@ export default function HostGameDay({ sessionId }: { sessionId: string }) {
                     className="mt-1 rounded border px-2 py-1 text-sm"
                     value={r.teamAssignment ?? ""}
                     onChange={(e) => void assignTeam(r.bookingId, e.target.value || null)}
+                    aria-label={`Team for ${r.firstName} ${r.lastName}`}
                   >
                     <option value="">No team</option>
                     {s.teamColors.map((c) => (
@@ -237,6 +260,7 @@ export default function HostGameDay({ sessionId }: { sessionId: string }) {
             value={summary}
             onChange={(e) => setSummary(e.target.value)}
             data-testid="wrapup-summary"
+            aria-label="Wrap-up summary"
           />
           <label className="mt-2 flex items-center gap-2 text-sm">
             <input type="checkbox" checked={incident} onChange={(e) => setIncident(e.target.checked)} />
@@ -249,6 +273,7 @@ export default function HostGameDay({ sessionId }: { sessionId: string }) {
               placeholder="What happened?"
               value={incidentDetails}
               onChange={(e) => setIncidentDetails(e.target.value)}
+              aria-label="Incident details"
             />
           )}
           <button

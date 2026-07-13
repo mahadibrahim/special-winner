@@ -199,6 +199,11 @@ describe("host game-day APIs", () => {
     expect(report).toBeDefined();
     expect(report.summary).toBe("Solid turnout, no issues.");
 
+    const detail = await apiFetch(`/api/host/games/${sessionId}`, { cookie });
+    expect(detail.status).toBe(200);
+    const detailBody = await detail.json();
+    expect(detailBody.session.reportSubmitted).toBe(true);
+
     const second = await apiFetch(`/api/host/games/${sessionId}/report`, {
       method: "POST",
       cookie,
