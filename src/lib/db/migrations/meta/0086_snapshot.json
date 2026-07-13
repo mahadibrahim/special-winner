@@ -1,5 +1,5 @@
 {
-  "id": "8a3c144f-e7fd-420e-8a3a-62498b9b92a0",
+  "id": "9a26535f-6cb1-4ebe-81f0-dfce8477cd3c",
   "prevId": "1bf21b0e-d464-43da-9a34-2bf291392fcc",
   "version": "7",
   "dialect": "postgresql",
@@ -6419,8 +6419,8 @@
         }
       },
       "indexes": {
-        "drop_in_bookings_one_active_per_user_session": {
-          "name": "drop_in_bookings_one_active_per_user_session",
+        "drop_in_bookings_one_active_per_user_session_v2": {
+          "name": "drop_in_bookings_one_active_per_user_session_v2",
           "columns": [
             {
               "expression": "session_id",

@@ -167,7 +167,7 @@ export async function handleDropInCheckoutComplete(
     // Duplicate-user guard, under the same session lock. Two reasons:
     //   1. If this user already holds an ACTIVE row on the session, a second
     //      insert would trip the partial unique index
-    //      (drop_in_bookings_one_active_per_user_session) and poison the
+    //      (drop_in_bookings_one_active_per_user_session_v2) and poison the
     //      webhook with a permanent retry loop.
     //   2. It's the backstop for redelivered events whose PaymentIntent is
     //      no longer findable on the row: after an overflow booking is

@@ -32,8 +32,9 @@
  *      slot for the waitlist), and a pre-expiry reminder is dispatched
  *      to the booker before that happens. See docs/superpowers/plans/
  *      2026-07-12-walkin-remote-payment.md for the full design.
- *      DUPLICATE GUARD: migration 0086 extended the partial unique index
- *      `drop_in_bookings_one_active_per_user_session` to predicate on
+ *      DUPLICATE GUARD: migration 0086 replaced the partial unique index
+ *      with `drop_in_bookings_one_active_per_user_session_v2`, whose
+ *      predicate covers
  *      `status IN ('confirmed','waitlisted','pending_claim','pending_payment')`
  *      — DB-level protection is restored now that scripts/db-migrate.ts
  *      applies each migration file in its own transaction (see that

@@ -60,6 +60,25 @@
  * files). Re-running is safe: already-applied files (by hash) are skipped,
  * and the failed file is retried from its own first statement.
  *
+ * ── INVARIANT: every migration must be RE-RUN-SAFE ──────────────────────
+ * The hash-based pending check changes one failure mode versus the old
+ * watermark check: a migration whose tracking row is MISSING (or whose
+ * hash no longer matches, e.g. the file was edited after shipping) gets
+ * RE-EXECUTED. The old runner's single-latest-created_at watermark would
+ * have silently skipped it instead. db-migrate-bootstrap.ts protects
+ * migrations it can verify by schema evidence (tables/columns/indexes) —
+ * it rewrites their rows with current-content hashes on every deploy —
+ * but migrations with NO parseable effects (bare ALTER TYPE ... ADD
+ * VALUE, data-only backfills) have no such safety net: if their row is
+ * ever lost or their file edited, they WILL run again against a live DB.
+ * Therefore every migration — especially effect-less ones — must be
+ * written idempotently: ADD VALUE IF NOT EXISTS, ADD COLUMN IF NOT
+ * EXISTS, DO $$ ... duplicate_object ... $$, INSERT ... WHERE NOT
+ * EXISTS. A non-idempotent statement in a re-run migration aborts the
+ * deploy (loudly, with rollback of that file only — but still a blocked
+ * deploy). Both currently-effect-less migrations (0061, 0082) are
+ * idempotent; keep it that way.
+ *
  * For an already-provisioned DB that was previously managed via push
  * (no __drizzle_migrations rows), run `db:migrate:bootstrap` first.
  */
@@ -141,7 +160,7 @@ async function main() {
     process.exit(1);
   }
 
-  console.log("Applying migrations from src/lib/db/migrations …");
+  console.log(`Applying migrations from ${MIGRATIONS_FOLDER} …`);
 
   // readMigrationFiles is drizzle-orm's own journal-driven loader: same
   // statement-breakpoint split, same sha256-of-raw-file hash, same
