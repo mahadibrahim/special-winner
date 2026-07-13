@@ -993,24 +993,6 @@ async function seedHostPortalFixture(
   hostUserId: string,
   parentUserId: string,
 ) {
-  // One-time cleanup: earlier revisions of this fixture used
-  // select-by-formatLabel with a random-generated id instead of a fixed
-  // one. Delete any such stragglers (cascades to their bookings/reports)
-  // so re-seeding doesn't leave duplicate "e2e-host-fixture" rows behind
-  // that could confuse the spec's marker-text lookups.
-  await db.delete(dropInSessions).where(
-    or(
-      and(
-        eq(dropInSessions.formatLabel, "e2e-host-fixture"),
-        ne(dropInSessions.id, E2E_HOST_CLAIMABLE_SESSION_ID),
-      ),
-      and(
-        eq(dropInSessions.formatLabel, "e2e-host-wrapup-fixture"),
-        ne(dropInSessions.id, E2E_HOST_WRAPUP_SESSION_ID),
-      ),
-    ),
-  );
-
   // Active host profile — idempotent on (userId, organizationId).
   const [existingProfile] = await db
     .select({ id: hostProfiles.id, status: hostProfiles.status })

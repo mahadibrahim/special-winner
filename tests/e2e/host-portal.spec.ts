@@ -28,8 +28,21 @@ test("host claims a game, checks a player in, submits wrap-up UI is gated", asyn
   if (await claimButton.isVisible().catch(() => false)) {
     await claimButton.click();
   } else {
+    // Astro's origin-check middleware 403s non-safe-method requests that
+    // carry no `content-type` unless the `origin` header matches the site
+    // origin. A real browser fetch (see HostDashboard's claim()) gets an
+    // Origin header for free; Playwright's APIRequestContext does not, so
+    // it must be set explicitly here (same pattern as
+    // netlify/functions/scheduled-send-ops-digest.ts).
     const claimRes = await page.request.post(
       `/api/host/games/${E2E_HOST_CLAIMABLE_SESSION_ID}/claim`,
+      {
+        headers: {
+          Origin: new URL(page.url()).origin,
+          "Content-Type": "application/json",
+        },
+        data: {},
+      },
     );
     expect(claimRes.ok()).toBe(true);
   }
