@@ -56,6 +56,34 @@ function MediaVideo({ src, label }: { src: string; label: string }) {
   );
 }
 
+/** Same fallback idea as MediaVideo, for the applicant photo — covers
+ * link-mode applications where the stored value is a share link that
+ * doesn't resolve directly to image bytes. */
+function MediaPhoto({
+  src,
+  alt,
+}: {
+  src: string;
+  alt: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <a className="underline" href={src} target="_blank" rel="noreferrer">
+        Photo
+      </a>
+    );
+  }
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className="h-24 w-24 rounded-full object-cover"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 export default function ApplicationsList() {
   useHydrationBeacon();
 
@@ -218,13 +246,9 @@ export default function ApplicationsList() {
                   {a.role === "host" ? (
                     <div className="flex flex-col gap-2">
                       {a.photoKey ? (
-                        <img
+                        <MediaPhoto
                           src={`/api/admin/applications/${a.id}/media/photo`}
                           alt={`${a.firstName} ${a.lastName}`}
-                          className="h-24 w-24 rounded-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.style.display = "none";
-                          }}
                         />
                       ) : null}
                       {a.motivationVideoKey ? (
