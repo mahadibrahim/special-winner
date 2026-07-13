@@ -610,6 +610,13 @@
       "when": 1783905057472,
       "tag": "0086_nosy_young_avengers",
       "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1783958527761,
+      "tag": "0087_tan_tattoo",
+      "breakpoints": true
     }
   ]
 }
