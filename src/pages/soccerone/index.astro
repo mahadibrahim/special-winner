@@ -8,6 +8,7 @@ import HomeSignupStrip from '@/components/soccerone/HomeSignupStrip';
 import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
 import { HOME_GOOGLE_RATING, HOME_REVIEWS } from '@/lib/soccerone/home-reviews';
 import { SOCCERONE_ORG_JSONLD } from '@/lib/seo/soccerone-jsonld';
+import { aggregateFeaturedTerm } from '@/lib/soccerone/featured-term';
 
 // Live season data — same org-scoped fetch + filters as leagues.astro.
 // The homepage features the first upcoming open ADULT season (youth as
@@ -46,6 +47,24 @@ const [adultSeasons, youthSeasons] = await Promise.all([
 
 const featured = adultSeasons[0] ?? youthSeasons[0] ?? null;
 const adultFeatured = adultSeasons[0] ?? null;
+
+// When the featured adult season belongs to a term with multiple open
+// divisions (the normal in-season state — 13 fall divisions share one
+// start date), the hero must sell the TERM, not whichever division the
+// createdAt tiebreak happens to surface first ("Co-Ed D" incident). The
+// aggregate card routes to /leagues where the finder picks the division.
+const termAgg = aggregateFeaturedTerm(adultSeasons);
+const heroMulti = termAgg.multi && featured === adultFeatured;
+const aggKickoff = termAgg.kickoff
+  ? new Date(termAgg.kickoff).toLocaleDateString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC',
+    })
+  : null;
+const aggCloses = termAgg.closes
+  ? new Date(termAgg.closes).toLocaleDateString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric', timeZone: 'America/New_York',
+    })
+  : null;
 // The audience=youth filter passes age-unbounded adult seasons; only a
 // program explicitly authored for youth should light the youth chip.
 // (Repo convention: youth programs have audienceType "parents" — the
@@ -150,7 +169,33 @@ setMarketingEdgeCache(Astro); // after fetches; a degraded (empty-seasons) rende
 
         <!-- What's open now + what's next -->
         <div class="hero-actions">
-          {featured && (
+          {featured && heroMulti && (
+            <div class="season-card">
+              <span class="status-dock">
+                <span class="status-dock-dot" aria-hidden="true"></span>
+                OPEN{aggCloses ? ` · CLOSES ${aggCloses.toUpperCase()}` : ''}
+              </span>
+              <div>
+                <div class="season-name">{termAgg.termLabel} Adult Leagues</div>
+                <div class="season-meta">
+                  <span><b>{termAgg.count} divisions</b> — {termAgg.families.join(' · ')}</span>
+                  {youthOpen && <span><b>Youth:</b> Sat &amp; Sun mornings</span>}
+                  {aggKickoff && <span>Kicks off <b>{aggKickoff}</b></span>}
+                  {termAgg.uniformPrice && <span>{termAgg.uniformPrice}</span>}
+                </div>
+              </div>
+              <div class="season-cta-row">
+                {/* Term-level CTA routes to the division finder — no
+                    data-so-register-cta: that event is division-scoped and
+                    fires from the leagues page's own CTAs. */}
+                <a href="/leagues" class="season-cta">
+                  Register for {termAgg.termLabel} →
+                </a>
+                <span class="season-cta-note">Pick your division · team &amp; free-agent spots</span>
+              </div>
+            </div>
+          )}
+          {featured && !heroMulti && (
             <div class="season-card">
               <span class="status-dock">
                 <span class="status-dock-dot" aria-hidden="true"></span>
@@ -274,12 +319,16 @@ setMarketingEdgeCache(Astro); // after fetches; a degraded (empty-seasons) rende
                 <div class="pc-detail">
                   <span class="pc-detail-item">
                     <span class="detail-label">NOW REGISTERING</span>
-                    <span class="detail-val">{adultFeatured.name}{adultStart ? ` · starts ${adultStart}` : ''}</span>
+                    <span class="detail-val">
+                      {termAgg.multi
+                        ? `${termAgg.termLabel} · ${termAgg.count} divisions${aggKickoff ? ` · starts ${aggKickoff}` : ''}`
+                        : `${adultFeatured.name}${adultStart ? ` · starts ${adultStart}` : ''}`}
+                    </span>
                   </span>
-                  {adultCloses && (
+                  {(termAgg.multi ? aggCloses : adultCloses) && (
                     <span class="pc-detail-item">
                       <span class="detail-label">REGISTRATION CLOSES</span>
-                      <span class="detail-val">{adultCloses}</span>
+                      <span class="detail-val">{termAgg.multi ? aggCloses : adultCloses}</span>
                     </span>
                   )}
                 </div>
@@ -443,28 +492,32 @@ setMarketingEdgeCache(Astro); // after fetches; a degraded (empty-seasons) rende
               {featured.program?.audienceType === 'parents'
                 ? 'Youth leagues on Saturday & Sunday mornings.'
                 : `Adult divisions at both facilities${youthOpen ? ', youth leagues on weekend mornings' : ''}.`}
-              {(featuredStart || featuredCloses) && (
+              {((heroMulti ? aggKickoff : featuredStart) || (heroMulti ? aggCloses : featuredCloses)) && (
                 <>
-                  {' '}{featuredStart && `7-game season starts ${featuredStart}`}
-                  {featuredStart && featuredCloses && ' — '}
-                  {featuredCloses && (
-                    <b>{featuredStart ? 'registration' : 'Registration'} closes {featuredCloses}</b>
+                  {' '}{(heroMulti ? aggKickoff : featuredStart) && `7-game season starts ${heroMulti ? aggKickoff : featuredStart}`}
+                  {(heroMulti ? aggKickoff : featuredStart) && (heroMulti ? aggCloses : featuredCloses) && ' — '}
+                  {(heroMulti ? aggCloses : featuredCloses) && (
+                    <b>{(heroMulti ? aggKickoff : featuredStart) ? 'registration' : 'Registration'} closes {heroMulti ? aggCloses : featuredCloses}</b>
                   )}.
                 </>
               )}
             </p>
           </div>
           <div class="cta-band-right">
+            {/* Multi-division term: route to the finder (division-scoped
+                analytics fire there); single season: direct register. */}
             <a
-              href={`/register/${featured.id}`}
+              href={heroMulti ? '/leagues' : `/register/${featured.id}`}
               class="cta-band-btn"
-              data-so-register-cta
-              data-season-id={featured.id}
-              data-level={featured.skillLevel ?? 'open'}
-              data-gender={featured.divisionGender ?? 'unknown'}
-              data-venue={featured.location?.slug ?? ''}
-              data-term={featured.termSlug ?? ''}
-              data-mode={featured.signupModes?.includes('team') ? 'team' : 'individual'}
+              {...(heroMulti ? {} : {
+                'data-so-register-cta': true,
+                'data-season-id': featured.id,
+                'data-level': featured.skillLevel ?? 'open',
+                'data-gender': featured.divisionGender ?? 'unknown',
+                'data-venue': featured.location?.slug ?? '',
+                'data-term': featured.termSlug ?? '',
+                'data-mode': featured.signupModes?.includes('team') ? 'team' : 'individual',
+              })}
             >
               Register Now
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
