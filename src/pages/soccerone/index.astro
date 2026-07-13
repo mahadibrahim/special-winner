@@ -492,12 +492,12 @@ setMarketingEdgeCache(Astro); // after fetches; a degraded (empty-seasons) rende
               {featured.program?.audienceType === 'parents'
                 ? 'Youth leagues on Saturday & Sunday mornings.'
                 : `Adult divisions at both facilities${youthOpen ? ', youth leagues on weekend mornings' : ''}.`}
-              {(featuredStart || featuredCloses) && (
+              {((heroMulti ? aggKickoff : featuredStart) || (heroMulti ? aggCloses : featuredCloses)) && (
                 <>
-                  {' '}{featuredStart && `7-game season starts ${featuredStart}`}
-                  {featuredStart && featuredCloses && ' — '}
-                  {featuredCloses && (
-                    <b>{featuredStart ? 'registration' : 'Registration'} closes {featuredCloses}</b>
+                  {' '}{(heroMulti ? aggKickoff : featuredStart) && `7-game season starts ${heroMulti ? aggKickoff : featuredStart}`}
+                  {(heroMulti ? aggKickoff : featuredStart) && (heroMulti ? aggCloses : featuredCloses) && ' — '}
+                  {(heroMulti ? aggCloses : featuredCloses) && (
+                    <b>{(heroMulti ? aggKickoff : featuredStart) ? 'registration' : 'Registration'} closes {heroMulti ? aggCloses : featuredCloses}</b>
                   )}.
                 </>
               )}

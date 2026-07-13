@@ -59,6 +59,7 @@ test.describe("SoccerOne homepage", () => {
     // submission is covered by the newsletter API tests.
   })
 })
+
   test("hero card routes correctly in both modes (division vs term aggregate)", async ({ page }) => {
     await page.goto(`${BASE}/`, { waitUntil: "domcontentloaded" });
     const card = page.locator(".season-card");
