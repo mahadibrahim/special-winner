@@ -11,13 +11,16 @@
  *
  * Org- AND location-scoped: a venue manager can only mark attendance on
  * sessions whose venue is in their assigned locations (super-admin unscoped).
+ * The bulk update itself lives in src/lib/dropin/attendance.ts, shared with
+ * the host game-day attendance endpoint.
  */
 import type { APIRoute } from "astro";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
+import { dropInSessions } from "@/lib/db/schema/drop-in";
 import { requireOrgAdminAccess } from "@/lib/auth/roles";
 import { callerCanActOnVenue } from "@/lib/admin/require-location-scope";
+import { applyAttendanceEntries, type AttendanceEntry } from "@/lib/dropin/attendance";
 
 export const prerender = false;
 
@@ -27,11 +30,6 @@ const json = (body: unknown, status: number) =>
     headers: { "Content-Type": "application/json" },
   });
 
-interface Entry {
-  bookingId: string;
-  action: "check_in" | "no_show" | "undo_check_in";
-}
-
 export const POST: APIRoute = async (context) => {
   const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
@@ -40,7 +38,7 @@ export const POST: APIRoute = async (context) => {
   const id = context.params.id;
   if (!id) return json({ error: "session id required" }, 400);
 
-  let body: { entries?: Entry[] };
+  let body: { entries?: AttendanceEntry[] };
   try {
     body = await context.request.json();
   } catch {
@@ -68,64 +66,6 @@ export const POST: APIRoute = async (context) => {
     return json({ error: "Session not found" }, 404);
   }
 
-  // Pull only bookings belonging to this session — guards against
-  // cross-session id passing.
-  const ids = body.entries.map((e) => e.bookingId);
-  if (ids.length === 0) return json({ ok: true, updated: 0 }, 200);
-
-  const ours = await db
-    .select({ id: dropInBookings.id })
-    .from(dropInBookings)
-    .where(
-      and(
-        eq(dropInBookings.sessionId, id),
-        inArray(dropInBookings.id, ids),
-      ),
-    );
-  const ourIds = new Set(ours.map((r) => r.id));
-
-  // One UPDATE per action type instead of one per entry. If the same
-  // booking appears twice, the last entry wins (same outcome as the
-  // sequential loop this replaces).
-  const actionById = new Map<string, Entry["action"]>();
-  for (const entry of body.entries) {
-    if (!ourIds.has(entry.bookingId)) continue;
-    actionById.set(entry.bookingId, entry.action);
-  }
-
-  const idsFor = (action: Entry["action"]) =>
-    [...actionById.entries()].filter(([, a]) => a === action).map(([id]) => id);
-
-  const checkInIds = idsFor("check_in");
-  const undoIds = idsFor("undo_check_in");
-  const noShowIds = idsFor("no_show");
-  const now = new Date();
-
-  if (checkInIds.length > 0) {
-    await db
-      .update(dropInBookings)
-      .set({ checkedInAt: now, updatedAt: now })
-      .where(inArray(dropInBookings.id, checkInIds));
-  }
-  if (undoIds.length > 0) {
-    await db
-      .update(dropInBookings)
-      .set({ checkedInAt: null, updatedAt: now })
-      .where(inArray(dropInBookings.id, undoIds));
-  }
-  if (noShowIds.length > 0) {
-    await db
-      .update(dropInBookings)
-      .set({
-        status: "no_show",
-        cancellationReason: "no_show",
-        cancelledAt: now,
-        updatedAt: now,
-      })
-      .where(inArray(dropInBookings.id, noShowIds));
-  }
-
-  const updated = actionById.size;
-
+  const { updated } = await applyAttendanceEntries(id, body.entries);
   return json({ ok: true, updated }, 200);
 };
