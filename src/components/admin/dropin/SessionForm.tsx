@@ -243,6 +243,9 @@ export function SessionForm({ sessionId }: SessionFormProps) {
       // Host writes go through the guarded /host endpoint (not the session
       // create/update body) — only touch it if the selection actually
       // changed, and only after the main session save succeeded.
+      let hostWriteFailed = false;
+      let hostErrorMessage = "";
+
       if (newId && state.hostUserId !== initialHostUserId) {
         try {
           if (state.hostUserId) {
@@ -259,9 +262,8 @@ export function SessionForm({ sessionId }: SessionFormProps) {
             );
             if (!hostRes.ok) {
               const hostJson = await hostRes.json().catch(() => ({}));
-              toast.error(
-                hostJson.error ?? "Session saved, but host assignment failed",
-              );
+              hostErrorMessage = hostJson.error ?? "Host assignment failed";
+              hostWriteFailed = true;
             }
           } else {
             const hostRes = await fetch(
@@ -269,12 +271,22 @@ export function SessionForm({ sessionId }: SessionFormProps) {
               { method: "DELETE" },
             );
             if (!hostRes.ok) {
-              toast.error("Session saved, but host removal failed");
+              hostErrorMessage = "Host removal failed";
+              hostWriteFailed = true;
             }
           }
         } catch {
-          toast.error("Session saved, but host assignment failed");
+          hostErrorMessage = "Host assignment failed";
+          hostWriteFailed = true;
         }
+      }
+
+      // If host write failed, show error and stay on form (don't navigate).
+      if (hostWriteFailed) {
+        toast.error(
+          `Session saved, but the host assignment failed: ${hostErrorMessage}. Set the host from the session page.`,
+        );
+        return;
       }
 
       toast.success(sessionId ? "Saved" : "Created");
