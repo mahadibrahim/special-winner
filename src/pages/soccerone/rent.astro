@@ -186,7 +186,11 @@ const fmt = (cents: number) => {
           <div class="inc-item">
             <span class="inc-check">✓</span>
             <div class="inc-text">
-              <strong>Full-size indoor turf field</strong>
+              {facility === 'downtown' ? (
+                <strong>Fast 6v6 indoor turf field</strong>
+              ) : (
+                <strong>Full-size indoor turf field</strong>
+              )}
               <span>Professional-grade synthetic turf, line-marked</span>
             </div>
           </div>
