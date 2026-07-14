@@ -26,5 +26,7 @@ setting, not something the code can do.
 
 ## If something goes wrong
 
-Exit Guided Access with the passcode and reload the page. Nothing is stored on
-the device.
+Exit Guided Access with the passcode and reload the page. No customer
+registration details are stored on the device — the kiosk clears them from
+the screen and from memory as soon as a check-in finishes or the idle timer
+fires.

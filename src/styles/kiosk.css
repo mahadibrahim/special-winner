@@ -1,10 +1,18 @@
 /* src/styles/kiosk.css — unattended, mounted-iPad hardening. */
 
+/* overscroll-behavior only does anything on an element that IS a scroll
+   container. .kiosk-surface (<main>) never is — the document scrolls. So the
+   rule has to live on html/body, scoped with :has() so importing this
+   stylesheet can't change scroll behavior on any other page. Safari 15.4+
+   supports :has(), which comfortably covers any iPad running this kiosk. */
+html:has(.kiosk-surface),
+body:has(.kiosk-surface) {
+  overscroll-behavior: none;
+}
+
 .kiosk-surface {
   /* Kill the ~300ms double-tap-zoom delay on every tap. */
   touch-action: manipulation;
-  /* Rubber-banding must not reveal Safari's chrome on a mounted device. */
-  overscroll-behavior: none;
   /* iOS inflates text in some orientations without this. */
   -webkit-text-size-adjust: 100%;
   /* Long-press selection highlights are noise on a kiosk... */
