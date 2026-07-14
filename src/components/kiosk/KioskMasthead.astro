@@ -1,0 +1,75 @@
+---
+// Kiosk masthead — brand chrome for an unattended, mounted iPad.
+//
+// Deliberately NOT SoccerOneHeader: that component carries nav links and a
+// Sign In CTA, and every one of those is an escape hatch off a kiosk tab
+// that Task 6 worked hard to keep pinned. This renders the wordmark
+// treatment only — no <a>, no nav, no way off the page.
+//
+// The `.so-wordmark` / `.wm-soccer` / `.wm-one` rules live scoped inside
+// SoccerOneHeader.astro's own <style> block, so they don't reach this
+// component's markup even though BaseLayout always imports that component
+// (Astro scopes <style> per component instance). This file re-declares the
+// same treatment against the shared var(--so-*) tokens instead of relying
+// on that transitive import. It also imports the token sheet directly so
+// the wordmark renders correctly even if BaseLayout's chrome-import chain
+// ever changes — soccerone-tokens.css is idempotent to import twice.
+import "@/styles/soccerone-tokens.css";
+
+interface Props {
+  brandName: string;
+  locationName?: string | null;
+  today: string;
+}
+
+const { brandName, locationName, today } = Astro.props;
+const isSoccerOne = brandName === "SoccerOne";
+---
+
+<div class="border-b border-border">
+  <div class="max-w-2xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
+    <div class="flex items-baseline gap-3">
+      {isSoccerOne ? (
+        <span class="so-wordmark" aria-label="SoccerOne">
+          <span class="wm-soccer">SOCCER</span><span class="wm-one">ONE</span>
+        </span>
+      ) : (
+        <span class="font-display text-xl font-medium italic text-ink">{brandName}</span>
+      )}
+      {locationName && (
+        <span class="text-[11px] font-semibold tracking-[0.18em] uppercase text-ink-muted">
+          {locationName}
+        </span>
+      )}
+    </div>
+    <p class="text-[11px] font-medium tracking-[0.08em] uppercase text-ink-faint">
+      {today}
+    </p>
+  </div>
+</div>
+
+<style>
+  /* Mirrors the wordmark treatment in SoccerOneHeader.astro. Kept in sync
+     manually — that file's <style> block is Astro-scoped to its own
+     component instance, so it cannot be shared via import. */
+  .so-wordmark {
+    display: flex;
+    align-items: baseline;
+    gap: 0;
+    flex-shrink: 0;
+  }
+  .wm-soccer {
+    font-family: var(--so-font-display);
+    font-size: 1.25rem;
+    letter-spacing: 0.02em;
+    color: var(--so-white, #ffffff);
+    line-height: 1;
+  }
+  .wm-one {
+    font-family: var(--so-font-display);
+    font-size: 1.25rem;
+    letter-spacing: 0.02em;
+    color: var(--so-lime);
+    line-height: 1;
+  }
+</style>

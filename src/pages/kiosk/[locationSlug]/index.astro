@@ -1,6 +1,7 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import KioskRoot from "@/components/kiosk/KioskRoot";
+import KioskMasthead from "@/components/kiosk/KioskMasthead.astro";
 import { requireKioskLocation } from "@/lib/check-in/kiosk-auth";
 import { getBrandTheme } from "@/lib/branding/themes";
 import { BUSINESS_TIMEZONE } from "@/lib/time/business-timezone";
@@ -46,20 +47,10 @@ const today = new Date().toLocaleDateString("en-US", {
   navigation={false}
   footer={false}
 >
-  <main class="min-h-screen bg-cream text-ink antialiased">
-    <!-- Editorial masthead -->
-    <div class="border-b border-border">
-      <div class="max-w-2xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
-        <p class="text-[11px] font-semibold tracking-[0.18em] uppercase text-ink-muted">
-          § The Front Desk
-        </p>
-        <p class="text-[11px] font-medium tracking-[0.08em] uppercase text-ink-faint">
-          {today}
-        </p>
-      </div>
-    </div>
+  <main class="min-h-screen flex flex-col bg-cream text-ink antialiased">
+    <KioskMasthead brandName={brandName} locationName={locationName} today={today} />
 
-    <div class="max-w-2xl mx-auto px-6 py-10 md:py-14">
+    <div class="max-w-2xl mx-auto px-6 py-10 md:py-14 flex-1">
       {invalid ? (
         <div class="bg-paper border border-destructive/30 rounded-xl p-6">
           <h1 class="font-display text-2xl font-medium italic text-ink mb-2">
@@ -80,5 +71,13 @@ const today = new Date().toLocaleDateString("en-US", {
         />
       )}
     </div>
+
+    <footer class="border-t border-border mt-auto">
+      <div class="max-w-2xl mx-auto px-6 py-4 text-center">
+        <p class="text-[11px] tracking-[0.12em] uppercase text-ink-faint">
+          Powered by <span class="text-ink-muted font-semibold">Aspire Sports</span>
+        </p>
+      </div>
+    </footer>
   </main>
 </BaseLayout>
