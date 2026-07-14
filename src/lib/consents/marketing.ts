@@ -1,8 +1,14 @@
+// Marketing consent (email / SMS / WhatsApp opt-ins). Deliberately NOT called
+// recordConsent — `./record.ts` in this same directory already exports a
+// recordConsent() for MEDIA/WAIVER consent. Two functions of the same name
+// recording two legally distinct kinds of consent is exactly the ambiguity that
+// gets the wrong one imported.
+
 import { eq } from "drizzle-orm";
 import { phoneOptIns } from "@/lib/db/schema/phone-verifications";
 import { users } from "@/lib/db/schema/users";
 import type { Database } from "@/lib/db";
-import type { ConsentChannel } from "./channels";
+import type { ConsentChannel } from "./marketing-channels";
 
 /**
  * A consent parked while its channel was dormant, then flushed months later, is
@@ -21,7 +27,7 @@ export function isConsentStale(optedInAt: Date, now: Date = new Date()): boolean
  * did not explicitly tick — the caller passes exactly the channels whose boxes
  * were checked, and `textShown` is the literal sentence they saw.
  */
-export async function recordConsent(opts: {
+export async function recordMarketingConsent(opts: {
   db: Database;
   organizationId: string;
   userId: string;
@@ -45,7 +51,7 @@ export async function recordConsent(opts: {
     return;
   }
 
-  if (!opts.phone) throw new Error(`recordConsent: ${opts.channel} requires a phone`);
+  if (!opts.phone) throw new Error(`recordMarketingConsent: ${opts.channel} requires a phone`);
 
   await opts.db
     .insert(phoneOptIns)

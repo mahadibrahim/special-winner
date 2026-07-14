@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { CONSENT_COPY, CONSENT_CHANNELS } from "@/lib/consent/channels";
+import { CONSENT_COPY, CONSENT_CHANNELS } from "@/lib/consents/marketing-channels";
 
 describe("consent copy", () => {
   it("has copy for every channel", () => {
