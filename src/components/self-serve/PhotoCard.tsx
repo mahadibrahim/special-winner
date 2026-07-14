@@ -1,6 +1,8 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { ErrorBanner } from "@/components/ui/error-banner";
+import { CARD_CLASS, DONE_CARD_CLASS, GHOST_BTN, PRIMARY_BTN } from "./card-styles";
 
 interface Props {
   token: string;
@@ -16,7 +18,7 @@ export function PhotoCard({ token, done, onDone }: Props) {
 
   if (done) {
     return (
-      <div className="p-4 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-900 text-sm flex items-center gap-2">
+      <div className={DONE_CARD_CLASS}>
         <span aria-hidden="true">&#10003;</span>
         <span>Photo added</span>
       </div>
@@ -55,9 +57,9 @@ export function PhotoCard({ token, done, onDone }: Props) {
   };
 
   return (
-    <div className="p-4 rounded-lg border space-y-3 bg-white">
-      <h2 className="font-semibold">Add your photo</h2>
-      <p className="text-sm text-stone-600">
+    <div className={CARD_CLASS}>
+      <h2 className="font-semibold text-ink">Add your photo</h2>
+      <p className="text-sm text-ink-muted">
         Helps the front desk recognize you at check-in.
       </p>
       <input
@@ -76,25 +78,16 @@ export function PhotoCard({ token, done, onDone }: Props) {
         />
       ) : null}
       <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          className="flex-1 px-4 py-2 rounded border bg-stone-50"
-        >
+        <button type="button" onClick={() => fileRef.current?.click()} className={GHOST_BTN}>
           {preview ? "Pick different photo" : "Take photo"}
         </button>
         {preview && (
-          <button
-            type="button"
-            onClick={onUpload}
-            disabled={busy}
-            className="flex-1 px-4 py-2 rounded bg-stone-900 text-white disabled:opacity-50"
-          >
+          <button type="button" onClick={onUpload} disabled={busy} className={PRIMARY_BTN}>
             {busy ? "Uploading..." : "Save"}
           </button>
         )}
       </div>
-      {error && <div className="text-sm text-rose-700">{error}</div>}
+      <ErrorBanner message={error} />
     </div>
   );
 }

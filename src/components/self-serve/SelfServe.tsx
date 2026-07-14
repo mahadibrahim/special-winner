@@ -249,24 +249,26 @@ export default function SelfServe({
 
   return (
     <div className="space-y-4">
-      <header>
-        <h1 className="text-xl font-semibold">Hi {context.displayName}</h1>
-        <p className="text-sm text-stone-600">{context.summary}</p>
+      <header className="space-y-1">
+        <h1 className="font-display text-3xl font-medium italic text-ink">
+          Hi {context.displayName}
+        </h1>
+        <p className="text-sm text-ink-muted">{context.summary}</p>
       </header>
 
       {paymentOutstanding &&
         (paymentProcessing ? (
-          <div className="p-4 rounded-lg border bg-stone-50 text-stone-700 text-sm flex items-center gap-2">
+          <div className="p-4 rounded-xl border border-border bg-cream-2 text-ink-muted text-sm flex items-center gap-2">
             <span
               aria-hidden="true"
-              className="inline-block h-3 w-3 rounded-full border-2 border-stone-400 border-t-transparent animate-spin"
+              className="inline-block h-3 w-3 rounded-full border-2 border-ink-faint border-t-transparent animate-spin"
             />
             <span>Payment processing…</span>
           </div>
         ) : (
           <div className="space-y-2">
             {paymentPollTimedOut && (
-              <p className="text-xs text-stone-500">
+              <p className="text-xs text-ink-faint">
                 We couldn't confirm your payment yet. If your card was charged,
                 please see the front desk and they'll sort it out — otherwise
                 you can try again below.
@@ -287,6 +289,7 @@ export default function SelfServe({
         <WaiverCard
           token={token}
           signerName={context.signerName ?? context.displayName}
+          playerName={context.displayName}
           done={waiverDone}
           onDone={onWaiverDone}
         />
@@ -316,11 +319,13 @@ function HoldReleasedScreen({
 }) {
   return (
     <div className="space-y-4">
-      <header>
-        <h1 className="text-xl font-semibold">Hi {displayName}</h1>
-        {summary && <p className="text-sm text-stone-600">{summary}</p>}
+      <header className="space-y-1">
+        <h1 className="font-display text-3xl font-medium italic text-ink">
+          Hi {displayName}
+        </h1>
+        {summary && <p className="text-sm text-ink-muted">{summary}</p>}
       </header>
-      <div className="p-6 rounded-lg border border-amber-200 bg-amber-50 text-amber-900">
+      <div className="p-6 rounded-xl border border-border bg-cream-2 text-ochre">
         <h2 className="text-lg font-semibold mb-2">
           This hold has been released
         </h2>
@@ -367,7 +372,7 @@ function CheckedInScreen({
 
   return (
     <div className="space-y-4">
-      <div className="p-6 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-900">
+      <div className="p-6 rounded-xl border border-border bg-cream-2 text-sage">
         <h1 className="text-lg font-semibold mb-2">You're checked in</h1>
         <p className="text-sm leading-relaxed">
           {spaceName
@@ -375,7 +380,7 @@ function CheckedInScreen({
             : "You're all set — enjoy your game!"}
         </p>
         {summary && (
-          <p className="mt-2 text-xs text-emerald-800/70">{summary}</p>
+          <p className="mt-2 text-xs text-sage/70">{summary}</p>
         )}
       </div>
       {returnSlug && (

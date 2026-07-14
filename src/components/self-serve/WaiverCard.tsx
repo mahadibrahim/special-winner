@@ -1,17 +1,21 @@
 "use client";
 
 import { useState } from "react";
+import { ErrorBanner } from "@/components/ui/error-banner";
+import { CARD_CLASS, DONE_CARD_CLASS, INPUT_CLASS, PRIMARY_BTN } from "./card-styles";
 
-const WAIVER_TEXT = `I acknowledge the inherent risks of recreational sports activity. By accepting below, I waive Aspire Sports from liability for injuries that may occur during my booked session or rental, and confirm I am physically fit to participate.`;
+const WAIVER_TEXT = `I acknowledge the inherent risks of recreational sports activity, including contact, falls, and weather-related conditions. I waive SoccerOne, operated by Aspire Sports, and its partner venues from liability for injuries that occur during this session, and I confirm that the player named above is physically able to participate.`;
 
 interface Props {
   token: string;
   signerName: string;
+  /** The player. When it differs from signerName, a guardian is signing. */
+  playerName: string;
   done: boolean;
   onDone: () => void;
 }
 
-export function WaiverCard({ token, signerName, done, onDone }: Props) {
+export function WaiverCard({ token, signerName, playerName, done, onDone }: Props) {
   const [accepted, setAccepted] = useState(false);
   const [typed, setTyped] = useState(signerName);
   const [busy, setBusy] = useState(false);
@@ -19,12 +23,20 @@ export function WaiverCard({ token, signerName, done, onDone }: Props) {
 
   if (done) {
     return (
-      <div className="p-4 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-900 text-sm flex items-center gap-2">
+      <div className={DONE_CARD_CLASS}>
         <span aria-hidden="true">&#10003;</span>
         <span>Waiver signed</span>
       </div>
     );
   }
+
+  const guardianSigning =
+    playerName.trim().length > 0 &&
+    signerName.trim().toLowerCase() !== playerName.trim().toLowerCase();
+
+  const acceptLabel = guardianSigning
+    ? `I am the parent or legal guardian of ${playerName} and accept these terms on their behalf.`
+    : "I have read and accept these terms.";
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,38 +63,38 @@ export function WaiverCard({ token, signerName, done, onDone }: Props) {
   };
 
   return (
-    <form onSubmit={onSubmit} className="p-4 rounded-lg border space-y-3 bg-white">
-      <h2 className="font-semibold">Sign the liability waiver</h2>
-      <p className="text-sm text-stone-700 bg-stone-50 border rounded p-3 whitespace-pre-wrap">
+    <form onSubmit={onSubmit} className={CARD_CLASS}>
+      <h2 className="font-semibold text-ink">Sign the liability waiver</h2>
+      <p className="text-sm text-ink-muted bg-cream-2 border border-border rounded p-3 whitespace-pre-wrap">
         {WAIVER_TEXT}
       </p>
-      <label className="flex items-start gap-2 text-sm">
+      <label className="flex items-start gap-2 text-sm text-ink">
         <input
           type="checkbox"
           checked={accepted}
           onChange={(e) => setAccepted(e.target.checked)}
           className="mt-1"
         />
-        <span>I accept the waiver above</span>
+        <span>{acceptLabel}</span>
       </label>
       <div>
-        <label htmlFor="typed-name" className="block text-xs text-stone-600 mb-1">
-          Type your full legal name to sign
+        <label htmlFor="typed-name" className="block text-xs text-ink-muted mb-1">
+          {guardianSigning ? "Parent/guardian signature" : "Signature"}
         </label>
         <input
           id="typed-name"
           type="text"
           value={typed}
           onChange={(e) => setTyped(e.target.value)}
-          className="w-full border rounded px-3 py-2"
+          className={INPUT_CLASS}
           autoComplete="name"
         />
       </div>
-      {error && <div className="text-sm text-rose-700">{error}</div>}
+      <ErrorBanner message={error} />
       <button
         type="submit"
         disabled={busy || !accepted || typed.trim().length === 0}
-        className="w-full px-4 py-2 rounded bg-stone-900 text-white disabled:opacity-50"
+        className={PRIMARY_BTN}
       >
         {busy ? "Saving..." : "Save signature"}
       </button>

@@ -11,6 +11,7 @@ import {
 import type { Stripe as StripeJs } from "@stripe/stripe-js";
 import { toast } from "sonner";
 import { ErrorBanner } from "@/components/ui/error-banner";
+import { CARD_CLASS, GHOST_BTN, PRIMARY_BTN } from "./card-styles";
 
 // Mirrors src/components/kiosk/WalkInWizard.tsx's stripe-js loading —
 // module-level cache so repeated mounts (e.g. this card re-rendering while
@@ -164,16 +165,16 @@ export function PayCard({
   }, [token, locationSlug]);
 
   return (
-    <div className="p-4 rounded-lg border space-y-3 bg-white" data-booking-id={bookingId ?? undefined}>
+    <div className={CARD_CLASS} data-booking-id={bookingId ?? undefined}>
       <div>
-        <h2 className="font-semibold">Complete payment</h2>
-        <p className="text-sm text-stone-600">
+        <h2 className="font-semibold text-ink">Complete payment</h2>
+        <p className="text-sm text-ink-muted">
           Your spot is held until payment is complete.
         </p>
       </div>
 
       {loading && (
-        <div className="text-sm text-stone-600">Loading payment…</div>
+        <div className="text-sm text-ink-muted">Loading payment…</div>
       )}
 
       <ErrorBanner message={loadError} onDismiss={() => setLoadError(null)} />
@@ -185,7 +186,7 @@ export function PayCard({
             <button
               type="button"
               onClick={() => setStripeLoadAttempt((n) => n + 1)}
-              className="w-full px-4 py-2 rounded border bg-stone-50 text-sm"
+              className={GHOST_BTN}
             >
               Try again
             </button>
@@ -264,16 +265,16 @@ function PayCardForm({
   return (
     <form onSubmit={onPay} className="space-y-3">
       {amounts && (
-        <div className="text-sm space-y-1 border rounded p-3 bg-stone-50">
-          <div className="flex justify-between text-stone-600">
+        <div className="text-sm space-y-1 border border-border rounded p-3 bg-cream-2">
+          <div className="flex justify-between text-ink-muted">
             <span>Session</span>
             <span>{fmt(amounts.baseAmountCents)}</span>
           </div>
-          <div className="flex justify-between text-stone-600">
+          <div className="flex justify-between text-ink-muted">
             <span>Card processing fee</span>
             <span>{fmt(amounts.surchargeCents)}</span>
           </div>
-          <div className="flex justify-between font-medium border-t pt-1">
+          <div className="flex justify-between font-medium text-ink border-t border-border pt-1">
             <span>Total</span>
             <span>{fmt(amounts.totalCents)}</span>
           </div>
@@ -284,11 +285,7 @@ function PayCardForm({
 
       <ErrorBanner message={formError} onDismiss={() => setFormError(null)} />
 
-      <button
-        type="submit"
-        disabled={busy || !stripe || !elements}
-        className="w-full px-4 py-2 rounded bg-stone-900 text-white disabled:opacity-50"
-      >
+      <button type="submit" disabled={busy || !stripe || !elements} className={PRIMARY_BTN}>
         {busy ? "Processing…" : `Pay ${totalLabel}`}
       </button>
     </form>
