@@ -94,6 +94,40 @@ const signSchema = z
 /** The kiosk's own opt-in surface — recorded on every consent row it writes. */
 const CONSENT_SOURCE = KIOSK_SPECTATOR_SOURCE;
 
+/**
+ * THE RESPONSE CONTRACT — READ THIS BEFORE RENDERING ANYTHING FROM IT.
+ *
+ * NOTHING IN THIS RESPONSE MEANS THE CUSTOMER IS SUBSCRIBED. This endpoint
+ * cannot subscribe anyone: it is unauthenticated, so every consent row it
+ * writes is `pending`, and only a VERIFIED ACT (the phone OTP; the email
+ * double-opt-in click) promotes one to `opted_in`. A UI that reads any field
+ * here as "you're on the list" is telling the customer something untrue — and
+ * `sendSms`'s opt-in gate will refuse the number anyway (`not_opted_in`).
+ *
+ * The two arrays say WHY a channel is not yet active — they are not a
+ * subscribed/unsubscribed split:
+ *
+ *   awaitingCode — a confirmation is IN FLIGHT. We texted a code to the number;
+ *     the customer must enter it. Actionable right now: "Enter the code we just
+ *     texted you." Entering it promotes every phone channel they ticked.
+ *
+ *   pending — captured, but NO confirmation is possible yet. Either the channel
+ *     is dormant (SMS under carrier review, WhatsApp with no WABA), or it is
+ *     email, whose double-opt-in send is a separate task that does not exist
+ *     yet. Nothing for the customer to do: "We'll be in touch to confirm."
+ *
+ * Both mean NOT ACTIVE. They differ only in whether the customer has a next
+ * step. `phoneVerificationId` is present iff `awaitingCode` is non-empty — it is
+ * what the UI posts to /api/auth/phone-verify/check with the entered code.
+ */
+type SignResponse = {
+  ok: true;
+  waiverId: string;
+  awaitingCode: ConsentChannel[];
+  pending: ConsentChannel[];
+  phoneVerificationId?: string;
+};
+
 export const POST: APIRoute = async ({ params, request, clientAddress, locals }) => {
   const slug = params.locationSlug ?? "";
 
@@ -141,6 +175,17 @@ export const POST: APIRoute = async ({ params, request, clientAddress, locals })
 
   // 1 — The signature. Always written, consent or no consent.
   // Valid to the end of the calendar year: waivers are re-signed each season.
+  //
+  // userId STAYS NULL — and stays null even when a ticked box resolves this
+  // person to an existing account below. Same doctrine as the consent rows: the
+  // kiosk matches an account on a TYPED, UNVERIFIED email, which is a match, not
+  // an authentication. A consent row may carry that link while it is `pending`
+  // because a pending row grants nothing. A waiver is a LEGAL DOCUMENT — stamping
+  // it with an account id would make our records say a person signed something
+  // they may never have seen, purely because a stranger in the lobby typed their
+  // address. The name, phone and email on the row identify the signer; the
+  // account link is only safe to add from an authenticated surface (a signed-in
+  // user claiming their own waiver), which is not this one.
   const validUntil = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
   const [waiver] = await db
     .insert(spectatorWaivers)
@@ -165,8 +210,15 @@ export const POST: APIRoute = async ({ params, request, clientAddress, locals })
 
   // 2 — A ticked box, and ONLY a ticked box, makes a user.
   const pending: ConsentChannel[] = [];
+  const awaitingCode: ConsentChannel[] = [];
   if (input.consents.length === 0) {
-    return json({ ok: true, waiverId: waiver.id, pending }, 200);
+    const body: SignResponse = {
+      ok: true,
+      waiverId: waiver.id,
+      awaitingCode,
+      pending,
+    };
+    return json(body, 200);
   }
 
   const email = input.email!; // guaranteed by the schema refine above
@@ -178,10 +230,9 @@ export const POST: APIRoute = async ({ params, request, clientAddress, locals })
   // signature is on file must never be told signing failed. But the user row
   // and the consent rows are one fact ("this person opted into these
   // channels"), so they go in a transaction: a half-written consent — a user
-  // conjured with no consent attached, or a waiver pointing at a user whose
-  // consent rows never landed — is worse than none. If the transaction throws,
-  // we still return 200 with every requested channel reported `pending`: the
-  // signature stands, the customer is admitted, and nothing was half-granted.
+  // conjured with no consent attached — is worse than none. If the transaction
+  // throws, we still return 200 with every requested channel reported `pending`:
+  // the signature stands, the customer is admitted, and nothing was half-granted.
   // (Chosen over "catch and continue": those rows are cheap to re-capture, and
   // an inconsistent consent record is the thing a carrier reviewer reads.)
   try {
@@ -193,10 +244,9 @@ export const POST: APIRoute = async ({ params, request, clientAddress, locals })
         phone: phoneE164 ?? phoneDigits,
       });
 
-      await tx
-        .update(spectatorWaivers)
-        .set({ userId: resolvedId })
-        .where(eq(spectatorWaivers.id, waiver.id));
+      // NOTE — the waiver is NOT back-stamped with resolvedId. See the comment
+      // on the insert above: a legal signature must not be attached to an
+      // account whose ownership nobody proved.
 
       // One consent record per ticked channel, each carrying the literal
       // sentence that channel's checkbox showed. Recorded BEFORE any send is
@@ -230,18 +280,36 @@ export const POST: APIRoute = async ({ params, request, clientAddress, locals })
     });
   } catch (err) {
     console.error("[spectator/sign] consent capture failed:", err);
-    return json(
-      { ok: true, waiverId: waiver.id, pending: [...input.consents] },
-      200,
-    );
+    const body: SignResponse = {
+      ok: true,
+      waiverId: waiver.id,
+      awaitingCode: [],
+      pending: [...input.consents],
+    };
+    return json(body, 200);
   }
 
-  // 4 — SMS: prove the number. This is the act that promotes the pending
-  // sms/whatsapp intents to real consent. A dormant channel is not a failure —
-  // the intent and its evidence are already filed; park the confirmation and
-  // tell the truth in the UI.
+  // 4 — The OTP: prove the number. This is the act that promotes the pending
+  // PHONE intents (sms AND whatsapp) to real consent.
+  //
+  // SEND IT FOR ANY PHONE CHANNEL, NOT JUST SMS. What the OTP settles is that
+  // the person who ticked the boxes holds this number — the one thing in doubt
+  // for both phone channels — and promotePendingPhoneConsents (the ONLY promoter
+  // there is) promotes every pending kiosk row for the number. So gating the
+  // send on `sms` alone made a WhatsApp-only tick a permanently dead consent:
+  // a `pending` row that nothing in the system could ever promote, for a customer
+  // who did opt in. Each row keeps its own consentTextShown, so the per-channel
+  // evidence stays distinct — one code, two independently-evidenced consents.
+  //
+  // (The text of the OTP itself is transactional, sent with bypassOptInCheck —
+  // it is not marketing, and it is the only message we may send this number
+  // until they enter it.)
+  //
+  // A dormant channel is not a failure — the intent and its evidence are already
+  // filed; park the confirmation and tell the truth in the UI.
+  const phoneChannels = input.consents.filter((c) => c !== "email");
   let phoneVerificationId: string | undefined;
-  if (input.consents.includes("sms") && phoneE164) {
+  if (phoneChannels.length > 0 && phoneE164) {
     const otp = await createPhoneVerification({
       phone: phoneE164,
       organizationId: location.organizationId,
@@ -256,26 +324,37 @@ export const POST: APIRoute = async ({ params, request, clientAddress, locals })
     });
     if (otp.ok) {
       phoneVerificationId = otp.verificationId;
+      // In flight: the customer has a next step, and taking it promotes these.
+      awaitingCode.push(...phoneChannels);
     } else {
       // Includes reason "sms_failed" carrying error "channel_dormant" (10DLC
       // registration still under carrier review). Whatever the cause, the
-      // opt-in stands and the channel is honestly reported as pending.
-      pending.push("sms");
+      // opt-in stands and the channels are honestly reported as pending — no
+      // confirmation is possible, so there is nothing for the customer to do.
+      pending.push(...phoneChannels);
     }
+  } else if (phoneChannels.length > 0) {
+    // Unreachable in practice (the schema refuses a phone opt-in without a
+    // normalizable US number), but a phone channel with no E.164 to text is by
+    // definition unconfirmable.
+    pending.push(...phoneChannels);
   }
 
-  // 5 — WhatsApp cannot deliver at all yet (no WABA / no approved templates).
-  // The consent is real and recorded; the confirmation is parked. Never attempt
-  // a send here.
-  if (input.consents.includes("whatsapp")) pending.push("whatsapp");
-
-  // 6 — Email is a double opt-in: the address is not on the list until the
+  // 5 — Email is a double opt-in: the address is not on the list until the
   // confirmation link is clicked (recordMarketingConsent leaves emailVerified
   // alone). The confirmation send is a separate task; until it lands — and
-  // after it lands, until they click — email is honestly pending.
+  // after it lands, until they click — email is honestly pending, with no next
+  // step we can offer at the kiosk.
   if (input.consents.includes("email")) pending.push("email");
 
-  return json({ ok: true, waiverId: waiver.id, pending, phoneVerificationId }, 200);
+  const body: SignResponse = {
+    ok: true,
+    waiverId: waiver.id,
+    awaitingCode,
+    pending,
+    phoneVerificationId,
+  };
+  return json(body, 200);
 };
 
 /**

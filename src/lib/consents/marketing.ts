@@ -184,6 +184,12 @@ export async function promotePendingPhoneConsents(opts: {
         eq(phoneOptIns.organizationId, opts.organizationId),
         eq(phoneOptIns.phone, opts.phone),
         eq(phoneOptIns.optInSource, opts.source),
+        // LOAD-BEARING. Without this a valid OTP resurrects a number that
+        // replied STOP (tests/api/kiosk/spectator.test.ts proves it: remove this
+        // line and "a VALID OTP must NOT promote a row the kiosk was never
+        // allowed to touch" fails). The source filter does NOT cover it — a
+        // STOPped row can carry optInSource = kiosk_spectator from the opt-in it
+        // originally made.
         eq(phoneOptIns.status, "pending"),
       ),
     )

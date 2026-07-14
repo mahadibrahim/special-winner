@@ -54,8 +54,61 @@ const LAST4 = SUFFIX.slice(-4);
 const TWIN_A = `561${SUFFIX.slice(0, 3)}${LAST4}`;
 const TWIN_B = `562${SUFFIX.slice(0, 3)}${LAST4}`;
 
+// The promotion path: sign → OTP → the pending intent becomes real consent.
+const OTP_PHONE = `563${SUFFIX}`;
+const OTP_PHONE_E164 = normalizeUsPhone(OTP_PHONE)!;
+const OTP_EMAIL = `otp-${SUFFIX}@example.invalid`;
+
+// WhatsApp ticked ALONE. Nothing else in the system can ever promote a phone
+// consent, so if the kiosk does not send an OTP for it, the row is dead forever.
+const WA_PHONE = `564${SUFFIX}`;
+const WA_PHONE_E164 = normalizeUsPhone(WA_PHONE)!;
+const WA_EMAIL = `whatsapp-${SUFFIX}@example.invalid`;
+
+// A number that opted in AT THE KIOSK once, then replied STOP. Same optInSource
+// as the kiosk writes, so the promotion's source filter does NOT protect it —
+// the `status = 'pending'` predicate is the only thing standing between a valid
+// OTP and a resurrected STOP.
+const STOPPED_KIOSK_PHONE = `565${SUFFIX}`;
+const STOPPED_KIOSK_PHONE_E164 = normalizeUsPhone(STOPPED_KIOSK_PHONE)!;
+const STOPPED_KIOSK_EMAIL = `stopped-kiosk-${SUFFIX}@example.invalid`;
+
 let LOCATION_ID = "";
 let ORG_ID = "";
+
+/**
+ * Read the OTP the kiosk texted out of the MESSAGING_MOCK=1 inbox. The mock
+ * records the message the leaf sender would have sent, keyed on the recipient
+ * exactly as `sendSms` received it — the E.164 form.
+ */
+async function readOtpCode(phoneE164: string, since: string): Promise<string> {
+  const res = await apiFetch(
+    `/api/test/messaging-mock?to=${encodeURIComponent(phoneE164)}` +
+      `&channel=sms&since=${encodeURIComponent(since)}`,
+  );
+  expect(res.status, "messaging mock endpoint (needs E2E_TEST_ENDPOINTS=yes)").toBe(200);
+  const body = (await res.json()) as {
+    enabled: boolean;
+    messages: { body: string }[];
+  };
+  expect(body.enabled, "MESSAGING_MOCK must be on for this suite").toBe(true);
+  const last = body.messages.at(-1);
+  expect(last, `no OTP was texted to ${phoneE164}`).toBeTruthy();
+  const code = last!.body.match(/\b(\d{6})\b/)?.[1];
+  expect(code, `no 6-digit code in: ${last!.body}`).toBeTruthy();
+  return code!;
+}
+
+async function completeOtp(verificationId: string, code: string) {
+  const res = await apiFetch("/api/auth/phone-verify/check", {
+    method: "POST",
+    body: JSON.stringify({ verificationId, code }),
+  });
+  const body = await res.json();
+  expect(res.status, `phone-verify/check said: ${JSON.stringify(body)}`).toBe(200);
+  expect(body.success).toBe(true);
+  return body;
+}
 
 describe("kiosk spectator waiver", () => {
   beforeAll(async () => {
@@ -93,6 +146,9 @@ describe("kiosk spectator waiver", () => {
           PENDING_PHONE,
           TWIN_A,
           TWIN_B,
+          OTP_PHONE,
+          WA_PHONE,
+          STOPPED_KIOSK_PHONE,
         ]),
       );
     await db
@@ -102,6 +158,9 @@ describe("kiosk spectator waiver", () => {
           PHONE_E164,
           STOP_PHONE_E164,
           PENDING_PHONE_E164,
+          OTP_PHONE_E164,
+          WA_PHONE_E164,
+          STOPPED_KIOSK_PHONE_E164,
         ]),
       );
     await db
@@ -113,6 +172,9 @@ describe("kiosk spectator waiver", () => {
           STOP_EMAIL,
           OUT_EMAIL,
           PENDING_EMAIL,
+          OTP_EMAIL,
+          WA_EMAIL,
+          STOPPED_KIOSK_EMAIL,
         ]),
       );
   });
@@ -287,6 +349,177 @@ describe("kiosk spectator waiver", () => {
       after.marketingOptedOutAt,
       "only the double-opt-in click may clear an unsubscribe — not a typed address",
     ).not.toBeNull();
+  });
+
+  it("the OTP PROMOTES the pending intent — that is the whole point of the code", async () => {
+    // The verified act. Everything upstream is intent; this is where consent
+    // begins, and `optedInAt` is the timestamp a carrier reviewer is shown as
+    // the moment it did.
+    const since = new Date(Date.now() - 5_000).toISOString();
+    const res = await apiFetch(`/api/kiosk/${LOCATION_ID}/spectator/sign`, {
+      method: "POST",
+      body: JSON.stringify({
+        firstName: "Prom",
+        lastName: "Oted",
+        phone: OTP_PHONE,
+        email: OTP_EMAIL,
+        signedName: "Prom Oted",
+        consents: ["sms"],
+      }),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+
+    // The honest contract: a confirmation is IN FLIGHT. Not "subscribed" —
+    // sendSms would still refuse this number (not_opted_in) until the code lands.
+    expect(body.awaitingCode).toEqual(["sms"]);
+    expect(body.pending).toEqual([]);
+    expect(body.phoneVerificationId).toBeTruthy();
+
+    const db = getDb();
+    const [before] = await db
+      .select()
+      .from(phoneOptIns)
+      .where(
+        and(eq(phoneOptIns.phone, OTP_PHONE_E164), eq(phoneOptIns.channel, "sms")),
+      );
+    expect(before.status).toBe("pending");
+    expect(before.optedInAt).toBeNull();
+
+    const code = await readOtpCode(OTP_PHONE_E164, since);
+    await completeOtp(body.phoneVerificationId, code);
+
+    const [after] = await db
+      .select()
+      .from(phoneOptIns)
+      .where(
+        and(eq(phoneOptIns.phone, OTP_PHONE_E164), eq(phoneOptIns.channel, "sms")),
+      );
+    expect(
+      after.status,
+      "a verified OTP must promote the pending intent it was sent to confirm",
+    ).toBe("opted_in");
+    expect(after.optedInAt).not.toBeNull();
+    // Still the kiosk's consent — the promotion does not rewrite the evidence.
+    expect(after.optInSource).toBe("kiosk_spectator");
+    expect(after.consentTextShown).toBeTruthy();
+  });
+
+  it("a WhatsApp-ONLY opt-in is promotable — the OTP is sent for any phone channel", async () => {
+    // The dead-consent bug: the OTP used to be sent only if `sms` was ticked.
+    // Tick WhatsApp alone and you got a `pending` row that NOTHING in the system
+    // could ever promote — promotePendingPhoneConsents is the only promoter and
+    // it only runs off an OTP. A consent the customer really gave, which we could
+    // never honour, forever. Proving the phone is what both phone channels need.
+    const since = new Date(Date.now() - 5_000).toISOString();
+    const res = await apiFetch(`/api/kiosk/${LOCATION_ID}/spectator/sign`, {
+      method: "POST",
+      body: JSON.stringify({
+        firstName: "Whats",
+        lastName: "App",
+        phone: WA_PHONE,
+        email: WA_EMAIL,
+        signedName: "Whats App",
+        consents: ["whatsapp"],
+      }),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(
+      body.phoneVerificationId,
+      "a whatsapp-only tick must still text a code — nothing else can promote it",
+    ).toBeTruthy();
+    expect(body.awaitingCode).toEqual(["whatsapp"]);
+
+    const code = await readOtpCode(WA_PHONE_E164, since);
+    await completeOtp(body.phoneVerificationId, code);
+
+    const db = getDb();
+    const [after] = await db
+      .select()
+      .from(phoneOptIns)
+      .where(
+        and(
+          eq(phoneOptIns.phone, WA_PHONE_E164),
+          eq(phoneOptIns.channel, "whatsapp"),
+        ),
+      );
+    expect(after.status).toBe("opted_in");
+    expect(after.optedInAt).not.toBeNull();
+
+    // And it promoted ONLY what was ticked: no sms row was conjured from a
+    // whatsapp consent. (tests/api/consent/channel-isolation guards the send
+    // side of the same rule.)
+    const sms = await db
+      .select()
+      .from(phoneOptIns)
+      .where(
+        and(eq(phoneOptIns.phone, WA_PHONE_E164), eq(phoneOptIns.channel, "sms")),
+      );
+    expect(sms.length, "a whatsapp tick must not create an sms consent").toBe(0);
+  });
+
+  it("a VALID OTP must NOT promote a row the kiosk was never allowed to touch", async () => {
+    // The invariant a carrier reviewer probes. This number opted in at the kiosk
+    // once (optInSource = kiosk_spectator — so the promotion's SOURCE filter does
+    // not save us here) and later replied STOP. Someone signs at the kiosk with
+    // that number and completes a perfectly valid OTP.
+    //
+    // Holding the phone is not the same as withdrawing a STOP. The `status =
+    // 'pending'` predicate in promotePendingPhoneConsents is the ONLY thing that
+    // makes that true, and this test is what proves it is still there.
+    const db = getDb();
+    const optedOutAt = new Date("2026-02-03T04:05:06Z");
+    await db.insert(phoneOptIns).values({
+      organizationId: ORG_ID,
+      phone: STOPPED_KIOSK_PHONE_E164,
+      channel: "sms",
+      status: "opted_out",
+      optedInAt: new Date("2026-01-01T00:00:00Z"),
+      optedOutAt,
+      optInSource: "kiosk_spectator",
+      stopKeywordTriggered: "STOP",
+    });
+
+    const since = new Date(Date.now() - 5_000).toISOString();
+    const res = await apiFetch(`/api/kiosk/${LOCATION_ID}/spectator/sign`, {
+      method: "POST",
+      body: JSON.stringify({
+        firstName: "Stop",
+        lastName: "Ped",
+        phone: STOPPED_KIOSK_PHONE,
+        email: STOPPED_KIOSK_EMAIL,
+        signedName: "Stop Ped",
+        consents: ["sms"],
+      }),
+    });
+    // The signature stands — consent is separable from entry.
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.phoneVerificationId).toBeTruthy();
+
+    // A real code, entered correctly, on the number that really received it.
+    const code = await readOtpCode(STOPPED_KIOSK_PHONE_E164, since);
+    await completeOtp(body.phoneVerificationId, code);
+
+    const rows = await db
+      .select()
+      .from(phoneOptIns)
+      .where(
+        and(
+          eq(phoneOptIns.phone, STOPPED_KIOSK_PHONE_E164),
+          eq(phoneOptIns.channel, "sms"),
+        ),
+      );
+    expect(rows.length).toBe(1);
+    expect(
+      rows[0].status,
+      "a valid OTP must not resurrect a STOPped number — the way back is START",
+    ).toBe("opted_out");
+    expect(rows[0].optedOutAt).not.toBeNull();
+    // The audit survives intact: a row reading "opted in" while carrying "this
+    // number sent STOP" is the contradiction a carrier reviewer calls a violation.
+    expect(rows[0].stopKeywordTriggered).toBe("STOP");
   });
 
   it("the lookup matches the FULL typed number, not just its last four", async () => {
