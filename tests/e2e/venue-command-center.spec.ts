@@ -223,13 +223,23 @@ test("held pay-link walk-in shows in the roster with resend/cancel actions", asy
   ).toBeDefined();
   const locationId = venue!.location.id;
 
-  // ---- Create a walk-in-eligible drop-in session for today. Jitter the
-  // start time within a window so repeated CI runs on the same calendar day
-  // don't collide on the venue's field-1 ledger slot. ----
-  const dateStr = new Date().toISOString().slice(0, 10);
-  const startsAt = new Date(`${dateStr}T12:00:00.000Z`);
-  startsAt.setUTCMinutes(startsAt.getUTCMinutes() + (Date.now() % 240));
+  // ---- Create a walk-in-eligible drop-in session that is still RUNNING. ----
+  //
+  // Anchored to `now`, NEVER to a fixed UTC hour. walkin/start rejects a session
+  // that has already ended (422) — a customer must not be able to pay for this
+  // morning's 9am session at 8pm. Pinned to `${dateStr}T12:00:00Z` this fixture
+  // was over by 13:30Z, so it 422'd on every CI run after that. That is exactly
+  // how it broke main: the full Playwright job only runs POST-merge, so the PR
+  // gate never saw it.
+  //
+  // The jitter is still here — it keeps concurrent CI runs off the same field-1
+  // ledger slot. It just jitters forward from `now` instead of from noon.
+  const startsAt = new Date(Date.now() + 2 * 60_000 + (Date.now() % 20) * 60_000);
   const endsAt = new Date(startsAt.getTime() + 90 * 60_000);
+  // Derived from startsAt, not from `new Date()` — the board is opened at
+  // ?date=<dateStr>, and near midnight UTC the jittered start can land on the
+  // next day. Deriving it keeps the board's day and the session's day in lockstep.
+  const dateStr = startsAt.toISOString().slice(0, 10);
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
   const createRes = await page.request.post("/api/admin/dropin/sessions", {

@@ -35,9 +35,11 @@ test.describe("Self-serve PayCard", { tag: "@critical" }, () => {
     // ---- Create a walk-in-eligible drop-in session for today, with a
     // distinct walk-up rate so the payment amount assertion below can't be
     // satisfied by accident (session rate is different). ----
-    const dateStr = new Date().toISOString().slice(0, 10);
-    const startsAt = new Date(`${dateStr}T13:00:00.000Z`);
-    startsAt.setUTCMinutes(startsAt.getUTCMinutes() + (Date.now() % 240));
+    // Anchored to `now`, NEVER to a fixed UTC hour — walkin/start 422s a session
+    // that has already ended. Pinned to 13:00Z this passed or failed purely on
+    // what hour CI happened to run at. The jitter still separates concurrent
+    // runs on the ledger; it just jitters forward from now.
+    const startsAt = new Date(Date.now() + 2 * 60_000 + (Date.now() % 20) * 60_000);
     const endsAt = new Date(startsAt.getTime() + 90 * 60_000);
     const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
