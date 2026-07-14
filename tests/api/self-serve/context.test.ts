@@ -153,11 +153,12 @@ describe("GET /api/self-serve/[token] (context) — walk-in payment hold", () =>
     if (!location) throw new Error("Resolved location row not found.");
     locationSlug = location.slug;
 
+    // /walkin/start rejects a session whose endsAt has already passed, so the
+    // fixture must END in the future. Anchoring off UTC midnight (+3h) put it
+    // in the past for every run after 04:30 UTC. Anchor to "now" instead —
+    // same fix walkin.test.ts carries.
     const now = new Date();
-    const todayStart = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-    );
-    const sessionStart = new Date(todayStart.getTime() + 3 * 3_600_000);
+    const sessionStart = new Date(now.getTime() + 5 * 60_000);
     const sessionEnd = new Date(sessionStart.getTime() + 90 * 60_000);
 
     const [session] = await db
@@ -388,11 +389,10 @@ describe("GET /api/self-serve/[token] (context) — walk-in MINOR", () => {
     }
     locationId = rentalVenue.locationId;
 
+    // Must still be running when /walkin/start is called — see the endsAt
+    // guard note in the adult beforeAll above.
     const now = new Date();
-    const todayStart = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-    );
-    const startsAt = new Date(todayStart.getTime() + 5 * 3_600_000);
+    const startsAt = new Date(now.getTime() + 5 * 60_000);
     const [session] = await db
       .insert(dropInSessions)
       .values({

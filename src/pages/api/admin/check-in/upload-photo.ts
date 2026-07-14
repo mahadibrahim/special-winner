@@ -8,6 +8,7 @@ import type { APIRoute } from "astro";
 import { requireOrgAdminAccess } from "@/lib/auth/roles";
 import { resolveSigner, type SelfServiceKind } from "@/lib/check-in/resolve-signer";
 import { uploadPhoto } from "@/lib/check-in/photo-upload";
+import { resolvePhotoTarget } from "@/lib/check-in/photo-target";
 
 export const prerender = false;
 const json = (b: unknown, s: number) =>
@@ -28,12 +29,12 @@ export const POST: APIRoute = async (context) => {
   const signer = await resolveSigner(kind as SelfServiceKind, targetId, orgId);
   if (!signer) return json({ error: "Target not found" }, 404);
 
-  // Choose target: family_member for minors (with familyMemberId); else user.
-  const target: Parameters<typeof uploadPhoto>[0]["target"] | null = signer.isMinor && signer.familyMemberId
-    ? { kind: "family_member", id: signer.familyMemberId }
-    : signer.recipientUserId
-      ? { kind: "user", id: signer.recipientUserId }
-      : null;
+  // WHO the photo belongs to is one rule, and it lives in ONE place —
+  // resolvePhotoTarget. Hand-rolling it here (as this endpoint used to) is how
+  // the admin write and the self-serve read drift apart and a child's photo
+  // lands on the parent's user avatar. This endpoint has no token row, so the
+  // tokenRecipientUserId fallback is null: the signer is the only source.
+  const target = resolvePhotoTarget(signer, null);
   if (!target) return json({ error: "No photo target for this signer" }, 422);
 
   const bytes = Buffer.from(await file.arrayBuffer());

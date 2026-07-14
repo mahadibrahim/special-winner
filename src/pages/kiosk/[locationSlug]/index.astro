@@ -21,8 +21,11 @@ let locationTimezone: string = BUSINESS_TIMEZONE;
 let invalid = false;
 
 if (slug) {
-  // Org-scoped: locations.slug is unique per ORG, so the facility must be
-  // resolved against the organization the middleware derived from the host.
+  // locations.slug is unique per ORG, so the facility is resolved against the
+  // organization the middleware derived from the host first, then (only if
+  // that misses) globally — but only when exactly one active facility carries
+  // the segment. See requireKioskLocation for why a bare org-scoped lookup
+  // would hard-404 a mounted kiosk.
   const k = await requireKioskLocation(slug, Astro.locals.organization?.id ?? null);
   if (k.ok) {
     locationName = k.location.name;

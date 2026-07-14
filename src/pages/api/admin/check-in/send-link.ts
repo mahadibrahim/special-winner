@@ -97,18 +97,24 @@ export const POST: APIRoute = async (context) => {
   // field rentals, roster entries) never mint a pending-payment token, so
   // their copy stays waiver/photo-only.
   const isPayLink = kind === "walkin_session";
+  // GREET THE PERSON RECEIVING THE MESSAGE, NOT THE PARTICIPANT. For a minor,
+  // resolveSigner's `displayName` is the CHILD (it names who the self-serve
+  // page is about) while recipientPhone/recipientEmail — where this message is
+  // going — belong to the PARENT. `signerName` is the human on the other end
+  // of this channel; that's who "Hi <name>" must address.
+  const greetName = signer.signerName;
   const emailSubject = isPayLink
     ? "Complete payment to keep your spot"
     : "Finish your booking — quick waiver and photo";
   const emailBody = isPayLink
-    ? `<p>Hi ${signer.displayName},</p><p>Your spot is being held. <a href="${url}">Tap here to sign, add a photo, and pay</a> to keep it.</p><p>The hold lasts 2 hours from when it was created — link expires in 2 hours.<br>— Aspire Sports</p>`
-    : `<p>Hi ${signer.displayName},</p><p>A few quick items remain for your booking. <a href="${url}">Tap here to finish</a>.</p><p>Link expires in 6 hours.<br>— Aspire Sports</p>`;
+    ? `<p>Hi ${greetName},</p><p>Your spot is being held. <a href="${url}">Tap here to sign, add a photo, and pay</a> to keep it.</p><p>The hold lasts 2 hours from when it was created — link expires in 2 hours.<br>— Aspire Sports</p>`
+    : `<p>Hi ${greetName},</p><p>A few quick items remain for your booking. <a href="${url}">Tap here to finish</a>.</p><p>Link expires in 6 hours.<br>— Aspire Sports</p>`;
   const emailText = isPayLink
-    ? `Hi ${signer.displayName},\n\nYour spot is being held. Tap below to sign, add a photo, and pay to keep it:\n${url}\n\nThe hold lasts 2 hours from when it was created — link expires in 2 hours.\n— Aspire Sports`
-    : `Hi ${signer.displayName},\n\nA few quick items remain for your booking. Tap below to finish:\n${url}\n\nLink expires in 6 hours.\n— Aspire Sports`;
+    ? `Hi ${greetName},\n\nYour spot is being held. Tap below to sign, add a photo, and pay to keep it:\n${url}\n\nThe hold lasts 2 hours from when it was created — link expires in 2 hours.\n— Aspire Sports`
+    : `Hi ${greetName},\n\nA few quick items remain for your booking. Tap below to finish:\n${url}\n\nLink expires in 6 hours.\n— Aspire Sports`;
   const smsBody = isPayLink
-    ? `${signer.displayName}: your spot is held for 2 hours — sign, add a photo, and pay here: ${url}`
-    : `${signer.displayName}: finish your Aspire Sports booking (waiver + photo): ${url}`;
+    ? `${greetName}: your spot is held for 2 hours — sign, add a photo, and pay here: ${url}`
+    : `${greetName}: finish your Aspire Sports booking (waiver + photo): ${url}`;
 
   if (channel === "email") {
     const r = await sendEmail({

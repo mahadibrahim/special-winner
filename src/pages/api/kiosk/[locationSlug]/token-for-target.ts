@@ -35,10 +35,18 @@ export const POST: APIRoute = async ({ params, request, clientAddress, locals })
   // Unauthenticated, on the public internet, and it MINTS A REAL SELF-SERVE
   // TOKEN for any targetId — a token that can sign that person's waiver and
   // write their photo. Throttle per IP+location, same helper and 429 shape as
-  // the walk-in endpoints. A customer taps one result; 10/min is generous.
-  // (In-memory/fail-open limiter — see rate-limit.ts.)
+  // the walk-in endpoints. (In-memory/fail-open limiter — see rate-limit.ts.)
+  //
+  // WHY 60/min AND NOT LOWER: a facility is ONE egress IP, so this bucket is
+  // shared by the whole building — the limit is customers-per-minute for the
+  // lobby, not per person. At 10/min a 6pm check-in queue trips it and the
+  // kiosk dead-ends at "Couldn't open (429)" for the person at the front of
+  // the line. The anti-enumeration value lives in /search — that is the
+  // endpoint an attacker must walk to DISCOVER a targetId in the first place,
+  // and its limit stays tight. Throttling this one hard buys little and costs
+  // real customers. Do not "harden" it back down.
   const ip = clientAddress || "unknown";
-  const ipLimit = rateLimit(`kiosk-token-for-target:${slug}:${ip}`, 10, 60_000);
+  const ipLimit = rateLimit(`kiosk-token-for-target:${slug}:${ip}`, 60, 60_000);
   if (!ipLimit.allowed) {
     return rateLimitedResponse(ipLimit.retryAfter ?? 60);
   }
