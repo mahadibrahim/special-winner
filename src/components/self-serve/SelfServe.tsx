@@ -57,6 +57,7 @@ export default function SelfServe({
   publishableKey,
   brandId,
   onDone,
+  onBusyChange,
 }: {
   token: string;
   context: Context;
@@ -72,6 +73,13 @@ export default function SelfServe({
   /** Kiosk-embedded mode: reset the kiosk in place instead of navigating.
    *  Absent for a texted link opened standalone. */
   onDone?: () => void;
+  /** Kiosk-embedded mode: reports whether a charge has been confirmed
+   *  client-side and this component is still polling for the webhook to
+   *  confirm it. A parent-owned idle timer must not reset the screen during
+   *  this window — the charge has already happened, and a reset here would
+   *  strand the customer without ever seeing confirmation. Absent for a
+   *  standalone link, which has no idle timer to suppress. */
+  onBusyChange?: (busy: boolean) => void;
 }) {
   useHydrationBeacon();
 
@@ -218,6 +226,13 @@ export default function SelfServe({
     // stale instance still sees current values.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paymentProcessing, token]);
+
+  // Mirror paymentProcessing to the embedder (the kiosk's idle timer) so it
+  // can suppress a reset while a charge is confirmed but not yet reconciled
+  // by the webhook. See onBusyChange's doc comment above.
+  useEffect(() => {
+    onBusyChange?.(paymentProcessing);
+  }, [paymentProcessing, onBusyChange]);
 
   // Cancelled wins over EVERYTHING below — a released hold must never show
   // the checked-in confirmation (the slot is gone), and with the context's
