@@ -52,7 +52,10 @@ export const phoneOptIns = pgTable(
     // legally distinct consents — a single status per (org, phone) cannot
     // honestly represent "yes to SMS, no to WhatsApp", and sendSms's gate reads
     // the FIRST matching row, so a WhatsApp row could otherwise authorise an SMS.
-    channel: varchar("channel", { length: 20 }).notNull().default("sms"),
+    channel: varchar("channel", { length: 20 })
+      .notNull()
+      .default("sms")
+      .$type<PhoneOptInChannel>(),
     status: varchar("status", { length: 20 }).notNull(),
     optedInAt: timestamp("opted_in_at"),
     optedOutAt: timestamp("opted_out_at"),
