@@ -140,13 +140,45 @@ describe("GET /api/kiosk/[locationSlug]/search", () => {
     bookingId = booking.id;
   });
 
-  // Regression guard for the privacy fix: a partial-name query used to
-  // list other customers' names/sessions to whoever was standing at the
-  // kiosk. It must now return nothing, no matter how well the name matches.
+  // Covers the 4-digit gate: a pure-name query has zero digits, so
+  // qDigits.length < 4 trips the early return before any DB query runs.
+  // This only proves the gate itself works — it does NOT exercise the query
+  // builder, so it would still pass even if a name-matching disjunct were
+  // reintroduced there. See "rejects a name that rides along with a
+  // non-matching phone suffix" below for the test that actually guards
+  // against that regression.
   it("returns nothing for a name query", async () => {
     // Use at least the first 2 chars of the parent's first name — this used
     // to be enough to surface the booking; it must not be anymore.
     const q = parentFirstName.slice(0, Math.max(2, Math.floor(parentFirstName.length / 2)));
+    const res = await apiFetch(
+      `/api/kiosk/${locationId}/search?q=${encodeURIComponent(q)}`,
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.results).toEqual([]);
+  });
+
+  // The actual regression guard for the privacy fix. A pure-name query (see
+  // above) never reaches the query builder at all — it's caught by the
+  // qDigits.length < 4 gate first, so it can't detect a name disjunct
+  // reintroduced *inside* the query. This probe appends 4 digits that are
+  // deliberately NOT the seeded booking's phone suffix, so qDigits.length
+  // is 4 and execution clears the gate and reaches db.select(...). The
+  // phone-suffix filter then correctly finds no match. But the probe also
+  // contains the seeded user's real first name — if anyone ever adds back
+  // an `ilike(users.firstName, ...)` (or similar) disjunct to the query,
+  // that name would match and this test would start seeing a result,
+  // failing the `toEqual([])` assertion below.
+  it("rejects a name that rides along with a non-matching phone suffix", async () => {
+    const realLast4 = parentPhone.replace(/\D/g, "").slice(-4);
+    // +1 mod 10000 is always different from realLast4 (equal would require
+    // 1 ≡ 0 mod 10000), and is derived rather than hardcoded so it can't
+    // silently collide with whatever the seed data happens to be.
+    const nonMatchingLast4 = String(
+      (parseInt(realLast4, 10) + 1) % 10000,
+    ).padStart(4, "0");
+    const q = `${parentFirstName}${nonMatchingLast4}`;
     const res = await apiFetch(
       `/api/kiosk/${locationId}/search?q=${encodeURIComponent(q)}`,
     );
