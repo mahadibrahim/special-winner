@@ -15,7 +15,11 @@
 ## Global Constraints
 
 - **Brand name is never hardcoded in the React tree.** Read it from `getBrandTheme(Astro.locals.brandId).displayName` in the Astro page and pass it down as a prop. An Aspire-hosted kiosk must still render correctly.
-- **Never use raw Tailwind palette classes** (`stone-*`, `white`, `emerald-*`, `amber-*`) in any file this plan touches. Use design tokens: `bg-cream`, `bg-cream-2`, `bg-paper`, `text-ink`, `text-ink-2`, `text-ink-muted`, `text-ink-faint`, `border-border`, `bg-primary`, `text-cream`, `text-sage`, `text-ochre`. Raw palette classes do not respond to the SoccerOne token inversion and go illegible on dark.
+- **Never use raw Tailwind palette classes** (`stone-*`, `white`, `emerald-*`, `amber-*`) in any file this plan touches. Use design tokens: `bg-cream`, `bg-cream-2`, `bg-paper`, `text-ink`, `text-ink-2`, `text-ink-muted`, `text-ink-faint`, `border-border`, `bg-primary`, `text-cream`. Raw palette classes do not respond to the SoccerOne token inversion and go illegible on dark.
+- **NEVER use an accent token as a text color** (`text-sage`, `text-ochre`). They do not invert — they are re-pointed per brand, and they are tuned for the dark SoccerOne palette. `--ochre` is `oklch(0.75 …)`, which lands at roughly **2:1** on the light Aspire background: a hard WCAG failure. Using them as text fixes SoccerOne by breaking Aspire. **Semantic color goes in a tint + border; text stays on ink tokens**, which invert by construction:
+  - success → `border border-sage/40 bg-sage/10`, text `text-ink` / `text-ink-2`
+  - warning → `border border-ochre/40 bg-ochre/10`, text `text-ink` / `text-ink-2`
+  An accent token may color a **non-text glyph** (an `aria-hidden` ✓), which only needs the 3:1 non-text floor.
 - **Errors:** persistent/actionable → `<ErrorBanner message={...} />` from `@/components/ui/error-banner`. Transient (declines, network blips) → `toast.error(...)` from sonner. Empty states → `<EmptyState />`. Per `CLAUDE.md`.
 - **Every input stays ≥16px** (`text-base` or larger). Below 16px, iOS Safari zooms the viewport on focus.
 - **Touch targets ≥44px**, and ≥60px for primary kiosk actions.
@@ -361,7 +365,7 @@ from here):
 // src/components/self-serve/card-styles.ts
 export const CARD_CLASS = "p-5 rounded-xl border border-border bg-paper space-y-3";
 export const DONE_CARD_CLASS =
-  "p-4 rounded-xl border border-border bg-cream-2 text-sage text-sm flex items-center gap-2";
+  "p-4 rounded-xl border border-sage/40 bg-sage/10 text-ink text-sm flex items-center gap-2";
 export const INPUT_CLASS =
   "w-full px-4 py-3 bg-paper border border-border focus:border-ink focus:outline-none rounded-lg text-base text-ink placeholder:text-ink-faint transition-colors";
 export const PRIMARY_BTN =
@@ -381,8 +385,8 @@ Mechanical substitution across `WaiverCard.tsx`, `PhotoCard.tsx`, `PayCard.tsx`,
 | `bg-stone-900 text-white` | `bg-primary text-cream` |
 | `text-stone-600`, `text-stone-700` | `text-ink-muted` |
 | `border` (bare, on cards/inputs) | `border border-border` |
-| `border-emerald-200 bg-emerald-50 text-emerald-900` | `border-border bg-cream-2 text-sage` |
-| `border-amber-200 bg-amber-50 text-amber-900` | `border-border bg-cream-2 text-ochre` |
+| `border-emerald-200 bg-emerald-50 text-emerald-900` | `border border-sage/40 bg-sage/10` + `text-ink` / `text-ink-2` |
+| `border-amber-200 bg-amber-50 text-amber-900` | `border border-ochre/40 bg-ochre/10` + `text-ink` / `text-ink-2` |
 | `text-rose-700` | replace the whole `<div>` with `<ErrorBanner message={error} />` |
 | `border-stone-400` (spinner) | `border-ink-faint` |
 
@@ -1252,7 +1256,7 @@ Render, inside the returned tree:
 
 ```tsx
       {!online && (
-        <div className="rounded-xl border border-border bg-cream-2 px-5 py-4 text-sm text-ochre">
+        <div className="rounded-xl border border-ochre/40 bg-ochre/10 px-5 py-4 text-sm text-ink">
           No internet connection. Please see the front desk — we can check you
           in by hand.
         </div>
