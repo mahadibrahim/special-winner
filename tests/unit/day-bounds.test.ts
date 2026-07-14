@@ -35,4 +35,29 @@ describe("dayBoundsInTz", () => {
       dayBoundsInTz(ET, now).start.toISOString(),
     );
   });
+
+  it("produces a 23-hour day across the spring-forward transition", () => {
+    // 2026-03-08 is the US spring-forward date in America/New_York.
+    const now = new Date("2026-03-08T18:00:00Z");
+    const { start, end } = dayBoundsInTz(ET, now);
+    expect(start.toISOString()).toBe("2026-03-08T05:00:00.000Z");
+    expect(end.toISOString()).toBe("2026-03-09T04:00:00.000Z");
+    expect(end.getTime() - start.getTime()).toBe(82_800_000);
+  });
+
+  it("produces a 25-hour day across the fall-back transition", () => {
+    // 2026-11-01 is the US fall-back date in America/New_York.
+    const now = new Date("2026-11-01T18:00:00Z");
+    const { start, end } = dayBoundsInTz(ET, now);
+    expect(start.toISOString()).toBe("2026-11-01T04:00:00.000Z");
+    expect(end.toISOString()).toBe("2026-11-02T05:00:00.000Z");
+    expect(end.getTime() - start.getTime()).toBe(90_000_000);
+  });
+
+  it("keeps a 12:30am local session inside the fall-back day's bounds (the regression)", () => {
+    const now = new Date("2026-11-01T18:00:00Z");
+    const halfPastMidnightEt = new Date("2026-11-01T04:30:00Z"); // 12:30am ET
+    const { start, end } = dayBoundsInTz(ET, now);
+    expect(halfPastMidnightEt >= start && halfPastMidnightEt < end).toBe(true);
+  });
 });
