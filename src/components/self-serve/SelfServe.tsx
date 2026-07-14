@@ -11,6 +11,9 @@ interface Context {
   tokenKind: string;
   displayName: string;
   signerName: string | null;
+  /** Authoritative guardian-vs-adult signal from resolveSigner — see
+   *  build-context.ts. Never re-derive this from a name comparison. */
+  isMinor: boolean;
   summary: string;
   spaceName?: string | null;
   outstanding: { waiver: boolean; photo: boolean; payment: boolean };
@@ -48,6 +51,7 @@ export default function SelfServe({
   context,
   kioskSlug,
   publishableKey,
+  brandId,
 }: {
   token: string;
   context: Context;
@@ -56,6 +60,10 @@ export default function SelfServe({
   /** Stripe publishable key, threaded from the Astro page's env — only
    *  needed when outstanding.payment is true. */
   publishableKey?: string;
+  /** Brand driving the page's host — threaded down to PayCard so the
+   *  mounted Stripe Elements iframe picks a matching theme. Optional;
+   *  PayCard defaults to the light "stripe" theme (Aspire) when omitted. */
+  brandId?: "aspire" | "soccerone";
 }) {
   useHydrationBeacon();
 
@@ -280,6 +288,7 @@ export default function SelfServe({
               locationSlug={context.locationSlug ?? null}
               bookingId={context.bookingId ?? null}
               publishableKey={publishableKey ?? ""}
+              brandId={brandId}
               onPaid={onPaySubmitted}
             />
           </div>
@@ -290,6 +299,7 @@ export default function SelfServe({
           token={token}
           signerName={context.signerName ?? context.displayName}
           playerName={context.displayName}
+          isMinor={context.isMinor}
           done={waiverDone}
           onDone={onWaiverDone}
         />
@@ -325,16 +335,16 @@ function HoldReleasedScreen({
         </h1>
         {summary && <p className="text-sm text-ink-muted">{summary}</p>}
       </header>
-      <div className="p-6 rounded-xl border border-border bg-cream-2 text-ochre">
-        <h2 className="text-lg font-semibold mb-2">
+      <div className="p-6 rounded-xl border border-ochre/40 bg-ochre/10">
+        <h2 className="text-lg font-semibold mb-2 text-ink">
           This hold has been released
         </h2>
-        <p className="text-sm leading-relaxed">
+        <p className="text-sm leading-relaxed text-ink-2">
           {refunded
             ? "Any charge on your card has been refunded."
             : "If your card was charged, the payment will be refunded automatically."}
         </p>
-        <p className="mt-2 text-sm leading-relaxed">
+        <p className="mt-2 text-sm leading-relaxed text-ink-2">
           Want to play? See the front desk — if the session still has room,
           they can set you up with a new spot.
         </p>
@@ -372,15 +382,15 @@ function CheckedInScreen({
 
   return (
     <div className="space-y-4">
-      <div className="p-6 rounded-xl border border-border bg-cream-2 text-sage">
-        <h1 className="text-lg font-semibold mb-2">You're checked in</h1>
-        <p className="text-sm leading-relaxed">
+      <div className="p-6 rounded-xl border border-sage/40 bg-sage/10">
+        <h1 className="text-lg font-semibold mb-2 text-ink">You're checked in</h1>
+        <p className="text-sm leading-relaxed text-ink-2">
           {spaceName
             ? `Head over to ${spaceName} — your game is on. Enjoy!`
             : "You're all set — enjoy your game!"}
         </p>
         {summary && (
-          <p className="mt-2 text-xs text-sage/70">{summary}</p>
+          <p className="mt-2 text-xs text-ink-2">{summary}</p>
         )}
       </div>
       {returnSlug && (

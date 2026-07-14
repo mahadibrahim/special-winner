@@ -9,13 +9,20 @@ const WAIVER_TEXT = `I acknowledge the inherent risks of recreational sports act
 interface Props {
   token: string;
   signerName: string;
-  /** The player. When it differs from signerName, a guardian is signing. */
+  /** The player — rendered into the guardian consent sentence when
+   *  isMinor is true. */
   playerName: string;
+  /** Authoritative guardian-vs-adult signal, threaded from
+   *  resolveSigner() via build-context.ts. THE source of truth — never
+   *  re-derive this from comparing signerName/playerName strings (a
+   *  guardian who shares the minor's exact name, e.g. Jr./Sr., breaks
+   *  that comparison silently). */
+  isMinor: boolean;
   done: boolean;
   onDone: () => void;
 }
 
-export function WaiverCard({ token, signerName, playerName, done, onDone }: Props) {
+export function WaiverCard({ token, signerName, playerName, isMinor, done, onDone }: Props) {
   const [accepted, setAccepted] = useState(false);
   const [typed, setTyped] = useState(signerName);
   const [busy, setBusy] = useState(false);
@@ -24,17 +31,13 @@ export function WaiverCard({ token, signerName, playerName, done, onDone }: Prop
   if (done) {
     return (
       <div className={DONE_CARD_CLASS}>
-        <span aria-hidden="true">&#10003;</span>
+        <span aria-hidden="true" className="text-sage">&#10003;</span>
         <span>Waiver signed</span>
       </div>
     );
   }
 
-  const guardianSigning =
-    playerName.trim().length > 0 &&
-    signerName.trim().toLowerCase() !== playerName.trim().toLowerCase();
-
-  const acceptLabel = guardianSigning
+  const acceptLabel = isMinor
     ? `I am the parent or legal guardian of ${playerName} and accept these terms on their behalf.`
     : "I have read and accept these terms.";
 
@@ -79,7 +82,7 @@ export function WaiverCard({ token, signerName, playerName, done, onDone }: Prop
       </label>
       <div>
         <label htmlFor="typed-name" className="block text-xs text-ink-muted mb-1">
-          {guardianSigning ? "Parent/guardian signature" : "Signature"}
+          {isMinor ? "Parent/guardian signature" : "Signature"}
         </label>
         <input
           id="typed-name"

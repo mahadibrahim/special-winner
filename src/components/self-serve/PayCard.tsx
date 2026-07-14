@@ -45,6 +45,10 @@ export interface PayCardProps {
   locationSlug: string | null;
   bookingId: string | null;
   publishableKey: string;
+  /** Drives the mounted Stripe Elements iframe's theme — our CSS custom
+   *  properties can't reach into it. Optional; defaults to Aspire's light
+   *  "stripe" theme so any other caller keeps working unchanged. */
+  brandId?: "aspire" | "soccerone";
   onPaid: () => void;
 }
 
@@ -68,6 +72,7 @@ export function PayCard({
   locationSlug,
   bookingId,
   publishableKey,
+  brandId,
   onPaid,
 }: PayCardProps) {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
@@ -197,7 +202,10 @@ export function PayCard({
       {!loading && clientSecret && stripeInstance && (
         <Elements
           stripe={stripeInstance}
-          options={{ clientSecret, appearance: { theme: "stripe" } }}
+          options={{
+            clientSecret,
+            appearance: { theme: brandId === "soccerone" ? "night" : "stripe" },
+          }}
         >
           <PayCardForm
             amounts={amounts}

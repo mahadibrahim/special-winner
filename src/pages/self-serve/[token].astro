@@ -56,6 +56,7 @@ try {
           context={context}
           kioskSlug={kioskSlug}
           publishableKey={import.meta.env.STRIPE_PUBLISHABLE_KEY ?? ""}
+          brandId={Astro.locals.brandId}
         />
       )}
     </div>

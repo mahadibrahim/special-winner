@@ -26,6 +26,10 @@ export interface SelfServeContextBody {
   tokenKind: string;
   displayName: string;
   signerName: string | null;
+  /** True when the signer is a parent/guardian signing on behalf of a minor
+   *  (family_members.parent_user_id set) — resolveSigner is the authority,
+   *  not a name-string comparison. False for every adult-signer path. */
+  isMinor: boolean;
   summary: string;
   spaceName: string | null;
   outstanding: { waiver: boolean; photo: boolean; payment: boolean };
@@ -178,6 +182,7 @@ export async function buildSelfServeContext(
       tokenKind: tok.kind,
       displayName: signer?.displayName ?? "Guest",
       signerName: signer?.signerName ?? null,
+      isMinor: signer?.isMinor ?? false,
       summary,
       spaceName,
       outstanding,

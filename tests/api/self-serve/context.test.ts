@@ -71,6 +71,9 @@ describe("GET /api/self-serve/[token] (context)", () => {
     expect(typeof body.summary).toBe("string");
     expect(body).toHaveProperty("outstanding");
     expect(body.outstanding.waiver).toBe(true);
+    // field_rental resolves via renterUserId/renterName only — never a
+    // family_members row — so isMinor is always false on this path.
+    expect(body.isMinor).toBe(false);
     expect(body).toHaveProperty("expiresAt");
   });
 
