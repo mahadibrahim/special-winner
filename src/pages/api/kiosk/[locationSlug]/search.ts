@@ -3,8 +3,8 @@
  *
  * Unauthenticated kiosk search. The locationSlug (location slug or UUID)
  * scopes every query to one facility. Returns confirmed drop-in bookings
- * and field rentals across every space in THIS facility for TODAY (UTC
- * day bounds).
+ * and field rentals across every space in THIS facility for TODAY (local
+ * day bounds at the facility's timezone — see dayBoundsInTz).
  *
  * Search matches:
  *  - Drop-in: user's first or last name (ilike) or last-4 of phone.
@@ -20,6 +20,7 @@ import { fieldRentals } from "@/lib/db/schema/field-rentals";
 import { users } from "@/lib/db/schema/users";
 import { venues } from "@/lib/db/schema/teams";
 import { requireKioskLocation } from "@/lib/check-in/kiosk-auth";
+import { dayBoundsInTz } from "@/lib/time/day-bounds";
 
 export const prerender = false;
 
@@ -53,12 +54,9 @@ export const GET: APIRoute = async ({ params, url }) => {
     return json({ results: [] }, 200);
   }
 
-  // UTC day bounds for today
-  const now = new Date();
-  const todayStart = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-  );
-  const todayEnd = new Date(todayStart.getTime() + 86_400_000);
+  // "Today" means today *at the facility* — see dayBoundsInTz. Using UTC
+  // bounds here dropped evening sessions after 8pm Eastern.
+  const { start: todayStart, end: todayEnd } = dayBoundsInTz(tz);
 
   const db = getDb();
   const term = `%${q}%`;

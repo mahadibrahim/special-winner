@@ -1,9 +1,9 @@
 /**
  * GET /api/kiosk/[locationSlug]/sessions
  *
- * Returns today's scheduled drop-in sessions across every space in this
- * facility with computed available capacity (capacity minus confirmed
- * bookings).
+ * Returns today's (local facility day — see dayBoundsInTz) scheduled
+ * drop-in sessions across every space in this facility with computed
+ * available capacity (capacity minus confirmed bookings).
  */
 import type { APIRoute } from "astro";
 import { and, eq, gte, inArray, lt, sql } from "drizzle-orm";
@@ -11,6 +11,7 @@ import { getDb } from "@/lib/db";
 import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
 import { venues } from "@/lib/db/schema/teams";
 import { requireKioskLocation } from "@/lib/check-in/kiosk-auth";
+import { dayBoundsInTz } from "@/lib/time/day-bounds";
 
 export const prerender = false;
 
@@ -27,11 +28,10 @@ export const GET: APIRoute = async ({ params }) => {
   const k = await requireKioskLocation(slug);
   if (!k.ok) return k.response;
 
-  const now = new Date();
-  const dayStart = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-  );
-  const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60_000);
+  // "Today" means today *at the facility* — see dayBoundsInTz. Using UTC
+  // bounds here dropped evening sessions after 8pm Eastern.
+  const tz = k.location.timezone ?? "America/New_York";
+  const { start: dayStart, end: dayEnd } = dayBoundsInTz(tz);
 
   const sessions = await getDb()
     .select({
