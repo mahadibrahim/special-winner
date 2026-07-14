@@ -16,17 +16,25 @@ interface Props {
 const MAX_EDGE = 800;
 const JPEG_QUALITY = 0.85;
 
-/** Draw a video frame to a downscaled JPEG File. */
+/**
+ * Draw a center-cropped square from a video frame to a downscaled JPEG File.
+ * The live preview renders `aspect-square object-cover`, so the captured
+ * frame must match that crop — otherwise the saved photo (and the circular
+ * avatar it feeds downstream) shows more than what the customer framed.
+ */
 function frameToFile(video: HTMLVideoElement): Promise<File | null> {
   const { videoWidth: w, videoHeight: h } = video;
   if (!w || !h) return Promise.resolve(null);
-  const scale = Math.min(1, MAX_EDGE / Math.max(w, h));
+  const side = Math.min(w, h);
+  const sx = (w - side) / 2;
+  const sy = (h - side) / 2;
+  const outSide = Math.min(side, MAX_EDGE);
   const canvas = document.createElement("canvas");
-  canvas.width = Math.round(w * scale);
-  canvas.height = Math.round(h * scale);
+  canvas.width = outSide;
+  canvas.height = outSide;
   const ctx = canvas.getContext("2d");
   if (!ctx) return Promise.resolve(null);
-  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  ctx.drawImage(video, sx, sy, side, side, 0, 0, outSide, outSide);
   return new Promise((resolve) =>
     canvas.toBlob(
       (blob) =>
@@ -43,15 +51,32 @@ export function PhotoCard({ token, done, onDone }: Props) {
   const uploadRef = useRef<HTMLInputElement>(null);
 
   const [cameraOn, setCameraOn] = useState(false);
+  const [starting, setStarting] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const mountedRef = useRef(true);
+  // Bumped by stopCamera (leave-camera-view, capture, unmount). A pending
+  // startCamera() call snapshots this at kickoff; if it no longer matches
+  // when getUserMedia resolves, the caller has moved on and the arriving
+  // stream must be stopped, not assigned — otherwise a double-tap or a
+  // leave-mid-start races two streams and the loser is never stopped.
+  const cancelTokenRef = useRef(0);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   // A mounted iPad must never sit with its camera light on. Stopping every
   // track is the whole point of this ref.
   const stopCamera = useCallback(() => {
+    cancelTokenRef.current += 1;
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     setCameraOn(false);
@@ -81,15 +106,30 @@ export function PhotoCard({ token, done, onDone }: Props) {
   }, [cameraOn]);
 
   const startCamera = async () => {
+    if (starting) return;
     setCameraError(null);
+    setStarting(true);
+    const myEpoch = cancelTokenRef.current;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "user" },
         audio: false,
       });
+      // The caller may have moved on (double-tap already got a stream in,
+      // the customer switched to the device-upload path, or the component
+      // unmounted) while this was in flight. Overwriting streamRef.current
+      // in that case is exactly what leaks a live camera — stop and drop
+      // this stream instead.
+      const stale =
+        !mountedRef.current || cancelTokenRef.current !== myEpoch || streamRef.current;
+      if (stale) {
+        stream.getTracks().forEach((t) => t.stop());
+        return;
+      }
       streamRef.current = stream;
       setCameraOn(true);
     } catch (err) {
+      if (!mountedRef.current) return;
       // The whole reason for getUserMedia over capture="user": this is
       // reachable. capture="user" fails silently and strands the customer.
       const name = err instanceof DOMException ? err.name : "";
@@ -101,19 +141,37 @@ export function PhotoCard({ token, done, onDone }: Props) {
         setCameraError(
           "No camera found on this device. Choose a photo from the device instead.",
         );
+      } else if (name === "NotReadableError") {
+        setCameraError(
+          "The camera is already in use by another app. Choose a photo from the device instead.",
+        );
       } else {
         setCameraError(
           "The camera couldn't be started. Choose a photo from the device instead.",
         );
       }
+    } finally {
+      if (mountedRef.current) setStarting(false);
     }
   };
 
   const capture = async () => {
-    if (!videoRef.current) return;
-    const f = await frameToFile(videoRef.current);
+    const video = videoRef.current;
+    if (!video) return;
+    if (!video.videoWidth || !video.videoHeight) {
+      // The stream connected but never produced a frame — e.g. it's held by
+      // another app. Capturing will never succeed here; say so and point at
+      // the fallback instead of leaving the customer to tap Capture forever.
+      setCameraError(
+        'The camera feed hasn\'t started. Tap "Use a photo from my device instead" below.',
+      );
+      return;
+    }
+    const f = await frameToFile(video);
     if (!f) {
-      setCameraError("Couldn't capture the photo. Try again.");
+      setCameraError(
+        'Couldn\'t capture the photo. Try again, or tap "Use a photo from my device instead" below.',
+      );
       return;
     }
     stopCamera();
@@ -209,16 +267,20 @@ export function PhotoCard({ token, done, onDone }: Props) {
           <button type="button" onClick={capture} className={PRIMARY_BTN}>
             Capture
           </button>
+          <button type="button" onClick={stopCamera} className={GHOST_BTN}>
+            Use a photo from my device instead
+          </button>
         </div>
       ) : (
         <div className="space-y-2">
           <button
             type="button"
             onClick={startCamera}
+            disabled={starting}
             className={`${PRIMARY_BTN} inline-flex items-center justify-center gap-2`}
           >
             <Camera className="w-5 h-5" />
-            Take a photo
+            {starting ? "Starting camera…" : "Take a photo"}
           </button>
           <button
             type="button"
