@@ -6,14 +6,19 @@
  * and field rentals across every space in THIS facility for TODAY (local
  * day bounds at the facility's timezone — see dayBoundsInTz).
  *
- * Search matches:
- *  - Drop-in: user's first or last name (ilike) or last-4 of phone.
- *  - Field rental: renterName (ilike) or last-4 of renterPhone.
+ * Search matches phone digits only — last-4 of the drop-in user's phone,
+ * or last-4 of the field rental's renterPhone. Matching on name used to be
+ * enough for anyone standing at the kiosk to list other customers' names
+ * and sessions after typing two characters; requiring the phone number
+ * means only someone who actually knows it can surface a booking. Each
+ * result's title is abbreviated to "First L." (see abbreviateName) so a
+ * digit collision doesn't hand over a stranger's full name either.
  *
- * Returns at most 20 results. Empty / sub-2-char query → empty results.
+ * Returns at most 20 results. Fewer than 4 digits in the query → empty
+ * results.
  */
 import type { APIRoute } from "astro";
-import { and, eq, gte, ilike, lt, or } from "drizzle-orm";
+import { and, eq, gte, ilike, lt } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
 import { fieldRentals } from "@/lib/db/schema/field-rentals";
@@ -31,6 +36,16 @@ const json = (body: unknown, status: number) =>
   });
 
 const MAX_RESULTS = 20;
+
+/** "Casey Tester" -> "Casey T." — enough for the right person to recognize
+ *  their own booking, not enough to be worth harvesting. */
+function abbreviateName(first: string | null, last: string | null): string {
+  const f = (first ?? "").trim();
+  const l = (last ?? "").trim();
+  if (!f && !l) return "Guest";
+  if (!l) return f;
+  return `${f} ${l[0].toUpperCase()}.`;
+}
 
 export const GET: APIRoute = async ({ params, url }) => {
   const slug = params.locationSlug ?? "";
@@ -50,22 +65,20 @@ export const GET: APIRoute = async ({ params, url }) => {
     });
 
   const q = url.searchParams.get("q") ?? "";
-  if (q.trim().length < 2) {
+  // Phone digits only. A name-prefix search on a public kiosk listed other
+  // customers' names to whoever was standing there; requiring the number
+  // means only someone who knows it can surface a booking.
+  const qDigits = q.replace(/\D/g, "");
+  if (qDigits.length < 4) {
     return json({ results: [] }, 200);
   }
+  const last4 = qDigits.slice(-4);
 
   // "Today" means today *at the facility* — see dayBoundsInTz. Using UTC
   // bounds here dropped evening sessions after 8pm Eastern.
   const { start: todayStart, end: todayEnd } = dayBoundsInTz(tz);
 
   const db = getDb();
-  const term = `%${q}%`;
-  // Extract only digits from the raw query and take the last 4. This lets a
-  // user type "0182" or "(614) 0182" and still match the DB's 10-digit phone
-  // field via a trailing-4 ilike. normalizePhone() requires 10 digits so it's
-  // not suitable for extracting a 4-digit fragment.
-  const qDigits = q.replace(/\D/g, "");
-  const last4 = qDigits.length >= 4 ? qDigits.slice(-4) : "";
 
   // ---- Drop-in bookings ----
   const dropInRows = await db
@@ -90,14 +103,10 @@ export const GET: APIRoute = async ({ params, url }) => {
         eq(dropInBookings.status, "confirmed"),
         gte(dropInSessions.startsAt, todayStart),
         lt(dropInSessions.startsAt, todayEnd),
-        or(
-          ilike(users.firstName, term),
-          ilike(users.lastName, term),
-          // last-4 phone match — only apply when the input normalizes to ≥4 digits
-          last4.length === 4 ? ilike(users.phone, `%${last4}`) : undefined,
-        ),
+        ilike(users.phone, `%${last4}`),
       ),
     )
+    .orderBy(dropInSessions.startsAt, dropInBookings.id)
     .limit(MAX_RESULTS);
 
   // ---- Field rentals ----
@@ -120,12 +129,10 @@ export const GET: APIRoute = async ({ params, url }) => {
         eq(fieldRentals.status, "confirmed"),
         gte(fieldRentals.startsAt, todayStart),
         lt(fieldRentals.startsAt, todayEnd),
-        or(
-          ilike(fieldRentals.renterName, term),
-          last4.length === 4 ? ilike(fieldRentals.renterPhone, `%${last4}`) : undefined,
-        ),
+        ilike(fieldRentals.renterPhone, `%${last4}`),
       ),
     )
+    .orderBy(fieldRentals.startsAt, fieldRentals.id)
     .limit(MAX_RESULTS);
 
   type Result = {
@@ -140,12 +147,11 @@ export const GET: APIRoute = async ({ params, url }) => {
   const results: Result[] = [];
 
   for (const row of dropInRows) {
-    const name = `${row.firstName ?? ""} ${row.lastName ?? ""}`.trim() || "(unknown)";
     const time = fmtTime(row.startsAt);
     results.push({
       kind: "drop_in_booking",
       targetId: row.bookingId,
-      title: name,
+      title: abbreviateName(row.firstName, row.lastName),
       subtitle: `${row.sessionLabel} — ${time}`,
       waiverSigned: row.waiverSigned,
       checkedIn: row.checkedInAt !== null,
@@ -154,10 +160,12 @@ export const GET: APIRoute = async ({ params, url }) => {
 
   for (const row of rentalRows) {
     const time = fmtTime(row.startsAt);
+    const [renterFirst, ...renterRest] = (row.renterName ?? "").trim().split(/\s+/);
+    const renterLast = renterRest.join(" ");
     results.push({
       kind: "field_rental",
       targetId: row.rentalId,
-      title: row.renterName,
+      title: abbreviateName(renterFirst ?? "", renterLast),
       subtitle: `Field ${row.fieldNumber} — ${time}`,
       waiverSigned: row.waiverSigned,
       checkedIn: row.checkedInAt !== null,

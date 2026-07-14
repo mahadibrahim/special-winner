@@ -102,12 +102,12 @@ export function FindBooking({ locationSlug, locationName, onBack }: Props) {
           type="text"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search by name or phone"
+          placeholder="Last 4 digits of your phone number"
           className="w-full px-5 py-4 bg-paper border border-border focus:border-ink focus:outline-none rounded-xl text-lg placeholder:text-ink-faint transition-colors"
           autoFocus
         />
         <p className="text-xs text-ink-muted px-1">
-          Tip: type your first name, or the last 4 digits of your phone number.
+          Tip: we only search by phone number, so other guests' names stay private.
         </p>
       </div>
 

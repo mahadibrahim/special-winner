@@ -2,11 +2,12 @@
  * GET /api/kiosk/[locationSlug]/search
  *
  * The kiosk is facility (location) scoped. Seeds a drop-in session TODAY
- * at the E2E rental venue (a space in the seeded facility) and a confirmed
+ * (bounded by the facility's *local* timezone — see dayBoundsInTz) at the
+ * E2E rental venue (a space in the seeded facility) and a confirmed
  * booking for the seed parent user. Verifies:
- *   - partial name match → returns the booking
- *   - last-4-of-phone match → returns the booking
- *   - empty / short query → returns empty results
+ *   - a name query returns nothing (privacy fix — phone-only matching)
+ *   - last-4-of-phone match → returns the booking, with an abbreviated title
+ *   - empty / short / sub-4-digit query → returns empty results
  *   - unknown location segment → 404
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
@@ -15,17 +16,20 @@ import { getDb } from "@/lib/db";
 import { dropInBookings, dropInSessions, dropInRateCard } from "@/lib/db/schema/drop-in";
 import { users } from "@/lib/db/schema/users";
 import { venues } from "@/lib/db/schema/teams";
+import { locations } from "@/lib/db/schema/organizations";
 import { eq } from "drizzle-orm";
 import {
   E2E_RENTAL_VENUE_ID,
   E2E_ORG_ID,
   TEST_USERS,
 } from "@/lib/db/seeds/seed-e2e-tests";
+import { dayBoundsInTz } from "@/lib/time/day-bounds";
 
 // Use a unique field so parallel runs at the same venue don't collide on
-// the booking unique index (session_id, user_id). The session is scoped to
-// today UTC, so it IS today-bounded, which is exactly what the search
-// endpoint requires.
+// the booking unique index (session_id, user_id). The session is placed at
+// local noon at the facility's timezone (see beforeAll), which is
+// unambiguously inside the facility's local "today" regardless of what
+// hour/DST-state the test happens to run in.
 const UNIQUE_SUFFIX = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
 describe("GET /api/kiosk/[locationSlug]/search", () => {
@@ -53,6 +57,17 @@ describe("GET /api/kiosk/[locationSlug]/search", () => {
       );
     }
     locationId = rentalVenue.locationId;
+
+    // Resolve the facility's timezone — the endpoint bounds "today" by the
+    // facility's *local* day (dayBoundsInTz), not naive UTC. The seeded
+    // session below must land inside that local day regardless of what
+    // wall-clock hour this test happens to run at.
+    const [locationRow] = await db
+      .select({ timezone: locations.timezone })
+      .from(locations)
+      .where(eq(locations.id, locationId))
+      .limit(1);
+    const tz = locationRow?.timezone ?? "America/New_York";
 
     // Resolve the seed parent user (must exist from seed-e2e-tests run).
     const [parentRow] = await db
@@ -85,13 +100,14 @@ describe("GET /api/kiosk/[locationSlug]/search", () => {
       .values({ organizationId: E2E_ORG_ID })
       .onConflictDoNothing();
 
-    // Build today-UTC bounds for startsAt.
-    const now = new Date();
-    const todayStart = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+    // Place the session at the facility's local noon today — the midpoint
+    // of dayBoundsInTz's [start, end) window — so it's unambiguously inside
+    // the facility's local "today" no matter what hour/DST-state this test
+    // runs at.
+    const { start: localDayStart, end: localDayEnd } = dayBoundsInTz(tz);
+    const sessionStart = new Date(
+      (localDayStart.getTime() + localDayEnd.getTime()) / 2,
     );
-    // Place the session 1 hour after UTC midnight so it's firmly within today.
-    const sessionStart = new Date(todayStart.getTime() + 1 * 3_600_000);
     const sessionEnd = new Date(sessionStart.getTime() + 90 * 60_000);
 
     const [session] = await db
@@ -124,18 +140,30 @@ describe("GET /api/kiosk/[locationSlug]/search", () => {
     bookingId = booking.id;
   });
 
-  it("returns the booking when searching by partial first name", async () => {
-    // Use at least the first 2 chars of the parent's first name.
+  // Regression guard for the privacy fix: a partial-name query used to
+  // list other customers' names/sessions to whoever was standing at the
+  // kiosk. It must now return nothing, no matter how well the name matches.
+  it("returns nothing for a name query", async () => {
+    // Use at least the first 2 chars of the parent's first name — this used
+    // to be enough to surface the booking; it must not be anymore.
     const q = parentFirstName.slice(0, Math.max(2, Math.floor(parentFirstName.length / 2)));
     const res = await apiFetch(
       `/api/kiosk/${locationId}/search?q=${encodeURIComponent(q)}`,
     );
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(Array.isArray(body.results)).toBe(true);
-    const match = body.results.find((r: { targetId: string }) => r.targetId === bookingId);
-    expect(match).toBeDefined();
-    expect(match.kind).toBe("drop_in_booking");
+    expect(body.results).toEqual([]);
+  });
+
+  it("returns nothing for fewer than 4 digits", async () => {
+    const last4 = parentPhone.replace(/\D/g, "").slice(-4);
+    const q = last4.slice(0, 3);
+    const res = await apiFetch(
+      `/api/kiosk/${locationId}/search?q=${encodeURIComponent(q)}`,
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.results).toEqual([]);
   });
 
   it("returns the booking when searching by last-4 of phone", async () => {
@@ -153,6 +181,18 @@ describe("GET /api/kiosk/[locationSlug]/search", () => {
     const match = body.results.find((r: { targetId: string }) => r.targetId === bookingId);
     expect(match).toBeDefined();
     expect(match.kind).toBe("drop_in_booking");
+  });
+
+  it("abbreviates the surname so a digit collision reveals little", async () => {
+    const last4 = parentPhone.replace(/\D/g, "").slice(-4);
+    const res = await apiFetch(
+      `/api/kiosk/${locationId}/search?q=${encodeURIComponent(last4)}`,
+    );
+    const body = await res.json();
+    const match = body.results.find((r: { targetId: string }) => r.targetId === bookingId);
+    expect(match).toBeDefined();
+    // "Casey Tester" -> "Casey T."
+    expect(match.title).toMatch(/^\S+ \S\.$/);
   });
 
   it("returns empty results for an empty query", async () => {
