@@ -5,7 +5,9 @@
  * kiosk without a prior online booking. Flow:
  *
  *   1. requireKioskLocation(slug) — resolve facility + org
- *   2. Validate the target session (a space in this facility, status=scheduled)
+ *   2. Validate the target session (a space in this facility, status=scheduled,
+ *      endsAt still in the future — mirrors the GET /sessions listing filter,
+ *      but enforced server-side since this endpoint is public/unauthenticated)
  *   3. Validate contact / parent fields; reject minors without parent info.
  *      contact.dob is optional for adults (owner decision 2026-07-12) but
  *      required whenever a `parent` payload is sent (the child/COPPA path) —
@@ -193,6 +195,17 @@ export const POST: APIRoute = async ({ params, request, clientAddress, locals })
   }
 
   if (session.status !== "scheduled") return json({ error: "Session is not open for registration" }, 422);
+
+  // The GET /sessions listing already hides sessions whose endsAt is in the
+  // past (a walk-in must never be able to pay to join this morning's 9am
+  // pickup at 8pm) — but that's a UI-only filter. This endpoint is public
+  // and unauthenticated, and a kiosk iPad left open for hours can still
+  // submit a stale sessionId from an earlier fetch. Enforce the same rule
+  // server-side so a direct/stale call can't start (and later pay for) a
+  // walk-in on a session that has already ended.
+  if (session.endsAt <= new Date()) {
+    return json({ error: "That session has already ended. Please pick another." }, 422);
+  }
 
   // --- Resolve rate ---
   let [rateCard] = await db

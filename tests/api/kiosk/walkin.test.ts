@@ -413,11 +413,14 @@ describe("POST /api/kiosk/[locationSlug]/walkin/start + /payment", () => {
       // Use a different session slot to avoid the unique-booking constraint.
       // We'll insert a second session so the minor and adult don't collide.
       const db = getDb();
+      // /walkin/start now rejects a session whose endsAt has already passed
+      // (see the "already ended" fix above), so this fixture must produce a
+      // session that is still open no matter what wall-clock time the suite
+      // runs at. A fixed UTC-midnight + 4h offset (the old approach) went
+      // stale for any run after ~04:00 UTC and started intermittently
+      // failing here once the endsAt check landed. Anchor to "now" instead.
       const now = new Date();
-      const todayStart = new Date(
-        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-      );
-      const minorSessionStart = new Date(todayStart.getTime() + 4 * 3_600_000);
+      const minorSessionStart = new Date(now.getTime() + 5 * 60_000);
       const minorSessionEnd = new Date(
         minorSessionStart.getTime() + 90 * 60_000,
       );
@@ -497,6 +500,82 @@ describe("POST /api/kiosk/[locationSlug]/walkin/start + /payment", () => {
           fm.birthDate === "2015-05-10",
       );
       expect(match).toBeDefined();
+    });
+  });
+
+  // ── Ended session (endsAt in the past) ────────────────────────────────────
+  // Deliberately the OPPOSITE of the fixtures seeded in beforeAll: those start
+  // inside the facility's local day and END IN THE FUTURE so GET /sessions
+  // can see them. This one starts AND ends in the past. GET /sessions already
+  // hides an ended session (that's the fix this suite's fixtures were
+  // reseeded for), but /walkin/start is public and unauthenticated — a stale
+  // kiosk tab that fetched the session list hours ago can still POST this
+  // sessionId directly, so the server must reject it independently of the
+  // listing filter.
+
+  describe("walk-in against a session that has already ended", () => {
+    let endedSessionId: string;
+
+    beforeAll(async () => {
+      const db = getDb();
+      const now = new Date();
+      const endedStart = new Date(now.getTime() - 3 * 3_600_000); // 3h ago
+      const endedEnd = new Date(now.getTime() - 90 * 60_000); // ended 90m ago
+
+      const [endedSession] = await db
+        .insert(dropInSessions)
+        .values({
+          organizationId: E2E_ORG_ID,
+          venueId: E2E_RENTAL_VENUE_ID,
+          kind: "pickup",
+          sportOrClassLabel: `walkin-ended-${UNIQUE_SUFFIX}`,
+          startsAt: endedStart,
+          endsAt: endedEnd,
+          capacity: 20,
+          teamCount: 2,
+          teamColors: ["red", "blue"],
+          sessionRateCents: 1200,
+          walkUpRateCents: 1900,
+        })
+        .returning();
+      endedSessionId = endedSession.id;
+    });
+
+    it("rejects with a 4xx when the session's endsAt is in the past", async () => {
+      const res = await apiFetch(
+        `/api/kiosk/${locationId}/walkin/start`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            sessionId: endedSessionId,
+            contact: {
+              firstName: "Late",
+              lastName: "Walkin",
+              email: `walkin-ended-${UNIQUE_SUFFIX}@walkin-test.invalid`,
+              phone: "6145550008",
+              dob: "1990-01-01",
+            },
+          }),
+        },
+      );
+      expect(res.status).toBeGreaterThanOrEqual(400);
+      expect(res.status).toBeLessThan(500);
+      const body = await res.json();
+      expect(body.error).toMatch(/ended/i);
+    });
+
+    afterAll(async () => {
+      if (!endedSessionId) return;
+      const adminCookie = await getAdminCookie().catch(() => null);
+      if (!adminCookie) return;
+      await apiFetch(`/api/admin/dropin/sessions/${endedSessionId}/cancel`, {
+        method: "POST",
+        cookie: adminCookie,
+      }).catch(() => null);
+      await apiFetch(`/api/admin/dropin/sessions/${endedSessionId}`, {
+        method: "DELETE",
+        cookie: adminCookie,
+      }).catch(() => null);
     });
   });
 
