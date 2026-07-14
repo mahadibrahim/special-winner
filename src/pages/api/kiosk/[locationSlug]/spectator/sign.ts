@@ -33,7 +33,8 @@
  * stands and the channel comes back in `pending` so the UI can be honest
  * ("we'll text you to confirm"). Same for WhatsApp, which cannot deliver at all
  * yet (no WABA/templates), and for email, whose double-opt-in confirmation is
- * sent by a separate task. Never discard a consent because a pipe is blocked.
+ * sent below but whose intent + evidence (email_opt_ins) are already filed if
+ * the send fails. Never discard a consent because a pipe is blocked.
  */
 import type { APIRoute } from "astro";
 import { eq } from "drizzle-orm";
@@ -54,6 +55,10 @@ import {
 } from "@/lib/consents/marketing-channels";
 import { normalizeUsPhone } from "@/lib/sms/send";
 import { createPhoneVerification } from "@/lib/auth/phone-otp";
+import { mintToken } from "@/lib/check-in/tokens-db";
+import { sendEmailConsentConfirmationEmail } from "@/lib/email/send";
+import { originForBrand } from "@/lib/organization/soccerone-routing";
+import { env } from "@/lib/env";
 import { normalizeForUniqueness } from "@/lib/auth/email-normalize";
 import { spectatorWaiverText } from "@/lib/waivers/spectator-waiver-text";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
@@ -107,14 +112,16 @@ const CONSENT_SOURCE = KIOSK_SPECTATOR_SOURCE;
  * The two arrays say WHY a channel is not yet active — they are not a
  * subscribed/unsubscribed split:
  *
- *   awaitingCode — a confirmation is IN FLIGHT. We texted a code to the number;
- *     the customer must enter it. Actionable right now: "Enter the code we just
- *     texted you." Entering it promotes every phone channel they ticked.
+ *   awaitingCode — a confirmation is IN FLIGHT. For the phone channels we texted
+ *     a code to the number; for email we sent the double-opt-in link to the
+ *     address. Actionable right now: "Enter the code we just texted you" /
+ *     "Click the link in your inbox." Taking that step promotes the channel.
  *
- *   pending — captured, but NO confirmation is possible yet. Either the channel
- *     is dormant (SMS under carrier review, WhatsApp with no WABA), or it is
- *     email, whose double-opt-in send is a separate task that does not exist
- *     yet. Nothing for the customer to do: "We'll be in touch to confirm."
+ *   pending — captured, but NO confirmation is possible right now: the channel is
+ *     dormant (SMS under carrier review, WhatsApp with no WABA) or the
+ *     confirmation send failed. Nothing for the customer to do: "We'll be in
+ *     touch to confirm." The intent and its evidence are on file either way, so
+ *     the confirmation can be re-sent — a blocked pipe never destroys a consent.
  *
  * Both mean NOT ACTIVE. They differ only in whether the customer has a next
  * step. `phoneVerificationId` is present iff `awaitingCode` is non-empty — it is
@@ -235,6 +242,7 @@ export const POST: APIRoute = async ({ params, request, clientAddress, locals })
   // the signature stands, the customer is admitted, and nothing was half-granted.
   // (Chosen over "catch and continue": those rows are cheap to re-capture, and
   // an inconsistent consent record is the thing a carrier reviewer reads.)
+  let marketingUserId: string | null = null;
   try {
     await db.transaction(async (tx) => {
       const resolvedId = await resolveMarketingUser(tx, {
@@ -277,6 +285,7 @@ export const POST: APIRoute = async ({ params, request, clientAddress, locals })
           status: "pending",
         });
       }
+      marketingUserId = resolvedId;
     });
   } catch (err) {
     console.error("[spectator/sign] consent capture failed:", err);
@@ -340,12 +349,58 @@ export const POST: APIRoute = async ({ params, request, clientAddress, locals })
     pending.push(...phoneChannels);
   }
 
-  // 5 — Email is a double opt-in: the address is not on the list until the
-  // confirmation link is clicked (recordMarketingConsent leaves emailVerified
-  // alone). The confirmation send is a separate task; until it lands — and
-  // after it lands, until they click — email is honestly pending, with no next
-  // step we can offer at the kiosk.
-  if (input.consents.includes("email")) pending.push("email");
+  // 5 — Email: the double opt-in. Send the confirmation link to the address
+  // itself. That link is email's VERIFIED ACT — the exact counterpart of the OTP
+  // above: only a click, from inside the mailbox, promotes the pending intent
+  // and puts the address on the list (marketing selects on users.emailVerified,
+  // which nothing but /api/consent/confirm sets).
+  //
+  // The intent and its evidence are ALREADY on file (email_opt_ins, written in
+  // the transaction above), so a failed send costs us the confirmation, never
+  // the consent — it can be re-sent. The distinction the response draws:
+  //   sent → awaitingCode ("check your inbox", a next step exists)
+  //   not  → pending ("we'll be in touch", nothing they can do)
+  if (input.consents.includes("email")) {
+    let confirmationSent = false;
+    if (marketingUserId) {
+      try {
+        const token = await mintToken({
+          kind: "email_consent",
+          // Polymorphic target: the user the consent hangs off. The address is
+          // carried on the token itself (recipientEmail) and is what the
+          // promotion is scoped by.
+          targetId: marketingUserId,
+          organizationId: location.organizationId,
+          venueId: null,
+          sentVia: "email",
+          recipientUserId: marketingUserId,
+          recipientEmail: email,
+          recipientPhone: phoneE164 ?? phoneDigits,
+          createdByUserId: null,
+          // Long-lived on purpose: a confirmation the customer opens the next
+          // evening must still work. It grants nothing but the promotion of an
+          // intent they themselves ticked.
+          ttlHours: 24 * 14,
+        });
+        const origin = originForBrand(locals.brandId) ?? env.PUBLIC_APP_URL;
+        const result = await sendEmailConsentConfirmationEmail({
+          userId: marketingUserId,
+          recipientEmail: email,
+          name: input.firstName,
+          confirmUrl: `${origin}/api/consent/confirm/${token.token}`,
+          consentTextShown: CONSENT_COPY.email,
+          brand: locals.brandId,
+        });
+        confirmationSent = result.success;
+      } catch (err) {
+        // Never fatal: the consent is filed either way, and the signature is
+        // long since written.
+        console.error("[spectator/sign] consent confirmation send failed:", err);
+      }
+    }
+    if (confirmationSent) awaitingCode.push("email");
+    else pending.push("email");
+  }
 
   const body: SignResponse = {
     ok: true,

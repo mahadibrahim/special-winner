@@ -26,6 +26,7 @@ export * from "./conversations";
 // Auth + messaging infrastructure (Phase 1)
 export * from "./magic-links";
 export * from "./phone-verifications";
+export * from "./email-opt-ins";
 export * from "./family-member-parents";
 export * from "./staff-notifications";
 

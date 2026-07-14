@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { getDb } from "@/lib/db";
 import { phoneOptIns } from "@/lib/db/schema/phone-verifications";
+import { emailOptIns } from "@/lib/db/schema/email-opt-ins";
 import { users } from "@/lib/db/schema/users";
 import { and, eq } from "drizzle-orm";
 import { E2E_ORG_ID } from "@/lib/db/seeds/seed-e2e-tests";
@@ -15,13 +16,15 @@ const PHONE_COEXIST = `559${Date.now().toString().slice(-7)}`;
 
 describe("recordMarketingConsent", () => {
   let userId: string;
+  let userEmail: string;
 
   beforeAll(async () => {
     const db = getDb();
+    userEmail = `record-marketing-consent-${Date.now()}@test.example`;
     const [u] = await db
       .insert(users)
       .values({
-        email: `record-marketing-consent-${Date.now()}@test.example`,
+        email: userEmail,
         passwordHash: "x",
         firstName: "Consent",
         lastName: "Test",
@@ -37,6 +40,7 @@ describe("recordMarketingConsent", () => {
       .where(eq(phoneOptIns.phone, PHONE_TEXT_SHOWN));
     await db.delete(phoneOptIns).where(eq(phoneOptIns.phone, PHONE_CONFLICT));
     await db.delete(phoneOptIns).where(eq(phoneOptIns.phone, PHONE_COEXIST));
+    await db.delete(emailOptIns).where(eq(emailOptIns.email, userEmail));
     await db.delete(users).where(eq(users.id, userId));
   });
 
@@ -191,6 +195,10 @@ describe("recordMarketingConsent", () => {
       organizationId: E2E_ORG_ID,
       userId,
       channel: "email",
+      // The evidence row is keyed on the ADDRESS the consent was given for —
+      // an email consent with no address is a consent we could never honour or
+      // prove, so the channel now requires it.
+      email: userEmail,
       source: "test",
       textShown: CONSENT_COPY.email,
     });
@@ -200,5 +208,19 @@ describe("recordMarketingConsent", () => {
     // recordMarketingConsent ever set it, an unverified address could enter
     // the marketing list.
     expect(after.emailVerified).toBe(false);
+
+    // ...and the evidence IS written: the sentence shown, the surface, the org.
+    const [row] = await db
+      .select()
+      .from(emailOptIns)
+      .where(
+        and(
+          eq(emailOptIns.organizationId, E2E_ORG_ID),
+          eq(emailOptIns.email, userEmail),
+        ),
+      );
+    expect(row, "an email consent must leave evidence").toBeTruthy();
+    expect(row.consentTextShown).toBe(CONSENT_COPY.email);
+    expect(row.optInSource).toBe("test");
   });
 });

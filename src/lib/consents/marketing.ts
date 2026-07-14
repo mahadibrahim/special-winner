@@ -6,6 +6,7 @@
 
 import { and, eq } from "drizzle-orm";
 import { phoneOptIns } from "@/lib/db/schema/phone-verifications";
+import { emailOptIns } from "@/lib/db/schema/email-opt-ins";
 import { users } from "@/lib/db/schema/users";
 import type { Database } from "@/lib/db";
 import type { ConsentChannel } from "./marketing-channels";
@@ -74,6 +75,57 @@ export async function recordMarketingConsent(opts: {
   const status = opts.status ?? "opted_in";
 
   if (opts.channel === "email") {
+    if (!opts.email) throw new Error("recordMarketingConsent: email requires an email");
+    const email = opts.email.trim().toLowerCase();
+
+    // THE EVIDENCE ROW. Written for BOTH statuses, at CAPTURE time — who ticked
+    // which sentence, from which surface, when. Email used to have no equivalent
+    // of phone_opt_ins, so a tick whose confirmation send failed (or was never
+    // clicked) evaporated without a trace: a consent the customer really gave,
+    // discarded because a pipe was blocked. Never again.
+    await opts.db
+      .insert(emailOptIns)
+      .values({
+        organizationId: opts.organizationId,
+        userId: opts.userId,
+        email,
+        status,
+        // `pending` is not opted in — optedInAt is stamped by the double-opt-in
+        // click, and it is THAT timestamp a reviewer is shown as the moment
+        // consent began.
+        optedInAt: status === "opted_in" ? now : null,
+        optedOutAt: null,
+        optInSource: opts.source,
+        consentTextShown: opts.textShown,
+      })
+      .onConflictDoUpdate({
+        target: [emailOptIns.organizationId, emailOptIns.email],
+        set:
+          status === "pending"
+            ? {
+                // Refresh the evidence on an intent that is ALREADY pending, and
+                // nothing else. `setWhere` is what stops an unauthenticated tick
+                // from touching the two rows that matter: an `opted_out` row (a
+                // stranger typing your address must not undo your unsubscribe)
+                // and an `opted_in` row (already verified — a stray kiosk tick
+                // must not demote it).
+                optInSource: opts.source,
+                consentTextShown: opts.textShown,
+                updatedAt: now,
+              }
+            : {
+                status: "opted_in",
+                optedInAt: now,
+                optedOutAt: null,
+                optInSource: opts.source,
+                consentTextShown: opts.textShown,
+                updatedAt: now,
+              },
+        ...(status === "pending"
+          ? { setWhere: eq(emailOptIns.status, "pending") }
+          : {}),
+      });
+
     // Email consent is NOT active until the double-opt-in link is clicked; the
     // confirmation endpoint sets emailVerified. Marketing selects on
     // emailVerified && !marketingOptedOutAt, so recording intent here cannot
@@ -194,5 +246,46 @@ export async function promotePendingPhoneConsents(opts: {
       ),
     )
     .returning({ id: phoneOptIns.id });
+  return rows.length;
+}
+
+/**
+ * Promote the pending email consent an UNAUTHENTICATED surface captured, once
+ * the double-opt-in link WE SENT TO THAT ADDRESS has been clicked — the verified
+ * act that turns intent into consent, and email's exact analogue of the phone
+ * OTP. Scoped identically, and for the same reasons:
+ *
+ *   - only rows whose optInSource is the surface named in `source` — a
+ *     confirmation link may promote only what that surface captured,
+ *   - only rows still `pending`. LOAD-BEARING: without it, a click resurrects an
+ *     `opted_out` row (tests/api/consent/double-opt-in.test.ts proves it —
+ *     remove this line and "a confirmation click must NOT resurrect an opt-out
+ *     it never captured" fails). The source filter does NOT cover it: an
+ *     unsubscribed row can carry optInSource = kiosk_spectator from the opt-in
+ *     it originally made. Holding the mailbox is not withdrawing an unsubscribe;
+ *     the way back from an unsubscribe is a resubscribe, not a stale link.
+ *
+ * Returns the number of rows promoted — 0 means nothing was granted, and the
+ * caller must NOT clear users.marketingOptedOutAt.
+ */
+export async function promotePendingEmailConsents(opts: {
+  db: Db;
+  organizationId: string;
+  email: string;
+  source: string;
+}): Promise<number> {
+  const now = new Date();
+  const rows = await opts.db
+    .update(emailOptIns)
+    .set({ status: "opted_in", optedInAt: now, updatedAt: now })
+    .where(
+      and(
+        eq(emailOptIns.organizationId, opts.organizationId),
+        eq(emailOptIns.email, opts.email.trim().toLowerCase()),
+        eq(emailOptIns.optInSource, opts.source),
+        eq(emailOptIns.status, "pending"),
+      ),
+    )
+    .returning({ id: emailOptIns.id });
   return rows.length;
 }

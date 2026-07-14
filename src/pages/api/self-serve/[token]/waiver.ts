@@ -18,7 +18,7 @@ import { dropInBookings } from "@/lib/db/schema/drop-in";
 import { fieldRentals } from "@/lib/db/schema/field-rentals";
 import { consents } from "@/lib/db/schema/consents";
 import { verifyToken } from "@/lib/check-in/tokens-db";
-import { resolveSigner } from "@/lib/check-in/resolve-signer";
+import { resolveSigner, asSelfServiceKind } from "@/lib/check-in/resolve-signer";
 
 export const prerender = false;
 
@@ -39,6 +39,9 @@ export const POST: APIRoute = async ({ params, request }) => {
     return json({ error: v.reason }, status);
   }
   const tok = v.token;
+  // A marketing-consent token is not a waiver target.
+  const kind = asSelfServiceKind(tok.kind);
+  if (!kind) return json({ error: "not_found" }, 404);
 
   let body: { acceptedName?: string };
   try {
@@ -85,7 +88,7 @@ export const POST: APIRoute = async ({ params, request }) => {
   // Both familyMemberId and signedByUserId are NOT NULL in the consents schema,
   // so we gate this insert on both being present.
   try {
-    const signer = await resolveSigner(tok.kind, tok.targetId, tok.organizationId);
+    const signer = await resolveSigner(kind, tok.targetId, tok.organizationId);
     const signerUserId = signer?.recipientUserId ?? tok.recipientUserId;
     if (signer?.familyMemberId && signerUserId) {
       // Liability consents expire after 365 days (per the schema comment).
