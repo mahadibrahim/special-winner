@@ -243,23 +243,12 @@ test.describe("Kiosk", { tag: "@critical" }, () => {
    * RECOVERABLE. This test denies the camera and asserts both halves: the
    * error is shown, AND the device-upload fallback is still enabled.
    *
-   * ── Why the context response is stubbed ─────────────────────────────────
-   * PhotoCard only renders when the self-serve context says
-   * `outstanding.photo === true` (SelfServe.tsx:370). NOTHING in the app
-   * ever sets that flag: buildSelfServeContext initializes it to false and
-   * never assigns it (src/lib/self-serve/build-context.ts:73), and it has
-   * been that way since the endpoint was first written. So PhotoCard is,
-   * today, unreachable in production — a real pre-existing bug, reported
-   * separately; the photo step is silently never offered to anyone.
-   *
-   * No fixture can produce an outstanding photo while the server never sets
-   * the flag. The kiosk (unlike the standalone /self-serve page, which
-   * builds its context server-side) fetches the context over XHR in
-   * KioskRoot.onToken, so this test intercepts THAT ONE response and flips
-   * the single flag the server is missing. Everything else is real: a real
-   * walk-in booking, a real token, the real PhotoCard, the real getUserMedia
-   * failure path. When the server-side bug is fixed, delete the route stub
-   * and this test keeps passing unchanged.
+   * Nothing here is stubbed but the camera itself. `outstanding.photo` comes
+   * off the real server: buildSelfServeContext now sets it for a person with
+   * no photo on file, which a freshly-minted walk-in customer always is. (It
+   * used to be initialized false and never assigned — PhotoCard had never
+   * rendered for anyone — and this test carried a page.route stub to flip the
+   * flag. The stub is gone; if the server regressed, this test fails first.)
    */
   test("a blocked camera is visible and recoverable — never a dead end", async ({
     page,
@@ -279,20 +268,6 @@ test.describe("Kiosk", { tag: "@critical" }, () => {
               ),
           },
         });
-      });
-
-      // Flip the one flag the server never sets (see the doc comment above).
-      // GET of the context only — the photo POST and every other call go
-      // through untouched.
-      await page.route("**/api/self-serve/*", async (route) => {
-        if (route.request().method() !== "GET") return route.fallback();
-        const res = await route.fetch();
-        if (!res.ok()) return route.fulfill({ response: res });
-        const body = (await res.json()) as {
-          outstanding: { waiver: boolean; photo: boolean; payment: boolean };
-        };
-        body.outstanding.photo = true;
-        await route.fulfill({ response: res, json: body });
       });
 
       const kioskUrl = `/kiosk/${locationId}`;

@@ -105,6 +105,11 @@ export default function SelfServe({
 
   const [waiverDone, setWaiverDone] = useState(!context.outstanding.waiver);
   const [photoDone, setPhotoDone] = useState(!context.outstanding.photo);
+  // The photo is OPTIONAL — offered, never required. A customer who taps
+  // "Not now" settles the step without a photo, and the completion gate below
+  // treats settled exactly like done. Without this, an offered-but-declined
+  // photo would hang the flow short of the checked-in screen forever.
+  const [photoSkipped, setPhotoSkipped] = useState(false);
   const [paymentDone, setPaymentDone] = useState(!context.outstanding.payment);
   // True from the moment PayCard reports a client-side "succeeded" result
   // until the webhook-driven poll below confirms outstanding.payment is
@@ -144,8 +149,11 @@ export default function SelfServe({
   // would see waiver/photo as they were when the poll began.
   const waiverDoneRef = useRef(waiverDone);
   waiverDoneRef.current = waiverDone;
-  const photoDoneRef = useRef(photoDone);
-  photoDoneRef.current = photoDone;
+  // "Settled", not "done": uploaded OR declined OR never asked for. This is
+  // the value the completion gate consumes — the photo is the one step that
+  // can complete without happening.
+  const photoSettledRef = useRef(photoDone || photoSkipped);
+  photoSettledRef.current = photoDone || photoSkipped;
   const paymentDoneRef = useRef(paymentDone);
   paymentDoneRef.current = paymentDone;
   const allDoneRef = useRef(allDone);
@@ -153,6 +161,7 @@ export default function SelfServe({
 
   const maybeConsume = async (
     overrideWaiver?: boolean,
+    /** "photo settled" — uploaded OR skipped. Never "photo uploaded". */
     overridePhoto?: boolean,
     overridePayment?: boolean,
   ) => {
@@ -160,7 +169,7 @@ export default function SelfServe({
     // (and thus refreshed the refs) yet within the same tick; every flag
     // the caller did NOT just flip falls back to the live ref value.
     const effectiveWaiver = overrideWaiver ?? waiverDoneRef.current;
-    const effectivePhoto = overridePhoto ?? photoDoneRef.current;
+    const effectivePhoto = overridePhoto ?? photoSettledRef.current;
     const effectivePayment = overridePayment ?? paymentDoneRef.current;
     if (
       effectiveWaiver &&
@@ -187,6 +196,13 @@ export default function SelfServe({
 
   const onPhotoDone = () => {
     setPhotoDone(true);
+    setTimeout(() => maybeConsume(undefined, true), 0);
+  };
+
+  // "Not now". Identical to onPhotoDone as far as completion is concerned —
+  // the step is settled either way — it just leaves no photo behind.
+  const onPhotoSkip = () => {
+    setPhotoSkipped(true);
     setTimeout(() => maybeConsume(undefined, true), 0);
   };
 
@@ -367,13 +383,31 @@ export default function SelfServe({
           onBusy={setWaiverSubmitBusy}
         />
       )}
-      {context.outstanding.photo && (
+      {context.outstanding.photo && !photoSkipped && (
         <PhotoCard
           token={token}
           done={photoDone}
           onDone={onPhotoDone}
+          onSkip={onPhotoSkip}
           onBusy={setPhotoUploadBusy}
         />
+      )}
+      {/* Skipped, but the flow is still open (a waiver or a payment is left).
+          Offer the way back in — a mis-tapped "Not now" shouldn't cost the
+          photo. Only reachable while other cards are up: when the photo was
+          the last outstanding item, skipping completes the flow and this
+          subtree is replaced by the checked-in screen. */}
+      {context.outstanding.photo && photoSkipped && !photoDone && (
+        <p className="text-sm text-ink-muted">
+          Photo skipped.{" "}
+          <button
+            type="button"
+            onClick={() => setPhotoSkipped(false)}
+            className="underline underline-offset-2 text-ink hover:text-ink-muted transition-colors"
+          >
+            Add one after all
+          </button>
+        </p>
       )}
     </div>
   );

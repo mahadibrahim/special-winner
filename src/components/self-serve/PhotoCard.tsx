@@ -9,6 +9,11 @@ interface Props {
   token: string;
   done: boolean;
   onDone: () => void;
+  /** The photo is OPTIONAL — no customer may ever be stuck at a kiosk because
+   *  of it. Called when they decline it; SelfServe then counts the photo as
+   *  settled and lets the flow complete. Optional prop so an embedder that
+   *  doesn't offer a skip (none today) still type-checks. */
+  onSkip?: () => void;
   /** Reports "an upload of mine is in flight" to the embedder (the kiosk),
    *  so its idle timer can't hard-reset the screen mid-POST. The photo goes
    *  out over slow gym Wi-Fi; a reset there lands the file server-side while
@@ -51,7 +56,7 @@ function frameToFile(video: HTMLVideoElement): Promise<File | null> {
   );
 }
 
-export function PhotoCard({ token, done, onDone, onBusy }: Props) {
+export function PhotoCard({ token, done, onDone, onSkip, onBusy }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
@@ -288,7 +293,7 @@ export function PhotoCard({ token, done, onDone, onBusy }: Props) {
     <div className={CARD_CLASS}>
       <h2 className="font-medium text-ink">Add your photo</h2>
       <p className="text-sm text-ink-muted">
-        Helps the front desk recognize you at check-in.
+        Optional. Helps the front desk recognize you at check-in.
       </p>
 
       <input
@@ -365,6 +370,27 @@ export function PhotoCard({ token, done, onDone, onBusy }: Props) {
       {file && (
         <button type="button" onClick={upload} disabled={busy} className={PRIMARY_BTN}>
           {busy ? "Uploading…" : "Save photo"}
+        </button>
+      )}
+
+      {/* The escape hatch. The photo is optional, and this button is what
+          makes "optional" true rather than a phrase: it is reachable from
+          EVERY state of this card (camera on, preview held, camera errored,
+          no camera at all), so a customer can always move on. Disabled only
+          while an upload is actually in flight — skipping mid-POST would
+          leave a photo landing server-side that the customer was told they
+          declined. */}
+      {onSkip && (
+        <button
+          type="button"
+          onClick={() => {
+            stopCamera();
+            onSkip();
+          }}
+          disabled={busy}
+          className={GHOST_BTN}
+        >
+          Not now
         </button>
       )}
     </div>

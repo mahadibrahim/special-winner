@@ -6,6 +6,7 @@ import { fieldRentals } from "@/lib/db/schema/field-rentals";
 import { dropInSessions, dropInBookings, dropInRateCard } from "@/lib/db/schema/drop-in";
 import { venues } from "@/lib/db/schema/teams";
 import { locations } from "@/lib/db/schema/organizations";
+import { users } from "@/lib/db/schema/users";
 import { mintToken, consumeToken } from "@/lib/check-in/tokens-db";
 import { E2E_RENTAL_VENUE_ID, E2E_ORG_ID } from "@/lib/db/seeds/seed-e2e-tests";
 
@@ -71,6 +72,11 @@ describe("GET /api/self-serve/[token] (context)", () => {
     expect(typeof body.summary).toBe("string");
     expect(body).toHaveProperty("outstanding");
     expect(body.outstanding.waiver).toBe(true);
+    // This rental was admin-created for a renter with NO account (renterUserId
+    // null), so there is no user row and no family_member row to hang a photo
+    // on. No target → the photo step is never offered. It must not block, and
+    // it must not 500.
+    expect(body.outstanding.photo).toBe(false);
     // field_rental resolves via renterUserId/renterName only — never a
     // family_members row — so isMinor is always false on this path.
     expect(body.isMinor).toBe(false);
@@ -206,6 +212,35 @@ describe("GET /api/self-serve/[token] (context) — walk-in payment hold", () =>
     expect(body.amountDueCents).toBe(amountDueCents);
     expect(body.locationSlug).toBe(locationSlug);
     expect(body.bookingId).toBe(bookingId);
+  });
+
+  // outstanding.photo was initialized false and NEVER assigned, so PhotoCard
+  // (which SelfServe gates on it) had never rendered for any customer. The
+  // flag is now real: true for a person with no photo on file, false once one
+  // exists — so a returning customer isn't asked again. The target is derived
+  // by the same helper the upload endpoint writes through (resolvePhotoTarget),
+  // which for a walk-in adult is users.avatarUrl.
+  it("photo: outstanding for a fresh person, settled once a photo is on file", async () => {
+    const { token, bookingId } = await startWalkIn("photo");
+
+    const first = await fetch(`${BASE}/api/self-serve/${token}`);
+    expect(first.status).toBe(200);
+    expect((await first.json()).outstanding.photo).toBe(true);
+
+    // Put a photo on the exact row the upload endpoint would have written.
+    const [booking] = await getDb()
+      .select({ userId: dropInBookings.userId })
+      .from(dropInBookings)
+      .where(eq(dropInBookings.id, bookingId))
+      .limit(1);
+    await getDb()
+      .update(users)
+      .set({ avatarUrl: "mock-r2://photo-context-test.jpg" })
+      .where(eq(users.id, booking.userId));
+
+    const second = await fetch(`${BASE}/api/self-serve/${token}`);
+    expect(second.status).toBe(200);
+    expect((await second.json()).outstanding.photo).toBe(false);
   });
 
   it("confirmed booking: outstanding.payment false, amountDueCents/locationSlug reset", async () => {

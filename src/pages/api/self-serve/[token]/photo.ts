@@ -1,6 +1,7 @@
 import type { APIRoute } from "astro";
 import { verifyToken } from "@/lib/check-in/tokens-db";
 import { resolveSigner } from "@/lib/check-in/resolve-signer";
+import { resolvePhotoTarget } from "@/lib/check-in/photo-target";
 import { uploadPhoto } from "@/lib/check-in/photo-upload";
 
 export const prerender = false;
@@ -22,15 +23,12 @@ export const POST: APIRoute = async ({ params, request }) => {
   if (!file) return json({ error: "file required" }, 400);
 
   const signer = await resolveSigner(tok.kind, tok.targetId, tok.organizationId);
-  // walkin_session: resolveSigner returns null by design — the token row
-  // carries the freshly-minted user's id in recipientUserId. Other kinds
-  // populate signer.recipientUserId.
-  const userId = signer?.recipientUserId ?? tok.recipientUserId;
-  const target = signer?.isMinor && signer.familyMemberId
-    ? { kind: "family_member" as const, id: signer.familyMemberId }
-    : userId
-      ? { kind: "user" as const, id: userId }
-      : null;
+  // The write target — a minor's photo goes on family_members.photoUrl, an
+  // adult's on users.avatarUrl, falling back to the token row's own
+  // recipientUserId when resolveSigner can't produce a user. buildSelfServeContext
+  // asks the SAME helper whether that target already has a photo, so the card
+  // is offered to exactly the person this upload will be saved against.
+  const target = resolvePhotoTarget(signer, tok.recipientUserId);
   if (!target) return json({ error: "No photo target" }, 422);
 
   const bytes = Buffer.from(await file.arrayBuffer());
