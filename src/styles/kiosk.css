@@ -1,0 +1,31 @@
+/* src/styles/kiosk.css — unattended, mounted-iPad hardening. */
+
+.kiosk-surface {
+  /* Kill the ~300ms double-tap-zoom delay on every tap. */
+  touch-action: manipulation;
+  /* Rubber-banding must not reveal Safari's chrome on a mounted device. */
+  overscroll-behavior: none;
+  /* iOS inflates text in some orientations without this. */
+  -webkit-text-size-adjust: 100%;
+  /* Long-press selection highlights are noise on a kiosk... */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  /* Respect the notch/home indicator when installed to the home screen. */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* ...but never on the fields people actually have to type into. */
+.kiosk-surface input,
+.kiosk-surface textarea {
+  -webkit-user-select: text;
+  user-select: text;
+  /* Below 16px, iOS Safari zooms the viewport on focus and never zooms back. */
+  font-size: max(16px, 1rem);
+}
+
+/* Primary kiosk actions are hit at arm's length, standing up. */
+.kiosk-surface button {
+  min-height: 44px;
+}

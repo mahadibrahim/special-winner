@@ -115,7 +115,7 @@ export function FindBooking({ locationSlug, onToken, onBack }: Props) {
       <button
         type="button"
         onClick={onBack}
-        className="min-h-[44px] text-base text-ink-muted hover:text-ink transition-colors"
+        className="inline-flex items-center gap-2 min-h-[44px] px-4 -ml-4 rounded-lg text-base text-ink-muted hover:text-ink transition-colors"
       >
         ← Back
       </button>

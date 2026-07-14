@@ -70,7 +70,7 @@ const PRIMARY_BTN =
   "w-full min-h-[60px] px-6 py-4 rounded-xl bg-primary text-cream text-lg font-medium transition-all hover:bg-primary/90 active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed";
 
 const GHOST_BTN =
-  "min-h-[44px] text-base text-ink-muted hover:text-ink transition-colors";
+  "inline-flex items-center gap-2 min-h-[44px] px-4 -ml-4 rounded-lg text-base text-ink-muted hover:text-ink transition-colors";
 
 export function WalkInWizard({ locationSlug, onToken, onBack }: Props) {
   const [step, setStep] = useState<Step>("session");

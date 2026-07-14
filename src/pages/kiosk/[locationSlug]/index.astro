@@ -5,6 +5,7 @@ import KioskMasthead from "@/components/kiosk/KioskMasthead.astro";
 import { requireKioskLocation } from "@/lib/check-in/kiosk-auth";
 import { getBrandTheme } from "@/lib/branding/themes";
 import { BUSINESS_TIMEZONE } from "@/lib/time/business-timezone";
+import "@/styles/kiosk.css";
 
 export const prerender = false;
 
@@ -47,7 +48,12 @@ const today = new Date().toLocaleDateString("en-US", {
   navigation={false}
   footer={false}
 >
-  <main class="min-h-screen flex flex-col bg-cream text-ink antialiased">
+  <Fragment slot="head">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  </Fragment>
+  <main class="kiosk-surface min-h-screen flex flex-col bg-cream text-ink antialiased">
     <KioskMasthead brandName={brandName} locationName={locationName} today={today} />
 
     <div class="max-w-2xl mx-auto px-6 py-10 md:py-14 flex-1">
