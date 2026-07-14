@@ -36,6 +36,16 @@ import { captureServerException } from "@/lib/observability/server-error";
  *                       which cannot deliver at all yet (never even attempted),
  *                       and an SMS send that comes back reason "channel_dormant".
  *
+ * FAILURE MODE C — the repeat-message loop this cron must never cause: this
+ * cron exists to send the FIRST confirmation for a row whose channel was
+ * dormant at capture time (the sign endpoint already sends the confirmation
+ * itself when the channel is awake at capture — this cron is not that path).
+ * So a row is sent AT MOST ONCE by this cron, full stop: once `sent` fires,
+ * `confirmationLastSentAt` is stamped, and every later run skips that row
+ * (`alreadyNudged`) regardless of how much time has passed. Without this a
+ * `pending` row nobody acts on gets re-messaged every 30 minutes for up to 90
+ * days — an unsolicited repeat text on a marketing channel.
+ *
  * Auth: x-cron-secret header matching CRON_SECRET, exactly as
  * send-welcome-series.ts. Optional `?organizationId=` scopes the scan to one org
  * (an operator affordance to re-flush a single tenant, and how the API test
@@ -80,6 +90,7 @@ export const POST: APIRoute = async ({ request, url }) => {
       organizationId: phoneOptIns.organizationId,
       optedInAt: phoneOptIns.optedInAt,
       createdAt: phoneOptIns.createdAt,
+      confirmationLastSentAt: phoneOptIns.confirmationLastSentAt,
       facility: organizations.name,
     })
     .from(phoneOptIns)
@@ -95,9 +106,19 @@ export const POST: APIRoute = async ({ request, url }) => {
   let sent = 0;
   let reconfirmRequired = 0;
   let stillDormant = 0;
+  let alreadyNudged = 0;
   let errored = 0;
 
   for (const row of rows) {
+    // This cron sends a row's wake-up confirmation AT MOST ONCE, ever — see
+    // "FAILURE MODE C" above. A stamped row is done, permanently; never
+    // re-check it against a rolling window, and never let it fall through to
+    // another send below.
+    if (row.confirmationLastSentAt) {
+      alreadyNudged += 1;
+      continue;
+    }
+
     // WhatsApp cannot deliver at all yet (no WABA/templates) — never attempt a
     // send, just keep the consent parked. Only SMS can be woken today.
     if (row.channel !== "sms") {
@@ -135,6 +156,12 @@ export const POST: APIRoute = async ({ request, url }) => {
 
       if (result.ok) {
         sent += 1;
+        // Stamp BEFORE any later run can see this row again — this is the
+        // marker that makes "at most once" true. See FAILURE MODE C above.
+        await db
+          .update(phoneOptIns)
+          .set({ confirmationLastSentAt: now, updatedAt: now })
+          .where(eq(phoneOptIns.id, row.id));
       } else if (result.reason === "channel_dormant") {
         // The channel is still asleep — keep the consent parked, try again next
         // run. NEVER treat this as a failure that discards the intent.
@@ -156,7 +183,7 @@ export const POST: APIRoute = async ({ request, url }) => {
   console.info(
     `[cron] Flush parked consents: ${rows.length} scanned, ${sent} sent, ` +
       `${reconfirmRequired} reconfirmRequired, ${stillDormant} stillDormant, ` +
-      `${errored} errored in ${elapsedMs}ms`,
+      `${alreadyNudged} alreadyNudged, ${errored} errored in ${elapsedMs}ms`,
   );
 
   return new Response(
@@ -166,6 +193,7 @@ export const POST: APIRoute = async ({ request, url }) => {
       sent,
       reconfirmRequired,
       stillDormant,
+      alreadyNudged,
       errored,
       elapsedMs,
     }),

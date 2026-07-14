@@ -65,6 +65,14 @@ export const phoneOptIns = pgTable(
     // reviewer compares the live form against the consent evidence; if they
     // disagree, the evidence proves nothing.
     consentTextShown: text("consent_text_shown"),
+    // Stamped by flush-parked-consents.ts the ONE time it sends the wake-up
+    // confirmation for this row. A stamped row is never re-sent — the cron
+    // exists to send the first confirmation for a channel that was dormant AT
+    // capture time (the sign endpoint already sent it when the channel was
+    // awake), not to re-nudge. Without this marker a fresh `pending` row that
+    // the customer never acts on gets re-messaged every 30 minutes for up to
+    // 90 days — an unsolicited repeat-message loop on a marketing channel.
+    confirmationLastSentAt: timestamp("confirmation_last_sent_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },

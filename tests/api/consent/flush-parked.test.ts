@@ -181,4 +181,42 @@ describe("flushing parked consents", () => {
       .where(eq(phoneOptIns.phone, phoneE164));
     expect(row.status, "a dormant channel must never destroy consent").toBe("pending");
   });
+
+  it("closes the loop: a second flush does NOT re-send an already-nudged row", async () => {
+    // Regression guard for the exact bug this fix closes: with no memory of a
+    // prior send, a fresh `pending` row on an awake channel got re-messaged
+    // every 30-minute cron tick — an unsolicited repeat text on a marketing
+    // channel — for as long as it sat unacted-on (up to the 90-day staleness
+    // cutoff). One row must receive AT MOST ONE confirmation from this cron.
+    const since = new Date(Date.now() - 5_000).toISOString();
+    const { organizationId, phoneE164 } = await seedParkedConsent({
+      channel: "sms",
+      ageDays: 10,
+      areaPrefix: "605",
+    });
+
+    const firstBody = await (await runCron(organizationId)).json();
+    expect(firstBody.sent, "first flush must send the confirmation").toBe(1);
+
+    const db = getDb();
+    const [afterFirst] = await db
+      .select()
+      .from(phoneOptIns)
+      .where(eq(phoneOptIns.phone, phoneE164));
+    expect(
+      afterFirst.confirmationLastSentAt,
+      "a sent confirmation must stamp confirmationLastSentAt",
+    ).not.toBeNull();
+
+    const secondBody = await (await runCron(organizationId)).json();
+    expect(secondBody.sent, "second flush must NOT re-send an already-nudged row").toBe(0);
+    expect(secondBody.alreadyNudged).toBe(1);
+
+    // Exactly one confirmation must have gone out across both runs.
+    const messages = await readMockSms(phoneE164, since);
+    expect(
+      messages.length,
+      "a parked row must receive at most one confirmation, ever",
+    ).toBe(1);
+  });
 });
