@@ -27,10 +27,18 @@ interface Props {
  *  bookings. */
 const MIN_DIGITS = 4;
 
-/** "6145551234" -> "(614) 555-1234"; partial input formats as far as it goes. */
+/**
+ * "6145551234" -> "(614) 555-1234". Anything shorter renders as plain digits.
+ *
+ * The mask is applied ONLY at a full 10 digits. Progressive masking looks
+ * right if you assume the customer is typing a whole number from the area
+ * code — but the common case here is the opposite: MIN_DIGITS is 4 and the
+ * hint invites just the last four. Masking those rendered "7927" as
+ * "(792) 7", which reads as a mangled area code rather than the four digits
+ * the customer actually pressed.
+ */
 function formatPhone(digits: string): string {
-  if (digits.length <= 3) return digits;
-  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  if (digits.length < 10) return digits;
   return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
 }
 
