@@ -182,6 +182,76 @@ describe("flushing parked consents", () => {
     expect(row.status, "a dormant channel must never destroy consent").toBe("pending");
   });
 
+  it("releases the claim when the send does not deliver, so the row is retryable", async () => {
+    // Regression guard for the fix this test file is named for: the cron used
+    // to send THEN stamp. If the stamp write failed after a successful send,
+    // the row stayed unstamped and got re-sent next run — a duplicate
+    // marketing message. The fix inverts the order (claim first, conditional
+    // on confirmationLastSentAt IS NULL), and on any non-ok send result it
+    // releases the claim back to NULL so the row is retried, never silently
+    // stuck "claimed" with nothing ever delivered.
+    //
+    // sendSms's opt-in gate is bypassed for this cron (bypassOptInCheck), and
+    // MESSAGING_MOCK short-circuits before the real provider call, so neither
+    // lever can force a genuine non-ok result here. isValidPhone runs before
+    // both of those, though, and is a real, non-mocked gate inside sendSms —
+    // so an unnormalized/invalid phone in the row forces a real
+    // `{ ok: false, reason: "invalid_phone" }` all the way through the actual
+    // send path, exercising the claim-release branch for real (not faked).
+    const db = getDb();
+    const suffix = `${Date.now()}`.slice(-7);
+    const rand = Math.random().toString(36).slice(2, 8);
+
+    const [org] = await db
+      .insert(organizations)
+      .values({
+        name: `Flush Test Org ${rand}`,
+        slug: `flush-test-${rand}`,
+        organizationType: "headquarters",
+      })
+      .returning({ id: organizations.id });
+    createdOrgIds.push(org.id);
+
+    // Deliberately NOT run through normalizeUsPhone — this string fails
+    // sendSms's isValidPhone check, forcing a real (non-mocked) send failure.
+    const invalidPhone = `not-a-phone-${suffix}`;
+    createdPhones.push(invalidPhone);
+
+    const capturedAt = new Date(Date.now() - 10 * DAY_MS);
+    await db.insert(phoneOptIns).values({
+      organizationId: org.id,
+      userId: null,
+      phone: invalidPhone,
+      channel: "sms",
+      status: "pending",
+      optedInAt: null,
+      optInSource: KIOSK_SPECTATOR_SOURCE,
+      consentTextShown: CONSENT_COPY.sms,
+      createdAt: capturedAt,
+      updatedAt: capturedAt,
+    });
+
+    const body = await (await runCron(org.id)).json();
+    expect(body.sent, `cron said: ${JSON.stringify(body)}`).toBe(0);
+    expect(body.errored, `cron said: ${JSON.stringify(body)}`).toBe(1);
+
+    const [row] = await db
+      .select()
+      .from(phoneOptIns)
+      .where(eq(phoneOptIns.phone, invalidPhone));
+    expect(
+      row.confirmationLastSentAt,
+      "a claim that did not result in a delivered message must be released back to NULL",
+    ).toBeNull();
+
+    // And it's genuinely retryable, not just "NULL but still stuck": running
+    // the cron again against the same (still-broken) row claims and releases
+    // it again, deterministically — never silently skipped as alreadyNudged.
+    const secondBody = await (await runCron(org.id)).json();
+    expect(secondBody.alreadyNudged, `cron said: ${JSON.stringify(secondBody)}`).toBe(0);
+    expect(secondBody.errored, `cron said: ${JSON.stringify(secondBody)}`).toBe(1);
+  });
+
   it("closes the loop: a second flush does NOT re-send an already-nudged row", async () => {
     // Regression guard for the exact bug this fix closes: with no memory of a
     // prior send, a fresh `pending` row on an awake channel got re-messaged

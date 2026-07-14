@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { phoneOptIns } from "@/lib/db/schema/phone-verifications";
 import { organizations } from "@/lib/db/schema/organizations";
@@ -45,6 +45,23 @@ import { captureServerException } from "@/lib/observability/server-error";
  * (`alreadyNudged`) regardless of how much time has passed. Without this a
  * `pending` row nobody acts on gets re-messaged every 30 minutes for up to 90
  * days — an unsolicited repeat text on a marketing channel.
+ *
+ * CLAIM BEFORE SEND: the stamp is written with a conditional update
+ * (`confirmationLastSentAt IS NULL`) BEFORE the send is attempted, not after
+ * it succeeds. If we stamped after sending, a send that succeeds followed by
+ * a stamp write that then throws (a transient DB blip — this repo has seen
+ * real Railway `CONNECT_TIMEOUT` windows — or two overlapping cron runs)
+ * leaves the row unstamped, and the next run re-sends the same wake-up
+ * message: exactly the duplicate this cron exists to prevent. Claiming first
+ * means: if the claim doesn't land, we never send (`alreadyNudged`); if the
+ * claim lands but the send then fails, we release the claim (set the stamp
+ * back to NULL) so the row is retried rather than silently skipped forever
+ * with no message ever delivered. Fail toward "already nudged," never toward
+ * a repeat blast — a rare missed send is recoverable (re-confirm), a
+ * duplicate marketing message is not. The one gap this can't close: if the
+ * process dies after the send succeeds but before we observe the result, the
+ * row is stamped and won't be retried even though nothing was confirmed to
+ * have landed. That is the safe direction — a missed nudge, not a duplicate.
  *
  * Auth: x-cron-secret header matching CRON_SECRET, exactly as
  * send-welcome-series.ts. Optional `?organizationId=` scopes the scan to one org
@@ -135,6 +152,23 @@ export const POST: APIRoute = async ({ request, url }) => {
       continue;
     }
 
+    // Claim the row BEFORE sending, not after — see "CLAIM BEFORE SEND" above.
+    // The conditional WHERE makes this atomic against a concurrent cron run:
+    // only one caller's UPDATE can match `confirmationLastSentAt IS NULL`.
+    const claimed = await db
+      .update(phoneOptIns)
+      .set({ confirmationLastSentAt: now, updatedAt: now })
+      .where(and(eq(phoneOptIns.id, row.id), isNull(phoneOptIns.confirmationLastSentAt)))
+      .returning({ id: phoneOptIns.id });
+
+    if (claimed.length === 0) {
+      // Another run (or another iteration of this scan) already claimed this
+      // row between our SELECT and here. Do NOT send — that would be the
+      // exact duplicate this ordering exists to prevent.
+      alreadyNudged += 1;
+      continue;
+    }
+
     try {
       const when = anchor.toLocaleDateString("en-US", {
         year: "numeric",
@@ -156,20 +190,33 @@ export const POST: APIRoute = async ({ request, url }) => {
 
       if (result.ok) {
         sent += 1;
-        // Stamp BEFORE any later run can see this row again — this is the
-        // marker that makes "at most once" true. See FAILURE MODE C above.
+        // Claim already stamped confirmationLastSentAt above — that's what
+        // makes "at most once" true. See FAILURE MODE C above.
+      } else {
+        // The send did not deliver. Release the claim so the row is retried
+        // next run instead of being permanently skipped with nothing sent —
+        // a claim that didn't result in a delivered message must not survive.
         await db
           .update(phoneOptIns)
-          .set({ confirmationLastSentAt: now, updatedAt: now })
+          .set({ confirmationLastSentAt: null, updatedAt: now })
           .where(eq(phoneOptIns.id, row.id));
-      } else if (result.reason === "channel_dormant") {
-        // The channel is still asleep — keep the consent parked, try again next
-        // run. NEVER treat this as a failure that discards the intent.
-        stillDormant += 1;
-      } else {
-        errored += 1;
+
+        if (result.reason === "channel_dormant") {
+          // The channel is still asleep — keep the consent parked, try again
+          // next run. NEVER treat this as a failure that discards the intent.
+          stillDormant += 1;
+        } else {
+          errored += 1;
+        }
       }
     } catch (err) {
+      // Same release as above: an exception means nothing was confirmed to
+      // have sent, so the claim must not stand.
+      await db
+        .update(phoneOptIns)
+        .set({ confirmationLastSentAt: null, updatedAt: now })
+        .where(eq(phoneOptIns.id, row.id));
+
       console.error(`[cron] flush-parked-consents failed for opt-in ${row.id}:`, err);
       void captureServerException(err, {
         component: "cron/flush-parked-consents",
