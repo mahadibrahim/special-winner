@@ -61,6 +61,10 @@ export const phoneOptIns = pgTable(
     optedOutAt: timestamp("opted_out_at"),
     optInSource: varchar("opt_in_source", { length: 50 }),
     stopKeywordTriggered: text("stop_keyword_triggered"),
+    // The literal sentence the customer saw when they ticked the box. A carrier
+    // reviewer compares the live form against the consent evidence; if they
+    // disagree, the evidence proves nothing.
+    consentTextShown: text("consent_text_shown"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
