@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { CARD_CLASS, DONE_CARD_CLASS, INPUT_CLASS, PRIMARY_BTN } from "./card-styles";
 
@@ -20,13 +20,41 @@ interface Props {
   isMinor: boolean;
   done: boolean;
   onDone: () => void;
+  /** Reports "a request of mine is in flight" to the embedder (the kiosk),
+   *  so its idle timer can't hard-reset the screen mid-submit and strand a
+   *  signature that already landed server-side. Optional — the standalone
+   *  /self-serve/[token] page has no idle timer and passes nothing. */
+  onBusy?: (busy: boolean) => void;
 }
 
-export function WaiverCard({ token, signerName, playerName, isMinor, done, onDone }: Props) {
+export function WaiverCard({
+  token,
+  signerName,
+  playerName,
+  isMinor,
+  done,
+  onDone,
+  onBusy,
+}: Props) {
   const [accepted, setAccepted] = useState(false);
   const [typed, setTyped] = useState(signerName);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Mirror `busy` upward, and ALWAYS release it on unmount. A busy signal
+  // stuck true would suppress the kiosk's idle reset forever — leaving the
+  // last customer's details on a public screen, the exact failure the idle
+  // timer exists to prevent. Deriving the signal from state (rather than
+  // calling onBusy imperatively at each exit) makes every true-path
+  // structurally paired with a false-path: `finally { setBusy(false) }`.
+  const onBusyRef = useRef(onBusy);
+  onBusyRef.current = onBusy;
+  useEffect(() => {
+    onBusyRef.current?.(busy);
+    return () => {
+      if (busy) onBusyRef.current?.(false);
+    };
+  }, [busy]);
 
   if (done) {
     return (

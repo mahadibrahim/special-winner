@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import SelfServe, { type SelfServeContext } from "@/components/self-serve/SelfServe";
@@ -15,6 +15,18 @@ type Mode = "landing" | "find" | "walkin" | "finish";
 const IDLE_WARN_AFTER_MS = 60_000;
 /** Countdown shown in the warning before the hard reset. */
 const IDLE_GRACE_SECONDS = 20;
+/**
+ * Hard ceiling on how long a child's "busy" signal may suppress the idle
+ * timer. Suppression exists so a reset can't interrupt work the server has
+ * already accepted — but a busy flag stuck true is strictly WORSE than the
+ * reset it prevents: the kiosk would never reset again, and a customer's
+ * name, DOB, and payment screen would sit on an unattended public iPad
+ * indefinitely. So suppression is bounded, not trusted. SelfServe's webhook
+ * poll gives up after 60s and every card releases its flag in a `finally`,
+ * so 120s is a generous ceiling that nothing legitimate should reach; past
+ * it we re-arm regardless of what the children claim.
+ */
+const BUSY_SUPPRESSION_MAX_MS = 120_000;
 
 interface Props {
   locationSlug: string;
@@ -56,14 +68,19 @@ export default function KioskRoot({
   // null means no warning is active.
   const [idleSeconds, setIdleSeconds] = useState<number | null>(null);
   const [online, setOnline] = useState(true);
-  // Set by SelfServe while a charge has been confirmed client-side and the
-  // webhook confirmation poll is still in flight (SelfServe's
-  // `paymentProcessing`). The idle timer must never wipe the screen during
-  // this window — the money has already moved, and a reset here would just
-  // strand the customer without seeing whether they were charged. SelfServe
-  // is the only thing that knows this window exists, so it reports it up
-  // rather than KioskRoot trying to infer it from `mode` alone.
+  // Set by SelfServe whenever one of its cards has work in flight that a
+  // reset would destroy: a confirmPayment/3-D Secure round-trip, the webhook
+  // confirmation poll that follows it, a photo upload, or a waiver submit.
+  // The idle timer must never wipe the screen inside those windows — the
+  // write (or the charge) lands server-side regardless, and the customer is
+  // left staring at the landing screen with no confirmation it happened.
+  // SelfServe is the only thing that knows these windows exist, so it
+  // reports them up rather than KioskRoot trying to infer them from `mode`.
   const [paymentBusy, setPaymentBusy] = useState(false);
+  // Trips when paymentBusy has been continuously true past
+  // BUSY_SUPPRESSION_MAX_MS — the backstop against a child that never
+  // releases its flag. See the constant's comment.
+  const [busySuppressionExpired, setBusySuppressionExpired] = useState(false);
 
   const reset = useCallback(() => {
     setToken(null);
@@ -72,6 +89,7 @@ export default function KioskRoot({
     setLoadingToken(false);
     setMode("landing");
     setPaymentBusy(false);
+    setBusySuppressionExpired(false);
     setNonce((n) => n + 1);
     try {
       sessionStorage.clear();
@@ -83,8 +101,25 @@ export default function KioskRoot({
   // Armed on every screen that can hold personal details (find, walkin,
   // finish) — never on landing, which holds nothing and would otherwise show
   // a user-hostile countdown over an idle attract screen. Also disarmed
-  // whenever a payment is settling, regardless of mode.
-  const armed = mode !== "landing" && !paymentBusy;
+  // whenever a card reports work in flight, regardless of mode — unless that
+  // suppression has run past its ceiling, in which case we re-arm anyway and
+  // let the device recover rather than trust a possibly-stuck flag.
+  const armed = mode !== "landing" && (!paymentBusy || busySuppressionExpired);
+
+  // The suppression ceiling. Restarts on each fresh busy window (a decline
+  // followed by a retry gets its own budget) and clears the moment the
+  // children go quiet.
+  useEffect(() => {
+    if (!paymentBusy) {
+      setBusySuppressionExpired(false);
+      return;
+    }
+    const t = setTimeout(
+      () => setBusySuppressionExpired(true),
+      BUSY_SUPPRESSION_MAX_MS,
+    );
+    return () => clearTimeout(t);
+  }, [paymentBusy]);
 
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
@@ -97,6 +132,12 @@ export default function KioskRoot({
     };
   }, []);
 
+  // Holds the CURRENT effect's arm() so activity reported from React (see
+  // handleActivity below) re-arms through the exact same path as a real
+  // pointerdown, rather than a second, drifting copy of the logic. Reset to
+  // a no-op on teardown so a late call can't resurrect a dead timer.
+  const armRef = useRef<() => void>(() => {});
+
   useEffect(() => {
     if (!armed) {
       setIdleSeconds(null);
@@ -108,16 +149,28 @@ export default function KioskRoot({
       setIdleSeconds(null);
       warnTimer = setTimeout(() => setIdleSeconds(IDLE_GRACE_SECONDS), IDLE_WARN_AFTER_MS);
     };
+    armRef.current = arm;
     const onActivity = () => arm();
     window.addEventListener("pointerdown", onActivity);
     window.addEventListener("keydown", onActivity);
     arm();
     return () => {
       clearTimeout(warnTimer);
+      armRef.current = () => {};
       window.removeEventListener("pointerdown", onActivity);
       window.removeEventListener("keydown", onActivity);
     };
   }, [armed, nonce]);
+
+  // Activity that window listeners CANNOT see. Stripe Elements renders its
+  // card fields in a cross-origin iframe (as does an inline 3-D Secure
+  // challenge): keystrokes inside it never bubble to this window, so a
+  // customer painstakingly typing a 16-digit card number generates zero
+  // detected activity and the idle timer counts them down to a reset —
+  // mid-payment. PaymentElement's onChange/onFocus do fire in the parent
+  // React tree, and SelfServe forwards them here. Stable identity so it
+  // doesn't retrigger SelfServe's effects on every render.
+  const handleActivity = useCallback(() => armRef.current(), []);
 
   // Countdown, then the hard reset.
   useEffect(() => {
@@ -201,6 +254,7 @@ export default function KioskRoot({
           brandId={brandId}
           onDone={reset}
           onBusyChange={setPaymentBusy}
+          onActivity={handleActivity}
         />
       )}
     </div>

@@ -58,6 +58,7 @@ export default function SelfServe({
   brandId,
   onDone,
   onBusyChange,
+  onActivity,
 }: {
   token: string;
   context: Context;
@@ -73,13 +74,21 @@ export default function SelfServe({
   /** Kiosk-embedded mode: reset the kiosk in place instead of navigating.
    *  Absent for a texted link opened standalone. */
   onDone?: () => void;
-  /** Kiosk-embedded mode: reports whether a charge has been confirmed
-   *  client-side and this component is still polling for the webhook to
-   *  confirm it. A parent-owned idle timer must not reset the screen during
-   *  this window — the charge has already happened, and a reset here would
-   *  strand the customer without ever seeing confirmation. Absent for a
-   *  standalone link, which has no idle timer to suppress. */
+  /** Kiosk-embedded mode: reports whether ANY child of this component has
+   *  work in flight that a parent-owned idle timer must not interrupt — a
+   *  confirmPayment/3DS round-trip, the post-confirmation webhook poll, a
+   *  photo upload, or a waiver submit. Each of those has the same shape of
+   *  failure: the request lands server-side while a reset unmounts the
+   *  subtree, so the customer is bounced to the landing screen with no
+   *  confirmation that the thing they just did actually happened. Children
+   *  report their own busy windows and this component ORs them into one
+   *  signal, so the parent never has to know the flow's internals. Absent
+   *  for a standalone link, which has no idle timer to suppress. */
   onBusyChange?: (busy: boolean) => void;
+  /** Kiosk-embedded mode: forwarded to PayCard, which is the only child that
+   *  can produce user activity the parent's window listeners cannot see (the
+   *  cross-origin Stripe Elements iframe). Absent standalone. */
+  onActivity?: () => void;
 }) {
   useHydrationBeacon();
 
@@ -92,6 +101,15 @@ export default function SelfServe({
   // paymentDone itself from the client-side Stripe result.
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const [paymentPollTimedOut, setPaymentPollTimedOut] = useState(false);
+  // In-flight windows reported by the cards themselves. paymentProcessing
+  // (above) only covers the POST-confirmation webhook poll; payConfirmBusy
+  // covers the far more dangerous window BEFORE it — confirmPayment and any
+  // 3-D Secure challenge, during which a reset can strand a charge that
+  // settles anyway. The photo/waiver windows are the same class of bug with
+  // smaller stakes: the write lands, the customer never sees it.
+  const [payConfirmBusy, setPayConfirmBusy] = useState(false);
+  const [photoUploadBusy, setPhotoUploadBusy] = useState(false);
+  const [waiverSubmitBusy, setWaiverSubmitBusy] = useState(false);
   const [allDone, setAllDone] = useState(false);
   // The hold behind this link was cancelled — either it arrived that way
   // (link opened after the expiry sweep) or the poll below discovered a
@@ -227,12 +245,20 @@ export default function SelfServe({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paymentProcessing, token]);
 
-  // Mirror paymentProcessing to the embedder (the kiosk's idle timer) so it
-  // can suppress a reset while a charge is confirmed but not yet reconciled
-  // by the webhook. See onBusyChange's doc comment above.
+  // One busy signal for the embedder (the kiosk's idle timer), OR-ed from
+  // every window in which an interrupting reset would lose work the server
+  // has already accepted. See onBusyChange's doc comment above.
+  //
+  // The pay hand-off is seamless by construction: PayCard clears
+  // payConfirmBusy in the same batch as the onSuccess() that sets
+  // paymentProcessing, so `anyBusy` is continuously true from the moment the
+  // customer taps Pay until the webhook poll resolves — there is no tick in
+  // between where the kiosk considers itself idle.
+  const anyBusy =
+    paymentProcessing || payConfirmBusy || photoUploadBusy || waiverSubmitBusy;
   useEffect(() => {
-    onBusyChange?.(paymentProcessing);
-  }, [paymentProcessing, onBusyChange]);
+    onBusyChange?.(anyBusy);
+  }, [anyBusy, onBusyChange]);
 
   // Cancelled wins over EVERYTHING below — a released hold must never show
   // the checked-in confirmation (the slot is gone), and with the context's
@@ -306,6 +332,8 @@ export default function SelfServe({
               publishableKey={publishableKey ?? ""}
               brandId={brandId}
               onPaid={onPaySubmitted}
+              onBusy={setPayConfirmBusy}
+              onActivity={onActivity}
             />
           </div>
         ))}
@@ -318,10 +346,16 @@ export default function SelfServe({
           isMinor={context.isMinor}
           done={waiverDone}
           onDone={onWaiverDone}
+          onBusy={setWaiverSubmitBusy}
         />
       )}
       {context.outstanding.photo && (
-        <PhotoCard token={token} done={photoDone} onDone={onPhotoDone} />
+        <PhotoCard
+          token={token}
+          done={photoDone}
+          onDone={onPhotoDone}
+          onBusy={setPhotoUploadBusy}
+        />
       )}
     </div>
   );

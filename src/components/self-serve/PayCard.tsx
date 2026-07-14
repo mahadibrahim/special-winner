@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   Elements,
@@ -50,6 +50,22 @@ export interface PayCardProps {
    *  "stripe" theme so any other caller keeps working unchanged. */
   brandId?: "aspire" | "soccerone";
   onPaid: () => void;
+  /** Reports "a confirmPayment / 3-D Secure challenge is in flight" to the
+   *  embedder (the kiosk), so its idle timer can't hard-reset the screen
+   *  between the customer tapping Pay and Stripe answering. A reset there is
+   *  the worst outcome in the whole flow: the charge still settles
+   *  server-side while the customer is looking at the landing screen with no
+   *  confirmation they paid. Optional — the standalone /self-serve/[token]
+   *  page has no idle timer and passes nothing. */
+  onBusy?: (busy: boolean) => void;
+  /** Fires on any interaction INSIDE the Stripe Elements iframe. Stripe
+   *  renders card fields cross-origin, so keystrokes there never reach the
+   *  parent window's pointerdown/keydown listeners — to a window-level idle
+   *  timer, a customer carefully typing a 16-digit card number looks exactly
+   *  like an abandoned kiosk. PaymentElement's onChange/onFocus DO fire in
+   *  the parent React tree, which is the only activity signal we get from
+   *  inside that iframe. Optional. */
+  onActivity?: () => void;
 }
 
 const fmt = (cents: number) => `$${(cents / 100).toFixed(2)}`;
@@ -74,6 +90,8 @@ export function PayCard({
   publishableKey,
   brandId,
   onPaid,
+  onBusy,
+  onActivity,
 }: PayCardProps) {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [amounts, setAmounts] = useState<PaymentAmounts | null>(null);
@@ -211,6 +229,8 @@ export function PayCard({
             amounts={amounts}
             fallbackAmountCents={amountDueCents}
             onSuccess={onPaid}
+            onBusy={onBusy}
+            onActivity={onActivity}
           />
         </Elements>
       )}
@@ -222,10 +242,14 @@ function PayCardForm({
   amounts,
   fallbackAmountCents,
   onSuccess,
+  onBusy,
+  onActivity,
 }: {
   amounts: PaymentAmounts | null;
   fallbackAmountCents: number;
   onSuccess: () => void;
+  onBusy?: (busy: boolean) => void;
+  onActivity?: () => void;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -233,6 +257,26 @@ function PayCardForm({
   const [formError, setFormError] = useState<string | null>(null);
 
   const totalLabel = amounts ? fmt(amounts.totalCents) : fmt(fallbackAmountCents);
+
+  // `busy` is set BEFORE confirmPayment (below) and cleared in its `finally`,
+  // so mirroring it upward covers the entire confirm + 3-D Secure window —
+  // including the inline challenge iframe, which produces no parent-window
+  // activity either. Deriving the signal from state, with an unmount release,
+  // is what guarantees no exit path (success, decline, throw, reset) can
+  // leave the kiosk wedged in a suppressed state where it never resets.
+  //
+  // The success hand-off has no gap: onSuccess() flips SelfServe's
+  // paymentProcessing true in the same batch that clears `busy`, so the
+  // aggregate busy signal SelfServe reports stays continuously true from tap
+  // to webhook confirmation.
+  const onBusyRef = useRef(onBusy);
+  onBusyRef.current = onBusy;
+  useEffect(() => {
+    onBusyRef.current?.(busy);
+    return () => {
+      if (busy) onBusyRef.current?.(false);
+    };
+  }, [busy]);
 
   const onPay = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -289,7 +333,14 @@ function PayCardForm({
         </div>
       )}
 
-      <PaymentElement />
+      {/* onChange/onFocus are the ONLY activity we can observe from inside
+          Stripe's cross-origin iframe — keystrokes on the card fields never
+          bubble to the parent window. Without them the kiosk's idle timer
+          counts a customer mid-card-entry as an abandoned session. */}
+      <PaymentElement
+        onChange={() => onActivity?.()}
+        onFocus={() => onActivity?.()}
+      />
 
       <ErrorBanner message={formError} onDismiss={() => setFormError(null)} />
 

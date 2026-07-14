@@ -9,6 +9,12 @@ interface Props {
   token: string;
   done: boolean;
   onDone: () => void;
+  /** Reports "an upload of mine is in flight" to the embedder (the kiosk),
+   *  so its idle timer can't hard-reset the screen mid-POST. The photo goes
+   *  out over slow gym Wi-Fi; a reset there lands the file server-side while
+   *  the customer, back on the landing screen, redoes the whole step.
+   *  Optional — the standalone /self-serve/[token] page passes nothing. */
+  onBusy?: (busy: boolean) => void;
 }
 
 /** Longest edge of the uploaded image. Gym Wi-Fi is slow and the front desk
@@ -45,7 +51,7 @@ function frameToFile(video: HTMLVideoElement): Promise<File | null> {
   );
 }
 
-export function PhotoCard({ token, done, onDone }: Props) {
+export function PhotoCard({ token, done, onDone, onBusy }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
@@ -84,6 +90,20 @@ export function PhotoCard({ token, done, onDone }: Props) {
       mountedRef.current = false;
     };
   }, []);
+
+  // Mirror the upload's `busy` upward, and ALWAYS release it on unmount. A
+  // stuck-true busy signal would suppress the kiosk's idle reset forever,
+  // leaving this customer's photo and details on a public screen — worse
+  // than the reset it's guarding against. Deriving the signal from state
+  // pairs every true with the `finally { setBusy(false) }` in upload().
+  const onBusyRef = useRef(onBusy);
+  onBusyRef.current = onBusy;
+  useEffect(() => {
+    onBusyRef.current?.(busy);
+    return () => {
+      if (busy) onBusyRef.current?.(false);
+    };
+  }, [busy]);
 
   useEffect(() => clearStartWatchdog, [clearStartWatchdog]);
 
