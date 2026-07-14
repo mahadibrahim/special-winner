@@ -1568,6 +1568,42 @@ test.describe("kiosk", () => {
     await expect(page.locator('input[type="text"]')).toHaveCount(0);
   });
 
+  // THE regression guard for the camera dead-end (Task 4). PhotoCard was
+  // rewritten from <input capture="user"> — which on iOS bounces to the
+  // Camera app and emits NO error event when blocked — to getUserMedia,
+  // precisely so a denied permission becomes visible and recoverable rather
+  // than a silent dead-end on an unattended iPad. Nothing else in the suite
+  // proves that, and it cannot be proven by reading the diff.
+  test("a blocked camera shows an error and leaves the upload fallback usable", async ({ page }) => {
+    // Force the denial deterministically — do not rely on browser permission
+    // state, which differs between headed local runs and headless CI.
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "mediaDevices", {
+        configurable: true,
+        value: {
+          getUserMedia: () =>
+            Promise.reject(
+              new DOMException("Permission denied", "NotAllowedError"),
+            ),
+        },
+      });
+    });
+
+    await page.goto(KIOSK, { waitUntil: "domcontentloaded" });
+    await waitForHydration(page);
+    // Drive the walk-in flow to the photo step. (Session + contact steps are
+    // Task 6's WalkInWizard; the waiver is Task 3's WaiverCard.)
+    // ... reach the photo step, then:
+    await page.getByRole("button", { name: /take a photo/i }).click();
+
+    // The whole point: the failure is SEEN.
+    await expect(page.getByText(/camera access is blocked/i)).toBeVisible();
+    // ...and the customer is not stranded.
+    await expect(
+      page.getByRole("button", { name: /choose from device/i }),
+    ).toBeEnabled();
+  });
+
   test("walk-in reaches the contact step", async ({ page }) => {
     await page.goto(KIOSK, { waitUntil: "domcontentloaded" });
     await waitForHydration(page);
@@ -1584,7 +1620,7 @@ test.describe("kiosk", () => {
 npm run dev   # in another shell
 PLAYWRIGHT_BASE_URL=http://localhost:4321 npm test -- tests/e2e/kiosk.spec.ts
 ```
-Expected: 4 passed. If the seeded facility slug differs, read `src/lib/db/seeds/seed-e2e-tests.ts` and fix `KIOSK` — do not weaken the assertions to make it pass.
+Expected: 5 passed. If the seeded facility slug differs, read `src/lib/db/seeds/seed-e2e-tests.ts` and fix `KIOSK` — do not weaken the assertions to make it pass.
 
 - [ ] **Step 4: Commit**
 
