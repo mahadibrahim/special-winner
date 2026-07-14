@@ -45,6 +45,7 @@ interface SignResult {
 
 interface Props {
   locationSlug: string;
+  organizationId: string;
   brandId?: BrandId;
   /** Returns to KioskRoot's landing screen, resetting all kiosk state. */
   onBack: () => void;
@@ -62,6 +63,21 @@ const GHOST_BTN =
 /** Minimum digits before we'll look up — same privacy floor as the booking
  *  search: fewer would let anyone at the kiosk fish for other people. */
 const MIN_LOOKUP_DIGITS = 4;
+
+/**
+ * Must exactly match KIOSK_SPECTATOR_SOURCE in src/lib/consents/marketing.ts.
+ * Kept as a literal here (not imported) because that module also exports
+ * DB-backed helpers built on drizzle — importing it would pull server-only
+ * code into this client bundle. A resent OTP's purposeContext.source has to
+ * carry this exact string or /api/auth/phone-verify/check's
+ * promotePendingPhoneConsents silently promotes nothing (source mismatch).
+ */
+const KIOSK_SPECTATOR_SOURCE = "kiosk_spectator";
+
+/** Client-side floor between resend taps. The server independently rate-limits
+ *  /api/auth/phone-verify/send to 1/phone/min — this just keeps a bored
+ *  customer from hammering the button and racing that limit. */
+const RESEND_COOLDOWN_SECONDS = 30;
 
 const CHANNEL_LABEL: Record<ConsentChannel, string> = {
   email: "Email",
@@ -81,7 +97,7 @@ function ageIsMinorHelp() {
   return "Signing for someone under 18? You'll sign as their parent or guardian.";
 }
 
-export function SpectatorFlow({ locationSlug, brandId, onBack }: Props) {
+export function SpectatorFlow({ locationSlug, organizationId, brandId, onBack }: Props) {
   const [step, setStep] = useState<Step>("lookup");
 
   // --- lookup ---
@@ -287,7 +303,8 @@ export function SpectatorFlow({ locationSlug, brandId, onBack }: Props) {
         <DoneStep
           firstName={firstName}
           result={signResult}
-          locationSlug={locationSlug}
+          phone={phone}
+          organizationId={organizationId}
           onDone={onBack}
         />
       )}
@@ -583,12 +600,14 @@ function SignStep({
 function DoneStep({
   firstName,
   result,
-  locationSlug,
+  phone,
+  organizationId,
   onDone,
 }: {
   firstName: string;
   result: SignResult;
-  locationSlug: string;
+  phone: string;
+  organizationId: string;
   onDone: () => void;
 }) {
   const phoneAwaiting = result.awaitingCode.filter((c) => c !== "email");
@@ -627,6 +646,8 @@ function DoneStep({
             <OtpConfirm
               channels={phoneAwaiting}
               verificationId={result.phoneVerificationId}
+              phone={phone}
+              organizationId={organizationId}
             />
           )}
 
@@ -664,14 +685,32 @@ function DoneStep({
 function OtpConfirm({
   channels,
   verificationId,
+  phone,
+  organizationId,
 }: {
   channels: ConsentChannel[];
   verificationId: string;
+  /** The number the original code was texted to — a resend goes to the same
+   *  number, never a re-typed one (this screen has no phone field). */
+  phone: string;
+  organizationId: string;
 }) {
+  // Not a prop past the first render: a successful resend swaps this in for
+  // the id of the fresh verification row, entirely inside this component.
+  const [currentVerificationId, setCurrentVerificationId] = useState(verificationId);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [justResent, setJustResent] = useState(false);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const t = setInterval(() => setResendCooldown((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(t);
+  }, [resendCooldown]);
 
   const channelNames = channels.map((c) => CHANNEL_LABEL[c].toLowerCase()).join(" and ");
 
@@ -682,7 +721,7 @@ function OtpConfirm({
       const res = await fetch("/api/auth/phone-verify/check", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ verificationId, code }),
+        body: JSON.stringify({ verificationId: currentVerificationId, code }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -695,6 +734,55 @@ function OtpConfirm({
       setError(err instanceof Error ? err.message : "Network error");
     } finally {
       setBusy(false);
+    }
+  };
+
+  // Send a fresh code to the same number. This re-drives the dedicated
+  // phone-verify endpoint — NOT the spectator sign endpoint — so it cannot
+  // create a second waiver or a second set of consent rows. The
+  // purposeContext below must match what sign.ts wrote for the original code
+  // (source + organizationId): that's what lets a code entered against THIS
+  // fresh verification still promote the pending kiosk consent rows for this
+  // phone (see promotePendingPhoneConsents in lib/consents/marketing.ts).
+  const resend = async () => {
+    setResending(true);
+    setError(null);
+    setJustResent(false);
+    try {
+      const res = await fetch("/api/auth/phone-verify/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone,
+          organizationId,
+          purpose: "registration",
+          purposeContext: { source: KIOSK_SPECTATOR_SOURCE, organizationId },
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        // Don't surface body.error verbatim here — /send's non-429 failure
+        // reasons ("Organization context required", "Organization mismatch")
+        // are internal tenant-binding diagnostics, not something a kiosk
+        // customer should read. Keep the message generic and actionable.
+        setError(
+          res.status === 429
+            ? "Give it a moment before requesting another code."
+            : "Could not send a new code. Please try again.",
+        );
+        setResendCooldown(
+          typeof body.retryAfter === "number" ? body.retryAfter : RESEND_COOLDOWN_SECONDS,
+        );
+        return;
+      }
+      setCurrentVerificationId(body.verificationId);
+      setCode("");
+      setJustResent(true);
+      setResendCooldown(RESEND_COOLDOWN_SECONDS);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Network error");
+    } finally {
+      setResending(false);
     }
   };
 
@@ -718,8 +806,9 @@ function OtpConfirm({
           Confirm {channelNames}
         </p>
         <p className="text-sm text-ink-2">
-          We texted a 6-digit code to your phone. Enter it to confirm — you're
-          not on the list until you do.
+          {justResent
+            ? "We just texted a new code to your phone. Enter it to confirm — you're not on the list until you do."
+            : "We texted a 6-digit code to your phone. Enter it to confirm — you're not on the list until you do."}
         </p>
       </div>
       <div
@@ -743,6 +832,18 @@ function OtpConfirm({
         className={PRIMARY_BTN}
       >
         {busy ? "Confirming…" : "Confirm"}
+      </button>
+      <button
+        type="button"
+        onClick={resend}
+        disabled={resending || resendCooldown > 0}
+        className={`${GHOST_BTN} w-full justify-center`}
+      >
+        {resending
+          ? "Sending…"
+          : resendCooldown > 0
+            ? `Send a new code (${resendCooldown}s)`
+            : "Didn't get it? Send a new code"}
       </button>
     </div>
   );

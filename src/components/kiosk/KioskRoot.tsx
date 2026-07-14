@@ -54,6 +54,7 @@ const UNBOUNDED_BUSY_MAX_MS = 600_000;
 interface Props {
   locationSlug: string;
   locationName: string;
+  organizationId: string;
   publishableKey: string;
   brandId?: BrandId;
 }
@@ -71,6 +72,7 @@ interface Props {
 export default function KioskRoot({
   locationSlug,
   locationName,
+  organizationId,
   publishableKey,
   brandId,
 }: Props) {
@@ -287,7 +289,12 @@ export default function KioskRoot({
       )}
 
       {mode === "spectator" && (
-        <SpectatorFlow locationSlug={locationSlug} brandId={brandId} onBack={reset} />
+        <SpectatorFlow
+          locationSlug={locationSlug}
+          organizationId={organizationId}
+          brandId={brandId}
+          onBack={reset}
+        />
       )}
 
       {mode === "finish" && token && context && (
