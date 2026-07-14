@@ -19,7 +19,8 @@ import { spectatorWaivers } from "@/lib/db/schema/spectators";
 import { phoneOptIns } from "@/lib/db/schema/phone-verifications";
 import { users } from "@/lib/db/schema/users";
 import { venues } from "@/lib/db/schema/teams";
-import { eq, and } from "drizzle-orm";
+import { locations } from "@/lib/db/schema/organizations";
+import { eq, and, inArray } from "drizzle-orm";
 import { E2E_RENTAL_VENUE_ID } from "@/lib/db/seeds/seed-e2e-tests";
 import { normalizeUsPhone } from "@/lib/sms/send";
 
@@ -31,7 +32,30 @@ const OPT_EMAIL = `opt-${EMAIL}`;
 // gate looks the number up by, so a consent stored in any other shape is a
 // consent that can never be honoured. The endpoint normalizes before writing.
 const PHONE_E164 = normalizeUsPhone(PHONE)!;
+
+// A number that previously replied STOP. A stranger at the kiosk must not be
+// able to type it in and put it back on the list.
+const STOP_PHONE = `556${SUFFIX}`;
+const STOP_PHONE_E164 = normalizeUsPhone(STOP_PHONE)!;
+const STOP_EMAIL = `stopped-${SUFFIX}@example.invalid`;
+
+// An address that previously unsubscribed.
+const OUT_PHONE = `557${SUFFIX}`;
+const OUT_EMAIL = `unsubscribed-${SUFFIX}@example.invalid`;
+
+// A fresh phone whose FIRST kiosk opt-in must land as `pending`.
+const PENDING_PHONE = `558${SUFFIX}`;
+const PENDING_PHONE_E164 = normalizeUsPhone(PENDING_PHONE)!;
+const PENDING_EMAIL = `pending-${SUFFIX}@example.invalid`;
+
+// Two different people whose numbers share a last-4 — the lookup must not
+// confuse them when all ten digits are typed.
+const LAST4 = SUFFIX.slice(-4);
+const TWIN_A = `561${SUFFIX.slice(0, 3)}${LAST4}`;
+const TWIN_B = `562${SUFFIX.slice(0, 3)}${LAST4}`;
+
 let LOCATION_ID = "";
+let ORG_ID = "";
 
 describe("kiosk spectator waiver", () => {
   beforeAll(async () => {
@@ -49,14 +73,48 @@ describe("kiosk spectator waiver", () => {
       );
     }
     LOCATION_ID = rentalVenue.locationId;
+    const [loc] = await db
+      .select({ organizationId: locations.organizationId })
+      .from(locations)
+      .where(eq(locations.id, LOCATION_ID))
+      .limit(1);
+    ORG_ID = loc.organizationId;
   });
 
   afterAll(async () => {
     const db = getDb();
-    await db.delete(spectatorWaivers).where(eq(spectatorWaivers.phone, PHONE));
-    await db.delete(phoneOptIns).where(eq(phoneOptIns.phone, PHONE_E164));
-    await db.delete(users).where(eq(users.email, EMAIL));
-    await db.delete(users).where(eq(users.email, OPT_EMAIL));
+    await db
+      .delete(spectatorWaivers)
+      .where(
+        inArray(spectatorWaivers.phone, [
+          PHONE,
+          STOP_PHONE,
+          OUT_PHONE,
+          PENDING_PHONE,
+          TWIN_A,
+          TWIN_B,
+        ]),
+      );
+    await db
+      .delete(phoneOptIns)
+      .where(
+        inArray(phoneOptIns.phone, [
+          PHONE_E164,
+          STOP_PHONE_E164,
+          PENDING_PHONE_E164,
+        ]),
+      );
+    await db
+      .delete(users)
+      .where(
+        inArray(users.email, [
+          EMAIL,
+          OPT_EMAIL,
+          STOP_EMAIL,
+          OUT_EMAIL,
+          PENDING_EMAIL,
+        ]),
+      );
   });
 
   it("signing with NO opt-ins creates a signature but NOT a user", async () => {
@@ -107,6 +165,157 @@ describe("kiosk spectator waiver", () => {
     expect(rows.length).toBe(1);
     expect(rows[0].consentTextShown).toBe(CONSENT_COPY.sms);
     expect(rows[0].userId).toBeTruthy();
+  });
+
+  it("a kiosk phone consent starts PENDING — the tick is intent, the OTP is consent", async () => {
+    // The kiosk is unauthenticated: it cannot know the number typed into it
+    // belongs to the person typing. So the row it writes must not authorise a
+    // send. Only the OTP (proof they hold the phone) promotes it to opted_in.
+    const res = await apiFetch(`/api/kiosk/${LOCATION_ID}/spectator/sign`, {
+      method: "POST",
+      body: JSON.stringify({
+        firstName: "Pend",
+        lastName: "Ing",
+        phone: PENDING_PHONE,
+        email: PENDING_EMAIL,
+        signedName: "Pend Ing",
+        consents: ["sms"],
+      }),
+    });
+    expect(res.status).toBe(200);
+
+    const db = getDb();
+    const [row] = await db
+      .select()
+      .from(phoneOptIns)
+      .where(
+        and(
+          eq(phoneOptIns.phone, PENDING_PHONE_E164),
+          eq(phoneOptIns.channel, "sms"),
+        ),
+      );
+    expect(row).toBeTruthy();
+    expect(row.status).toBe("pending");
+    expect(row.optedInAt).toBeNull();
+    // The evidence is still written immediately — proving what was shown is
+    // independent of proving it was them.
+    expect(row.consentTextShown).toBeTruthy();
+    expect(row.optInSource).toBe("kiosk_spectator");
+  });
+
+  it("a stranger at the kiosk CANNOT undo a STOP", async () => {
+    // The compliance hole this suite exists for: phone_opt_ins is keyed on
+    // (org, phone, channel), and the kiosk identifies nobody. If a tick here
+    // upserted `opted_in`, anyone in the lobby could type a number that had
+    // replied STOP and put it back on the list — TCPA/10DLC, from an iPad.
+    const db = getDb();
+    await db.insert(phoneOptIns).values({
+      organizationId: ORG_ID,
+      phone: STOP_PHONE_E164,
+      channel: "sms",
+      status: "opted_out",
+      optedOutAt: new Date(),
+      optInSource: "registration_form",
+      stopKeywordTriggered: "STOP",
+    });
+
+    const res = await apiFetch(`/api/kiosk/${LOCATION_ID}/spectator/sign`, {
+      method: "POST",
+      body: JSON.stringify({
+        firstName: "Strang",
+        lastName: "Er",
+        phone: STOP_PHONE,
+        email: STOP_EMAIL,
+        signedName: "Strang Er",
+        consents: ["sms"],
+      }),
+    });
+    // The signature still stands — consent is separable from entry.
+    expect(res.status).toBe(200);
+
+    const rows = await db
+      .select()
+      .from(phoneOptIns)
+      .where(
+        and(
+          eq(phoneOptIns.phone, STOP_PHONE_E164),
+          eq(phoneOptIns.channel, "sms"),
+        ),
+      );
+    expect(rows.length).toBe(1);
+    expect(
+      rows[0].status,
+      "an unauthenticated kiosk must never resurrect a STOPped number",
+    ).not.toBe("opted_in");
+    expect(rows[0].optedOutAt).not.toBeNull();
+    // The audit must survive intact: a row that says "opted in" while carrying
+    // "this number sent STOP" is the exact contradiction a carrier reviewer
+    // reads as a violation.
+    expect(rows[0].stopKeywordTriggered).toBe("STOP");
+  });
+
+  it("a stranger at the kiosk CANNOT resurrect an email unsubscribe", async () => {
+    const db = getDb();
+    const optedOutAt = new Date("2026-01-02T03:04:05Z");
+    await db.insert(users).values({
+      email: OUT_EMAIL,
+      emailCanonical: OUT_EMAIL,
+      firstName: "Unsub",
+      lastName: "Scribed",
+      passwordHash: null,
+      marketingOptedOutAt: optedOutAt,
+    });
+
+    const res = await apiFetch(`/api/kiosk/${LOCATION_ID}/spectator/sign`, {
+      method: "POST",
+      body: JSON.stringify({
+        firstName: "Unsub",
+        lastName: "Scribed",
+        phone: OUT_PHONE,
+        email: OUT_EMAIL,
+        signedName: "Unsub Scribed",
+        consents: ["email"],
+      }),
+    });
+    expect(res.status).toBe(200);
+
+    const [after] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, OUT_EMAIL));
+    expect(
+      after.marketingOptedOutAt,
+      "only the double-opt-in click may clear an unsubscribe — not a typed address",
+    ).not.toBeNull();
+  });
+
+  it("the lookup matches the FULL typed number, not just its last four", async () => {
+    // Two people in one org sharing a last-4 is near-certain at a few thousand
+    // waivers. Truncating a 10-digit query to its last 4 greeted the wrong
+    // person by name and admitted them under a stranger's signature.
+    for (const [firstName, phone] of [
+      ["Alpha", TWIN_A],
+      ["Bravo", TWIN_B], // signed later — the "newest wins" tiebreak would pick this one
+    ] as const) {
+      const res = await apiFetch(`/api/kiosk/${LOCATION_ID}/spectator/sign`, {
+        method: "POST",
+        body: JSON.stringify({
+          firstName,
+          lastName: "Twin",
+          phone,
+          signedName: `${firstName} Twin`,
+          consents: [],
+        }),
+      });
+      expect(res.status).toBe(200);
+    }
+
+    const res = await apiFetch(
+      `/api/kiosk/${LOCATION_ID}/spectator/lookup?q=${TWIN_A}`,
+    );
+    const body = await res.json();
+    expect(body.found).toBe(true);
+    expect(body.firstName).toBe("Alpha");
   });
 
   it("lookup finds a valid waiver by phone and does not leak a full surname", async () => {

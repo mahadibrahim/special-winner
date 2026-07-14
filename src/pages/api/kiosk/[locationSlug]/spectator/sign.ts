@@ -14,6 +14,14 @@
  * creates NO users record. Someone who signs and walks in must never come back
  * later to find we made them an account they never asked for.
  *
+ * THE VERIFICATION RULE — this endpoint is unauthenticated and the iPad is
+ * mounted in a public lobby, so it cannot know that the email/phone typed into
+ * it belongs to the person typing. It may therefore capture INTENT, never grant
+ * CONSENT: every consent row it writes is `pending`, it never clears an existing
+ * unsubscribe, and it never revives a number that replied STOP. Only a verified
+ * act promotes an intent — the SMS OTP for phone channels, the double-opt-in
+ * click for email.
+ *
  * THE SEPARABILITY RULE. The waiver is a condition of entry; consent is not.
  * Declining every channel still returns 200 and still admits them. Consent
  * obtained as a condition of something else is not consent — so this endpoint
@@ -34,7 +42,11 @@ import { getDb } from "@/lib/db";
 import { spectatorWaivers } from "@/lib/db/schema/spectators";
 import { users } from "@/lib/db/schema/users";
 import { requireKioskLocation } from "@/lib/check-in/kiosk-auth";
-import { recordMarketingConsent } from "@/lib/consents/marketing";
+import {
+  recordMarketingConsent,
+  KIOSK_SPECTATOR_SOURCE,
+  type ConsentTx,
+} from "@/lib/consents/marketing";
 import {
   CONSENT_CHANNELS,
   CONSENT_COPY,
@@ -80,7 +92,7 @@ const signSchema = z
   });
 
 /** The kiosk's own opt-in surface — recorded on every consent row it writes. */
-const CONSENT_SOURCE = "kiosk_spectator";
+const CONSENT_SOURCE = KIOSK_SPECTATOR_SOURCE;
 
 export const POST: APIRoute = async ({ params, request, clientAddress, locals }) => {
   const slug = params.locationSlug ?? "";
@@ -158,43 +170,89 @@ export const POST: APIRoute = async ({ params, request, clientAddress, locals })
   }
 
   const email = input.email!; // guaranteed by the schema refine above
-  const userId = await resolveMarketingUser({
-    email,
-    firstName: input.firstName,
-    lastName: input.lastName,
-    phone: phoneE164 ?? phoneDigits,
-  });
 
-  await db
-    .update(spectatorWaivers)
-    .set({ userId })
-    .where(eq(spectatorWaivers.id, waiver.id));
+  // 2+3 — user and consent rows, ATOMIC, and never fatal to the signature.
+  //
+  // The waiver is written first and on its own (above): it must survive
+  // whatever happens next — it is the condition of entry, and a customer whose
+  // signature is on file must never be told signing failed. But the user row
+  // and the consent rows are one fact ("this person opted into these
+  // channels"), so they go in a transaction: a half-written consent — a user
+  // conjured with no consent attached, or a waiver pointing at a user whose
+  // consent rows never landed — is worse than none. If the transaction throws,
+  // we still return 200 with every requested channel reported `pending`: the
+  // signature stands, the customer is admitted, and nothing was half-granted.
+  // (Chosen over "catch and continue": those rows are cheap to re-capture, and
+  // an inconsistent consent record is the thing a carrier reviewer reads.)
+  try {
+    await db.transaction(async (tx) => {
+      const resolvedId = await resolveMarketingUser(tx, {
+        email,
+        firstName: input.firstName,
+        lastName: input.lastName,
+        phone: phoneE164 ?? phoneDigits,
+      });
 
-  // 3 — One consent record per ticked channel, each carrying the literal
-  // sentence that channel's checkbox showed. Recorded BEFORE any send is
-  // attempted: delivery is not what makes the consent real.
-  for (const channel of input.consents) {
-    await recordMarketingConsent({
-      db,
-      organizationId: location.organizationId,
-      userId,
-      channel,
-      phone: phoneE164 ?? undefined,
-      email,
-      source: CONSENT_SOURCE,
-      textShown: CONSENT_COPY[channel],
+      await tx
+        .update(spectatorWaivers)
+        .set({ userId: resolvedId })
+        .where(eq(spectatorWaivers.id, waiver.id));
+
+      // One consent record per ticked channel, each carrying the literal
+      // sentence that channel's checkbox showed. Recorded BEFORE any send is
+      // attempted: delivery is not what makes the consent real.
+      //
+      // STATUS "pending", NOT "opted_in". THE RULE THIS ENDPOINT LIVES BY:
+      // an unauthenticated, unattended surface may capture INTENT; only a
+      // VERIFIED ACT may grant CONSENT. This kiosk is a mounted iPad in a
+      // public lobby and it identifies people purely by the email they type —
+      // no proof of ownership. If a tick here wrote `opted_in`, a stranger
+      // could type your address and undo your unsubscribe, or type your number
+      // and re-subscribe a phone that had replied STOP. So the tick records
+      // intent plus evidence, and nothing more: the SMS OTP below promotes the
+      // phone channels (see promotePendingPhoneConsents), the double-opt-in
+      // click promotes email. That is also what makes the OTP mean something —
+      // it used to be sent AFTER the row was already written `opted_in`, so
+      // entering the code changed no state at all.
+      for (const channel of input.consents) {
+        await recordMarketingConsent({
+          db: tx,
+          organizationId: location.organizationId,
+          userId: resolvedId,
+          channel,
+          phone: phoneE164 ?? undefined,
+          email,
+          source: CONSENT_SOURCE,
+          textShown: CONSENT_COPY[channel],
+          status: "pending",
+        });
+      }
     });
+  } catch (err) {
+    console.error("[spectator/sign] consent capture failed:", err);
+    return json(
+      { ok: true, waiverId: waiver.id, pending: [...input.consents] },
+      200,
+    );
   }
 
-  // 4 — SMS: prove the number. A dormant channel is not a failure — the consent
-  // is already filed; park the confirmation and tell the truth in the UI.
+  // 4 — SMS: prove the number. This is the act that promotes the pending
+  // sms/whatsapp intents to real consent. A dormant channel is not a failure —
+  // the intent and its evidence are already filed; park the confirmation and
+  // tell the truth in the UI.
   let phoneVerificationId: string | undefined;
   if (input.consents.includes("sms") && phoneE164) {
     const otp = await createPhoneVerification({
       phone: phoneE164,
       organizationId: location.organizationId,
       purpose: "registration",
-      purposeContext: { spectatorWaiverId: waiver.id, source: CONSENT_SOURCE },
+      // The verification row carries no org column, and the promotion is
+      // org-scoped — so the org travels with the OTP's context.
+      purposeContext: {
+        spectatorWaiverId: waiver.id,
+        source: CONSENT_SOURCE,
+        organizationId: location.organizationId,
+      },
     });
     if (otp.ok) {
       phoneVerificationId = otp.verificationId;
@@ -229,13 +287,20 @@ export const POST: APIRoute = async ({ params, request, clientAddress, locals })
  * a customer with children in a program. Both consent surfaces are already
  * org-scoped in their own right.)
  */
-async function resolveMarketingUser(person: {
-  email: string;
-  firstName: string;
-  lastName: string;
-  phone: string;
-}): Promise<string> {
-  const db = getDb();
+async function resolveMarketingUser(
+  db: ConsentTx,
+  person: {
+    email: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+  },
+): Promise<string> {
+  // NOTE — matching an existing account on the canonical email is a MATCH, not
+  // an authentication: anyone at the kiosk can type anyone's address. That is
+  // precisely why the consent rows this endpoint writes are `pending` and why
+  // it never clears an existing opt-out. Resolving the user is how we hang the
+  // intent somewhere; it grants nothing on its own.
   const emailCanonical = normalizeForUniqueness(person.email);
 
   const [existing] = await db

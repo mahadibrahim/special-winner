@@ -115,4 +115,7 @@ export const PHONE_OPT_IN_SOURCE = [
   "welcome_reply_yes",
   "admin_added",
   "admin_recovery",
+  // The lobby kiosk's spectator waiver. Unauthenticated surface: rows it writes
+  // start `pending` and are only promoted by the phone OTP.
+  "kiosk_spectator",
 ] as const;

@@ -37,6 +37,13 @@ export const GET: APIRoute = async ({ params, url, locals }) => {
   // name query by riding along with a suffix.
   const digits = (url.searchParams.get("q") ?? "").replace(/\D/g, "");
   if (digits.length < 4) return json({ found: false }, 200);
+  // Match on the WHOLE typed suffix, never a truncated last-4. Truncating meant
+  // that someone who typed all ten of their digits could still be matched
+  // against a different person who happened to share the last four — at a few
+  // thousand waivers in one org that is a near-certainty — and the kiosk would
+  // greet them by the stranger's first name and admit them under the stranger's
+  // signature. Four digits stays the MINIMUM (privacy: no name search, no
+  // surname returned); it is no longer the maximum.
 
   const [row] = await getDb()
     .select({
@@ -47,7 +54,7 @@ export const GET: APIRoute = async ({ params, url, locals }) => {
     .where(
       and(
         eq(spectatorWaivers.organizationId, k.location.organizationId),
-        ilike(spectatorWaivers.phone, `%${digits.slice(-4)}`),
+        ilike(spectatorWaivers.phone, `%${digits}`),
         gt(spectatorWaivers.validUntil, new Date()),
       ),
     )
