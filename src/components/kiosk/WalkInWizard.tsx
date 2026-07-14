@@ -119,13 +119,17 @@ export function WalkInWizard({ locationSlug, onToken, onBack }: Props) {
       const body = await res.json();
       if (!res.ok) {
         setError(body.error ?? `Could not start booking (${res.status})`);
+        setBusy(false);
         return;
       }
       // Hand off — SelfServe owns waiver, photo, and payment from here.
+      // onToken is fire-and-forget (KioskRoot is still fetching the token's
+      // context), so leave `busy` true rather than re-enabling Continue
+      // before the handoff lands — otherwise a laggy iPad double-tap can
+      // fire the request twice.
       onToken(body.token as string);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Network error");
-    } finally {
       setBusy(false);
     }
   };

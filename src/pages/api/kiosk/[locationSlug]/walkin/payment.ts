@@ -207,6 +207,14 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
     ? { payment_method_configuration: kioskPmcId }
     : { payment_method_types: ["card"] };
 
+  // INVARIANT: this PaymentIntent must stay card-only. PayCard confirms it
+  // with redirect: "if_required", using the kiosk's landing URL as Stripe's
+  // return_url — but that landing URL is tokenless, so a redirect-based
+  // payment method would bounce the customer to a bare screen with no
+  // confirmation of a charge that may have actually succeeded. If
+  // STRIPE_KIOSK_PMC_ID is ever pointed at a config that includes a
+  // redirect-based method, this breaks. Keep the PMC (or the card-only
+  // fallback above) card-only.
   try {
     const intent = await stripe.paymentIntents.create(
       {

@@ -4,8 +4,10 @@
  *
  * Unauthenticated kiosk endpoint. Resolves the facility from the slug,
  * looks up who the signer is (via resolveSigner), mints (or reuses) a
- * self-service token, and returns the URL + expiry. The kiosk tab then
- * opens the URL for the customer to self-serve on.
+ * self-service token, and returns { token, url, expiresAt }. The kiosk tab
+ * never navigates: it consumes `token` and renders the self-serve cards
+ * inline (see KioskRoot). `url` is kept for back-compat with off-device
+ * callers (e.g. a texted/emailed link) and has no current in-kiosk consumer.
  */
 import type { APIRoute } from "astro";
 import { requireKioskLocation } from "@/lib/check-in/kiosk-auth";

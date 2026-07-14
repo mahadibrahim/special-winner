@@ -229,6 +229,8 @@ export default function SelfServe({
         displayName={context.displayName}
         summary={context.summary}
         refunded={holdRefunded}
+        returnSlug={returnSlug}
+        onDone={onDone}
       />
     );
   }
@@ -311,20 +313,76 @@ export default function SelfServe({
 }
 
 /**
+ * Shared by every terminal screen that can be reached on a mounted kiosk:
+ * counts down and hands the device back to `onDone` (kiosk-embedded) or
+ * `returnSlug` (a kiosk-issued link opened standalone) so it's ready for the
+ * next person, with a "Back to start" button to skip the wait. Renders
+ * nothing when neither is present — a personal SMS/email link opened on the
+ * customer's own phone, where there's nothing to "return" to.
+ */
+function KioskReturnControl({
+  onDone,
+  returnSlug,
+}: {
+  onDone?: () => void;
+  returnSlug: string | null;
+}) {
+  const [secondsLeft, setSecondsLeft] = useState(KIOSK_REDIRECT_SECONDS);
+  const returning = Boolean(onDone || returnSlug);
+
+  useEffect(() => {
+    if (!returning) return;
+    if (secondsLeft <= 0) {
+      if (onDone) onDone();
+      else if (returnSlug) window.location.href = `/kiosk/${returnSlug}`;
+      return;
+    }
+    const t = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [secondsLeft, returning, returnSlug, onDone]);
+
+  if (!returning) return null;
+
+  return (
+    <div className="space-y-2">
+      <button
+        type="button"
+        onClick={() => (onDone ? onDone() : (window.location.href = `/kiosk/${returnSlug}`))}
+        className={PRIMARY_BTN}
+      >
+        Back to start
+      </button>
+      <p className="text-center text-xs text-ink-muted">
+        Returning to the start screen in {Math.max(secondsLeft, 0)}s…
+      </p>
+    </div>
+  );
+}
+
+/**
  * The hold behind this link was cancelled — the expiry sweep released the
  * slot (or the front desk cancelled it). Honest terminal state: says what
  * happened, covers the money (refunded vs. will-be-refunded), and points
  * the customer at the front desk to rebook. Deliberately NOT the
  * checked-in screen — the customer has no slot.
+ *
+ * On a mounted kiosk this is reachable at any time (sweep expiry, front-desk
+ * cancel, or a mid-poll cancellation detected while a payment was
+ * settling) — it MUST hand the device back via KioskReturnControl just like
+ * CheckedInScreen, or the kiosk strands on the previous customer's details.
  */
 function HoldReleasedScreen({
   displayName,
   summary,
   refunded,
+  returnSlug,
+  onDone,
 }: {
   displayName: string;
   summary: string;
   refunded: boolean;
+  returnSlug: string | null;
+  onDone?: () => void;
 }) {
   return (
     <div className="space-y-4">
@@ -348,6 +406,7 @@ function HoldReleasedScreen({
           they can set you up with a new spot.
         </p>
       </div>
+      <KioskReturnControl onDone={onDone} returnSlug={returnSlug} />
     </div>
   );
 }
@@ -369,22 +428,6 @@ function CheckedInScreen({
   returnSlug: string | null;
   onDone?: () => void;
 }) {
-  const [secondsLeft, setSecondsLeft] = useState(KIOSK_REDIRECT_SECONDS);
-  // Embedded in a kiosk (onDone) or opened from a kiosk-issued link
-  // (returnSlug) — either way, hand the device back for the next person.
-  const returning = Boolean(onDone || returnSlug);
-
-  useEffect(() => {
-    if (!returning) return;
-    if (secondsLeft <= 0) {
-      if (onDone) onDone();
-      else if (returnSlug) window.location.href = `/kiosk/${returnSlug}`;
-      return;
-    }
-    const t = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
-    return () => clearTimeout(t);
-  }, [secondsLeft, returning, returnSlug, onDone]);
-
   return (
     <div className="space-y-4">
       <div className="p-6 rounded-xl border border-sage/60 bg-sage/10">
@@ -398,20 +441,7 @@ function CheckedInScreen({
           <p className="mt-2 text-xs text-ink-2">{summary}</p>
         )}
       </div>
-      {returning && (
-        <div className="space-y-2">
-          <button
-            type="button"
-            onClick={() => (onDone ? onDone() : (window.location.href = `/kiosk/${returnSlug}`))}
-            className={PRIMARY_BTN}
-          >
-            Back to start
-          </button>
-          <p className="text-center text-xs text-ink-muted">
-            Returning to the start screen in {Math.max(secondsLeft, 0)}s…
-          </p>
-        </div>
-      )}
+      <KioskReturnControl onDone={onDone} returnSlug={returnSlug} />
     </div>
   );
 }

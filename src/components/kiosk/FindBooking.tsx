@@ -84,14 +84,17 @@ export function FindBooking({ locationSlug, onToken, onBack }: Props) {
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError((body as { error?: string }).error ?? `Couldn't open (${res.status})`);
+        setOpening(false);
         return;
       }
       // The kiosk tab never leaves /kiosk/<slug> — hand the token up and let
-      // KioskRoot render the finish flow inline.
+      // KioskRoot render the finish flow inline. onToken is fire-and-forget
+      // (KioskRoot is still fetching the token's context), so leave `opening`
+      // true rather than re-enabling this row before the handoff lands —
+      // otherwise a laggy iPad double-tap can fire the request twice.
       onToken((body as { token: string }).token);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Network error");
-    } finally {
       setOpening(false);
     }
   };
