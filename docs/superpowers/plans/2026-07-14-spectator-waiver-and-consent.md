@@ -354,7 +354,7 @@ describe("consent copy", () => {
 ```ts
 // tests/unit/consent-staleness.test.ts
 import { describe, it, expect } from "vitest";
-import { isConsentStale, CONSENT_STALE_AFTER_DAYS } from "@/lib/consent/record";
+import { isConsentStale, CONSENT_STALE_AFTER_DAYS } from "@/lib/consents/marketing";
 
 const DAY = 86_400_000;
 
