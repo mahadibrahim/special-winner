@@ -1,10 +1,15 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro";
-import KioskLanding from "@/components/kiosk/KioskLanding";
+import KioskRoot from "@/components/kiosk/KioskRoot";
 import { requireKioskLocation } from "@/lib/check-in/kiosk-auth";
+import { getBrandTheme } from "@/lib/branding/themes";
 import { BUSINESS_TIMEZONE } from "@/lib/time/business-timezone";
 
 export const prerender = false;
+
+// The kiosk serves both brands — the name is never hardcoded in the island.
+const brandId = Astro.locals.brandId;
+const brandName = getBrandTheme(brandId).displayName;
 
 const slug = Astro.params.locationSlug;
 let locationName: string | null = null;
@@ -37,7 +42,7 @@ const today = new Date().toLocaleDateString("en-US", {
 });
 ---
 <BaseLayout
-  title={locationName ? `${locationName} kiosk — Aspire Sports` : "Kiosk — Aspire Sports"}
+  title={locationName ? `${locationName} kiosk — ${brandName}` : `Kiosk — ${brandName}`}
   navigation={false}
   footer={false}
 >
@@ -56,7 +61,7 @@ const today = new Date().toLocaleDateString("en-US", {
 
     <div class="max-w-2xl mx-auto px-6 py-10 md:py-14">
       {invalid ? (
-        <div class="bg-paper border border-rose-200/70 rounded-xl p-6">
+        <div class="bg-paper border border-destructive/30 rounded-xl p-6">
           <h1 class="font-display text-2xl font-medium italic text-ink mb-2">
             Kiosk not configured
           </h1>
@@ -65,10 +70,12 @@ const today = new Date().toLocaleDateString("en-US", {
           </p>
         </div>
       ) : (
-        <KioskLanding
+        <KioskRoot
           client:load
           locationSlug={slug!}
           locationName={locationName!}
+          brandName={brandName}
+          brandId={brandId}
           publishableKey={import.meta.env.STRIPE_PUBLISHABLE_KEY ?? ""}
         />
       )}

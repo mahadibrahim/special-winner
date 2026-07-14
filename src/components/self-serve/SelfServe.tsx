@@ -33,6 +33,10 @@ interface Context {
   expiresAt: string;
 }
 
+/** The body of `GET /api/self-serve/<token>`. Exported so embedders (the
+ *  kiosk) can hold a typed context without casting. */
+export type SelfServeContext = Context;
+
 /** Seconds the "checked in" screen waits before returning a kiosk to its
  *  landing page for the next person. */
 const KIOSK_REDIRECT_SECONDS = 12;

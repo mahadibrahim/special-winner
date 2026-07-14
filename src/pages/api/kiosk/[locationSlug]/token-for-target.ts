@@ -72,5 +72,8 @@ export const POST: APIRoute = async ({ params, request }) => {
   // email — are built absolutely by the send-link endpoint instead.
   const url = `/self-serve/${token.token}`;
 
-  return json({ url, expiresAt: token.expiresAt }, 200);
+  // `token` is what the kiosk actually consumes now — it renders the
+  // self-serve cards INLINE rather than navigating the tab to `url`. `url`
+  // stays for back-compat with any caller that still wants a link.
+  return json({ token: token.token, url, expiresAt: token.expiresAt }, 200);
 };
