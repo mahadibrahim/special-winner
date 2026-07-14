@@ -24,6 +24,8 @@ import { familyMembers } from "@/lib/db/schema/registrations";
 import { users } from "@/lib/db/schema/users";
 import { selfServiceTokens } from "@/lib/db/schema/self-service-tokens";
 import { venues } from "@/lib/db/schema/teams";
+import { locations } from "@/lib/db/schema/organizations";
+import { dayBoundsInTz } from "@/lib/time/day-bounds";
 import { and, eq, ne } from "drizzle-orm";
 import {
   E2E_RENTAL_VENUE_ID,
@@ -104,12 +106,21 @@ describe("POST /api/kiosk/[locationSlug]/walkin/start + /payment", () => {
       secondVenueId = created.id;
     }
 
-    // Seed a drop-in session for TODAY (UTC) at the E2E rental venue.
-    const now = new Date();
-    const todayStart = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+    // Seed a drop-in session for TODAY at the E2E rental venue. "Today" must
+    // mean the FACILITY's local day, not the UTC day: GET /sessions filters on
+    // dayBoundsInTz(location.timezone). Seeding off UTC midnight put the +6h
+    // session past the end of the facility's local day whenever the suite ran
+    // in the late-UTC-evening window, so the facility-wide listing test saw
+    // only 1 of its 2 seeded sessions. Use the endpoint's own day bounds.
+    const [locationRow] = await db
+      .select({ timezone: locations.timezone })
+      .from(locations)
+      .where(eq(locations.id, locationId))
+      .limit(1);
+    const { start: todayStart } = dayBoundsInTz(
+      locationRow?.timezone ?? "America/New_York",
     );
-    // Place session 2 h after midnight UTC so it is firmly "today".
+    // Place session 2 h after the facility's midnight so it is firmly "today".
     const sessionStart = new Date(todayStart.getTime() + 2 * 3_600_000);
     const sessionEnd = new Date(sessionStart.getTime() + 90 * 60_000);
 

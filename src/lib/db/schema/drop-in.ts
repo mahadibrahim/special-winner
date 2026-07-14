@@ -16,6 +16,7 @@ import { sql } from "drizzle-orm";
 import { organizations } from "./organizations";
 import { venues } from "./teams";
 import { users } from "./users";
+import { familyMembers } from "./registrations";
 import { mediaAssets } from "./media";
 import { venueResources } from "./scheduling";
 
@@ -133,6 +134,19 @@ export const dropInBookings = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
+    // WHO the booking is actually for, when that is not the booking's user.
+    // A kiosk walk-in for a MINOR books under the PARENT (userId = parent,
+    // because the parent is who pays and who receives the pay link), while
+    // the player is a family_members row on the COPPA (parent_user_id) path
+    // — see walkin/start.ts. Without this column the child is unreachable
+    // from the booking, and resolveSigner() had no choice but to report the
+    // parent as the participant: the guardian got the ADULT waiver and the
+    // child's kiosk photo landed on the parent's avatar.
+    // NULL = the booking's user IS the participant (every adult walk-in and
+    // every online drop-in booking — those flows are adult-only).
+    familyMemberId: uuid("family_member_id").references(() => familyMembers.id, {
+      onDelete: "set null",
+    }),
     status: dropInBookingStatusEnum("status").notNull(),
     source: dropInBookingSourceEnum("source").notNull(),
     paymentMethod: dropInPaymentMethodEnum("payment_method").notNull(),

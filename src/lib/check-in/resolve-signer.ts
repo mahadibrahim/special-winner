@@ -6,9 +6,19 @@
  * - drop_in_booking / walkin_session: both kinds' `targetId` is a
  *   `drop_in_bookings.id` (walk-in kiosk holds mint `walkin_session`;
  *   regular drop-in bookings mint `drop_in_booking` — see
- *   `walkin/start.ts` and `send-link.ts`). Signer = booking's user.
- *   (Drop-in is adult-only today. If youth drop-in ships, expand this
- *   helper.) Sharing one query means an admin resend for a walk-in hold
+ *   `walkin/start.ts` and `send-link.ts`).
+ *   WALK-INS ARE NOT ADULT-ONLY. The kiosk explicitly supports minors: for
+ *   a player under 18, `walkin/start.ts` books under the PARENT
+ *   (`drop_in_bookings.user_id` = parent) and puts the player in
+ *   `family_members` on the COPPA (`parent_user_id`) path, stamping that row
+ *   on `drop_in_bookings.family_member_id`. So the booking's user is the
+ *   SIGNER, and the family_member (when present) is the PARTICIPANT:
+ *     familyMemberId set + parentUserId set → minor. displayName = child,
+ *       signerName = parent. The guardian consent line + the child's own
+ *       photo target both hang off this `isMinor`.
+ *     no familyMemberId (or a self_user_id row) → adult self walk-in and
+ *       every online drop-in booking; signer = participant = booking's user.
+ *   Sharing one query means an admin resend for a walk-in hold
  *   (kind `walkin_session`) is tenant-scoped exactly like a regular
  *   drop-in resend — see the send-link endpoint's `walkin_session`
  *   support, added so resend mints/reuses the SAME token kind the
@@ -47,7 +57,11 @@ export interface ResolvedSigner {
   recipientEmail: string | null;
   recipientPhone: string | null;
   recipientUserId: string | null;
-  /** family_members.id for roster_entry minors. Null for adult paths. */
+  /**
+   * family_members.id of the PARTICIPANT (roster minors and kiosk walk-in
+   * minors). Null for adult paths. This is what the photo target keys off —
+   * a minor's photo must never be written to the guardian's user avatar.
+   */
   familyMemberId: string | null;
   isMinor: boolean;
 }
@@ -60,6 +74,9 @@ export async function resolveSigner(
   const db = getDb();
 
   if (kind === "drop_in_booking" || kind === "walkin_session") {
+    // LEFT join the participant: present only for a kiosk walk-in booked for
+    // a child (see walkin/start.ts). Absent → the booking's user is the
+    // participant, which is every adult walk-in and every online drop-in.
     const [row] = await db
       .select({
         bookingId: dropInBookings.id,
@@ -68,10 +85,18 @@ export async function resolveSigner(
         lastName: users.lastName,
         email: users.email,
         phone: users.phone,
+        familyMemberId: familyMembers.id,
+        fmFirstName: familyMembers.firstName,
+        fmLastName: familyMembers.lastName,
+        fmParentUserId: familyMembers.parentUserId,
       })
       .from(dropInBookings)
       .innerJoin(users, eq(users.id, dropInBookings.userId))
       .innerJoin(dropInSessions, eq(dropInSessions.id, dropInBookings.sessionId))
+      .leftJoin(
+        familyMembers,
+        eq(familyMembers.id, dropInBookings.familyMemberId),
+      )
       .where(
         and(
           eq(dropInBookings.id, targetId),
@@ -80,14 +105,37 @@ export async function resolveSigner(
       )
       .limit(1);
     if (!row) return null;
-    const name =
+    const bookerName =
       `${row.firstName ?? ""} ${row.lastName ?? ""}`.trim() || row.email;
+
+    // A family_members row on the parent_user_id path IS the definition of a
+    // minor (the self_user_id path is the adult-self row; the DB CHECK makes
+    // it an XOR). Anything we can't resolve falls back to the adult shape —
+    // a kiosk that 500s is worse than one that asks an adult to re-sign.
+    const isMinor = row.familyMemberId !== null && row.fmParentUserId !== null;
+    if (isMinor) {
+      const playerName =
+        `${row.fmFirstName ?? ""} ${row.fmLastName ?? ""}`.trim() || bookerName;
+      return {
+        signerName: bookerName, // the parent/guardian signs
+        displayName: playerName, // the page names the CHILD who plays
+        recipientEmail: row.email,
+        recipientPhone: row.phone,
+        recipientUserId: row.userId,
+        familyMemberId: row.familyMemberId,
+        isMinor: true,
+      };
+    }
+
     return {
-      signerName: name,
-      displayName: name,
+      signerName: bookerName,
+      displayName: bookerName,
       recipientEmail: row.email,
       recipientPhone: row.phone,
       recipientUserId: row.userId,
+      // An adult-self walk-in may still carry a self_user_id family_members
+      // row; it is the same person as the user, so the photo target stays the
+      // user avatar (resolvePhotoTarget only diverts when isMinor).
       familyMemberId: null,
       isMinor: false,
     };
