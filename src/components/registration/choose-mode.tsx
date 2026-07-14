@@ -12,6 +12,8 @@ export default function ChooseMode({
     deposit: number | null;
     effectivePrice?: number | null;
     earlyBirdActive?: boolean;
+    effectiveTeamPrice?: number | null;
+    teamEarlyBirdActive?: boolean;
   };
   canTeam: boolean;
   onPick: (m: "solo" | "team") => void;
@@ -44,6 +46,9 @@ export default function ChooseMode({
           <div className="font-display text-lg">Bring a team →</div>
           <div className="text-sm text-ink-muted">
             You captain a full roster. <b>{team.amount}</b>
+            {season.teamEarlyBirdActive && (
+              <span className="text-primary-orange-bright"> · Early-bird</span>
+            )}
           </div>
         </button>
       )}

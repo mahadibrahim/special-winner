@@ -219,7 +219,11 @@ export async function handleDropInCheckoutComplete(
     // Re-check capacity under the lock — the last-spot race. The customer
     // paid while the session filled up elsewhere; the shared gate treats
     // confirmed + pending_payment + pending_claim as occupying a seat.
-    const capCheck = await checkSessionCapacityLocked(tx, sessionDbId);
+    const capCheck = await checkSessionCapacityLocked(
+      tx,
+      sessionDbId,
+      sessionRow.capacity,
+    );
     if (capCheck.full) {
       const [overflowBooking] = await tx
         .insert(dropInBookings)

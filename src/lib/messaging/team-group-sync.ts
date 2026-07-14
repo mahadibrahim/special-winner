@@ -23,6 +23,20 @@ import { createZernioClientFromEnv, type ZernioClient } from "../zernio/messagin
  *   → registrations.familyMemberId → familyMemberParents → users.
  */
 export async function computeExpectedMembership(teamGroupId: string): Promise<string[]> {
+  const rows = await computeExpectedMembershipDetailed(teamGroupId)
+  return rows.map((r) => r.userId)
+}
+
+/**
+ * Same query as computeExpectedMembership, but also returns each expected
+ * member's telegramChatId — the join already touches `users` (filtered on
+ * isNotNull(users.telegramChatId)), so selecting the column here is free and
+ * lets syncTeamGroupMembership's invite loop skip a per-member
+ * users.findFirst lookup.
+ */
+async function computeExpectedMembershipDetailed(
+  teamGroupId: string,
+): Promise<Array<{ userId: string; telegramChatId: string }>> {
   const db = getDb()
 
   // Lookup by primary key but be explicit about ordering for CI determinism.
@@ -34,7 +48,7 @@ export async function computeExpectedMembership(teamGroupId: string): Promise<st
 
   // rosters.teamId joins to team; rosters.registrationId → registrations.id → familyMemberId
   const rows = await db
-    .selectDistinct({ userId: users.id })
+    .selectDistinct({ userId: users.id, telegramChatId: users.telegramChatId })
     .from(rosters)
     .innerJoin(registrations, eq(rosters.registrationId, registrations.id))
     .innerJoin(familyMembers, eq(registrations.familyMemberId, familyMembers.id))
@@ -49,7 +63,13 @@ export async function computeExpectedMembership(teamGroupId: string): Promise<st
       ),
     )
 
-  return [...new Set(rows.map((r) => r.userId))]
+  const byUser = new Map<string, string>()
+  for (const r of rows) {
+    // isNotNull(users.telegramChatId) in the WHERE guarantees this, but the
+    // column type is still nullable — narrow it here for callers.
+    if (r.telegramChatId && !byUser.has(r.userId)) byUser.set(r.userId, r.telegramChatId)
+  }
+  return [...byUser].map(([userId, telegramChatId]) => ({ userId, telegramChatId }))
 }
 
 export async function syncTeamGroupMembership(teamGroupId: string): Promise<{
@@ -67,11 +87,26 @@ export async function syncTeamGroupMembership(teamGroupId: string): Promise<{
     return { invited: [], removed: [], errors: [] }
   }
 
-  const expectedUserIds = await computeExpectedMembership(teamGroupId)
+  const expected = await computeExpectedMembershipDetailed(teamGroupId)
+  const expectedUserIds = expected.map((e) => e.userId)
+  const telegramChatIdByUser = new Map(expected.map((e) => [e.userId, e.telegramChatId]))
 
+  // Join users here (instead of a per-member users.findFirst below) so the
+  // removal loop has telegramChatId for every existing member up front too.
   const existing = await db
-    .select()
+    .select({
+      id: teamGroupMemberships.id,
+      teamGroupId: teamGroupMemberships.teamGroupId,
+      userId: teamGroupMemberships.userId,
+      role: teamGroupMemberships.role,
+      joinedAt: teamGroupMemberships.joinedAt,
+      removedAt: teamGroupMemberships.removedAt,
+      optedOutAt: teamGroupMemberships.optedOutAt,
+      lastSyncedAt: teamGroupMemberships.lastSyncedAt,
+      telegramChatId: users.telegramChatId,
+    })
     .from(teamGroupMemberships)
+    .innerJoin(users, eq(teamGroupMemberships.userId, users.id))
     .where(eq(teamGroupMemberships.teamGroupId, teamGroupId))
 
   const existingByUserId = new Map(existing.map((m) => [m.userId, m]))
@@ -85,9 +120,9 @@ export async function syncTeamGroupMembership(teamGroupId: string): Promise<{
     if (membership?.joinedAt) continue
 
     try {
-      const user = await db.query.users.findFirst({ where: eq(users.id, userId) })
-      if (!user?.telegramChatId) continue
-      await sendInviteDM(user.telegramChatId, group.name, group.inviteLink ?? "")
+      const telegramChatId = telegramChatIdByUser.get(userId)
+      if (!telegramChatId) continue
+      await sendInviteDM(telegramChatId, group.name, group.inviteLink ?? "")
       if (!membership) {
         await db.insert(teamGroupMemberships).values({
           teamGroupId,
@@ -113,9 +148,8 @@ export async function syncTeamGroupMembership(teamGroupId: string): Promise<{
     if (membership.removedAt) continue
 
     try {
-      const user = await db.query.users.findFirst({ where: eq(users.id, membership.userId) })
-      if (user?.telegramChatId && group.telegramChatId) {
-        await removeMember(group.telegramChatId, user.telegramChatId)
+      if (membership.telegramChatId && group.telegramChatId) {
+        await removeMember(group.telegramChatId, membership.telegramChatId)
       }
       await db
         .update(teamGroupMemberships)

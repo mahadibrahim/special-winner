@@ -17,7 +17,8 @@
 import { describe, it, expect } from "vitest";
 import { getDb } from "@/lib/db";
 import { activityCompletions } from "@/lib/db/schema/activity-tracking";
-import { eq } from "drizzle-orm";
+import { organizations } from "@/lib/db/schema/organizations";
+import { and, asc, eq } from "drizzle-orm";
 import { bootstrapActivityCompletions } from "@/lib/activity-tracking/bootstrap";
 import { createAdminOrgGameContext } from "../../utils/admin-org-game-context";
 import { apiFetch, getAdminCookie } from "../setup/test-helpers";
@@ -103,6 +104,55 @@ describe("GET /api/admin/activity-completions/today", () => {
         r.gameId === ctx.gameId && r.activityId === "act.timekeeping",
     );
     expect(inGameOnWrongDay).toBeUndefined();
+  });
+
+  it("default date resolves in the org row's timezone (locals-populated primary path)", async () => {
+    // Perf batch B changed the endpoint to read the timezone from
+    // locals.organization instead of re-querying the org row. Over
+    // localhost this IS the primary path: the domain resolver's
+    // resolveDefaultOrganization() fallback (domain-resolver.ts) populates
+    // locals.organization with the oldest active HQ org for any host that
+    // matches no custom domain/subdomain — localhost included. So the
+    // request below exercises the locals read, not the defensive DB
+    // fallback. We can't cheaply count queries over HTTP, so the assertion
+    // is output-equivalence: the endpoint's default `date` (no ?date param)
+    // must equal "today" computed in the timezone stored on the org row
+    // the middleware resolves.
+    const [defaultOrg] = await getDb()
+      .select({ id: organizations.id, timezone: organizations.timezone })
+      .from(organizations)
+      .where(
+        and(
+          eq(organizations.organizationType, "headquarters"),
+          eq(organizations.status, "active"),
+        ),
+      )
+      .orderBy(asc(organizations.createdAt))
+      .limit(1);
+    expect(defaultOrg).toBeDefined();
+    const tz = defaultOrg!.timezone ?? "America/New_York";
+
+    const todayInTz = () =>
+      new Intl.DateTimeFormat("en-CA", {
+        timeZone: tz,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date());
+
+    const cookie = await getAdminCookie();
+    const before = todayInTz();
+    const res = await apiFetch("/api/admin/activity-completions/today", {
+      method: "GET",
+      cookie,
+    });
+    const after = todayInTz();
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    // before/after bracket guards the (rare) midnight rollover between our
+    // local computation and the server's.
+    expect([before, after]).toContain(body.date);
   });
 
   it("rejects malformed date param", async () => {

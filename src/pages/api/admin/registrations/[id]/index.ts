@@ -37,34 +37,47 @@ export const GET: APIRoute = async (context) => {
   }
 
   try {
-    const [row] = await getDb()
-      .select({
-        registration: registrations,
-        familyMember: familyMembers,
-        season: seasons,
-        program: programs,
-        sport: sports,
-        location: locations,
-        parent: {
-          id: users.id,
-          email: users.email,
-          firstName: users.firstName,
-          lastName: users.lastName,
-        },
-      })
-      .from(registrations)
-      .innerJoin(familyMembers, eq(registrations.familyMemberId, familyMembers.id))
-      .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
-      .innerJoin(programs, eq(seasons.programId, programs.id))
-      .innerJoin(sports, eq(programs.sportId, sports.id))
-      .innerJoin(locations, eq(programs.locationId, locations.id))
-      .innerJoin(users, eq(registrations.registeredByUserId, users.id))
-      .where(
-        and(
-          eq(registrations.id, id),
-          eq(locations.organizationId, orgContext.organizationId),
+    // The tenant-scoped row lookup and the payment history are independent
+    // of each other at the query level (paymentHistory only filters on
+    // `id`) — run in parallel, then apply the 404 gate after both resolve
+    // and discard paymentHistory if the row turned out to be out of the
+    // caller's org (no data leaks: it's never included in the 404 response).
+    const [[row], paymentHistory] = await Promise.all([
+      getDb()
+        .select({
+          registration: registrations,
+          familyMember: familyMembers,
+          season: seasons,
+          program: programs,
+          sport: sports,
+          location: locations,
+          parent: {
+            id: users.id,
+            email: users.email,
+            firstName: users.firstName,
+            lastName: users.lastName,
+          },
+        })
+        .from(registrations)
+        .innerJoin(familyMembers, eq(registrations.familyMemberId, familyMembers.id))
+        .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+        .innerJoin(programs, eq(seasons.programId, programs.id))
+        .innerJoin(sports, eq(programs.sportId, sports.id))
+        .innerJoin(locations, eq(programs.locationId, locations.id))
+        .innerJoin(users, eq(registrations.registeredByUserId, users.id))
+        .where(
+          and(
+            eq(registrations.id, id),
+            eq(locations.organizationId, orgContext.organizationId),
+          ),
         ),
-      );
+
+      getDb()
+        .select()
+        .from(payments)
+        .where(eq(payments.registrationId, id))
+        .orderBy(desc(payments.createdAt)),
+    ]);
 
     if (!row) {
       return new Response(JSON.stringify({ error: "Registration not found" }), {
@@ -72,12 +85,6 @@ export const GET: APIRoute = async (context) => {
         headers: { "Content-Type": "application/json" },
       });
     }
-
-    const paymentHistory = await getDb()
-      .select()
-      .from(payments)
-      .where(eq(payments.registrationId, id))
-      .orderBy(desc(payments.createdAt));
 
     return new Response(
       JSON.stringify({

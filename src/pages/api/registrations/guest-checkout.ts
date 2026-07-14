@@ -1,15 +1,12 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   users,
   userRoles,
   roles,
   familyMembers as familyMembersTable,
-  seasons,
-  programs,
-  locations,
 } from "@/lib/db/schema";
 import {
   createRegistration,
@@ -30,6 +27,7 @@ import {
 } from "@/lib/consents/record";
 import { collectAdAttribution } from "@/lib/analytics/parse-cookies";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
+import { recordPhoneOptIn } from "@/lib/sms/opt-in";
 
 const guestRegistrantSchema = z.object({
   firstName: z.string().min(1),
@@ -69,6 +67,9 @@ const guestCheckoutSchema = z.union([
     teamToken: z.string().max(64).optional(),
     mediaAuthOptOuts: mediaAuthOptOutsSchema,
     paymentMethodCategory: z.enum(["bank", "card"]).optional(),
+    // SMS consent checkbox next to the phone field (unchecked by default).
+    // Only meaningful when a phone is provided.
+    smsConsent: z.boolean().optional(),
   }),
   // New adult self shape
   z.object({
@@ -82,6 +83,7 @@ const guestCheckoutSchema = z.union([
     teamToken: z.string().max(64).optional(),
     mediaAuthOptOuts: mediaAuthOptOutsSchema,
     paymentMethodCategory: z.enum(["bank", "card"]).optional(),
+    smsConsent: z.boolean().optional(),
   }),
 ]);
 
@@ -213,6 +215,10 @@ export const POST: APIRoute = async (context) => {
       mediaAuthOptOuts?: ReadonlyArray<"internal" | "promotional" | "public">;
       extraMetadata: Record<string, string>;
       paymentMethodCategory?: "bank" | "card";
+      /** Phone the registrant supplied, if any — gates the SMS opt-in write. */
+      phone?: string | null;
+      /** SMS consent checkbox state (unchecked by default; see SmsConsentCheckbox). */
+      smsConsent: boolean;
     }) {
       const {
         userRow,
@@ -230,6 +236,8 @@ export const POST: APIRoute = async (context) => {
         mediaAuthOptOuts,
         extraMetadata,
         paymentMethodCategory,
+        phone,
+        smsConsent,
       } = opts;
       void distinctIdForPosthog;
 
@@ -262,19 +270,33 @@ export const POST: APIRoute = async (context) => {
         throw err;
       }
 
+      // Record SMS opt-in state for a supplied phone: opted_in only when the
+      // customer checked the consent box, else a pending row (never downgrades
+      // an existing opted_in). Reuses the org createRegistration already
+      // resolved. Best-effort — a failure here must not block checkout.
+      if (phone && regResult.organizationId) {
+        try {
+          await recordPhoneOptIn({
+            db,
+            organizationId: regResult.organizationId,
+            userId: userRow.id,
+            phone,
+            consented: smsConsent,
+            source: "registration_form",
+          });
+        } catch (err) {
+          console.error("Failed to record phone opt-in:", err);
+        }
+      }
+
       if (regResult.kind !== "resumed" && waiverSigned) {
-        const [orgRow] = await db
-          .select({ organizationId: locations.organizationId })
-          .from(seasons)
-          .innerJoin(programs, eq(seasons.programId, programs.id))
-          .innerJoin(locations, eq(programs.locationId, locations.id))
-          .where(eq(seasons.id, seasonId));
-        const organizationId = orgRow?.organizationId ?? null;
+        // organizationId was already resolved inside createRegistration —
+        // thread it through instead of re-querying the same season→org join.
         const baseConsent = {
           db,
           familyMemberId: familyMemberRow.id,
           registrationId: regResult.registration.id,
-          organizationId,
+          organizationId: regResult.organizationId,
           signedByUserId: userRow.id,
           signedByName: waiverSignedBy,
           ipAddress: clientAddress ?? null,
@@ -282,14 +304,23 @@ export const POST: APIRoute = async (context) => {
         };
         const personalConsentType =
           personKind === "self" ? "age_confirmation" : "parental";
-        if (!(await hasActiveConsent(db, familyMemberRow.id, personalConsentType))) {
-          await recordConsent({ ...baseConsent, type: personalConsentType });
-        }
-        await recordConsent({ ...baseConsent, type: "liability" });
-        await recordDefaultMediaAuth({
-          ...baseConsent,
-          optOutScopes: mediaAuthOptOuts ?? [],
-        });
+        const needsPersonalConsent = !(await hasActiveConsent(
+          db,
+          familyMemberRow.id,
+          personalConsentType,
+        ));
+        // Independent inserts (different consent rows, no shared uniqueness
+        // constraint) — run them concurrently.
+        await Promise.all([
+          needsPersonalConsent
+            ? recordConsent({ ...baseConsent, type: personalConsentType })
+            : Promise.resolve(),
+          recordConsent({ ...baseConsent, type: "liability" }),
+          recordDefaultMediaAuth({
+            ...baseConsent,
+            optOutScopes: mediaAuthOptOuts ?? [],
+          }),
+        ]);
       }
 
       // Step 4: if waitlisted (no payment), set session cookie for new users and return
@@ -401,6 +432,8 @@ export const POST: APIRoute = async (context) => {
         mediaAuthOptOuts: data.mediaAuthOptOuts,
         extraMetadata: analyticsMetadata,
         paymentMethodCategory: data.paymentMethodCategory,
+        phone: r.phone ?? null,
+        smsConsent: data.smsConsent === true,
       });
     }
 
@@ -445,6 +478,8 @@ export const POST: APIRoute = async (context) => {
       mediaAuthOptOuts: data.mediaAuthOptOuts,
       extraMetadata: analyticsMetadata,
       paymentMethodCategory: "paymentMethodCategory" in data ? data.paymentMethodCategory : undefined,
+      phone: data.parent.phone ?? null,
+      smsConsent: data.smsConsent === true,
     });
   } catch (error) {
     console.error("Error in guest-checkout:", error);

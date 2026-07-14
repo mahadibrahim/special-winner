@@ -288,7 +288,11 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
       // locks only a booking row and never the session row in its
       // transaction, so it can't deadlock against this ordering.)
       const [lockedSession] = await tx
-        .select({ id: dropInSessions.id, status: dropInSessions.status })
+        .select({
+          id: dropInSessions.id,
+          status: dropInSessions.status,
+          capacity: dropInSessions.capacity,
+        })
         .from(dropInSessions)
         .where(eq(dropInSessions.id, session.id))
         .for("update");
@@ -301,8 +305,14 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
       // Capacity gate — shared with the free-path orchestrator and the
       // paid Checkout webhook (checkSessionCapacityLocked). A kiosk hold
       // occupies a real physical seat just like a confirmed booking, so it
-      // must not be handed out past capacity.
-      const capCheck = await checkSessionCapacityLocked(tx, session.id);
+      // must not be handed out past capacity. `lockedSession.capacity` was
+      // already fetched above (same locked row) — pass it through instead
+      // of re-selecting it.
+      const capCheck = await checkSessionCapacityLocked(
+        tx,
+        session.id,
+        lockedSession.capacity,
+      );
       if (capCheck.full) {
         return { kind: "session_full" };
       }

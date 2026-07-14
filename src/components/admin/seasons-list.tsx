@@ -36,6 +36,9 @@ interface Season {
   maxParticipants: number | null
   priceCents: number
   teamPriceCents: number | null
+  earlyBirdDeadline: string | null
+  earlyBirdPriceCents: number | null
+  earlyBirdTeamPriceCents: number | null
   signupModes: string[]
   depositCents: number | null
   allowDeposit: boolean
@@ -115,6 +118,8 @@ export function SeasonsList() {
     maxParticipants: "",
     priceCents: "",
     teamPriceCents: "",
+    earlyBirdDeadlineDate: "",
+    earlyBirdTeamPriceCents: "",
     allowIndividual: true,
     allowTeam: false,
     depositCents: "",
@@ -184,6 +189,8 @@ export function SeasonsList() {
       maxParticipants: "",
       priceCents: "",
       teamPriceCents: "",
+    earlyBirdDeadlineDate: "",
+    earlyBirdTeamPriceCents: "",
       allowIndividual: true,
       allowTeam: false,
       depositCents: "",
@@ -219,6 +226,8 @@ export function SeasonsList() {
       maxParticipants: season.maxParticipants?.toString() || "",
       priceCents: (season.priceCents / 100).toString(),
       teamPriceCents: season.teamPriceCents != null ? (season.teamPriceCents / 100).toString() : "",
+      earlyBirdDeadlineDate: season.earlyBirdDeadline ? season.earlyBirdDeadline.slice(0, 10) : "",
+      earlyBirdTeamPriceCents: season.earlyBirdTeamPriceCents != null ? (season.earlyBirdTeamPriceCents / 100).toString() : "",
       allowIndividual: modes.includes("individual"),
       allowTeam: modes.includes("team"),
       depositCents: season.depositCents ? (season.depositCents / 100).toString() : "",
@@ -256,6 +265,8 @@ export function SeasonsList() {
       maxParticipants: source.maxParticipants?.toString() || "",
       priceCents: (source.priceCents / 100).toString(),
       teamPriceCents: source.teamPriceCents != null ? (source.teamPriceCents / 100).toString() : "",
+      earlyBirdDeadlineDate: source.earlyBirdDeadline ? source.earlyBirdDeadline.slice(0, 10) : "",
+      earlyBirdTeamPriceCents: source.earlyBirdTeamPriceCents != null ? (source.earlyBirdTeamPriceCents / 100).toString() : "",
       allowIndividual: modes.includes("individual"),
       allowTeam: modes.includes("team"),
       depositCents: source.depositCents ? (source.depositCents / 100).toString() : "",
@@ -306,6 +317,14 @@ export function SeasonsList() {
         priceCents: Math.round(parseFloat(formData.priceCents || "0") * 100),
         teamPriceCents: formData.allowTeam && formData.teamPriceCents
           ? Math.round(parseFloat(formData.teamPriceCents) * 100)
+          : null,
+        // Early-bird: end-of-day in the admin's timezone, same convention as
+        // registrationCloses. Team-only by policy — see the field help text.
+        earlyBirdDeadline: formData.earlyBirdDeadlineDate
+          ? new Date(`${formData.earlyBirdDeadlineDate}T23:59:59`).toISOString()
+          : null,
+        earlyBirdTeamPriceCents: formData.allowTeam && formData.earlyBirdTeamPriceCents
+          ? Math.round(parseFloat(formData.earlyBirdTeamPriceCents) * 100)
           : null,
         signupModes,
         depositCents: formData.depositCents ? Math.round(parseFloat(formData.depositCents) * 100) : null,
@@ -822,6 +841,43 @@ export function SeasonsList() {
                   />
                   <p className="text-xs text-ink-muted">
                     What a captain pays for a full roster. Leave blank if team signup isn't offered.
+                  </p>
+                </div>
+              </div>
+
+              {/* Early-bird. Team-only by policy: we don't discount solo signups
+                  (it encourages free agents over full rosters). The API rejects an
+                  early-bird price that isn't below its list price. */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="earlyBirdTeamPriceCents">Early-bird team price ($)</Label>
+                  <Input
+                    id="earlyBirdTeamPriceCents"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.earlyBirdTeamPriceCents}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, earlyBirdTeamPriceCents: e.target.value }))}
+                    placeholder="1000.00"
+                    disabled={!formData.allowTeam}
+                  />
+                  <p className="text-xs text-ink-muted">
+                    Discounted roster price for captains who register before the deadline. Must be
+                    less than the team price. Leave blank for no early-bird.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="earlyBirdDeadlineDate">Early-bird deadline</Label>
+                  <Input
+                    id="earlyBirdDeadlineDate"
+                    type="date"
+                    value={formData.earlyBirdDeadlineDate}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, earlyBirdDeadlineDate: e.target.value }))}
+                    disabled={!formData.allowTeam}
+                  />
+                  <p className="text-xs text-ink-muted">
+                    Last day at the early-bird price. The rate is locked in when the captain creates
+                    the team, so it holds even if they pay later.
                   </p>
                 </div>
               </div>

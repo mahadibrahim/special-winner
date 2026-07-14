@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
 import { games, teams, venues, seasons, programs, locations } from "@/lib/db/schema";
-import { eq, asc, desc, and, gte, lte } from "drizzle-orm";
+import { eq, asc, desc, and, gte, lte, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { requireSuperAdminAccess, requireOrganizationContext } from "@/lib/auth";
 import {
@@ -102,52 +102,76 @@ export const GET: APIRoute = async (context) => {
     const seasonsMap = new Map();
 
     const uniqueTeamIds = [...new Set([
-      ...allGames.map(g => g.homeTeamId).filter(Boolean),
-      ...allGames.map(g => g.awayTeamId).filter(Boolean),
+      ...allGames.map(g => g.homeTeamId).filter((v): v is string => Boolean(v)),
+      ...allGames.map(g => g.awayTeamId).filter((v): v is string => Boolean(v)),
     ])];
 
-    const uniqueVenueIds = [...new Set(allGames.map(g => g.venueId).filter(Boolean))];
+    const uniqueVenueIds = [...new Set(allGames.map(g => g.venueId).filter((v): v is string => Boolean(v)))];
     const uniqueSeasonIds = [...new Set(allGames.map(g => g.seasonId))];
 
-    if (uniqueTeamIds.length > 0) {
-      // Scope teams by org via teams -> seasons -> programs -> locations
-      const teamsList = await getDb()
-        .select({ team: teams })
-        .from(teams)
-        .innerJoin(seasons, eq(teams.seasonId, seasons.id))
-        .innerJoin(programs, eq(seasons.programId, programs.id))
-        .innerJoin(locations, eq(programs.locationId, locations.id))
-        .where(eq(locations.organizationId, orgContext.organizationId));
-      teamsList.forEach(row => teamsMap.set(row.team.id, row.team));
-    }
+    // The three lookups below are independent of each other — run them in
+    // parallel. Each is also now filtered to the specific ids this page of
+    // games actually references (uniqueTeamIds/uniqueVenueIds/uniqueSeasonIds
+    // were computed above but previously went unused, so every call
+    // full-org-overfetched teams/venues/seasons regardless of how many games
+    // were on the page).
+    const [teamsList, venuesList, seasonsList] = await Promise.all([
+      uniqueTeamIds.length > 0
+        // Scope teams by org via teams -> seasons -> programs -> locations
+        ? getDb()
+            .select({ team: teams })
+            .from(teams)
+            .innerJoin(seasons, eq(teams.seasonId, seasons.id))
+            .innerJoin(programs, eq(seasons.programId, programs.id))
+            .innerJoin(locations, eq(programs.locationId, locations.id))
+            .where(
+              and(
+                eq(locations.organizationId, orgContext.organizationId),
+                inArray(teams.id, uniqueTeamIds),
+              ),
+            )
+        : Promise.resolve([]),
 
-    if (uniqueVenueIds.length > 0) {
-      // Scope venues by org via venues -> locations
-      const venuesList = await getDb()
-        .select({ venue: venues })
-        .from(venues)
-        .innerJoin(locations, eq(venues.locationId, locations.id))
-        .where(eq(locations.organizationId, orgContext.organizationId));
-      venuesList.forEach(row => venuesMap.set(row.venue.id, row.venue));
-    }
+      uniqueVenueIds.length > 0
+        // Scope venues by org via venues -> locations
+        ? getDb()
+            .select({ venue: venues })
+            .from(venues)
+            .innerJoin(locations, eq(venues.locationId, locations.id))
+            .where(
+              and(
+                eq(locations.organizationId, orgContext.organizationId),
+                inArray(venues.id, uniqueVenueIds),
+              ),
+            )
+        : Promise.resolve([]),
 
-    if (uniqueSeasonIds.length > 0) {
-      const seasonsList = await getDb()
-        .select({
-          id: seasons.id,
-          name: seasons.name,
-          programId: seasons.programId,
-          program: {
-            id: programs.id,
-            name: programs.name,
-          },
-        })
-        .from(seasons)
-        .innerJoin(programs, eq(seasons.programId, programs.id))
-        .innerJoin(locations, eq(programs.locationId, locations.id))
-        .where(eq(locations.organizationId, orgContext.organizationId));
-      seasonsList.forEach(s => seasonsMap.set(s.id, s));
-    }
+      uniqueSeasonIds.length > 0
+        ? getDb()
+            .select({
+              id: seasons.id,
+              name: seasons.name,
+              programId: seasons.programId,
+              program: {
+                id: programs.id,
+                name: programs.name,
+              },
+            })
+            .from(seasons)
+            .innerJoin(programs, eq(seasons.programId, programs.id))
+            .innerJoin(locations, eq(programs.locationId, locations.id))
+            .where(
+              and(
+                eq(locations.organizationId, orgContext.organizationId),
+                inArray(seasons.id, uniqueSeasonIds),
+              ),
+            )
+        : Promise.resolve([]),
+    ]);
+
+    teamsList.forEach(row => teamsMap.set(row.team.id, row.team));
+    venuesList.forEach(row => venuesMap.set(row.venue.id, row.venue));
+    seasonsList.forEach(s => seasonsMap.set(s.id, s));
 
     // Enrich games with related data
     const enrichedGames = allGames.map(game => ({

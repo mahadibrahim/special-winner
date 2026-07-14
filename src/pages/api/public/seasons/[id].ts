@@ -3,7 +3,12 @@ import { db } from "@/lib/db";
 import { seasons, programs, sports, locations, ageGroups, registrations, organizations } from "@/lib/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { isRegistrationClosed } from "@/lib/programs/registration-window";
-import { isEarlyBirdActive, effectivePriceCents } from "@/lib/programs/early-bird";
+import {
+  isEarlyBirdActive,
+  effectivePriceCents,
+  isTeamEarlyBirdActive,
+  effectiveTeamPriceCents,
+} from "@/lib/programs/early-bird";
 
 export const GET: APIRoute = async ({ params, locals }) => {
   try {
@@ -30,30 +35,44 @@ export const GET: APIRoute = async ({ params, locals }) => {
       });
     }
 
-    // Get season with related data, enforcing tenant scope via org join
-    const [result] = await db
-      .select({
-        season: seasons,
-        program: programs,
-        sport: sports,
-        location: locations,
-        ageGroup: ageGroups,
-      })
-      .from(seasons)
-      .innerJoin(programs, eq(seasons.programId, programs.id))
-      .innerJoin(sports, eq(programs.sportId, sports.id))
-      // NEW: enforce active org + matching tenant
-      .innerJoin(
-        organizations,
-        and(
-          eq(organizations.id, sports.organizationId),
-          eq(organizations.status, "active"),
-          eq(organizations.id, organization.id),
+    // Season (with related data, enforcing tenant scope via org join) and
+    // the registration count are independent reads — both only need `id`.
+    // Fetch concurrently; a not-found season just means the count read was
+    // wasted, which is fine (it's a plain, side-effect-free SELECT).
+    const [[result], [countResult]] = await Promise.all([
+      db
+        .select({
+          season: seasons,
+          program: programs,
+          sport: sports,
+          location: locations,
+          ageGroup: ageGroups,
+        })
+        .from(seasons)
+        .innerJoin(programs, eq(seasons.programId, programs.id))
+        .innerJoin(sports, eq(programs.sportId, sports.id))
+        // NEW: enforce active org + matching tenant
+        .innerJoin(
+          organizations,
+          and(
+            eq(organizations.id, sports.organizationId),
+            eq(organizations.status, "active"),
+            eq(organizations.id, organization.id),
+          ),
+        )
+        .innerJoin(locations, eq(programs.locationId, locations.id))
+        .leftJoin(ageGroups, eq(seasons.ageGroupId, ageGroups.id))
+        .where(eq(seasons.id, id)),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(registrations)
+        .where(
+          and(
+            eq(registrations.seasonId, id),
+            sql`${registrations.status} IN ('pending', 'confirmed')`
+          )
         ),
-      )
-      .innerJoin(locations, eq(programs.locationId, locations.id))
-      .leftJoin(ageGroups, eq(seasons.ageGroupId, ageGroups.id))
-      .where(eq(seasons.id, id));
+    ]);
 
     if (!result) {
       return new Response(JSON.stringify({ error: "Season not found" }), {
@@ -61,17 +80,6 @@ export const GET: APIRoute = async ({ params, locals }) => {
         headers: { "Content-Type": "application/json" },
       });
     }
-
-    // Get registration count
-    const [countResult] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(registrations)
-      .where(
-        and(
-          eq(registrations.seasonId, id),
-          sql`${registrations.status} IN ('pending', 'confirmed')`
-        )
-      );
 
     const registeredCount = countResult?.count || 0;
     const spotsLeft = result.season.maxParticipants
@@ -82,6 +90,14 @@ export const GET: APIRoute = async ({ params, locals }) => {
     // (createRegistration) agree on the clock.
     const earlyBirdActive = isEarlyBirdActive(result.season);
     const effPriceCents = effectivePriceCents(result.season);
+    // Team early-bird is independent of the per-player one — Aspire's leagues
+    // run a team-only early-bird (solo pays flat list price by policy).
+    const listTeamPriceCents = result.season.teamPriceCents;
+    const teamEarlyBirdActive = isTeamEarlyBirdActive(result.season);
+    const effTeamPriceCents =
+      listTeamPriceCents != null
+        ? effectiveTeamPriceCents(result.season, listTeamPriceCents)
+        : null;
 
     const formatted = {
       id: result.season.id,
@@ -114,6 +130,11 @@ export const GET: APIRoute = async ({ params, locals }) => {
       // register page's league-context rail + choose-mode have what they need.
       teamPrice: result.season.teamPriceCents != null ? result.season.teamPriceCents / 100 : null,
       teamPriceCents: result.season.teamPriceCents,
+      // Team fee the team-create flow will actually charge right now. The
+      // charge path (api/public/team-registrations) computes the same value.
+      teamEarlyBirdActive,
+      effectiveTeamPrice: effTeamPriceCents != null ? effTeamPriceCents / 100 : null,
+      effectiveTeamPriceCents: effTeamPriceCents,
       signupModes: result.season.signupModes,
       // Division metadata for the rail facts.
       termSlug: result.season.termSlug,

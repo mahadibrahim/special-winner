@@ -8,7 +8,7 @@ import {
   requireUserInOrg,
   ownershipDeniedResponse,
 } from "@/lib/auth/require-resource-ownership";
-import { getOnboardingTasks } from "@/lib/coach/onboarding-data";
+import { getOnboardingTasksBatch } from "@/lib/coach/onboarding-data";
 import { coachOnboardingProgress } from "@/lib/db/schema/coach-onboarding";
 import { ADMIN_CONFIRM_TASK_KEYS } from "@/lib/compliance/coach-onboarding";
 
@@ -85,24 +85,26 @@ export const GET: APIRoute = async (context) => {
     );
   }
 
-  const coaches = await Promise.all(
-    uniqueCoaches.map(async (c) => {
-      const { tasks, complete } = await getOnboardingTasks(
-        db,
-        c.id,
-        auth.organizationId,
-        teamIdsByCoach.get(c.id) ?? [],
-      );
-      return {
-        id: c.id,
-        firstName: c.firstName,
-        lastName: c.lastName,
-        email: c.email,
-        tasks,
-        complete,
-      };
-    }),
+  const tasksByCoach = await getOnboardingTasksBatch(
+    db,
+    uniqueCoaches.map((c) => ({
+      userId: c.id,
+      teamIds: teamIdsByCoach.get(c.id) ?? [],
+    })),
+    auth.organizationId,
   );
+
+  const coaches = uniqueCoaches.map((c) => {
+    const { tasks, complete } = tasksByCoach.get(c.id)!;
+    return {
+      id: c.id,
+      firstName: c.firstName,
+      lastName: c.lastName,
+      email: c.email,
+      tasks,
+      complete,
+    };
+  });
 
   return json(200, { coaches });
 };

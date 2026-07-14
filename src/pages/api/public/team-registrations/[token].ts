@@ -70,42 +70,45 @@ export const GET: APIRoute = async ({ params, locals }) => {
       );
     }
 
-    // Pull confirmed members + their registration status (no PII beyond first name + last initial).
-    const members = await db
-      .select({
-        memberId: teamRegistrationMembers.id,
-        role: teamRegistrationMembers.role,
-        joinedAt: teamRegistrationMembers.joinedAt,
-        registrationStatus: registrations.status,
-        paymentStatus: registrations.paymentStatus,
-        firstName: familyMembers.firstName,
-        lastName: familyMembers.lastName,
-      })
-      .from(teamRegistrationMembers)
-      .innerJoin(
-        registrations,
-        eq(teamRegistrationMembers.registrationId, registrations.id),
-      )
-      .innerJoin(
-        familyMembers,
-        eq(registrations.familyMemberId, familyMembers.id),
-      )
-      .where(eq(teamRegistrationMembers.teamRegistrationId, t.team.id));
-
-    // Invitees: captain-assigned shares + their pay status. Surfaced so the
-    // captain status view (and the API test) can see who was invited, for how
-    // much, and whether they've paid.
-    const invitees = await db
-      .select({
-        email: teamInvitees.email,
-        assignedShareCents: teamInvitees.assignedShareCents,
-        status: teamInvitees.status,
-        invitedAt: teamInvitees.invitedAt,
-        paidAt: teamInvitees.paidAt,
-      })
-      .from(teamInvitees)
-      .where(eq(teamInvitees.teamRegistrationId, t.team.id))
-      .orderBy(asc(teamInvitees.invitedAt));
+    // Members and invitees are independent reads, both scoped by
+    // t.team.id — fetch concurrently.
+    const [members, invitees] = await Promise.all([
+      // Pull confirmed members + their registration status (no PII beyond first name + last initial).
+      db
+        .select({
+          memberId: teamRegistrationMembers.id,
+          role: teamRegistrationMembers.role,
+          joinedAt: teamRegistrationMembers.joinedAt,
+          registrationStatus: registrations.status,
+          paymentStatus: registrations.paymentStatus,
+          firstName: familyMembers.firstName,
+          lastName: familyMembers.lastName,
+        })
+        .from(teamRegistrationMembers)
+        .innerJoin(
+          registrations,
+          eq(teamRegistrationMembers.registrationId, registrations.id),
+        )
+        .innerJoin(
+          familyMembers,
+          eq(registrations.familyMemberId, familyMembers.id),
+        )
+        .where(eq(teamRegistrationMembers.teamRegistrationId, t.team.id)),
+      // Invitees: captain-assigned shares + their pay status. Surfaced so the
+      // captain status view (and the API test) can see who was invited, for how
+      // much, and whether they've paid.
+      db
+        .select({
+          email: teamInvitees.email,
+          assignedShareCents: teamInvitees.assignedShareCents,
+          status: teamInvitees.status,
+          invitedAt: teamInvitees.invitedAt,
+          paidAt: teamInvitees.paidAt,
+        })
+        .from(teamInvitees)
+        .where(eq(teamInvitees.teamRegistrationId, t.team.id))
+        .orderBy(asc(teamInvitees.invitedAt)),
+    ]);
 
     // Live payment summary for the captain tracker: deposit + sum of paid
     // teammate shares, against the full team fee. Computed server-side so the

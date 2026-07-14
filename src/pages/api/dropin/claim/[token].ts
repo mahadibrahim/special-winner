@@ -48,16 +48,22 @@ const json = (body: unknown, status: number) =>
     headers: { "Content-Type": "application/json" },
   });
 
-async function loadClaimWithOrg(token: string) {
+/**
+ * Loads the claim row plus its parent drop-in session in one shot. Every
+ * caller downstream (GET, POST free-confirm, POST pay) ends up needing the
+ * full session row, not just its organizationId — fetch it once here and
+ * thread it through instead of each branch re-querying dropInSessions.
+ */
+async function loadClaimWithSession(token: string) {
   const row = await findClaimByToken(token);
-  if (!row) return { row: null, sessionOrgId: null };
+  if (!row) return { row: null, session: null };
   const db = getDb();
   const [session] = await db
-    .select({ organizationId: dropInSessions.organizationId })
+    .select()
     .from(dropInSessions)
     .where(eq(dropInSessions.id, row.sessionId))
     .limit(1);
-  return { row, sessionOrgId: session?.organizationId ?? null };
+  return { row, session: session ?? null };
 }
 
 /** A refunded row's original charge went back to the customer — claiming
@@ -71,18 +77,15 @@ function claimRequiresPayment(row: { stripeRefundId: string | null }): boolean {
 /** Resolve what a paying claimant owes: their personal rate (member rate
  *  honored, same as a fresh booking) plus the card surcharge — identical
  *  math to the checkout the pay action mints. A $0 rate means no card
- *  charge happens at all, so the flat card surcharge doesn't apply. */
-async function resolveAmountDueCents(row: {
-  sessionId: string;
-  userId: string;
-}): Promise<number | null> {
-  const db = getDb();
-  const [session] = await db
-    .select()
-    .from(dropInSessions)
-    .where(eq(dropInSessions.id, row.sessionId))
-    .limit(1);
+ *  charge happens at all, so the flat card surcharge doesn't apply.
+ *  Takes the already-loaded session row (see loadClaimWithSession) instead
+ *  of re-fetching it. */
+async function resolveAmountDueCents(
+  row: { sessionId: string; userId: string },
+  session: typeof dropInSessions.$inferSelect | null,
+): Promise<number | null> {
   if (!session) return null;
+  const db = getDb();
   const [rateCard] = await db
     .select()
     .from(dropInRateCard)
@@ -107,9 +110,10 @@ export const GET: APIRoute = async ({ params, locals }) => {
   const token = params.token;
   if (!token) return json({ error: "Token required" }, 400);
 
-  const { row, sessionOrgId } = await loadClaimWithOrg(token);
+  const { row, session } = await loadClaimWithSession(token);
   if (!row) return json({ error: "Token invalid" }, 404);
   if (row.expired) return json({ error: "Window expired" }, 410);
+  const sessionOrgId = session?.organizationId ?? null;
   if (locals.organization && sessionOrgId !== locals.organization.id) {
     // Don't leak that the token exists for a different org — same shape as not-found.
     return json({ error: "Token invalid" }, 404);
@@ -117,7 +121,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
 
   const paymentRequired = claimRequiresPayment(row);
   const amountDueCents = paymentRequired
-    ? await resolveAmountDueCents(row)
+    ? await resolveAmountDueCents(row, session)
     : null;
 
   return json(
@@ -144,9 +148,10 @@ export const POST: APIRoute = async ({ params, request, locals, url }) => {
   const token = params.token;
   if (!token) return json({ error: "Token required" }, 400);
 
-  const { row, sessionOrgId } = await loadClaimWithOrg(token);
+  const { row, session } = await loadClaimWithSession(token);
   if (!row) return json({ error: "Token invalid" }, 404);
   if (row.expired) return json({ error: "Window expired" }, 410);
+  const sessionOrgId = session?.organizationId ?? null;
   if (locals.organization && sessionOrgId !== locals.organization.id) {
     return json({ error: "Token invalid" }, 404);
   }
@@ -180,11 +185,6 @@ export const POST: APIRoute = async ({ params, request, locals, url }) => {
     // is resolved (below) — a zero-due claim confirms without touching
     // Stripe and must work even when no Stripe client is configured.
     const db = getDb();
-    const [session] = await db
-      .select()
-      .from(dropInSessions)
-      .where(eq(dropInSessions.id, row.sessionId))
-      .limit(1);
     if (!session) return json({ error: "Session not found" }, 404);
     const [rateCard] = await db
       .select()
@@ -218,13 +218,10 @@ export const POST: APIRoute = async ({ params, request, locals, url }) => {
         if (!locked || locked.status !== "pending_claim") {
           return json({ error: "Claim no longer valid" }, 409);
         }
-        const [sessionRow] = await tx
-          .select()
-          .from(dropInSessions)
-          .where(eq(dropInSessions.id, locked.sessionId))
-          .limit(1);
-        if (!sessionRow) return json({ error: "Session not found" }, 404);
-        const team = assignTeam(sessionRow, "all_levels", []);
+        // Reuse the session row fetched before the transaction (assignTeam
+        // only reads its static team-layout fields, and locked.sessionId is
+        // the same session — no need to re-query it a third time here).
+        const team = assignTeam(session, "all_levels", []);
 
         await tx
           .update(dropInBookings)
@@ -314,15 +311,11 @@ export const POST: APIRoute = async ({ params, request, locals, url }) => {
     }
 
     // Re-run team assignment with the now-current confirmed roster.
-    // (Pure-function call; takes a session shape — fetch the parent.)
-    const [sessionRow] = await tx
-      .select()
-      .from(dropInSessions)
-      .where(eq(dropInSessions.id, locked.sessionId))
-      .limit(1);
-    if (!sessionRow) return json({ error: "Session not found" }, 404);
+    // (Pure-function call; takes a session shape — reuse the row already
+    // fetched by loadClaimWithSession instead of re-querying it here.)
+    if (!session) return json({ error: "Session not found" }, 404);
 
-    const team = assignTeam(sessionRow, "all_levels", []);
+    const team = assignTeam(session, "all_levels", []);
 
     await tx
       .update(dropInBookings)

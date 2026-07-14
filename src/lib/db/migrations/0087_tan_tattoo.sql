@@ -1,0 +1,22 @@
+-- Index-only migration: written idempotently (IF NOT EXISTS) because the
+-- bootstrap reconciler (scripts/db-migrate-bootstrap.ts) only recognises
+-- CREATE TABLE / ADD COLUMN effects for STRONG gating — for an index-only
+-- file like this one a missing index is a warning, not a re-run trigger,
+-- but IF NOT EXISTS is still required: the per-file migration runner
+-- (scripts/db-migrate.ts, post PR #384) determines "pending" by hash, so a
+-- migration whose tracking row is ever lost gets re-executed against a live
+-- DB. Same pattern as 0043/0069.
+--
+-- Partial index on the pending-approval refund queue (nav-badges on every
+-- admin sidebar load + attention-feed — perf-sweep-admin.md missing-index
+-- note). The predicate value 'pending_approval' is doubly safe to use here:
+--   1. It's an *existing* enum value being compared/filtered, not a newly
+--      added one — Postgres only refuses "unsafe use of a new enum value"
+--      when the ADD VALUE and its use land in the SAME transaction; this
+--      migration doesn't add any enum value at all.
+--   2. Even setting that aside, 'pending_approval' was part of the ORIGINAL
+--      `CREATE TYPE "refund_status"` in 0000_spooky_landau.sql — it predates
+--      every migration in this repo's history, including this one, by
+--      construction. There is no from-empty ordering under which this
+--      predicate could reference a value that doesn't exist yet.
+CREATE INDEX IF NOT EXISTS "registrations_refund_status_pending_idx" ON "registrations" USING btree ("refund_status") WHERE refund_status = 'pending_approval';

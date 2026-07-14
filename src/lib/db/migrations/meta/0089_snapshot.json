@@ -1,6 +1,6 @@
 {
-  "id": "a330b5c2-3b76-4156-aa1b-3699947765c1",
-  "prevId": "9a26535f-6cb1-4ebe-81f0-dfce8477cd3c",
+  "id": "b0beaf67-db6a-4bcb-93f1-a897c3cada37",
+  "prevId": "78e0ffca-faf5-4994-ab69-d4d1b9248294",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -6403,6 +6403,12 @@
           "notNull": true,
           "default": "'aspire'"
         },
+        "referral_source": {
+          "name": "referral_source",
+          "type": "varchar(40)",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -6594,6 +6600,20 @@
         },
         "check_in_window_minutes": {
           "name": "check_in_window_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 60
+        },
+        "fill_alert_window_hours": {
+          "name": "fill_alert_window_hours",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 24
+        },
+        "fill_alert_threshold_pct": {
+          "name": "fill_alert_threshold_pct",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
@@ -6803,6 +6823,18 @@
           "primaryKey": false,
           "notNull": false
         },
+        "host_user_id": {
+          "name": "host_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fill_alert_sent_at": {
+          "name": "fill_alert_sent_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -6923,6 +6955,19 @@
           "tableTo": "users",
           "columnsFrom": [
             "created_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "drop_in_sessions_host_user_id_users_id_fk": {
+          "name": "drop_in_sessions_host_user_id_users_id_fk",
+          "tableFrom": "drop_in_sessions",
+          "tableTo": "users",
+          "columnsFrom": [
+            "host_user_id"
           ],
           "columnsTo": [
             "id"
@@ -9480,6 +9525,557 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.host_game_reports": {
+      "name": "host_game_reports",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "session_id": {
+          "name": "session_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "host_profile_id": {
+          "name": "host_profile_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "summary": {
+          "name": "summary",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "incident_flagged": {
+          "name": "incident_flagged",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "incident_details": {
+          "name": "incident_details",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "host_game_reports_session_unique": {
+          "name": "host_game_reports_session_unique",
+          "columns": [
+            {
+              "expression": "session_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "host_game_reports_session_id_drop_in_sessions_id_fk": {
+          "name": "host_game_reports_session_id_drop_in_sessions_id_fk",
+          "tableFrom": "host_game_reports",
+          "tableTo": "drop_in_sessions",
+          "columnsFrom": [
+            "session_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "host_game_reports_host_profile_id_host_profiles_id_fk": {
+          "name": "host_game_reports_host_profile_id_host_profiles_id_fk",
+          "tableFrom": "host_game_reports",
+          "tableTo": "host_profiles",
+          "columnsFrom": [
+            "host_profile_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.host_profiles": {
+      "name": "host_profiles",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "host_profile_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'active'"
+        },
+        "preferred_venue_id": {
+          "name": "preferred_venue_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "bio": {
+          "name": "bio",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "photo_key": {
+          "name": "photo_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "application_id": {
+          "name": "application_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "approved_by_user_id": {
+          "name": "approved_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "host_profiles_user_org_unique": {
+          "name": "host_profiles_user_org_unique",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "host_profiles_org_status_idx": {
+          "name": "host_profiles_org_status_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "host_profiles_user_id_users_id_fk": {
+          "name": "host_profiles_user_id_users_id_fk",
+          "tableFrom": "host_profiles",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "host_profiles_organization_id_organizations_id_fk": {
+          "name": "host_profiles_organization_id_organizations_id_fk",
+          "tableFrom": "host_profiles",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "host_profiles_preferred_venue_id_venues_id_fk": {
+          "name": "host_profiles_preferred_venue_id_venues_id_fk",
+          "tableFrom": "host_profiles",
+          "tableTo": "venues",
+          "columnsFrom": [
+            "preferred_venue_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "host_profiles_application_id_job_applications_id_fk": {
+          "name": "host_profiles_application_id_job_applications_id_fk",
+          "tableFrom": "host_profiles",
+          "tableTo": "job_applications",
+          "columnsFrom": [
+            "application_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "host_profiles_approved_by_user_id_users_id_fk": {
+          "name": "host_profiles_approved_by_user_id_users_id_fk",
+          "tableFrom": "host_profiles",
+          "tableTo": "users",
+          "columnsFrom": [
+            "approved_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.pickup_alert_sends": {
+      "name": "pickup_alert_sends",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "session_id": {
+          "name": "session_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sent_at": {
+          "name": "sent_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "pickup_alert_sends_user_sent_idx": {
+          "name": "pickup_alert_sends_user_sent_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "sent_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "pickup_alert_sends_session_idx": {
+          "name": "pickup_alert_sends_session_idx",
+          "columns": [
+            {
+              "expression": "session_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "pickup_alert_sends_session_id_drop_in_sessions_id_fk": {
+          "name": "pickup_alert_sends_session_id_drop_in_sessions_id_fk",
+          "tableFrom": "pickup_alert_sends",
+          "tableTo": "drop_in_sessions",
+          "columnsFrom": [
+            "session_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "pickup_alert_sends_user_id_users_id_fk": {
+          "name": "pickup_alert_sends_user_id_users_id_fk",
+          "tableFrom": "pickup_alert_sends",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.pickup_alert_subscriptions": {
+      "name": "pickup_alert_subscriptions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "venue_id": {
+          "name": "venue_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sport": {
+          "name": "sport",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "active": {
+          "name": "active",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "unsubscribed_at": {
+          "name": "unsubscribed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "pickup_alert_subs_user_idx": {
+          "name": "pickup_alert_subs_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "pickup_alert_subs_org_active_idx": {
+          "name": "pickup_alert_subs_org_active_idx",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "active",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "pickup_alert_subscriptions_user_id_users_id_fk": {
+          "name": "pickup_alert_subscriptions_user_id_users_id_fk",
+          "tableFrom": "pickup_alert_subscriptions",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "pickup_alert_subscriptions_organization_id_organizations_id_fk": {
+          "name": "pickup_alert_subscriptions_organization_id_organizations_id_fk",
+          "tableFrom": "pickup_alert_subscriptions",
+          "tableTo": "organizations",
+          "columnsFrom": [
+            "organization_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "pickup_alert_subscriptions_venue_id_venues_id_fk": {
+          "name": "pickup_alert_subscriptions_venue_id_venues_id_fk",
+          "tableFrom": "pickup_alert_subscriptions",
+          "tableTo": "venues",
+          "columnsFrom": [
+            "venue_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.incidents": {
       "name": "incidents",
       "schema": "",
@@ -11717,6 +12313,12 @@
         },
         "early_bird_price_cents": {
           "name": "early_bird_price_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "early_bird_team_price_cents": {
+          "name": "early_bird_team_price_cents",
           "type": "integer",
           "primaryKey": false,
           "notNull": false
@@ -18516,6 +19118,42 @@
           "primaryKey": false,
           "notNull": false
         },
+        "date_of_birth": {
+          "name": "date_of_birth",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "games_played": {
+          "name": "games_played",
+          "type": "varchar(10)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "weekly_commitment": {
+          "name": "weekly_commitment",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "photo_key": {
+          "name": "photo_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "motivation_video_key": {
+          "name": "motivation_video_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "demo_video_key": {
+          "name": "demo_video_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "source": {
           "name": "source",
           "type": "varchar(200)",
@@ -21510,7 +22148,8 @@
         "card_online",
         "card_present",
         "member_unlimited",
-        "member_allotment"
+        "member_allotment",
+        "host_comp"
       ]
     },
     "public.drop_in_session_kind": {
@@ -21670,6 +22309,15 @@
         "cancelled",
         "completed",
         "no_show"
+      ]
+    },
+    "public.host_profile_status": {
+      "name": "host_profile_status",
+      "schema": "public",
+      "values": [
+        "active",
+        "paused",
+        "revoked"
       ]
     },
     "public.concussion_clearance_status": {
@@ -22183,7 +22831,8 @@
       "values": [
         "referee",
         "coach",
-        "staff"
+        "staff",
+        "host"
       ]
     },
     "public.block_source": {
@@ -22258,6 +22907,7 @@
         "payment_succeeded",
         "user_signup",
         "job_application",
+        "host_incident",
         "test"
       ]
     },

@@ -210,31 +210,30 @@ export const POST: APIRoute = async ({ request, clientAddress, locals }) => {
       });
 
       if (result.kind !== "resumed" && data.waiverSigned) {
-        const [orgRow] = await db
-          .select({ organizationId: locations.organizationId })
-          .from(seasons)
-          .innerJoin(programs, eq(seasons.programId, programs.id))
-          .innerJoin(locations, eq(programs.locationId, locations.id))
-          .where(eq(seasons.id, data.seasonId));
-        const organizationId = orgRow?.organizationId ?? null;
+        // organizationId was already resolved inside createRegistration —
+        // thread it through instead of re-querying the same season→org join.
         const baseConsent = {
           db,
           familyMemberId: familyMember.id,
           registrationId: result.registration.id,
-          organizationId,
+          organizationId: result.organizationId,
           signedByUserId: user.id,
           signedByName: data.waiverSignedBy,
           ipAddress: clientAddress ?? null,
           userAgent: userAgent ?? null,
         };
-        await recordConsent({ ...baseConsent, type: "liability" });
-        await recordDefaultMediaAuth({
-          ...baseConsent,
-          optOutScopes: data.mediaAuthOptOuts ?? [],
-        });
-        if (data.registerSelf) {
-          await recordConsent({ ...baseConsent, type: "age_confirmation" });
-        }
+        // These are independent inserts (different consent rows, no shared
+        // uniqueness constraint) — run them concurrently.
+        await Promise.all([
+          recordConsent({ ...baseConsent, type: "liability" }),
+          recordDefaultMediaAuth({
+            ...baseConsent,
+            optOutScopes: data.mediaAuthOptOuts ?? [],
+          }),
+          ...(data.registerSelf
+            ? [recordConsent({ ...baseConsent, type: "age_confirmation" })]
+            : []),
+        ]);
       }
 
       const posthog = getPostHogServer();

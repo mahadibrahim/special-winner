@@ -1,6 +1,6 @@
 {
-  "id": "a330b5c2-3b76-4156-aa1b-3699947765c1",
-  "prevId": "9a26535f-6cb1-4ebe-81f0-dfce8477cd3c",
+  "id": "78e0ffca-faf5-4994-ab69-d4d1b9248294",
+  "prevId": "a330b5c2-3b76-4156-aa1b-3699947765c1",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -11717,6 +11717,12 @@
         },
         "early_bird_price_cents": {
           "name": "early_bird_price_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "early_bird_team_price_cents": {
+          "name": "early_bird_team_price_cents",
           "type": "integer",
           "primaryKey": false,
           "notNull": false

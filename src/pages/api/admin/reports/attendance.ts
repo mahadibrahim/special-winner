@@ -54,123 +54,135 @@ export const GET: APIRoute = async (context) => {
       conditions.push(eq(attendance.teamId, teamId));
     }
 
-    // Overall attendance summary
-    const summaryResult = await getDb()
-      .select({
-        totalRecords: sql<number>`COUNT(*)`,
-        present: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'present')`,
-        absent: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'absent')`,
-        late: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'late')`,
-        excused: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'excused')`,
-      })
-      .from(attendance)
-      .where(and(...conditions));
+    // Attendance by time period — bucket expression comes from a closed
+    // map (never request input); see periodBucket for why.
+    const periodExpr = periodBucket(attendance.eventDate, groupBy);
+
+    // All 7 queries below share `conditions` / `periodExpr` but are
+    // otherwise independent of each other — run in parallel.
+    const [
+      summaryResult,
+      attendanceByPeriod,
+      attendanceByEventType,
+      attendanceByTeam,
+      lowAttendancePlayers,
+      recentEvents,
+      teamsList,
+    ] = await Promise.all([
+      // Overall attendance summary
+      getDb()
+        .select({
+          totalRecords: sql<number>`COUNT(*)`,
+          present: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'present')`,
+          absent: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'absent')`,
+          late: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'late')`,
+          excused: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'excused')`,
+        })
+        .from(attendance)
+        .where(and(...conditions)),
+
+      getDb()
+        .select({
+          period: periodExpr,
+          totalRecords: sql<number>`COUNT(*)`,
+          present: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'present')`,
+          absent: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'absent')`,
+          late: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'late')`,
+          excused: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'excused')`,
+        })
+        .from(attendance)
+        .where(and(...conditions))
+        .groupBy(periodExpr)
+        .orderBy(periodExpr),
+
+      // Attendance by event type
+      getDb()
+        .select({
+          eventType: attendance.eventType,
+          totalRecords: sql<number>`COUNT(*)`,
+          present: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'present')`,
+          absent: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'absent')`,
+          late: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'late')`,
+          excused: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'excused')`,
+        })
+        .from(attendance)
+        .where(and(...conditions))
+        .groupBy(attendance.eventType),
+
+      // Attendance by team
+      getDb()
+        .select({
+          teamId: teams.id,
+          teamName: teams.name,
+          totalRecords: sql<number>`COUNT(*)`,
+          present: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'present')`,
+          absent: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'absent')`,
+          attendanceRate: sql<number>`ROUND(COUNT(*) FILTER (WHERE ${attendance.status} IN ('present', 'late')) * 100.0 / NULLIF(COUNT(*), 0))`,
+        })
+        .from(attendance)
+        .innerJoin(teams, eq(attendance.teamId, teams.id))
+        .where(and(...conditions))
+        .groupBy(teams.id, teams.name)
+        .orderBy(desc(sql`COUNT(*)`))
+        .limit(20),
+
+      // Players with low attendance (below 70%)
+      getDb()
+        .select({
+          rosterId: rosters.id,
+          playerName: sql<string>`CONCAT(${familyMembers.firstName}, ' ', ${familyMembers.lastName})`,
+          teamName: teams.name,
+          totalRecords: sql<number>`COUNT(*)`,
+          present: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'present')`,
+          absent: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'absent')`,
+          attendanceRate: sql<number>`ROUND(COUNT(*) FILTER (WHERE ${attendance.status} IN ('present', 'late')) * 100.0 / NULLIF(COUNT(*), 0))`,
+        })
+        .from(attendance)
+        .innerJoin(rosters, eq(attendance.rosterId, rosters.id))
+        .innerJoin(registrations, eq(rosters.registrationId, registrations.id))
+        .innerJoin(familyMembers, eq(registrations.familyMemberId, familyMembers.id))
+        .innerJoin(teams, eq(attendance.teamId, teams.id))
+        .where(and(...conditions))
+        .groupBy(rosters.id, familyMembers.firstName, familyMembers.lastName, teams.name)
+        .having(sql`COUNT(*) >= 3 AND COUNT(*) FILTER (WHERE ${attendance.status} IN ('present', 'late')) * 100.0 / NULLIF(COUNT(*), 0) < 70`)
+        .orderBy(sql`COUNT(*) FILTER (WHERE ${attendance.status} IN ('present', 'late')) * 100.0 / NULLIF(COUNT(*), 0)`)
+        .limit(10),
+
+      // Recent attendance events
+      getDb()
+        .select({
+          id: attendance.id,
+          teamName: teams.name,
+          eventDate: attendance.eventDate,
+          eventType: attendance.eventType,
+          status: attendance.status,
+          playerName: sql<string>`CONCAT(${familyMembers.firstName}, ' ', ${familyMembers.lastName})`,
+        })
+        .from(attendance)
+        .innerJoin(teams, eq(attendance.teamId, teams.id))
+        .innerJoin(rosters, eq(attendance.rosterId, rosters.id))
+        .innerJoin(registrations, eq(rosters.registrationId, registrations.id))
+        .innerJoin(familyMembers, eq(registrations.familyMemberId, familyMembers.id))
+        .where(and(...conditions))
+        .orderBy(desc(attendance.eventDate))
+        .limit(20),
+
+      // Get list of teams for filter dropdown — org-scoped, same as the
+      // report queries above.
+      getDb()
+        .select({
+          id: teams.id,
+          name: teams.name,
+        })
+        .from(teams)
+        .where(inArray(teams.id, orgTeamIds))
+        .orderBy(teams.name),
+    ]);
 
     const summary = summaryResult[0];
     const attendanceRate = summary.totalRecords > 0
       ? Math.round(((summary.present + summary.late) / summary.totalRecords) * 100)
       : 0;
-
-    // Attendance by time period — bucket expression comes from a closed
-    // map (never request input); see periodBucket for why.
-    const periodExpr = periodBucket(attendance.eventDate, groupBy);
-
-    const attendanceByPeriod = await getDb()
-      .select({
-        period: periodExpr,
-        totalRecords: sql<number>`COUNT(*)`,
-        present: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'present')`,
-        absent: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'absent')`,
-        late: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'late')`,
-        excused: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'excused')`,
-      })
-      .from(attendance)
-      .where(and(...conditions))
-      .groupBy(periodExpr)
-      .orderBy(periodExpr);
-
-    // Attendance by event type
-    const attendanceByEventType = await getDb()
-      .select({
-        eventType: attendance.eventType,
-        totalRecords: sql<number>`COUNT(*)`,
-        present: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'present')`,
-        absent: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'absent')`,
-        late: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'late')`,
-        excused: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'excused')`,
-      })
-      .from(attendance)
-      .where(and(...conditions))
-      .groupBy(attendance.eventType);
-
-    // Attendance by team
-    const attendanceByTeam = await getDb()
-      .select({
-        teamId: teams.id,
-        teamName: teams.name,
-        totalRecords: sql<number>`COUNT(*)`,
-        present: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'present')`,
-        absent: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'absent')`,
-        attendanceRate: sql<number>`ROUND(COUNT(*) FILTER (WHERE ${attendance.status} IN ('present', 'late')) * 100.0 / NULLIF(COUNT(*), 0))`,
-      })
-      .from(attendance)
-      .innerJoin(teams, eq(attendance.teamId, teams.id))
-      .where(and(...conditions))
-      .groupBy(teams.id, teams.name)
-      .orderBy(desc(sql`COUNT(*)`))
-      .limit(20);
-
-    // Players with low attendance (below 70%)
-    const lowAttendancePlayers = await getDb()
-      .select({
-        rosterId: rosters.id,
-        playerName: sql<string>`CONCAT(${familyMembers.firstName}, ' ', ${familyMembers.lastName})`,
-        teamName: teams.name,
-        totalRecords: sql<number>`COUNT(*)`,
-        present: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'present')`,
-        absent: sql<number>`COUNT(*) FILTER (WHERE ${attendance.status} = 'absent')`,
-        attendanceRate: sql<number>`ROUND(COUNT(*) FILTER (WHERE ${attendance.status} IN ('present', 'late')) * 100.0 / NULLIF(COUNT(*), 0))`,
-      })
-      .from(attendance)
-      .innerJoin(rosters, eq(attendance.rosterId, rosters.id))
-      .innerJoin(registrations, eq(rosters.registrationId, registrations.id))
-      .innerJoin(familyMembers, eq(registrations.familyMemberId, familyMembers.id))
-      .innerJoin(teams, eq(attendance.teamId, teams.id))
-      .where(and(...conditions))
-      .groupBy(rosters.id, familyMembers.firstName, familyMembers.lastName, teams.name)
-      .having(sql`COUNT(*) >= 3 AND COUNT(*) FILTER (WHERE ${attendance.status} IN ('present', 'late')) * 100.0 / NULLIF(COUNT(*), 0) < 70`)
-      .orderBy(sql`COUNT(*) FILTER (WHERE ${attendance.status} IN ('present', 'late')) * 100.0 / NULLIF(COUNT(*), 0)`)
-      .limit(10);
-
-    // Recent attendance events
-    const recentEvents = await getDb()
-      .select({
-        id: attendance.id,
-        teamName: teams.name,
-        eventDate: attendance.eventDate,
-        eventType: attendance.eventType,
-        status: attendance.status,
-        playerName: sql<string>`CONCAT(${familyMembers.firstName}, ' ', ${familyMembers.lastName})`,
-      })
-      .from(attendance)
-      .innerJoin(teams, eq(attendance.teamId, teams.id))
-      .innerJoin(rosters, eq(attendance.rosterId, rosters.id))
-      .innerJoin(registrations, eq(rosters.registrationId, registrations.id))
-      .innerJoin(familyMembers, eq(registrations.familyMemberId, familyMembers.id))
-      .where(and(...conditions))
-      .orderBy(desc(attendance.eventDate))
-      .limit(20);
-
-    // Get list of teams for filter dropdown — org-scoped, same as the
-    // report queries above.
-    const teamsList = await getDb()
-      .select({
-        id: teams.id,
-        name: teams.name,
-      })
-      .from(teams)
-      .where(inArray(teams.id, orgTeamIds))
-      .orderBy(teams.name);
 
     return new Response(
       JSON.stringify({

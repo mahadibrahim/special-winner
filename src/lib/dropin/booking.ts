@@ -187,7 +187,11 @@ export async function createConfirmedBookingFreePath(opts: {
     // (promoted waitlisters mid-claim-window) all occupy a real seat — see
     // checkSessionCapacityLocked's doc comment. The session row is already
     // FOR-UPDATE-locked above, which is this helper's precondition.
-    const capCheck = await checkSessionCapacityLocked(tx, opts.sessionId);
+    const capCheck = await checkSessionCapacityLocked(
+      tx,
+      opts.sessionId,
+      session.capacity,
+    );
     if (capCheck.full) {
       return {
         ok: false,
@@ -341,17 +345,29 @@ export interface SessionCapacityStatus {
  * take the lock itself (a second, redundant `FOR UPDATE` here would still
  * be correct but wastes a round trip — every call site already locks the
  * session for its own team-assignment/rate-resolution logic first).
+ *
+ * `lockedCapacity`: optional — pass `.capacity` from the session row the
+ * caller already locked above, to skip re-selecting a column this function
+ * would otherwise re-fetch from the same locked row. Omit it (existing call
+ * sites whose lock query didn't project `capacity`) and the function falls
+ * back to its own SELECT, unchanged.
  */
 export async function checkSessionCapacityLocked(
   tx: DropInTx,
   sessionId: string,
+  lockedCapacity?: number,
 ): Promise<SessionCapacityStatus> {
-  const [session] = await tx
-    .select({ capacity: dropInSessions.capacity })
-    .from(dropInSessions)
-    .where(eq(dropInSessions.id, sessionId))
-    .limit(1);
-  const capacity = session?.capacity ?? 0;
+  let capacity: number;
+  if (lockedCapacity !== undefined) {
+    capacity = lockedCapacity;
+  } else {
+    const [session] = await tx
+      .select({ capacity: dropInSessions.capacity })
+      .from(dropInSessions)
+      .where(eq(dropInSessions.id, sessionId))
+      .limit(1);
+    capacity = session?.capacity ?? 0;
+  }
 
   const [row] = await tx
     .select({ c: sql<number>`count(*)::int` })

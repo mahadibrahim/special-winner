@@ -65,17 +65,16 @@ export async function createDropInCheckoutSession(opts: {
     throw new Error("Stripe not configured");
   }
 
-  const [venue] = await db
-    .select()
-    .from(venues)
-    .where(eq(venues.id, session.venueId))
-    .limit(1);
-
-  const [org] = await db
-    .select({ timezone: organizations.timezone })
-    .from(organizations)
-    .where(eq(organizations.id, session.organizationId))
-    .limit(1);
+  // venue and org are independent reads (different tables, different scope
+  // columns, neither depends on the other's result) — fetch concurrently.
+  const [[venue], [org]] = await Promise.all([
+    db.select().from(venues).where(eq(venues.id, session.venueId)).limit(1),
+    db
+      .select({ timezone: organizations.timezone })
+      .from(organizations)
+      .where(eq(organizations.id, session.organizationId))
+      .limit(1),
+  ]);
 
   // Drop-in checkout is card-only, so the card surcharge always applies.
   const surchargeCents = computeSurchargeCents(rate.amountCents, "card");

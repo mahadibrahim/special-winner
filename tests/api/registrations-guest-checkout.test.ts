@@ -120,6 +120,79 @@ describe("POST /api/registrations/guest-checkout", () => {
     expect(res.status).toBe(404);
   });
 
+  // Consent-checkbox plumbing (10DLC): smsConsent=true → opted_in row;
+  // smsConsent omitted (box left unchecked) → pending row, so the
+  // welcome-message → reply-YES flow can still run. Asserted via the
+  // test-only /api/test/phone-opt-ins endpoint (needs E2E_TEST_ENDPOINTS=yes).
+  async function fetchOptIns(phone: string) {
+    const res = await fetch(
+      `${BASE}/api/test/phone-opt-ins?phone=${encodeURIComponent(phone)}`,
+    );
+    if (res.status === 404) return null; // endpoint disabled — skip assertion
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    return data.optIns as Array<{ status: string; optInSource: string | null }>;
+  }
+
+  // Unique fake numbers per run — area code 555 test range, random suffix.
+  const uniquePhone = () =>
+    `+1555${String(Math.floor(1000000 + Math.random() * 8999999))}`;
+
+  itWithStripe("records opted_in when the SMS consent box is checked", async () => {
+    const seasonId = await fetchOpenSeasonId();
+    const phone = uniquePhone();
+    const res = await fetch(`${BASE}/api/registrations/guest-checkout`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...validBody({
+          parent: {
+            firstName: "Consenting",
+            lastName: "Parent",
+            email: `guest-optin-${Date.now()}@example.com`,
+            phone,
+          },
+          smsConsent: true,
+        }),
+        seasonId,
+      }),
+    });
+    expect(res.status).toBe(200);
+
+    const optIns = await fetchOptIns(phone);
+    if (optIns === null) return; // E2E_TEST_ENDPOINTS not enabled
+    expect(optIns.length).toBeGreaterThan(0);
+    expect(optIns[0].status).toBe("opted_in");
+    expect(optIns[0].optInSource).toBe("registration_form");
+  });
+
+  itWithStripe("records pending (not opted_in) when the SMS consent box is left unchecked", async () => {
+    const seasonId = await fetchOpenSeasonId();
+    const phone = uniquePhone();
+    const res = await fetch(`${BASE}/api/registrations/guest-checkout`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...validBody({
+          parent: {
+            firstName: "Silent",
+            lastName: "Parent",
+            email: `guest-nooptin-${Date.now()}@example.com`,
+            phone,
+          },
+          // no smsConsent field — box left unchecked
+        }),
+        seasonId,
+      }),
+    });
+    expect(res.status).toBe(200);
+
+    const optIns = await fetchOptIns(phone);
+    if (optIns === null) return; // E2E_TEST_ENDPOINTS not enabled
+    expect(optIns.length).toBeGreaterThan(0);
+    expect(optIns[0].status).toBe("pending");
+  });
+
   itWithStripe("dedupes child + resumes registration when called twice with same email/child/season", async () => {
     const seasonId = await fetchOpenSeasonId();
     const email = `guest-dedupe-${Date.now()}@example.com`;

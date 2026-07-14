@@ -119,7 +119,15 @@ export const seasons = pgTable(
     pricingMode: varchar("pricing_mode", { length: 20 })
       .default("per_individual")
       .notNull(),
+    // Early-bird prices, both gated by earlyBirdDeadline above. Each replaces
+    // its OWN list price while the window is open and must be a real discount
+    // (< the list price) — see src/lib/programs/early-bird.ts. Never put a team
+    // price in the per-player field: doing so charged solo registrants 8.3x
+    // across every Fall 2026 division (fixed in #392).
+    //   per-player early-bird → replaces priceCents on individual registrations
     earlyBirdPriceCents: integer("early_bird_price_cents"),
+    //   team early-bird → replaces teamPriceCents on team registrations
+    earlyBirdTeamPriceCents: integer("early_bird_team_price_cents"),
     depositCents: integer("deposit_cents"),
     allowDeposit: boolean("allow_deposit").default(true),
     status: seasonStatusEnum("status").default("draft").notNull(),

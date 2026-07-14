@@ -154,19 +154,20 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     return json({ error: "Session not open for booking" }, 409);
   }
 
-  const [rateCard] = await db
-    .select()
-    .from(dropInRateCard)
-    .where(eq(dropInRateCard.organizationId, session.organizationId))
-    .limit(1);
+  // rateCard and membership are independent reads (rate card is org-scoped,
+  // membership is user+org-scoped) — fetch concurrently.
+  const [[rateCard], membership] = await Promise.all([
+    db
+      .select()
+      .from(dropInRateCard)
+      .where(eq(dropInRateCard.organizationId, session.organizationId))
+      .limit(1),
+    getActiveMembershipForUser(locals.user.id, session.organizationId),
+  ]);
   if (!rateCard) {
     return json({ error: "Rate card not configured" }, 500);
   }
 
-  const membership = await getActiveMembershipForUser(
-    locals.user.id,
-    session.organizationId,
-  );
   const rate = resolveRate(session, locals.user, membership, rateCard);
 
   // Free path → create immediately.

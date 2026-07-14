@@ -3,25 +3,29 @@ import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { users } from "@/lib/db/schema/users";
-import { phoneOptIns } from "@/lib/db/schema/phone-verifications";
+import { recordPhoneOptIn } from "@/lib/sms/opt-in";
 
 /**
  * POST /api/dashboard/settings/phone
  *
  * Persists a verified phone number on the current user's profile.
  * Called by the settings PhoneVerificationClient after the OTP flow
- * succeeds. Also creates a pending→opted_in phone_opt_ins record for
- * the user's organization.
+ * succeeds. Also records phone_opt_ins state for the user's organization:
+ * opted_in only when the customer checked the SmsConsentCheckbox, else a
+ * pending record (existing opted_in is never downgraded).
  *
  * Body:
  *   - phone: E.164 phone number (already verified by the OTP endpoint)
  *   - verified: must be true (defensive — this endpoint only accepts
  *     already-verified phones)
+ *   - smsConsent: whether the consent checkbox was affirmatively checked.
+ *     Defaults to false — consent is never assumed.
  */
 
 const bodySchema = z.object({
   phone: z.string().min(7).max(20),
   verified: z.literal(true),
+  smsConsent: z.boolean().optional().default(false),
 });
 
 export const POST: APIRoute = async ({ request, locals }) => {
@@ -53,42 +57,20 @@ export const POST: APIRoute = async ({ request, locals }) => {
     })
     .where(eq(users.id, user.id));
 
-  // Opt the phone in for the current organization, if we have org context.
+  // Record opt-in state for the current organization, if we have org context.
   const organization = (
     locals as unknown as { organization?: { id: string } | null }
   ).organization;
 
   if (organization?.id) {
-    const now = new Date();
-    // Upsert the opt-in record. If one exists for this (org, phone), mark it active.
-    const existing = await db
-      .select({ id: phoneOptIns.id })
-      .from(phoneOptIns)
-      .where(eq(phoneOptIns.phone, parsed.data.phone))
-      .limit(1);
-
-    if (existing.length > 0) {
-      await db
-        .update(phoneOptIns)
-        .set({
-          status: "opted_in",
-          optedInAt: now,
-          optedOutAt: null,
-          stopKeywordTriggered: null,
-          userId: user.id,
-          updatedAt: now,
-        })
-        .where(eq(phoneOptIns.id, existing[0].id));
-    } else {
-      await db.insert(phoneOptIns).values({
-        organizationId: organization.id,
-        userId: user.id,
-        phone: parsed.data.phone,
-        status: "opted_in",
-        optedInAt: now,
-        optInSource: "registration_form",
-      });
-    }
+    await recordPhoneOptIn({
+      db,
+      organizationId: organization.id,
+      userId: user.id,
+      phone: parsed.data.phone,
+      consented: parsed.data.smsConsent,
+      source: "verify_phone_form",
+    });
   }
 
   return json({ success: true });

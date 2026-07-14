@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { SmsConsentDisclosure } from "@/components/sms/sms-consent-disclosure"
+import { SmsConsentCheckbox } from "@/components/sms/sms-consent-checkbox"
 
 export type GuestRegistrationMode = "child" | "adult"
 
@@ -30,6 +30,10 @@ export interface GuestInfoStepProps {
   onParentLastNameChange: (v: string) => void
   onParentEmailChange: (v: string) => void
   onParentPhoneChange: (v: string) => void
+
+  // SMS opt-in (unchecked by default; optional — see SmsConsentCheckbox)
+  smsConsent: boolean
+  onSmsConsentChange: (v: boolean) => void
 
   // Child-mode fields
   childFirstName: string
@@ -62,6 +66,8 @@ export function GuestInfoStep({
   onParentLastNameChange,
   onParentEmailChange,
   onParentPhoneChange,
+  smsConsent,
+  onSmsConsentChange,
   childFirstName,
   childLastName,
   childBirthDate,
@@ -175,7 +181,12 @@ export function GuestInfoStep({
                 onChange={(e) => onParentPhoneChange(e.target.value)}
                 className="bg-cream-2 border-border text-ink focus:border-primary"
               />
-              <SmsConsentDisclosure className="mt-1.5" />
+              <SmsConsentCheckbox
+                id="sms-consent-guest-child"
+                checked={smsConsent}
+                onCheckedChange={onSmsConsentChange}
+                className="mt-1.5"
+              />
             </div>
           </div>
 
@@ -289,7 +300,12 @@ export function GuestInfoStep({
                 onChange={(e) => onParentPhoneChange(e.target.value)}
                 className="bg-cream-2 border-border text-ink focus:border-primary"
               />
-              <SmsConsentDisclosure className="mt-1.5" />
+              <SmsConsentCheckbox
+                id="sms-consent-guest-adult"
+                checked={smsConsent}
+                onCheckedChange={onSmsConsentChange}
+                className="mt-1.5"
+              />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">

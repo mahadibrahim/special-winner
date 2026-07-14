@@ -50,6 +50,13 @@ export const seasonSchema = z.object({
   minAge: z.number().int().min(0).optional().nullable(),
   maxAge: z.number().int().min(0).optional().nullable(),
   signupModes: z.array(z.enum(["individual", "team"])).min(1, "At least one signup mode is required").default(["individual"]),
+  // Early-bird. Both prices share earlyBirdDeadline; each replaces its own list
+  // price while the window is open. Aspire's leagues run a TEAM-only early-bird
+  // (solo pays flat list price by policy), but the per-player field is supported
+  // for camps/classes.
+  earlyBirdDeadline: z.string().optional().nullable(),
+  earlyBirdPriceCents: z.number().int().min(0).optional().nullable(),
+  earlyBirdTeamPriceCents: z.number().int().min(0).optional().nullable(),
   depositCents: z.number().int().min(0).optional().nullable(),
   allowDeposit: z.boolean().default(true),
   status: z.enum(["draft", "forming", "open", "closed", "active", "completed", "cancelled"]).default("draft"),
@@ -72,6 +79,39 @@ export const seasonSchema = z.object({
 ).refine(
   (data) => data.minAge == null || data.maxAge == null || data.maxAge >= data.minAge,
   { message: "Oldest age must be greater than or equal to youngest age", path: ["maxAge"] },
+).refine(
+  // An early-bird price must be a real discount. Reject at the write boundary:
+  // a team price typo'd into the per-player field is exactly what billed solo
+  // registrants $1,000 against a $120 list price (fixed in #392). The charge
+  // path also ignores non-discounts defensively, but nothing should be able to
+  // save one in the first place.
+  (data) =>
+    data.earlyBirdPriceCents == null ||
+    data.earlyBirdPriceCents < data.priceCents,
+  {
+    message:
+      "Early-bird player price must be LESS than the regular player price. To set an early-bird price for teams, use the team early-bird field.",
+    path: ["earlyBirdPriceCents"],
+  },
+).refine(
+  (data) =>
+    data.earlyBirdTeamPriceCents == null ||
+    data.teamPriceCents == null ||
+    data.earlyBirdTeamPriceCents < data.teamPriceCents,
+  {
+    message: "Early-bird team price must be LESS than the regular team price",
+    path: ["earlyBirdTeamPriceCents"],
+  },
+).refine(
+  // A price without a deadline never activates; a deadline alone is harmless
+  // but usually means the admin forgot the price.
+  (data) =>
+    (data.earlyBirdPriceCents == null && data.earlyBirdTeamPriceCents == null) ||
+    data.earlyBirdDeadline != null,
+  {
+    message: "Set an early-bird deadline, or the early-bird price never applies",
+    path: ["earlyBirdDeadline"],
+  },
 );
 
 export const GET: APIRoute = async (context) => {
@@ -89,70 +129,77 @@ export const GET: APIRoute = async (context) => {
       whereClauses.push(eq(programs.isTest, false));
     }
 
-    const allSeasons = await getDb()
-      .select({
-        id: seasons.id,
-        name: seasons.name,
-        slug: seasons.slug,
-        startDate: seasons.startDate,
-        endDate: seasons.endDate,
-        registrationOpens: seasons.registrationOpens,
-        registrationCloses: seasons.registrationCloses,
-        maxParticipants: seasons.maxParticipants,
-        priceCents: seasons.priceCents,
-        teamPriceCents: seasons.teamPriceCents,
-        signupModes: seasons.signupModes,
-        depositCents: seasons.depositCents,
-        allowDeposit: seasons.allowDeposit,
-        status: seasons.status,
-        scheduleNotes: seasons.scheduleNotes,
-        termSlug: seasons.termSlug,
-        termLabel: seasons.termLabel,
-        divisionGender: seasons.divisionGender,
-        skillLevel: seasons.skillLevel,
-        dayOfWeek: seasons.dayOfWeek,
-        startTime: seasons.startTime,
-        endTime: seasons.endTime,
-        createdAt: seasons.createdAt,
-        program: {
-          id: programs.id,
-          name: programs.name,
-          slug: programs.slug,
-        },
-        sport: {
-          id: sports.id,
-          name: sports.name,
-          icon: sports.icon,
-          color: sports.color,
-        },
-        location: {
-          id: locations.id,
-          name: locations.name,
-        },
-        ageGroup: {
-          id: ageGroups.id,
-          name: ageGroups.name,
-          minAge: ageGroups.minAge,
-          maxAge: ageGroups.maxAge,
-        },
-      })
-      .from(seasons)
-      .innerJoin(programs, eq(seasons.programId, programs.id))
-      .innerJoin(sports, eq(programs.sportId, sports.id))
-      .innerJoin(locations, eq(programs.locationId, locations.id))
-      .leftJoin(ageGroups, eq(seasons.ageGroupId, ageGroups.id))
-      .where(and(...whereClauses))
-      .orderBy(asc(seasons.startDate));
+    // The season listing and per-season interest counts are independent of
+    // each other — run in parallel.
+    const [allSeasons, interestRows] = await Promise.all([
+      getDb()
+        .select({
+          id: seasons.id,
+          name: seasons.name,
+          slug: seasons.slug,
+          startDate: seasons.startDate,
+          endDate: seasons.endDate,
+          registrationOpens: seasons.registrationOpens,
+          registrationCloses: seasons.registrationCloses,
+          maxParticipants: seasons.maxParticipants,
+          priceCents: seasons.priceCents,
+          teamPriceCents: seasons.teamPriceCents,
+          earlyBirdDeadline: seasons.earlyBirdDeadline,
+          earlyBirdPriceCents: seasons.earlyBirdPriceCents,
+          earlyBirdTeamPriceCents: seasons.earlyBirdTeamPriceCents,
+          signupModes: seasons.signupModes,
+          depositCents: seasons.depositCents,
+          allowDeposit: seasons.allowDeposit,
+          status: seasons.status,
+          scheduleNotes: seasons.scheduleNotes,
+          termSlug: seasons.termSlug,
+          termLabel: seasons.termLabel,
+          divisionGender: seasons.divisionGender,
+          skillLevel: seasons.skillLevel,
+          dayOfWeek: seasons.dayOfWeek,
+          startTime: seasons.startTime,
+          endTime: seasons.endTime,
+          createdAt: seasons.createdAt,
+          program: {
+            id: programs.id,
+            name: programs.name,
+            slug: programs.slug,
+          },
+          sport: {
+            id: sports.id,
+            name: sports.name,
+            icon: sports.icon,
+            color: sports.color,
+          },
+          location: {
+            id: locations.id,
+            name: locations.name,
+          },
+          ageGroup: {
+            id: ageGroups.id,
+            name: ageGroups.name,
+            minAge: ageGroups.minAge,
+            maxAge: ageGroups.maxAge,
+          },
+        })
+        .from(seasons)
+        .innerJoin(programs, eq(seasons.programId, programs.id))
+        .innerJoin(sports, eq(programs.sportId, sports.id))
+        .innerJoin(locations, eq(programs.locationId, locations.id))
+        .leftJoin(ageGroups, eq(seasons.ageGroupId, ageGroups.id))
+        .where(and(...whereClauses))
+        .orderBy(asc(seasons.startDate)),
 
-    // Per-season interest counts (forming demand signal). One grouped query.
-    const interestRows = await getDb()
-      .select({
-        seasonId: seasonInterest.seasonId,
-        count: sql<number>`count(*)::int`,
-      })
-      .from(seasonInterest)
-      .where(eq(seasonInterest.organizationId, auth.organizationId))
-      .groupBy(seasonInterest.seasonId);
+      // Per-season interest counts (forming demand signal). One grouped query.
+      getDb()
+        .select({
+          seasonId: seasonInterest.seasonId,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(seasonInterest)
+        .where(eq(seasonInterest.organizationId, auth.organizationId))
+        .groupBy(seasonInterest.seasonId),
+    ]);
     const interestMap = new Map(interestRows.map((r) => [r.seasonId, r.count]));
 
     const seasonsWithInterest = allSeasons.map((s) => ({
@@ -240,6 +287,9 @@ export const POST: APIRoute = async (context) => {
           maxParticipants: data.maxParticipants || null,
           priceCents: data.priceCents,
           teamPriceCents: data.teamPriceCents ?? null,
+          earlyBirdDeadline: data.earlyBirdDeadline ? new Date(data.earlyBirdDeadline) : null,
+          earlyBirdPriceCents: data.earlyBirdPriceCents ?? null,
+          earlyBirdTeamPriceCents: data.earlyBirdTeamPriceCents ?? null,
           halfDayPriceCents: data.halfDayPriceCents ?? null,
           minAge: data.minAge ?? null,
           maxAge: data.maxAge ?? null,
@@ -493,6 +543,9 @@ export const PUT: APIRoute = async (context) => {
         maxParticipants: validData.maxParticipants || null,
         priceCents: validData.priceCents,
         teamPriceCents: validData.teamPriceCents ?? null,
+        earlyBirdDeadline: validData.earlyBirdDeadline ? new Date(validData.earlyBirdDeadline) : null,
+        earlyBirdPriceCents: validData.earlyBirdPriceCents ?? null,
+        earlyBirdTeamPriceCents: validData.earlyBirdTeamPriceCents ?? null,
         halfDayPriceCents: validData.halfDayPriceCents ?? null,
         minAge: validData.minAge ?? null,
         maxAge: validData.maxAge ?? null,

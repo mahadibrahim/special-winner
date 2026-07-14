@@ -182,6 +182,7 @@ export default function RegistrationWizard({
   const [guestParentLastName, setGuestParentLastName] = useState("")
   const [guestParentEmail, setGuestParentEmail] = useState("")
   const [guestParentPhone, setGuestParentPhone] = useState("")
+  const [guestSmsConsent, setGuestSmsConsent] = useState(false)
   const [guestChildFirstName, setGuestChildFirstName] = useState("")
   const [guestChildLastName, setGuestChildLastName] = useState("")
   const [guestChildBirthDate, setGuestChildBirthDate] = useState("")
@@ -595,6 +596,7 @@ export default function RegistrationWizard({
     phone?: string
     birthDate?: string
     gender?: string
+    smsConsent?: boolean
   }) => {
     if (!user) return
     setIsSavingProfile(true)
@@ -606,6 +608,9 @@ export default function RegistrationWizard({
         phone: data.phone ?? completedProfile.phone ?? user.phone ?? undefined,
         birthDate: data.birthDate ?? completedProfile.birthDate ?? user.birthDate ?? undefined,
         gender: data.gender ?? completedProfile.gender ?? user.gender ?? undefined,
+        // Only sent when the form collected a phone — the server records
+        // opt-in state solely for phones provided alongside the checkbox.
+        smsConsent: data.smsConsent,
       }
       const res = await fetch("/api/user/profile", {
         method: "PUT",
@@ -788,6 +793,7 @@ export default function RegistrationWizard({
                 isSelf: true as const,
                 gender: guestAdultGender || undefined,
               },
+              smsConsent: guestSmsConsent,
               registrationType: paymentOption,
               waiverSigned: true,
               waiverSignedBy: waiverSignature,
@@ -804,6 +810,7 @@ export default function RegistrationWizard({
                 email: guestParentEmail,
                 phone: guestParentPhone || undefined,
               },
+              smsConsent: guestSmsConsent,
               child: {
                 firstName: guestChildFirstName,
                 lastName: guestChildLastName,
@@ -1307,6 +1314,8 @@ export default function RegistrationWizard({
             onParentLastNameChange={setGuestParentLastName}
             onParentEmailChange={setGuestParentEmail}
             onParentPhoneChange={setGuestParentPhone}
+            smsConsent={guestSmsConsent}
+            onSmsConsentChange={setGuestSmsConsent}
             onChildFirstNameChange={setGuestChildFirstName}
             onChildLastNameChange={setGuestChildLastName}
             onChildBirthDateChange={setGuestChildBirthDate}

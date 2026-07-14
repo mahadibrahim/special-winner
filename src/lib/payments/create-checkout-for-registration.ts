@@ -101,12 +101,19 @@ export async function createCheckoutForRegistration(
       season: seasons,
       program: programs,
       location: locations,
+      // Registration owner's email, merged into the initial join instead of
+      // a separate users.email lookup right before the Stripe redirect
+      // (registrations.registeredByUserId === userId, already filtered by
+      // the WHERE below, so this is the same row a standalone lookup by
+      // userId would return).
+      userEmail: users.email,
     })
     .from(registrations)
     .innerJoin(familyMembers, eq(registrations.familyMemberId, familyMembers.id))
     .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
     .innerJoin(programs, eq(seasons.programId, programs.id))
     .innerJoin(locations, eq(programs.locationId, locations.id))
+    .innerJoin(users, eq(users.id, registrations.registeredByUserId))
     .where(
       and(
         eq(registrations.id, registrationId),
@@ -118,7 +125,7 @@ export async function createCheckoutForRegistration(
     throw new CheckoutError(404, "Registration not found");
   }
 
-  const { registration, familyMember, season, program, location } = result;
+  const { registration, familyMember, season, program, location, userEmail } = result;
 
   // Resolved early (moved up from where it's used for Stripe Connect
   // routing below) so account-credit redemption — which needs an
@@ -271,16 +278,10 @@ export async function createCheckoutForRegistration(
       .where(eq(registrations.id, registrationId));
   }
 
-  // 8. Look up the registration owner's email via a proper Drizzle join
-  const [userRow] = await db
-    .select({ email: users.email })
-    .from(users)
-    .where(eq(users.id, userId));
-
-  if (!userRow) {
-    throw new CheckoutError(500, "Could not resolve user email for checkout");
-  }
-  const customerEmail = userRow.email;
+  // 8. Registration owner's email — resolved in the initial join above
+  //    (registeredByUserId is a NOT NULL FK with onDelete: "restrict", so
+  //    the join is guaranteed to have matched a users row here).
+  const customerEmail = userEmail;
 
   // 9. Decide platform-direct vs Stripe Connect based on the org config.
   //     Connect is used when the org has a connected account and onboarding

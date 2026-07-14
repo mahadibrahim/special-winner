@@ -55,72 +55,75 @@ export const GET: APIRoute = async (context) => {
       );
     }
 
-    // Get registrations with related data
-    const registrationData = await getDb()
-      .select({
-        id: registrations.id,
-        status: registrations.status,
-        paymentStatus: registrations.paymentStatus,
-        amountPaidCents: registrations.amountPaidCents,
-        amountDueCents: registrations.amountDueCents,
-        registrationType: registrations.registrationType,
-        waiverSigned: registrations.waiverSigned,
-        waitlistPosition: registrations.waitlistPosition,
-        createdAt: registrations.createdAt,
-        cancelledAt: registrations.cancelledAt,
-        familyMember: {
-          id: familyMembers.id,
-          firstName: familyMembers.firstName,
-          lastName: familyMembers.lastName,
-        },
-        season: {
-          id: seasons.id,
-          name: seasons.name,
-        },
-        program: {
-          id: programs.id,
-          name: programs.name,
-        },
-        sport: {
-          id: sports.id,
-          name: sports.name,
-        },
-        registeredBy: {
-          id: users.id,
-          email: users.email,
-          firstName: users.firstName,
-          lastName: users.lastName,
-        },
-      })
-      .from(registrations)
-      .innerJoin(familyMembers, eq(registrations.familyMemberId, familyMembers.id))
-      .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
-      .innerJoin(programs, eq(seasons.programId, programs.id))
-      .innerJoin(locations, eq(programs.locationId, locations.id))
-      .innerJoin(sports, eq(programs.sportId, sports.id))
-      .innerJoin(users, eq(registrations.registeredByUserId, users.id))
-      .where(and(...conditions))
-      .orderBy(desc(registrations.createdAt))
-      .limit(limit)
-      .offset(offset);
+    // Registration listing and summary counts are independent of each
+    // other — run in parallel.
+    const [registrationData, summaryResult] = await Promise.all([
+      getDb()
+        .select({
+          id: registrations.id,
+          status: registrations.status,
+          paymentStatus: registrations.paymentStatus,
+          amountPaidCents: registrations.amountPaidCents,
+          amountDueCents: registrations.amountDueCents,
+          registrationType: registrations.registrationType,
+          waiverSigned: registrations.waiverSigned,
+          waitlistPosition: registrations.waitlistPosition,
+          createdAt: registrations.createdAt,
+          cancelledAt: registrations.cancelledAt,
+          familyMember: {
+            id: familyMembers.id,
+            firstName: familyMembers.firstName,
+            lastName: familyMembers.lastName,
+          },
+          season: {
+            id: seasons.id,
+            name: seasons.name,
+          },
+          program: {
+            id: programs.id,
+            name: programs.name,
+          },
+          sport: {
+            id: sports.id,
+            name: sports.name,
+          },
+          registeredBy: {
+            id: users.id,
+            email: users.email,
+            firstName: users.firstName,
+            lastName: users.lastName,
+          },
+        })
+        .from(registrations)
+        .innerJoin(familyMembers, eq(registrations.familyMemberId, familyMembers.id))
+        .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+        .innerJoin(programs, eq(seasons.programId, programs.id))
+        .innerJoin(locations, eq(programs.locationId, locations.id))
+        .innerJoin(sports, eq(programs.sportId, sports.id))
+        .innerJoin(users, eq(registrations.registeredByUserId, users.id))
+        .where(and(...conditions))
+        .orderBy(desc(registrations.createdAt))
+        .limit(limit)
+        .offset(offset),
 
-    // Get summary counts — also org-scoped
-    const summaryResult = await getDb()
-      .select({
-        total: sql<number>`COUNT(*)`,
-        confirmed: sql<number>`COUNT(*) FILTER (WHERE ${registrations.status} = 'confirmed')`,
-        pending: sql<number>`COUNT(*) FILTER (WHERE ${registrations.status} = 'pending')`,
-        waitlisted: sql<number>`COUNT(*) FILTER (WHERE ${registrations.status} = 'waitlisted')`,
-        cancelled: sql<number>`COUNT(*) FILTER (WHERE ${registrations.status} = 'cancelled')`,
-        paid: sql<number>`COUNT(*) FILTER (WHERE ${registrations.paymentStatus} = 'paid')`,
-        unpaid: sql<number>`COUNT(*) FILTER (WHERE ${registrations.paymentStatus} = 'unpaid')`,
-        partial: sql<number>`COUNT(*) FILTER (WHERE ${registrations.paymentStatus} = 'deposit_paid')`,
-      })
-      .from(registrations)
-      .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
-      .innerJoin(programs, eq(seasons.programId, programs.id))
-      .innerJoin(locations, eq(programs.locationId, locations.id))
-      .where(eq(locations.organizationId, orgContext.organizationId));
+      // Summary counts — also org-scoped
+      getDb()
+        .select({
+          total: sql<number>`COUNT(*)`,
+          confirmed: sql<number>`COUNT(*) FILTER (WHERE ${registrations.status} = 'confirmed')`,
+          pending: sql<number>`COUNT(*) FILTER (WHERE ${registrations.status} = 'pending')`,
+          waitlisted: sql<number>`COUNT(*) FILTER (WHERE ${registrations.status} = 'waitlisted')`,
+          cancelled: sql<number>`COUNT(*) FILTER (WHERE ${registrations.status} = 'cancelled')`,
+          paid: sql<number>`COUNT(*) FILTER (WHERE ${registrations.paymentStatus} = 'paid')`,
+          unpaid: sql<number>`COUNT(*) FILTER (WHERE ${registrations.paymentStatus} = 'unpaid')`,
+          partial: sql<number>`COUNT(*) FILTER (WHERE ${registrations.paymentStatus} = 'deposit_paid')`,
+        })
+        .from(registrations)
+        .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+        .innerJoin(programs, eq(seasons.programId, programs.id))
+        .innerJoin(locations, eq(programs.locationId, locations.id))
+        .where(eq(locations.organizationId, orgContext.organizationId)),
+    ]);
 
     return new Response(
       JSON.stringify({

@@ -68,200 +68,207 @@ export async function collectTodayForPerson(
 
   const items: PersonTodayItem[] = [];
 
-  // ── 1. Drop-in bookings ───────────────────────────────────────────────────
-  // Only for adult-self: these are keyed by userId (the account holder).
-  // Surfacing them on a child's card would show the parent's activity on every
-  // child row (mis-attribution). Children get only roster_entry items below.
-  //
-  // Scope: session's venue must be in an allowed location.
-  // We need to resolve venueIds whose locationId is in allowedLocationIds.
-  let allowedVenueIds: string[] = [];
-  if (isSelf && allowedLocationIds.length > 0) {
-    const venueRows = await db
-      .select({ id: venues.id })
-      .from(venues)
-      .where(inArray(venues.locationId, allowedLocationIds));
-    allowedVenueIds = venueRows.map((v) => v.id);
-  }
+  // ── Wave 1: venueIds (for drop-in/rentals) and roster entries are
+  // independent of each other — both only need familyMemberId/allowed
+  // location ids, run in parallel.
+  const wantsVenueScoped = isSelf && allowedLocationIds.length > 0;
+  const wantsRoster = allowedLocationIds.length > 0;
 
-  if (isSelf && allowedVenueIds.length > 0) {
-    const bookingRows = await db
-      .select({
-        bookingId: dropInBookings.id,
-        sessionId: dropInSessions.id,
-        title: dropInSessions.sportOrClassLabel,
-        startsAt: dropInSessions.startsAt,
-        endsAt: dropInSessions.endsAt,
-        waiverSigned: dropInBookings.waiverSigned,
-        checkedInAt: dropInBookings.checkedInAt,
-        amountPaidCents: dropInBookings.amountPaidCents,
-      })
-      .from(dropInBookings)
-      .innerJoin(dropInSessions, eq(dropInSessions.id, dropInBookings.sessionId))
-      .where(
-        and(
-          eq(dropInBookings.userId, linkedUserId),
-          eq(dropInBookings.status, "confirmed"),
-          gte(dropInSessions.startsAt, dayStart),
-          lt(dropInSessions.startsAt, dayEnd),
-          inArray(dropInSessions.venueId, allowedVenueIds),
-        ),
-      );
-
-    for (const row of bookingRows) {
-      items.push({
-        kind: "drop_in_booking",
-        targetId: row.bookingId,
-        canCheckIn: true,
-        sessionId: row.sessionId,
-        title: row.title,
-        timeLabel: timeLabel(row.startsAt, row.endsAt),
-        waiverSigned: row.waiverSigned,
-        hasPhoto,
-        paid: row.amountPaidCents > 0,
-        checkedIn: row.checkedInAt !== null,
-      });
-    }
-  }
-
-  // ── 2. Field rentals ──────────────────────────────────────────────────────
-  // Only for adult-self (same reasoning as drop-in bookings above).
-  // Scope: rental's venue must be in an allowed location.
-  // Only confirmed/completed rentals (not pending_payment, cancelled, no_show).
-  if (isSelf && allowedVenueIds.length > 0) {
-    const rentalRows = await db
-      .select({
-        rentalId: fieldRentals.id,
-        renterName: fieldRentals.renterName,
-        startsAt: fieldRentals.startsAt,
-        endsAt: fieldRentals.endsAt,
-        waiverSigned: fieldRentals.waiverSigned,
-        checkedInAt: fieldRentals.checkedInAt,
-        paymentStatus: fieldRentals.paymentStatus,
-      })
-      .from(fieldRentals)
-      .where(
-        and(
-          eq(fieldRentals.renterUserId, linkedUserId),
-          inArray(fieldRentals.status, ["confirmed", "completed"]),
-          gte(fieldRentals.startsAt, dayStart),
-          lt(fieldRentals.startsAt, dayEnd),
-          inArray(fieldRentals.venueId, allowedVenueIds),
-        ),
-      );
-
-    for (const row of rentalRows) {
-      items.push({
-        kind: "field_rental",
-        targetId: row.rentalId,
-        canCheckIn: true,
-        sessionId: row.rentalId, // field rentals have no separate session; reuse id
-        title: `Field Rental — ${row.renterName}`,
-        timeLabel: timeLabel(row.startsAt, row.endsAt),
-        waiverSigned: row.waiverSigned,
-        hasPhoto,
-        paid: row.paymentStatus === "paid",
-        checkedIn: row.checkedInAt !== null,
-      });
-    }
-  }
-
-  // ── 3. Roster / game entries ──────────────────────────────────────────────
-  // Find teams the familyMember is on (active roster, scoped to allowed
-  // locations via program → season → team).
-  // Scope: program.locationId in allowedLocationIds.
-  if (allowedLocationIds.length > 0) {
-    // Find all active roster entries for this family member in scoped programs.
-    const rosterRows = await db
-      .select({
-        rosterId: rosters.id,
-        teamId: rosters.teamId,
-        seasonId: teams.seasonId,
-      })
-      .from(rosters)
-      .innerJoin(registrations, eq(registrations.id, rosters.registrationId))
-      .innerJoin(teams, eq(teams.id, rosters.teamId))
-      .innerJoin(seasons, eq(seasons.id, teams.seasonId))
-      .innerJoin(programs, eq(programs.id, seasons.programId))
-      .where(
-        and(
-          eq(registrations.familyMemberId, familyMemberId),
-          eq(rosters.status, "active"),
-          inArray(programs.locationId, allowedLocationIds),
-        ),
-      );
-
-    if (rosterRows.length > 0) {
-      const teamIds = [...new Set(rosterRows.map((r) => r.teamId))];
-
-      // Find games today where this person's team plays (home or away).
-      const gameRows = await db
-        .select({
-          gameId: games.id,
-          homeTeamId: games.homeTeamId,
-          awayTeamId: games.awayTeamId,
-          scheduledAt: games.scheduledAt,
-          durationMinutes: games.durationMinutes,
-        })
-        .from(games)
-        .where(
-          and(
-            or(
-              inArray(games.homeTeamId, teamIds),
-              inArray(games.awayTeamId, teamIds),
+  const [venueRows, rosterRows] = await Promise.all([
+    wantsVenueScoped
+      ? db
+          .select({ id: venues.id })
+          .from(venues)
+          .where(inArray(venues.locationId, allowedLocationIds))
+      : Promise.resolve([]),
+    // Find all active roster entries for this family member in scoped
+    // programs (program → season → team). Scope: program.locationId in
+    // allowedLocationIds.
+    wantsRoster
+      ? db
+          .select({
+            rosterId: rosters.id,
+            teamId: rosters.teamId,
+            seasonId: teams.seasonId,
+          })
+          .from(rosters)
+          .innerJoin(registrations, eq(registrations.id, rosters.registrationId))
+          .innerJoin(teams, eq(teams.id, rosters.teamId))
+          .innerJoin(seasons, eq(seasons.id, teams.seasonId))
+          .innerJoin(programs, eq(programs.id, seasons.programId))
+          .where(
+            and(
+              eq(registrations.familyMemberId, familyMemberId),
+              eq(rosters.status, "active"),
+              inArray(programs.locationId, allowedLocationIds),
             ),
-            gte(games.scheduledAt, dayStart),
-            lt(games.scheduledAt, dayEnd),
-            inArray(games.status, ["scheduled", "in_progress"]),
-          ),
-        );
+          )
+      : Promise.resolve([]),
+  ]);
 
-      // Resolve team names for game titles.
-      let teamNameMap = new Map<string, string>();
-      if (gameRows.length > 0) {
-        const allGameTeamIds = gameRows.flatMap((g) =>
-          [g.homeTeamId, g.awayTeamId].filter(Boolean),
-        ) as string[];
-        const uniqueTeamIds = [...new Set(allGameTeamIds)];
-        const teamNameRows = await db
-          .select({ id: teams.id, name: teams.name })
-          .from(teams)
-          .where(inArray(teams.id, uniqueTeamIds));
-        teamNameMap = new Map(teamNameRows.map((t) => [t.id, t.name]));
-      }
+  const allowedVenueIds = venueRows.map((v) => v.id);
+  const rosterTeamIds =
+    rosterRows.length > 0 ? [...new Set(rosterRows.map((r) => r.teamId))] : [];
 
-      for (const game of gameRows) {
-        // Find the roster entry that links this person to one of the game's teams.
-        const matchingRosterEntry = rosterRows.find(
-          (r) => r.teamId === game.homeTeamId || r.teamId === game.awayTeamId,
-        );
-        if (!matchingRosterEntry) continue;
+  // ── Wave 2: drop-in bookings, field rentals, and today's games are each
+  // dependent only on wave-1 output (venueIds / rosterTeamIds), not on one
+  // another — run in parallel.
+  //
+  // Drop-in bookings + field rentals: only for adult-self (these are keyed
+  // by userId, the account holder — surfacing them on a child's card would
+  // mis-attribute the parent's activity to every child).
+  const wantsBookings = isSelf && allowedVenueIds.length > 0;
+  const wantsGames = rosterTeamIds.length > 0;
 
-        const homeName = game.homeTeamId
-          ? (teamNameMap.get(game.homeTeamId) ?? "TBD")
-          : "TBD";
-        const awayName = game.awayTeamId
-          ? (teamNameMap.get(game.awayTeamId) ?? "TBD")
-          : "TBD";
+  const [bookingRows, rentalRows, gameRows] = await Promise.all([
+    wantsBookings
+      ? db
+          .select({
+            bookingId: dropInBookings.id,
+            sessionId: dropInSessions.id,
+            title: dropInSessions.sportOrClassLabel,
+            startsAt: dropInSessions.startsAt,
+            endsAt: dropInSessions.endsAt,
+            waiverSigned: dropInBookings.waiverSigned,
+            checkedInAt: dropInBookings.checkedInAt,
+            amountPaidCents: dropInBookings.amountPaidCents,
+          })
+          .from(dropInBookings)
+          .innerJoin(dropInSessions, eq(dropInSessions.id, dropInBookings.sessionId))
+          .where(
+            and(
+              eq(dropInBookings.userId, linkedUserId),
+              eq(dropInBookings.status, "confirmed"),
+              gte(dropInSessions.startsAt, dayStart),
+              lt(dropInSessions.startsAt, dayEnd),
+              inArray(dropInSessions.venueId, allowedVenueIds),
+            ),
+          )
+      : Promise.resolve([]),
 
-        const endsAt = new Date(
-          game.scheduledAt.getTime() + (game.durationMinutes ?? 0) * 60_000,
-        );
+    // Only confirmed/completed rentals (not pending_payment, cancelled, no_show).
+    wantsBookings
+      ? db
+          .select({
+            rentalId: fieldRentals.id,
+            renterName: fieldRentals.renterName,
+            startsAt: fieldRentals.startsAt,
+            endsAt: fieldRentals.endsAt,
+            waiverSigned: fieldRentals.waiverSigned,
+            checkedInAt: fieldRentals.checkedInAt,
+            paymentStatus: fieldRentals.paymentStatus,
+          })
+          .from(fieldRentals)
+          .where(
+            and(
+              eq(fieldRentals.renterUserId, linkedUserId),
+              inArray(fieldRentals.status, ["confirmed", "completed"]),
+              gte(fieldRentals.startsAt, dayStart),
+              lt(fieldRentals.startsAt, dayEnd),
+              inArray(fieldRentals.venueId, allowedVenueIds),
+            ),
+          )
+      : Promise.resolve([]),
 
-        items.push({
-          kind: "roster_entry",
-          targetId: matchingRosterEntry.rosterId,
-          canCheckIn: false, // game attendance not tracked at row level
-          sessionId: game.gameId,
-          title: `${homeName} vs ${awayName}`,
-          timeLabel: timeLabel(game.scheduledAt, endsAt),
-          waiverSigned: true, // rostered players signed waiver at registration
-          hasPhoto,
-          paid: true, // registration payment is handled separately
-          checkedIn: false, // not tracked
-        });
-      }
-    }
+    // Games today where this person's team plays (home or away).
+    wantsGames
+      ? db
+          .select({
+            gameId: games.id,
+            homeTeamId: games.homeTeamId,
+            awayTeamId: games.awayTeamId,
+            scheduledAt: games.scheduledAt,
+            durationMinutes: games.durationMinutes,
+          })
+          .from(games)
+          .where(
+            and(
+              or(
+                inArray(games.homeTeamId, rosterTeamIds),
+                inArray(games.awayTeamId, rosterTeamIds),
+              ),
+              gte(games.scheduledAt, dayStart),
+              lt(games.scheduledAt, dayEnd),
+              inArray(games.status, ["scheduled", "in_progress"]),
+            ),
+          )
+      : Promise.resolve([]),
+  ]);
+
+  for (const row of bookingRows) {
+    items.push({
+      kind: "drop_in_booking",
+      targetId: row.bookingId,
+      canCheckIn: true,
+      sessionId: row.sessionId,
+      title: row.title,
+      timeLabel: timeLabel(row.startsAt, row.endsAt),
+      waiverSigned: row.waiverSigned,
+      hasPhoto,
+      paid: row.amountPaidCents > 0,
+      checkedIn: row.checkedInAt !== null,
+    });
+  }
+
+  for (const row of rentalRows) {
+    items.push({
+      kind: "field_rental",
+      targetId: row.rentalId,
+      canCheckIn: true,
+      sessionId: row.rentalId, // field rentals have no separate session; reuse id
+      title: `Field Rental — ${row.renterName}`,
+      timeLabel: timeLabel(row.startsAt, row.endsAt),
+      waiverSigned: row.waiverSigned,
+      hasPhoto,
+      paid: row.paymentStatus === "paid",
+      checkedIn: row.checkedInAt !== null,
+    });
+  }
+
+  // ── Wave 3: resolve team names for game titles — depends on gameRows.
+  let teamNameMap = new Map<string, string>();
+  if (gameRows.length > 0) {
+    const allGameTeamIds = gameRows.flatMap((g) =>
+      [g.homeTeamId, g.awayTeamId].filter(Boolean),
+    ) as string[];
+    const uniqueTeamIds = [...new Set(allGameTeamIds)];
+    const teamNameRows = await db
+      .select({ id: teams.id, name: teams.name })
+      .from(teams)
+      .where(inArray(teams.id, uniqueTeamIds));
+    teamNameMap = new Map(teamNameRows.map((t) => [t.id, t.name]));
+  }
+
+  for (const game of gameRows) {
+    // Find the roster entry that links this person to one of the game's teams.
+    const matchingRosterEntry = rosterRows.find(
+      (r) => r.teamId === game.homeTeamId || r.teamId === game.awayTeamId,
+    );
+    if (!matchingRosterEntry) continue;
+
+    const homeName = game.homeTeamId
+      ? (teamNameMap.get(game.homeTeamId) ?? "TBD")
+      : "TBD";
+    const awayName = game.awayTeamId
+      ? (teamNameMap.get(game.awayTeamId) ?? "TBD")
+      : "TBD";
+
+    const endsAt = new Date(
+      game.scheduledAt.getTime() + (game.durationMinutes ?? 0) * 60_000,
+    );
+
+    items.push({
+      kind: "roster_entry",
+      targetId: matchingRosterEntry.rosterId,
+      canCheckIn: false, // game attendance not tracked at row level
+      sessionId: game.gameId,
+      title: `${homeName} vs ${awayName}`,
+      timeLabel: timeLabel(game.scheduledAt, endsAt),
+      waiverSigned: true, // rostered players signed waiver at registration
+      hasPhoto,
+      paid: true, // registration payment is handled separately
+      checkedIn: false, // not tracked
+    });
   }
 
   return items;
