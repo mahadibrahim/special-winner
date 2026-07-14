@@ -111,7 +111,12 @@ test.describe("Self-serve photo step", { tag: "@critical" }, () => {
       });
       expect(linkRes.ok(), await linkRes.text()).toBeTruthy();
       const { url } = (await linkRes.json()) as { url: string };
-      const path = new URL(url).pathname;
+      // send-link returns an ABSOLUTE url when PUBLIC_APP_URL is configured and
+      // a RELATIVE path when it isn't — which is the case on CI. Bare
+      // `new URL(url)` throws "Invalid URL" on the relative form. Passing a base
+      // handles both: an absolute url ignores the base, a relative one resolves
+      // against it. We only want the pathname either way.
+      const path = new URL(url, "http://kiosk.invalid").pathname;
 
       await page.goto(path, { waitUntil: "domcontentloaded" });
       await waitForHydration(page);
