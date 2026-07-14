@@ -31,7 +31,7 @@ export function WaiverCard({ token, signerName, playerName, isMinor, done, onDon
   if (done) {
     return (
       <div className={DONE_CARD_CLASS}>
-        <span aria-hidden="true" className="text-sage">&#10003;</span>
+        <span aria-hidden="true">&#10003;</span>
         <span>Waiver signed</span>
       </div>
     );

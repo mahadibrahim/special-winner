@@ -65,6 +65,18 @@ export function PhotoCard({ token, done, onDone }: Props) {
   // stream must be stopped, not assigned — otherwise a double-tap or a
   // leave-mid-start races two streams and the loser is never stopped.
   const cancelTokenRef = useRef(0);
+  // ~10s watchdog for a getUserMedia() call that never settles (seen on iOS
+  // when the permission sheet is interrupted by a system event). Without
+  // this, `starting` stays true forever and the primary button is stuck
+  // disabled with no explanation.
+  const startWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearStartWatchdog = useCallback(() => {
+    if (startWatchdogRef.current) {
+      clearTimeout(startWatchdogRef.current);
+      startWatchdogRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -72,6 +84,8 @@ export function PhotoCard({ token, done, onDone }: Props) {
       mountedRef.current = false;
     };
   }, []);
+
+  useEffect(() => clearStartWatchdog, [clearStartWatchdog]);
 
   // A mounted iPad must never sit with its camera light on. Stopping every
   // track is the whole point of this ref.
@@ -110,16 +124,30 @@ export function PhotoCard({ token, done, onDone }: Props) {
     setCameraError(null);
     setStarting(true);
     const myEpoch = cancelTokenRef.current;
+    clearStartWatchdog();
+    startWatchdogRef.current = setTimeout(() => {
+      if (!mountedRef.current || cancelTokenRef.current !== myEpoch) return;
+      // The getUserMedia() promise never settled. Bump the epoch so that if
+      // it eventually does resolve, the staleness check below treats the
+      // arriving stream as stale and stops it instead of assigning it —
+      // otherwise a late-arriving camera could still leak on after we've
+      // told the customer to use the fallback.
+      cancelTokenRef.current += 1;
+      setStarting(false);
+      setCameraError(
+        "The camera didn't respond. Choose a photo from the device instead.",
+      );
+    }, 10_000);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "user" },
         audio: false,
       });
       // The caller may have moved on (double-tap already got a stream in,
-      // the customer switched to the device-upload path, or the component
-      // unmounted) while this was in flight. Overwriting streamRef.current
-      // in that case is exactly what leaks a live camera — stop and drop
-      // this stream instead.
+      // the customer switched to the device-upload path, the watchdog fired,
+      // or the component unmounted) while this was in flight. Overwriting
+      // streamRef.current in that case is exactly what leaks a live camera —
+      // stop and drop this stream instead.
       const stale =
         !mountedRef.current || cancelTokenRef.current !== myEpoch || streamRef.current;
       if (stale) {
@@ -151,6 +179,7 @@ export function PhotoCard({ token, done, onDone }: Props) {
         );
       }
     } finally {
+      clearStartWatchdog();
       if (mountedRef.current) setStarting(false);
     }
   };
@@ -216,6 +245,16 @@ export function PhotoCard({ token, done, onDone }: Props) {
     }
   };
 
+  // A safety net independent of SelfServe's own invariant (that `done` only
+  // ever flips via this component's onDone): if `done` ever flips true while
+  // the camera is running — e.g. a payment-webhook poll elsewhere in the
+  // flow — the early return below unmounts nothing (this component stays
+  // mounted) and the unmount cleanup never fires. Stop the camera directly
+  // on the done transition so the light can never stay lit.
+  useEffect(() => {
+    if (done) stopCamera();
+  }, [done, stopCamera]);
+
   if (done) {
     return (
       <div className={DONE_CARD_CLASS}>
@@ -267,7 +306,14 @@ export function PhotoCard({ token, done, onDone }: Props) {
           <button type="button" onClick={capture} className={PRIMARY_BTN}>
             Capture
           </button>
-          <button type="button" onClick={stopCamera} className={GHOST_BTN}>
+          <button
+            type="button"
+            onClick={() => {
+              stopCamera();
+              uploadRef.current?.click();
+            }}
+            className={GHOST_BTN}
+          >
             Use a photo from my device instead
           </button>
         </div>
