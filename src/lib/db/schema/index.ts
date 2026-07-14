@@ -125,3 +125,6 @@ export * from "./blueprint";
 
 // Coach session lifecycle: field-mode quick-capture inbox (glows/observations)
 export * from "./session-lifecycle";
+
+// Spectator liability waivers (facility entry, not a booking)
+export * from "./spectators";
