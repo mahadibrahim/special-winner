@@ -110,6 +110,8 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     sessionId?: string;
     waiverAccepted?: boolean;
     waiverName?: string;
+    /** `?src=` from the share link the customer booked from (e.g. host-share). */
+    src?: string;
   };
   try {
     body = await request.json();
@@ -178,6 +180,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
       waiverSignedAt,
       waiverSignedBy: waiverName,
       brand: brandFromHost(request.headers.get("host") ?? ""),
+      referralSource: body.src,
     });
     if (!result.ok) {
       const httpStatus = result.error.code === "session_not_found" ? 404 : 409;
@@ -238,6 +241,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     rate,
     waiverSignedAt,
     waiverName,
+    referralSource: body.src,
     // Storefront brand — host-derived, since both brands share one org.
     // Ad-attribution ids → server-side GA4 + Meta purchase conversions.
     extraMetadata: {

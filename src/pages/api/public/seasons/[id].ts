@@ -3,7 +3,12 @@ import { db } from "@/lib/db";
 import { seasons, programs, sports, locations, ageGroups, registrations, organizations } from "@/lib/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { isRegistrationClosed } from "@/lib/programs/registration-window";
-import { isEarlyBirdActive, effectivePriceCents } from "@/lib/programs/early-bird";
+import {
+  isEarlyBirdActive,
+  effectivePriceCents,
+  isTeamEarlyBirdActive,
+  effectiveTeamPriceCents,
+} from "@/lib/programs/early-bird";
 
 export const GET: APIRoute = async ({ params, locals }) => {
   try {
@@ -85,6 +90,14 @@ export const GET: APIRoute = async ({ params, locals }) => {
     // (createRegistration) agree on the clock.
     const earlyBirdActive = isEarlyBirdActive(result.season);
     const effPriceCents = effectivePriceCents(result.season);
+    // Team early-bird is independent of the per-player one — Aspire's leagues
+    // run a team-only early-bird (solo pays flat list price by policy).
+    const listTeamPriceCents = result.season.teamPriceCents;
+    const teamEarlyBirdActive = isTeamEarlyBirdActive(result.season);
+    const effTeamPriceCents =
+      listTeamPriceCents != null
+        ? effectiveTeamPriceCents(result.season, listTeamPriceCents)
+        : null;
 
     const formatted = {
       id: result.season.id,
@@ -117,6 +130,11 @@ export const GET: APIRoute = async ({ params, locals }) => {
       // register page's league-context rail + choose-mode have what they need.
       teamPrice: result.season.teamPriceCents != null ? result.season.teamPriceCents / 100 : null,
       teamPriceCents: result.season.teamPriceCents,
+      // Team fee the team-create flow will actually charge right now. The
+      // charge path (api/public/team-registrations) computes the same value.
+      teamEarlyBirdActive,
+      effectiveTeamPrice: effTeamPriceCents != null ? effTeamPriceCents / 100 : null,
+      effectiveTeamPriceCents: effTeamPriceCents,
       signupModes: result.season.signupModes,
       // Division metadata for the rail facts.
       termSlug: result.season.termSlug,

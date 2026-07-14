@@ -22,10 +22,19 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import { toast } from "sonner";
 import { AttendancePanel, type RosterEntry } from "./AttendancePanel";
 import WalkUpPanel from "./WalkUpPanel";
+
+interface HostOption {
+  id: string;
+  userId: string;
+  firstName: string;
+  lastName: string;
+  status: "active" | "paused" | "revoked";
+}
 
 interface DetailResponse {
   session: {
@@ -49,6 +58,12 @@ interface DetailResponse {
     status: "scheduled" | "cancelled" | "completed";
   };
   venue: { id: string; name: string } | null;
+  host: { userId: string; name: string } | null;
+  report: {
+    summary: string;
+    incidentFlagged: boolean;
+    createdAt: string;
+  } | null;
   roster: RosterEntry[];
   // Walk-in pay-link holds (status pending_payment) — see [id].ts's comment.
   holds: RosterEntry[];
@@ -73,12 +88,16 @@ function fmtDateTime(iso: string): string {
 export function AdminSessionDetail({ sessionId }: AdminSessionDetailProps) {
   useHydrationBeacon();
 
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
   const [data, setData] = useState<DetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [repeatOpen, setRepeatOpen] = useState(false);
   const [repeatUntil, setRepeatUntil] = useState("");
   const [busy, setBusy] = useState(false);
+  const [hostOptions, setHostOptions] = useState<HostOption[]>([]);
+  const [changingHost, setChangingHost] = useState(false);
+  const [pickedHostUserId, setPickedHostUserId] = useState("");
 
   const reload = async () => {
     try {
@@ -97,13 +116,86 @@ export function AdminSessionDetail({ sessionId }: AdminSessionDetailProps) {
     void reload();
   }, [sessionId]);
 
-  const cancelSession = async () => {
-    if (
-      !confirm(
-        "Cancel this session and refund all bookings? This cannot be undone.",
-      )
-    )
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch("/api/admin/hosts");
+        if (!res.ok) return;
+        const json = await res.json();
+        setHostOptions(
+          (json.hosts ?? []).filter((h: HostOption) => h.status === "active"),
+        );
+      } catch {
+        /* host picker nice-to-have */
+      }
+    })();
+  }, []);
+
+  const removeHost = async () => {
+    const ok = await confirm({
+      title: "Remove host?",
+      description:
+        "The host's comp booking is cancelled and the session goes unhosted. This cannot be undone.",
+      confirmLabel: "Remove host",
+      destructive: true,
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const res = await fetch(
+        `/api/admin/dropin/sessions/${sessionId}/host`,
+        { method: "DELETE" },
+      );
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error ?? "Could not remove host");
+        return;
+      }
+      toast.success("Host removed");
+      await reload();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const changeHost = async () => {
+    if (!pickedHostUserId) {
+      toast.error("Pick a host first");
       return;
+    }
+    setBusy(true);
+    try {
+      const res = await fetch(
+        `/api/admin/dropin/sessions/${sessionId}/host`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ hostUserId: pickedHostUserId, replace: true }),
+        },
+      );
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error ?? "Could not assign host");
+        return;
+      }
+      toast.success("Host assigned");
+      setChangingHost(false);
+      setPickedHostUserId("");
+      await reload();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const cancelSession = async () => {
+    const ok = await confirm({
+      title: "Cancel session?",
+      description:
+        "All bookings are refunded (where owed) and the assigned host, if any, is unassigned. This cannot be undone.",
+      confirmLabel: "Cancel session",
+      destructive: true,
+    });
+    if (!ok) return;
     setBusy(true);
     try {
       const res = await fetch(
@@ -320,6 +412,95 @@ export function AdminSessionDetail({ sessionId }: AdminSessionDetailProps) {
         </div>
       </section>
 
+      <section className="rounded-xl border border-border bg-cream-2 p-5">
+        <h2 className="font-semibold text-ink mb-3">Host</h2>
+        {data.host ? (
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="text-sm text-ink">{data.host.name}</div>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={busy}
+                onClick={() => {
+                  setPickedHostUserId("");
+                  setChangingHost((v) => !v);
+                }}
+              >
+                Change
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={busy}
+                onClick={removeHost}
+                className="text-rose-700"
+              >
+                Remove
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <p className="text-sm text-ink-muted">No host assigned.</p>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              onClick={() => {
+                setPickedHostUserId("");
+                setChangingHost((v) => !v);
+              }}
+            >
+              Assign host
+            </Button>
+          </div>
+        )}
+        {changingHost && (
+          <div className="mt-3 flex items-center gap-2 flex-wrap">
+            <select
+              value={pickedHostUserId}
+              onChange={(e) => setPickedHostUserId(e.target.value)}
+              className="rounded border border-border px-3 py-2 bg-cream text-sm"
+            >
+              <option value="">Select a host…</option>
+              {hostOptions.map((h) => (
+                <option key={h.userId} value={h.userId}>
+                  {h.firstName} {h.lastName}
+                </option>
+              ))}
+            </select>
+            <Button size="sm" disabled={busy} onClick={changeHost}>
+              Save
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              onClick={() => setChangingHost(false)}
+            >
+              Cancel
+            </Button>
+          </div>
+        )}
+        {data.report && (
+          <div className="mt-4 rounded-lg border border-border bg-cream p-3 text-sm">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-medium text-ink">Wrap-up report</span>
+              {data.report.incidentFlagged && (
+                <Badge className="bg-rose-100 text-rose-900 border-rose-200">
+                  Incident flagged
+                </Badge>
+              )}
+            </div>
+            <p className="mt-1 text-ink-muted">{data.report.summary}</p>
+            <p className="mt-1 text-xs text-ink-muted">
+              {new Date(data.report.createdAt).toLocaleString()}
+            </p>
+          </div>
+        )}
+      </section>
+
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-xl font-semibold text-ink">Roster</h2>
@@ -409,6 +590,8 @@ export function AdminSessionDetail({ sessionId }: AdminSessionDetailProps) {
           </ul>
         </section>
       )}
+
+      {confirmDialog}
 
       <Dialog open={repeatOpen} onOpenChange={setRepeatOpen}>
         <DialogContent>

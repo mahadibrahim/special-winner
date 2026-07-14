@@ -9,7 +9,7 @@
  * promises until ops provides real numbers.
  */
 export interface CareerRole {
-  id: "referee" | "coach" | "staff";
+  id: "referee" | "coach" | "staff" | "host";
   title: string;
   timing: string;
   blurb: string;
@@ -50,6 +50,18 @@ export const CAREER_ROLES: CareerRole[] = [
     points: [
       "Evening and weekend shifts across both facilities",
       "Customer-facing — you're the first person every player meets",
+    ],
+  },
+  {
+    id: "host",
+    title: "Pickup Host",
+    timing: "Ongoing — volunteer role",
+    blurb:
+      "Lead the pickup games you already love. Hosts greet players, run check-in, split the teams, and set the tone — and play free in every game they host.",
+    points: [
+      "Unpaid community role — your game is on us whenever you host",
+      "Commit to hosting at least once a week at your home facility",
+      "Application includes a short intro video — show us your energy",
     ],
   },
 ];

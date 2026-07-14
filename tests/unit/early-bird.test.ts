@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { isEarlyBirdActive, effectivePriceCents } from "@/lib/programs/early-bird";
+import {
+  isEarlyBirdActive,
+  effectivePriceCents,
+  isTeamEarlyBirdActive,
+  effectiveTeamPriceCents,
+} from "@/lib/programs/early-bird";
 
 /**
  * Early-bird pricing semantics.
@@ -110,5 +115,90 @@ describe("effectivePriceCents", () => {
     expect(
       isEarlyBirdActive({ earlyBirdDeadline: FUTURE, earlyBirdPriceCents: 13000 }, NOW),
     ).toBe(true);
+  });
+});
+
+/**
+ * Team early-bird — Aspire's leagues run a TEAM-only early-bird by policy
+ * (solo players pay flat list price on purpose; discounting solo would
+ * encourage free agents over full rosters). Independent of the per-player
+ * early-bird: a season can run either, both, or neither.
+ */
+describe("team early-bird", () => {
+  const TEAM_LIST = 105000; // $1,050
+  const TEAM_EB = 100000; //  $1,000
+
+  it("charges the early-bird team price while the window is open", () => {
+    expect(
+      effectiveTeamPriceCents(
+        { earlyBirdDeadline: FUTURE, earlyBirdTeamPriceCents: TEAM_EB, teamPriceCents: TEAM_LIST },
+        TEAM_LIST,
+        NOW,
+      ),
+    ).toBe(TEAM_EB);
+  });
+
+  it("charges the list team price once the window closes", () => {
+    expect(
+      effectiveTeamPriceCents(
+        { earlyBirdDeadline: PAST, earlyBirdTeamPriceCents: TEAM_EB, teamPriceCents: TEAM_LIST },
+        TEAM_LIST,
+        NOW,
+      ),
+    ).toBe(TEAM_LIST);
+  });
+
+  it("charges the list team price when no team early-bird is set", () => {
+    expect(
+      effectiveTeamPriceCents(
+        { earlyBirdDeadline: FUTURE, earlyBirdTeamPriceCents: null, teamPriceCents: TEAM_LIST },
+        TEAM_LIST,
+        NOW,
+      ),
+    ).toBe(TEAM_LIST);
+  });
+
+  it("never charges MORE than the list team price", () => {
+    expect(
+      effectiveTeamPriceCents(
+        { earlyBirdDeadline: FUTURE, earlyBirdTeamPriceCents: 200000, teamPriceCents: TEAM_LIST },
+        TEAM_LIST,
+        NOW,
+      ),
+    ).toBe(TEAM_LIST);
+    expect(
+      isTeamEarlyBirdActive(
+        { earlyBirdDeadline: FUTURE, earlyBirdTeamPriceCents: 200000, teamPriceCents: TEAM_LIST },
+        NOW,
+      ),
+    ).toBe(false);
+  });
+
+  it("falls back to the passed list fee when teamPriceCents is null (team price not set)", () => {
+    // team-registrations bills `teamPriceCents ?? priceCents`; the guard must
+    // compare against that same resolved fee, not against nothing.
+    expect(
+      effectiveTeamPriceCents(
+        { earlyBirdDeadline: FUTURE, earlyBirdTeamPriceCents: 12000, teamPriceCents: null },
+        12000, // resolved list fee == the "early-bird" → not a discount
+        NOW,
+      ),
+    ).toBe(12000);
+  });
+
+  it("is independent of the per-player early-bird", () => {
+    // A team-only early-bird must NOT discount solo. This is the Aspire policy
+    // and the exact confusion that caused the Fall 2026 overcharge.
+    const season = {
+      earlyBirdDeadline: FUTURE,
+      earlyBirdPriceCents: null, // no solo early-bird
+      earlyBirdTeamPriceCents: TEAM_EB,
+      priceCents: 12000, // $120 solo
+      teamPriceCents: TEAM_LIST,
+    };
+    expect(effectivePriceCents(season, NOW)).toBe(12000); // solo pays list
+    expect(isEarlyBirdActive(season, NOW)).toBe(false); // no solo early-bird badge
+    expect(effectiveTeamPriceCents(season, TEAM_LIST, NOW)).toBe(TEAM_EB); // team discounted
+    expect(isTeamEarlyBirdActive(season, NOW)).toBe(true);
   });
 });

@@ -66,6 +66,10 @@ export const ROUTE_RULES: RouteRule[] = [
     pattern: /^\/staff(\/|$)/,
     roles: ["location_admin", "coach", "super_admin"],
   },
+  // Host portal — any authenticated user may hit the URL; active-host
+  // enforcement happens in the pages/APIs via requireActiveHost (a paused
+  // host gets a friendly explanation page, not a redirect).
+  { kind: "authed", pattern: /^\/host(\/|$)/ },
   // Authenticated-only areas.
   { kind: "authed", pattern: /^\/dashboard(\/|$)/ },
   { kind: "authed", pattern: /^\/portal(\/|$)/ },

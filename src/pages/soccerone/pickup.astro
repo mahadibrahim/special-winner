@@ -7,6 +7,7 @@ import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
 import PickupGames from '@/components/soccerone/PickupGames';
 import SoccerOnePricingBand from '@/components/soccerone/SoccerOnePricingBand.astro';
 import SoccerOneLevels from '@/components/soccerone/SoccerOneLevels.astro';
+import { PickupAlertSignup } from '@/components/dropin/PickupAlertSignup';
 import { getDb } from "@/lib/db";
 import { dropInRateCard } from "@/lib/db/schema/drop-in";
 
@@ -102,6 +103,16 @@ setMarketingEdgeCache(Astro);
       <!-- Games listing component -->
       <div class="pickup-games-wrap">
         <PickupGames client:visible facility={facility} />
+
+        <!-- Shared cream-idiom form: re-pin the Aspire palette tokens for
+             this subtree (SoccerOne's BrandTheme remaps --ink/--paper
+             page-wide, which would make this card illegible). Same
+             .cf-panel pattern as src/pages/soccerone/careers.astro. -->
+        <div class="pas-panel-wrap">
+          <div class="pas-panel">
+            <PickupAlertSignup client:load signedIn={!!Astro.locals.user} />
+          </div>
+        </div>
       </div>
     </section>
 
@@ -193,6 +204,28 @@ setMarketingEdgeCache(Astro);
     .hs-arrow { font-size: 1.25rem; color: var(--so-lime-a25); flex-shrink: 0; }
 
     .pickup-games-wrap { background: var(--bg); padding: 2rem 0 3rem; min-height: 420px; }
+
+    .pas-panel-wrap { max-width: 1400px; margin: 2.5rem auto 0; padding: 0 2rem; }
+    /* The shared alert-signup form is editorial-cream; host it in a light
+       panel so its ink-on-paper palette reads correctly against the dark
+       page. Values mirror src/styles/globals.css (see .cf-panel in
+       src/pages/soccerone/careers.astro for the same pattern). */
+    .pas-panel {
+      max-width: 480px;
+      margin: 0 auto;
+      background: #faf7f2;
+      border-radius: var(--so-radius-lg);
+      padding: 1.5rem;
+      --cream: oklch(0.972 0.008 80);
+      --cream-2: oklch(0.955 0.012 78);
+      --ink: oklch(0.18 0.008 260);
+      --ink-2: oklch(0.26 0.012 260);
+      --ink-muted: oklch(0.42 0.01 260);
+      --ink-faint: oklch(0.5 0.008 260);
+      --paper: oklch(0.99 0.003 80);
+      --border: rgba(0, 0, 0, 0.1);
+      --input: rgba(0, 0, 0, 0.05);
+    }
 
     @media (max-width: 768px) {
       .ph-top { flex-direction: column; align-items: flex-start; }

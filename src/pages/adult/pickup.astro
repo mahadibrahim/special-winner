@@ -10,6 +10,7 @@ import CategoryHero from "@/components/landing/category-hero.astro"
 import PickupPricingBand from "@/components/landing/pickup-pricing-band.astro"
 import PickupLevels from "@/components/landing/pickup-levels.astro"
 import PickupPageFinder from "@/components/landing/pickup-page-finder.tsx"
+import { PickupAlertSignup } from "@/components/dropin/PickupAlertSignup"
 import CTABanner from "@/components/cta-banner"
 import { getDb } from "@/lib/db"
 import { dropInRateCard } from "@/lib/db/schema/drop-in"
@@ -64,6 +65,10 @@ setMarketingEdgeCache(Astro);
     <PickupLevels />
 
     <PickupPageFinder client:load />
+
+    <div class="max-w-xl mx-auto px-4 mb-16">
+      <PickupAlertSignup client:load signedIn={!!Astro.locals.user} />
+    </div>
 
     <CTABanner client:visible />
   </main>

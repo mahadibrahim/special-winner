@@ -51,6 +51,17 @@ export function BookButton({
   const [guestLastName, setGuestLastName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
 
+  // Referral attribution (?src=host-share, etc.) — captured once on mount so
+  // it survives whatever the waiver dialog does to the URL/history. Threaded
+  // into the booking POST body for both the free path and the paid-Checkout
+  // kick-off; sanitizeReferralSource is the actual allow-list, applied
+  // server-side before it ever reaches the booking row.
+  const [referralSrc] = useState<string | null>(() =>
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("src")
+      : null,
+  );
+
   if (!isAuthenticated && isFull) {
     return (
       <Button asChild size="lg" className="w-full">
@@ -117,6 +128,7 @@ export function BookButton({
             sessionId,
             waiverAccepted: true,
             waiverName: waiverName.trim(),
+            ...(referralSrc ? { src: referralSrc } : {}),
           }
         : {
             sessionId,
@@ -125,6 +137,7 @@ export function BookButton({
             email: guestEmail.trim(),
             waiverAccepted: true,
             waiverName: waiverName.trim(),
+            ...(referralSrc ? { src: referralSrc } : {}),
           };
       const res = await fetch(endpoint, {
         method: "POST",

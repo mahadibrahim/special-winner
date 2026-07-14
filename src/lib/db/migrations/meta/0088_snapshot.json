@@ -1,5 +1,5 @@
 {
-  "id": "2d1f6b33-414e-48ff-9619-09a55c197b31",
+  "id": "78e0ffca-faf5-4994-ab69-d4d1b9248294",
   "prevId": "a330b5c2-3b76-4156-aa1b-3699947765c1",
   "version": "7",
   "dialect": "postgresql",
@@ -6275,12 +6275,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "family_member_id": {
-          "name": "family_member_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
         "status": {
           "name": "status",
           "type": "drop_in_booking_status",
@@ -6537,19 +6531,6 @@
             "id"
           ],
           "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
-        "drop_in_bookings_family_member_id_family_members_id_fk": {
-          "name": "drop_in_bookings_family_member_id_family_members_id_fk",
-          "tableFrom": "drop_in_bookings",
-          "tableTo": "family_members",
-          "columnsFrom": [
-            "family_member_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
@@ -11736,6 +11717,12 @@
         },
         "early_bird_price_cents": {
           "name": "early_bird_price_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "early_bird_team_price_cents": {
+          "name": "early_bird_team_price_cents",
           "type": "integer",
           "primaryKey": false,
           "notNull": false

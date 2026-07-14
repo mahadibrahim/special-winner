@@ -6,6 +6,7 @@ export type OpsPingEvent =
   | { kind: "payment_succeeded"; brand: string; eventId: string; label: string; amountCents: number }
   | { kind: "user_signup"; brand: string; eventId: string; label: string }
   | { kind: "job_application"; brand: string; eventId: string; label: string }
+  | { kind: "host_incident"; brand: string; eventId: string; label: string }
   | { kind: "test"; brand: string; eventId: string; label: string };
 
 /** Max instant pings per rolling hour before overflow collapses. */
@@ -19,6 +20,7 @@ export const INSTANT_KINDS: ReadonlySet<string> = new Set([
   "membership_started",
   "payment_succeeded",
   "job_application",
+  "host_incident",
   "test",
 ]);
 
@@ -30,6 +32,7 @@ export const OPS_PING_KIND_LABELS: Record<OpsPingEvent["kind"], string> = {
   payment_succeeded: "Payment",
   user_signup: "New user",
   job_application: "Job application",
+  host_incident: "Host incident",
   test: "Test ping",
 };
 
@@ -41,6 +44,7 @@ const KIND_EMOJI: Record<OpsPingEvent["kind"], string> = {
   payment_succeeded: "💰",
   user_signup: "👤",
   job_application: "📝",
+  host_incident: "🚨",
   test: "🔔",
 };
 

@@ -34,6 +34,12 @@ import { getActiveMembershipForOrg } from "@/lib/memberships/get-active-membersh
 import { ensureDropInCustomerMembership } from "@/lib/organization/ensure-membership";
 import type { BrandId } from "@/lib/branding/themes";
 
+/** Allow-list referral tags (?src=) so junk/URLs never land in the column. */
+export function sanitizeReferralSource(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  return /^[a-z0-9_-]{1,40}$/.test(raw) ? raw : null;
+}
+
 export interface BookingError {
   code:
     | "members_only"
@@ -71,6 +77,8 @@ export async function createConfirmedBookingFreePath(opts: {
   waiverSignedAt?: Date;
   waiverSignedBy?: string;
   brand?: BrandId;
+  /** Raw `?src=` query value from the share link — sanitized before insert. */
+  referralSource?: string;
 }): Promise<CreateConfirmedBookingResult> {
   const db = getDb();
 
@@ -259,6 +267,7 @@ export async function createConfirmedBookingFreePath(opts: {
         waiverSignedAt: opts.waiverSignedAt ?? null,
         waiverSignedBy: opts.waiverSignedBy ?? null,
         brand: opts.brand ?? "aspire",
+        referralSource: sanitizeReferralSource(opts.referralSource),
       })
       .returning();
 

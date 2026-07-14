@@ -15,6 +15,14 @@ interface VenueOption {
   location: { id: string; name: string };
 }
 
+interface HostOption {
+  id: string;
+  userId: string;
+  firstName: string;
+  lastName: string;
+  status: "active" | "paused" | "revoked";
+}
+
 interface SessionFormProps {
   /** Existing session id to edit; falsy = create. */
   sessionId?: string;
@@ -39,6 +47,7 @@ interface FormState {
   walkUpRateCents: string;
   teamCount: number;
   teamColors: string;
+  hostUserId: string;
 }
 
 const EMPTY: FormState = {
@@ -60,6 +69,7 @@ const EMPTY: FormState = {
   walkUpRateCents: "",
   teamCount: 0,
   teamColors: "",
+  hostUserId: "",
 };
 
 function localIso(d: Date): string {
@@ -73,12 +83,16 @@ export function SessionForm({ sessionId }: SessionFormProps) {
 
   const [state, setState] = useState<FormState>(EMPTY);
   const [venues, setVenues] = useState<VenueOption[]>([]);
+  const [hosts, setHosts] = useState<HostOption[]>([]);
   const [resources, setResources] = useState<
     Array<{ id: string; name: string; fieldNumber: number }>
   >([]);
   const [loading, setLoading] = useState(!!sessionId);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The host assigned when the form loaded — compared at save time so we
+  // only touch /host when the admin actually changed the selection.
+  const [initialHostUserId, setInitialHostUserId] = useState("");
 
   useEffect(() => {
     void (async () => {
@@ -92,12 +106,23 @@ export function SessionForm({ sessionId }: SessionFormProps) {
         /* venues nice-to-have */
       }
 
+      try {
+        const hostsRes = await fetch("/api/admin/hosts");
+        if (hostsRes.ok) {
+          const h = await hostsRes.json();
+          setHosts((h.hosts ?? []).filter((r: HostOption) => r.status === "active"));
+        }
+      } catch {
+        /* host picker nice-to-have */
+      }
+
       if (sessionId) {
         try {
           const res = await fetch(`/api/admin/dropin/sessions/${sessionId}`);
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const json = await res.json();
           const s = json.session;
+          const hostUserId = json.host?.userId ?? "";
           setState({
             venueId: s.venueId,
             bookableResourceId: s.bookableResourceId ?? "",
@@ -121,7 +146,9 @@ export function SessionForm({ sessionId }: SessionFormProps) {
               s.walkUpRateCents != null ? String(s.walkUpRateCents) : "",
             teamCount: s.teamCount,
             teamColors: (s.teamColors ?? []).join(", "),
+            hostUserId,
           });
+          setInitialHostUserId(hostUserId);
         } catch (err) {
           setError(err instanceof Error ? err.message : "Failed to load");
         } finally {
@@ -210,8 +237,59 @@ export function SessionForm({ sessionId }: SessionFormProps) {
         setError(json.error ?? "Save failed");
         return;
       }
+
+      const newId: string | undefined = sessionId ?? json.session?.id;
+
+      // Host writes go through the guarded /host endpoint (not the session
+      // create/update body) — only touch it if the selection actually
+      // changed, and only after the main session save succeeded.
+      let hostWriteFailed = false;
+      let hostErrorMessage = "";
+
+      if (newId && state.hostUserId !== initialHostUserId) {
+        try {
+          if (state.hostUserId) {
+            const hostRes = await fetch(
+              `/api/admin/dropin/sessions/${newId}/host`,
+              {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  hostUserId: state.hostUserId,
+                  replace: true,
+                }),
+              },
+            );
+            if (!hostRes.ok) {
+              const hostJson = await hostRes.json().catch(() => ({}));
+              hostErrorMessage = hostJson.error ?? "Host assignment failed";
+              hostWriteFailed = true;
+            }
+          } else {
+            const hostRes = await fetch(
+              `/api/admin/dropin/sessions/${newId}/host`,
+              { method: "DELETE" },
+            );
+            if (!hostRes.ok) {
+              hostErrorMessage = "Host removal failed";
+              hostWriteFailed = true;
+            }
+          }
+        } catch {
+          hostErrorMessage = "Host assignment failed";
+          hostWriteFailed = true;
+        }
+      }
+
+      // If host write failed, show error and stay on form (don't navigate).
+      if (hostWriteFailed) {
+        toast.error(
+          `Session saved, but the host assignment failed: ${hostErrorMessage}. Set the host from the session page.`,
+        );
+        return;
+      }
+
       toast.success(sessionId ? "Saved" : "Created");
-      const newId = sessionId ?? json.session?.id;
       if (newId) window.location.href = `/admin/dropin/sessions/${newId}`;
     } finally {
       setBusy(false);
@@ -460,6 +538,25 @@ export function SessionForm({ sessionId }: SessionFormProps) {
             onChange={(e) => setState({ ...state, teamColors: e.target.value })}
             placeholder="Orange, Black"
           />
+        </div>
+        <div>
+          <Label htmlFor="host">Host (optional)</Label>
+          <select
+            id="host"
+            value={state.hostUserId}
+            onChange={(e) => setState({ ...state, hostUserId: e.target.value })}
+            className="mt-1 w-full rounded border border-border px-3 py-2 bg-cream"
+          >
+            <option value="">No host</option>
+            {hosts.map((h) => (
+              <option key={h.userId} value={h.userId}>
+                {h.firstName} {h.lastName}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-ink-muted">
+            The host plays free (a $0 comp booking) and can wrap up the game.
+          </p>
         </div>
       </div>
 

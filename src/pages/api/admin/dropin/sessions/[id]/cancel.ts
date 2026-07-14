@@ -16,6 +16,9 @@ import { removeSourceBlock } from "@/lib/scheduling/blocks";
 import { requireOrgAdminAccess } from "@/lib/auth/roles";
 import { callerCanActOnVenue } from "@/lib/admin/require-location-scope";
 import { processCancelRefund } from "@/lib/dropin/refund";
+import { removeHostFromSession } from "@/lib/dropin/host-assignment";
+import { dispatchBookingCancelledByAdmin } from "@/lib/dropin/messages/dispatch";
+import { awaitDispatch } from "@/lib/notifications/await-dispatch";
 
 export const prerender = false;
 
@@ -61,6 +64,37 @@ export const POST: APIRoute = async (context) => {
   }
   if (session.status === "cancelled") {
     return json({ error: "Session already cancelled" }, 409);
+  }
+
+  // Host removal runs BEFORE the booking sweep: it clears
+  // drop_in_sessions.host_user_id (the sweep below never touches that
+  // column) and cancels the host's $0 host_comp booking directly. Doing
+  // this first means the host_comp row is already `cancelled` by the time
+  // the active-bookings query below runs, so it's excluded from the
+  // refund sweep rather than swept as a refundable booking — moot for
+  // Stripe (host_comp rows have no paymentIntent, so processCancelRefund's
+  // refund guard already skips them), but it keeps the host-removal path
+  // as the single writer of host_user_id. Because the lib cancels the comp
+  // booking without messaging, we dispatch the same booking-cancellation
+  // notice every other booker gets (refunded: false — a $0 comp has nothing
+  // to refund); a host with a paid player booking instead (compBookingId
+  // null on assign) is notified by the sweep like any other booker.
+  if (session.hostUserId) {
+    const removed = await removeHostFromSession({
+      sessionId: id,
+      reason: "session_cancelled",
+    });
+    if (removed.cancelledCompBookingId) {
+      await awaitDispatch(
+        "dropin host comp-booking cancelled (session cancel)",
+        () =>
+          dispatchBookingCancelledByAdmin(removed.cancelledCompBookingId!, {
+            reason: "session_cancelled",
+            refunded: false,
+          }),
+        { bookingId: removed.cancelledCompBookingId },
+      );
+    }
   }
 
   // Pull active bookings for refund processing.

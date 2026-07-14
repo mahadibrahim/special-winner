@@ -2,11 +2,24 @@
  * GET /api/admin/booking-search?q=<name|phone>
  *
  * Admin-gated. Seeds a drop-in session TODAY at the E2E rental venue with a
- * confirmed booking for the seed parent user. Verifies:
+ * confirmed booking for a dedicated, uniquely-named test user (NOT the
+ * shared seed parent — see below). Verifies:
  *   - 401 without auth
  *   - 200 + results array with admin auth
  *   - matching booking is found by name
  *   - empty / short query returns empty results
+ *
+ * Why a dedicated user: the search endpoint caps results at 20 per kind with
+ * no guaranteed-small result set for common search terms. The shared seed
+ * parent (`TEST_USERS.parent`, first name "Test Parent") accumulates
+ * hundreds of confirmed drop-in bookings on the shared staging DB over time
+ * (every seeded test user is named "Test ..."), so searching a prefix of
+ * "Test Parent" matches far more than 20 rows — the endpoint's `orderBy`
+ * makes the *choice* of which rows deterministic, but a shared-name search
+ * can still legitimately return more matches than the per-kind cap with
+ * this test's own booking sorted out of the top results. Using a unique,
+ * high-entropy first name keeps this test's result set small and owned
+ * regardless of what else lives in the shared DB.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { apiFetch, getAdminCookie } from "./setup/test-helpers";
@@ -15,11 +28,7 @@ import { dropInBookings, dropInSessions, dropInRateCard } from "@/lib/db/schema/
 import { users } from "@/lib/db/schema/users";
 import { venues } from "@/lib/db/schema/teams";
 import { eq } from "drizzle-orm";
-import {
-  E2E_RENTAL_VENUE_ID,
-  E2E_ORG_ID,
-  TEST_USERS,
-} from "@/lib/db/seeds/seed-e2e-tests";
+import { E2E_RENTAL_VENUE_ID, E2E_ORG_ID } from "@/lib/db/seeds/seed-e2e-tests";
 
 const UNIQUE_SUFFIX = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
@@ -46,16 +55,18 @@ describe("GET /api/admin/booking-search", () => {
       );
     }
 
-    // Resolve the seed parent user.
+    // Create a dedicated user with a unique, high-entropy first name — see
+    // the file-level comment for why this must not be the shared seed
+    // parent.
+    parentFirstName = `Booking${UNIQUE_SUFFIX.replace(/[^a-zA-Z0-9]/g, "")}`;
     const [parentRow] = await db
-      .select({ id: users.id, firstName: users.firstName })
-      .from(users)
-      .where(eq(users.email, TEST_USERS.parent.email))
-      .limit(1);
-    if (!parentRow) {
-      throw new Error("Seed parent user not found — run npm run db:seed:e2e first");
-    }
-    parentFirstName = parentRow.firstName ?? TEST_USERS.parent.firstName;
+      .insert(users)
+      .values({
+        email: `booking-search-${UNIQUE_SUFFIX}@t.example`,
+        firstName: parentFirstName,
+        lastName: "SearchFixture",
+      })
+      .returning();
 
     // Ensure a rate card exists.
     await db

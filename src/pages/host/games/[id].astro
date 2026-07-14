@@ -1,0 +1,12 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HostGameDay from "@/components/host/HostGameDay";
+
+const { id } = Astro.params;
+// Ownership is enforced by the /api/host/games/[id] fetch inside the island
+// (404 → the component renders its not-found state).
+---
+
+<BaseLayout title="Game day — Aspire Sports">
+  <HostGameDay client:load sessionId={id!} />
+</BaseLayout>

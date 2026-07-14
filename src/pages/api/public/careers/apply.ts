@@ -58,6 +58,12 @@ export const POST: APIRoute = async ({ request, locals, clientAddress }) => {
     experience: form.get("experience") ?? undefined,
     availability: form.getAll("availability").map(String),
     source: form.get("source") || undefined,
+    dateOfBirth: form.get("dateOfBirth") || undefined,
+    gamesPlayed: form.get("gamesPlayed") || undefined,
+    weeklyCommitment: form.get("weeklyCommitment") || undefined,
+    photoKey: form.get("photoKey") || undefined,
+    motivationVideoKey: form.get("motivationVideoKey") || undefined,
+    demoVideoKey: form.get("demoVideoKey") || undefined,
   });
   if (!parsed.success) {
     return json(
@@ -89,12 +95,15 @@ export const POST: APIRoute = async ({ request, locals, clientAddress }) => {
   const brand = brandFromHost(request.headers.get("host") ?? "");
   let application;
   try {
+    const { weeklyCommitment, ...rest } = parsed.data;
     [application] = await getDb()
       .insert(jobApplications)
       .values({
         organizationId: locals.organization?.id ?? null,
         brand,
-        ...parsed.data,
+        ...rest,
+        weeklyCommitment:
+          weeklyCommitment === undefined ? null : weeklyCommitment === "yes",
         resumeKey,
       })
       .returning();

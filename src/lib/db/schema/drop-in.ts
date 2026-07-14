@@ -52,6 +52,9 @@ export const dropInPaymentMethodEnum = pgEnum("drop_in_payment_method", [
   "card_present",
   "member_unlimited",
   "member_allotment",
+  // Host's free seat in a game they host (GoodRec model) — created/cancelled
+  // by src/lib/dropin/host-assignment.ts, always amount_paid_cents = 0.
+  "host_comp",
 ]);
 export const dropInCancellationReasonEnum = pgEnum("drop_in_cancellation_reason", [
   "user_request",
@@ -114,6 +117,15 @@ export const dropInSessions = pgTable(
     createdByUserId: uuid("created_by_user_id").references(() => users.id, {
       onDelete: "set null",
     }),
+    // Community host running this game (GoodRec model). Writes must verify
+    // the user holds an ACTIVE host_profiles row in this org — enforced in
+    // src/lib/dropin/host-assignment.ts, never set this column directly.
+    hostUserId: uuid("host_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    // Stamped when the one-and-only "needs players" alert blast for this
+    // session is claimed by the cron (stamp-then-send; see fill-alerts.ts).
+    fillAlertSentAt: timestamp("fill_alert_sent_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -179,6 +191,8 @@ export const dropInBookings = pgTable(
     // Storefront brand the booking was made through. Default covers
     // pre-cutover rows and at-facility walk-ups (no host signal).
     brand: varchar("brand", { length: 20 }).default("aspire").notNull(),
+    // ?src= attribution present at booking time (host-share | fill-alert | …).
+    referralSource: varchar("referral_source", { length: 40 }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -224,6 +238,11 @@ export const dropInRateCard = pgTable("drop_in_rate_card", {
   cancelWindowHours: integer("cancel_window_hours").notNull().default(24),
   promotionWindowMinutes: integer("promotion_window_minutes").notNull().default(30),
   checkInWindowMinutes: integer("check_in_window_minutes").notNull().default(60),
+  // Fill-alert config: a scheduled pickup session qualifies for the alert
+  // blast when it starts within `fillAlertWindowHours` and its seat count is
+  // under `fillAlertThresholdPct` % of capacity.
+  fillAlertWindowHours: integer("fill_alert_window_hours").notNull().default(24),
+  fillAlertThresholdPct: integer("fill_alert_threshold_pct").notNull().default(60),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   updatedByUserId: uuid("updated_by_user_id").references(() => users.id, {
     onDelete: "set null",
