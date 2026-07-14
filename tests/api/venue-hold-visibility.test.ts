@@ -97,14 +97,20 @@ describe("Venue hold visibility (pending_payment pay-link holds)", () => {
     }
     locationId = rentalVenue.locationId;
 
-    // Seed a walk-in-eligible drop-in session for TODAY (UTC), same pattern
-    // as tests/api/kiosk/walkin.test.ts.
+    // Seed a walk-in-eligible drop-in session that starts in a few minutes.
+    //
+    // Anchored to `now`, NOT to UTC-midnight+Nh. walkin/start now rejects a
+    // session that has already ended (422) — a customer must not be able to
+    // pay for this morning's 9am session at 8pm. A fixture pinned to
+    // UTC-midnight+3h is over by ~04:30 UTC, so it 422'd on every run after
+    // that, failing this suite for a reason that had nothing to do with hold
+    // visibility.
     const now = new Date();
     const todayStart = new Date(
       Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
     );
     dateStr = todayStart.toISOString().slice(0, 10);
-    const sessionStart = new Date(todayStart.getTime() + 3 * 3_600_000);
+    const sessionStart = new Date(now.getTime() + 5 * 60_000);
     const sessionEnd = new Date(sessionStart.getTime() + 90 * 60_000);
 
     const [session] = await db
@@ -145,7 +151,9 @@ describe("Venue hold visibility (pending_payment pay-link holds)", () => {
       .values({ organizationId: orgBFixtures.org.id })
       .onConflictDoNothing();
 
-    const orgBSessionStart = new Date(todayStart.getTime() + 5 * 3_600_000);
+    // Same "anchor to now, not UTC-midnight+Nh" rule as the org-A session
+    // above — walkin/start 422s a session that has already ended.
+    const orgBSessionStart = new Date(now.getTime() + 10 * 60_000);
     const orgBSessionEnd = new Date(orgBSessionStart.getTime() + 90 * 60_000);
     const [orgBSession] = await db
       .insert(dropInSessions)
@@ -436,7 +444,9 @@ describe("Venue hold visibility — location-scoped admin, cross-location", () =
 
     const now = new Date();
     const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-    const sessionStart = new Date(todayStart.getTime() + 6 * 3_600_000);
+    // Anchored to `now`, not UTC-midnight+6h — walkin/start (which createHold
+    // below drives) 422s a session that has already ended.
+    const sessionStart = new Date(now.getTime() + 5 * 60_000);
     const sessionEnd = new Date(sessionStart.getTime() + 90 * 60_000);
     const [sessionB] = await db
       .insert(dropInSessions)

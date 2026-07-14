@@ -24,6 +24,8 @@ import { familyMembers } from "@/lib/db/schema/registrations";
 import { users } from "@/lib/db/schema/users";
 import { selfServiceTokens } from "@/lib/db/schema/self-service-tokens";
 import { venues } from "@/lib/db/schema/teams";
+import { locations } from "@/lib/db/schema/organizations";
+import { dayBoundsInTz } from "@/lib/time/day-bounds";
 import { and, eq, ne } from "drizzle-orm";
 import {
   E2E_RENTAL_VENUE_ID,
@@ -104,13 +106,29 @@ describe("POST /api/kiosk/[locationSlug]/walkin/start + /payment", () => {
       secondVenueId = created.id;
     }
 
-    // Seed a drop-in session for TODAY (UTC) at the E2E rental venue.
-    const now = new Date();
-    const todayStart = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+    // Seed a drop-in session for TODAY at the E2E rental venue. "Today" must
+    // mean the FACILITY's local day, not the UTC day: GET /sessions filters on
+    // dayBoundsInTz(location.timezone). Seeding off UTC midnight put the +6h
+    // session past the end of the facility's local day whenever the suite ran
+    // in the late-UTC-evening window, so the facility-wide listing test saw
+    // only 1 of its 2 seeded sessions. Use the endpoint's own day bounds.
+    const [locationRow] = await db
+      .select({ timezone: locations.timezone })
+      .from(locations)
+      .where(eq(locations.id, locationId))
+      .limit(1);
+    const { start: todayStart } = dayBoundsInTz(
+      locationRow?.timezone ?? "America/New_York",
     );
-    // Place session 2 h after midnight UTC so it is firmly "today".
-    const sessionStart = new Date(todayStart.getTime() + 2 * 3_600_000);
+    // GET /sessions also requires the session not to have ENDED yet (a
+    // walk-in must never be able to pay to join this morning's 9am pickup at
+    // 8pm). So seed sessions that START inside the facility's local day but
+    // END in the future — "now" is always inside the local day, so `now` is a
+    // valid start no matter what hour the suite runs at. Pinning them to
+    // local 2am (as this fixture used to) made them invisible to the endpoint
+    // for all but the first two hours of the day.
+    const now = Date.now();
+    const sessionStart = new Date(Math.max(todayStart.getTime(), now));
     const sessionEnd = new Date(sessionStart.getTime() + 90 * 60_000);
 
     const [session] = await db
@@ -133,8 +151,8 @@ describe("POST /api/kiosk/[locationSlug]/walkin/start + /payment", () => {
 
     // Seed a session TODAY in the second space so the kiosk /sessions
     // endpoint must span more than one venue of the facility.
-    const secondStart = new Date(todayStart.getTime() + 6 * 3_600_000);
-    const secondEnd = new Date(secondStart.getTime() + 90 * 60_000);
+    const secondStart = new Date(Math.max(todayStart.getTime(), now));
+    const secondEnd = new Date(secondStart.getTime() + 120 * 60_000);
     const [session2] = await db
       .insert(dropInSessions)
       .values({
@@ -395,11 +413,14 @@ describe("POST /api/kiosk/[locationSlug]/walkin/start + /payment", () => {
       // Use a different session slot to avoid the unique-booking constraint.
       // We'll insert a second session so the minor and adult don't collide.
       const db = getDb();
+      // /walkin/start now rejects a session whose endsAt has already passed
+      // (see the "already ended" fix above), so this fixture must produce a
+      // session that is still open no matter what wall-clock time the suite
+      // runs at. A fixed UTC-midnight + 4h offset (the old approach) went
+      // stale for any run after ~04:00 UTC and started intermittently
+      // failing here once the endsAt check landed. Anchor to "now" instead.
       const now = new Date();
-      const todayStart = new Date(
-        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-      );
-      const minorSessionStart = new Date(todayStart.getTime() + 4 * 3_600_000);
+      const minorSessionStart = new Date(now.getTime() + 5 * 60_000);
       const minorSessionEnd = new Date(
         minorSessionStart.getTime() + 90 * 60_000,
       );
@@ -479,6 +500,82 @@ describe("POST /api/kiosk/[locationSlug]/walkin/start + /payment", () => {
           fm.birthDate === "2015-05-10",
       );
       expect(match).toBeDefined();
+    });
+  });
+
+  // ── Ended session (endsAt in the past) ────────────────────────────────────
+  // Deliberately the OPPOSITE of the fixtures seeded in beforeAll: those start
+  // inside the facility's local day and END IN THE FUTURE so GET /sessions
+  // can see them. This one starts AND ends in the past. GET /sessions already
+  // hides an ended session (that's the fix this suite's fixtures were
+  // reseeded for), but /walkin/start is public and unauthenticated — a stale
+  // kiosk tab that fetched the session list hours ago can still POST this
+  // sessionId directly, so the server must reject it independently of the
+  // listing filter.
+
+  describe("walk-in against a session that has already ended", () => {
+    let endedSessionId: string;
+
+    beforeAll(async () => {
+      const db = getDb();
+      const now = new Date();
+      const endedStart = new Date(now.getTime() - 3 * 3_600_000); // 3h ago
+      const endedEnd = new Date(now.getTime() - 90 * 60_000); // ended 90m ago
+
+      const [endedSession] = await db
+        .insert(dropInSessions)
+        .values({
+          organizationId: E2E_ORG_ID,
+          venueId: E2E_RENTAL_VENUE_ID,
+          kind: "pickup",
+          sportOrClassLabel: `walkin-ended-${UNIQUE_SUFFIX}`,
+          startsAt: endedStart,
+          endsAt: endedEnd,
+          capacity: 20,
+          teamCount: 2,
+          teamColors: ["red", "blue"],
+          sessionRateCents: 1200,
+          walkUpRateCents: 1900,
+        })
+        .returning();
+      endedSessionId = endedSession.id;
+    });
+
+    it("rejects with a 4xx when the session's endsAt is in the past", async () => {
+      const res = await apiFetch(
+        `/api/kiosk/${locationId}/walkin/start`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            sessionId: endedSessionId,
+            contact: {
+              firstName: "Late",
+              lastName: "Walkin",
+              email: `walkin-ended-${UNIQUE_SUFFIX}@walkin-test.invalid`,
+              phone: "6145550008",
+              dob: "1990-01-01",
+            },
+          }),
+        },
+      );
+      expect(res.status).toBeGreaterThanOrEqual(400);
+      expect(res.status).toBeLessThan(500);
+      const body = await res.json();
+      expect(body.error).toMatch(/ended/i);
+    });
+
+    afterAll(async () => {
+      if (!endedSessionId) return;
+      const adminCookie = await getAdminCookie().catch(() => null);
+      if (!adminCookie) return;
+      await apiFetch(`/api/admin/dropin/sessions/${endedSessionId}/cancel`, {
+        method: "POST",
+        cookie: adminCookie,
+      }).catch(() => null);
+      await apiFetch(`/api/admin/dropin/sessions/${endedSessionId}`, {
+        method: "DELETE",
+        cookie: adminCookie,
+      }).catch(() => null);
     });
   });
 

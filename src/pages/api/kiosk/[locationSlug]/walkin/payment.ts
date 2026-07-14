@@ -36,7 +36,7 @@ const json = (body: unknown, status: number) =>
     headers: { "Content-Type": "application/json" },
   });
 
-export const POST: APIRoute = async ({ params, request, clientAddress }) => {
+export const POST: APIRoute = async ({ params, request, clientAddress, locals }) => {
   const slug = params.locationSlug ?? "";
 
   // Public kiosk slug + Stripe PaymentIntent creation → throttle per IP+location
@@ -50,7 +50,10 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
 
   // The kiosk facility only authorizes the request — the booking, session,
   // and partner venue are all derived from the token's targetId below.
-  const locationResult = await requireKioskLocation(slug);
+  const locationResult = await requireKioskLocation(
+    slug,
+    locals.organization?.id ?? null,
+  );
   if (!locationResult.ok) return locationResult.response;
   const { location } = locationResult;
 
@@ -207,6 +210,14 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
     ? { payment_method_configuration: kioskPmcId }
     : { payment_method_types: ["card"] };
 
+  // INVARIANT: this PaymentIntent must stay card-only. PayCard confirms it
+  // with redirect: "if_required", using the kiosk's landing URL as Stripe's
+  // return_url — but that landing URL is tokenless, so a redirect-based
+  // payment method would bounce the customer to a bare screen with no
+  // confirmation of a charge that may have actually succeeded. If
+  // STRIPE_KIOSK_PMC_ID is ever pointed at a config that includes a
+  // redirect-based method, this breaks. Keep the PMC (or the card-only
+  // fallback above) card-only.
   try {
     const intent = await stripe.paymentIntents.create(
       {

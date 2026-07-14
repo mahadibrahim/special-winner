@@ -4,13 +4,16 @@
  *
  * Unauthenticated kiosk endpoint. Resolves the facility from the slug,
  * looks up who the signer is (via resolveSigner), mints (or reuses) a
- * self-service token, and returns the URL + expiry. The kiosk tab then
- * opens the URL for the customer to self-serve on.
+ * self-service token, and returns { token, url, expiresAt }. The kiosk tab
+ * never navigates: it consumes `token` and renders the self-serve cards
+ * inline (see KioskRoot). `url` is kept for back-compat with off-device
+ * callers (e.g. a texted/emailed link) and has no current in-kiosk consumer.
  */
 import type { APIRoute } from "astro";
 import { requireKioskLocation } from "@/lib/check-in/kiosk-auth";
 import { resolveSigner, type SelfServiceKind } from "@/lib/check-in/resolve-signer";
 import { mintToken } from "@/lib/check-in/tokens-db";
+import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 
 export const prerender = false;
 
@@ -26,9 +29,32 @@ const VALID_KINDS: SelfServiceKind[] = [
   "roster_entry",
 ];
 
-export const POST: APIRoute = async ({ params, request }) => {
+export const POST: APIRoute = async ({ params, request, clientAddress, locals }) => {
   const slug = params.locationSlug ?? "";
-  const kioskResult = await requireKioskLocation(slug);
+
+  // Unauthenticated, on the public internet, and it MINTS A REAL SELF-SERVE
+  // TOKEN for any targetId — a token that can sign that person's waiver and
+  // write their photo. Throttle per IP+location, same helper and 429 shape as
+  // the walk-in endpoints. (In-memory/fail-open limiter — see rate-limit.ts.)
+  //
+  // WHY 60/min AND NOT LOWER: a facility is ONE egress IP, so this bucket is
+  // shared by the whole building — the limit is customers-per-minute for the
+  // lobby, not per person. At 10/min a 6pm check-in queue trips it and the
+  // kiosk dead-ends at "Couldn't open (429)" for the person at the front of
+  // the line. The anti-enumeration value lives in /search — that is the
+  // endpoint an attacker must walk to DISCOVER a targetId in the first place,
+  // and its limit stays tight. Throttling this one hard buys little and costs
+  // real customers. Do not "harden" it back down.
+  const ip = clientAddress || "unknown";
+  const ipLimit = rateLimit(`kiosk-token-for-target:${slug}:${ip}`, 60, 60_000);
+  if (!ipLimit.allowed) {
+    return rateLimitedResponse(ipLimit.retryAfter ?? 60);
+  }
+
+  const kioskResult = await requireKioskLocation(
+    slug,
+    locals.organization?.id ?? null,
+  );
   if (!kioskResult.ok) return kioskResult.response;
   const { location } = kioskResult;
 
@@ -72,5 +98,8 @@ export const POST: APIRoute = async ({ params, request }) => {
   // email — are built absolutely by the send-link endpoint instead.
   const url = `/self-serve/${token.token}`;
 
-  return json({ url, expiresAt: token.expiresAt }, 200);
+  // `token` is what the kiosk actually consumes now — it renders the
+  // self-serve cards INLINE rather than navigating the tab to `url`. `url`
+  // stays for back-compat with any caller that still wants a link.
+  return json({ token: token.token, url, expiresAt: token.expiresAt }, 200);
 };

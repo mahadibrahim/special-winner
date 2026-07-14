@@ -2,15 +2,18 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
-import { KIOSK_RETURN_SLUG_KEY } from "@/lib/kiosk/return-slug";
 import { WaiverCard } from "./WaiverCard";
 import { PhotoCard } from "./PhotoCard";
 import { PayCard } from "./PayCard";
+import { PRIMARY_BTN } from "./card-styles";
 
 interface Context {
   tokenKind: string;
   displayName: string;
   signerName: string | null;
+  /** Authoritative guardian-vs-adult signal from resolveSigner — see
+   *  build-context.ts. Never re-derive this from a name comparison. */
+  isMinor: boolean;
   summary: string;
   spaceName?: string | null;
   outstanding: { waiver: boolean; photo: boolean; payment: boolean };
@@ -30,6 +33,10 @@ interface Context {
   expiresAt: string;
 }
 
+/** The body of `GET /api/self-serve/<token>`. Exported so embedders (the
+ *  kiosk) can hold a typed context without casting. */
+export type SelfServeContext = Context;
+
 /** Seconds the "checked in" screen waits before returning a kiosk to its
  *  landing page for the next person. */
 const KIOSK_REDIRECT_SECONDS = 12;
@@ -48,6 +55,11 @@ export default function SelfServe({
   context,
   kioskSlug,
   publishableKey,
+  brandId,
+  onDone,
+  onBusyChange,
+  onUnboundedBusyChange,
+  onActivity,
 }: {
   token: string;
   context: Context;
@@ -56,11 +68,48 @@ export default function SelfServe({
   /** Stripe publishable key, threaded from the Astro page's env — only
    *  needed when outstanding.payment is true. */
   publishableKey?: string;
+  /** Brand driving the page's host — threaded down to PayCard so the
+   *  mounted Stripe Elements iframe picks a matching theme. Optional;
+   *  PayCard defaults to the light "stripe" theme (Aspire) when omitted. */
+  brandId?: "aspire" | "soccerone";
+  /** Kiosk-embedded mode: reset the kiosk in place instead of navigating.
+   *  Absent for a texted link opened standalone. */
+  onDone?: () => void;
+  /** Kiosk-embedded mode: reports whether ANY child of this component has
+   *  work in flight that a parent-owned idle timer must not interrupt — a
+   *  confirmPayment/3DS round-trip, the post-confirmation webhook poll, a
+   *  photo upload, or a waiver submit. Each of those has the same shape of
+   *  failure: the request lands server-side while a reset unmounts the
+   *  subtree, so the customer is bounced to the landing screen with no
+   *  confirmation that the thing they just did actually happened. Children
+   *  report their own busy windows and this component ORs them into one
+   *  signal, so the parent never has to know the flow's internals. Absent
+   *  for a standalone link, which has no idle timer to suppress. */
+  onBusyChange?: (busy: boolean) => void;
+  /** Kiosk-embedded mode: reports payConfirmBusy ALONE — the window covering
+   *  `stripe.confirmPayment()` and any 3-D Secure challenge it triggers. This
+   *  is the one component of `anyBusy` with no upper bound: an app-based 3DS
+   *  approval waits on the customer unlocking their phone and completing
+   *  bank-side auth, which can run well past a minute. The parent needs it
+   *  isolated from the aggregate so it can give ONLY this window a longer
+   *  suppression ceiling — see UNBOUNDED_BUSY_MAX_MS in KioskRoot. Optional
+   *  and independent of onBusyChange; both default to unused for a
+   *  standalone link, which has no idle timer to suppress. */
+  onUnboundedBusyChange?: (busy: boolean) => void;
+  /** Kiosk-embedded mode: forwarded to PayCard, which is the only child that
+   *  can produce user activity the parent's window listeners cannot see (the
+   *  cross-origin Stripe Elements iframe). Absent standalone. */
+  onActivity?: () => void;
 }) {
   useHydrationBeacon();
 
   const [waiverDone, setWaiverDone] = useState(!context.outstanding.waiver);
   const [photoDone, setPhotoDone] = useState(!context.outstanding.photo);
+  // The photo is OPTIONAL — offered, never required. A customer who taps
+  // "Not now" settles the step without a photo, and the completion gate below
+  // treats settled exactly like done. Without this, an offered-but-declined
+  // photo would hang the flow short of the checked-in screen forever.
+  const [photoSkipped, setPhotoSkipped] = useState(false);
   const [paymentDone, setPaymentDone] = useState(!context.outstanding.payment);
   // True from the moment PayCard reports a client-side "succeeded" result
   // until the webhook-driven poll below confirms outstanding.payment is
@@ -68,6 +117,15 @@ export default function SelfServe({
   // paymentDone itself from the client-side Stripe result.
   const [paymentProcessing, setPaymentProcessing] = useState(false);
   const [paymentPollTimedOut, setPaymentPollTimedOut] = useState(false);
+  // In-flight windows reported by the cards themselves. paymentProcessing
+  // (above) only covers the POST-confirmation webhook poll; payConfirmBusy
+  // covers the far more dangerous window BEFORE it — confirmPayment and any
+  // 3-D Secure challenge, during which a reset can strand a charge that
+  // settles anyway. The photo/waiver windows are the same class of bug with
+  // smaller stakes: the write lands, the customer never sees it.
+  const [payConfirmBusy, setPayConfirmBusy] = useState(false);
+  const [photoUploadBusy, setPhotoUploadBusy] = useState(false);
+  const [waiverSubmitBusy, setWaiverSubmitBusy] = useState(false);
   const [allDone, setAllDone] = useState(false);
   // The hold behind this link was cancelled — either it arrived that way
   // (link opened after the expiry sweep) or the poll below discovered a
@@ -75,21 +133,11 @@ export default function SelfServe({
   const [holdCancelled, setHoldCancelled] = useState(context.cancelled ?? false);
   const [holdRefunded, setHoldRefunded] = useState(context.refunded ?? false);
 
-  // The kiosk this tab belongs to, if any. Prefer the ?kiosk= query param;
-  // fall back to the slug the kiosk stashed in sessionStorage before
-  // navigating here — that survives the multi-step self-serve flow reliably.
-  const [returnSlug, setReturnSlug] = useState<string | null>(
-    kioskSlug && SLUG_RX.test(kioskSlug) ? kioskSlug : null,
-  );
-  useEffect(() => {
-    if (returnSlug) return;
-    try {
-      const stored = sessionStorage.getItem(KIOSK_RETURN_SLUG_KEY);
-      if (stored && SLUG_RX.test(stored)) setReturnSlug(stored);
-    } catch {
-      /* sessionStorage unavailable — this isn't a kiosk session */
-    }
-  }, [returnSlug]);
+  // The kiosk this tab belongs to, if any — via the ?kiosk= query param.
+  // Only used as a fallback when onDone isn't provided (a texted/emailed
+  // link opened standalone, where a kiosk-issued token still carries the
+  // param but there's no in-page kiosk to hand back to).
+  const returnSlug = kioskSlug && SLUG_RX.test(kioskSlug) ? kioskSlug : null;
 
   // Always-current mirrors of the completion flags. maybeConsume can be
   // invoked from a long-lived callback chain — the payment poll below runs
@@ -101,8 +149,11 @@ export default function SelfServe({
   // would see waiver/photo as they were when the poll began.
   const waiverDoneRef = useRef(waiverDone);
   waiverDoneRef.current = waiverDone;
-  const photoDoneRef = useRef(photoDone);
-  photoDoneRef.current = photoDone;
+  // "Settled", not "done": uploaded OR declined OR never asked for. This is
+  // the value the completion gate consumes — the photo is the one step that
+  // can complete without happening.
+  const photoSettledRef = useRef(photoDone || photoSkipped);
+  photoSettledRef.current = photoDone || photoSkipped;
   const paymentDoneRef = useRef(paymentDone);
   paymentDoneRef.current = paymentDone;
   const allDoneRef = useRef(allDone);
@@ -110,6 +161,7 @@ export default function SelfServe({
 
   const maybeConsume = async (
     overrideWaiver?: boolean,
+    /** "photo settled" — uploaded OR skipped. Never "photo uploaded". */
     overridePhoto?: boolean,
     overridePayment?: boolean,
   ) => {
@@ -117,7 +169,7 @@ export default function SelfServe({
     // (and thus refreshed the refs) yet within the same tick; every flag
     // the caller did NOT just flip falls back to the live ref value.
     const effectiveWaiver = overrideWaiver ?? waiverDoneRef.current;
-    const effectivePhoto = overridePhoto ?? photoDoneRef.current;
+    const effectivePhoto = overridePhoto ?? photoSettledRef.current;
     const effectivePayment = overridePayment ?? paymentDoneRef.current;
     if (
       effectiveWaiver &&
@@ -144,6 +196,13 @@ export default function SelfServe({
 
   const onPhotoDone = () => {
     setPhotoDone(true);
+    setTimeout(() => maybeConsume(undefined, true), 0);
+  };
+
+  // "Not now". Identical to onPhotoDone as far as completion is concerned —
+  // the step is settled either way — it just leaves no photo behind.
+  const onPhotoSkip = () => {
+    setPhotoSkipped(true);
     setTimeout(() => maybeConsume(undefined, true), 0);
   };
 
@@ -213,6 +272,28 @@ export default function SelfServe({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paymentProcessing, token]);
 
+  // One busy signal for the embedder (the kiosk's idle timer), OR-ed from
+  // every window in which an interrupting reset would lose work the server
+  // has already accepted. See onBusyChange's doc comment above.
+  //
+  // The pay hand-off is seamless by construction: PayCard clears
+  // payConfirmBusy in the same batch as the onSuccess() that sets
+  // paymentProcessing, so `anyBusy` is continuously true from the moment the
+  // customer taps Pay until the webhook poll resolves — there is no tick in
+  // between where the kiosk considers itself idle.
+  const anyBusy =
+    paymentProcessing || payConfirmBusy || photoUploadBusy || waiverSubmitBusy;
+  useEffect(() => {
+    onBusyChange?.(anyBusy);
+  }, [anyBusy, onBusyChange]);
+
+  // payConfirmBusy reported on its own, in addition to folding into anyBusy
+  // above — see onUnboundedBusyChange's doc comment for why the parent needs
+  // this window isolated from the (bounded) rest of anyBusy.
+  useEffect(() => {
+    onUnboundedBusyChange?.(payConfirmBusy);
+  }, [payConfirmBusy, onUnboundedBusyChange]);
+
   // Cancelled wins over EVERYTHING below — a released hold must never show
   // the checked-in confirmation (the slot is gone), and with the context's
   // outstanding flags all false a cancelled booking would otherwise fall
@@ -223,6 +304,8 @@ export default function SelfServe({
         displayName={context.displayName}
         summary={context.summary}
         refunded={holdRefunded}
+        returnSlug={returnSlug}
+        onDone={onDone}
       />
     );
   }
@@ -241,6 +324,7 @@ export default function SelfServe({
         spaceName={context.spaceName ?? null}
         summary={context.summary}
         returnSlug={returnSlug}
+        onDone={onDone}
       />
     );
   }
@@ -249,24 +333,26 @@ export default function SelfServe({
 
   return (
     <div className="space-y-4">
-      <header>
-        <h1 className="text-xl font-semibold">Hi {context.displayName}</h1>
-        <p className="text-sm text-stone-600">{context.summary}</p>
+      <header className="space-y-1">
+        <h1 className="font-display text-3xl font-medium italic text-ink">
+          Hi {context.displayName}
+        </h1>
+        <p className="text-sm text-ink-muted">{context.summary}</p>
       </header>
 
       {paymentOutstanding &&
         (paymentProcessing ? (
-          <div className="p-4 rounded-lg border bg-stone-50 text-stone-700 text-sm flex items-center gap-2">
+          <div className="p-4 rounded-xl border border-border bg-cream-2 text-ink-muted text-sm flex items-center gap-2">
             <span
               aria-hidden="true"
-              className="inline-block h-3 w-3 rounded-full border-2 border-stone-400 border-t-transparent animate-spin"
+              className="inline-block h-3 w-3 rounded-full border-2 border-ink-faint border-t-transparent animate-spin"
             />
             <span>Payment processing…</span>
           </div>
         ) : (
           <div className="space-y-2">
             {paymentPollTimedOut && (
-              <p className="text-xs text-stone-500">
+              <p className="text-xs text-ink-faint">
                 We couldn't confirm your payment yet. If your card was charged,
                 please see the front desk and they'll sort it out — otherwise
                 you can try again below.
@@ -278,7 +364,10 @@ export default function SelfServe({
               locationSlug={context.locationSlug ?? null}
               bookingId={context.bookingId ?? null}
               publishableKey={publishableKey ?? ""}
+              brandId={brandId}
               onPaid={onPaySubmitted}
+              onBusy={setPayConfirmBusy}
+              onActivity={onActivity}
             />
           </div>
         ))}
@@ -287,13 +376,89 @@ export default function SelfServe({
         <WaiverCard
           token={token}
           signerName={context.signerName ?? context.displayName}
+          playerName={context.displayName}
+          isMinor={context.isMinor}
+          // The waiver names a legal entity — it must be the brand the
+          // customer is actually standing in front of, not a hardcoded one.
+          brandId={brandId}
           done={waiverDone}
           onDone={onWaiverDone}
+          onBusy={setWaiverSubmitBusy}
         />
       )}
-      {context.outstanding.photo && (
-        <PhotoCard token={token} done={photoDone} onDone={onPhotoDone} />
+      {context.outstanding.photo && !photoSkipped && (
+        <PhotoCard
+          token={token}
+          done={photoDone}
+          onDone={onPhotoDone}
+          onSkip={onPhotoSkip}
+          onBusy={setPhotoUploadBusy}
+        />
       )}
+      {/* Skipped, but the flow is still open (a waiver or a payment is left).
+          Offer the way back in — a mis-tapped "Not now" shouldn't cost the
+          photo. Only reachable while other cards are up: when the photo was
+          the last outstanding item, skipping completes the flow and this
+          subtree is replaced by the checked-in screen. */}
+      {context.outstanding.photo && photoSkipped && !photoDone && (
+        <p className="text-sm text-ink-muted">
+          Photo skipped.{" "}
+          <button
+            type="button"
+            onClick={() => setPhotoSkipped(false)}
+            className="underline underline-offset-2 text-ink hover:text-ink-muted transition-colors"
+          >
+            Add one after all
+          </button>
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Shared by every terminal screen that can be reached on a mounted kiosk:
+ * counts down and hands the device back to `onDone` (kiosk-embedded) or
+ * `returnSlug` (a kiosk-issued link opened standalone) so it's ready for the
+ * next person, with a "Back to start" button to skip the wait. Renders
+ * nothing when neither is present — a personal SMS/email link opened on the
+ * customer's own phone, where there's nothing to "return" to.
+ */
+function KioskReturnControl({
+  onDone,
+  returnSlug,
+}: {
+  onDone?: () => void;
+  returnSlug: string | null;
+}) {
+  const [secondsLeft, setSecondsLeft] = useState(KIOSK_REDIRECT_SECONDS);
+  const returning = Boolean(onDone || returnSlug);
+
+  useEffect(() => {
+    if (!returning) return;
+    if (secondsLeft <= 0) {
+      if (onDone) onDone();
+      else if (returnSlug) window.location.href = `/kiosk/${returnSlug}`;
+      return;
+    }
+    const t = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [secondsLeft, returning, returnSlug, onDone]);
+
+  if (!returning) return null;
+
+  return (
+    <div className="space-y-2">
+      <button
+        type="button"
+        onClick={() => (onDone ? onDone() : (window.location.href = `/kiosk/${returnSlug}`))}
+        className={PRIMARY_BTN}
+      >
+        Back to start
+      </button>
+      <p className="text-center text-xs text-ink-muted">
+        Returning to the start screen in {Math.max(secondsLeft, 0)}s…
+      </p>
     </div>
   );
 }
@@ -304,36 +469,48 @@ export default function SelfServe({
  * happened, covers the money (refunded vs. will-be-refunded), and points
  * the customer at the front desk to rebook. Deliberately NOT the
  * checked-in screen — the customer has no slot.
+ *
+ * On a mounted kiosk this is reachable at any time (sweep expiry, front-desk
+ * cancel, or a mid-poll cancellation detected while a payment was
+ * settling) — it MUST hand the device back via KioskReturnControl just like
+ * CheckedInScreen, or the kiosk strands on the previous customer's details.
  */
 function HoldReleasedScreen({
   displayName,
   summary,
   refunded,
+  returnSlug,
+  onDone,
 }: {
   displayName: string;
   summary: string;
   refunded: boolean;
+  returnSlug: string | null;
+  onDone?: () => void;
 }) {
   return (
     <div className="space-y-4">
-      <header>
-        <h1 className="text-xl font-semibold">Hi {displayName}</h1>
-        {summary && <p className="text-sm text-stone-600">{summary}</p>}
+      <header className="space-y-1">
+        <h1 className="font-display text-3xl font-medium italic text-ink">
+          Hi {displayName}
+        </h1>
+        {summary && <p className="text-sm text-ink-muted">{summary}</p>}
       </header>
-      <div className="p-6 rounded-lg border border-amber-200 bg-amber-50 text-amber-900">
-        <h2 className="text-lg font-semibold mb-2">
+      <div className="p-6 rounded-xl border border-ochre/60 bg-ochre/10">
+        <h2 className="text-lg font-semibold mb-2 text-ink">
           This hold has been released
         </h2>
-        <p className="text-sm leading-relaxed">
+        <p className="text-sm leading-relaxed text-ink-2">
           {refunded
             ? "Any charge on your card has been refunded."
             : "If your card was charged, the payment will be refunded automatically."}
         </p>
-        <p className="mt-2 text-sm leading-relaxed">
+        <p className="mt-2 text-sm leading-relaxed text-ink-2">
           Want to play? See the front desk — if the session still has room,
           they can set you up with a new spot.
         </p>
       </div>
+      <KioskReturnControl onDone={onDone} returnSlug={returnSlug} />
     </div>
   );
 }
@@ -348,49 +525,27 @@ function CheckedInScreen({
   spaceName,
   summary,
   returnSlug,
+  onDone,
 }: {
   spaceName: string | null;
   summary: string;
   returnSlug: string | null;
+  onDone?: () => void;
 }) {
-  const [secondsLeft, setSecondsLeft] = useState(KIOSK_REDIRECT_SECONDS);
-
-  useEffect(() => {
-    if (!returnSlug) return;
-    if (secondsLeft <= 0) {
-      window.location.href = `/kiosk/${returnSlug}`;
-      return;
-    }
-    const t = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
-    return () => clearTimeout(t);
-  }, [secondsLeft, returnSlug]);
-
   return (
     <div className="space-y-4">
-      <div className="p-6 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-900">
-        <h1 className="text-lg font-semibold mb-2">You're checked in</h1>
-        <p className="text-sm leading-relaxed">
+      <div className="p-6 rounded-xl border border-sage/60 bg-sage/10">
+        <h1 className="text-lg font-semibold mb-2 text-ink">You're checked in</h1>
+        <p className="text-sm leading-relaxed text-ink-2">
           {spaceName
             ? `Head over to ${spaceName} — your game is on. Enjoy!`
             : "You're all set — enjoy your game!"}
         </p>
         {summary && (
-          <p className="mt-2 text-xs text-emerald-800/70">{summary}</p>
+          <p className="mt-2 text-xs text-ink-2">{summary}</p>
         )}
       </div>
-      {returnSlug && (
-        <div className="space-y-2">
-          <a
-            href={`/kiosk/${returnSlug}`}
-            className="block w-full rounded-lg bg-primary px-6 py-3 text-center text-sm font-medium text-cream transition-colors hover:bg-primary/90"
-          >
-            Back to start
-          </a>
-          <p className="text-center text-xs text-ink-muted">
-            Returning to the start screen in {Math.max(secondsLeft, 0)}s…
-          </p>
-        </div>
-      )}
+      <KioskReturnControl onDone={onDone} returnSlug={returnSlug} />
     </div>
   );
 }

@@ -1,15 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { loadStripe } from "@stripe/stripe-js";
-import {
-  Elements,
-  PaymentElement,
-  useStripe,
-  useElements,
-} from "@stripe/react-stripe-js";
-import type { Stripe as StripeJs } from "@stripe/stripe-js";
-import { Camera, ImageIcon, RotateCcw } from "lucide-react";
+import { useEffect, useState } from "react";
+import { ErrorBanner } from "@/components/ui/error-banner";
 
 interface Session {
   id: string;
@@ -39,16 +31,18 @@ interface Parent {
   phone: string;
 }
 
-type Step = "session" | "contact" | "waiver" | "photo" | "payment" | "done";
+/**
+ * The wizard's own scope ends at the contact step. Everything after it —
+ * waiver, photo, payment — is the shared self-serve flow, which KioskRoot
+ * renders inline once `startBooking` hands it a token. There is deliberately
+ * no second implementation of those cards here.
+ */
+type Step = "session" | "contact";
 
-const STEPS: Step[] = ["session", "contact", "waiver", "photo", "payment"];
+const STEPS: Step[] = ["session", "contact"];
 const STEP_LABEL: Record<Step, string> = {
   session: "Pick a session",
   contact: "Your details",
-  waiver: "Liability waiver",
-  photo: "Profile photo",
-  payment: "Payment",
-  done: "All set",
 };
 
 function ageFromDob(dob: string): number {
@@ -61,20 +55,12 @@ function ageFromDob(dob: string): number {
   return age;
 }
 
-const stripePromiseCache = new Map<string, Promise<StripeJs | null>>();
-function getStripePromise(publishableKey: string): Promise<StripeJs | null> {
-  let p = stripePromiseCache.get(publishableKey);
-  if (!p) {
-    p = loadStripe(publishableKey);
-    stripePromiseCache.set(publishableKey, p);
-  }
-  return p;
-}
-
 interface Props {
   locationSlug: string;
-  locationName: string;
-  publishableKey: string;
+  /** Hands the minted walk-in token up to KioskRoot, which takes over with
+   *  the shared SelfServe cards. This component never navigates the tab.
+   *  Resolves false when the handoff failed — see startBooking. */
+  onToken: (token: string) => Promise<boolean>;
   onBack: () => void;
 }
 
@@ -82,12 +68,12 @@ const INPUT_CLASS =
   "w-full px-4 py-3 bg-paper border border-border focus:border-ink focus:outline-none rounded-lg text-base text-ink placeholder:text-ink-faint transition-colors";
 
 const PRIMARY_BTN =
-  "w-full px-6 py-4 rounded-xl bg-primary text-cream text-lg font-medium transition-all hover:bg-primary/90 active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed";
+  "w-full min-h-[60px] px-6 py-4 rounded-xl bg-primary text-cream text-lg font-medium transition-all hover:bg-primary/90 active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed";
 
 const GHOST_BTN =
-  "text-sm text-ink-muted hover:text-ink transition-colors";
+  "inline-flex items-center gap-2 min-h-[44px] px-4 -ml-4 rounded-lg text-base text-ink-muted hover:text-ink transition-colors";
 
-export function WalkInWizard({ locationSlug, locationName, publishableKey, onBack }: Props) {
+export function WalkInWizard({ locationSlug, onToken, onBack }: Props) {
   const [step, setStep] = useState<Step>("session");
   const [sessions, setSessions] = useState<Session[]>([]);
   const [sessionsError, setSessionsError] = useState<string | null>(null);
@@ -105,15 +91,12 @@ export function WalkInWizard({ locationSlug, locationName, publishableKey, onBac
     email: "",
     phone: "",
   });
-  const [token, setToken] = useState<string | null>(null);
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [paymentAmounts, setPaymentAmounts] = useState<{
-    baseAmountCents: number;
-    surchargeCents: number;
-    totalCents: number;
-  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Set once the server has minted a walk-in token for this customer. Its
+  // only job is to make a failed handoff retryable WITHOUT booking a second
+  // slot — see startBooking.
+  const [mintedToken, setMintedToken] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/kiosk/${locationSlug}/sessions`)
@@ -123,14 +106,21 @@ export function WalkInWizard({ locationSlug, locationName, publishableKey, onBac
   }, [locationSlug]);
 
   const minor = ageFromDob(contact.dob) < 18;
-  const playerName = `${contact.firstName} ${contact.lastName}`.trim();
-  const parentName = `${parent.firstName} ${parent.lastName}`.trim();
 
   const startBooking = async () => {
     if (!selectedSession) return;
     setBusy(true);
     setError(null);
     try {
+      // A previous attempt already minted a booking + token and only the
+      // handoff failed — retry the HANDOFF, never the booking. Re-POSTing
+      // would ask the server for a second slot for the same person (it 409s,
+      // but then the customer is stuck staring at a duplicate error).
+      if (mintedToken) {
+        const retried = await onToken(mintedToken);
+        if (!retried) setBusy(false);
+        return;
+      }
       const res = await fetch(`/api/kiosk/${locationSlug}/walkin/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -143,108 +133,26 @@ export function WalkInWizard({ locationSlug, locationName, publishableKey, onBac
       const body = await res.json();
       if (!res.ok) {
         setError(body.error ?? `Could not start booking (${res.status})`);
+        setBusy(false);
         return;
       }
-      setToken(body.token);
-      setStep("waiver");
+      // Hand off — SelfServe owns waiver, photo, and payment from here.
+      // Stay busy across the handoff (KioskRoot is still fetching the token's
+      // context) so a laggy iPad double-tap can't fire the request twice —
+      // that would create a SECOND booking. But if the handoff FAILS we're
+      // still on this screen: re-enable Continue, otherwise the wizard is
+      // wedged and the customer's only way out ("← Back") makes them redo the
+      // walk-in, booking a second slot anyway. The token is remembered so the
+      // retry re-runs only the handoff (see the mintedToken branch above).
+      const token = body.token as string;
+      setMintedToken(token);
+      const handedOff = await onToken(token);
+      if (!handedOff) setBusy(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Network error");
-    } finally {
       setBusy(false);
     }
   };
-
-  const submitWaiver = async (acceptedName: string) => {
-    if (!token) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/self-serve/${token}/waiver`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ acceptedName }),
-      });
-      if (!res.ok) {
-        const b = await res.json().catch(() => ({}));
-        setError((b as { error?: string }).error ?? `Could not save waiver (${res.status})`);
-        return;
-      }
-      setStep("photo");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const submitPhoto = async (file: File) => {
-    if (!token) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const form = new FormData();
-      form.append("file", file);
-      const photoRes = await fetch(`/api/self-serve/${token}/photo`, {
-        method: "POST",
-        body: form,
-      });
-      if (!photoRes.ok) {
-        const b = await photoRes.json().catch(() => ({}));
-        setError(
-          (b as { error?: string }).error ?? `Could not upload photo (${photoRes.status})`,
-        );
-        return;
-      }
-      const payRes = await fetch(`/api/kiosk/${locationSlug}/walkin/payment`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
-      });
-      const payBody = await payRes.json();
-      if (!payRes.ok) {
-        setError(
-          (payBody as { error?: string }).error ??
-            `Could not start payment (${payRes.status})`,
-        );
-        return;
-      }
-      const pay = payBody as {
-        clientSecret: string;
-        amountCents: number;
-        baseAmountCents: number;
-        surchargeCents: number;
-      };
-      setClientSecret(pay.clientSecret);
-      setPaymentAmounts({
-        baseAmountCents: pay.baseAmountCents,
-        surchargeCents: pay.surchargeCents,
-        totalCents: pay.amountCents,
-      });
-      setStep("payment");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  if (step === "done") {
-    return (
-      <div className="space-y-6 pt-4">
-        <header className="space-y-3">
-          <p className="text-[11px] font-semibold tracking-[0.18em] uppercase text-primary">
-            All set
-          </p>
-          <h1 className="font-display text-5xl md:text-6xl font-medium italic leading-[0.95] text-ink">
-            You're checked in.
-          </h1>
-          <div className="h-px bg-border w-16" />
-          <p className="text-base text-ink-2 leading-relaxed max-w-md">
-            Welcome to {locationName}. See you on the field — head over whenever you're ready.
-          </p>
-        </header>
-        <button type="button" onClick={onBack} className={PRIMARY_BTN}>
-          Done
-        </button>
-      </div>
-    );
-  }
 
   const stepIndex = STEPS.indexOf(step);
   const progressPct = stepIndex >= 0 ? ((stepIndex + 1) / STEPS.length) * 100 : 0;
@@ -262,29 +170,27 @@ export function WalkInWizard({ locationSlug, locationName, publishableKey, onBac
         <h1 className="font-display text-4xl md:text-5xl font-medium italic leading-[0.95] text-ink">
           {STEP_LABEL[step]}
         </h1>
-        {stepIndex >= 0 && (
-          <div className="pt-2 space-y-2">
-            <div className="flex items-baseline justify-between text-[11px] font-semibold tracking-[0.18em] uppercase text-ink-muted">
-              <span>
-                Step {String(stepIndex + 1).padStart(2, "0")} / {String(STEPS.length).padStart(2, "0")}
-              </span>
-              <span className="text-ink-faint">{Math.round(progressPct)}%</span>
-            </div>
-            <div className="h-px bg-border relative overflow-hidden">
-              <div
-                className="absolute inset-y-0 left-0 bg-primary transition-all duration-500"
-                style={{ width: `${progressPct}%` }}
-              />
-            </div>
+        <p className="text-sm text-ink-muted">
+          Step {stepIndex + 1} of {STEPS.length} — then waiver, photo, and payment.
+        </p>
+        <div className="pt-2 space-y-2">
+          <div className="flex items-baseline justify-between text-[11px] font-semibold tracking-[0.18em] uppercase text-ink-muted">
+            <span>
+              Step {String(stepIndex + 1).padStart(2, "0")} /{" "}
+              {String(STEPS.length).padStart(2, "0")}
+            </span>
+            <span className="text-ink-faint">{Math.round(progressPct)}%</span>
           </div>
-        )}
+          <div className="h-px bg-border relative overflow-hidden">
+            <div
+              className="absolute inset-y-0 left-0 bg-primary transition-all duration-500"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+        </div>
       </header>
 
-      {error && (
-        <div className="rounded-xl border border-rose-200/70 bg-rose-50/40 px-4 py-3 text-sm text-rose-800">
-          {error}
-        </div>
-      )}
+      <ErrorBanner message={error} onDismiss={() => setError(null)} />
 
       {step === "session" && (
         <SessionStep
@@ -308,38 +214,6 @@ export function WalkInWizard({ locationSlug, locationName, publishableKey, onBac
           onSubmit={startBooking}
         />
       )}
-
-      {step === "waiver" && (
-        <WaiverStep
-          isMinor={minor}
-          playerName={playerName}
-          defaultSignerName={minor ? parentName : playerName}
-          onSubmit={submitWaiver}
-          busy={busy}
-        />
-      )}
-
-      {step === "photo" && (
-        <PhotoStep
-          isMinor={minor}
-          playerName={playerName}
-          onSubmit={submitPhoto}
-          busy={busy}
-        />
-      )}
-
-      {step === "payment" && clientSecret && selectedSession && (
-        <Elements
-          stripe={getStripePromise(publishableKey)}
-          options={{ clientSecret, appearance: { theme: "stripe" } }}
-        >
-          <PaymentStep
-            session={selectedSession}
-            amounts={paymentAmounts}
-            onSuccess={() => setStep("done")}
-          />
-        </Elements>
-      )}
     </div>
   );
 }
@@ -358,9 +232,7 @@ function SessionStep({
   onPick: (s: Session) => void;
 }) {
   if (sessionsError) {
-    return (
-      <p className="text-sm text-rose-700">{sessionsError}</p>
-    );
+    return <ErrorBanner message={sessionsError} />;
   }
   if (sessions.length === 0) {
     return (
@@ -379,11 +251,11 @@ function SessionStep({
             type="button"
             onClick={() => onPick(s)}
             disabled={full}
-            className="w-full text-left p-5 rounded-xl border border-border bg-paper hover:bg-cream-2 hover:border-ink/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-paper"
+            className="w-full min-h-[60px] text-left p-5 rounded-xl border border-border bg-paper hover:bg-cream-2 hover:border-ink/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-paper"
           >
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0 flex-1">
-                <div className="font-medium text-ink truncate">{s.title}</div>
+                <div className="text-base font-medium text-ink truncate">{s.title}</div>
                 <div className="text-sm text-ink-muted mt-1">
                   {s.spaceName} ·{" "}
                   {new Date(s.startsAt).toLocaleTimeString([], {
@@ -539,306 +411,6 @@ function ContactStep({
 
       <button type="submit" disabled={busy} className={PRIMARY_BTN}>
         {busy ? "Saving…" : "Continue"}
-      </button>
-    </form>
-  );
-}
-
-// ============================================================================
-// Step 3 — Waiver
-// ============================================================================
-
-function WaiverStep({
-  isMinor,
-  playerName,
-  defaultSignerName,
-  onSubmit,
-  busy,
-}: {
-  isMinor: boolean;
-  playerName: string;
-  defaultSignerName: string;
-  onSubmit: (name: string) => void;
-  busy: boolean;
-}) {
-  const [accepted, setAccepted] = useState(false);
-  const [typed, setTyped] = useState(defaultSignerName);
-
-  const acceptLabel = isMinor
-    ? `I am the parent or legal guardian of ${playerName || "this player"} and accept these terms on their behalf.`
-    : "I have read and accept these terms.";
-
-  return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSubmit(typed.trim());
-      }}
-      className="space-y-4"
-    >
-      <div className="rounded-xl border border-border bg-paper p-5">
-        <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted mb-2">
-          Liability waiver
-        </p>
-        <p className="text-sm text-ink-2 leading-relaxed">
-          I acknowledge the inherent risks of recreational sports activity, including
-          contact, falls, and weather-related conditions. I waive Aspire Sports and its
-          partner venues from liability for injuries that occur during this session, and
-          I confirm that the player named above is physically able to participate.
-        </p>
-      </div>
-
-      <label className="flex items-start gap-3 p-4 rounded-xl border border-border bg-paper cursor-pointer hover:bg-cream-2 transition-colors">
-        <input
-          type="checkbox"
-          checked={accepted}
-          onChange={(e) => setAccepted(e.target.checked)}
-          className="mt-1 w-4 h-4 accent-primary"
-        />
-        <span className="text-sm text-ink leading-relaxed">{acceptLabel}</span>
-      </label>
-
-      <div className="space-y-1.5">
-        <label className="block text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted px-1">
-          {isMinor ? "Parent/guardian signature" : "Signature"}
-        </label>
-        <input
-          type="text"
-          value={typed}
-          onChange={(e) => setTyped(e.target.value)}
-          placeholder="Type your full name"
-          className={INPUT_CLASS}
-        />
-      </div>
-
-      <button
-        type="submit"
-        disabled={busy || !accepted || typed.trim().length === 0}
-        className={PRIMARY_BTN}
-      >
-        {busy ? "Saving…" : "Continue"}
-      </button>
-    </form>
-  );
-}
-
-// ============================================================================
-// Step 4 — Photo (camera + upload)
-// ============================================================================
-
-function PhotoStep({
-  isMinor,
-  playerName,
-  onSubmit,
-  busy,
-}: {
-  isMinor: boolean;
-  playerName: string;
-  onSubmit: (file: File) => void;
-  busy: boolean;
-}) {
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
-  const uploadInputRef = useRef<HTMLInputElement>(null);
-
-  const handleFile = (f: File | null) => {
-    setFile(f);
-    if (preview) URL.revokeObjectURL(preview);
-    setPreview(f ? URL.createObjectURL(f) : null);
-  };
-
-  useEffect(() => {
-    return () => {
-      if (preview) URL.revokeObjectURL(preview);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const whoFor = isMinor && playerName ? playerName : "yourself";
-
-  return (
-    <div className="space-y-4">
-      <p className="text-sm text-ink-muted">
-        Add a quick photo of {whoFor} so the front desk can spot you at check-in.
-      </p>
-
-      <input
-        ref={cameraInputRef}
-        type="file"
-        accept="image/*"
-        capture="user"
-        className="sr-only"
-        onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
-      />
-      <input
-        ref={uploadInputRef}
-        type="file"
-        accept="image/*"
-        className="sr-only"
-        onChange={(e) => handleFile(e.target.files?.[0] ?? null)}
-      />
-
-      {preview ? (
-        <div className="rounded-xl border border-border bg-paper p-6 flex flex-col items-center gap-4">
-          <img
-            src={preview}
-            alt="Profile preview"
-            className="w-40 h-40 rounded-full object-cover ring-2 ring-border"
-          />
-          <button
-            type="button"
-            onClick={() => {
-              handleFile(null);
-              cameraInputRef.current?.click();
-            }}
-            className="inline-flex items-center gap-2 text-sm text-ink-muted hover:text-ink transition-colors"
-          >
-            <RotateCcw className="w-4 h-4" />
-            Retake photo
-          </button>
-        </div>
-      ) : (
-        <div className="grid gap-3">
-          <button
-            type="button"
-            onClick={() => cameraInputRef.current?.click()}
-            className="group w-full px-6 py-7 rounded-xl bg-primary text-cream text-left transition-all hover:bg-primary/90 active:scale-[0.99] shadow-sm"
-          >
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-cream/15 flex items-center justify-center shrink-0">
-                  <Camera className="w-6 h-6 text-cream" />
-                </div>
-                <div>
-                  <div className="text-xs font-semibold tracking-[0.15em] uppercase text-cream/70 mb-1">
-                    Recommended
-                  </div>
-                  <div className="text-xl font-medium">Take a photo with the camera</div>
-                </div>
-              </div>
-              <span aria-hidden="true" className="text-2xl text-cream/80 transition-transform group-hover:translate-x-1">
-                ›
-              </span>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => uploadInputRef.current?.click()}
-            className="group w-full px-6 py-5 rounded-xl bg-paper border border-border hover:bg-cream-2 hover:border-ink/40 transition-colors text-left"
-          >
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-full bg-cream-2 flex items-center justify-center shrink-0">
-                <ImageIcon className="w-5 h-5 text-ink-muted" />
-              </div>
-              <div className="flex-1">
-                <div className="text-base font-medium text-ink">Choose from device</div>
-                <div className="text-xs text-ink-muted mt-0.5">
-                  Upload an existing photo instead.
-                </div>
-              </div>
-            </div>
-          </button>
-        </div>
-      )}
-
-      <button
-        type="button"
-        onClick={() => file && onSubmit(file)}
-        disabled={!file || busy}
-        className={PRIMARY_BTN}
-      >
-        {busy ? "Uploading…" : "Continue to payment"}
-      </button>
-    </div>
-  );
-}
-
-// ============================================================================
-// Step 5 — Payment
-// ============================================================================
-
-function PaymentStep({
-  session,
-  amounts,
-  onSuccess,
-}: {
-  session: Session;
-  amounts: {
-    baseAmountCents: number;
-    surchargeCents: number;
-    totalCents: number;
-  } | null;
-  onSuccess: () => void;
-}) {
-  const stripe = useStripe();
-  const elements = useElements();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const onPay = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!stripe || !elements) return;
-    setBusy(true);
-    setError(null);
-    const result = await stripe.confirmPayment({
-      elements,
-      confirmParams: { return_url: window.location.href },
-      redirect: "if_required",
-    });
-    if (result.error) {
-      setError(result.error.message ?? "Payment failed");
-      setBusy(false);
-      return;
-    }
-    onSuccess();
-  };
-
-  const fmt = (cents: number) => `$${(cents / 100).toFixed(2)}`;
-  const totalLabel = amounts ? fmt(amounts.totalCents) : null;
-
-  return (
-    <form onSubmit={onPay} className="space-y-4">
-      <div className="rounded-xl border border-border bg-paper p-5 space-y-3">
-        <div>
-          <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">
-            Today's session
-          </p>
-          <p className="text-base font-medium text-ink mt-1">{session.title}</p>
-        </div>
-        {amounts && (
-          <div className="border-t border-border pt-3 space-y-1.5 text-sm">
-            <div className="flex justify-between text-ink-muted">
-              <span>Session</span>
-              <span>{fmt(amounts.baseAmountCents)}</span>
-            </div>
-            <div className="flex justify-between text-ink-muted">
-              <span>Card processing fee</span>
-              <span>{fmt(amounts.surchargeCents)}</span>
-            </div>
-            <div className="flex justify-between items-baseline pt-1.5 border-t border-border">
-              <span className="font-medium text-ink">Total</span>
-              <span className="font-display text-2xl italic text-ink">
-                {fmt(amounts.totalCents)}
-              </span>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="rounded-xl border border-border bg-paper p-5">
-        <PaymentElement />
-      </div>
-
-      {error && (
-        <div className="rounded-xl border border-rose-200/70 bg-rose-50/40 px-4 py-3 text-sm text-rose-800">
-          {error}
-        </div>
-      )}
-
-      <button type="submit" disabled={busy} className={PRIMARY_BTN}>
-        {busy ? "Processing…" : totalLabel ? `Pay ${totalLabel}` : "Pay"}
       </button>
     </form>
   );

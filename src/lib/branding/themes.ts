@@ -17,6 +17,15 @@ export interface BrandTheme {
   id: BrandId;
   /** Fallback brand name when no brand_profiles row resolves. */
   displayName: string;
+  /**
+   * The legal entity phrase the liability waiver names ("I waive <entity>
+   * from liability…"). THE single source of the waiver's entity naming —
+   * WaiverCard renders whatever this says, so a new brand is a new entry
+   * here and nothing else. Never hardcode a brand name in the React tree:
+   * the waiver is a legal document and an Aspire customer must never sign
+   * one naming SoccerOne (or vice versa).
+   */
+  waiverEntity: string;
   /** Which header/footer pair BaseLayout renders on shared pages. */
   chrome: "aspire" | "soccerone";
   /** Default <meta name="description"> when a page doesn't pass one. */
@@ -43,6 +52,7 @@ export interface BrandTheme {
 const aspire: BrandTheme = {
   id: "aspire",
   displayName: "Aspire Sports",
+  waiverEntity: "Aspire Sports and its partner venues",
   chrome: "aspire",
   defaultDescription:
     "Aspire Sports — evidence-based youth and adult sports in Central Ohio.",
@@ -54,6 +64,7 @@ const aspire: BrandTheme = {
 const soccerone: BrandTheme = {
   id: "soccerone",
   displayName: "SoccerOne",
+  waiverEntity: "SoccerOne, operated by Aspire Sports, and its partner venues",
   chrome: "soccerone",
   defaultDescription:
     "SoccerOne — indoor soccer in Columbus, OH. Leagues, pickup, field rentals, and memberships at Worthington and Downtown.",

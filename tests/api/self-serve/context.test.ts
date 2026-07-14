@@ -1,11 +1,13 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { apiFetch, getAdminCookie } from "../setup/test-helpers";
 import { getDb } from "@/lib/db";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { fieldRentals } from "@/lib/db/schema/field-rentals";
 import { dropInSessions, dropInBookings, dropInRateCard } from "@/lib/db/schema/drop-in";
 import { venues } from "@/lib/db/schema/teams";
 import { locations } from "@/lib/db/schema/organizations";
+import { users } from "@/lib/db/schema/users";
+import { familyMembers } from "@/lib/db/schema/registrations";
 import { mintToken, consumeToken } from "@/lib/check-in/tokens-db";
 import { E2E_RENTAL_VENUE_ID, E2E_ORG_ID } from "@/lib/db/seeds/seed-e2e-tests";
 
@@ -71,6 +73,14 @@ describe("GET /api/self-serve/[token] (context)", () => {
     expect(typeof body.summary).toBe("string");
     expect(body).toHaveProperty("outstanding");
     expect(body.outstanding.waiver).toBe(true);
+    // This rental was admin-created for a renter with NO account (renterUserId
+    // null), so there is no user row and no family_member row to hang a photo
+    // on. No target → the photo step is never offered. It must not block, and
+    // it must not 500.
+    expect(body.outstanding.photo).toBe(false);
+    // field_rental resolves via renterUserId/renterName only — never a
+    // family_members row — so isMinor is always false on this path.
+    expect(body.isMinor).toBe(false);
     expect(body).toHaveProperty("expiresAt");
   });
 
@@ -143,11 +153,12 @@ describe("GET /api/self-serve/[token] (context) — walk-in payment hold", () =>
     if (!location) throw new Error("Resolved location row not found.");
     locationSlug = location.slug;
 
+    // /walkin/start rejects a session whose endsAt has already passed, so the
+    // fixture must END in the future. Anchoring off UTC midnight (+3h) put it
+    // in the past for every run after 04:30 UTC. Anchor to "now" instead —
+    // same fix walkin.test.ts carries.
     const now = new Date();
-    const todayStart = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-    );
-    const sessionStart = new Date(todayStart.getTime() + 3 * 3_600_000);
+    const sessionStart = new Date(now.getTime() + 5 * 60_000);
     const sessionEnd = new Date(sessionStart.getTime() + 90 * 60_000);
 
     const [session] = await db
@@ -203,6 +214,35 @@ describe("GET /api/self-serve/[token] (context) — walk-in payment hold", () =>
     expect(body.amountDueCents).toBe(amountDueCents);
     expect(body.locationSlug).toBe(locationSlug);
     expect(body.bookingId).toBe(bookingId);
+  });
+
+  // outstanding.photo was initialized false and NEVER assigned, so PhotoCard
+  // (which SelfServe gates on it) had never rendered for any customer. The
+  // flag is now real: true for a person with no photo on file, false once one
+  // exists — so a returning customer isn't asked again. The target is derived
+  // by the same helper the upload endpoint writes through (resolvePhotoTarget),
+  // which for a walk-in adult is users.avatarUrl.
+  it("photo: outstanding for a fresh person, settled once a photo is on file", async () => {
+    const { token, bookingId } = await startWalkIn("photo");
+
+    const first = await fetch(`${BASE}/api/self-serve/${token}`);
+    expect(first.status).toBe(200);
+    expect((await first.json()).outstanding.photo).toBe(true);
+
+    // Put a photo on the exact row the upload endpoint would have written.
+    const [booking] = await getDb()
+      .select({ userId: dropInBookings.userId })
+      .from(dropInBookings)
+      .where(eq(dropInBookings.id, bookingId))
+      .limit(1);
+    await getDb()
+      .update(users)
+      .set({ avatarUrl: "mock-r2://photo-context-test.jpg" })
+      .where(eq(users.id, booking.userId));
+
+    const second = await fetch(`${BASE}/api/self-serve/${token}`);
+    expect(second.status).toBe(200);
+    expect((await second.json()).outstanding.photo).toBe(false);
   });
 
   it("confirmed booking: outstanding.payment false, amountDueCents/locationSlug reset", async () => {
@@ -296,5 +336,226 @@ describe("GET /api/self-serve/[token] (context) — walk-in payment hold", () =>
       method: "DELETE",
       cookie: adminCookie,
     }).catch(() => null);
+  });
+});
+
+// ── walkin_session context: a MINOR walking into the kiosk ───────────────────
+//
+// The kiosk explicitly supports minors (walkin/start.ts validates parent
+// fields and creates a family_members row on the parent_user_id path), but the
+// booking's userId is the PARENT — so nothing but drop_in_bookings
+// .family_member_id can say who actually plays.
+//
+// When resolveSigner ignored that (it hardcoded `isMinor: false` for every
+// drop_in_booking/walkin_session), two things broke, and both are asserted
+// here because nothing else in the suite ever produced an isMinor:true fixture:
+//   1. WaiverCard rendered the ADULT acceptance line ("I have read and accept
+//      these terms" + "Signature") and named the PARENT as the participant —
+//      a guardian signing a liability waiver for a child who appears nowhere
+//      on the page.
+//   2. resolvePhotoTarget fell through to { kind: "user" } = the parent, so
+//      the child's kiosk photo would be saved as the PARENT's account avatar,
+//      and hasPhotoOnFile() asked the parent's row — a parent who already had
+//      an avatar meant the child was never even offered a photo.
+describe("GET /api/self-serve/[token] (context) — walk-in MINOR", () => {
+  const SUFFIX = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const PARENT_EMAIL = `minor-ctx-parent-${SUFFIX}@walkin-test.invalid`;
+  const ADULT_EMAIL = `minor-ctx-adult-${SUFFIX}@walkin-test.invalid`;
+  const CHILD_FIRST = "Robin";
+  const CHILD_LAST = `Minorson${SUFFIX.slice(-4)}`;
+  const PARENT_FIRST = "Dana";
+  const PARENT_LAST = `Guardian${SUFFIX.slice(-4)}`;
+
+  let locationId: string;
+  let sessionId: string;
+  const bookingIds: string[] = [];
+
+  beforeAll(async () => {
+    const db = getDb();
+    await db
+      .insert(dropInRateCard)
+      .values({ organizationId: E2E_ORG_ID })
+      .onConflictDoNothing();
+
+    const [rentalVenue] = await db
+      .select({ locationId: venues.locationId })
+      .from(venues)
+      .where(eq(venues.id, E2E_RENTAL_VENUE_ID))
+      .limit(1);
+    if (!rentalVenue) {
+      throw new Error(
+        "E2E rental venue not seeded — run `npm run db:seed:e2e` first.",
+      );
+    }
+    locationId = rentalVenue.locationId;
+
+    // Must still be running when /walkin/start is called — see the endsAt
+    // guard note in the adult beforeAll above.
+    const now = new Date();
+    const startsAt = new Date(now.getTime() + 5 * 60_000);
+    const [session] = await db
+      .insert(dropInSessions)
+      .values({
+        organizationId: E2E_ORG_ID,
+        venueId: E2E_RENTAL_VENUE_ID,
+        kind: "pickup",
+        sportOrClassLabel: `context-walkin-minor-${SUFFIX}`,
+        startsAt,
+        endsAt: new Date(startsAt.getTime() + 90 * 60_000),
+        capacity: 20,
+        teamCount: 2,
+        teamColors: ["red", "blue"],
+        audience: "all_ages",
+        sessionRateCents: 1200,
+        walkUpRateCents: 1900,
+      })
+      .returning();
+    sessionId = session.id;
+  });
+
+  async function startWalkIn(body: Record<string, unknown>) {
+    const res = await apiFetch(`/api/kiosk/${locationId}/walkin/start`, {
+      method: "POST",
+      body: JSON.stringify({ sessionId, ...body }),
+    });
+    const json = await res.json();
+    expect(res.status, JSON.stringify(json)).toBe(200);
+    bookingIds.push(json.bookingId);
+    return json as { token: string; bookingId: string };
+  }
+
+  it("resolves the CHILD as the participant and the PARENT as the signer", async () => {
+    // Exactly the payload WalkInWizard sends once the DOB it collected is
+    // under 18: the child in `contact`, the guardian in `parent`.
+    const { token, bookingId } = await startWalkIn({
+      contact: {
+        firstName: CHILD_FIRST,
+        lastName: CHILD_LAST,
+        email: PARENT_EMAIL,
+        phone: "6145550009",
+        dob: "2015-04-02", // 10 years old
+      },
+      parent: {
+        firstName: PARENT_FIRST,
+        lastName: PARENT_LAST,
+        email: PARENT_EMAIL,
+        phone: "6145550009",
+      },
+    });
+
+    // The booking is booked UNDER THE PARENT — this is what made the bug
+    // invisible: everything downstream that reads booking.userId sees an adult.
+    const [booking] = await getDb()
+      .select({
+        userId: dropInBookings.userId,
+        familyMemberId: dropInBookings.familyMemberId,
+      })
+      .from(dropInBookings)
+      .where(eq(dropInBookings.id, bookingId))
+      .limit(1);
+    expect(booking.familyMemberId).not.toBeNull();
+
+    // Give the PARENT an avatar BEFORE asking for context. If the photo target
+    // were still the parent (Critical 2), hasPhotoOnFile() would report a photo
+    // on file and outstanding.photo would come back false — the child would
+    // never be offered a photo, and any photo they did upload would overwrite
+    // this avatar. outstanding.photo MUST stay true: the target is the child.
+    await getDb()
+      .update(users)
+      .set({ avatarUrl: "mock-r2://parent-avatar-already-on-file.jpg" })
+      .where(eq(users.id, booking.userId));
+
+    const res = await fetch(`${BASE}/api/self-serve/${token}`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+
+    expect(body.tokenKind).toBe("walkin_session");
+    // Critical 1: the guardian consent language + "Parent/guardian signature"
+    // label in WaiverCard hang off this flag alone.
+    expect(body.isMinor).toBe(true);
+    // The waiver says "the player named above is physically able to
+    // participate" — the player named above must be the CHILD.
+    expect(body.displayName).toBe(`${CHILD_FIRST} ${CHILD_LAST}`);
+    // ...and the person signing is the guardian.
+    expect(body.signerName).toBe(`${PARENT_FIRST} ${PARENT_LAST}`);
+    // Critical 2: the photo target is the child (family_members.photoUrl),
+    // not the parent's users.avatarUrl — which we just populated.
+    expect(body.outstanding.photo).toBe(true);
+    expect(body.outstanding.waiver).toBe(true);
+
+    // And the resolved family member really is the child on the COPPA path.
+    const [fm] = await getDb()
+      .select({
+        firstName: familyMembers.firstName,
+        parentUserId: familyMembers.parentUserId,
+      })
+      .from(familyMembers)
+      .where(eq(familyMembers.id, booking.familyMemberId!))
+      .limit(1);
+    expect(fm.firstName).toBe(CHILD_FIRST);
+    expect(fm.parentUserId).toBe(booking.userId);
+  });
+
+  it("adult walk-in still reports isMinor false and signs for themselves", async () => {
+    const { token, bookingId } = await startWalkIn({
+      contact: {
+        firstName: "Alex",
+        lastName: `Adultson${SUFFIX.slice(-4)}`,
+        email: ADULT_EMAIL,
+        phone: "6145550010",
+        dob: "1990-01-01",
+      },
+    });
+
+    const [booking] = await getDb()
+      .select({ familyMemberId: dropInBookings.familyMemberId })
+      .from(dropInBookings)
+      .where(eq(dropInBookings.id, bookingId))
+      .limit(1);
+    expect(booking.familyMemberId).toBeNull();
+
+    const res = await fetch(`${BASE}/api/self-serve/${token}`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+
+    expect(body.isMinor).toBe(false);
+    expect(body.displayName).toBe(`Alex Adultson${SUFFIX.slice(-4)}`);
+    expect(body.signerName).toBe(body.displayName); // adult signs for themselves
+  });
+
+  afterAll(async () => {
+    const db = getDb();
+    try {
+      if (bookingIds.length) {
+        await db
+          .delete(dropInBookings)
+          .where(inArray(dropInBookings.id, bookingIds));
+      }
+      const created = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(inArray(users.email, [PARENT_EMAIL, ADULT_EMAIL]));
+      const userIds = created.map((u) => u.id);
+      if (userIds.length) {
+        await db
+          .delete(familyMembers)
+          .where(inArray(familyMembers.parentUserId, userIds));
+        await db.delete(users).where(inArray(users.id, userIds));
+      }
+    } finally {
+      // Cancel + delete the fixture session so it never shows on the venue
+      // command center's "today" board (see the walk-in payment suite above).
+      const adminCookie = await getAdminCookie().catch(() => null);
+      if (adminCookie && sessionId) {
+        await apiFetch(`/api/admin/dropin/sessions/${sessionId}/cancel`, {
+          method: "POST",
+          cookie: adminCookie,
+        }).catch(() => null);
+        await apiFetch(`/api/admin/dropin/sessions/${sessionId}`, {
+          method: "DELETE",
+          cookie: adminCookie,
+        }).catch(() => null);
+      }
+    }
   });
 });

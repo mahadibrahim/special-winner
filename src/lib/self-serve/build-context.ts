@@ -19,6 +19,7 @@ import { venues } from "@/lib/db/schema/teams";
 import { locations } from "@/lib/db/schema/organizations";
 import { verifyToken } from "@/lib/check-in/tokens-db";
 import { resolveSigner } from "@/lib/check-in/resolve-signer";
+import { resolvePhotoTarget, hasPhotoOnFile } from "@/lib/check-in/photo-target";
 import { resolveRate, DEFAULT_WALK_UP_RATE_CENTS } from "@/lib/dropin/pricing";
 import { formatEmailDateTime, DEFAULT_TIMEZONE } from "@/lib/email/format";
 
@@ -26,6 +27,10 @@ export interface SelfServeContextBody {
   tokenKind: string;
   displayName: string;
   signerName: string | null;
+  /** True when the signer is a parent/guardian signing on behalf of a minor
+   *  (family_members.parent_user_id set) — resolveSigner is the authority,
+   *  not a name-string comparison. False for every adult-signer path. */
+  isMinor: boolean;
   summary: string;
   spaceName: string | null;
   outstanding: { waiver: boolean; photo: boolean; payment: boolean };
@@ -171,6 +176,39 @@ export async function buildSelfServeContext(
     outstanding.waiver = true;
   }
 
+  // A cancelled hold has nothing actionable — leave every outstanding flag
+  // false so the page can't offer a photo (or anything else) for a slot that
+  // no longer exists, and skip deriving the flag entirely since it would just
+  // be discarded. NOTE: this is the ONLY case that skips the lookup — this
+  // context is rebuilt on every PayCard poll (every 2s during a payment) and
+  // `cancelled` is false throughout one, so the photo lookup below DOES run
+  // on each of those polls. That is a deliberate accepted cost (two indexed
+  // point reads), not an optimization this branch buys back.
+  //
+  // Is a photo outstanding? Kind-independent: it depends only on WHO the
+  // token resolves to. The target is derived by the same helper the upload
+  // endpoint uses to pick where the file lands (minor → family_members.photoUrl,
+  // otherwise → users.avatarUrl), so the card is only ever offered to the
+  // person the upload would actually be saved against. No target (e.g. an
+  // admin-created field rental for a renter with no account) → no photo step.
+  //
+  // Returning customers with a photo already on file are not asked again.
+  //
+  // Historical note: this flag was initialized to `false` and never assigned,
+  // so PhotoCard — which SelfServe gates on it — had NEVER rendered for any
+  // customer in production. It is now real, and the client treats it as an
+  // OFFER: PhotoCard carries a "Not now" skip and the completion gate counts
+  // a skipped photo as settled, so the photo can never block a kiosk.
+  if (!cancelled) {
+    try {
+      const photoTarget = resolvePhotoTarget(signer, tok.recipientUserId);
+      if (photoTarget) outstanding.photo = !(await hasPhotoOnFile(photoTarget));
+    } catch {
+      // Never block (and never 500) a check-in over an optional photo.
+      outstanding.photo = false;
+    }
+  }
+
   return {
     ok: true,
     status: 200,
@@ -178,6 +216,7 @@ export async function buildSelfServeContext(
       tokenKind: tok.kind,
       displayName: signer?.displayName ?? "Guest",
       signerName: signer?.signerName ?? null,
+      isMinor: signer?.isMinor ?? false,
       summary,
       spaceName,
       outstanding,

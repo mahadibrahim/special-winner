@@ -2,25 +2,13 @@
  * GET /api/kiosk/[locationSlug]/search
  *
  * The kiosk is facility (location) scoped. Seeds a drop-in session TODAY
- * at the E2E rental venue (a space in the seeded facility) and a confirmed
- * booking for a dedicated, uniquely-named test user (NOT the shared seed
- * parent — see below). Verifies:
- *   - partial name match → returns the booking
- *   - last-4-of-phone match → returns the booking
- *   - empty / short query → returns empty results
+ * (bounded by the facility's *local* timezone — see dayBoundsInTz) at the
+ * E2E rental venue (a space in the seeded facility) and a confirmed
+ * booking for the seed parent user. Verifies:
+ *   - a name query returns nothing (privacy fix — phone-only matching)
+ *   - last-4-of-phone match → returns the booking, with an abbreviated title
+ *   - empty / short / sub-4-digit query → returns empty results
  *   - unknown location segment → 404
- *
- * Why a dedicated user: the search endpoint caps results at 20 with no
- * guaranteed-small result set for common search terms. The shared seed
- * parent (`TEST_USERS.parent`, first name "Test Parent") accumulates
- * hundreds of confirmed drop-in bookings on the shared staging DB over
- * time (every seeded test user is named "Test ..."), so searching a 2-char
- * prefix of "Test Parent" matches far more than 20 rows — the endpoint's
- * `orderBy` makes the *choice* of which 20 deterministic, but a 2-char
- * shared-name search can still legitimately return >20 matches with this
- * test's own booking sorted out of the top 20. Using a unique,
- * high-entropy first name keeps this test's result set small and owned
- * regardless of what else lives in the shared DB.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { apiFetch, getAdminCookie } from "../setup/test-helpers";
@@ -28,13 +16,20 @@ import { getDb } from "@/lib/db";
 import { dropInBookings, dropInSessions, dropInRateCard } from "@/lib/db/schema/drop-in";
 import { users } from "@/lib/db/schema/users";
 import { venues } from "@/lib/db/schema/teams";
+import { locations } from "@/lib/db/schema/organizations";
 import { eq } from "drizzle-orm";
-import { E2E_RENTAL_VENUE_ID, E2E_ORG_ID } from "@/lib/db/seeds/seed-e2e-tests";
+import {
+  E2E_RENTAL_VENUE_ID,
+  E2E_ORG_ID,
+  TEST_USERS,
+} from "@/lib/db/seeds/seed-e2e-tests";
+import { dayBoundsInTz } from "@/lib/time/day-bounds";
 
 // Use a unique field so parallel runs at the same venue don't collide on
-// the booking unique index (session_id, user_id). The session is scoped to
-// today UTC, so it IS today-bounded, which is exactly what the search
-// endpoint requires.
+// the booking unique index (session_id, user_id). The session is placed at
+// local noon at the facility's timezone (see beforeAll), which is
+// unambiguously inside the facility's local "today" regardless of what
+// hour/DST-state the test happens to run in.
 const UNIQUE_SUFFIX = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
 describe("GET /api/kiosk/[locationSlug]/search", () => {
@@ -63,23 +58,41 @@ describe("GET /api/kiosk/[locationSlug]/search", () => {
     }
     locationId = rentalVenue.locationId;
 
-    // Create a dedicated user with a unique, high-entropy first name — see
-    // the file-level comment for why this must not be the shared seed
-    // parent. Phone is derived from the same suffix so it's unique too.
-    parentFirstName = `Kiosk${UNIQUE_SUFFIX.replace(/[^a-zA-Z0-9]/g, "")}`;
-    parentPhone = `555${UNIQUE_SUFFIX.replace(/\D/g, "").slice(0, 7)}`
-      .slice(0, 10)
-      .padEnd(10, "0");
-    const [testUser] = await db
-      .insert(users)
-      .values({
-        email: `kiosk-search-${UNIQUE_SUFFIX}@t.example`,
-        firstName: parentFirstName,
-        lastName: "SearchFixture",
-        phone: parentPhone,
-      })
-      .returning();
-    parentUserId = testUser.id;
+    // Resolve the facility's timezone — the endpoint bounds "today" by the
+    // facility's *local* day (dayBoundsInTz), not naive UTC. The seeded
+    // session below must land inside that local day regardless of what
+    // wall-clock hour this test happens to run at.
+    const [locationRow] = await db
+      .select({ timezone: locations.timezone })
+      .from(locations)
+      .where(eq(locations.id, locationId))
+      .limit(1);
+    const tz = locationRow?.timezone ?? "America/New_York";
+
+    // Resolve the seed parent user (must exist from seed-e2e-tests run).
+    const [parentRow] = await db
+      .select({ id: users.id, firstName: users.firstName, lastName: users.lastName, phone: users.phone })
+      .from(users)
+      .where(eq(users.email, TEST_USERS.parent.email))
+      .limit(1);
+    if (!parentRow) {
+      throw new Error("Seed parent user not found — run npm run db:seed:e2e first");
+    }
+    parentUserId = parentRow.id;
+    parentFirstName = parentRow.firstName ?? TEST_USERS.parent.firstName;
+
+    // Ensure the parent has a phone so last-4 matching is testable.
+    // If the seed didn't set one, give it a stable value for this run.
+    if (!parentRow.phone) {
+      const testPhone = `5550${UNIQUE_SUFFIX.replace(/\D/g, "").slice(0, 6)}`.slice(0, 10).padEnd(10, "0");
+      await db
+        .update(users)
+        .set({ phone: testPhone })
+        .where(eq(users.id, parentUserId));
+      parentPhone = testPhone;
+    } else {
+      parentPhone = parentRow.phone;
+    }
 
     // Ensure a rate card exists for the org.
     await db
@@ -87,13 +100,14 @@ describe("GET /api/kiosk/[locationSlug]/search", () => {
       .values({ organizationId: E2E_ORG_ID })
       .onConflictDoNothing();
 
-    // Build today-UTC bounds for startsAt.
-    const now = new Date();
-    const todayStart = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+    // Place the session at the facility's local noon today — the midpoint
+    // of dayBoundsInTz's [start, end) window — so it's unambiguously inside
+    // the facility's local "today" no matter what hour/DST-state this test
+    // runs at.
+    const { start: localDayStart, end: localDayEnd } = dayBoundsInTz(tz);
+    const sessionStart = new Date(
+      (localDayStart.getTime() + localDayEnd.getTime()) / 2,
     );
-    // Place the session 1 hour after UTC midnight so it's firmly within today.
-    const sessionStart = new Date(todayStart.getTime() + 1 * 3_600_000);
     const sessionEnd = new Date(sessionStart.getTime() + 90 * 60_000);
 
     const [session] = await db
@@ -126,18 +140,80 @@ describe("GET /api/kiosk/[locationSlug]/search", () => {
     bookingId = booking.id;
   });
 
-  it("returns the booking when searching by partial first name", async () => {
-    // Use at least the first 2 chars of the parent's first name.
+  // Covers the 4-digit gate: a pure-name query has zero digits, so
+  // qDigits.length < 4 trips the early return before any DB query runs.
+  // This only proves the gate itself works — it does NOT exercise the query
+  // builder, so it would still pass even if a name-matching disjunct were
+  // reintroduced there. See "rejects a name that rides along with a
+  // non-matching phone suffix" below for the test that actually guards
+  // against that regression.
+  it("returns nothing for a name query", async () => {
+    // Use at least the first 2 chars of the parent's first name — this used
+    // to be enough to surface the booking; it must not be anymore.
     const q = parentFirstName.slice(0, Math.max(2, Math.floor(parentFirstName.length / 2)));
     const res = await apiFetch(
       `/api/kiosk/${locationId}/search?q=${encodeURIComponent(q)}`,
     );
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(Array.isArray(body.results)).toBe(true);
-    const match = body.results.find((r: { targetId: string }) => r.targetId === bookingId);
-    expect(match).toBeDefined();
-    expect(match.kind).toBe("drop_in_booking");
+    expect(body.results).toEqual([]);
+  });
+
+  // The actual regression guard for the privacy fix. A pure-name query (see
+  // above) never reaches the query builder at all — it's caught by the
+  // qDigits.length < 4 gate first, so it can't detect a name disjunct
+  // reintroduced *inside* the query. This probe appends 4 digits that are
+  // deliberately NOT the seeded booking's phone suffix, so qDigits.length
+  // is 4 and execution clears the gate and reaches db.select(...). The
+  // phone-suffix filter then correctly finds no match. But the probe also
+  // contains the seeded user's real first name — if anyone ever adds back
+  // an `ilike(users.firstName, ...)` (or similar) disjunct to the query,
+  // that name would match and this test would start seeing a result.
+  //
+  // The space between the name and the digits is load-bearing. The most
+  // natural way someone would "restore name search" is to tokenize on
+  // whitespace and match alpha tokens against the name columns and digit
+  // tokens against the phone. A probe with no space ("Casey0001") is a
+  // single digit-bearing token, so that mutation would fall through and go
+  // undetected — while "Casey 1234" would leak in production the moment a
+  // real user typed it. With the space, this probe catches both the
+  // alpha-extraction and the whitespace-tokenizing reintroductions. It
+  // still passes against the correct implementation, which extracts digits
+  // from the whole string regardless of spaces.
+  it("rejects a name that rides along with a non-matching phone suffix", async () => {
+    const realLast4 = parentPhone.replace(/\D/g, "").slice(-4);
+    // +1 mod 10000 is always different from realLast4 (equal would require
+    // 1 ≡ 0 mod 10000), and is derived rather than hardcoded so it can't
+    // silently collide with whatever the seed data happens to be.
+    const nonMatchingLast4 = String(
+      (parseInt(realLast4, 10) + 1) % 10000,
+    ).padStart(4, "0");
+    const q = `${parentFirstName} ${nonMatchingLast4}`;
+    const res = await apiFetch(
+      `/api/kiosk/${locationId}/search?q=${encodeURIComponent(q)}`,
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    // Deliberately NOT toEqual([]) — the CI database accumulates rows across
+    // runs, so some unrelated customer may legitimately have a booking today
+    // whose phone ends in nonMatchingLast4. That would be a correct phone
+    // match, not a leak. What must never appear is the seeded user, whose
+    // name is the bait in this probe.
+    const leaked = (body.results as { title: string }[]).filter((r) =>
+      r.title.startsWith(parentFirstName),
+    );
+    expect(leaked).toEqual([]);
+  });
+
+  it("returns nothing for fewer than 4 digits", async () => {
+    const last4 = parentPhone.replace(/\D/g, "").slice(-4);
+    const q = last4.slice(0, 3);
+    const res = await apiFetch(
+      `/api/kiosk/${locationId}/search?q=${encodeURIComponent(q)}`,
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.results).toEqual([]);
   });
 
   it("returns the booking when searching by last-4 of phone", async () => {
@@ -155,6 +231,18 @@ describe("GET /api/kiosk/[locationSlug]/search", () => {
     const match = body.results.find((r: { targetId: string }) => r.targetId === bookingId);
     expect(match).toBeDefined();
     expect(match.kind).toBe("drop_in_booking");
+  });
+
+  it("abbreviates the surname so a digit collision reveals little", async () => {
+    const last4 = parentPhone.replace(/\D/g, "").slice(-4);
+    const res = await apiFetch(
+      `/api/kiosk/${locationId}/search?q=${encodeURIComponent(last4)}`,
+    );
+    const body = await res.json();
+    const match = body.results.find((r: { targetId: string }) => r.targetId === bookingId);
+    expect(match).toBeDefined();
+    // "Casey Tester" -> "Casey T."
+    expect(match.title).toMatch(/^\S+ \S\.$/);
   });
 
   it("returns empty results for an empty query", async () => {

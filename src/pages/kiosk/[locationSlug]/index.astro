@@ -1,10 +1,17 @@
 ---
 import BaseLayout from "@/layouts/BaseLayout.astro";
-import KioskLanding from "@/components/kiosk/KioskLanding";
+import KioskRoot from "@/components/kiosk/KioskRoot";
+import KioskMasthead from "@/components/kiosk/KioskMasthead.astro";
 import { requireKioskLocation } from "@/lib/check-in/kiosk-auth";
+import { getBrandTheme } from "@/lib/branding/themes";
 import { BUSINESS_TIMEZONE } from "@/lib/time/business-timezone";
+import "@/styles/kiosk.css";
 
 export const prerender = false;
+
+// The kiosk serves both brands — the name is never hardcoded in the island.
+const brandId = Astro.locals.brandId;
+const brandName = getBrandTheme(brandId).displayName;
 
 const slug = Astro.params.locationSlug;
 let locationName: string | null = null;
@@ -14,7 +21,12 @@ let locationTimezone: string = BUSINESS_TIMEZONE;
 let invalid = false;
 
 if (slug) {
-  const k = await requireKioskLocation(slug);
+  // locations.slug is unique per ORG, so the facility is resolved against the
+  // organization the middleware derived from the host first, then (only if
+  // that misses) globally — but only when exactly one active facility carries
+  // the segment. See requireKioskLocation for why a bare org-scoped lookup
+  // would hard-404 a mounted kiosk.
+  const k = await requireKioskLocation(slug, Astro.locals.organization?.id ?? null);
   if (k.ok) {
     locationName = k.location.name;
     locationTimezone = k.location.timezone ?? locationTimezone;
@@ -37,26 +49,21 @@ const today = new Date().toLocaleDateString("en-US", {
 });
 ---
 <BaseLayout
-  title={locationName ? `${locationName} kiosk — Aspire Sports` : "Kiosk — Aspire Sports"}
+  title={locationName ? `${locationName} kiosk — ${brandName}` : `Kiosk — ${brandName}`}
   navigation={false}
   footer={false}
 >
-  <main class="min-h-screen bg-cream text-ink antialiased">
-    <!-- Editorial masthead -->
-    <div class="border-b border-border">
-      <div class="max-w-2xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
-        <p class="text-[11px] font-semibold tracking-[0.18em] uppercase text-ink-muted">
-          § The Front Desk
-        </p>
-        <p class="text-[11px] font-medium tracking-[0.08em] uppercase text-ink-faint">
-          {today}
-        </p>
-      </div>
-    </div>
+  <Fragment slot="head">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  </Fragment>
+  <main class="kiosk-surface min-h-screen flex flex-col bg-cream text-ink antialiased">
+    <KioskMasthead brandId={brandId} brandName={brandName} locationName={locationName} today={today} />
 
-    <div class="max-w-2xl mx-auto px-6 py-10 md:py-14">
+    <div class="max-w-2xl mx-auto px-6 py-10 md:py-14 flex-1">
       {invalid ? (
-        <div class="bg-paper border border-rose-200/70 rounded-xl p-6">
+        <div class="bg-paper border border-destructive/30 rounded-xl p-6">
           <h1 class="font-display text-2xl font-medium italic text-ink mb-2">
             Kiosk not configured
           </h1>
@@ -65,13 +72,22 @@ const today = new Date().toLocaleDateString("en-US", {
           </p>
         </div>
       ) : (
-        <KioskLanding
+        <KioskRoot
           client:load
           locationSlug={slug!}
           locationName={locationName!}
+          brandId={brandId}
           publishableKey={import.meta.env.STRIPE_PUBLISHABLE_KEY ?? ""}
         />
       )}
     </div>
+
+    <footer class="border-t border-border mt-auto">
+      <div class="max-w-2xl mx-auto px-6 py-4 text-center">
+        <p class="text-[11px] tracking-[0.12em] uppercase text-ink-faint">
+          Powered by <span class="text-ink-muted font-semibold">Aspire Sports</span>
+        </p>
+      </div>
+    </footer>
   </main>
 </BaseLayout>

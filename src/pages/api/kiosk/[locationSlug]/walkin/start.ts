@@ -5,13 +5,19 @@
  * kiosk without a prior online booking. Flow:
  *
  *   1. requireKioskLocation(slug) — resolve facility + org
- *   2. Validate the target session (a space in this facility, status=scheduled)
+ *   2. Validate the target session (a space in this facility, status=scheduled,
+ *      endsAt still in the future — mirrors the GET /sessions listing filter,
+ *      but enforced server-side since this endpoint is public/unauthenticated)
  *   3. Validate contact / parent fields; reject minors without parent info.
  *      contact.dob is optional for adults (owner decision 2026-07-12) but
  *      required whenever a `parent` payload is sent (the child/COPPA path) —
  *      without it we can't compute age and gate minor status at all.
  *   4. Create or find the booker user record (parent for minors, self for adults)
- *   5. For minors: create a family_members row (parent_user_id path). Adults
+ *   5. For minors: create a family_members row (parent_user_id path) and stamp
+ *      its id onto the booking (`family_member_id`) — the booking's userId is
+ *      the PARENT, so this column is the only thing that says who actually
+ *      plays. resolveSigner() reads it to hand the guardian the GUARDIAN
+ *      waiver and to file the kiosk photo against the child. Adults
  *      never get a family_members row here — only a `users` row — so a
  *      missing DOB never touches the NOT NULL family_members.birth_date
  *      column (see resolvePerson: kind:"self" dedupes purely on
@@ -85,7 +91,7 @@ function computeAge(dobStr: string): number {
   return age;
 }
 
-export const POST: APIRoute = async ({ params, request, clientAddress }) => {
+export const POST: APIRoute = async ({ params, request, clientAddress, locals }) => {
   const slug = params.locationSlug ?? "";
 
   // The kiosk slug is public (non-secret), and this endpoint creates booking
@@ -98,7 +104,10 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
     return rateLimitedResponse(ipLimit.retryAfter ?? 60);
   }
 
-  const locationResult = await requireKioskLocation(slug);
+  const locationResult = await requireKioskLocation(
+    slug,
+    locals.organization?.id ?? null,
+  );
   if (!locationResult.ok) return locationResult.response;
   const { location } = locationResult;
 
@@ -187,6 +196,17 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
 
   if (session.status !== "scheduled") return json({ error: "Session is not open for registration" }, 422);
 
+  // The GET /sessions listing already hides sessions whose endsAt is in the
+  // past (a walk-in must never be able to pay to join this morning's 9am
+  // pickup at 8pm) — but that's a UI-only filter. This endpoint is public
+  // and unauthenticated, and a kiosk iPad left open for hours can still
+  // submit a stale sessionId from an earlier fetch. Enforce the same rule
+  // server-side so a direct/stale call can't start (and later pay for) a
+  // walk-in on a session that has already ended.
+  if (session.endsAt <= new Date()) {
+    return json({ error: "That session has already ended. Please pick another." }, 422);
+  }
+
   // --- Resolve rate ---
   let [rateCard] = await db
     .select()
@@ -245,16 +265,23 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
   // --- For minors: ensure a family_members row exists (parentUserId path) ---
   // resolvePerson dedupes on (parentUserId, name, birthDate) and avoids the
   // self/parent XOR constraint race — replaces the hand-rolled lookup.
+  // The row's id is carried onto the booking below (dropInBookings.familyMemberId)
+  // — that is the ONLY link from the booking back to the child. The booking's
+  // userId is the PARENT, so without it resolveSigner() cannot tell a minor
+  // walk-in from an adult one: the guardian would be handed the adult waiver
+  // and the child's photo would be written to the parent's avatar.
+  let bookingFamilyMemberId: string | null = null;
   if (isMinor) {
     // isMinor is only ever true when contactDob was present and parsed
     // (see the age computation above) — non-null assertion is safe here.
-    await resolvePerson(db, {
+    const person = await resolvePerson(db, {
       kind: "dependent",
       parentUserId: bookerUserId,
       firstName: contactFirstName,
       lastName: contactLastName,
       birthDate: contactDob!,
     });
+    bookingFamilyMemberId = person.id;
   }
 
   // --- Duplicate-hold guard + insert, atomically ---
@@ -337,6 +364,8 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
         .values({
           sessionId: session.id,
           userId: bookerUserId,
+          // Minor walk-in: the participant is the child, not the booker.
+          familyMemberId: bookingFamilyMemberId,
           status: "pending_payment",
           source: "walk_up",
           paymentMethod: "card_online",

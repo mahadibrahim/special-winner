@@ -43,9 +43,9 @@ try {
   footer={false}
 >
   <main class="min-h-screen bg-cream flex items-start justify-center p-4 pt-8">
-    <div class="w-full max-w-md">
+    <div class="w-full max-w-2xl">
       {error ? (
-        <div class="p-6 rounded-lg border border-rose-200 bg-rose-50 text-rose-800">
+        <div class="p-6 rounded-xl border border-border bg-paper text-ink">
           <h1 class="font-semibold text-lg mb-2">Link unavailable</h1>
           <p class="text-sm">{error}</p>
         </div>
@@ -56,6 +56,7 @@ try {
           context={context}
           kioskSlug={kioskSlug}
           publishableKey={import.meta.env.STRIPE_PUBLISHABLE_KEY ?? ""}
+          brandId={Astro.locals.brandId}
         />
       )}
     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   Elements,
@@ -11,6 +11,7 @@ import {
 import type { Stripe as StripeJs } from "@stripe/stripe-js";
 import { toast } from "sonner";
 import { ErrorBanner } from "@/components/ui/error-banner";
+import { CARD_CLASS, GHOST_BTN, PRIMARY_BTN } from "./card-styles";
 
 // Mirrors src/components/kiosk/WalkInWizard.tsx's stripe-js loading —
 // module-level cache so repeated mounts (e.g. this card re-rendering while
@@ -44,7 +45,27 @@ export interface PayCardProps {
   locationSlug: string | null;
   bookingId: string | null;
   publishableKey: string;
+  /** Drives the mounted Stripe Elements iframe's theme — our CSS custom
+   *  properties can't reach into it. Optional; defaults to Aspire's light
+   *  "stripe" theme so any other caller keeps working unchanged. */
+  brandId?: "aspire" | "soccerone";
   onPaid: () => void;
+  /** Reports "a confirmPayment / 3-D Secure challenge is in flight" to the
+   *  embedder (the kiosk), so its idle timer can't hard-reset the screen
+   *  between the customer tapping Pay and Stripe answering. A reset there is
+   *  the worst outcome in the whole flow: the charge still settles
+   *  server-side while the customer is looking at the landing screen with no
+   *  confirmation they paid. Optional — the standalone /self-serve/[token]
+   *  page has no idle timer and passes nothing. */
+  onBusy?: (busy: boolean) => void;
+  /** Fires on any interaction INSIDE the Stripe Elements iframe. Stripe
+   *  renders card fields cross-origin, so keystrokes there never reach the
+   *  parent window's pointerdown/keydown listeners — to a window-level idle
+   *  timer, a customer carefully typing a 16-digit card number looks exactly
+   *  like an abandoned kiosk. PaymentElement's onChange/onFocus DO fire in
+   *  the parent React tree, which is the only activity signal we get from
+   *  inside that iframe. Optional. */
+  onActivity?: () => void;
 }
 
 const fmt = (cents: number) => `$${(cents / 100).toFixed(2)}`;
@@ -67,7 +88,10 @@ export function PayCard({
   locationSlug,
   bookingId,
   publishableKey,
+  brandId,
   onPaid,
+  onBusy,
+  onActivity,
 }: PayCardProps) {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [amounts, setAmounts] = useState<PaymentAmounts | null>(null);
@@ -164,16 +188,16 @@ export function PayCard({
   }, [token, locationSlug]);
 
   return (
-    <div className="p-4 rounded-lg border space-y-3 bg-white" data-booking-id={bookingId ?? undefined}>
+    <div className={CARD_CLASS} data-booking-id={bookingId ?? undefined}>
       <div>
-        <h2 className="font-semibold">Complete payment</h2>
-        <p className="text-sm text-stone-600">
+        <h2 className="font-semibold text-ink">Complete payment</h2>
+        <p className="text-sm text-ink-muted">
           Your spot is held until payment is complete.
         </p>
       </div>
 
       {loading && (
-        <div className="text-sm text-stone-600">Loading payment…</div>
+        <div className="text-sm text-ink-muted">Loading payment…</div>
       )}
 
       <ErrorBanner message={loadError} onDismiss={() => setLoadError(null)} />
@@ -185,7 +209,7 @@ export function PayCard({
             <button
               type="button"
               onClick={() => setStripeLoadAttempt((n) => n + 1)}
-              className="w-full px-4 py-2 rounded border bg-stone-50 text-sm"
+              className={GHOST_BTN}
             >
               Try again
             </button>
@@ -196,12 +220,17 @@ export function PayCard({
       {!loading && clientSecret && stripeInstance && (
         <Elements
           stripe={stripeInstance}
-          options={{ clientSecret, appearance: { theme: "stripe" } }}
+          options={{
+            clientSecret,
+            appearance: { theme: brandId === "soccerone" ? "night" : "stripe" },
+          }}
         >
           <PayCardForm
             amounts={amounts}
             fallbackAmountCents={amountDueCents}
             onSuccess={onPaid}
+            onBusy={onBusy}
+            onActivity={onActivity}
           />
         </Elements>
       )}
@@ -213,10 +242,14 @@ function PayCardForm({
   amounts,
   fallbackAmountCents,
   onSuccess,
+  onBusy,
+  onActivity,
 }: {
   amounts: PaymentAmounts | null;
   fallbackAmountCents: number;
   onSuccess: () => void;
+  onBusy?: (busy: boolean) => void;
+  onActivity?: () => void;
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -224,6 +257,26 @@ function PayCardForm({
   const [formError, setFormError] = useState<string | null>(null);
 
   const totalLabel = amounts ? fmt(amounts.totalCents) : fmt(fallbackAmountCents);
+
+  // `busy` is set BEFORE confirmPayment (below) and cleared in its `finally`,
+  // so mirroring it upward covers the entire confirm + 3-D Secure window —
+  // including the inline challenge iframe, which produces no parent-window
+  // activity either. Deriving the signal from state, with an unmount release,
+  // is what guarantees no exit path (success, decline, throw, reset) can
+  // leave the kiosk wedged in a suppressed state where it never resets.
+  //
+  // The success hand-off has no gap: onSuccess() flips SelfServe's
+  // paymentProcessing true in the same batch that clears `busy`, so the
+  // aggregate busy signal SelfServe reports stays continuously true from tap
+  // to webhook confirmation.
+  const onBusyRef = useRef(onBusy);
+  onBusyRef.current = onBusy;
+  useEffect(() => {
+    onBusyRef.current?.(busy);
+    return () => {
+      if (busy) onBusyRef.current?.(false);
+    };
+  }, [busy]);
 
   const onPay = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -264,31 +317,34 @@ function PayCardForm({
   return (
     <form onSubmit={onPay} className="space-y-3">
       {amounts && (
-        <div className="text-sm space-y-1 border rounded p-3 bg-stone-50">
-          <div className="flex justify-between text-stone-600">
+        <div className="text-sm space-y-1 border border-border rounded p-3 bg-cream-2">
+          <div className="flex justify-between text-ink-muted">
             <span>Session</span>
             <span>{fmt(amounts.baseAmountCents)}</span>
           </div>
-          <div className="flex justify-between text-stone-600">
+          <div className="flex justify-between text-ink-muted">
             <span>Card processing fee</span>
             <span>{fmt(amounts.surchargeCents)}</span>
           </div>
-          <div className="flex justify-between font-medium border-t pt-1">
+          <div className="flex justify-between font-medium text-ink border-t border-border pt-1">
             <span>Total</span>
             <span>{fmt(amounts.totalCents)}</span>
           </div>
         </div>
       )}
 
-      <PaymentElement />
+      {/* onChange/onFocus are the ONLY activity we can observe from inside
+          Stripe's cross-origin iframe — keystrokes on the card fields never
+          bubble to the parent window. Without them the kiosk's idle timer
+          counts a customer mid-card-entry as an abandoned session. */}
+      <PaymentElement
+        onChange={() => onActivity?.()}
+        onFocus={() => onActivity?.()}
+      />
 
       <ErrorBanner message={formError} onDismiss={() => setFormError(null)} />
 
-      <button
-        type="submit"
-        disabled={busy || !stripe || !elements}
-        className="w-full px-4 py-2 rounded bg-stone-900 text-white disabled:opacity-50"
-      >
+      <button type="submit" disabled={busy || !stripe || !elements} className={PRIMARY_BTN}>
         {busy ? "Processing…" : `Pay ${totalLabel}`}
       </button>
     </form>

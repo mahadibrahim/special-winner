@@ -631,6 +631,13 @@
       "when": 1783987477449,
       "tag": "0089_certain_shape",
       "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1784030542394,
+      "tag": "0090_furry_ultimatum",
+      "breakpoints": true
     }
   ]
 }

@@ -3,23 +3,30 @@
  *
  * Unauthenticated kiosk search. The locationSlug (location slug or UUID)
  * scopes every query to one facility. Returns confirmed drop-in bookings
- * and field rentals across every space in THIS facility for TODAY (UTC
- * day bounds).
+ * and field rentals across every space in THIS facility for TODAY (local
+ * day bounds at the facility's timezone — see dayBoundsInTz).
  *
- * Search matches:
- *  - Drop-in: user's first or last name (ilike) or last-4 of phone.
- *  - Field rental: renterName (ilike) or last-4 of renterPhone.
+ * Search matches phone digits only — last-4 of the drop-in user's phone,
+ * or last-4 of the field rental's renterPhone. Matching on name used to be
+ * enough for anyone standing at the kiosk to list other customers' names
+ * and sessions after typing two characters; requiring the phone number
+ * means only someone who actually knows it can surface a booking. Each
+ * result's title is abbreviated to "First L." (see abbreviateName) so a
+ * digit collision doesn't hand over a stranger's full name either.
  *
- * Returns at most 20 results. Empty / sub-2-char query → empty results.
+ * Returns at most 20 results. Fewer than 4 digits in the query → empty
+ * results.
  */
 import type { APIRoute } from "astro";
-import { and, asc, eq, gte, ilike, lt, or } from "drizzle-orm";
+import { and, eq, gte, ilike, lt } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
 import { fieldRentals } from "@/lib/db/schema/field-rentals";
 import { users } from "@/lib/db/schema/users";
 import { venues } from "@/lib/db/schema/teams";
 import { requireKioskLocation } from "@/lib/check-in/kiosk-auth";
+import { dayBoundsInTz } from "@/lib/time/day-bounds";
+import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 
 export const prerender = false;
 
@@ -31,9 +38,36 @@ const json = (body: unknown, status: number) =>
 
 const MAX_RESULTS = 20;
 
-export const GET: APIRoute = async ({ params, url }) => {
+/** "Casey Tester" -> "Casey T." — enough for the right person to recognize
+ *  their own booking, not enough to be worth harvesting. */
+function abbreviateName(first: string | null, last: string | null): string {
+  const f = (first ?? "").trim();
+  const l = (last ?? "").trim();
+  if (!f && !l) return "Guest";
+  if (!l) return f;
+  return `${f} ${l[0].toUpperCase()}.`;
+}
+
+export const GET: APIRoute = async ({ params, url, clientAddress, locals }) => {
   const slug = params.locationSlug ?? "";
-  const kioskResult = await requireKioskLocation(slug);
+
+  // Unauthenticated and on the public internet — not just on the iPad. The
+  // 4-digit gate is only ~10k guesses, so without a throttle a scraper can
+  // enumerate every booking at a facility. A real customer taps a phone
+  // number in once (the client debounces to a handful of requests as the
+  // last digits land); 40/min per IP+location leaves that untouched and
+  // makes enumeration take days. Same helper + 429 shape as the walk-in
+  // endpoints. (In-memory/fail-open limiter — see rate-limit.ts.)
+  const ip = clientAddress || "unknown";
+  const ipLimit = rateLimit(`kiosk-search:${slug}:${ip}`, 40, 60_000);
+  if (!ipLimit.allowed) {
+    return rateLimitedResponse(ipLimit.retryAfter ?? 60);
+  }
+
+  const kioskResult = await requireKioskLocation(
+    slug,
+    locals.organization?.id ?? null,
+  );
   if (!kioskResult.ok) return kioskResult.response;
   const { location } = kioskResult;
 
@@ -49,25 +83,20 @@ export const GET: APIRoute = async ({ params, url }) => {
     });
 
   const q = url.searchParams.get("q") ?? "";
-  if (q.trim().length < 2) {
+  // Phone digits only. A name-prefix search on a public kiosk listed other
+  // customers' names to whoever was standing there; requiring the number
+  // means only someone who knows it can surface a booking.
+  const qDigits = q.replace(/\D/g, "");
+  if (qDigits.length < 4) {
     return json({ results: [] }, 200);
   }
+  const last4 = qDigits.slice(-4);
 
-  // UTC day bounds for today
-  const now = new Date();
-  const todayStart = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
-  );
-  const todayEnd = new Date(todayStart.getTime() + 86_400_000);
+  // "Today" means today *at the facility* — see dayBoundsInTz. Using UTC
+  // bounds here dropped evening sessions after 8pm Eastern.
+  const { start: todayStart, end: todayEnd } = dayBoundsInTz(tz);
 
   const db = getDb();
-  const term = `%${q}%`;
-  // Extract only digits from the raw query and take the last 4. This lets a
-  // user type "0182" or "(614) 0182" and still match the DB's 10-digit phone
-  // field via a trailing-4 ilike. normalizePhone() requires 10 digits so it's
-  // not suitable for extracting a 4-digit fragment.
-  const qDigits = q.replace(/\D/g, "");
-  const last4 = qDigits.length >= 4 ? qDigits.slice(-4) : "";
 
   // ---- Drop-in bookings ----
   const dropInRows = await db
@@ -92,20 +121,10 @@ export const GET: APIRoute = async ({ params, url }) => {
         eq(dropInBookings.status, "confirmed"),
         gte(dropInSessions.startsAt, todayStart),
         lt(dropInSessions.startsAt, todayEnd),
-        or(
-          ilike(users.firstName, term),
-          ilike(users.lastName, term),
-          // last-4 phone match — only apply when the input normalizes to ≥4 digits
-          last4.length === 4 ? ilike(users.phone, `%${last4}`) : undefined,
-        ),
+        ilike(users.phone, `%${last4}`),
       ),
     )
-    // CLAUDE.md multi-tenant query hazard: any query with `.limit()` picking
-    // "a" set of rows out of a possibly-larger match set MUST have an
-    // explicit orderBy, or it returns an arbitrary (and on a shared DB,
-    // nondeterministic) subset. Soonest game first is what front desk wants;
-    // booking createdAt is the tiebreak for same-time sessions.
-    .orderBy(asc(dropInSessions.startsAt), asc(dropInBookings.createdAt))
+    .orderBy(dropInSessions.startsAt, dropInBookings.id)
     .limit(MAX_RESULTS);
 
   // ---- Field rentals ----
@@ -128,14 +147,10 @@ export const GET: APIRoute = async ({ params, url }) => {
         eq(fieldRentals.status, "confirmed"),
         gte(fieldRentals.startsAt, todayStart),
         lt(fieldRentals.startsAt, todayEnd),
-        or(
-          ilike(fieldRentals.renterName, term),
-          last4.length === 4 ? ilike(fieldRentals.renterPhone, `%${last4}`) : undefined,
-        ),
+        ilike(fieldRentals.renterPhone, `%${last4}`),
       ),
     )
-    // Same CLAUDE.md multi-tenant orderBy rule as the drop-in query above.
-    .orderBy(asc(fieldRentals.startsAt), asc(fieldRentals.createdAt))
+    .orderBy(fieldRentals.startsAt, fieldRentals.id)
     .limit(MAX_RESULTS);
 
   type Result = {
@@ -150,12 +165,11 @@ export const GET: APIRoute = async ({ params, url }) => {
   const results: Result[] = [];
 
   for (const row of dropInRows) {
-    const name = `${row.firstName ?? ""} ${row.lastName ?? ""}`.trim() || "(unknown)";
     const time = fmtTime(row.startsAt);
     results.push({
       kind: "drop_in_booking",
       targetId: row.bookingId,
-      title: name,
+      title: abbreviateName(row.firstName, row.lastName),
       subtitle: `${row.sessionLabel} — ${time}`,
       waiverSigned: row.waiverSigned,
       checkedIn: row.checkedInAt !== null,
@@ -164,10 +178,12 @@ export const GET: APIRoute = async ({ params, url }) => {
 
   for (const row of rentalRows) {
     const time = fmtTime(row.startsAt);
+    const [renterFirst, ...renterRest] = (row.renterName ?? "").trim().split(/\s+/);
+    const renterLast = renterRest.join(" ");
     results.push({
       kind: "field_rental",
       targetId: row.rentalId,
-      title: row.renterName,
+      title: abbreviateName(renterFirst ?? "", renterLast),
       subtitle: `Field ${row.fieldNumber} — ${time}`,
       waiverSigned: row.waiverSigned,
       checkedIn: row.checkedInAt !== null,
