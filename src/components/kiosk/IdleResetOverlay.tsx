@@ -18,6 +18,14 @@ export function IdleResetOverlay({
       role="alertdialog"
       aria-modal="true"
       aria-label="Are you still there?"
+      // z-50 is the ceiling for anything we control — but Stripe.js paints a
+      // 3-D Secure challenge in a full-screen overlay iframe at
+      // z-index 2147483647, which paints OVER this. If this warning ever
+      // fires during a 3DS challenge, the customer cannot see it or tap
+      // "I'm still here." That's exactly why KioskRoot must not let the
+      // payment-confirm busy window get clipped by the short suppression
+      // ceiling (see UNBOUNDED_BUSY_MAX_MS in KioskRoot.tsx) — this overlay
+      // is not a real backstop for that window, so the busy flag has to be.
       className="fixed inset-0 z-50 flex items-center justify-center bg-cream/95 p-6"
     >
       <div className="w-full max-w-md space-y-5 rounded-xl border border-border bg-paper p-8 text-center">

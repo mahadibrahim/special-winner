@@ -58,6 +58,7 @@ export default function SelfServe({
   brandId,
   onDone,
   onBusyChange,
+  onUnboundedBusyChange,
   onActivity,
 }: {
   token: string;
@@ -85,6 +86,16 @@ export default function SelfServe({
    *  signal, so the parent never has to know the flow's internals. Absent
    *  for a standalone link, which has no idle timer to suppress. */
   onBusyChange?: (busy: boolean) => void;
+  /** Kiosk-embedded mode: reports payConfirmBusy ALONE — the window covering
+   *  `stripe.confirmPayment()` and any 3-D Secure challenge it triggers. This
+   *  is the one component of `anyBusy` with no upper bound: an app-based 3DS
+   *  approval waits on the customer unlocking their phone and completing
+   *  bank-side auth, which can run well past a minute. The parent needs it
+   *  isolated from the aggregate so it can give ONLY this window a longer
+   *  suppression ceiling — see UNBOUNDED_BUSY_MAX_MS in KioskRoot. Optional
+   *  and independent of onBusyChange; both default to unused for a
+   *  standalone link, which has no idle timer to suppress. */
+  onUnboundedBusyChange?: (busy: boolean) => void;
   /** Kiosk-embedded mode: forwarded to PayCard, which is the only child that
    *  can produce user activity the parent's window listeners cannot see (the
    *  cross-origin Stripe Elements iframe). Absent standalone. */
@@ -259,6 +270,13 @@ export default function SelfServe({
   useEffect(() => {
     onBusyChange?.(anyBusy);
   }, [anyBusy, onBusyChange]);
+
+  // payConfirmBusy reported on its own, in addition to folding into anyBusy
+  // above — see onUnboundedBusyChange's doc comment for why the parent needs
+  // this window isolated from the (bounded) rest of anyBusy.
+  useEffect(() => {
+    onUnboundedBusyChange?.(payConfirmBusy);
+  }, [payConfirmBusy, onUnboundedBusyChange]);
 
   // Cancelled wins over EVERYTHING below — a released hold must never show
   // the checked-in confirmation (the slot is gone), and with the context's

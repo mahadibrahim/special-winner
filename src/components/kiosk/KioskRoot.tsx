@@ -25,8 +25,30 @@ const IDLE_GRACE_SECONDS = 20;
  * poll gives up after 60s and every card releases its flag in a `finally`,
  * so 120s is a generous ceiling that nothing legitimate should reach; past
  * it we re-arm regardless of what the children claim.
+ *
+ * This ceiling applies to BOUNDED busy only — everything in SelfServe's
+ * `anyBusy` except the payment-confirm window. See UNBOUNDED_BUSY_MAX_MS for
+ * why that window gets its own, much longer, ceiling instead of this one.
  */
 const BUSY_SUPPRESSION_MAX_MS = 120_000;
+/**
+ * Ceiling applied instead of BUSY_SUPPRESSION_MAX_MS while the unbounded
+ * portion of busy (SelfServe's payConfirmBusy — `stripe.confirmPayment()`
+ * and any 3-D Secure challenge it opens) is true. That call has no upper
+ * bound we control: an app-based 3DS approval waits on the customer
+ * unlocking their phone, opening their banking app, and completing biometric
+ * auth, which can legitimately run past two minutes. Worse, Stripe.js paints
+ * its 3DS challenge in a full-screen overlay iframe at z-index 2147483647 —
+ * above IdleResetOverlay's z-50 — so if the short ceiling fired here, the
+ * "Still there?" warning would be invisible, uncancellable, and would hard-
+ * reset the kiosk mid-charge: the customer walks away charged with no
+ * confirmation screen. So this window gets a 10-minute ceiling instead of
+ * the 120s one. It still exists — the busy flag is state-derived and always
+ * releases in a `finally`, but a device that recovers in 10 minutes instead
+ * of never is worth keeping the backstop for. Do NOT collapse this back into
+ * a single ceiling; that reintroduces the money-losing reset.
+ */
+const UNBOUNDED_BUSY_MAX_MS = 600_000;
 
 interface Props {
   locationSlug: string;
@@ -77,9 +99,15 @@ export default function KioskRoot({
   // SelfServe is the only thing that knows these windows exist, so it
   // reports them up rather than KioskRoot trying to infer them from `mode`.
   const [paymentBusy, setPaymentBusy] = useState(false);
-  // Trips when paymentBusy has been continuously true past
-  // BUSY_SUPPRESSION_MAX_MS — the backstop against a child that never
-  // releases its flag. See the constant's comment.
+  // The unbounded slice of paymentBusy — SelfServe's payConfirmBusy alone,
+  // reported separately so the ceiling effect below can give it
+  // UNBOUNDED_BUSY_MAX_MS instead of BUSY_SUPPRESSION_MAX_MS. See both
+  // constants' comments.
+  const [unboundedBusy, setUnboundedBusy] = useState(false);
+  // Trips when paymentBusy has been continuously true past whichever
+  // ceiling applies (BUSY_SUPPRESSION_MAX_MS, or UNBOUNDED_BUSY_MAX_MS while
+  // unboundedBusy is true) — the backstop against a child that never
+  // releases its flag. See the constants' comments.
   const [busySuppressionExpired, setBusySuppressionExpired] = useState(false);
 
   const reset = useCallback(() => {
@@ -89,6 +117,7 @@ export default function KioskRoot({
     setLoadingToken(false);
     setMode("landing");
     setPaymentBusy(false);
+    setUnboundedBusy(false);
     setBusySuppressionExpired(false);
     setNonce((n) => n + 1);
     try {
@@ -108,18 +137,19 @@ export default function KioskRoot({
 
   // The suppression ceiling. Restarts on each fresh busy window (a decline
   // followed by a retry gets its own budget) and clears the moment the
-  // children go quiet.
+  // children go quiet. Also restarts — with the longer ceiling — the moment
+  // unboundedBusy turns true, and again with the shorter one when it turns
+  // back false (entering/leaving the payment-confirm window resets the
+  // budget for whatever window comes next, same as any other fresh window).
   useEffect(() => {
     if (!paymentBusy) {
       setBusySuppressionExpired(false);
       return;
     }
-    const t = setTimeout(
-      () => setBusySuppressionExpired(true),
-      BUSY_SUPPRESSION_MAX_MS,
-    );
+    const ceiling = unboundedBusy ? UNBOUNDED_BUSY_MAX_MS : BUSY_SUPPRESSION_MAX_MS;
+    const t = setTimeout(() => setBusySuppressionExpired(true), ceiling);
     return () => clearTimeout(t);
-  }, [paymentBusy]);
+  }, [paymentBusy, unboundedBusy]);
 
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
@@ -254,6 +284,7 @@ export default function KioskRoot({
           brandId={brandId}
           onDone={reset}
           onBusyChange={setPaymentBusy}
+          onUnboundedBusyChange={setUnboundedBusy}
           onActivity={handleActivity}
         />
       )}
