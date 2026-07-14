@@ -53,7 +53,6 @@ const UNBOUNDED_BUSY_MAX_MS = 600_000;
 interface Props {
   locationSlug: string;
   locationName: string;
-  brandName: string;
   publishableKey: string;
   brandId?: BrandId;
 }
@@ -71,7 +70,6 @@ interface Props {
 export default function KioskRoot({
   locationSlug,
   locationName,
-  brandName,
   publishableKey,
   brandId,
 }: Props) {
@@ -262,7 +260,6 @@ export default function KioskRoot({
       {mode === "landing" && (
         <Landing
           locationName={locationName}
-          brandName={brandName}
           onFind={() => setMode("find")}
           onWalkIn={() => setMode("walkin")}
         />
@@ -294,21 +291,19 @@ export default function KioskRoot({
 
 function Landing({
   locationName,
-  brandName,
   onFind,
   onWalkIn,
 }: {
   locationName: string;
-  brandName: string;
   onFind: () => void;
   onWalkIn: () => void;
 }) {
   return (
     <div className="space-y-10">
+      {/* No eyebrow above the headline. The brand is already stated by the
+          masthead wordmark directly above this, so "Welcome to <brand>" was
+          a label that repeated what the user could already see. */}
       <header className="space-y-3">
-        <p className="text-[11px] font-semibold tracking-[0.18em] uppercase text-primary">
-          Welcome to {brandName}
-        </p>
         <h1 className="font-display text-5xl md:text-6xl font-medium italic leading-[0.95] text-ink">
           {locationName}
         </h1>
