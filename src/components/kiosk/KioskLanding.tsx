@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
-import { KIOSK_RETURN_SLUG_KEY } from "@/lib/kiosk/return-slug";
 import { FindBooking } from "./FindBooking";
 import { WalkInWizard } from "./WalkInWizard";
 
@@ -19,19 +18,6 @@ export default function KioskLanding({
 }) {
   useHydrationBeacon();
   const [mode, setMode] = useState<Mode>("landing");
-
-  // Remember which kiosk this browser tab belongs to. The "Find my booking"
-  // flow navigates the tab to a separate /self-serve route; stashing the slug
-  // here lets that page's completion screen return to this kiosk reliably
-  // (a query param can be lost across the multi-step flow; sessionStorage
-  // survives same-tab navigation).
-  useEffect(() => {
-    try {
-      sessionStorage.setItem(KIOSK_RETURN_SLUG_KEY, locationSlug);
-    } catch {
-      /* sessionStorage unavailable — non-fatal, the ?kiosk= param still tries */
-    }
-  }, [locationSlug]);
 
   if (mode === "find") {
     return <FindBooking locationSlug={locationSlug} locationName={locationName} onBack={() => setMode("landing")} />;

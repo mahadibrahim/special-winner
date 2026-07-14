@@ -2,10 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
-import { KIOSK_RETURN_SLUG_KEY } from "@/lib/kiosk/return-slug";
 import { WaiverCard } from "./WaiverCard";
 import { PhotoCard } from "./PhotoCard";
 import { PayCard } from "./PayCard";
+import { PRIMARY_BTN } from "./card-styles";
 
 interface Context {
   tokenKind: string;
@@ -52,6 +52,7 @@ export default function SelfServe({
   kioskSlug,
   publishableKey,
   brandId,
+  onDone,
 }: {
   token: string;
   context: Context;
@@ -64,6 +65,9 @@ export default function SelfServe({
    *  mounted Stripe Elements iframe picks a matching theme. Optional;
    *  PayCard defaults to the light "stripe" theme (Aspire) when omitted. */
   brandId?: "aspire" | "soccerone";
+  /** Kiosk-embedded mode: reset the kiosk in place instead of navigating.
+   *  Absent for a texted link opened standalone. */
+  onDone?: () => void;
 }) {
   useHydrationBeacon();
 
@@ -83,21 +87,11 @@ export default function SelfServe({
   const [holdCancelled, setHoldCancelled] = useState(context.cancelled ?? false);
   const [holdRefunded, setHoldRefunded] = useState(context.refunded ?? false);
 
-  // The kiosk this tab belongs to, if any. Prefer the ?kiosk= query param;
-  // fall back to the slug the kiosk stashed in sessionStorage before
-  // navigating here — that survives the multi-step self-serve flow reliably.
-  const [returnSlug, setReturnSlug] = useState<string | null>(
-    kioskSlug && SLUG_RX.test(kioskSlug) ? kioskSlug : null,
-  );
-  useEffect(() => {
-    if (returnSlug) return;
-    try {
-      const stored = sessionStorage.getItem(KIOSK_RETURN_SLUG_KEY);
-      if (stored && SLUG_RX.test(stored)) setReturnSlug(stored);
-    } catch {
-      /* sessionStorage unavailable — this isn't a kiosk session */
-    }
-  }, [returnSlug]);
+  // The kiosk this tab belongs to, if any — via the ?kiosk= query param.
+  // Only used as a fallback when onDone isn't provided (a texted/emailed
+  // link opened standalone, where a kiosk-issued token still carries the
+  // param but there's no in-page kiosk to hand back to).
+  const returnSlug = kioskSlug && SLUG_RX.test(kioskSlug) ? kioskSlug : null;
 
   // Always-current mirrors of the completion flags. maybeConsume can be
   // invoked from a long-lived callback chain — the payment poll below runs
@@ -249,6 +243,7 @@ export default function SelfServe({
         spaceName={context.spaceName ?? null}
         summary={context.summary}
         returnSlug={returnSlug}
+        onDone={onDone}
       />
     );
   }
@@ -363,22 +358,28 @@ function CheckedInScreen({
   spaceName,
   summary,
   returnSlug,
+  onDone,
 }: {
   spaceName: string | null;
   summary: string;
   returnSlug: string | null;
+  onDone?: () => void;
 }) {
   const [secondsLeft, setSecondsLeft] = useState(KIOSK_REDIRECT_SECONDS);
+  // Embedded in a kiosk (onDone) or opened from a kiosk-issued link
+  // (returnSlug) — either way, hand the device back for the next person.
+  const returning = Boolean(onDone || returnSlug);
 
   useEffect(() => {
-    if (!returnSlug) return;
+    if (!returning) return;
     if (secondsLeft <= 0) {
-      window.location.href = `/kiosk/${returnSlug}`;
+      if (onDone) onDone();
+      else if (returnSlug) window.location.href = `/kiosk/${returnSlug}`;
       return;
     }
     const t = setTimeout(() => setSecondsLeft((s) => s - 1), 1000);
     return () => clearTimeout(t);
-  }, [secondsLeft, returnSlug]);
+  }, [secondsLeft, returning, returnSlug, onDone]);
 
   return (
     <div className="space-y-4">
@@ -393,14 +394,15 @@ function CheckedInScreen({
           <p className="mt-2 text-xs text-ink-2">{summary}</p>
         )}
       </div>
-      {returnSlug && (
+      {returning && (
         <div className="space-y-2">
-          <a
-            href={`/kiosk/${returnSlug}`}
-            className="block w-full rounded-lg bg-primary px-6 py-3 text-center text-sm font-medium text-cream transition-colors hover:bg-primary/90"
+          <button
+            type="button"
+            onClick={() => (onDone ? onDone() : (window.location.href = `/kiosk/${returnSlug}`))}
+            className={PRIMARY_BTN}
           >
             Back to start
-          </a>
+          </button>
           <p className="text-center text-xs text-ink-muted">
             Returning to the start screen in {Math.max(secondsLeft, 0)}s…
           </p>
