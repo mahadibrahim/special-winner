@@ -48,6 +48,11 @@ export const phoneOptIns = pgTable(
       onDelete: "set null",
     }),
     phone: varchar("phone", { length: 20 }).notNull(),
+    // Consent is per CHANNEL. SMS (TCPA / 10DLC) and WhatsApp (Meta policy) are
+    // legally distinct consents — a single status per (org, phone) cannot
+    // honestly represent "yes to SMS, no to WhatsApp", and sendSms's gate reads
+    // the FIRST matching row, so a WhatsApp row could otherwise authorise an SMS.
+    channel: varchar("channel", { length: 20 }).notNull().default("sms"),
     status: varchar("status", { length: 20 }).notNull(),
     optedInAt: timestamp("opted_in_at"),
     optedOutAt: timestamp("opted_out_at"),
@@ -57,9 +62,10 @@ export const phoneOptIns = pgTable(
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
   (table) => ({
-    orgPhoneIdx: uniqueIndex("idx_phone_opt_ins_org_phone").on(
+    orgPhoneChannelIdx: uniqueIndex("idx_phone_opt_ins_org_phone_channel").on(
       table.organizationId,
       table.phone,
+      table.channel,
     ),
   }),
 );
@@ -85,6 +91,10 @@ export const PHONE_VERIFICATION_PURPOSE = [
   "phone_change",
   "recovery",
 ] as const;
+
+/** Consent channels. Each is a legally distinct consent — never conflate them. */
+export const PHONE_OPT_IN_CHANNEL = ["sms", "whatsapp"] as const;
+export type PhoneOptInChannel = (typeof PHONE_OPT_IN_CHANNEL)[number];
 
 export const PHONE_OPT_IN_STATUS = [
   "pending",

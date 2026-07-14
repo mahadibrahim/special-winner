@@ -35,6 +35,8 @@ async function phoneReady(userId: string, organizationId: string): Promise<boole
       and(
         eq(phoneOptIns.organizationId, organizationId),
         eq(phoneOptIns.phone, normalizedPhone),
+        // Pickup alerts go out over SMS — only SMS consent may authorise them.
+        eq(phoneOptIns.channel, "sms"),
       ),
     )
     .orderBy(asc(phoneOptIns.createdAt))

@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { Webhook } from "svix";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { users } from "@/lib/db/schema/users";
 import {
@@ -251,10 +251,13 @@ async function resolveConversation(
 
   // 3. No conversation yet — create one. Infer org via phone_opt_ins or
   //    return null if we can't figure it out.
+  // Org resolution only — not a consent gate, so any channel's row will do.
+  // Deterministic pick now that a user can hold several rows (one per channel).
   const optIn = await db
     .select({ orgId: phoneOptIns.organizationId })
     .from(phoneOptIns)
     .where(eq(phoneOptIns.userId, parentUserId))
+    .orderBy(asc(phoneOptIns.createdAt))
     .limit(1);
 
   if (optIn.length === 0) return null;

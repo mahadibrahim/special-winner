@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { phoneOptIns } from "@/lib/db/schema/phone-verifications";
 import { getTwilioClient, getSmsFrom, isSmsConfigured, getSmsProvider } from "./client";
@@ -89,8 +89,14 @@ export async function sendSms(input: SendSmsInput): Promise<SendSmsResult> {
         and(
           eq(phoneOptIns.organizationId, input.organizationId),
           eq(phoneOptIns.phone, input.to),
+          // Without this, optIn[0] can be the WhatsApp row and WhatsApp consent
+          // would decide whether we may send an SMS. SMS (TCPA/10DLC) and
+          // WhatsApp (Meta policy) are legally distinct consents.
+          eq(phoneOptIns.channel, "sms"),
         ),
       )
+      // Deterministic pick on the shared CI/staging DB (multi-tenant hazard).
+      .orderBy(asc(phoneOptIns.createdAt))
       .limit(1);
 
     if (optIn.length === 0 || optIn[0].status === "pending") {
