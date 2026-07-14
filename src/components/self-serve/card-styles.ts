@@ -1,6 +1,6 @@
 export const CARD_CLASS = "p-5 rounded-xl border border-border bg-paper space-y-3";
 export const DONE_CARD_CLASS =
-  "p-4 rounded-xl border border-sage/40 bg-sage/10 text-ink text-sm flex items-center gap-2";
+  "p-4 rounded-xl border border-sage/60 bg-sage/10 text-ink text-sm flex items-center gap-2";
 export const INPUT_CLASS =
   "w-full px-4 py-3 bg-paper border border-border focus:border-ink focus:outline-none rounded-lg text-base text-ink placeholder:text-ink-faint transition-colors";
 export const PRIMARY_BTN =

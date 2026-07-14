@@ -335,7 +335,7 @@ function HoldReleasedScreen({
         </h1>
         {summary && <p className="text-sm text-ink-muted">{summary}</p>}
       </header>
-      <div className="p-6 rounded-xl border border-ochre/40 bg-ochre/10">
+      <div className="p-6 rounded-xl border border-ochre/60 bg-ochre/10">
         <h2 className="text-lg font-semibold mb-2 text-ink">
           This hold has been released
         </h2>
@@ -382,7 +382,7 @@ function CheckedInScreen({
 
   return (
     <div className="space-y-4">
-      <div className="p-6 rounded-xl border border-sage/40 bg-sage/10">
+      <div className="p-6 rounded-xl border border-sage/60 bg-sage/10">
         <h1 className="text-lg font-semibold mb-2 text-ink">You're checked in</h1>
         <p className="text-sm leading-relaxed text-ink-2">
           {spaceName
