@@ -202,9 +202,12 @@ test.describe("Kiosk", { tag: "@critical" }, () => {
     // on-screen numeric keypad, so the search can only ever be phone digits.
     await expect(page.locator("main input")).toHaveCount(0);
     await expect(page.locator("main textarea")).toHaveCount(0);
-    await expect(
-      page.getByText(/we only search by phone number/i),
-    ).toBeVisible();
+    await expect(page.getByText(/never search by name/i)).toBeVisible();
+
+    // The instruction must say HOW MUCH to enter. "Phone number" alone left
+    // customers unsure whether 7 or 10 digits were needed; the server only
+    // ever matches the trailing 4 (search.ts: `qDigits.slice(-4)`).
+    await expect(page.getByText(/last 4 digits/i).first()).toBeVisible();
 
     // Enter 4 digits by tapping the keypad — the same path a customer's
     // finger takes. Element clicks, not keyboard events (the keypad is a

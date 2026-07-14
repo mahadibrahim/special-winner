@@ -110,7 +110,6 @@ export function FindBooking({ locationSlug, onToken, onBack }: Props) {
     }
   };
 
-  const idle = q.length < MIN_DIGITS && !loading;
   const noMatches = !loading && q.length >= MIN_DIGITS && results.length === 0;
 
   return (
@@ -128,7 +127,8 @@ export function FindBooking({ locationSlug, onToken, onBack }: Props) {
           Find your booking
         </h1>
         <p className="text-base text-ink-2 leading-relaxed pt-1">
-          Enter the phone number on your booking.
+          Enter the <strong className="font-semibold text-ink">last 4 digits</strong>{" "}
+          of your phone number.
         </p>
       </header>
 
@@ -143,13 +143,18 @@ export function FindBooking({ locationSlug, onToken, onBack }: Props) {
             </span>
           ) : (
             <span className="font-display text-4xl italic text-ink-faint">
-              Phone number
+              Last 4 digits
             </span>
           )}
         </div>
         <PhoneKeypad value={q} onChange={setQ} />
+        {/* The server only ever matches on the trailing 4 digits (search.ts does
+            `qDigits.slice(-4)`), so 4 is genuinely all we need. Typing the whole
+            number still works — the leading digits are simply ignored — so say
+            that rather than let someone wonder whether they've entered enough. */}
         <p className="text-xs text-ink-muted px-1 text-center">
-          We only search by phone number, so other guests' names stay private.
+          The whole number works too. We never search by name, so other guests'
+          names stay private.
         </p>
       </div>
 
@@ -157,13 +162,10 @@ export function FindBooking({ locationSlug, onToken, onBack }: Props) {
 
       {loading && <LoadingSkeleton />}
 
-      {idle && (
-        <div className="rounded-xl border border-dashed border-border bg-cream-2 px-5 py-6 text-center">
-          <p className="font-display text-lg italic text-ink-muted">
-            Enter at least {MIN_DIGITS} digits to find your booking.
-          </p>
-        </div>
-      )}
+      {/* Deliberately no "enter N digits" empty state here. The header and the
+          keypad's own placeholder already say it; a third copy of the same
+          sentence, in a box, is noise on a screen someone is reading while
+          standing up. */}
 
       {noMatches && (
         <div className="rounded-xl border border-border bg-paper p-5">
