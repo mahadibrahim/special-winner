@@ -29,8 +29,8 @@
 
 **Create:**
 - `src/lib/db/schema/spectators.ts` — `spectator_waivers` table.
-- `src/lib/consent/channels.ts` — the `ConsentChannel` type + the single source of the opt-in copy shown to customers (so the stored text and the rendered text cannot drift).
-- `src/lib/consent/record.ts` — `recordConsent()`, `getConsent()`, staleness helper.
+- `src/lib/consents/marketing-channels.ts` — the `ConsentChannel` type + the single source of the opt-in copy shown to customers (so the stored text and the rendered text cannot drift).
+- `src/lib/consents/marketing.ts` — `recordMarketingConsent()`, `getConsent()`, staleness helper.
 - `src/pages/api/kiosk/[locationSlug]/spectator/lookup.ts` — phone → existing valid waiver?
 - `src/pages/api/kiosk/[locationSlug]/spectator/sign.ts` — create waiver + user + consents.
 - `src/pages/api/consent/confirm/[token].ts` — email double-opt-in confirmation.
@@ -315,7 +315,7 @@ git commit -m "feat(sms): classify an unapproved carrier registration as channel
 ### Task 3: The consent module — one source for the copy, one source for the rules
 
 **Files:**
-- Create: `src/lib/consent/channels.ts`, `src/lib/consent/record.ts`
+- Create: `src/lib/consents/marketing-channels.ts`, `src/lib/consents/marketing.ts`
 - Test: `tests/unit/consent-channels.test.ts`, `tests/unit/consent-staleness.test.ts`
 
 **Interfaces:**
@@ -323,7 +323,7 @@ git commit -m "feat(sms): classify an unapproved carrier registration as channel
 - Produces:
   - `type ConsentChannel = "email" | "sms" | "whatsapp"`
   - `CONSENT_COPY: Record<ConsentChannel, string>`
-  - `recordConsent(opts: { db; organizationId: string; userId: string; channel: ConsentChannel; phone?: string; email?: string; source: string; textShown: string }): Promise<void>`
+  - `recordMarketingConsent(opts: { db; organizationId: string; userId: string; channel: ConsentChannel; phone?: string; email?: string; source: string; textShown: string }): Promise<void>`
   - `isConsentStale(optedInAt: Date, now?: Date): boolean`
   - `CONSENT_STALE_AFTER_DAYS = 90`
 
@@ -332,7 +332,7 @@ git commit -m "feat(sms): classify an unapproved carrier registration as channel
 ```ts
 // tests/unit/consent-channels.test.ts
 import { describe, it, expect } from "vitest";
-import { CONSENT_COPY, CONSENT_CHANNELS } from "@/lib/consent/channels";
+import { CONSENT_COPY, CONSENT_CHANNELS } from "@/lib/consents/marketing-channels";
 
 describe("consent copy", () => {
   it("has copy for every channel", () => {
@@ -387,7 +387,7 @@ Expected: FAIL — modules do not exist.
 - [ ] **Step 3: Implement `channels.ts`**
 
 ```ts
-// src/lib/consent/channels.ts
+// src/lib/consents/marketing-channels.ts
 /**
  * The single source of the opt-in copy shown to customers.
  *
@@ -416,11 +416,11 @@ export const CONSENT_COPY: Record<ConsentChannel, string> = {
 - [ ] **Step 4: Implement `record.ts`**
 
 ```ts
-// src/lib/consent/record.ts
+// src/lib/consents/marketing.ts
 import { and, eq } from "drizzle-orm";
 import { phoneOptIns } from "@/lib/db/schema/phone-verifications";
 import { users } from "@/lib/db/schema/users";
-import type { ConsentChannel } from "./channels";
+import type { ConsentChannel } from "./marketing-channels";
 
 /**
  * A consent parked while its channel was dormant, then flushed months later, is
@@ -441,7 +441,7 @@ type Db = ReturnType<typeof import("@/lib/db").getDb>;
  * did not explicitly tick — the caller passes exactly the channels whose boxes
  * were checked, and `textShown` is the literal sentence they saw.
  */
-export async function recordConsent(opts: {
+export async function recordMarketingConsent(opts: {
   db: Db;
   organizationId: string;
   userId: string;
@@ -616,7 +616,7 @@ git commit -m "feat(spectator): spectator_waivers table"
 - Test: `tests/api/kiosk/spectator.test.ts`
 
 **Interfaces:**
-- Consumes: `requireKioskLocation(slug, orgId)` from `src/lib/check-in/kiosk-auth.ts`; `recordConsent`, `CONSENT_COPY` (Task 3); `spectatorWaivers` (Task 4).
+- Consumes: `requireKioskLocation(slug, orgId)` from `src/lib/check-in/kiosk-auth.ts`; `recordMarketingConsent`, `CONSENT_COPY` (Task 3); `spectatorWaivers` (Task 4).
 - Produces:
   - `GET /api/kiosk/<slug>/spectator/lookup?q=<digits>` → `{ found: boolean; firstName?: string; validUntil?: string }`
   - `POST /api/kiosk/<slug>/spectator/sign` → `{ ok: true; waiverId: string; pending: ConsentChannel[] }`
@@ -673,7 +673,7 @@ describe("kiosk spectator waiver", () => {
   });
 
   it("an SMS opt-in creates a user and an SMS-scoped consent carrying the exact text shown", async () => {
-    const { CONSENT_COPY } = await import("@/lib/consent/channels");
+    const { CONSENT_COPY } = await import("@/lib/consents/marketing-channels");
     const res = await apiFetch(`/api/kiosk/${LOCATION_ID}/spectator/sign`, {
       method: "POST",
       body: JSON.stringify({
@@ -762,7 +762,7 @@ Validate with zod. Then, in order:
 
 1. Insert the `spectator_waivers` row (always). `validUntil` = end of the current season/year — use `new Date(now.getFullYear(), 11, 31)`.
 2. **If and only if `consents` is non-empty**, resolve-or-create a passwordless `users` row and stamp `userId` on the waiver.
-3. For each ticked channel, call `recordConsent({ ..., textShown: CONSENT_COPY[channel] })`.
+3. For each ticked channel, call `recordMarketingConsent({ ..., textShown: CONSENT_COPY[channel] })`.
 4. For `sms`: attempt the OTP send. If it returns `reason: "channel_dormant"`, do **not** fail — return the channel in `pending` so the UI can say so honestly.
 5. For `whatsapp`: always `pending` (the channel cannot deliver yet).
 6. For `email`: send the double-opt-in confirmation (Task 6).
@@ -784,7 +784,7 @@ git commit -m "feat(spectator): lookup + sign endpoints"
 
 **Files:**
 - Create: `src/pages/api/consent/confirm/[token].ts`
-- Modify: `src/lib/consent/record.ts` (mint the confirmation token)
+- Modify: `src/lib/consents/marketing.ts` (mint the confirmation token)
 - Test: `tests/api/consent/double-opt-in.test.ts`
 
 **Interfaces:**
@@ -851,7 +851,7 @@ Retrieve the token from the messaging mock (`GET /api/test/messaging-mock?to=<em
 ```tsx
 "use client";
 
-import { CONSENT_CHANNELS, CONSENT_COPY, type ConsentChannel } from "@/lib/consent/channels";
+import { CONSENT_CHANNELS, CONSENT_COPY, type ConsentChannel } from "@/lib/consents/marketing-channels";
 
 /**
  * Every box renders UNCHECKED. This is not a style preference — a pre-checked
@@ -1056,4 +1056,4 @@ grep -rn "phoneOptIns" src/lib/sms/ | grep -c "channel"           # every query 
 
 **Beyond the spec:** Task 1's call-site sweep. The spec said "add a channel column"; reading the code showed `sendSms` gates on `optIn[0]`, so without scoping every query a WhatsApp consent would authorise an SMS send. That is a compliance defect the spec did not anticipate, and it is now the plan's highest-risk gated task.
 
-**Type consistency:** `ConsentChannel` = `"email" | "sms" | "whatsapp"` in Tasks 3, 5, 7, 8. `recordConsent({ db, organizationId, userId, channel, phone?, email?, source, textShown })` defined in Task 3 and called in Task 5. `classifyProviderError` defined in Task 2 and used in Tasks 2, 8. `isConsentStale(optedInAt, now?)` defined in Task 3 and used in Task 8. `CONSENT_COPY` defined in Task 3, consumed in Tasks 5 and 7, and asserted in Task 5's test.
+**Type consistency:** `ConsentChannel` = `"email" | "sms" | "whatsapp"` in Tasks 3, 5, 7, 8. `recordMarketingConsent({ db, organizationId, userId, channel, phone?, email?, source, textShown })` defined in Task 3 and called in Task 5. `classifyProviderError` defined in Task 2 and used in Tasks 2, 8. `isConsentStale(optedInAt, now?)` defined in Task 3 and used in Task 8. `CONSENT_COPY` defined in Task 3, consumed in Tasks 5 and 7, and asserted in Task 5's test.
