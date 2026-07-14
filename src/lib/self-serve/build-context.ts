@@ -89,29 +89,6 @@ export async function buildSelfServeContext(
   let cancelled = false;
   let refunded = false;
 
-  // Is a photo outstanding? Kind-independent: it depends only on WHO the
-  // token resolves to. The target is derived by the same helper the upload
-  // endpoint uses to pick where the file lands (minor → family_members.photoUrl,
-  // otherwise → users.avatarUrl), so the card is only ever offered to the
-  // person the upload would actually be saved against. No target (e.g. an
-  // admin-created field rental for a renter with no account) → no photo step.
-  //
-  // Returning customers with a photo already on file are not asked again.
-  //
-  // Historical note: this flag was initialized to `false` and never assigned,
-  // so PhotoCard — which SelfServe gates on it — had NEVER rendered for any
-  // customer in production. It is now real, and the client treats it as an
-  // OFFER: PhotoCard carries a "Not now" skip and the completion gate counts
-  // a skipped photo as settled, so the photo can never block a kiosk.
-  let photoOutstanding = false;
-  try {
-    const photoTarget = resolvePhotoTarget(signer, tok.recipientUserId);
-    if (photoTarget) photoOutstanding = !(await hasPhotoOnFile(photoTarget));
-  } catch {
-    // Never block (and never 500) a check-in over an optional photo.
-    photoOutstanding = false;
-  }
-
   // drop_in_booking and walkin_session tokens both point at a dropInBookings
   // row (walk-in kiosk holds mint walkin_session; regular drop-in bookings
   // mint drop_in_booking) — same joins, same "is payment outstanding" rule.
@@ -201,8 +178,34 @@ export async function buildSelfServeContext(
 
   // A cancelled hold has nothing actionable — leave every outstanding flag
   // false so the page can't offer a photo (or anything else) for a slot that
-  // no longer exists.
-  if (!cancelled) outstanding.photo = photoOutstanding;
+  // no longer exists. Also: don't even derive the flag in that case — it
+  // would just be discarded, and this select runs on every PayCard poll
+  // (every 2s during a payment), so it's only worth paying for when the
+  // result can actually be used.
+  //
+  // Is a photo outstanding? Kind-independent: it depends only on WHO the
+  // token resolves to. The target is derived by the same helper the upload
+  // endpoint uses to pick where the file lands (minor → family_members.photoUrl,
+  // otherwise → users.avatarUrl), so the card is only ever offered to the
+  // person the upload would actually be saved against. No target (e.g. an
+  // admin-created field rental for a renter with no account) → no photo step.
+  //
+  // Returning customers with a photo already on file are not asked again.
+  //
+  // Historical note: this flag was initialized to `false` and never assigned,
+  // so PhotoCard — which SelfServe gates on it — had NEVER rendered for any
+  // customer in production. It is now real, and the client treats it as an
+  // OFFER: PhotoCard carries a "Not now" skip and the completion gate counts
+  // a skipped photo as settled, so the photo can never block a kiosk.
+  if (!cancelled) {
+    try {
+      const photoTarget = resolvePhotoTarget(signer, tok.recipientUserId);
+      if (photoTarget) outstanding.photo = !(await hasPhotoOnFile(photoTarget));
+    } catch {
+      // Never block (and never 500) a check-in over an optional photo.
+      outstanding.photo = false;
+    }
+  }
 
   return {
     ok: true,

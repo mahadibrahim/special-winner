@@ -256,6 +256,14 @@ export function PhotoCard({ token, done, onDone, onSkip, onBusy }: Props) {
       const res = await fetch(`/api/self-serve/${token}/photo`, {
         method: "POST",
         body: form,
+        // A stalled (never-settling) request must not be able to keep `busy`
+        // true forever — that would disable Save AND (absent the fix below)
+        // the skip button, stranding the customer until the kiosk's idle
+        // machinery wipes the screen out from under them. 30s is generous
+        // for a downscaled ~800px JPEG on slow gym Wi-Fi; turning the stall
+        // into a rejected promise lets the existing `finally` clear `busy`
+        // the same way a network error already does.
+        signal: AbortSignal.timeout(30_000),
       });
       if (!res.ok) {
         const b = (await res.json().catch(() => ({}))) as { error?: string };
@@ -264,7 +272,11 @@ export function PhotoCard({ token, done, onDone, onSkip, onBusy }: Props) {
       }
       onDone();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Network error");
+      if (err instanceof DOMException && (err.name === "TimeoutError" || err.name === "AbortError")) {
+        setError("The upload didn't go through — the connection is slow. Try again, or skip for now.");
+      } else {
+        setError(err instanceof Error ? err.message : "Network error");
+      }
     } finally {
       setBusy(false);
     }
@@ -376,10 +388,14 @@ export function PhotoCard({ token, done, onDone, onSkip, onBusy }: Props) {
       {/* The escape hatch. The photo is optional, and this button is what
           makes "optional" true rather than a phrase: it is reachable from
           EVERY state of this card (camera on, preview held, camera errored,
-          no camera at all), so a customer can always move on. Disabled only
-          while an upload is actually in flight — skipping mid-POST would
-          leave a photo landing server-side that the customer was told they
-          declined. */}
+          upload in flight or stalled, no camera at all), so a customer can
+          always move on. Deliberately NOT gated on `busy` — a stalled
+          upload (no timeout would ever fire, or the customer just doesn't
+          want to wait) must not leave both this and "Save photo" disabled
+          at once, or the only way out is the kiosk's idle-reset wipe.
+          Skipping mid-POST is safe: the skip settles the photo, and if the
+          upload later lands server-side anyway that's harmless — the photo
+          is simply on file. */}
       {onSkip && (
         <button
           type="button"
@@ -387,7 +403,6 @@ export function PhotoCard({ token, done, onDone, onSkip, onBusy }: Props) {
             stopCamera();
             onSkip();
           }}
-          disabled={busy}
           className={GHOST_BTN}
         >
           Not now
