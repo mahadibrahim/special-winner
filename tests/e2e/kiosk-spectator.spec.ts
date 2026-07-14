@@ -25,6 +25,13 @@ import { E2E_RENTAL_VENUE_ID } from "@/lib/db/seeds/seed-e2e-tests";
  * timestamped and unstable, so every test resolves the UUID at runtime from
  * /api/admin/venues rather than hardcoding it.
  */
+// Residue note: these tests create spectator_waivers rows (and, on the email
+// path, a passwordless users row + email_opt_ins row) that are NOT torn down —
+// there is no delete endpoint for them and the flow is deliberately
+// unauthenticated. Same accepted pattern as coach-glows.spec.ts's coach_notes
+// residue. Fixtures are uniquely suffixed so they don't collide across runs;
+// staging accumulates kiosk-spectator-*@e2e-test.invalid rows, which is
+// expected, not a leak.
 test.describe("Kiosk spectator waiver", { tag: "@critical" }, () => {
   test.setTimeout(120_000);
 
