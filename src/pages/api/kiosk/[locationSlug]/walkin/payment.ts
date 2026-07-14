@@ -36,7 +36,7 @@ const json = (body: unknown, status: number) =>
     headers: { "Content-Type": "application/json" },
   });
 
-export const POST: APIRoute = async ({ params, request, clientAddress }) => {
+export const POST: APIRoute = async ({ params, request, clientAddress, locals }) => {
   const slug = params.locationSlug ?? "";
 
   // Public kiosk slug + Stripe PaymentIntent creation → throttle per IP+location
@@ -50,7 +50,10 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
 
   // The kiosk facility only authorizes the request — the booking, session,
   // and partner venue are all derived from the token's targetId below.
-  const locationResult = await requireKioskLocation(slug);
+  const locationResult = await requireKioskLocation(
+    slug,
+    locals.organization?.id ?? null,
+  );
   if (!locationResult.ok) return locationResult.response;
   const { location } = locationResult;
 

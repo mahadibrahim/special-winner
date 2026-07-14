@@ -178,10 +178,12 @@ export async function buildSelfServeContext(
 
   // A cancelled hold has nothing actionable — leave every outstanding flag
   // false so the page can't offer a photo (or anything else) for a slot that
-  // no longer exists. Also: don't even derive the flag in that case — it
-  // would just be discarded, and this select runs on every PayCard poll
-  // (every 2s during a payment), so it's only worth paying for when the
-  // result can actually be used.
+  // no longer exists, and skip deriving the flag entirely since it would just
+  // be discarded. NOTE: this is the ONLY case that skips the lookup — this
+  // context is rebuilt on every PayCard poll (every 2s during a payment) and
+  // `cancelled` is false throughout one, so the photo lookup below DOES run
+  // on each of those polls. That is a deliberate accepted cost (two indexed
+  // point reads), not an optimization this branch buys back.
   //
   // Is a photo outstanding? Kind-independent: it depends only on WHO the
   // token resolves to. The target is derived by the same helper the upload

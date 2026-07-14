@@ -26,6 +26,7 @@ import { users } from "@/lib/db/schema/users";
 import { venues } from "@/lib/db/schema/teams";
 import { requireKioskLocation } from "@/lib/check-in/kiosk-auth";
 import { dayBoundsInTz } from "@/lib/time/day-bounds";
+import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 
 export const prerender = false;
 
@@ -47,9 +48,26 @@ function abbreviateName(first: string | null, last: string | null): string {
   return `${f} ${l[0].toUpperCase()}.`;
 }
 
-export const GET: APIRoute = async ({ params, url }) => {
+export const GET: APIRoute = async ({ params, url, clientAddress, locals }) => {
   const slug = params.locationSlug ?? "";
-  const kioskResult = await requireKioskLocation(slug);
+
+  // Unauthenticated and on the public internet — not just on the iPad. The
+  // 4-digit gate is only ~10k guesses, so without a throttle a scraper can
+  // enumerate every booking at a facility. A real customer taps a phone
+  // number in once (the client debounces to a handful of requests as the
+  // last digits land); 40/min per IP+location leaves that untouched and
+  // makes enumeration take days. Same helper + 429 shape as the walk-in
+  // endpoints. (In-memory/fail-open limiter — see rate-limit.ts.)
+  const ip = clientAddress || "unknown";
+  const ipLimit = rateLimit(`kiosk-search:${slug}:${ip}`, 40, 60_000);
+  if (!ipLimit.allowed) {
+    return rateLimitedResponse(ipLimit.retryAfter ?? 60);
+  }
+
+  const kioskResult = await requireKioskLocation(
+    slug,
+    locals.organization?.id ?? null,
+  );
   if (!kioskResult.ok) return kioskResult.response;
   const { location } = kioskResult;
 

@@ -120,8 +120,15 @@ describe("POST /api/kiosk/[locationSlug]/walkin/start + /payment", () => {
     const { start: todayStart } = dayBoundsInTz(
       locationRow?.timezone ?? "America/New_York",
     );
-    // Place session 2 h after the facility's midnight so it is firmly "today".
-    const sessionStart = new Date(todayStart.getTime() + 2 * 3_600_000);
+    // GET /sessions also requires the session not to have ENDED yet (a
+    // walk-in must never be able to pay to join this morning's 9am pickup at
+    // 8pm). So seed sessions that START inside the facility's local day but
+    // END in the future — "now" is always inside the local day, so `now` is a
+    // valid start no matter what hour the suite runs at. Pinning them to
+    // local 2am (as this fixture used to) made them invisible to the endpoint
+    // for all but the first two hours of the day.
+    const now = Date.now();
+    const sessionStart = new Date(Math.max(todayStart.getTime(), now));
     const sessionEnd = new Date(sessionStart.getTime() + 90 * 60_000);
 
     const [session] = await db
@@ -144,8 +151,8 @@ describe("POST /api/kiosk/[locationSlug]/walkin/start + /payment", () => {
 
     // Seed a session TODAY in the second space so the kiosk /sessions
     // endpoint must span more than one venue of the facility.
-    const secondStart = new Date(todayStart.getTime() + 6 * 3_600_000);
-    const secondEnd = new Date(secondStart.getTime() + 90 * 60_000);
+    const secondStart = new Date(Math.max(todayStart.getTime(), now));
+    const secondEnd = new Date(secondStart.getTime() + 120 * 60_000);
     const [session2] = await db
       .insert(dropInSessions)
       .values({

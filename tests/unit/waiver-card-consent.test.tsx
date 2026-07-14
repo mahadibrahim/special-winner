@@ -93,3 +93,46 @@ describe("WaiverCard consent language (isMinor branch)", () => {
     expect(html).toContain("Parent/guardian signature");
   });
 });
+
+// The waiver is a LEGAL document, and WaiverCard is shared: the standalone
+// /self-serve/[token] page renders it for every tenant on both brands. It
+// used to hardcode "SoccerOne", so an Aspire customer signed a waiver naming
+// a brand they had never heard of. The entity phrase now comes from the brand
+// theme (themes.ts → waiverEntity) — the single mapping.
+describe("WaiverCard waiver entity (brand-derived)", () => {
+  const render = (brandId?: "aspire" | "soccerone") =>
+    renderToStaticMarkup(
+      <WaiverCard
+        token="tok-brand"
+        signerName="Sam Adult"
+        playerName="Sam Adult"
+        isMinor={false}
+        brandId={brandId}
+        done={false}
+        onDone={() => {}}
+      />,
+    );
+
+  it("brandId=soccerone names SoccerOne (operated by Aspire Sports)", () => {
+    const html = render("soccerone");
+    expect(html).toContain(
+      "I waive SoccerOne, operated by Aspire Sports, and its partner venues from liability",
+    );
+  });
+
+  it("brandId=aspire names Aspire Sports and NEVER mentions SoccerOne", () => {
+    const html = render("aspire");
+    expect(html).toContain(
+      "I waive Aspire Sports and its partner venues from liability",
+    );
+    expect(html).not.toContain("SoccerOne");
+  });
+
+  it("no brandId falls back to Aspire — never to another brand's name", () => {
+    const html = render(undefined);
+    expect(html).toContain(
+      "I waive Aspire Sports and its partner venues from liability",
+    );
+    expect(html).not.toContain("SoccerOne");
+  });
+});

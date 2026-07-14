@@ -2,11 +2,12 @@
  * GET /api/kiosk/[locationSlug]/sessions
  *
  * Returns today's (local facility day — see dayBoundsInTz) scheduled
- * drop-in sessions across every space in this facility with computed
- * available capacity (capacity minus confirmed bookings).
+ * drop-in sessions that HAVE NOT ENDED YET, across every space in this
+ * facility, with computed available capacity (capacity minus confirmed
+ * bookings). A finished session is not something a walk-in can pay to join.
  */
 import type { APIRoute } from "astro";
-import { and, eq, gte, inArray, lt, sql } from "drizzle-orm";
+import { and, eq, gt, gte, inArray, lt, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
 import { venues } from "@/lib/db/schema/teams";
@@ -21,11 +22,11 @@ const json = (b: unknown, s: number) =>
     headers: { "Content-Type": "application/json" },
   });
 
-export const GET: APIRoute = async ({ params }) => {
+export const GET: APIRoute = async ({ params, locals }) => {
   const slug = params.locationSlug;
   if (!slug) return json({ error: "locationSlug required" }, 400);
 
-  const k = await requireKioskLocation(slug);
+  const k = await requireKioskLocation(slug, locals.organization?.id ?? null);
   if (!k.ok) return k.response;
 
   // "Today" means today *at the facility* — see dayBoundsInTz. Using UTC
@@ -52,6 +53,11 @@ export const GET: APIRoute = async ({ params }) => {
         eq(dropInSessions.status, "scheduled"),
         gte(dropInSessions.startsAt, dayStart),
         lt(dropInSessions.startsAt, dayEnd),
+        // …and it hasn't finished. Without this, a walk-in standing at the
+        // kiosk at 8pm could select — and be CHARGED for — this morning's
+        // 9am session, which is over. "Today" bounds the day; this bounds
+        // the clock.
+        gt(dropInSessions.endsAt, new Date()),
       ),
     )
     .orderBy(dropInSessions.startsAt);

@@ -58,8 +58,9 @@ function ageFromDob(dob: string): number {
 interface Props {
   locationSlug: string;
   /** Hands the minted walk-in token up to KioskRoot, which takes over with
-   *  the shared SelfServe cards. This component never navigates the tab. */
-  onToken: (token: string) => void;
+   *  the shared SelfServe cards. This component never navigates the tab.
+   *  Resolves false when the handoff failed — see startBooking. */
+  onToken: (token: string) => Promise<boolean>;
   onBack: () => void;
 }
 
@@ -92,6 +93,10 @@ export function WalkInWizard({ locationSlug, onToken, onBack }: Props) {
   });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Set once the server has minted a walk-in token for this customer. Its
+  // only job is to make a failed handoff retryable WITHOUT booking a second
+  // slot — see startBooking.
+  const [mintedToken, setMintedToken] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/kiosk/${locationSlug}/sessions`)
@@ -107,6 +112,15 @@ export function WalkInWizard({ locationSlug, onToken, onBack }: Props) {
     setBusy(true);
     setError(null);
     try {
+      // A previous attempt already minted a booking + token and only the
+      // handoff failed — retry the HANDOFF, never the booking. Re-POSTing
+      // would ask the server for a second slot for the same person (it 409s,
+      // but then the customer is stuck staring at a duplicate error).
+      if (mintedToken) {
+        const retried = await onToken(mintedToken);
+        if (!retried) setBusy(false);
+        return;
+      }
       const res = await fetch(`/api/kiosk/${locationSlug}/walkin/start`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -123,11 +137,17 @@ export function WalkInWizard({ locationSlug, onToken, onBack }: Props) {
         return;
       }
       // Hand off — SelfServe owns waiver, photo, and payment from here.
-      // onToken is fire-and-forget (KioskRoot is still fetching the token's
-      // context), so leave `busy` true rather than re-enabling Continue
-      // before the handoff lands — otherwise a laggy iPad double-tap can
-      // fire the request twice.
-      onToken(body.token as string);
+      // Stay busy across the handoff (KioskRoot is still fetching the token's
+      // context) so a laggy iPad double-tap can't fire the request twice —
+      // that would create a SECOND booking. But if the handoff FAILS we're
+      // still on this screen: re-enable Continue, otherwise the wizard is
+      // wedged and the customer's only way out ("← Back") makes them redo the
+      // walk-in, booking a second slot anyway. The token is remembered so the
+      // retry re-runs only the handoff (see the mintedToken branch above).
+      const token = body.token as string;
+      setMintedToken(token);
+      const handedOff = await onToken(token);
+      if (!handedOff) setBusy(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Network error");
       setBusy(false);

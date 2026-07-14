@@ -89,7 +89,7 @@ function computeAge(dobStr: string): number {
   return age;
 }
 
-export const POST: APIRoute = async ({ params, request, clientAddress }) => {
+export const POST: APIRoute = async ({ params, request, clientAddress, locals }) => {
   const slug = params.locationSlug ?? "";
 
   // The kiosk slug is public (non-secret), and this endpoint creates booking
@@ -102,7 +102,10 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
     return rateLimitedResponse(ipLimit.retryAfter ?? 60);
   }
 
-  const locationResult = await requireKioskLocation(slug);
+  const locationResult = await requireKioskLocation(
+    slug,
+    locals.organization?.id ?? null,
+  );
   if (!locationResult.ok) return locationResult.response;
   const { location } = locationResult;
 

@@ -378,6 +378,9 @@ export default function SelfServe({
           signerName={context.signerName ?? context.displayName}
           playerName={context.displayName}
           isMinor={context.isMinor}
+          // The waiver names a legal entity — it must be the brand the
+          // customer is actually standing in front of, not a hardcoded one.
+          brandId={brandId}
           done={waiverDone}
           onDone={onWaiverDone}
           onBusy={setWaiverSubmitBusy}

@@ -21,7 +21,9 @@ let locationTimezone: string = BUSINESS_TIMEZONE;
 let invalid = false;
 
 if (slug) {
-  const k = await requireKioskLocation(slug);
+  // Org-scoped: locations.slug is unique per ORG, so the facility must be
+  // resolved against the organization the middleware derived from the host.
+  const k = await requireKioskLocation(slug, Astro.locals.organization?.id ?? null);
   if (k.ok) {
     locationName = k.location.name;
     locationTimezone = k.location.timezone ?? locationTimezone;
@@ -54,7 +56,7 @@ const today = new Date().toLocaleDateString("en-US", {
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   </Fragment>
   <main class="kiosk-surface min-h-screen flex flex-col bg-cream text-ink antialiased">
-    <KioskMasthead brandName={brandName} locationName={locationName} today={today} />
+    <KioskMasthead brandId={brandId} brandName={brandName} locationName={locationName} today={today} />
 
     <div class="max-w-2xl mx-auto px-6 py-10 md:py-14 flex-1">
       {invalid ? (

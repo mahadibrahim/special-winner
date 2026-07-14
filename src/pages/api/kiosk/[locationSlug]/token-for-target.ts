@@ -13,6 +13,7 @@ import type { APIRoute } from "astro";
 import { requireKioskLocation } from "@/lib/check-in/kiosk-auth";
 import { resolveSigner, type SelfServiceKind } from "@/lib/check-in/resolve-signer";
 import { mintToken } from "@/lib/check-in/tokens-db";
+import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 
 export const prerender = false;
 
@@ -28,9 +29,24 @@ const VALID_KINDS: SelfServiceKind[] = [
   "roster_entry",
 ];
 
-export const POST: APIRoute = async ({ params, request }) => {
+export const POST: APIRoute = async ({ params, request, clientAddress, locals }) => {
   const slug = params.locationSlug ?? "";
-  const kioskResult = await requireKioskLocation(slug);
+
+  // Unauthenticated, on the public internet, and it MINTS A REAL SELF-SERVE
+  // TOKEN for any targetId — a token that can sign that person's waiver and
+  // write their photo. Throttle per IP+location, same helper and 429 shape as
+  // the walk-in endpoints. A customer taps one result; 10/min is generous.
+  // (In-memory/fail-open limiter — see rate-limit.ts.)
+  const ip = clientAddress || "unknown";
+  const ipLimit = rateLimit(`kiosk-token-for-target:${slug}:${ip}`, 10, 60_000);
+  if (!ipLimit.allowed) {
+    return rateLimitedResponse(ipLimit.retryAfter ?? 60);
+  }
+
+  const kioskResult = await requireKioskLocation(
+    slug,
+    locals.organization?.id ?? null,
+  );
   if (!kioskResult.ok) return kioskResult.response;
   const { location } = kioskResult;
 

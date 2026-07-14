@@ -67,11 +67,23 @@ test.describe("Kiosk", { tag: "@critical" }, () => {
     let lastStatus = 0;
     let lastBody = "";
     for (let attempt = 0; attempt < 8; attempt++) {
-      // 12:00Z (8am ET) + 0..9h40m — every slot lands inside the Eastern day.
-      const startsAt = new Date(`${etDate}T12:00:00.000Z`);
-      startsAt.setUTCMinutes(
-        startsAt.getUTCMinutes() + Math.floor(Math.random() * 29) * 20,
+      // The slot must be inside the facility's local day AND must not have
+      // ENDED — GET /api/kiosk/:loc/sessions now filters `endsAt > now` (a
+      // walk-in must not be able to pay to join a session that's over). So
+      // pick a slot in the NEXT couple of hours rather than a random hour of
+      // the day: still random enough that two parallel workers rarely collide
+      // (the venue 409s an overlap), always still open.
+      const startsAt = new Date(
+        Date.now() + (2 + Math.floor(Math.random() * 40) * 3) * 60_000,
       );
+      // …unless that spills into tomorrow at the facility (late-evening run),
+      // in which case a session starting NOW is the only one that satisfies
+      // both bounds. Its end may cross local midnight — only startsAt is
+      // bounded by the day.
+      const startsEtDate = startsAt.toLocaleDateString("en-CA", {
+        timeZone: "America/New_York",
+      });
+      if (startsEtDate !== etDate) startsAt.setTime(Date.now() + 60_000);
       const endsAt = new Date(startsAt.getTime() + 20 * 60_000);
 
       const res = await page.request.post("/api/admin/dropin/sessions", {
@@ -95,6 +107,19 @@ test.describe("Kiosk", { tag: "@critical" }, () => {
       lastBody = await res.text();
       // 409 = the slot is taken. Anything else is a real failure.
       if (lastStatus !== 409) break;
+      // The admin endpoint INSERTS the session and only then claims the
+      // field-time block — a 409 therefore leaves the row behind on purpose
+      // ("so the admin can move it", see api/admin/dropin/sessions/index.ts).
+      // For this fixture that orphan is poison: it carries the SAME label as
+      // the session the retry goes on to create, so the wizard renders two
+      // buttons matching the label regex and the click dies on a strict-mode
+      // violation. Delete the orphan before retrying.
+      try {
+        const orphan = JSON.parse(lastBody) as { session?: { id: string } };
+        if (orphan.session?.id) await cleanupSession(page, orphan.session.id);
+      } catch {
+        /* body wasn't the session payload — nothing to clean */
+      }
     }
     throw new Error(
       `Could not create a drop-in session (last status ${lastStatus}): ${lastBody}`,

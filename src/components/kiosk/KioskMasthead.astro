@@ -16,14 +16,20 @@
 // ever changes — soccerone-tokens.css is idempotent to import twice.
 import "@/styles/soccerone-tokens.css";
 
+import type { BrandId } from "@/lib/branding/themes";
+
 interface Props {
+  /** Host-derived brand identity. Branch on THIS, never on brandName: the
+   *  display name is a string a tenant can rename, and a rename would
+   *  silently drop the wordmark. */
+  brandId?: BrandId;
   brandName: string;
   locationName?: string | null;
   today: string;
 }
 
-const { brandName, locationName, today } = Astro.props;
-const isSoccerOne = brandName === "SoccerOne";
+const { brandId, brandName, locationName, today } = Astro.props;
+const isSoccerOne = brandId === "soccerone";
 ---
 
 <div class="border-b border-border">

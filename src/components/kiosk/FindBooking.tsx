@@ -17,8 +17,9 @@ interface Result {
 interface Props {
   locationSlug: string;
   /** Hands the resolved self-serve token up to KioskRoot, which renders the
-   *  finish flow inline. This component never navigates the tab. */
-  onToken: (token: string) => void;
+   *  finish flow inline. This component never navigates the tab. Resolves
+   *  false when the handoff failed — see openResult. */
+  onToken: (token: string) => Promise<boolean>;
   onBack: () => void;
 }
 
@@ -96,11 +97,13 @@ export function FindBooking({ locationSlug, onToken, onBack }: Props) {
         return;
       }
       // The kiosk tab never leaves /kiosk/<slug> — hand the token up and let
-      // KioskRoot render the finish flow inline. onToken is fire-and-forget
-      // (KioskRoot is still fetching the token's context), so leave `opening`
-      // true rather than re-enabling this row before the handoff lands —
-      // otherwise a laggy iPad double-tap can fire the request twice.
-      onToken((body as { token: string }).token);
+      // KioskRoot render the finish flow inline. Stay disabled across the
+      // handoff (KioskRoot is still fetching the token's context) so a laggy
+      // iPad double-tap can't fire the request twice — but if the handoff
+      // FAILS we're still on this screen, so re-enable: otherwise the rows
+      // are dead and only "← Back" recovers.
+      const handedOff = await onToken((body as { token: string }).token);
+      if (!handedOff) setOpening(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Network error");
       setOpening(false);

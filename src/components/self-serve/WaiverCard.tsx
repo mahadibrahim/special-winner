@@ -3,8 +3,20 @@
 import { useEffect, useRef, useState } from "react";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { CARD_CLASS, DONE_CARD_CLASS, INPUT_CLASS, PRIMARY_BTN } from "./card-styles";
+import { getBrandTheme, type BrandId } from "@/lib/branding/themes";
 
-const WAIVER_TEXT = `I acknowledge the inherent risks of recreational sports activity, including contact, falls, and weather-related conditions. I waive SoccerOne, operated by Aspire Sports, and its partner venues from liability for injuries that occur during this session, and I confirm that the player named above is physically able to participate.`;
+/**
+ * The waiver names a legal entity, and this card is SHARED — the standalone
+ * /self-serve/[token] page renders it for every tenant on both brands. It
+ * used to hardcode "SoccerOne", so an Aspire customer signed a liability
+ * waiver naming a brand they had never heard of. The entity phrase now comes
+ * from the brand theme (themes.ts → waiverEntity), which is the ONLY mapping:
+ * a new brand is a new entry there, never an edit here.
+ */
+function waiverText(brandId: BrandId | undefined): string {
+  const entity = getBrandTheme(brandId).waiverEntity;
+  return `I acknowledge the inherent risks of recreational sports activity, including contact, falls, and weather-related conditions. I waive ${entity} from liability for injuries that occur during this session, and I confirm that the player named above is physically able to participate.`;
+}
 
 interface Props {
   token: string;
@@ -18,6 +30,11 @@ interface Props {
    *  guardian who shares the minor's exact name, e.g. Jr./Sr., breaks
    *  that comparison silently). */
   isMinor: boolean;
+  /** Host-derived brand. Decides which legal entity the waiver names — see
+   *  waiverText() above. Optional: omitted → the Aspire default, so no
+   *  caller breaks and the fallback is never a brand the customer hasn't
+   *  heard of. */
+  brandId?: BrandId;
   done: boolean;
   onDone: () => void;
   /** Reports "a request of mine is in flight" to the embedder (the kiosk),
@@ -32,6 +49,7 @@ export function WaiverCard({
   signerName,
   playerName,
   isMinor,
+  brandId,
   done,
   onDone,
   onBusy,
@@ -97,7 +115,7 @@ export function WaiverCard({
     <form onSubmit={onSubmit} className={CARD_CLASS}>
       <h2 className="font-semibold text-ink">Sign the liability waiver</h2>
       <p className="text-sm text-ink-muted bg-cream-2 border border-border rounded p-3 whitespace-pre-wrap">
-        {WAIVER_TEXT}
+        {waiverText(brandId)}
       </p>
       <label className="flex items-start gap-2 text-sm text-ink">
         <input

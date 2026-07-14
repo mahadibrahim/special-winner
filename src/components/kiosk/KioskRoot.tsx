@@ -212,7 +212,16 @@ export default function KioskRoot({
   }, [idleSeconds, reset]);
 
   // Both entry paths converge here: a token is all the finish flow needs.
-  const onToken = useCallback(async (t: string) => {
+  //
+  // Returns whether the handoff LANDED. The callers (FindBooking.openResult,
+  // WalkInWizard.startBooking) deliberately keep their submit control disabled
+  // across this await so a laggy iPad can't double-fire the request — but if
+  // this fetch fails, the kiosk stays in find/walkin mode showing an error
+  // with the Continue button (or every result row) permanently dead. Only
+  // "← Back" recovered, and redoing a walk-in booked a SECOND slot. So failure
+  // is reported back and the caller re-enables itself; success is not, so the
+  // double-tap guard survives.
+  const onToken = useCallback(async (t: string): Promise<boolean> => {
     setLoadingToken(true);
     setError(null);
     try {
@@ -221,15 +230,17 @@ export default function KioskRoot({
         setError(
           `Couldn't open your booking (${res.status}). Please see the front desk.`,
         );
-        return;
+        return false;
       }
       // The API body IS the SelfServe context — including isMinor, which
       // decides guardian-vs-adult waiver language. Never reconstruct it here.
       setContext((await res.json()) as SelfServeContext);
       setToken(t);
       setMode("finish");
+      return true;
     } catch {
       setError("Couldn't reach the server. Please see the front desk.");
+      return false;
     } finally {
       setLoadingToken(false);
     }
