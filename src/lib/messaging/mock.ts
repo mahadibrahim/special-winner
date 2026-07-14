@@ -39,8 +39,71 @@ const RING_LIMIT = 500;
 const ring: MockMessage[] = [];
 let seq = 0;
 
+/**
+ * Real transport (Resend / Twilio / Zernio) is OPT-IN, and the opt-in is a
+ * single env var set on exactly one deployment: the production Netlify site.
+ *
+ * It used to be the other way around — real sending was the default and
+ * MESSAGING_MOCK=1 was the opt-out. That default is what let the following
+ * happen, all of it with a live Resend key:
+ *
+ *   - Every local `npm run test:api` / `npm test` run really emailed the owner.
+ *     The careers endpoint notifies HIRING_NOTIFY_EMAIL on each application, so
+ *     the API and Playwright fixtures ("Api Applicant", "Playwright Applicant")
+ *     landed in a real inbox on every run.
+ *   - The staging Netlify site — which deploys from main and therefore runs
+ *     every scheduled cron — drove those crons against the staging database and
+ *     its thousands of seeded users, sending ~750 emails/day to addresses like
+ *     `@test.example` and `@example.com`. Those domains are RFC-reserved and
+ *     permanently undeliverable, so every one was a guaranteed hard bounce —
+ *     the fastest way to wreck a sending domain's reputation and get the whole
+ *     Resend account throttled, taking real receipts and confirmations with it.
+ *
+ * CI was the only environment that got this right (MESSAGING_MOCK=1 in ci.yml),
+ * which is precisely the tell: safety depended on every environment remembering
+ * to opt out. Now it depends on exactly one environment opting IN.
+ *
+ * Fail-safe direction matters here: the worst case of a missing flag is "prod
+ * quietly stops sending", which is loud, obvious and instantly reversible. The
+ * worst case of the old default was "every new environment silently spams real
+ * people and burns the sending domain", which is neither.
+ */
+export function isMessagingLive(): boolean {
+  return process.env.MESSAGING_LIVE === "yes";
+}
+
 export function isMessagingMockEnabled(): boolean {
-  return process.env.MESSAGING_MOCK === "1";
+  // Explicit legacy opt-out. Still honoured so ci.yml (and anything else
+  // already setting it) keeps working unchanged.
+  if (process.env.MESSAGING_MOCK === "1") return true;
+  // Otherwise: mock unless this deployment has explicitly opted in to real
+  // transport. Local dev, tests, previews and staging all land here.
+  const live = isMessagingLive();
+  if (!live) warnIfLiveHostIsNotLive();
+  return !live;
+}
+
+/** Hosts where NOT sending is an outage, not a safety feature. */
+const LIVE_HOSTS = ["aspiresportsohio.com", "gosoccerone.com"];
+let warnedNotLive = false;
+
+/**
+ * The one real cost of a fail-safe default: a production site that forgets
+ * MESSAGING_LIVE silently stops emailing customers. So make it un-silent —
+ * if we're serving a real customer-facing host and still mocking, that is an
+ * incident, and it should be screaming in the logs (and in PostHog, which
+ * ingests console.error) rather than discovered from a support ticket.
+ */
+function warnIfLiveHostIsNotLive(): void {
+  if (warnedNotLive) return;
+  const appUrl = process.env.PUBLIC_APP_URL ?? "";
+  if (!LIVE_HOSTS.some((h) => appUrl.includes(h))) return;
+  warnedNotLive = true;
+  console.error(
+    `[messaging] MESSAGING_LIVE is not set, but PUBLIC_APP_URL is ${appUrl}. ` +
+      `Email and SMS are being RECORDED, NOT SENT. If this is the production ` +
+      `site, set MESSAGING_LIVE=yes in its Netlify environment.`,
+  );
 }
 
 export function recordMockMessage(
