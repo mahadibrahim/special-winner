@@ -36,7 +36,8 @@ export type SendSmsResult =
         | "not_opted_in"
         | "opted_out"
         | "provider_error"
-        | "invalid_phone";
+        | "invalid_phone"
+        | "channel_dormant";
       error?: string;
     };
 
@@ -68,6 +69,24 @@ export async function dispatchToProvider(
   const sender = getSmsFrom();
   const message = await client.messages.create({ ...sender, to: input.to, body: input.text });
   return { messageId: message.sid };
+}
+
+/**
+ * Map a provider transport error to a reason.
+ *
+ * "Dormant" is not "broken". While a 10DLC registration is under carrier review
+ * a send returns `403 … still under carrier review` — the number is real, the
+ * consent is real, the channel is simply not awake yet. Callers must keep the
+ * consent and park the message, not discard it. See
+ * docs/operations/zernio-sms-unpark-checklist.md.
+ */
+export function classifyProviderError(
+  err: unknown,
+): "channel_dormant" | "not_configured" | "provider_error" {
+  const msg = err instanceof Error ? err.message : String(err);
+  if (/under carrier review/i.test(msg)) return "channel_dormant";
+  if (/no sms-enabled number matches/i.test(msg)) return "not_configured";
+  return "provider_error";
 }
 
 export async function sendSms(input: SendSmsInput): Promise<SendSmsResult> {
@@ -134,7 +153,7 @@ export async function sendSms(input: SendSmsInput): Promise<SendSmsResult> {
     console.error("SMS send error:", error);
     return {
       ok: false,
-      reason: "provider_error",
+      reason: classifyProviderError(error),
       error: error instanceof Error ? error.message : String(error),
     };
   }
