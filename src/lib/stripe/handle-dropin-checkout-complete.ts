@@ -40,7 +40,7 @@ import {
   userSkillLevels,
 } from "@/lib/db/schema/drop-in";
 import { assignTeam } from "@/lib/dropin/team-assignment";
-import { checkSessionCapacityLocked } from "@/lib/dropin/booking";
+import { checkSessionCapacityLocked, sanitizeReferralSource } from "@/lib/dropin/booking";
 import type { DropInPaymentMethod } from "@/lib/dropin/pricing";
 import {
   dispatchBookingConfirmation,
@@ -89,6 +89,10 @@ export async function handleDropInCheckoutComplete(
   const waiverSignedAt = waiverSignedAtRaw ? new Date(waiverSignedAtRaw) : null;
   // Brand is set in extraMetadata at checkout creation time (PR #168, bookings/index.ts).
   const brand = normalizeBrand(session.metadata?.brand);
+  // Re-sanitize even though create-checkout.ts already sanitized before
+  // stamping metadata — the webhook is the DB insert boundary, so it never
+  // trusts a round-tripped Stripe value without re-checking the allow-list.
+  const referralSource = sanitizeReferralSource(session.metadata?.referral_source);
 
   if (!sessionDbId || !userId) {
     return { status: "skipped", reason: "missing dropin metadata" };
@@ -244,6 +248,7 @@ export async function handleDropInCheckoutComplete(
           waiverSignedAt,
           waiverSignedBy: waiverName,
           brand,
+          referralSource,
         })
         .returning();
       return { status: "overflow", bookingId: overflowBooking.id };
@@ -297,6 +302,7 @@ export async function handleDropInCheckoutComplete(
         waiverSignedAt,
         waiverSignedBy: waiverName,
         brand,
+        referralSource,
       })
       .returning();
 

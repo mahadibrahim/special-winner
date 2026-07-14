@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 
 /**
  * Cloudflare Turnstile widget — loads the Cloudflare JS once, renders the
@@ -20,6 +20,13 @@ import { useEffect, useRef } from "react";
  * when the SECRET is unset in prod the verifier rejects all submissions,
  * so the widget rendering with a sandbox site key doesn't actually let a
  * bot through if someone forgets to provision the prod keys.
+ *
+ * `reset()` (exposed via ref) re-triggers the widget in place, producing a
+ * fresh token via `onToken`. Needed by callers that verify a token more
+ * than once per page load (e.g. the careers host form, which spends a
+ * token on each host-media upload-url call before spending a final one on
+ * the application submit) — Turnstile tokens are single-use server-side,
+ * so a stale reused token fails the second verification.
  */
 
 const SANDBOX_ALWAYS_PASS_SITE_KEY = "1x00000000000000000000AA";
@@ -48,70 +55,89 @@ type Props = {
   onError?: () => void;
 };
 
-export function TurnstileWidget({ onToken, onError }: Props) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const widgetIdRef = useRef<string | null>(null);
-  // Read at mount; keeping it in a ref keeps the effect deps empty.
-  const siteKeyRef = useRef<string>(
-    (import.meta.env.PUBLIC_TURNSTILE_SITE_KEY as string | undefined) ||
-      SANDBOX_ALWAYS_PASS_SITE_KEY,
-  );
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const ensureScript = (): Promise<void> => {
-      if (window.turnstile) return Promise.resolve();
-      return new Promise((resolve, reject) => {
-        const existing = document.querySelector<HTMLScriptElement>(
-          'script[data-aspire-turnstile]',
-        );
-        if (existing) {
-          existing.addEventListener("load", () => resolve());
-          existing.addEventListener("error", () => reject());
-          return;
-        }
-        const script = document.createElement("script");
-        script.src =
-          "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
-        script.async = true;
-        script.defer = true;
-        script.setAttribute("data-aspire-turnstile", "1");
-        script.onload = () => resolve();
-        script.onerror = () => reject();
-        document.head.appendChild(script);
-      });
-    };
-
-    ensureScript()
-      .then(() => {
-        if (cancelled || !containerRef.current || !window.turnstile) return;
-        widgetIdRef.current = window.turnstile.render(containerRef.current, {
-          sitekey: siteKeyRef.current,
-          callback: (token: string) => onToken(token),
-          "error-callback": () => onError?.(),
-          "expired-callback": () => onError?.(),
-          theme: "auto",
-        });
-      })
-      .catch(() => {
-        if (!cancelled) onError?.();
-      });
-
-    return () => {
-      cancelled = true;
-      if (widgetIdRef.current && window.turnstile) {
-        try {
-          window.turnstile.remove(widgetIdRef.current);
-        } catch {
-          /* ignore unmount race */
-        }
-        widgetIdRef.current = null;
-      }
-    };
-    // onToken/onError are stable from parent (we use refs above); intentionally empty deps.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  return <div ref={containerRef} />;
+export interface TurnstileWidgetHandle {
+  /** Re-solve the challenge in place, delivering a fresh token via onToken. */
+  reset: () => void;
 }
+
+export const TurnstileWidget = forwardRef<TurnstileWidgetHandle, Props>(
+  function TurnstileWidget({ onToken, onError }, ref) {
+    const containerRef = useRef<HTMLDivElement | null>(null);
+    const widgetIdRef = useRef<string | null>(null);
+    // Read at mount; keeping it in a ref keeps the effect deps empty.
+    const siteKeyRef = useRef<string>(
+      (import.meta.env.PUBLIC_TURNSTILE_SITE_KEY as string | undefined) ||
+        SANDBOX_ALWAYS_PASS_SITE_KEY,
+    );
+
+    useImperativeHandle(ref, () => ({
+      reset: () => {
+        if (widgetIdRef.current && window.turnstile) {
+          try {
+            window.turnstile.reset(widgetIdRef.current);
+          } catch {
+            /* ignore — worst case the caller keeps the stale token */
+          }
+        }
+      },
+    }));
+
+    useEffect(() => {
+      let cancelled = false;
+
+      const ensureScript = (): Promise<void> => {
+        if (window.turnstile) return Promise.resolve();
+        return new Promise((resolve, reject) => {
+          const existing = document.querySelector<HTMLScriptElement>(
+            'script[data-aspire-turnstile]',
+          );
+          if (existing) {
+            existing.addEventListener("load", () => resolve());
+            existing.addEventListener("error", () => reject());
+            return;
+          }
+          const script = document.createElement("script");
+          script.src =
+            "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+          script.async = true;
+          script.defer = true;
+          script.setAttribute("data-aspire-turnstile", "1");
+          script.onload = () => resolve();
+          script.onerror = () => reject();
+          document.head.appendChild(script);
+        });
+      };
+
+      ensureScript()
+        .then(() => {
+          if (cancelled || !containerRef.current || !window.turnstile) return;
+          widgetIdRef.current = window.turnstile.render(containerRef.current, {
+            sitekey: siteKeyRef.current,
+            callback: (token: string) => onToken(token),
+            "error-callback": () => onError?.(),
+            "expired-callback": () => onError?.(),
+            theme: "auto",
+          });
+        })
+        .catch(() => {
+          if (!cancelled) onError?.();
+        });
+
+      return () => {
+        cancelled = true;
+        if (widgetIdRef.current && window.turnstile) {
+          try {
+            window.turnstile.remove(widgetIdRef.current);
+          } catch {
+            /* ignore unmount race */
+          }
+          widgetIdRef.current = null;
+        }
+      };
+      // onToken/onError are stable from parent (we use refs above); intentionally empty deps.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    return <div ref={containerRef} />;
+  },
+);

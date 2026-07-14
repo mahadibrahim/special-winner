@@ -23,6 +23,7 @@ import {
   dropInPaymentDescription,
 } from "@/lib/dropin/checkout-line-item";
 import { computeSurchargeCents } from "@/lib/payments/surcharge";
+import { sanitizeReferralSource } from "@/lib/dropin/booking";
 
 export async function createDropInCheckoutSession(opts: {
   db: ReturnType<typeof getDb>;
@@ -31,6 +32,9 @@ export async function createDropInCheckoutSession(opts: {
   rate: ResolvedRate;
   waiverSignedAt: Date;
   waiverName: string;
+  /** Raw `?src=` query value from the share link — sanitized before it lands
+   *  in Checkout metadata (and, later, the booking row via the webhook). */
+  referralSource?: string;
   extraMetadata?: Record<string, string>;
   /** Request origin (e.g. `url.origin`) — success/cancel redirects return to
    *  the domain the customer booked from. Falls back to PUBLIC_APP_URL. */
@@ -117,6 +121,7 @@ export async function createDropInCheckoutSession(opts: {
         organization_id: session.organizationId,
         waiver_signed_at: waiverSignedAt.toISOString(),
         waiver_name: waiverName,
+        referral_source: sanitizeReferralSource(opts.referralSource) ?? "",
         ...(opts.extraMetadata ?? {}),
       },
       payment_intent_data: {

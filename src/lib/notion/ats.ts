@@ -18,6 +18,7 @@ const ROLE_LABELS: Record<JobApplication["role"], string> = {
   referee: "Referee",
   coach: "Coach",
   staff: "Staff",
+  host: "Host",
 };
 const FACILITY_LABELS: Record<string, string> = {
   worthington: "Worthington",

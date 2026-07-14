@@ -84,6 +84,9 @@ export * from "./scheduling";
 // Drop-in booking (pickup + classes per-seat) + brand profiles + skill levels
 export * from "./drop-in";
 
+// Pickup hosts (GoodRec-style community volunteers)
+export * from "./hosts";
+
 // Field rentals (book a field/venue time-block + payment)
 export * from "./field-rentals";
 

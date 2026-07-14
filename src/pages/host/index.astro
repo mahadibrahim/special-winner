@@ -1,0 +1,35 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import HostDashboard from "@/components/host/HostDashboard";
+import { getHostProfile } from "@/lib/auth/host";
+
+// Middleware guarantees auth; active-host is checked here so paused/revoked
+// hosts get an explanation instead of a 403.
+const user = Astro.locals.user!;
+const org = Astro.locals.organization;
+const profile = org ? await getHostProfile(user.id, org.id) : null;
+---
+
+<BaseLayout title="Host dashboard — Aspire Sports">
+  {
+    !profile ? (
+      <main id="main-content" class="mx-auto max-w-xl px-4 py-16 text-center">
+        <h1 class="text-2xl font-semibold">Host dashboard</h1>
+        <p class="mt-4">
+          This area is for approved pickup hosts. Want to host games (and play
+          free when you do)? <a href="/careers" class="underline">Apply here</a>.
+        </p>
+      </main>
+    ) : profile.status !== "active" ? (
+      <main id="main-content" class="mx-auto max-w-xl px-4 py-16 text-center">
+        <h1 class="text-2xl font-semibold">Hosting is paused</h1>
+        <p class="mt-4">
+          Your host access is currently {profile.status === "paused" ? "paused" : "inactive"}.
+          Reach out to the front desk if you think that's a mistake.
+        </p>
+      </main>
+    ) : (
+      <HostDashboard client:load />
+    )
+  }
+</BaseLayout>

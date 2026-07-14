@@ -3,11 +3,24 @@
  *
  * The kiosk is facility (location) scoped. Seeds a drop-in session TODAY
  * at the E2E rental venue (a space in the seeded facility) and a confirmed
- * booking for the seed parent user. Verifies:
+ * booking for a dedicated, uniquely-named test user (NOT the shared seed
+ * parent — see below). Verifies:
  *   - partial name match → returns the booking
  *   - last-4-of-phone match → returns the booking
  *   - empty / short query → returns empty results
  *   - unknown location segment → 404
+ *
+ * Why a dedicated user: the search endpoint caps results at 20 with no
+ * guaranteed-small result set for common search terms. The shared seed
+ * parent (`TEST_USERS.parent`, first name "Test Parent") accumulates
+ * hundreds of confirmed drop-in bookings on the shared staging DB over
+ * time (every seeded test user is named "Test ..."), so searching a 2-char
+ * prefix of "Test Parent" matches far more than 20 rows — the endpoint's
+ * `orderBy` makes the *choice* of which 20 deterministic, but a 2-char
+ * shared-name search can still legitimately return >20 matches with this
+ * test's own booking sorted out of the top 20. Using a unique,
+ * high-entropy first name keeps this test's result set small and owned
+ * regardless of what else lives in the shared DB.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { apiFetch, getAdminCookie } from "../setup/test-helpers";
@@ -16,11 +29,7 @@ import { dropInBookings, dropInSessions, dropInRateCard } from "@/lib/db/schema/
 import { users } from "@/lib/db/schema/users";
 import { venues } from "@/lib/db/schema/teams";
 import { eq } from "drizzle-orm";
-import {
-  E2E_RENTAL_VENUE_ID,
-  E2E_ORG_ID,
-  TEST_USERS,
-} from "@/lib/db/seeds/seed-e2e-tests";
+import { E2E_RENTAL_VENUE_ID, E2E_ORG_ID } from "@/lib/db/seeds/seed-e2e-tests";
 
 // Use a unique field so parallel runs at the same venue don't collide on
 // the booking unique index (session_id, user_id). The session is scoped to
@@ -54,30 +63,23 @@ describe("GET /api/kiosk/[locationSlug]/search", () => {
     }
     locationId = rentalVenue.locationId;
 
-    // Resolve the seed parent user (must exist from seed-e2e-tests run).
-    const [parentRow] = await db
-      .select({ id: users.id, firstName: users.firstName, lastName: users.lastName, phone: users.phone })
-      .from(users)
-      .where(eq(users.email, TEST_USERS.parent.email))
-      .limit(1);
-    if (!parentRow) {
-      throw new Error("Seed parent user not found — run npm run db:seed:e2e first");
-    }
-    parentUserId = parentRow.id;
-    parentFirstName = parentRow.firstName ?? TEST_USERS.parent.firstName;
-
-    // Ensure the parent has a phone so last-4 matching is testable.
-    // If the seed didn't set one, give it a stable value for this run.
-    if (!parentRow.phone) {
-      const testPhone = `5550${UNIQUE_SUFFIX.replace(/\D/g, "").slice(0, 6)}`.slice(0, 10).padEnd(10, "0");
-      await db
-        .update(users)
-        .set({ phone: testPhone })
-        .where(eq(users.id, parentUserId));
-      parentPhone = testPhone;
-    } else {
-      parentPhone = parentRow.phone;
-    }
+    // Create a dedicated user with a unique, high-entropy first name — see
+    // the file-level comment for why this must not be the shared seed
+    // parent. Phone is derived from the same suffix so it's unique too.
+    parentFirstName = `Kiosk${UNIQUE_SUFFIX.replace(/[^a-zA-Z0-9]/g, "")}`;
+    parentPhone = `555${UNIQUE_SUFFIX.replace(/\D/g, "").slice(0, 7)}`
+      .slice(0, 10)
+      .padEnd(10, "0");
+    const [testUser] = await db
+      .insert(users)
+      .values({
+        email: `kiosk-search-${UNIQUE_SUFFIX}@t.example`,
+        firstName: parentFirstName,
+        lastName: "SearchFixture",
+        phone: parentPhone,
+      })
+      .returning();
+    parentUserId = testUser.id;
 
     // Ensure a rate card exists for the org.
     await db

@@ -19,6 +19,7 @@ import { venueResources } from "@/lib/db/schema/scheduling";
 import { BlockConflictError, removeSourceBlock } from "@/lib/scheduling/blocks";
 import { users } from "@/lib/db/schema/users";
 import { venues } from "@/lib/db/schema/teams";
+import { hostGameReports } from "@/lib/db/schema/hosts";
 import { requireOrgAdminAccess } from "@/lib/auth/roles";
 import { callerCanActOnVenue } from "@/lib/admin/require-location-scope";
 
@@ -97,10 +98,41 @@ export const GET: APIRoute = async (context) => {
     .where(eq(dropInBookings.sessionId, id))
     .orderBy(asc(dropInBookings.createdAt));
 
+  // Host + wrap-up report, when a host is/was assigned. One extra query
+  // each — cheap, and keeps the detail endpoint self-contained rather than
+  // requiring the UI to fan out to /api/admin/hosts and match client-side.
+  let host: { userId: string; name: string } | null = null;
+  if (session.hostUserId) {
+    const [hostUser] = await db
+      .select({ firstName: users.firstName, lastName: users.lastName })
+      .from(users)
+      .where(eq(users.id, session.hostUserId))
+      .limit(1);
+    if (hostUser) {
+      host = {
+        userId: session.hostUserId,
+        name: `${hostUser.firstName} ${hostUser.lastName}`.trim(),
+      };
+    }
+  }
+
+  const [reportRow] = await db
+    .select({
+      summary: hostGameReports.summary,
+      incidentFlagged: hostGameReports.incidentFlagged,
+      createdAt: hostGameReports.createdAt,
+    })
+    .from(hostGameReports)
+    .where(eq(hostGameReports.sessionId, id))
+    .limit(1);
+  const report = reportRow ?? null;
+
   return json(
     {
       session,
       venue,
+      host,
+      report,
       roster: bookings.filter((b) => b.status === "confirmed"),
       // Walk-in pay-link holds. Kept out of `roster` (not yet paid/confirmed)
       // and out of `waitlist` (they occupy a physical slot at the venue right
