@@ -168,8 +168,18 @@ describe("GET /api/kiosk/[locationSlug]/search", () => {
   // phone-suffix filter then correctly finds no match. But the probe also
   // contains the seeded user's real first name — if anyone ever adds back
   // an `ilike(users.firstName, ...)` (or similar) disjunct to the query,
-  // that name would match and this test would start seeing a result,
-  // failing the `toEqual([])` assertion below.
+  // that name would match and this test would start seeing a result.
+  //
+  // The space between the name and the digits is load-bearing. The most
+  // natural way someone would "restore name search" is to tokenize on
+  // whitespace and match alpha tokens against the name columns and digit
+  // tokens against the phone. A probe with no space ("Casey0001") is a
+  // single digit-bearing token, so that mutation would fall through and go
+  // undetected — while "Casey 1234" would leak in production the moment a
+  // real user typed it. With the space, this probe catches both the
+  // alpha-extraction and the whitespace-tokenizing reintroductions. It
+  // still passes against the correct implementation, which extracts digits
+  // from the whole string regardless of spaces.
   it("rejects a name that rides along with a non-matching phone suffix", async () => {
     const realLast4 = parentPhone.replace(/\D/g, "").slice(-4);
     // +1 mod 10000 is always different from realLast4 (equal would require
@@ -178,13 +188,21 @@ describe("GET /api/kiosk/[locationSlug]/search", () => {
     const nonMatchingLast4 = String(
       (parseInt(realLast4, 10) + 1) % 10000,
     ).padStart(4, "0");
-    const q = `${parentFirstName}${nonMatchingLast4}`;
+    const q = `${parentFirstName} ${nonMatchingLast4}`;
     const res = await apiFetch(
       `/api/kiosk/${locationId}/search?q=${encodeURIComponent(q)}`,
     );
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.results).toEqual([]);
+    // Deliberately NOT toEqual([]) — the CI database accumulates rows across
+    // runs, so some unrelated customer may legitimately have a booking today
+    // whose phone ends in nonMatchingLast4. That would be a correct phone
+    // match, not a leak. What must never appear is the seeded user, whose
+    // name is the bait in this probe.
+    const leaked = (body.results as { title: string }[]).filter((r) =>
+      r.title.startsWith(parentFirstName),
+    );
+    expect(leaked).toEqual([]);
   });
 
   it("returns nothing for fewer than 4 digits", async () => {
