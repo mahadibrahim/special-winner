@@ -19,4 +19,38 @@ describe("dormant channel classification", () => {
       classifyProviderError(new Error("404 No SMS-enabled number matches from")),
     ).toBe("not_configured");
   });
+
+  describe("real Zernio client error shapes (classify by status, not wording)", () => {
+    it("classifies the real wrapped dormant error as dormant", () => {
+      const err = new Error(
+        "Zernio SMS 403 on /sms/messages: Your SMS registration is still under carrier review.",
+      );
+      expect(classifyProviderError(err)).toBe("channel_dormant");
+    });
+
+    it("classifies a 403 with a non-JSON error body as dormant (the hole this fix closes)", () => {
+      // zernio-sms.ts falls back to detail = "(non-JSON error body)" when the
+      // response body isn't valid JSON. The wording match never fires here —
+      // only the embedded HTTP status can save the consent.
+      const err = new Error("Zernio SMS 403 on /sms/messages: (non-JSON error body)");
+      expect(classifyProviderError(err)).toBe("channel_dormant");
+    });
+
+    it("classifies a 403 with reworded carrier text as dormant by status, not wording", () => {
+      const err = new Error("Zernio SMS 403 on /sms/messages: registration pending review");
+      expect(classifyProviderError(err)).toBe("channel_dormant");
+    });
+
+    it("classifies a 404 as not_configured", () => {
+      const err = new Error(
+        "Zernio SMS 404 on /sms/messages: No SMS-enabled number matches from",
+      );
+      expect(classifyProviderError(err)).toBe("not_configured");
+    });
+
+    it("classifies a 502 as provider_error, not parked forever", () => {
+      const err = new Error("Zernio SMS 502 on /sms/messages: Carrier send failed");
+      expect(classifyProviderError(err)).toBe("provider_error");
+    });
+  });
 });

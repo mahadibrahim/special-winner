@@ -79,11 +79,33 @@ export async function dispatchToProvider(
  * consent is real, the channel is simply not awake yet. Callers must keep the
  * consent and park the message, not discard it. See
  * docs/operations/zernio-sms-unpark-checklist.md.
+ *
+ * Classify on HTTP status FIRST, wording SECOND. `zernio-sms.ts` throws
+ * `Zernio SMS <status> on /sms/messages: <detail>`, and `<detail>` falls back
+ * to the literal string "(non-JSON error body)" whenever the carrier's error
+ * response isn't valid JSON — so a real dormant 403 can arrive with no
+ * "under carrier review" wording at all, and wording alone would misclassify
+ * it as a generic provider_error and DISCARD THE CONSENT. The status code is
+ * reliable even when the body isn't, so it must win. A missed dormant
+ * classification destroys consent a customer genuinely gave; a missed
+ * provider_error classification just means one retry — the failure modes are
+ * not symmetric, so ties go to "dormant" whenever the signal is a 403.
+ *
+ * The wording matches are kept as a fallback for providers that don't embed
+ * a parseable status in the message (e.g. non-Zernio callers of this helper).
  */
 export function classifyProviderError(
   err: unknown,
 ): "channel_dormant" | "not_configured" | "provider_error" {
   const msg = err instanceof Error ? err.message : String(err);
+
+  const statusMatch = /^Zernio SMS (\d+) on /.exec(msg);
+  if (statusMatch) {
+    const status = Number(statusMatch[1]);
+    if (status === 403) return "channel_dormant";
+    if (status === 404) return "not_configured";
+  }
+
   if (/under carrier review/i.test(msg)) return "channel_dormant";
   if (/no sms-enabled number matches/i.test(msg)) return "not_configured";
   return "provider_error";
