@@ -3,6 +3,7 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import { db } from "@/lib/db";
 import { sports, programs, seasons, organizations } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
+import { breadcrumbJsonLd } from "@/lib/seo/breadcrumbs";
 
 // SSR — sport pages need request-time data and the catalog will change.
 // (No prerender flag.)
@@ -164,6 +165,13 @@ const sportSchema = {
     url: "https://aspiresportsohio.com",
   },
 };
+
+const ORIGIN = import.meta.env.PUBLIC_APP_URL || "https://aspiresportsohio.com";
+const breadcrumbSchema = breadcrumbJsonLd([
+  { name: "Home", url: `${ORIGIN}/` },
+  { name: "Sports", url: `${ORIGIN}/sports` },
+  { name: sport.name, url: `${ORIGIN}/sports/${sport.slug}` },
+]);
 ---
 
 <BaseLayout
@@ -172,6 +180,7 @@ const sportSchema = {
 >
   <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
   <script type="application/ld+json" set:html={JSON.stringify(sportSchema)} />
+  <script type="application/ld+json" set:html={JSON.stringify(breadcrumbSchema)} />
 
   <main id="main-content" class="bg-cream">
     {/* Sport hero */}

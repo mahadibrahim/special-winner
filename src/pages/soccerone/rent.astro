@@ -8,6 +8,7 @@ import { getRentalVenuesByLocation } from '@/lib/soccerone/venues';
 import { RENTAL_RATE_SCHEDULE } from '@/lib/rentals/soccerone-pricing';
 import { getActiveMembershipForOrg } from '@/lib/memberships/get-active-membership';
 import { DEFAULT_BOOKING_WINDOW_DAYS, resolveBookingWindowDays } from '@/lib/memberships/booking-window';
+import { breadcrumbJsonLd } from '@/lib/seo/breadcrumbs';
 
 const facility = Astro.url.searchParams.get('facility') || 'worthington';
 const facilityLabel = facility === 'downtown' ? 'Downtown' : 'Worthington';
@@ -45,6 +46,12 @@ const fmt = (cents: number) => {
   const dollars = cents / 100;
   return `$${Number.isInteger(dollars) ? dollars : dollars.toFixed(2)}`;
 };
+
+const SO = 'https://www.gosoccerone.com';
+const breadcrumbSchema = breadcrumbJsonLd([
+  { name: 'SoccerOne', url: `${SO}/` },
+  { name: 'Rent', url: `${SO}/rent` },
+]);
 ---
 
 <BaseLayout
@@ -62,6 +69,7 @@ const fmt = (cents: number) => {
       href="https://fonts.googleapis.com/css2?family=Anton&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbSchema)} />
   </Fragment>
 
   <SoccerOneHeader />

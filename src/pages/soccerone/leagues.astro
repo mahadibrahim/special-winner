@@ -5,6 +5,7 @@ import SoccerOneHeader from '@/components/soccerone/SoccerOneHeader.astro';
 import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
 import SoccerOneLeaguesFinder from '@/components/soccerone/SoccerOneLeaguesFinder';
 import SoccerOneLeagueLevels from '@/components/soccerone/SoccerOneLeagueLevels.astro';
+import { breadcrumbJsonLd } from '@/lib/seo/breadcrumbs';
 
 // Phase 2 — fetch live SoccerOne seasons via the tenant-scoped public API.
 // The endpoint is org-scoped from Phase 0 (reads Astro.locals.organization),
@@ -64,6 +65,12 @@ const featuredPrice = featured
   : null;
 import { setMarketingEdgeCache } from '@/lib/http/edge-cache';
 setMarketingEdgeCache(Astro);
+
+const SO = 'https://www.gosoccerone.com';
+const breadcrumbSchema = breadcrumbJsonLd([
+  { name: 'SoccerOne', url: `${SO}/` },
+  { name: 'Leagues', url: `${SO}/leagues` },
+]);
 ---
 
 <BaseLayout
@@ -83,6 +90,7 @@ setMarketingEdgeCache(Astro);
       href="https://fonts.googleapis.com/css2?family=Anton&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbSchema)} />
   </Fragment>
 
   <SoccerOneHeader />
