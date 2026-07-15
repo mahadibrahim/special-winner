@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import twilio from "twilio";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { users } from "@/lib/db/schema/users";
 import {
@@ -283,10 +283,13 @@ async function inferOrganizationForParent(
   // indicator of which org they belong to.
   const { phoneOptIns } = await import("@/lib/db/schema/phone-verifications");
 
+  // Org resolution only — not a consent gate, so any channel's row will do.
+  // Deterministic pick now that a user can hold several rows (one per channel).
   const rows = await db
     .select({ orgId: phoneOptIns.organizationId })
     .from(phoneOptIns)
     .where(eq(phoneOptIns.userId, parentUserId))
+    .orderBy(asc(phoneOptIns.createdAt))
     .limit(1);
 
   return rows[0]?.orgId ?? null;

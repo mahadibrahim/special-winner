@@ -17,8 +17,9 @@ import { normalizeUsPhone } from "./send";
  *    existing `opted_in` — leaving the box unchecked on a later form is not
  *    an opt-out.
  *
- * Race-safe via the (organization_id, phone) unique index. Rows are keyed on
- * the E.164 form to match the sendSms() opt-in gate.
+ * Race-safe via the (organization_id, phone, channel) unique index. Rows are
+ * keyed on the E.164 form to match the sendSms() opt-in gate. Every row written
+ * here is channel='sms' — WhatsApp consent lives in its own row.
  */
 export interface RecordPhoneOptInInput {
   db?: ReturnType<typeof getDb>;
@@ -46,12 +47,19 @@ export async function recordPhoneOptIn(
         organizationId: input.organizationId,
         userId: input.userId ?? null,
         phone: normalized,
+        // This write path is the SMS consent checkbox. WhatsApp consent is a
+        // separate, legally distinct record and is never implied by this one.
+        channel: "sms",
         status: "opted_in",
         optedInAt: now,
         optInSource: input.source,
       })
       .onConflictDoUpdate({
-        target: [phoneOptIns.organizationId, phoneOptIns.phone],
+        target: [
+          phoneOptIns.organizationId,
+          phoneOptIns.phone,
+          phoneOptIns.channel,
+        ],
         set: {
           status: "opted_in",
           optedInAt: now,
@@ -69,11 +77,16 @@ export async function recordPhoneOptIn(
         organizationId: input.organizationId,
         userId: input.userId ?? null,
         phone: normalized,
+        channel: "sms",
         status: "pending",
         optInSource: input.source,
       })
       .onConflictDoNothing({
-        target: [phoneOptIns.organizationId, phoneOptIns.phone],
+        target: [
+          phoneOptIns.organizationId,
+          phoneOptIns.phone,
+          phoneOptIns.channel,
+        ],
       });
   }
 

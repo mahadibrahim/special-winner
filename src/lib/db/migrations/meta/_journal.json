@@ -638,6 +638,41 @@
       "when": 1784030542394,
       "tag": "0090_furry_ultimatum",
       "breakpoints": true
+    },
+    {
+      "idx": 91,
+      "version": "7",
+      "when": 1784051677446,
+      "tag": "0091_dry_northstar",
+      "breakpoints": true
+    },
+    {
+      "idx": 92,
+      "version": "7",
+      "when": 1784056039432,
+      "tag": "0092_awesome_jean_grey",
+      "breakpoints": true
+    },
+    {
+      "idx": 93,
+      "version": "7",
+      "when": 1784056953991,
+      "tag": "0093_legal_plazm",
+      "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "7",
+      "when": 1784068501335,
+      "tag": "0094_lumpy_leo",
+      "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "7",
+      "when": 1784072106734,
+      "tag": "0095_wealthy_wasp",
+      "breakpoints": true
     }
   ]
 }

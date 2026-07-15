@@ -18,7 +18,7 @@ import { fieldRentals } from "@/lib/db/schema/field-rentals";
 import { venues } from "@/lib/db/schema/teams";
 import { locations } from "@/lib/db/schema/organizations";
 import { verifyToken } from "@/lib/check-in/tokens-db";
-import { resolveSigner } from "@/lib/check-in/resolve-signer";
+import { resolveSigner, asSelfServiceKind } from "@/lib/check-in/resolve-signer";
 import { resolvePhotoTarget, hasPhotoOnFile } from "@/lib/check-in/photo-target";
 import { resolveRate, DEFAULT_WALK_UP_RATE_CENTS } from "@/lib/dropin/pricing";
 import { formatEmailDateTime, DEFAULT_TIMEZONE } from "@/lib/email/format";
@@ -62,7 +62,12 @@ export async function buildSelfServeContext(
   }
   const tok = v.token;
 
-  const signer = await resolveSigner(tok.kind, tok.targetId, tok.organizationId);
+  // An email_consent token is not a self-serve target — reject it as "not found"
+  // rather than routing a marketing-consent token through the waiver flow.
+  const kind = asSelfServiceKind(tok.kind);
+  if (!kind) return { ok: false, status: 404, body: { error: "not_found" } };
+
+  const signer = await resolveSigner(kind, tok.targetId, tok.organizationId);
   if (!signer) {
     return { ok: false, status: 410, body: { error: "Target gone" } };
   }

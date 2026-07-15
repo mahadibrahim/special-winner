@@ -51,6 +51,23 @@ export type SelfServiceKind =
   | "roster_entry"
   | "walkin_session";
 
+/** Kinds this signer-resolution flow handles. `email_consent` is deliberately
+ *  absent — it is not a signable target; it is a marketing double-opt-in token
+ *  owned by /api/consent/confirm and must never be routed through the
+ *  waiver/photo/check-in machinery. */
+const SELF_SERVICE_KINDS = new Set<string>([
+  "drop_in_booking",
+  "field_rental",
+  "roster_entry",
+  "walkin_session",
+]);
+
+/** Narrow a raw token kind (widened by non-self-serve kinds like
+ *  `email_consent`) to a SelfServiceKind, or null if it is not one. */
+export function asSelfServiceKind(kind: string): SelfServiceKind | null {
+  return SELF_SERVICE_KINDS.has(kind) ? (kind as SelfServiceKind) : null;
+}
+
 export interface ResolvedSigner {
   signerName: string;
   displayName: string; // who the page header says "Hi <name>"

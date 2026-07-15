@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { verifyToken } from "@/lib/check-in/tokens-db";
-import { resolveSigner } from "@/lib/check-in/resolve-signer";
+import { resolveSigner, asSelfServiceKind } from "@/lib/check-in/resolve-signer";
 import { resolvePhotoTarget } from "@/lib/check-in/photo-target";
 import { uploadPhoto } from "@/lib/check-in/photo-upload";
 
@@ -17,12 +17,14 @@ export const POST: APIRoute = async ({ params, request }) => {
     return json({ error: v.reason }, status);
   }
   const tok = v.token;
+  const kind = asSelfServiceKind(tok.kind);
+  if (!kind) return json({ error: "not_found" }, 404);
 
   const form = await request.formData();
   const file = form.get("file") as File | null;
   if (!file) return json({ error: "file required" }, 400);
 
-  const signer = await resolveSigner(tok.kind, tok.targetId, tok.organizationId);
+  const signer = await resolveSigner(kind, tok.targetId, tok.organizationId);
   // The write target — a minor's photo goes on family_members.photoUrl, an
   // adult's on users.avatarUrl, falling back to the token row's own
   // recipientUserId when resolveSigner can't produce a user. buildSelfServeContext

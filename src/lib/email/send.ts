@@ -738,6 +738,54 @@ export async function sendEmailVerificationEmail(
   });
 }
 
+// Marketing double opt-in confirmation. THE address is not on any list until
+// this link is clicked — the click is the verified act that promotes the
+// captured intent (see /api/consent/confirm/[token] and
+// promotePendingEmailConsents). The message itself is TRANSACTIONAL: it is the
+// one email we may send an unconfirmed address, and it asks for nothing but the
+// confirmation.
+export interface SendEmailConsentConfirmationParams {
+  userId: string;
+  recipientEmail: string;
+  name: string;
+  confirmUrl: string;
+  /** The literal sentence they ticked — quoted back so the click is informed. */
+  consentTextShown: string;
+  expiresIn?: string;
+  brand?: BrandId;
+}
+
+export async function sendEmailConsentConfirmationEmail(
+  params: SendEmailConsentConfirmationParams,
+) {
+  if (!isEmailConfigured()) {
+    console.warn("Email not configured, skipping consent confirmation email");
+    return { success: false, error: "Email not configured" };
+  }
+
+  const brandName = getBrandTheme(params.brand).displayName;
+
+  const { html, text } = await renderEmail(
+    EmailVerificationEmail({
+      name: params.name,
+      verifyUrl: params.confirmUrl,
+      expiresIn: params.expiresIn ?? "14 days",
+      brand: params.brand,
+      consentTextShown: params.consentTextShown,
+    }),
+  );
+
+  return sendTransactionalEmail({
+    userId: params.userId,
+    emailType: "email_consent_confirmation",
+    to: params.recipientEmail,
+    subject: `Confirm your email — ${brandName}`,
+    html,
+    text,
+    from: fromForBrand(params.brand),
+  });
+}
+
 // Welcome-series marketing email. Unlike sendTransactionalEmail this is
 // opt-out marketing: it carries a List-Unsubscribe header and a body
 // unsubscribe link. The caller (the cron) has already checked opt-out state.
