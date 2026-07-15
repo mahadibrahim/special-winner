@@ -6,6 +6,7 @@ import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
 import SoccerOneLeaguesFinder from '@/components/soccerone/SoccerOneLeaguesFinder';
 import SoccerOneLeagueLevels from '@/components/soccerone/SoccerOneLeagueLevels.astro';
 import { breadcrumbJsonLd } from '@/lib/seo/breadcrumbs';
+import { seasonsToSportsEvents } from '@/lib/seo/events';
 
 // Phase 2 — fetch live SoccerOne seasons via the tenant-scoped public API.
 // The endpoint is org-scoped from Phase 0 (reads Astro.locals.organization),
@@ -49,6 +50,10 @@ seasons = seasons.filter((s) => s.signupMode !== 'interest');
 const todayIso = new Date().toISOString().slice(0, 10);
 seasons = seasons.filter((s) => !s.startDate || String(s.startDate).slice(0, 10) >= todayIso);
 
+// SportsEvent JSON-LD for the seasons visible on this page (post-filter, so
+// forming/interest and past-start seasons never get an event marker).
+const eventSchema = seasonsToSportsEvents(seasons, 'https://www.gosoccerone.com');
+
 // Featured season = first upcoming open season (the API already sorts by
 // startDate). All featured-CTA copy derives from it; the block renders only
 // when one exists — no more hardcoded season names/dates/prices over a dead
@@ -91,6 +96,9 @@ const breadcrumbSchema = breadcrumbJsonLd([
       rel="stylesheet"
     />
     <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbSchema)} />
+    {eventSchema.length > 0 && (
+      <script type="application/ld+json" is:inline set:html={JSON.stringify(eventSchema)} />
+    )}
   </Fragment>
 
   <SoccerOneHeader />
