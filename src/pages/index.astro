@@ -15,6 +15,7 @@ import CTABanner from '../components/cta-banner';
 import CaptureBand from '../components/marketing/capture-band';
 import { getActiveSiteAnnouncement } from '@/lib/marketing/site-announcement';
 import { setMarketingEdgeCache } from '@/lib/http/edge-cache';
+import { ASPIRE_ORG_JSONLD } from '@/lib/seo/aspire-jsonld';
 const announcement = getActiveSiteAnnouncement(Astro.locals.organization, "home");
 setMarketingEdgeCache(Astro);
 ---
@@ -23,6 +24,10 @@ setMarketingEdgeCache(Astro);
   title="Aspire Sports — Adult & Youth Sports Leagues in Columbus, Ohio"
   description="Soccer leagues, pickup, and youth programs in Columbus — actually fun, properly organized, all year. Find your league or your kid's next season."
 >
+  <Fragment slot="head">
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(ASPIRE_ORG_JSONLD)} />
+  </Fragment>
+
   <main id="main-content">
     <DualCtaHero client:load announcement={announcement ?? undefined} />
     <BenefitTrio />
