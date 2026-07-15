@@ -6,8 +6,9 @@ import { formatDateOnly, formatDaySchedule } from "@/lib/time/format-date"
 import { trackDivisionRegisterClicked } from "@/lib/analytics/events"
 import {
   deriveLocationChips, deriveDivisionChips, deriveNightChips, deriveLevelChips, filterSeasons,
-  type FinderSeason, type FinderFilters,
+  NIGHT_LABELS, type FinderSeason, type FinderFilters,
 } from "@/lib/soccerone/leagues-finder"
+import { WEEK_ORDER } from "@/lib/leagues/division-filters"
 
 const SECTION_ID = "leagues-finder"
 const ALL: FinderFilters = { location: "all", division: "all", night: "all", level: "all" }
@@ -40,6 +41,19 @@ export default function SoccerOneLeaguesFinder({ seasons }: { seasons: FinderSea
   const levelChips = useMemo(() => deriveLevelChips(seasons), [seasons])
   const visible = useMemo(() => filterSeasons(seasons, filters), [seasons, filters])
 
+  // Group the visible leagues under day-of-week section headers (mon→sun),
+  // day-TBD last — the day is the primary way players scan for a league.
+  const dayGroups = useMemo(() => {
+    const groups = WEEK_ORDER.map((day) => ({
+      key: day as string,
+      label: NIGHT_LABELS[day],
+      items: visible.filter((s) => s.dayOfWeek === day),
+    })).filter((g) => g.items.length > 0)
+    const tbd = visible.filter((s) => !s.dayOfWeek)
+    if (tbd.length) groups.push({ key: "tbd", label: "Day TBD", items: tbd })
+    return groups
+  }, [visible])
+
   const set = (axis: keyof FinderFilters, value: string) =>
     setFilters((f) => ({ ...f, [axis]: f[axis] === value ? "all" : value }))
 
@@ -59,6 +73,28 @@ export default function SoccerOneLeaguesFinder({ seasons }: { seasons: FinderSea
         .so-finder-arrived { display: flex; align-items: center; gap: 0.5rem; background: var(--so-lime-a08); border: 1px solid var(--so-lime-a30); border-radius: var(--so-radius-md); padding: 0.625rem 0.875rem; margin-bottom: 1rem; font-family: var(--so-font-mono); font-size: 0.75rem; color: var(--so-lime); }
         .so-finder-arrived button { margin-left: auto; }
         .so-finder-empty { padding: 3rem 0; text-align: center; }
+
+        .leagues-day-sections { display: flex; flex-direction: column; gap: 2.5rem; }
+        .leagues-day-group { display: flex; flex-direction: column; gap: 1.25rem; }
+        .leagues-day-header {
+          display: flex; align-items: center; gap: 0.75rem;
+          font-family: var(--so-font-display);
+          font-size: 1.5rem;
+          color: #ffffff;
+          letter-spacing: 0.02em;
+          padding-bottom: 0.5rem;
+          border-bottom: 1px solid var(--so-lime-a20);
+        }
+        .ldh-count {
+          font-family: var(--so-font-mono);
+          font-size: 0.75rem;
+          font-weight: 600;
+          color: var(--so-lime);
+          background: var(--so-lime-a08);
+          border: 1px solid var(--so-lime-a20);
+          border-radius: 99px;
+          padding: 2px 9px;
+        }
 
         .leagues-grid {
           display: grid;
@@ -218,8 +254,18 @@ export default function SoccerOneLeaguesFinder({ seasons }: { seasons: FinderSea
       {visible.length === 0 ? (
         <SoccerOneFinderEmpty onClear={() => { setFilters(ALL); setArrivedFrom(null) }} />
       ) : (
-        <div className="leagues-grid">
-          {visible.map((s) => <LeagueCard key={s.id} season={s as LeagueCardSeason} />)}
+        <div className="leagues-day-sections">
+          {dayGroups.map((g) => (
+            <section key={g.key} className="leagues-day-group" aria-label={`${g.label} leagues`}>
+              <h3 className="leagues-day-header">
+                <span className="ldh-label">{g.label}</span>
+                <span className="ldh-count">{g.items.length}</span>
+              </h3>
+              <div className="leagues-grid">
+                {g.items.map((s) => <LeagueCard key={s.id} season={s as LeagueCardSeason} />)}
+              </div>
+            </section>
+          ))}
         </div>
       )}
     </section>
