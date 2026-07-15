@@ -673,6 +673,13 @@
       "when": 1784072106734,
       "tag": "0095_wealthy_wasp",
       "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1784126088733,
+      "tag": "0096_backfill_season_day_of_week",
+      "breakpoints": true
     }
   ]
 }

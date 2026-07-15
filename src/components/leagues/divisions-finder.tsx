@@ -1,6 +1,6 @@
 "use client";
 import { useState, type ReactNode } from "react";
-import { filterDivisions, type Division, type DivisionFilters, type DayKey, type DivisionGender } from "@/lib/leagues/division-filters";
+import { filterDivisions, groupDivisionsByDay, type Division, type DivisionFilters, type DayKey, type DivisionGender } from "@/lib/leagues/division-filters";
 import { LevelLadder, Bars } from "@/components/leagues/level-ladder";
 import { trackDivisionFilterApplied, trackDivisionRegisterClicked } from "@/lib/analytics/events";
 import { cn } from "@/lib/utils";
@@ -86,24 +86,12 @@ export function DivisionsFinder({ divisions, venues, term }: {
         </div>
       ) : (
         <div className="border-t border-cream-3" data-testid="division-rows">
-          {results.map((d) => (
-            <div key={d.id} className="flex flex-col gap-1.5 sm:grid sm:grid-cols-[30px_1.6fr_1.2fr_0.9fr_0.8fr_auto] sm:items-center sm:gap-3.5 py-3 px-2 border-b border-cream-2 hover:bg-paper">
-              <Bars filled={BARS_FOR[d.level]} className={TIER_TEXT[d.level]} />
-              <div>
-                <div className="font-display font-semibold text-base">{d.name}</div>
-                <div className="font-mono text-[10.5px] tracking-wide uppercase text-ink-muted mt-0.5">
-                  {d.gender === "mens" ? "Men's" : d.gender === "womens" ? "Women's" : "Coed"} · Level {d.level.toUpperCase()}
-                </div>
-              </div>
-              <div className="text-[13px] text-ink-2">{d.day ? <b className="text-ink">{labelDay(d.day)}</b> : null} {d.time ? `· ${d.time}` : ""}</div>
-              <div className="text-xs text-ink-muted">{d.venueName}</div>
-              <div className={cn("font-mono text-[11px] font-semibold", d.status === "forming" ? "text-ochre" : "text-sage")}>{d.spotsLabel}</div>
-              <a href={registerHref(d)}
-                 onClick={() => trackDivisionRegisterClicked({ seasonId: d.seasonId, level: d.level, gender: d.gender, venue: d.venueSlug, mode: registerMode(d), term })}
-                 className={cn("font-sans font-semibold text-xs px-3.5 py-2 rounded-md whitespace-nowrap text-center sm:text-left mt-1.5 sm:mt-0",
-                   d.status === "forming" ? "text-primary border border-primary" : "text-cream bg-primary")}>
-                {d.status === "forming" ? "Notify me" : "Register →"}
-              </a>
+          {groupDivisionsByDay(results).map((g) => (
+            <div key={g.day ?? "tbd"} data-testid="division-day-group">
+              <h3 className="font-mono text-[11px] tracking-widest uppercase text-primary pt-4 pb-1.5 border-b border-cream-3">
+                {g.label} <span className="text-ink-muted">· {g.items.length}</span>
+              </h3>
+              {g.items.map((d) => <DivisionRow key={d.id} d={d} term={term} />)}
             </div>
           ))}
         </div>
@@ -111,6 +99,29 @@ export function DivisionsFinder({ divisions, venues, term }: {
       <p className="font-mono text-[10px] tracking-wide uppercase text-ink-muted mt-3.5">
         Age divisions · 30+ and 40+ also available at Worthington
       </p>
+    </div>
+  );
+}
+
+function DivisionRow({ d, term }: { d: Division; term: string }) {
+  return (
+    <div className="flex flex-col gap-1.5 sm:grid sm:grid-cols-[30px_1.6fr_1.2fr_0.9fr_0.8fr_auto] sm:items-center sm:gap-3.5 py-3 px-2 border-b border-cream-2 hover:bg-paper">
+      <Bars filled={BARS_FOR[d.level]} className={TIER_TEXT[d.level]} />
+      <div>
+        <div className="font-display font-semibold text-base">{d.name}</div>
+        <div className="font-mono text-[10.5px] tracking-wide uppercase text-ink-muted mt-0.5">
+          {d.gender === "mens" ? "Men's" : d.gender === "womens" ? "Women's" : "Coed"} · Level {d.level.toUpperCase()}
+        </div>
+      </div>
+      <div className="text-[13px] text-ink-2">{d.day ? <b className="text-ink">{labelDay(d.day)}</b> : null} {d.time ? `· ${d.time}` : ""}</div>
+      <div className="text-xs text-ink-muted">{d.venueName}</div>
+      <div className={cn("font-mono text-[11px] font-semibold", d.status === "forming" ? "text-ochre" : "text-sage")}>{d.spotsLabel}</div>
+      <a href={registerHref(d)}
+         onClick={() => trackDivisionRegisterClicked({ seasonId: d.seasonId, level: d.level, gender: d.gender, venue: d.venueSlug, mode: registerMode(d), term })}
+         className={cn("font-sans font-semibold text-xs px-3.5 py-2 rounded-md whitespace-nowrap text-center sm:text-left mt-1.5 sm:mt-0",
+           d.status === "forming" ? "text-primary border border-primary" : "text-cream bg-primary")}>
+        {d.status === "forming" ? "Notify me" : "Register →"}
+      </a>
     </div>
   );
 }

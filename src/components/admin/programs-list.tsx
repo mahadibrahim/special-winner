@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Pencil, Trash2, Loader2 } from "lucide-react"
+import { Plus, Pencil, Trash2, Loader2, CalendarDays } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -303,6 +303,11 @@ export function ProgramsList({ isSuperAdmin = false }: { isSuperAdmin?: boolean 
                     {program.active ? "Active" : "Inactive"}
                   </span>
                   <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="icon" asChild title="Plan division days">
+                      <a href={`/admin/programs/${program.id}/day-planner`} aria-label="Plan division days">
+                        <CalendarDays className="h-4 w-4" />
+                      </a>
+                    </Button>
                     <Button variant="ghost" size="icon" onClick={() => openEditDialog(program)}>
                       <Pencil className="h-4 w-4" />
                     </Button>

@@ -34,3 +34,32 @@ export function filterDivisions(divisions: Division[], f: DivisionFilters): Divi
     return true;
   });
 }
+
+export const WEEK_ORDER: DayKey[] = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+
+const DAY_LABEL: Record<DayKey, string> = {
+  mon: "Mon", tue: "Tue", wed: "Wed", thu: "Thu", fri: "Fri", sat: "Sat", sun: "Sun",
+};
+
+export interface DayGroup {
+  day: DayKey | null;
+  label: string;
+  items: Division[];
+}
+
+/**
+ * Group divisions into day-of-week sections in canonical WEEK_ORDER (mon→sun).
+ * Empty days are omitted; divisions with no day collect into a trailing
+ * "Day TBD" group so nothing silently disappears from the browse view.
+ */
+export function groupDivisionsByDay(divisions: Division[]): DayGroup[] {
+  const groups: DayGroup[] = WEEK_ORDER.map((day) => ({
+    day,
+    label: DAY_LABEL[day],
+    items: divisions.filter((d) => d.day === day),
+  })).filter((g) => g.items.length > 0);
+
+  const tbd = divisions.filter((d) => d.day == null);
+  if (tbd.length) groups.push({ day: null, label: "Day TBD", items: tbd });
+  return groups;
+}

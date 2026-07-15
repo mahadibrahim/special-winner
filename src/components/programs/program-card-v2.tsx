@@ -11,6 +11,7 @@ import {
   deriveSignupMode,
   type SeasonForDerive,
 } from "@/lib/programs/derive"
+import { formatDaySchedule } from "@/lib/time/format-date"
 import { SeasonInterestForm } from "./season-interest-form"
 
 interface Season extends SeasonForDerive {
@@ -22,6 +23,9 @@ interface Season extends SeasonForDerive {
   price: number
   teamPrice: number | null
   scheduleNotes: string | null
+  dayOfWeek?: string | null
+  startTime?: string | null
+  endTime?: string | null
   sport: { name: string; slug: string; icon: string | null; color: string | null }
   location: { name: string; slug: string; city: string | null }
   ageGroup: { name: string; minAge: number; maxAge: number } | null
@@ -76,7 +80,12 @@ export default function ProgramCardV2({ season }: { season: Season }) {
     : season.program.audienceType === "adults"
       ? "Adult"
       : "All ages"
-  const scheduleLabel = season.scheduleNotes ?? duration
+  // Structured day/time wins ("Saturdays · 9–10am"); fall back to free-text
+  // scheduleNotes, then the derived duration, so this line always resolves.
+  const scheduleLabel =
+    formatDaySchedule(season.dayOfWeek, season.startTime, season.endTime) ||
+    season.scheduleNotes ||
+    duration
   const sportColor =
     season.sport.color ?? SPORT_FALLBACK_COLORS[season.sport.slug] ?? "#52525b"
 

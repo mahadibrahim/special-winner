@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseDateOnly, formatDateOnly } from "@/lib/time/format-date";
+import { parseDateOnly, formatDateOnly, formatDaySchedule } from "@/lib/time/format-date";
 
 describe("parseDateOnly", () => {
   // The bug: `new Date("2026-07-06")` parses as UTC midnight, which in any
@@ -32,5 +32,30 @@ describe("formatDateOnly", () => {
 
   it("supports a month/day-only format", () => {
     expect(formatDateOnly("2026-07-06", { month: "short", day: "numeric" })).toBe("Jul 6");
+  });
+});
+
+describe("formatDaySchedule", () => {
+  it("returns a plural day name with a collapsed time range", () => {
+    // 18:00–20:00 both pm → single suffix
+    expect(formatDaySchedule("thu", "18:00:00", "20:00:00")).toBe("Thursdays · 6–8pm");
+  });
+
+  it("keeps both suffixes when the range crosses am/pm", () => {
+    expect(formatDaySchedule("sat", "09:00:00", "10:00:00")).toBe("Saturdays · 9–10am");
+    expect(formatDaySchedule("sat", "11:00:00", "13:00:00")).toBe("Saturdays · 11am–1pm");
+  });
+
+  it("makes no 'nights' assumption (safe for daytime/youth programs)", () => {
+    expect(formatDaySchedule("sat", "09:00:00", "10:00:00")).not.toContain("night");
+  });
+
+  it("returns just the day when times are missing", () => {
+    expect(formatDaySchedule("mon", null, null)).toBe("Mondays");
+  });
+
+  it("returns empty string when no structured day is set (caller falls back)", () => {
+    expect(formatDaySchedule(null, "18:00:00", "20:00:00")).toBe("");
+    expect(formatDaySchedule("", null, null)).toBe("");
   });
 });

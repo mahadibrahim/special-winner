@@ -1,0 +1,78 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { AdminLayout } from "@/components/admin/admin-layout";
+import { getPrimaryRoleName } from "@/lib/auth";
+import { DayPlanner } from "@/components/admin/day-planner/day-planner";
+import { getDb } from "@/lib/db";
+import { seasons, programs } from "@/lib/db/schema/programs";
+import { venues } from "@/lib/db/schema/teams";
+import { locations } from "@/lib/db/schema/organizations";
+import { eq, and, asc } from "drizzle-orm";
+
+export const prerender = false;
+
+// Middleware guarantees user is an admin for /admin routes.
+const user = Astro.locals.user!;
+const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
+const organization = Astro.locals.organization;
+const { programId } = Astro.params;
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+if (!programId || !organization?.id || !UUID_RE.test(programId)) {
+  return Astro.redirect("/admin/programs");
+}
+
+// Confirm the program belongs to this org before rendering (join through
+// locations.organizationId), mirroring the sibling program-scoped pages.
+const [program] = await getDb()
+  .select({ id: programs.id, name: programs.name, locationId: programs.locationId })
+  .from(programs)
+  .innerJoin(locations, eq(programs.locationId, locations.id))
+  .where(and(eq(programs.id, programId), eq(locations.organizationId, organization.id)));
+
+if (!program) {
+  return Astro.redirect("/admin/programs");
+}
+
+// Divisions (seasons) for this program + venues for its location. Explicit
+// orderBy on both (multi-tenant CI hazard: never rely on default row order).
+const [divisions, venueRows] = await Promise.all([
+  getDb()
+    .select({
+      id: seasons.id,
+      name: seasons.name,
+      dayOfWeek: seasons.dayOfWeek,
+      venueId: seasons.venueId,
+    })
+    .from(seasons)
+    .where(eq(seasons.programId, programId))
+    .orderBy(asc(seasons.name)),
+  getDb()
+    .select({ id: venues.id, name: venues.name, fieldCount: venues.fieldCount })
+    .from(venues)
+    .where(eq(venues.locationId, program.locationId))
+    .orderBy(asc(venues.name)),
+]);
+---
+
+<BaseLayout
+  title={`Day Planner — ${program.name} — Admin — Aspire Sports`}
+  navigation={false}
+  footer={false}
+>
+  <AdminLayout
+    client:load
+    role={primaryRole}
+    currentPath="/admin/programs"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <DayPlanner
+      client:load
+      programId={program.id}
+      programName={program.name}
+      divisions={divisions}
+      venues={venueRows}
+    />
+  </AdminLayout>
+</BaseLayout>

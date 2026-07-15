@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { DivisionsFinder } from "@/components/leagues/divisions-finder";
 import { StandingsPanel } from "@/components/leagues/standings-panel";
 import type { Division } from "@/lib/leagues/division-filters";
+import { groupDivisionsByDay } from "@/lib/leagues/division-filters";
 import { RULE_SECTIONS, FAQ } from "@/lib/leagues/adult-soccer-content";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import { trackSeasonViewed } from "@/lib/analytics/events";
@@ -98,10 +99,8 @@ export function SeasonTabs({ divisions, venues, weekStart, scheduleNote, term }:
 }
 
 function ScheduleTable({ divisions }: { divisions: Division[] }) {
-  const order = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
-  const byDay = order
-    .map((day) => ({ day, items: divisions.filter((d) => d.day === day) }))
-    .filter((r) => r.items.length > 0);
+  // Dated day groups only — the schedule table omits day-TBD divisions.
+  const byDay = groupDivisionsByDay(divisions).filter((g) => g.day !== null);
   if (byDay.length === 0) return <p className="text-ink-muted text-sm">Schedule posts once divisions are set.</p>;
   return (
     <table className="w-full text-[13px] border-collapse">
@@ -109,7 +108,7 @@ function ScheduleTable({ divisions }: { divisions: Division[] }) {
       <tbody>
         {byDay.map((r) => (
           <tr key={r.day}>
-            <td className="py-2.5 px-2.5 border-b border-cream-2 font-semibold text-ink uppercase">{r.day}</td>
+            <td className="py-2.5 px-2.5 border-b border-cream-2 font-semibold text-ink uppercase">{r.label}</td>
             <td className="py-2.5 px-2.5 border-b border-cream-2 text-ink-2">{r.items.map((d) => `${d.name}${d.time ? ` (${d.time})` : ""}`).join(" · ")}</td>
           </tr>
         ))}

@@ -62,7 +62,12 @@ const featuredPrice = featured
       ? `$${featured.price}/player · $${featured.teamPrice}/team`
       : `$${featured.price}/player`)
   : null;
+// Structured play day wins over the free-text scheduleNotes when set.
+const featuredDay = featured
+  ? formatDaySchedule(featured.dayOfWeek, featured.startTime, featured.endTime) || featured.scheduleNotes || null
+  : null;
 import { setMarketingEdgeCache } from '@/lib/http/edge-cache';
+import { formatDaySchedule } from '@/lib/time/format-date';
 setMarketingEdgeCache(Astro);
 ---
 
@@ -141,10 +146,10 @@ setMarketingEdgeCache(Astro);
                     Starts {featuredStart}
                   </span>
                 )}
-                {featured.scheduleNotes && (
+                {featuredDay && (
                   <span class="lm-item">
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="3" width="12" height="10" rx="1.5" stroke="rgba(163,230,53,0.5)" stroke-width="1.2"/><line x1="1" y1="6" x2="13" y2="6" stroke="rgba(163,230,53,0.3)" stroke-width="1"/></svg>
-                    {featured.scheduleNotes}
+                    {featuredDay}
                   </span>
                 )}
                 {featured.location?.name && (

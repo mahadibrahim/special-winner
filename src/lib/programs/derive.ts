@@ -12,6 +12,9 @@ export interface SeasonForDerive {
   signupModes?: string[]; // ['individual'] | ['team'] | ['individual','team']
   registrationCloses?: string | null;
   scheduleNotes?: string | null;
+  dayOfWeek?: string | null; // 'mon'..'sun' — structured play day when set
+  startTime?: string | null;
+  endTime?: string | null;
   minAge?: number | null;
   maxAge?: number | null;
   program: {
@@ -113,14 +116,16 @@ export function deriveDuration(s: SeasonForDerive): string {
 
 /** Time-of-day bucket for chip filtering: weekday morning / weekday evening / weekend. */
 export function deriveDayBucket(s: SeasonForDerive): string {
-  // Without explicit per-week schedule data we fall back to the start
-  // date's day of the week. Better than nothing; the season's first
-  // session typically anchors the rhythm.
+  // Prefer the structured play day when an admin has set it — it's the actual
+  // weekly rhythm, not a guess.
+  const day = (s.dayOfWeek ?? "").toLowerCase();
+  if (day) return day === "sat" || day === "sun" ? "Weekend" : "Weekday";
+  // Otherwise fall back to the start date's day of the week. Better than
+  // nothing; the season's first session typically anchors the rhythm.
   const d = new Date(s.startDate);
   const dow = d.getDay(); // 0 = Sun
   const isWeekend = dow === 0 || dow === 6;
   if (isWeekend) return "Weekend";
-  // For weekday rough split — caller can refine when scheduleNotes is parsed.
   return "Weekday";
 }
 

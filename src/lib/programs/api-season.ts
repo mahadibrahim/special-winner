@@ -11,6 +11,9 @@ export interface ApiSeason extends SeasonForDerive {
   price: number
   teamPrice: number | null
   scheduleNotes: string | null
+  dayOfWeek: string | null
+  startTime: string | null
+  endTime: string | null
   registeredCount: number
   maxParticipants: number | null
   pricingMode: string
