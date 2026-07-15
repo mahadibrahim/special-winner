@@ -19,7 +19,10 @@ const bodySchema = z.object({
         dayOfWeek: DAY.nullable(),
       }),
     )
-    .max(200),
+    // The planner posts every division for the selected venue at once; a big
+    // program (or the "no venue set" bucket) can exceed a couple hundred. Cap
+    // high enough not to reject a real save, low enough to bound the tx.
+    .max(2000),
 });
 
 /**
