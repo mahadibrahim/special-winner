@@ -23,6 +23,9 @@ interface ApiSeason {
   registeredCount: number
   spotsLeft: number | null
   scheduleNotes: string | null
+  dayOfWeek: string | null
+  startTime: string | null
+  endTime: string | null
   status: string
   registrationCloses?: string | null
   program: { id: string; name: string; slug: string; programType: string; audienceType: string }

@@ -2,7 +2,7 @@
 import { useMemo, useState } from "react"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { useFinderFilter } from "@/lib/hooks/use-finder-filter"
-import { formatDateOnly } from "@/lib/time/format-date"
+import { formatDateOnly, formatDaySchedule } from "@/lib/time/format-date"
 import { trackDivisionRegisterClicked } from "@/lib/analytics/events"
 import {
   deriveLocationChips, deriveDivisionChips, deriveNightChips, deriveLevelChips, filterSeasons,
@@ -249,6 +249,8 @@ interface LeagueCardSeason extends FinderSeason {
   status: string
   program: { name: string }
   startDate: string | null
+  startTime: string | null
+  endTime: string | null
   scheduleNotes: string | null
   spotsLeft: number | null
   maxParticipants: number | null
@@ -265,6 +267,7 @@ function LeagueCard({ season }: { season: LeagueCardSeason }) {
   const isDowntown = season.location.slug?.includes("downtown")
   const statusKey = season.status === "open" ? "open" : season.status === "filling" ? "filling" : "coming"
   const priceLabel = season.teamPrice ? `$${season.price}/player · $${season.teamPrice}/team` : `$${season.price}/player`
+  const dayLabel = formatDaySchedule(season.dayOfWeek, season.startTime, season.endTime)
   return (
     <div className={`league-card ${isDowntown ? "league-card--downtown" : "league-card--active"}`}>
       <div className={`lc-location-badge ${isDowntown ? "lc-location-badge--downtown" : ""}`}>{season.location.name.toUpperCase()}</div>
@@ -282,7 +285,9 @@ function LeagueCard({ season }: { season: LeagueCardSeason }) {
       <h3 className="lc-name">{season.name}</h3>
       <div className="lc-details">
         {season.startDate && <div className="lc-detail-row"><span className="lcd-label">STARTS</span><span className="lcd-val">{formatDateOnly(season.startDate)}</span></div>}
-        {season.scheduleNotes && <div className="lc-detail-row"><span className="lcd-label">SCHEDULE</span><span className="lcd-val">{season.scheduleNotes}</span></div>}
+        {dayLabel
+          ? <div className="lc-detail-row"><span className="lcd-label">DAY</span><span className="lcd-val">{dayLabel}</span></div>
+          : season.scheduleNotes && <div className="lc-detail-row"><span className="lcd-label">SCHEDULE</span><span className="lcd-val">{season.scheduleNotes}</span></div>}
         <div className="lc-detail-row"><span className="lcd-label">SPOTS</span><span className="lcd-val">{season.spotsLeft != null ? `${season.spotsLeft} left of ${season.maxParticipants}` : "Open"}</span></div>
         <div className="lc-detail-row"><span className="lcd-label">PRICE</span><span className="lcd-val mono accent">{priceLabel}</span></div>
       </div>
