@@ -25,11 +25,12 @@ export function resolveCanonicalUrl(
   aspireOrigin: string,
 ): string {
   const origin = originForBrand(brandId) ?? aspireOrigin;
+  const normalized = normalizePath(pathname);
   const shortPath =
     brandId === "soccerone"
-      ? getSoccerOneCanonicalRedirect(pathname) ?? pathname
-      : pathname;
-  return origin + normalizePath(shortPath);
+      ? getSoccerOneCanonicalRedirect(normalized) ?? normalized
+      : normalized;
+  return origin + shortPath;
 }
 
 function normalizePath(pathname: string): string {

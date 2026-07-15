@@ -45,4 +45,10 @@ describe("resolveCanonicalUrl", () => {
       "https://aspiresportsohio.com/about",
     );
   });
+
+  it("collapses a SoccerOne long-form path even with a trailing slash", () => {
+    expect(resolveCanonicalUrl("soccerone", "/soccerone/leagues/", ASPIRE)).toBe(
+      "https://www.gosoccerone.com/leagues",
+    );
+  });
 });
