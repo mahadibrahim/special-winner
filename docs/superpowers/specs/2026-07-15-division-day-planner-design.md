@@ -23,6 +23,10 @@ than hand-entering a day per division with no view of the whole.
   **day of week**, balanced across days for a single venue.
 - **Backfill** existing divisions that have no day, so the shipped card fix
   becomes visible on current data immediately.
+- **Group divisions by day-of-week** on the public league pages (SoccerOne
+  finder + Aspire adult soccer), so the day is the primary organizing dimension
+  — matching how competitors (e.g. Stars Indoor Sports) distribute leagues:
+  gender → day → level, with day as section headers.
 - No schema change — reuse the existing `seasons.dayOfWeek` column.
 
 ## Non-goals (explicitly deferred — separate streams of work)
@@ -120,6 +124,41 @@ UI primitives: reuse `ErrorBanner` / `EmptyState` / `LoadingSkeleton` per the
 repo's UI-feedback convention. The top-level `client:load` island calls
 `useHydrationBeacon()` so any e2e spec can `waitForHydration`.
 
+## Component 5 — Public day-grouped presentation
+
+Make the day the primary organizing dimension on the two public league surfaces,
+competitor-style. Both consume a single shared helper.
+
+**Shared helper** — `groupDivisionsByDay()` in
+`src/lib/leagues/division-filters.ts` (pure, no React). This lifts the grouping
+that already lives inline in `season-tabs.tsx`'s `ScheduleTable` (lines ~100–117:
+`WEEK_ORDER.map → filter per day → drop empty`) into a reusable, tested function:
+
+```
+groupDivisionsByDay(divisions) -> { day: DayKey, label: string, items: Division[] }[]
+```
+
+- Ordered by the canonical `WEEK_ORDER` (mon→sun).
+- Days with no divisions are omitted.
+- Divisions with `day == null` collapse into a trailing "Day TBD" group (rare
+  after backfill + planner; still handled so nothing silently disappears).
+
+**Surface A — SoccerOne finder** (`SoccerOneLeaguesFinder.tsx`). Today the finder
+renders a flat card grid under filter chips. Change it to render **day-of-week
+section headers** (Mon, Tue…) with each day's division cards beneath, using the
+helper. Existing Location / Division / Level / Night filters still apply *before*
+grouping; when the Night (day) filter is active the view naturally collapses to a
+single section. The section header shows the day name and count.
+
+**Surface B — Aspire adult soccer** (`/adult/leagues/soccer/[term]` →
+`season-tabs.tsx`). The "divisions" tab currently shows a filtered list; regroup
+it into the same day sections via the helper, and refactor `ScheduleTable` to
+consume the extracted helper instead of its inline copy (no behaviour change to
+the schedule tab).
+
+Presentation only — no data or capacity changes. Divisions are still the existing
+card/row components; only their grouping changes.
+
 ## Testing
 
 - **Unit** (`tests/unit/`): `balanceDays` — even distribution across open days;
@@ -132,8 +171,17 @@ repo's UI-feedback convention. The top-level `client:load` island calls
   not in the target program is rejected; invalid `dayOfWeek` is rejected.
 - **Migration**: verify idempotency (re-run is a no-op) and that already-set
   days are not overwritten.
+- **Grouping helper** (`tests/unit/`): `groupDivisionsByDay` — `WEEK_ORDER`
+  ordering; empty days omitted; `null`-day divisions land in the trailing "Day
+  TBD" group; stable output.
+- **E2E** (`tests/e2e/`): the SoccerOne finder and the Aspire adult term page
+  render day-of-week section headers. These specs run **post-merge only**
+  (`test-full`), so before merge, grep `tests/e2e/` for specs that assert on the
+  SoccerOne finder / adult soccer layout and update them in the same PR (per the
+  CLAUDE.md working-style note on post-merge specs).
 
 ## Out-of-scope reminders for the plan
 
 Do **not** add `venueResourceId` to seasons, model time slots, or touch
 `resource_blocks` / game generation in this work. Those are separate streams.
+Component 5 is **presentation only** — no schema, capacity, or data changes.
