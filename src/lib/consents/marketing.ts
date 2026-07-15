@@ -127,9 +127,16 @@ export async function recordMarketingConsent(opts: {
       });
 
     // Email consent is NOT active until the double-opt-in link is clicked; the
-    // confirmation endpoint sets emailVerified. Marketing selects on
-    // emailVerified && !marketingOptedOutAt, so recording intent here cannot
-    // put an unverified address on the list.
+    // confirmation endpoint sets emailVerified.
+    //
+    // REQUIRED CONTRACT, not yet current code: any marketing sender MUST gate on
+    // `emailVerified && !marketingOptedOutAt` (and, once it reads these tables,
+    // `email_opt_ins.status = 'opted_in'`). Today the only sender,
+    // send-welcome-series, keys on welcomeSeriesEnrolledAt and does NOT read
+    // emailVerified — which is safe only because it never enrolls a
+    // spectator-captured contact (no confirmed registration). The moment
+    // marketing is wired to consume email_opt_ins, it must honour that gate, or
+    // an unverified address reaches the list and the whole doctrine breaks here.
     //
     // A `pending` (unauthenticated) tick writes NOTHING to users: clearing
     // marketingOptedOutAt would let anyone at the kiosk resurrect a stranger's

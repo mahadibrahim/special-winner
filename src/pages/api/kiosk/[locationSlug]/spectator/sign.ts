@@ -352,8 +352,10 @@ export const POST: APIRoute = async ({ params, request, clientAddress, locals })
   // 5 — Email: the double opt-in. Send the confirmation link to the address
   // itself. That link is email's VERIFIED ACT — the exact counterpart of the OTP
   // above: only a click, from inside the mailbox, promotes the pending intent
-  // and puts the address on the list (marketing selects on users.emailVerified,
-  // which nothing but /api/consent/confirm sets).
+  // (email_opt_ins pending -> opted_in) and sets users.emailVerified, which
+  // nothing but /api/consent/confirm does. A future marketing sender MUST gate
+  // on that verified state; nothing does today (see the contract note in
+  // src/lib/consents/marketing.ts).
   //
   // The intent and its evidence are ALREADY on file (email_opt_ins, written in
   // the transaction above), so a failed send costs us the confirmation, never
