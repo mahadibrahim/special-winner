@@ -35,13 +35,15 @@ interface SeasonTabSeason extends FinderSeason {
  * faq-block.astro + faqPageJsonLd, migrate BOTH brands' FAQ tabs onto it —
  * building it here first would collide with that in-flight branch.
  */
-export default function SoccerOneSeasonTabs({ seasons, weekStart, term }: {
+export default function SoccerOneSeasonTabs({ seasons, weekStart, term, initialTab = "divisions" }: {
   seasons: SeasonTabSeason[];
   weekStart: string;
   term: string;
+  /** A fully-completed term opens on Standings — the archive is the content. */
+  initialTab?: Tab;
 }) {
   useHydrationBeacon();
-  const [tab, setTab] = useState<Tab>("divisions");
+  const [tab, setTab] = useState<Tab>(initialTab);
   useEffect(() => {
     trackSeasonViewed({ sport: "soccer", term });
   }, [term]);

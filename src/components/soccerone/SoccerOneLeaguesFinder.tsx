@@ -233,6 +233,7 @@ export default function SoccerOneLeaguesFinder({ seasons }: { seasons: FinderSea
           border-top: none;
         }
         .lc-cta:hover { border-bottom-color: var(--so-lime); }
+        .lc-done { font-family: var(--so-font-mono); font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.35); padding: 0.625rem 0; }
 
         .le-title {
           font-family: var(--so-font-display);
@@ -341,6 +342,7 @@ function LeagueCard({ season }: { season: LeagueCardSeason }) {
   const [capturing, setCapturing] = useState(false)
   const isDowntown = season.location.slug?.includes("downtown")
   const forming = season.signupMode === "interest"
+  const completed = season.status === "completed"
   const statusKey = season.status === "open" ? "open" : season.status === "filling" ? "filling" : "coming"
   const priceLabel = season.teamPrice ? `$${season.price}/player · $${season.teamPrice}/team` : `$${season.price}/player`
   const dayLabel = formatDaySchedule(season.dayOfWeek, season.startTime, season.endTime)
@@ -364,10 +366,14 @@ function LeagueCard({ season }: { season: LeagueCardSeason }) {
         {dayLabel
           ? <div className="lc-detail-row"><span className="lcd-label">DAY</span><span className="lcd-val">{dayLabel}</span></div>
           : season.scheduleNotes && <div className="lc-detail-row"><span className="lcd-label">SCHEDULE</span><span className="lcd-val">{season.scheduleNotes}</span></div>}
-        <div className="lc-detail-row"><span className="lcd-label">SPOTS</span><span className="lcd-val">{season.spotsLeft != null ? `${season.spotsLeft} left of ${season.maxParticipants}` : "Open"}</span></div>
+        {!completed && <div className="lc-detail-row"><span className="lcd-label">SPOTS</span><span className="lcd-val">{season.spotsLeft != null ? `${season.spotsLeft} left of ${season.maxParticipants}` : "Open"}</span></div>}
         <div className="lc-detail-row"><span className="lcd-label">PRICE</span><span className="lcd-val mono accent">{priceLabel}</span></div>
       </div>
-      {forming ? (
+      {completed ? (
+        // Archive state: no CTA at all — a register link over a finished
+        // season is exactly the dead-button class this page's comments ban.
+        <span className="lc-done">Season complete</span>
+      ) : forming ? (
         <>
           <button
             type="button"

@@ -8,6 +8,7 @@ import SoccerOneInterestCapture from '@/components/soccerone/SoccerOneInterestCa
 import { breadcrumbJsonLd } from '@/lib/seo/breadcrumbs';
 import { seasonsToSportsEvents } from '@/lib/seo/events';
 import { partitionTerms, type TermSeason } from '@/lib/leagues/terms';
+import { WHY_INDOOR } from '@/lib/leagues/adult-soccer-content';
 
 // Phase 2 — fetch live SoccerOne seasons via the tenant-scoped public API.
 // The endpoint is org-scoped from Phase 0 (reads Astro.locals.organization),
@@ -233,6 +234,23 @@ const breadcrumbSchema = breadcrumbJsonLd([
             same question twice in two visual languages. */}
         <SoccerOneLeaguesFinder client:load seasons={seasons} />
 
+        <!-- Why-play band — the selling copy Aspire carries on its sport
+             landing (WHY_INDOOR, shared constants so it can't drift between
+             brands). Server-rendered on purpose: the finder above is a React
+             island whose non-default states aren't in the initial HTML, so
+             this band is most of the crawlable answer-content on the page. -->
+        <section class="leagues-why" aria-label="Why play indoor at SoccerOne">
+          <h2 class="lw-title">Why indoor. Why here.</h2>
+          <div class="lw-grid">
+            {WHY_INDOOR.map((v) => (
+              <div class="lw-card">
+                <h3 class="lw-h">{v.title}</h3>
+                <p class="lw-copy">{v.copy}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
         {/* Season tier: upcoming terms — the off-season demand engine. Terms
             appear here once their seasons are flipped to `forming` (drafts
             never surface; the API refuses them by design). */}
@@ -411,6 +429,28 @@ const breadcrumbSchema = breadcrumbJsonLd([
       margin-bottom: 0.875rem;
     }
     .lfcta-term-link:hover { border-bottom-color: var(--so-lime); }
+
+    /* Why-play band */
+    .leagues-why { margin-top: 3.5rem; }
+    .lw-title {
+      font-family: var(--so-font-display);
+      text-transform: uppercase;
+      font-size: 1.5rem;
+      color: #fff;
+      letter-spacing: 0.01em;
+      margin-bottom: 1rem;
+    }
+    .lw-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.8rem; }
+    @media (max-width: 1000px) { .lw-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 640px) { .lw-grid { grid-template-columns: 1fr; } }
+    .lw-card {
+      background: var(--so-surface);
+      border: 1px solid var(--so-lime-a15);
+      border-radius: var(--so-radius-md);
+      padding: 1.1rem 1.25rem;
+    }
+    .lw-h { font-family: var(--so-font-mono); font-size: 0.68rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--so-lime); margin-bottom: 0.4rem; }
+    .lw-copy { font-size: 0.85rem; color: rgba(255,255,255,0.55); line-height: 1.55; }
 
     /* Upcoming seasons band */
     .leagues-upcoming { margin-top: 3.5rem; }
