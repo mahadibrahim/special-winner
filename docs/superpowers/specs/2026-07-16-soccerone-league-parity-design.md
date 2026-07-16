@@ -234,6 +234,30 @@ These are shipped decisions. Do not regress them during the re-skin:
    should additionally be repointed at the staging aspire org or deleted (one-time
    SQL, listed as a release step, not code).
 
+### Post-ship reversal (2026-07-16, owner feedback)
+
+Deferring the answer/SEO content was judged a mistake — "those tabs help SEO and
+answer people's questions" — and the owner was right for a reason the deferral
+analysis missed: **the tab panes are client-rendered, so non-default tabs aren't in
+the crawlable HTML at all**, and a completed term used to redirect away, killing an
+indexed URL. Shipped as a follow-up on the same branch:
+
+- **Why-play band** on `/leagues` (shared `WHY_INDOOR` constants, SoccerOne skin,
+  server-rendered — deliberately crawlable static HTML, not an island).
+- **FAQPage JSON-LD** on the term page (hand-rolled, matching `sports/[slug]` /
+  `locations/[slug]`; all three migrate to `faq-block.astro` when Phase A lands).
+  This is the only crawlable copy of the FAQ answers.
+- **Completed terms stay alive**: the term page now also fetches
+  `?status=completed`, renders as an archive (tabs open on Standings, cards show
+  "Season complete" with no register CTA, no SportsEvent markers), and
+  `registerable` is open-status-only. Without this, `/leagues/fall-2026` — indexed
+  today — would 302 to `/leagues` the day the season wraps.
+- **Format facts in the term hero** ("Indoor 7v7 · … · 7-game season, no playoffs").
+
+**Known residual:** Aspire's own `[term].astro` still redirects completed terms and
+its tab panes have the same crawlability gap — it needs the identical treatment
+before fall-2026 completes (early November 2026).
+
 ## Tasks
 
 **Task 0 — unblock QA (prerequisite).** Fix the staging `domain_mappings` row so
