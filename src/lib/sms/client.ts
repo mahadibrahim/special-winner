@@ -1,5 +1,6 @@
 import twilio from "twilio";
 import { isZernioSmsConfigured } from "./zernio-sms";
+import { resolveSmsEnv } from "./resolve-env";
 
 /**
  * Twilio client singleton.
@@ -25,13 +26,13 @@ interface SmsEnv {
 
 /** Active outbound SMS vendor. Unset (or any non-"zernio" value) ⇒ twilio. */
 export function getSmsProvider(
-  env: SmsEnv = import.meta.env as unknown as SmsEnv,
+  env: SmsEnv = resolveSmsEnv(),
 ): SmsProvider {
   return env.SMS_PROVIDER === "zernio" ? "zernio" : "twilio";
 }
 
 export function isSmsConfigured(
-  env: SmsEnv = import.meta.env as unknown as SmsEnv,
+  env: SmsEnv = resolveSmsEnv(),
 ): boolean {
   // MESSAGING_MOCK=1 (see src/lib/messaging/mock.ts) reports "configured"
   // without real Twilio/Zernio credentials, so channel-selection and
@@ -52,8 +53,9 @@ export function isSmsConfigured(
 export function getTwilioClient(): twilio.Twilio {
   if (_client) return _client;
 
-  const accountSid = import.meta.env.TWILIO_ACCOUNT_SID;
-  const authToken = import.meta.env.TWILIO_AUTH_TOKEN;
+  const env = resolveSmsEnv();
+  const accountSid = env.TWILIO_ACCOUNT_SID;
+  const authToken = env.TWILIO_AUTH_TOKEN;
 
   if (!accountSid || !authToken) {
     throw new Error(
@@ -66,12 +68,13 @@ export function getTwilioClient(): twilio.Twilio {
 }
 
 export function getSmsFrom(): { from?: string; messagingServiceSid?: string } {
-  const messagingServiceSid = import.meta.env.TWILIO_MESSAGING_SERVICE_SID;
+  const env = resolveSmsEnv();
+  const messagingServiceSid = env.TWILIO_MESSAGING_SERVICE_SID;
   if (messagingServiceSid) {
     return { messagingServiceSid };
   }
 
-  const from = import.meta.env.TWILIO_PHONE_NUMBER;
+  const from = env.TWILIO_PHONE_NUMBER;
   if (!from) {
     throw new Error(
       "Twilio sender not configured. Set TWILIO_MESSAGING_SERVICE_SID or TWILIO_PHONE_NUMBER.",
