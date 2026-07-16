@@ -9,6 +9,11 @@ import {
   parseInboundWhatsAppMessage,
   handleInboundWhatsApp,
 } from "@/lib/messaging/inbound-whatsapp";
+import {
+  looksLikeInboundSms,
+  parseInboundSms,
+  handleInboundSmsCompliance,
+} from "@/lib/messaging/inbound-sms-compliance";
 
 /**
  * POST /api/webhooks/zernio
@@ -103,6 +108,47 @@ export const POST: APIRoute = async ({ request }) => {
     payload = JSON.parse(rawBody) as ZernioWebhookPayload;
   } catch {
     return json({ error: "Invalid JSON" }, 400);
+  }
+
+  // Inbound SMS compliance (STOP / HELP / START) — MUST run before the WhatsApp
+  // parse (which has NO channel check and would otherwise steal an SMS) and
+  // before any other routing, so opted-out senders are recorded first (TCPA).
+  // Scope is compliance keywords only; conversational inbound SMS is deferred.
+  if (looksLikeInboundSms(payload)) {
+    const parsedSms = parseInboundSms(payload);
+    if (!parsedSms) {
+      // Recognized as SMS but not extractable from the (still-unconfirmed)
+      // Zernio shape — this could be a STOP we're failing to honor. Scream with
+      // the raw body (truncated) so we can pin the real field names, and ack so
+      // Zernio doesn't retry-storm. Do NOT fall through to the WhatsApp parser.
+      console.error(
+        "[zernio webhook] inbound SMS recognized but UNPARSEABLE — possible missed " +
+          "opt-out. Pin field names against this payload: " + rawBody.slice(0, 500),
+      );
+      return json({ received: true, kind: "inbound_sms_unparsed" });
+    }
+    try {
+      const result = await handleInboundSmsCompliance(parsedSms);
+      if (result.kind === "none") {
+        // Conversational inbound is deliberately not wired — log so a real use
+        // case (or a missed keyword) is visible rather than silently dropped.
+        console.warn(
+          `[zernio webhook] inbound SMS from ${parsedSms.senderPhone} is not a compliance ` +
+            `keyword; conversational inbound not wired — ignoring: "${parsedSms.body.slice(0, 60)}"`,
+        );
+      } else {
+        console.log(
+          `[zernio webhook] inbound SMS compliance kind=${result.kind} ` +
+            `recorded=${result.recorded} replied=${result.replied} from=${parsedSms.senderPhone}`,
+        );
+      }
+      return json({ received: true, kind: "inbound_sms", compliance: result.kind });
+    } catch (err) {
+      // Never lose a STOP to a transient failure — 5xx so Zernio retries
+      // (processStopKeyword is idempotent, so retries are safe).
+      console.error("[zernio webhook] inbound SMS compliance failed:", err);
+      return json({ error: "inbound sms handling failed" }, 500);
+    }
   }
 
   // Inbound WhatsApp 1:1 message? Zernio delivers inbound messages to this same
