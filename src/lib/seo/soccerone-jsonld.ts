@@ -41,7 +41,7 @@ export const SOCCERONE_ORG_JSONLD = {
     },
     {
       "@type": "Place",
-      name: "Soccer ONE Indoor Soccer — Downtown Columbus",
+      name: "SoccerOne Downtown",
       address: {
         "@type": "PostalAddress",
         streetAddress: "980 E Starr Ave",
@@ -58,9 +58,12 @@ export const WORTHINGTON_JSONLD = {
   "@context": "https://schema.org",
   "@type": "SportsActivityLocation",
   name: "SoccerOne Worthington",
-  alternateName: "Soccer One Indoor Soccer Worthington",
+  // alternateName carries the spellings searchers type AND the exact name on
+  // the Google Business listing, so Google reconciles this entity with the GBP.
+  alternateName: ["Soccer One Indoor Soccer Worthington", "Soccer ONE Worthington"],
   url: "https://www.gosoccerone.com/worthington",
   sport: "Soccer",
+  telephone: "+1-614-805-5821",
   address: {
     "@type": "PostalAddress",
     streetAddress: "535 Lakeview Plaza Blvd",
@@ -69,6 +72,10 @@ export const WORTHINGTON_JSONLD = {
     postalCode: "43085",
     addressCountry: "US",
   },
+  geo: { "@type": "GeoCoordinates", latitude: 40.1130348, longitude: -83.0021613 },
+  // hasMap = the map link; sameAs = entity reconciliation with the GBP listing.
+  hasMap: "https://maps.google.com/?cid=380177723020037394",
+  sameAs: ["https://maps.google.com/?cid=380177723020037394"],
   openingHoursSpecification: HOURS,
   parentOrganization: { "@type": "Organization", name: "SoccerOne", url: "https://www.gosoccerone.com" },
 };
@@ -76,8 +83,10 @@ export const WORTHINGTON_JSONLD = {
 export const DOWNTOWN_JSONLD = {
   "@context": "https://schema.org",
   "@type": "SportsActivityLocation",
-  name: "Soccer ONE Indoor Soccer",
-  alternateName: "SoccerOne Downtown Columbus",
+  name: "SoccerOne Downtown",
+  // Exact GBP name ("Soccer ONE Indoor Soccer") kept as an alternateName so
+  // Google reconciles this entity with the Downtown Google Business listing.
+  alternateName: ["Soccer ONE Indoor Soccer", "SoccerOne Downtown Columbus"],
   url: "https://www.gosoccerone.com/downtown",
   sport: "Soccer",
   telephone: "+1-614-695-1857",
@@ -89,6 +98,9 @@ export const DOWNTOWN_JSONLD = {
     postalCode: "43201",
     addressCountry: "US",
   },
+  geo: { "@type": "GeoCoordinates", latitude: 39.9827248, longitude: -82.9781289 },
+  hasMap: "https://maps.google.com/?cid=12977032128879473055",
+  sameAs: ["https://maps.google.com/?cid=12977032128879473055"],
   openingHoursSpecification: HOURS,
   parentOrganization: { "@type": "Organization", name: "SoccerOne", url: "https://www.gosoccerone.com" },
 };
