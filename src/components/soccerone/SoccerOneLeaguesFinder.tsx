@@ -3,7 +3,9 @@ import { useMemo, useState } from "react"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { useFinderFilter } from "@/lib/hooks/use-finder-filter"
 import { formatDateOnly, formatDaySchedule } from "@/lib/time/format-date"
-import { trackDivisionRegisterClicked } from "@/lib/analytics/events"
+import SoccerOneInterestCapture from "@/components/soccerone/SoccerOneInterestCapture"
+import SoccerOneLevelLadder from "@/components/soccerone/SoccerOneLevelLadder"
+import { trackDivisionRegisterClicked, trackDivisionFilterApplied } from "@/lib/analytics/events"
 import {
   deriveLocationChips, deriveDivisionChips, deriveNightChips, deriveLevelChips, filterSeasons,
   NIGHT_LABELS, type FinderSeason, type FinderFilters,
@@ -38,7 +40,10 @@ export default function SoccerOneLeaguesFinder({ seasons }: { seasons: FinderSea
   const locationChips = useMemo(() => deriveLocationChips(seasons), [seasons])
   const divisionChips = useMemo(() => deriveDivisionChips(seasons), [seasons])
   const nightChips = useMemo(() => deriveNightChips(seasons), [seasons])
-  const levelChips = useMemo(() => deriveLevelChips(seasons), [seasons])
+  // Levels present in the catalog gate the ladder: on a catalog with no
+  // skill levels at all (e.g. staging fixtures), an interactive ladder would
+  // filter everything to zero — render nothing instead.
+  const hasLevels = useMemo(() => deriveLevelChips(seasons).length > 0, [seasons])
   const visible = useMemo(() => filterSeasons(seasons, filters), [seasons, filters])
 
   // Group the visible leagues under day-of-week section headers (mon→sun),
@@ -54,8 +59,20 @@ export default function SoccerOneLeaguesFinder({ seasons }: { seasons: FinderSea
     return groups
   }, [visible])
 
-  const set = (axis: keyof FinderFilters, value: string) =>
+  // Map the finder's axes onto the shared analytics facet vocabulary so
+  // Aspire and SoccerOne filter events aggregate in the same funnel view.
+  const FACET_FOR: Record<keyof FinderFilters, "level" | "format" | "day" | "venue"> = {
+    location: "venue",
+    division: "format",
+    night: "day",
+    level: "level",
+  }
+
+  const set = (axis: keyof FinderFilters, value: string) => {
+    // term is "" on the flat catalog — the season tier passes a real term.
+    trackDivisionFilterApplied({ facet: FACET_FOR[axis], value, term: "" })
     setFilters((f) => ({ ...f, [axis]: f[axis] === value ? "all" : value }))
+  }
 
   return (
     <section id={SECTION_ID} className="so-finder" aria-label="Find a league">
@@ -239,9 +256,18 @@ export default function SoccerOneLeaguesFinder({ seasons }: { seasons: FinderSea
         </div>
       )}
 
+      {hasLevels && (
+        <div className="so-finder-group">
+          <span className="so-finder-glabel">Find your level — click to filter</span>
+          {/* The ladder IS the level filter. It replaced the old flat "Level"
+              chip row, which asked the same question twice in two visual
+              languages. `set` toggles back to "all" on re-click, so clicking
+              the active tier clears it — same contract as the chips. */}
+          <SoccerOneLevelLadder selected={filters.level} onSelect={(v) => set("level", v)} />
+        </div>
+      )}
       <ChipRow label="Location" chips={locationChips} active={filters.location} onPick={(v) => set("location", v)} />
       <ChipRow label="Division" chips={divisionChips} active={filters.division} onPick={(v) => set("division", v)} />
-      <ChipRow label="Level" chips={levelChips} active={filters.level} onPick={(v) => set("level", v)} />
       <ChipRow label="Night" chips={nightChips} active={filters.night} onPick={(v) => set("night", v)} />
 
       <p className="so-finder-count">
@@ -304,13 +330,17 @@ interface LeagueCardSeason extends FinderSeason {
   teamPrice: number | null
   termSlug: string | null
   signupModes: string[] | null
+  /** "register" for open seasons, "interest" for forming ones. */
+  signupMode: string
 }
 
 // Mirror of leagues.astro:224-267, as JSX. `season` carries the presentational
 // fields (name, status, program, startDate, scheduleNotes, spotsLeft,
 // maxParticipants, price, teamPrice) from /api/public/seasons.
 function LeagueCard({ season }: { season: LeagueCardSeason }) {
+  const [capturing, setCapturing] = useState(false)
   const isDowntown = season.location.slug?.includes("downtown")
+  const forming = season.signupMode === "interest"
   const statusKey = season.status === "open" ? "open" : season.status === "filling" ? "filling" : "coming"
   const priceLabel = season.teamPrice ? `$${season.price}/player · $${season.teamPrice}/team` : `$${season.price}/player`
   const dayLabel = formatDaySchedule(season.dayOfWeek, season.startTime, season.endTime)
@@ -337,20 +367,49 @@ function LeagueCard({ season }: { season: LeagueCardSeason }) {
         <div className="lc-detail-row"><span className="lcd-label">SPOTS</span><span className="lcd-val">{season.spotsLeft != null ? `${season.spotsLeft} left of ${season.maxParticipants}` : "Open"}</span></div>
         <div className="lc-detail-row"><span className="lcd-label">PRICE</span><span className="lcd-val mono accent">{priceLabel}</span></div>
       </div>
-      <a
-        href={`/register/${season.id}`}
-        className="lc-cta"
-        onClick={() =>
-          trackDivisionRegisterClicked({
-            seasonId: season.id,
-            level: season.skillLevel ?? "open",
-            gender: season.divisionGender ?? "unknown",
-            venue: season.location.slug,
-            mode: season.signupModes?.includes("team") ? "team" : "individual",
-            term: season.termSlug ?? "",
-          })
-        }
-      >Register Now →</a>
+      {forming ? (
+        <>
+          <button
+            type="button"
+            className="lc-cta"
+            aria-expanded={capturing}
+            onClick={() => {
+              trackDivisionRegisterClicked({
+                seasonId: season.id,
+                level: season.skillLevel ?? "open",
+                gender: season.divisionGender ?? "unknown",
+                venue: season.location.slug,
+                mode: "interest",
+                term: season.termSlug ?? "",
+              })
+              setCapturing((v) => !v)
+            }}
+          >Notify me →</button>
+          {capturing && (
+            <SoccerOneInterestCapture
+              seasonId={season.id}
+              source="league-card-forming"
+              title="Get on the list"
+              subtitle="One email the day registration opens — nothing else."
+            />
+          )}
+        </>
+      ) : (
+        <a
+          href={`/register/${season.id}`}
+          className="lc-cta"
+          onClick={() =>
+            trackDivisionRegisterClicked({
+              seasonId: season.id,
+              level: season.skillLevel ?? "open",
+              gender: season.divisionGender ?? "unknown",
+              venue: season.location.slug,
+              mode: season.signupModes?.includes("team") ? "team" : "individual",
+              term: season.termSlug ?? "",
+            })
+          }
+        >Register Now →</a>
+      )}
     </div>
   )
 }
@@ -361,6 +420,16 @@ function SoccerOneFinderEmpty({ onClear }: { onClear: () => void }) {
       <p className="le-title">No leagues match</p>
       <p className="le-body">Try widening a filter — or leave your email and we'll tell you when a new season opens.</p>
       <button type="button" className="lc-cta" onClick={onClear}>Clear filters</button>
+      <div style={{ maxWidth: 480, margin: "1.25rem auto 0", textAlign: "left" }}>
+        {/* No seasonId: nothing specific to point season-interest at — feeds
+            the newsletter list tagged with the slot source. The copy above
+            promised this field long before it existed; now it does. */}
+        <SoccerOneInterestCapture
+          source="leagues-empty-state"
+          title="Tell me when a season opens"
+          subtitle="One email the day registration opens — nothing else."
+        />
+      </div>
     </div>
   )
 }

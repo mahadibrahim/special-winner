@@ -62,13 +62,44 @@ describe("rewriteSoccerOnePath()", () => {
     "/signin",
     "/dashboard",
     "/api/public/seasons",
-    "/leagues/extra",       // anything beyond an exact marketing-root must NOT rewrite
     "/leaguesx",            // prefix-but-not-exact must NOT rewrite
     "/soccerone",           // already inside soccerone/* — must NOT double-rewrite
     "/soccerone/leagues",
     "/static/foo.png",
     "/about",               // Aspire's about page is NOT a SoccerOne marketing root
   ])("returns null for non-marketing path %s", (input) => {
+    expect(rewriteSoccerOnePath(input)).toBeNull();
+  });
+
+  // ── Season tier (2026-07-16) ───────────────────────────────────────────
+  // Contract change: `/leagues/<term>` now rewrites. Previously NOTHING
+  // deeper than an exact marketing root rewrote (this file asserted
+  // `/leagues/extra` → null). Term slugs are dynamic (fall-2026,
+  // winter-1-2627, …) so they cannot live in the exact-match table without a
+  // code change per season. Exactly ONE dynamic family is allowed; every
+  // other nested path still returns null.
+  it.each([
+    ["/leagues/fall-2026", "/soccerone/leagues/fall-2026"],
+    ["/leagues/winter-1-2627", "/soccerone/leagues/winter-1-2627"],
+    ["/leagues/spring-2027", "/soccerone/leagues/spring-2027"],
+    ["/leagues/extra", "/soccerone/leagues/extra"],
+  ])("rewrites season tier %s → %s", (input, expected) => {
+    expect(rewriteSoccerOnePath(input)).toBe(expected);
+  });
+
+  it.each([
+    "/leagues/",              // empty segment — not a term
+    "/leagues//",             // empty segments
+    "/leagues/fall-2026/x",   // two segments — only ONE level is dynamic
+    "/leagues/fall-2026/",    // trailing slash after a term
+    "/leagues/Fall-2026",     // uppercase — slugs are lowercase
+    "/leagues/fall_2026",     // underscore is not a slug separator
+    "/leagues/fall-2026.json",// extension — not a term
+    "/leagues/-fall",         // leading dash
+    "/leagues/fall-",         // trailing dash
+    "/leagues/../etc",        // traversal must never rewrite
+    "/rent/fall-2026",        // the dynamic rule is /leagues-only
+  ])("returns null for invalid season path %s", (input) => {
     expect(rewriteSoccerOnePath(input)).toBeNull();
   });
 
@@ -136,7 +167,6 @@ describe("getSoccerOneCanonicalRedirect()", () => {
     "/leagues",             // short form — the rewrite target, never redirected
     "/rent",
     "/soccerone-favicon.svg", // static asset, not the soccerone/ subtree
-    "/soccerone/leagues/x", // deeper than a known marketing root
     "/register",
     "/api/public/seasons",
   ])("returns null for %s (no symmetric short form)", (input) => {
@@ -146,6 +176,58 @@ describe("getSoccerOneCanonicalRedirect()", () => {
   it("never maps a path to itself (guarantees no redirect loop)", () => {
     for (const long of Object.values(SOCCERONE_MARKETING_REWRITES)) {
       expect(getSoccerOneCanonicalRedirect(long)).not.toBe(long);
+    }
+  });
+
+  // ── Season tier (2026-07-16) ───────────────────────────────────────────
+  // Contract change: this file previously asserted `/soccerone/leagues/x`
+  // → null. The long form of a season page must now redirect out to the
+  // short public form, exactly as every marketing root does.
+  it.each([
+    ["/soccerone/leagues/fall-2026", "/leagues/fall-2026"],
+    ["/soccerone/leagues/winter-1-2627", "/leagues/winter-1-2627"],
+  ])("redirects long season form %s → %s", (input, expected) => {
+    expect(getSoccerOneCanonicalRedirect(input)).toBe(expected);
+  });
+
+  it.each([
+    "/soccerone/leagues/fall-2026/x", // two segments — only ONE level is dynamic
+    "/soccerone/leagues/",            // empty segment
+    "/soccerone/leagues/Fall-2026",   // uppercase
+  ])("returns null for invalid long season path %s", (input) => {
+    expect(getSoccerOneCanonicalRedirect(input)).toBeNull();
+  });
+});
+
+// The load-bearing invariant. The exact-match table and its derived inverse
+// could never drift because one was built from the other. The dynamic season
+// rule is hand-written in BOTH directions, so nothing structural stops the
+// two from disagreeing — this test is what stops it. A short URL must rewrite
+// in and the resulting long URL must redirect back out to the identical short
+// URL, or a visitor ping-pongs between them.
+describe("short ↔ long round-trip (rewrite/redirect symmetry)", () => {
+  const SHORT_PATHS = [
+    ...Object.keys(SOCCERONE_MARKETING_REWRITES),
+    "/leagues/fall-2026",
+    "/leagues/winter-1-2627",
+    "/leagues/winter-2-2027",
+    "/leagues/spring-2027",
+  ];
+
+  it.each(SHORT_PATHS)("%s → long → short is identity", (short) => {
+    const long = rewriteSoccerOnePath(short);
+    expect(long).not.toBeNull();
+    expect(getSoccerOneCanonicalRedirect(long!)).toBe(short);
+  });
+
+  it.each(SHORT_PATHS)("%s never rewrites to itself (no rewrite loop)", (short) => {
+    expect(rewriteSoccerOnePath(short)).not.toBe(short);
+  });
+
+  it("a rewritten long form never rewrites again (rewrite is not idempotent-looping)", () => {
+    for (const short of SHORT_PATHS) {
+      const long = rewriteSoccerOnePath(short)!;
+      expect(rewriteSoccerOnePath(long)).toBeNull();
     }
   });
 });

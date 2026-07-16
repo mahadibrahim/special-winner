@@ -186,9 +186,11 @@ setMarketingEdgeCache(Astro); // after fetches; a degraded (empty-seasons) rende
               </div>
               <div class="season-cta-row">
                 {/* Term-level CTA routes to the division finder — no
-                    data-so-register-cta: that event is division-scoped and
-                    fires from the leagues page's own CTAs. */}
-                <a href="/leagues" class="season-cta">
+                    data-so-register-cta (division-scoped), but it DOES fire
+                    the term-level landing event: without it, the multi-
+                    division home state emitted zero league events and the
+                    funnel only became observable at /leagues. */}
+                <a href="/leagues" class="season-cta" data-so-leagues-cta data-term={termAgg.termSlug ?? ''}>
                   Register for {termAgg.termLabel} →
                 </a>
                 <span class="season-cta-note">Pick your division · team &amp; free-agent spots</span>
@@ -509,7 +511,7 @@ setMarketingEdgeCache(Astro); // after fetches; a degraded (empty-seasons) rende
             <a
               href={heroMulti ? '/leagues' : `/register/${featured.id}`}
               class="cta-band-btn"
-              {...(heroMulti ? {} : {
+              {...(heroMulti ? { 'data-so-leagues-cta': true, 'data-term': featured.termSlug ?? '' } : {
                 'data-so-register-cta': true,
                 'data-season-id': featured.id,
                 'data-level': featured.skillLevel ?? 'open',
@@ -1597,7 +1599,14 @@ setMarketingEdgeCache(Astro); // after fetches; a degraded (empty-seasons) rende
   </script>
 
   <script>
-    import { trackDivisionRegisterClicked } from "@/lib/analytics/events";
+    import { trackDivisionRegisterClicked, trackLandingCtaClicked } from "@/lib/analytics/events";
+
+    // Term-level home → /leagues handoff (heroMulti state). Division-scoped
+    // register events fire from the leagues page; this is the tier the funnel
+    // was blind to.
+    document.querySelectorAll<HTMLAnchorElement>("[data-so-leagues-cta]").forEach((el) => {
+      el.addEventListener("click", () => trackLandingCtaClicked({ term: el.dataset.term ?? "" }));
+    });
 
     // Conversion analytics on the server-rendered register CTAs (hero season
     // card + fall CTA band).
