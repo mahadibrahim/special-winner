@@ -1,39 +1,18 @@
 ---
 import BaseLayout from '@/layouts/BaseLayout.astro';
-import { db } from '@/lib/db';
-import { users, emailVerificationTokens } from '@/lib/db/schema';
-import { eq, gt, and } from 'drizzle-orm';
+import { consumeEmailVerificationToken } from '@/lib/auth/email-verification';
 
 const { token } = Astro.params;
 
 let verified = false;
 let error: string | null = null;
 
-if (token && db) {
-  // Find valid token
-  const verificationToken = await db
-    .select()
-    .from(emailVerificationTokens)
-    .where(
-      and(
-        eq(emailVerificationTokens.id, token),
-        gt(emailVerificationTokens.expiresAt, new Date())
-      )
-    )
-    .limit(1);
-
-  if (verificationToken.length) {
-    // Update user email verified status
-    await db
-      .update(users)
-      .set({ emailVerified: true, updatedAt: new Date() })
-      .where(eq(users.id, verificationToken[0].userId));
-
-    // Delete used token and any other tokens for this user
-    await db
-      .delete(emailVerificationTokens)
-      .where(eq(emailVerificationTokens.userId, verificationToken[0].userId));
-
+if (token) {
+  // Shared consumer hashes the token before lookup (storage holds the digest,
+  // not the raw value) and refreshes sessions on success. See
+  // src/lib/auth/email-verification.ts.
+  const result = await consumeEmailVerificationToken(token);
+  if (result.ok) {
     verified = true;
   } else {
     error = "This verification link is invalid or has expired.";
