@@ -6,6 +6,7 @@ import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
 import { DOWNTOWN_JSONLD } from '@/lib/seo/soccerone-jsonld';
 import HomeSignupStrip from '@/components/soccerone/HomeSignupStrip';
 import { HOME_GOOGLE_RATING, HOME_REVIEWS } from '@/lib/soccerone/home-reviews';
+import { breadcrumbJsonLd } from '@/lib/seo/breadcrumbs';
 
 // Live season data — org-scoped fetch pinned to the Downtown location,
 // same pattern as src/pages/soccerone/worthington/index.astro:11-41.
@@ -142,6 +143,12 @@ const liveFallRows = DAY_ORDER
 import { aggregateFeaturedTerm } from '@/lib/soccerone/featured-term';
 import { setMarketingEdgeCache } from '@/lib/http/edge-cache';
 setMarketingEdgeCache(Astro); // after fetches; a degraded (empty-seasons) render may cache for 60s — SWR refreshes it
+
+const SO = 'https://www.gosoccerone.com';
+const breadcrumbSchema = breadcrumbJsonLd([
+  { name: 'SoccerOne', url: `${SO}/` },
+  { name: 'Downtown', url: `${SO}/downtown` },
+]);
 ---
 
 <BaseLayout
@@ -160,6 +167,7 @@ setMarketingEdgeCache(Astro); // after fetches; a degraded (empty-seasons) rende
       rel="stylesheet"
     />
     <script type="application/ld+json" is:inline set:html={JSON.stringify(DOWNTOWN_JSONLD)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbSchema)} />
   </Fragment>
 
   <SoccerOneHeader currentFacility="downtown" />

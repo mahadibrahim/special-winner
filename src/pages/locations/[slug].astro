@@ -3,6 +3,7 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import { db } from "@/lib/db";
 import { locations, programs, seasons, organizations } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
+import { breadcrumbJsonLd } from "@/lib/seo/breadcrumbs";
 
 // SSR — request-time queries against the catalog. Each location's open
 // programs change as seasons open and close.
@@ -220,6 +221,13 @@ const faqSchema = copy.faq.length
       })),
     }
   : null;
+
+const ORIGIN = import.meta.env.PUBLIC_APP_URL || "https://aspiresportsohio.com";
+const breadcrumbSchema = breadcrumbJsonLd([
+  { name: "Home", url: `${ORIGIN}/` },
+  { name: "Locations", url: `${ORIGIN}/locations` },
+  { name: displayLocationName, url: `${ORIGIN}/locations/${slug}` },
+]);
 ---
 
 <BaseLayout
@@ -230,6 +238,7 @@ const faqSchema = copy.faq.length
   {faqSchema && (
     <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
   )}
+  <script type="application/ld+json" set:html={JSON.stringify(breadcrumbSchema)} />
 
   <main id="main-content" class="bg-cream">
     {/* Hero */}

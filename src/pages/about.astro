@@ -1,53 +1,6 @@
 ---
-export const prerender = true;
 import BaseLayout from '@/layouts/BaseLayout.astro';
-
-// JSON-LD Organization schema. `founder` references a Person; `location`
-// references the two Columbus venues. Update postal addresses + lat/lng
-// when partner facility agreements are finalized (currently {{TBD}}).
-const orgSchema = {
-  "@context": "https://schema.org",
-  "@type": "SportsOrganization",
-  name: "Aspire Sports",
-  url: "https://aspiresportsohio.com",
-  foundingDate: "2023",
-  founder: {
-    "@type": "Person",
-    name: "Bashir Awl",
-    jobTitle: "Founder",
-  },
-  areaServed: {
-    "@type": "City",
-    name: "Columbus",
-    containedInPlace: {
-      "@type": "State",
-      name: "Ohio",
-    },
-  },
-  sport: ["Soccer"],
-  location: [
-    {
-      "@type": "Place",
-      name: "Aspire Sports — Worthington",
-      address: {
-        "@type": "PostalAddress",
-        addressLocality: "Worthington",
-        addressRegion: "OH",
-        addressCountry: "US",
-      },
-    },
-    {
-      "@type": "Place",
-      name: "Aspire Sports — Downtown / OSU",
-      address: {
-        "@type": "PostalAddress",
-        addressLocality: "Columbus",
-        addressRegion: "OH",
-        addressCountry: "US",
-      },
-    },
-  ],
-};
+import { ASPIRE_ORG_JSONLD } from '@/lib/seo/aspire-jsonld';
 ---
 
 <BaseLayout
@@ -55,7 +8,7 @@ const orgSchema = {
   description="Aspire Sports is a Columbus, Ohio sports operator founded in 2023 by Bashir Awl. Adult co-ed soccer leagues, youth soccer programs, and two neighborhood-anchored venues in Worthington and downtown Columbus."
   bodyClass="bg-cream text-ink antialiased"
 >
-  <script type="application/ld+json" set:html={JSON.stringify(orgSchema)} />
+  <script type="application/ld+json" set:html={JSON.stringify(ASPIRE_ORG_JSONLD)} is:inline />
 
   <main id="main-content" class="relative pt-28 lg:pt-36">
     <div class="pointer-events-none absolute inset-0 opacity-[0.25] paper-grain"></div>

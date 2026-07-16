@@ -10,6 +10,7 @@ import SoccerOneLevels from '@/components/soccerone/SoccerOneLevels.astro';
 import { PickupAlertSignup } from '@/components/dropin/PickupAlertSignup';
 import { getDb } from "@/lib/db";
 import { dropInRateCard } from "@/lib/db/schema/drop-in";
+import { breadcrumbJsonLd } from "@/lib/seo/breadcrumbs";
 
 const facility = Astro.url.searchParams.get('facility') || 'all';
 
@@ -28,6 +29,12 @@ if (orgId) {
 }
 import { setMarketingEdgeCache } from '@/lib/http/edge-cache';
 setMarketingEdgeCache(Astro);
+
+const SO = "https://www.gosoccerone.com";
+const breadcrumbSchema = breadcrumbJsonLd([
+  { name: "SoccerOne", url: `${SO}/` },
+  { name: "Pickup", url: `${SO}/pickup` },
+]);
 ---
 
 <BaseLayout
@@ -45,6 +52,7 @@ setMarketingEdgeCache(Astro);
       href="https://fonts.googleapis.com/css2?family=Anton&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbSchema)} />
   </Fragment>
 
   <SoccerOneHeader />

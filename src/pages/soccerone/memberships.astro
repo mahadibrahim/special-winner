@@ -4,6 +4,7 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 import SoccerOneHeader from '@/components/soccerone/SoccerOneHeader.astro';
 import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
 import { MembershipTiersLive } from '@/components/soccerone/MembershipTiersLive';
+import { breadcrumbJsonLd } from '@/lib/seo/breadcrumbs';
 
 // Server-side fetch from the same host so the middleware resolves to the
 // SoccerOne org for the public-tiers endpoint.
@@ -42,6 +43,12 @@ const bookingWindow = (t: any, fallback: number): number =>
   typeof t?.benefits?.booking_window_days === 'number' && t.benefits.booking_window_days > 0
     ? t.benefits.booking_window_days
     : fallback;
+
+const SO = 'https://www.gosoccerone.com';
+const breadcrumbSchema = breadcrumbJsonLd([
+  { name: 'SoccerOne', url: `${SO}/` },
+  { name: 'Memberships', url: `${SO}/memberships` },
+]);
 ---
 
 <BaseLayout
@@ -59,6 +66,7 @@ const bookingWindow = (t: any, fallback: number): number =>
       href="https://fonts.googleapis.com/css2?family=Anton&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbSchema)} />
   </Fragment>
 
   <SoccerOneHeader />
