@@ -3,6 +3,7 @@ import { getDb } from "@/lib/db";
 import { phoneOptIns } from "@/lib/db/schema/phone-verifications";
 import { getTwilioClient, getSmsFrom, isSmsConfigured, getSmsProvider } from "./client";
 import { createZernioSmsClientFromEnv } from "./zernio-sms";
+import { resolveSmsEnv } from "./resolve-env";
 import { isMessagingMockEnabled, recordMockMessage } from "@/lib/messaging/mock";
 
 /**
@@ -56,7 +57,7 @@ interface DispatchEnv {
  */
 export async function dispatchToProvider(
   input: { to: string; text: string },
-  env: DispatchEnv = import.meta.env as unknown as DispatchEnv,
+  env: DispatchEnv = resolveSmsEnv(),
   fetchImpl?: typeof fetch,
 ): Promise<{ messageId: string }> {
   if (getSmsProvider(env) === "zernio") {
