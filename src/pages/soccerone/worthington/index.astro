@@ -577,7 +577,10 @@ const breadcrumbSchema = breadcrumbJsonLd([
           {featured ? (
             <a href="#fall" class="bc-btn">Register for Fall</a>
           ) : (
-            <a href="/leagues" class="bc-btn">See Leagues</a>
+            <!-- ?location= pre-filters the finder and renders its "Showing
+                 leagues at Worthington" arrival chip — same pattern as the
+                 /pickup?facility= and /rent?facility= links above. -->
+            <a href="/leagues?location=worthington" class="bc-btn">See Leagues</a>
           )}
           <a href="/pickup?facility=worthington" class="bc-btn bc-btn--ghost">See Pickup Sessions</a>
           <a href="/rent?facility=worthington" class="bc-btn bc-btn--ghost">Book a Field</a>

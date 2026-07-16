@@ -1,0 +1,188 @@
+---
+// SoccerOne season tier — /leagues/{term} on the SoccerOne host.
+// The middleware's dynamic rewrite rule (soccerone-routing.ts, TERM_SLUG)
+// maps /leagues/<term> → this file; the long form 301s back to the short one.
+// MUST stay SSR: brand-skinned surfaces bake data-brand at build time if
+// prerendered (BaseLayout.astro:10).
+export const prerender = false;
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import SoccerOneHeader from '@/components/soccerone/SoccerOneHeader.astro';
+import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
+import SoccerOneSeasonTabs from '@/components/soccerone/SoccerOneSeasonTabs';
+import { breadcrumbJsonLd } from '@/lib/seo/breadcrumbs';
+import { seasonsToSportsEvents } from '@/lib/seo/events';
+import { setMarketingEdgeCache } from '@/lib/http/edge-cache';
+
+const { term } = Astro.params;
+
+// Same tenant-scoped self-fetch as soccerone/leagues.astro — the endpoint
+// reads Astro.locals.organization, so this page sees the resolved org's
+// seasons. Same dev-only port guard: a port-less Host header yields port 80
+// and the self-fetch misses the dev server. Do NOT rewrite the hostname to
+// localhost — undici drops an explicit Host header (forbidden fetch header)
+// and org resolution would fall back to the default org.
+let seasons: any[] = [];
+try {
+  const url = new URL('/api/public/seasons', Astro.url);
+  url.searchParams.set('term', term ?? '');
+  if (url.hostname.endsWith('.localhost') && !url.port) url.port = '4321';
+  const res = await fetch(url, {
+    headers: { Host: Astro.request.headers.get('host') ?? '' },
+  });
+  if (res.ok) {
+    const body = await res.json();
+    seasons = body.seasons ?? [];
+  }
+} catch (err) {
+  console.error('[soccerone/leagues/term] failed to load seasons', err);
+}
+
+// No seasons for this term (unknown slug, or everything completed) → the
+// catalog, not a dead page.
+if (seasons.length === 0) {
+  return Astro.redirect('/leagues');
+}
+
+const termLabel = seasons[0].termLabel ?? 'This season';
+
+// Hero advertises the most convertible status present across the term's
+// divisions — same rule as Aspire's [term].astro.
+const statusRank = (s: string) => (s === 'open' ? 0 : s === 'active' ? 1 : s === 'forming' ? 2 : 3);
+const heroStatus = [...seasons].sort((a, b) => statusRank(a.status) - statusRank(b.status))[0].status;
+const STATUS_LABEL: Record<string, string> = {
+  open: 'Now Registering', active: 'In Progress', forming: 'Forming', completed: 'Complete',
+};
+
+const startDate = seasons.map((s) => s.startDate).filter(Boolean).sort()[0] ?? null;
+const endDate = seasons.map((s) => s.endDate).filter(Boolean).sort().at(-1) ?? null;
+const fmt = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : null;
+const locationCount = new Set(seasons.map((s) => s.location?.slug).filter(Boolean)).size;
+
+// Register CTAs must only ever point at money-taking seasons.
+const registerable = seasons.filter((s) => s.signupMode !== 'interest');
+const eventSchema = seasonsToSportsEvents(registerable, 'https://www.gosoccerone.com');
+
+const SO = 'https://www.gosoccerone.com';
+const breadcrumbSchema = breadcrumbJsonLd([
+  { name: 'SoccerOne', url: `${SO}/` },
+  { name: 'Leagues', url: `${SO}/leagues` },
+  { name: termLabel, url: `${SO}/leagues/${term}` },
+]);
+
+setMarketingEdgeCache(Astro);
+---
+
+<BaseLayout
+  favicon="/soccerone-favicon.svg"
+  title={`${termLabel} Leagues — SoccerOne`}
+  description={`${termLabel} indoor soccer leagues at SoccerOne Columbus. Divisions, schedule, standings, rules — register online.`}
+  canonical={`${SO}/leagues/${term}`}
+  navigation={false}
+  footer={false}
+  bodyClass="min-h-screen flex flex-col bg-[#0a0a0d] text-white antialiased"
+>
+  <Fragment slot="head">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Anton&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbSchema)} />
+    {eventSchema.length > 0 && (
+      <script type="application/ld+json" is:inline set:html={JSON.stringify(eventSchema)} />
+    )}
+  </Fragment>
+
+  <SoccerOneHeader />
+
+  <main class="term-main">
+    <div class="term-hero">
+      <div class="th-inner">
+        <span class={`th-chip th-chip--${heroStatus}`}>
+          {heroStatus === 'open' && <span class="th-pulse" aria-hidden="true"></span>}
+          {STATUS_LABEL[heroStatus] ?? heroStatus}
+        </span>
+        <h1 class="th-title">{termLabel}</h1>
+        <p class="th-meta">
+          Indoor soccer
+          {startDate && endDate && ` · ${fmt(startDate)} – ${fmt(endDate)}`}
+          {` · ${seasons.length} division${seasons.length === 1 ? '' : 's'}`}
+          {locationCount > 0 && ` · ${locationCount} location${locationCount === 1 ? '' : 's'}`}
+        </p>
+        {registerable.length > 0 && (
+          <div class="th-ctas">
+            {/* Real anchors — the tabs root carries id="divisions". A team or
+                solo player still has to pick a division first; sending them
+                to the finder is the honest destination. */}
+            <a href="#divisions" class="th-btn-primary">Register a team →</a>
+            <a href="#divisions" class="th-btn-ghost">Join solo</a>
+          </div>
+        )}
+      </div>
+    </div>
+
+    <SoccerOneSeasonTabs
+      client:load
+      seasons={seasons}
+      weekStart={fmt(startDate) ?? 'TBA'}
+      term={term ?? ''}
+    />
+  </main>
+
+  <SoccerOneFooter />
+
+  <style>
+    .term-main { flex: 1; font-family: var(--so-font-body); }
+    .term-hero {
+      background: var(--so-ink);
+      border-bottom: 1px solid var(--so-lime-a10);
+      padding: 3.5rem 0 2.5rem;
+      margin-bottom: 2rem;
+    }
+    .th-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
+    .th-chip {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      font-family: var(--so-font-mono); font-size: 0.6rem; font-weight: 700;
+      letter-spacing: 0.14em; text-transform: uppercase;
+      padding: 0.35rem 0.7rem; border-radius: 99px;
+      background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.5);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .th-chip--open { background: var(--so-lime-a12); color: var(--so-lime); border-color: var(--so-lime-a25); }
+    .th-chip--forming { background: rgba(251,191,36,0.1); color: var(--so-amber); border-color: var(--so-amber-a25); }
+    .th-pulse {
+      width: 6px; height: 6px; border-radius: 50%; background: var(--so-lime);
+      animation: thPulse 2s infinite;
+    }
+    @keyframes thPulse {
+      0% { box-shadow: 0 0 0 0 var(--so-lime-a40); }
+      70% { box-shadow: 0 0 0 7px rgba(163,230,53,0); }
+      100% { box-shadow: 0 0 0 0 rgba(163,230,53,0); }
+    }
+    @media (prefers-reduced-motion: reduce) { .th-pulse { animation: none; } }
+    .th-title {
+      font-family: var(--so-font-display);
+      font-size: clamp(3rem, 8vw, 6rem);
+      color: #ffffff; line-height: 0.95; letter-spacing: 0.01em;
+      text-transform: uppercase; margin: 0.75rem 0 0.5rem;
+    }
+    .th-meta { font-family: var(--so-font-mono); font-size: 0.75rem; color: rgba(255,255,255,0.45); }
+    .th-ctas { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 1.25rem; }
+    .th-btn-primary {
+      background: var(--so-lime); color: var(--so-ink);
+      font-size: 0.875rem; font-weight: 700; letter-spacing: 0.03em;
+      text-decoration: none; padding: 0.8rem 1.4rem; border-radius: var(--so-radius-sm);
+      transition: background 0.15s;
+    }
+    .th-btn-primary:hover { background: var(--so-lime-bright); }
+    .th-btn-ghost {
+      color: var(--so-lime); border: 1px solid var(--so-lime-a30);
+      font-size: 0.875rem; font-weight: 700; letter-spacing: 0.03em;
+      text-decoration: none; padding: 0.8rem 1.4rem; border-radius: var(--so-radius-sm);
+      transition: border-color 0.15s;
+    }
+    .th-btn-ghost:hover { border-color: var(--so-lime); }
+  </style>
+</BaseLayout>

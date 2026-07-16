@@ -16,12 +16,16 @@ export default function RegisterExperience({
   audienceHint,
   wasCancelled,
   teamToken,
+  modeHint,
 }: {
   seasonId: string;
   user: AuthedUser;
   audienceHint: string | null;
   wasCancelled: boolean;
   teamToken: string | null;
+  /** ?mode= from catalog cards ("individual" | "team") — skips ChooseMode
+      when the visitor already picked on the card they clicked. */
+  modeHint?: string | null;
 }) {
   useHydrationBeacon();
   const [season, setSeason] = useState<
@@ -33,7 +37,14 @@ export default function RegisterExperience({
     | null
   >(null);
   const [err, setErr] = useState<string | null>(null);
-  const [mode, setMode] = useState<"choose" | "solo" | "team">(teamToken ? "solo" : "choose");
+  // Precedence: an invite token always means solo-join-a-roster; then the
+  // catalog card's ?mode= hint; then the explicit chooser. A "team" hint is
+  // re-checked against server truth below (canTeam) — a hand-edited URL on an
+  // individual-only season falls back to the chooser rather than rendering
+  // TeamCreate for a season that can't take teams.
+  const [mode, setMode] = useState<"choose" | "solo" | "team">(
+    teamToken ? "solo" : modeHint === "individual" ? "solo" : modeHint === "team" ? "team" : "choose",
+  );
 
   useEffect(() => {
     fetch(`/api/public/seasons/${seasonId}`)
@@ -53,16 +64,19 @@ export default function RegisterExperience({
     return <ErrorBanner message="Registration for this season has closed. Contact us if you'd like to join a roster mid-season." />;
 
   const canTeam = !!season.signupModes && season.signupModes.includes("team");
-  const railMode = teamToken ? "share" : mode === "team" ? "team" : "solo";
+  // Server truth wins over the URL hint: "team" on an individual-only season
+  // degrades to the chooser (which itself degrades to solo when !canTeam).
+  const effectiveMode = mode === "team" && !canTeam ? "choose" : mode;
+  const railMode = teamToken ? "share" : effectiveMode === "team" ? "team" : "solo";
 
-  if (mode === "choose" && canTeam) {
+  if (effectiveMode === "choose" && canTeam) {
     return (
       <LeagueContextRail season={season} mode="solo" step={1} stepCount={4}>
         <ChooseMode season={season} canTeam={canTeam} onPick={setMode} />
       </LeagueContextRail>
     );
   }
-  if (mode === "team") {
+  if (effectiveMode === "team") {
     return (
       <LeagueContextRail season={season} mode="team" step={1} stepCount={4}>
         <TeamCreate

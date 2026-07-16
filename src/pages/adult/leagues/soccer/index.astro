@@ -40,7 +40,7 @@ const heroPhoto = "https://images.unsplash.com/photo-1543326727-cf6c39e8f84c?aut
       style={`background-image:linear-gradient(180deg,oklch(0.18 0.07 262/0.8),oklch(0.18 0.07 262/0.94)),url('${heroPhoto}')`}>
       <div class="max-w-[1080px] mx-auto pb-8">
         {currentProp && (
-          <a href={`/adult/leagues/soccer/${currentProp.slug}`} class="flex items-center justify-between gap-3 bg-primary text-cream rounded-lg px-4 py-3 mb-5" data-testid="now-registering">
+          <a href={`/adult/leagues/soccer/${currentProp.slug}`} class="flex items-center justify-between gap-3 bg-primary text-cream rounded-lg px-4 py-3 mb-5" data-testid="now-registering" data-hero-banner-cta data-term={currentProp.slug}>
             <span><span class="font-mono text-[10px] tracking-widest uppercase opacity-85">● Now Registering</span><br/><span class="font-display font-semibold text-lg">{currentProp.label} · registration open</span></span>
             <span class="font-mono text-[11px] tracking-wider uppercase bg-cream text-primary px-3 py-2 rounded">See divisions →</span>
           </a>
@@ -53,3 +53,14 @@ const heroPhoto = "https://images.unsplash.com/photo-1543326727-cf6c39e8f84c?aut
     <SoccerLandingTabs client:load current={currentProp} upcoming={upcomingProps} past={pastProps} />
   </main>
 </BaseLayout>
+
+<script>
+  import { trackLandingCtaClicked } from "@/lib/analytics/events";
+
+  // The hero "Now Registering" banner fired nothing while its Overview-tab
+  // twin (soccer-landing-tabs.tsx) tracked — tier 4→5 conversion was
+  // undercounted with no way to see the hero/tab split.
+  document.querySelectorAll<HTMLAnchorElement>("[data-hero-banner-cta]").forEach((el) => {
+    el.addEventListener("click", () => trackLandingCtaClicked({ term: el.dataset.term ?? "" }));
+  });
+</script>

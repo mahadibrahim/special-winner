@@ -3128,6 +3128,8 @@ async function seedE2ETests() {
           name: "Adult Coed — Spring 2026",
           slug: "soccerone-adult-coed-spring-2026",
           status: "open",
+          divisionGender: "coed",
+          skillLevel: null,
           isTest: false,
           startDate: sixWeeksOut.toISOString().slice(0, 10),
           endDate: tenWeeksOut.toISOString().slice(0, 10),
@@ -3148,6 +3150,8 @@ async function seedE2ETests() {
           endDate: tenWeeksOut.toISOString().slice(0, 10),
           termSlug: "spring-2026",
           termLabel: "Spring 2026",
+          divisionGender: "coed",
+          skillLevel: null,
         })
         .where(eq(seasons.id, soccerOneSeason.id))
         .returning();
@@ -3173,6 +3177,8 @@ async function seedE2ETests() {
           name: "Adult Coed B — Spring 2026",
           slug: "soccerone-adult-coed-b-spring-2026",
           status: "open",
+          divisionGender: "coed",
+          skillLevel: "b",
           isTest: false,
           startDate: sixWeeksOut.toISOString().slice(0, 10),
           endDate: tenWeeksOut.toISOString().slice(0, 10),
@@ -3191,6 +3197,8 @@ async function seedE2ETests() {
           endDate: tenWeeksOut.toISOString().slice(0, 10),
           termSlug: "spring-2026",
           termLabel: "Spring 2026",
+          divisionGender: "coed",
+          skillLevel: "b",
         })
         .where(eq(seasons.id, soccerOneSeasonB.id))
         .returning();
@@ -3222,6 +3230,8 @@ async function seedE2ETests() {
           name: "Co-Ed 6v6 — Fall",
           slug: "soccerone-downtown-fall-coed-6v6",
           status: "open",
+          divisionGender: "coed",
+          skillLevel: null,
           isTest: false,
           startDate: downtownFallStart.toISOString().slice(0, 10),
           endDate: downtownFallEnd.toISOString().slice(0, 10),
@@ -3247,6 +3257,8 @@ async function seedE2ETests() {
           startDate: downtownFallStart.toISOString().slice(0, 10),
           endDate: downtownFallEnd.toISOString().slice(0, 10),
           registrationCloses: downtownRegCloses,
+          divisionGender: "coed",
+          skillLevel: null,
         })
         .where(eq(seasons.id, soccerOneDowntownFallSeason.id))
         .returning();
@@ -3354,16 +3366,22 @@ async function seedE2ETests() {
     const worthingtonFallEnd = new Date(Date.now() + 16 * 7 * 24 * 60 * 60 * 1000);
     const worthingtonRegCloses = new Date(Date.now() + 7 * 7 * 24 * 60 * 60 * 1000);
 
+    // divisionGender/skillLevel mirror what the names imply, because prod
+    // does the same — the fixtures previously left both null, which made the
+    // level ladder untestable off prod (and hid the two rules that need e2e
+    // coverage: Women's Open has skillLevel='open' and must survive every
+    // level filter; Co-Ed 30+ is an AGE division whose null level must NOT
+    // be treated as open-to-all).
     const worthingtonFallSeasons = [
-      { slug: "soccerone-worthington-fall-coed-30", name: "Co-Ed 30+ — Fall", dayOfWeek: "sun" },
-      { slug: "soccerone-worthington-fall-mens-c", name: "Men's C — Fall", dayOfWeek: "mon" },
-      { slug: "soccerone-worthington-fall-womens-open", name: "Women's Open — Fall", dayOfWeek: "wed" },
+      { slug: "soccerone-worthington-fall-coed-30", name: "Co-Ed 30+ — Fall", dayOfWeek: "sun", divisionGender: "coed", skillLevel: null },
+      { slug: "soccerone-worthington-fall-mens-c", name: "Men's C — Fall", dayOfWeek: "mon", divisionGender: "mens", skillLevel: "c" },
+      { slug: "soccerone-worthington-fall-womens-open", name: "Women's Open — Fall", dayOfWeek: "wed", divisionGender: "womens", skillLevel: "open" },
       // Futsal on Tuesday + Thursday mirrors the prod catalog shape — it
       // exercises the location page's fall-row dedupe branches (no doubled
       // futsal suffix; live Thursday suppresses the static pickup row) and
       // the LEAGUES + FUTSAL tag variant, which plain sun/mon/wed can't.
-      { slug: "soccerone-worthington-fall-coed-futsal", name: "Co-Ed Futsal — Fall", dayOfWeek: "tue" },
-      { slug: "soccerone-worthington-fall-mens-futsal", name: "Men's Futsal — Fall", dayOfWeek: "thu" },
+      { slug: "soccerone-worthington-fall-coed-futsal", name: "Co-Ed Futsal — Fall", dayOfWeek: "tue", divisionGender: "coed", skillLevel: null },
+      { slug: "soccerone-worthington-fall-mens-futsal", name: "Men's Futsal — Fall", dayOfWeek: "thu", divisionGender: "mens", skillLevel: "c" },
     ] as const;
 
     for (const fixture of worthingtonFallSeasons) {
@@ -3392,6 +3410,8 @@ async function seedE2ETests() {
             dayOfWeek: fixture.dayOfWeek,
             startTime: "18:00",
             endTime: "23:00",
+            divisionGender: fixture.divisionGender,
+            skillLevel: fixture.skillLevel,
             // Shared term across the division fixtures — exercises the
             // multi-division term-aggregate hero (featured-term.ts).
             termSlug: "fall-2026",
@@ -3412,6 +3432,10 @@ async function seedE2ETests() {
             registrationCloses: worthingtonRegCloses,
             termSlug: "fall-2026",
             termLabel: "Fall 2026",
+            // Backfill on re-run: pre-existing rows on the shared CI DB were
+            // seeded before these fields existed and carry nulls.
+            divisionGender: fixture.divisionGender,
+            skillLevel: fixture.skillLevel,
           })
           .where(eq(seasons.id, worthingtonSeason.id))
           .returning();

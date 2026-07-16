@@ -11,6 +11,56 @@ const seasons: FinderSeason[] = [
   { id: "4", divisionGender: null,     dayOfWeek: null,  location: { slug: "downtown",    name: "Downtown" },    skillLevel: null },
 ]
 
+// Regression: an `open` division accepts players of ANY level, so it must
+// survive every level filter. `filterDivisions` (the Aspire sibling in
+// lib/leagues/division-filters.ts) has always done this deliberately:
+//   if (f.level && d.level !== f.level && d.level !== "open") return false;
+// filterSeasons exact-matched instead, which hid real inventory. In prod,
+// "Fall 2026 — Women's Open" carries skill_level='open' — tapping any level
+// chip on gosoccerone.com made it disappear.
+describe("filterSeasons — 'open' divisions pass every level filter", () => {
+  const withOpen: FinderSeason[] = [
+    { id: "b1",   divisionGender: "coed",   dayOfWeek: "mon", location: { slug: "worthington", name: "Worthington" }, skillLevel: "b" },
+    { id: "c1",   divisionGender: "coed",   dayOfWeek: "tue", location: { slug: "worthington", name: "Worthington" }, skillLevel: "c" },
+    { id: "open1", divisionGender: "womens", dayOfWeek: "wed", location: { slug: "worthington", name: "Worthington" }, skillLevel: "open" },
+    { id: "null1", divisionGender: "coed",   dayOfWeek: "sun", location: { slug: "worthington", name: "Worthington" }, skillLevel: null },
+  ]
+  const base = { location: "all", division: "all", night: "all" } as const
+
+  it.each(["a", "b", "c", "d"])("keeps the open division when level=%s is selected", (level) => {
+    const ids = filterSeasons(withOpen, { ...base, level }).map((s) => s.id)
+    expect(ids).toContain("open1")
+  })
+
+  it("still narrows to the selected level plus open (not a wildcard)", () => {
+    const ids = filterSeasons(withOpen, { ...base, level: "b" }).map((s) => s.id)
+    expect(ids).toEqual(["b1", "open1"])
+    expect(ids).not.toContain("c1")
+  })
+
+  it("selecting 'open' explicitly shows only open divisions", () => {
+    const ids = filterSeasons(withOpen, { ...base, level: "open" }).map((s) => s.id)
+    expect(ids).toEqual(["open1"])
+  })
+
+  it("a null skillLevel is NOT treated as open (unset ≠ open-to-all)", () => {
+    // The three 30+/40+ age divisions in prod have skill_level = null. They are
+    // age-scoped, not open-to-every-level, so a level filter must exclude them.
+    const ids = filterSeasons(withOpen, { ...base, level: "b" }).map((s) => s.id)
+    expect(ids).not.toContain("null1")
+  })
+
+  it("level='all' still includes everything, open and null alike", () => {
+    const ids = filterSeasons(withOpen, { ...base, level: "all" }).map((s) => s.id)
+    expect(ids).toEqual(["b1", "c1", "open1", "null1"])
+  })
+
+  it("open survives level filtering but still AND-combines with other axes", () => {
+    const ids = filterSeasons(withOpen, { location: "worthington", division: "coed", night: "all", level: "b" }).map((s) => s.id)
+    expect(ids).toEqual(["b1"]) // open1 is womens — excluded by the division axis, not the level axis
+  })
+})
+
 describe("leagues-finder helpers", () => {
   it("derives location chips from distinct slugs present, ordered by first appearance", () => {
     expect(deriveLocationChips(seasons)).toEqual([

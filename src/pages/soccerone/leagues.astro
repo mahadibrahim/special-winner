@@ -4,9 +4,10 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 import SoccerOneHeader from '@/components/soccerone/SoccerOneHeader.astro';
 import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
 import SoccerOneLeaguesFinder from '@/components/soccerone/SoccerOneLeaguesFinder';
-import SoccerOneLeagueLevels from '@/components/soccerone/SoccerOneLeagueLevels.astro';
+import SoccerOneInterestCapture from '@/components/soccerone/SoccerOneInterestCapture';
 import { breadcrumbJsonLd } from '@/lib/seo/breadcrumbs';
 import { seasonsToSportsEvents } from '@/lib/seo/events';
+import { partitionTerms, type TermSeason } from '@/lib/leagues/terms';
 
 // Phase 2 — fetch live SoccerOne seasons via the tenant-scoped public API.
 // The endpoint is org-scoped from Phase 0 (reads Astro.locals.organization),
@@ -36,12 +37,11 @@ try {
   console.error('[soccerone/leagues] failed to load seasons', err);
 }
 
-// Phase 1: this hand-rolled SoccerOne template only renders a "Register Now"
-// CTA, so exclude `forming` (interest-only) seasons — otherwise they'd show a
-// register button for a season that isn't open yet. Forming seasons surface on
-// the main Aspire catalog (program-card-v2 renders the interest form). Phase 2
-// adds an interest CTA to this template.
-seasons = seasons.filter((s) => s.signupMode !== 'interest');
+// Forming (interest-only) seasons now render on this template: the finder
+// card shows a "Notify me" interest capture instead of a register button
+// (SoccerOneInterestCapture — the Phase 2 the old comment here promised).
+// They stay OUT of the featured/bottom register CTAs below, which must only
+// ever point at a season that can actually take money.
 
 // A season whose start date has passed is no longer a "Register & Pay"
 // candidate — a stale "NOW REGISTERING" banner over a finished tournament is
@@ -50,15 +50,30 @@ seasons = seasons.filter((s) => s.signupMode !== 'interest');
 const todayIso = new Date().toISOString().slice(0, 10);
 seasons = seasons.filter((s) => !s.startDate || String(s.startDate).slice(0, 10) >= todayIso);
 
-// SportsEvent JSON-LD for the seasons visible on this page (post-filter, so
-// forming/interest and past-start seasons never get an event marker).
-const eventSchema = seasonsToSportsEvents(seasons, 'https://www.gosoccerone.com');
+// Registerable = seasons that can actually take money right now. Forming
+// (interest-only) seasons are in `seasons` for the finder — their card shows
+// a "Notify me" capture — but they must never drive a register CTA or an
+// event marker.
+const registerable = seasons.filter((s) => s.signupMode !== 'interest');
 
-// Featured season = first upcoming open season (the API already sorts by
-// startDate). All featured-CTA copy derives from it; the block renders only
-// when one exists — no more hardcoded season names/dates/prices over a dead
-// button.
-const featured = seasons[0] ?? null;
+// SportsEvent JSON-LD only for registerable seasons (unchanged behaviour:
+// forming/interest and past-start seasons never get an event marker).
+const eventSchema = seasonsToSportsEvents(registerable, 'https://www.gosoccerone.com');
+
+// Featured season = first upcoming registerable season (the API already sorts
+// by startDate). "Register & Pay Now" over an interest-only season is a lie.
+// The block renders only when one exists — no more hardcoded season
+// names/dates/prices over a dead button.
+const featured = registerable[0] ?? null;
+
+// Season tier: partitionTerms is the shared brand-neutral term model — it
+// deliberately refuses to call a forming term "current", so the featured
+// banner's term link and the Upcoming band below inherit Aspire's
+// banner-never-lies guardrail for free.
+const termSeasons: TermSeason[] = seasons
+  .filter((s) => s.termSlug)
+  .map((s) => ({ id: s.id, termSlug: s.termSlug, termLabel: s.termLabel, status: s.status, startDate: s.startDate }));
+const { current: currentTerm, upcoming: upcomingTerms } = partitionTerms(termSeasons);
 const firstSeasonId = featured?.id ?? null;
 const featuredStart = featured?.startDate
   ? new Date(featured.startDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
@@ -154,7 +169,18 @@ const breadcrumbSchema = breadcrumbJsonLd([
           <div class="leagues-featured-cta">
             <div class="lfcta-left">
               <span class="lfcta-eyebrow">NOW REGISTERING</span>
-              <h2 class="lfcta-title">{featured.name}</h2>
+              <h2 class="lfcta-title">
+                {currentTerm && featured.termSlug === currentTerm.slug ? (
+                  <a href={`/leagues/${featured.termSlug}`} class="lfcta-title-link">{featured.name}</a>
+                ) : (
+                  featured.name
+                )}
+              </h2>
+              {currentTerm && (
+                <a href={`/leagues/${currentTerm.slug}`} class="lfcta-term-link">
+                  See all {currentTerm.label} divisions, schedule &amp; standings →
+                </a>
+              )}
               <div class="lfcta-meta">
                 {featuredStart && (
                   <span class="lm-item">
@@ -202,8 +228,35 @@ const breadcrumbSchema = breadcrumbJsonLd([
           </div>
         )}
 
-        <SoccerOneLeagueLevels />
+        {/* The level ladder now lives INSIDE the finder as its level filter
+            (SoccerOneLevelLadder) — the static display it replaced asked the
+            same question twice in two visual languages. */}
         <SoccerOneLeaguesFinder client:load seasons={seasons} />
+
+        {/* Season tier: upcoming terms — the off-season demand engine. Terms
+            appear here once their seasons are flipped to `forming` (drafts
+            never surface; the API refuses them by design). */}
+        {upcomingTerms.length > 0 && (
+          <div class="leagues-upcoming">
+            <h2 class="lu-title">Upcoming seasons</h2>
+            <div class="lu-grid">
+              {upcomingTerms.map((t) => (
+                <a href={`/leagues/${t.slug}`} class="lu-card">
+                  <span class="lu-label">{t.label}</span>
+                  <span class="lu-cta">See divisions →</span>
+                </a>
+              ))}
+            </div>
+            <div class="lu-capture">
+              <SoccerOneInterestCapture
+                client:load
+                source="leagues-upcoming"
+                title="Tell me when registration opens"
+                subtitle="One email the day an upcoming season opens — nothing else."
+              />
+            </div>
+          </div>
+        )}
       </div>
     </div>
 
@@ -345,6 +398,45 @@ const breadcrumbSchema = breadcrumbJsonLd([
       letter-spacing: 0.01em;
       margin-bottom: 0.875rem;
     }
+    .lfcta-title-link { color: inherit; text-decoration: none; }
+    .lfcta-title-link:hover { color: var(--so-lime-bright); }
+    .lfcta-term-link {
+      display: inline-block;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--so-lime);
+      text-decoration: none;
+      border-bottom: 1px solid var(--so-lime-a25);
+      padding-bottom: 0.15rem;
+      margin-bottom: 0.875rem;
+    }
+    .lfcta-term-link:hover { border-bottom-color: var(--so-lime); }
+
+    /* Upcoming seasons band */
+    .leagues-upcoming { margin-top: 3.5rem; }
+    .lu-title {
+      font-family: var(--so-font-display);
+      text-transform: uppercase;
+      font-size: 1.5rem;
+      color: #fff;
+      letter-spacing: 0.01em;
+      margin-bottom: 1rem;
+    }
+    .lu-grid { display: flex; gap: 0.8rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+    .lu-card {
+      display: flex; flex-direction: column; gap: 0.3rem;
+      background: var(--so-surface);
+      border: 1px solid var(--so-lime-a15);
+      border-radius: var(--so-radius-md);
+      padding: 1rem 1.25rem;
+      text-decoration: none;
+      min-width: 200px;
+      transition: border-color 0.15s;
+    }
+    .lu-card:hover { border-color: var(--so-lime-a40); }
+    .lu-label { font-family: var(--so-font-display); font-size: 1.15rem; color: #fff; text-transform: uppercase; }
+    .lu-cta { font-size: 0.78rem; font-weight: 600; color: var(--so-lime); }
+    .lu-capture { max-width: 520px; }
 
     .lfcta-meta {
       display: flex;
