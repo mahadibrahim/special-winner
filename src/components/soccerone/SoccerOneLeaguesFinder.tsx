@@ -325,7 +325,7 @@ function ChipRow({ label, chips, active, onPick }: {
 interface LeagueCardSeason extends FinderSeason {
   name: string
   status: string
-  program: { name: string }
+  program: { name: string; audienceType?: string | null }
   startDate: string | null
   startTime: string | null
   endTime: string | null
@@ -338,6 +338,10 @@ interface LeagueCardSeason extends FinderSeason {
   signupModes: string[] | null
   /** "register" for open seasons, "interest" for forming ones. */
   signupMode: string
+  /** Team early-bird window live right now (display only). */
+  teamEarlyBirdActive?: boolean
+  /** Team fee the charge path would use right now (early-bird while active). */
+  effectiveTeamPrice?: number | null
 }
 
 // Mirror of leagues.astro:224-267, as JSX. `season` carries the presentational
@@ -349,7 +353,14 @@ function LeagueCard({ season }: { season: LeagueCardSeason }) {
   const forming = season.signupMode === "interest"
   const completed = season.status === "completed"
   const statusKey = season.status === "open" ? "open" : season.status === "filling" ? "filling" : "coming"
-  const priceLabel = season.teamPrice ? `$${season.price}/player · $${season.teamPrice}/team` : `$${season.price}/player`
+  // Show the team fee the charge path would actually use — the early-bird
+  // price while its window is live, labelled as such. Display only; the
+  // charge path recomputes server-side from the same helpers.
+  const earlyBird = season.teamEarlyBirdActive && season.effectiveTeamPrice != null
+  const teamFee = earlyBird ? season.effectiveTeamPrice : season.teamPrice
+  const priceLabel = teamFee
+    ? `$${season.price}/player · $${teamFee}/team${earlyBird ? " early-bird" : ""}`
+    : `$${season.price}/player`
   const dayLabel = formatDaySchedule(season.dayOfWeek, season.startTime, season.endTime)
   return (
     <div className={`league-card ${isDowntown ? "league-card--downtown" : "league-card--active"}`}>
@@ -357,7 +368,7 @@ function LeagueCard({ season }: { season: LeagueCardSeason }) {
       <div className="lc-top">
         <div className="lc-division"><span className="lc-div-label">PROGRAM</span><span className="lc-div-name">{season.program.name}</span></div>
         <div className="lc-meta-row">
-          {season.audienceType === "parents" && <span className="lc-level-badge">Youth</span>}
+          {season.program?.audienceType === "parents" && <span className="lc-level-badge">Youth</span>}
           {season.skillLevel && (
             <span className="lc-level-badge">
               {season.skillLevel === "open" ? "Open" : String(season.skillLevel).toUpperCase()}

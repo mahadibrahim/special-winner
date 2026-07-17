@@ -128,9 +128,14 @@ const firstSeasonId = featured?.id ?? null;
 const featuredStart = featured?.startDate
   ? new Date(featured.startDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
   : null;
+const featuredTeamFee = featured
+  ? (featured.teamEarlyBirdActive && featured.effectiveTeamPrice != null
+      ? featured.effectiveTeamPrice
+      : featured.teamPrice)
+  : null;
 const featuredPrice = featured
-  ? (featured.teamPrice
-      ? `$${featured.price}/player · $${featured.teamPrice}/team`
+  ? (featuredTeamFee
+      ? `$${featured.price}/player · $${featuredTeamFee}/team${featured.teamEarlyBirdActive ? ' early-bird' : ''}`
       : `$${featured.price}/player`)
   : null;
 // Structured play day wins over the free-text scheduleNotes when set.

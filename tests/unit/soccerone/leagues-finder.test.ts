@@ -67,8 +67,11 @@ describe("filterSeasons — 'open' divisions pass every level filter", () => {
 // audienceType === "parents" (parents register their kids).
 describe("filterSeasons — ages axis", () => {
   const mixed: FinderSeason[] = [
-    { id: "a1", divisionGender: "coed", dayOfWeek: "mon", location: { slug: "worthington", name: "Worthington" }, skillLevel: "c", audienceType: "adults" },
-    { id: "y1", divisionGender: null, dayOfWeek: "sat", location: { slug: "worthington", name: "Worthington" }, skillLevel: null, audienceType: "parents" },
+    // program.audienceType mirrors the real /api/public/seasons payload —
+    // the first version of these fixtures put audienceType top-level (matching
+    // the implementation, not the API) and the bug sailed through green tests.
+    { id: "a1", divisionGender: "coed", dayOfWeek: "mon", location: { slug: "worthington", name: "Worthington" }, skillLevel: "c", program: { audienceType: "adults" } },
+    { id: "y1", divisionGender: null, dayOfWeek: "sat", location: { slug: "worthington", name: "Worthington" }, skillLevel: null, program: { audienceType: "parents" } },
   ]
   const base = { location: "all", division: "all", night: "all", level: "all" } as const
 

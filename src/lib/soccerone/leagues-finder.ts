@@ -4,8 +4,9 @@ export interface FinderSeason {
   dayOfWeek: string | null         // 'mon'..'sun'
   location: { slug: string; name: string }
   skillLevel: string | null        // 'a' | 'b' | 'c' | 'd' | 'open' | null
-  /** Program audience: 'parents' = youth (parents register kids). Absent → adult. */
-  audienceType?: string | null
+  /** The API nests audience under program: 'parents' = youth (parents
+      register kids). Absent → adult. */
+  program?: { audienceType?: string | null } | null
   // Presentational fields (name, status, price, etc.) ride along untyped on the
   // real payload; the finder only filters on the fields above.
   [extra: string]: unknown
@@ -93,7 +94,7 @@ function matchesLevel(skillLevel: string | null, level: string): boolean {
 
 /** Youth = the program's audienceType is 'parents'; anything else is adult. */
 function isYouth(s: FinderSeason): boolean {
-  return s.audienceType === "parents"
+  return s.program?.audienceType === "parents"
 }
 
 /** Ages chips render only when the catalog actually mixes both audiences. */
