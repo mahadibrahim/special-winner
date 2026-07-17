@@ -10,6 +10,9 @@ describe("registerHref", () => {
   it("open individual-only division → canonical /register/{id}", () => {
     expect(registerHref({ ...base, signupModes: ["individual"], status: "open" } as any)).toBe("/register/s1");
   });
+  it("completed division → null (archive row — a register link over a finished season is a dead button)", () => {
+    expect(registerHref({ ...base, status: "completed" } as any)).toBeNull();
+  });
   it("forming division → null (renders an inline InterestCapture, not a link)", () => {
     // Contract change 2026-07-16: this used to return
     // /api/public/season-interest?seasonId=s1 as an <a href> — a GET against a

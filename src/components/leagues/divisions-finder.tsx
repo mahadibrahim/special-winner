@@ -34,6 +34,9 @@ export function registerHref(d: Division): string | null {
   // no navigation target. The old return value here was a GET against the
   // POST-only season-interest endpoint: every click 405'd.
   if (d.status === "forming") return null;
+  // Completed divisions are archive rows: a register link over a finished
+  // season is a dead button (RegisterExperience refuses non-open anyway).
+  if (d.status === "completed") return null;
   return `/register/${d.seasonId}`;
 }
 
@@ -133,7 +136,9 @@ function DivisionRow({ d, term }: { d: Division; term: string }) {
         <div className="text-[13px] text-ink-2">{d.day ? <b className="text-ink">{labelDay(d.day)}</b> : null} {d.time ? `· ${d.time}` : ""}</div>
         <div className="text-xs text-ink-muted">{d.venueName}</div>
         <div className={cn("font-mono text-[11px] font-semibold", d.status === "forming" ? "text-ochre" : "text-sage")}>{d.spotsLabel}</div>
-        {d.status === "forming" ? (
+        {d.status === "completed" ? (
+          <span className="font-mono text-[10px] tracking-wide uppercase text-ink-muted mt-1.5 sm:mt-0">Season complete</span>
+        ) : d.status === "forming" ? (
           <button type="button" aria-expanded={capturing}
             onClick={() => { track(); setCapturing((v) => !v); }}
             className={ctaClass}>
