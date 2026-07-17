@@ -3443,6 +3443,54 @@ async function seedE2ETests() {
       console.log(`   ✓ SoccerOne Worthington Season: ${worthingtonSeason.name} (dayOfWeek=${worthingtonSeason.dayOfWeek})`);
     }
 
+    // 12c-3. Forming winter season — an UPCOMING term. Regression fixture for
+    // the round-3 leak: forming seasons from future terms must appear as a
+    // term card in the /leagues Upcoming tab and must NOT leak into the
+    // This Season finder (in prod, 51 winter/spring "Notify me" cards drowned
+    // the 13 registerable fall divisions). One season is enough to derive an
+    // upcoming term.
+    const winterStart = new Date(Date.now() + 20 * 7 * 24 * 60 * 60 * 1000);
+    const winterEnd = new Date(Date.now() + 27 * 7 * 24 * 60 * 60 * 1000);
+    let [winterForming] = await db
+      .select()
+      .from(seasons)
+      .where(eq(seasons.slug, "soccerone-worthington-winter-coed-forming"))
+      .limit(1);
+    if (!winterForming) {
+      [winterForming] = await db
+        .insert(seasons)
+        .values({
+          programId: soccerOneWorthingtonProgram.id,
+          name: "Co-Ed — Winter",
+          slug: "soccerone-worthington-winter-coed-forming",
+          status: "forming",
+          isTest: false,
+          startDate: winterStart.toISOString().slice(0, 10),
+          endDate: winterEnd.toISOString().slice(0, 10),
+          priceCents: 12000,
+          teamPriceCents: 105000,
+          dayOfWeek: "mon",
+          divisionGender: "coed",
+          skillLevel: null,
+          termSlug: "winter-fixture",
+          termLabel: "Winter (Fixture)",
+        })
+        .returning();
+    } else {
+      [winterForming] = await db
+        .update(seasons)
+        .set({
+          status: "forming",
+          startDate: winterStart.toISOString().slice(0, 10),
+          endDate: winterEnd.toISOString().slice(0, 10),
+          termSlug: "winter-fixture",
+          termLabel: "Winter (Fixture)",
+        })
+        .where(eq(seasons.id, winterForming.id))
+        .returning();
+    }
+    console.log(`   ✓ SoccerOne Winter Forming Season: ${winterForming.name} (status=${winterForming.status})`);
+
     // 12d. SoccerOne rental-enabled venue.
     let [soccerOneVenue] = await db
       .select()

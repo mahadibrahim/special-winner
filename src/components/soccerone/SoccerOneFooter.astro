@@ -59,8 +59,12 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
     <div class="footer-col">
       <h3 class="fcol-heading">Play</h3>
       <ul class="fcol-links">
-        <li><a href="/leagues">Adult Coed League</a></li>
-        <li><a href="/leagues">Adult Premier League</a></li>
+        {/* Two links, one honest: "Premier" is not a division we run — the
+            catalog has Coed / Men's / Women's / 30+/40+ / Futsal. Promising
+            a league that doesn't exist is the stale-banner mistake in the
+            footer. */}
+        <li><a href="/leagues">Adult Leagues</a></li>
+        <li><a href="/leagues?audience=youth">Youth Leagues</a></li>
         <li><a href="/pickup">Drop-In Pickup</a></li>
         <li><a href="/#programs">Youth Programs</a></li>
         <li><a href="/rent">Field Rentals</a></li>

@@ -8,6 +8,7 @@ import SoccerOneInterestCapture from '@/components/soccerone/SoccerOneInterestCa
 import { breadcrumbJsonLd } from '@/lib/seo/breadcrumbs';
 import { seasonsToSportsEvents } from '@/lib/seo/events';
 import { partitionTerms, type TermSeason } from '@/lib/leagues/terms';
+import { aggregateFeaturedTerm } from '@/lib/soccerone/featured-term';
 import { WHY_INDOOR, RULE_SECTIONS } from '@/lib/leagues/adult-soccer-content';
 
 // Phase 2 — fetch live SoccerOne seasons via the tenant-scoped public API.
@@ -90,6 +91,25 @@ const allTermSeasons: TermSeason[] = [...termSeasons, ...completedSeasons
   .map((s: any) => ({ id: s.id, termSlug: s.termSlug, termLabel: s.termLabel, status: s.status, startDate: s.startDate }))];
 const { current: currentTerm, upcoming: upcomingTerms, past: pastTerms } = partitionTerms(allTermSeasons);
 
+// This Season excludes seasons that belong to an UPCOMING term — those are
+// sold as term cards in the Upcoming tab. Before this scoping the forming
+// winter/spring seasons leaked into the finder as ~50 "Notify me" cards
+// drowning the 13 registerable fall ones. Scoped by exclusion (not
+// "current term only") so a second open/active term — e.g. spring still
+// running while fall opens — can never silently vanish from the catalog.
+const upcomingSlugs = new Set(upcomingTerms.map((t) => t.slug));
+const thisSeasonSeasons = seasons.filter(
+  (s) => !s.termSlug || !upcomingSlugs.has(s.termSlug),
+);
+
+// Banner sells the TERM when it has 2+ registerable divisions — the same
+// aggregation the homepage hero uses (featured-term.ts exists because a
+// tiebreak once advertised "Co-Ed D" as the flagship; a single arbitrary
+// division as the page headline is that bug again).
+const termAgg = aggregateFeaturedTerm(registerable);
+const fmtShort = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : null;
+
 // Aspire-anatomy tabs (round 2). All panes are server-rendered and toggled
 // via `hidden` — crawlers see every pane's copy regardless of tab state
 // (deliberately better than Aspire's conditional-mount tabs). Initial tab is
@@ -133,7 +153,7 @@ const breadcrumbSchema = breadcrumbJsonLd([
   title={audience === 'youth' ? 'Youth Leagues — SoccerOne' : 'Leagues — SoccerOne'}
   description={audience === 'youth'
     ? 'Youth indoor soccer leagues at SoccerOne Columbus — Worthington and Downtown. Register now for the upcoming season.'
-    : 'Adult coed, premier, and corporate indoor soccer leagues at SoccerOne Columbus. Worthington and Downtown. Register now for the upcoming season.'}
+    : 'Adult indoor 7v7 soccer leagues at SoccerOne Columbus — coed, men\'s, women\'s, 30+/40+, and futsal divisions at Worthington and Downtown. Register now.'}
   navigation={false}
   footer={false}
   bodyClass="min-h-screen flex flex-col bg-[#0a0a0d] text-white antialiased"
@@ -161,7 +181,31 @@ const breadcrumbSchema = breadcrumbJsonLd([
         <!-- REGISTRATION CTA — featured row. Data-driven from the first
              open season; hidden entirely when the catalog is empty so we
              never show a dead pay button over the empty state. -->
-        {featured && (
+        {featured && termAgg.multi ? (
+          <div class="leagues-featured-cta">
+            <div class="lfcta-left">
+              <span class="lfcta-eyebrow">NOW REGISTERING</span>
+              <h2 class="lfcta-title">
+                <a href={`/leagues/${featured.termSlug}`} class="lfcta-title-link">{termAgg.termLabel}</a>
+              </h2>
+              <div class="lfcta-meta">
+                {termAgg.closes && <span class="lm-item">Registration closes {fmtShort(termAgg.closes)}</span>}
+                <span class="lm-item">{termAgg.count} divisions</span>
+                {termAgg.families.length > 0 && <span class="lm-item">{termAgg.families.join(' · ')}</span>}
+                {termAgg.uniformPrice && <span class="lm-item">{termAgg.uniformPrice}</span>}
+              </div>
+            </div>
+            <div class="lfcta-right">
+              {/* The finder is one tab away — jumping there beats sending a
+                  13-division term to one arbitrary division's checkout. */}
+              <button type="button" class="lfcta-btn" data-lg-jump="this-season">
+                Pick your division &amp; register
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M3 9h12M9 3l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              <a href={`/leagues/${featured.termSlug}`} class="lfcta-note lfcta-note-link">Full {termAgg.termLabel} page: schedule &amp; standings →</a>
+            </div>
+          </div>
+        ) : featured && (
           <div class="leagues-featured-cta">
             <div class="lfcta-left">
               <span class="lfcta-eyebrow">NOW REGISTERING</span>
@@ -172,11 +216,6 @@ const breadcrumbSchema = breadcrumbJsonLd([
                   featured.name
                 )}
               </h2>
-              {currentTerm && (
-                <a href={`/leagues/${currentTerm.slug}`} class="lfcta-term-link">
-                  See all {currentTerm.label} divisions, schedule &amp; standings →
-                </a>
-              )}
               <div class="lfcta-meta">
                 {featuredStart && (
                   <span class="lm-item">
@@ -230,24 +269,10 @@ const breadcrumbSchema = breadcrumbJsonLd([
             <p class="lh-desc">
               {audience === 'youth'
                 ? 'Youth indoor soccer leagues and academies across both locations.'
-                : 'Competitive indoor soccer, season by season. Adult Coed, Premier, Women\'s, and Corporate divisions across both locations.'}
+                : termAgg.families.length > 0
+                  ? `Indoor 7v7, season by season. ${termAgg.families.join(' · ')} divisions across both locations.`
+                  : 'Competitive indoor soccer, season by season, across both locations.'}
             </p>
-          </div>
-          <div class="lh-stats">
-            <div class="lhs-item">
-              <span class="lhs-num">4</span>
-              <span class="lhs-label">Indoor fields</span>
-            </div>
-            <div class="lhs-div" aria-hidden="true"></div>
-            <div class="lhs-item">
-              <span class="lhs-num">2</span>
-              <span class="lhs-label">Locations</span>
-            </div>
-            <div class="lhs-div" aria-hidden="true"></div>
-            <div class="lhs-item">
-              <span class="lhs-num">4PM</span>
-              <span class="lhs-label">Open daily</span>
-            </div>
           </div>
         </div>
 
@@ -318,7 +343,7 @@ const breadcrumbSchema = breadcrumbJsonLd([
           {/* The level ladder lives INSIDE the finder as its level filter
               (SoccerOneLevelLadder) — the static display it replaced asked the
               same question twice in two visual languages. */}
-          <SoccerOneLeaguesFinder client:load seasons={seasons} />
+          <SoccerOneLeaguesFinder client:load seasons={thisSeasonSeasons} />
         </section>
 
         <section data-lg-pane="upcoming" hidden={initialTab !== 'upcoming'} role="tabpanel" aria-label="Upcoming seasons">
@@ -376,28 +401,10 @@ const breadcrumbSchema = breadcrumbJsonLd([
           <h2 class="lbc-title">Register your team directly. No middleman.</h2>
         </div>
         <div class="lbc-buttons">
-          <a
-            href={`/register/${firstSeasonId}`}
-            class="lbc-btn-primary"
-            data-so-register-cta
-            data-season-id={firstSeasonId}
-            data-level={featured?.skillLevel ?? 'open'}
-            data-gender={featured?.divisionGender ?? 'unknown'}
-            data-venue={featured?.location?.slug ?? ''}
-            data-term={featured?.termSlug ?? ''}
-            data-mode="team"
-          >Register a Team</a>
-          <a
-            href={`/register/${firstSeasonId}`}
-            class="lbc-btn-secondary"
-            data-so-register-cta
-            data-season-id={firstSeasonId}
-            data-level={featured?.skillLevel ?? 'open'}
-            data-gender={featured?.divisionGender ?? 'unknown'}
-            data-venue={featured?.location?.slug ?? ''}
-            data-term={featured?.termSlug ?? ''}
-            data-mode="individual"
-          >Register as Individual</a>
+          {/* Same fix as the featured banner: this used to deep-link ONE
+              arbitrary division's checkout. Solo/team is chosen at register
+              (ChooseMode) — the honest destination is the division picker. */}
+          <button type="button" class="lbc-btn-primary" data-lg-jump="this-season">Pick your division &amp; register →</button>
         </div>
       </div>
     </div>
@@ -454,20 +461,6 @@ const breadcrumbSchema = breadcrumbJsonLd([
       max-width: 500px;
     }
 
-    .lh-stats {
-      display: flex;
-      align-items: center;
-      gap: 1.5rem;
-      background: var(--so-lime-a04);
-      border: 1px solid var(--so-lime-a15);
-      border-radius: var(--so-radius-md);
-      padding: 1.25rem 1.75rem;
-      flex-shrink: 0;
-    }
-    .lhs-item { display: flex; flex-direction: column; gap: 2px; text-align: center; }
-    .lhs-num { font-family: var(--so-font-display); font-size: 2.25rem; color: var(--so-lime); letter-spacing: 0.02em; line-height: 1; }
-    .lhs-label { font-family: var(--so-font-mono); font-size: 0.5rem; font-weight: 600; letter-spacing: 0.1em; color: rgba(255,255,255,0.4); }
-    .lhs-div { width: 1px; height: 40px; background: rgba(255,255,255,0.08); }
 
     /* ---- LEAGUES SECTION ---- */
     .leagues-section { background: var(--bg); padding: 4rem 0; }
@@ -633,6 +626,10 @@ const breadcrumbSchema = breadcrumbJsonLd([
     }
     .lfcta-btn:hover { background: var(--so-lime-bright); }
     .lfcta-note { font-size: 0.75rem; color: rgba(255,255,255,0.3); }
+    .lfcta-note-link { color: var(--so-lime-a60); text-decoration: none; border-bottom: 1px solid var(--so-lime-a25); padding-bottom: 1px; }
+    .lfcta-note-link:hover { color: var(--so-lime); border-bottom-color: var(--so-lime); }
+    /* .lfcta-btn / .lbc-btn-primary render as <button> now — neutralize UA styles */
+    button.lfcta-btn, button.lbc-btn-primary { border: none; cursor: pointer; font-family: var(--so-font-body); }
 
     /* ---- BOTTOM CTA ---- */
     .leagues-bottom-cta {
@@ -683,7 +680,10 @@ const breadcrumbSchema = breadcrumbJsonLd([
   }
   lgTabs.forEach((t) => t.addEventListener("click", () => lgShow(t.dataset.lgTab ?? "")));
   document.querySelectorAll<HTMLButtonElement>("[data-lg-jump]").forEach((el) => {
-    el.addEventListener("click", () => lgShow(el.dataset.lgJump ?? ""));
+    el.addEventListener("click", () => {
+      lgShow(el.dataset.lgJump ?? "");
+      document.querySelector(".lg-tabbar")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   });
   // Initial-view event (server decided the starting tab).
   const lgInitial = lgTabs.find((t) => t.getAttribute("aria-selected") === "true");
