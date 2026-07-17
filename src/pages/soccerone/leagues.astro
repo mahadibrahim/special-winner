@@ -8,7 +8,7 @@ import SoccerOneInterestCapture from '@/components/soccerone/SoccerOneInterestCa
 import { breadcrumbJsonLd } from '@/lib/seo/breadcrumbs';
 import { seasonsToSportsEvents } from '@/lib/seo/events';
 import { partitionTerms, type TermSeason } from '@/lib/leagues/terms';
-import { WHY_INDOOR } from '@/lib/leagues/adult-soccer-content';
+import { WHY_INDOOR, RULE_SECTIONS } from '@/lib/leagues/adult-soccer-content';
 
 // Phase 2 — fetch live SoccerOne seasons via the tenant-scoped public API.
 // The endpoint is org-scoped from Phase 0 (reads Astro.locals.organization),
@@ -74,7 +74,36 @@ const featured = registerable[0] ?? null;
 const termSeasons: TermSeason[] = seasons
   .filter((s) => s.termSlug)
   .map((s) => ({ id: s.id, termSlug: s.termSlug, termLabel: s.termLabel, status: s.status, startDate: s.startDate }));
-const { current: currentTerm, upcoming: upcomingTerms } = partitionTerms(termSeasons);
+// Completed seasons feed ONLY the Past tab's term list — never the finder.
+let completedSeasons: any[] = [];
+try {
+  const doneUrl = new URL('/api/public/seasons', Astro.url);
+  doneUrl.searchParams.set('audience', audience);
+  doneUrl.searchParams.set('status', 'completed');
+  if (doneUrl.hostname.endsWith('.localhost') && !doneUrl.port) doneUrl.port = '4321';
+  const doneRes = await fetch(doneUrl, { headers: { Host: Astro.request.headers.get('host') ?? '' } });
+  if (doneRes.ok) completedSeasons = (await doneRes.json()).seasons ?? [];
+} catch { /* Past tab degrades to its empty-state promise */ }
+
+const allTermSeasons: TermSeason[] = [...termSeasons, ...completedSeasons
+  .filter((s: any) => s.termSlug)
+  .map((s: any) => ({ id: s.id, termSlug: s.termSlug, termLabel: s.termLabel, status: s.status, startDate: s.startDate }))];
+const { current: currentTerm, upcoming: upcomingTerms, past: pastTerms } = partitionTerms(allTermSeasons);
+
+// Aspire-anatomy tabs (round 2). All panes are server-rendered and toggled
+// via `hidden` — crawlers see every pane's copy regardless of tab state
+// (deliberately better than Aspire's conditional-mount tabs). Initial tab is
+// server-decided: a ?location= deep link (venue pages) lands on the finder;
+// youth skips Overview (WHY_INDOOR copy is adult-voiced).
+const hasOverview = audience !== 'youth';
+const locationParam = Astro.url.searchParams.get('location');
+const initialTab = !hasOverview || locationParam ? 'this-season' : 'overview';
+const TAB_DEFS = [
+  ...(hasOverview ? [{ key: 'overview', label: 'Overview' }] : []),
+  { key: 'this-season', label: 'This Season' },
+  { key: 'upcoming', label: 'Upcoming' },
+  { key: 'past', label: 'Past' },
+];
 const firstSeasonId = featured?.id ?? null;
 const featuredStart = featured?.startDate
   ? new Date(featured.startDate).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
@@ -129,40 +158,6 @@ const breadcrumbSchema = breadcrumbJsonLd([
     <!-- Page header -->
     <div class="leagues-header">
       <div class="lh-inner">
-        <div class="lh-top">
-          <div class="lh-text">
-            <h1 class="lh-title">{audience === 'youth' ? 'YOUTH LEAGUES' : 'LEAGUES'}</h1>
-            <p class="lh-desc">
-              {audience === 'youth'
-                ? 'Youth indoor soccer leagues and academies across both locations.'
-                : 'Competitive indoor soccer, season by season. Adult Coed, Premier, Women\'s, and Corporate divisions across both locations.'}
-            </p>
-          </div>
-          <div class="lh-stats">
-            <div class="lhs-item">
-              <span class="lhs-num">4</span>
-              <span class="lhs-label">Indoor fields</span>
-            </div>
-            <div class="lhs-div" aria-hidden="true"></div>
-            <div class="lhs-item">
-              <span class="lhs-num">2</span>
-              <span class="lhs-label">Locations</span>
-            </div>
-            <div class="lhs-div" aria-hidden="true"></div>
-            <div class="lhs-item">
-              <span class="lhs-num">4PM</span>
-              <span class="lhs-label">Open daily</span>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- Leagues listing -->
-    <div class="leagues-section">
-      <div class="leagues-inner">
-
         <!-- REGISTRATION CTA — featured row. Data-driven from the first
              open season; hidden entirely when the catalog is empty so we
              never show a dead pay button over the empty state. -->
@@ -229,42 +224,119 @@ const breadcrumbSchema = breadcrumbJsonLd([
           </div>
         )}
 
-        {/* The level ladder now lives INSIDE the finder as its level filter
-            (SoccerOneLevelLadder) — the static display it replaced asked the
-            same question twice in two visual languages. */}
-        <SoccerOneLeaguesFinder client:load seasons={seasons} />
-
-        <!-- Why-play band — the selling copy Aspire carries on its sport
-             landing (WHY_INDOOR, shared constants so it can't drift between
-             brands). Server-rendered on purpose: the finder above is a React
-             island whose non-default states aren't in the initial HTML, so
-             this band is most of the crawlable answer-content on the page. -->
-        <section class="leagues-why" aria-label="Why play indoor at SoccerOne">
-          <h2 class="lw-title">Why indoor. Why here.</h2>
-          <div class="lw-grid">
-            {WHY_INDOOR.map((v) => (
-              <div class="lw-card">
-                <h3 class="lw-h">{v.title}</h3>
-                <p class="lw-copy">{v.copy}</p>
-              </div>
-            ))}
+        <div class="lh-top">
+          <div class="lh-text">
+            <h1 class="lh-title">{audience === 'youth' ? 'YOUTH LEAGUES' : 'LEAGUES'}</h1>
+            <p class="lh-desc">
+              {audience === 'youth'
+                ? 'Youth indoor soccer leagues and academies across both locations.'
+                : 'Competitive indoor soccer, season by season. Adult Coed, Premier, Women\'s, and Corporate divisions across both locations.'}
+            </p>
           </div>
+          <div class="lh-stats">
+            <div class="lhs-item">
+              <span class="lhs-num">4</span>
+              <span class="lhs-label">Indoor fields</span>
+            </div>
+            <div class="lhs-div" aria-hidden="true"></div>
+            <div class="lhs-item">
+              <span class="lhs-num">2</span>
+              <span class="lhs-label">Locations</span>
+            </div>
+            <div class="lhs-div" aria-hidden="true"></div>
+            <div class="lhs-item">
+              <span class="lhs-num">4PM</span>
+              <span class="lhs-label">Open daily</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Aspire-anatomy tab bar (round 2). Server-rendered; a small inline
+         script toggles panes and fires league_landing_tab_viewed. -->
+    <div class="lg-tabbar">
+      <div class="lg-tabbar-inner" role="tablist" aria-label="Leagues">
+        {TAB_DEFS.map((t) => (
+          <button
+            type="button"
+            role="tab"
+            class="lg-tab"
+            data-lg-tab={t.key}
+            aria-selected={String(t.key === initialTab)}
+          >
+            {t.label}
+            {t.key === 'upcoming' && upcomingTerms.length > 0 && <span class="lg-cnt">{upcomingTerms.length}</span>}
+          </button>
+        ))}
+      </div>
+    </div>
+
+    <!-- Leagues listing -->
+    <div class="leagues-section">
+      <div class="leagues-inner">
+
+        {hasOverview && (
+          <section data-lg-pane="overview" hidden={initialTab !== 'overview'} role="tabpanel" aria-label="Overview">
+
+
+            <!-- Why-play — the selling copy Aspire carries on its Overview
+                 tab (WHY_INDOOR shared constants). Server-rendered: this pane
+                 is in the HTML even when another tab is active. -->
+            <div class="leagues-why">
+              <h2 class="lw-title">Why indoor. Why here.</h2>
+              <div class="lw-grid">
+                {WHY_INDOOR.map((v) => (
+                  <div class="lw-card">
+                    <h3 class="lw-h">{v.title}</h3>
+                    <p class="lw-copy">{v.copy}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div class="lo-rules">
+              <h2 class="lw-title">How the game runs</h2>
+              <ul class="lo-rules-list">
+                {RULE_SECTIONS[0].items.slice(0, 3).map((it) => (
+                  <li class="lo-rule">{it}</li>
+                ))}
+              </ul>
+            </div>
+
+            {/* The interactive ladder lives in This Season as the filter —
+                pointing there beats rendering the same ladder twice on one
+                page. data-lg-jump switches tabs client-side. */}
+            <button type="button" class="lo-jump" data-lg-jump="this-season">
+              Find your level &amp; register →
+            </button>
+          </section>
+        )}
+
+        <section data-lg-pane="this-season" hidden={initialTab !== 'this-season'} role="tabpanel" aria-label="This season">
+          {/* The level ladder lives INSIDE the finder as its level filter
+              (SoccerOneLevelLadder) — the static display it replaced asked the
+              same question twice in two visual languages. */}
+          <SoccerOneLeaguesFinder client:load seasons={seasons} />
         </section>
 
-        {/* Season tier: upcoming terms — the off-season demand engine. Terms
-            appear here once their seasons are flipped to `forming` (drafts
-            never surface; the API refuses them by design). */}
-        {upcomingTerms.length > 0 && (
+        <section data-lg-pane="upcoming" hidden={initialTab !== 'upcoming'} role="tabpanel" aria-label="Upcoming seasons">
+          {/* Off-season demand engine. Terms appear once their seasons are
+              flipped to `forming` (drafts never surface; the API refuses
+              them by design). The capture renders regardless. */}
           <div class="leagues-upcoming">
             <h2 class="lu-title">Upcoming seasons</h2>
-            <div class="lu-grid">
-              {upcomingTerms.map((t) => (
-                <a href={`/leagues/${t.slug}`} class="lu-card">
-                  <span class="lu-label">{t.label}</span>
-                  <span class="lu-cta">See divisions →</span>
-                </a>
-              ))}
-            </div>
+            {upcomingTerms.length > 0 && (
+              <div class="lu-grid">
+                {upcomingTerms.map((t) => (
+                  <a href={`/leagues/${t.slug}`} class="lu-card">
+                    <span class="lu-label">{t.label}</span>
+                    <span class="lu-cta">See divisions →</span>
+                  </a>
+                ))}
+              </div>
+            )}
             <div class="lu-capture">
               <SoccerOneInterestCapture
                 client:load
@@ -274,7 +346,23 @@ const breadcrumbSchema = breadcrumbJsonLd([
               />
             </div>
           </div>
-        )}
+        </section>
+
+        <section data-lg-pane="past" hidden={initialTab !== 'past'} role="tabpanel" aria-label="Past seasons">
+          <h2 class="lu-title">Past seasons</h2>
+          {pastTerms.length > 0 ? (
+            <div class="lu-grid">
+              {pastTerms.map((t) => (
+                <a href={`/leagues/${t.slug}`} class="lu-card">
+                  <span class="lu-label">{t.label}</span>
+                  <span class="lu-cta">Final standings &amp; results →</span>
+                </a>
+              ))}
+            </div>
+          ) : (
+            <p class="lp-empty">Final standings &amp; results live here once a season wraps — Fall 2026 is the first.</p>
+          )}
+        </section>
       </div>
     </div>
 
@@ -430,8 +518,36 @@ const breadcrumbSchema = breadcrumbJsonLd([
     }
     .lfcta-term-link:hover { border-bottom-color: var(--so-lime); }
 
+    /* Tab bar (round 2 — Aspire anatomy) */
+    .lg-tabbar { background: var(--so-ink); border-bottom: 1px solid var(--so-lime-a20); }
+    .lg-tabbar-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; display: flex; gap: 2px; flex-wrap: wrap; }
+    .lg-tab {
+      font-family: var(--so-font-mono); font-size: 0.7rem; letter-spacing: 0.1em;
+      text-transform: uppercase; padding: 0.75rem 1.1rem; color: rgba(255,255,255,0.4);
+      background: none; border: none; cursor: pointer; position: relative; top: 1px;
+      display: inline-flex; align-items: center; gap: 0.4rem;
+    }
+    .lg-tab:hover { color: rgba(255,255,255,0.7); }
+    .lg-tab[aria-selected="true"] { background: var(--so-lime); color: var(--so-ink); font-weight: 700; border-radius: var(--so-radius-sm) var(--so-radius-sm) 0 0; }
+    .lg-cnt { font-size: 0.55rem; font-weight: 700; background: var(--so-lime-a20); color: var(--so-lime); border-radius: 99px; padding: 1px 6px; }
+    .lg-tab[aria-selected="true"] .lg-cnt { background: rgba(10,10,13,0.2); color: var(--so-ink); }
+
+    /* Overview pane extras */
+    .lo-rules { margin-top: 2.5rem; }
+    .lo-rules-list { list-style: none; display: flex; flex-direction: column; gap: 0.4rem; max-width: 560px; }
+    .lo-rule { font-size: 0.85rem; color: rgba(255,255,255,0.6); line-height: 1.5; padding-left: 1rem; position: relative; }
+    .lo-rule::before { content: '›'; position: absolute; left: 0; color: var(--so-lime); font-weight: 700; }
+    .lo-jump {
+      margin-top: 2rem; background: var(--so-lime); color: var(--so-ink);
+      font-family: var(--so-font-body); font-size: 0.875rem; font-weight: 700;
+      letter-spacing: 0.03em; border: none; border-radius: var(--so-radius-sm);
+      padding: 0.8rem 1.4rem; cursor: pointer;
+    }
+    .lo-jump:hover { background: var(--so-lime-bright); }
+    .lp-empty { color: rgba(255,255,255,0.45); font-size: 0.9rem; max-width: 52ch; }
+
     /* Why-play band */
-    .leagues-why { margin-top: 3.5rem; }
+    .leagues-why { margin-top: 0; }
     .lw-title {
       font-family: var(--so-font-display);
       text-transform: uppercase;
@@ -453,7 +569,7 @@ const breadcrumbSchema = breadcrumbJsonLd([
     .lw-copy { font-size: 0.85rem; color: rgba(255,255,255,0.55); line-height: 1.55; }
 
     /* Upcoming seasons band */
-    .leagues-upcoming { margin-top: 3.5rem; }
+    .leagues-upcoming { margin-top: 0; }
     .lu-title {
       font-family: var(--so-font-display);
       text-transform: uppercase;
@@ -553,7 +669,25 @@ const breadcrumbSchema = breadcrumbJsonLd([
 </BaseLayout>
 
 <script>
-  import { trackDivisionRegisterClicked } from "@/lib/analytics/events";
+  import { trackDivisionRegisterClicked, trackLandingTabViewed } from "@/lib/analytics/events";
+
+  // Tab switching (round 2 — Aspire anatomy). Panes are all server-rendered;
+  // this only flips `hidden` + aria-selected, so crawlers and no-JS readers
+  // see every pane's content.
+  const lgTabs = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-lg-tab]"));
+  const lgPanes = Array.from(document.querySelectorAll<HTMLElement>("[data-lg-pane]"));
+  function lgShow(key: string) {
+    lgTabs.forEach((t) => t.setAttribute("aria-selected", String(t.dataset.lgTab === key)));
+    lgPanes.forEach((p) => { p.hidden = p.dataset.lgPane !== key; });
+    trackLandingTabViewed({ sport: "soccer", tab: key });
+  }
+  lgTabs.forEach((t) => t.addEventListener("click", () => lgShow(t.dataset.lgTab ?? "")));
+  document.querySelectorAll<HTMLButtonElement>("[data-lg-jump]").forEach((el) => {
+    el.addEventListener("click", () => lgShow(el.dataset.lgJump ?? ""));
+  });
+  // Initial-view event (server decided the starting tab).
+  const lgInitial = lgTabs.find((t) => t.getAttribute("aria-selected") === "true");
+  if (lgInitial) trackLandingTabViewed({ sport: "soccer", tab: lgInitial.dataset.lgTab ?? "" });
 
   // Conversion analytics on the server-rendered register CTAs (featured
   // banner + bottom band). The finder cards track from React directly.

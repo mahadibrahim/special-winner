@@ -258,6 +258,36 @@ indexed URL. Shipped as a follow-up on the same branch:
 its tab panes have the same crawlability gap — it needs the identical treatment
 before fall-2026 completes (early November 2026).
 
+## Round 2 — structural parity (owner-approved 2026-07-16)
+
+After seeing round 1 live, the owner's call: the two sites should share **page
+anatomy**, not just capabilities. The term pages already match one-for-one; the
+divergence is the catalog tier — Aspire's landing is a tabbed room-per-question
+page, SoccerOne's `/leagues` stacked the same answers on one long scroll.
+
+Restructure `/leagues` into Aspire's four-tab anatomy:
+
+| Tab | Absorbs | Notes |
+| --- | --- | --- |
+| **Overview** | why-play cards + condensed rules + "find your level" pointer | Adult only — WHY_INDOOR copy (drinks etc.) is adult-voiced; youth skips this tab |
+| **This Season** | featured banner + the finder (ladder, chips, day-grouped cards) | Cards stay cards (day-on-card, #406) — deliberate divergence from Aspire's rows |
+| **Upcoming** | upcoming-terms band + interest capture | Count badge on the tab |
+| **Past** | NEW — links completed terms to their archive pages | Empty state is a promise, per the banner-never-lies rule |
+
+Constraints:
+- **All panes render server-side** and toggle via `hidden` + a small inline
+  script — crawlability is not given back (this makes SoccerOne's tabs *better*
+  than Aspire's conditional-mount React tabs; port the pattern back to Aspire
+  later).
+- Initial tab is server-decided: `?location=` deep-links land on This Season
+  (that's where the finder is); youth defaults to This Season; else Overview.
+- `trackLandingTabViewed` fires on initial pane + every switch (Aspire parity).
+- The ladder appears ONCE, in This Season as the filter — Overview points to it
+  instead of duplicating it on the same page.
+- e2e: `soccerone-leagues-finder.spec.ts` must select the This Season tab (or
+  arrive via `?location=`) before driving chips — update in the same PR, runs
+  post-merge only.
+
 ## Tasks
 
 **Task 0 — unblock QA (prerequisite).** Fix the staging `domain_mappings` row so
