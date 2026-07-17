@@ -190,7 +190,7 @@ setMarketingEdgeCache(Astro); // after fetches; a degraded (empty-seasons) rende
                     the term-level landing event: without it, the multi-
                     division home state emitted zero league events and the
                     funnel only became observable at /leagues. */}
-                <a href="/leagues" class="season-cta" data-so-leagues-cta data-term={termAgg.termSlug ?? ''}>
+                <a href={`/leagues/${featured.termSlug}`} class="season-cta" data-so-leagues-cta data-term={featured.termSlug ?? ''}>
                   Register for {termAgg.termLabel} →
                 </a>
                 <span class="season-cta-note">Pick your division · team &amp; free-agent spots</span>
@@ -509,7 +509,7 @@ setMarketingEdgeCache(Astro); // after fetches; a degraded (empty-seasons) rende
             {/* Multi-division term: route to the finder (division-scoped
                 analytics fire there); single season: direct register. */}
             <a
-              href={heroMulti ? '/leagues' : `/register/${featured.id}`}
+              href={heroMulti ? `/leagues/${featured.termSlug}` : `/register/${featured.id}`}
               class="cta-band-btn"
               {...(heroMulti ? { 'data-so-leagues-cta': true, 'data-term': featured.termSlug ?? '' } : {
                 'data-so-register-cta': true,

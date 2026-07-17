@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { isTeamEarlyBirdActive, effectiveTeamPriceCents } from "@/lib/programs/early-bird";
 import { db } from "@/lib/db";
 import { seasons, programs, sports, locations, ageGroups, registrations, organizations } from "@/lib/db/schema";
 import { eq, and, sql, asc } from "drizzle-orm";
@@ -145,6 +146,15 @@ export const GET: APIRoute = async ({ url, locals }) => {
         registrationCloses: r.season.registrationCloses,
         price: r.season.priceCents / 100,
         teamPrice: r.season.teamPriceCents != null ? r.season.teamPriceCents / 100 : null,
+        // Team early-bird, DISPLAY ONLY (leagues are team-only early-bird by
+        // policy). The charge path recomputes from the same pure helpers —
+        // these fields exist so the catalog can show the discount at the
+        // decision point instead of after the click into checkout.
+        teamEarlyBirdActive: isTeamEarlyBirdActive(r.season),
+        effectiveTeamPrice:
+          r.season.teamPriceCents != null
+            ? effectiveTeamPriceCents(r.season, r.season.teamPriceCents) / 100
+            : null,
         signupModes: r.season.signupModes,
         deposit: r.season.depositCents ? r.season.depositCents / 100 : null,
         allowDeposit: r.season.allowDeposit,
