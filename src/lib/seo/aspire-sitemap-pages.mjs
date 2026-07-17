@@ -11,6 +11,7 @@ export const ASPIRE_SSR_PUBLIC_PAGES = [
   "/youth/camps",
   "/adult",
   "/adult/leagues",
+  "/adult/leagues/soccer",
   "/adult/pickup",
   "/adult/tournaments",
   "/locations",

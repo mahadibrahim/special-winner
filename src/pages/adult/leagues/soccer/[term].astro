@@ -69,6 +69,14 @@ const heroPhoto = "https://images.unsplash.com/photo-1543326727-cf6c39e8f84c?aut
 // this JSON-LD is the reliable crawlable copy of its answers. Hand-rolled to
 // match sports/[slug].astro; migrate to faq-block.astro when Phase A lands.
 import { FAQ } from "@/lib/leagues/adult-soccer-content";
+import { breadcrumbJsonLd } from "@/lib/seo/breadcrumbs";
+const ORIGIN = import.meta.env.PUBLIC_APP_URL || "https://aspiresportsohio.com";
+const breadcrumbSchema = breadcrumbJsonLd([
+  { name: "Home", url: `${ORIGIN}/` },
+  { name: "Adult Leagues", url: `${ORIGIN}/adult/leagues` },
+  { name: "Soccer", url: `${ORIGIN}/adult/leagues/soccer` },
+  { name: termLabel, url: `${ORIGIN}/adult/leagues/soccer/${term}` },
+]);
 const faqSchema = {
   "@context": "https://schema.org",
   "@type": "FAQPage",
@@ -85,6 +93,7 @@ const faqSchema = {
   description={`Register for ${termLabel} adult indoor 7v7 soccer leagues. ${FORMAT_FACTS.slice(0,3).join(" · ")}.`}
 >
   <Fragment slot="head">
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbSchema)} />
     <script type="application/ld+json" is:inline set:html={JSON.stringify(faqSchema)} />
   </Fragment>
   <main id="main-content">

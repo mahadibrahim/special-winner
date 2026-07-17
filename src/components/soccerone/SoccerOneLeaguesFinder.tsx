@@ -7,13 +7,13 @@ import SoccerOneInterestCapture from "@/components/soccerone/SoccerOneInterestCa
 import SoccerOneLevelLadder from "@/components/soccerone/SoccerOneLevelLadder"
 import { trackDivisionRegisterClicked, trackDivisionFilterApplied } from "@/lib/analytics/events"
 import {
-  deriveLocationChips, deriveDivisionChips, deriveNightChips, deriveLevelChips, filterSeasons,
+  deriveLocationChips, deriveDivisionChips, deriveNightChips, deriveLevelChips, deriveAgesChips, filterSeasons,
   NIGHT_LABELS, type FinderSeason, type FinderFilters,
 } from "@/lib/soccerone/leagues-finder"
 import { WEEK_ORDER } from "@/lib/leagues/division-filters"
 
 const SECTION_ID = "leagues-finder"
-const ALL: FinderFilters = { location: "all", division: "all", night: "all", level: "all" }
+const ALL: FinderFilters = { location: "all", division: "all", night: "all", level: "all", ages: "all" }
 
 export default function SoccerOneLeaguesFinder({ seasons }: { seasons: FinderSeason[] }) {
   useHydrationBeacon()
@@ -40,6 +40,9 @@ export default function SoccerOneLeaguesFinder({ seasons }: { seasons: FinderSea
   const locationChips = useMemo(() => deriveLocationChips(seasons), [seasons])
   const divisionChips = useMemo(() => deriveDivisionChips(seasons), [seasons])
   const nightChips = useMemo(() => deriveNightChips(seasons), [seasons])
+  // Renders only when the catalog mixes audiences (term pages fetch without
+  // an audience filter — prod winter pages mixed 23 adult+youth cards).
+  const agesChips = useMemo(() => deriveAgesChips(seasons), [seasons])
   // Levels present in the catalog gate the ladder: on a catalog with no
   // skill levels at all (e.g. staging fixtures), an interactive ladder would
   // filter everything to zero — render nothing instead.
@@ -61,11 +64,12 @@ export default function SoccerOneLeaguesFinder({ seasons }: { seasons: FinderSea
 
   // Map the finder's axes onto the shared analytics facet vocabulary so
   // Aspire and SoccerOne filter events aggregate in the same funnel view.
-  const FACET_FOR: Record<keyof FinderFilters, "level" | "format" | "day" | "venue"> = {
+  const FACET_FOR: Record<keyof FinderFilters, "level" | "format" | "day" | "venue" | "ages"> = {
     location: "venue",
     division: "format",
     night: "day",
     level: "level",
+    ages: "ages",
   }
 
   const set = (axis: keyof FinderFilters, value: string) => {
@@ -267,6 +271,7 @@ export default function SoccerOneLeaguesFinder({ seasons }: { seasons: FinderSea
           <SoccerOneLevelLadder selected={filters.level} onSelect={(v) => set("level", v)} />
         </div>
       )}
+      <ChipRow label="Ages" chips={agesChips} active={filters.ages ?? "all"} onPick={(v) => set("ages", v)} />
       <ChipRow label="Location" chips={locationChips} active={filters.location} onPick={(v) => set("location", v)} />
       <ChipRow label="Division" chips={divisionChips} active={filters.division} onPick={(v) => set("division", v)} />
       <ChipRow label="Night" chips={nightChips} active={filters.night} onPick={(v) => set("night", v)} />
@@ -352,6 +357,7 @@ function LeagueCard({ season }: { season: LeagueCardSeason }) {
       <div className="lc-top">
         <div className="lc-division"><span className="lc-div-label">PROGRAM</span><span className="lc-div-name">{season.program.name}</span></div>
         <div className="lc-meta-row">
+          {season.audienceType === "parents" && <span className="lc-level-badge">Youth</span>}
           {season.skillLevel && (
             <span className="lc-level-badge">
               {season.skillLevel === "open" ? "Open" : String(season.skillLevel).toUpperCase()}

@@ -4,8 +4,10 @@ export interface FinderSeason {
   dayOfWeek: string | null         // 'mon'..'sun'
   location: { slug: string; name: string }
   skillLevel: string | null        // 'a' | 'b' | 'c' | 'd' | 'open' | null
+  /** Program audience: 'parents' = youth (parents register kids). Absent → adult. */
+  audienceType?: string | null
   // Presentational fields (name, status, price, etc.) ride along untyped on the
-  // real payload; the finder only filters on the five fields above.
+  // real payload; the finder only filters on the fields above.
   [extra: string]: unknown
 }
 
@@ -17,6 +19,9 @@ export interface FinderFilters {
   division: string  // divisionGender | "all"
   night: string     // dayOfWeek | "all"
   level: string     // skillLevel | "all"
+  /** "adult" | "youth" | "all". Term pages fetch without an audience filter,
+      so both audiences share one finder — this axis separates them. */
+  ages?: string
 }
 
 export interface Chip { value: string; label: string }
@@ -86,11 +91,33 @@ function matchesLevel(skillLevel: string | null, level: string): boolean {
   return skillLevel === level
 }
 
+/** Youth = the program's audienceType is 'parents'; anything else is adult. */
+function isYouth(s: FinderSeason): boolean {
+  return s.audienceType === "parents"
+}
+
+/** Ages chips render only when the catalog actually mixes both audiences. */
+export function deriveAgesChips(seasons: FinderSeason[]): Chip[] {
+  const hasYouth = seasons.some(isYouth)
+  const hasAdult = seasons.some((s) => !isYouth(s))
+  if (!hasYouth || !hasAdult) return []
+  return [
+    { value: "adult", label: "Adult" },
+    { value: "youth", label: "Youth" },
+  ]
+}
+
+function matchesAges(s: FinderSeason, ages: string | undefined): boolean {
+  if (!ages || ages === "all") return true
+  return ages === "youth" ? isYouth(s) : !isYouth(s)
+}
+
 export function filterSeasons(seasons: FinderSeason[], f: FinderFilters): FinderSeason[] {
   return seasons.filter((s) =>
     (f.location === "all" || s.location.slug === f.location) &&
     (f.division === "all" || s.divisionGender === f.division) &&
     (f.night === "all" || s.dayOfWeek === f.night) &&
-    matchesLevel(s.skillLevel, f.level),
+    matchesLevel(s.skillLevel, f.level) &&
+    matchesAges(s, f.ages),
   )
 }
