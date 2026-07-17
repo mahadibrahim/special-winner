@@ -25,7 +25,7 @@ export const trackLandingCtaClicked = (p: { term: string }) =>
   track(LEAGUE_EVENTS.landingCtaClicked, { term: p.term });
 export const trackSeasonViewed = (p: { sport: string; term: string }) =>
   track(LEAGUE_EVENTS.seasonViewed, { sport: p.sport, term: p.term });
-export const trackDivisionFilterApplied = (p: { facet: "level" | "format" | "day" | "venue"; value: string; term: string }) =>
+export const trackDivisionFilterApplied = (p: { facet: "level" | "format" | "day" | "venue" | "ages"; value: string; term: string }) =>
   track(LEAGUE_EVENTS.divisionFilterApplied, { facet: p.facet, value: p.value, term: p.term });
 export const trackDivisionRegisterClicked = (p: { seasonId: string; level: string; gender: string; venue: string; mode: "team" | "individual" | "interest"; term: string }) =>
   track(LEAGUE_EVENTS.divisionRegisterClicked, { season_id: p.seasonId, level: p.level, gender: p.gender, venue: p.venue, mode: p.mode, term: p.term });

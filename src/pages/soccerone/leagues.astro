@@ -340,6 +340,16 @@ const breadcrumbSchema = breadcrumbJsonLd([
         )}
 
         <section data-lg-pane="this-season" hidden={initialTab !== 'this-season'} role="tabpanel" aria-label="This season">
+          {/* This pane is built to make you PICK — but it was the only
+              section with no path to the full season page. Upcoming and Past
+              cards both link out to term pages; the picker deserves the same
+              door to schedule / standings / rules / FAQ. */}
+          {currentTerm && (
+            <a href={`/leagues/${currentTerm.slug}`} class="ts-season-link">
+              <span class="tsl-label">{currentTerm.label} season page</span>
+              <span class="tsl-meta">Schedule · Standings · Rules · FAQ →</span>
+            </a>
+          )}
           {/* The level ladder lives INSIDE the finder as its level filter
               (SoccerOneLevelLadder) — the static display it replaced asked the
               same question twice in two visual languages. */}
@@ -560,6 +570,18 @@ const breadcrumbSchema = breadcrumbJsonLd([
     }
     .lw-h { font-family: var(--so-font-mono); font-size: 0.68rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--so-lime); margin-bottom: 0.4rem; }
     .lw-copy { font-size: 0.85rem; color: rgba(255,255,255,0.55); line-height: 1.55; }
+
+    /* This Season → full season page door */
+    .ts-season-link {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 1rem; flex-wrap: wrap;
+      max-width: 1400px; margin: 0 auto 0.25rem; padding: 0.8rem 2rem;
+      text-decoration: none;
+      border-bottom: 1px solid var(--so-lime-a10);
+    }
+    .tsl-label { font-family: var(--so-font-display); font-size: 1.05rem; color: #fff; text-transform: uppercase; letter-spacing: 0.01em; }
+    .tsl-meta { font-family: var(--so-font-mono); font-size: 0.7rem; color: var(--so-lime); letter-spacing: 0.05em; }
+    .ts-season-link:hover .tsl-meta { color: var(--so-lime-bright); }
 
     /* Upcoming seasons band */
     .leagues-upcoming { margin-top: 0; }
