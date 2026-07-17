@@ -39,6 +39,23 @@ test("?location= deep link lands on the This Season tab with the finder pre-filt
   await expect(page.locator("#leagues-finder")).toBeVisible()
 })
 
+test("upcoming-term seasons appear as term cards in Upcoming, never in the This Season finder", async ({ page }) => {
+  // Regression: after the prod draft flip, 51 forming winter/spring seasons
+  // leaked into the This Season finder as "Notify me" cards, drowning the 13
+  // registerable fall divisions. The seed's "Winter (Fixture)" forming term
+  // reproduces that data shape.
+  await page.goto(`${BASE}/leagues`, { waitUntil: "domcontentloaded" })
+  await waitForHydration(page)
+
+  await page.getByRole("tab", { name: /this season/i }).click()
+  const finder = page.locator("#leagues-finder")
+  await expect(finder).toBeVisible()
+  await expect(finder.getByText("Co-Ed — Winter")).toHaveCount(0)
+
+  await page.getByRole("tab", { name: /upcoming/i }).click()
+  await expect(page.locator('[data-lg-pane="upcoming"]').getByText("Winter (Fixture)")).toBeVisible()
+})
+
 test("tab panes are server-rendered even when hidden (crawlability)", async ({ page }) => {
   await page.goto(`${BASE}/leagues`, { waitUntil: "domcontentloaded" })
 
