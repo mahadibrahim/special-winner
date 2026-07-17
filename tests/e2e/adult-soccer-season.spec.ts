@@ -1,4 +1,17 @@
 import { test, expect } from "@playwright/test";
+
+test("completed term renders as an archive instead of redirecting (URL permanence)", async ({ page }) => {
+  const BASE = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:4321";
+  // Seed fixture: winter-2026-archive is fully completed. Before the archive
+  // fix this URL 302'd to /adult/leagues/soccer — killing an indexed page the
+  // day its season wrapped.
+  await page.goto(`${BASE}/adult/leagues/soccer/winter-2026-archive`, { waitUntil: "domcontentloaded" });
+  expect(page.url()).toContain("/adult/leagues/soccer/winter-2026-archive");
+  // Archive anatomy: Complete chip, no register CTAs, tabs open on Standings.
+  await expect(page.getByText("Complete", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("hero-register")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Standings" })).toHaveAttribute("aria-selected", "true");
+});
 import { waitForHydration } from "../utils/test-helpers";
 
 const BASE = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:4321";

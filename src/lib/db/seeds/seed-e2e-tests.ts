@@ -1896,6 +1896,46 @@ async function seedE2ETests() {
   }
   console.log(`   ✓ Adult Season: ${adultMensSeason.name} (id: ${adultMensSeason.id})`);
 
+  // Completed-term archive fixture. Regression coverage for the mirror of the
+  // SoccerOne archive fix: a fully-completed Aspire term must RENDER at
+  // /adult/leagues/soccer/{term} (standings-first, no register CTAs, rows say
+  // "Season complete") instead of redirecting away and killing the URL.
+  const archiveStart = new Date(Date.now() - 20 * 7 * 24 * 60 * 60 * 1000);
+  const archiveEnd = new Date(Date.now() - 13 * 7 * 24 * 60 * 60 * 1000);
+  let [archiveSeason] = await db
+    .select()
+    .from(seasons)
+    .where(eq(seasons.slug, "e2e-adult-soccer-winter-2026-archive"))
+    .limit(1);
+  if (!archiveSeason) {
+    [archiveSeason] = await db
+      .insert(seasons)
+      .values({
+        programId: adultProgram.id,
+        ageGroupId: adultAgeGroup.id,
+        name: "Winter 2026 — Co-Ed C (archive)",
+        slug: "e2e-adult-soccer-winter-2026-archive",
+        startDate: formatDate(archiveStart),
+        endDate: formatDate(archiveEnd),
+        status: "completed",
+        priceCents: 10000,
+        maxParticipants: 30,
+        termSlug: "winter-2026-archive",
+        termLabel: "Winter 2026 (Archive)",
+        divisionGender: "coed",
+        skillLevel: "c",
+        dayOfWeek: "tue",
+      })
+      .returning();
+  } else {
+    [archiveSeason] = await db
+      .update(seasons)
+      .set({ status: "completed", termSlug: "winter-2026-archive", termLabel: "Winter 2026 (Archive)" })
+      .where(eq(seasons.id, archiveSeason.id))
+      .returning();
+  }
+  console.log(`   ✓ Archive Season: ${archiveSeason.name} (status=${archiveSeason.status})`);
+
   // Keep the OPEN test seasons registerable on re-runs. The shared CI DB
   // accumulates: rows created weeks ago would age past registration_closes /
   // start_date, and both createRegistration and the public catalog now
