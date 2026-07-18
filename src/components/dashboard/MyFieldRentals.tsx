@@ -19,7 +19,7 @@ interface FieldRental {
   fieldNumber: number;
   startsAt: string;
   endsAt: string;
-  status: "confirmed" | "pending_payment" | "cancelled" | "no_show" | "completed";
+  status: "requested" | "confirmed" | "pending_payment" | "cancelled" | "no_show" | "completed";
   paymentStatus: string;
   amountDueCents: number;
   amountPaidCents: number;
@@ -56,6 +56,7 @@ function rentalStatusTone(status: FieldRental["status"]): StatusTone {
       return "confirmed";
     case "pending_payment":
       return "action";
+    case "requested":
     case "cancelled":
     case "no_show":
       return "pending";
@@ -64,6 +65,8 @@ function rentalStatusTone(status: FieldRental["status"]): StatusTone {
 
 function statusLabel(status: FieldRental["status"]): string {
   switch (status) {
+    case "requested":
+      return "Awaiting review";
     case "confirmed":
       return "Confirmed";
     case "pending_payment":
