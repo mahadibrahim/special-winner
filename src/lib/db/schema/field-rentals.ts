@@ -43,6 +43,10 @@ export const fieldRentalCancellationReasonEnum = pgEnum(
   "field_rental_cancellation_reason",
   ["user_request", "admin_override", "venue_unavailable"],
 );
+export const fieldRentalPlayerStatusEnum = pgEnum("field_rental_player_status", [
+  "pending",
+  "signed",
+]);
 
 // === tables ===
 
@@ -110,6 +114,39 @@ export const fieldRentals = pgTable(
       .where(sql`status IN ('requested', 'pending_payment', 'confirmed')`),
   ],
 );
+
+export const fieldRentalPlayers = pgTable(
+  "field_rental_players",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    rentalId: uuid("rental_id")
+      .notNull()
+      .references(() => fieldRentals.id, { onDelete: "cascade" }),
+    playerName: text("player_name").notNull(),
+    isMinor: boolean("is_minor").notNull().default(false),
+    // Adult's own email, or the parent/guardian's for a minor.
+    signerEmail: text("signer_email").notNull(),
+    status: fieldRentalPlayerStatusEnum("status").notNull().default("pending"),
+    // Captured at signing (the parent's name when isMinor).
+    signerName: text("signer_name"),
+    waiverId: uuid("waiver_id"),
+    contentHash: text("content_hash"),
+    signedAt: timestamp("signed_at", { withTimezone: true }),
+    signedIp: text("signed_ip"),
+    signedUa: text("signed_ua"),
+    reminderSentAt: timestamp("reminder_sent_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("field_rental_players_rental_idx").on(t.rentalId),
+    index("field_rental_players_pending_idx")
+      .on(t.rentalId)
+      .where(sql`status = 'pending'`),
+  ],
+);
+
+export type FieldRentalPlayer = typeof fieldRentalPlayers.$inferSelect;
+export type NewFieldRentalPlayer = typeof fieldRentalPlayers.$inferInsert;
 
 export const fieldRentalRateCard = pgTable("field_rental_rate_card", {
   id: uuid("id").primaryKey().defaultRandom(),
