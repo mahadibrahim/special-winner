@@ -15,7 +15,7 @@ interface RentalRow {
   fieldNumber: number;
   startsAt: string;
   endsAt: string;
-  status: "pending_payment" | "confirmed" | "cancelled" | "completed" | "no_show";
+  status: "requested" | "pending_payment" | "confirmed" | "cancelled" | "completed" | "no_show";
   renterName: string;
   renterPhone: string | null;
   partySize: number;
@@ -29,6 +29,7 @@ interface RentalRow {
 
 const STATUS_OPTIONS = [
   { value: "", label: "All" },
+  { value: "requested", label: "Requested" },
   { value: "pending_payment", label: "Pending payment" },
   { value: "confirmed", label: "Confirmed" },
   { value: "cancelled", label: "Cancelled" },
@@ -38,6 +39,8 @@ const STATUS_OPTIONS = [
 
 function statusColor(s: RentalRow["status"]): string {
   switch (s) {
+    case "requested":
+      return "bg-sky-100 text-sky-900 border-sky-200";
     case "confirmed":
       return "bg-emerald-100 text-emerald-900 border-emerald-200";
     case "pending_payment":
@@ -207,6 +210,16 @@ export function RentalsList() {
           title="No rentals found"
           description="No field rentals match the current filters."
         />
+      )}
+      {!loading && rows.length > 0 && (
+        (() => {
+          const pending = rows.filter((r) => r.status === "requested").length;
+          return pending > 0 ? (
+            <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-2 text-sm text-sky-900">
+              {pending} request{pending === 1 ? "" : "s"} awaiting review
+            </div>
+          ) : null;
+        })()
       )}
       {!loading && rows.length > 0 && (
         <div className="rounded-lg border border-border bg-cream-2 overflow-hidden">

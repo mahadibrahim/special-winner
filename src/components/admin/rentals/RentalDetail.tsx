@@ -15,7 +15,7 @@ interface Rental {
   fieldNumber: number;
   startsAt: string;
   endsAt: string;
-  status: "pending_payment" | "confirmed" | "cancelled" | "completed" | "no_show";
+  status: "requested" | "pending_payment" | "confirmed" | "cancelled" | "completed" | "no_show";
   source: string;
   renterName: string;
   renterEmail: string | null;
@@ -55,6 +55,8 @@ interface RentalDetailProps {
 
 function statusColor(s: Rental["status"]): string {
   switch (s) {
+    case "requested":
+      return "bg-sky-100 text-sky-900 border-sky-200";
     case "confirmed":
       return "bg-emerald-100 text-emerald-900 border-emerald-200";
     case "pending_payment":
@@ -165,6 +167,49 @@ export function RentalDetail({ rentalId, timeZone = BUSINESS_TIMEZONE }: RentalD
     }
   };
 
+  const approve = async () => {
+    if (!data) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/rentals/${rentalId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ approve: true }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error ?? "Approve failed");
+        return;
+      }
+      toast.success("Request approved");
+      await reload();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const decline = async () => {
+    if (!data) return;
+    if (!window.confirm("Decline this request? The slot will be freed.")) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/rentals/${rentalId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decline: true }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error ?? "Decline failed");
+        return;
+      }
+      toast.success("Request declined");
+      await reload();
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const rescheduleRental = async () => {
     if (!data) return;
     if (!rescheduleDate) {
@@ -231,17 +276,33 @@ export function RentalDetail({ rentalId, timeZone = BUSINESS_TIMEZONE }: RentalD
             </Badge>
           </div>
         </div>
-        {!isTerminal && (
-          <Button
-            variant="outline"
-            disabled={busy}
-            onClick={cancelRental}
-            className="text-rose-700 border-rose-200 hover:bg-rose-50"
-          >
-            {rental.paymentStatus === "paid" && rental.amountPaidCents > 0
-              ? "Refund and cancel"
-              : "Cancel rental"}
-          </Button>
+        {rental.status === "requested" ? (
+          <div className="flex gap-2">
+            <Button disabled={busy} onClick={approve}>
+              Approve
+            </Button>
+            <Button
+              variant="outline"
+              disabled={busy}
+              onClick={decline}
+              className="text-rose-700 border-rose-200 hover:bg-rose-50"
+            >
+              Decline
+            </Button>
+          </div>
+        ) : (
+          !isTerminal && (
+            <Button
+              variant="outline"
+              disabled={busy}
+              onClick={cancelRental}
+              className="text-rose-700 border-rose-200 hover:bg-rose-50"
+            >
+              {rental.paymentStatus === "paid" && rental.amountPaidCents > 0
+                ? "Refund and cancel"
+                : "Cancel rental"}
+            </Button>
+          )
         )}
       </header>
 
