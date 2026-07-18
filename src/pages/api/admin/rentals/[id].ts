@@ -11,7 +11,7 @@
 import type { APIRoute } from "astro";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { fieldRentals } from "@/lib/db/schema/field-rentals";
+import { fieldRentals, fieldRentalPlayers } from "@/lib/db/schema/field-rentals";
 import { venues } from "@/lib/db/schema/teams";
 import { requireOrgAdminAccess } from "@/lib/auth/roles";
 import { callerCanActOnVenue } from "@/lib/admin/require-location-scope";
@@ -32,6 +32,36 @@ const json = (body: unknown, status: number) =>
     status,
     headers: { "Content-Type": "application/json" },
   });
+
+/**
+ * Auto-add the requester as player #1 on approve — they accepted the waiver
+ * at request time, so record them as already signed (no invite email). Only
+ * fires for an online-booked (renterUserId-bearing) rental, and only if no
+ * roster row exists yet (guards against a double-click re-running approve,
+ * or a resend/webhook race).
+ */
+async function autoAddRequesterAsPlayer(rental: typeof fieldRentals.$inferSelect) {
+  if (!rental.renterUserId) return;
+  const db = getDb();
+  const [existing] = await db
+    .select({ id: fieldRentalPlayers.id })
+    .from(fieldRentalPlayers)
+    .where(eq(fieldRentalPlayers.rentalId, rental.id))
+    .limit(1);
+  if (existing) return;
+  await db
+    .insert(fieldRentalPlayers)
+    .values({
+      rentalId: rental.id,
+      playerName: rental.renterName,
+      signerEmail: rental.renterEmail ?? "",
+      isMinor: false,
+      status: "signed",
+      signerName: rental.waiverSignedBy ?? rental.renterName,
+      signedAt: rental.waiverSignedAt ?? new Date(),
+    })
+    .onConflictDoNothing();
+}
 
 export const GET: APIRoute = async (context) => {
   const auth = await requireOrgAdminAccess(context);
@@ -128,6 +158,7 @@ export const PATCH: APIRoute = async (context) => {
         .where(eq(fieldRentals.id, rentalId))
         .returning();
       await syncRentalBlock(rentalId);
+      await autoAddRequesterAsPlayer(rental);
       await dispatchRentalConfirmation(rentalId).catch((e) =>
         console.error("[rentals] confirm dispatch failed", e),
       );
@@ -147,6 +178,7 @@ export const PATCH: APIRoute = async (context) => {
       .returning();
     // Refresh the ledger block so its expiry tracks the 24h pay window.
     await syncRentalBlock(rentalId);
+    await autoAddRequesterAsPlayer(rental);
     await dispatchRentalRequestApproved(rentalId).catch((e) =>
       console.error("[rentals] approve dispatch failed", e),
     );
