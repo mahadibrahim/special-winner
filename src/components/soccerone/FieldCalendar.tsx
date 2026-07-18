@@ -643,6 +643,10 @@ export function FieldCalendar({
                       onChange={(e) => setWaiverName(e.target.value)}
                       aria-label="Full name (typed signature)"
                     />
+                    <p className="waiver-requirement-note">
+                      Every player must have a signed waiver on file to play. You&apos;ll
+                      confirm your roster and waivers after your request is approved.
+                    </p>
                   </div>
 
                   <p className="panel-note">Final price confirmed once approved · your slot is held while we review</p>
@@ -1104,6 +1108,12 @@ export function FieldCalendar({
           width: 100%;
           margin-top: 0.625rem;
           box-sizing: border-box;
+        }
+        .waiver-requirement-note {
+          font-size: 0.8125rem;
+          color: rgba(255,255,255,0.55);
+          line-height: 1.5;
+          margin: 0.625rem 0 0;
         }
         .panel-error {
           font-size: 0.8125rem;
