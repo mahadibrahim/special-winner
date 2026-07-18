@@ -14,7 +14,7 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInBookings, dropInSessions, dropInRateCard } from "@/lib/db/schema/drop-in";
-import { fieldRentals } from "@/lib/db/schema/field-rentals";
+import { fieldRentals, fieldRentalPlayers } from "@/lib/db/schema/field-rentals";
 import { venues } from "@/lib/db/schema/teams";
 import { locations } from "@/lib/db/schema/organizations";
 import { verifyToken } from "@/lib/check-in/tokens-db";
@@ -179,6 +179,21 @@ export async function buildSelfServeContext(
   } else if (tok.kind === "roster_entry") {
     summary = `Today's game`;
     outstanding.waiver = true;
+  } else if (tok.kind === "rental_player") {
+    const [p] = await db
+      .select({ status: fieldRentalPlayers.status, venueName: venues.name })
+      .from(fieldRentalPlayers)
+      .innerJoin(fieldRentals, eq(fieldRentals.id, fieldRentalPlayers.rentalId))
+      .leftJoin(venues, eq(venues.id, fieldRentals.venueId))
+      .where(eq(fieldRentalPlayers.id, tok.targetId))
+      .limit(1);
+    if (!p) return { ok: false, status: 410, body: { error: "Player gone" } };
+    spaceName = p.venueName;
+    summary = p.venueName
+      ? `Sign your waiver to play at ${p.venueName}`
+      : `Sign your waiver to play`;
+    outstanding.waiver = p.status !== "signed";
+    // photo + payment stay false; amountDueCents stays 0.
   }
 
   // A cancelled hold has nothing actionable — leave every outstanding flag
