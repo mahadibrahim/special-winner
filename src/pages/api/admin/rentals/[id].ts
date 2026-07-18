@@ -16,9 +16,14 @@ import { venues } from "@/lib/db/schema/teams";
 import { requireOrgAdminAccess } from "@/lib/auth/roles";
 import { callerCanActOnVenue } from "@/lib/admin/require-location-scope";
 import { assertNoRentalConflict } from "@/lib/rentals/conflicts";
-import { BlockConflictError } from "@/lib/scheduling/blocks";
+import { BlockConflictError, removeSourceBlock } from "@/lib/scheduling/blocks";
 import { syncRentalBlock } from "@/lib/scheduling/sync";
 import { zonedHourToUtc } from "@/lib/activity-tracking/tz-day";
+import {
+  dispatchRentalConfirmation,
+  dispatchRentalRequestApproved,
+  dispatchRentalRequestDeclined,
+} from "@/lib/rentals/messages/dispatch";
 
 export const prerender = false;
 
@@ -61,6 +66,8 @@ export const PATCH: APIRoute = async (context) => {
     notes?: string;
     purpose?: string;
     cancel?: boolean;
+    approve?: boolean;
+    decline?: boolean;
     reschedule?: { date: string; startHour: number; durationMinutes: number };
   };
   try {
@@ -80,6 +87,70 @@ export const PATCH: APIRoute = async (context) => {
   }
   if (!(await callerCanActOnVenue(context, rental.venueId))) {
     return json({ error: "Rental not found" }, 404);
+  }
+
+  // --- approve / decline a requested rental ---
+  if (body.approve === true || body.decline === true) {
+    if (rental.status !== "requested") {
+      return json({ error: "Only requested rentals can be approved or declined" }, 422);
+    }
+
+    if (body.decline === true) {
+      const [updated] = await db
+        .update(fieldRentals)
+        .set({
+          status: "cancelled",
+          cancelledAt: new Date(),
+          cancellationReason: "venue_unavailable",
+          requestExpiresAt: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(fieldRentals.id, rentalId))
+        .returning();
+      await removeSourceBlock("rental", rentalId);
+      await dispatchRentalRequestDeclined(rentalId).catch((e) =>
+        console.error("[rentals] decline dispatch failed", e),
+      );
+      return json({ rental: updated }, 200);
+    }
+
+    // approve
+    if (rental.amountDueCents === 0) {
+      const [updated] = await db
+        .update(fieldRentals)
+        .set({
+          status: "confirmed",
+          paymentMethod: "comp",
+          paymentStatus: "paid",
+          requestExpiresAt: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(fieldRentals.id, rentalId))
+        .returning();
+      await syncRentalBlock(rentalId);
+      await dispatchRentalConfirmation(rentalId).catch((e) =>
+        console.error("[rentals] confirm dispatch failed", e),
+      );
+      return json({ rental: updated }, 200);
+    }
+
+    const [updated] = await db
+      .update(fieldRentals)
+      .set({
+        status: "pending_payment",
+        paymentMethod: "card_online",
+        requestExpiresAt: null,
+        paymentExpiresAt: new Date(Date.now() + 24 * 60 * 60_000),
+        updatedAt: new Date(),
+      })
+      .where(eq(fieldRentals.id, rentalId))
+      .returning();
+    // Refresh the ledger block so its expiry tracks the 24h pay window.
+    await syncRentalBlock(rentalId);
+    await dispatchRentalRequestApproved(rentalId).catch((e) =>
+      console.error("[rentals] approve dispatch failed", e),
+    );
+    return json({ rental: updated }, 200);
   }
 
   // --- reschedule action (conflict-checked + ledger re-sync) ---

@@ -45,6 +45,7 @@ export default function MyBookings({ timeZone = "America/New_York" }: { timeZone
   const [dropinFailed, setDropinFailed] = useState(false);
   const [rentalFailed, setRentalFailed] = useState(false);
   const [checkingIn, setCheckingIn] = useState<Set<string>>(new Set());
+  const [paying, setPaying] = useState<Set<string>>(new Set());
   const [successBanner, setSuccessBanner] = useState(false);
 
   const reload = async () => {
@@ -100,6 +101,20 @@ export default function MyBookings({ timeZone = "America/New_York" }: { timeZone
     toast.success("Rental cancelled");
     await reload();
   };
+  const payNow = async (rentalId: string) => {
+    setPaying((p) => new Set(p).add(rentalId));
+    try {
+      const res = await fetch(`/api/rentals/bookings/${rentalId}/pay`, { method: "POST" });
+      const json = await res.json();
+      if (!res.ok || !json.checkoutUrl) {
+        toast.error(json.error ?? "Could not start payment");
+        return;
+      }
+      window.location.href = json.checkoutUrl as string;
+    } finally {
+      setPaying((p) => { const n = new Set(p); n.delete(rentalId); return n; });
+    }
+  };
   const checkIn = async (kind: "drop_in_booking" | "field_rental", id: string) => {
     setCheckingIn((p) => new Set(p).add(id));
     try {
@@ -129,6 +144,11 @@ export default function MyBookings({ timeZone = "America/New_York" }: { timeZone
         {item.kind === "dropin" && (
           <Button asChild variant="outline" size="sm">
             <a href={`/dropin/${item.dropin!.sessionId}`}>Details</a>
+          </Button>
+        )}
+        {item.kind === "rental" && item.rental!.status === "pending_payment" && (
+          <Button size="sm" disabled={paying.has(item.id)} onClick={() => payNow(item.id)}>
+            {paying.has(item.id) ? "Starting…" : "Pay now"}
           </Button>
         )}
         {checkedIn ? (

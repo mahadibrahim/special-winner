@@ -1,0 +1,1 @@
+ALTER TYPE "public"."field_rental_status" ADD VALUE IF NOT EXISTS 'requested' BEFORE 'pending_payment';

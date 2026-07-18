@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { signIn, waitForHydration } from "../utils/test-helpers";
 
-test("a signed-in customer can book a field through to Stripe Checkout", async ({
+test("a signed-in customer can request a field and see the request confirmed", async ({
   page,
 }) => {
   await signIn(page, "parent@test.aspiresports.com", "TestParent123!");
@@ -41,46 +41,19 @@ test("a signed-in customer can book a field through to Stripe Checkout", async (
   // Check the waiver acceptance checkbox (wrapped in a <label> with text "I accept").
   await page.getByLabel(/I accept/i).check();
 
-  // Submit — button text is "Continue".
-  await page.getByRole("button", { name: /continue/i }).click();
+  // Submit — button text is "Request this slot".
+  await page.getByRole("button", { name: /request this slot/i }).click();
 
-  // Two valid outcomes from the booking POST:
-  //   1) success → redirect to Stripe Checkout (paid path) or the dashboard
-  //      success page (comp / $0 path);
-  //   2) the dev server doesn't have Stripe keys → 500 with "Stripe not
-  //      configured", which the island renders in an <ErrorBanner>.
-  // (2) happens on CI test-full shards that don't pass Stripe secrets to the
-  // dev server. Skip in that case rather than time out and fail — same
-  // pattern bookings.test.ts uses for the API-level paid-path test.
-  const navigated = page
-    .waitForURL(/checkout\.stripe\.com|\/dashboard\/bookings|\/signin/, {
-      timeout: 20_000,
-    })
-    .then(() => "navigated" as const)
-    .catch(() => "timeout" as const);
-  const stripeMissing = page
-    // .first(): the island fires BOTH toast.error and the ErrorBanner for
-    // 5xx, so this text matches twice now that BaseLayout mounts a Toaster —
-    // a bare (strict) locator rejects instantly on the double match.
-    .getByText(/Stripe not configured/i)
-    .first()
-    .waitFor({ state: "visible", timeout: 20_000 })
-    .then(() => "no-stripe" as const)
-    .catch(() => "no-banner" as const);
-  const outcome = await Promise.race([navigated, stripeMissing]);
+  // POST /api/rentals/bookings now always returns { requested: true } (no
+  // Stripe interaction) — the island swaps the form for a "Request
+  // submitted" confirmation panel in place, with no navigation away from
+  // /rentals.
+  await expect(
+    page.getByRole("heading", { name: "Request submitted" }),
+  ).toBeVisible({ timeout: 10_000 });
+  await expect(
+    page.getByText(/we've got your request for this slot/i),
+  ).toBeVisible();
 
-  if (outcome === "no-stripe") {
-    test.skip(
-      true,
-      "Stripe not configured in dev-server env — paid booking path cannot be verified end-to-end",
-    );
-    return;
-  }
-  if (outcome !== "navigated") {
-    throw new Error(
-      `Booking submit produced neither a redirect nor a 'Stripe not configured' banner within 20s. URL: ${page.url()}`,
-    );
-  }
-
-  expect(page.url()).not.toContain("/rentals");
+  expect(page.url()).toContain("/rentals");
 });

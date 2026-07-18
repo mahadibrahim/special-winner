@@ -60,6 +60,7 @@ export default function RentalBooking({ venues, bookingWindowDays = 7 }: Props) 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [needsSignIn, setNeedsSignIn] = useState(false);
+  const [requestSubmitted, setRequestSubmitted] = useState(false);
 
   useEffect(() => {
     if (!selectedVenueId) return;
@@ -95,6 +96,7 @@ export default function RentalBooking({ venues, bookingWindowDays = 7 }: Props) 
     setSlotBlockEnd(blockEnd);
     setSubmitError(null);
     setNeedsSignIn(false);
+    setRequestSubmitted(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -132,17 +134,12 @@ export default function RentalBooking({ venues, bookingWindowDays = 7 }: Props) 
         return;
       }
 
-      if (body.paymentRequired && body.checkoutUrl) {
-        // Give the user a beat to see "slot held" before Stripe takes over.
-        // The hold lasts 10 min on the server; if they bail mid-checkout
-        // the dashboard countdown picks up the remaining time.
-        toast.success("Slot held — redirecting to payment…", { duration: 1200 });
-        window.setTimeout(() => {
-          window.location.href = body.checkoutUrl as string;
-        }, 800);
-      } else {
-        window.location.href = "/dashboard/bookings?rental=success";
+      if (body.requested) {
+        setRequestSubmitted(true);
+        return;
       }
+      // Legacy fallback (should not happen in request mode).
+      window.location.href = "/dashboard/bookings";
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Network error";
       toast.error(msg);
@@ -244,6 +241,16 @@ export default function RentalBooking({ venues, bookingWindowDays = 7 }: Props) 
             {endTime && ` – ${fmtTime(endTime)}`}
           </h2>
 
+          {requestSubmitted ? (
+            <div className="rounded-lg border border-stone-200 bg-stone-50 p-4 space-y-2">
+              <h3 className="text-sm font-semibold text-stone-900">Request submitted</h3>
+              <p className="text-sm text-stone-600">
+                Thanks — we've got your request for this slot. Our team will
+                review it and email you a link to pay once it's approved.
+                The slot is held for you in the meantime.
+              </p>
+            </div>
+          ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
@@ -353,9 +360,10 @@ export default function RentalBooking({ venues, bookingWindowDays = 7 }: Props) 
               disabled={submitDisabled}
               className="w-full rounded-md bg-stone-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-stone-700 focus:outline-none focus:ring-2 focus:ring-stone-500 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {submitting ? "Working…" : "Continue"}
+              {submitting ? "Submitting…" : "Request this slot"}
             </button>
           </form>
+          )}
         </div>
       )}
     </div>

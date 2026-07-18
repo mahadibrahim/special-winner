@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -76,6 +75,22 @@ function isHourBookable(
     const blockEnd = new Date(b.endsAt).getTime();
     return blockStart <= hourStart && blockEnd >= hourEnd;
   });
+}
+
+/**
+ * True if hour `h` on `dateStr` is at least `leadHours` hours from now.
+ * UX mirror of the server's minLeadTimeHours check (Task 5) — the server
+ * remains the source of truth; this just keeps near-term slots from
+ * rendering as clickable when the request would 422.
+ */
+function meetsLeadTime(
+  dateStr: string,
+  h: number,
+  timeZone: string,
+  leadHours: number,
+): boolean {
+  const hourStart = zonedHourToUtc(dateStr, h, timeZone).getTime();
+  return hourStart >= Date.now() + leadHours * 60 * 60_000;
 }
 
 /**
@@ -158,6 +173,12 @@ export interface FieldCalendarProps {
    * 7-day window.
    */
   bookingWindowDays?: number;
+  /**
+   * Minimum hours of advance notice a request needs (server-resolved from
+   * the org's rate card; the API enforces the same limit). Defaults to the
+   * public 48h window.
+   */
+  minLeadTimeHours?: number;
 }
 
 export function FieldCalendar({
@@ -166,6 +187,7 @@ export function FieldCalendar({
   memberDiscountPct = 0,
   timeZone = "America/New_York",
   bookingWindowDays = 7,
+  minLeadTimeHours = 48,
 }: FieldCalendarProps) {
   // Top-level client:load island on /rent; set the hydration beacon so e2e
   // waitForHydration() resolves (per CLAUDE.md Playwright conventions).
@@ -189,14 +211,16 @@ export function FieldCalendar({
   // Duration in whole-hour increments (60, 120, 180, or 240 minutes).
   const [durationMinutes, setDurationMinutes] = useState(60);
 
-  // Real booking state — this panel drives the same flow as the Aspire
-  // /rentals page: waiver → POST /api/rentals/bookings → Stripe Checkout.
+  // Real request state — this panel drives the same flow as the Aspire
+  // /rentals page: waiver → POST /api/rentals/bookings → request held for
+  // admin review → pay link emailed once approved.
   const [partySize, setPartySize] = useState(8);
   const [waiverAccepted, setWaiverAccepted] = useState(false);
   const [waiverName, setWaiverName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [needsSignIn, setNeedsSignIn] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [requestSubmitted, setRequestSubmitted] = useState(false);
 
   // Fetch availability whenever venueId or date changes
   useEffect(() => {
@@ -276,17 +300,22 @@ export function FieldCalendar({
       : null;
 
   const handleSlotClick = (h: number) => {
-    if (!isHourBookable(currentField, date, h, timeZone)) return;
+    if (
+      !isHourBookable(currentField, date, h, timeZone) ||
+      !meetsLeadTime(date, h, timeZone, minLeadTimeHours)
+    )
+      return;
     setSelectedSlot({ field: selectedField, hour: h });
     setSubmitError(null);
     setNeedsSignIn(false);
+    setRequestSubmitted(false);
     // Reset duration to 1h so we always start fresh on a new selection.
     setDurationMinutes(60);
   };
 
-  // Same booking flow as the Aspire /rentals page (RentalBooking.tsx):
-  // POST creates a 10-minute hold and returns a Stripe Checkout URL.
-  // Pricing, member discounts, and conflicts are all server-side.
+  // Same request flow as the Aspire /rentals page (RentalBooking.tsx):
+  // POST creates a request held for admin review; no Stripe interaction
+  // happens here — payment is collected via a pay link after approval.
   const handleBook = async () => {
     if (!venueId || !selectedSlot || !startsAt || !endsAt) return;
     setSubmitting(true);
@@ -316,14 +345,12 @@ export function FieldCalendar({
         setSubmitError(msg);
         return;
       }
-      if (body.paymentRequired && body.checkoutUrl) {
-        toast.success("Slot held — redirecting to payment…", { duration: 1200 });
-        window.setTimeout(() => {
-          window.location.href = body.checkoutUrl as string;
-        }, 800);
-      } else {
-        window.location.href = "/dashboard/bookings?rental=success";
+      if (body.requested) {
+        setRequestSubmitted(true);
+        return;
       }
+      // Legacy fallback (should not happen in request mode).
+      window.location.href = "/dashboard/bookings";
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Network error");
     } finally {
@@ -456,7 +483,12 @@ export function FieldCalendar({
           {!loading && !error && availability && availability.fields.length > 0 && (
             <div className="calendar-grid">
               {HOURS.map((h) => {
-                const bookable = isHourBookable(currentField, date, h, timeZone);
+                const withinLead = meetsLeadTime(date, h, timeZone, minLeadTimeHours);
+                const bookable =
+                  isHourBookable(currentField, date, h, timeZone) && withinLead;
+                const reason = !withinLead
+                  ? `Requests need ${minLeadTimeHours}h notice — call the venue for sooner`
+                  : hourReason(currentField, date, h, timeZone);
                 const isSelected =
                   selectedSlot?.hour === h && selectedSlot?.field === selectedField;
 
@@ -485,7 +517,7 @@ export function FieldCalendar({
                     {!bookable && (
                       <div className="row-event">
                         <span className="event-reason-chip">
-                          {hourReason(currentField, date, h, timeZone) ?? "Unavailable"}
+                          {reason ?? "Unavailable"}
                         </span>
                       </div>
                     )}
@@ -509,7 +541,7 @@ export function FieldCalendar({
           {selectedSlot ? (
             <>
               <div className="panel-header">
-                <h3 className="panel-title">Book Slot</h3>
+                <h3 className="panel-title">Request Slot</h3>
                 <button className="panel-close" onClick={() => setSelectedSlot(null)} aria-label="Close">
                   <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                     <line x1="4" y1="4" x2="14" y2="14"/><line x1="14" y1="4" x2="4" y2="14"/>
@@ -577,54 +609,67 @@ export function FieldCalendar({
                 )}
               </div>
 
-              {/* Waiver — required by POST /api/rentals/bookings, same as
-                  the Aspire rentals flow. */}
-              <div className="panel-addons">
-                <h4 className="addons-heading">Liability waiver</h4>
-                <label className="addon-row">
-                  <input
-                    type="checkbox"
-                    className="addon-check"
-                    checked={waiverAccepted}
-                    onChange={(e) => setWaiverAccepted(e.target.checked)}
-                  />
-                  <span className="addon-label">
-                    I accept the liability waiver: I understand indoor soccer
-                    involves physical activity and inherent risk of injury, and
-                    I release SoccerOne and Aspire Sports from liability for
-                    injury arising from my rental.
-                  </span>
-                </label>
-                <input
-                  type="text"
-                  className="filter-input waiver-name-input"
-                  placeholder="Full name (typed signature)"
-                  value={waiverName}
-                  onChange={(e) => setWaiverName(e.target.value)}
-                  aria-label="Full name (typed signature)"
-                />
-              </div>
-
-              <p className="panel-note">Final price confirmed at checkout · slot held 10 min while you pay</p>
-
-              {needsSignIn ? (
-                <a
-                  className="panel-book-btn panel-book-link"
-                  href={`/signin?redirect=${encodeURIComponent(typeof window !== "undefined" ? window.location.pathname : "/rent")}`}
-                >
-                  Sign in to book
-                </a>
+              {requestSubmitted ? (
+                <div className="request-success">
+                  <h4 className="addons-heading">Request submitted</h4>
+                  <p>
+                    Thanks — we've got your request for this slot. Our team will
+                    review it and email you a link to pay once it's approved.
+                    The slot is held for you in the meantime.
+                  </p>
+                </div>
               ) : (
-                <button
-                  className="panel-book-btn"
-                  onClick={handleBook}
-                  disabled={submitting || !waiverAccepted || !waiverName.trim()}
-                >
-                  {submitting ? "Holding slot…" : "Book this slot"}
-                </button>
-              )}
+                <>
+                  {/* Waiver — required by POST /api/rentals/bookings, same as
+                      the Aspire rentals flow. */}
+                  <div className="panel-addons">
+                    <h4 className="addons-heading">Liability waiver</h4>
+                    <label className="addon-row">
+                      <input
+                        type="checkbox"
+                        className="addon-check"
+                        checked={waiverAccepted}
+                        onChange={(e) => setWaiverAccepted(e.target.checked)}
+                      />
+                      <span className="addon-label">
+                        I accept the liability waiver: I understand indoor soccer
+                        involves physical activity and inherent risk of injury, and
+                        I release SoccerOne and Aspire Sports from liability for
+                        injury arising from my rental.
+                      </span>
+                    </label>
+                    <input
+                      type="text"
+                      className="filter-input waiver-name-input"
+                      placeholder="Full name (typed signature)"
+                      value={waiverName}
+                      onChange={(e) => setWaiverName(e.target.value)}
+                      aria-label="Full name (typed signature)"
+                    />
+                  </div>
 
-              {submitError && <p className="panel-error" role="alert">{submitError}</p>}
+                  <p className="panel-note">Final price confirmed once approved · your slot is held while we review</p>
+
+                  {needsSignIn ? (
+                    <a
+                      className="panel-book-btn panel-book-link"
+                      href={`/signin?redirect=${encodeURIComponent(typeof window !== "undefined" ? window.location.pathname : "/rent")}`}
+                    >
+                      Sign in to request
+                    </a>
+                  ) : (
+                    <button
+                      className="panel-book-btn"
+                      onClick={handleBook}
+                      disabled={submitting || !waiverAccepted || !waiverName.trim()}
+                    >
+                      {submitting ? "Submitting…" : "Request this slot"}
+                    </button>
+                  )}
+
+                  {submitError && <p className="panel-error" role="alert">{submitError}</p>}
+                </>
+              )}
 
               <p className="panel-note">
                 Cancel 14+ days out for a full refund. Within 14 days, bookings are final.
@@ -638,7 +683,7 @@ export function FieldCalendar({
                   <path d="M16 24h16M24 16v16" stroke="#facc15" strokeWidth="2.5" strokeLinecap="round"/>
                 </svg>
               </div>
-              <p className="panel-empty-text">Select an available time slot on the calendar to book {selectedUnitLabel}.</p>
+              <p className="panel-empty-text">Select an available time slot on the calendar to request {selectedUnitLabel}.</p>
               <p className="panel-empty-rate">
                 Tiered rates — peak evenings from <strong>$190</strong>
                 {memberDiscountPct > 0
@@ -999,6 +1044,21 @@ export function FieldCalendar({
           display: flex;
           flex-direction: column;
           gap: 0.5rem;
+        }
+        .request-success {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+          background: rgba(250,204,21,0.08);
+          border: 1px solid rgba(250,204,21,0.3);
+          border-radius: var(--so-radius-lg);
+          padding: 1rem;
+        }
+        .request-success p {
+          font-size: 0.875rem;
+          color: rgba(255,255,255,0.75);
+          line-height: 1.5;
+          margin: 0;
         }
         .addons-heading {
           font-size: 0.75rem;

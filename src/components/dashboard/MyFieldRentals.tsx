@@ -19,7 +19,7 @@ interface FieldRental {
   fieldNumber: number;
   startsAt: string;
   endsAt: string;
-  status: "confirmed" | "pending_payment" | "cancelled" | "no_show" | "completed";
+  status: "requested" | "confirmed" | "pending_payment" | "cancelled" | "no_show" | "completed";
   paymentStatus: string;
   amountDueCents: number;
   amountPaidCents: number;
@@ -56,6 +56,7 @@ function rentalStatusTone(status: FieldRental["status"]): StatusTone {
       return "confirmed";
     case "pending_payment":
       return "action";
+    case "requested":
     case "cancelled":
     case "no_show":
       return "pending";
@@ -64,6 +65,8 @@ function rentalStatusTone(status: FieldRental["status"]): StatusTone {
 
 function statusLabel(status: FieldRental["status"]): string {
   switch (status) {
+    case "requested":
+      return "Awaiting review";
     case "confirmed":
       return "Confirmed";
     case "pending_payment":
@@ -94,6 +97,7 @@ export default function MyFieldRentals() {
   const [error, setError] = useState<string | null>(null);
   const [successBanner, setSuccessBanner] = useState(false);
   const [checkingIn, setCheckingIn] = useState<Set<string>>(new Set());
+  const [paying, setPaying] = useState<Set<string>>(new Set());
 
   const reload = async () => {
     setLoading(true);
@@ -137,6 +141,27 @@ export default function MyFieldRentals() {
     }
     toast.success("Rental cancelled");
     await reload();
+  };
+
+  const payNow = async (rentalId: string) => {
+    setPaying((p) => new Set(p).add(rentalId));
+    try {
+      const res = await fetch(`/api/rentals/bookings/${rentalId}/pay`, {
+        method: "POST",
+      });
+      const json = await res.json();
+      if (!res.ok || !json.checkoutUrl) {
+        toast.error(json.error ?? "Could not start payment");
+        return;
+      }
+      window.location.href = json.checkoutUrl as string;
+    } finally {
+      setPaying((p) => {
+        const n = new Set(p);
+        n.delete(rentalId);
+        return n;
+      });
+    }
   };
 
   const handleCheckIn = async (rentalId: string) => {
@@ -209,6 +234,15 @@ export default function MyFieldRentals() {
               upcoming.map((r) => {
                 const actionNode = (
                   <div className="flex flex-col items-end gap-1.5">
+                    {r.status === "pending_payment" && (
+                      <Button
+                        size="sm"
+                        disabled={paying.has(r.id)}
+                        onClick={() => payNow(r.id)}
+                      >
+                        {paying.has(r.id) ? "Starting…" : "Pay now"}
+                      </Button>
+                    )}
                     {r.checkedInAt ? (
                       <Badge
                         variant="outline"

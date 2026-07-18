@@ -28,7 +28,7 @@ export interface FieldRentalRow {
   fieldNumber: number;
   startsAt: string;
   endsAt: string;
-  status: "confirmed" | "pending_payment" | "cancelled" | "no_show" | "completed";
+  status: "requested" | "confirmed" | "pending_payment" | "cancelled" | "no_show" | "completed";
   paymentStatus: string;
   amountPaidCents: number;
   partySize: number;
@@ -66,6 +66,7 @@ function dropInStatus(s: DropInBookingRow["status"]): { label: string; tone: Sta
 
 function rentalStatus(s: FieldRentalRow["status"]): { label: string; tone: StatusTone } {
   switch (s) {
+    case "requested": return { label: "Awaiting review", tone: "pending" };
     case "confirmed": return { label: "Confirmed", tone: "confirmed" };
     case "completed": return { label: "Completed", tone: "confirmed" };
     case "pending_payment": return { label: "Pending payment", tone: "action" };

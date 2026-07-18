@@ -1,10 +1,9 @@
 /**
  * GET  /api/rentals/bookings → the authenticated user's field rentals.
- * POST /api/rentals/bookings → create a rental.
- *   - comp/$0 path: insert a confirmed row immediately.
- *   - paid path: insert a `pending_payment` hold, create a Stripe Checkout
- *     Session (Connect-aware), return the URL. The webhook flips the row to
- *     `confirmed`.
+ * POST /api/rentals/bookings → create a rental REQUEST.
+ *   Requests are held for `requestHoldHours` pending admin approval; no
+ *   Stripe interaction happens here — payment is collected via the pay
+ *   endpoint after approval.
  *
  * Mirrors src/pages/api/dropin/bookings/index.ts.
  */
@@ -16,17 +15,17 @@ import {
   fieldRentalRateCard,
 } from "@/lib/db/schema/field-rentals";
 import { venues } from "@/lib/db/schema/teams";
-import { stripe } from "@/lib/stripe/client";
 import {
   resolveRentalHourlyRateCents,
   computeRentalPriceCents,
 } from "@/lib/rentals/pricing";
 import { quoteRentalCents } from "@/lib/rentals/soccerone-pricing";
 import { validateRentalBookingRequest } from "@/lib/rentals/validators";
+import { createRentalRequest } from "@/lib/rentals/booking";
 import {
-  createRentalHold,
-  createConfirmedRentalNonStripe,
-} from "@/lib/rentals/booking";
+  dispatchRentalRequestReceived,
+  dispatchNewRentalRequestToAdmin,
+} from "@/lib/rentals/messages/dispatch";
 import { getActiveMembershipForOrg } from "@/lib/memberships/get-active-membership";
 import { applyMemberRentalDiscount } from "@/lib/memberships/discount";
 import {
@@ -34,7 +33,6 @@ import {
   bookingWindowEndUtc,
 } from "@/lib/memberships/booking-window";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
-import { collectAdAttribution } from "@/lib/analytics/parse-cookies";
 
 export const prerender = false;
 
@@ -75,7 +73,7 @@ export const GET: APIRoute = async ({ locals }) => {
   return json({ rentals: rows }, 200);
 };
 
-export const POST: APIRoute = async ({ request, locals, url }) => {
+export const POST: APIRoute = async ({ request, locals }) => {
   if (!locals.user) return json({ error: "Unauthorized" }, 401);
 
   let body: Record<string, unknown>;
@@ -121,6 +119,23 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
 
   const orgTimeZone = locals.organization?.timezone ?? "America/New_York";
 
+  let [rateCard] = await db
+    .select()
+    .from(fieldRentalRateCard)
+    .where(eq(fieldRentalRateCard.organizationId, orgId))
+    .limit(1);
+  if (!rateCard) {
+    await db
+      .insert(fieldRentalRateCard)
+      .values({ organizationId: orgId })
+      .onConflictDoNothing();
+    [rateCard] = await db
+      .select()
+      .from(fieldRentalRateCard)
+      .where(eq(fieldRentalRateCard.organizationId, orgId))
+      .limit(1);
+  }
+
   // Advance-booking window: online booking opens DEFAULT_BOOKING_WINDOW_DAYS
   // ahead; membership benefits (booking_window_days) can extend it (Founder
   // = 14). Beyond the window is a contact-the-venue conversation — venue
@@ -143,23 +158,16 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
         422,
       );
     }
-  }
 
-  let [rateCard] = await db
-    .select()
-    .from(fieldRentalRateCard)
-    .where(eq(fieldRentalRateCard.organizationId, orgId))
-    .limit(1);
-  if (!rateCard) {
-    await db
-      .insert(fieldRentalRateCard)
-      .values({ organizationId: orgId })
-      .onConflictDoNothing();
-    [rateCard] = await db
-      .select()
-      .from(fieldRentalRateCard)
-      .where(eq(fieldRentalRateCard.organizationId, orgId))
-      .limit(1);
+    const minLeadHours = rateCard.minLeadTimeHours;
+    if (startsAt.getTime() < Date.now() + minLeadHours * 60 * 60_000) {
+      return json(
+        {
+          error: `Requests must be at least ${minLeadHours} hours in advance. To book sooner, contact the venue directly.`,
+        },
+        422,
+      );
+    }
   }
 
   const durationMinutes = (endsAt.getTime() - startsAt.getTime()) / 60_000;
@@ -192,58 +200,26 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
   // Member rental discount — reuses the membership fetched above for the
   // booking-window check. For Aspire (no tiers seeded), the lookup returned
   // null and amountDueCents is byte-identical to baseAmountDueCents.
+  // The discount is baked into amountDueCents, which is stored on the row
+  // and read back by the pay endpoint — Stripe metadata now lives there.
   let amountDueCents = baseAmountDueCents;
-  let memberDiscountMembershipId: string | null = null;
   if (membership) {
     amountDueCents = applyMemberRentalDiscount(
       baseAmountDueCents,
       membership.tier.benefits,
     );
-    if (amountDueCents !== baseAmountDueCents) {
-      memberDiscountMembershipId = membership.id;
-    }
   }
 
   const bookingBrand = brandFromHost(request.headers.get("host") ?? "");
 
-  if (amountDueCents === 0) {
-    const result = await createConfirmedRentalNonStripe({
-      organizationId: orgId,
-      venueId,
-      fieldNumber,
-      startsAt,
-      endsAt,
-      source: "online_booking",
-      paymentMethod: "comp",
-      amountDueCents: 0,
-      renterUserId: locals.user.id,
-      renterName: waiverName,
-      renterEmail: locals.user.email,
-      renterPhone: null,
-      partySize,
-      purpose,
-      notes: null,
-      createdByUserId: locals.user.id,
-      waiverSigned: true,
-      waiverSignedBy: waiverName,
-      brand: bookingBrand,
-    });
-    if (!result.ok) return json({ error: result.error }, 409);
-    return json({ paymentRequired: false, rentalId: result.rental.id }, 200);
-  }
-
-  // Run the conflict check + create the hold BEFORE checking Stripe so a
-  // genuine 409 is reported even on environments without Stripe configured
-  // (e.g. CI). If Stripe is missing we clean up the hold below.
-  const hold = await createRentalHold({
+  const req = await createRentalRequest({
     organizationId: orgId,
     venueId,
     fieldNumber,
     startsAt,
     endsAt,
-    source: "online_booking",
-    paymentMethod: "card_online",
     amountDueCents,
+    requestHoldHours: rateCard.requestHoldHours,
     renterUserId: locals.user.id,
     renterName: waiverName,
     renterEmail: locals.user.email,
@@ -256,82 +232,15 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     waiverSignedBy: waiverName,
     brand: bookingBrand,
   });
-  if (!hold.ok) return json({ error: hold.error }, 409);
+  if (!req.ok) return json({ error: req.error }, 409);
 
-  if (!stripe) {
-    // Stripe missing — release the hold and surface the misconfig.
-    await db.delete(fieldRentals).where(eq(fieldRentals.id, hold.rental.id));
-    return json({ error: "Stripe not configured" }, 500);
-  }
+  // Fire-and-forget notifications — never fail the request over a send error.
+  await dispatchRentalRequestReceived(req.rental.id).catch((e) =>
+    console.error("[rentals] request-received dispatch failed", e),
+  );
+  await dispatchNewRentalRequestToAdmin(req.rental.id).catch((e) =>
+    console.error("[rentals] admin new-request dispatch failed", e),
+  );
 
-  const partnerStripeAccountId = venue.partnerStripeAccountId ?? null;
-  const applicationFeePct = venue.partnerApplicationFeePct ?? 0;
-  const applicationFeeCents = partnerStripeAccountId
-    ? Math.round((amountDueCents * applicationFeePct) / 100)
-    : undefined;
-  // Request origin, not PUBLIC_APP_URL — Stripe success/cancel redirects
-  // must return to the domain the customer booked from (brand host).
-  const appUrl = url.origin;
-
-  try {
-    const checkoutSession = await stripe.checkout.sessions.create(
-      {
-        mode: "payment",
-        payment_method_types: ["card"],
-        customer_email: locals.user.email,
-        line_items: [
-          {
-            price_data: {
-              currency: "usd",
-              product_data: {
-                name: `Field rental — ${venue.name}`,
-                description: `Field ${fieldNumber}, ${startsAt.toISOString()}`,
-              },
-              unit_amount: amountDueCents,
-            },
-            quantity: 1,
-          },
-        ],
-        metadata: {
-          type: "field_rental",
-          rental_id: hold.rental.id,
-          organization_id: orgId,
-          membership_id: memberDiscountMembershipId ?? "",
-          base_amount_cents: String(baseAmountDueCents),
-          // Storefront brand — host-derived, since both brands share one org.
-          brand: bookingBrand,
-          // Carried for the webhook's revenue + ad-conversion fires.
-          user_id: locals.user.id,
-          venue_name: venue.name,
-          // Ad-attribution ids → server-side GA4 + Meta purchase conversions.
-          ...collectAdAttribution(url, request.headers.get("cookie")),
-        },
-        payment_intent_data: partnerStripeAccountId
-          ? {
-              application_fee_amount: applicationFeeCents,
-              transfer_data: { destination: partnerStripeAccountId },
-            }
-          : undefined,
-        success_url: `${appUrl}/dashboard/bookings?rental=success`,
-        cancel_url: `${appUrl}/rentals?rental=cancelled`,
-      },
-      { idempotencyKey: `${hold.rental.id}:rental-checkout:${amountDueCents}` },
-    );
-    return json(
-      {
-        paymentRequired: true,
-        checkoutUrl: checkoutSession.url,
-        rentalId: hold.rental.id,
-        // Surfaced so the booking UI can show a "slot held until X" notice
-        // before bouncing the user to the Stripe Checkout page.
-        paymentExpiresAt: hold.rental.paymentExpiresAt,
-      },
-      200,
-    );
-  } catch (err) {
-    // Stripe call failed after the hold row was committed (no outer tx) — manually undo it to release the field.
-    await db.delete(fieldRentals).where(eq(fieldRentals.id, hold.rental.id));
-    console.error("[rentals] checkout session create failed", err);
-    return json({ error: "Could not start checkout" }, 502);
-  }
+  return json({ requested: true, rentalId: req.rental.id }, 200);
 };
