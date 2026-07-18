@@ -11,6 +11,7 @@ import { fieldRentals, fieldRentalPlayers } from "@/lib/db/schema/field-rentals"
 import { mintToken } from "@/lib/check-in/tokens-db";
 import { dispatchPlayerWaiverInvite } from "@/lib/rentals/messages/player-waiver";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
+import { RENTAL_PLAYER_TOKEN_TTL_HOURS } from "@/lib/rentals/players";
 
 export const prerender = false;
 
@@ -62,6 +63,7 @@ export const POST: APIRoute = async ({ params, locals }) => {
     recipientEmail: player.signerEmail,
     recipientPhone: null,
     createdByUserId: locals.user.id,
+    ttlHours: RENTAL_PLAYER_TOKEN_TTL_HOURS,
   });
 
   await dispatchPlayerWaiverInvite(player.id).catch((e) =>

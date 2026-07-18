@@ -11,6 +11,14 @@ import { getDb } from "@/lib/db";
 import { mintToken } from "@/lib/check-in/tokens-db";
 import { dispatchPlayerWaiverInvite } from "@/lib/rentals/messages/player-waiver";
 
+/**
+ * `rental_player` self-serve tokens can't use `mintToken`'s 6h default TTL:
+ * rentals are booked up to ~7 days out, players sign the waiver over that
+ * span, and reminders fire at 24h. A 6h TTL would expire the invite link
+ * (and the reminder link) long before the booking happens.
+ */
+export const RENTAL_PLAYER_TOKEN_TTL_HOURS = 24 * 30;
+
 export interface CreateRentalPlayerInput {
   rental: FieldRental;
   playerName: string;
@@ -44,6 +52,7 @@ export async function createRentalPlayer(
     recipientEmail: input.signerEmail,
     recipientPhone: null,
     createdByUserId: input.createdByUserId,
+    ttlHours: RENTAL_PLAYER_TOKEN_TTL_HOURS,
   });
 
   await dispatchPlayerWaiverInvite(row.id).catch((e) =>
