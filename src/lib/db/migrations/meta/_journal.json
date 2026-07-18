@@ -684,8 +684,15 @@
     {
       "idx": 97,
       "version": "7",
-      "when": 1784386474765,
-      "tag": "0097_boring_black_bolt",
+      "when": 1784386989911,
+      "tag": "0097_tan_whirlwind",
+      "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "7",
+      "when": 1784387035908,
+      "tag": "0098_stiff_hellfire_club",
       "breakpoints": true
     }
   ]

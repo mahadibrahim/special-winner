@@ -1,6 +1,6 @@
 {
-  "id": "7e7ef5e3-a5a2-4eb4-a355-693d170cc343",
-  "prevId": "f6bb5c77-d783-4bed-a592-b62028a595f1",
+  "id": "6abffc36-c646-4049-bac7-2d0745b63dbc",
+  "prevId": "7e7ef5e3-a5a2-4eb4-a355-693d170cc343",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -9236,6 +9236,20 @@
           "notNull": true,
           "default": 60
         },
+        "request_hold_hours": {
+          "name": "request_hold_hours",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 24
+        },
+        "min_lead_time_hours": {
+          "name": "min_lead_time_hours",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 48
+        },
         "updated_at": {
           "name": "updated_at",
           "type": "timestamp with time zone",
@@ -9437,6 +9451,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "request_expires_at": {
+          "name": "request_expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
         "waiver_signed": {
           "name": "waiver_signed",
           "type": "boolean",
@@ -9596,7 +9616,7 @@
             }
           ],
           "isUnique": false,
-          "where": "status IN ('pending_payment', 'confirmed')",
+          "where": "status IN ('requested', 'pending_payment', 'confirmed')",
           "concurrently": false,
           "method": "btree",
           "with": {}
