@@ -82,7 +82,34 @@ export const GET: APIRoute = async (context) => {
   if (!(await callerCanActOnVenue(context, row.field_rentals.venueId))) {
     return json({ error: "Rental not found" }, 404);
   }
-  return json({ rental: row.field_rentals, venue: row.venues }, 200);
+
+  // Roster is read-only from this admin surface — the renter-owned
+  // GET /api/rentals/bookings/:id/players checks renterUserId, which an
+  // admin caller never satisfies, so the roster rides along in this
+  // response instead of a separate admin players endpoint.
+  const playerRows = await getDb()
+    .select({
+      id: fieldRentalPlayers.id,
+      playerName: fieldRentalPlayers.playerName,
+      isMinor: fieldRentalPlayers.isMinor,
+      signerEmail: fieldRentalPlayers.signerEmail,
+      status: fieldRentalPlayers.status,
+      signedAt: fieldRentalPlayers.signedAt,
+    })
+    .from(fieldRentalPlayers)
+    .where(eq(fieldRentalPlayers.rentalId, rentalId));
+  const playersSigned = playerRows.filter((p) => p.status === "signed").length;
+
+  return json(
+    {
+      rental: row.field_rentals,
+      venue: row.venues,
+      players: playerRows,
+      playersSigned,
+      playersTotal: playerRows.length,
+    },
+    200,
+  );
 };
 
 export const PATCH: APIRoute = async (context) => {

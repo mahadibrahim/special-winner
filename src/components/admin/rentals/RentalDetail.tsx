@@ -42,9 +42,21 @@ interface Venue {
   name: string;
 }
 
+interface RentalPlayer {
+  id: string;
+  playerName: string;
+  isMinor: boolean;
+  signerEmail: string;
+  status: "pending" | "signed";
+  signedAt: string | null;
+}
+
 interface DetailResponse {
   rental: Rental;
   venue: Venue | null;
+  players: RentalPlayer[];
+  playersSigned: number;
+  playersTotal: number;
 }
 
 interface RentalDetailProps {
@@ -93,6 +105,7 @@ export function RentalDetail({ rentalId, timeZone = BUSINESS_TIMEZONE }: RentalD
   const [error, setError] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
+  const [resendingPlayerId, setResendingPlayerId] = useState<string | null>(null);
 
   // Correct-time form state
   const [rescheduleDate, setRescheduleDate] = useState("");
@@ -207,6 +220,23 @@ export function RentalDetail({ rentalId, timeZone = BUSINESS_TIMEZONE }: RentalD
       await reload();
     } finally {
       setBusy(false);
+    }
+  };
+
+  const resendPlayerInvite = async (playerId: string) => {
+    setResendingPlayerId(playerId);
+    try {
+      const res = await fetch(`/api/admin/rentals/${rentalId}/players/${playerId}/resend`, {
+        method: "POST",
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error ?? "Resend failed");
+        return;
+      }
+      toast.success("Waiver invite resent");
+    } finally {
+      setResendingPlayerId(null);
     }
   };
 
@@ -390,6 +420,61 @@ export function RentalDetail({ rentalId, timeZone = BUSINESS_TIMEZONE }: RentalD
             </div>
           </div>
         </div>
+      </section>
+
+      {/* Players & waivers */}
+      <section className="rounded-xl border border-border bg-cream-2 p-5">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-semibold text-ink">Players &amp; waivers</h2>
+          <span className="text-xs text-ink-muted">
+            {data.playersSigned} of {data.playersTotal} signed
+          </span>
+        </div>
+        {data.players.length === 0 ? (
+          <p className="text-sm text-ink-muted">No players added yet.</p>
+        ) : (
+          <ul className="space-y-2">
+            {data.players.map((p) => (
+              <li
+                key={p.id}
+                className="flex items-center justify-between gap-3 rounded-lg border border-border bg-cream px-3 py-2 text-sm flex-wrap"
+              >
+                <div className="min-w-0">
+                  <div className="text-ink font-medium">{p.playerName}</div>
+                  <div className="text-xs text-ink-muted">
+                    {p.isMinor ? "Minor" : "Adult"} · {p.signerEmail}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Badge
+                    variant="outline"
+                    className={
+                      p.status === "signed"
+                        ? "bg-emerald-100 text-emerald-900 border-emerald-200"
+                        : "bg-amber-100 text-amber-900 border-amber-200"
+                    }
+                  >
+                    {p.status === "signed" ? "Signed" : "Pending"}
+                  </Badge>
+                  {p.status === "signed" && p.signedAt ? (
+                    <span className="text-xs text-ink-muted">
+                      {new Date(p.signedAt).toLocaleString()}
+                    </span>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={resendingPlayerId === p.id}
+                      onClick={() => resendPlayerInvite(p.id)}
+                    >
+                      {resendingPlayerId === p.id ? "Sending…" : "Resend"}
+                    </Button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       {/* Notes */}
