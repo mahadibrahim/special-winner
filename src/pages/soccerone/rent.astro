@@ -12,7 +12,6 @@ import { breadcrumbJsonLd } from '@/lib/seo/breadcrumbs';
 
 const facility = Astro.url.searchParams.get('facility') || 'worthington';
 const facilityLabel = facility === 'downtown' ? 'Downtown' : 'Worthington';
-const fieldCount = facility === 'downtown' ? '1 field' : '2 fields';
 
 // Brands share one org — the facility param maps straight onto the org's
 // location slugs ('downtown' / 'worthington').
@@ -25,6 +24,7 @@ const venueList = organizationId
 // Venues are modeled one-per-physical-field; the calendar's Field selector
 // switches between them.
 const calendarVenues = venueList.map((v) => ({ id: v.id, name: v.name }));
+const fieldCount = `${venueList.length} field${venueList.length === 1 ? '' : 's'}`;
 
 let memberDiscountPct = 0;
 let bookingWindowDays = DEFAULT_BOOKING_WINDOW_DAYS;
