@@ -249,6 +249,44 @@ const breadcrumbSchema = breadcrumbJsonLd([
       </div>
     </div>
 
+    <!-- Futsal — Coming September -->
+    <div class="fut-section">
+      <div class="fut-inner">
+        <div class="fut-copy">
+          <h2 class="fut-title">Futsal — Coming September</h2>
+          <p class="fut-desc">Indoor futsal courts open this September at Worthington. Join the list — we'll email you the moment booking opens.</p>
+        </div>
+
+        <form id="fut-form" class="fut-form" novalidate>
+          <label class="fut-field">
+            <span class="fut-label">Email</span>
+            <input
+              type="email"
+              id="fut-email"
+              name="email"
+              required
+              maxlength="320"
+              placeholder="you@example.com"
+              class="fut-input"
+              autocomplete="email"
+            />
+          </label>
+          <button type="submit" id="fut-submit" class="fut-btn">
+            <span class="fut-btn-text">Notify me →</span>
+            <span class="fut-btn-spinner" hidden aria-hidden="true">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" class="pf-spin"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="2" stroke-dasharray="28" stroke-dashoffset="10" stroke-linecap="round"/></svg>
+            </span>
+          </button>
+          <div id="fut-error" class="fut-error" hidden></div>
+        </form>
+
+        <div id="fut-success" class="fut-success" hidden>
+          <span class="fut-success-icon" aria-hidden="true">✓</span>
+          <span>You're on the list — we'll email you when booking opens.</span>
+        </div>
+      </div>
+    </div>
+
     <!-- Package request section -->
     <div class="pkg-section" id="rental-package">
       <div class="pkg-inner">
@@ -542,6 +580,104 @@ const breadcrumbSchema = breadcrumbJsonLd([
     .addon-name { font-size: 0.9375rem; color: rgba(255,255,255,0.6); }
     .addon-price { font-family: var(--so-font-mono); font-size: 0.875rem; color: var(--so-lime-a70); }
 
+    /* Futsal — Coming September */
+    .fut-section {
+      background: var(--so-lime-a05);
+      border-top: 1px solid var(--so-lime-a10);
+      border-bottom: 1px solid var(--so-lime-a10);
+      padding: 3rem 0;
+    }
+    .fut-inner {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 2rem;
+      flex-wrap: wrap;
+    }
+    .fut-copy { max-width: 560px; }
+    .fut-title {
+      font-family: var(--so-font-display);
+      font-size: clamp(1.5rem, 2.5vw, 2rem);
+      color: #ffffff;
+      letter-spacing: 0.01em;
+      line-height: 1.05;
+      margin-bottom: 0.5rem;
+    }
+    .fut-desc { font-size: 0.9375rem; color: var(--muted); line-height: 1.55; }
+
+    .fut-form {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      flex-shrink: 0;
+    }
+    .fut-field { display: flex; flex-direction: column; gap: 0.25rem; }
+    .fut-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    .fut-input {
+      width: 260px;
+      max-width: 100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: var(--so-radius-sm);
+      color: #ffffff;
+      font-family: var(--so-font-body);
+      font-size: 0.9375rem;
+      padding: 0.75rem 1rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .fut-input::placeholder { color: rgba(255,255,255,0.25); }
+    .fut-input:focus { border-color: var(--so-lime-a50); }
+
+    .fut-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--so-lime);
+      color: var(--so-ink);
+      font-family: var(--so-font-body);
+      font-size: 0.9375rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      border: none;
+      cursor: pointer;
+      padding: 0.75rem 1.5rem;
+      border-radius: var(--so-radius-sm);
+      transition: background 0.15s, opacity 0.15s;
+      white-space: nowrap;
+    }
+    .fut-btn:hover:not(:disabled) { background: var(--so-lime-bright); }
+    .fut-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .fut-error {
+      flex-basis: 100%;
+      font-size: 0.8125rem;
+      color: #f87171;
+      background: rgba(248,113,113,0.08);
+      border: 1px solid rgba(248,113,113,0.2);
+      border-radius: var(--so-radius-sm);
+      padding: 0.5rem 0.75rem;
+    }
+
+    .fut-success {
+      display: flex;
+      align-items: center;
+      gap: 0.625rem;
+      font-size: 0.9375rem;
+      color: rgba(255,255,255,0.85);
+    }
+    .fut-success-icon { color: var(--so-lime); font-weight: 700; }
+
+    @media (max-width: 640px) {
+      .fut-inner { flex-direction: column; align-items: flex-start; }
+      .fut-form { width: 100%; }
+      .fut-input { width: 100%; flex: 1 1 auto; }
+    }
+
     /* Package request */
     .pkg-section {
       background: var(--so-ink);
@@ -775,6 +911,61 @@ const breadcrumbSchema = breadcrumbJsonLd([
           successEl.hidden = false;
         } catch (err) {
           errorEl.textContent = err instanceof Error ? err.message : "Could not submit request. Please try again.";
+          errorEl.hidden = false;
+          submitBtn.disabled = false;
+          btnText.hidden = false;
+          btnSpinner.hidden = true;
+        }
+      });
+    })();
+  </script>
+
+  <script>
+    // Futsal "Coming September" interest capture — plain JS, no framework dependency.
+    (() => {
+      const form = document.getElementById("fut-form") as HTMLFormElement | null;
+      const successEl = document.getElementById("fut-success") as HTMLElement | null;
+      const errorEl = document.getElementById("fut-error") as HTMLElement | null;
+      const submitBtn = document.getElementById("fut-submit") as HTMLButtonElement | null;
+      const emailInput = document.getElementById("fut-email") as HTMLInputElement | null;
+      if (!form || !successEl || !errorEl || !submitBtn || !emailInput) return;
+
+      const btnText = submitBtn.querySelector(".fut-btn-text") as HTMLElement;
+      const btnSpinner = submitBtn.querySelector(".fut-btn-spinner") as HTMLElement;
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const email = emailInput.value.trim();
+        errorEl.hidden = true;
+
+        if (!email) {
+          errorEl.textContent = "Please enter your email.";
+          errorEl.hidden = false;
+          return;
+        }
+
+        submitBtn.disabled = true;
+        btnText.hidden = true;
+        btnSpinner.hidden = false;
+
+        try {
+          const res = await fetch("/api/soccerone/futsal-interest", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email }),
+          });
+
+          if (!res.ok) {
+            const json = await res.json().catch(() => ({})) as { error?: string };
+            throw new Error(json.error ?? "Could not join the list. Please try again.");
+          }
+
+          // Show confirmation, hide form
+          form.hidden = true;
+          successEl.hidden = false;
+        } catch (err) {
+          errorEl.textContent = err instanceof Error ? err.message : "Could not join the list. Please try again.";
           errorEl.hidden = false;
           submitBtn.disabled = false;
           btnText.hidden = false;
