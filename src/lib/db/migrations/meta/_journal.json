@@ -680,6 +680,13 @@
       "when": 1784126088733,
       "tag": "0096_backfill_season_day_of_week",
       "breakpoints": true
+    },
+    {
+      "idx": 97,
+      "version": "7",
+      "when": 1784386474765,
+      "tag": "0097_boring_black_bolt",
+      "breakpoints": true
     }
   ]
 }
