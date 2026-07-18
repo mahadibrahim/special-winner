@@ -104,13 +104,14 @@ export async function syncRentalBlock(rentalId: string): Promise<void> {
       endsAt: fieldRentals.endsAt,
       status: fieldRentals.status,
       paymentExpiresAt: fieldRentals.paymentExpiresAt,
+      requestExpiresAt: fieldRentals.requestExpiresAt,
       renterName: fieldRentals.renterName,
     })
     .from(fieldRentals)
     .where(eq(fieldRentals.id, rentalId))
     .limit(1);
 
-  if (!r || !["pending_payment", "confirmed"].includes(r.status)) {
+  if (!r || !["pending_payment", "confirmed", "requested"].includes(r.status)) {
     await removeSourceBlock("rental", rentalId);
     return;
   }
@@ -128,7 +129,12 @@ export async function syncRentalBlock(rentalId: string): Promise<void> {
     startsAt: r.startsAt,
     endsAt: r.endsAt,
     label: `Rental — ${r.renterName}`,
-    expiresAt: r.status === "pending_payment" ? r.paymentExpiresAt : null,
+    expiresAt:
+      r.status === "pending_payment"
+        ? r.paymentExpiresAt
+        : r.status === "requested"
+          ? r.requestExpiresAt
+          : null,
   });
 }
 
