@@ -26,10 +26,8 @@ import {
   dispatchRentalRequestReceived,
   dispatchNewRentalRequestToAdmin,
 } from "@/lib/rentals/messages/dispatch";
-import { getActiveMembershipForOrg } from "@/lib/memberships/get-active-membership";
-import { applyMemberRentalDiscount } from "@/lib/memberships/discount";
 import {
-  resolveBookingWindowDays,
+  DEFAULT_BOOKING_WINDOW_DAYS,
   bookingWindowEndUtc,
 } from "@/lib/memberships/booking-window";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
@@ -107,16 +105,6 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const orgId = locals.organization?.id;
   if (!orgId) return json({ error: "No organization context" }, 400);
 
-  // Membership is looked up once and feeds BOTH the advance-booking window
-  // and the rental discount below. A lookup failure falls back to no
-  // membership: base price, default window.
-  let membership: Awaited<ReturnType<typeof getActiveMembershipForOrg>> = null;
-  try {
-    membership = await getActiveMembershipForOrg(locals.user.id, orgId);
-  } catch (err) {
-    console.error("[rentals] membership lookup failed (continuing without membership)", err);
-  }
-
   const orgTimeZone = locals.organization?.timezone ?? "America/New_York";
 
   let [rateCard] = await db
@@ -137,8 +125,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
   }
 
   // Advance-booking window: online booking opens DEFAULT_BOOKING_WINDOW_DAYS
-  // ahead; membership benefits (booking_window_days) can extend it (Founder
-  // = 14). Beyond the window is a contact-the-venue conversation — venue
+  // ahead. Beyond the window is a contact-the-venue conversation — venue
   // staff create those through the admin path, which is not window-limited.
   //
   // Skipped under E2E_TEST_ENDPOINTS (CI/test dev servers only — same flag
@@ -149,7 +136,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     if (endsAt.getTime() <= Date.now()) {
       return json({ error: "That time has already passed" }, 422);
     }
-    const windowDays = resolveBookingWindowDays(membership?.tier.benefits ?? null);
+    const windowDays = DEFAULT_BOOKING_WINDOW_DAYS;
     if (startsAt >= bookingWindowEndUtc(new Date(), windowDays, orgTimeZone)) {
       return json(
         {
@@ -197,18 +184,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
           ),
         );
 
-  // Member rental discount — reuses the membership fetched above for the
-  // booking-window check. For Aspire (no tiers seeded), the lookup returned
-  // null and amountDueCents is byte-identical to baseAmountDueCents.
-  // The discount is baked into amountDueCents, which is stored on the row
-  // and read back by the pay endpoint — Stripe metadata now lives there.
-  let amountDueCents = baseAmountDueCents;
-  if (membership) {
-    amountDueCents = applyMemberRentalDiscount(
-      baseAmountDueCents,
-      membership.tier.benefits,
-    );
-  }
+  // Rentals are flat-priced — no member discount (removed 2026-07). Members
+  // get no rental discount; the membership system is unaffected elsewhere.
+  const amountDueCents = baseAmountDueCents;
 
   const bookingBrand = brandFromHost(request.headers.get("host") ?? "");
 

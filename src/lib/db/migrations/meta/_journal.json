@@ -694,6 +694,13 @@
       "when": 1784387035908,
       "tag": "0098_stiff_hellfire_club",
       "breakpoints": true
+    },
+    {
+      "idx": 99,
+      "version": "7",
+      "when": 1784403586948,
+      "tag": "0099_adorable_tinkerer",
+      "breakpoints": true
     }
   ]
 }

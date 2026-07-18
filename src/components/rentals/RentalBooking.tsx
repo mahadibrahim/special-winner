@@ -333,6 +333,10 @@ export default function RentalBooking({ venues, bookingWindowDays = 7 }: Props) 
                 />
                 <span className="text-sm text-stone-700">I accept</span>
               </label>
+              <p className="text-xs text-stone-500">
+                Every player must have a signed waiver on file to play. You&apos;ll
+                confirm your roster and waivers once your request is approved.
+              </p>
             </div>
 
             {endTime && (

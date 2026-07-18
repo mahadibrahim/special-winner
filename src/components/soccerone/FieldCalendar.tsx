@@ -9,6 +9,7 @@ import { quoteRentalCents } from "@/lib/rentals/soccerone-pricing";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import { SOCCERONE_CONTACT_EMAIL } from "@/lib/soccerone/contact";
 import { zonedHourToUtc } from "@/lib/activity-tracking/tz-day";
+import { fieldInfoForName } from "@/lib/soccerone/field-info";
 
 // --- Live availability types ---
 
@@ -157,11 +158,6 @@ export interface FieldCalendarProps {
   /** Initial date (YYYY-MM-DD). Defaults to today. */
   initialDate?: string;
   /**
-   * Member discount percentage (0–100). Pass from the server based on signed-in
-   * user's membership status. Defaults to 0 (no discount shown).
-   */
-  memberDiscountPct?: number;
-  /**
    * IANA timezone for the org/facility (e.g. "America/New_York"). Used to
    * resolve the correct pricing tier from wall-clock hour. Defaults to
    * "America/New_York" (SoccerOne's venue timezone).
@@ -184,7 +180,6 @@ export interface FieldCalendarProps {
 export function FieldCalendar({
   venues,
   initialDate,
-  memberDiscountPct = 0,
   timeZone = "America/New_York",
   bookingWindowDays = 7,
   minLeadTimeHours = 48,
@@ -294,11 +289,6 @@ export function FieldCalendar({
   // Same engine as the server, so the display matches the charged amount.
   const standardCents = startsAt && endsAt ? quoteRentalCents(startsAt, endsAt, timeZone) : null;
 
-  const memberCents =
-    standardCents !== null && memberDiscountPct > 0
-      ? Math.round(standardCents * (1 - memberDiscountPct / 100))
-      : null;
-
   const handleSlotClick = (h: number) => {
     if (
       !isHourBookable(currentField, date, h, timeZone) ||
@@ -372,6 +362,17 @@ export function FieldCalendar({
       ? (venues.find((v) => v.id === venueId)?.name ?? "Field")
       : `Field ${selectedField}`;
 
+  // Venue name backing the currently-selected bookable unit, for the
+  // per-field info card. Venues are modeled one-per-physical-field, so in
+  // both selector modes the current selection maps to a single venue name
+  // (or null if there isn't one to show, e.g. no venues at this facility).
+  const selectedVenueName =
+    venues.length > 1
+      ? (venues.find((v) => v.id === venueId)?.name ?? null)
+      : (venues[0]?.name ?? null);
+
+  const selectedFieldInfo = selectedVenueName ? fieldInfoForName(selectedVenueName) : null;
+
   return (
     <div className="field-calendar-root">
       {/* Filter bar */}
@@ -401,7 +402,7 @@ export function FieldCalendar({
               onChange={(e) => { setSelectedField(Number(e.target.value)); setSelectedSlot(null); }}
             >
               {fieldNumbers.map((n) => (
-                <option key={n} value={n}>Field {n}</option>
+                <option key={n} value={n}>{venues[0]?.name ?? `Field ${n}`}</option>
               ))}
             </select>
           )}
@@ -419,8 +420,8 @@ export function FieldCalendar({
             onChange={(e) => { setDate(e.target.value); setSelectedSlot(null); }}
           />
           <span className="filter-hint">
-            Online booking opens {bookingWindowDays} days ahead — email{" "}
-            <a href={`mailto:${SOCCERONE_CONTACT_EMAIL}`}>{SOCCERONE_CONTACT_EMAIL}</a> for later dates.
+            Requests open up to {bookingWindowDays} days ahead and must be at least 48 hours out — email{" "}
+            <a href={`mailto:${SOCCERONE_CONTACT_EMAIL}`}>{SOCCERONE_CONTACT_EMAIL}</a> for other dates.
           </span>
         </div>
 
@@ -437,16 +438,28 @@ export function FieldCalendar({
             ))}
           </select>
         </div>
-
-        {/* Member savings note — contextual per discount status */}
-        <div className="member-toggle-group">
-          {memberDiscountPct > 0 ? (
-            <span className="member-note">Member discount ({memberDiscountPct}%) applied at checkout</span>
-          ) : (
-            <span className="member-note">Members save up to 25% — sign in</span>
-          )}
-        </div>
       </div>
+
+      {selectedFieldInfo && (
+        <div className="field-info-card">
+          <div className="field-info-item">
+            <span className="field-info-label">Dimensions</span>
+            <span className="field-info-value">{selectedFieldInfo.dimensions}</span>
+          </div>
+          <div className="field-info-item">
+            <span className="field-info-label">Surface</span>
+            <span className="field-info-value">{selectedFieldInfo.surface}</span>
+          </div>
+          <div className="field-info-item">
+            <span className="field-info-label">Format</span>
+            <span className="field-info-value">{selectedFieldInfo.format}</span>
+          </div>
+          <div className="field-info-item">
+            <span className="field-info-label">Location</span>
+            <span className="field-info-value">{selectedFieldInfo.location}</span>
+          </div>
+        </div>
+      )}
 
       <div className="calendar-layout">
         {/* Calendar grid */}
@@ -591,22 +604,6 @@ export function FieldCalendar({
                     <span className="total-amount">${(standardCents / 100).toFixed(0)}</span>
                   </div>
                 )}
-                {memberCents !== null ? (
-                  <p className="member-price-line">
-                    Members: ${(memberCents / 100).toFixed(0)}{" "}
-                    <span className="member-savings-badge">−{memberDiscountPct}%</span>
-                  </p>
-                ) : (
-                  <p className="member-nudge">
-                    Members save up to 25% —{" "}
-                    <a
-                      className="nudge-link"
-                      href={`/signin?redirect=${encodeURIComponent(typeof window !== "undefined" ? window.location.pathname : "/rent")}`}
-                    >
-                      sign in
-                    </a>
-                  </p>
-                )}
               </div>
 
               {requestSubmitted ? (
@@ -646,6 +643,10 @@ export function FieldCalendar({
                       onChange={(e) => setWaiverName(e.target.value)}
                       aria-label="Full name (typed signature)"
                     />
+                    <p className="waiver-requirement-note">
+                      Every player must have a signed waiver on file to play. You&apos;ll
+                      confirm your roster and waivers after your request is approved.
+                    </p>
                   </div>
 
                   <p className="panel-note">Final price confirmed once approved · your slot is held while we review</p>
@@ -686,9 +687,6 @@ export function FieldCalendar({
               <p className="panel-empty-text">Select an available time slot on the calendar to request {selectedUnitLabel}.</p>
               <p className="panel-empty-rate">
                 Tiered rates — peak evenings from <strong>$190</strong>
-                {memberDiscountPct > 0
-                  ? ` · member rate (${memberDiscountPct}% off) applied at checkout`
-                  : " · members save up to 25%"}
               </p>
             </div>
           )}
@@ -755,15 +753,32 @@ export function FieldCalendar({
           background: var(--so-navy);
           color: white;
         }
-        .member-toggle-group {
+        .field-info-card {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 1.5rem;
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: var(--so-radius-md);
+          padding: 0.875rem 1.5rem;
+          margin-bottom: 1.5rem;
+        }
+        .field-info-item {
           display: flex;
           flex-direction: column;
-          gap: 0.25rem;
-          padding-bottom: 2px;
+          gap: 0.1875rem;
         }
-        .member-note {
-          font-size: 0.8125rem;
-          color: rgba(250,204,21,0.65);
+        .field-info-label {
+          font-family: var(--so-font-mono);
+          font-size: 0.6875rem;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: rgba(255,255,255,0.45);
+        }
+        .field-info-value {
+          font-size: 0.875rem;
+          font-weight: 600;
+          color: rgba(255,255,255,0.9);
         }
         .calendar-layout {
           display: grid;
@@ -1010,36 +1025,6 @@ export function FieldCalendar({
           color: #facc15;
           letter-spacing: -0.03em;
         }
-        .member-price-line {
-          font-size: 0.8125rem;
-          color: rgba(74,222,128,0.85);
-          margin: 0;
-          text-align: right;
-          display: flex;
-          align-items: center;
-          justify-content: flex-end;
-          gap: 0.375rem;
-        }
-        .member-savings-badge {
-          font-size: 0.6875rem;
-          font-weight: 700;
-          background: rgba(74,222,128,0.15);
-          color: #86efac;
-          padding: 2px 7px;
-          border-radius: var(--so-radius-pill);
-          letter-spacing: 0.04em;
-        }
-        .member-nudge {
-          font-size: 0.8125rem;
-          color: rgba(250,204,21,0.65);
-          margin: 0;
-          text-align: right;
-        }
-        .nudge-link {
-          color: #facc15;
-          font-weight: 600;
-          text-decoration: underline;
-        }
         .panel-addons {
           display: flex;
           flex-direction: column;
@@ -1123,6 +1108,12 @@ export function FieldCalendar({
           width: 100%;
           margin-top: 0.625rem;
           box-sizing: border-box;
+        }
+        .waiver-requirement-note {
+          font-size: 0.8125rem;
+          color: rgba(255,255,255,0.55);
+          line-height: 1.5;
+          margin: 0.625rem 0 0;
         }
         .panel-error {
           font-size: 0.8125rem;

@@ -91,6 +91,9 @@ export * from "./hosts";
 // Field rentals (book a field/venue time-block + payment)
 export * from "./field-rentals";
 
+// Futsal "Coming September" interest capture (rent.astro)
+export * from "./futsal-interest";
+
 // Memberships (SoccerOne subscription tiers + per-user memberships)
 export * from "./memberships";
 

@@ -6,13 +6,11 @@ import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
 import { FieldCalendar } from '@/components/soccerone/FieldCalendar';
 import { getRentalVenuesByLocation } from '@/lib/soccerone/venues';
 import { RENTAL_RATE_SCHEDULE } from '@/lib/rentals/soccerone-pricing';
-import { getActiveMembershipForOrg } from '@/lib/memberships/get-active-membership';
-import { DEFAULT_BOOKING_WINDOW_DAYS, resolveBookingWindowDays } from '@/lib/memberships/booking-window';
+import { DEFAULT_BOOKING_WINDOW_DAYS } from '@/lib/memberships/booking-window';
 import { breadcrumbJsonLd } from '@/lib/seo/breadcrumbs';
 
 const facility = Astro.url.searchParams.get('facility') || 'worthington';
 const facilityLabel = facility === 'downtown' ? 'Downtown' : 'Worthington';
-const fieldCount = facility === 'downtown' ? '1 field' : '2 fields';
 
 // Brands share one org — the facility param maps straight onto the org's
 // location slugs ('downtown' / 'worthington').
@@ -25,19 +23,9 @@ const venueList = organizationId
 // Venues are modeled one-per-physical-field; the calendar's Field selector
 // switches between them.
 const calendarVenues = venueList.map((v) => ({ id: v.id, name: v.name }));
+const fieldCount = `${venueList.length} field${venueList.length === 1 ? '' : 's'}`;
 
-let memberDiscountPct = 0;
-let bookingWindowDays = DEFAULT_BOOKING_WINDOW_DAYS;
-if (Astro.locals.user && organizationId) {
-  try {
-    const m = await getActiveMembershipForOrg(Astro.locals.user.id, organizationId);
-    memberDiscountPct = (m?.tier?.benefits?.rental_discount_pct as number | undefined) ?? 0;
-    bookingWindowDays = resolveBookingWindowDays(m?.tier?.benefits ?? null);
-  } catch {
-    memberDiscountPct = 0;
-    bookingWindowDays = DEFAULT_BOOKING_WINDOW_DAYS;
-  }
-}
+const bookingWindowDays = DEFAULT_BOOKING_WINDOW_DAYS;
 
 const orgTimeZone = Astro.locals.organization?.timezone ?? "America/New_York";
 
@@ -57,7 +45,7 @@ const breadcrumbSchema = breadcrumbJsonLd([
 <BaseLayout
   favicon="/soccerone-favicon.svg"
   title={`Field Rentals — SoccerOne | ${facilityLabel}`}
-  description="Request an indoor soccer field at SoccerOne. Worthington (2 fields) and Downtown (1 field). Seasonal tiered rates, members save 10–25%. Open 4pm–12am daily."
+  description="Request an indoor soccer field at SoccerOne. Worthington (2 fields, futsal courts opening September) and Downtown (1 field). Seasonal tiered rates. Open 4pm–12am daily."
   navigation={false}
   footer={false}
   bodyClass="min-h-screen flex flex-col bg-[#0a0a0d] text-white antialiased"
@@ -89,7 +77,7 @@ const breadcrumbSchema = breadcrumbJsonLd([
           <div class="rh-text">
             <h1 class="rh-title">REQUEST A<br />FIELD</h1>
             <p class="rh-desc">
-              Request any of our 4 indoor fields. We review each request and email you a secure link to pay — slots are held while we confirm. Requests open 48 hours ahead; call us for anything sooner.
+              Request a field at {facilityLabel}. We review each request and email you a secure link to pay — the slot is held while we confirm. Requests must be at least 48 hours out and up to {bookingWindowDays} days ahead — call or email us for anything sooner or further.
             </p>
           </div>
 
@@ -119,7 +107,6 @@ const breadcrumbSchema = breadcrumbJsonLd([
                 </tr>
               </tbody>
             </table>
-            <p class="rt-member-note">Members save 10% · founding members save 25%.</p>
           </div>
         </div>
 
@@ -165,7 +152,6 @@ const breadcrumbSchema = breadcrumbJsonLd([
       <div class="cal-inner">
         <div class="cal-header">
           <div class="cal-header-left">
-            <span class="section-num-sm">01.</span>
             <h2 class="cal-title">Select a Time Slot</h2>
           </div>
         </div>
@@ -176,7 +162,7 @@ const breadcrumbSchema = breadcrumbJsonLd([
           <span>Field rental availability is very limited on weekends between November and March, and on weekdays after 6 PM.</span>
         </div>
 
-        <FieldCalendar client:load venues={calendarVenues} memberDiscountPct={memberDiscountPct} timeZone={orgTimeZone} bookingWindowDays={bookingWindowDays} />
+        <FieldCalendar client:load venues={calendarVenues} timeZone={orgTimeZone} bookingWindowDays={bookingWindowDays} />
 
         <!-- Cancellation policy -->
         <p class="cancel-policy">Cancel 14+ days out for a full refund. Within 14 days, bookings are final.</p>
@@ -187,7 +173,6 @@ const breadcrumbSchema = breadcrumbJsonLd([
     <div class="includes-section">
       <div class="includes-inner">
         <div class="inc-header">
-          <span class="section-num-sm">02.</span>
           <h2 class="inc-title">Every rental includes</h2>
         </div>
         <div class="includes-grid">
@@ -264,15 +249,41 @@ const breadcrumbSchema = breadcrumbJsonLd([
       </div>
     </div>
 
-    <!-- Memberships CTA -->
-    <div class="rent-mem-cta">
-      <div class="rmc-inner">
-        <div class="rmc-text">
-          <span class="rmc-eyebrow">SAVE EVERY VISIT</span>
-          <h2 class="rmc-title">Member and Founder rates apply automatically.</h2>
-          <p class="rmc-sub">One membership. Both facilities. Members save 10% on every rental — founding members save 25%. Pays for itself in two bookings.</p>
+    <!-- Futsal — Coming September -->
+    <div class="fut-section">
+      <div class="fut-inner">
+        <div class="fut-copy">
+          <h2 class="fut-title">Futsal — Coming September</h2>
+          <p class="fut-desc">Indoor futsal courts open this September at Worthington. Join the list — we'll email you the moment booking opens.</p>
         </div>
-        <a href="/memberships" class="rmc-btn">View Membership Plans →</a>
+
+        <form id="fut-form" class="fut-form" novalidate>
+          <label class="fut-field">
+            <span class="fut-label">Email</span>
+            <input
+              type="email"
+              id="fut-email"
+              name="email"
+              required
+              maxlength="320"
+              placeholder="you@example.com"
+              class="fut-input"
+              autocomplete="email"
+            />
+          </label>
+          <button type="submit" id="fut-submit" class="fut-btn">
+            <span class="fut-btn-text">Notify me →</span>
+            <span class="fut-btn-spinner" hidden aria-hidden="true">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" class="pf-spin"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="2" stroke-dasharray="28" stroke-dashoffset="10" stroke-linecap="round"/></svg>
+            </span>
+          </button>
+          <div id="fut-error" class="fut-error" hidden></div>
+        </form>
+
+        <div id="fut-success" class="fut-success" hidden>
+          <span class="fut-success-icon" aria-hidden="true">✓</span>
+          <span>You're on the list — we'll email you when booking opens.</span>
+        </div>
       </div>
     </div>
 
@@ -284,7 +295,6 @@ const breadcrumbSchema = breadcrumbJsonLd([
           <!-- Left: copy -->
           <div class="pkg-copy">
             <div class="pkg-header">
-              <span class="section-num-sm">03.</span>
               <h2 class="pkg-title">Need a package?</h2>
             </div>
             <p class="pkg-desc">Booking 10+ hours, a recurring slot, or a tournament block? Tell us what you need and we'll build a custom package.</p>
@@ -488,13 +498,6 @@ const breadcrumbSchema = breadcrumbJsonLd([
     }
     tbody tr:last-child .rt-season,
     tbody tr:last-child .rt-rate { border-bottom: none; }
-    .rt-member-note {
-      font-family: var(--so-font-mono);
-      font-size: 0.5625rem;
-      letter-spacing: 0.08em;
-      color: #86efac;
-      margin-top: 0.5rem;
-    }
 
     /* Availability disclaimer */
     .avail-disclaimer {
@@ -548,7 +551,6 @@ const breadcrumbSchema = breadcrumbJsonLd([
     .cal-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
     .cal-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
     .cal-header-left { display: flex; align-items: baseline; gap: 1rem; }
-    .section-num-sm { font-family: var(--so-font-display); font-size: 2.5rem; color: var(--so-lime-a15); line-height: 1; }
     .cal-title { font-family: var(--so-font-display); font-size: clamp(1.75rem, 3vw, 2.5rem); color: #ffffff; letter-spacing: 0.01em; line-height: 1; }
     .cal-legend { display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; }
     .cl-item { display: flex; align-items: center; gap: 0.375rem; font-size: 0.75rem; color: rgba(255,255,255,0.4); }
@@ -578,14 +580,103 @@ const breadcrumbSchema = breadcrumbJsonLd([
     .addon-name { font-size: 0.9375rem; color: rgba(255,255,255,0.6); }
     .addon-price { font-family: var(--so-font-mono); font-size: 0.875rem; color: var(--so-lime-a70); }
 
-    /* Memberships CTA */
-    .rent-mem-cta { background: var(--bg); border-top: 1px solid var(--border); padding: 3.5rem 0; }
-    .rmc-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; gap: 2rem; flex-wrap: wrap; }
-    .rmc-eyebrow { display: block; font-family: var(--so-font-mono); font-size: 0.5625rem; font-weight: 600; letter-spacing: 0.14em; color: var(--so-lime-a60); margin-bottom: 0.5rem; }
-    .rmc-title { font-family: var(--so-font-display); font-size: clamp(1.25rem, 3vw, 2rem); color: #ffffff; letter-spacing: 0.01em; margin-bottom: 0.5rem; }
-    .rmc-sub { font-size: 0.9375rem; color: var(--muted); max-width: 480px; line-height: 1.55; }
-    .rmc-btn { display: inline-block; background: var(--so-lime); color: var(--so-ink); font-family: var(--so-font-body); font-size: 0.9375rem; font-weight: 700; letter-spacing: 0.04em; text-decoration: none; padding: 0.875rem 1.75rem; border-radius: var(--so-radius-sm); transition: background 0.15s; flex-shrink: 0; white-space: nowrap; }
-    .rmc-btn:hover { background: var(--so-lime-bright); }
+    /* Futsal — Coming September */
+    .fut-section {
+      background: var(--so-lime-a05);
+      border-top: 1px solid var(--so-lime-a10);
+      border-bottom: 1px solid var(--so-lime-a10);
+      padding: 3rem 0;
+    }
+    .fut-inner {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 0 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 2rem;
+      flex-wrap: wrap;
+    }
+    .fut-copy { max-width: 560px; }
+    .fut-title {
+      font-family: var(--so-font-display);
+      font-size: clamp(1.5rem, 2.5vw, 2rem);
+      color: #ffffff;
+      letter-spacing: 0.01em;
+      line-height: 1.05;
+      margin-bottom: 0.5rem;
+    }
+    .fut-desc { font-size: 0.9375rem; color: var(--muted); line-height: 1.55; }
+
+    .fut-form {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      flex-shrink: 0;
+    }
+    .fut-field { display: flex; flex-direction: column; gap: 0.25rem; }
+    .fut-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    .fut-input {
+      width: 260px;
+      max-width: 100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: var(--so-radius-sm);
+      color: #ffffff;
+      font-family: var(--so-font-body);
+      font-size: 0.9375rem;
+      padding: 0.75rem 1rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .fut-input::placeholder { color: rgba(255,255,255,0.25); }
+    .fut-input:focus { border-color: var(--so-lime-a50); }
+
+    .fut-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--so-lime);
+      color: var(--so-ink);
+      font-family: var(--so-font-body);
+      font-size: 0.9375rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      border: none;
+      cursor: pointer;
+      padding: 0.75rem 1.5rem;
+      border-radius: var(--so-radius-sm);
+      transition: background 0.15s, opacity 0.15s;
+      white-space: nowrap;
+    }
+    .fut-btn:hover:not(:disabled) { background: var(--so-lime-bright); }
+    .fut-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .fut-error {
+      flex-basis: 100%;
+      font-size: 0.8125rem;
+      color: #f87171;
+      background: rgba(248,113,113,0.08);
+      border: 1px solid rgba(248,113,113,0.2);
+      border-radius: var(--so-radius-sm);
+      padding: 0.5rem 0.75rem;
+    }
+
+    .fut-success {
+      display: flex;
+      align-items: center;
+      gap: 0.625rem;
+      font-size: 0.9375rem;
+      color: rgba(255,255,255,0.85);
+    }
+    .fut-success-icon { color: var(--so-lime); font-weight: 700; }
+
+    @media (max-width: 640px) {
+      .fut-inner { flex-direction: column; align-items: flex-start; }
+      .fut-form { width: 100%; }
+      .fut-input { width: 100%; flex: 1 1 auto; }
+    }
 
     /* Package request */
     .pkg-section {
@@ -742,7 +833,6 @@ const breadcrumbSchema = breadcrumbJsonLd([
     @media (max-width: 768px) {
       .rh-top { flex-direction: column; align-items: flex-start; }
       .includes-grid { grid-template-columns: 1fr; }
-      .rmc-inner { flex-direction: column; align-items: flex-start; }
       .fcb-inner { flex-direction: column; align-items: flex-start; }
       .rates-table-wrap { max-width: 100%; overflow-x: auto; }
       .rates-table { font-size: 0.75rem; }
@@ -821,6 +911,61 @@ const breadcrumbSchema = breadcrumbJsonLd([
           successEl.hidden = false;
         } catch (err) {
           errorEl.textContent = err instanceof Error ? err.message : "Could not submit request. Please try again.";
+          errorEl.hidden = false;
+          submitBtn.disabled = false;
+          btnText.hidden = false;
+          btnSpinner.hidden = true;
+        }
+      });
+    })();
+  </script>
+
+  <script>
+    // Futsal "Coming September" interest capture — plain JS, no framework dependency.
+    (() => {
+      const form = document.getElementById("fut-form") as HTMLFormElement | null;
+      const successEl = document.getElementById("fut-success") as HTMLElement | null;
+      const errorEl = document.getElementById("fut-error") as HTMLElement | null;
+      const submitBtn = document.getElementById("fut-submit") as HTMLButtonElement | null;
+      const emailInput = document.getElementById("fut-email") as HTMLInputElement | null;
+      if (!form || !successEl || !errorEl || !submitBtn || !emailInput) return;
+
+      const btnText = submitBtn.querySelector(".fut-btn-text") as HTMLElement;
+      const btnSpinner = submitBtn.querySelector(".fut-btn-spinner") as HTMLElement;
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const email = emailInput.value.trim();
+        errorEl.hidden = true;
+
+        if (!email) {
+          errorEl.textContent = "Please enter your email.";
+          errorEl.hidden = false;
+          return;
+        }
+
+        submitBtn.disabled = true;
+        btnText.hidden = true;
+        btnSpinner.hidden = false;
+
+        try {
+          const res = await fetch("/api/soccerone/futsal-interest", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email }),
+          });
+
+          if (!res.ok) {
+            const json = await res.json().catch(() => ({})) as { error?: string };
+            throw new Error(json.error ?? "Could not join the list. Please try again.");
+          }
+
+          // Show confirmation, hide form
+          form.hidden = true;
+          successEl.hidden = false;
+        } catch (err) {
+          errorEl.textContent = err instanceof Error ? err.message : "Could not join the list. Please try again.";
           errorEl.hidden = false;
           submitBtn.disabled = false;
           btnText.hidden = false;
