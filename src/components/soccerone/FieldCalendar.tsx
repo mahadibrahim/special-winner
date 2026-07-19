@@ -7,7 +7,6 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { quoteRentalCents } from "@/lib/rentals/soccerone-pricing";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
-import { SOCCERONE_CONTACT_EMAIL, SOCCERONE_CONTACT_PHONE, SOCCERONE_CONTACT_PHONE_TEL } from "@/lib/soccerone/contact";
 import { zonedHourToUtc } from "@/lib/activity-tracking/tz-day";
 import { fieldInfoForName, fieldColorForName } from "@/lib/soccerone/field-info";
 
@@ -491,13 +490,6 @@ export function FieldCalendar({
             max={maxDate}
             onChange={(e) => { setDate(e.target.value); setSelectedSlot(null); }}
           />
-          <span className="filter-hint">
-            Requests open up to {bookingWindowDays} days ahead and must be at least 48 hours out — email{" "}
-            <a href={`mailto:${SOCCERONE_CONTACT_EMAIL}`}>{SOCCERONE_CONTACT_EMAIL}</a> for other dates.
-            Call or text{" "}
-            <a href={`tel:${SOCCERONE_CONTACT_PHONE_TEL}`}>{SOCCERONE_CONTACT_PHONE}</a> to book sooner or a
-            date further out.
-          </span>
         </div>
 
         <div className="filter-group">
@@ -839,16 +831,6 @@ export function FieldCalendar({
           letter-spacing: 0.08em;
           text-transform: uppercase;
           color: rgba(250,204,21,0.8);
-        }
-        .filter-hint {
-          font-size: 0.75rem;
-          color: rgba(255,255,255,0.45);
-          line-height: 1.4;
-          max-width: 300px;
-        }
-        .filter-hint a {
-          color: rgba(250,204,21,0.8);
-          text-decoration: underline;
         }
         .filter-select, .filter-input {
           background: var(--so-navy);
