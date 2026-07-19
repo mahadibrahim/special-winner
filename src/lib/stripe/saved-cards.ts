@@ -40,6 +40,11 @@ export async function createDepositIntentWithSavedCard(params: {
     amount: params.amountCents,
     currency: "usd",
     customer: customerId,
+    // Cards only, deliberately — no automatic payment methods for THIS
+    // intent. The saved instrument must be off-session-chargeable for the
+    // post-deadline backstop, which Klarna/Cash App/Amazon Pay/ACH are not
+    // (or not reliably). Regular registration payments are unaffected.
+    payment_method_types: ["card"],
     setup_future_usage: "off_session",
     metadata: params.metadata,
   });
