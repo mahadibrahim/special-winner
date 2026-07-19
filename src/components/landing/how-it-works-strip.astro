@@ -1,0 +1,39 @@
+---
+// src/components/landing/how-it-works-strip.astro
+// Three-step "how it works" strip for category landing pages. Fully static —
+// heading and step copy come in via props so /adult/leagues and /youth/leagues
+// each author their own sequence. Numbered markers are intentional here: the
+// steps are a real sequence, not decorative eyebrows.
+//
+// Aspire-brand pages only — do not import into SoccerOne-brand pages (cream
+// tokens invert under the SoccerOne theme).
+
+interface Step {
+  title: string
+  body: string
+}
+
+interface Props {
+  heading: string
+  steps: Step[]
+}
+
+const { heading, steps } = Astro.props
+---
+
+<section class="py-12 lg:py-16">
+  <div class="max-w-[1080px] mx-auto px-6 sm:px-9">
+    <h2 class="font-display text-2xl lg:text-3xl text-ink">{heading}</h2>
+    <div class="mt-8 grid sm:grid-cols-3 gap-8">
+      {steps.map((step, i) => (
+        <div class="border-t-2 border-ink pt-4">
+          <div class="font-mono text-xs text-ink-muted tracking-widest">
+            {String(i + 1).padStart(2, "0")}
+          </div>
+          <h3 class="font-display text-xl text-ink mt-2">{step.title}</h3>
+          <p class="text-sm text-ink-muted mt-2 leading-relaxed">{step.body}</p>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
