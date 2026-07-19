@@ -12,6 +12,7 @@ import {
 import { SeasonsFinderSection } from "./seasons-finder-section"
 import { FilterChips, type ChipOption } from "./filter-chips"
 import type { ApiSeason } from "@/lib/programs/api-season"
+import { fetchPublicCatalogSeasons } from "@/lib/programs/public-seasons-client"
 
 /**
  * The island behind an audience-scoped category page (/adult/leagues,
@@ -58,11 +59,12 @@ export default function CategoryFinder({
     // the advertisable ones — open (register) and forming (interest list) —
     // mirroring programs-catalog.tsx, so category finders show the same
     // inventory as the catalog. Forming cards render their interest form.
-    fetch("/api/public/seasons")
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error())))
-      .then((j: { seasons: ApiSeason[] }) => {
+    // The fetch is memoized module-wide so the facts band / calendar band on
+    // the same page share this one request.
+    fetchPublicCatalogSeasons()
+      .then((all) => {
         if (!cancelled)
-          setSeasons(j.seasons.filter((s) => s.status === "open" || s.status === "forming"))
+          setSeasons(all.filter((s) => s.status === "open" || s.status === "forming"))
       })
       .catch(() => {
         // Silent — the section renders its own empty state.

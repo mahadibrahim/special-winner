@@ -27,6 +27,9 @@ export interface ApiSeason extends SeasonForDerive {
   status?: string
   signupMode?: "interest" | "register"
   registrationCloses?: string | null
+  /** Term grouping ("Fall 2026" / "fall-2026") — set on league seasons. */
+  termSlug?: string | null
+  termLabel?: string | null
   program: {
     id: string
     name: string
