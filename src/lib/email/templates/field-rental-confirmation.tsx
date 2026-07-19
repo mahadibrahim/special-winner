@@ -1,5 +1,6 @@
 import { Hr } from "@react-email/components";
 import {
+  Button,
   Content,
   Detail,
   DetailPanel,
@@ -24,6 +25,11 @@ interface FieldRentalConfirmationEmailProps {
    * don't print "$0.00 paid".
    */
   amountLabel: string | null;
+  /**
+   * Manage-booking link — dashboard for a signed-in renter, claim link for a
+   * guest. Rendered as a button when present.
+   */
+  manageUrl?: string | null;
   brand?: BrandId;
 }
 
@@ -38,6 +44,7 @@ export function FieldRentalConfirmationEmail({
   venueName,
   whenLabel,
   amountLabel,
+  manageUrl,
   brand,
 }: FieldRentalConfirmationEmailProps) {
   const t = emailThemeFor(brand);
@@ -69,6 +76,11 @@ export function FieldRentalConfirmationEmail({
           Arrive a few minutes early so the front desk can check you in — bring
           a photo ID that matches the name on your booking.
         </P>
+
+        {manageUrl ? (
+          <Button href={manageUrl}>Manage your booking</Button>
+        ) : null}
+
         <PMuted>
           Need to change or cancel? Reply to this email or call the facility and
           we'll sort it out.

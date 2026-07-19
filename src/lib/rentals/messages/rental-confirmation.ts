@@ -22,6 +22,11 @@ export interface RentalConfirmationContext {
   endsAt: Date;
   timezone: string | null;
   amountPaidCents: number;
+  /**
+   * Manage-booking link — dashboard for a signed-in renter, claim link for a
+   * guest (no `renterUserId` yet). Null if it couldn't be resolved.
+   */
+  manageUrl?: string | null;
   brand?: BrandId;
 }
 
@@ -49,6 +54,7 @@ export async function renderRentalConfirmation(
       venueName: ctx.venueName,
       whenLabel,
       amountLabel,
+      manageUrl: ctx.manageUrl ?? null,
       brand,
     }),
   );
