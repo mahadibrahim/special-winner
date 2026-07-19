@@ -7,7 +7,7 @@
 import { describe, it, expect } from "vitest";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { fieldRentals } from "@/lib/db/schema/field-rentals";
+import { fieldRentals, fieldRentalPlayers } from "@/lib/db/schema/field-rentals";
 import { users } from "@/lib/db/schema/users";
 import { hashPassword } from "@/lib/auth";
 import { mintRentalClaimToken } from "@/lib/rentals/claim";
@@ -92,6 +92,20 @@ describe("POST /api/rentals/claim/:token", () => {
 
     // A session cookie should have been minted.
     expect(res.headers.get("set-cookie")).toBeTruthy();
+
+    // The requester should now be on the roster as signed player #1 — a
+    // guest rental has a null renterUserId at approval (so the admin
+    // approve-hook skips them); claiming is what converges the roster.
+    const players = await getDb()
+      .select({
+        playerName: fieldRentalPlayers.playerName,
+        status: fieldRentalPlayers.status,
+      })
+      .from(fieldRentalPlayers)
+      .where(eq(fieldRentalPlayers.rentalId, rental.id));
+    expect(players.length).toBe(1);
+    expect(players[0].status).toBe("signed");
+    expect(players[0].playerName).toBe(rental.renterName);
   });
 
   it("a second claim attempt on the now-claimed rental 409s", async () => {

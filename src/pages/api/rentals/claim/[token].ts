@@ -36,6 +36,7 @@ import { verifyToken, consumeToken } from "@/lib/check-in/tokens-db";
 import { hashPassword, verifyPassword, createSession } from "@/lib/auth";
 import { normalizeForUniqueness } from "@/lib/auth/email-normalize";
 import { claimRentalForUser } from "@/lib/rentals/claim";
+import { addRequesterAsSignedPlayer } from "@/lib/rentals/players";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 
 export const prerender = false;
@@ -152,6 +153,18 @@ export const POST: APIRoute = async (ctx) => {
   // read above and now (raced approval emails, double-submit, etc).
   const claimed = await claimRentalForUser(rental.id, userId);
   if (!claimed) return json({ error: "already_claimed" }, 409);
+
+  // Add the requester to the roster as signed player #1. A guest rental's
+  // renterUserId was null at approval, so the admin approve-hook skipped
+  // this — do it now that they've claimed, otherwise the booking is left
+  // with an empty roster (a signed-in booking gets pre-populated at
+  // approval). The rental's renter fields don't change on claim, so this
+  // produces the same row the approve-hook would have. Idempotent, and
+  // .catch-guarded so a roster hiccup doesn't fail the claim (mirrors the
+  // approve path's treatment of the roster/dispatch side-effects).
+  await addRequesterAsSignedPlayer(rental).catch((e) =>
+    console.error("[rentals] claim roster add failed", e),
+  );
 
   // Only after a successful claim: consume the token (one-time use) and
   // start the session.

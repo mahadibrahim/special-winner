@@ -24,6 +24,7 @@ import {
   dispatchRentalRequestApproved,
   dispatchRentalRequestDeclined,
 } from "@/lib/rentals/messages/dispatch";
+import { addRequesterAsSignedPlayer } from "@/lib/rentals/players";
 
 export const prerender = false;
 
@@ -36,31 +37,15 @@ const json = (body: unknown, status: number) =>
 /**
  * Auto-add the requester as player #1 on approve — they accepted the waiver
  * at request time, so record them as already signed (no invite email). Only
- * fires for an online-booked (renterUserId-bearing) rental, and only if no
- * roster row exists yet (guards against a double-click re-running approve,
- * or a resend/webhook race).
+ * fires for an online-booked (renterUserId-bearing) rental; a GUEST rental
+ * has a null renterUserId at approval and instead gets its requester added
+ * when the guest claims (the shared helper is also called from the claim
+ * endpoint). The shared helper's own existence-check + onConflictDoNothing
+ * guard against a double-click re-running approve, or a resend/webhook race.
  */
 async function autoAddRequesterAsPlayer(rental: typeof fieldRentals.$inferSelect) {
   if (!rental.renterUserId) return;
-  const db = getDb();
-  const [existing] = await db
-    .select({ id: fieldRentalPlayers.id })
-    .from(fieldRentalPlayers)
-    .where(eq(fieldRentalPlayers.rentalId, rental.id))
-    .limit(1);
-  if (existing) return;
-  await db
-    .insert(fieldRentalPlayers)
-    .values({
-      rentalId: rental.id,
-      playerName: rental.renterName,
-      signerEmail: rental.renterEmail ?? "",
-      isMinor: false,
-      status: "signed",
-      signerName: rental.waiverSignedBy ?? rental.renterName,
-      signedAt: rental.waiverSignedAt ?? new Date(),
-    })
-    .onConflictDoNothing();
+  await addRequesterAsSignedPlayer(rental);
 }
 
 export const GET: APIRoute = async (context) => {
