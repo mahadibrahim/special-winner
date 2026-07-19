@@ -15,13 +15,26 @@ import type { BrandId } from "@/lib/branding/themes";
 import { isRegistrationClosed } from "@/lib/programs/registration-window";
 import { ensureCustomerOrgMembership } from "@/lib/organization/ensure-membership";
 import { registrationAmountDueCents } from "@/lib/registrations/amount-due";
+import {
+  captainShareDueCents,
+  teamDepositPaid,
+} from "@/lib/registrations/captain-credit";
 
 export type RegistrationKind = "created" | "resumed" | "waitlisted";
 
 export interface CreateRegistrationInput {
   db: ReturnType<typeof getDb>;
   user: { id: string; email: string; firstName: string | null };
-  familyMember: { id: string; firstName: string; lastName: string };
+  /** selfUserId gates the captain deposit credit — the credit only applies
+   * when the captain registers THEMSELVES (their self person row), never a
+   * dependent or another player registered through the same account. Both
+   * real callers pass full family_members rows, so the field is present. */
+  familyMember: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    selfUserId?: string | null;
+  };
   seasonId: string;
   registrationType: "full" | "deposit";
   waiverSigned: boolean;
@@ -394,6 +407,11 @@ export async function createRegistration(
   // its own lookup) whenever resolveTeamInvitee didn't reach a conclusive
   // answer — e.g. it threw, or organizationId/email were missing.
   let resolvedTeamReg: typeof teamRegistrations.$inferSelect | null | undefined;
+  // True when the registrant is the CAPTAIN of the team and their share was
+  // credited by the (verified-paid) team deposit. Drives the zero-due
+  // finalize path below — the server recomputes this itself; a client can
+  // never claim the credit.
+  let captainCreditApplied = false;
   if (input.teamToken) {
     const resolved = await resolveTeamInvitee({
       db,
@@ -414,7 +432,48 @@ export async function createRegistration(
       amountDue = resolved.invitee.assignedShareCents;
     }
     // If found-but-already-paid, treat as normal (don't re-charge a share).
+
+    // Captain deposit credit: the captain already paid the $200 team deposit,
+    // so their own player share is credited by it instead of being charged
+    // again (the double-charge bug). Matched by the authenticated user id
+    // against captain_user_id; the captain-email fallback only applies when
+    // user linkage is absent (captain_user_id nulled by user deletion).
+    // The deposit must be verifiably PAID (webhook-written state) — a team
+    // whose deposit was started but abandoned earns no credit.
+    // Guarded to the captain's SELF registration (familyMember.selfUserId
+    // === user.id): the credit is single-use by construction, because the
+    // self person can hold only one active registration per season — a
+    // captain registering a dependent (or any other player) through the same
+    // account never earns it.
+    if (
+      resolved &&
+      resolved.invitee?.status !== "paid" &&
+      familyMember.selfUserId === user.id
+    ) {
+      const teamReg = resolved.teamRegistration;
+      const isCaptain =
+        teamReg.captainUserId != null
+          ? teamReg.captainUserId === user.id
+          : teamReg.captainEmail.toLowerCase() === user.email.toLowerCase();
+      if (isCaptain && teamDepositPaid(teamReg)) {
+        // Share: the captain-assigned invitee share when one exists, else the
+        // season's individual effective price (early-bird aware).
+        const shareCents = matchedTeamInvitee
+          ? matchedTeamInvitee.assignedShareCents
+          : registrationAmountDueCents(season, "full");
+        amountDue = captainShareDueCents(shareCents, teamReg.depositCents ?? 0);
+        captainCreditApplied = true;
+      }
+    }
   }
+
+  // Zero-due captain-credit finalize: the deposit fully covers the captain's
+  // share, so there is nothing to charge and no Stripe intent is ever
+  // created. Follows the paid_zero idiom from
+  // create-checkout-for-registration.ts (100%-off discounts): status
+  // "confirmed" + paymentStatus "paid", amountDue 0, and no payments row —
+  // the money trail is the team deposit itself, already on the team row.
+  const captainZeroDue = captainCreditApplied && amountDue === 0;
 
   const [created] = await db
     .insert(registrations)
@@ -422,8 +481,8 @@ export async function createRegistration(
       seasonId,
       familyMemberId: familyMember.id,
       registeredByUserId: user.id,
-      status: "pending",
-      paymentStatus: "unpaid",
+      status: captainZeroDue ? "confirmed" : "pending",
+      paymentStatus: captainZeroDue ? "paid" : "unpaid",
       amountPaidCents: 0,
       amountDueCents: amountDue,
       registrationType: input.registrationType,
@@ -446,13 +505,22 @@ export async function createRegistration(
     });
 
     // Link the invitee row to this registration (status flips to "paid" on
-    // payment success — see handle-registration-payment-succeeded.ts). Wrapped
-    // so an invitee-link failure never breaks the registration.
+    // payment success — see handle-registration-payment-succeeded.ts). For a
+    // zero-due captain-credit registration there is no payment success event,
+    // so settle the row here: "paid" keeps the backstop cron
+    // (sumUnpaidSharesCents counts everything != 'paid') from re-charging the
+    // deposit-covered share to the captain's card at the deadline. The
+    // payment tracker won't double-count it — teamCollectedCents caps the
+    // captain's row by the deposit. Wrapped so an invitee-link failure never
+    // breaks the registration.
     if (matchedTeamInvitee) {
       try {
         await db
           .update(teamInvitees)
-          .set({ registrationId: created.id })
+          .set({
+            registrationId: created.id,
+            ...(captainZeroDue ? { status: "paid", paidAt: new Date() } : {}),
+          })
           .where(eq(teamInvitees.id, matchedTeamInvitee.id));
       } catch (err) {
         console.error("Error linking team invitee to registration:", err);
@@ -463,7 +531,7 @@ export async function createRegistration(
   return {
     kind: "created",
     registration: created,
-    requiresPayment: true,
+    requiresPayment: amountDue > 0,
     amountDueCents: amountDue,
     organizationId,
   };
