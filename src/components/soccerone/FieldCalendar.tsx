@@ -204,6 +204,14 @@ export interface FieldCalendarProps {
    * public 48h window.
    */
   minLeadTimeHours?: number;
+  /**
+   * Whether the visitor has an active session. Signed-in users' contact
+   * info comes from their account; signed-out visitors ("guests") request
+   * with no account and must supply name/email/phone inline. Defaults to
+   * false — an un-prop'd caller just shows the guest fields, which the
+   * endpoint accepts either way.
+   */
+  signedIn?: boolean;
 }
 
 export function FieldCalendar({
@@ -212,6 +220,7 @@ export function FieldCalendar({
   timeZone = "America/New_York",
   bookingWindowDays = 7,
   minLeadTimeHours = 48,
+  signedIn = false,
 }: FieldCalendarProps) {
   // Top-level client:load island on /rent; set the hydration beacon so e2e
   // waitForHydration() resolves (per CLAUDE.md Playwright conventions).
@@ -258,8 +267,9 @@ export function FieldCalendar({
   const [partySize, setPartySize] = useState(8);
   const [waiverAccepted, setWaiverAccepted] = useState(false);
   const [waiverName, setWaiverName] = useState("");
+  const [guestEmail, setGuestEmail] = useState("");
+  const [guestPhone, setGuestPhone] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [needsSignIn, setNeedsSignIn] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [requestSubmitted, setRequestSubmitted] = useState(false);
 
@@ -354,7 +364,6 @@ export function FieldCalendar({
       return;
     setSelectedSlot({ field: selectedField, hour: h });
     setSubmitError(null);
-    setNeedsSignIn(false);
     setRequestSubmitted(false);
     // Reset duration to 1h so we always start fresh on a new selection.
     setDurationMinutes(60);
@@ -379,14 +388,15 @@ export function FieldCalendar({
           partySize,
           waiverName: waiverName.trim(),
           waiverAccepted: true,
+          ...(!signedIn && {
+            renterName: waiverName.trim(),
+            renterEmail: guestEmail.trim(),
+            renterPhone: guestPhone.trim() || undefined,
+          }),
         }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        if (res.status === 401) {
-          setNeedsSignIn(true);
-          return;
-        }
         const msg =
           typeof body.error === "string" ? body.error : `Error ${res.status}`;
         setSubmitError(msg);
@@ -728,6 +738,32 @@ export function FieldCalendar({
                 </div>
               ) : (
                 <>
+                  {!signedIn && (
+                    <div className="panel-addons">
+                      <h4 className="addons-heading">Your contact info</h4>
+                      <input
+                        type="email"
+                        className="filter-input guest-contact-input"
+                        placeholder="Email"
+                        value={guestEmail}
+                        onChange={(e) => setGuestEmail(e.target.value)}
+                        aria-label="Email"
+                      />
+                      <input
+                        type="tel"
+                        className="filter-input guest-contact-input"
+                        placeholder="Phone (optional)"
+                        value={guestPhone}
+                        onChange={(e) => setGuestPhone(e.target.value)}
+                        aria-label="Phone (optional)"
+                      />
+                      <p className="waiver-requirement-note">
+                        No account needed — we&apos;ll email your approval and pay
+                        link to this address.
+                      </p>
+                    </div>
+                  )}
+
                   {/* Waiver — required by POST /api/rentals/bookings, same as
                       the Aspire rentals flow. */}
                   <div className="panel-addons">
@@ -762,22 +798,18 @@ export function FieldCalendar({
 
                   <p className="panel-note">Final price confirmed once approved · your slot is held while we review</p>
 
-                  {needsSignIn ? (
-                    <a
-                      className="panel-book-btn panel-book-link"
-                      href={`/signin?redirect=${encodeURIComponent(typeof window !== "undefined" ? window.location.pathname : "/rent")}`}
-                    >
-                      Sign in to request
-                    </a>
-                  ) : (
-                    <button
-                      className="panel-book-btn"
-                      onClick={handleBook}
-                      disabled={submitting || !waiverAccepted || !waiverName.trim()}
-                    >
-                      {submitting ? "Submitting…" : "Request this slot"}
-                    </button>
-                  )}
+                  <button
+                    className="panel-book-btn"
+                    onClick={handleBook}
+                    disabled={
+                      submitting ||
+                      !waiverAccepted ||
+                      !waiverName.trim() ||
+                      (!signedIn && !guestEmail.trim())
+                    }
+                  >
+                    {submitting ? "Submitting…" : "Request this slot"}
+                  </button>
 
                   {submitError && <p className="panel-error" role="alert">{submitError}</p>}
                 </>
@@ -1315,6 +1347,11 @@ export function FieldCalendar({
         .waiver-name-input {
           width: 100%;
           margin-top: 0.625rem;
+          box-sizing: border-box;
+        }
+        .guest-contact-input {
+          width: 100%;
+          margin-top: 0.5rem;
           box-sizing: border-box;
         }
         .waiver-requirement-note {

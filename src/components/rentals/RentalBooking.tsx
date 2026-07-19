@@ -22,6 +22,14 @@ interface Props {
    * 7-day window.
    */
   bookingWindowDays?: number;
+  /**
+   * Whether the visitor has an active session. Signed-in users' contact
+   * info comes from their account; signed-out visitors ("guests") request
+   * with no account and must supply name/email/phone inline. Defaults to
+   * false — an un-prop'd caller just shows the guest fields, which the
+   * endpoint accepts either way.
+   */
+  signedIn?: boolean;
 }
 
 const TODAY = new Date().toISOString().slice(0, 10);
@@ -34,7 +42,7 @@ function addMinutes(d: Date, mins: number): Date {
   return new Date(d.getTime() + mins * 60_000);
 }
 
-export default function RentalBooking({ venues, bookingWindowDays = 7 }: Props) {
+export default function RentalBooking({ venues, bookingWindowDays = 7, signedIn = false }: Props) {
   useHydrationBeacon();
 
   // Mirrors the server's advance-booking window so the picker can't offer
@@ -57,9 +65,10 @@ export default function RentalBooking({ venues, bookingWindowDays = 7 }: Props) 
   const [purpose, setPurpose] = useState("");
   const [waiverName, setWaiverName] = useState("");
   const [waiverAccepted, setWaiverAccepted] = useState(false);
+  const [guestEmail, setGuestEmail] = useState("");
+  const [guestPhone, setGuestPhone] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [needsSignIn, setNeedsSignIn] = useState(false);
   const [requestSubmitted, setRequestSubmitted] = useState(false);
 
   useEffect(() => {
@@ -95,7 +104,6 @@ export default function RentalBooking({ venues, bookingWindowDays = 7 }: Props) 
     setSlotStart(slot);
     setSlotBlockEnd(blockEnd);
     setSubmitError(null);
-    setNeedsSignIn(false);
     setRequestSubmitted(false);
   };
 
@@ -118,16 +126,17 @@ export default function RentalBooking({ venues, bookingWindowDays = 7 }: Props) 
           purpose: purpose.trim() || undefined,
           waiverName: waiverName.trim(),
           waiverAccepted: true,
+          ...(!signedIn && {
+            renterName: waiverName.trim(),
+            renterEmail: guestEmail.trim(),
+            renterPhone: guestPhone.trim() || undefined,
+          }),
         }),
       });
 
       const body = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        if (res.status === 401) {
-          setNeedsSignIn(true);
-          return;
-        }
         const msg = typeof body.error === "string" ? body.error : `Error ${res.status}`;
         if (res.status >= 500) toast.error(msg);
         setSubmitError(msg);
@@ -174,7 +183,12 @@ export default function RentalBooking({ venues, bookingWindowDays = 7 }: Props) 
 
   const hasAnyFreeBlocks = availability?.fields.some((f) => f.free.length > 0);
   const endTime = slotStart ? addMinutes(slotStart, durationMinutes) : null;
-  const submitDisabled = submitting || !waiverAccepted || !waiverName.trim() || !slotStart;
+  const submitDisabled =
+    submitting ||
+    !waiverAccepted ||
+    !waiverName.trim() ||
+    !slotStart ||
+    (!signedIn && !guestEmail.trim());
 
   return (
     <div className="space-y-6">
@@ -303,6 +317,44 @@ export default function RentalBooking({ venues, bookingWindowDays = 7 }: Props) 
               />
             </div>
 
+            {!signedIn && (
+              <div className="rounded-lg border border-stone-200 bg-stone-50 p-4 space-y-3">
+                <h3 className="text-sm font-semibold text-stone-900">Your contact info</h3>
+                <p className="text-xs text-stone-500">
+                  No account needed — we&apos;ll email your approval and pay
+                  link to this address.
+                </p>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="guest-email" className="block text-sm font-medium text-stone-700 mb-1">
+                      Email
+                    </label>
+                    <input
+                      id="guest-email"
+                      type="email"
+                      value={guestEmail}
+                      onChange={(e) => setGuestEmail(e.target.value)}
+                      placeholder="you@example.com"
+                      className="w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-500"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="guest-phone" className="block text-sm font-medium text-stone-700 mb-1">
+                      Phone <span className="text-stone-400 font-normal">(optional)</span>
+                    </label>
+                    <input
+                      id="guest-phone"
+                      type="tel"
+                      value={guestPhone}
+                      onChange={(e) => setGuestPhone(e.target.value)}
+                      placeholder="(555) 555-5555"
+                      className="w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Waiver */}
             <div className="rounded-lg border border-stone-200 bg-stone-50 p-4 space-y-3">
               <h3 className="text-sm font-semibold text-stone-900">Liability waiver</h3>
@@ -343,19 +395,7 @@ export default function RentalBooking({ venues, bookingWindowDays = 7 }: Props) 
               <p className="text-sm text-stone-500">Ends at {fmtTime(endTime)}</p>
             )}
 
-            {needsSignIn && (
-              <div className="rounded-md border border-stone-200 bg-stone-50 px-4 py-3 text-sm text-stone-700">
-                Sign in to complete your booking.{" "}
-                <a
-                  href="/signin?redirect=/rentals"
-                  className="inline-block rounded-md bg-stone-900 px-3 py-1 text-xs font-medium text-white hover:bg-stone-700"
-                >
-                  Sign in
-                </a>
-              </div>
-            )}
-
-            {submitError && !needsSignIn && (
+            {submitError && (
               <ErrorBanner message={submitError} onDismiss={() => setSubmitError(null)} />
             )}
 

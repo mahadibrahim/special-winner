@@ -1,10 +1,11 @@
 import { test, expect } from "@playwright/test";
-import { signIn, waitForHydration } from "../utils/test-helpers";
+import { waitForHydration } from "../utils/test-helpers";
 
-test("a signed-in customer can request a field and see the request confirmed", async ({
+test("a guest (no account) can request a field and see the request confirmed", async ({
   page,
 }) => {
-  await signIn(page, "parent@test.aspiresports.com", "TestParent123!");
+  // No signIn() call — this proves the headline win: a signed-out visitor
+  // can submit a rental request with no account.
   await page.goto("/rentals", { waitUntil: "domcontentloaded" });
   await waitForHydration(page);
 
@@ -35,8 +36,9 @@ test("a signed-in customer can request a field and see the request confirmed", a
   await partySizeInput.clear();
   await partySizeInput.fill("8");
 
-  // Fill waiver: label is "Your full legal name".
-  await page.getByLabel(/your full legal name/i).fill("Test Parent");
+  // Guest contact fields (only rendered when signed out): fill name + email.
+  await page.getByLabel(/your full legal name/i).fill("Test Guest");
+  await page.getByLabel(/^email$/i).fill("guest-rental@e2e.aspiresports.test");
 
   // Check the waiver acceptance checkbox (wrapped in a <label> with text "I accept").
   await page.getByLabel(/I accept/i).check();
