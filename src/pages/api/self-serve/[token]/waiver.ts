@@ -15,10 +15,11 @@ import type { APIRoute } from "astro";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInBookings } from "@/lib/db/schema/drop-in";
-import { fieldRentals } from "@/lib/db/schema/field-rentals";
+import { fieldRentals, fieldRentalPlayers } from "@/lib/db/schema/field-rentals";
 import { consents } from "@/lib/db/schema/consents";
 import { verifyToken } from "@/lib/check-in/tokens-db";
 import { resolveSigner, asSelfServiceKind } from "@/lib/check-in/resolve-signer";
+import { resolveActiveLiabilityWaiver } from "@/lib/consents/active-waiver";
 
 export const prerender = false;
 
@@ -82,6 +83,22 @@ export const POST: APIRoute = async ({ params, request }) => {
     // Registration-time waiver is already captured at sign-up. Return
     // idempotent success for the v1 UI flow; the consents insert below
     // will fire if a familyMemberId and recipientUserId are resolvable.
+  } else if (tok.kind === "rental_player") {
+    const waiver = await resolveActiveLiabilityWaiver(db, tok.organizationId);
+    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null;
+    const ua = request.headers.get("user-agent") ?? null;
+    await db
+      .update(fieldRentalPlayers)
+      .set({
+        status: "signed",
+        signerName: acceptedName,
+        waiverId: waiver?.id ?? null,
+        contentHash: waiver?.contentHash ?? "v1-liability",
+        signedAt: now,
+        signedIp: ip,
+        signedUa: ua,
+      })
+      .where(eq(fieldRentalPlayers.id, tok.targetId));
   }
 
   // Append a consents audit row.
