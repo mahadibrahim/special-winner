@@ -9,3 +9,12 @@
  * if missing. Change the address here only.
  */
 export const SOCCERONE_CONTACT_EMAIL = "hello@gosoccerone.com";
+
+/**
+ * Single source of truth for the SoccerOne front-desk phone number
+ * (Worthington facility line — same number used in aspire-jsonld.ts'
+ * Worthington LocalBusiness entry). Display format for copy; `_TEL` is
+ * the `tel:` href form.
+ */
+export const SOCCERONE_CONTACT_PHONE = "(614) 749-9782";
+export const SOCCERONE_CONTACT_PHONE_TEL = "+16147499782";

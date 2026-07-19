@@ -40,3 +40,19 @@ export function fieldInfoForName(name: string): FieldInfo | null {
   const key = name.toLowerCase().replace(/\bfield\b/g, "").trim();
   return FIELD_INFO[key] ?? null;
 }
+
+/** Fallback dot/accent color for a field name that doesn't match a known color word. */
+export const FIELD_COLOR_FALLBACK = "#a3e635"; // var(--so-lime)
+
+/**
+ * Resolve a field/venue display name (e.g. "Orange Field", "Field 2") to an
+ * accent color for chips and diagrams. Falls back to lime for names that
+ * don't carry a recognized color word.
+ */
+export function fieldColorForName(name: string): string {
+  const key = name.toLowerCase();
+  if (key.includes("orange")) return "#f97316";
+  if (key.includes("blue")) return "#3b82f6";
+  if (key.includes("yellow")) return "#facc15";
+  return FIELD_COLOR_FALLBACK;
+}

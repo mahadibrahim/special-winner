@@ -7,9 +7,9 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { quoteRentalCents } from "@/lib/rentals/soccerone-pricing";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
-import { SOCCERONE_CONTACT_EMAIL } from "@/lib/soccerone/contact";
+import { SOCCERONE_CONTACT_EMAIL, SOCCERONE_CONTACT_PHONE, SOCCERONE_CONTACT_PHONE_TEL } from "@/lib/soccerone/contact";
 import { zonedHourToUtc } from "@/lib/activity-tracking/tz-day";
-import { fieldInfoForName } from "@/lib/soccerone/field-info";
+import { fieldInfoForName, fieldColorForName } from "@/lib/soccerone/field-info";
 
 // --- Live availability types ---
 
@@ -55,6 +55,36 @@ function formatHour(h: number) {
 
 function formatDuration(mins: number): string {
   return `${mins / 60}h`;
+}
+
+/**
+ * Day-of-week + full date for the day-nav header. `dateStr` is a plain
+ * YYYY-MM-DD calendar date (same convention used everywhere else in this
+ * file); parsed as UTC-midnight purely so the weekday/date text doesn't
+ * shift with the browser's local timezone — it's label text, not an
+ * instant, so it doesn't need zonedHourToUtc.
+ */
+function formatDayHeader(dateStr: string): { dow: string; full: string } {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  return {
+    dow: d.toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" }),
+    full: d.toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+      timeZone: "UTC",
+    }),
+  };
+}
+
+/** Step a YYYY-MM-DD calendar date by `deltaDays`, clamped to [min, max]. */
+function shiftDate(dateStr: string, deltaDays: number, min: string, max: string): string {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + deltaDays);
+  const next = d.toISOString().slice(0, 10);
+  if (next < min) return min;
+  if (next > max) return max;
+  return next;
 }
 
 /**
@@ -194,7 +224,24 @@ export function FieldCalendar({
   const maxDate = new Date(Date.now() + bookingWindowDays * 24 * 60 * 60 * 1000)
     .toISOString()
     .slice(0, 10);
-  const [date, setDate] = useState(initialDate ?? today);
+  // Default to the first bookable day rather than "today" — with the
+  // minLeadTimeHours guard, every slot on "today" shows the 48h-notice
+  // reason and nothing is actually requestable on load. Clamp within the
+  // booking window in case minLeadTimeHours somehow exceeds it.
+  let firstBookableDate = (() => {
+    const d = new Date(Date.now() + minLeadTimeHours * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    return d > maxDate ? maxDate : d;
+  })();
+  // Guarantee the default day's earliest slot clears the lead-time window, not
+  // just the calendar-day math above. Depending on the current wall-clock hour
+  // in the org tz, the first slot (HOURS[0]) on today+leadDays can still fall
+  // inside the 48h window; if so, bump one more day (clamped to maxDate).
+  if (!meetsLeadTime(firstBookableDate, HOURS[0]!, timeZone, minLeadTimeHours)) {
+    firstBookableDate = shiftDate(firstBookableDate, 1, firstBookableDate, maxDate);
+  }
+  const [date, setDate] = useState(initialDate ?? firstBookableDate);
   const [venueId, setVenueId] = useState<string | null>(venues[0]?.id ?? null);
   const [availability, setAvailability] = useState<AvailabilityResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -289,6 +336,17 @@ export function FieldCalendar({
   // Same engine as the server, so the display matches the charged amount.
   const standardCents = startsAt && endsAt ? quoteRentalCents(startsAt, endsAt, timeZone) : null;
 
+  // Day-nav ‹ › — step the selected date, clamped to the same [today, maxDate]
+  // window the date input already enforces.
+  const goToPrevDay = () => {
+    setDate((d) => shiftDate(d, -1, today, maxDate));
+    setSelectedSlot(null);
+  };
+  const goToNextDay = () => {
+    setDate((d) => shiftDate(d, 1, today, maxDate));
+    setSelectedSlot(null);
+  };
+
   const handleSlotClick = (h: number) => {
     if (
       !isHourBookable(currentField, date, h, timeZone) ||
@@ -373,38 +431,52 @@ export function FieldCalendar({
 
   const selectedFieldInfo = selectedVenueName ? fieldInfoForName(selectedVenueName) : null;
 
+  // "110 × 60" -> ["110 FT", "60 FT"] for the pitch diagram's dimension labels.
+  const pitchDimLabels = selectedFieldInfo
+    ? selectedFieldInfo.dimensions.split("×").map((s) => `${s.trim()} FT`)
+    : null;
+
   return (
     <div className="field-calendar-root">
       {/* Filter bar */}
       <div className="calendar-filters">
         <div className="filter-group">
-          <label htmlFor="field-select" className="filter-label">Field</label>
+          <span className="filter-label">Field</span>
           {venues.length > 1 ? (
-            <select
-              id="field-select"
-              className="filter-select"
-              value={venueId ?? ""}
-              onChange={(e) => {
-                setVenueId(e.target.value);
-                setSelectedField(1);
-                setSelectedSlot(null);
-              }}
-            >
+            <div className="field-chips" role="group" aria-label="Field">
               {venues.map((v) => (
-                <option key={v.id} value={v.id}>{v.name}</option>
+                <button
+                  key={v.id}
+                  type="button"
+                  className={cn("field-chip", venueId === v.id && "field-chip--active")}
+                  onClick={() => {
+                    setVenueId(v.id);
+                    setSelectedField(1);
+                    setSelectedSlot(null);
+                  }}
+                >
+                  <span className="field-chip-dot" style={{ background: fieldColorForName(v.name) }} />
+                  {v.name}
+                </button>
               ))}
-            </select>
+            </div>
           ) : (
-            <select
-              id="field-select"
-              className="filter-select"
-              value={selectedField}
-              onChange={(e) => { setSelectedField(Number(e.target.value)); setSelectedSlot(null); }}
-            >
-              {fieldNumbers.map((n) => (
-                <option key={n} value={n}>{venues[0]?.name ?? `Field ${n}`}</option>
-              ))}
-            </select>
+            <div className="field-chips" role="group" aria-label="Field">
+              {fieldNumbers.map((n) => {
+                const label = venues[0]?.name ?? `Field ${n}`;
+                return (
+                  <button
+                    key={n}
+                    type="button"
+                    className={cn("field-chip", selectedField === n && "field-chip--active")}
+                    onClick={() => { setSelectedField(n); setSelectedSlot(null); }}
+                  >
+                    <span className="field-chip-dot" style={{ background: fieldColorForName(label) }} />
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
           )}
         </div>
 
@@ -422,6 +494,9 @@ export function FieldCalendar({
           <span className="filter-hint">
             Requests open up to {bookingWindowDays} days ahead and must be at least 48 hours out — email{" "}
             <a href={`mailto:${SOCCERONE_CONTACT_EMAIL}`}>{SOCCERONE_CONTACT_EMAIL}</a> for other dates.
+            Call or text{" "}
+            <a href={`tel:${SOCCERONE_CONTACT_PHONE_TEL}`}>{SOCCERONE_CONTACT_PHONE}</a> to book sooner or a
+            date further out.
           </span>
         </div>
 
@@ -440,23 +515,40 @@ export function FieldCalendar({
         </div>
       </div>
 
-      {selectedFieldInfo && (
-        <div className="field-info-card">
-          <div className="field-info-item">
-            <span className="field-info-label">Dimensions</span>
-            <span className="field-info-value">{selectedFieldInfo.dimensions}</span>
+      {selectedFieldInfo && pitchDimLabels && (
+        <div className="field-view-card">
+          <div className="pitch-diagram">
+            <svg viewBox="0 0 560 300" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <rect x="20" y="30" width="520" height="240" rx="8" stroke="#a3e635" strokeWidth="2" fill="rgba(163,230,53,0.04)" />
+              <line x1="280" y1="30" x2="280" y2="270" stroke="rgba(163,230,53,0.35)" strokeWidth="1.5" />
+              <circle cx="280" cy="150" r="42" stroke="rgba(163,230,53,0.35)" strokeWidth="1.5" />
+              <rect x="20" y="105" width="30" height="90" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
+              <rect x="510" y="105" width="30" height="90" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
+              <text x="280" y="20" fill="rgba(255,255,255,0.6)" fontFamily="var(--so-font-mono)" fontSize="13" textAnchor="middle">
+                {pitchDimLabels[0]}
+              </text>
+              <text x="10" y="150" fill="rgba(255,255,255,0.6)" fontFamily="var(--so-font-mono)" fontSize="13" textAnchor="middle" transform="rotate(-90 10 150)">
+                {pitchDimLabels[1]}
+              </text>
+            </svg>
           </div>
-          <div className="field-info-item">
-            <span className="field-info-label">Surface</span>
-            <span className="field-info-value">{selectedFieldInfo.surface}</span>
-          </div>
-          <div className="field-info-item">
-            <span className="field-info-label">Format</span>
-            <span className="field-info-value">{selectedFieldInfo.format}</span>
-          </div>
-          <div className="field-info-item">
-            <span className="field-info-label">Location</span>
-            <span className="field-info-value">{selectedFieldInfo.location}</span>
+          <div className="field-specs">
+            <div className="field-spec-row">
+              <span className="field-spec-k">Size</span>
+              <span className="field-spec-v">{selectedFieldInfo.dimensions} ft</span>
+            </div>
+            <div className="field-spec-row">
+              <span className="field-spec-k">Surface</span>
+              <span className="field-spec-v">{selectedFieldInfo.surface}</span>
+            </div>
+            <div className="field-spec-row">
+              <span className="field-spec-k">Format</span>
+              <span className="field-spec-v">{selectedFieldInfo.format}</span>
+            </div>
+            <div className="field-spec-row">
+              <span className="field-spec-k">Location</span>
+              <span className="field-spec-v">{selectedFieldInfo.location}</span>
+            </div>
           </div>
         </div>
       )}
@@ -464,6 +556,33 @@ export function FieldCalendar({
       <div className="calendar-layout">
         {/* Calendar grid */}
         <div className="calendar-grid-wrapper">
+          <div className="day-nav-header">
+            <button
+              type="button"
+              className="day-nav-btn"
+              onClick={goToPrevDay}
+              disabled={date <= today}
+              aria-label="Previous day"
+            >
+              ‹
+            </button>
+            <div className="day-nav-label">
+              <div className="day-nav-dow">{formatDayHeader(date).dow}</div>
+              <div className="day-nav-date">
+                {formatDayHeader(date).full} · {selectedUnitLabel}
+              </div>
+            </div>
+            <button
+              type="button"
+              className="day-nav-btn"
+              onClick={goToNextDay}
+              disabled={date >= maxDate}
+              aria-label="Next day"
+            >
+              ›
+            </button>
+          </div>
+
           <div className="calendar-legend">
             <div className="legend-item">
               <span className="legend-swatch legend-available"></span>Available
@@ -725,7 +844,7 @@ export function FieldCalendar({
           font-size: 0.75rem;
           color: rgba(255,255,255,0.45);
           line-height: 1.4;
-          max-width: 240px;
+          max-width: 300px;
         }
         .filter-hint a {
           color: rgba(250,204,21,0.8);
@@ -753,32 +872,139 @@ export function FieldCalendar({
           background: var(--so-navy);
           color: white;
         }
-        .field-info-card {
+        /* Field chips — replace the old field <select> */
+        .field-chips {
           display: flex;
           flex-wrap: wrap;
-          gap: 1.5rem;
+          gap: 0.625rem;
+        }
+        .field-chip {
+          display: flex;
+          align-items: center;
+          gap: 0.625rem;
+          background: rgba(255,255,255,0.04);
+          border: 1.5px solid rgba(255,255,255,0.15);
+          border-radius: var(--so-radius-lg);
+          color: white;
+          font-family: var(--so-font-body);
+          font-size: 0.9375rem;
+          font-weight: 600;
+          padding: 0.625rem 1rem;
+          cursor: pointer;
+          transition: border-color 0.15s, background 0.15s;
+        }
+        .field-chip:hover {
+          border-color: rgba(163,230,53,0.4);
+        }
+        .field-chip--active {
+          border-color: var(--so-lime);
+          background: var(--so-lime-a12);
+        }
+        .field-chip-dot {
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+          box-shadow: 0 0 0 3px rgba(255,255,255,0.06);
+          flex-shrink: 0;
+        }
+        /* Pitch diagram + specs */
+        .field-view-card {
+          display: grid;
+          grid-template-columns: 200px 1fr;
+          gap: 1.25rem;
+          align-items: center;
           background: rgba(255,255,255,0.04);
           border: 1px solid rgba(255,255,255,0.1);
           border-radius: var(--so-radius-md);
-          padding: 0.875rem 1.5rem;
+          padding: 1rem 1.5rem;
           margin-bottom: 1.5rem;
         }
-        .field-info-item {
-          display: flex;
-          flex-direction: column;
-          gap: 0.1875rem;
+        .pitch-diagram {
+          background: var(--so-lime-a06);
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: var(--so-radius-md);
+          padding: 0.625rem;
         }
-        .field-info-label {
+        .pitch-diagram svg {
+          display: block;
+          width: 100%;
+          height: auto;
+        }
+        .field-specs {
+          display: grid;
+          gap: 0.75rem;
+        }
+        .field-spec-row {
+          display: grid;
+          grid-template-columns: 92px 1fr;
+          gap: 0.625rem;
+          align-items: baseline;
+        }
+        .field-spec-k {
           font-family: var(--so-font-mono);
-          font-size: 0.6875rem;
+          font-size: 0.625rem;
           letter-spacing: 0.08em;
           text-transform: uppercase;
           color: rgba(255,255,255,0.45);
         }
-        .field-info-value {
+        .field-spec-v {
           font-size: 0.875rem;
           font-weight: 600;
           color: rgba(255,255,255,0.9);
+        }
+        @media (max-width: 560px) {
+          .field-view-card {
+            grid-template-columns: 1fr;
+          }
+        }
+        /* Day header with prev/next nav */
+        .day-nav-header {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 1rem;
+          margin-bottom: 1rem;
+        }
+        .day-nav-btn {
+          flex-shrink: 0;
+          width: 40px;
+          height: 40px;
+          border-radius: var(--so-radius-md);
+          border: 1.5px solid rgba(255,255,255,0.15);
+          background: rgba(255,255,255,0.04);
+          color: white;
+          font-size: 1.125rem;
+          display: grid;
+          place-items: center;
+          cursor: pointer;
+          transition: border-color 0.15s, color 0.15s;
+        }
+        .day-nav-btn:hover:not(:disabled) {
+          border-color: rgba(163,230,53,0.4);
+          color: var(--so-lime);
+        }
+        .day-nav-btn:disabled {
+          opacity: 0.35;
+          cursor: default;
+        }
+        .day-nav-label {
+          text-align: center;
+          min-width: 220px;
+        }
+        .day-nav-dow {
+          font-family: var(--so-font-display);
+          text-transform: uppercase;
+          letter-spacing: 0.02em;
+          font-size: 1.625rem;
+          line-height: 1;
+          color: white;
+        }
+        .day-nav-date {
+          font-family: var(--so-font-mono);
+          font-size: 0.75rem;
+          color: rgba(255,255,255,0.5);
+          letter-spacing: 0.04em;
+          margin-top: 0.25rem;
         }
         .calendar-layout {
           display: grid;
