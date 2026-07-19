@@ -18,6 +18,7 @@ export const selfServiceTokenKindEnum = pgEnum("self_service_token_kind", [
   "drop_in_booking",
   "field_rental",
   "rental_player",
+  "rental_claim",
   "roster_entry",
   "walkin_session",
   // Email double opt-in. targetId = the users.id the consent hangs off; the
