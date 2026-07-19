@@ -1,5 +1,10 @@
 ---
 export const prerender = false;
+// Memberships marketing is PAUSED (owner decision, 2026-07-18) — backend,
+// admin, API, and the dashboard MembershipCard are untouched; only this
+// public marketing page is taken offline. Delete this one line to
+// un-pause. Everything below stays intact but unreachable.
+return Astro.redirect('/');
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import SoccerOneHeader from '@/components/soccerone/SoccerOneHeader.astro';
 import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
