@@ -12,6 +12,13 @@ import {
   familyMembers,
 } from "@/lib/db/schema";
 import { eq, asc } from "drizzle-orm";
+import {
+  captainDepositCreditCents,
+  captainShareDueCents,
+  teamCollectedCents,
+  teamDepositPaid,
+} from "@/lib/registrations/captain-credit";
+import { registrationAmountDueCents } from "@/lib/registrations/amount-due";
 
 /**
  * Resolve a team by its invite token. Used by the team landing page so
@@ -112,15 +119,55 @@ export const GET: APIRoute = async ({ params, locals }) => {
 
     // Live payment summary for the captain tracker: deposit + sum of paid
     // teammate shares, against the full team fee. Computed server-side so the
-    // client never has to trust/replay status logic.
+    // client never has to trust/replay status logic. The captain's own paid
+    // share is capped by the deposit (teamCollectedCents) — the deposit
+    // already covers the first $deposit of it, so counting both would
+    // double-count (see captain-credit.ts).
     const depositCents = t.team.depositCents ?? 0;
-    const collectedCents =
-      depositCents +
-      invitees.reduce(
-        (sum, i) =>
-          i.status === "paid" ? sum + (i.assignedShareCents ?? 0) : sum,
-        0,
-      );
+    const captainEmailLower = t.team.captainEmail.toLowerCase();
+    const collectedCents = teamCollectedCents({
+      depositCents,
+      invitees: invitees.map((i) => ({
+        assignedShareCents: i.assignedShareCents,
+        status: i.status,
+        isCaptain: i.email.toLowerCase() === captainEmailLower,
+      })),
+    });
+
+    // Captain-credit preview for the authed viewer: when the signed-in user
+    // is this team's captain and the deposit is verifiably paid, tell the
+    // client what their own registration will cost after the deposit credit.
+    // Display-only — createRegistration recomputes the credit server-side.
+    const viewer = locals.user;
+    let viewerCaptainCredit: {
+      shareCents: number;
+      creditCents: number;
+      dueCents: number;
+      depositCents: number;
+    } | null = null;
+    if (viewer) {
+      const viewerEmailLower = viewer.email.toLowerCase();
+      const isCaptain =
+        t.team.captainUserId != null
+          ? t.team.captainUserId === viewer.id
+          : captainEmailLower === viewerEmailLower;
+      if (isCaptain && teamDepositPaid(t.team)) {
+        const inviteeRow = invitees.find(
+          (i) => i.email.toLowerCase() === viewerEmailLower,
+        );
+        if (!inviteeRow || inviteeRow.status !== "paid") {
+          const shareCents = inviteeRow
+            ? inviteeRow.assignedShareCents ?? 0
+            : registrationAmountDueCents(t.season, "full");
+          viewerCaptainCredit = {
+            shareCents,
+            creditCents: captainDepositCreditCents(shareCents, depositCents),
+            dueCents: captainShareDueCents(shareCents, depositCents),
+            depositCents,
+          };
+        }
+      }
+    }
 
     return new Response(
       JSON.stringify({
@@ -146,6 +193,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
             paidAt: i.paidAt,
           })),
         },
+        viewerCaptainCredit,
         payment: {
           teamFeeCents: t.team.teamFeeCents ?? null,
           depositCents,

@@ -135,6 +135,27 @@ const dashboardHref = registrationId
     )}
   </main>
 
+  {/* Webhook-lag bridge: record the client-observed payment so the dashboard
+      + nav present the (still pending/unpaid) registration as "Payment
+      received — confirming" until the payment_intent webhook lands. Keep the
+      storage key + entry shape in sync with
+      src/lib/registrations/payment-confirmation-signal.ts (inline scripts
+      can't import the module). */}
+  {(status === "succeeded" || status === "processing") && registrationId && (
+    <script is:inline define:vars={{ registrationId, paymentStatus: status }}>
+      try {
+        const KEY = "aspire:confirmed-payments";
+        const raw = window.localStorage.getItem(KEY);
+        const parsed = raw ? JSON.parse(raw) : {};
+        const all = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+        all[registrationId] = { status: paymentStatus, at: Date.now() };
+        window.localStorage.setItem(KEY, JSON.stringify(all));
+      } catch (e) {
+        // soft-fail — presentation falls back to pending
+      }
+    </script>
+  )}
+
   {/* Fire client-side purchase event ONLY when the SCA-redirect path lands here.
       The non-redirect synchronous-success path fires in EmbeddedPayment directly. */}
   {status === "succeeded" && seasonItem && paymentIntentId && (

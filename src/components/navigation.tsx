@@ -11,6 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
+import { hasConfirmedPayment } from "@/lib/registrations/payment-confirmation-signal"
 
 interface MeUser {
   id: string
@@ -83,10 +84,16 @@ export default function Navigation({ initialUser }: NavigationProps) {
     let cancelled = false
     fetch("/api/registrations", { credentials: "same-origin" })
       .then((r) => (r.ok ? r.json() : { registrations: [] }))
-      .then((data: { registrations?: Array<{ status: string; paymentStatus: string }> }) => {
+      .then((data: { registrations?: Array<{ id: string; status: string; paymentStatus: string }> }) => {
         if (cancelled) return
+        // A registration whose payment Stripe already confirmed in this
+        // browser (webhook not yet processed) is NOT awaiting payment —
+        // don't nag the customer seconds after they paid.
         const count = (data.registrations ?? []).filter(
-          (r) => r.status === "pending" && r.paymentStatus === "unpaid",
+          (r) =>
+            r.status === "pending" &&
+            r.paymentStatus === "unpaid" &&
+            !hasConfirmedPayment(r.id),
         ).length
         setPendingCount(count)
       })

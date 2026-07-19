@@ -338,6 +338,24 @@ export const POST: APIRoute = async (context) => {
         );
       }
 
+      // Step 4b: zero-due registrations (captain deposit credit) are already
+      // finalized inside createRegistration — no Stripe session to create.
+      // Without this guard, createCheckoutForRegistration would 400 on the
+      // already-paid row.
+      if (!regResult.requiresPayment) {
+        if (wasNewUser) {
+          await createSession(userRow.id, context);
+        }
+        return new Response(
+          JSON.stringify({
+            paid: true,
+            registrationId: regResult.registration.id,
+            wasNewUser,
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
       // Step 5: create Stripe checkout session
       try {
         const checkout = await createCheckoutForRegistration({
@@ -375,6 +393,9 @@ export const POST: APIRoute = async (context) => {
             surchargeCents: checkout.surchargeCents,
             publishableKey: import.meta.env.STRIPE_PUBLISHABLE_KEY,
             wasNewUser,
+            // Lets the wizard record the client-confirmed payment signal
+            // (webhook-lag bridge) against the right registration.
+            registrationId: regResult.registration.id,
           }),
           { status: 200, headers: { "Content-Type": "application/json" } },
         );

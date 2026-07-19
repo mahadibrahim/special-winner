@@ -23,10 +23,8 @@ export interface WaiverStepProps {
   guestChildFullName?: string
   waiverAccepted: boolean
   waiverSignature: string
-  lookingForTeam: boolean
   onWaiverAcceptedChange: (v: boolean) => void
   onWaiverSignatureChange: (v: string) => void
-  onLookingForTeamChange: (v: boolean) => void
 }
 
 export function WaiverStep({
@@ -37,10 +35,8 @@ export function WaiverStep({
   guestChildFullName,
   waiverAccepted,
   waiverSignature,
-  lookingForTeam,
   onWaiverAcceptedChange,
   onWaiverSignatureChange,
-  onLookingForTeamChange,
 }: WaiverStepProps) {
   // The full legal text is collapsed by default so the screen leads with the
   // single required action (agree + sign) rather than a wall of clauses.
@@ -166,20 +162,6 @@ export function WaiverStep({
             By typing your name above, you agree that this constitutes a legal signature.
           </p>
         </div>
-
-        {effectiveIsSelf && (
-          <div className="mt-4 flex items-start gap-2">
-            <Checkbox
-              id="looking-for-team"
-              checked={lookingForTeam}
-              onCheckedChange={(v) => onLookingForTeamChange(v === true)}
-              className="mt-0.5 border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-            />
-            <Label htmlFor="looking-for-team" className="text-sm leading-tight text-ink-2 cursor-pointer">
-              I'm not registering with a team — please place me with one.
-            </Label>
-          </div>
-        )}
       </div>
     </div>
   )
