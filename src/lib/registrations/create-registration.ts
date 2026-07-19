@@ -14,7 +14,7 @@ import { awaitEmailSend } from "@/lib/notifications/await-dispatch";
 import type { BrandId } from "@/lib/branding/themes";
 import { isRegistrationClosed } from "@/lib/programs/registration-window";
 import { ensureCustomerOrgMembership } from "@/lib/organization/ensure-membership";
-import { effectivePriceCents } from "@/lib/programs/early-bird";
+import { registrationAmountDueCents } from "@/lib/registrations/amount-due";
 
 export type RegistrationKind = "created" | "resumed" | "waitlisted";
 
@@ -288,12 +288,9 @@ export async function createRegistration(
         ),
       );
     if (confirmedRows.length >= season.maxParticipants) {
-      // Deposits are never early-bird discounted; only the full-price
-      // component honors an active early-bird window.
-      const amountDue =
-        input.registrationType === "deposit" && season.depositCents
-          ? season.depositCents
-          : effectivePriceCents(season);
+      // Deposits are never early-bird discounted, and are only honored when
+      // strictly below the full amount due — see registrationAmountDueCents.
+      const amountDue = registrationAmountDueCents(season, input.registrationType);
       const [waitlisted] = await db
         .insert(registrations)
         .values({
@@ -375,12 +372,10 @@ export async function createRegistration(
     }
   }
 
-  // Normal creation. Deposits are never early-bird discounted; only the
-  // full-price component honors an active early-bird window.
-  let amountDue =
-    input.registrationType === "deposit" && season.depositCents
-      ? season.depositCents
-      : effectivePriceCents(season);
+  // Normal creation. Deposits are never early-bird discounted, and are only
+  // honored when strictly below the full amount due — an invalid (too-large)
+  // deposit request falls back to the full amount rather than erroring.
+  let amountDue = registrationAmountDueCents(season, input.registrationType);
 
   // Team-invitee share: when joining via a `?team=` token, the captain may have
   // assigned this email a specific share. Resolve it BEFORE the insert so we can

@@ -125,10 +125,27 @@ export function PaymentStep({
   // the payment option + discount are locked until they go back.
   const sessionLocked = clientSecret !== null
 
+  // The deposit option is only offered when the deposit is a genuine partial
+  // payment — strictly less than the amount the pay-in-full option charges
+  // (the early-bird-aware seasonPrice). Seasons have carried a team-sized
+  // deposit (e.g. $200) alongside a $120 solo price; rendering it would show
+  // "Remaining $-80.00" and charge more than paying in full. Server twin:
+  // registrationAmountDueCents in src/lib/registrations/amount-due.ts.
+  const depositAvailable =
+    allowDeposit &&
+    seasonDeposit != null &&
+    seasonDepositCents != null &&
+    seasonDepositCents > 0 &&
+    seasonDepositCents < seasonPriceCents
+  // Guard against stale state (e.g. a restored draft that picked "deposit"
+  // before the deposit became invalid): all display math and the order
+  // summary fall back to pay-in-full when the deposit isn't offered.
+  const effectivePaymentOption = depositAvailable ? paymentOption : "full"
+
   // Compute a preview surcharge for each method group so the picker can show
   // exactly what each option costs before the customer commits.
   const baseAmountCents =
-    paymentOption === "deposit" && allowDeposit && seasonDepositCents
+    effectivePaymentOption === "deposit" && seasonDepositCents
       ? seasonDepositCents
       : seasonPriceCents
   const discountedBaseCents = appliedDiscount
@@ -174,7 +191,7 @@ export function PaymentStep({
       </div>
 
       <RadioGroup
-        value={paymentOption}
+        value={effectivePaymentOption}
         onValueChange={(v) => onPaymentOptionChange(v as "full" | "deposit")}
         disabled={optionLocked}
       >
@@ -184,7 +201,7 @@ export function PaymentStep({
             className={`flex items-center p-4 rounded-xl border transition-all ${
               optionLocked ? "cursor-not-allowed opacity-70" : "cursor-pointer"
             } ${
-              paymentOption === "full"
+              effectivePaymentOption === "full"
                 ? "border-primary bg-primary/10"
                 : "border-border hover:border-ink-faint bg-paper"
             }`}
@@ -202,13 +219,13 @@ export function PaymentStep({
             </div>
           </Label>
 
-          {allowDeposit && seasonDeposit && (
+          {depositAvailable && seasonDeposit != null && (
             <Label
               htmlFor="pay-deposit"
               className={`flex items-center p-4 rounded-xl border transition-all ${
                 optionLocked ? "cursor-not-allowed opacity-70" : "cursor-pointer"
               } ${
-                paymentOption === "deposit"
+                effectivePaymentOption === "deposit"
                   ? "border-primary bg-primary/10"
                   : "border-border hover:border-ink-faint bg-paper"
               }`}
@@ -313,7 +330,7 @@ export function PaymentStep({
         seasonDeposit={seasonDeposit}
         allowDeposit={allowDeposit}
         earlyBirdActive={earlyBirdActive}
-        paymentOption={paymentOption}
+        paymentOption={effectivePaymentOption}
         registrantName={registrantName}
         appliedDiscount={appliedDiscount}
         surchargeCents={displaySurchargeCents}

@@ -131,6 +131,13 @@ const DRAFT_VERSION = 1
 const fullPriceCents = (s: Season) => s.effectivePriceCents ?? s.priceCents
 const fullPrice = (s: Season) => s.effectivePrice ?? s.price
 
+// A deposit is only a real option when it's strictly less than the
+// early-bird-aware full price — a misconfigured deposit at or above the full
+// price would charge more than paying in full. Mirrors PaymentStep's
+// `depositAvailable` guard and the server's registrationAmountDueCents.
+const depositValid = (s: Season) =>
+  s.allowDeposit && !!s.depositCents && s.depositCents < fullPriceCents(s)
+
 interface WizardDraft {
   v: number
   currentStep: number
@@ -646,8 +653,8 @@ export default function RegistrationWizard({
     setDiscountError(null)
 
     try {
-      const purchaseAmountCents = paymentOption === "deposit" && season.depositCents
-        ? season.depositCents
+      const purchaseAmountCents = paymentOption === "deposit" && depositValid(season)
+        ? season.depositCents!
         : fullPriceCents(season)
 
       const response = await fetch("/api/public/validate-discount", {
@@ -728,8 +735,8 @@ export default function RegistrationWizard({
       }
       if (data.clientSecret) {
         const valueCents =
-          paymentOption === "deposit" && season!.depositCents
-            ? season!.depositCents
+          paymentOption === "deposit" && depositValid(season!)
+            ? season!.depositCents!
             : fullPriceCents(season!)
         const baseAfterDiscount = appliedDiscount
           ? valueCents - appliedDiscount.discountAmountCents
@@ -742,7 +749,7 @@ export default function RegistrationWizard({
         setAppliedSurchargeCents(surchargeCents)
         setAppliedCreditCents(creditCents)
         setPaymentValueCents(finalValueCents)
-        setPaymentTypeForTracking(paymentOption === "deposit" ? "deposit" : "full")
+        setPaymentTypeForTracking(paymentOption === "deposit" && depositValid(season!) ? "deposit" : "full")
         setPaymentPublishableKey(data.publishableKey)
         setPaymentClientSecret(data.clientSecret)
 
@@ -837,8 +844,8 @@ export default function RegistrationWizard({
       }
       if (data.clientSecret) {
         const valueCents =
-          paymentOption === "deposit" && season!.depositCents
-            ? season!.depositCents
+          paymentOption === "deposit" && depositValid(season!)
+            ? season!.depositCents!
             : fullPriceCents(season!)
         const baseAfterDiscount = appliedDiscount
           ? valueCents - appliedDiscount.discountAmountCents
@@ -848,7 +855,7 @@ export default function RegistrationWizard({
 
         setAppliedSurchargeCents(surchargeCents)
         setPaymentValueCents(finalValueCents)
-        setPaymentTypeForTracking(paymentOption === "deposit" ? "deposit" : "full")
+        setPaymentTypeForTracking(paymentOption === "deposit" && depositValid(season!) ? "deposit" : "full")
         setPaymentPublishableKey(data.publishableKey)
         setPaymentClientSecret(data.clientSecret)
 
@@ -958,8 +965,8 @@ export default function RegistrationWizard({
         // Hand off to embedded form rendered inside step 4
         if (checkoutData.clientSecret) {
           const valueCents =
-            paymentOption === "deposit" && season!.depositCents
-              ? season!.depositCents
+            paymentOption === "deposit" && depositValid(season!)
+              ? season!.depositCents!
               : fullPriceCents(season!)
           const baseAfterDiscount = appliedDiscount
             ? valueCents - appliedDiscount.discountAmountCents
@@ -972,7 +979,7 @@ export default function RegistrationWizard({
           setAppliedSurchargeCents(surchargeCents)
           setAppliedCreditCents(creditCents)
           setPaymentValueCents(finalValueCents)
-          setPaymentTypeForTracking(paymentOption === "deposit" ? "deposit" : "full")
+          setPaymentTypeForTracking(paymentOption === "deposit" && depositValid(season!) ? "deposit" : "full")
           setPaymentPublishableKey(checkoutData.publishableKey)
           setPaymentClientSecret(checkoutData.clientSecret)
 
