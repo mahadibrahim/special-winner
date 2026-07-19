@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import { AvailabilityGrid, type FieldAvailability } from "./AvailabilityGrid";
+import { fetchRentalAvailability } from "@/lib/rentals/fetch-availability";
 
 interface AvailabilityResponse {
   venueName: string;
@@ -82,14 +83,9 @@ export default function RentalBooking({ venues, bookingWindowDays = 7, signedIn 
 
     const run = async () => {
       try {
-        const res = await fetch(
-          `/api/rentals/availability?venueId=${encodeURIComponent(selectedVenueId)}&date=${encodeURIComponent(date)}`,
+        setAvailability(
+          await fetchRentalAvailability<AvailabilityResponse>(selectedVenueId, date),
         );
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(typeof body.error === "string" ? body.error : `HTTP ${res.status}`);
-        }
-        setAvailability((await res.json()) as AvailabilityResponse);
       } catch (err) {
         setFetchError(err instanceof Error ? err.message : "Failed to load availability");
       } finally {

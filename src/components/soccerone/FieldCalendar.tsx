@@ -9,6 +9,7 @@ import { quoteRentalCents } from "@/lib/rentals/soccerone-pricing";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import { zonedHourToUtc } from "@/lib/activity-tracking/tz-day";
 import { fieldInfoForName, fieldColorForName } from "@/lib/soccerone/field-info";
+import { fetchRentalAvailability } from "@/lib/rentals/fetch-availability";
 
 // --- Live availability types ---
 
@@ -282,12 +283,8 @@ export function FieldCalendar({
     let cancelled = false;
     setLoading(true);
     setError(null);
-    fetch(
-      `/api/rentals/availability?venueId=${encodeURIComponent(venueId)}&date=${encodeURIComponent(date)}`,
-    )
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const body = (await res.json()) as AvailabilityResponse;
+    fetchRentalAvailability<AvailabilityResponse>(venueId, date)
+      .then((body) => {
         if (!cancelled) {
           setAvailability(body);
           // Reset selected field to first available if current field no longer present
