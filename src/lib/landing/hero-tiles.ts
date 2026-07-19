@@ -15,6 +15,13 @@ export interface HeroTile {
   color?: string
   /** When set, a live tile links here instead of scroll-filtering the finder. */
   href?: string | null
+  /**
+   * Fallback link for a live scroll-filter tile (no `href`). Renders the tile
+   * as an anchor so it still works with no JS, and the hero script lets the
+   * navigation through when the finder reports an empty catalog — otherwise
+   * the click scroll-filters as before.
+   */
+  fallbackHref?: string | null
 }
 
 /** A live tile links out only when it has an href; otherwise it scroll-filters. */

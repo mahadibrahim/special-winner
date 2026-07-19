@@ -18,4 +18,9 @@ describe("tileLinksOut", () => {
   it("never links out for a coming_soon tile", () => {
     expect(tileLinksOut({ ...base, state: "coming_soon", href: "/x" })).toBe(false)
   })
+  it("a fallbackHref alone keeps the tile on the scroll-filter path", () => {
+    // fallbackHref is the no-JS / empty-finder safety net, not a link-out —
+    // the hero renders it as an anchor but the script still filters in-page.
+    expect(tileLinksOut({ ...base, fallbackHref: "/programs?audience=youth" })).toBe(false)
+  })
 })

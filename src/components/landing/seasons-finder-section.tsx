@@ -199,7 +199,10 @@ export function SeasonsFinderSection({
               ))}
             </div>
           ) : seasons.length === 0 ? (
-            <div className="bg-paper border border-border rounded-2xl py-12 px-6 text-center">
+            // data-finder-empty: hero tiles with a fallback href check this
+            // marker to decide between scroll-filtering and navigating away
+            // (see category-hero.astro's click handler).
+            <div data-finder-empty className="bg-paper border border-border rounded-2xl py-12 px-6 text-center">
               <p className="font-display text-lg text-ink">Nothing open right now.</p>
               <p className="text-ink-muted mt-1 text-sm">
                 {emptyCtaAudience
