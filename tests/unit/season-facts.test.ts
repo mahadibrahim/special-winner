@@ -10,6 +10,8 @@ import {
   earliestStartDate,
   minHoldDeposit,
   primaryVenueName,
+  primaryTermLabel,
+  ageRangeAcross,
 } from "@/lib/programs/season-facts"
 
 const NOW = new Date("2026-07-19T12:00:00Z")
@@ -148,5 +150,48 @@ describe("primaryVenueName", () => {
     ]
     expect(primaryVenueName(seasons)).toBe("Worthington")
     expect(primaryVenueName([])).toBeNull()
+  })
+})
+
+describe("primaryTermLabel", () => {
+  it("takes the termLabel of the soonest-closing season that has one", () => {
+    const seasons = [
+      mk({ registrationCloses: "2026-09-10T00:00:00Z", termLabel: "Fall II 2026" }),
+      mk({ id: "s2", registrationCloses: "2026-09-03T00:00:00Z", termLabel: "Fall 2026" }),
+    ]
+    expect(primaryTermLabel(seasons)).toBe("Fall 2026")
+  })
+  it("skips seasons without a termLabel", () => {
+    const seasons = [
+      mk({ registrationCloses: "2026-09-03T00:00:00Z", termLabel: null }),
+      mk({ id: "s2", registrationCloses: "2026-09-10T00:00:00Z", termLabel: "Winter I" }),
+    ]
+    expect(primaryTermLabel(seasons)).toBe("Winter I")
+  })
+  it("falls back to a generic 'Season YYYY' name when no termLabel exists", () => {
+    const seasons = [mk({ termLabel: null, name: "Fall 2026" })]
+    expect(primaryTermLabel(seasons)).toBe("Fall 2026")
+  })
+  it("returns null when neither a termLabel nor a generic name exists", () => {
+    expect(primaryTermLabel([mk({ termLabel: null, name: "Memorial Day Premier" })])).toBeNull()
+    expect(primaryTermLabel([])).toBeNull()
+  })
+})
+
+describe("ageRangeAcross", () => {
+  it("spans the widest range across age groups", () => {
+    const seasons = [
+      mk({ ageGroup: { id: "a1", name: "U8", minAge: 4, maxAge: 8 } }),
+      mk({ id: "s2", ageGroup: { id: "a2", name: "U12", minAge: 9, maxAge: 12 } }),
+    ]
+    expect(ageRangeAcross(seasons)).toEqual({ min: 4, max: 12 })
+  })
+  it("falls back to season-level minAge/maxAge when no age group is set", () => {
+    const seasons = [mk({ ageGroup: null, minAge: 5, maxAge: 10 })]
+    expect(ageRangeAcross(seasons)).toEqual({ min: 5, max: 10 })
+  })
+  it("returns null when no season carries any age data", () => {
+    expect(ageRangeAcross([mk({ ageGroup: null, minAge: null, maxAge: null })])).toBeNull()
+    expect(ageRangeAcross([])).toBeNull()
   })
 })

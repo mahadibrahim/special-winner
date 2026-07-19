@@ -1,6 +1,6 @@
 import type { ApiSeason } from "./api-season"
 import { isDualMode, isIndividualOnly, isTeamOnly } from "./derive"
-import { scopeSeasons, type CategoryAudience } from "./category-pages"
+import { byRegistrationCloses, scopeSeasons, type CategoryAudience } from "./category-pages"
 import { parseDateOnly } from "@/lib/time/format-date"
 
 /**
@@ -116,6 +116,44 @@ export function minHoldDeposit(seasons: ApiSeason[]): number | null {
     if (best == null || s.deposit < best) best = s.deposit
   }
   return best
+}
+
+/**
+ * Term label ("Fall 2026" / "Winter I") for a facts line, taken from the most
+ * urgent (soonest-closing) season that carries one. Seasons without a
+ * `termLabel` fall back to a generic "Season YYYY" name when that's all the
+ * set has. Null when no season carries either — callers omit the fact.
+ */
+export function primaryTermLabel(seasons: ApiSeason[]): string | null {
+  const sorted = [...seasons].sort(byRegistrationCloses)
+  for (const s of sorted) {
+    const label = s.termLabel?.trim()
+    if (label) return label
+  }
+  for (const s of sorted) {
+    const name = s.name?.trim() ?? ""
+    if (/^(Spring|Summer|Fall|Winter)\s+\d{4}$/i.test(name)) return name
+  }
+  return null
+}
+
+/**
+ * Combined age range across the set ("ages 4–12"). Per-season bounds prefer
+ * the age group; a season's own minAge/maxAge is the fallback. Null when no
+ * season carries any age data — callers omit the fact rather than inventing
+ * a range.
+ */
+export function ageRangeAcross(seasons: ApiSeason[]): { min: number; max: number } | null {
+  let min: number | null = null
+  let max: number | null = null
+  for (const s of seasons) {
+    const lo = s.ageGroup?.minAge ?? s.minAge
+    const hi = s.ageGroup?.maxAge ?? s.maxAge
+    if (lo != null && (min == null || lo < min)) min = lo
+    if (hi != null && (max == null || hi > max)) max = hi
+  }
+  if (min == null && max == null) return null
+  return { min: min ?? (max as number), max: max ?? (min as number) }
 }
 
 /** Most common venue name across the set (the page's "home venue"). */
