@@ -5,6 +5,7 @@ import ProgramCardV2 from "@/components/programs/program-card-v2"
 import { FilterChips, type ChipOption } from "./filter-chips"
 import { EmptyNotifyForm } from "./empty-notify-form"
 import type { ApiSeason } from "@/lib/programs/api-season"
+import { deriveDayKey, DAY_KEYS, DAY_LABELS } from "@/lib/programs/derive"
 import { useFinderFilter } from "@/lib/hooks/use-finder-filter"
 
 const PAGE_SIZE = 6
@@ -20,10 +21,9 @@ const PAGE_SIZE = 6
  * per-section chip filters (Format · Sport · Venue), pagination, and the
  * loading/empty states. Every chip group auto-hides when it has ≤1 option.
  *
- * No "Day"/"Month" filter: the only schedule signal on a season record is
- * the free-text `scheduleNotes`; the structured `startDate` is the record's
- * start date, not the game/event day, so a filter derived from it would
- * contradict what the card displays.
+ * The Day chips key on the structured `dayOfWeek` column (falling back to the
+ * start date's weekday), Mon→Sun order, rendered only for days present in the
+ * section's inventory — same chip language as Format/Sport/Venue.
  */
 
 const PROGRAM_TYPE_LABELS: Record<string, string> = {
@@ -90,6 +90,7 @@ export function SeasonsFinderSection({
   const [activeFormat, setActiveFormat] = useState<string | null>(null)
   const [activeSport, setActiveSport] = useState<string | null>(null)
   const [activeVenue, setActiveVenue] = useState<string | null>(null)
+  const [activeDay, setActiveDay] = useState<string | null>(null)
   const [visible, setVisible] = useState(PAGE_SIZE)
 
   // A hero tile elsewhere on the page can pre-apply this section's Sport
@@ -104,7 +105,7 @@ export function SeasonsFinderSection({
   // new first row.
   useEffect(() => {
     setVisible(PAGE_SIZE)
-  }, [activeFormat, activeSport, activeVenue])
+  }, [activeFormat, activeSport, activeVenue, activeDay])
 
   const formatOptions = useMemo(
     () =>
@@ -123,23 +124,40 @@ export function SeasonsFinderSection({
     () => buildOptions(seasons, (s) => s.location.slug, venueLabel),
     [seasons],
   )
+  // Day chips in fixed Mon..Sun order (buildOptions would order by first
+  // appearance); only days with inventory render.
+  const dayOptions = useMemo(
+    () =>
+      DAY_KEYS.map((d) => ({
+        value: d as string,
+        label: DAY_LABELS[d],
+        count: seasons.filter((s) => deriveDayKey(s) === d).length,
+      })).filter((o) => o.count > 0),
+    [seasons],
+  )
 
   const filtered = useMemo(() => {
     return seasons.filter((s) => {
       if (activeFormat && s.program.programType !== activeFormat) return false
       if (activeSport && s.sport.slug !== activeSport) return false
       if (activeVenue && s.location.slug !== activeVenue) return false
+      if (activeDay && deriveDayKey(s) !== activeDay) return false
       return true
     })
-  }, [seasons, activeFormat, activeSport, activeVenue])
+  }, [seasons, activeFormat, activeSport, activeVenue, activeDay])
 
   const clearFilters = () => {
     setActiveFormat(null)
     setActiveSport(null)
     setActiveVenue(null)
+    setActiveDay(null)
   }
   const hasActiveFilters =
-    activeFormat !== null || activeSport !== null || activeVenue !== null
+    activeFormat !== null || activeSport !== null || activeVenue !== null || activeDay !== null
+
+  // Header count states what is registerable NOW — forming seasons render
+  // (with their interest form) but do not count as "open".
+  const openCount = seasons.filter((s) => s.status !== "forming").length
 
   return (
     <section id={id} className="scroll-mt-36 py-12 lg:py-16">
@@ -152,7 +170,7 @@ export function SeasonsFinderSection({
           </h2>
           {!loading && (
             <span className="text-sm text-ink-muted whitespace-nowrap">
-              {seasons.length} open
+              {openCount} open
             </span>
           )}
         </div>
@@ -164,6 +182,7 @@ export function SeasonsFinderSection({
             <FilterChips label="Format" options={formatOptions} active={activeFormat} onChange={setActiveFormat} />
             <FilterChips label="Sport" options={sportOptions} active={activeSport} onChange={setActiveSport} />
             <FilterChips label="Venue" options={venueOptions} active={activeVenue} onChange={setActiveVenue} />
+            <FilterChips label="Day" options={dayOptions} active={activeDay} onChange={setActiveDay} />
           </div>
         )}
 
