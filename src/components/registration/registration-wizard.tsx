@@ -147,7 +147,16 @@ interface WizardDraft {
   waiverSignature: string
   mediaOptOuts: MediaAuthScope[]
   paymentOption: "full" | "deposit"
-  lookingForTeam: boolean
+}
+
+/** Captain deposit credit served by GET /api/public/team-registrations/[token]
+ *  (viewerCaptainCredit) when the signed-in user is the captain of the
+ *  team behind `teamToken` and the $200 deposit is verifiably paid. */
+interface CaptainCredit {
+  shareCents: number
+  creditCents: number
+  dueCents: number
+  depositCents: number
 }
 
 export default function RegistrationWizard({
@@ -179,7 +188,11 @@ export default function RegistrationWizard({
   const [waiverAccepted, setWaiverAccepted] = useState(false)
   const [waiverSignature, setWaiverSignature] = useState("")
   const [paymentOption, setPaymentOption] = useState<"full" | "deposit">("full")
-  const [lookingForTeam, setLookingForTeam] = useState(false)
+  // Free-agent placement flag, derived instead of asked: an individual-mode
+  // registration without a team token means "place me on a house team";
+  // joining via a team invite token means the opposite. (The old Agreements
+  // checkbox that asked this is gone.)
+  const lookingForTeam = !teamToken
   // Media-auth opt-outs: empty Set = all 3 scopes granted (the default).
   const [mediaAuthOptOuts, setMediaAuthOptOuts] = useState<ReadonlySet<MediaAuthScope>>(
     new Set(),
@@ -266,10 +279,11 @@ export default function RegistrationWizard({
   const [paymentValueCents, setPaymentValueCents] = useState(0)
   // Customer's choice of payment-method group. Drives both the displayed
   // surcharge and the Stripe Checkout Session's payment_method_types.
-  // Defaults to "bank" to anchor on the no-fee path.
+  // Defaults to "card" — the fastest path (Apple Pay / Google Pay / any
+  // card); the bank option stays one tap away for the fee-averse.
   const [selectedPaymentCategory, setSelectedPaymentCategory] = useState<
     "bank" | "card"
-  >("bank")
+  >("card")
   const [appliedSurchargeCents, setAppliedSurchargeCents] = useState(0)
 
   // ── Account credit state (authed only — guests have no balance) ─────────
@@ -283,6 +297,41 @@ export default function RegistrationWizard({
   const [paymentTypeForTracking, setPaymentTypeForTracking] = useState<
     "deposit" | "balance" | "full"
   >("full")
+
+  // ── Captain deposit credit (team-token registrations only) ───────────────
+  // When the signed-in registrant is the CAPTAIN of the team behind
+  // `teamToken` and the $200 deposit is paid, the server credits their share
+  // by the deposit (typically to $0). This fetch is display-only — the server
+  // recomputes the credit in createRegistration and never trusts the client.
+  const [captainCredit, setCaptainCredit] = useState<CaptainCredit | null>(null)
+  // The credit only applies to the captain's SELF registration (server gate:
+  // familyMember.selfUserId === user.id) — never to a dependent registered
+  // through the same account. Mirror that here so the payment step doesn't
+  // show credit math the server would refuse.
+  const effectiveCaptainCredit = selectedKey === "self" ? captainCredit : null
+
+  useEffect(() => {
+    if (!teamToken || isGuest) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch(
+          `/api/public/team-registrations/${encodeURIComponent(teamToken)}`,
+        )
+        if (!res.ok) return
+        const data = await res.json()
+        if (!cancelled && data.viewerCaptainCredit) {
+          setCaptainCredit(data.viewerCaptainCredit as CaptainCredit)
+        }
+      } catch {
+        // non-fatal — the payment step falls back to the season price and the
+        // server still applies the credit at registration time
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [teamToken, isGuest])
 
   // ── Effects ──────────────────────────────────────────────────────────────
 
@@ -361,7 +410,6 @@ export default function RegistrationWizard({
     setWaiverSignature(d.waiverSignature ?? "")
     setMediaAuthOptOuts(new Set(d.mediaOptOuts ?? []))
     setPaymentOption(d.paymentOption === "deposit" ? "deposit" : "full")
-    setLookingForTeam(Boolean(d.lookingForTeam))
     // Don't restore onto the payment step — the registration row isn't created
     // until a method is picked, so land them on Agreements to continue cleanly.
     setCurrentStep(Math.min(Math.max(d.currentStep ?? 1, 1), STEP_AGREEMENTS))
@@ -410,7 +458,6 @@ export default function RegistrationWizard({
       waiverSignature,
       mediaOptOuts: Array.from(mediaAuthOptOuts),
       paymentOption,
-      lookingForTeam,
     }
     try {
       window.localStorage.setItem(draftKey, JSON.stringify(draft))
@@ -429,7 +476,6 @@ export default function RegistrationWizard({
     waiverSignature,
     mediaAuthOptOuts,
     paymentOption,
-    lookingForTeam,
   ])
 
   // Compute whether the season's audience is unambiguous. When it is, the
@@ -740,7 +786,9 @@ export default function RegistrationWizard({
           registrationId: resumableRegistrationId,
           paymentMethodCategory: selectedPaymentCategory,
           teamToken: teamToken ?? undefined,
-          applyAccountCredit,
+          // Captain-credit checkouts keep the math to one credit source —
+          // the deposit — so the displayed due can't drift from the charge.
+          applyAccountCredit: effectiveCaptainCredit ? false : applyAccountCredit,
         }),
       })
       const data = await res.json()
@@ -750,8 +798,9 @@ export default function RegistrationWizard({
         )
       }
       if (data.clientSecret) {
-        const valueCents =
-          paymentOption === "deposit" && depositValid(season!)
+        const valueCents = effectiveCaptainCredit
+          ? effectiveCaptainCredit.dueCents
+          : paymentOption === "deposit" && depositValid(season!)
             ? season!.depositCents!
             : fullPriceCents(season!)
         const baseAfterDiscount = appliedDiscount
@@ -822,6 +871,7 @@ export default function RegistrationWizard({
               waiverSigned: true,
               waiverSignedBy: waiverSignature,
               discountCode: discountCode || undefined,
+              lookingForTeam,
               mediaAuthOptOuts: mediaAuthOptOutsArr,
               paymentMethodCategory: category,
               teamToken: teamToken ?? undefined,
@@ -963,7 +1013,9 @@ export default function RegistrationWizard({
             discountCode: discountCode || undefined,
             paymentMethodCategory: category,
             teamToken: teamToken ?? undefined,
-            applyAccountCredit,
+            // Captain-credit checkouts keep the math to one credit source —
+            // the deposit — so the displayed due can't drift from the charge.
+            applyAccountCredit: effectiveCaptainCredit ? false : applyAccountCredit,
           }),
         })
 
@@ -982,8 +1034,9 @@ export default function RegistrationWizard({
 
         // Hand off to embedded form rendered inside step 4
         if (checkoutData.clientSecret) {
-          const valueCents =
-            paymentOption === "deposit" && depositValid(season!)
+          const valueCents = effectiveCaptainCredit
+            ? effectiveCaptainCredit.dueCents
+            : paymentOption === "deposit" && depositValid(season!)
               ? season!.depositCents!
               : fullPriceCents(season!)
           const baseAfterDiscount = appliedDiscount
@@ -1374,10 +1427,8 @@ export default function RegistrationWizard({
               }
               waiverAccepted={waiverAccepted}
               waiverSignature={waiverSignature}
-              lookingForTeam={lookingForTeam}
               onWaiverAcceptedChange={setWaiverAccepted}
               onWaiverSignatureChange={setWaiverSignature}
-              onLookingForTeamChange={setLookingForTeam}
             />
             <MediaAuthStep
               isSelf={
@@ -1411,6 +1462,13 @@ export default function RegistrationWizard({
             paymentOption={paymentOption}
             paymentMethodCategory={selectedPaymentCategory}
             onMethodSelected={handleMethodSelected}
+            captainCredit={effectiveCaptainCredit}
+            onCompleteZeroDue={() => {
+              // Zero-due captain registration: no method, no Stripe intent —
+              // the server finalizes the row as paid via the deposit credit.
+              setPaymentStarted(true)
+              handleSubmitRegistration()
+            }}
             isCreatingSession={isSubmitting}
             optionLocked={paymentStarted}
             appliedSurchargeCents={appliedSurchargeCents}

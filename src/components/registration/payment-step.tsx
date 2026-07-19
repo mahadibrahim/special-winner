@@ -18,6 +18,17 @@ interface AppliedDiscount {
   discountAmountCents: number
 }
 
+/** Captain deposit credit (server-computed, display-only — see
+ *  viewerCaptainCredit on GET /api/public/team-registrations/[token]).
+ *  Present only when the registrant is the captain of the team behind the
+ *  invite token and the $200 deposit is paid. */
+export interface CaptainCreditView {
+  shareCents: number
+  creditCents: number
+  dueCents: number
+  depositCents: number
+}
+
 export interface PaymentStepProps {
   seasonName: string
   seasonPrice: number
@@ -29,6 +40,15 @@ export interface PaymentStepProps {
   earlyBirdActive?: boolean
   paymentOption: "full" | "deposit"
   registrantName: string
+
+  /** Captain deposit credit — replaces the season-price summary with the
+   *  credit math (Your share / Deposit credit / Total due today). Typical
+   *  result is $0 due, which renders a single "Complete registration" button
+   *  and never creates a Stripe intent. */
+  captainCredit?: CaptainCreditView | null
+  /** Finalize a $0-due captain-credit registration (server recomputes the
+   *  credit; no payment method, no Stripe session). */
+  onCompleteZeroDue?: () => void
 
   // Payment-method category (the bank-vs-card choice that drives surcharge).
   paymentMethodCategory: "bank" | "card"
@@ -92,6 +112,8 @@ export function PaymentStep({
   allowDeposit,
   earlyBirdActive = false,
   paymentOption,
+  captainCredit = null,
+  onCompleteZeroDue,
   paymentMethodCategory,
   onMethodSelected,
   isCreatingSession,
@@ -142,10 +164,16 @@ export function PaymentStep({
   // summary fall back to pay-in-full when the deposit isn't offered.
   const effectivePaymentOption = depositAvailable ? paymentOption : "full"
 
+  // Zero-due captain path: the deposit fully covers the captain's share —
+  // one "Complete registration" button, no method picker, no Stripe intent.
+  const captainZeroDue = captainCredit != null && captainCredit.dueCents === 0
+
   // Compute a preview surcharge for each method group so the picker can show
-  // exactly what each option costs before the customer commits.
-  const baseAmountCents =
-    effectivePaymentOption === "deposit" && seasonDepositCents
+  // exactly what each option costs before the customer commits. A captain
+  // credit replaces the season price with the post-credit due.
+  const baseAmountCents = captainCredit
+    ? captainCredit.dueCents
+    : effectivePaymentOption === "deposit" && seasonDepositCents
       ? seasonDepositCents
       : seasonPriceCents
   const discountedBaseCents = appliedDiscount
@@ -163,8 +191,6 @@ export function PaymentStep({
     discountedBaseCents - previewCreditAppliedCents,
   )
   const previewCardSurcharge = computeSurchargeCents(amountAfterCreditCents, "card")
-  const previewBankTotal = amountAfterCreditCents
-  const previewCardTotal = amountAfterCreditCents + previewCardSurcharge
 
   // Display surcharge: post-commit, use the server-confirmed value so we can't
   // get out of sync with what Stripe actually charged.
@@ -183,6 +209,44 @@ export function PaymentStep({
 
   return (
     <div className="space-y-6">
+      {/* Captain deposit credit — replaces the season-price option/summary
+          sections entirely: one credit source, one clear total. */}
+      {captainCredit && (
+        <div>
+          <h3 className="text-lg font-semibold text-ink mb-2">Your share</h3>
+          <div className="p-4 rounded-xl bg-primary/10 border border-primary/20">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-ink-2">Registration for</span>
+              <span className="text-ink font-medium">{registrantName}</span>
+            </div>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-ink-2">Your share</span>
+              <span className="text-ink">
+                ${(captainCredit.shareCents / 100).toFixed(2)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between mb-2 text-green-400">
+              <span>Deposit credit</span>
+              <span>-${(captainCredit.creditCents / 100).toFixed(2)}</span>
+            </div>
+            <div className="flex items-center justify-between pt-2 border-t border-primary/20">
+              <span className="text-ink font-semibold">Total due today</span>
+              <span className="text-ink font-bold text-xl">
+                ${(captainCredit.dueCents / 100).toFixed(2)}
+              </span>
+            </div>
+            {captainZeroDue && (
+              <p className="text-xs text-ink-muted mt-2">
+                Covered by your ${(captainCredit.depositCents / 100).toFixed(0)}{" "}
+                team deposit — the remainder stays credited to the team fee.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {!captainCredit && (
+      <>
       <div>
         <h3 className="text-lg font-semibold text-ink mb-2">Payment Option</h3>
         <p className="text-ink-muted text-sm">
@@ -337,10 +401,33 @@ export function PaymentStep({
         paymentMethodCategory={paymentMethodCategory}
         creditAppliedCents={displayCreditAppliedCents}
       />
+      </>
+      )}
+
+      {/* Zero-due captain completion — no payment method, no Stripe intent.
+          The server recomputes the credit and finalizes the row as paid. */}
+      {captainZeroDue && !sessionLocked && (
+        <div className="space-y-3">
+          <Button
+            onClick={onCompleteZeroDue}
+            disabled={isCreatingSession}
+            className="w-full bg-primary hover:bg-primary/90 py-6 text-base font-semibold"
+          >
+            {isCreatingSession ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Completing…
+              </>
+            ) : (
+              "Complete registration"
+            )}
+          </Button>
+        </div>
+      )}
 
       {/* Payment method — selecting one creates the session and reveals the
           inline payment form. No separate "continue to payment" step. */}
-      {!sessionLocked && (
+      {!sessionLocked && !captainZeroDue && (
         <div className="space-y-3">
           <div>
             <h3 className="text-lg font-semibold text-ink mb-1">Payment Method</h3>
@@ -370,7 +457,7 @@ export function PaymentStep({
                   </span>
                 </div>
                 <p className="text-sm text-ink-muted">
-                  Pay ${(previewBankTotal / 100).toFixed(2)} from your checking account (ACH).
+                  Save the ${(previewCardSurcharge / 100).toFixed(2)} fee — pay by ACH.
                 </p>
               </div>
             </button>
@@ -394,8 +481,7 @@ export function PaymentStep({
                   </span>
                 </div>
                 <p className="text-sm text-ink-muted">
-                  Pay ${(previewCardTotal / 100).toFixed(2)} by Visa, Mastercard, Apple Pay, or
-                  Google Pay.
+                  Fastest — Apple Pay, Google Pay, or any card.
                 </p>
               </div>
             </button>
@@ -444,6 +530,17 @@ export function PaymentStep({
             onSuccess={onPaymentSuccess}
             onCancel={onPaymentCancel}
           />
+          <p className="mt-3 text-xs text-ink-faint text-center">
+            Refunds: full refund until 14 days before the season ·{" "}
+            <a
+              href="/refund-policy"
+              target="_blank"
+              rel="noopener"
+              className="underline underline-offset-2 hover:text-ink transition-colors"
+            >
+              Refund policy
+            </a>
+          </p>
         </div>
       )}
     </div>
