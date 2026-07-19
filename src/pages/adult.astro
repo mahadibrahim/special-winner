@@ -11,9 +11,14 @@ import { setMarketingEdgeCache } from "@/lib/http/edge-cache";
 const announcement = getActiveSiteAnnouncement(Astro.locals.organization, "adult");
 
 const doors = [
+  // factsAudience opts the Leagues tile into a live mono facts line ("Fall ·
+  // 7 games · $120 solo · closes Sep 3") — price/deadline computed client-side
+  // (edge-cached page, so no server fetch); "7 games" is authored to match the
+  // /adult/leagues facts band's authored format fact.
   { href: "/adult/leagues", cta: "adult-hub-leagues", palette: "leagues" as const,
     title: "Leagues", blurb: "Season-long play. Build a team or join as a free agent.",
-    statusLabel: "Now registering", live: true, ctaLabel: "Browse leagues" },
+    statusLabel: "Now registering", live: true, ctaLabel: "Browse leagues",
+    factsAudience: "adult" as const, factsAuthored: "7 games" },
   { href: "/adult/pickup", cta: "adult-hub-pickup", palette: "pickup" as const,
     title: "Pickup", blurb: "Show up and play. Pay per session, no commitment.",
     statusLabel: "Open this week", live: true, ctaLabel: "Browse pickup" },
@@ -47,12 +52,7 @@ setMarketingEdgeCache(Astro);
     )}
 
     <section class="max-w-[1080px] mx-auto px-9 pt-7 pb-16 grid grid-cols-1 md:grid-cols-3 gap-4">
-      {doors.map((d) => (
-        <CategoryCard
-          href={d.href} cta={d.cta} palette={d.palette} title={d.title}
-          blurb={d.blurb} statusLabel={d.statusLabel} live={d.live} ctaLabel={d.ctaLabel}
-        />
-      ))}
+      {doors.map((d) => <CategoryCard {...d} />)}
     </section>
   </main>
 </BaseLayout>

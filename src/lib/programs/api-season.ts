@@ -10,6 +10,12 @@ export interface ApiSeason extends SeasonForDerive {
   endDate: string
   price: number
   teamPrice: number | null
+  earlyBirdPrice?: number | null
+  earlyBirdTeamPrice?: number | null
+  earlyBirdDeadline?: string | null
+  spotsLeft?: number | null
+  deposit?: number | null
+  allowDeposit?: boolean
   scheduleNotes: string | null
   dayOfWeek: string | null
   startTime: string | null
@@ -21,6 +27,9 @@ export interface ApiSeason extends SeasonForDerive {
   status?: string
   signupMode?: "interest" | "register"
   registrationCloses?: string | null
+  /** Term grouping ("Fall 2026" / "fall-2026") — set on league seasons. */
+  termSlug?: string | null
+  termLabel?: string | null
   program: {
     id: string
     name: string

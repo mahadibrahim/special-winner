@@ -3,9 +3,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { Loader2, CheckCircle2, Copy, Check, Send, Plus, X, Mail } from "lucide-react";
 import { EmbeddedPayment } from "./embedded-payment";
+import { CAPTAIN_DEPOSIT_CENTS } from "@/lib/registrations/team-deposit";
 import { TurnstileWidget } from "@/components/auth/turnstile-widget";
-
-const CAPTAIN_DEPOSIT_CENTS = 20000; // $200 (locked decision)
 
 // localStorage key for the pending captain form of a signed-out visitor —
 // stashed before we send them a magic link, rehydrated when they return

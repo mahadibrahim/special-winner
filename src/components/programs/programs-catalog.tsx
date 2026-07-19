@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { ChevronRight, SlidersHorizontal } from "lucide-react"
 import ProgramCardV2 from "./program-card-v2"
-import { deriveAudience, deriveDayBucket, type SeasonForDerive } from "@/lib/programs/derive"
+import { deriveAudience, deriveDayKey, DAY_KEYS, DAY_LABELS, type SeasonForDerive } from "@/lib/programs/derive"
 
 type Audience = "youth" | "adult" | "team"
 
@@ -15,6 +15,9 @@ interface ApiSeason {
   endDate: string
   price: number
   teamPrice: number | null
+  earlyBirdPrice: number | null
+  earlyBirdTeamPrice: number | null
+  earlyBirdDeadline: string | null
   signupModes: string[]
   deposit: number | null
   allowDeposit: boolean
@@ -62,7 +65,7 @@ export default function ProgramsCatalog({ initialAudience, initialType, initialA
   const [activeLocation, setActiveLocation] = useState<string | null>(null)
   const [activeAgeBand, setActiveAgeBand] = useState<string | null>(initialAgeBand ?? null)
   const [activeSkill, setActiveSkill] = useState<string | null>(null)
-  const [activeDayBucket, setActiveDayBucket] = useState<string | null>(null)
+  const [activeDay, setActiveDay] = useState<string | null>(null)
   const [activeType, setActiveType] = useState<string | null>(initialType ?? null)
   const [sort, setSort] = useState<"start" | "deadline" | "filling">("start")
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
@@ -83,7 +86,7 @@ export default function ProgramsCatalog({ initialAudience, initialType, initialA
   // first row.
   useEffect(() => {
     setVisibleCount(12)
-  }, [audience, activeSport, activeLocation, activeAgeBand, activeSkill, activeDayBucket, activeType, sort])
+  }, [audience, activeSport, activeLocation, activeAgeBand, activeSkill, activeDay, activeType, sort])
 
   useEffect(() => {
     let cancelled = false
@@ -131,8 +134,16 @@ export default function ProgramsCatalog({ initialAudience, initialType, initialA
   // Step 2: derive facet inventories from the segment slice.
   const sports = useMemo(() => unique(segmentSeasons.map((s) => s.sport.slug)), [segmentSeasons])
   const locations = useMemo(() => unique(segmentSeasons.map((s) => s.location.slug)), [segmentSeasons])
-  const dayBuckets = useMemo(
-    () => unique(segmentSeasons.map((s) => deriveDayBucket(s as SeasonForDerive))),
+  // Per-day chip inventory, Mon..Sun order — a chip renders only for days
+  // with at least one season in the current audience scope. Counts come from
+  // the segment slice, matching how the Sport/Location chips compute theirs.
+  const dayOptions = useMemo(
+    () =>
+      DAY_KEYS.map((d) => ({
+        value: d as string,
+        label: DAY_LABELS[d],
+        count: segmentSeasons.filter((s) => deriveDayKey(s as SeasonForDerive) === d).length,
+      })).filter((o) => o.count > 0),
     [segmentSeasons],
   )
 
@@ -176,7 +187,7 @@ export default function ProgramsCatalog({ initialAudience, initialType, initialA
     return segmentSeasons.filter((s) => {
       if (activeSport && s.sport.slug !== activeSport) return false
       if (activeLocation && s.location.slug !== activeLocation) return false
-      if (activeDayBucket && deriveDayBucket(s as SeasonForDerive) !== activeDayBucket) return false
+      if (activeDay && deriveDayKey(s as SeasonForDerive) !== activeDay) return false
       if (audience === "youth" && activeAgeBand) {
         const band = ageBands.find((b) => b.key === activeAgeBand)
         if (band && !band.match(s)) return false
@@ -190,7 +201,7 @@ export default function ProgramsCatalog({ initialAudience, initialType, initialA
       }
       return true
     })
-  }, [segmentSeasons, activeSport, activeLocation, activeAgeBand, activeSkill, activeDayBucket, activeType, audience, ageBands])
+  }, [segmentSeasons, activeSport, activeLocation, activeAgeBand, activeSkill, activeDay, activeType, audience, ageBands])
 
   // Step 4: sort.
   const sorted = useMemo(() => {
@@ -392,17 +403,13 @@ export default function ProgramsCatalog({ initialAudience, initialType, initialA
               />
             )}
 
-            {/* Day bucket — auto-hidden when only one option */}
-            {dayBuckets.length > 1 && (
+            {/* Day — per-day chips (Mon..Sun), auto-hidden when only one option */}
+            {dayOptions.length > 1 && (
               <ChipGroup
                 label="Day"
-                options={dayBuckets.map((b) => ({
-                  value: b,
-                  label: b,
-                  count: segmentSeasons.filter((s) => deriveDayBucket(s as SeasonForDerive) === b).length,
-                }))}
-                active={activeDayBucket}
-                onChange={setActiveDayBucket}
+                options={dayOptions}
+                active={activeDay}
+                onChange={setActiveDay}
               />
             )}
 
@@ -431,7 +438,7 @@ export default function ProgramsCatalog({ initialAudience, initialType, initialA
           <div className="flex gap-4 overflow-x-auto pb-3 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 snap-x snap-mandatory">
             {row.items.map((s) => (
               <div key={`${row.title}-${s.id}`} className="flex-none w-[300px] sm:w-[320px] snap-start">
-                <ProgramCardV2 season={s} />
+                <ProgramCardV2 season={s} emphasis={audience === "team" ? "team" : undefined} />
               </div>
             ))}
           </div>
@@ -460,7 +467,7 @@ export default function ProgramsCatalog({ initialAudience, initialType, initialA
                 setActiveLocation(null)
                 setActiveAgeBand(null)
                 setActiveSkill(null)
-                setActiveDayBucket(null)
+                setActiveDay(null)
               }}
               className="mt-3 text-sm font-medium text-primary hover:underline"
             >
@@ -471,7 +478,7 @@ export default function ProgramsCatalog({ initialAudience, initialType, initialA
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {sorted.slice(0, visibleCount).map((s) => (
-                <ProgramCardV2 key={s.id} season={s} />
+                <ProgramCardV2 key={s.id} season={s} emphasis={audience === "team" ? "team" : undefined} />
               ))}
             </div>
             {visibleCount < sorted.length && (

@@ -39,6 +39,16 @@ const { title, subhead, videoSources, poster, tiles, finderId, crosslink } = Ast
             <div class="font-mono text-xs">{t.meta}</div>
             <span class="absolute right-4 bottom-4 font-semibold text-lg">→</span>
           </a>
+        ) : t.state === "live" && t.fallbackHref ? (
+          // Scroll-filter tile with a safety net: the script intercepts the
+          // click and filters the finder as usual, but lets the navigation
+          // through when the finder's catalog is empty (or JS never ran).
+          <a href={t.fallbackHref} data-sport-tile data-sport={t.key} data-state="live" data-finder={finderId} class="relative rounded-2xl p-4 text-ink overflow-hidden" style={t.color ? `background:${t.color}` : undefined}>
+            <div class="font-mono text-[9px] tracking-widest uppercase opacity-80">{t.statusLabel}</div>
+            <div class="font-display font-semibold text-2xl mt-1.5">{t.label}</div>
+            <div class="font-mono text-xs">{t.meta}</div>
+            <span class="absolute right-4 bottom-4 font-semibold text-lg">→</span>
+          </a>
         ) : t.state === "live" ? (
           <button type="button" data-sport-tile data-sport={t.key} data-state="live" data-finder={finderId} class="relative text-left rounded-2xl p-4 text-ink overflow-hidden cursor-pointer" style={t.color ? `background:${t.color}` : undefined}>
             <div class="font-mono text-[9px] tracking-widest uppercase opacity-80">{t.statusLabel}</div>
@@ -70,12 +80,20 @@ const { title, subhead, videoSources, poster, tiles, finderId, crosslink } = Ast
   import { dispatchFinderFilter } from "@/lib/landing/finder-filter"
 
   document.querySelectorAll<HTMLElement>("[data-sport-tile]").forEach((el) => {
-    el.addEventListener("click", () => {
+    el.addEventListener("click", (e) => {
       const state = (el.dataset.state as "live" | "coming_soon") ?? "live"
       trackCatalogSportTileClicked({ sport: el.dataset.sport ?? "", state })
-      // A live tile with a data-finder attr (no href) scroll-filters the finder.
+      // A live tile with a data-finder attr scroll-filters the finder. When
+      // the tile is an anchor (fallbackHref set) and the finder has loaded an
+      // EMPTY catalog, we let the navigation through instead — filtering a
+      // finder with nothing in it is a dead end. While the finder is still
+      // loading we prefer the in-page filter (its skeletons are visible).
       const finderId = el.dataset.finder
       if (state === "live" && finderId) {
+        const section = document.getElementById(finderId)
+        const finderEmpty = Boolean(section?.querySelector("[data-finder-empty]"))
+        if (el instanceof HTMLAnchorElement && finderEmpty) return
+        e.preventDefault()
         dispatchFinderFilter({ key: el.dataset.sport ?? "", sectionId: finderId })
       }
     })
