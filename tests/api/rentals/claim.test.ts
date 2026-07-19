@@ -12,7 +12,7 @@ import { users } from "@/lib/db/schema/users";
 import { hashPassword } from "@/lib/auth";
 import { mintRentalClaimToken } from "@/lib/rentals/claim";
 import { verifyToken } from "@/lib/check-in/tokens-db";
-import { apiFetch, testSlug } from "../setup/test-helpers";
+import { apiFetch, testSlug, getParentCookie } from "../setup/test-helpers";
 import { E2E_RENTAL_VENUE_ID, E2E_ORG_ID } from "@/lib/db/seeds/seed-e2e-tests";
 
 const orgId = E2E_ORG_ID;
@@ -212,6 +212,35 @@ describe("POST /api/rentals/claim/:token", () => {
     });
     expect(res.status).toBe(401);
 
+    const [afterRental] = await getDb()
+      .select({ renterUserId: fieldRentals.renterUserId })
+      .from(fieldRentals)
+      .where(eq(fieldRentals.id, rental.id));
+    expect(afterRental.renterUserId).toBeNull();
+  });
+});
+
+describe("GET /rentals/claim/:token (page) — signed-in email guard", () => {
+  it("does NOT auto-claim when the signed-in user's email != the rental's renterEmail", async () => {
+    // Seed parent cookie — their email is parent@test.aspiresports.com.
+    const cookie = await getParentCookie();
+
+    // Guest rental requested with a DIFFERENT email than the signed-in user.
+    const otherEmail = uniqueEmail("claim-mismatch");
+    const rental = await makeApprovedGuestRental(otherEmail);
+    const token = await mintRentalClaimToken(rental);
+
+    // Open the claim PAGE while signed in as the mismatched parent.
+    const res = await apiFetch(`/rentals/claim/${token}`, {
+      method: "GET",
+      cookie,
+    });
+    // The page renders (200) — it must NOT redirect to /dashboard/bookings
+    // (which would only happen on a successful auto-claim).
+    expect(res.status).toBe(200);
+
+    // The rental must still be unclaimed — the page refused to attach it to
+    // the wrong signed-in account.
     const [afterRental] = await getDb()
       .select({ renterUserId: fieldRentals.renterUserId })
       .from(fieldRentals)

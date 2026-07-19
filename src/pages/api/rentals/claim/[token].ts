@@ -46,6 +46,13 @@ const json = (body: unknown, status: number) =>
     headers: { "Content-Type": "application/json" },
   });
 
+// Postgres SQLSTATE, sometimes nested under `.cause` depending on the driver
+// layer that rethrew (mirrors the admin CRUD endpoints' helper).
+function getDbErrorCode(error: unknown): string | undefined {
+  const e = error as { code?: string; cause?: { code?: string } } | null;
+  return e?.code ?? e?.cause?.code;
+}
+
 export const POST: APIRoute = async (ctx) => {
   const { params, request, clientAddress } = ctx;
   const ip = clientAddress || "unknown";
@@ -112,22 +119,33 @@ export const POST: APIRoute = async (ctx) => {
 
     const rawName = (body.name ?? rental.renterName ?? "").trim();
     const [first, ...rest] = rawName.split(/\s+/).filter(Boolean);
-    const [u] = await db
-      .insert(users)
-      .values({
-        email: rental.renterEmail.toLowerCase(),
-        emailCanonical,
-        passwordHash: await hashPassword(password),
-        firstName: first || rental.renterName,
-        lastName: rest.join(" ") || null,
-        phone: rental.renterPhone,
-        // Justified ONLY because the claim token proves ownership of this
-        // address (it was minted against rental.renterEmail and delivered
-        // to it) — never set this for a body-supplied email.
-        emailVerified: true,
-      })
-      .returning();
-    userId = u.id;
+    try {
+      const [u] = await db
+        .insert(users)
+        .values({
+          email: rental.renterEmail.toLowerCase(),
+          emailCanonical,
+          passwordHash: await hashPassword(password),
+          firstName: first || rental.renterName,
+          lastName: rest.join(" ") || null,
+          phone: rental.renterPhone,
+          // Justified ONLY because the claim token proves ownership of this
+          // address (it was minted against rental.renterEmail and delivered
+          // to it) — never set this for a body-supplied email.
+          emailVerified: true,
+        })
+        .returning();
+      userId = u.id;
+    } catch (err) {
+      // Two concurrent signups for the same email both clear the `existing`
+      // lookup above; the second loses the race on the users unique index
+      // (email / email_canonical). Surface the same account_exists 409 the
+      // found-existing branch returns rather than an ungraceful 500.
+      if (getDbErrorCode(err) === "23505") {
+        return json({ error: "account_exists" }, 409);
+      }
+      throw err;
+    }
   }
 
   // Conditional UPDATE — false means someone else claimed it between our
