@@ -23,11 +23,33 @@ const venueList = organizationId
 // Venues are modeled one-per-physical-field; the calendar's Field selector
 // switches between them.
 const calendarVenues = venueList.map((v) => ({ id: v.id, name: v.name }));
-const fieldCount = `${venueList.length} field${venueList.length === 1 ? '' : 's'}`;
 
 const bookingWindowDays = DEFAULT_BOOKING_WINDOW_DAYS;
 
 const orgTimeZone = Astro.locals.organization?.timezone ?? "America/New_York";
+
+const PLAY_FACTS = [
+  {
+    big: '3',
+    title: 'Fields open now',
+    desc: 'Orange & Blue in Worthington, Yellow downtown. Futsal courts land in September.',
+  },
+  {
+    big: '2026',
+    title: 'Newest venue in Columbus',
+    desc: 'Brand-new construction, clean and well-kept.',
+  },
+  {
+    big: '100%',
+    title: 'Fully boarded',
+    desc: 'No throw-ins — play off the walls and keep the tempo up.',
+  },
+  {
+    big: '0',
+    title: 'Rubber crumb',
+    desc: 'Sand-filled turf: truer roll, softer landings, no black pellets in your socks.',
+  },
+];
 
 // Helper to format cents as dollars (whole numbers shown without decimals)
 const fmt = (cents: number) => {
@@ -45,7 +67,7 @@ const breadcrumbSchema = breadcrumbJsonLd([
 <BaseLayout
   favicon="/soccerone-favicon.svg"
   title={`Field Rentals — SoccerOne | ${facilityLabel}`}
-  description="Request an indoor soccer field at SoccerOne. Worthington (2 fields, futsal courts opening September) and Downtown (1 field). Seasonal tiered rates. Open 4pm–12am daily."
+  description="Request an indoor soccer field at SoccerOne. 3 fields open now — Orange and Blue in Worthington, Yellow downtown — with futsal courts opening September. Seasonal tiered rates. Open 4pm–12am daily."
   navigation={false}
   footer={false}
   bodyClass="min-h-screen flex flex-col bg-[#0a0a0d] text-white antialiased"
@@ -79,6 +101,10 @@ const breadcrumbSchema = breadcrumbJsonLd([
             <p class="rh-desc">
               Request a field at {facilityLabel}. We review each request and email you a secure link to pay — the slot is held while we confirm. Requests must be at least 48 hours out and up to {bookingWindowDays} days ahead — call or email us for anything sooner or further.
             </p>
+            <a href="tel:+16147499782" class="call-chip">
+              <span class="call-chip-sub">Book faster — call or text</span>
+              <b class="mono">(614) 749-9782</b>
+            </a>
           </div>
 
           <!-- Tiered rates table -->
@@ -110,39 +136,31 @@ const breadcrumbSchema = breadcrumbJsonLd([
           </div>
         </div>
 
-        <!-- Facility selector tabs -->
-        <div class="facility-filter-row" role="group" aria-label="Select facility">
+        <!-- Location segmented control -->
+        <div class="seg-label mono">Choose a location</div>
+        <div class="seg" role="group" aria-label="Select facility">
           <a
             href="/rent?facility=worthington"
-            class={`ff-tab ${facility === 'worthington' ? 'ff-tab--active' : ''}`}
+            class={`seg-btn ${facility === 'worthington' ? 'seg-btn--active' : ''}`}
           >
-            WORTHINGTON · 2 FIELDS
+            Worthington
+            <span class="seg-btn-sub">2 fields · Orange, Blue</span>
           </a>
           <a
             href="/rent?facility=downtown"
-            class={`ff-tab ${facility === 'downtown' ? 'ff-tab--active' : ''}`}
+            class={`seg-btn ${facility === 'downtown' ? 'seg-btn--active' : ''}`}
           >
-            DOWNTOWN · 1 FIELD
+            Downtown
+            <span class="seg-btn-sub">1 field · Yellow</span>
           </a>
         </div>
-      </div>
-    </div>
-
-    <!-- Current facility context -->
-    <div class="facility-context-bar">
-      <div class="fcb-inner">
-        <div class="fcb-left">
-          <span class="fcb-label">BOOKING AT</span>
-          <span class="fcb-name">{facilityLabel}</span>
-          <span class="fcb-fields mono">— {fieldCount}</span>
-        </div>
-        <div class="fcb-right">
+        <div class="loc-meta">
           {facility === 'worthington' ? (
-            <span class="fcb-addr">535 Lakeview Plaza Blvd, Worthington, OH 43085</span>
+            <span class="mono">535 Lakeview Plaza Blvd, Worthington, OH 43085</span>
           ) : (
-            <span class="fcb-addr">980 E Starr Ave, Columbus, OH 43201</span>
+            <span class="mono">980 E Starr Ave, Columbus, OH 43201</span>
           )}
-          <span class="fcb-hours mono">4PM – 12AM daily</span>
+          <span class="mono">Open 4PM – 12AM daily</span>
         </div>
       </div>
     </div>
@@ -169,82 +187,21 @@ const breadcrumbSchema = breadcrumbJsonLd([
       </div>
     </div>
 
-    <!-- What's included -->
-    <div class="includes-section">
-      <div class="includes-inner">
-        <div class="inc-header">
-          <h2 class="inc-title">Every rental includes</h2>
+    <!-- What you play on (accurate) -->
+    <div class="play-section">
+      <div class="play-inner">
+        <div class="play-header">
+          <h2 class="play-title">What you play on</h2>
+          <p class="play-lead">Built new in 2026 — not a retrofit. Here's exactly what's there today.</p>
         </div>
-        <div class="includes-grid">
-          <div class="inc-item">
-            <span class="inc-check">✓</span>
-            <div class="inc-text">
-              {facility === 'downtown' ? (
-                <strong>Fast 6v6 indoor turf field</strong>
-              ) : (
-                <strong>Full-size indoor turf field</strong>
-              )}
-              <span>Professional-grade synthetic turf, line-marked</span>
+        <div class="fact-grid">
+          {PLAY_FACTS.map((fact) => (
+            <div class="fact-card">
+              <div class="fact-big">{fact.big}</div>
+              <div class="fact-title">{fact.title}</div>
+              <div class="fact-desc">{fact.desc}</div>
             </div>
-          </div>
-          <div class="inc-item">
-            <span class="inc-check">✓</span>
-            <div class="inc-text">
-              <strong>LED stadium lighting</strong>
-              <span>700+ lux, color-corrected for video</span>
-            </div>
-          </div>
-          <div class="inc-item">
-            <span class="inc-check">✓</span>
-            <div class="inc-text">
-              <strong>Digital scoreboard + shot clock</strong>
-              <span>Per-field display</span>
-            </div>
-          </div>
-          <div class="inc-item">
-            <span class="inc-check">✓</span>
-            <div class="inc-text">
-              <strong>Locker room access</strong>
-              <span>Shared locker room + restrooms</span>
-            </div>
-          </div>
-          <div class="inc-item">
-            <span class="inc-check">✓</span>
-            <div class="inc-text">
-              <strong>Free parking</strong>
-              <span>100+ spaces at Worthington; validated downtown</span>
-            </div>
-          </div>
-          <div class="inc-item">
-            <span class="inc-check">✓</span>
-            <div class="inc-text">
-              <strong>Concessions on-site</strong>
-              <span>Coffee bar + snack kiosk, most hours</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Add-ons -->
-        <div class="addons-section">
-          <div class="addons-label">Available add-ons:</div>
-          <div class="addons-list">
-            <div class="addon-item">
-              <span class="addon-name">Certified Referee</span>
-              <span class="addon-price mono">+$40/hr</span>
-            </div>
-            <div class="addon-item">
-              <span class="addon-name">Ball &amp; vest set</span>
-              <span class="addon-price mono">+$10</span>
-            </div>
-            <div class="addon-item">
-              <span class="addon-name">Photography (1099 partner)</span>
-              <span class="addon-price mono">From $120</span>
-            </div>
-            <div class="addon-item">
-              <span class="addon-name">Birthday party package</span>
-              <span class="addon-price mono">From $250</span>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     </div>
@@ -416,7 +373,7 @@ const breadcrumbSchema = breadcrumbJsonLd([
 
   </main>
 
-  <SoccerOneFooter />
+  <SoccerOneFooter hideStatsBand={true} />
 
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -530,21 +487,48 @@ const breadcrumbSchema = breadcrumbJsonLd([
       margin-top: 1.25rem;
     }
 
-    .facility-filter-row { display: flex; gap: 0; border-top: 1px solid var(--border); }
-    .ff-tab { font-family: var(--so-font-body); font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.06em; color: rgba(255,255,255,0.4); text-decoration: none; padding: 1rem 1.5rem; border-bottom: 2px solid transparent; transition: color 0.15s, border-color 0.15s; white-space: nowrap; }
-    .ff-tab:hover { color: rgba(255,255,255,0.7); }
-    .ff-tab--active { color: var(--so-lime); border-bottom-color: var(--so-lime); }
+    /* Call chip (hero) */
+    .call-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.625rem;
+      margin-top: 1.25rem;
+      padding: 0.625rem 1rem;
+      border: 1px solid var(--so-lime-a25);
+      background: var(--so-lime-a06, rgba(163,230,53,0.06));
+      border-radius: 999px;
+      font-size: 0.875rem;
+      text-decoration: none;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .call-chip:hover { border-color: var(--so-lime-a50); background: var(--so-lime-a10); }
+    .call-chip b { color: var(--so-lime); letter-spacing: 0.03em; }
+    .call-chip-sub { color: rgba(255,255,255,0.55); }
 
-    /* Facility context bar */
-    .facility-context-bar { background: var(--so-lime-a05); border-bottom: 1px solid var(--so-lime-a10); padding: 0.875rem 0; }
-    .fcb-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
-    .fcb-left { display: flex; align-items: center; gap: 0.75rem; }
-    .fcb-label { font-family: var(--so-font-mono); font-size: 0.5rem; font-weight: 600; letter-spacing: 0.14em; color: var(--so-lime-a50); }
-    .fcb-name { font-family: var(--so-font-display); font-size: 1.25rem; color: #ffffff; letter-spacing: 0.02em; line-height: 1; }
-    .fcb-fields { font-family: var(--so-font-mono); font-size: 0.75rem; color: var(--so-lime-a60); }
-    .fcb-right { display: flex; align-items: center; gap: 1.5rem; }
-    .fcb-addr { font-size: 0.875rem; color: rgba(255,255,255,0.5); }
-    .fcb-hours { font-family: var(--so-font-mono); font-size: 0.75rem; color: var(--so-lime-a60); }
+    /* Location segmented control */
+    .seg-label { font-size: 0.6875rem; letter-spacing: 0.16em; color: var(--so-lime-a60); text-transform: uppercase; padding-top: 1.5rem; margin: 0 0 0.625rem; border-top: 1px solid var(--border); }
+    .seg { display: inline-flex; gap: 0.5rem; background: var(--so-surface); border: 1px solid var(--border); padding: 0.375rem; border-radius: 0.75rem; flex-wrap: wrap; }
+    .seg-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
+      padding: 0.75rem 1.25rem;
+      border-radius: 0.5rem;
+      font-family: var(--so-font-body);
+      font-weight: 700;
+      font-size: 0.9375rem;
+      color: rgba(255,255,255,0.55);
+      text-decoration: none;
+      transition: background 0.15s, color 0.15s;
+    }
+    .seg-btn:hover { color: #ffffff; }
+    .seg-btn-sub { font-family: var(--so-font-mono); font-size: 0.625rem; font-weight: 500; letter-spacing: 0.06em; color: inherit; opacity: 0.7; }
+    .seg-btn--active { background: var(--so-lime); color: var(--so-ink); }
+    .seg-btn--active:hover { color: var(--so-ink); }
+
+    .loc-meta { display: flex; gap: 1.125rem; flex-wrap: wrap; align-items: center; margin-top: 0.75rem; padding-bottom: 1.5rem; }
+    .loc-meta .mono { color: rgba(255,255,255,0.4); font-size: 0.75rem; letter-spacing: 0.04em; }
 
     /* Calendar */
     .calendar-section { background: var(--bg); padding: 4rem 0; }
@@ -561,24 +545,17 @@ const breadcrumbSchema = breadcrumbJsonLd([
     .cl-practice { background: #c4b5fd; }
     .cal-desc { font-size: 0.875rem; color: rgba(255,255,255,0.35); margin-bottom: 2rem; }
 
-    /* Includes */
-    .includes-section { background: var(--bg-2); border-top: 1px solid var(--border); padding: 4rem 0; }
-    .includes-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
-    .inc-header { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 2.5rem; }
-    .inc-title { font-family: var(--so-font-display); font-size: clamp(1.75rem, 3vw, 2.5rem); color: #ffffff; letter-spacing: 0.01em; line-height: 1; }
-    .includes-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin-bottom: 2.5rem; }
-    .inc-item { display: flex; align-items: flex-start; gap: 0.875rem; padding: 1.25rem; background: var(--so-surface); border: 1px solid var(--so-lime-a20); border-radius: var(--so-radius-lg); }
-    .inc-check { font-size: 1rem; color: var(--so-lime); font-weight: 700; flex-shrink: 0; margin-top: 2px; }
-    .inc-text { display: flex; flex-direction: column; gap: 3px; }
-    .inc-text strong { font-size: 0.9375rem; font-weight: 600; color: rgba(255,255,255,0.85); }
-    .inc-text span { font-size: 0.8125rem; color: rgba(255,255,255,0.4); line-height: 1.4; }
-
-    .addons-section { background: var(--so-surface); border: 1px solid var(--so-lime-a20); border-radius: var(--so-radius-lg); padding: 1.5rem; }
-    .addons-label { font-family: var(--so-font-mono); font-size: 0.5625rem; font-weight: 600; letter-spacing: 0.12em; color: var(--so-lime-a50); margin-bottom: 1rem; }
-    .addons-list { display: flex; flex-wrap: wrap; gap: 0.75rem 2rem; }
-    .addon-item { display: flex; align-items: center; gap: 0.75rem; }
-    .addon-name { font-size: 0.9375rem; color: rgba(255,255,255,0.6); }
-    .addon-price { font-family: var(--so-font-mono); font-size: 0.875rem; color: var(--so-lime-a70); }
+    /* What you play on */
+    .play-section { background: var(--bg-2); border-top: 1px solid var(--border); padding: 4rem 0; }
+    .play-inner { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
+    .play-header { margin-bottom: 1.5rem; }
+    .play-title { font-family: var(--so-font-display); font-size: clamp(1.75rem, 3vw, 2.5rem); color: #ffffff; letter-spacing: 0.01em; line-height: 1; margin-bottom: 0.5rem; }
+    .play-lead { font-size: 0.9375rem; color: rgba(255,255,255,0.45); }
+    .fact-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+    .fact-card { background: var(--so-surface); border: 1px solid var(--so-lime-a20); border-radius: var(--so-radius-lg); padding: 1.25rem; }
+    .fact-big { font-family: var(--so-font-display); font-size: 2.25rem; color: var(--so-lime); line-height: 1; }
+    .fact-title { font-weight: 700; margin: 0.75rem 0 0.25rem; font-size: 0.9375rem; color: #ffffff; }
+    .fact-desc { color: rgba(255,255,255,0.45); font-size: 0.8125rem; line-height: 1.5; }
 
     /* Futsal — Coming September */
     .fut-section {
@@ -829,11 +806,10 @@ const breadcrumbSchema = breadcrumbJsonLd([
     .pfs-link { color: var(--so-lime); text-decoration: none; }
     .pfs-link:hover { text-decoration: underline; }
 
-    @media (max-width: 1100px) { .includes-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 1100px) { .fact-grid { grid-template-columns: repeat(2, 1fr); } }
     @media (max-width: 768px) {
       .rh-top { flex-direction: column; align-items: flex-start; }
-      .includes-grid { grid-template-columns: 1fr; }
-      .fcb-inner { flex-direction: column; align-items: flex-start; }
+      .fact-grid { grid-template-columns: 1fr; }
       .rates-table-wrap { max-width: 100%; overflow-x: auto; }
       .rates-table { font-size: 0.75rem; }
       .rt-rate { font-size: 1.125rem; }
