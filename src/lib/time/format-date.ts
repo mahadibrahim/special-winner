@@ -50,6 +50,21 @@ function timeTo12h(t: string): string {
 }
 
 /**
+ * Bare time window, e.g. "6–11pm" or "11am–1pm" — collapses matching am/pm
+ * periods to a single suffix. Returns "" when either bound is missing.
+ * Used standalone on cards when a season has times but no structured play day.
+ */
+export function formatTimeWindow(
+  start: string | null | undefined,
+  end: string | null | undefined,
+): string {
+  if (!start || !end) return "";
+  const s = timeTo12h(start), e = timeTo12h(end);
+  const sNum = s.replace(/[ap]m/, ""), sPer = s.slice(-2), ePer = e.slice(-2);
+  return sPer === ePer ? `${sNum}–${e}` : `${s}–${e}`;
+}
+
+/**
  * Neutral day/time label for browse cards, e.g. "Thursdays" or
  * "Saturdays · 9–10am". Unlike the league rail's `formatDayTime`, this makes no
  * "nights" assumption, so it's safe for daytime/youth programs too. Returns ""
@@ -62,9 +77,6 @@ export function formatDaySchedule(
 ): string {
   const label = DAY_PLURAL[(day ?? "").toLowerCase()];
   if (!label) return "";
-  if (!start || !end) return label;
-  // "9–10am" — collapse matching am/pm periods to a single suffix.
-  const s = timeTo12h(start), e = timeTo12h(end);
-  const sNum = s.replace(/[ap]m/, ""), sPer = s.slice(-2), ePer = e.slice(-2);
-  return sPer === ePer ? `${label} · ${sNum}–${e}` : `${label} · ${s}–${e}`;
+  const window = formatTimeWindow(start, end);
+  return window ? `${label} · ${window}` : label;
 }

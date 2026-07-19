@@ -3,8 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { Loader2, CheckCircle2, Copy, Check, Send, Plus, X } from "lucide-react";
 import { EmbeddedPayment } from "./embedded-payment";
-
-const CAPTAIN_DEPOSIT_CENTS = 20000; // $200 (locked decision)
+import { CAPTAIN_DEPOSIT_CENTS } from "@/lib/registrations/team-deposit";
 
 /** Split a total evenly across N rows; earlier rows absorb the remainder. */
 function evenSplitCents(totalCents: number, n: number): number[] {
