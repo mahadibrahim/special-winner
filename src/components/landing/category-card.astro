@@ -3,6 +3,12 @@
 // Colored, animated hub door card. Each category owns a palette ("leagues" |
 // "pickup" | "tournaments" | "youth-a" | "youth-b"); a slow aurora gradient
 // drifts behind it and the arrow slides on hover. Honors prefers-reduced-motion.
+//
+// `factsAudience` opts a tile into a live mono facts line ("Fall · 7 games ·
+// $120 solo · closes Sep 3") rendered by the TileFactsLine island — computed
+// client-side from the shared public-catalog fetch so the edge-cached hub
+// HTML never freezes stale prices/deadlines.
+import TileFactsLine from "@/components/landing/tile-facts-line"
 interface Props {
   href: string
   cta: string                 // analytics id, e.g. "adult-hub-leagues"
@@ -13,8 +19,12 @@ interface Props {
   /** Pulsing live dot next to the status label (active categories). */
   live?: boolean
   ctaLabel: string            // e.g. "Browse leagues"
+  /** Render a live facts line for this audience's open league seasons. */
+  factsAudience?: "adult" | "youth"
+  /** Authored fragment after the term, e.g. "7 games". */
+  factsAuthored?: string
 }
-const { href, cta, palette, title, blurb, statusLabel, live = false, ctaLabel } = Astro.props
+const { href, cta, palette, title, blurb, statusLabel, live = false, ctaLabel, factsAudience, factsAuthored } = Astro.props
 ---
 
 <a href={href} data-landing-cta={cta} class={`door door-${palette} relative rounded-[22px] overflow-hidden min-h-[250px] flex flex-col justify-end p-6 text-cream no-underline`} style="isolation:isolate">
@@ -27,6 +37,7 @@ const { href, cta, palette, title, blurb, statusLabel, live = false, ctaLabel } 
     </div>
     <h2 class="font-display font-semibold text-[28px] mt-2">{title}</h2>
     <p class="text-[13px] text-cream/90 mt-1.5 max-w-[30ch]">{blurb}</p>
+    {factsAudience && <TileFactsLine client:visible audience={factsAudience} authoredFact={factsAuthored} />}
     <span class="go inline-flex items-center gap-2 mt-4 text-xs font-bold tracking-wide">{ctaLabel} <span class="arrow">→</span></span>
   </div>
 </a>
