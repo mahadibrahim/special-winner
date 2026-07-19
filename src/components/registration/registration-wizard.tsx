@@ -1461,7 +1461,14 @@ export default function RegistrationWizard({
         {currentStep === STEP_CONFIRM && registrationComplete && (
           <ConfirmationStep
             seasonName={season.name}
-            registrantDisplayName={selectedDisplayName}
+            registrantDisplayName={
+              isGuest
+                ? guestMode === "adult"
+                  ? `${guestParentFirstName} ${guestParentLastName}`.trim()
+                  : `${guestChildFirstName} ${guestChildLastName}`.trim()
+                : selectedDisplayName
+            }
+            isSelf={isGuest ? guestMode === "adult" : selectedKey === "self"}
           />
         )}
       </div>
