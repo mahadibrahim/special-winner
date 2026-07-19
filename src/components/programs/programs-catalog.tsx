@@ -438,7 +438,7 @@ export default function ProgramsCatalog({ initialAudience, initialType, initialA
           <div className="flex gap-4 overflow-x-auto pb-3 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 snap-x snap-mandatory">
             {row.items.map((s) => (
               <div key={`${row.title}-${s.id}`} className="flex-none w-[300px] sm:w-[320px] snap-start">
-                <ProgramCardV2 season={s} />
+                <ProgramCardV2 season={s} emphasis={audience === "team" ? "team" : undefined} />
               </div>
             ))}
           </div>
@@ -478,7 +478,7 @@ export default function ProgramsCatalog({ initialAudience, initialType, initialA
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {sorted.slice(0, visibleCount).map((s) => (
-                <ProgramCardV2 key={s.id} season={s} />
+                <ProgramCardV2 key={s.id} season={s} emphasis={audience === "team" ? "team" : undefined} />
               ))}
             </div>
             {visibleCount < sorted.length && (

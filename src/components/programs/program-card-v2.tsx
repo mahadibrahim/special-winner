@@ -85,7 +85,21 @@ function PriceFigure({ price, basePrice }: { price: number; basePrice: number | 
   )
 }
 
-export default function ProgramCardV2({ season }: { season: Season }) {
+export default function ProgramCardV2({
+  season,
+  emphasis,
+}: {
+  season: Season
+  /**
+   * "team" — captain-audience presentation (the catalog's "A team" segment):
+   * dual-mode cards lead with the team offer ("$200 down · $1,000 total"
+   * column first, solo second) and "Reserve a team · $200" takes the
+   * primary/filled CTA position with "Sign up solo" secondary. Team-only
+   * cards already lead with the team offer, and every other audience renders
+   * pixel-identical to the default.
+   */
+  emphasis?: "team"
+}) {
   const status = deriveStatusPill(season)
   const indivUnit = deriveIndividualUnit(season)
   const duration = deriveDuration(season)
@@ -191,6 +205,10 @@ export default function ProgramCardV2({ season }: { season: Season }) {
   const teamCta =
     audience === "adult" ? `Reserve a team · $${CAPTAIN_DEPOSIT_DOLLARS}` : "Register team"
 
+  // Captain-audience presentation — only reorders the dual-mode layout.
+  const teamFirst = emphasis === "team" && dual && season.teamPrice != null
+  const effTeamTotal = season.teamPrice != null ? (teamEb ?? season.teamPrice) : null
+
   return (
     <div className="group h-full flex flex-col bg-paper border border-border rounded-2xl overflow-hidden transition-all hover:border-primary/40 hover:-translate-y-0.5">
       {/* Media slot — sport-color fallback block. Photo support drops in here
@@ -283,48 +301,80 @@ export default function ProgramCardV2({ season }: { season: Season }) {
               )}
               {dual && season.teamPrice != null ? (
                 <>
-                  <div className="grid grid-cols-2 gap-3 mb-3">
-                    <div>
-                      <PriceFigure
-                        price={soloEb ?? season.price}
-                        basePrice={soloEb != null ? season.price : null}
-                      />
-                      <div className="text-[10px] text-ink-muted mt-1 uppercase tracking-wide font-semibold">
-                        {indivUnit}
+                  {(() => {
+                    // Column order: solo leads by default; the captain
+                    // audience (emphasis="team") leads with the team offer
+                    // framed as deposit-down + effective total.
+                    const soloCol = (
+                      <div key="solo" className={teamFirst ? "border-l border-border pl-3" : undefined}>
+                        <PriceFigure
+                          price={soloEb ?? season.price}
+                          basePrice={soloEb != null ? season.price : null}
+                        />
+                        <div className="text-[10px] text-ink-muted mt-1 uppercase tracking-wide font-semibold">
+                          {indivUnit}
+                        </div>
                       </div>
-                    </div>
-                    <div className="border-l border-border pl-3">
-                      <PriceFigure
-                        price={teamEb ?? season.teamPrice}
-                        basePrice={teamEb != null ? season.teamPrice : null}
-                      />
-                      <div className="text-[10px] text-ink-muted mt-1 uppercase tracking-wide font-semibold">
-                        per team
+                    )
+                    const teamCol = teamFirst ? (
+                      <div key="team">
+                        <PriceFigure price={CAPTAIN_DEPOSIT_DOLLARS} basePrice={null} />
+                        <div className="text-[10px] text-ink-muted mt-1 uppercase tracking-wide font-semibold">
+                          down · ${effTeamTotal!.toLocaleString()} total
+                        </div>
                       </div>
-                    </div>
-                  </div>
+                    ) : (
+                      <div key="team" className="border-l border-border pl-3">
+                        <PriceFigure
+                          price={teamEb ?? season.teamPrice!}
+                          basePrice={teamEb != null ? season.teamPrice : null}
+                        />
+                        <div className="text-[10px] text-ink-muted mt-1 uppercase tracking-wide font-semibold">
+                          per team
+                        </div>
+                      </div>
+                    )
+                    return (
+                      <div className="grid grid-cols-2 gap-3 mb-3">
+                        {teamFirst ? [teamCol, soloCol] : [soloCol, teamCol]}
+                      </div>
+                    )
+                  })()}
                   {depositNote && (
                     <p className="text-[11px] text-ink-muted mb-3 leading-snug">{depositNote}</p>
                   )}
                   {soldOut ? (
                     <WaitlistBlock seasonId={season.id} seasonName={season.name} />
                   ) : (
-                    <div className="grid grid-cols-2 gap-2">
-                      <a
-                        href={`/register/${season.id}?mode=individual`}
-                        className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold tracking-wide uppercase border border-ink text-ink hover:bg-ink hover:text-cream px-3 py-2 rounded-md transition-colors"
-                      >
-                        <User className="w-3.5 h-3.5" />
-                        {soloCta}
-                      </a>
-                      <a
-                        href={`/register/team/${season.id}`}
-                        className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold tracking-wide uppercase bg-ink text-cream hover:bg-primary px-3 py-2 rounded-md transition-colors"
-                      >
-                        <Users className="w-3.5 h-3.5" />
-                        {teamCta}
-                      </a>
-                    </div>
+                    (() => {
+                      const soloBtn = (
+                        <a
+                          key="solo-cta"
+                          href={`/register/${season.id}?mode=individual`}
+                          className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold tracking-wide uppercase border border-ink text-ink hover:bg-ink hover:text-cream px-3 py-2 rounded-md transition-colors"
+                        >
+                          <User className="w-3.5 h-3.5" />
+                          {soloCta}
+                        </a>
+                      )
+                      const teamBtn = (
+                        <a
+                          key="team-cta"
+                          href={`/register/team/${season.id}`}
+                          className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold tracking-wide uppercase bg-ink text-cream hover:bg-primary px-3 py-2 rounded-md transition-colors"
+                        >
+                          <Users className="w-3.5 h-3.5" />
+                          {teamCta}
+                        </a>
+                      )
+                      // teamFirst puts the filled "Reserve a team" CTA in the
+                      // primary (first) position with "Sign up solo" secondary.
+                      return (
+                        <div className="grid grid-cols-2 gap-2">
+                          {teamFirst ? [teamBtn, soloBtn] : [soloBtn, teamBtn]}
+                        </div>
+                      )
+                    })()
                   )}
                 </>
               ) : (

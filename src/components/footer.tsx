@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import type { LucideIcon } from "lucide-react"
 import { Mail, MapPin, Loader2, CheckCircle2 } from "lucide-react"
 import { track } from "@/lib/analytics/track"
+import { CAPTAIN_DEPOSIT_DOLLARS } from "@/lib/registrations/team-deposit"
 
 const youthLinks = [
   { label: "Youth programs", href: "/youth" },
@@ -19,7 +20,7 @@ const adultLinks = [
   { label: "Leagues", href: "/adult/leagues" },
   { label: "Pick-up", href: "/adult/pickup" },
   { label: "Tournaments", href: "/adult/tournaments" },
-  { label: "Register a team", href: "/programs?audience=team" },
+  { label: `Register a team — $${CAPTAIN_DEPOSIT_DOLLARS} reserves it`, href: "/programs?audience=team" },
 ]
 
 const sportLinks = [
