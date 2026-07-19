@@ -8,6 +8,7 @@ import { getRentalVenuesByLocation } from '@/lib/soccerone/venues';
 import { RENTAL_RATE_SCHEDULE } from '@/lib/rentals/soccerone-pricing';
 import { DEFAULT_BOOKING_WINDOW_DAYS } from '@/lib/memberships/booking-window';
 import { breadcrumbJsonLd } from '@/lib/seo/breadcrumbs';
+import { SOCCERONE_CONTACT_PHONE, SOCCERONE_CONTACT_PHONE_TEL } from '@/lib/soccerone/contact';
 
 const facility = Astro.url.searchParams.get('facility') || 'worthington';
 const facilityLabel = facility === 'downtown' ? 'Downtown' : 'Worthington';
@@ -32,22 +33,22 @@ const PLAY_FACTS = [
   {
     big: '3',
     title: 'Fields open now',
-    desc: 'Orange & Blue in Worthington, Yellow downtown. Futsal courts land in September.',
-  },
-  {
-    big: '2026',
-    title: 'Newest venue in Columbus',
-    desc: 'Brand-new construction, clean and well-kept.',
-  },
-  {
-    big: '100%',
-    title: 'Fully boarded',
-    desc: 'No throw-ins — play off the walls and keep the tempo up.',
+    desc: 'Orange & Blue in Worthington, Yellow downtown — futsal courts land in September.',
   },
   {
     big: '0',
     title: 'Rubber crumb',
-    desc: 'Sand-filled turf: truer roll, softer landings, no black pellets in your socks.',
+    desc: 'Sand-filled turf — truer roll, softer landings, no black pellets in your socks.',
+  },
+  {
+    big: 'Sept',
+    title: 'Futsal on the way',
+    desc: 'Dedicated hard courts open this September — separate from the fields.',
+  },
+  {
+    big: '4–12',
+    title: 'PM, every day',
+    desc: 'Indoor and year-round — the same evening window seven days a week.',
   },
 ];
 
@@ -101,9 +102,9 @@ const breadcrumbSchema = breadcrumbJsonLd([
             <p class="rh-desc">
               Request a field at {facilityLabel}. We review each request and email you a secure link to pay — the slot is held while we confirm. Requests must be at least 48 hours out and up to {bookingWindowDays} days ahead — call or email us for anything sooner or further.
             </p>
-            <a href="tel:+16147499782" class="call-chip">
+            <a href={`tel:${SOCCERONE_CONTACT_PHONE_TEL}`} class="call-chip">
               <span class="call-chip-sub">Book faster — call or text</span>
-              <b class="mono">(614) 749-9782</b>
+              <b class="mono">{SOCCERONE_CONTACT_PHONE}</b>
             </a>
           </div>
 

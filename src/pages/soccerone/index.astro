@@ -1391,7 +1391,6 @@ setMarketingEdgeCache(Astro); // after fetches; a degraded (empty-seasons) rende
     /* ---- RESPONSIVE ---- */
     @media (max-width: 1100px) {
       .play-grid { grid-template-columns: repeat(2, 1fr); }
-      .mem-callout-inner { grid-template-columns: 1fr; gap: 3rem; }
       .about-inner { grid-template-columns: 1fr; gap: 3rem; }
       .about-visual-col { order: -1; }
     }
@@ -1417,7 +1416,7 @@ setMarketingEdgeCache(Astro); // after fetches; a degraded (empty-seasons) rende
 
   <script>
     // Intersection observer for staggered card reveals
-    const cards = document.querySelectorAll('.play-card, .mem-card, .review-card');
+    const cards = document.querySelectorAll('.play-card, .review-card');
     const obs = new IntersectionObserver((entries) => {
       entries.forEach((entry, i) => {
         if (entry.isIntersecting) {
