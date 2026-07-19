@@ -21,6 +21,7 @@ import { ConfirmationStep } from "./confirmation-step"
 import { AddDependentForm } from "./add-dependent-form"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { parseApiError } from "@/lib/api/error-message"
+import { recordConfirmedPayment } from "@/lib/registrations/payment-confirmation-signal"
 import {
   trackRegistrationStepViewed,
   trackRegistrationPaymentMethodSelected,
@@ -240,6 +241,11 @@ export default function RegistrationWizard({
   // ── Cancel-resume state ──────────────────────────────────────────────────
   const [resumableRegistrationId, setResumableRegistrationId] = useState<string | null>(null)
   const [isResumingPayment, setIsResumingPayment] = useState(false)
+
+  // Registration the live Stripe session is paying for — handlePaymentSuccess
+  // needs it to record the client-confirmed payment signal (webhook-lag
+  // bridge; see payment-confirmation-signal.ts).
+  const [activeRegistrationId, setActiveRegistrationId] = useState<string | null>(null)
 
   // ── Draft-restore state (authed only) ────────────────────────────────────
   // A saved draft surfaced on return; the user explicitly resumes or starts
@@ -700,6 +706,12 @@ export default function RegistrationWizard({
   }
 
   const handlePaymentSuccess = (_paymentIntentId: string) => {
+    // Bridge the webhook-lag window: the dashboard + nav read this signal to
+    // present the (still pending/unpaid) registration as "Payment received —
+    // confirming" instead of nagging for payment the customer just made.
+    if (activeRegistrationId) {
+      recordConfirmedPayment(activeRegistrationId, "succeeded")
+    }
     clearDraft()
     setRegistrationComplete(true)
     setPaymentClientSecret(null)
@@ -750,6 +762,7 @@ export default function RegistrationWizard({
         const surchargeCents = data.surchargeCents ?? 0
         const finalValueCents = baseAfterCredit + surchargeCents
 
+        setActiveRegistrationId(resumableRegistrationId)
         setAppliedSurchargeCents(surchargeCents)
         setAppliedCreditCents(creditCents)
         setPaymentValueCents(finalValueCents)
@@ -857,6 +870,7 @@ export default function RegistrationWizard({
         const surchargeCents = data.surchargeCents ?? 0
         const finalValueCents = baseAfterDiscount + surchargeCents
 
+        setActiveRegistrationId(data.registrationId ?? null)
         setAppliedSurchargeCents(surchargeCents)
         setPaymentValueCents(finalValueCents)
         setPaymentTypeForTracking(paymentOption === "deposit" && depositValid(season!) ? "deposit" : "full")
@@ -980,6 +994,7 @@ export default function RegistrationWizard({
           const surchargeCents = checkoutData.surchargeCents ?? 0
           const finalValueCents = baseAfterCredit + surchargeCents
 
+          setActiveRegistrationId(regData.registration.id)
           setAppliedSurchargeCents(surchargeCents)
           setAppliedCreditCents(creditCents)
           setPaymentValueCents(finalValueCents)

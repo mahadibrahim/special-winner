@@ -375,6 +375,9 @@ export const POST: APIRoute = async (context) => {
             surchargeCents: checkout.surchargeCents,
             publishableKey: import.meta.env.STRIPE_PUBLISHABLE_KEY,
             wasNewUser,
+            // Lets the wizard record the client-confirmed payment signal
+            // (webhook-lag bridge) against the right registration.
+            registrationId: regResult.registration.id,
           }),
           { status: 200, headers: { "Content-Type": "application/json" } },
         );
