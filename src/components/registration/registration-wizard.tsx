@@ -977,6 +977,10 @@ export default function RegistrationWizard({
             discountCode: discountCode || undefined,
             lookingForTeam,
             mediaAuthOptOuts: mediaAuthOptOutsArr,
+            // Without the token the server can't resolve the invitee share
+            // or the captain's deposit credit — the signed-in path must send
+            // it just like the guest path does.
+            teamToken: teamToken ?? undefined,
           }
         : {
             seasonId,
@@ -986,6 +990,7 @@ export default function RegistrationWizard({
             waiverSignedBy: waiverSignature,
             discountCode: discountCode || undefined,
             mediaAuthOptOuts: mediaAuthOptOutsArr,
+            teamToken: teamToken ?? undefined,
           }
 
     try {

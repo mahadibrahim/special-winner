@@ -198,6 +198,95 @@ async function resolveTeamInvitee(opts: {
   }
 }
 
+/**
+ * Team-token pricing for a registrant, shared by the create and resume paths
+ * so a resumed pending registration can never quote a different amount than a
+ * fresh one (the captain-double-charge bug's second life).
+ *
+ * - Invitee share: an unpaid invitee row matching the registrant's email
+ *   overrides the season price with the captain-assigned share.
+ * - Captain deposit credit: on the captain's SELF registration with a
+ *   verifiably PAID team deposit, the share is credited by the deposit
+ *   (never below zero). Matched by captain_user_id, email fallback only when
+ *   user linkage is absent. Recomputed server-side from the team row —
+ *   a client can never claim the credit.
+ *
+ * `amountDueOverride` is null when nothing about the token changes pricing
+ * (uninvited open-join, already-paid invitee, unresolved token).
+ */
+async function resolveTeamPricing(opts: {
+  db: ReturnType<typeof getDb>;
+  teamToken: string;
+  organizationId: string | null;
+  user: { id: string; email: string };
+  familyMember: { selfUserId?: string | null };
+  season: typeof seasons.$inferSelect;
+}): Promise<{
+  resolvedTeamReg: typeof teamRegistrations.$inferSelect | null | undefined;
+  matchedTeamInvitee: typeof teamInvitees.$inferSelect | null;
+  amountDueOverride: number | null;
+  captainCreditApplied: boolean;
+}> {
+  const { db, teamToken, organizationId, user, familyMember, season } = opts;
+  const resolved = await resolveTeamInvitee({
+    db,
+    teamToken,
+    organizationId,
+    registrantEmail: user.email,
+  });
+  // A null result is ambiguous (token genuinely not found, OR
+  // resolveTeamInvitee's internal try/catch swallowed an error) — leave
+  // resolvedTeamReg undefined so linkRegistrationToTeam falls back to its
+  // own query rather than silently skipping linkage.
+  if (!resolved) {
+    return {
+      resolvedTeamReg: undefined,
+      matchedTeamInvitee: null,
+      amountDueOverride: null,
+      captainCreditApplied: false,
+    };
+  }
+
+  let matchedTeamInvitee: typeof teamInvitees.$inferSelect | null = null;
+  let amountDueOverride: number | null = null;
+  if (resolved.invitee && resolved.invitee.status !== "paid") {
+    matchedTeamInvitee = resolved.invitee;
+    amountDueOverride = resolved.invitee.assignedShareCents;
+  }
+  // If found-but-already-paid, treat as normal (don't re-charge a share).
+
+  let captainCreditApplied = false;
+  if (
+    resolved.invitee?.status !== "paid" &&
+    familyMember.selfUserId === user.id
+  ) {
+    const teamReg = resolved.teamRegistration;
+    const isCaptain =
+      teamReg.captainUserId != null
+        ? teamReg.captainUserId === user.id
+        : teamReg.captainEmail.toLowerCase() === user.email.toLowerCase();
+    if (isCaptain && teamDepositPaid(teamReg)) {
+      // Share: the captain-assigned invitee share when one exists, else the
+      // season's individual effective price (early-bird aware).
+      const shareCents = matchedTeamInvitee
+        ? matchedTeamInvitee.assignedShareCents
+        : registrationAmountDueCents(season, "full");
+      amountDueOverride = captainShareDueCents(
+        shareCents,
+        teamReg.depositCents ?? 0,
+      );
+      captainCreditApplied = true;
+    }
+  }
+
+  return {
+    resolvedTeamReg: resolved.teamRegistration,
+    matchedTeamInvitee,
+    amountDueOverride,
+    captainCreditApplied,
+  };
+}
+
 export async function createRegistration(
   input: CreateRegistrationInput,
 ): Promise<CreateRegistrationResult> {
@@ -275,6 +364,64 @@ export async function createRegistration(
           .returning();
         resumedReg = updated;
       }
+
+      // A resumed row must re-price under the team token exactly like a fresh
+      // one — the stale row may predate the invitee share or the captain's
+      // paid deposit (start registration → abandon → pay deposit → return),
+      // and returning it untouched re-creates the double-charge.
+      if (input.teamToken) {
+        const pricing = await resolveTeamPricing({
+          db,
+          teamToken: input.teamToken,
+          organizationId,
+          user,
+          familyMember,
+          season,
+        });
+        const newDue = pricing.amountDueOverride;
+        if (newDue != null && newDue !== resumedReg.amountDueCents) {
+          const zeroDue = pricing.captainCreditApplied && newDue === 0;
+          const [updated] = await db
+            .update(registrations)
+            .set({
+              amountDueCents: newDue,
+              ...(zeroDue
+                ? { status: "confirmed" as const, paymentStatus: "paid" as const }
+                : {}),
+              updatedAt: new Date(),
+            })
+            .where(eq(registrations.id, resumedReg.id))
+            .returning();
+          resumedReg = updated;
+
+          // Same side effects as the create path: roster/member linkage and,
+          // for the zero-due captain, settling the invitee row as paid so the
+          // backstop cron never re-charges the deposit-covered share.
+          await linkRegistrationToTeam({
+            db,
+            teamToken: input.teamToken,
+            registrationId: resumedReg.id,
+            organizationId,
+            user,
+            registrantEmail: user.email,
+            preloadedTeamReg: pricing.resolvedTeamReg,
+          });
+          if (pricing.matchedTeamInvitee) {
+            try {
+              await db
+                .update(teamInvitees)
+                .set({
+                  registrationId: resumedReg.id,
+                  ...(zeroDue ? { status: "paid", paidAt: new Date() } : {}),
+                })
+                .where(eq(teamInvitees.id, pricing.matchedTeamInvitee.id));
+            } catch (err) {
+              console.error("Error linking team invitee to registration:", err);
+            }
+          }
+        }
+      }
+
       return {
         kind: "resumed",
         registration: resumedReg,
@@ -413,58 +560,18 @@ export async function createRegistration(
   // never claim the credit.
   let captainCreditApplied = false;
   if (input.teamToken) {
-    const resolved = await resolveTeamInvitee({
+    const pricing = await resolveTeamPricing({
       db,
       teamToken: input.teamToken,
       organizationId,
-      registrantEmail: user.email,
+      user,
+      familyMember,
+      season,
     });
-    if (resolved) {
-      // A conclusive hit — reuse it in linkRegistrationToTeam below.
-      resolvedTeamReg = resolved.teamRegistration;
-    }
-    // A null result is ambiguous (token genuinely not found, OR
-    // resolveTeamInvitee's internal try/catch swallowed an error) — leave
-    // resolvedTeamReg undefined so linkRegistrationToTeam falls back to its
-    // own query rather than silently skipping linkage.
-    if (resolved?.invitee && resolved.invitee.status !== "paid") {
-      matchedTeamInvitee = resolved.invitee;
-      amountDue = resolved.invitee.assignedShareCents;
-    }
-    // If found-but-already-paid, treat as normal (don't re-charge a share).
-
-    // Captain deposit credit: the captain already paid the $200 team deposit,
-    // so their own player share is credited by it instead of being charged
-    // again (the double-charge bug). Matched by the authenticated user id
-    // against captain_user_id; the captain-email fallback only applies when
-    // user linkage is absent (captain_user_id nulled by user deletion).
-    // The deposit must be verifiably PAID (webhook-written state) — a team
-    // whose deposit was started but abandoned earns no credit.
-    // Guarded to the captain's SELF registration (familyMember.selfUserId
-    // === user.id): the credit is single-use by construction, because the
-    // self person can hold only one active registration per season — a
-    // captain registering a dependent (or any other player) through the same
-    // account never earns it.
-    if (
-      resolved &&
-      resolved.invitee?.status !== "paid" &&
-      familyMember.selfUserId === user.id
-    ) {
-      const teamReg = resolved.teamRegistration;
-      const isCaptain =
-        teamReg.captainUserId != null
-          ? teamReg.captainUserId === user.id
-          : teamReg.captainEmail.toLowerCase() === user.email.toLowerCase();
-      if (isCaptain && teamDepositPaid(teamReg)) {
-        // Share: the captain-assigned invitee share when one exists, else the
-        // season's individual effective price (early-bird aware).
-        const shareCents = matchedTeamInvitee
-          ? matchedTeamInvitee.assignedShareCents
-          : registrationAmountDueCents(season, "full");
-        amountDue = captainShareDueCents(shareCents, teamReg.depositCents ?? 0);
-        captainCreditApplied = true;
-      }
-    }
+    resolvedTeamReg = pricing.resolvedTeamReg;
+    matchedTeamInvitee = pricing.matchedTeamInvitee;
+    captainCreditApplied = pricing.captainCreditApplied;
+    if (pricing.amountDueOverride != null) amountDue = pricing.amountDueOverride;
   }
 
   // Zero-due captain-credit finalize: the deposit fully covers the captain's
