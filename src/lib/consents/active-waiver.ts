@@ -4,7 +4,7 @@
  * global default (organizationId NULL).
  */
 import { createHash } from "node:crypto";
-import { and, eq, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import type { Database } from "@/lib/db";
 import { waivers } from "@/lib/db/schema/consents";
 
@@ -27,8 +27,10 @@ export async function resolveActiveLiabilityWaiver(
         or(eq(waivers.organizationId, orgId ?? ""), isNull(waivers.organizationId)),
       ),
     )
-    // Prefer the org-specific row over the global default.
-    .orderBy(sql`${waivers.organizationId} nulls last`)
+    // Prefer the org-specific row over the global default; break any tie
+    // (e.g. a hypothetical two-active-waiver case) deterministically by
+    // most-recently-effective.
+    .orderBy(sql`${waivers.organizationId} nulls last`, desc(waivers.effectiveAt))
     .limit(1);
   const w = rows[0];
   if (!w) return null;

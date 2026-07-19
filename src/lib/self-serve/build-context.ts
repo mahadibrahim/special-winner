@@ -181,7 +181,11 @@ export async function buildSelfServeContext(
     outstanding.waiver = true;
   } else if (tok.kind === "rental_player") {
     const [p] = await db
-      .select({ status: fieldRentalPlayers.status, venueName: venues.name })
+      .select({
+        status: fieldRentalPlayers.status,
+        venueName: venues.name,
+        rentalStatus: fieldRentals.status,
+      })
       .from(fieldRentalPlayers)
       .innerJoin(fieldRentals, eq(fieldRentals.id, fieldRentalPlayers.rentalId))
       .leftJoin(venues, eq(venues.id, fieldRentals.venueId))
@@ -192,7 +196,14 @@ export async function buildSelfServeContext(
     summary = p.venueName
       ? `Sign your waiver to play at ${p.venueName}`
       : `Sign your waiver to play`;
-    outstanding.waiver = p.status !== "signed";
+    if (p.rentalStatus === "cancelled") {
+      // Mirror the drop_in_booking branch: a cancelled rental has nothing
+      // actionable — leave outstanding.waiver false so the page can't offer
+      // "sign to play" for a rental that no longer exists.
+      cancelled = true;
+    } else {
+      outstanding.waiver = p.status !== "signed";
+    }
     // photo + payment stay false; amountDueCents stays 0.
   }
 

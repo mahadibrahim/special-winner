@@ -7,7 +7,7 @@
  * regardless of send outcome — so a hard-bouncing address isn't retried
  * every run. Bounded to 200 rows per sweep.
  */
-import { and, eq, gt, isNull, lt, or } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull, lt, or } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { fieldRentalPlayers, fieldRentals } from "@/lib/db/schema/field-rentals";
 import { dispatchPlayerWaiverReminder } from "@/lib/rentals/messages/player-waiver";
@@ -24,6 +24,7 @@ export async function remindPendingRentalPlayers(): Promise<{ reminded: number }
     .where(
       and(
         eq(fieldRentalPlayers.status, "pending"),
+        inArray(fieldRentals.status, ["pending_payment", "confirmed"]),
         gt(fieldRentals.startsAt, now),
         or(isNull(fieldRentalPlayers.reminderSentAt), lt(fieldRentalPlayers.reminderSentAt, cutoff)),
       ),
