@@ -210,7 +210,7 @@ export default function ProgramCardV2({ season }: { season: Season }) {
                       Sign up solo
                     </a>
                     <a
-                      href={`/register/team/${season.id}`}
+                      href={`/register/${season.id}?mode=team`}
                       className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold tracking-wide uppercase bg-ink text-cream hover:bg-primary px-3 py-2 rounded-md transition-colors"
                     >
                       <Users className="w-3.5 h-3.5" />
@@ -227,7 +227,7 @@ export default function ProgramCardV2({ season }: { season: Season }) {
                     <div className="text-[11px] text-ink-muted mt-1">{headlineUnit}</div>
                   </div>
                   <a
-                    href={teamOnly ? `/register/team/${season.id}` : `/register/${season.id}`}
+                    href={teamOnly ? `/register/${season.id}?mode=team` : `/register/${season.id}`}
                     className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wide uppercase bg-ink text-cream px-3 py-2 rounded-md group-hover:bg-primary transition-colors"
                   >
                     {teamOnly ? "Register team" : "Register"}
