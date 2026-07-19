@@ -16,6 +16,11 @@ test.describe("Category pages", () => {
     await expect(page.getByRole("heading", { level: 1, name: /adult leagues/i })).toBeVisible();
     await expect(page.locator('#main-content a[href="/youth/leagues"]')).toBeVisible();
 
+    // Landing-page assembly: how-it-works strip + FAQ section render
+    // server-side (static copy), independent of catalog state.
+    await expect(page.getByRole("heading", { name: "How team signup works" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Adult league FAQs" })).toBeVisible();
+
     await waitForHydration(page);
     await expect(page.getByText(/Adult Open Soccer/).first()).toBeVisible();
   });
@@ -54,8 +59,16 @@ test.describe("Category pages", () => {
   test("/youth/leagues — hero, youth card from the catalog", async ({ page }) => {
     await page.goto("/youth/leagues", { waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { level: 1, name: /youth leagues/i })).toBeVisible();
+
+    // Landing-page assembly (static copy, server-rendered).
+    await expect(page.getByRole("heading", { name: "How it works for parents" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Parent FAQs" })).toBeVisible();
+
     await waitForHydration(page);
     await expect(page.getByText(/E2E Test Spring 2026/).first()).toBeVisible();
+    // Facts-band location note appears once the shared catalog fetch resolves
+    // (venue name is data-driven, so assert the stable authored tail).
+    await expect(page.getByText(/advance notice by text & email/)).toBeVisible();
   });
 
   test("/youth/camps — empty catalog captures email", async ({ page }) => {
