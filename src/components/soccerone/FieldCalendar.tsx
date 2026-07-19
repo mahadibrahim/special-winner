@@ -228,12 +228,19 @@ export function FieldCalendar({
   // minLeadTimeHours guard, every slot on "today" shows the 48h-notice
   // reason and nothing is actually requestable on load. Clamp within the
   // booking window in case minLeadTimeHours somehow exceeds it.
-  const firstBookableDate = (() => {
+  let firstBookableDate = (() => {
     const d = new Date(Date.now() + minLeadTimeHours * 60 * 60 * 1000)
       .toISOString()
       .slice(0, 10);
     return d > maxDate ? maxDate : d;
   })();
+  // Guarantee the default day's earliest slot clears the lead-time window, not
+  // just the calendar-day math above. Depending on the current wall-clock hour
+  // in the org tz, the first slot (HOURS[0]) on today+leadDays can still fall
+  // inside the 48h window; if so, bump one more day (clamped to maxDate).
+  if (!meetsLeadTime(firstBookableDate, HOURS[0]!, timeZone, minLeadTimeHours)) {
+    firstBookableDate = shiftDate(firstBookableDate, 1, firstBookableDate, maxDate);
+  }
   const [date, setDate] = useState(initialDate ?? firstBookableDate);
   const [venueId, setVenueId] = useState<string | null>(venues[0]?.id ?? null);
   const [availability, setAvailability] = useState<AvailabilityResponse | null>(null);
