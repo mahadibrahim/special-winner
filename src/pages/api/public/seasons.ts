@@ -155,6 +155,16 @@ export const GET: APIRoute = async ({ url, locals }) => {
           r.season.teamPriceCents != null
             ? effectiveTeamPriceCents(r.season, r.season.teamPriceCents) / 100
             : null,
+        // Raw early-bird fields (dollars, null-safe) — DISPLAY ONLY, like the
+        // two fields above. Cards check the deadline client-side and strike
+        // through the base price; the charge path recomputes from cents.
+        earlyBirdPrice:
+          r.season.earlyBirdPriceCents != null ? r.season.earlyBirdPriceCents / 100 : null,
+        earlyBirdTeamPrice:
+          r.season.earlyBirdTeamPriceCents != null
+            ? r.season.earlyBirdTeamPriceCents / 100
+            : null,
+        earlyBirdDeadline: r.season.earlyBirdDeadline,
         signupModes: r.season.signupModes,
         deposit: r.season.depositCents ? r.season.depositCents / 100 : null,
         allowDeposit: r.season.allowDeposit,
