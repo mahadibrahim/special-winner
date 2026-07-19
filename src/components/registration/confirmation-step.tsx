@@ -6,9 +6,15 @@ import { Button } from "@/components/ui/button"
 interface ConfirmationStepProps {
   seasonName: string
   registrantDisplayName: string
+  /** True when the customer registered themselves (adult self path). */
+  isSelf?: boolean
 }
 
-export function ConfirmationStep({ seasonName, registrantDisplayName }: ConfirmationStepProps) {
+export function ConfirmationStep({
+  seasonName,
+  registrantDisplayName,
+  isSelf = false,
+}: ConfirmationStepProps) {
   return (
     <div className="text-center py-8">
       <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
@@ -16,7 +22,9 @@ export function ConfirmationStep({ seasonName, registrantDisplayName }: Confirma
       </div>
       <h3 className="text-xl font-semibold text-ink mb-2">Your spot is locked!</h3>
       <p className="text-ink-muted mb-6">
-        {registrantDisplayName || "You"} has been registered for {seasonName}.
+        {isSelf || !registrantDisplayName
+          ? `You're registered for ${seasonName}.`
+          : `${registrantDisplayName} is registered for ${seasonName}.`}{" "}
         You'll receive a confirmation email shortly. Once divisions are set,
         we'll email your team &amp; schedule before kickoff.
       </p>
