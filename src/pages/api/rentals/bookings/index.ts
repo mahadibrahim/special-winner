@@ -31,6 +31,7 @@ import {
   bookingWindowEndUtc,
 } from "@/lib/memberships/booking-window";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
+import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 
 export const prerender = false;
 
@@ -71,8 +72,13 @@ export const GET: APIRoute = async ({ locals }) => {
   return json({ rentals: rows }, 200);
 };
 
-export const POST: APIRoute = async ({ request, locals }) => {
-  if (!locals.user) return json({ error: "Unauthorized" }, 401);
+export const POST: APIRoute = async ({ request, locals, clientAddress }) => {
+  // Rate-limit guest submissions (public unauthenticated write path).
+  if (!locals.user) {
+    const ip = clientAddress || "unknown";
+    const rl = rateLimit(`rental-request:ip:${ip}`, 8, 60_000);
+    if (!rl.allowed) return rateLimitedResponse(rl.retryAfter ?? 60);
+  }
 
   let body: Record<string, unknown>;
   try {
@@ -91,6 +97,27 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const partySize = (body.partySize as number) ?? 1;
   const purpose = (body.purpose as string) ?? null;
   const waiverName = (body.waiverName as string).trim();
+
+  // Guest path: no session. Require contact fields; store renterUserId = null.
+  let renterUserId: string | null = null;
+  let renterName: string;
+  let renterEmail: string | null;
+  let renterPhone: string | null = null;
+  if (locals.user) {
+    renterUserId = locals.user.id;
+    renterName = waiverName; // signed-in: waiver name is the renter
+    renterEmail = locals.user.email;
+  } else {
+    const gName = (body.renterName as string | undefined)?.trim() || waiverName;
+    const gEmail = (body.renterEmail as string | undefined)?.trim() ?? "";
+    if (!gName) return json({ error: "Your name is required" }, 422);
+    if (!gEmail || gEmail.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(gEmail)) {
+      return json({ error: "A valid email is required" }, 422);
+    }
+    renterName = gName;
+    renterEmail = gEmail;
+    renterPhone = (body.renterPhone as string | undefined)?.trim() || null;
+  }
 
   const db = getDb();
   const [venue] = await db
@@ -198,14 +225,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
     endsAt,
     amountDueCents,
     requestHoldHours: rateCard.requestHoldHours,
-    renterUserId: locals.user.id,
-    renterName: waiverName,
-    renterEmail: locals.user.email,
-    renterPhone: null,
+    renterUserId,
+    renterName,
+    renterEmail,
+    renterPhone,
     partySize,
     purpose,
     notes: null,
-    createdByUserId: locals.user.id,
+    createdByUserId: renterUserId,
     waiverSigned: true,
     waiverSignedBy: waiverName,
     brand: bookingBrand,

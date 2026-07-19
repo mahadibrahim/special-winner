@@ -181,7 +181,7 @@ const breadcrumbSchema = breadcrumbJsonLd([
           <span>Field rental availability is very limited on weekends between November and March, and on weekdays after 6 PM.</span>
         </div>
 
-        <FieldCalendar client:load venues={calendarVenues} timeZone={orgTimeZone} bookingWindowDays={bookingWindowDays} />
+        <FieldCalendar client:load venues={calendarVenues} timeZone={orgTimeZone} bookingWindowDays={bookingWindowDays} signedIn={!!Astro.locals.user} />
 
         <!-- Cancellation policy -->
         <p class="cancel-policy">Cancel 14+ days out for a full refund. Within 14 days, bookings are final.</p>

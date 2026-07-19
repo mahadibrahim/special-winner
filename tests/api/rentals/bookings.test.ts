@@ -42,15 +42,21 @@ function validBody(overrides: Record<string, unknown> = {}) {
 }
 
 describe("POST /api/rentals/bookings", () => {
-  it("returns 401 when not authenticated", async () => {
+  it("guest (no auth) can request with contact info", async () => {
     const res = await fetch(`${BASE}/api/rentals/bookings`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(validBody()),
+      body: JSON.stringify(
+        validBody({
+          fieldNumber: 1,
+          ...slot(12, 1),
+          renterName: "Guest Gal",
+          renterEmail: `guest_${Date.now()}@test.aspiresports.com`,
+        }),
+      ),
     });
-    expect(res.status).toBe(401);
-    const body = await res.json();
-    expect(body).toHaveProperty("error");
+    expect(res.status).toBe(200);
+    expect((await res.json()).requested).toBe(true);
   });
 
   it("returns 422 when waiverAccepted is false", async () => {

@@ -6,6 +6,7 @@
  * approve-hook in `src/pages/api/admin/rentals/[id].ts` inserts the
  * requester directly — that row is already signed and needs no invite.)
  */
+import { eq } from "drizzle-orm";
 import { fieldRentalPlayers, type FieldRental } from "@/lib/db/schema/field-rentals";
 import { getDb } from "@/lib/db";
 import { mintToken } from "@/lib/check-in/tokens-db";
@@ -60,4 +61,43 @@ export async function createRentalPlayer(
   );
 
   return { id: row.id };
+}
+
+/**
+ * Add the requester as roster player #1, already `signed` (they accepted the
+ * waiver at request time, so no invite email). Idempotent: skips when any
+ * roster row already exists for the rental, and `.onConflictDoNothing()`
+ * guards the residual insert race.
+ *
+ * Two call sites converge here:
+ *   - admin approve-hook — for an ONLINE-booked (signed-in) rental, which
+ *     already has `renterUserId` at approval time.
+ *   - the guest claim endpoint — a guest rental's `renterUserId` is null at
+ *     approval (so the approve-hook skips it); this runs once the guest
+ *     claims, so their booking isn't left with an empty roster.
+ * The renter fields it reads (renterName/renterEmail/waiverSignedBy/
+ * waiverSignedAt) don't change on claim, so either caller produces the same row.
+ */
+export async function addRequesterAsSignedPlayer(
+  rental: FieldRental,
+): Promise<void> {
+  const db = getDb();
+  const [existing] = await db
+    .select({ id: fieldRentalPlayers.id })
+    .from(fieldRentalPlayers)
+    .where(eq(fieldRentalPlayers.rentalId, rental.id))
+    .limit(1);
+  if (existing) return;
+  await db
+    .insert(fieldRentalPlayers)
+    .values({
+      rentalId: rental.id,
+      playerName: rental.renterName,
+      signerEmail: rental.renterEmail ?? "",
+      isMinor: false,
+      status: "signed",
+      signerName: rental.waiverSignedBy ?? rental.renterName,
+      signedAt: rental.waiverSignedAt ?? new Date(),
+    })
+    .onConflictDoNothing();
 }

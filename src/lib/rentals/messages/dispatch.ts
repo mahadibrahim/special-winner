@@ -29,6 +29,7 @@ import { formatRentalWindow } from "./format";
 import { getAdminNotifyEmail } from "@/lib/organization/notify";
 import { escapeHtml } from "@/lib/dropin/messages/types";
 import { env } from "@/lib/env";
+import { mintRentalClaimToken } from "@/lib/rentals/claim";
 
 export interface RentalDispatchResult {
   ok: boolean;
@@ -52,6 +53,7 @@ export async function dispatchRentalConfirmation(
       renterName: fieldRentals.renterName,
       renterEmail: fieldRentals.renterEmail,
       renterPhone: fieldRentals.renterPhone,
+      renterUserId: fieldRentals.renterUserId,
       brand: fieldRentals.brand,
       venueName: venues.name,
       orgTimezone: organizations.timezone,
@@ -78,6 +80,8 @@ export async function dispatchRentalConfirmation(
     amountCents: row.amountPaidCents,
   });
 
+  const manageUrl = await resolveManageUrl(row.id, row.renterUserId);
+
   const variants = await renderRentalConfirmation({
     recipientName: row.renterName,
     venueName: row.venueName ?? "the facility",
@@ -86,6 +90,7 @@ export async function dispatchRentalConfirmation(
     endsAt: row.endsAt,
     timezone: row.orgTimezone ?? null,
     amountPaidCents: row.amountPaidCents,
+    manageUrl,
     brand,
   });
 
@@ -143,6 +148,7 @@ async function loadRentalForMessage(rentalId: string) {
       renterName: fieldRentals.renterName,
       renterEmail: fieldRentals.renterEmail,
       renterPhone: fieldRentals.renterPhone,
+      renterUserId: fieldRentals.renterUserId,
       brand: fieldRentals.brand,
       venueName: venues.name,
       orgTimezone: organizations.timezone,
@@ -153,6 +159,31 @@ async function loadRentalForMessage(rentalId: string) {
     .where(eq(fieldRentals.id, rentalId))
     .limit(1);
   return row ?? null;
+}
+
+/**
+ * A signed-in renter's post-approval / post-confirmation link is the
+ * dashboard; a guest (no `renterUserId`) has no dashboard yet, so mint a
+ * claim link instead. Re-fetches the full rental row for the guest branch
+ * since `mintRentalClaimToken` needs the full `FieldRental` shape and the
+ * message-loading selects above only pick a subset of columns.
+ */
+async function resolveManageUrl(
+  rentalId: string,
+  renterUserId: string | null,
+): Promise<string | null> {
+  if (renterUserId) return `${APP_URL}/dashboard/bookings`;
+
+  const db = getDb();
+  const [rental] = await db
+    .select()
+    .from(fieldRentals)
+    .where(eq(fieldRentals.id, rentalId))
+    .limit(1);
+  if (!rental) return null;
+
+  const token = await mintRentalClaimToken(rental);
+  return `${APP_URL}/rentals/claim/${token}`;
 }
 
 /**
@@ -173,6 +204,8 @@ async function dispatchRequestLifecycle(
   if (!hasEmail && !hasPhone) return { ok: false, reason: "no_contact_info" };
 
   const brand = normalizeBrand(row.brand);
+  const payUrl =
+    kind === "approved" ? await resolveManageUrl(row.id, row.renterUserId) : null;
   const variants = await renderRentalRequestMessage(kind, {
     recipientName: row.renterName,
     venueName: row.venueName ?? "the facility",
@@ -180,7 +213,7 @@ async function dispatchRequestLifecycle(
     endsAt: row.endsAt,
     timezone: row.orgTimezone ?? null,
     amountDueCents: row.amountDueCents,
-    payUrl: kind === "approved" ? `${APP_URL}/dashboard/bookings` : null,
+    payUrl,
     brand,
   });
 

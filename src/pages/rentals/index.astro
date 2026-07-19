@@ -55,7 +55,7 @@ if (org) {
           sooner.
         </p>
       </div>
-      <RentalBooking client:load venues={rentalVenues} />
+      <RentalBooking client:load venues={rentalVenues} signedIn={!!Astro.locals.user} />
     </div>
   </main>
 </BaseLayout>
