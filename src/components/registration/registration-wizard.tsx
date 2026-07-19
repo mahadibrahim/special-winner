@@ -614,7 +614,11 @@ export default function RegistrationWizard({
         lastName: data.lastName ?? completedProfile.lastName ?? user.lastName ?? "",
         phone: data.phone ?? completedProfile.phone ?? user.phone ?? undefined,
         birthDate: data.birthDate ?? completedProfile.birthDate ?? user.birthDate ?? undefined,
-        gender: data.gender ?? completedProfile.gender ?? user.gender ?? undefined,
+        // "" is the form's unset placeholder — omit the key entirely instead
+        // of sending it, since the API's gender enum has no "" member and a
+        // customer who leaves the optional Gender select on "—" would get a
+        // raw "Invalid option" zod error on Save profile.
+        gender: (data.gender || completedProfile.gender || user.gender) || undefined,
         // Only sent when the form collected a phone — the server records
         // opt-in state solely for phones provided alongside the checkbox.
         smsConsent: data.smsConsent,
