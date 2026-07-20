@@ -162,13 +162,28 @@ function fmtUsd(cents: number): string {
 }
 
 /**
- * Capacity label. The admin GET returns no registered count, so a "spots
- * left" figure can't be computed here — maxParticipants is the CAP, and it's
- * labeled as such ("80 spots max") rather than implying availability.
+ * Capacity label. Two honesty rules, both verified against the enforcement
+ * code (create-registration.ts):
+ *
+ * 1. The admin GET returns no registered count, so a "spots left" figure
+ *    can't be computed here — maxParticipants is the CAP, labeled as such.
+ * 2. maxParticipants counts PEOPLE, not teams: the capacity gate compares
+ *    confirmed `registrations` rows (one per player) and only runs on the
+ *    individual/free-agent path. Team signups never touch it — rosters are
+ *    capped per-team by teams.maxRosterSize instead. So the label says
+ *    "players", says "solo" when team mode is also on, and flags the cap as
+ *    unused on team-only seasons (where nothing enforces it).
  */
-function capacityLabel(maxParticipants: number | null): string {
-  if (maxParticipants == null) return "No cap"
-  return maxParticipants === 1 ? "1 spot max" : `${maxParticipants} spots max`
+function capacityLabel(s: Season): string {
+  const modes = s.signupModes ?? ["individual"]
+  const solo = modes.includes("individual")
+  const team = modes.includes("team")
+  if (s.maxParticipants == null) return "No player cap"
+  const n = s.maxParticipants
+  const noun = n === 1 ? "player" : "players"
+  if (!solo && team) return `Cap ${n} unused (team-only)`
+  if (solo && team) return `${n} solo ${noun} max`
+  return `${n} ${noun} max`
 }
 
 /** Rounded filter chip row with per-option counts, catalog idiom. */
@@ -886,7 +901,7 @@ export function SeasonsList() {
                                 EB {fmtUsd(season.earlyBirdTeamPriceCents)} team
                               </p>
                             )}
-                            <p className="text-sm text-muted-foreground">{capacityLabel(season.maxParticipants)}</p>
+                            <p className="text-sm text-muted-foreground">{capacityLabel(season)}</p>
                           </div>
                           <div className="flex items-center gap-2">
                             <a
@@ -1274,7 +1289,7 @@ export function SeasonsList() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="maxParticipants">Max Spots</Label>
+                  <Label htmlFor="maxParticipants">Max players (solo signups)</Label>
                   <Input
                     id="maxParticipants"
                     type="number"
@@ -1283,6 +1298,11 @@ export function SeasonsList() {
                     onChange={(e) => setFormData((prev) => ({ ...prev, maxParticipants: e.target.value }))}
                     placeholder="50"
                   />
+                  <p className="text-xs text-ink-muted">
+                    Caps individual / free-agent registrations only — once reached, new solo
+                    signups go to the waitlist. Team signups are NOT counted against this;
+                    each team is capped by its own roster size. Leave blank for no cap.
+                  </p>
                 </div>
               </div>
 
