@@ -34,7 +34,7 @@ export const VENUE_MANAGER_NAV: NavGroup[] = [
   {
     name: "Casual play",
     items: [
-      { name: "Drop-ins", href: "/admin/dropins", icon: Zap },
+      { name: "Manage Pickup and Hosts", href: "/admin/dropins", icon: Zap },
       { name: "Rentals", href: "/admin/rentals", icon: Key },
     ],
   },

@@ -76,7 +76,7 @@ export const SUPER_ADMIN_NAV: NavGroup[] = [
   {
     name: "Casual play",
     items: [
-      { name: "Drop-ins", href: "/admin/dropins", icon: Zap },
+      { name: "Manage Pickup and Hosts", href: "/admin/dropins", icon: Zap },
       { name: "Drop League", href: "/admin/drop-league", icon: TrendingDown },
       { name: "Rentals", href: "/admin/rentals", icon: Key },
       { name: "Memberships", href: "/admin/memberships", icon: Gem },

@@ -85,8 +85,8 @@ export function SessionsList() {
         // The header CTA stays visible in the empty state, so no
         // duplicate action inside the empty-state card.
         <EmptyState
-          title="No sessions yet"
-          description="Create your first drop-in session to get on the schedule."
+          title="No sessions in this view"
+          description="This list only shows sessions at the venue location selected in the top-right picker, from the last 7 days through the next 60. If you expected sessions here, switch or clear the venue picker — otherwise create a session to get on the schedule."
         />
       )}
       {!loading && rows.length > 0 && (
