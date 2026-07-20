@@ -136,6 +136,25 @@ const navUser = resolveNavUser({
     />
     {theme.fontsHref && <link href={theme.fontsHref} rel="stylesheet" />}
     {brandCss && <style is:inline set:html={brandCss} />}
+    <script is:inline>
+      // Recover from stale-deploy chunk loads: a tab opened before a deploy
+      // can dynamic-import a hashed chunk that no longer exists ("Importing a
+      // module script failed"). Vite surfaces that as vite:preloadError —
+      // reload once to pick up the new build. The timestamp guard stops a
+      // reload loop when the page is genuinely broken; sessionStorage is
+      // try/caught because some privacy modes deny it.
+      window.addEventListener("vite:preloadError", function (event) {
+        var KEY = "stale-chunk-reload-at";
+        try {
+          if (Date.now() - Number(sessionStorage.getItem(KEY) || 0) < 60000) return;
+          sessionStorage.setItem(KEY, String(Date.now()));
+        } catch (_) {
+          return;
+        }
+        event.preventDefault();
+        window.location.reload();
+      });
+    </script>
     <title>{brandedTitle}</title>
     <PostHog />
     <GoogleTagManager containerId={gtmContainerId} />
