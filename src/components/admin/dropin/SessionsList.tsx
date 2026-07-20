@@ -98,12 +98,22 @@ interface SessionCardProps {
   s: SessionRow;
   timezone: string;
   activeHosts: ActiveHost[];
+  /** False until the /api/admin/hosts fetch in SessionsList resolves (or
+   *  fails) — distinguishes "still loading / fetch failed" from "org
+   *  genuinely has zero active hosts" in the Assign popover. */
+  hostsLoaded: boolean;
   /** Re-fetches the week's sessions. Wired to the Cancel/Delete actions in
    *  the overflow menu, and the Assign/Change host popover, below. */
   onChanged: () => void;
 }
 
-function SessionCard({ s, timezone, activeHosts, onChanged }: SessionCardProps) {
+function SessionCard({
+  s,
+  timezone,
+  activeHosts,
+  hostsLoaded,
+  onChanged,
+}: SessionCardProps) {
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
   const [busy, setBusy] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
@@ -271,49 +281,53 @@ function SessionCard({ s, timezone, activeHosts, onChanged }: SessionCardProps) 
         ) : (
           <span className="text-ink-muted">No host</span>
         )}
-        <Popover open={assignOpen} onOpenChange={setAssignOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={busy}
-              className="h-6 px-2 text-xs text-ink-muted hover:text-ink"
-            >
-              {s.hostName ? "Change" : "Assign"}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-64">
-            {activeHosts.length === 0 ? (
-              <p className="text-sm text-ink-muted">
-                No active hosts yet — approve applicants or add one in the{" "}
-                <a
-                  href="/admin/dropins?tab=hosts"
-                  className="underline hover:text-ink"
-                >
-                  Hosts tab
-                </a>
-                .
-              </p>
-            ) : (
-              <div className="space-y-1">
-                {activeHosts.map((h) => (
-                  <button
-                    key={h.userId}
-                    type="button"
-                    disabled={busy || h.userId === s.hostUserId}
-                    onClick={() => assignHost(h.userId)}
-                    className="w-full text-left text-sm rounded px-2 py-1.5 text-ink hover:bg-cream disabled:opacity-50 disabled:cursor-default"
+        {s.status === "scheduled" && (
+          <Popover open={assignOpen} onOpenChange={setAssignOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={busy}
+                className="h-6 px-2 text-xs text-ink-muted hover:text-ink"
+              >
+                {s.hostName ? "Change" : "Assign"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-64">
+              {!hostsLoaded ? (
+                <p className="text-sm text-ink-muted">Loading hosts…</p>
+              ) : activeHosts.length === 0 ? (
+                <p className="text-sm text-ink-muted">
+                  No active hosts yet — approve applicants or add one in the{" "}
+                  <a
+                    href="/admin/dropins?tab=hosts"
+                    className="underline hover:text-ink"
                   >
-                    {h.firstName} {h.lastName}
-                    {h.userId === s.hostUserId && (
-                      <span className="text-ink-muted"> · current</span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-          </PopoverContent>
-        </Popover>
+                    Hosts tab
+                  </a>
+                  .
+                </p>
+              ) : (
+                <div className="space-y-1">
+                  {activeHosts.map((h) => (
+                    <button
+                      key={h.userId}
+                      type="button"
+                      disabled={busy || h.userId === s.hostUserId}
+                      onClick={() => assignHost(h.userId)}
+                      className="w-full text-left text-sm rounded px-2 py-1.5 text-ink hover:bg-cream disabled:opacity-50 disabled:cursor-default"
+                    >
+                      {h.firstName} {h.lastName}
+                      {h.userId === s.hostUserId && (
+                        <span className="text-ink-muted"> · current</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </PopoverContent>
+          </Popover>
+        )}
       </div>
       {confirmDialog}
     </div>
@@ -327,6 +341,9 @@ export function SessionsList({ timezone }: SessionsListProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeHosts, setActiveHosts] = useState<ActiveHost[]>([]);
+  // Distinguishes "still loading / fetch failed" from "org genuinely has
+  // zero active hosts" in the Assign popover — see the effect below.
+  const [hostsLoaded, setHostsLoaded] = useState(false);
   // The week `rows` actually reflects. Compared against the CURRENT week
   // below so weekIsEmpty can't fire off a stale week's (empty-looking) rows
   // the frame before a navigation's fetch completes — see task-3 fix notes.
@@ -377,20 +394,26 @@ export function SessionsList({ timezone }: SessionsListProps) {
   }, [weekKey, timezone]);
 
   useEffect(() => {
-    // Fetched once, alongside sessions — fail-soft: the Assign popover
-    // just shows the zero-hosts sentence if this doesn't come back.
+    // Fetched once, alongside sessions — fail-soft: on a non-OK response or
+    // thrown error, hostsLoaded stays false and the Assign popover shows a
+    // neutral "loading/unavailable" state rather than claiming the org has
+    // zero active hosts.
     void (async () => {
       try {
         const res = await fetch("/api/admin/hosts");
-        if (!res.ok) return;
+        if (!res.ok) {
+          console.error(`GET /api/admin/hosts failed: HTTP ${res.status}`);
+          return;
+        }
         const json = await res.json();
         setActiveHosts(
           (json.hosts ?? []).filter(
             (h: { status: string }) => h.status === "active",
           ),
         );
-      } catch {
-        /* Assign popover falls back to the zero-hosts sentence */
+        setHostsLoaded(true);
+      } catch (err) {
+        console.error("GET /api/admin/hosts failed", err);
       }
     })();
   }, []);
@@ -484,6 +507,7 @@ export function SessionsList({ timezone }: SessionsListProps) {
                       s={s}
                       timezone={timezone}
                       activeHosts={activeHosts}
+                      hostsLoaded={hostsLoaded}
                       onChanged={reload}
                     />
                   ))}
