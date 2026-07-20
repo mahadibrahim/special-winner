@@ -164,6 +164,11 @@ export const GET: APIRoute = async (context) => {
             id: programs.id,
             name: programs.name,
             slug: programs.slug,
+            // Type/audience power the admin seasons filter bar. audienceType is
+            // free-text varchar; legacy values ('parents', 'adults') are mapped
+            // client-side.
+            programType: programs.programType,
+            audienceType: programs.audienceType,
           },
           sport: {
             id: sports.id,
