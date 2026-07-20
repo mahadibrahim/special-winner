@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Plus, Pencil, Trash2, Loader2, Calendar } from "lucide-react"
+import { useState, useEffect, useMemo } from "react"
+import { Plus, Pencil, Trash2, Loader2, Search, SearchX } from "lucide-react"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
+import { EmptyState } from "@/components/ui/empty-state"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -24,7 +25,8 @@ import { OfferingWizard } from "./offering-wizard/OfferingWizard"
 import { toast } from "sonner"
 import { toTimeInputValue } from "@/lib/time/time-of-day"
 import { useConfirmDialog } from "@/components/ui/confirm-dialog"
-import { formatDateOnly } from "@/lib/time/format-date"
+import { formatDateOnly, formatTimeWindow } from "@/lib/time/format-date"
+import { DAY_KEYS, DAY_LABELS, type DayKey } from "@/lib/programs/derive"
 
 interface Season {
   id: string
@@ -53,7 +55,14 @@ interface Season {
   endTime?: string | null
   venueId: string | null
   interestCount?: number
-  program: { id: string; name: string; slug: string }
+  createdAt?: string
+  program: {
+    id: string
+    name: string
+    slug: string
+    programType?: string
+    audienceType?: string
+  }
   sport: { id: string; name: string; icon: string | null; color: string | null }
   location: { id: string; name: string }
   ageGroup: { id: string; name: string; minAge: number; maxAge: number } | null
@@ -90,6 +99,124 @@ const statusOptions = [
   { value: "cancelled", label: "Cancelled", color: "bg-red-100 text-red-700" },
 ]
 
+// ---------------------------------------------------------------------------
+// Filter helpers
+// ---------------------------------------------------------------------------
+
+/** Sentinel term-filter value for seasons without a termLabel. */
+const NO_TERM = "__no_term__"
+
+type SortKey = "start" | "closes" | "name" | "created"
+type Facet = "status" | "term" | "type" | "audience" | "venue" | "day"
+
+interface SeasonFilters {
+  query: string
+  status: string | null
+  term: string | null
+  type: string | null
+  audience: string | null
+  venue: string | null
+  day: string | null
+}
+
+const EMPTY_FILTERS: SeasonFilters = {
+  query: "",
+  status: null,
+  term: null,
+  type: null,
+  audience: null,
+  venue: null,
+  day: null,
+}
+
+/** Enum declaration order — keeps Type chips in a stable, sensible order. */
+const PROGRAM_TYPE_ORDER = ["league", "camp", "clinic", "tournament", "training"]
+
+/** Map program.audienceType (free-text, with legacy values) to youth/adult. */
+function seasonAudience(s: Season): "youth" | "adult" {
+  const a = s.program.audienceType
+  return a === "adults" || a === "adult" ? "adult" : "youth" // legacy 'parents' → youth
+}
+
+/**
+ * Does a season pass the active filters? `skipFacet` excludes one facet so
+ * each chip group's counts reflect every OTHER active filter (same behavior
+ * as the public catalog's chip counts).
+ */
+function seasonMatches(s: Season, f: SeasonFilters, skipFacet?: Facet): boolean {
+  const q = f.query.trim().toLowerCase()
+  if (q && !`${s.name} ${s.program.name}`.toLowerCase().includes(q)) return false
+  if (skipFacet !== "status" && f.status && s.status !== f.status) return false
+  if (skipFacet !== "term" && f.term && (s.termLabel || NO_TERM) !== f.term) return false
+  if (skipFacet !== "type" && f.type && s.program.programType !== f.type) return false
+  if (skipFacet !== "audience" && f.audience && seasonAudience(s) !== f.audience) return false
+  if (skipFacet !== "venue" && f.venue && s.location.name !== f.venue) return false
+  if (skipFacet !== "day" && f.day && s.dayOfWeek !== f.day) return false
+  return true
+}
+
+/** "$120" for whole dollars, "$97.50" otherwise. */
+function fmtUsd(cents: number): string {
+  const dollars = cents / 100
+  return Number.isInteger(dollars) ? `$${dollars}` : `$${dollars.toFixed(2)}`
+}
+
+/**
+ * Capacity label. The admin GET returns no registered count, so a "spots
+ * left" figure can't be computed here — maxParticipants is the CAP, and it's
+ * labeled as such ("80 spots max") rather than implying availability.
+ */
+function capacityLabel(maxParticipants: number | null): string {
+  if (maxParticipants == null) return "No cap"
+  return maxParticipants === 1 ? "1 spot max" : `${maxParticipants} spots max`
+}
+
+/** Rounded filter chip row with per-option counts, catalog idiom. */
+function FilterChipGroup({
+  label,
+  options,
+  active,
+  onChange,
+}: {
+  label: string
+  options: Array<{ value: string; label: string; count: number }>
+  active: string | null
+  onChange: (v: string | null) => void
+}) {
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      <span className="text-[10px] tracking-[0.1em] uppercase text-ink-muted font-semibold mr-1">
+        {label}:
+      </span>
+      <button
+        type="button"
+        onClick={() => onChange(null)}
+        className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+          active === null
+            ? "bg-ink text-cream border-ink"
+            : "bg-paper text-ink-2 border-border hover:border-ink-muted"
+        }`}
+      >
+        All
+      </button>
+      {options.map((opt) => (
+        <button
+          key={opt.value}
+          type="button"
+          onClick={() => onChange(active === opt.value ? null : opt.value)}
+          className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+            active === opt.value
+              ? "bg-ink text-cream border-ink"
+              : "bg-paper text-ink-2 border-border hover:border-ink-muted"
+          }`}
+        >
+          {opt.label} <span className="opacity-60 ml-0.5">{opt.count}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export function SeasonsList() {
   useHydrationBeacon()
   const { confirm, dialog: confirmDialog } = useConfirmDialog()
@@ -103,6 +230,8 @@ export function SeasonsList() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [editingSeason, setEditingSeason] = useState<Season | null>(null)
   const [isWizardOpen, setIsWizardOpen] = useState(false)
+  const [filters, setFilters] = useState<SeasonFilters>(EMPTY_FILTERS)
+  const [sort, setSort] = useState<SortKey>("start")
   const [wizardLocationId, setWizardLocationId] = useState("")
   const [wizardSportId, setWizardSportId] = useState("")
   const [scaffold, setScaffold] = useState<ScaffoldChoice>({ type: "empty" })
@@ -422,6 +551,118 @@ export function SeasonsList() {
   // Server-side validation in Task 7 enforces the correct-location check.
   const venuesForProgram = venues
 
+  // -------------------------------------------------------------------------
+  // Filtering. All client-side; each chip group's counts respect every OTHER
+  // active filter (skipFacet), mirroring the public catalog's behavior. Chips
+  // render only for values present in the org's data; a chip with a 0 count
+  // under the current cross-filters stays visible only while it's active.
+  // -------------------------------------------------------------------------
+  const setFacet = (key: keyof SeasonFilters) => (v: string | null) =>
+    setFilters((prev) => ({ ...prev, [key]: v }))
+
+  const facetValue: Record<Facet, (s: Season) => string | null> = {
+    status: (s) => s.status,
+    term: (s) => s.termLabel || NO_TERM,
+    type: (s) => s.program.programType ?? null,
+    audience: (s) => seasonAudience(s),
+    venue: (s) => s.location.name,
+    day: (s) => s.dayOfWeek ?? null,
+  }
+
+  const facetOptions = (
+    facet: Facet,
+    values: Array<{ value: string; label: string }>,
+    active: string | null,
+  ) =>
+    values
+      .map((v) => ({
+        ...v,
+        count: seasons.filter(
+          // Count against every OTHER active filter, with this facet pinned
+          // to the candidate value.
+          (s) => seasonMatches(s, filters, facet) && facetValue[facet](s) === v.value,
+        ).length,
+      }))
+      .filter((o) => o.count > 0 || o.value === active)
+
+  const statusChipOptions = facetOptions(
+    "status",
+    statusOptions
+      .filter((o) => seasons.some((s) => s.status === o.value))
+      .map((o) => ({ value: o.value, label: o.label })),
+    filters.status,
+  )
+  const termChipOptions = facetOptions(
+    "term",
+    [
+      // Distinct labels in list order (API sorts by startDate asc)
+      ...Array.from(new Set(seasons.map((s) => s.termLabel).filter((t): t is string => !!t)))
+        .map((t) => ({ value: t, label: t })),
+      ...(seasons.some((s) => !s.termLabel) ? [{ value: NO_TERM, label: "No term" }] : []),
+    ],
+    filters.term,
+  )
+  const typeChipOptions = facetOptions(
+    "type",
+    PROGRAM_TYPE_ORDER
+      .filter((t) => seasons.some((s) => s.program.programType === t))
+      .map((t) => ({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1) })),
+    filters.type,
+  )
+  const audienceChipOptions = facetOptions(
+    "audience",
+    (["youth", "adult"] as const)
+      .filter((a) => seasons.some((s) => seasonAudience(s) === a))
+      .map((a) => ({ value: a, label: a === "youth" ? "Youth" : "Adult" })),
+    filters.audience,
+  )
+  const venueChipOptions = facetOptions(
+    "venue",
+    Array.from(new Set(seasons.map((s) => s.location.name)))
+      .sort((a, b) => a.localeCompare(b))
+      .map((n) => ({ value: n, label: n })),
+    filters.venue,
+  )
+  const dayChipOptions = facetOptions(
+    "day",
+    DAY_KEYS
+      .filter((d) => seasons.some((s) => s.dayOfWeek === d))
+      .map((d) => ({ value: d, label: DAY_LABELS[d] })),
+    filters.day,
+  )
+
+  const anyFilterActive =
+    filters.query.trim() !== "" ||
+    filters.status !== null ||
+    filters.term !== null ||
+    filters.type !== null ||
+    filters.audience !== null ||
+    filters.venue !== null ||
+    filters.day !== null
+
+  const visibleSeasons = useMemo(() => {
+    const arr = seasons.filter((s) => seasonMatches(s, filters))
+    switch (sort) {
+      case "start":
+        arr.sort((a, b) => a.startDate.localeCompare(b.startDate))
+        break
+      case "closes":
+        arr.sort((a, b) => {
+          if (!a.registrationCloses) return b.registrationCloses ? 1 : 0
+          if (!b.registrationCloses) return -1
+          return new Date(a.registrationCloses).getTime() - new Date(b.registrationCloses).getTime()
+        })
+        break
+      case "name":
+        arr.sort((a, b) => a.name.localeCompare(b.name))
+        break
+      case "created":
+        arr.sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime())
+        break
+    }
+    return arr
+  }, [seasons, filters, sort])
+
   return (
     <div className="space-y-6">
       {confirmDialog}
@@ -471,80 +712,217 @@ export function SeasonsList() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
-          {seasons.map((season) => {
-            const statusConfig = statusOptions.find((s) => s.value === season.status)
-            return (
-              <Card key={season.id}>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div
-                        className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl"
-                        style={{
-                          backgroundColor: `${season.sport.color || "#3b82f6"}20`,
-                          color: season.sport.color || "#3b82f6",
-                        }}
-                      >
-                        {season.sport.icon || "🏃"}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-lg">{season.name}</h3>
-                          <Badge className={statusConfig?.color}>{statusConfig?.label}</Badge>
-                          {season.status === "forming" && (
-                            <span className="text-xs text-ink-muted ml-2">{season.interestCount ?? 0} interested</span>
-                          )}
+        <>
+          {/* Filter / search toolbar — sticks just below the portal header (h-16). */}
+          <div className="sticky top-16 z-20 -mx-6 px-6 py-3 bg-cream/95 backdrop-blur-sm border-y border-border space-y-2.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted pointer-events-none" />
+                <Input
+                  type="search"
+                  value={filters.query}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, query: e.target.value }))}
+                  placeholder="Search seasons or programs…"
+                  aria-label="Search seasons"
+                  className="pl-8 h-9"
+                />
+              </div>
+              <span className="text-xs text-ink-muted">
+                {visibleSeasons.length === seasons.length
+                  ? `${seasons.length} season${seasons.length === 1 ? "" : "s"}`
+                  : `${visibleSeasons.length} of ${seasons.length} seasons`}
+              </span>
+              <div className="ml-auto flex items-center gap-2">
+                {anyFilterActive && (
+                  <button
+                    type="button"
+                    onClick={() => setFilters(EMPTY_FILTERS)}
+                    className="text-xs font-medium text-primary hover:underline"
+                  >
+                    Clear filters
+                  </button>
+                )}
+                <select
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value as SortKey)}
+                  className="bg-paper border border-border rounded-md px-2.5 py-1.5 text-xs text-ink-2"
+                  aria-label="Sort seasons"
+                >
+                  <option value="start">Sort: Start date ↑</option>
+                  <option value="closes">Sort: Registration closes ↑</option>
+                  <option value="name">Sort: Name A–Z</option>
+                  <option value="created">Sort: Recently created</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              {statusChipOptions.length > 1 && (
+                <FilterChipGroup label="Status" options={statusChipOptions} active={filters.status} onChange={setFacet("status")} />
+              )}
+              {termChipOptions.length > 1 && (
+                <FilterChipGroup label="Term" options={termChipOptions} active={filters.term} onChange={setFacet("term")} />
+              )}
+              {typeChipOptions.length > 1 && (
+                <FilterChipGroup label="Type" options={typeChipOptions} active={filters.type} onChange={setFacet("type")} />
+              )}
+              {audienceChipOptions.length > 1 && (
+                <FilterChipGroup label="Audience" options={audienceChipOptions} active={filters.audience} onChange={setFacet("audience")} />
+              )}
+              {venueChipOptions.length > 1 && (
+                <FilterChipGroup label="Venue" options={venueChipOptions} active={filters.venue} onChange={setFacet("venue")} />
+              )}
+              {dayChipOptions.length > 0 && (
+                <FilterChipGroup label="Day" options={dayChipOptions} active={filters.day} onChange={setFacet("day")} />
+              )}
+            </div>
+          </div>
+
+          {visibleSeasons.length === 0 ? (
+            <Card>
+              <CardContent>
+                <EmptyState
+                  icon={<SearchX className="h-8 w-8" />}
+                  title="No seasons match these filters"
+                  description="Try removing a filter or clearing the search."
+                >
+                  <Button variant="outline" onClick={() => setFilters(EMPTY_FILTERS)}>
+                    Clear filters
+                  </Button>
+                </EmptyState>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {visibleSeasons.map((season) => {
+                const statusConfig = statusOptions.find((s) => s.value === season.status)
+                const allowTeam = (season.signupModes ?? ["individual"]).includes("team")
+                const allowIndividual = (season.signupModes ?? ["individual"]).includes("individual")
+                const dayLabel = season.dayOfWeek ? DAY_LABELS[season.dayOfWeek as DayKey] : ""
+                const timeWindow = formatTimeWindow(season.startTime, season.endTime)
+                const dayTime = dayLabel && timeWindow ? `${dayLabel} · ${timeWindow}` : dayLabel || timeWindow
+                const regClosesPast =
+                  season.registrationCloses != null && new Date(season.registrationCloses) < new Date()
+                const depositMisconfigured =
+                  season.allowDeposit &&
+                  season.depositCents != null &&
+                  season.priceCents != null &&
+                  season.depositCents >= season.priceCents
+                return (
+                  <Card key={season.id}>
+                    <CardContent className="p-4">
+                      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="flex items-center gap-4 min-w-0">
+                          <div
+                            className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0"
+                            style={{
+                              backgroundColor: `${season.sport.color || "#3b82f6"}20`,
+                              color: season.sport.color || "#3b82f6",
+                            }}
+                          >
+                            {season.sport.icon || "🏃"}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="font-display font-semibold text-lg text-ink leading-tight">
+                                {season.name}
+                              </h3>
+                              <Badge className={statusConfig?.color}>{statusConfig?.label}</Badge>
+                              {season.termLabel && (
+                                <Badge variant="outline" className="text-ink-muted">{season.termLabel}</Badge>
+                              )}
+                              {depositMisconfigured && (
+                                <Badge className="bg-amber-100 text-amber-800 border-amber-300">
+                                  Deposit ≥ price
+                                </Badge>
+                              )}
+                              {season.status === "forming" && (
+                                <span className="text-xs text-ink-muted">{season.interestCount ?? 0} interested</span>
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground truncate">
+                              {season.program.name} · {season.location.name}
+                              {season.ageGroup && ` · ${season.ageGroup.name}`}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {formatDate(season.startDate)} – {formatDate(season.endDate)}
+                              {dayTime && <> · {dayTime}</>}
+                              {season.registrationCloses && (
+                                <>
+                                  {" · "}
+                                  <span className={regClosesPast ? "text-red-700 font-medium" : undefined}>
+                                    Reg closes{" "}
+                                    {new Date(season.registrationCloses).toLocaleDateString("en-US", {
+                                      month: "short",
+                                      day: "numeric",
+                                      year: "numeric",
+                                    })}
+                                  </span>
+                                </>
+                              )}
+                            </p>
+                          </div>
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          {season.program.name} · {season.location.name}
-                          {season.ageGroup && ` · ${season.ageGroup.name}`}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {formatDate(season.startDate)} - {formatDate(season.endDate)}
-                        </p>
+                        <div className="flex items-center gap-4 shrink-0 lg:pl-4">
+                          <div className="text-right">
+                            <p className="font-semibold text-ink">
+                              {allowIndividual && (
+                                <>
+                                  {fmtUsd(season.priceCents)}{" "}
+                                  <span className="text-xs font-normal text-muted-foreground">solo</span>
+                                </>
+                              )}
+                              {allowTeam && season.teamPriceCents != null && (
+                                <>
+                                  {allowIndividual && <span className="text-muted-foreground font-normal"> · </span>}
+                                  {fmtUsd(season.teamPriceCents)}{" "}
+                                  <span className="text-xs font-normal text-muted-foreground">team</span>
+                                </>
+                              )}
+                              {!allowIndividual && !(allowTeam && season.teamPriceCents != null) &&
+                                fmtUsd(season.priceCents)}
+                            </p>
+                            {allowTeam && season.earlyBirdTeamPriceCents != null && (
+                              <p className="text-xs text-muted-foreground">
+                                EB {fmtUsd(season.earlyBirdTeamPriceCents)} team
+                              </p>
+                            )}
+                            <p className="text-sm text-muted-foreground">{capacityLabel(season.maxParticipants)}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <a
+                              href={`/admin/seasons/${season.id}`}
+                              className="text-sm text-primary hover:underline whitespace-nowrap"
+                            >
+                              Manage gear →
+                            </a>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              aria-label={`Edit season ${season.name}`}
+                              title={`Edit season ${season.name}`}
+                              onClick={() => openEditDialog(season)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              aria-label={`Delete season ${season.name}`}
+                              title={`Delete season ${season.name}`}
+                              onClick={() => handleDelete(season)}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right">
-                        <p className="font-semibold">${(season.priceCents / 100).toFixed(2)}</p>
-                        {season.maxParticipants && (
-                          <p className="text-sm text-muted-foreground">{season.maxParticipants} spots</p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <a
-                          href={`/admin/seasons/${season.id}`}
-                          className="text-sm text-primary hover:underline"
-                        >
-                          Manage gear →
-                        </a>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label={`Edit season ${season.name}`}
-                          title={`Edit season ${season.name}`}
-                          onClick={() => openEditDialog(season)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label={`Delete season ${season.name}`}
-                          title={`Delete season ${season.name}`}
-                          onClick={() => handleDelete(season)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          )}
+        </>
       )}
 
       {/* Offering wizard dialog — creates a new program + season via the wizard flow */}
