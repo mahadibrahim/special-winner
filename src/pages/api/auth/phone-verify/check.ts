@@ -7,7 +7,7 @@ import { verifyPhoneCode } from "@/lib/auth/phone-otp";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 import {
   promotePendingPhoneConsents,
-  KIOSK_SPECTATOR_SOURCE,
+  MARKETING_CONSENT_SOURCES,
 } from "@/lib/consents/marketing";
 
 /**
@@ -93,25 +93,30 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     // The code was entered on the phone we texted, so whoever ticked the boxes
-    // at the kiosk holds this number. THAT is the verified act — it is what
-    // turns the kiosk's `pending` INTENT into consent. Until now this OTP was
-    // ceremonial: the opt-in row was already written `opted_in` before the
-    // message was even sent, so entering the code changed nothing.
+    // at the source surface holds this number. THAT is the verified act — it is
+    // what turns that surface's `pending` INTENT into consent. Until now this
+    // OTP was ceremonial: the opt-in row was already written `opted_in` before
+    // the message was even sent, so entering the code changed nothing.
     //
-    // Scoped hard to the rows the kiosk wrote (optInSource = "kiosk_spectator",
-    // still pending): a consent another flow owns is not this endpoint's to
-    // touch, and a number that replied STOP is not resurrected here.
+    // Scoped hard to the rows an allowlisted surface wrote (optInSource in
+    // MARKETING_CONSENT_SOURCES, still pending): a consent another flow owns is
+    // not this endpoint's to touch, and a number that replied STOP is not
+    // resurrected here.
     const ctx = (phoneRow[0]?.purposeContext ?? null) as {
       source?: string;
       organizationId?: string;
     } | null;
-    if (ctx?.source === KIOSK_SPECTATOR_SOURCE && ctx.organizationId) {
+    if (
+      ctx?.source &&
+      ctx.organizationId &&
+      MARKETING_CONSENT_SOURCES.has(ctx.source)
+    ) {
       try {
         await promotePendingPhoneConsents({
           db: getDb(),
           organizationId: ctx.organizationId,
           phone: verify.phone,
-          source: KIOSK_SPECTATOR_SOURCE,
+          source: ctx.source,
         });
       } catch (err) {
         // The phone is verified either way — do not fail the check because the

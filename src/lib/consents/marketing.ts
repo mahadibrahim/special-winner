@@ -19,6 +19,17 @@ import type { ConsentChannel } from "./marketing-channels";
  */
 export const KIOSK_SPECTATOR_SOURCE = "kiosk_spectator";
 
+/** The pickup notify banner's opt-in surface — recorded on every consent row it writes. */
+export const PICKUP_NOTIFY_SOURCE = "pickup_notify";
+
+/** Sources whose pending phone consents an OTP verification may promote. A
+ * source not in this set owns its own promotion path and must not be touched
+ * by the generic phone-verify flow. */
+export const MARKETING_CONSENT_SOURCES: ReadonlySet<string> = new Set([
+  KIOSK_SPECTATOR_SOURCE,
+  PICKUP_NOTIFY_SOURCE,
+]);
+
 /** A transaction handle — callers wrap user+consent writes so they land as one. */
 export type ConsentTx = Parameters<Parameters<Database["transaction"]>[0]>[0];
 type Db = Database | ConsentTx;
