@@ -490,7 +490,21 @@ export function AdminSessionDetail({ sessionId }: AdminSessionDetailProps) {
             </Button>
           </div>
         )}
-        {changingHost && (
+        {changingHost && hostOptions.length === 0 && (
+          <div className="mt-3">
+            <p className="text-sm text-ink-muted">
+              No active hosts yet — approve applicants or add one in the{" "}
+              <a
+                href="/admin/dropins?tab=hosts"
+                className="underline hover:text-ink"
+              >
+                Hosts tab
+              </a>
+              .
+            </p>
+          </div>
+        )}
+        {changingHost && hostOptions.length > 0 && (
           <div className="mt-3 flex items-center gap-2 flex-wrap">
             <select
               value={pickedHostUserId}

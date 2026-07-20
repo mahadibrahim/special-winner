@@ -13,6 +13,7 @@ import { ErrorBanner } from "@/components/ui/error-banner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import { addWeeks, groupByDay, weekBoundsFor } from "@/lib/dropin/week-schedule";
 import { toast } from "sonner";
@@ -32,6 +33,12 @@ interface SessionRow {
   waitlistCount: number;
   hostUserId: string | null;
   hostName: string | null;
+}
+
+interface ActiveHost {
+  userId: string;
+  firstName: string;
+  lastName: string;
 }
 
 interface SessionsListProps {
@@ -90,16 +97,39 @@ function statusColor(s: SessionRow["status"]): string {
 interface SessionCardProps {
   s: SessionRow;
   timezone: string;
+  activeHosts: ActiveHost[];
   /** Re-fetches the week's sessions. Wired to the Cancel/Delete actions in
-   *  the overflow menu below; Task 5 adds the Assign action. */
+   *  the overflow menu, and the Assign/Change host popover, below. */
   onChanged: () => void;
 }
 
-function SessionCard({ s, timezone, onChanged }: SessionCardProps) {
+function SessionCard({ s, timezone, activeHosts, onChanged }: SessionCardProps) {
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
   const [busy, setBusy] = useState(false);
+  const [assignOpen, setAssignOpen] = useState(false);
   const pct =
     s.capacity > 0 ? Math.min(100, Math.round((s.confirmedCount / s.capacity) * 100)) : 0;
+
+  const assignHost = async (hostUserId: string) => {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/dropin/sessions/${s.id}/host`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hostUserId, replace: true }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error ?? "Could not assign host");
+        return;
+      }
+      toast.success("Host assigned");
+      setAssignOpen(false);
+      onChanged();
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const cancelSession = async () => {
     const ok = await confirm({
@@ -235,13 +265,55 @@ function SessionCard({ s, timezone, onChanged }: SessionCardProps) {
         )}
       </div>
 
-      <div className="mt-1 text-sm">
+      <div className="mt-1 text-sm flex items-center gap-2">
         {s.hostName ? (
           <span className="text-ink">Host: {s.hostName}</span>
         ) : (
           <span className="text-ink-muted">No host</span>
         )}
-        {/* Task 5 adds the Assign control here */}
+        <Popover open={assignOpen} onOpenChange={setAssignOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={busy}
+              className="h-6 px-2 text-xs text-ink-muted hover:text-ink"
+            >
+              {s.hostName ? "Change" : "Assign"}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-64">
+            {activeHosts.length === 0 ? (
+              <p className="text-sm text-ink-muted">
+                No active hosts yet — approve applicants or add one in the{" "}
+                <a
+                  href="/admin/dropins?tab=hosts"
+                  className="underline hover:text-ink"
+                >
+                  Hosts tab
+                </a>
+                .
+              </p>
+            ) : (
+              <div className="space-y-1">
+                {activeHosts.map((h) => (
+                  <button
+                    key={h.userId}
+                    type="button"
+                    disabled={busy || h.userId === s.hostUserId}
+                    onClick={() => assignHost(h.userId)}
+                    className="w-full text-left text-sm rounded px-2 py-1.5 text-ink hover:bg-cream disabled:opacity-50 disabled:cursor-default"
+                  >
+                    {h.firstName} {h.lastName}
+                    {h.userId === s.hostUserId && (
+                      <span className="text-ink-muted"> · current</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </PopoverContent>
+        </Popover>
       </div>
       {confirmDialog}
     </div>
@@ -254,6 +326,7 @@ export function SessionsList({ timezone }: SessionsListProps) {
   const [rows, setRows] = useState<SessionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeHosts, setActiveHosts] = useState<ActiveHost[]>([]);
   // The week `rows` actually reflects. Compared against the CURRENT week
   // below so weekIsEmpty can't fire off a stale week's (empty-looking) rows
   // the frame before a navigation's fetch completes — see task-3 fix notes.
@@ -302,6 +375,25 @@ export function SessionsList({ timezone }: SessionsListProps) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [weekKey, timezone]);
+
+  useEffect(() => {
+    // Fetched once, alongside sessions — fail-soft: the Assign popover
+    // just shows the zero-hosts sentence if this doesn't come back.
+    void (async () => {
+      try {
+        const res = await fetch("/api/admin/hosts");
+        if (!res.ok) return;
+        const json = await res.json();
+        setActiveHosts(
+          (json.hosts ?? []).filter(
+            (h: { status: string }) => h.status === "active",
+          ),
+        );
+      } catch {
+        /* Assign popover falls back to the zero-hosts sentence */
+      }
+    })();
+  }, []);
 
   // goToWeek sets loading synchronously (batched with the weekAnchor update)
   // ONLY when the target actually lands in a different week — so the very
@@ -387,7 +479,13 @@ export function SessionsList({ timezone }: SessionsListProps) {
               ) : (
                 <div className="space-y-2">
                   {day.sessions.map((s) => (
-                    <SessionCard key={s.id} s={s} timezone={timezone} onChanged={reload} />
+                    <SessionCard
+                      key={s.id}
+                      s={s}
+                      timezone={timezone}
+                      activeHosts={activeHosts}
+                      onChanged={reload}
+                    />
                   ))}
                 </div>
               )}
