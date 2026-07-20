@@ -79,21 +79,34 @@ function AddHostDialog({
       return;
     }
     setSearching(true);
+    // Stale-response guard: each debounce cycle gets its own
+    // AbortController, aborted in the cleanup below whenever `query` or
+    // `open` changes again (including on dialog close/reopen). Without
+    // this, a slow earlier request can resolve after a newer one and
+    // overwrite fresher results, or resolve after the dialog is closed
+    // and reopened and clobber the freshly-reset empty state.
+    const controller = new AbortController();
     const handle = setTimeout(async () => {
       try {
         const res = await fetch(
           `/api/admin/users?search=${encodeURIComponent(q)}&limit=8`,
+          { signal: controller.signal },
         );
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
+        if (controller.signal.aborted) return;
         setResults(json.users ?? []);
+        setSearching(false);
       } catch {
+        if (controller.signal.aborted) return;
         toast.error("Search failed");
-      } finally {
         setSearching(false);
       }
     }, 300);
-    return () => clearTimeout(handle);
+    return () => {
+      clearTimeout(handle);
+      controller.abort();
+    };
   }, [query, open]);
 
   const addHost = async (user: UserSearchRow) => {
