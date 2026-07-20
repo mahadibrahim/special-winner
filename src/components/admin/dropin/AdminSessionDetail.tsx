@@ -96,6 +96,10 @@ export function AdminSessionDetail({ sessionId }: AdminSessionDetailProps) {
   const [repeatUntil, setRepeatUntil] = useState("");
   const [busy, setBusy] = useState(false);
   const [hostOptions, setHostOptions] = useState<HostOption[]>([]);
+  // Distinguishes "still loading / fetch failed" from "org genuinely has
+  // zero active hosts" in the Change/Assign host panel below — mirrors
+  // SessionsList's hostsLoaded pattern.
+  const [hostsLoaded, setHostsLoaded] = useState(false);
   const [changingHost, setChangingHost] = useState(false);
   const [pickedHostUserId, setPickedHostUserId] = useState("");
 
@@ -120,13 +124,17 @@ export function AdminSessionDetail({ sessionId }: AdminSessionDetailProps) {
     void (async () => {
       try {
         const res = await fetch("/api/admin/hosts");
-        if (!res.ok) return;
+        if (!res.ok) {
+          console.error(`GET /api/admin/hosts failed: HTTP ${res.status}`);
+          return;
+        }
         const json = await res.json();
         setHostOptions(
           (json.hosts ?? []).filter((h: HostOption) => h.status === "active"),
         );
-      } catch {
-        /* host picker nice-to-have */
+        setHostsLoaded(true);
+      } catch (err) {
+        console.error("GET /api/admin/hosts failed", err);
       }
     })();
   }, []);
@@ -236,7 +244,7 @@ export function AdminSessionDetail({ sessionId }: AdminSessionDetailProps) {
         return;
       }
       toast.success("Session deleted");
-      window.location.href = "/admin/dropin/sessions";
+      window.location.href = "/admin/dropins";
     } finally {
       setBusy(false);
     }
@@ -490,7 +498,12 @@ export function AdminSessionDetail({ sessionId }: AdminSessionDetailProps) {
             </Button>
           </div>
         )}
-        {changingHost && hostOptions.length === 0 && (
+        {changingHost && !hostsLoaded && (
+          <div className="mt-3">
+            <p className="text-sm text-ink-muted">Loading hosts…</p>
+          </div>
+        )}
+        {changingHost && hostsLoaded && hostOptions.length === 0 && (
           <div className="mt-3">
             <p className="text-sm text-ink-muted">
               No active hosts yet — approve applicants or add one in the{" "}
@@ -504,7 +517,7 @@ export function AdminSessionDetail({ sessionId }: AdminSessionDetailProps) {
             </p>
           </div>
         )}
-        {changingHost && hostOptions.length > 0 && (
+        {changingHost && hostsLoaded && hostOptions.length > 0 && (
           <div className="mt-3 flex items-center gap-2 flex-wrap">
             <select
               value={pickedHostUserId}

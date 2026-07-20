@@ -18,6 +18,7 @@ const data = await getFeedbackPageData(token);
       eventLabel={data.eventLabel ?? null}
       refereeName={data.refereeName ?? null}
       hostName={data.hostName ?? null}
+      hasHost={data.hasHost ?? false}
     />
   </main>
 </BaseLayout>

@@ -10,6 +10,16 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
@@ -43,6 +53,10 @@ interface ActiveHost {
 
 interface SessionsListProps {
   timezone: string;
+  /** Name of the venue picker's pinned location, if any — surfaced as a
+   *  scope hint above the week grid so a pinned venue doesn't read as
+   *  "no sessions". Null when nothing is pinned. */
+  pinnedLocationName: string | null;
 }
 
 function fmtTimeRange(startsAt: string, endsAt: string, timezone: string): string {
@@ -116,6 +130,8 @@ function SessionCard({
 }: SessionCardProps) {
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
   const [busy, setBusy] = useState(false);
+  const [repeatOpen, setRepeatOpen] = useState(false);
+  const [repeatUntil, setRepeatUntil] = useState("");
   const pct =
     s.capacity > 0 ? Math.min(100, Math.round((s.confirmedCount / s.capacity) * 100)) : 0;
 
@@ -193,6 +209,32 @@ function SessionCard({
     }
   };
 
+  const submitRepeat = async () => {
+    if (!repeatUntil) {
+      toast.error("Pick a repeat-until date");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/dropin/sessions/${s.id}/repeat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ untilDate: repeatUntil }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error ?? "Repeat failed");
+        return;
+      }
+      toast.success(`Created ${json.count} weekly copies`);
+      setRepeatOpen(false);
+      setRepeatUntil("");
+      onChanged();
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div
       data-testid="session-card"
@@ -241,6 +283,15 @@ function SessionCard({
                 Edit
               </a>
             </DropdownMenuItem>
+            {s.status === "scheduled" && (
+              <DropdownMenuItem
+                disabled={busy}
+                onClick={() => setRepeatOpen(true)}
+                className="cursor-pointer"
+              >
+                Repeat weekly…
+              </DropdownMenuItem>
+            )}
             {s.status === "scheduled" && (
               <DropdownMenuItem
                 disabled={busy}
@@ -327,11 +378,43 @@ function SessionCard({
         )}
       </div>
       {confirmDialog}
+      <Dialog open={repeatOpen} onOpenChange={setRepeatOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Repeat weekly</DialogTitle>
+            <DialogDescription>
+              Creates independent weekly copies of this session through the
+              chosen end date. Editing one copy doesn't propagate to others.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor={`repeat-until-${s.id}`}>Repeat until</Label>
+            <Input
+              id={`repeat-until-${s.id}`}
+              type="date"
+              value={repeatUntil}
+              onChange={(e) => setRepeatUntil(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setRepeatOpen(false)}
+              disabled={busy}
+            >
+              Cancel
+            </Button>
+            <Button onClick={submitRepeat} disabled={busy}>
+              {busy ? "Creating…" : "Create copies"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-export function SessionsList({ timezone }: SessionsListProps) {
+export function SessionsList({ timezone, pinnedLocationName }: SessionsListProps) {
   useHydrationBeacon();
   const [weekAnchor, setWeekAnchor] = useState<Date>(() => new Date());
   const [rows, setRows] = useState<SessionRow[]>([]);
@@ -432,8 +515,14 @@ export function SessionsList({ timezone }: SessionsListProps) {
   };
 
   const days = groupByDay(rows, timezone, weekAnchor);
-  const weekIsEmpty =
-    !loading && loadedWeekKey === weekKey && days.every((d) => d.sessions.length === 0);
+  // `rows` only reflects the CURRENT week once loadedWeekKey catches up to
+  // weekKey. On a failed fetch, loading goes back to false but rows/
+  // loadedWeekKey are left at whatever the last successful load was — so
+  // gridReady stays false and the grid (and the empty state) both stay
+  // hidden rather than rendering the previous week's sessions grouped
+  // under the new week's day buckets. See task-3/task-7 fix notes.
+  const gridReady = !loading && loadedWeekKey === weekKey;
+  const weekIsEmpty = gridReady && days.every((d) => d.sessions.length === 0);
 
   return (
     <div className="space-y-6">
@@ -472,8 +561,21 @@ export function SessionsList({ timezone }: SessionsListProps) {
         </Button>
       </div>
 
-      {error && <ErrorBanner message={error} />}
+      {error && (
+        <div className="space-y-2">
+          <ErrorBanner message={error} />
+          <Button variant="outline" size="sm" onClick={() => void reload()}>
+            Retry
+          </Button>
+        </div>
+      )}
       {loading && <LoadingSkeleton />}
+      {gridReady && pinnedLocationName && (
+        <p className="text-sm text-ink-muted">
+          Showing {pinnedLocationName} only — clear the venue picker to see
+          all locations.
+        </p>
+      )}
       {weekIsEmpty && (
         // The header CTA stays visible in the empty state, so no
         // duplicate action inside the empty-state card.
@@ -482,7 +584,7 @@ export function SessionsList({ timezone }: SessionsListProps) {
           description="This list shows sessions for the visible week at the venue location selected in the top-right picker. If you expected sessions here, switch or clear the venue picker or page to another week — otherwise create a session to get on the schedule."
         />
       )}
-      {!loading && !weekIsEmpty && (
+      {gridReady && !weekIsEmpty && (
         <div>
           {days.map((day) => (
             <section data-testid="day-group" key={day.dayKey}>

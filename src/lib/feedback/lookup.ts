@@ -11,6 +11,11 @@ export interface FeedbackPageData {
   brand?: BrandId;
   refereeName?: string;
   hostName?: string;
+  /** nps_drop_in only — true whenever the session had an assigned host,
+   *  regardless of whether that host has a first name on file. Drives
+   *  whether the form shows the host-rating question; hostName alone
+   *  can't (a nameless host still gets rated). */
+  hasHost?: boolean;
 }
 
 /** Resolve a plaintext token to its request row, or null. */
@@ -37,6 +42,7 @@ export async function getFeedbackPageData(token: string): Promise<FeedbackPageDa
     brand: (row.brand === "soccerone" ? "soccerone" : "aspire") as BrandId,
     refereeName: row.metadata?.refereeName,
     hostName: row.metadata?.hostName,
+    hasHost: row.metadata?.hostUserId != null,
   };
   if (row.status === "responded") return { state: "responded", ...base };
   if (row.expiresAt < new Date()) return { state: "expired", ...base };

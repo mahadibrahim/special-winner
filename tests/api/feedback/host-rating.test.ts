@@ -327,6 +327,32 @@ describe("dispatch stamps host metadata (real scanDropIns path)", () => {
     expect(unhostedRow.metadata?.hostUserId).toBeUndefined();
     expect(unhostedRow.metadata?.hostName).toBeUndefined();
   });
+
+  it("stamps hostUserId but omits hostName for a host with no first name on file", async () => {
+    // createTestHost fixtures always get firstName "Test" — blank it out
+    // directly so scanDropIns' `r.hostFirstName ?? ""` path (the fix for
+    // "How was your host, your host?") gets real coverage.
+    const ctx = await seedCompletedDropInForDispatch({ withHost: true, label: "Nameless Host Soccer" });
+    if (!ctx.host) throw new Error("expected a host fixture");
+    await getDb().update(users).set({ firstName: null }).where(eq(users.id, ctx.host.userId));
+
+    const res = await runDispatchCron();
+    expect(res.status).toBe(200);
+
+    const [row] = await getDb()
+      .select()
+      .from(feedbackRequests)
+      .where(
+        and(
+          eq(feedbackRequests.kind, "nps_drop_in"),
+          eq(feedbackRequests.targetId, ctx.booking.id),
+          eq(feedbackRequests.recipientUserId, ctx.user.id),
+        ),
+      );
+    expect(row).toBeDefined();
+    expect(row.metadata?.hostUserId).toBe(ctx.host.userId);
+    expect(row.metadata?.hostName).toBeUndefined();
+  });
 });
 
 describe("getFeedbackPageData exposes hostName", () => {
@@ -374,6 +400,55 @@ describe("getFeedbackPageData exposes hostName", () => {
     const data = await getFeedbackPageData(token);
     expect(data.state).toBe("open");
     expect(data.hostName).toBe("Coach Alex");
+    expect(data.hasHost).toBe(true);
+  });
+
+  it("sets hasHost true with hostName undefined when the host has no name on file", async () => {
+    const db = getDb();
+    const suffix = Math.random().toString(36).slice(2, 10);
+
+    const [org] = await db
+      .insert(organizations)
+      .values({
+        name: `Lookup Nameless-Host Org ${suffix}`,
+        slug: `lookup-nameless-host-${suffix}`,
+        organizationType: "headquarters",
+        features: { enableNpsSurveys: true },
+      })
+      .returning();
+    const [user] = await db
+      .insert(users)
+      .values({
+        email: `lookup-nameless-host-${suffix}@test.example`,
+        passwordHash: "x",
+        firstName: "NamelessHost",
+        lastName: "Tester",
+      })
+      .returning();
+
+    const token = generateFeedbackToken();
+    await db.insert(feedbackRequests).values({
+      organizationId: org.id,
+      brand: "aspire",
+      kind: "nps_drop_in",
+      targetId: crypto.randomUUID(),
+      recipientUserId: user.id,
+      tokenHash: hashFeedbackToken(token),
+      status: "sent",
+      sentAt: new Date(),
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      // hostUserId present, hostName deliberately omitted — the shape
+      // dispatch.ts now stamps for a nameless host.
+      metadata: {
+        eventLabel: "Pickup Soccer — nameless host",
+        hostUserId: crypto.randomUUID(),
+      },
+    });
+
+    const data = await getFeedbackPageData(token);
+    expect(data.state).toBe("open");
+    expect(data.hostName).toBeUndefined();
+    expect(data.hasHost).toBe(true);
   });
 
   it("returns undefined hostName for a request with no host metadata", async () => {
@@ -416,5 +491,6 @@ describe("getFeedbackPageData exposes hostName", () => {
     const data = await getFeedbackPageData(token);
     expect(data.state).toBe("open");
     expect(data.hostName).toBeUndefined();
+    expect(data.hasHost).toBe(false);
   });
 });

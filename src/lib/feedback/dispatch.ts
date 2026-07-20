@@ -142,8 +142,16 @@ async function scanDropIns(now: Date, enabledOrgs: Set<string>): Promise<Candida
       metadata: {
         eventLabel: `${r.label} — ${formatEventDate(r.endsAt)}`,
         venueId: r.venueId,
+        // hostName is stamped ONLY when the host has a real first name —
+        // omitted (not a "your host" placeholder) otherwise, so the form
+        // never renders "How was your host, your host?". The form instead
+        // derives whether to show the host question at all from hasHost
+        // (metadata.hostUserId presence), independent of hostName.
         ...(r.hostUserId
-          ? { hostUserId: r.hostUserId, hostName: r.hostFirstName ?? "your host" }
+          ? {
+              hostUserId: r.hostUserId,
+              ...(r.hostFirstName ? { hostName: r.hostFirstName } : {}),
+            }
           : {}),
       },
       expiryDays: NPS_EXPIRY_DAYS,

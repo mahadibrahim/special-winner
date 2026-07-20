@@ -158,6 +158,7 @@ function AddHostDialog({
         <div className="space-y-3">
           <Input
             placeholder="Search by name or email…"
+            aria-label="Search members by name or email"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             autoFocus

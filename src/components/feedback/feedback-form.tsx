@@ -13,6 +13,11 @@ interface FeedbackFormProps {
   eventLabel: string | null;
   refereeName: string | null;
   hostName: string | null;
+  /** nps_drop_in only — true whenever the session had an assigned host,
+   *  even one with no first name on file. Drives whether the host-rating
+   *  fieldset shows at all; hostName alone can't (a nameless host still
+   *  gets rated, just under a generic "How was your host?" label). */
+  hasHost: boolean;
 }
 
 type Category = "promoter" | "passive" | "detractor";
@@ -57,6 +62,7 @@ export function FeedbackForm(props: FeedbackFormProps) {
       token={props.token}
       eventLabel={props.eventLabel}
       hostName={props.kind === "nps_drop_in" ? props.hostName : null}
+      hasHost={props.kind === "nps_drop_in" ? props.hasHost : false}
     />
   );
 }
@@ -102,10 +108,12 @@ function NpsForm({
   token,
   eventLabel,
   hostName,
+  hasHost,
 }: {
   token: string;
   eventLabel: string | null;
   hostName: string | null;
+  hasHost: boolean;
 }) {
   const [phase, setPhase] = useState<"score" | "followup" | "done">("score");
   const [category, setCategory] = useState<Category | null>(null);
@@ -273,10 +281,10 @@ function NpsForm({
         <span>Not likely</span>
         <span>Very likely</span>
       </div>
-      {hostName && (
+      {hasHost && (
         <fieldset className="mt-6 border-t pt-6">
           <legend className="text-sm font-medium">
-            How was your host, {hostName}?{" "}
+            {hostName ? `How was your host, ${hostName}?` : "How was your host?"}{" "}
             <span className="font-normal text-muted-foreground">(optional)</span>
           </legend>
           <div className="mt-2 flex gap-1" role="radiogroup" aria-label="Host rating">

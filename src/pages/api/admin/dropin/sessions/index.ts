@@ -65,7 +65,7 @@ export const GET: APIRoute = async (context) => {
       venueName: venues.name,
       hostUserId: dropInSessions.hostUserId,
       hostName: sql<string | null>`CASE WHEN ${users.id} IS NULL THEN NULL
-        ELSE TRIM(CONCAT(${users.firstName}, ' ', ${users.lastName})) END`,
+        ELSE NULLIF(TRIM(CONCAT(${users.firstName}, ' ', ${users.lastName})), '') END`,
       // confirmedCount includes pending_payment (kiosk holds) and
       // pending_claim (promoted waitlisters mid-claim-window) — both occupy
       // a real seat, same definition the transactional capacity gate uses
