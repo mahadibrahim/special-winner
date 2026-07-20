@@ -715,6 +715,13 @@
       "when": 1784430488662,
       "tag": "0101_smart_vulcan",
       "breakpoints": true
+    },
+    {
+      "idx": 102,
+      "version": "7",
+      "when": 1784557699813,
+      "tag": "0102_free_eddie_brock",
+      "breakpoints": true
     }
   ]
 }

@@ -6,14 +6,18 @@ import {
   varchar,
   timestamp,
   boolean,
+  integer,
   uniqueIndex,
   index,
+  check,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { organizations } from "./organizations";
 import { venues } from "./teams";
 import { users } from "./users";
 import { jobApplications } from "./job-applications";
 import { dropInSessions } from "./drop-in";
+import { feedbackRequests } from "./feedback";
 
 /**
  * Pickup hosts — GoodRec-style community volunteers. A host_profiles row is
@@ -136,8 +140,43 @@ export const hostGameReports = pgTable(
   (table) => [uniqueIndex("host_game_reports_session_unique").on(table.sessionId)],
 );
 
+/**
+ * Post-session rating of the host, submitted via the feedback engine. The
+ * rater's identity lives ONLY on the feedback_requests row — no read surface
+ * may join it back to a rating (same pattern as referee_ratings).
+ */
+export const hostRatings = pgTable(
+  "host_ratings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    requestId: uuid("request_id")
+      .notNull()
+      .unique()
+      .references(() => feedbackRequests.id, { onDelete: "cascade" }),
+    sessionId: uuid("session_id")
+      .notNull()
+      .references(() => dropInSessions.id, { onDelete: "cascade" }),
+    hostUserId: uuid("host_user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    rating: integer("rating").notNull(),
+    comment: text("comment"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("host_ratings_host_created_idx").on(table.hostUserId, table.createdAt),
+    index("host_ratings_session_idx").on(table.sessionId),
+    check("host_ratings_rating_range", sql`${table.rating} BETWEEN 1 AND 5`),
+  ],
+);
+
 export type HostProfile = typeof hostProfiles.$inferSelect;
 export type NewHostProfile = typeof hostProfiles.$inferInsert;
 export type PickupAlertSubscription = typeof pickupAlertSubscriptions.$inferSelect;
 export type NewPickupAlertSubscription = typeof pickupAlertSubscriptions.$inferInsert;
 export type HostGameReport = typeof hostGameReports.$inferSelect;
+export type HostRating = typeof hostRatings.$inferSelect;
+export type NewHostRating = typeof hostRatings.$inferInsert;
