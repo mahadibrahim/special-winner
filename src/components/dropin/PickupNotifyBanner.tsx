@@ -57,7 +57,10 @@ export function PickupNotifyBanner({ signedIn: signedInProp }: { signedIn?: bool
   const [sport, setSport] = useState("all");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
-  const [wantSms, setWantSms] = useState(true);
+  // Consent boxes MUST default unchecked — no pre-ticked marketing opt-in
+  // (TCPA + Zernio SMS carrier review). The "Pick at least one way to be
+  // notified" validation below handles the empty-selection case.
+  const [wantSms, setWantSms] = useState(false);
   const [wantEmail, setWantEmail] = useState(false);
 
   const [phase, setPhase] = useState<Phase>("idle");
@@ -76,7 +79,11 @@ export function PickupNotifyBanner({ signedIn: signedInProp }: { signedIn?: bool
     fetch("/api/auth/me", { credentials: "same-origin" })
       .then((r) => (r.ok ? r.json() : { user: null }))
       .then((d) => {
-        if (!cancelled) setSignedIn(Boolean(d.user));
+        if (cancelled) return;
+        setSignedIn(Boolean(d.user));
+        // Prefill the email we already have on the account (only email is on
+        // /api/auth/me — no phone). Spares signed-in users retyping it.
+        if (d.user?.email) setEmail(d.user.email);
       })
       .catch(() => {
         if (!cancelled) setSignedIn(false);
@@ -154,8 +161,15 @@ export function PickupNotifyBanner({ signedIn: signedInProp }: { signedIn?: bool
       } else if (data.awaitingCode?.includes("email")) {
         setPhase("awaitingEmail");
       } else {
+        // Reached when nothing needs confirmation (e.g. an already-opted-in
+        // SMS number, or an email-only opt-in whose confirmation send failed
+        // and came back under `pending`). Only claim texts if SMS was picked.
         setPhase("done");
-        toast.success("You're set — we'll text you when a game needs players.");
+        toast.success(
+          wantSms
+            ? "You're set — we'll text you when a game needs players."
+            : "You're set — we'll be in touch.",
+        );
       }
     } catch {
       setError("Couldn't sign you up — try again.");
