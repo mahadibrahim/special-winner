@@ -13,6 +13,7 @@ import { venueResources } from "@/lib/db/schema/scheduling";
 import { syncDropInSessionBlock } from "@/lib/scheduling/sync";
 import { BlockConflictError } from "@/lib/scheduling/blocks";
 import { venues } from "@/lib/db/schema/teams";
+import { users } from "@/lib/db/schema/users";
 import { requireOrgAdminAccess } from "@/lib/auth/roles";
 import { getEffectiveLocationIds } from "@/lib/admin/active-venue";
 import { venueLocationCondition } from "@/lib/admin/location-scope-filter";
@@ -62,6 +63,9 @@ export const GET: APIRoute = async (context) => {
       status: dropInSessions.status,
       venueId: dropInSessions.venueId,
       venueName: venues.name,
+      hostUserId: dropInSessions.hostUserId,
+      hostName: sql<string | null>`CASE WHEN ${users.id} IS NULL THEN NULL
+        ELSE NULLIF(TRIM(CONCAT(${users.firstName}, ' ', ${users.lastName})), '') END`,
       // confirmedCount includes pending_payment (kiosk holds) and
       // pending_claim (promoted waitlisters mid-claim-window) — both occupy
       // a real seat, same definition the transactional capacity gate uses
@@ -82,6 +86,7 @@ export const GET: APIRoute = async (context) => {
     })
     .from(dropInSessions)
     .leftJoin(venues, eq(venues.id, dropInSessions.venueId))
+    .leftJoin(users, eq(users.id, dropInSessions.hostUserId))
     .where(
       and(
         eq(dropInSessions.organizationId, orgId),

@@ -1,10 +1,11 @@
 /**
  * GET    /api/admin/dropin/sessions/:id  → session + roster + waitlist
  * PUT    /api/admin/dropin/sessions/:id  → edit session fields
- * DELETE /api/admin/dropin/sessions/:id  → soft-delete (status = cancelled);
- *                                          the dedicated /cancel endpoint
- *                                          also runs admin-cancel refunds.
- *                                          DELETE is safe-only (no roster).
+ * DELETE /api/admin/dropin/sessions/:id  → hard delete; 409s when any
+ *                                          non-cancelled booking exists (use
+ *                                          POST /cancel for a booked
+ *                                          session). Removes the field-time
+ *                                          ledger block.
  *
  * GET/PUT/DELETE are org-scoped AND location-scoped: a venue manager can only
  * read or mutate sessions whose venue is in their assigned locations (super-
