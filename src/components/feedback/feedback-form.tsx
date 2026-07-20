@@ -12,6 +12,7 @@ interface FeedbackFormProps {
   kind: FeedbackRequestKind | null;
   eventLabel: string | null;
   refereeName: string | null;
+  hostName: string | null;
 }
 
 type Category = "promoter" | "passive" | "detractor";
@@ -51,7 +52,13 @@ export function FeedbackForm(props: FeedbackFormProps) {
     );
   }
 
-  return <NpsForm token={props.token} eventLabel={props.eventLabel} />;
+  return (
+    <NpsForm
+      token={props.token}
+      eventLabel={props.eventLabel}
+      hostName={props.kind === "nps_drop_in" ? props.hostName : null}
+    />
+  );
 }
 
 function RefereeBranch({
@@ -91,12 +98,22 @@ function TerminalCard({ title, body }: { title: string; body: string }) {
   );
 }
 
-function NpsForm({ token, eventLabel }: { token: string; eventLabel: string | null }) {
+function NpsForm({
+  token,
+  eventLabel,
+  hostName,
+}: {
+  token: string;
+  eventLabel: string | null;
+  hostName: string | null;
+}) {
   const [phase, setPhase] = useState<"score" | "followup" | "done">("score");
   const [category, setCategory] = useState<Category | null>(null);
   const [reviewUrl, setReviewUrl] = useState<string | null>(null);
   const [selectedScore, setSelectedScore] = useState<number | null>(null);
   const [comment, setComment] = useState("");
+  const [hostRating, setHostRating] = useState<number | null>(null);
+  const [hostComment, setHostComment] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -109,7 +126,10 @@ function NpsForm({ token, eventLabel }: { token: string; eventLabel: string | nu
       const res = await fetch(`/api/feedback/${token}/score`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ score }),
+        body: JSON.stringify({
+          score,
+          ...(hostRating ? { hostRating, hostComment: hostComment.trim() || undefined } : {}),
+        }),
       });
       const json = await res.json();
       if (!res.ok) {
@@ -253,6 +273,43 @@ function NpsForm({ token, eventLabel }: { token: string; eventLabel: string | nu
         <span>Not likely</span>
         <span>Very likely</span>
       </div>
+      {hostName && (
+        <fieldset className="mt-6 border-t pt-6">
+          <legend className="text-sm font-medium">
+            How was your host, {hostName}?{" "}
+            <span className="font-normal text-muted-foreground">(optional)</span>
+          </legend>
+          <div className="mt-2 flex gap-1" role="radiogroup" aria-label="Host rating">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button
+                key={n}
+                type="button"
+                role="radio"
+                aria-checked={hostRating === n}
+                aria-label={`${n} star${n === 1 ? "" : "s"}`}
+                disabled={busy}
+                onClick={() => setHostRating(hostRating === n ? null : n)}
+                className={`text-2xl leading-none ${
+                  hostRating != null && n <= hostRating ? "text-foreground" : "text-muted-foreground/40"
+                }`}
+              >
+                ★
+              </button>
+            ))}
+          </div>
+          {hostRating != null && (
+            <textarea
+              value={hostComment}
+              onChange={(e) => setHostComment(e.target.value)}
+              maxLength={2000}
+              rows={2}
+              disabled={busy}
+              placeholder="Anything to add? (optional)"
+              className="mt-2 w-full rounded-md border p-3 text-sm"
+            />
+          )}
+        </fieldset>
+      )}
     </div>
   );
 }
