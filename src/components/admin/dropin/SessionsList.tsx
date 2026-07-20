@@ -228,13 +228,20 @@ export function SessionsList({ timezone }: SessionsListProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [weekKey, timezone]);
 
-  // navigateWeek sets loading synchronously (batched with the weekAnchor
-  // update) so the very next render — before the effect above even runs —
-  // already shows the skeleton instead of a flash of the old week's rows
-  // grouped under the new week's (empty) day buckets.
-  const navigateWeek = (updater: Date | ((d: Date) => Date)) => {
-    setLoading(true);
-    setWeekAnchor(updater);
+  // goToWeek sets loading synchronously (batched with the weekAnchor update)
+  // ONLY when the target actually lands in a different week — so the very
+  // next render, before the effect below even runs, already shows the
+  // skeleton instead of a flash of the old week's rows grouped under the
+  // new week's (empty) day buckets. Guarding on an actual weekKey change
+  // matters: the reload effect is keyed on [weekKey, timezone], so if
+  // nextAnchor lands in the SAME week (e.g. "Today" clicked while already
+  // viewing the current week) that effect never re-fires — an unconditional
+  // setLoading(true) here would hang on the skeleton forever with nothing
+  // left to clear it.
+  const goToWeek = (nextAnchor: Date) => {
+    const nextWeekKey = weekBoundsFor(nextAnchor, timezone).from.toISOString();
+    if (nextWeekKey !== weekKey) setLoading(true);
+    setWeekAnchor(nextAnchor);
   };
 
   const days = groupByDay(rows, timezone, weekAnchor);
@@ -255,7 +262,7 @@ export function SessionsList({ timezone }: SessionsListProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigateWeek((d) => addWeeks(d, -1))}
+            onClick={() => goToWeek(addWeeks(weekAnchor, -1))}
           >
             ◀
           </Button>
@@ -265,11 +272,11 @@ export function SessionsList({ timezone }: SessionsListProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigateWeek((d) => addWeeks(d, 1))}
+            onClick={() => goToWeek(addWeeks(weekAnchor, 1))}
           >
             ▶
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => navigateWeek(new Date())}>
+          <Button variant="ghost" size="sm" onClick={() => goToWeek(new Date())}>
             Today
           </Button>
         </div>
