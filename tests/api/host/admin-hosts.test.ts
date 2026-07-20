@@ -3,7 +3,9 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
 import { hostProfiles } from "@/lib/db/schema/hosts";
+import { feedbackRequests, users } from "@/lib/db/schema";
 import { assignHostToSession } from "@/lib/dropin/host-assignment";
+import { generateFeedbackToken, hashFeedbackToken } from "@/lib/feedback/tokens";
 import { getAuthCookie, apiFetch } from "../setup/test-helpers";
 import {
   createTestDropInSession,
@@ -35,6 +37,88 @@ describe("GET /api/admin/hosts", () => {
     expect(row).toBeTruthy();
     expect(row.status).toBe("active");
     expect(row.venueName).toBeTruthy();
+  });
+
+  it("every host row carries avgRating (null|number) and ratingCount (number)", async () => {
+    await createTestHost({ organizationId, preferredVenueId: venueId });
+    const cookie = await adminCookie();
+
+    const res = await apiFetch("/api/admin/hosts", { cookie });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(Array.isArray(body.hosts)).toBe(true);
+    expect(body.hosts.length).toBeGreaterThan(0);
+    for (const row of body.hosts) {
+      expect(row.avgRating === null || typeof row.avgRating === "number").toBe(true);
+      expect(typeof row.ratingCount).toBe("number");
+    }
+  });
+
+  it("reflects a real host_ratings row written via the score endpoint", async () => {
+    const host = await createTestHost({ organizationId, preferredVenueId: venueId });
+    const ctx = await createTestDropInSession({ organizationId, venueId });
+    const assigned = await assignHostToSession({
+      sessionId: ctx.sessionId,
+      hostUserId: host.userId,
+    });
+    expect(assigned.ok).toBe(true);
+
+    const suffix = Math.random().toString(36).slice(2, 10);
+    const db = getDb();
+    const [rater] = await db
+      .insert(users)
+      .values({
+        email: `admin-hosts-rater-${suffix}@test.example`,
+        passwordHash: "x",
+        firstName: "Rater",
+        lastName: "Tester",
+      })
+      .returning();
+
+    const [booking] = await db
+      .insert(dropInBookings)
+      .values({
+        sessionId: ctx.sessionId,
+        userId: rater.id,
+        status: "confirmed",
+        source: "online_booking",
+        paymentMethod: "card_online",
+        amountPaidCents: 1000,
+      })
+      .returning();
+
+    const token = generateFeedbackToken();
+    await db.insert(feedbackRequests).values({
+      organizationId,
+      brand: "aspire",
+      kind: "nps_drop_in",
+      targetId: booking.id,
+      recipientUserId: rater.id,
+      tokenHash: hashFeedbackToken(token),
+      status: "sent",
+      sentAt: new Date(),
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      metadata: { eventLabel: "Pickup Soccer — test", hostUserId: host.userId, hostName: host.email },
+    });
+
+    const scoreRes = await fetch(
+      `${process.env.TEST_BASE_URL ?? "http://localhost:4321"}/api/feedback/${token}/score`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ score: 9, hostRating: 4, hostComment: "solid host" }),
+      },
+    );
+    expect(scoreRes.status).toBe(200);
+
+    const cookie = await adminCookie();
+    const res = await apiFetch("/api/admin/hosts", { cookie });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const row = body.hosts.find((h: { userId: string }) => h.userId === host.userId);
+    expect(row).toBeTruthy();
+    expect(row.avgRating).toBe(4);
+    expect(row.ratingCount).toBe(1);
   });
 });
 

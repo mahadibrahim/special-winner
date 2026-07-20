@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { and, asc, eq, gt, isNull, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { hostProfiles, hostGameReports } from "@/lib/db/schema/hosts";
+import { hostProfiles, hostGameReports, hostRatings } from "@/lib/db/schema/hosts";
 import { dropInSessions } from "@/lib/db/schema/drop-in";
 import { users } from "@/lib/db/schema/users";
 import { venues } from "@/lib/db/schema/teams";
@@ -56,6 +56,16 @@ export const GET: APIRoute = async (context) => {
       incidentCount: sql<number>`(
         SELECT COUNT(*)::int FROM ${hostGameReports} r
         WHERE r.host_profile_id = ${hostProfiles.id} AND r.incident_flagged
+      )`,
+      avgRating: sql<number | null>`(
+        SELECT ROUND(AVG(r.rating)::numeric, 1)::float FROM ${hostRatings} r
+        WHERE r.host_user_id = ${hostProfiles.userId}
+          AND r.organization_id = ${hostProfiles.organizationId}
+      )`,
+      ratingCount: sql<number>`(
+        SELECT COUNT(*)::int FROM ${hostRatings} r
+        WHERE r.host_user_id = ${hostProfiles.userId}
+          AND r.organization_id = ${hostProfiles.organizationId}
       )`,
     })
     .from(hostProfiles)

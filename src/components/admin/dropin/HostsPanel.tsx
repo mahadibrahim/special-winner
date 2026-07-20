@@ -37,6 +37,8 @@ interface HostRow {
   gamesHosted: number;
   lastReportAt: string | null;
   incidentCount: number;
+  avgRating: number | null;
+  ratingCount: number;
 }
 
 function statusColor(s: HostRow["status"]): string {
@@ -326,6 +328,9 @@ export function HostsPanel() {
                 <th className="px-4 py-2 font-medium text-ink-muted">
                   Incidents
                 </th>
+                <th className="px-4 py-2 font-medium text-ink-muted">
+                  Rating
+                </th>
                 <th className="px-4 py-2"></th>
               </tr>
             </thead>
@@ -364,6 +369,13 @@ export function HostsPanel() {
                       </Badge>
                     ) : (
                       0
+                    )}
+                  </td>
+                  <td className="px-4 py-3 align-top text-ink-muted">
+                    {r.avgRating != null ? (
+                      `★ ${r.avgRating} (${r.ratingCount})`
+                    ) : (
+                      <span className="text-ink-muted">—</span>
                     )}
                   </td>
                   <td className="px-4 py-3 align-top text-right">
