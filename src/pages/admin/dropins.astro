@@ -23,7 +23,7 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 ---
 
-<BaseLayout title="Drop-ins — Admin — Aspire Sports" navigation={false} footer={false}>
+<BaseLayout title="Manage Pickup and Hosts — Admin — Aspire Sports" navigation={false} footer={false}>
   <AdminLayout
     client:load
     role={primaryRole}
@@ -31,7 +31,7 @@ const TABS: { id: Tab; label: string }[] = [
     user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
   >
     <div class="space-y-4">
-      <h1 class="font-display text-3xl font-semibold text-ink">Drop-ins</h1>
+      <h1 class="font-display text-3xl font-semibold text-ink">Manage Pickup and Hosts</h1>
       <div class="border-b border-border flex gap-4 overflow-x-auto">
         {
           TABS.map((t) => (
