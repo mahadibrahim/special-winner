@@ -10,6 +10,7 @@ export interface FeedbackPageData {
   eventLabel?: string;
   brand?: BrandId;
   refereeName?: string;
+  hostName?: string;
 }
 
 /** Resolve a plaintext token to its request row, or null. */
@@ -35,6 +36,7 @@ export async function getFeedbackPageData(token: string): Promise<FeedbackPageDa
     eventLabel: row.metadata?.eventLabel,
     brand: (row.brand === "soccerone" ? "soccerone" : "aspire") as BrandId,
     refereeName: row.metadata?.refereeName,
+    hostName: row.metadata?.hostName,
   };
   if (row.status === "responded") return { state: "responded", ...base };
   if (row.expiresAt < new Date()) return { state: "expired", ...base };

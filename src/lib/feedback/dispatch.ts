@@ -104,9 +104,12 @@ async function scanDropIns(now: Date, enabledOrgs: Set<string>): Promise<Candida
       label: dropInSessions.sportOrClassLabel,
       endsAt: dropInSessions.endsAt,
       venueId: dropInSessions.venueId,
+      hostUserId: dropInSessions.hostUserId,
+      hostFirstName: users.firstName,
     })
     .from(dropInBookings)
     .innerJoin(dropInSessions, eq(dropInBookings.sessionId, dropInSessions.id))
+    .leftJoin(users, eq(dropInSessions.hostUserId, users.id))
     .where(
       and(
         eq(dropInBookings.status, "confirmed"),
@@ -139,6 +142,9 @@ async function scanDropIns(now: Date, enabledOrgs: Set<string>): Promise<Candida
       metadata: {
         eventLabel: `${r.label} — ${formatEventDate(r.endsAt)}`,
         venueId: r.venueId,
+        ...(r.hostUserId
+          ? { hostUserId: r.hostUserId, hostName: r.hostFirstName ?? "your host" }
+          : {}),
       },
       expiryDays: NPS_EXPIRY_DAYS,
     }));

@@ -2,7 +2,13 @@ import type { APIRoute } from "astro";
 import { and, eq, gt, ne } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
-import { feedbackRequests, npsResponses, organizations } from "@/lib/db/schema";
+import {
+  feedbackRequests,
+  npsResponses,
+  organizations,
+  dropInBookings,
+  hostRatings,
+} from "@/lib/db/schema";
 import type { OrganizationSettings } from "@/lib/db/schema";
 import { hashFeedbackToken } from "@/lib/feedback/tokens";
 import { npsCategory } from "@/lib/feedback/constants";
@@ -12,7 +18,11 @@ import type { BrandId } from "@/lib/branding/themes";
 
 export const prerender = false;
 
-const bodySchema = z.object({ score: z.number().int().min(0).max(10) });
+const bodySchema = z.object({
+  score: z.number().int().min(0).max(10),
+  hostRating: z.number().int().min(1).max(5).optional(),
+  hostComment: z.string().trim().max(2000).optional(),
+});
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), {
@@ -30,7 +40,7 @@ export const POST: APIRoute = async ({ params, request }) => {
     return json(400, { error: "Invalid JSON" });
   }
   if (!parsed.success) return json(400, { error: "Score must be an integer 0-10" });
-  const { score } = parsed.data;
+  const { score, hostRating, hostComment } = parsed.data;
 
   const db = getDb();
   const now = new Date();
@@ -56,6 +66,31 @@ export const POST: APIRoute = async ({ params, request }) => {
       .returning();
     if (!row) return null;
     await tx.insert(npsResponses).values({ requestId: row.id, score });
+
+    // Optional host rating rides the same transaction — only for drop-in
+    // requests whose session had a community host assigned (metadata
+    // stamped at dispatch time). A missing booking silently skips the
+    // rating; the NPS response above still commits. hostRating on a
+    // request without host metadata is ignored, not an error.
+    const hostUserId = row.metadata?.hostUserId;
+    if (hostRating && hostUserId && row.kind === "nps_drop_in") {
+      const [booking] = await tx
+        .select({ sessionId: dropInBookings.sessionId })
+        .from(dropInBookings)
+        .where(eq(dropInBookings.id, row.targetId))
+        .limit(1);
+      if (booking) {
+        await tx.insert(hostRatings).values({
+          organizationId: row.organizationId,
+          requestId: row.id,
+          sessionId: booking.sessionId,
+          hostUserId,
+          rating: hostRating,
+          comment: hostComment ?? null,
+        });
+      }
+    }
+
     return row;
   });
 
