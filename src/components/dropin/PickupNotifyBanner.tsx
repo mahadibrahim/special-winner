@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { Button } from "@/components/ui/button";
+import { BellRing, CheckCircle2, ArrowRight } from "lucide-react";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { toast } from "sonner";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
@@ -133,11 +133,15 @@ export function PickupNotifyBanner({ signedIn: signedInProp }: { signedIn?: bool
     if (wantSms) channels.push("sms");
     if (wantEmail) channels.push("email");
     if (channels.length === 0) {
-      setError("Pick at least one way to be notified.");
+      setError(
+        phone.trim() || email.trim()
+          ? "Check a box to confirm how we can reach you."
+          : "Add a phone or email, then choose how you'd like to hear from us.",
+      );
       return;
     }
     if (wantSms && !phone.trim()) {
-      setError("Enter a phone number for texts.");
+      setError("Enter a mobile number to get texts.");
       return;
     }
     if (wantEmail && !email.trim()) {
@@ -225,14 +229,23 @@ export function PickupNotifyBanner({ signedIn: signedInProp }: { signedIn?: bool
 
   if (signedIn === null) return null; // brief — avoids a flash while /api/auth/me resolves
 
+  const inputClass =
+    "w-full px-3.5 py-2.5 rounded-lg bg-paper border border-border text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-colors";
+  const ctaClass =
+    "w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-lg bg-ink text-cream text-sm font-semibold uppercase tracking-[0.06em] hover:bg-primary transition-colors disabled:opacity-60 disabled:pointer-events-none";
+  const accent = { accentColor: "oklch(0.66 0.21 35)" } as const;
+
   return (
-    <section className="rounded-2xl border border-border bg-paper p-6">
+    <section className="rounded-2xl border border-border bg-paper overflow-hidden shadow-sm">
       {phase === "done" ? (
-        <div className="text-center space-y-2">
-          <h3 className="font-display text-lg text-ink">You're on the list</h3>
+        <div className="p-8 text-center space-y-3">
+          <span className="mx-auto grid place-items-center w-12 h-12 rounded-full bg-primary/10 text-primary">
+            <CheckCircle2 className="w-6 h-6" aria-hidden="true" />
+          </span>
+          <h3 className="font-display text-xl text-ink">You're on the list</h3>
           <p className="text-sm text-ink-muted">
             We'll reach out when a pickup game needs players. Manage anytime from{" "}
-            <a href="/dashboard/play" className="underline">
+            <a href="/dashboard/play" className="text-primary underline underline-offset-2">
               My Play
             </a>
             .
@@ -242,105 +255,121 @@ export function PickupNotifyBanner({ signedIn: signedInProp }: { signedIn?: bool
           )}
         </div>
       ) : phase === "pendingConfirm" ? (
-        <div className="text-center space-y-2">
-          <h3 className="font-display text-lg text-ink">Thanks — we'll be in touch</h3>
+        <div className="p-8 text-center space-y-2">
+          <h3 className="font-display text-xl text-ink">Thanks — we'll be in touch</h3>
           <p className="text-sm text-ink-muted">We've got your request and will confirm shortly.</p>
         </div>
       ) : phase === "awaitingEmail" ? (
-        <div className="text-center space-y-2">
-          <h3 className="font-display text-lg text-ink">Check your inbox</h3>
+        <div className="p-8 text-center space-y-2">
+          <h3 className="font-display text-xl text-ink">Check your inbox</h3>
           <p className="text-sm text-ink-muted">Click the link we emailed to confirm. That's the last step.</p>
         </div>
       ) : phase === "awaitingCode" ? (
-        <div className="space-y-3">
-          <h3 className="font-display text-lg text-ink">Enter the code we texted you</h3>
-          {emailAlsoPending && (
-            <p className="text-sm text-ink-muted">
-              We also emailed you a link — click it to confirm email.
-            </p>
-          )}
+        <div className="p-6 sm:p-8 space-y-4 max-w-sm mx-auto">
+          <div>
+            <h3 className="font-display text-xl text-ink">Enter the code we texted you</h3>
+            {emailAlsoPending && (
+              <p className="text-sm text-ink-muted mt-1">
+                We also emailed you a link — click it to confirm email.
+              </p>
+            )}
+          </div>
           {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
-          <label htmlFor={`${uid}-code`} className="block text-xs font-medium text-ink-muted">
-            6-digit code
-          </label>
-          <input
-            id={`${uid}-code`}
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            className="w-full px-3 py-2 rounded-md bg-paper border border-border text-sm text-ink"
-            placeholder="123456"
-          />
-          <Button onClick={verifyCode} disabled={submitting || code.trim().length !== 6} className="w-full sm:w-auto">
+          <div className="space-y-1.5">
+            <label htmlFor={`${uid}-code`} className="block text-xs font-medium text-ink-muted">
+              6-digit code
+            </label>
+            <input
+              id={`${uid}-code`}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              className={`${inputClass} text-center text-base tracking-[0.4em]`}
+              placeholder="123456"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={verifyCode}
+            disabled={submitting || code.trim().length !== 6}
+            className={ctaClass}
+          >
             {submitting ? "Verifying…" : "Confirm"}
-          </Button>
+          </button>
         </div>
       ) : (
-        <div className="space-y-4">
-          <div>
-            <h3 className="font-display text-lg text-ink">Get a text when a game needs players</h3>
-            <p className="text-sm text-ink-muted mt-1">
-              We'll only reach out when a session near you is short — never spam.
-            </p>
-          </div>
-          {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label htmlFor={`${uid}-venue`} className="block text-xs font-medium text-ink-muted mb-1">
-                Location
-              </label>
-              <select
-                id={`${uid}-venue`}
-                value={venueId}
-                onChange={(e) => setVenueId(e.target.value)}
-                className="w-full px-3 py-2 rounded-md bg-paper border border-border text-sm text-ink"
-              >
-                <option value="all">All locations</option>
-                {venues.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor={`${uid}-sport`} className="block text-xs font-medium text-ink-muted mb-1">
-                Sport
-              </label>
-              <select
-                id={`${uid}-sport`}
-                value={sport}
-                onChange={(e) => setSport(e.target.value)}
-                className="w-full px-3 py-2 rounded-md bg-paper border border-border text-sm text-ink"
-              >
-                <option value="all">All sports</option>
-                {sports.map((s) => (
-                  <option key={s} value={s}>
-                    {capitalize(s)}
-                  </option>
-                ))}
-              </select>
+        <>
+          {/* Header band — the hook. A filled accent badge + a display
+              headline that sells the moment, set on the cream tint so it
+              reads as an invitation, not a settings form. */}
+          <div className="bg-cream px-6 pt-6 pb-5 border-b border-border">
+            <div className="flex items-start gap-3.5">
+              <span className="flex-shrink-0 grid place-items-center w-11 h-11 rounded-full bg-primary text-cream">
+                <BellRing className="w-5 h-5" aria-hidden="true" />
+              </span>
+              <div>
+                <h3 className="font-display text-xl sm:text-2xl leading-[1.15] text-ink">
+                  Get pinged when a game needs players
+                </h3>
+                <p className="text-sm text-ink-muted mt-1.5">
+                  Short a player? We text the regulars so the run still happens — you could be on the field tonight.
+                </p>
+              </div>
             </div>
           </div>
 
-          {/* SMS (primary) — copy must stay character-identical to
-              CONSENT_COPY.sms (src/lib/consents/marketing-channels.ts); a
-              carrier reviewer compares the live form against stored
-              consent evidence. */}
-          <label className="flex items-start gap-2">
-            <input
-              type="checkbox"
-              checked={wantSms}
-              onChange={(e) => setWantSms(e.target.checked)}
-              className="mt-1"
-            />
-            <span className="text-sm text-ink">{CONSENT_COPY.sms}</span>
-          </label>
-          {wantSms && (
-            <div>
-              <label htmlFor={`${uid}-phone`} className="sr-only">
+          {/* Body */}
+          <div className="p-6 space-y-5">
+            {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label htmlFor={`${uid}-venue`} className="block text-xs font-medium text-ink-muted">
+                  Location
+                </label>
+                <select
+                  id={`${uid}-venue`}
+                  value={venueId}
+                  onChange={(e) => setVenueId(e.target.value)}
+                  className={inputClass}
+                >
+                  <option value="all">All locations</option>
+                  {venues.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label htmlFor={`${uid}-sport`} className="block text-xs font-medium text-ink-muted">
+                  Sport
+                </label>
+                <select
+                  id={`${uid}-sport`}
+                  value={sport}
+                  onChange={(e) => setSport(e.target.value)}
+                  className={inputClass}
+                >
+                  <option value="all">All sports</option>
+                  {sports.map((s) => (
+                    <option key={s} value={s}>
+                      {capitalize(s)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Phone + SMS consent (primary). Input is ALWAYS visible so the
+                form is usable at a glance; the checkbox is the affirmative
+                opt-in and stays unticked by default. Consent copy must stay
+                character-identical to CONSENT_COPY.sms
+                (src/lib/consents/marketing-channels.ts) — a carrier reviewer
+                compares the live form against stored consent evidence. */}
+            <div className="space-y-2">
+              <label htmlFor={`${uid}-phone`} className="block text-xs font-medium text-ink-muted">
                 Mobile number
               </label>
               <input
@@ -349,27 +378,26 @@ export function PickupNotifyBanner({ signedIn: signedInProp }: { signedIn?: bool
                 onChange={(e) => setPhone(e.target.value)}
                 inputMode="tel"
                 autoComplete="tel"
-                placeholder="Mobile number"
-                className="w-full px-3 py-2 rounded-md bg-paper border border-border text-sm text-ink"
+                placeholder="(614) 555-0142"
+                className={inputClass}
               />
+              <label className="flex items-start gap-2.5 pt-0.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={wantSms}
+                  onChange={(e) => setWantSms(e.target.checked)}
+                  style={accent}
+                  className="mt-0.5 h-4 w-4 flex-shrink-0"
+                />
+                <span className="text-xs text-ink-muted leading-relaxed">{CONSENT_COPY.sms}</span>
+              </label>
             </div>
-          )}
 
-          {/* Email (optional) — copy must stay character-identical to
-              CONSENT_COPY.email, same reason as above. */}
-          <label className="flex items-start gap-2">
-            <input
-              type="checkbox"
-              checked={wantEmail}
-              onChange={(e) => setWantEmail(e.target.checked)}
-              className="mt-1"
-            />
-            <span className="text-sm text-ink">{CONSENT_COPY.email}</span>
-          </label>
-          {wantEmail && (
-            <div>
-              <label htmlFor={`${uid}-email`} className="sr-only">
-                Email address
+            {/* Email + consent (optional). Also always visible. Copy must stay
+                character-identical to CONSENT_COPY.email, same reason. */}
+            <div className="space-y-2">
+              <label htmlFor={`${uid}-email`} className="block text-xs font-medium text-ink-muted">
+                Email <span className="text-ink-faint font-normal">(optional)</span>
               </label>
               <input
                 id={`${uid}-email`}
@@ -377,25 +405,42 @@ export function PickupNotifyBanner({ signedIn: signedInProp }: { signedIn?: bool
                 onChange={(e) => setEmail(e.target.value)}
                 inputMode="email"
                 autoComplete="email"
-                placeholder="Email address"
-                className="w-full px-3 py-2 rounded-md bg-paper border border-border text-sm text-ink"
+                placeholder="you@example.com"
+                className={inputClass}
               />
+              <label className="flex items-start gap-2.5 pt-0.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={wantEmail}
+                  onChange={(e) => setWantEmail(e.target.checked)}
+                  style={accent}
+                  className="mt-0.5 h-4 w-4 flex-shrink-0"
+                />
+                <span className="text-xs text-ink-muted leading-relaxed">{CONSENT_COPY.email}</span>
+              </label>
             </div>
-          )}
 
-          {signedIn === false && (
-            <TurnstileWidget
-              ref={turnstileRef}
-              onToken={(t) => {
-                turnstileToken.current = t;
-              }}
-            />
-          )}
+            {signedIn === false && (
+              <TurnstileWidget
+                ref={turnstileRef}
+                onToken={(t) => {
+                  turnstileToken.current = t;
+                }}
+              />
+            )}
 
-          <Button onClick={submit} disabled={submitting} className="w-full sm:w-auto">
-            {submitting ? "Signing you up…" : "Notify me"}
-          </Button>
-        </div>
+            <button type="button" onClick={submit} disabled={submitting} className={ctaClass}>
+              {submitting ? (
+                "Signing you up…"
+              ) : (
+                <>
+                  Notify me
+                  <ArrowRight className="w-4 h-4" aria-hidden="true" />
+                </>
+              )}
+            </button>
+          </div>
+        </>
       )}
     </section>
   );
