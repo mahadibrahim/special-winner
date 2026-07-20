@@ -1,7 +1,7 @@
 ---
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import SessionList from '@/components/dropin/SessionList';
-import { PickupAlertSignup } from '@/components/dropin/PickupAlertSignup';
+import { PickupNotifyBanner } from '@/components/dropin/PickupNotifyBanner';
 
 // SSR — needs request-time host context for org resolution.
 export const prerender = false;
@@ -15,7 +15,7 @@ export const prerender = false;
     <div class="max-w-6xl mx-auto">
       <SessionList client:load />
       <div class="max-w-xl mx-auto mt-10">
-        <PickupAlertSignup client:load signedIn={!!Astro.locals.user} />
+        <PickupNotifyBanner client:load signedIn={!!Astro.locals.user} />
       </div>
     </div>
   </main>

@@ -41,13 +41,13 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { spectatorWaivers } from "@/lib/db/schema/spectators";
-import { users } from "@/lib/db/schema/users";
 import { requireKioskLocation } from "@/lib/check-in/kiosk-auth";
 import {
   recordMarketingConsent,
   KIOSK_SPECTATOR_SOURCE,
   type ConsentTx,
 } from "@/lib/consents/marketing";
+import { resolveMarketingUser } from "@/lib/consents/resolve-marketing-user";
 import {
   CONSENT_CHANNELS,
   CONSENT_COPY,
@@ -59,7 +59,6 @@ import { mintToken } from "@/lib/check-in/tokens-db";
 import { sendEmailConsentConfirmationEmail } from "@/lib/email/send";
 import { originForBrand } from "@/lib/organization/soccerone-routing";
 import { env } from "@/lib/env";
-import { normalizeForUniqueness } from "@/lib/auth/email-normalize";
 import { spectatorWaiverText } from "@/lib/waivers/spectator-waiver-text";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 
@@ -413,64 +412,3 @@ export const POST: APIRoute = async ({ params, request, clientAddress, locals })
   };
   return json(body, 200);
 };
-
-/**
- * Resolve-or-create the PASSWORDLESS user behind a marketing opt-in.
- *
- * No password hash, no session, no org role: this person opted into marketing,
- * they did not sign up for an account. (Deliberately no ensureCustomerOrgMembership
- * call — that grants a `parent` role, and a spectator who wants our texts is not
- * a customer with children in a program. Both consent surfaces are already
- * org-scoped in their own right.)
- */
-async function resolveMarketingUser(
-  db: ConsentTx,
-  person: {
-    email: string;
-    firstName: string;
-    lastName: string;
-    phone: string;
-  },
-): Promise<string> {
-  // NOTE — matching an existing account on the canonical email is a MATCH, not
-  // an authentication: anyone at the kiosk can type anyone's address. That is
-  // precisely why the consent rows this endpoint writes are `pending` and why
-  // it never clears an existing opt-out. Resolving the user is how we hang the
-  // intent somewhere; it grants nothing on its own.
-  const emailCanonical = normalizeForUniqueness(person.email);
-
-  const [existing] = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.emailCanonical, emailCanonical))
-    .limit(1);
-  if (existing) return existing.id;
-
-  const [created] = await db
-    .insert(users)
-    .values({
-      email: person.email,
-      emailCanonical,
-      firstName: person.firstName,
-      lastName: person.lastName,
-      phone: person.phone,
-      // Passwordless. Email is unverified until the double-opt-in link is
-      // clicked; the phone is unverified until the OTP is entered.
-      passwordHash: null,
-      emailVerified: false,
-      phoneVerified: false,
-    })
-    // Two kiosks, one family, same email, same second: let the unique index
-    // arbitrate rather than racing.
-    .onConflictDoNothing({ target: users.emailCanonical })
-    .returning({ id: users.id });
-  if (created) return created.id;
-
-  const [raced] = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.emailCanonical, emailCanonical))
-    .limit(1);
-  if (!raced) throw new Error("Failed to resolve the spectator's user record");
-  return raced.id;
-}
