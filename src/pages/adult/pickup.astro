@@ -8,7 +8,7 @@ import BaseLayout from "@/layouts/BaseLayout.astro"
 import CategoryHero from "@/components/landing/category-hero.astro"
 import PickupLevels from "@/components/landing/pickup-levels.astro"
 import PickupPageFinder from "@/components/landing/pickup-page-finder.tsx"
-import { PickupAlertSignup } from "@/components/dropin/PickupAlertSignup"
+import { PickupNotifyBanner } from "@/components/dropin/PickupNotifyBanner"
 import CTABanner from "@/components/cta-banner"
 import type { HeroTile } from "@/lib/landing/hero-tiles"
 import { setMarketingEdgeCache } from "@/lib/http/edge-cache"
@@ -48,7 +48,7 @@ setMarketingEdgeCache(Astro);
     <PickupPageFinder client:load />
 
     <div class="max-w-xl mx-auto px-4 mb-16">
-      <PickupAlertSignup client:load signedIn={!!Astro.locals.user} />
+      <PickupNotifyBanner client:load signedIn={!!Astro.locals.user} />
     </div>
 
     <CTABanner client:visible />

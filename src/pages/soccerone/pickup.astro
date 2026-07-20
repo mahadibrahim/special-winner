@@ -7,7 +7,7 @@ import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
 import PickupGames from '@/components/soccerone/PickupGames';
 import SoccerOnePricingBand from '@/components/soccerone/SoccerOnePricingBand.astro';
 import SoccerOneLevels from '@/components/soccerone/SoccerOneLevels.astro';
-import { PickupAlertSignup } from '@/components/dropin/PickupAlertSignup';
+import { PickupNotifyBanner } from '@/components/dropin/PickupNotifyBanner';
 import { getDb } from "@/lib/db";
 import { dropInRateCard } from "@/lib/db/schema/drop-in";
 import { breadcrumbJsonLd } from "@/lib/seo/breadcrumbs";
@@ -118,7 +118,7 @@ const breadcrumbSchema = breadcrumbJsonLd([
              .cf-panel pattern as src/pages/soccerone/careers.astro. -->
         <div class="pas-panel-wrap">
           <div class="pas-panel">
-            <PickupAlertSignup client:load signedIn={!!Astro.locals.user} />
+            <PickupNotifyBanner client:load signedIn={!!Astro.locals.user} />
           </div>
         </div>
       </div>

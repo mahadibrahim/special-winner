@@ -10,7 +10,7 @@ import { CONSENT_COPY } from "@/lib/consents/marketing-channels";
 
 /**
  * Guest-friendly "text me when a game needs players" banner for the pickup
- * finder pages. Replaces the account-gated PickupAlertSignup card — anyone
+ * finder pages. Replaces the old account-gated capture card — anyone
  * can opt in here, signed in or not, via POST /api/dropin/notify.
  *
  * SMS is the primary channel (it's the one the fill-alert dispatcher
