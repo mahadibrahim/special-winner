@@ -5,6 +5,7 @@ import { hostProfiles, hostGameReports } from "@/lib/db/schema/hosts";
 import { dropInSessions } from "@/lib/db/schema/drop-in";
 import { users } from "@/lib/db/schema/users";
 import { venues } from "@/lib/db/schema/teams";
+import { userOrganizationAccess } from "@/lib/db/schema/organizations";
 import { requireOrgAdminAccess } from "@/lib/auth/roles";
 import { getEffectiveLocationIds } from "@/lib/admin/active-venue";
 import { venueLocationCondition } from "@/lib/admin/location-scope-filter";
@@ -16,6 +17,12 @@ const json = (body: unknown, status: number) =>
     status,
     headers: { "Content-Type": "application/json" },
   });
+
+/** Extract the PG error code from a Drizzle-wrapped or raw pg error. */
+function getDbErrorCode(error: unknown): string | undefined {
+  const err = error as { code?: string; cause?: { code?: string } } | undefined;
+  return err?.code ?? err?.cause?.code;
+}
 
 /**
  * GET /api/admin/hosts — host roster for the admin Hosts tab + session-form
@@ -85,9 +92,16 @@ export const GET: APIRoute = async (context) => {
 /**
  * POST /api/admin/hosts — manual host creation: turns an existing user into
  * an active host without going through the job-application approval flow
- * (e.g. an admin promoting a regular player they already know). Mirrors the
- * user-validation shape of approve-host.ts (user must exist) but does NOT
- * require org membership — hosts are community volunteers, not staff.
+ * (e.g. an admin promoting a regular player they already know).
+ *
+ * The target user must already have a `user_organization_access` row for
+ * this org — that table is the repo's source of truth for org membership,
+ * so this is a precondition rather than something this endpoint grants
+ * (contrast with approve-host.ts, which calls ensureCustomerOrgMembership
+ * because it's onboarding a brand-new applicant). A user with no access row
+ * in this org gets the same 404 as a user id that doesn't exist at all —
+ * tenant-safe: this must not reveal that a user exists on the platform but
+ * belongs to a different org.
  */
 export const POST: APIRoute = async (context) => {
   const auth = await requireOrgAdminAccess(context);
@@ -103,13 +117,18 @@ export const POST: APIRoute = async (context) => {
 
   const db = getDb();
 
-  const [user] = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.id, body.userId))
-    .orderBy(asc(users.createdAt))
+  const [access] = await db
+    .select({ userId: userOrganizationAccess.userId })
+    .from(userOrganizationAccess)
+    .where(
+      and(
+        eq(userOrganizationAccess.userId, body.userId),
+        eq(userOrganizationAccess.organizationId, auth.organizationId),
+      ),
+    )
+    .orderBy(asc(userOrganizationAccess.createdAt))
     .limit(1);
-  if (!user) return json({ error: "User not found" }, 404);
+  if (!access) return json({ error: "User not found" }, 404);
 
   const [existing] = await db
     .select({ id: hostProfiles.id })
@@ -124,15 +143,25 @@ export const POST: APIRoute = async (context) => {
     .limit(1);
   if (existing) return json({ error: "Already a host in this organization" }, 409);
 
-  const [created] = await db
-    .insert(hostProfiles)
-    .values({
-      userId: body.userId,
-      organizationId: auth.organizationId,
-      status: "active",
-      approvedByUserId: auth.user.id,
-    })
-    .returning();
+  try {
+    const [created] = await db
+      .insert(hostProfiles)
+      .values({
+        userId: body.userId,
+        organizationId: auth.organizationId,
+        status: "active",
+        approvedByUserId: auth.user.id,
+      })
+      .returning();
 
-  return json({ host: created }, 201);
+    return json({ host: created }, 201);
+  } catch (error) {
+    // TOCTOU: a concurrent request can insert between the pre-check above
+    // and this insert. host_profiles_user_org_unique catches it — surface
+    // the same 409 as the pre-check rather than a 500.
+    if (getDbErrorCode(error) === "23505") {
+      return json({ error: "Already a host in this organization" }, 409);
+    }
+    throw error;
+  }
 };
