@@ -49,16 +49,29 @@ function fmtTimeRange(startsAt: string, endsAt: string, timezone: string): strin
 
 function weekRangeLabel(from: Date, to: Date, timezone: string): string {
   const lastDay = new Date(to.getTime() - 24 * 60 * 60 * 1000);
-  const startFmt = new Intl.DateTimeFormat(undefined, {
+  const fmt = new Intl.DateTimeFormat(undefined, {
     timeZone: timezone,
+    year: "numeric",
     month: "short",
     day: "numeric",
   });
-  const endFmt = new Intl.DateTimeFormat(undefined, {
-    timeZone: timezone,
-    day: "numeric",
-  });
-  return `${startFmt.format(from)} – ${endFmt.format(lastDay)}`;
+  const startParts = Object.fromEntries(fmt.formatToParts(from).map((p) => [p.type, p.value]));
+  const endParts = Object.fromEntries(fmt.formatToParts(lastDay).map((p) => [p.type, p.value]));
+
+  const sameYear = startParts.year === endParts.year;
+  const sameMonth = sameYear && startParts.month === endParts.month;
+
+  const startLabel = `${startParts.month} ${startParts.day}`;
+  // Repeat the month name on the end date whenever the week crosses a month
+  // boundary (and, crossing a year boundary, tack on the year too — the
+  // start date's year stays implicit since it's clear from context).
+  const endLabel = sameMonth
+    ? endParts.day
+    : sameYear
+      ? `${endParts.month} ${endParts.day}`
+      : `${endParts.month} ${endParts.day}, ${endParts.year}`;
+
+  return `${startLabel} – ${endLabel}`;
 }
 
 function statusColor(s: SessionRow["status"]): string {
@@ -272,7 +285,7 @@ export function SessionsList({ timezone }: SessionsListProps) {
         // duplicate action inside the empty-state card.
         <EmptyState
           title="No sessions in this view"
-          description="This list only shows sessions at the venue location selected in the top-right picker, from the last 7 days through the next 60. If you expected sessions here, switch or clear the venue picker — otherwise create a session to get on the schedule."
+          description="This list shows sessions for the visible week at the venue location selected in the top-right picker. If you expected sessions here, switch or clear the venue picker or page to another week — otherwise create a session to get on the schedule."
         />
       )}
       {!loading && !weekIsEmpty && (
