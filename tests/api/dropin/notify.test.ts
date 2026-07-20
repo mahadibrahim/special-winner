@@ -24,6 +24,7 @@ import { emailOptIns } from "@/lib/db/schema/email-opt-ins";
 import { pickupAlertSubscriptions } from "@/lib/db/schema/hosts";
 import { users } from "@/lib/db/schema/users";
 import { normalizeUsPhone } from "@/lib/sms/send";
+import { normalizeForUniqueness } from "@/lib/auth/email-normalize";
 import { CONSENT_COPY } from "@/lib/consents/marketing-channels";
 import { PICKUP_NOTIFY_SOURCE } from "@/lib/consents/marketing";
 import { apiFetch, getAuthCookie } from "../setup/test-helpers";
@@ -42,12 +43,15 @@ const DUP_PHONE = `616${SUFFIX}`;
 const DUP_PHONE_E164 = normalizeUsPhone(DUP_PHONE)!;
 const STOP_PHONE = `617${SUFFIX}`;
 const STOP_PHONE_E164 = normalizeUsPhone(STOP_PHONE)!;
+const BACKFILL_PHONE = `618${SUFFIX}`;
+const BACKFILL_PHONE_E164 = normalizeUsPhone(BACKFILL_PHONE)!;
 
 const EMAIL_ONLY = `notify-emailonly-${SUFFIX}@example.invalid`;
 const SMS_EMAIL = `notify-sms-${SUFFIX}@example.invalid`;
 const PROMO_EMAIL = `notify-promo-${SUFFIX}@example.invalid`;
 const DUP_EMAIL = `notify-dup-${SUFFIX}@example.invalid`;
 const STOP_EMAIL = `notify-stop-${SUFFIX}@example.invalid`;
+const BACKFILL_EMAIL = `notify-backfill-${SUFFIX}@example.invalid`;
 
 let organizationId = "";
 let venueId = "";
@@ -111,9 +115,10 @@ describe("pickup notify opt-in", () => {
         PROMO_PHONE_E164,
         DUP_PHONE_E164,
         STOP_PHONE_E164,
+        BACKFILL_PHONE_E164,
       ]),
     );
-    const emails = [EMAIL_ONLY, SMS_EMAIL, PROMO_EMAIL, DUP_EMAIL, STOP_EMAIL];
+    const emails = [EMAIL_ONLY, SMS_EMAIL, PROMO_EMAIL, DUP_EMAIL, STOP_EMAIL, BACKFILL_EMAIL];
     if (signedInEmail) emails.push(signedInEmail);
     await db.delete(emailOptIns).where(inArray(emailOptIns.email, emails));
     // Deleting the users cascades their pickup_alert_subscriptions rows.
@@ -381,5 +386,50 @@ describe("pickup notify opt-in", () => {
     ).toBe("opted_out");
     expect(rows[0].optedOutAt).not.toBeNull();
     expect(rows[0].stopKeywordTriggered).toBe("STOP");
+  });
+
+  it("backfills users.phone when a MATCHed existing user has none on file", async () => {
+    // Pre-create the users row directly with phone left NULL — e.g. this
+    // person previously did an email-only opt-in, which never had a phone to
+    // store. resolveMarketingUser MATCHes this row by emailCanonical instead
+    // of creating a new one, so without the backfill the SMS opt-in would
+    // confirm but the fill-alert dispatcher (which only reads users.phone)
+    // could never deliver to them.
+    const db = getDb();
+    const emailCanonical = normalizeForUniqueness(BACKFILL_EMAIL);
+    const [seeded] = await db
+      .insert(users)
+      .values({
+        email: BACKFILL_EMAIL,
+        emailCanonical,
+        firstName: "Test",
+        lastName: "Backfill",
+        phone: null,
+        passwordHash: null,
+        emailVerified: false,
+        phoneVerified: false,
+      })
+      .returning({ id: users.id });
+
+    const res = await apiFetch("/api/dropin/notify", {
+      method: "POST",
+      body: JSON.stringify({
+        channels: ["sms"],
+        phone: BACKFILL_PHONE,
+        email: BACKFILL_EMAIL,
+      }),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+
+    const [after] = await db
+      .select({ id: users.id, phone: users.phone })
+      .from(users)
+      .where(eq(users.id, seeded.id));
+    expect(after, "resolveMarketingUser must have MATCHed the pre-seeded row").toBeTruthy();
+    expect(after.phone, "users.phone must be backfilled to the opted-in E.164 number").toBe(
+      BACKFILL_PHONE_E164,
+    );
   });
 });

@@ -63,4 +63,17 @@ describe("filterPickupSessions", () => {
     expect(filterPickupSessions(data, { sportKey: "soccer" })).toHaveLength(2);
     expect(filterPickupSessions(data, { sportKey: "mens" }).map((x) => x.id)).toEqual(["b"]);
   });
+
+  it("filters by date via dateBucketOf, dropping sessions whose bucket doesn't match", () => {
+    // Both fixtures share the same startsAt, so a bucketer that always returns
+    // "This week" matches both, and one that returns something else matches none.
+    expect(
+      filterPickupSessions(data, { date: "This week" }, () => "This week").map((x) => x.id),
+    ).toEqual(["a", "b"]);
+    expect(filterPickupSessions(data, { date: "This week" }, () => "Next week")).toHaveLength(0);
+  });
+
+  it("a date filter is a no-op when dateBucketOf is omitted", () => {
+    expect(filterPickupSessions(data, { date: "This week" })).toHaveLength(2);
+  });
 });

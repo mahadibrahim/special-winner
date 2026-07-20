@@ -15,6 +15,7 @@ import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { pickupAlertSubscriptions } from "@/lib/db/schema/hosts";
 import { phoneOptIns } from "@/lib/db/schema/phone-verifications";
+import { users } from "@/lib/db/schema/users";
 import {
   recordMarketingConsent,
   PICKUP_NOTIFY_SOURCE,
@@ -165,6 +166,17 @@ export const POST: APIRoute = async ({ request, locals, clientAddress }) => {
             .insert(pickupAlertSubscriptions)
             .values({ userId: resolvedId, organizationId: org.id, venueId, sport });
         }
+
+        // Backfill users.phone when it's NULL — the fill-alert dispatcher texts
+        // users.phone, not phone_opt_ins.phone. A MATCHed user (existing account
+        // resolved by email, e.g. from a prior email-only opt-in) can have no
+        // phone on file; without this, their SMS opt-in confirms but never
+        // delivers. Never overwrite a non-null phone — that would need its own
+        // verification and could hijack an account.
+        await tx
+          .update(users)
+          .set({ phone: phoneE164, updatedAt: new Date() })
+          .where(and(eq(users.id, resolvedId), isNull(users.phone)));
 
         // pending SMS consent (setWhere guards keep an existing opted_in/opted_out row intact)
         await recordMarketingConsent({

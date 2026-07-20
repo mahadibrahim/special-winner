@@ -19,10 +19,16 @@ import { CONSENT_COPY } from "@/lib/consents/marketing-channels";
  * unauthenticated; signed-in users skip it (the endpoint only requires it
  * for !signedIn — see src/pages/api/dropin/notify.ts).
  *
- * States: idle -> (awaitingCode | awaitingEmail) -> done, plus error.
+ * States: idle -> (awaitingCode | awaitingEmail | pendingConfirm) -> done,
+ * plus error.
  * - awaitingCode: SMS OTP needed (skipped if the number already has an
  *   opted_in row for this channel — see notify.ts's smsAlreadyOptedIn path).
+ *   If email was also selected and is awaiting its own confirmation, the OTP
+ *   screen and the post-OTP `done` screen both say so (emailAlsoPending).
  * - awaitingEmail: double opt-in email was sent; nothing more to do here.
+ * - pendingConfirm: nothing is in flight to confirm (transaction rolled back,
+ *   or a send failed) — a neutral "we've got your request" state. Never
+ *   claims "we'll text you" on an unconfirmed capture.
  */
 
 interface SessionLite {
@@ -39,7 +45,7 @@ interface NotifyResponse {
   error?: string;
 }
 
-type Phase = "idle" | "awaitingCode" | "awaitingEmail" | "done";
+type Phase = "idle" | "awaitingCode" | "awaitingEmail" | "pendingConfirm" | "done";
 
 function capitalize(s: string): string {
   return s.length ? s[0].toUpperCase() + s.slice(1) : s;
@@ -68,6 +74,10 @@ export function PickupNotifyBanner({ signedIn: signedInProp }: { signedIn?: bool
   const [code, setCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Set when the OTP phase is entered with email ALSO awaiting its own
+  // double-opt-in click (awaitingCode includes both "sms" and "email") — so
+  // the OTP screen and the post-OTP done screen can both say so honestly.
+  const [emailAlsoPending, setEmailAlsoPending] = useState(false);
 
   const turnstileRef = useRef<TurnstileWidgetHandle>(null);
   const turnstileToken = useRef<string | null>(null);
@@ -156,14 +166,20 @@ export function PickupNotifyBanner({ signedIn: signedInProp }: { signedIn?: bool
       }
 
       if (data.awaitingCode?.includes("sms") && data.phoneVerificationId) {
+        setEmailAlsoPending(Boolean(data.awaitingCode?.includes("email")));
         setVerificationId(data.phoneVerificationId);
         setPhase("awaitingCode");
       } else if (data.awaitingCode?.includes("email")) {
         setPhase("awaitingEmail");
+      } else if (data.pending?.length) {
+        // Nothing is in flight to confirm (e.g. the transaction rolled back,
+        // or a send failed and the channel came back under `pending`). We
+        // captured the request but can't promise delivery — no "we'll text
+        // you" toast here, that would over-promise on an unconfirmed capture.
+        setPhase("pendingConfirm");
       } else {
-        // Reached when nothing needs confirmation (e.g. an already-opted-in
-        // SMS number, or an email-only opt-in whose confirmation send failed
-        // and came back under `pending`). Only claim texts if SMS was picked.
+        // Reached only when there's a genuine, already-confirmed success
+        // (e.g. smsAlreadyOptedIn — the number already has an opted_in row).
         setPhase("done");
         toast.success(
           wantSms
@@ -195,7 +211,11 @@ export function PickupNotifyBanner({ signedIn: signedInProp }: { signedIn?: bool
         return;
       }
       setPhase("done");
-      toast.success("You're on the list — we'll text you when a game needs players.");
+      toast.success(
+        emailAlsoPending
+          ? "You're on the list — we'll text you when a game needs players. Check your inbox to confirm email too."
+          : "You're on the list — we'll text you when a game needs players.",
+      );
     } catch {
       setError("Couldn't verify — try again.");
     } finally {
@@ -217,6 +237,14 @@ export function PickupNotifyBanner({ signedIn: signedInProp }: { signedIn?: bool
             </a>
             .
           </p>
+          {emailAlsoPending && (
+            <p className="text-sm text-ink-muted">And check your inbox to confirm email alerts.</p>
+          )}
+        </div>
+      ) : phase === "pendingConfirm" ? (
+        <div className="text-center space-y-2">
+          <h3 className="font-display text-lg text-ink">Thanks — we'll be in touch</h3>
+          <p className="text-sm text-ink-muted">We've got your request and will confirm shortly.</p>
         </div>
       ) : phase === "awaitingEmail" ? (
         <div className="text-center space-y-2">
@@ -226,6 +254,11 @@ export function PickupNotifyBanner({ signedIn: signedInProp }: { signedIn?: bool
       ) : phase === "awaitingCode" ? (
         <div className="space-y-3">
           <h3 className="font-display text-lg text-ink">Enter the code we texted you</h3>
+          {emailAlsoPending && (
+            <p className="text-sm text-ink-muted">
+              We also emailed you a link — click it to confirm email.
+            </p>
+          )}
           {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
           <label htmlFor={`${uid}-code`} className="block text-xs font-medium text-ink-muted">
             6-digit code
