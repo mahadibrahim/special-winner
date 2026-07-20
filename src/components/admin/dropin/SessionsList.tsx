@@ -7,13 +7,13 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { useConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import { addWeeks, groupByDay, weekBoundsFor } from "@/lib/dropin/week-schedule";
 import { toast } from "sonner";
@@ -116,7 +116,6 @@ function SessionCard({
 }: SessionCardProps) {
   const { confirm, dialog: confirmDialog } = useConfirmDialog();
   const [busy, setBusy] = useState(false);
-  const [assignOpen, setAssignOpen] = useState(false);
   const pct =
     s.capacity > 0 ? Math.min(100, Math.round((s.confirmedCount / s.capacity) * 100)) : 0;
 
@@ -134,7 +133,6 @@ function SessionCard({
         return;
       }
       toast.success("Host assigned");
-      setAssignOpen(false);
       onChanged();
     } finally {
       setBusy(false);
@@ -282,8 +280,8 @@ function SessionCard({
           <span className="text-ink-muted">No host</span>
         )}
         {s.status === "scheduled" && (
-          <Popover open={assignOpen} onOpenChange={setAssignOpen}>
-            <PopoverTrigger asChild>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
                 size="sm"
@@ -292,12 +290,14 @@ function SessionCard({
               >
                 {s.hostName ? "Change" : "Assign"}
               </Button>
-            </PopoverTrigger>
-            <PopoverContent align="start" className="w-64">
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-64 bg-paper border-border">
               {!hostsLoaded ? (
-                <p className="text-sm text-ink-muted">Loading hosts…</p>
+                <DropdownMenuLabel className="font-normal text-ink-muted">
+                  Loading hosts…
+                </DropdownMenuLabel>
               ) : activeHosts.length === 0 ? (
-                <p className="text-sm text-ink-muted">
+                <DropdownMenuLabel className="font-normal text-ink-muted whitespace-normal">
                   No active hosts yet — approve applicants or add one in the{" "}
                   <a
                     href="/admin/dropins?tab=hosts"
@@ -306,27 +306,24 @@ function SessionCard({
                     Hosts tab
                   </a>
                   .
-                </p>
+                </DropdownMenuLabel>
               ) : (
-                <div className="space-y-1">
-                  {activeHosts.map((h) => (
-                    <button
-                      key={h.userId}
-                      type="button"
-                      disabled={busy || h.userId === s.hostUserId}
-                      onClick={() => assignHost(h.userId)}
-                      className="w-full text-left text-sm rounded px-2 py-1.5 text-ink hover:bg-cream disabled:opacity-50 disabled:cursor-default"
-                    >
-                      {h.firstName} {h.lastName}
-                      {h.userId === s.hostUserId && (
-                        <span className="text-ink-muted"> · current</span>
-                      )}
-                    </button>
-                  ))}
-                </div>
+                activeHosts.map((h) => (
+                  <DropdownMenuItem
+                    key={h.userId}
+                    disabled={busy || h.userId === s.hostUserId}
+                    onClick={() => assignHost(h.userId)}
+                    className="cursor-pointer"
+                  >
+                    {h.firstName} {h.lastName}
+                    {h.userId === s.hostUserId && (
+                      <span className="text-ink-muted"> · current</span>
+                    )}
+                  </DropdownMenuItem>
+                ))
               )}
-            </PopoverContent>
-          </Popover>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </div>
       {confirmDialog}
