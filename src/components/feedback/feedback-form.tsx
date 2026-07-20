@@ -288,7 +288,11 @@ function NpsForm({
                 aria-checked={hostRating === n}
                 aria-label={`${n} star${n === 1 ? "" : "s"}`}
                 disabled={busy}
-                onClick={() => setHostRating(hostRating === n ? null : n)}
+                onClick={() => {
+                  const next = hostRating === n ? null : n;
+                  setHostRating(next);
+                  if (next === null) setHostComment("");
+                }}
                 className={`text-2xl leading-none ${
                   hostRating != null && n <= hostRating ? "text-foreground" : "text-muted-foreground/40"
                 }`}
