@@ -216,6 +216,32 @@ export function AdminSessionDetail({ sessionId }: AdminSessionDetailProps) {
     }
   };
 
+  const deleteSession = async () => {
+    const ok = await confirm({
+      title: "Delete session?",
+      description:
+        "Permanently removes this session from the schedule and the field-time ledger. If people are booked, use Cancel instead — it refunds and notifies them.",
+      confirmLabel: "Delete session",
+      destructive: true,
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/dropin/sessions/${sessionId}`, {
+        method: "DELETE",
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error ?? "Delete failed");
+        return;
+      }
+      toast.success("Session deleted");
+      window.location.href = "/admin/dropin/sessions";
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const submitRepeat = async () => {
     if (!repeatUntil) {
       toast.error("Pick a repeat-until date");
@@ -350,6 +376,14 @@ export function AdminSessionDetail({ sessionId }: AdminSessionDetailProps) {
             className="text-rose-700"
           >
             Cancel session
+          </Button>
+          <Button
+            variant="outline"
+            disabled={busy}
+            onClick={deleteSession}
+            className="text-rose-700"
+          >
+            Delete
           </Button>
         </div>
       </header>

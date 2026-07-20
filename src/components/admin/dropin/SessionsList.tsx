@@ -12,8 +12,10 @@ import {
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import { addWeeks, groupByDay, weekBoundsFor } from "@/lib/dropin/week-schedule";
+import { toast } from "sonner";
 
 interface SessionRow {
   id: string;
@@ -88,14 +90,70 @@ function statusColor(s: SessionRow["status"]): string {
 interface SessionCardProps {
   s: SessionRow;
   timezone: string;
-  /** Re-fetches the week's sessions. Unused today; Tasks 4-5 wire it to the
-   *  Cancel/Delete/Assign actions added to the overflow menu below. */
+  /** Re-fetches the week's sessions. Wired to the Cancel/Delete actions in
+   *  the overflow menu below; Task 5 adds the Assign action. */
   onChanged: () => void;
 }
 
-function SessionCard({ s, timezone }: SessionCardProps) {
+function SessionCard({ s, timezone, onChanged }: SessionCardProps) {
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  const [busy, setBusy] = useState(false);
   const pct =
     s.capacity > 0 ? Math.min(100, Math.round((s.confirmedCount / s.capacity) * 100)) : 0;
+
+  const cancelSession = async () => {
+    const ok = await confirm({
+      title: "Cancel session?",
+      description:
+        "All bookings are refunded (where owed) and the assigned host, if any, is unassigned. This cannot be undone.",
+      confirmLabel: "Cancel session",
+      destructive: true,
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/dropin/sessions/${s.id}/cancel`, {
+        method: "POST",
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error ?? "Cancel failed");
+        return;
+      }
+      toast.success(
+        `Cancelled · ${json.refundedBookings}/${json.cancelledBookings} bookings refunded`,
+      );
+      onChanged();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const deleteSession = async () => {
+    const ok = await confirm({
+      title: "Delete session?",
+      description:
+        "Permanently removes this session from the schedule and the field-time ledger. If people are booked, use Cancel instead — it refunds and notifies them.",
+      confirmLabel: "Delete session",
+      destructive: true,
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/dropin/sessions/${s.id}`, {
+        method: "DELETE",
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error ?? "Delete failed");
+        return;
+      }
+      toast.success("Session deleted");
+      onChanged();
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <div
@@ -145,6 +203,22 @@ function SessionCard({ s, timezone }: SessionCardProps) {
                 Edit
               </a>
             </DropdownMenuItem>
+            {s.status === "scheduled" && (
+              <DropdownMenuItem
+                disabled={busy}
+                onClick={cancelSession}
+                className="cursor-pointer text-rose-700"
+              >
+                Cancel
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem
+              disabled={busy}
+              onClick={deleteSession}
+              className="cursor-pointer text-rose-700"
+            >
+              Delete
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -169,6 +243,7 @@ function SessionCard({ s, timezone }: SessionCardProps) {
         )}
         {/* Task 5 adds the Assign control here */}
       </div>
+      {confirmDialog}
     </div>
   );
 }
