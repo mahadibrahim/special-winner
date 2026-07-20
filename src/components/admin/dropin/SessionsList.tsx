@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -166,33 +166,67 @@ export function SessionsList({ timezone }: SessionsListProps) {
   const [rows, setRows] = useState<SessionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // The week `rows` actually reflects. Compared against the CURRENT week
+  // below so weekIsEmpty can't fire off a stale week's (empty-looking) rows
+  // the frame before a navigation's fetch completes — see task-3 fix notes.
+  const [loadedWeekKey, setLoadedWeekKey] = useState<string | null>(null);
+  // Only the most recently started fetch is allowed to commit state. Guards
+  // against rapid ◀/▶ clicks where an older response resolves after a newer
+  // one (the network doesn't guarantee response order).
+  const abortRef = useRef<AbortController | null>(null);
 
   const { from, to } = weekBoundsFor(weekAnchor, timezone);
+  const weekKey = from.toISOString();
 
   const reload = async () => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     setLoading(true);
     setError(null);
     try {
       const res = await fetch(
         `/api/admin/dropin/sessions?from=${from.toISOString()}&to=${to.toISOString()}`,
+        { signal: controller.signal },
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
+      if (abortRef.current !== controller) return; // superseded by a newer request
       setRows(json.sessions ?? []);
+      setLoadedWeekKey(weekKey);
     } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      if (abortRef.current !== controller) return; // superseded by a newer request
       setError(err instanceof Error ? err.message : "Failed to load");
     } finally {
-      setLoading(false);
+      if (abortRef.current === controller) setLoading(false);
     }
   };
 
   useEffect(() => {
+    // Set synchronously (not just inside reload) so the render triggered by
+    // a week change never shows the previous week's day list before the
+    // fetch for the new week has even started.
+    setLoading(true);
     void reload();
+    return () => {
+      abortRef.current?.abort();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weekAnchor.getTime(), timezone]);
+  }, [weekKey, timezone]);
+
+  // navigateWeek sets loading synchronously (batched with the weekAnchor
+  // update) so the very next render — before the effect above even runs —
+  // already shows the skeleton instead of a flash of the old week's rows
+  // grouped under the new week's (empty) day buckets.
+  const navigateWeek = (updater: Date | ((d: Date) => Date)) => {
+    setLoading(true);
+    setWeekAnchor(updater);
+  };
 
   const days = groupByDay(rows, timezone, weekAnchor);
-  const weekIsEmpty = !loading && days.every((d) => d.sessions.length === 0);
+  const weekIsEmpty =
+    !loading && loadedWeekKey === weekKey && days.every((d) => d.sessions.length === 0);
 
   return (
     <div className="space-y-6">
@@ -208,7 +242,7 @@ export function SessionsList({ timezone }: SessionsListProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setWeekAnchor((d) => addWeeks(d, -1))}
+            onClick={() => navigateWeek((d) => addWeeks(d, -1))}
           >
             ◀
           </Button>
@@ -218,11 +252,11 @@ export function SessionsList({ timezone }: SessionsListProps) {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setWeekAnchor((d) => addWeeks(d, 1))}
+            onClick={() => navigateWeek((d) => addWeeks(d, 1))}
           >
             ▶
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => setWeekAnchor(new Date())}>
+          <Button variant="ghost" size="sm" onClick={() => navigateWeek(new Date())}>
             Today
           </Button>
         </div>
