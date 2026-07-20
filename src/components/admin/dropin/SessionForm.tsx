@@ -78,10 +78,19 @@ function localIso(d: Date): string {
   return new Date(d.getTime() - off * 60_000).toISOString().slice(0, 16);
 }
 
+function initialState(): FormState {
+  if (typeof window === "undefined") return EMPTY;
+  const date = new URLSearchParams(window.location.search).get("date");
+  if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return { ...EMPTY, startsAt: `${date}T18:00`, endsAt: `${date}T19:00` };
+  }
+  return EMPTY;
+}
+
 export function SessionForm({ sessionId }: SessionFormProps) {
   useHydrationBeacon();
 
-  const [state, setState] = useState<FormState>(EMPTY);
+  const [state, setState] = useState<FormState>(initialState);
   const [venues, setVenues] = useState<VenueOption[]>([]);
   const [hosts, setHosts] = useState<HostOption[]>([]);
   const [resources, setResources] = useState<

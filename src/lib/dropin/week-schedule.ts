@@ -116,9 +116,11 @@ export function weekBoundsFor(anchor: Date, timezone: string): { from: Date; to:
 export function groupByDay<T extends { startsAt: string }>(
   sessions: T[],
   timezone: string,
+  anchor?: Date,
 ): { dayKey: string; label: string; sessions: T[] }[] {
-  const anchor = sessions.length ? new Date(sessions[0].startsAt) : new Date();
-  const { from } = weekBoundsFor(anchor, timezone);
+  const effectiveAnchor =
+    anchor ?? (sessions.length ? new Date(sessions[0].startsAt) : new Date());
+  const { from } = weekBoundsFor(effectiveAnchor, timezone);
   const monday = tzParts(from, timezone); // `from` is exact local midnight, so its civil date is unambiguous
 
   const days: { dayKey: string; label: string; sessions: T[] }[] = [];

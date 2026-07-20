@@ -3,10 +3,17 @@
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
+import { addWeeks, groupByDay, weekBoundsFor } from "@/lib/dropin/week-schedule";
 
 interface SessionRow {
   id: string;
@@ -17,19 +24,41 @@ interface SessionRow {
   endsAt: string;
   capacity: number;
   status: "scheduled" | "cancelled" | "completed";
+  venueId: string;
   venueName: string | null;
   confirmedCount: number;
   waitlistCount: number;
+  hostUserId: string | null;
+  hostName: string | null;
 }
 
-function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
+interface SessionsListProps {
+  timezone: string;
+}
+
+function fmtTimeRange(startsAt: string, endsAt: string, timezone: string): string {
+  const opts: Intl.DateTimeFormatOptions = {
+    timeZone: timezone,
     hour: "numeric",
     minute: "2-digit",
+  };
+  const start = new Date(startsAt).toLocaleTimeString(undefined, opts);
+  const end = new Date(endsAt).toLocaleTimeString(undefined, opts);
+  return `${start} – ${end}`;
+}
+
+function weekRangeLabel(from: Date, to: Date, timezone: string): string {
+  const lastDay = new Date(to.getTime() - 24 * 60 * 60 * 1000);
+  const startFmt = new Intl.DateTimeFormat(undefined, {
+    timeZone: timezone,
+    month: "short",
+    day: "numeric",
   });
+  const endFmt = new Intl.DateTimeFormat(undefined, {
+    timeZone: timezone,
+    day: "numeric",
+  });
+  return `${startFmt.format(from)} – ${endFmt.format(lastDay)}`;
 }
 
 function statusColor(s: SessionRow["status"]): string {
@@ -43,36 +72,159 @@ function statusColor(s: SessionRow["status"]): string {
   }
 }
 
-export function SessionsList() {
+interface SessionCardProps {
+  s: SessionRow;
+  timezone: string;
+  /** Re-fetches the week's sessions. Unused today; Tasks 4-5 wire it to the
+   *  Cancel/Delete/Assign actions added to the overflow menu below. */
+  onChanged: () => void;
+}
+
+function SessionCard({ s, timezone }: SessionCardProps) {
+  const pct =
+    s.capacity > 0 ? Math.min(100, Math.round((s.confirmedCount / s.capacity) * 100)) : 0;
+
+  return (
+    <div
+      data-testid="session-card"
+      className={`bg-cream-2 border border-border rounded-xl p-4 ${
+        s.status === "cancelled" ? "opacity-60" : ""
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <a
+            href={`/admin/dropin/sessions/${s.id}`}
+            className="font-medium text-ink hover:underline"
+          >
+            {s.sportOrClassLabel}
+            {s.formatLabel && ` · ${s.formatLabel}`}
+          </a>
+          <div className="text-sm text-ink-muted mt-0.5">
+            {fmtTimeRange(s.startsAt, s.endsAt, timezone)}
+            {s.venueName && ` · ${s.venueName}`}
+          </div>
+          <div className="mt-1 flex items-center gap-1">
+            <Badge variant="outline" className="text-[10px]">
+              {s.kind}
+            </Badge>
+            {s.status !== "scheduled" && (
+              <Badge variant="outline" className={`text-[10px] ${statusColor(s.status)}`}>
+                {s.status}
+              </Badge>
+            )}
+          </div>
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="text-ink-muted hover:text-ink">
+              ⋯
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="bg-paper border-border">
+            <DropdownMenuItem asChild>
+              <a href={`/admin/dropin/sessions/${s.id}`} className="cursor-pointer">
+                View
+              </a>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <a href={`/admin/dropin/sessions/${s.id}/edit`} className="cursor-pointer">
+                Edit
+              </a>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      <div className="mt-2 flex items-center gap-2 text-sm">
+        <div className="h-2 w-28 rounded-full bg-cream overflow-hidden border border-border">
+          <div className="h-full bg-ink" style={{ width: `${pct}%` }} />
+        </div>
+        <span className="text-ink">
+          {s.confirmedCount}/{s.capacity}
+        </span>
+        {s.waitlistCount > 0 && (
+          <span className="text-ink-muted">· {s.waitlistCount} waitlist</span>
+        )}
+      </div>
+
+      <div className="mt-1 text-sm">
+        {s.hostName ? (
+          <span className="text-ink">Host: {s.hostName}</span>
+        ) : (
+          <span className="text-ink-muted">No host</span>
+        )}
+        {/* Task 5 adds the Assign control here */}
+      </div>
+    </div>
+  );
+}
+
+export function SessionsList({ timezone }: SessionsListProps) {
   useHydrationBeacon();
+  const [weekAnchor, setWeekAnchor] = useState<Date>(() => new Date());
   const [rows, setRows] = useState<SessionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const { from, to } = weekBoundsFor(weekAnchor, timezone);
+
+  const reload = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/admin/dropin/sessions?from=${from.toISOString()}&to=${to.toISOString()}`,
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      setRows(json.sessions ?? []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await fetch("/api/admin/dropin/sessions");
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json = await res.json();
-        setRows(json.sessions ?? []);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load");
-      } finally {
-        setLoading(false);
-      }
-    };
-    void load();
-  }, []);
+    void reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weekAnchor.getTime(), timezone]);
+
+  const days = groupByDay(rows, timezone, weekAnchor);
+  const weekIsEmpty = !loading && days.every((d) => d.sessions.length === 0);
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-ink">Drop-in sessions</h1>
-          <p className="text-sm text-ink-muted mt-1">
-            Schedule, monitor, and run pick-up and class sessions.
-          </p>
+      <div>
+        <h1 className="text-2xl font-bold text-ink">Drop-in sessions</h1>
+        <p className="text-sm text-ink-muted mt-1">
+          Schedule, monitor, and run pick-up and class sessions.
+        </p>
+      </div>
+
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setWeekAnchor((d) => addWeeks(d, -1))}
+          >
+            ◀
+          </Button>
+          <div className="text-sm font-medium text-ink min-w-40 text-center">
+            {weekRangeLabel(from, to, timezone)}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setWeekAnchor((d) => addWeeks(d, 1))}
+          >
+            ▶
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setWeekAnchor(new Date())}>
+            Today
+          </Button>
         </div>
         <Button asChild>
           <a href="/admin/dropin/sessions/new">+ New session</a>
@@ -81,7 +233,7 @@ export function SessionsList() {
 
       {error && <ErrorBanner message={error} />}
       {loading && <LoadingSkeleton />}
-      {!loading && rows.length === 0 && (
+      {weekIsEmpty && (
         // The header CTA stays visible in the empty state, so no
         // duplicate action inside the empty-state card.
         <EmptyState
@@ -89,67 +241,29 @@ export function SessionsList() {
           description="This list only shows sessions at the venue location selected in the top-right picker, from the last 7 days through the next 60. If you expected sessions here, switch or clear the venue picker — otherwise create a session to get on the schedule."
         />
       )}
-      {!loading && rows.length > 0 && (
-        <div className="rounded-lg border border-border bg-cream-2 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-cream border-b border-border">
-              <tr className="text-left">
-                <th className="px-4 py-2 font-medium text-ink-muted">When</th>
-                <th className="px-4 py-2 font-medium text-ink-muted">Session</th>
-                <th className="px-4 py-2 font-medium text-ink-muted">Space</th>
-                <th className="px-4 py-2 font-medium text-ink-muted">Roster</th>
-                <th className="px-4 py-2 font-medium text-ink-muted">Status</th>
-                <th className="px-4 py-2"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr
-                  key={r.id}
-                  className="border-t border-border hover:bg-cream/60"
+      {!loading && !weekIsEmpty && (
+        <div>
+          {days.map((day) => (
+            <section data-testid="day-group" key={day.dayKey}>
+              <h3 className="text-xs uppercase tracking-wider text-ink-muted mt-6 mb-2">
+                {day.label}
+              </h3>
+              {day.sessions.length === 0 ? (
+                <a
+                  href={`/admin/dropin/sessions/new?date=${day.dayKey}`}
+                  className="block rounded-lg border border-dashed border-border px-4 py-3 text-sm text-ink-muted hover:text-ink"
                 >
-                  <td className="px-4 py-3 align-top">
-                    <div className="text-ink">{fmtDate(r.startsAt)}</div>
-                  </td>
-                  <td className="px-4 py-3 align-top">
-                    <div className="font-medium text-ink">
-                      {r.sportOrClassLabel}
-                    </div>
-                    <div className="text-xs text-ink-muted flex items-center gap-1">
-                      <Badge variant="outline" className="text-[10px]">
-                        {r.kind}
-                      </Badge>
-                      {r.formatLabel && <span>{r.formatLabel}</span>}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 align-top text-ink-muted">
-                    {r.venueName ?? "—"}
-                  </td>
-                  <td className="px-4 py-3 align-top text-ink-muted">
-                    {r.confirmedCount} / {r.capacity}
-                    {r.waitlistCount > 0 && (
-                      <span className="ml-2 text-xs">
-                        +{r.waitlistCount} wl
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 align-top">
-                    <Badge variant="outline" className={statusColor(r.status)}>
-                      {r.status}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3 align-top text-right">
-                    <a
-                      href={`/admin/dropin/sessions/${r.id}`}
-                      className="text-xs text-ink underline"
-                    >
-                      Open
-                    </a>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  No sessions · + add
+                </a>
+              ) : (
+                <div className="space-y-2">
+                  {day.sessions.map((s) => (
+                    <SessionCard key={s.id} s={s} timezone={timezone} onChanged={reload} />
+                  ))}
+                </div>
+              )}
+            </section>
+          ))}
         </div>
       )}
     </div>

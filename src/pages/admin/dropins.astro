@@ -10,6 +10,7 @@ export const prerender = false;
 
 const user = Astro.locals.user!;
 const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
+const timezone = Astro.locals.organization?.timezone ?? "America/New_York";
 
 type Tab = "sessions" | "rate-card" | "hosts";
 const tabRaw = Astro.url.searchParams.get("tab");
@@ -48,7 +49,7 @@ const TABS: { id: Tab; label: string }[] = [
           ))
         }
       </div>
-      {tab === "sessions" && <SessionsList client:load />}
+      {tab === "sessions" && <SessionsList client:load timezone={timezone} />}
       {tab === "rate-card" && <RateCardEditor client:load />}
       {tab === "hosts" && <HostsPanel client:load />}
     </div>

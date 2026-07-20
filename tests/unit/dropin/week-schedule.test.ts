@@ -30,6 +30,26 @@ describe("groupByDay", () => {
     expect(sat.label).toBe("SAT Jul 25");
     expect(days.find((d) => d.dayKey === "2026-07-26")!.sessions).toHaveLength(0);
   });
+
+  it("anchors an empty session list to the given anchor, not the current week", () => {
+    // Without an anchor this would fall back to `new Date()` and wrongly
+    // render whatever week the test happens to run in.
+    const anchor = new Date("2026-07-22T15:00:00Z"); // Wed, week of Jul 20-26 ET
+    const days = groupByDay([], TZ, anchor);
+    expect(days).toHaveLength(7);
+    expect(days[0].dayKey).toBe("2026-07-20");
+    expect(days[6].dayKey).toBe("2026-07-26");
+  });
+
+  it("prefers an explicit anchor over sessions[0] when both are present", () => {
+    const sessions = [{ startsAt: "2026-07-25T14:00:00.000Z" }]; // week of Jul 20-26 ET
+    const anchor = new Date("2026-08-05T15:00:00Z"); // a different week (Aug 3-9 ET)
+    const days = groupByDay(sessions, TZ, anchor);
+    expect(days[0].dayKey).toBe("2026-08-03");
+    // The session itself isn't in this window, so it's simply dropped from
+    // the bucketed result (its startsAt doesn't match any of these 7 days).
+    expect(days.flatMap((d) => d.sessions)).toHaveLength(0);
+  });
 });
 
 describe("addWeeks", () => {
