@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect } from "react"
 import { Plus, Pencil, Trash2, Loader2, Search, SearchX } from "lucide-react"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { EmptyState } from "@/components/ui/empty-state"
@@ -655,7 +655,10 @@ export function SeasonsList() {
     filters.venue !== null ||
     filters.day !== null
 
-  const visibleSeasons = useMemo(() => {
+  // Plain computation, deliberately NOT a hook: this sits below the isLoading
+  // early return, where a hook would change the call order between renders
+  // (Rules of Hooks). The list is small; re-filtering per render is fine.
+  const visibleSeasons = (() => {
     const arr = seasons.filter((s) => seasonMatches(s, filters))
     switch (sort) {
       case "start":
@@ -676,7 +679,7 @@ export function SeasonsList() {
         break
     }
     return arr
-  }, [seasons, filters, sort])
+  })()
 
   return (
     <div className="space-y-6">
