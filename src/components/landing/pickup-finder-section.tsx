@@ -5,15 +5,16 @@ import type { SessionCardData } from "@/components/dropin/SessionCard"
 import PickupCard from "./pickup-card"
 import { FilterChips, type ChipOption } from "./filter-chips"
 import { useFinderFilter } from "@/lib/hooks/use-finder-filter"
+import { deriveVenueTabs, filterPickupSessions } from "@/lib/landing/pickup-session-filters"
 
 const PAGE_SIZE = 6
 
 /**
  * The Pickup section of the /adult finder. Backed by the drop-in sessions
  * endpoint (a rolling next-14-days window), so its results are inherently
- * time-bound — "what's on soon", not a standing catalog. Owns its own chip
- * filters (Date / Sport / Skill / Venue), pagination, and loading/empty
- * states. Renders the editorial PickupCard.
+ * time-bound — "what's on soon", not a standing catalog. Location is a
+ * top-level tab row; Date/Sport/Skill remain chip filters. Owns its own
+ * pagination and loading/empty states. Renders the editorial PickupCard.
  */
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24
@@ -94,21 +95,17 @@ export function PickupFinderSection({
     () => buildOptions(sessions, (s) => s.skillLevel, (s) => skillLabel(s.skillLevel)),
     [sessions],
   )
-  const venueOptions = useMemo(
-    () => buildOptions(sessions, (s) => s.venueName, (s) => s.venueName ?? ""),
-    [sessions],
-  )
+  const venueTabs = useMemo(() => deriveVenueTabs(sessions), [sessions])
 
-  const filtered = useMemo(() => {
-    return sessions.filter((s) => {
-      if (externalSportKey && !s.sportOrClassLabel.toLowerCase().includes(externalSportKey.toLowerCase())) return false
-      if (activeDate && dateBucket(s.startsAt) !== activeDate) return false
-      if (activeSport && s.sportOrClassLabel !== activeSport) return false
-      if (activeSkill && s.skillLevel !== activeSkill) return false
-      if (activeVenue && s.venueName !== activeVenue) return false
-      return true
-    })
-  }, [sessions, activeDate, activeSport, activeSkill, activeVenue, externalSportKey])
+  const filtered = useMemo(
+    () =>
+      filterPickupSessions(
+        sessions,
+        { venueId: activeVenue, date: activeDate, sport: activeSport, skill: activeSkill, sportKey: externalSportKey },
+        dateBucket,
+      ),
+    [sessions, activeDate, activeSport, activeSkill, activeVenue, externalSportKey],
+  )
 
   const clearFilters = () => {
     setActiveDate(null)
@@ -138,13 +135,39 @@ export function PickupFinderSection({
         </div>
         <p className="text-ink-muted mt-1">{descriptor}</p>
 
+        {/* Location tabs */}
+        {!loading && venueTabs.length > 1 && (
+          <div className="mt-6 flex flex-wrap gap-2" role="group" aria-label="Filter by location">
+            <button
+              type="button"
+              onClick={() => setActiveVenue(null)}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                activeVenue === null ? "bg-ink text-cream" : "bg-paper border border-border text-ink-muted hover:text-ink"
+              }`}
+            >
+              All locations
+            </button>
+            {venueTabs.map((t) => (
+              <button
+                key={t.venueId}
+                type="button"
+                onClick={() => setActiveVenue(t.venueId)}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                  activeVenue === t.venueId ? "bg-ink text-cream" : "bg-paper border border-border text-ink-muted hover:text-ink"
+                }`}
+              >
+                {t.venueName} <span className="opacity-60">({t.count})</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Filters */}
         {!loading && sessions.length > 0 && (
           <div className="mt-6 flex flex-col gap-2.5">
             <FilterChips label="Date" options={dateOptions} active={activeDate} onChange={setActiveDate} />
             <FilterChips label="Sport" options={sportOptions} active={activeSport} onChange={(v) => { setActiveSport(v); setExternalSportKey(null) }} />
             <FilterChips label="Skill" options={skillOptions} active={activeSkill} onChange={setActiveSkill} />
-            <FilterChips label="Venue" options={venueOptions} active={activeVenue} onChange={setActiveVenue} />
           </div>
         )}
 
@@ -166,6 +189,17 @@ export function PickupFinderSection({
               <p className="text-ink-muted mt-1 text-sm">
                 Pickup runs on a rolling two-week schedule — check back soon.
               </p>
+            </div>
+          ) : filtered.length === 0 && activeVenue !== null ? (
+            <div className="bg-paper border border-border rounded-2xl py-12 px-6 text-center">
+              <p className="font-display text-lg text-ink">Nothing at this location in the next two weeks.</p>
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="mt-3 text-sm font-medium text-primary hover:underline"
+              >
+                See all locations
+              </button>
             </div>
           ) : filtered.length === 0 ? (
             <div className="bg-paper border border-border rounded-2xl py-12 px-6 text-center">
