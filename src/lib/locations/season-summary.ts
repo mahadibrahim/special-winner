@@ -5,6 +5,7 @@
 interface PublicSeasonLike {
   status: string;
   termSlug?: string | null;
+  startDate?: string | null;
   dayOfWeek?: string | null;
   price?: number | null;
   effectivePrice?: number | null;
@@ -46,13 +47,36 @@ export function summarizeOpenLeagues(
   // Include both "open" (registerable now) and "forming" (interest-list —
   // not yet open, but real enough to surface the card) adult league seasons.
   // Callers gate presentation on hasOpen.
-  const included = seasons.filter(
+  const candidates = seasons.filter(
     (s) =>
       (s.status === "open" || s.status === "forming") &&
       (s.program?.programType ?? "league") === "league" &&
       (s.ageGroup?.minAge ?? 0) >= 18,
   );
-  if (included.length === 0) return null;
+  if (candidates.length === 0) return null;
+
+  // Scope everything to ONE term — the current registration window. Venues
+  // pre-create future terms months ahead (a prod snapshot carried 39 forming
+  // winter/spring divisions beside 7 open fall ones); aggregating across
+  // terms produced "46 divisions from $750/team", mixing next winter's
+  // pricing into this fall's card. Prefer the term that's open for
+  // registration now; with no open term, the nearest forming term (by start
+  // date) represents "what's next here".
+  const anyOpen = candidates.filter((s) => s.status === "open");
+  let activeTerm: string | null | undefined;
+  if (anyOpen.length > 0) {
+    activeTerm = anyOpen
+      .slice()
+      .sort((a, b) =>
+        (a.registrationCloses ?? "9999").localeCompare(b.registrationCloses ?? "9999"),
+      )[0].termSlug;
+  } else {
+    activeTerm = candidates
+      .slice()
+      .sort((a, b) => (a.startDate ?? "9999").localeCompare(b.startDate ?? "9999"))[0]
+      .termSlug;
+  }
+  const included = candidates.filter((s) => s.termSlug === activeTerm);
 
   const openSeasons = included.filter((s) => s.status === "open");
   const hasOpen = openSeasons.length > 0;
