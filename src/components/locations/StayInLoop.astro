@@ -1,0 +1,104 @@
+---
+// "Stay in the loop" band for location pages: email capture into the
+// existing newsletter API, plus the WhatsApp group when it's actually
+// configured (join-config still ships a REPLACE_ME placeholder until the
+// group exists — never render a dead invite link). Vanilla inline script;
+// no React island needed for one form.
+import { JOIN_WHATSAPP_URL } from "@/lib/branding/join-config";
+
+const { locationSlug } = Astro.props as { locationSlug?: string };
+const whatsappReady = !JOIN_WHATSAPP_URL.includes("REPLACE_ME");
+const formId = `loop-form-${locationSlug ?? "index"}`;
+---
+
+<section class="bg-cream-2 border-y border-ink/10 py-14 px-6" aria-label="Stay in the loop">
+  <div class="max-w-[1080px] mx-auto lg:grid lg:grid-cols-[1.2fr_1fr] gap-10 items-center">
+    <div>
+      <h2 class="font-display text-3xl text-ink mb-2">Never miss a kickoff.</h2>
+      <p class="text-ink-2 text-sm max-w-md">
+        Season openings, schedule drops, and a heads-up before registration
+        closes — one email at a time, nothing else.
+      </p>
+    </div>
+    <div class="mt-6 lg:mt-0">
+      <form id={formId} class="flex flex-col sm:flex-row gap-2.5" data-testid="stay-in-loop-form">
+        <input
+          type="email"
+          name="email"
+          required
+          placeholder="you@example.com"
+          autocomplete="email"
+          inputmode="email"
+          aria-label="Email address"
+          class="flex-1 rounded-md border border-border bg-paper px-4 py-3 text-sm text-ink placeholder:text-ink-faint focus:border-primary focus:outline-none"
+        />
+        <button
+          type="submit"
+          class="font-sans font-semibold text-[13px] bg-primary text-cream px-6 py-3 rounded-md hover:bg-primary/90"
+        >
+          Keep me posted
+        </button>
+      </form>
+      <p class="loop-status text-sm mt-2 hidden" aria-live="polite"></p>
+      <p class="text-xs text-ink-muted mt-3">
+        {
+          whatsappReady ? (
+            <a
+              href={JOIN_WHATSAPP_URL}
+              target="_blank"
+              rel="noopener"
+              class="font-semibold text-primary hover:underline"
+            >
+              Or join the WhatsApp group →
+            </a>
+          ) : (
+            <a href="/join" class="font-semibold text-primary hover:underline">
+              More ways to follow — WhatsApp &amp; socials →
+            </a>
+          )
+        }
+      </p>
+    </div>
+  </div>
+</section>
+
+<script define:vars={{ formId, locationSlug }}>
+  const form = document.getElementById(formId);
+  if (form) {
+    const status = form.parentElement.querySelector(".loop-status");
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = form.email.value.trim();
+      if (!email) return;
+      const btn = form.querySelector("button");
+      btn.disabled = true;
+      try {
+        const res = await fetch("/api/public/newsletter", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email,
+            source: "location-page",
+            locationInterest: locationSlug || undefined,
+          }),
+        });
+        status.classList.remove("hidden", "text-destructive");
+        if (res.ok) {
+          status.textContent = "You're on the list — see you on the turf.";
+          status.classList.add("text-sage");
+          form.reset();
+        } else {
+          const body = await res.json().catch(() => ({}));
+          status.textContent = body.error || "That didn't go through — try again?";
+          status.classList.add("text-destructive");
+          btn.disabled = false;
+        }
+      } catch {
+        status.classList.remove("hidden");
+        status.textContent = "That didn't go through — try again?";
+        status.classList.add("text-destructive");
+        btn.disabled = false;
+      }
+    });
+  }
+</script>

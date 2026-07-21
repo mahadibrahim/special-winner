@@ -18,10 +18,20 @@ describe("getVenueFacts", () => {
     expect(all).not.toContain("3 indoor");
   });
 
-  it("downtown: pickup-first offerings, no leagues flag", () => {
+  it("downtown: pickup-first offerings, no youth", () => {
     const f = getVenueFacts("downtown")!;
     expect(f.offerings.pickup).toBe(true);
-    expect(f.offerings.rentals).toBe(true);
     expect(f.offerings.youth).toBe(false);
+  });
+
+  it("program-page role: no venue-operations content (hours, parking, rentals)", () => {
+    for (const slug of ["worthington", "downtown"]) {
+      const all = JSON.stringify(getVenueFacts(slug)).toLowerCase();
+      expect(all).not.toContain("parking");
+      expect(all).not.toContain("rental");
+      expect(all).not.toMatch(/\bhours\b/);
+      expect(all).not.toContain("11 pm");
+      expect(all).not.toContain("most nights");
+    }
   });
 });
