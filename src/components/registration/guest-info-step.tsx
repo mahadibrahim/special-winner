@@ -8,6 +8,18 @@ import { SmsConsentCheckbox } from "@/components/sms/sms-consent-checkbox"
 
 export type GuestRegistrationMode = "child" | "adult"
 
+/** Per-field validation messages surfaced after a Continue attempt with
+ *  missing/invalid fields. Keys cover both child and adult modes. */
+export interface GuestFieldErrors {
+  parentFirstName?: string
+  parentLastName?: string
+  parentEmail?: string
+  childFirstName?: string
+  childLastName?: string
+  childBirthDate?: string
+  adultBirthDate?: string
+}
+
 export interface GuestInfoStepProps {
   seasonId: string
   mode: GuestRegistrationMode
@@ -50,6 +62,10 @@ export interface GuestInfoStepProps {
   adultGender: string
   onAdultBirthDateChange: (v: string) => void
   onAdultGenderChange: (v: string) => void
+
+  /** Set by the wizard after a failed Continue attempt; null/absent = no
+   *  validation attempted yet (fields render without error styling). */
+  fieldErrors?: GuestFieldErrors | null
 }
 
 export function GuestInfoStep({
@@ -81,8 +97,16 @@ export function GuestInfoStep({
   onAdultBirthDateChange,
   onAdultGenderChange,
   lockedMode,
+  fieldErrors = null,
 }: GuestInfoStepProps) {
   const showModeToggle = !lockedMode
+  const err = (key: keyof GuestFieldErrors) => fieldErrors?.[key] ?? null
+  const errText = (key: keyof GuestFieldErrors) => {
+    const msg = err(key)
+    return msg ? <p className="text-xs text-destructive">{msg}</p> : null
+  }
+  const errClass = (key: keyof GuestFieldErrors) =>
+    err(key) ? "border-destructive" : "border-border"
   return (
     <div className="space-y-6">
       {/* Mode toggle — only shown when the season's audience is ambiguous */}
@@ -125,8 +149,9 @@ export function GuestInfoStep({
         <>
           <div>
             <p className="text-ink-muted text-sm">
-              We'll create an account for you and email a one-tap sign-in link after
-              payment. No password needed.
+              No account or password needed — just the basics below. After
+              payment we'll email you a one-tap link to manage your
+              registration.
             </p>
           </div>
 
@@ -137,19 +162,23 @@ export function GuestInfoStep({
                 <Label htmlFor="guest-parent-first" className="text-ink-muted">First name *</Label>
                 <Input
                   id="guest-parent-first"
+                  autoComplete="given-name"
                   value={parentFirstName}
                   onChange={(e) => onParentFirstNameChange(e.target.value)}
-                  className="bg-cream-2 border-border text-ink focus:border-primary"
+                  className={`bg-cream-2 text-ink focus:border-primary ${errClass("parentFirstName")}`}
                 />
+                {errText("parentFirstName")}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="guest-parent-last" className="text-ink-muted">Last name *</Label>
                 <Input
                   id="guest-parent-last"
+                  autoComplete="family-name"
                   value={parentLastName}
                   onChange={(e) => onParentLastNameChange(e.target.value)}
-                  className="bg-cream-2 border-border text-ink focus:border-primary"
+                  className={`bg-cream-2 text-ink focus:border-primary ${errClass("parentLastName")}`}
                 />
+                {errText("parentLastName")}
               </div>
             </div>
             <div className="space-y-2">
@@ -157,10 +186,13 @@ export function GuestInfoStep({
               <Input
                 id="guest-parent-email"
                 type="email"
+                autoComplete="email"
+                inputMode="email"
                 value={parentEmail}
                 onChange={(e) => onParentEmailChange(e.target.value)}
-                className="bg-cream-2 border-border text-ink focus:border-primary"
+                className={`bg-cream-2 text-ink focus:border-primary ${errClass("parentEmail")}`}
               />
+              {errText("parentEmail")}
               {emailCollision && (
                 <p className="text-xs text-ink-muted">
                   We already have an account with this email. After payment we'll
@@ -177,6 +209,8 @@ export function GuestInfoStep({
               <Input
                 id="guest-parent-phone"
                 type="tel"
+                autoComplete="tel"
+                inputMode="tel"
                 value={parentPhone}
                 onChange={(e) => onParentPhoneChange(e.target.value)}
                 className="bg-cream-2 border-border text-ink focus:border-primary"
@@ -199,8 +233,9 @@ export function GuestInfoStep({
                   id="guest-child-first"
                   value={childFirstName}
                   onChange={(e) => onChildFirstNameChange(e.target.value)}
-                  className="bg-cream-2 border-border text-ink focus:border-primary"
+                  className={`bg-cream-2 text-ink focus:border-primary ${errClass("childFirstName")}`}
                 />
+                {errText("childFirstName")}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="guest-child-last" className="text-ink-muted">Last name *</Label>
@@ -208,8 +243,9 @@ export function GuestInfoStep({
                   id="guest-child-last"
                   value={childLastName}
                   onChange={(e) => onChildLastNameChange(e.target.value)}
-                  className="bg-cream-2 border-border text-ink focus:border-primary"
+                  className={`bg-cream-2 text-ink focus:border-primary ${errClass("childLastName")}`}
                 />
+                {errText("childLastName")}
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -220,8 +256,9 @@ export function GuestInfoStep({
                   type="date"
                   value={childBirthDate}
                   onChange={(e) => onChildBirthDateChange(e.target.value)}
-                  className="bg-cream-2 border-border text-ink focus:border-primary"
+                  className={`bg-cream-2 text-ink focus:border-primary ${errClass("childBirthDate")}`}
                 />
+                {errText("childBirthDate")}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="guest-child-gender" className="text-ink-muted">Gender</Label>
@@ -245,8 +282,9 @@ export function GuestInfoStep({
           <div>
             <h3 className="text-lg font-semibold text-ink mb-2">Registrant info</h3>
             <p className="text-ink-muted text-sm">
-              We'll create an account for you and email a one-tap sign-in link after
-              payment. No password needed.
+              No account or password needed — just the basics below. After
+              payment we'll email you a one-tap link to manage your
+              registration.
             </p>
           </div>
 
@@ -256,19 +294,23 @@ export function GuestInfoStep({
                 <Label htmlFor="guest-parent-first" className="text-ink-muted">First name *</Label>
                 <Input
                   id="guest-parent-first"
+                  autoComplete="given-name"
                   value={parentFirstName}
                   onChange={(e) => onParentFirstNameChange(e.target.value)}
-                  className="bg-cream-2 border-border text-ink focus:border-primary"
+                  className={`bg-cream-2 text-ink focus:border-primary ${errClass("parentFirstName")}`}
                 />
+                {errText("parentFirstName")}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="guest-parent-last" className="text-ink-muted">Last name *</Label>
                 <Input
                   id="guest-parent-last"
+                  autoComplete="family-name"
                   value={parentLastName}
                   onChange={(e) => onParentLastNameChange(e.target.value)}
-                  className="bg-cream-2 border-border text-ink focus:border-primary"
+                  className={`bg-cream-2 text-ink focus:border-primary ${errClass("parentLastName")}`}
                 />
+                {errText("parentLastName")}
               </div>
             </div>
             <div className="space-y-2">
@@ -276,10 +318,13 @@ export function GuestInfoStep({
               <Input
                 id="guest-parent-email"
                 type="email"
+                autoComplete="email"
+                inputMode="email"
                 value={parentEmail}
                 onChange={(e) => onParentEmailChange(e.target.value)}
-                className="bg-cream-2 border-border text-ink focus:border-primary"
+                className={`bg-cream-2 text-ink focus:border-primary ${errClass("parentEmail")}`}
               />
+              {errText("parentEmail")}
               {emailCollision && (
                 <p className="text-xs text-ink-muted">
                   We already have an account with this email. After payment we'll
@@ -296,6 +341,8 @@ export function GuestInfoStep({
               <Input
                 id="guest-parent-phone"
                 type="tel"
+                autoComplete="tel"
+                inputMode="tel"
                 value={parentPhone}
                 onChange={(e) => onParentPhoneChange(e.target.value)}
                 className="bg-cream-2 border-border text-ink focus:border-primary"
@@ -313,10 +360,12 @@ export function GuestInfoStep({
                 <Input
                   id="guest-adult-birthdate"
                   type="date"
+                  autoComplete="bday"
                   value={adultBirthDate}
                   onChange={(e) => onAdultBirthDateChange(e.target.value)}
-                  className="bg-cream-2 border-border text-ink focus:border-primary"
+                  className={`bg-cream-2 text-ink focus:border-primary ${errClass("adultBirthDate")}`}
                 />
+                {errText("adultBirthDate")}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="guest-adult-gender" className="text-ink-muted">Gender (optional)</Label>

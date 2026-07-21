@@ -96,6 +96,18 @@ export default function LeagueContextRail({ season, mode, step, stepCount, varia
           <span className="font-display text-lg">{season.name}</span>
           {!success && <span className="ml-auto font-display font-bold">{amount}</span>}
         </div>
+        {/* Most registrants arrive on mobile straight from a catalog card — the
+            facts line confirms what they picked (night, venue, start) without
+            scrolling back. */}
+        <div className="text-[11px] opacity-80 mt-1">
+          {[
+            dayTime,
+            season.location.name.replace(/^Soccer One\s+/i, ""),
+            fmtDate(season.startDate) ? `Starts ${fmtDate(season.startDate)}` : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </div>
         <div className="flex gap-1 mt-2" aria-hidden>
           {Array.from({ length: stepCount }).map((_, i) => (
             <span key={i} className={`h-1 flex-1 rounded ${i < step ? (success ? "bg-ink" : "bg-primary") : "bg-cream/20"}`} />

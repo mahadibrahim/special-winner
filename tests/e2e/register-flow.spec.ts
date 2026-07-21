@@ -11,7 +11,10 @@ import { waitForHydration } from "../utils/test-helpers";
 async function openAdultSoccerSeasonId(page: Page): Promise<string | undefined> {
   const res = await page.request.get("/api/public/seasons?sport=soccer&audience=adult");
   const json = await res.json();
-  return json.seasons?.[0]?.id as string | undefined;
+  // Only an OPEN season renders the wizard — an "active" (in-progress) season
+  // shows the "registration isn't open" banner and the assertions can't hold.
+  const seasons: Array<{ id: string; status: string }> = json.seasons ?? [];
+  return seasons.find((s) => s.status === "open")?.id;
 }
 
 test("register page renders the registration experience @critical", async ({ page }) => {

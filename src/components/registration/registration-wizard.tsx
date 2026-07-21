@@ -13,7 +13,11 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { WhoStep } from "./who-step"
-import { GuestInfoStep, type GuestRegistrationMode } from "./guest-info-step"
+import {
+  GuestInfoStep,
+  type GuestRegistrationMode,
+  type GuestFieldErrors,
+} from "./guest-info-step"
 import { WaiverStep } from "./waiver-step"
 import { MediaAuthStep, type MediaAuthScope } from "./media-auth-step"
 import { PaymentStep } from "./payment-step"
@@ -1102,24 +1106,55 @@ export default function RegistrationWizard({
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
+  // Per-field guest validation. Returns null when everything required for the
+  // active mode is present. Drives the attempt-based Continue on step 1: the
+  // button stays tappable and a failed attempt marks exactly what's missing —
+  // a silently disabled button reads as "broken page" on mobile and was
+  // costing registrations (users left without typing anything).
+  const computeGuestErrors = (): GuestFieldErrors | null => {
+    const errors: GuestFieldErrors = {}
+    if (!guestParentFirstName.trim()) errors.parentFirstName = "Enter your first name."
+    if (!guestParentLastName.trim()) errors.parentLastName = "Enter your last name."
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestParentEmail)) {
+      errors.parentEmail = guestParentEmail.trim()
+        ? "That email doesn't look right — check for typos."
+        : "Enter your email."
+    }
+    if (guestMode === "adult") {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(guestAdultBirthDate))
+        errors.adultBirthDate = "Enter your birth date."
+    } else {
+      if (!guestChildFirstName.trim()) errors.childFirstName = "Enter the player's first name."
+      if (!guestChildLastName.trim()) errors.childLastName = "Enter the player's last name."
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(guestChildBirthDate))
+        errors.childBirthDate = "Enter the player's birth date."
+    }
+    return Object.keys(errors).length > 0 ? errors : null
+  }
+
+  // Errors only render after the first failed Continue attempt, then update
+  // live as the customer fixes fields (so resolved errors clear themselves).
+  const [guestAttempted, setGuestAttempted] = useState(false)
+  const guestFieldErrors = guestAttempted ? computeGuestErrors() : null
+
+  const handleContinue = () => {
+    if (currentStep === STEP_PLAYER && isGuest) {
+      const errors = computeGuestErrors()
+      if (errors) {
+        setGuestAttempted(true)
+        return
+      }
+      setGuestAttempted(false)
+    }
+    setCurrentStep(currentStep + 1)
+  }
+
   const canProceed = () => {
     switch (currentStep) {
       case 1:
-        if (isGuest) {
-          const baseValid =
-            guestParentFirstName.trim().length > 0 &&
-            guestParentLastName.trim().length > 0 &&
-            /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestParentEmail)
-          if (guestMode === "adult") {
-            return baseValid && /^\d{4}-\d{2}-\d{2}$/.test(guestAdultBirthDate)
-          }
-          return (
-            baseValid &&
-            guestChildFirstName.trim().length > 0 &&
-            guestChildLastName.trim().length > 0 &&
-            /^\d{4}-\d{2}-\d{2}$/.test(guestChildBirthDate)
-          )
-        }
+        // Guests: always allow the tap — handleContinue validates and surfaces
+        // per-field errors instead of a dead button.
+        if (isGuest) return true
         return selectedKey !== null
       case STEP_AGREEMENTS:
         // Waiver is the gate; media consent below it is optional. The full
@@ -1408,6 +1443,7 @@ export default function RegistrationWizard({
             adultGender={guestAdultGender}
             onAdultBirthDateChange={setGuestAdultBirthDate}
             onAdultGenderChange={setGuestAdultGender}
+            fieldErrors={guestFieldErrors}
           />
         )}
 
@@ -1551,14 +1587,21 @@ export default function RegistrationWizard({
           </Button>
 
           {currentStep < STEP_PAYMENT && (
-            <Button
-              onClick={() => setCurrentStep(currentStep + 1)}
-              disabled={!canProceed()}
-              className="bg-primary hover:bg-primary/90"
-            >
-              Continue
-              <ChevronRight className="w-4 h-4 ml-1" />
-            </Button>
+            <div className="flex flex-col items-end gap-1.5">
+              <Button
+                onClick={handleContinue}
+                disabled={!canProceed()}
+                className="bg-primary hover:bg-primary/90"
+              >
+                Continue
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+              {currentStep === STEP_PLAYER && isGuest && guestFieldErrors && (
+                <p className="text-xs text-destructive text-right">
+                  Fix the highlighted fields above to continue.
+                </p>
+              )}
+            </div>
           )}
         </div>
       )}

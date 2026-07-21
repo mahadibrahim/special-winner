@@ -436,31 +436,10 @@ export function PaymentStep({
               card payments include the processor fee.
             </p>
           </div>
+          {/* Card/wallet leads: ~2/3 of paid traffic is iOS and the observed
+              behavior was "tap bank → hit the ACH connect flow → back out →
+              pay by card anyway". Bank stays one tap away for the fee-averse. */}
           <div className="grid sm:grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => onMethodSelected("bank")}
-              disabled={isCreatingSession}
-              aria-pressed={paymentMethodCategory === "bank"}
-              className={`text-left flex items-start gap-3 p-4 rounded-xl border transition-all disabled:opacity-60 disabled:cursor-wait ${
-                paymentMethodCategory === "bank"
-                  ? "border-primary bg-primary/10"
-                  : "border-border hover:border-ink-faint bg-paper"
-              }`}
-            >
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <Landmark className="w-4 h-4 text-primary" />
-                  <p className="font-medium text-ink">Bank transfer</p>
-                  <span className="ml-auto text-xs font-medium text-emerald-700 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                    No fee
-                  </span>
-                </div>
-                <p className="text-sm text-ink-muted">
-                  Save the ${(previewCardSurcharge / 100).toFixed(2)} fee — pay by ACH.
-                </p>
-              </div>
-            </button>
             <button
               type="button"
               onClick={() => onMethodSelected("card")}
@@ -482,6 +461,31 @@ export function PaymentStep({
                 </div>
                 <p className="text-sm text-ink-muted">
                   Fastest — Apple Pay, Google Pay, or any card.
+                </p>
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => onMethodSelected("bank")}
+              disabled={isCreatingSession}
+              aria-pressed={paymentMethodCategory === "bank"}
+              className={`text-left flex items-start gap-3 p-4 rounded-xl border transition-all disabled:opacity-60 disabled:cursor-wait ${
+                paymentMethodCategory === "bank"
+                  ? "border-primary bg-primary/10"
+                  : "border-border hover:border-ink-faint bg-paper"
+              }`}
+            >
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <Landmark className="w-4 h-4 text-primary" />
+                  <p className="font-medium text-ink">Bank transfer</p>
+                  <span className="ml-auto text-xs font-medium text-emerald-700 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                    No fee
+                  </span>
+                </div>
+                <p className="text-sm text-ink-muted">
+                  Save the ${(previewCardSurcharge / 100).toFixed(2)} fee — pay by ACH (takes a
+                  few days to confirm).
                 </p>
               </div>
             </button>
