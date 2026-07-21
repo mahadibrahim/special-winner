@@ -6,8 +6,11 @@ const TIER_TEXT: Record<SkillLevel["key"], string> = {
   a: "text-ink", b: "text-primary", c: "text-ochre", d: "text-sage",
 };
 
-function Bars({ filled, className }: { filled: number; className?: string }) {
-  const heights = [6, 10, 14, 18];
+function Bars({ filled, flat = false, className }: { filled: number; flat?: boolean; className?: string }) {
+  // flat: four equal bars — "all levels welcome", not a strength rating.
+  // Open divisions were rendering the ascending 4/4 ladder, which reads as
+  // elite (same mark as Level A) instead of open-to-everyone.
+  const heights = flat ? [11, 11, 11, 11] : [6, 10, 14, 18];
   return (
     <span className={cn("inline-flex items-end gap-0.5 h-[18px]", className)}>
       {heights.map((h, i) => (
