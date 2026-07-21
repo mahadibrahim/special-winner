@@ -118,3 +118,48 @@ sections render nothing (page still works from DB + seasons data).
 ## Rollout
 - Single PR; docs-only spec commit precedes it. No schema changes, no
   migrations. Standard pre-push checklist (build, tsc, affected e2e specs).
+
+---
+
+## v2 addendum (owner direction, 2026-07-21 evening)
+
+**Role clarification:** Aspire location pages are PROGRAM pages. Venue
+operations content — hours, parking, field rentals — belongs to the venue
+website (the SoccerOne pages for the same building). What remains must be
+about programs, and "now vs. later" must be wired to live data, not curated.
+
+### Remove
+- Hours and parking everywhere: ticker items, "Free" parking spec tile,
+  "Is there parking?" FAQ, Hours/Parking rows in Getting Here. Drop the
+  `hours` and `parkingNote` fields from `venue-facts.ts` (this also retires
+  the owner-unverified "Weeknights to 11 PM · weekend mornings" copy).
+- Field rentals everywhere: `offerings.rentals`, the rentals card, "Book a
+  field" CTAs, Downtown's "Hourly field rentals" spec tile.
+
+### Add
+1. **Line map** — inline SVG directional map (adapted from the SoccerOne
+   yard-sign map for the same building, recolored to Aspire tokens) rendered
+   in Getting Here alongside the existing text directions and Google Maps
+   link. Per-venue: rendered only where a map is defined (Worthington now).
+2. **Coming up strip ("later")** — below What's Happening: forming future
+   terms grouped by term (label, division count, starts date), each linking
+   to its term page (which carries interest capture). Data: the same seasons
+   fetch; new pure helper `summarizeUpcomingTerms(seasons, excludeTermSlug)`
+   → `Array<{ termSlug, termLabel, count, startDate }>` sorted by startDate.
+3. **Wired pickup card** — the Drop-in pickup card fetches
+   `/api/dropin/sessions?location=<slug>` (already supported); with upcoming
+   sessions it shows the next session's day/time and session count this week;
+   with none it says "Sessions post weekly — see the schedule". No static
+   cadence claims (retires "pickup most nights").
+4. **Stay-in-the-loop band** — on `/locations` and `/locations/[slug]`,
+   above the footer: email capture posting to the existing newsletter API +
+   "Join the WhatsApp group" button rendered ONLY when `JOIN_WHATSAPP_URL`
+   (join-config) is not the REPLACE_ME placeholder, else a "More ways to
+   follow →" link to `/join`. Note: the site footer already carries email
+   capture on every page; this band is the location-page-level CTA the owner
+   asked for.
+
+### Unchanged
+Live term-scoped league card + pricing band (#440), facility tiles minus
+parking, photos, Good to Know minus the parking question, CTA targeting
+rules, SEO blocks, placeholder ban.
