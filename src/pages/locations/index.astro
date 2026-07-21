@@ -2,9 +2,31 @@
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { getPublicLocations } from "@/lib/programs/public-filters";
 import { setMarketingEdgeCache } from "@/lib/http/edge-cache";
+import { getVenueFacts } from "@/lib/locations/venue-facts";
+import { summarizeOpenLeagues } from "@/lib/locations/season-summary";
 
 const orgId = Astro.locals.organization?.id ?? null;
 const locations = orgId ? await getPublicLocations(orgId) : [];
+
+const enriched = await Promise.all(
+  locations.map(async (loc) => {
+    let seasons: any[] = [];
+    try {
+      const res = await fetch(
+        `${Astro.url.origin}/api/public/seasons?location=${encodeURIComponent(loc.slug)}&status=open`,
+        { headers: { cookie: Astro.request.headers.get("cookie") ?? "" } },
+      );
+      if (res.ok) seasons = (await res.json()).seasons ?? [];
+    } catch { /* card renders without live chip */ }
+    return {
+      ...loc,
+      facts: getVenueFacts(loc.slug),
+      openCount: seasons.length,
+      league: summarizeOpenLeagues(seasons),
+    };
+  }),
+);
+
 setMarketingEdgeCache(Astro);
 ---
 
@@ -18,31 +40,40 @@ setMarketingEdgeCache(Astro);
 
   <main id="main-content" class="flex-1 pt-28 pb-16">
     <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
-      <h1 class="font-display text-ink mb-3" style="font-size: clamp(2rem, 5vw, 3.5rem); letter-spacing: -0.025em;">
-        Our locations
-      </h1>
-      <p class="text-lg text-ink-muted max-w-2xl mb-10">
-        Aspire Sports runs programs across central Ohio. Pick a venue to see
-        what's on.
-      </p>
+      <h1 class="font-display text-ink mb-3" style="font-size: clamp(2rem, 5vw, 3.5rem); letter-spacing: -0.025em;">Where we play.</h1>
+      <p class="text-lg text-ink-muted max-w-2xl mb-10">Indoor venues across central Ohio — year-round, rain or shine.</p>
 
       {
         locations.length === 0 ? (
           <p class="text-ink-muted">Locations are being finalized — check back soon.</p>
         ) : (
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {locations.map((loc) => (
-              <a
-                href={`/locations/${loc.slug}`}
-                class="block p-6 rounded-xl border border-border bg-paper hover:border-primary/40 transition-colors"
-              >
-                <div class="font-display text-xl text-ink">{loc.name}</div>
-                {(loc.city || loc.state) && (
-                  <div class="text-sm text-ink-muted mt-1">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {enriched.map((loc) => (
+              <div class="rounded-2xl border border-border bg-paper overflow-hidden">
+                <a href={`/locations/${loc.slug}`}>
+                  <img src={loc.facts?.photos[0]?.src ?? "/media/soccerone/still-action.jpg"} alt={`${loc.name} facility`} loading="lazy" class="w-full h-44 object-cover" />
+                </a>
+                <div class="p-6">
+                  <a href={`/locations/${loc.slug}`} class="font-display text-2xl text-ink hover:text-primary">{loc.name}</a>
+                  <p class="font-mono text-[10px] tracking-widest uppercase text-ink-muted mt-1">
                     {[loc.city, loc.state].filter(Boolean).join(", ")}
+                  </p>
+                  <div class="flex flex-wrap gap-2 mt-4">
+                    {loc.openCount > 0 && <span class="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-sage/15 text-sage">● {loc.openCount} programs open</span>}
+                    {loc.facts?.specs.slice(0, 2).map((sp) => (
+                      <span class="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-cream-2 text-ink-2">{sp.n} {sp.label.split("·")[0].trim().toLowerCase()}</span>
+                    ))}
                   </div>
-                )}
-              </a>
+                  <div class="flex flex-wrap gap-2.5 mt-5">
+                    {loc.league ? (
+                      <a href={loc.league.termHref} class="font-sans font-semibold text-xs bg-primary text-cream px-4 py-2.5 rounded-md">Adult leagues →</a>
+                    ) : loc.facts?.offerings.pickup ? (
+                      <a href="/adult/pickup" class="font-sans font-semibold text-xs bg-primary text-cream px-4 py-2.5 rounded-md">Play pickup →</a>
+                    ) : null}
+                    <a href={`/locations/${loc.slug}`} class="font-sans font-semibold text-xs border border-border text-ink px-4 py-2.5 rounded-md hover:border-primary/40">Venue page</a>
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
         )
