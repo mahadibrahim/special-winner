@@ -2,7 +2,10 @@
 // program-related stays live from the seasons API — this holds only the
 // structural facts of the building (owner-verified 2026-07-21).
 
-export interface VenueSpec { n: string; label: string }
+export interface VenueSpec {
+  n: string;
+  label: string;
+}
 
 export interface VenueFacts {
   /** One-line identity under the hero title. */
@@ -44,12 +47,19 @@ const FACTS: Record<string, VenueFacts> = {
       "East on Campus View Blvd",
       "Lakeview Plaza — we're in Suite B",
     ],
-    parkingNote: "Free lot right outside the door — designed for family drop-off.",
+    parkingNote:
+      "Free lot right outside the door — designed for family drop-off.",
     hours: "Weeknights to 11 PM · weekend mornings",
     photos: [
-      { src: "/media/soccerone/still-action.jpg", alt: "Match on the boarded turf field" },
+      {
+        src: "/media/soccerone/still-action.jpg",
+        alt: "Match on the boarded turf field",
+      },
       { src: "/media/soccerone/still-entrance.jpg", alt: "Facility entrance" },
-      { src: "/media/soccerone/still-party.jpg", alt: "Spectator and event space" },
+      {
+        src: "/media/soccerone/still-party.jpg",
+        alt: "Spectator and event space",
+      },
     ],
     heroPoster: "/media/soccerone/worthington-hero-poster.jpg",
   },
@@ -68,7 +78,9 @@ const FACTS: Record<string, VenueFacts> = {
     ],
     comingSoon: [],
     offerings: { youth: false, pickup: true, rentals: true },
-    directions: ["Near the OSU campus — exact walking/parking notes on the booking page"],
+    directions: [
+      "Near the OSU campus — exact walking/parking notes on the booking page",
+    ],
     parkingNote: "Street and lot parking nearby.",
     hours: "Sessions listed on the pickup schedule",
     photos: [

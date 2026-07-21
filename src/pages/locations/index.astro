@@ -13,16 +13,25 @@ const enriched = await Promise.all(
     let seasons: any[] = [];
     try {
       const res = await fetch(
-        `${Astro.url.origin}/api/public/seasons?location=${encodeURIComponent(loc.slug)}&status=open`,
+        `${Astro.url.origin}/api/public/seasons?location=${encodeURIComponent(loc.slug)}`,
         { headers: { cookie: Astro.request.headers.get("cookie") ?? "" } },
       );
       if (res.ok) seasons = (await res.json()).seasons ?? [];
     } catch { /* card renders without live chip */ }
+    const league = summarizeOpenLeagues(seasons);
+    // Omitting ?status= now returns open/active/forming, so the raw array
+    // length is no longer a safe proxy for "open" — use the summarizer's
+    // divisionCount (open+forming adult leagues) when there is one, else
+    // fall back to counting seasons actually in status "open" (covers
+    // youth-only / non-league venues).
+    const openCount = league
+      ? league.divisionCount
+      : seasons.filter((s) => s.status === "open").length;
     return {
       ...loc,
       facts: getVenueFacts(loc.slug),
-      openCount: seasons.length,
-      league: summarizeOpenLeagues(seasons),
+      openCount,
+      league,
     };
   }),
 );

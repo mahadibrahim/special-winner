@@ -14,15 +14,21 @@ async function firstLocationSlug(page: Page): Promise<string | null> {
 
 test("locations index renders venue cards with CTAs", async ({ page }) => {
   await page.goto("/locations", { waitUntil: "domcontentloaded" });
-  await expect(page.getByRole("heading", { name: /where we play/i })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: /where we play/i }),
+  ).toBeVisible();
   const venueLinks = page.locator('a[href^="/locations/"]');
   expect(await venueLinks.count()).toBeGreaterThan(0);
 });
 
-test("venue page renders venue-first sections with no template placeholders", async ({ page }) => {
+test("venue page renders venue-first sections with no template placeholders", async ({
+  page,
+}) => {
   const slug = await firstLocationSlug(page);
   test.skip(!slug, "no public locations in this env");
-  const res = await page.goto(`/locations/${slug}`, { waitUntil: "domcontentloaded" });
+  const res = await page.goto(`/locations/${slug}`, {
+    waitUntil: "domcontentloaded",
+  });
   expect(res!.status()).toBe(200);
   // Hero renders the venue name
   await expect(page.locator("h1")).toContainText(/Aspire in/i);
@@ -38,12 +44,16 @@ test("venue page renders venue-first sections with no template placeholders", as
   expect(body).not.toContain("{{");
   expect(body).not.toMatch(/TBD/);
   // No CTA points at /programs
-  const programsLinks = await page.locator('#main-content a[href^="/programs"]').count();
+  const programsLinks = await page
+    .locator('#main-content a[href^="/programs"]')
+    .count();
   expect(programsLinks).toBe(0);
 });
 
 test("venue page 404s unknown slugs (no redirect)", async ({ page }) => {
-  const res = await page.goto("/locations/loc-does-not-exist", { waitUntil: "domcontentloaded" });
+  const res = await page.goto("/locations/loc-does-not-exist", {
+    waitUntil: "domcontentloaded",
+  });
   const status = res!.status();
   if (status === 404) {
     expect(status).toBe(404);

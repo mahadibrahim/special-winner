@@ -20,7 +20,9 @@ describe("summarizeOpenLeagues", () => {
   it("returns null when no open adult league seasons", () => {
     expect(summarizeOpenLeagues([])).toBeNull();
     expect(summarizeOpenLeagues([season({ status: "active" })])).toBeNull();
-    expect(summarizeOpenLeagues([season({ ageGroup: { minAge: 6, maxAge: 12 } })])).toBeNull();
+    expect(
+      summarizeOpenLeagues([season({ ageGroup: { minAge: 6, maxAge: 12 } })]),
+    ).toBeNull();
   });
 
   it("summarizes divisions, nights, early-bird-aware prices, and term link", () => {
@@ -35,10 +37,21 @@ describe("summarizeOpenLeagues", () => {
     expect(s.termSlug).toBe("fall-2026");
     expect(s.termHref).toBe("/adult/leagues/soccer/fall-2026");
     expect(s.closes).toBe("2026-09-03T12:00:00.000Z");
+    expect(s.hasOpen).toBe(true);
   });
 
   it("solo price null when no individual signup", () => {
     const s = summarizeOpenLeagues([season({ signupModes: ["team"] })])!;
     expect(s.soloPrice).toBeNull();
+  });
+
+  it("forming-only seasons still summarize, but with hasOpen false and no closes date", () => {
+    const s = summarizeOpenLeagues([
+      season({ status: "forming", registrationCloses: null }),
+    ])!;
+    expect(s).not.toBeNull();
+    expect(s.hasOpen).toBe(false);
+    expect(s.closes).toBeNull();
+    expect(s.divisionCount).toBe(1);
   });
 });

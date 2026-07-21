@@ -8,7 +8,9 @@ describe("getVenueFacts", () => {
 
   it("worthington: 2 turf fields, futsal coming, no concession text", () => {
     const f = getVenueFacts("worthington")!;
-    expect(f.specs.find((s) => s.label.toLowerCase().includes("turf"))?.n).toBe("2");
+    expect(f.specs.find((s) => s.label.toLowerCase().includes("turf"))?.n).toBe(
+      "2",
+    );
     expect(f.comingSoon.join(" ")).toMatch(/futsal/i);
     const all = JSON.stringify(f).toLowerCase();
     expect(all).not.toContain("concession");
