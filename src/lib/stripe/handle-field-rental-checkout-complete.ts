@@ -204,6 +204,7 @@ export async function handleFieldRentalCheckoutComplete(
     if (renterUserId) {
       capturePaymentCompleted({
         distinctId: renterUserId,
+        clientDistinctId: md?.ph_distinct_id,
         kind: "field_rental",
         amountCents: paidCents,
         brand,
