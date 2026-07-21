@@ -34,7 +34,6 @@ import { CONSENT_COPY } from "@/lib/consents/marketing-channels";
 interface SessionLite {
   venueId: string | null;
   venueName: string | null;
-  sportOrClassLabel: string;
 }
 
 interface NotifyResponse {
@@ -47,20 +46,17 @@ interface NotifyResponse {
 
 type Phase = "idle" | "awaitingCode" | "awaitingEmail" | "pendingConfirm" | "done";
 
-function capitalize(s: string): string {
-  return s.length ? s[0].toUpperCase() + s.slice(1) : s;
-}
-
 export function PickupNotifyBanner({ signedIn: signedInProp }: { signedIn?: boolean }) {
   useHydrationBeacon();
   const uid = useId();
 
   const [signedIn, setSignedIn] = useState<boolean | null>(signedInProp ?? null);
   const [venues, setVenues] = useState<Array<{ id: string; name: string }>>([]);
-  const [sports, setSports] = useState<string[]>([]);
 
+  // "all" = Anywhere. Location is the only alert filter: it matches on a stable
+  // venue id, unlike sport (a free-text label that rarely matched). The picker
+  // hides itself when there's ≤1 venue, so a single-location org sees no choice.
   const [venueId, setVenueId] = useState("all");
-  const [sport, setSport] = useState("all");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   // Consent boxes MUST default unchecked — no pre-ticked marketing opt-in
@@ -103,7 +99,8 @@ export function PickupNotifyBanner({ signedIn: signedInProp }: { signedIn?: bool
     };
   }, [signedInProp]);
 
-  // Venue/sport option lists from the live schedule (same source as the finder)
+  // Distinct venues from the live schedule (same source as the finder). Only
+  // used to build the location picker — which stays hidden unless there are 2+.
   useEffect(() => {
     let cancelled = false;
     fetch("/api/dropin/sessions")
@@ -111,16 +108,13 @@ export function PickupNotifyBanner({ signedIn: signedInProp }: { signedIn?: bool
       .then((body: { sessions: SessionLite[] }) => {
         if (cancelled) return;
         const vmap = new Map<string, string>();
-        const sset = new Set<string>();
         for (const s of body.sessions ?? []) {
           if (s.venueId && s.venueName) vmap.set(s.venueId, s.venueName);
-          if (s.sportOrClassLabel) sset.add(s.sportOrClassLabel.toLowerCase());
         }
         setVenues(Array.from(vmap, ([id, name]) => ({ id, name })));
-        setSports(Array.from(sset));
       })
       .catch(() => {
-        // Silent — the form still works with "All locations" / "All sports".
+        // Silent — the form still works with "Anywhere".
       });
     return () => {
       cancelled = true;
@@ -159,7 +153,6 @@ export function PickupNotifyBanner({ signedIn: signedInProp }: { signedIn?: bool
           phone: wantSms ? phone.trim() : undefined,
           email: wantEmail ? email.trim() : undefined,
           venueId: venueId === "all" ? null : venueId,
-          sport: sport === "all" ? null : sport,
           turnstileToken: turnstileToken.current ?? undefined,
         }),
       });
@@ -323,44 +316,45 @@ export function PickupNotifyBanner({ signedIn: signedInProp }: { signedIn?: bool
           <div className="p-6 space-y-5">
             {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label htmlFor={`${uid}-venue`} className="block text-xs font-medium text-ink-muted">
-                  Location
-                </label>
-                <select
-                  id={`${uid}-venue`}
-                  value={venueId}
-                  onChange={(e) => setVenueId(e.target.value)}
-                  className={inputClass}
-                >
-                  <option value="all">All locations</option>
+            {/* Location picker — tap-pills, not a dropdown. Only shown when
+                there's a real choice (2+ venues in the live schedule);
+                otherwise the alert just means "anywhere" and no control
+                appears. Sport was removed: it matched on a fragile free-text
+                label, and pickup is one sport for now. */}
+            {venues.length > 1 && (
+              <div className="space-y-2">
+                <span className="block text-xs font-medium text-ink-muted">Where do you play?</span>
+                <div className="flex flex-wrap gap-2" role="group" aria-label="Location">
+                  <button
+                    type="button"
+                    onClick={() => setVenueId("all")}
+                    aria-pressed={venueId === "all"}
+                    className={`px-3.5 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                      venueId === "all"
+                        ? "bg-ink text-cream border-ink"
+                        : "bg-paper text-ink-muted border-border hover:text-ink hover:border-ink-faint"
+                    }`}
+                  >
+                    Anywhere
+                  </button>
                   {venues.map((v) => (
-                    <option key={v.id} value={v.id}>
+                    <button
+                      key={v.id}
+                      type="button"
+                      onClick={() => setVenueId(v.id)}
+                      aria-pressed={venueId === v.id}
+                      className={`px-3.5 py-1.5 rounded-full text-sm font-medium border transition-colors ${
+                        venueId === v.id
+                          ? "bg-ink text-cream border-ink"
+                          : "bg-paper text-ink-muted border-border hover:text-ink hover:border-ink-faint"
+                      }`}
+                    >
                       {v.name}
-                    </option>
+                    </button>
                   ))}
-                </select>
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <label htmlFor={`${uid}-sport`} className="block text-xs font-medium text-ink-muted">
-                  Sport
-                </label>
-                <select
-                  id={`${uid}-sport`}
-                  value={sport}
-                  onChange={(e) => setSport(e.target.value)}
-                  className={inputClass}
-                >
-                  <option value="all">All sports</option>
-                  {sports.map((s) => (
-                    <option key={s} value={s}>
-                      {capitalize(s)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
+            )}
 
             {/* Phone + SMS consent (primary). Input is ALWAYS visible so the
                 form is usable at a glance; the checkbox is the affirmative
