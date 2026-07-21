@@ -15,6 +15,9 @@ export type Division = {
   status: "open" | "forming" | "active" | "completed";
   spotsLabel: string;
   signupModes: string[];
+  /** Solo (per-player) list price in dollars — null when the season has no
+   *  individual signup or the API didn't provide one. */
+  price?: number | null;
 };
 
 export type DivisionFilters = {

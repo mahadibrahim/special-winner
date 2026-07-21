@@ -55,6 +55,9 @@ const divisions: Division[] = seasons.map((s) => ({
   status: s.status,
   spotsLabel: s.status === "completed" ? "final" : s.status === "forming" ? "forming" : s.spotsLeft != null ? `${s.spotsLeft} left` : "open",
   signupModes: s.signupModes ?? ["individual"],
+  // Solo price on the row — paid-traffic sessions showed people tapping
+  // Register just to find the price, then bouncing off the form.
+  price: (s.signupModes ?? ["individual"]).includes("individual") ? (s.effectivePrice ?? s.price ?? null) : null,
 }));
 
 // A fully-wrapped term is an archive: standings are the content, and no

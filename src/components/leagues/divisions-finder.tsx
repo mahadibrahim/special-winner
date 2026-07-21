@@ -131,6 +131,11 @@ function DivisionRow({ d, term }: { d: Division; term: string }) {
           <div className="font-display font-semibold text-base">{d.name}</div>
           <div className="font-mono text-[10.5px] tracking-wide uppercase text-ink-muted mt-0.5">
             {d.gender === "mens" ? "Men's" : d.gender === "womens" ? "Women's" : "Coed"} · Level {d.level.toUpperCase()}
+            {/* Solo price up front — paid-traffic replays showed price-hunters
+                tapping Register just to learn the cost, then bouncing. */}
+            {d.price != null && d.status !== "completed" && (
+              <> · <span className="text-ink font-semibold">${d.price.toLocaleString()}/player</span></>
+            )}
           </div>
         </div>
         <div className="text-[13px] text-ink-2">{d.day ? <b className="text-ink">{labelDay(d.day)}</b> : null} {d.time ? `· ${d.time}` : ""}</div>
