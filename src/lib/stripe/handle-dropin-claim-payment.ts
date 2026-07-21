@@ -199,6 +199,7 @@ export async function handleDropInClaimPayment(
 
     capturePaymentCompleted({
       distinctId: bookingUserId,
+      clientDistinctId: paymentIntent.metadata?.ph_distinct_id,
       kind: "dropin",
       amountCents: result.paidCents,
       brand: bookingBrand,

@@ -86,6 +86,7 @@ export async function handleCheckoutSessionCompleted(
 
   capturePaymentCompleted({
     distinctId: userId,
+    clientDistinctId: session.metadata?.ph_distinct_id,
     kind: "membership",
     amountCents,
     brand,

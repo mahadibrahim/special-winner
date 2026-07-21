@@ -163,6 +163,7 @@ export async function handleDropInWalkUpPayment(
 
     capturePaymentCompleted({
       distinctId: userId,
+      clientDistinctId: intent.metadata?.ph_distinct_id,
       kind: "dropin",
       amountCents: result.paidCents,
       brand: normalizeBrand(intent.metadata?.brand),

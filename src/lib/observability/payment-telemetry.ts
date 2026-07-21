@@ -23,6 +23,16 @@ export type PaymentKind = "registration" | "dropin" | "field_rental" | "membersh
 export interface PaymentCompletedInput {
   /** Paying user's id — used as the PostHog distinct id. */
   distinctId: string;
+  /**
+   * The browser's PostHog distinct id, threaded through Stripe metadata as
+   * `ph_distinct_id` by the checkout-creating route (collectAdAttribution).
+   * When present, the event is captured against THIS id — the one the whole
+   * anonymous pre-payment journey used — so funnels can join the paid step,
+   * and the two identities are aliased into one person. Guests never call
+   * identify (their account is created after payment), so without this the
+   * paid step lands on a separate person and every funnel shows 0 paid.
+   */
+  clientDistinctId?: string | null;
   kind: PaymentKind;
   amountCents: number;
   /** Host-derived brand attribution, matching the charge metadata. */
@@ -35,8 +45,16 @@ export interface PaymentCompletedInput {
 export function capturePaymentCompleted(input: PaymentCompletedInput): void {
   try {
     const posthog = getPostHogServer();
+    if (input.clientDistinctId && input.clientDistinctId !== input.distinctId) {
+      // Merge the anonymous browser person into the user person so history
+      // (the pre-payment funnel) and future server events unify.
+      posthog.alias({
+        distinctId: input.clientDistinctId,
+        alias: input.distinctId,
+      });
+    }
     posthog.capture({
-      distinctId: input.distinctId,
+      distinctId: input.clientDistinctId || input.distinctId,
       event: "payment_completed",
       properties: {
         // PostHog revenue analytics reads `revenue` (major units) + `currency`.
@@ -45,6 +63,9 @@ export function capturePaymentCompleted(input: PaymentCompletedInput): void {
         amount_cents: input.amountCents,
         payment_kind: input.kind,
         brand: input.brand,
+        // Always carry the DB user id, whichever distinct id the event
+        // landed on — keeps revenue user-attributable post-alias.
+        user_id: input.distinctId,
         organization_id: input.organizationId,
         ...input.metadata,
       },
