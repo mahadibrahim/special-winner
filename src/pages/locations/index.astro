@@ -20,13 +20,11 @@ const enriched = await Promise.all(
     } catch { /* card renders without live chip */ }
     const league = summarizeOpenLeagues(seasons);
     // Omitting ?status= now returns open/active/forming, so the raw array
-    // length is no longer a safe proxy for "open" — use the summarizer's
-    // divisionCount (open+forming adult leagues) when there is one, else
-    // fall back to counting seasons actually in status "open" (covers
-    // youth-only / non-league venues).
-    const openCount = league
-      ? league.divisionCount
-      : seasons.filter((s) => s.status === "open").length;
+    // length is no longer a safe proxy for "open" — count seasons actually
+    // in status "open" directly. Do NOT borrow league.divisionCount: that
+    // includes forming divisions (which aren't open) and, at a mixed venue,
+    // would drop open non-league (youth) seasons from the chip's count.
+    const openCount = seasons.filter((s) => s.status === "open").length;
     return {
       ...loc,
       facts: getVenueFacts(loc.slug),
