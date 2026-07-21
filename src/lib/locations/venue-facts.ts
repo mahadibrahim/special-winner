@@ -76,12 +76,15 @@ const FACTS: Record<string, VenueFacts> = {
     comingSoon: [],
     offerings: { youth: false, pickup: true },
     directions: [
-      "Near the OSU campus — exact walking notes on the session page",
+      "I-71 → E 5th Ave exit, east on 5th",
+      "Right (south) on St Clair Ave",
+      "Left (east) on E Starr Ave — the long building on your left, between Gray St and Loew St",
     ],
-    photos: [
-      { src: "/media/soccerone/still-action.jpg", alt: "Indoor field in play" },
-      { src: "/media/soccerone/still-entrance.jpg", alt: "Facility entrance" },
-    ],
+    // Photo strip intentionally empty until Downtown photography exists —
+    // reusing Worthington's stills here showed the wrong building. To fill:
+    // drop files in public/media/aspire/ (e.g. downtown-field.jpg,
+    // downtown-entrance.jpg) and list them here.
+    photos: [],
     heroPoster: "/media/soccerone/worthington-hero-poster.jpg",
   },
 };

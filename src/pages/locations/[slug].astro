@@ -430,7 +430,7 @@ const breadcrumbSchema = breadcrumbJsonLd([
             Open in Google Maps →
           </a>
         </div>
-        {slug === "worthington" ? (
+        {slug === "worthington" || slug === "downtown" ? (
           <VenueMap slug={slug} />
         ) : (
           <img
