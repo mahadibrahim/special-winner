@@ -66,7 +66,9 @@ export function StandingsPanel({ divisions, weekStart, term }: { divisions: Divi
             )}
           >
             <span className={cn("inline-flex items-end gap-0.5 h-3", TIER_TEXT[d.level])}>
-              {[4, 7, 10, 13].map((h, i) => (
+              {/* Open divisions get equal bars (all levels welcome), not the
+                  ascending ladder that reads as a top-strength rating. */}
+              {(d.level === "open" ? [8, 8, 8, 8] : [4, 7, 10, 13]).map((h, i) => (
                 <i key={i} style={{ height: h }} className={cn("w-0.5 rounded-sm block", i < (BARS_FOR[d.level] ?? 4) ? "bg-current" : "bg-cream-3")} />
               ))}
             </span>
