@@ -4,6 +4,7 @@ import { getPublicLocations } from "@/lib/programs/public-filters";
 import { setMarketingEdgeCache } from "@/lib/http/edge-cache";
 import { getVenueFacts } from "@/lib/locations/venue-facts";
 import { summarizeOpenLeagues } from "@/lib/locations/season-summary";
+import StayInLoop from "@/components/locations/StayInLoop.astro";
 
 const orgId = Astro.locals.organization?.id ?? null;
 const locations = orgId ? await getPublicLocations(orgId) : [];
@@ -85,6 +86,10 @@ setMarketingEdgeCache(Astro);
           </div>
         )
       }
+    </div>
+
+    <div class="mt-16">
+      <StayInLoop />
     </div>
   </main>
 </BaseLayout>

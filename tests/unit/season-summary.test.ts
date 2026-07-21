@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { summarizeOpenLeagues } from "@/lib/locations/season-summary";
+import {
+  summarizeOpenLeagues,
+  summarizeUpcomingTerms,
+} from "@/lib/locations/season-summary";
 
 const season = (over: Record<string, unknown> = {}) => ({
   status: "open",
@@ -106,5 +109,51 @@ describe("summarizeOpenLeagues", () => {
     expect(s.hasOpen).toBe(false);
     expect(s.closes).toBeNull();
     expect(s.divisionCount).toBe(1);
+  });
+});
+
+describe("summarizeUpcomingTerms", () => {
+  it("groups forming future terms, excludes the active term, sorts by start date", () => {
+    const upcoming = summarizeUpcomingTerms(
+      [
+        season(), // open fall — not forming, ignored
+        season({
+          status: "forming",
+          termSlug: "fall-2026", // same term as the active card — excluded
+          registrationCloses: null,
+        }),
+        season({
+          status: "forming",
+          termSlug: "spring-2027",
+          termLabel: "Spring 2027",
+          registrationCloses: null,
+          startDate: "2027-03-01",
+        }),
+        season({
+          status: "forming",
+          termSlug: "winter-1-2627",
+          termLabel: "Winter 1",
+          registrationCloses: null,
+          startDate: "2026-11-20",
+        }),
+        season({
+          status: "forming",
+          termSlug: "winter-1-2627",
+          termLabel: "Winter 1",
+          registrationCloses: null,
+          startDate: "2026-11-22",
+        }),
+      ],
+      "fall-2026",
+    );
+    expect(upcoming.map((t) => t.termSlug)).toEqual(["winter-1-2627", "spring-2027"]);
+    expect(upcoming[0].count).toBe(2);
+    expect(upcoming[0].startDate).toBe("2026-11-20"); // earliest within the term
+    expect(upcoming[0].termHref).toBe("/adult/leagues/soccer/winter-1-2627");
+    expect(upcoming[1].termLabel).toBe("Spring 2027");
+  });
+
+  it("returns empty for no forming terms", () => {
+    expect(summarizeUpcomingTerms([season()], "fall-2026")).toEqual([]);
   });
 });

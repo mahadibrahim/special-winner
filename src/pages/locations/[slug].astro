@@ -5,7 +5,12 @@ import { locations, programs, seasons, organizations } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { breadcrumbJsonLd } from "@/lib/seo/breadcrumbs";
 import { getVenueFacts } from "@/lib/locations/venue-facts";
-import { summarizeOpenLeagues } from "@/lib/locations/season-summary";
+import {
+  summarizeOpenLeagues,
+  summarizeUpcomingTerms,
+} from "@/lib/locations/season-summary";
+import VenueMap from "@/components/locations/VenueMap.astro";
+import StayInLoop from "@/components/locations/StayInLoop.astro";
 
 // SSR — request-time queries against the catalog. Each location's open
 // programs change as seasons open and close.
@@ -101,6 +106,43 @@ const leagueSummary = summarizeOpenLeagues(venueSeasons);
 const youthOpenCount = venueSeasons.filter(
   (s) => s.status === "open" && (s.ageGroup?.maxAge ?? 99) < 18,
 ).length;
+
+// "Later": forming future terms beyond the one the main card shows.
+const upcomingTerms = summarizeUpcomingTerms(
+  venueSeasons,
+  leagueSummary?.termSlug ?? null,
+);
+
+// Live pickup: next upcoming session at this venue. Wired, not curated —
+// the card must never claim a cadence the schedule doesn't back up.
+let nextPickup: { label: string; upcomingCount: number } | null = null;
+if (facts?.offerings.pickup) {
+  try {
+    const res = await fetch(
+      `${Astro.url.origin}/api/dropin/sessions?location=${encodeURIComponent(slug)}`,
+      { headers: { cookie: Astro.request.headers.get("cookie") ?? "" } },
+    );
+    if (res.ok) {
+      const sessions: Array<{ startsAt: string }> =
+        (await res.json()).sessions ?? [];
+      const now = Date.now();
+      const upcoming = sessions
+        .filter((s) => new Date(s.startsAt).getTime() > now)
+        .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+      if (upcoming.length > 0) {
+        const label = new Date(upcoming[0].startsAt).toLocaleString("en-US", {
+          weekday: "short",
+          hour: "numeric",
+          minute: "2-digit",
+          timeZone: "America/New_York",
+        });
+        nextPickup = { label, upcomingCount: upcoming.length };
+      }
+    }
+  } catch (err) {
+    console.error("[locations/[slug]] dropin sessions fetch failed", err);
+  }
+}
 
 const fullAddress = [location.addressLine1, location.addressLine2, cityState, location.postalCode]
   .filter(Boolean)
@@ -228,21 +270,42 @@ const breadcrumbSchema = breadcrumbJsonLd([
           )}
           {facts?.offerings.pickup && (
             <a href="/adult/pickup" class="block p-5 rounded-xl border border-border bg-paper hover:border-primary/40">
-              <p class="font-mono text-[10px] tracking-widest uppercase text-ink-muted font-bold">Show up & play</p>
+              <p class="font-mono text-[10px] tracking-widest uppercase text-ink-muted font-bold">
+                {nextPickup ? `Next session · ${nextPickup.label}` : "Show up & play"}
+              </p>
               <h3 class="font-display text-xl text-ink mt-1">Drop-in pickup</h3>
-              <p class="text-sm text-ink-2 mt-1">Balanced teams, pay per session, no commitment.</p>
-              <span class="text-sm font-semibold text-primary mt-2 inline-block">See sessions →</span>
-            </a>
-          )}
-          {facts?.offerings.rentals && (
-            <a href="/rentals" class="block p-5 rounded-xl border border-border bg-paper hover:border-primary/40">
-              <p class="font-mono text-[10px] tracking-widest uppercase text-ink-muted font-bold">By the hour</p>
-              <h3 class="font-display text-xl text-ink mt-1">Field rentals</h3>
-              <p class="text-sm text-ink-2 mt-1">Training, parties, or team practice.</p>
-              <span class="text-sm font-semibold text-primary mt-2 inline-block">Book a field →</span>
+              <p class="text-sm text-ink-2 mt-1">
+                {nextPickup
+                  ? `${nextPickup.upcomingCount} upcoming session${nextPickup.upcomingCount === 1 ? "" : "s"} — balanced teams, pay per session.`
+                  : "Balanced teams, pay per session. Sessions post weekly — see the schedule."}
+              </p>
+              <span class="text-sm font-semibold text-primary mt-2 inline-block">
+                {nextPickup ? "Grab a spot →" : "See the schedule →"}
+              </span>
             </a>
           )}
         </div>
+
+        {/* "Later" — forming future terms, wired from the same catalog. */}
+        {upcomingTerms.length > 0 && (
+          <div class="mt-10" data-testid="coming-up">
+            <h3 class="font-mono text-[11px] tracking-widest uppercase text-ink-muted mb-3">Coming up</h3>
+            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {upcomingTerms.map((t) => (
+                <a href={t.termHref} class="flex items-baseline justify-between gap-3 p-4 rounded-xl border border-dashed border-border bg-paper hover:border-primary/40">
+                  <span>
+                    <span class="font-display text-lg text-ink">{t.termLabel}</span>
+                    <span class="block text-xs text-ink-muted mt-0.5">
+                      {t.count} division{t.count === 1 ? "" : "s"}
+                      {fmtCloses(t.startDate) ? ` · starts ${fmtCloses(t.startDate)}` : ""}
+                    </span>
+                  </span>
+                  <span class="text-xs font-semibold text-primary whitespace-nowrap">Get notified →</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </section>
 
@@ -322,10 +385,6 @@ const breadcrumbSchema = breadcrumbJsonLd([
         <h2 class="font-display text-3xl text-ink mb-8">Good to know</h2>
         <div class="grid sm:grid-cols-2 gap-x-12 gap-y-7 max-w-3xl">
           <div>
-            <h3 class="font-display italic text-lg text-ink mb-1.5">Is there parking?</h3>
-            <p class="text-sm text-ink-2">{facts?.parkingNote ?? "Parking details on the venue booking page."}</p>
-          </div>
-          <div>
             <h3 class="font-display italic text-lg text-ink mb-1.5">What ages do you serve?</h3>
             <p class="text-sm text-ink-2">
               {facts?.offerings.youth
@@ -353,24 +412,12 @@ const breadcrumbSchema = breadcrumbJsonLd([
             <p class="font-mono text-[10px] tracking-widest uppercase text-ink-muted mb-1">Address</p>
             {fullAddress}
           </div>
-          {facts && (
-            <div>
-              <p class="font-mono text-[10px] tracking-widest uppercase text-ink-muted mb-1">Hours</p>
-              {facts.hours}
-            </div>
-          )}
           {facts && facts.directions.length > 0 && (
             <div>
               <p class="font-mono text-[10px] tracking-widest uppercase text-ink-muted mb-1">Directions</p>
               <ol class="list-decimal ml-4 space-y-1">
                 {facts.directions.map((d) => <li>{d}</li>)}
               </ol>
-            </div>
-          )}
-          {facts && (
-            <div>
-              <p class="font-mono text-[10px] tracking-widest uppercase text-ink-muted mb-1">Parking</p>
-              {facts.parkingNote}
             </div>
           )}
           <a
@@ -383,12 +430,16 @@ const breadcrumbSchema = breadcrumbJsonLd([
             Open in Google Maps →
           </a>
         </div>
-        <img
-          src={facts?.photos[0]?.src ?? "/media/soccerone/still-entrance.jpg"}
-          alt={`${displayLocationName} facility`}
-          loading="lazy"
-          class="rounded-2xl object-cover w-full h-64 lg:h-auto"
-        />
+        {slug === "worthington" ? (
+          <VenueMap slug={slug} />
+        ) : (
+          <img
+            src={facts?.photos[0]?.src ?? "/media/soccerone/still-entrance.jpg"}
+            alt={`${displayLocationName} facility`}
+            loading="lazy"
+            class="rounded-2xl object-cover w-full h-64 lg:h-auto"
+          />
+        )}
       </div>
     </section>
 
@@ -411,12 +462,10 @@ const breadcrumbSchema = breadcrumbJsonLd([
             Play pickup
           </a>
         )}
-        {facts?.offerings.rentals && (
-          <a href="/rentals" class="font-sans font-semibold text-[13px] border border-cream/40 px-6 py-3 rounded-md">
-            Book a field
-          </a>
-        )}
       </div>
     </section>
+
+    {/* 9 · Stay in the loop — email now, WhatsApp when the group goes live */}
+    <StayInLoop locationSlug={slug} />
   </main>
 </BaseLayout>

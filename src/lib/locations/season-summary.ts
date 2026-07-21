@@ -5,6 +5,7 @@
 interface PublicSeasonLike {
   status: string;
   termSlug?: string | null;
+  termLabel?: string | null;
   startDate?: string | null;
   dayOfWeek?: string | null;
   price?: number | null;
@@ -40,6 +41,55 @@ const DAY_LABEL: Record<string, string> = {
   sat: "Sat",
   sun: "Sun",
 };
+
+export interface UpcomingTerm {
+  termSlug: string;
+  termLabel: string;
+  count: number;
+  startDate: string | null;
+  termHref: string;
+}
+
+/**
+ * The "later" half of now-vs-later: forming future terms at this venue,
+ * grouped by term, excluding the term the main card already shows. Each
+ * links to its term page, which carries the interest-capture flow.
+ */
+export function summarizeUpcomingTerms(
+  seasons: PublicSeasonLike[],
+  excludeTermSlug: string | null,
+): UpcomingTerm[] {
+  const forming = seasons.filter(
+    (s) =>
+      s.status === "forming" &&
+      (s.program?.programType ?? "league") === "league" &&
+      (s.ageGroup?.minAge ?? 0) >= 18 &&
+      s.termSlug &&
+      s.termSlug !== excludeTermSlug,
+  );
+  const byTerm = new Map<string, UpcomingTerm>();
+  for (const s of forming) {
+    const slug = s.termSlug!;
+    const existing = byTerm.get(slug);
+    if (existing) {
+      existing.count += 1;
+      if (s.startDate && (!existing.startDate || s.startDate < existing.startDate)) {
+        existing.startDate = s.startDate;
+      }
+    } else {
+      byTerm.set(slug, {
+        termSlug: slug,
+        termLabel: s.termLabel ?? slug,
+        count: 1,
+        startDate: s.startDate ?? null,
+        termHref: `/adult/leagues/soccer/${slug}`,
+      });
+    }
+  }
+  return [...byTerm.values()].sort((a, b) =>
+    (a.startDate ?? "9999").localeCompare(b.startDate ?? "9999"),
+  );
+}
 
 export function summarizeOpenLeagues(
   seasons: PublicSeasonLike[],

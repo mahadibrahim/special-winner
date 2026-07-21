@@ -19,6 +19,8 @@ test("locations index renders venue cards with CTAs", async ({ page }) => {
   ).toBeVisible();
   const venueLinks = page.locator('a[href^="/locations/"]');
   expect(await venueLinks.count()).toBeGreaterThan(0);
+  // Stay-in-the-loop band (email capture) is a v2 requirement on both levels.
+  await expect(page.getByTestId("stay-in-loop-form")).toBeVisible();
 });
 
 test("venue page renders venue-first sections with no template placeholders", async ({
@@ -48,6 +50,16 @@ test("venue page renders venue-first sections with no template placeholders", as
     .locator('#main-content a[href^="/programs"]')
     .count();
   expect(programsLinks).toBe(0);
+  // v2 program-page role: no venue-operations content — rentals, hours,
+  // parking all live on the venue website, not here.
+  const rentalsLinks = await page
+    .locator('#main-content a[href^="/rentals"]')
+    .count();
+  expect(rentalsLinks).toBe(0);
+  expect(body).not.toMatch(/Book a field/i);
+  expect(body).not.toMatch(/free parking/i);
+  // Stay-in-the-loop band present on venue pages too.
+  await expect(page.getByTestId("stay-in-loop-form")).toBeAttached();
 });
 
 test("venue page 404s unknown slugs (no redirect)", async ({ page }) => {
