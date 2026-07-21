@@ -9,6 +9,7 @@ import {
   users,
   locations,
   payments,
+  paymentPlans,
 } from "@/lib/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { requireSuperAdminAccess, requireOrganizationContext } from "@/lib/auth";
@@ -136,6 +137,14 @@ export const GET: APIRoute = async (context) => {
  * 'refunded'`), unless `?force=true` is passed. The guard is there to stop
  * an admin from deleting a row that still has live Stripe money — the right
  * flow is refund first, then delete.
+ *
+ * Payment rows are never deleted: `payments.registrationId` is
+ * `onDelete: restrict` by design (the Stripe money trail must survive), so
+ * the delete detaches them (registrationId → null) inside one transaction
+ * with the registration delete. The orphaned payment rows keep their Stripe
+ * PIs and remain findable in payment reports. Installment schedule rows
+ * (`payment_plans` + cascading `scheduled_payments`) are metadata, not money
+ * records, and are deleted outright.
  */
 export const DELETE: APIRoute = async (context) => {
   const auth = await requireSuperAdminAccess(context);
@@ -192,13 +201,38 @@ export const DELETE: APIRoute = async (context) => {
       );
     }
 
-    await getDb().delete(registrations).where(eq(registrations.id, id));
+    await getDb().transaction(async (tx) => {
+      // Detach (never delete) payment rows — restrict FK, see doc comment.
+      await tx
+        .update(payments)
+        .set({ registrationId: null })
+        .where(eq(payments.registrationId, id));
+      // Installment schedules are metadata; scheduled_payments cascade.
+      await tx.delete(paymentPlans).where(eq(paymentPlans.registrationId, id));
+      await tx.delete(registrations).where(eq(registrations.id, id));
+    });
 
     return new Response(
       JSON.stringify({ success: true, deletedId: id, forced: force }),
       { status: 200, headers: { "Content-Type": "application/json" } },
     );
   } catch (error) {
+    // A residual FK restrict (a referencing table this handler doesn't know
+    // about yet) should read as a clear conflict, not a blind 500.
+    const code = (error as { code?: string; cause?: { code?: string } })?.code ??
+      (error as { cause?: { code?: string } })?.cause?.code;
+    if (code === "23503") {
+      const detail =
+        (error as { table_name?: string; cause?: { table_name?: string } })?.table_name ??
+        (error as { cause?: { table_name?: string } })?.cause?.table_name;
+      console.error("Registration delete blocked by FK:", detail ?? "unknown table", error);
+      return new Response(
+        JSON.stringify({
+          error: `Delete blocked: another record still references this registration${detail ? ` (${detail})` : ""}. Report this — the delete handler needs to learn about that table.`,
+        }),
+        { status: 409, headers: { "Content-Type": "application/json" } },
+      );
+    }
     console.error("Error deleting registration:", error);
     return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 500,

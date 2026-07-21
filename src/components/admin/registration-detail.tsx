@@ -594,11 +594,23 @@ function DeleteDialog({
         </DialogHeader>
         <div className="space-y-4">
           {wouldBlock && (
-            <ErrorBanner
-              message={`This row has $${(amountPaidCents / 100).toFixed(
-                2,
-              )} of unrefunded payment. Refund first, or check the force box below to delete anyway.`}
-            />
+            <div className="space-y-2">
+              <ErrorBanner
+                message={`This row has $${(amountPaidCents / 100).toFixed(
+                  2,
+                )} of unrefunded payment.`}
+              />
+              <div className="rounded-lg border border-border bg-cream-2 p-3 text-sm text-ink space-y-1">
+                <p className="font-medium">Preferred path: refund first, then delete.</p>
+                <p className="text-ink-muted">
+                  Refunding (Admin actions → Refund) returns the money through Stripe and
+                  keeps the books clean. Force-deleting skips the refund: the charge stays
+                  live on the customer's card, and the payment record is kept but detached
+                  from this registration. Reserve force for junk or duplicate rows where
+                  the money is being handled some other way.
+                </p>
+              </div>
+            </div>
           )}
           <div className="space-y-2">
             <Label htmlFor="confirm-text">

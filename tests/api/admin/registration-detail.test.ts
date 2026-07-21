@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { getDb } from "@/lib/db";
-import { registrations, familyMembers, type Registration } from "@/lib/db/schema";
+import { registrations, familyMembers, payments, type Registration } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import {
   getAdminCookie,
@@ -258,6 +258,46 @@ describe("Admin Registration Detail API", () => {
       const json = await expectJson(res, 200);
       expect(json.deletedId).toBe(reg.id);
       expect(json.forced).toBe(false);
+    });
+
+    it("force-deletes a row WITH a real payments row: 200, payment survives detached", async () => {
+      // Regression: payments.registrationId is onDelete:restrict, so before
+      // the transactional detach the delete threw an FK violation → 500.
+      // The earlier force test never caught it because its fixture had no
+      // payments row — only amountPaidCents on the registration itself.
+      if (!templateRegistration) return;
+      const reg = await createTestRegistration({
+        amountPaidCents: 153,
+        paymentStatus: "paid",
+      });
+      const [payment] = await getDb()
+        .insert(payments)
+        .values({
+          registrationId: reg.id,
+          userId: templateRegistration.registeredByUserId,
+          amountCents: 153,
+          paymentType: "full",
+          status: "succeeded",
+        })
+        .returning();
+
+      const res = await apiFetch(`/api/admin/registrations/${reg.id}?force=true`, {
+        method: "DELETE",
+        cookie: adminCookie,
+      });
+      const json = await expectJson(res, 200);
+      expect(json.deletedId).toBe(reg.id);
+
+      // The money record survives, detached from the deleted registration.
+      const [survivor] = await getDb()
+        .select({ id: payments.id, registrationId: payments.registrationId })
+        .from(payments)
+        .where(eq(payments.id, payment.id));
+      expect(survivor).toBeTruthy();
+      expect(survivor.registrationId).toBeNull();
+
+      // Cleanup the orphaned payment row.
+      await getDb().delete(payments).where(eq(payments.id, payment.id));
     });
   });
 });
