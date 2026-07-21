@@ -139,6 +139,39 @@ test.describe("Anonymous adult guest checkout", { tag: "@critical" }, () => {
     await expect(registrationForRow).toContainText("Floor Walker");
   });
 
+  test("empty Continue attempt surfaces per-field errors instead of a dead button", async ({ page }) => {
+    await page.goto(`/register/${seasonId}?audience=adult`, { waitUntil: "domcontentloaded" });
+    await waitForHydration(page);
+
+    const joinSolo = page.getByText(/Join solo/i);
+    if (await joinSolo.isVisible({ timeout: 8_000 }).catch(() => false)) await joinSolo.click();
+
+    await expect(
+      page.getByRole("heading", { name: "Registrant info" }),
+    ).toBeVisible({ timeout: 10_000 });
+
+    // Continue is tappable even with an empty form — tapping it flags the
+    // missing fields rather than silently doing nothing.
+    const continueBtn = page.getByRole("button", { name: /continue/i });
+    await expect(continueBtn).toBeEnabled();
+    await continueBtn.click();
+
+    await expect(page.getByText("Enter your first name.")).toBeVisible();
+    await expect(page.getByText("Enter your email.")).toBeVisible();
+    await expect(page.getByText(/Fix the highlighted fields/i)).toBeVisible();
+    // Still on step 1 — the waiver never rendered.
+    await expect(page.getByText(/Participant Waiver/i)).not.toBeVisible();
+
+    // Errors clear live as fields are fixed.
+    const firstNameInput = page
+      .locator("div.space-y-2")
+      .filter({ has: page.locator("label", { hasText: "First name *" }) })
+      .first()
+      .locator("input");
+    await firstNameInput.fill("Floor");
+    await expect(page.getByText("Enter your first name.")).not.toBeVisible();
+  });
+
   test("mode toggle is hidden on an adult-only season", async ({ page }) => {
     // Adult-only season (minAge ≥ 18) → the wizard locks the mode to
     // "adult" and removes the parent/adult radio toggle entirely.
