@@ -148,6 +148,52 @@ describe("POST /api/registrations — lookingForTeam flag", () => {
   });
 });
 
+describe("POST /api/registrations — deferred waiver (v2 solo checkout)", () => {
+  // v2 wizard flow sends waiverSigned:false with NO waiverSignedBy from
+  // signed-in users — waiver signing is deferred to a post-payment
+  // completion step. The endpoint must accept this (previously 400'd
+  // because waiverSignedBy was unconditionally required).
+  it("accepts an authed self registration with waiverSigned:false and no waiverSignedBy", async () => {
+    const res = await apiFetch("/api/registrations", {
+      method: "POST",
+      cookie: adultCookie,
+      body: JSON.stringify({
+        seasonId: adultSeasonId,
+        registerSelf: true,
+        registrationType: "full",
+        waiverSigned: false,
+      }),
+    });
+
+    // 201 on first registration, 200 on resume — both are success; the
+    // fixture account may already have a registration for this season from
+    // an earlier test/run in the shared CI database.
+    expect([200, 201]).toContain(res.status);
+    const body = await res.json();
+    expect(body.registration).toBeTruthy();
+    // Only a fresh (non-resumed) creation reflects this request's
+    // waiverSigned value — a resumed row keeps whatever it was created with.
+    if (!body.resumed) {
+      expect(body.registration.waiverSigned).toBe(false);
+    }
+  });
+
+  it("still rejects waiverSigned:true without waiverSignedBy", async () => {
+    const res = await apiFetch("/api/registrations", {
+      method: "POST",
+      cookie: adultCookie,
+      body: JSON.stringify({
+        seasonId: "00000000-0000-0000-0000-000000000000",
+        registerSelf: true,
+        registrationType: "full",
+        waiverSigned: true,
+      }),
+    });
+
+    expect(res.status).toBe(400);
+  });
+});
+
 describe("POST /api/admin/walk-up-registration — adult mode", () => {
   it("admin walk-up creates an adult self registration", async () => {
     const adminCookie = await getAdminCookie();

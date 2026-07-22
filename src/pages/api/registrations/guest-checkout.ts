@@ -34,7 +34,8 @@ const guestRegistrantSchema = z.object({
   lastName: z.string().min(1),
   email: z.string().email(),
   phone: z.string().optional(),
-  birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  // v2 defers DOB to the post-payment completion step (Task 8).
+  birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   isSelf: z.literal(true),
   gender: z.enum(["male", "female", "other"]).optional(),
 });
@@ -43,48 +44,65 @@ const mediaAuthOptOutsSchema = z
   .array(z.enum(["internal", "promotional", "public"]))
   .optional();
 
-const guestCheckoutSchema = z.union([
-  // Legacy parent + child shape (preserved unchanged)
-  z.object({
-    seasonId: z.string().uuid(),
-    parent: z.object({
-      firstName: z.string().min(1),
-      lastName: z.string().min(1),
-      email: z.string().email(),
-      phone: z.string().optional(),
-    }),
-    child: z.object({
-      firstName: z.string().min(1),
-      lastName: z.string().min(1),
-      birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-      gender: z.enum(["male", "female", "other"]).optional(),
-    }),
-    registrationType: z.enum(["full", "deposit"]),
-    waiverSigned: z.boolean(),
-    waiverSignedBy: z.string().min(1),
-    discountCode: z.string().optional(),
-    lookingForTeam: z.boolean().optional(),
-    teamToken: z.string().max(64).optional(),
-    mediaAuthOptOuts: mediaAuthOptOutsSchema,
-    paymentMethodCategory: z.enum(["bank", "card"]).optional(),
-    // SMS consent checkbox next to the phone field (unchecked by default).
-    // Only meaningful when a phone is provided.
-    smsConsent: z.boolean().optional(),
+// Legacy parent + child shape (preserved unchanged)
+const legacyGuestCheckoutSchema = z.object({
+  seasonId: z.string().uuid(),
+  parent: z.object({
+    firstName: z.string().min(1),
+    lastName: z.string().min(1),
+    email: z.string().email(),
+    phone: z.string().optional(),
   }),
-  // New adult self shape
-  z.object({
+  child: z.object({
+    firstName: z.string().min(1),
+    lastName: z.string().min(1),
+    birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    gender: z.enum(["male", "female", "other"]).optional(),
+  }),
+  registrationType: z.enum(["full", "deposit"]),
+  waiverSigned: z.boolean(),
+  waiverSignedBy: z.string().min(1),
+  discountCode: z.string().optional(),
+  lookingForTeam: z.boolean().optional(),
+  teamToken: z.string().max(64).optional(),
+  mediaAuthOptOuts: mediaAuthOptOutsSchema,
+  paymentMethodCategory: z.enum(["bank", "card"]).optional(),
+  // SMS consent checkbox next to the phone field (unchecked by default).
+  // Only meaningful when a phone is provided.
+  smsConsent: z.boolean().optional(),
+});
+
+// New adult self shape (v2: waiver/signature deferred to a post-payment
+// completion step — see docs/superpowers/plans/2026-07-22-checkout-redesign-
+// wave1-solo.md Task 6/8). waiverSignedBy is only required when the client
+// actually claims the waiver was signed at checkout time.
+const adultGuestCheckoutSchema = z
+  .object({
     seasonId: z.string().uuid(),
     registrant: guestRegistrantSchema,
     registrationType: z.enum(["full", "deposit"]),
     waiverSigned: z.boolean(),
-    waiverSignedBy: z.string().min(1),
+    waiverSignedBy: z.string().min(1).optional(),
     discountCode: z.string().optional(),
     lookingForTeam: z.boolean().optional(),
     teamToken: z.string().max(64).optional(),
     mediaAuthOptOuts: mediaAuthOptOutsSchema,
     paymentMethodCategory: z.enum(["bank", "card"]).optional(),
     smsConsent: z.boolean().optional(),
-  }),
+  })
+  .superRefine((d, ctx) => {
+    if (d.waiverSigned && !d.waiverSignedBy?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["waiverSignedBy"],
+        message: "Signature required when signing the waiver",
+      });
+    }
+  });
+
+export const guestCheckoutSchema = z.union([
+  legacyGuestCheckoutSchema,
+  adultGuestCheckoutSchema,
 ]);
 
 export const POST: APIRoute = async (context) => {
@@ -422,7 +440,7 @@ export const POST: APIRoute = async (context) => {
         firstName: r.firstName,
         lastName: r.lastName,
         phone: r.phone,
-        birthDate: r.birthDate,
+        birthDate: r.birthDate ?? null,
       });
 
       // resolve self person (find-or-create the self-row on family_members)
@@ -432,7 +450,7 @@ export const POST: APIRoute = async (context) => {
           id: userRow.id,
           firstName: userRow.firstName ?? r.firstName,
           lastName: userRow.lastName ?? r.lastName,
-          birthDate: userRow.birthDate ?? r.birthDate,
+          birthDate: userRow.birthDate ?? r.birthDate ?? null,
           gender: r.gender ?? null,
         },
       });
@@ -444,7 +462,7 @@ export const POST: APIRoute = async (context) => {
         seasonId: data.seasonId,
         registrationType: data.registrationType,
         waiverSigned: data.waiverSigned,
-        waiverSignedBy: data.waiverSignedBy,
+        waiverSignedBy: data.waiverSignedBy ?? "",
         discountCode: data.discountCode,
         wasNewUser,
         distinctIdForPosthog: userRow.email,

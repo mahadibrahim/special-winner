@@ -37,7 +37,11 @@ export function registerHref(d: Division): string | null {
   // Completed divisions are archive rows: a register link over a finished
   // season is a dead button (RegisterExperience refuses non-open anyway).
   if (d.status === "completed") return null;
-  return `/register/${d.seasonId}`;
+  // Individual CTA — the register page skips the solo/team chooser when this
+  // param is present. Team signup uses a separate CTA elsewhere in the app
+  // (program-card-v2.tsx, team-create.tsx's post-auth redirect, the
+  // /register/team/{id} 301) that links `?mode=team`.
+  return `/register/${d.seasonId}?mode=individual`;
 }
 
 export function DivisionsFinder({ divisions, venues, term }: {

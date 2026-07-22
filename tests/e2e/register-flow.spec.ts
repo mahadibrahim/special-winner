@@ -24,9 +24,7 @@ test("register page renders the registration experience @critical", async ({ pag
   await waitForHydration(page);
   // Either choose-mode (team-capable) or the wizard's first step (solo-only).
   await expect(
-    page
-      .getByRole("heading", { name: /how do you want to join/i })
-      .or(page.getByText(/who are you registering|registrant info/i)),
+    page.getByText(/who are you registering|registrant info|claim your spot|how do you want to join/i),
   ).toBeVisible({ timeout: 15_000 });
 });
 
@@ -49,4 +47,19 @@ test("the register page reaches the wizard (through choose-mode when present) @c
   if (await joinSolo.isVisible({ timeout: 8_000 }).catch(() => false)) await joinSolo.click();
   // We are no longer on the choose-mode screen.
   await expect(page.getByRole("heading", { name: /how do you want to join/i })).toHaveCount(0);
+});
+
+test("?mode=individual skips the choose-mode screen", async ({ page }) => {
+  const id = await openAdultSoccerSeasonId(page);
+  test.skip(!id, "no open adult soccer season in this env");
+  // Division cards link to /register/{id}?mode=individual, which should skip the
+  // "How do you want to join?" chooser and land on the player/guest step directly.
+  await page.goto(`/register/${id}?audience=adult&mode=individual`, { waitUntil: "domcontentloaded" });
+  await waitForHydration(page);
+  // Verify the chooser is NOT shown.
+  await expect(page.getByRole("heading", { name: /how do you want to join/i })).toHaveCount(0);
+  // Verify we're on the player step.
+  await expect(
+    page.getByText(/who are you registering|registrant info|claim your spot/i)
+  ).toBeVisible({ timeout: 15_000 });
 });

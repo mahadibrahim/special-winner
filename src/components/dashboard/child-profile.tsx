@@ -199,15 +199,16 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
                 {child.firstName} {child.lastName}
               </h1>
               <div className="flex flex-wrap items-center gap-3 text-sm text-ink-muted mb-4">
-                <span>Age {child.age}</span>
+                <span>{child.age != null ? `Age ${child.age}` : "Age —"}</span>
                 <span className="text-ink-faint">•</span>
                 <span>
-                  Born{" "}
-                  {child.dateOfBirth.toLocaleDateString("en-US", {
-                    month: "long",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
+                  {child.dateOfBirth
+                    ? `Born ${child.dateOfBirth.toLocaleDateString("en-US", {
+                        month: "long",
+                        day: "numeric",
+                        year: "numeric",
+                      })}`
+                    : "DOB pending"}
                 </span>
               </div>
 

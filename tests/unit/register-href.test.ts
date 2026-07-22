@@ -4,11 +4,13 @@ import { registerHref } from "@/components/leagues/divisions-finder";
 const base = { seasonId: "s1", level: "d", gender: "mens", venueSlug: "worthington", signupModes: ["team", "individual"] };
 
 describe("registerHref", () => {
-  it("open team-capable division → canonical /register/{id}", () => {
-    expect(registerHref({ ...base, status: "open" } as any)).toBe("/register/s1");
+  it("open team-capable division → /register/{id}?mode=individual", () => {
+    expect(registerHref({ ...base, status: "open" } as any)).toBe("/register/s1?mode=individual");
   });
-  it("open individual-only division → canonical /register/{id}", () => {
-    expect(registerHref({ ...base, signupModes: ["individual"], status: "open" } as any)).toBe("/register/s1");
+  it("open individual-only division → /register/{id}?mode=individual", () => {
+    expect(registerHref({ ...base, signupModes: ["individual"], status: "open" } as any)).toBe(
+      "/register/s1?mode=individual",
+    );
   });
   it("completed division → null (archive row — a register link over a finished season is a dead button)", () => {
     expect(registerHref({ ...base, status: "completed" } as any)).toBeNull();

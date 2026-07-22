@@ -1,0 +1,82 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { getDb } from '@/lib/db';
+import { registrations, familyMembers } from '@/lib/db/schema';
+import { and, eq } from 'drizzle-orm';
+import { CompletionForm } from '@/components/registration/completion-form';
+
+// /account routes are gated by middleware — signed-out visitors bounce
+// through /signin and return here, so this page can assume a session.
+const user = Astro.locals.user!;
+
+const { registrationId } = Astro.params;
+
+if (!registrationId) {
+  return Astro.redirect('/dashboard');
+}
+
+// A malformed id would otherwise 500 at the DB layer (uuid column, invalid
+// input syntax) — treat it the same as "not found" instead.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+if (!UUID_RE.test(registrationId)) {
+  return Astro.rewrite('/404');
+}
+
+const db = getDb();
+
+const [row] = await db
+  .select({
+    registration: registrations,
+    familyMember: familyMembers,
+  })
+  .from(registrations)
+  .innerJoin(familyMembers, eq(registrations.familyMemberId, familyMembers.id))
+  .where(
+    and(
+      eq(registrations.id, registrationId),
+      eq(registrations.registeredByUserId, user.id),
+    ),
+  );
+
+// Unknown id or a registration owned by someone else → 404, not a redirect.
+// Same idiom as locations/[slug].astro: a redirect reads as "moved", which
+// would leak that a different registration exists at this id.
+if (!row) {
+  return Astro.rewrite('/404');
+}
+
+const { registration, familyMember } = row;
+const needsBirthDate = familyMember.birthDate === null;
+const isSelf = familyMember.selfUserId !== null;
+const participantName = `${familyMember.firstName} ${familyMember.lastName}`.trim();
+---
+
+<BaseLayout title="Finish Your Registration — Aspire Sports">
+  <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
+    <div class="max-w-lg mx-auto">
+      <div class="bg-paper border border-border rounded-2xl p-6">
+        {registration.waiverSigned ? (
+          <div class="text-center py-6">
+            <h1 class="text-lg font-semibold text-ink mb-1">Already signed — see you at game 1.</h1>
+            <p class="text-ink-muted text-sm">There's nothing left to do here.</p>
+          </div>
+        ) : (
+          <>
+            <h1 class="text-lg font-semibold text-ink mb-4 text-center">
+              You're in — finish before game 1
+            </h1>
+            <CompletionForm
+              client:load
+              registrationId={registration.id}
+              seasonId={registration.seasonId}
+              needsBirthDate={needsBirthDate}
+              via="email_link"
+              isSelf={isSelf}
+              participantName={participantName}
+            />
+          </>
+        )}
+      </div>
+    </div>
+  </main>
+</BaseLayout>

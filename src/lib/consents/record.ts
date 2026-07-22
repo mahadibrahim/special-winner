@@ -24,8 +24,12 @@ export const ALL_MEDIA_AUTH_SCOPES: ReadonlyArray<MediaAuthScope> = [
 
 const LIABILITY_VALIDITY_DAYS = 365;
 
+/** A transaction handle — callers wrap consent + related writes so they land as one. */
+export type ConsentTx = Parameters<Parameters<Database["transaction"]>[0]>[0];
+type Db = Database | ConsentTx;
+
 interface RecordConsentInput {
-  db: Database;
+  db: Db;
   familyMemberId: string;
   registrationId?: string | null;
   organizationId?: string | null;
@@ -118,7 +122,7 @@ export async function recordConsent(
  * default (organizationId IS NULL) if the org hasn't published its own.
  */
 export async function getCurrentWaiver(
-  db: Database,
+  db: Db,
   organizationId: string | null,
   type: "liability" | "media_authorization",
 ): Promise<Waiver | null> {
@@ -149,7 +153,7 @@ export async function getCurrentWaiver(
  * not superseded by a revocation) consent of the given type/scope.
  */
 export async function hasActiveConsent(
-  db: Database,
+  db: Db,
   familyMemberId: string,
   type: ConsentType,
   scope?: MediaAuthScope,
@@ -167,7 +171,7 @@ export async function hasActiveConsent(
  * compliance view.
  */
 export async function getMostRecentConsent(
-  db: Database,
+  db: Db,
   familyMemberId: string,
   type: ConsentType,
   scope?: MediaAuthScope,

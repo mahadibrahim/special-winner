@@ -28,7 +28,7 @@ interface Child {
   id: string
   firstName: string
   lastName: string
-  age: number
+  age: number | null
   avatarUrl?: string
   programs: Program[]
   recentAchievement?: string
@@ -43,7 +43,9 @@ interface FamilyMemberApi {
   id: string
   firstName: string
   lastName: string
-  birthDate: string
+  // Can be null for adult self-registrants whose DOB is still pending
+  // post-payment review.
+  birthDate: string | null
 }
 
 interface RegistrationApiRow {
@@ -60,7 +62,8 @@ function parseLocalDate(iso: string): Date {
   return new Date(y, (m ?? 1) - 1, d ?? 1)
 }
 
-function computeAge(birthDate: string): number {
+function computeAge(birthDate: string | null): number | null {
+  if (!birthDate) return null
   const dob = parseLocalDate(birthDate)
   const now = new Date()
   let age = now.getFullYear() - dob.getFullYear()
@@ -106,7 +109,7 @@ function ChildCard({ child }: { child: Child }) {
                 {child.firstName}
               </h3>
               <span className="text-sm text-ink-muted">
-                Age {child.age}
+                {child.age != null ? `Age ${child.age}` : "Age —"}
               </span>
             </div>
             {child.nextEvent && (

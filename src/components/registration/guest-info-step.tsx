@@ -31,6 +31,13 @@ export interface GuestInfoStepProps {
    */
   lockedMode?: GuestRegistrationMode | null
 
+  /**
+   * v2 (adult-locked) minimal flow: render only first/last/email + the
+   * sign-in link. DOB, gender, phone and the waiver are deferred to the
+   * post-payment completion step, so this step is just "claim your spot".
+   */
+  minimal?: boolean
+
   // Shared parent / registrant fields
   parentFirstName: string
   parentLastName: string
@@ -97,9 +104,10 @@ export function GuestInfoStep({
   onAdultBirthDateChange,
   onAdultGenderChange,
   lockedMode,
+  minimal = false,
   fieldErrors = null,
 }: GuestInfoStepProps) {
-  const showModeToggle = !lockedMode
+  const showModeToggle = !lockedMode && !minimal
   const err = (key: keyof GuestFieldErrors) => fieldErrors?.[key] ?? null
   const errText = (key: keyof GuestFieldErrors) => {
     const msg = err(key)
@@ -109,6 +117,73 @@ export function GuestInfoStep({
     err(key) ? "border-destructive" : "border-border"
   return (
     <div className="space-y-6">
+      {minimal ? (
+        /* ── v2 MINIMAL: claim your spot (name + email only) ── */
+        <>
+          <div>
+            <h3 className="text-lg font-semibold text-ink mb-2">Claim your spot</h3>
+            <p className="text-ink-muted text-sm">
+              Pay to hold your spot — waiver and details come after.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="guest-parent-first" className="text-ink-muted">First name *</Label>
+                <Input
+                  id="guest-parent-first"
+                  autoComplete="given-name"
+                  autoCapitalize="words"
+                  enterKeyHint="next"
+                  value={parentFirstName}
+                  onChange={(e) => onParentFirstNameChange(e.target.value)}
+                  className={`bg-cream-2 text-ink focus:border-primary ${errClass("parentFirstName")}`}
+                />
+                {errText("parentFirstName")}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="guest-parent-last" className="text-ink-muted">Last name *</Label>
+                <Input
+                  id="guest-parent-last"
+                  autoComplete="family-name"
+                  autoCapitalize="words"
+                  enterKeyHint="next"
+                  value={parentLastName}
+                  onChange={(e) => onParentLastNameChange(e.target.value)}
+                  className={`bg-cream-2 text-ink focus:border-primary ${errClass("parentLastName")}`}
+                />
+                {errText("parentLastName")}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="guest-parent-email" className="text-ink-muted">Email *</Label>
+              <Input
+                id="guest-parent-email"
+                type="email"
+                autoComplete="email"
+                inputMode="email"
+                enterKeyHint="done"
+                value={parentEmail}
+                onChange={(e) => onParentEmailChange(e.target.value)}
+                className={`bg-cream-2 text-ink focus:border-primary ${errClass("parentEmail")}`}
+              />
+              {errText("parentEmail")}
+              {emailCollision && (
+                <p className="text-xs text-ink-muted">
+                  We already have an account with this email. After payment we'll
+                  send a sign-in link to{" "}
+                  <span className="font-medium">{parentEmail}</span>.
+                </p>
+              )}
+              {isCheckingEmail && !emailCollision && (
+                <p className="text-xs text-ink-faint">Checking…</p>
+              )}
+            </div>
+          </div>
+        </>
+      ) : (
+      <>
       {/* Mode toggle — only shown when the season's audience is ambiguous */}
       {showModeToggle && (
         <div>
@@ -163,6 +238,8 @@ export function GuestInfoStep({
                 <Input
                   id="guest-parent-first"
                   autoComplete="given-name"
+                  autoCapitalize="words"
+                  enterKeyHint="next"
                   value={parentFirstName}
                   onChange={(e) => onParentFirstNameChange(e.target.value)}
                   className={`bg-cream-2 text-ink focus:border-primary ${errClass("parentFirstName")}`}
@@ -174,6 +251,8 @@ export function GuestInfoStep({
                 <Input
                   id="guest-parent-last"
                   autoComplete="family-name"
+                  autoCapitalize="words"
+                  enterKeyHint="next"
                   value={parentLastName}
                   onChange={(e) => onParentLastNameChange(e.target.value)}
                   className={`bg-cream-2 text-ink focus:border-primary ${errClass("parentLastName")}`}
@@ -188,6 +267,7 @@ export function GuestInfoStep({
                 type="email"
                 autoComplete="email"
                 inputMode="email"
+                enterKeyHint="next"
                 value={parentEmail}
                 onChange={(e) => onParentEmailChange(e.target.value)}
                 className={`bg-cream-2 text-ink focus:border-primary ${errClass("parentEmail")}`}
@@ -211,6 +291,7 @@ export function GuestInfoStep({
                 type="tel"
                 autoComplete="tel"
                 inputMode="tel"
+                enterKeyHint="next"
                 value={parentPhone}
                 onChange={(e) => onParentPhoneChange(e.target.value)}
                 className="bg-cream-2 border-border text-ink focus:border-primary"
@@ -231,6 +312,8 @@ export function GuestInfoStep({
                 <Label htmlFor="guest-child-first" className="text-ink-muted">First name *</Label>
                 <Input
                   id="guest-child-first"
+                  autoCapitalize="words"
+                  enterKeyHint="next"
                   value={childFirstName}
                   onChange={(e) => onChildFirstNameChange(e.target.value)}
                   className={`bg-cream-2 text-ink focus:border-primary ${errClass("childFirstName")}`}
@@ -241,6 +324,8 @@ export function GuestInfoStep({
                 <Label htmlFor="guest-child-last" className="text-ink-muted">Last name *</Label>
                 <Input
                   id="guest-child-last"
+                  autoCapitalize="words"
+                  enterKeyHint="next"
                   value={childLastName}
                   onChange={(e) => onChildLastNameChange(e.target.value)}
                   className={`bg-cream-2 text-ink focus:border-primary ${errClass("childLastName")}`}
@@ -295,6 +380,8 @@ export function GuestInfoStep({
                 <Input
                   id="guest-parent-first"
                   autoComplete="given-name"
+                  autoCapitalize="words"
+                  enterKeyHint="next"
                   value={parentFirstName}
                   onChange={(e) => onParentFirstNameChange(e.target.value)}
                   className={`bg-cream-2 text-ink focus:border-primary ${errClass("parentFirstName")}`}
@@ -306,6 +393,8 @@ export function GuestInfoStep({
                 <Input
                   id="guest-parent-last"
                   autoComplete="family-name"
+                  autoCapitalize="words"
+                  enterKeyHint="next"
                   value={parentLastName}
                   onChange={(e) => onParentLastNameChange(e.target.value)}
                   className={`bg-cream-2 text-ink focus:border-primary ${errClass("parentLastName")}`}
@@ -320,6 +409,7 @@ export function GuestInfoStep({
                 type="email"
                 autoComplete="email"
                 inputMode="email"
+                enterKeyHint="next"
                 value={parentEmail}
                 onChange={(e) => onParentEmailChange(e.target.value)}
                 className={`bg-cream-2 text-ink focus:border-primary ${errClass("parentEmail")}`}
@@ -343,6 +433,7 @@ export function GuestInfoStep({
                 type="tel"
                 autoComplete="tel"
                 inputMode="tel"
+                enterKeyHint="next"
                 value={parentPhone}
                 onChange={(e) => onParentPhoneChange(e.target.value)}
                 className="bg-cream-2 border-border text-ink focus:border-primary"
@@ -383,6 +474,8 @@ export function GuestInfoStep({
             </div>
           </div>
         </>
+      )}
+      </>
       )}
 
       <p className="text-xs text-ink-muted">

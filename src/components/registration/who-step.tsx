@@ -66,7 +66,9 @@ export type WhoStepProps = {
     id: string;
     firstName: string;
     lastName: string;
-    birthDate: string;
+    // Null for adult self-registrants whose DOB is still pending
+    // post-payment review (their row can surface here alongside dependents).
+    birthDate: string | null;
     ageEligible: boolean;
   }>;
   /** "self" or a dependent id, or null when nothing is selected yet. */

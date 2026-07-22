@@ -3,7 +3,9 @@ import { waitForHydration, signIn } from "../utils/test-helpers";
 
 // The adult self-registration flow exercises the "Myself" card path through
 // the registration wizard. The adult-self seed user has a birthDate so the
-// self option renders and is age-eligible for the Adult 18+ season.
+// self option renders and is age-eligible for the Adult 18+ season. This is an
+// adult-locked (minAge 18) season, so the wizard runs the v2 flow: no
+// pre-payment agreements/waiver step — Player advances straight to Payment.
 
 const ADULT_OPEN_SEASON_SLUG = "e2e-adult-open-soccer-2026";
 
@@ -42,7 +44,7 @@ test.describe("Adult self registration", { tag: "@critical" }, () => {
     expect(seasonId).toBeTruthy();
   });
 
-  test("adult can sign in, pick Myself, complete waiver, and reach payment step", async ({
+  test("adult can sign in, pick Myself, and reach payment step directly (v2)", async ({
     page,
   }) => {
     // 1. Sign in as the adult self-registration test user
@@ -77,45 +79,15 @@ test.describe("Adult self registration", { tag: "@critical" }, () => {
     const myselfCardContainer = page.locator('[role="button"]').filter({ hasText: /Myself —/ });
     await expect(myselfCardContainer).toHaveAttribute("aria-pressed", "true");
 
-    // Advance to Step 2
+    // Advance — v2 (adult-locked) has no agreements/waiver step, so a single
+    // Continue goes straight from the Player step to Payment. The waiver is
+    // deferred to a post-payment completion step.
     await page.getByRole("button", { name: /continue/i }).click();
 
-    // 4. Step 2: Waiver — self-flavored copy
-    await expect(page.getByText(/Participant Waiver/i)).toBeVisible({ timeout: 10_000 });
+    // The waiver step must NOT appear pre-payment in the v2 flow.
+    await expect(page.getByText(/Participant Waiver/i)).not.toBeVisible();
 
-    // Self registration renders: "I, Adult Self, agree to participate in this program"
-    // We scope to the <p> element directly to avoid matching the broader waiver
-    // box text that also contains "I authorize" (medical authorization clause).
-    await expect(
-      page.locator("p").filter({ hasText: /I,.*agree to participate/i }),
-    ).toBeVisible({ timeout: 5_000 });
-
-    // The dependent branch paragraph ("I authorize [name] to participate…") must
-    // NOT be in the DOM when selectedKey === "self". Scope strictly to <p> tags
-    // to avoid a false positive from the static waiver body (which contains
-    // "I authorize Aspire Sports staff…" and later "…participate" in the same
-    // normalized text block when Playwright evaluates a parent element).
-    await expect(
-      page.locator("p").filter({ hasText: /I authorize.*to participate/i }),
-    ).not.toBeVisible();
-
-    // Check the "I agree" checkbox (id="waiver")
-    await page.locator("#waiver").check();
-    await expect(page.locator("#waiver")).toBeChecked();
-
-    // Fill the digital signature field
-    const sigField = page
-      .locator('div.space-y-2')
-      .filter({ has: page.locator('label', { hasText: /Digital Signature/i }) })
-      .locator('input');
-    await sigField.fill("Adult Self");
-
-    // Advance to the Payment step. The waiver and the (optional, collapsed)
-    // media-consent section now share one "Agreements" step, so this is a
-    // single Continue rather than two.
-    await page.getByRole("button", { name: /continue/i }).click();
-
-    // 5. Payment step — verify order summary shows the registrant's name
+    // 4. Payment step — verify order summary shows the registrant's name
     // "Registration for" row contains the registrant display name
     await expect(page.getByText(/Payment Option/i)).toBeVisible({ timeout: 10_000 });
 
