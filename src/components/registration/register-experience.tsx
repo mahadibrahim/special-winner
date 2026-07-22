@@ -5,6 +5,7 @@ import LeagueContextRail, { type RailSeason } from "./league-context-rail";
 import ChooseMode from "./choose-mode";
 import TeamCreate from "./team-create";
 import RegistrationWizard from "./registration-wizard";
+import { InAppEscapeBanner } from "./in-app-escape-banner";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { ErrorBanner } from "@/components/ui/error-banner";
 
@@ -124,6 +125,7 @@ export default function RegisterExperience({
   if (effectiveMode === "team") {
     return (
       <LeagueContextRail season={season} mode="team" step={1} stepCount={4}>
+        <InAppEscapeBanner seasonId={seasonId} />
         {modeLine}
         <TeamCreate
           seasonId={seasonId}
@@ -139,6 +141,7 @@ export default function RegisterExperience({
   }
   return (
     <LeagueContextRail season={season} mode={railMode} step={1} stepCount={4}>
+      <InAppEscapeBanner seasonId={seasonId} />
       {modeLine}
       <RegistrationWizard
         seasonId={seasonId}

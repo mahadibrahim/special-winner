@@ -63,3 +63,43 @@ test("?mode=individual skips the choose-mode screen", async ({ page }) => {
     page.getByText(/who are you registering|registrant info|claim your spot/i)
   ).toBeVisible({ timeout: 15_000 });
 });
+
+test("in-app escape banner does not appear under a normal desktop UA", async ({ page }) => {
+  const id = await openAdultSoccerSeasonId(page);
+  test.skip(!id, "no open adult soccer season in this env");
+  await page.goto(`/register/${id}?audience=adult&mode=individual`, { waitUntil: "domcontentloaded" });
+  await waitForHydration(page);
+  await expect(
+    page.getByText(/who are you registering|registrant info|claim your spot/i)
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("inapp-escape-banner")).toHaveCount(0);
+});
+
+// Real Instagram-in-app-browser UA string (iPhone). Playwright's
+// test.use({ userAgent }) overrides navigator.userAgent for the whole
+// browser context, which is what isInAppBrowser()/buildBreakoutUrl() read.
+test.describe("in-app escape banner (Instagram webview UA)", () => {
+  test.use({
+    userAgent:
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Instagram 312.0.0.0.0",
+  });
+
+  test("banner shows, step content still renders, dismiss hides it", async ({ page }) => {
+    const id = await openAdultSoccerSeasonId(page);
+    test.skip(!id, "no open adult soccer season in this env");
+    await page.goto(`/register/${id}?audience=adult&mode=individual`, { waitUntil: "domcontentloaded" });
+    await waitForHydration(page);
+
+    const banner = page.getByTestId("inapp-escape-banner");
+    await expect(banner).toBeVisible({ timeout: 15_000 });
+    await expect(banner.getByText(/instagram/i)).toBeVisible();
+
+    // Step content still renders underneath/alongside the banner.
+    await expect(
+      page.getByText(/who are you registering|registrant info|claim your spot/i)
+    ).toBeVisible({ timeout: 15_000 });
+
+    await banner.getByRole("button", { name: /dismiss/i }).click();
+    await expect(banner).toHaveCount(0);
+  });
+});

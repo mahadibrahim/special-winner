@@ -5,6 +5,7 @@ import {
   trackCatalogSportTileClicked, LEAGUE_EVENTS,
   trackTeamCreateViewed, trackTeamCreateSubmitted, trackTeamDepositViewed, trackTeamHqViewed,
   trackExpressCheckoutConfirmed,
+  trackInappBannerShown, trackInappBannerClicked,
   TEAM_EVENTS, SERVER_EVENTS,
 } from "@/lib/analytics/events";
 
@@ -84,6 +85,30 @@ describe("analytics events", () => {
 
   it("exposes the express checkout event name", () => {
     expect(LEAGUE_EVENTS.expressCheckoutConfirmed).toBe("express_checkout_confirmed");
+  });
+
+  it("inapp_banner_shown passes season_id + in_app_browser, no PII", () => {
+    trackInappBannerShown({ seasonId: "s1" });
+    expect(spy).toHaveBeenCalledWith(LEAGUE_EVENTS.inappBannerShown, {
+      season_id: "s1",
+      in_app_browser: expect.any(Boolean),
+    });
+    const props = spy.mock.calls[0][1] ?? {};
+    for (const k of Object.keys(props)) expect(/email|name|phone/i.test(k)).toBe(false);
+  });
+
+  it("inapp_banner_clicked passes season_id + kind + in_app_browser", () => {
+    trackInappBannerClicked({ seasonId: "s1", kind: "ios" });
+    expect(spy).toHaveBeenCalledWith(LEAGUE_EVENTS.inappBannerClicked, {
+      season_id: "s1",
+      kind: "ios",
+      in_app_browser: expect.any(Boolean),
+    });
+  });
+
+  it("exposes the inapp banner event names", () => {
+    expect(LEAGUE_EVENTS.inappBannerShown).toBe("inapp_banner_shown");
+    expect(LEAGUE_EVENTS.inappBannerClicked).toBe("inapp_banner_clicked");
   });
 
   it("exposes the team event-name catalog + server event name", () => {
