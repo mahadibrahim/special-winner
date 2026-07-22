@@ -13,6 +13,8 @@ import {
   PaymentBalanceReminderEmail,
   type BalanceReminderType,
 } from "./templates/payment-balance-reminder";
+import { WaiverReminderEmail } from "./templates/waiver-reminder";
+import type { WaiverReminderWindowType } from "@/lib/registrations/waiver-reminder-windows";
 import { SignInLinkEmail } from "./templates/sign-in-link";
 import { CoachInviteEmail } from "./templates/coach-invite";
 import { EmailVerificationEmail } from "./templates/email-verification";
@@ -171,6 +173,10 @@ export interface SendRegistrationConfirmationParams {
   registrationStatus: string;
   /** Pass true when the parent already has Telegram linked to suppress the connect CTA in the email. */
   hasLinkedTelegram?: boolean;
+  /** Magic-link (or plain) URL to /account/complete/{registrationId} — pass
+   *  only when the registration's waiver is still unsigned. See the prop
+   *  doc on RegistrationConfirmationEmailProps for the render contract. */
+  completionUrl?: string;
   /** Brand attribution for the purchase — from Stripe metadata.brand or
    *  the request host. Controls email template + link origin. Defaults
    *  to aspire. */
@@ -203,6 +209,7 @@ export async function sendRegistrationConfirmationEmail(params: SendRegistration
       hasLinkedTelegram: params.hasLinkedTelegram ?? false,
       paymentUrl: `${appUrl}/dashboard/registrations/${params.registrationId}/pay-balance`,
       waitlistClaimHours: WAITLIST_PROMOTION_HOURS,
+      completionUrl: params.completionUrl,
       brand: params.brand,
     }),
   );
@@ -611,6 +618,55 @@ export async function sendBalanceReminderEmail(
     text,
     from: fromForBrand(params.brand),
     smsNudge: { organizationId: params.organizationId, body: smsBody },
+  });
+}
+
+// Waiver reminder email — fired by /api/cron/send-waiver-reminders on the
+// cadence documented in src/lib/registrations/waiver-reminder-windows.ts.
+export interface SendWaiverReminderParams {
+  userId: string;
+  organizationId?: string;
+  registrationId: string;
+  parentEmail: string;
+  parentName: string;
+  seasonName: string;
+  seasonStartDate: Date | string;
+  locationName: string;
+  /** Caller must build completionUrl using the brand origin (magic-link for
+   *  guest/passwordless parents, plain path otherwise). */
+  completionUrl: string;
+  reminderType: WaiverReminderWindowType;
+  brand?: BrandId;
+}
+
+export async function sendWaiverReminderEmail(params: SendWaiverReminderParams) {
+  if (!isEmailConfigured()) {
+    console.warn("Email not configured, skipping waiver reminder email");
+    return { success: false, error: "Email not configured" };
+  }
+
+  const { html, text } = await renderEmail(
+    WaiverReminderEmail({
+      parentName: params.parentName,
+      seasonName: params.seasonName,
+      seasonStartDate: formatEmailDate(params.seasonStartDate),
+      locationName: params.locationName,
+      completionUrl: params.completionUrl,
+      brand: params.brand,
+    }),
+  );
+
+  const subject = `Sign your waiver before game 1 — ${params.seasonName}`;
+
+  return sendTransactionalEmail({
+    userId: params.userId,
+    registrationId: params.registrationId,
+    emailType: `waiver_reminder_${params.reminderType}`,
+    to: params.parentEmail,
+    subject,
+    html,
+    text,
+    from: fromForBrand(params.brand),
   });
 }
 

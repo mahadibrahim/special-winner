@@ -23,6 +23,7 @@ import { normalizeBrand, originForBrand } from "@/lib/organization/soccerone-rou
 import { fireServerPurchaseConversions } from "@/lib/analytics/server-conversions";
 import { capturePaymentCompleted } from "@/lib/observability/payment-telemetry";
 import { sendOpsPing } from "@/lib/ops/ping";
+import { env } from "@/lib/env";
 
 // Handles `payment_intent.succeeded` for registration payments. Mirrors
 // the prior Checkout-Session flow exactly, just sourced from a PI.
@@ -175,28 +176,57 @@ export async function handleRegistrationPaymentSucceeded(
       // used anyway as a belt-and-suspenders guard against a future change
       // to one of those wrappers silently starting to throw.
       const sends: Promise<unknown>[] = [
-        awaitEmailSend("registration confirmation", () => sendRegistrationConfirmationEmail({
-          userId: row.user.id,
-          organizationId: row.location.organizationId ?? undefined,
-          registrationId,
-          parentEmail: row.user.email,
-          parentName: row.user.firstName || row.user.email.split("@")[0],
-          childName: `${row.familyMember.firstName} ${row.familyMember.lastName}`,
-          programName: row.program.name,
-          seasonName: row.season.name,
-          startDate: row.season.startDate,
-          endDate: row.season.endDate,
-          scheduleNotes: row.season.scheduleNotes || undefined,
-          locationName: row.location.name,
-          locationAddress:
-            [row.location.addressLine1, row.location.city, row.location.state]
-              .filter(Boolean)
-              .join(", ") || undefined,
-          amountDueCents: registration.amountDueCents,
-          paymentStatus: isFullyPaid ? "paid" : "deposit_paid",
-          registrationStatus: "confirmed",
-          brand: normalizeBrand(paymentIntent.metadata?.brand),
-        }), { registrationId }),
+        awaitEmailSend("registration confirmation", async () => {
+          // Waiver still unsigned (v2 solo checkout can complete payment
+          // before the waiver step) — thread a completion CTA into the
+          // email. Guest/passwordless parents need a magic-link so the
+          // link signs them in transparently, same as the guest-checkout
+          // login link below; authed-with-password parents get a plain
+          // path (middleware gates /account, bouncing through /signin).
+          let completionUrl: string | undefined;
+          if (!registration.waiverSigned) {
+            const destPath = `/account/complete/${registrationId}?via=email_link`;
+            const brandAppUrl =
+              originForBrand(paymentIntent.metadata?.brand) ?? env.PUBLIC_APP_URL;
+            if (row.user.passwordHash === null) {
+              const link = await createMagicLink({
+                userId: registration.registeredByUserId,
+                organizationId: row.location.organizationId ?? undefined,
+                purpose: "login",
+                purposeContext: { redirectTo: destPath },
+                deliveredChannel: "email",
+                deliveredTo: row.user.email,
+              });
+              completionUrl = buildMagicLinkUrl(link.token, { origin: brandAppUrl });
+            } else {
+              completionUrl = `${brandAppUrl}${destPath}`;
+            }
+          }
+
+          return sendRegistrationConfirmationEmail({
+            userId: row.user.id,
+            organizationId: row.location.organizationId ?? undefined,
+            registrationId,
+            parentEmail: row.user.email,
+            parentName: row.user.firstName || row.user.email.split("@")[0],
+            childName: `${row.familyMember.firstName} ${row.familyMember.lastName}`,
+            programName: row.program.name,
+            seasonName: row.season.name,
+            startDate: row.season.startDate,
+            endDate: row.season.endDate,
+            scheduleNotes: row.season.scheduleNotes || undefined,
+            locationName: row.location.name,
+            locationAddress:
+              [row.location.addressLine1, row.location.city, row.location.state]
+                .filter(Boolean)
+                .join(", ") || undefined,
+            amountDueCents: registration.amountDueCents,
+            paymentStatus: isFullyPaid ? "paid" : "deposit_paid",
+            registrationStatus: "confirmed",
+            completionUrl,
+            brand: normalizeBrand(paymentIntent.metadata?.brand),
+          });
+        }, { registrationId }),
 
         awaitEmailSend("payment receipt", () => sendPaymentReceiptEmail({
           userId: row.user.id,

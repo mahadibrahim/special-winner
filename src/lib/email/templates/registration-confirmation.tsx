@@ -31,6 +31,12 @@ interface RegistrationConfirmationEmailProps {
   hasLinkedTelegram?: boolean;
   paymentUrl?: string;
   waitlistClaimHours?: number;
+  /** Magic-link (or plain, for already-authed parents) URL to
+   *  /account/complete/{registrationId} — pass only when the registration
+   *  still needs its waiver signed. Renders an additional "Finish your
+   *  registration" CTA + one sentence. Omitted entirely (undefined) leaves
+   *  the email byte-identical to before this prop existed. */
+  completionUrl?: string;
   brand?: BrandId;
 }
 
@@ -51,6 +57,7 @@ export function RegistrationConfirmationEmail({
   hasLinkedTelegram = false,
   paymentUrl,
   waitlistClaimHours,
+  completionUrl,
   brand,
 }: RegistrationConfirmationEmailProps) {
   const t = emailThemeFor(brand);
@@ -163,6 +170,15 @@ export function RegistrationConfirmationEmail({
           <Button href={resolvedPaymentUrl}>Complete payment →</Button>
         ) : (
           <Button href={dashboardUrl}>View your dashboard →</Button>
+        )}
+
+        {completionUrl && (
+          <>
+            <P>
+              Sign the waiver before your first game — takes a minute.
+            </P>
+            <Button href={completionUrl}>Finish your registration →</Button>
+          </>
         )}
 
         <H2>What's next</H2>
