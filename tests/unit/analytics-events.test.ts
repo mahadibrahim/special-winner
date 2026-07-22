@@ -4,6 +4,7 @@ import {
   trackDivisionRegisterClicked, trackLandingTabViewed, trackRegistrationStepViewed,
   trackCatalogSportTileClicked, LEAGUE_EVENTS,
   trackTeamCreateViewed, trackTeamCreateSubmitted, trackTeamDepositViewed, trackTeamHqViewed,
+  trackExpressCheckoutConfirmed,
   TEAM_EVENTS, SERVER_EVENTS,
 } from "@/lib/analytics/events";
 
@@ -69,6 +70,20 @@ describe("analytics events", () => {
       season_id: "s1",
       in_app_browser: expect.any(Boolean),
     });
+  });
+
+  it("express_checkout_confirmed passes express_payment_type + in_app_browser, no PII", () => {
+    trackExpressCheckoutConfirmed({ expressPaymentType: "apple_pay" });
+    expect(spy).toHaveBeenCalledWith(LEAGUE_EVENTS.expressCheckoutConfirmed, {
+      express_payment_type: "apple_pay",
+      in_app_browser: expect.any(Boolean),
+    });
+    const props = spy.mock.calls[0][1] ?? {};
+    for (const k of Object.keys(props)) expect(/email|name|phone/i.test(k)).toBe(false);
+  });
+
+  it("exposes the express checkout event name", () => {
+    expect(LEAGUE_EVENTS.expressCheckoutConfirmed).toBe("express_checkout_confirmed");
   });
 
   it("exposes the team event-name catalog + server event name", () => {

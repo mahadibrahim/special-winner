@@ -13,6 +13,7 @@ export const LEAGUE_EVENTS = {
   catalogSportTileClicked: "catalog_sport_tile_clicked",
   registrationStepViewed: "registration_step_viewed",
   registrationPaymentMethodSelected: "registration_payment_method_selected",
+  expressCheckoutConfirmed: "express_checkout_confirmed",
 } as const;
 
 // Team funnel client events (team-create.tsx form → deposit → HQ share view).
@@ -59,6 +60,11 @@ export const trackRegistrationStepViewed = (p: { step: RegStep; seasonId: string
   });
 export const trackRegistrationPaymentMethodSelected = (p: { method: "bank" | "card" }) =>
   track(LEAGUE_EVENTS.registrationPaymentMethodSelected, { method: p.method });
+export const trackExpressCheckoutConfirmed = (p: { expressPaymentType: string }) =>
+  track(LEAGUE_EVENTS.expressCheckoutConfirmed, {
+    express_payment_type: p.expressPaymentType,
+    in_app_browser: isInAppBrowser(),
+  });
 
 export const trackTeamCreateViewed = (p: { seasonId: string }) =>
   track(TEAM_EVENTS.teamCreateViewed, { season_id: p.seasonId, in_app_browser: isInAppBrowser() });
