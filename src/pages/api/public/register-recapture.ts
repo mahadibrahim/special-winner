@@ -77,12 +77,18 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
     });
   }
 
-  await sendInappRecaptureEmail({
-    email,
-    seasonId,
-    seasonName: `${row.programName} - ${row.seasonName}`,
-    brand,
-  });
+  // Send the email. Failures are swallowed: the response record is already
+  // stored and must not 500 because Resend hiccuped.
+  try {
+    await sendInappRecaptureEmail({
+      email,
+      seasonId,
+      seasonName: `${row.programName} - ${row.seasonName}`,
+      brand,
+    });
+  } catch (err) {
+    console.error("[register-recapture] email failed", err);
+  }
 
   // Always { sent: true } — success, failure, and dedupe-suppressed all look
   // identical to the caller (see module doc comment above).

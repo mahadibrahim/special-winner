@@ -1097,6 +1097,7 @@ export async function sendInappRecaptureEmail(params: {
     subject,
     html,
     text,
+    from: fromForBrand(params.brand),
   });
 
   await logEmail({
