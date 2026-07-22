@@ -76,28 +76,32 @@ async function main() {
       }
 
       // Attempt validation. The file must be live at https://{domain}/.well-known/apple-developer-merchantid-domain-association
-      // If validation fails (404/not-found), it's expected pre-deploy or if the file isn't live yet.
-      let validationError: string | null = null;
+      // Stripe returns 200 with status fields set to "inactive" if the file isn't reachable yet.
+      let validationWarning: string | null = null;
       try {
         const validated = await stripe.paymentMethodDomains.validate(
           paymentMethodDomain.id,
         );
-        console.log(`  ✓ Validated successfully`);
         paymentMethodDomain = validated;
-      } catch (err) {
-        const stripeErr = err as Stripe.StripeAPIError & { statusCode?: number };
-        if (
-          stripeErr.code === "file_not_found"
-          || stripeErr.statusCode === 404
-          || (stripeErr.message && stripeErr.message.includes("not found"))
-        ) {
-          validationError = `file not found at https://${domain}/.well-known/apple-developer-merchantid-domain-association`;
+
+        // Inspect the returned validation statuses. apple_pay is the authoritative check.
+        if (paymentMethodDomain.apple_pay?.status !== "active") {
+          const errorDetail =
+            paymentMethodDomain.apple_pay?.status_details?.error_message
+            ?? "association file not yet reachable";
+          validationWarning = `apple_pay ${paymentMethodDomain.apple_pay?.status ?? "unknown"} — ${errorDetail}`;
           console.log(
-            `  ⚠ Validation deferred: file not yet live — re-run after deploy`,
+            `  ⚠ ${domain}: ${validationWarning}; re-run after deploy to validate`,
           );
         } else {
+          console.log(`  ✓ Validated successfully`);
+        }
+      } catch (err) {
+        // Defensive catch for genuine API/auth errors.
+        if (err instanceof Stripe.errors.StripeError) {
           throw err;
         }
+        throw err;
       }
 
       // Report status.
@@ -108,13 +112,7 @@ async function main() {
         google_pay: paymentMethodDomain.google_pay?.status ?? "inactive",
         link: paymentMethodDomain.link?.status ?? "inactive",
       };
-      console.log(`  Status: ${JSON.stringify(status)}`);
-
-      if (validationError) {
-        console.log(`  Note: ${validationError}\n`);
-      } else {
-        console.log("");
-      }
+      console.log(`  Status: ${JSON.stringify(status)}\n`);
     } catch (err) {
       console.error(
         `  ✗ Error: ${err instanceof Error ? err.message : String(err)}\n`,
