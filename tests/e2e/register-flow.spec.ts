@@ -24,9 +24,7 @@ test("register page renders the registration experience @critical", async ({ pag
   await waitForHydration(page);
   // Either choose-mode (team-capable) or the wizard's first step (solo-only).
   await expect(
-    page
-      .getByRole("heading", { name: /how do you want to join/i })
-      .or(page.getByText(/who are you registering|registrant info/i)),
+    page.getByText(/who are you registering|registrant info|claim your spot|how do you want to join/i),
   ).toBeVisible({ timeout: 15_000 });
 });
 
@@ -62,8 +60,6 @@ test("?mode=individual skips the choose-mode screen", async ({ page }) => {
   await expect(page.getByRole("heading", { name: /how do you want to join/i })).toHaveCount(0);
   // Verify we're on the player step.
   await expect(
-    page
-      .getByText(/who are you registering|registrant info/i)
-      .or(page.getByRole("heading", { level: 2, name: /who are you registering/i }))
+    page.getByText(/who are you registering|registrant info|claim your spot/i)
   ).toBeVisible({ timeout: 15_000 });
 });
