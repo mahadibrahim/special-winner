@@ -67,6 +67,8 @@ export function ConfirmationStep({
             seasonId={seasonId}
             needsBirthDate={needsBirthDate}
             via="confirm_screen"
+            isSelf={isSelf}
+            participantName={registrantDisplayName}
           />
         </div>
       )}

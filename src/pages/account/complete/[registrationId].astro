@@ -47,6 +47,8 @@ if (!row) {
 
 const { registration, familyMember } = row;
 const needsBirthDate = familyMember.birthDate === null;
+const isSelf = familyMember.selfUserId !== null;
+const participantName = `${familyMember.firstName} ${familyMember.lastName}`.trim();
 ---
 
 <BaseLayout title="Finish Your Registration — Aspire Sports">
@@ -69,6 +71,8 @@ const needsBirthDate = familyMember.birthDate === null;
               seasonId={registration.seasonId}
               needsBirthDate={needsBirthDate}
               via="email_link"
+              isSelf={isSelf}
+              participantName={participantName}
             />
           </>
         )}

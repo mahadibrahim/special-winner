@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { ErrorBanner } from "@/components/ui/error-banner"
 import { SmsConsentCheckbox } from "@/components/sms/sms-consent-checkbox"
 import { WaiverText } from "./waiver-text"
+import { MediaAuthStep, type MediaAuthScope } from "./media-auth-step"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { parseApiError } from "@/lib/api/error-message"
 import { trackRegistrationStepViewed } from "@/lib/analytics/events"
@@ -23,6 +24,12 @@ export interface CompletionFormProps {
   /** Where this form is mounted — feeds the `?via=` param the completion
    *  endpoint reads for analytics/attribution. */
   via: "confirm_screen" | "email_link"
+  /** True when the registrant is the account owner (adult self path), for
+   *  the media-authorization copy. Defaults to false (dependent). */
+  isSelf?: boolean
+  /** Display name of the participant, for media-authorization copy. Falls
+   *  back to generic phrasing when omitted. */
+  participantName?: string
 }
 
 /**
@@ -72,6 +79,8 @@ export function CompletionForm({
   seasonId,
   needsBirthDate,
   via,
+  isSelf = false,
+  participantName = "",
 }: CompletionFormProps) {
   // Top-level island on the resume page; a harmless extra beacon set when
   // embedded inside the wizard (which already fires its own).
@@ -84,6 +93,11 @@ export function CompletionForm({
   const [dobYear, setDobYear] = useState("")
   const [phone, setPhone] = useState("")
   const [smsConsent, setSmsConsent] = useState(false)
+  // Opt-out media consent: empty set = all 3 scopes granted by default,
+  // matching v1's default. Opt-outs are never pre-checked.
+  const [mediaAuthOptOuts, setMediaAuthOptOuts] = useState<ReadonlySet<MediaAuthScope>>(
+    new Set(),
+  )
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
@@ -135,6 +149,7 @@ export function CompletionForm({
             birthDate,
             phone: trimmedPhone || undefined,
             smsConsent: trimmedPhone ? smsConsent : undefined,
+            mediaAuthOptOuts: Array.from(mediaAuthOptOuts),
           }),
         },
       )
@@ -240,6 +255,20 @@ export function CompletionForm({
           By typing your name above, you agree that this constitutes a legal signature.
         </p>
       </div>
+
+      <details open className="group">
+        <summary className="text-sm font-medium text-ink cursor-pointer select-none">
+          Photo &amp; video permissions
+        </summary>
+        <div className="mt-3">
+          <MediaAuthStep
+            isSelf={isSelf}
+            participantName={participantName}
+            optOutScopes={mediaAuthOptOuts}
+            onOptOutScopesChange={setMediaAuthOptOuts}
+          />
+        </div>
+      </details>
 
       <div className="space-y-2">
         <Label className="text-ink-muted">Phone (optional)</Label>
