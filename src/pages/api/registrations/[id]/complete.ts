@@ -65,6 +65,12 @@ export const POST: APIRoute = async ({ request, params, locals, clientAddress, u
         headers: { "Content-Type": "application/json" },
       });
     }
+    if (!z.string().uuid().safeParse(id).success) {
+      return new Response(JSON.stringify({ error: "Invalid registration id" }), {
+        status: 400,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
 
     const body = await request.json().catch(() => ({}));
     const parsed = bodySchema.safeParse(body);
@@ -173,34 +179,55 @@ export const POST: APIRoute = async ({ request, params, locals, clientAddress, u
     // Consent recording — copied from guest-checkout.ts's consent block
     // rather than paraphrased, so the semantics (personal-consent guard,
     // unconditional liability + media-auth writes) stay identical.
-    const baseConsent = {
-      db,
-      familyMemberId: familyMember.id,
-      registrationId: registration.id,
-      organizationId,
-      signedByUserId: user.id,
-      signedByName: data.waiverSignature,
-      ipAddress: clientAddress ?? null,
-      userAgent: userAgent ?? null,
-    };
-    const personalConsentType =
-      personKind === "self" ? "age_confirmation" : "parental";
-    const needsPersonalConsent = !(await hasActiveConsent(
-      db,
-      familyMember.id,
-      personalConsentType,
-    ));
-    await Promise.all([
-      needsPersonalConsent
-        ? recordConsent({ ...baseConsent, type: personalConsentType })
-        : Promise.resolve(),
-      recordConsent({ ...baseConsent, type: "liability" }),
-      recordDefaultMediaAuth({
+    //
+    // Consent writes and the waiver-signed UPDATE below are wrapped in a
+    // single transaction: if the final UPDATE fails after consents commit
+    // (a Railway blip is a known real failure mode), waiverSigned would
+    // stay false while a retry re-inserts liability + media-auth consent
+    // rows unguarded (only the personal-consent type has a hasActiveConsent
+    // check). Sequential awaits only inside the tx — never Promise.all on a
+    // tx handle (known incident).
+    await db.transaction(async (tx) => {
+      const baseConsent = {
+        db: tx,
+        familyMemberId: familyMember.id,
+        registrationId: registration.id,
+        organizationId,
+        signedByUserId: user.id,
+        signedByName: data.waiverSignature,
+        ipAddress: clientAddress ?? null,
+        userAgent: userAgent ?? null,
+      };
+      const personalConsentType =
+        personKind === "self" ? "age_confirmation" : "parental";
+      const needsPersonalConsent = !(await hasActiveConsent(
+        tx,
+        familyMember.id,
+        personalConsentType,
+      ));
+      if (needsPersonalConsent) {
+        await recordConsent({ ...baseConsent, type: personalConsentType });
+      }
+      await recordConsent({ ...baseConsent, type: "liability" });
+      await recordDefaultMediaAuth({
         ...baseConsent,
         optOutScopes: data.mediaAuthOptOuts ?? [],
-      }),
-    ]);
+      });
 
+      await tx
+        .update(registrations)
+        .set({
+          waiverSigned: true,
+          waiverSignedAt: new Date(),
+          waiverSignedBy: data.waiverSignature,
+          ageReviewNeeded,
+          updatedAt: new Date(),
+        })
+        .where(eq(registrations.id, registration.id));
+    });
+
+    // Best-effort side effects, kept outside the transaction — not
+    // consistency-critical with the waiver signature/consent state above.
     if (data.phone && organizationId) {
       try {
         await recordPhoneOptIn({
@@ -215,17 +242,6 @@ export const POST: APIRoute = async ({ request, params, locals, clientAddress, u
         console.error("Failed to record phone opt-in:", err);
       }
     }
-
-    await db
-      .update(registrations)
-      .set({
-        waiverSigned: true,
-        waiverSignedAt: new Date(),
-        waiverSignedBy: data.waiverSignature,
-        ageReviewNeeded,
-        updatedAt: new Date(),
-      })
-      .where(eq(registrations.id, registration.id));
 
     const via = url.searchParams.get("via") === "email_link" ? "email_link" : "confirm_screen";
     const daysAfterPayment = Math.floor(

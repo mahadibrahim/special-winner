@@ -132,6 +132,21 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
     expect(res.status).toBe(401);
   });
 
+  it("rejects a malformed registration id with 400 instead of a DB error", async () => {
+    const { cookie } = await mintGuestRegistration();
+    const res = await apiFetch("/api/registrations/not-a-uuid/complete", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({
+        waiverAccepted: true,
+        waiverSignature: "Complete Flow",
+      }),
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe("Invalid registration id");
+  });
+
   it("signs the waiver on the happy path, then is idempotent on a repeat call", async () => {
     const { registrationId, cookie } = await mintGuestRegistration();
 
