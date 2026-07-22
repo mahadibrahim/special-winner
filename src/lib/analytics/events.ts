@@ -16,6 +16,7 @@ export const LEAGUE_EVENTS = {
   expressCheckoutConfirmed: "express_checkout_confirmed",
   inappBannerShown: "inapp_banner_shown",
   inappBannerClicked: "inapp_banner_clicked",
+  inappRecaptureRequested: "inapp_recapture_requested",
 } as const;
 
 // Team funnel client events (team-create.tsx form → deposit → HQ share view).
@@ -73,6 +74,11 @@ export const trackInappBannerClicked = (p: { seasonId: string; kind: "ios" | "an
   track(LEAGUE_EVENTS.inappBannerClicked, {
     season_id: p.seasonId,
     kind: p.kind,
+    in_app_browser: isInAppBrowser(),
+  });
+export const trackInappRecaptureRequested = (p: { seasonId: string }) =>
+  track(LEAGUE_EVENTS.inappRecaptureRequested, {
+    season_id: p.seasonId,
     in_app_browser: isInAppBrowser(),
   });
 
