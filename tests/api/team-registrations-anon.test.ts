@@ -84,6 +84,57 @@ describe("anonymous captain team creation", () => {
     expect(body.inviteToken).toBeUndefined();
   });
 
+  it("returns 409 for a Gmail dot-variant of an existing canonical email", async () => {
+    // Canonicalization (normalizeForUniqueness) only strips dots/+tags on
+    // gmail.com/googlemail.com — no seeded gmail fixture exists, so create
+    // one fresh via this same endpoint, then hit it again with a dotted
+    // variant of the local-part. Both should resolve to the same canonical
+    // inbox and the second request should 409, not mint a duplicate account.
+    const seasonId = await getTeamSeasonId();
+    const stamp = Date.now();
+    const baseLocal = `w2canon${stamp}`;
+    const email = `${baseLocal}@gmail.com`;
+
+    const first = await fetch(`${BASE}/api/public/team-registrations`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        seasonId,
+        teamName: `Canon Base Test ${stamp}`,
+        captainName: "Canon Base",
+        captainEmail: email,
+        backstopConsent: true,
+      }),
+    });
+    expect(first.status).toBe(200);
+    const firstBody = (await first.json()) as { wasNewUser?: boolean };
+    expect(firstBody.wasNewUser).toBe(true);
+
+    // Dotted variant of the same local-part — canonicalizes to the same
+    // gmail inbox as `email` above.
+    const dottedEmail = `${baseLocal.slice(0, 3)}.${baseLocal.slice(3)}@gmail.com`;
+
+    const second = await fetch(`${BASE}/api/public/team-registrations`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        seasonId,
+        teamName: `Canon Dotted Test ${stamp}`,
+        captainName: "Canon Dotted",
+        captainEmail: dottedEmail,
+        backstopConsent: true,
+      }),
+    });
+
+    expect(second.status).toBe(409);
+    const secondBody = (await second.json()) as {
+      error?: string;
+      inviteToken?: string;
+    };
+    expect(secondBody.error).toBe("account_exists");
+    expect(secondBody.inviteToken).toBeUndefined();
+  });
+
   it("400s when backstopConsent is missing", async () => {
     const seasonId = await getTeamSeasonId();
     const stamp = Date.now();
