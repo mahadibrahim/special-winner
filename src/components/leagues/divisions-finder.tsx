@@ -29,15 +29,11 @@ const GENDERS: { key: DivisionGender; label: string }[] = [
 const BARS_FOR: Record<string, number> = { a: 4, b: 3, c: 2, d: 1, open: 4 };
 const TIER_TEXT: Record<string, string> = { a: "text-ink", b: "text-primary", c: "text-ochre", d: "text-sage", open: "text-navy" };
 
-export function registerHref(d: Division): string | null {
-  // Forming divisions capture interest in place (InterestCapture) — there is
-  // no navigation target. The old return value here was a GET against the
-  // POST-only season-interest endpoint: every click 405'd.
-  if (d.status === "forming") return null;
-  // Completed divisions are archive rows: a register link over a finished
-  // season is a dead button (RegisterExperience refuses non-open anyway).
-  if (d.status === "completed") return null;
-  return `/register/${d.seasonId}`;
+export function registerHref(d: Division): string {
+  if (d.status === "forming") return `/api/public/season-interest?seasonId=${d.seasonId}`;
+  // Individual CTA — the register page skips the solo/team chooser when this
+  // param is present. Team CTA (if added later) uses /register/team/{id}.
+  return `/register/${d.seasonId}?mode=individual`;
 }
 
 export function DivisionsFinder({ divisions, venues, term }: {

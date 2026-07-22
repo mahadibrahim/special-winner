@@ -16,16 +16,15 @@ export default function RegisterExperience({
   audienceHint,
   wasCancelled,
   teamToken,
-  modeHint,
+  initialMode = null,
 }: {
   seasonId: string;
   user: AuthedUser;
   audienceHint: string | null;
   wasCancelled: boolean;
   teamToken: string | null;
-  /** ?mode= from catalog cards ("individual" | "team") — skips ChooseMode
-      when the visitor already picked on the card they clicked. */
-  modeHint?: string | null;
+  /** ?mode=individual from division cards' Register CTA — the visitor already chose solo, so skip ChooseMode. */
+  initialMode?: "individual" | null;
 }) {
   useHydrationBeacon();
   const [season, setSeason] = useState<
@@ -37,13 +36,10 @@ export default function RegisterExperience({
     | null
   >(null);
   const [err, setErr] = useState<string | null>(null);
-  // Precedence: an invite token always means solo-join-a-roster; then the
-  // catalog card's ?mode= hint; then the explicit chooser. A "team" hint is
-  // re-checked against server truth below (canTeam) — a hand-edited URL on an
-  // individual-only season falls back to the chooser rather than rendering
-  // TeamCreate for a season that can't take teams.
+  // ?mode=individual comes from division cards' "Register" CTA — the visitor
+  // already chose solo, so don't ask again via the ChooseMode screen.
   const [mode, setMode] = useState<"choose" | "solo" | "team">(
-    teamToken ? "solo" : modeHint === "individual" ? "solo" : modeHint === "team" ? "team" : "choose",
+    teamToken ? "solo" : initialMode === "individual" ? "solo" : "choose",
   );
 
   useEffect(() => {
@@ -65,7 +61,7 @@ export default function RegisterExperience({
     if (
       mode === "solo" &&
       !teamToken &&
-      modeHint === "individual" &&
+      initialMode === "individual" &&
       season.signupModes &&
       !season.signupModes.includes("individual")
     ) {
