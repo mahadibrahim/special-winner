@@ -1,6 +1,6 @@
 "use client"
 
-import { Tag, CheckCircle2, AlertCircle, Loader2, X, Landmark, CreditCard } from "lucide-react"
+import { Tag, CheckCircle2, AlertCircle, Loader2, X, Landmark, CreditCard, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -434,6 +434,22 @@ export function PaymentStep({
             <p className="text-ink-muted text-sm">
               Pick a method to enter your payment details. Bank transfer is free;
               card payments include the processor fee.
+            </p>
+            {/* Trust signals BEFORE the commit tap — replays showed hesitation
+                right here, and the refund promise previously appeared only
+                after a method was already selected. */}
+            <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-muted">
+              <span className="inline-flex items-center gap-1">
+                <Lock className="w-3 h-3" aria-hidden="true" />
+                Secure checkout — powered by Stripe
+              </span>
+              <span aria-hidden="true">·</span>
+              <span>
+                Full refund until 14 days before the season ·{" "}
+                <a href="/refund-policy" target="_blank" rel="noopener" className="underline underline-offset-2 hover:text-ink">
+                  Refund policy
+                </a>
+              </span>
             </p>
           </div>
           {/* Card/wallet leads: ~2/3 of paid traffic is iOS and the observed

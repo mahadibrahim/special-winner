@@ -48,8 +48,48 @@ export function SeasonTabs({ divisions, venues, weekStart, scheduleNote, term, i
           <div hidden={tab !== "divisions"}>
             <>
               <h2 className="font-display font-semibold text-2xl">Find your level &amp; register</h2>
-              <p className="text-ink-muted text-[13px] mt-0.5 mb-4">Pick your level, then narrow by format, night, or venue. Open divisions register on the spot.</p>
+              <p className="text-ink-muted text-[13px] mt-0.5 mb-1.5">Pick your level, then narrow by format, night, or venue. Open divisions register on the spot.</p>
+              {/* Pre-answer the two exits replays showed: "do I need an
+                  account?" and "how long will this take?" */}
+              <p className="font-mono text-[10.5px] tracking-wide uppercase text-sage mb-4">
+                No account needed · registering takes about 3 minutes
+              </p>
               <DivisionsFinder divisions={divisions} venues={venues} term={term} />
+
+              {/* What to expect + the questions replays showed people leaving
+                  the flow to answer. Inline so info-seeking doesn't mean
+                  losing the page (most who left never came back). */}
+              <div className="mt-10 grid md:grid-cols-2 gap-8">
+                <div>
+                  <h3 className="font-mono text-[11px] tracking-widest uppercase text-primary mb-3">What to expect</h3>
+                  <ol className="space-y-2.5">
+                    {[
+                      ["Register", "Solo or with your team — about 3 minutes, pay online."],
+                      ["Get your schedule", "Divisions lock, then your team & game times land in your inbox."],
+                      ["Play", "One game a week, 7 games, indoor — rain or shine."],
+                    ].map(([t, d], i) => (
+                      <li key={t} className="flex gap-3 text-[13px]">
+                        <span className="font-display font-semibold text-primary">{i + 1}</span>
+                        <span><b className="text-ink">{t}</b> <span className="text-ink-muted">— {d}</span></span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+                <div>
+                  <h3 className="font-mono text-[11px] tracking-widest uppercase text-primary mb-3">Quick answers</h3>
+                  <div className="divide-y divide-cream-3 border-y border-cream-3">
+                    {FAQ.slice(0, 4).map((f) => (
+                      <details key={f.q} className="group py-2.5">
+                        <summary className="cursor-pointer list-none flex items-baseline justify-between gap-3 text-[13px] font-semibold text-ink">
+                          {f.q}
+                          <span className="text-ink-faint group-open:rotate-45 transition-transform">+</span>
+                        </summary>
+                        <p className="text-[13px] text-ink-2 mt-1.5">{f.a}</p>
+                      </details>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </>
           </div>
           <div hidden={tab !== "schedule"}>
