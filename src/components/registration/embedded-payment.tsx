@@ -128,8 +128,9 @@ function PaymentForm({
   // Shared by the card-form Pay button and the Express Checkout Element's
   // onConfirm — both call stripe.confirmPayment(...) the same way and must
   // settle the result identically (success tracking, onSuccess, pending
-  // redirect). Only the pre-confirm collection step differs (elements.submit()
-  // is still called by both, just from their own handlers).
+  // redirect). The pre-confirm collection step differs: handlePay calls
+  // elements.submit() first (required for the PaymentElement path), while
+  // handleExpressConfirm does not (see the comment there for why).
   const settleConfirmResult = (result: PaymentIntentResult) => {
     const { error: confirmError, paymentIntent } = result;
 
@@ -161,6 +162,7 @@ function PaymentForm({
 
   const handlePay = async () => {
     if (!stripe || !elements) return;
+    if (isSubmitting) return;
     setIsSubmitting(true);
     setError(null);
 
@@ -184,6 +186,7 @@ function PaymentForm({
     event: StripeExpressCheckoutElementConfirmEvent,
   ) => {
     if (!stripe || !elements) return;
+    if (isSubmitting) return;
     setIsSubmitting(true);
     setError(null);
 
@@ -191,17 +194,19 @@ function PaymentForm({
       expressPaymentType: event.expressPaymentType,
     });
 
-    // Stripe's Express Checkout Element contract requires elements.submit()
-    // before confirmPayment, same as the PaymentElement path above — the
-    // element handles collection but Elements still needs to validate/finalize
-    // before confirming.
-    const { error: submitError } = await elements.submit();
-    if (submitError) {
-      setError(submitError.message ?? "Payment details are invalid");
-      setIsSubmitting(false);
-      return;
-    }
-
+    // NOTE: no elements.submit() here. elements.submit() is only for an
+    // Elements group created WITHOUT a PaymentIntent/SetupIntent (the
+    // "deferred" / amount-based flow) — it validates and collects data from
+    // whichever payment Element is mounted in the group before you create
+    // and confirm the intent yourself. This <Elements> instance is created
+    // WITH `clientSecret` (see EmbeddedPayment above), so the intent already
+    // exists and submit() is neither required nor appropriate: the Express
+    // Checkout Element shares this Elements group with the (empty, unfilled)
+    // PaymentElement below, and calling submit() here would validate/collect
+    // against that empty PaymentElement and reject the wallet payment. Go
+    // straight to stripe.confirmPayment — the ECE has already collected and
+    // attached the wallet payment method via its own internal flow by the
+    // time onConfirm fires.
     const result = await stripe.confirmPayment({
       elements,
       confirmParams: { return_url: returnUrl },
@@ -217,7 +222,17 @@ function PaymentForm({
   return (
     <div className="space-y-4">
       {showExpressCheckout && (
-        <>
+        <div
+          className={
+            expressMethodsAvailable ? "space-y-4" : "h-0 overflow-hidden"
+          }
+        >
+          {/* ECE must always mount (even while collapsed) — onReady only
+              fires for a mounted element, and that's how we learn whether
+              any wallets are available. Collapse the wrapper instead of
+              conditionally rendering the element, so there's no dead
+              vertical gap before onReady resolves or when zero wallets are
+              available on this device/browser. */}
           <ExpressCheckoutElement
             onConfirm={handleExpressConfirm}
             onReady={(event: StripeExpressCheckoutElementReadyEvent) => {
@@ -243,7 +258,7 @@ function PaymentForm({
               <div className="h-px flex-1 bg-border" />
             </div>
           )}
-        </>
+        </div>
       )}
       <PaymentElement
         options={{
