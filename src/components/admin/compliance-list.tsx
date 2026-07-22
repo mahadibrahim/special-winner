@@ -22,7 +22,9 @@ interface FamilyMemberCompliance {
   id: string
   firstName: string
   lastName: string
-  birthDate: string
+  // Null for adult self-registrants whose DOB is still pending
+  // post-payment review.
+  birthDate: string | null
   kind: "self" | "dependent"
   consents: {
     parental: ConsentStatus | null
@@ -181,7 +183,8 @@ export function ComplianceList() {
                       {m.firstName} {m.lastName}
                     </div>
                     <div className="text-xs text-ink-muted">
-                      {m.kind === "self" ? "Adult self" : "Dependent"} · DOB {m.birthDate}
+                      {m.kind === "self" ? "Adult self" : "Dependent"} · DOB{" "}
+                      {m.birthDate ?? "pending"}
                     </div>
                   </td>
                   <td className="px-3 py-3">

@@ -20,7 +20,10 @@ export type ResolvePersonInput =
         id: string;
         firstName: string;
         lastName: string;
-        birthDate: string;
+        // Nullable: v2 adult self-registrants may defer their DOB to a
+        // post-payment step. Self rows dedupe by selfUserId, not birthDate,
+        // so a missing DOB here is not a dedupe hazard.
+        birthDate: string | null;
         gender?: Gender | null;
       };
     }
@@ -29,6 +32,8 @@ export type ResolvePersonInput =
       parentUserId: string;
       firstName: string;
       lastName: string;
+      // Dependents always carry a DOB (v1 youth/COPPA flow, unchanged) — the
+      // dedupe below matches on it, so it must be present.
       birthDate: string;
       gender?: Gender | null;
       medicalNotes?: string | null;

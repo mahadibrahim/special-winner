@@ -86,7 +86,9 @@ interface FamilyMember {
   id: string
   firstName: string
   lastName: string
-  birthDate: string
+  // Null for adult self-registrants whose DOB is still pending
+  // post-payment review (their row can surface here alongside dependents).
+  birthDate: string | null
   gender: string | null
 }
 
@@ -1183,8 +1185,11 @@ export default function RegistrationWizard({
     return age
   }
 
-  const isAgeEligible = (birthDate: string, currentSeason: Season): boolean => {
+  const isAgeEligible = (birthDate: string | null, currentSeason: Season): boolean => {
     if (!currentSeason.ageGroup) return true
+    // DOB not known yet (post-payment deferral) — treat as unknown-yet-
+    // allowed; the post-payment age check owns enforcement.
+    if (!birthDate) return true
     const age = calculateAge(birthDate)
     return age >= currentSeason.ageGroup.minAge && age <= currentSeason.ageGroup.maxAge
   }

@@ -267,12 +267,16 @@ export const GET: APIRoute = async ({ params, locals }) => {
         row.previousAverageLevel !== null ? parseFloat(row.previousAverageLevel) : null,
     }));
 
-    // Calculate age
-    const today = new Date();
-    const birthDateValue = new Date(familyMember.birthDate);
-    const age = Math.floor(
-      (today.getTime() - birthDateValue.getTime()) / (365.25 * 24 * 60 * 60 * 1000)
-    );
+    // Calculate age. birthDate can be null for adult self-registrants whose
+    // DOB is still pending post-payment review.
+    let age: number | null = null;
+    if (familyMember.birthDate) {
+      const today = new Date();
+      const birthDateValue = new Date(familyMember.birthDate);
+      age = Math.floor(
+        (today.getTime() - birthDateValue.getTime()) / (365.25 * 24 * 60 * 60 * 1000)
+      );
+    }
 
     return new Response(
       JSON.stringify({

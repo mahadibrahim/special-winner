@@ -21,7 +21,9 @@ interface FamilyMember {
   id: string
   firstName: string
   lastName: string
-  birthDate: string
+  // Null for adult self-registrants whose DOB is still pending
+  // post-payment review.
+  birthDate: string | null
   gender: string | null
   medicalNotes: string | null
   emergencyContactName: string | null
@@ -102,7 +104,7 @@ export default function FamilyMembersCard() {
     setEditingMember(member)
     setFirstName(member.firstName)
     setLastName(member.lastName)
-    setBirthDate(member.birthDate)
+    setBirthDate(member.birthDate ?? "")
     setGender(member.gender || "")
     setMedicalNotes(member.medicalNotes || "")
     setEmergencyContactName(member.emergencyContactName || "")
@@ -182,7 +184,8 @@ export default function FamilyMembersCard() {
     }
   }
 
-  const calculateAge = (birthDate: string) => {
+  const calculateAge = (birthDate: string | null) => {
+    if (!birthDate) return null
     const today = new Date()
     const birth = new Date(birthDate)
     let age = today.getFullYear() - birth.getFullYear()
@@ -556,7 +559,9 @@ export default function FamilyMembersCard() {
                       </p>
                       <div className="flex items-center gap-2 text-sm text-ink-muted">
                         <Calendar className="w-3 h-3" />
-                        Age {calculateAge(member.birthDate)}
+                        {calculateAge(member.birthDate) != null
+                          ? `Age ${calculateAge(member.birthDate)}`
+                          : "DOB pending"}
                       </div>
                     </div>
                   </div>
