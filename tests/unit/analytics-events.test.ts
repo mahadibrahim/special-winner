@@ -19,9 +19,12 @@ describe("analytics events", () => {
     trackLandingTabViewed({ sport: "soccer", tab: "overview" });
     expect(spy).toHaveBeenCalledWith("league_landing_tab_viewed", { sport: "soccer", tab: "overview" });
   });
-  it("registration_step_viewed maps seasonId -> season_id", () => {
-    trackRegistrationStepViewed({ step: "payment", seasonId: "s9" });
-    expect(spy).toHaveBeenCalledWith("registration_step_viewed", { step: "payment", season_id: "s9" });
+  it("registration_step_viewed maps seasonId -> season_id and includes flow, variant, in_app_browser", () => {
+    trackRegistrationStepViewed({ step: "payment", seasonId: "s9", flow: "solo", variant: "v1" });
+    const call = spy.mock.calls[0];
+    expect(call[0]).toBe("registration_step_viewed");
+    expect(call[1]).toMatchObject({ step: "payment", season_id: "s9", flow: "solo", variant: "v1" });
+    expect(call[1]).toHaveProperty("in_app_browser", expect.any(Boolean));
   });
   it("catalog_sport_tile_clicked carries sport + state", () => {
     trackCatalogSportTileClicked({ sport: "soccer", state: "live" });

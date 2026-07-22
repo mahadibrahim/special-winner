@@ -512,8 +512,13 @@ export default function RegistrationWizard({
 
   // Track each wizard step view (league analytics).
   useEffect(() => {
-    if (season) trackRegistrationStepViewed({ step: STEP_NAME[currentStep] ?? "player", seasonId: season.id })
-  }, [currentStep, season])
+    if (season) trackRegistrationStepViewed({
+      step: STEP_NAME[currentStep] ?? "player",
+      seasonId: season.id,
+      flow: teamToken ? "team_member" : "solo",
+      variant: "v1", // variant becomes dynamic when the v2 flow lands
+    })
+  }, [currentStep, season, teamToken])
 
   // Fire view_item once when entering the payment step
   useEffect(() => {
