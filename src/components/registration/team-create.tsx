@@ -421,6 +421,34 @@ export default function TeamCreate({
     }
   };
 
+  /**
+   * Tell the server a deposit PaymentIntent succeeded, right after Stripe.js
+   * confirms it client-side — a bridge over the payment_intent.succeeded
+   * webhook's lag window (mirrors recordConfirmedPayment's role for
+   * registration payments, but this one is money-relevant server state, not
+   * a localStorage display hint, so it has to be a real request that the
+   * server re-verifies against Stripe). Never throws — a failure here just
+   * means the credit stays invisible until the webhook lands on its own.
+   */
+  const confirmDeposit = async (paymentIntentId: string): Promise<void> => {
+    if (!inviteToken) return;
+    try {
+      const res = await fetch(
+        `/api/public/team-registrations/${encodeURIComponent(inviteToken)}/confirm-deposit`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ paymentIntentId }),
+        },
+      );
+      if (!res.ok) {
+        console.error("[team-create] confirm-deposit failed", res.status);
+      }
+    } catch (err) {
+      console.error("[team-create] confirm-deposit request failed", err);
+    }
+  };
+
   const handleCopy = async () => {
     if (!joinUrl) return;
     try {
@@ -543,7 +571,16 @@ export default function TeamCreate({
           valueCents={20000}
           paymentType="deposit"
           returnUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/register/${seasonId}?team=${encodeURIComponent(inviteToken ?? "")}`}
-          onSuccess={() => setStatus("ok")}
+          onSuccess={async (paymentIntentId) => {
+            // Best-effort bridge so the captain's own "Register myself"
+            // click right after this doesn't beat the payment_intent.succeeded
+            // webhook and get quoted full price (captain-credit.ts reads only
+            // webhook-written state). The webhook remains the source of
+            // truth — a failed/slow confirm here just means the credit stays
+            // invisible for a few more seconds, not that it's lost.
+            await confirmDeposit(paymentIntentId);
+            setStatus("ok");
+          }}
           onCancel={() => {
             // Back out of the deposit; the team row exists but is unpaid. Let
             // the captain retry by re-rendering the form.

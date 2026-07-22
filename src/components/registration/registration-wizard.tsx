@@ -30,6 +30,7 @@ import {
   trackRegistrationStepViewed,
   trackRegistrationPaymentMethodSelected,
   type RegVariant,
+  type RegFlow,
 } from "@/lib/analytics/events"
 
 interface Season {
@@ -345,6 +346,15 @@ export default function RegistrationWizard({
   // through the same account. Mirror that here so the payment step doesn't
   // show credit math the server would refuse.
   const effectiveCaptainCredit = selectedKey === "self" ? captainCredit : null
+  // Same classification the step-viewed analytics effect below uses, hoisted
+  // to a variable so it can also be threaded to ConfirmationStep/CompletionForm
+  // (which otherwise defaults to "solo" and mislabels every team registration's
+  // completion-step event).
+  const regFlow: RegFlow = teamToken
+    ? captainCredit != null
+      ? "team_captain"
+      : "team_member"
+    : "solo"
 
   useEffect(() => {
     if (!teamToken || isGuest) return
@@ -554,7 +564,7 @@ export default function RegistrationWizard({
     if (season && captainCreditSettled) trackRegistrationStepViewed({
       step: stepName,
       seasonId: season.id,
-      flow: teamToken ? (captainCredit != null ? "team_captain" : "team_member") : "solo",
+      flow: regFlow,
       variant: flowVariant,
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1155,7 +1165,12 @@ export default function RegistrationWizard({
         }
       }
 
-      // Waitlisted or no payment required — go straight to confirmation
+      // Waitlisted or no payment required — go straight to confirmation.
+      // Must still set activeRegistrationId: ConfirmationStep's inline
+      // CompletionForm (v2's post-payment waiver capture) gates on
+      // `registrationId` being present, and zero-due registrations never
+      // pass through the clientSecret branch above that normally sets it.
+      setActiveRegistrationId(regData.registration.id)
       clearDraft()
       setRegistrationComplete(true)
       setCurrentStep(stepNumberOf("confirm"))
@@ -1669,6 +1684,7 @@ export default function RegistrationWizard({
             }
             isSelf={isGuest ? guestMode === "adult" : selectedKey === "self"}
             registrationId={activeRegistrationId}
+            flow={regFlow}
             waiverSigned={flowVariant === "v1"}
             // v1 always requires DOB up front (guest child/adult steps and
             // the authed self profile-completion form all gate on it before

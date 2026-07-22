@@ -3,6 +3,7 @@
 import { CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { CompletionForm } from "./completion-form"
+import type { RegFlow } from "@/lib/analytics/events"
 
 interface ConfirmationStepProps {
   seasonName: string
@@ -24,6 +25,12 @@ interface ConfirmationStepProps {
   waiverSigned?: boolean
   /** True when the v2 minimal guest flow never collected a birth date. */
   needsBirthDate?: boolean
+  /** Wizard's computed flow classification (solo/team_captain/team_member),
+   *  threaded to `CompletionForm`'s completion-step analytics event so a
+   *  team registration isn't mislabeled "solo". Omitted call sites (e.g.
+   *  the `/account/complete/[registrationId]` resume page, which can't know
+   *  the original flow) fall through to `CompletionForm`'s own "solo" default. */
+  flow?: RegFlow
 }
 
 export function ConfirmationStep({
@@ -34,6 +41,7 @@ export function ConfirmationStep({
   registrationId,
   waiverSigned = true,
   needsBirthDate = false,
+  flow,
 }: ConfirmationStepProps) {
   return (
     <div className="text-center py-8">
@@ -69,6 +77,7 @@ export function ConfirmationStep({
             via="confirm_screen"
             isSelf={isSelf}
             participantName={registrantDisplayName}
+            flow={flow}
           />
         </div>
       )}

@@ -44,6 +44,7 @@ export async function handleTeamDepositSucceeded(
       seasonId: teamRegistrations.seasonId,
       backstopStatus: teamRegistrations.backstopStatus,
       captainUserId: teamRegistrations.captainUserId,
+      depositPaymentId: teamRegistrations.depositPaymentId,
     })
     .from(teamRegistrations)
     .where(eq(teamRegistrations.id, teamRegistrationId));
@@ -55,12 +56,23 @@ export async function handleTeamDepositSucceeded(
     };
   }
 
-  // Dedupe — a re-delivered event shouldn't reset state. Once we've recorded
-  // the saved card and flipped to "pending", treat the event as processed.
-  if (team.backstopStatus !== "none") {
+  // Dedupe — a re-delivered event shouldn't repeat the ledger insert/analytics
+  // fire below. This used to gate on `backstopStatus !== "none"`, but the
+  // POST /api/public/team-registrations/[token]/confirm-deposit bridge (which
+  // lets a captain's browser flip the credit-visible state the instant Stripe
+  // confirms, without waiting on this webhook) now also moves backstopStatus
+  // off "none" — using the exact same "pending" value this function writes.
+  // If the bridge wins the race, backstopStatus alone can no longer tell us
+  // whether THIS function's side effects (payments ledger row + PostHog
+  // capture) already ran. `depositPaymentId` can: it is only ever set by the
+  // ledger insert below, so it's the one field the bridge never touches.
+  // Gating on it keeps both orderings — webhook-first or bridge-first —
+  // converging on the same final row, with the ledger/analytics work done
+  // exactly once by whichever of the two actually does it (this function).
+  if (team.depositPaymentId != null) {
     return {
       status: "skipped",
-      reason: `team_registration ${teamRegistrationId} already past 'none' (${team.backstopStatus})`,
+      reason: `team_registration ${teamRegistrationId} already has depositPaymentId`,
     };
   }
 
