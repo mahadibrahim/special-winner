@@ -157,6 +157,8 @@ export default function Navigation({ initialUser }: NavigationProps) {
             <img
               src="/images/logo-dark.svg"
               alt="Aspire Sports"
+              width={89}
+              height={40}
               className="h-10 w-auto transition-opacity group-hover:opacity-80"
             />
           </a>
@@ -293,6 +295,8 @@ export default function Navigation({ initialUser }: NavigationProps) {
                     <img
                       src="/images/logo-dark.svg"
                       alt="Aspire Sports"
+                      width={80}
+                      height={36}
                       className="h-9 w-auto"
                     />
                   </a>
