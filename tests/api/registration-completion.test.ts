@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { apiFetch } from "./setup/test-helpers";
+import { apiFetch, getAuthCookie } from "./setup/test-helpers";
 import { getDb } from "@/lib/db";
 import { seasons } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
@@ -81,59 +81,90 @@ describe("guest-checkout v2 (deferred waiver/DOB)", () => {
 });
 
 // Task 7: POST /api/registrations/{id}/complete — post-payment completion.
-// Per the Execution Addendum (Task 7 adjustments), the fixture is minted
-// in-test rather than seeded: a v2 guest-checkout call with a unique email
-// creates a brand-new user, whose response carries both the session
-// Set-Cookie (new users only — see guest-checkout.ts's
-// "account-takeover prevention" comment) and registrationId (Task 6
-// addendum). Payment status is irrelevant to signing, so the Stripe-gated
-// itWithStripe split from the suite above doesn't apply here.
+//
+// CI has no Stripe keys, so any fixture that routes through guest-checkout
+// (which always mints a Stripe PaymentIntent, even on the deferred-waiver
+// path) 503s on CI. Payment status is irrelevant to signing/age-review, so
+// none of these four cases actually need Stripe — they're restructured to
+// mint an OWNED, UNSIGNED registration via the authed
+// POST /api/registrations path instead:
+//   1. 401 test needs no fixture at all — auth is checked before any lookup.
+//   2. 400 malformed-id test only needs an auth cookie.
+//   3/4. happy-path + age-review both mint a fresh DEPENDENT (unique name
+//      per run, via POST /api/family-members) then register that dependent
+//      for the adult season via POST /api/registrations with
+//      waiverSigned:false (this branch's own feature — no signature
+//      required). create-registration.ts has no server-side age-eligibility
+//      check at creation time (confirmed by reading it), so an
+//      age-ineligible dependent registers for the 18+ season without being
+//      rejected — which is exactly what the age-review case needs. The
+//      dependent always carries a DOB (COPPA path, non-nullable), so
+//      complete.ts's `effectiveDob = familyMember.birthDate ?? data.birthDate`
+//      uses the STORED DOB and ignores whatever birthDate the completion
+//      body sends.
+// Net effect: all four cases are Stripe-free; no itWithStripe gating needed
+// in this describe block.
 describe("registration completion (POST /api/registrations/{id}/complete)", () => {
-  async function mintGuestRegistration(): Promise<{
+  async function mintOwnedRegistration(birthDate: string): Promise<{
     registrationId: string;
     cookie: string;
   }> {
-    const email = `complete-${Date.now()}-${Math.random().toString(36).slice(2)}@test.aspiresports.com`;
-    const res = await apiFetch("/api/registrations/guest-checkout", {
+    const cookie = await getAuthCookie(
+      "parent@test.aspiresports.com",
+      "TestParent123!",
+    );
+    const stamp = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+    const fmRes = await apiFetch("/api/family-members", {
       method: "POST",
+      cookie,
+      body: JSON.stringify({
+        firstName: "Complete",
+        lastName: `Fixture${stamp}`,
+        birthDate,
+        parentalConsent: true,
+      }),
+    });
+    expect(fmRes.status).toBe(201);
+    const fmBody = await fmRes.json();
+    const familyMemberId = fmBody.familyMember.id;
+    expect(familyMemberId).toBeTruthy();
+
+    const regRes = await apiFetch("/api/registrations", {
+      method: "POST",
+      cookie,
       body: JSON.stringify({
         seasonId: adultSeasonId,
-        registrant: {
-          firstName: "Complete",
-          lastName: "Flow",
-          email,
-          isSelf: true,
-        },
+        familyMemberId,
         registrationType: "full",
         waiverSigned: false,
       }),
     });
-    expect(res.status).toBe(200);
-    const cookie = res.headers.get("set-cookie");
-    if (!cookie) {
-      throw new Error(
-        "guest-checkout did not return a session cookie for a new user",
-      );
-    }
-    const body = await res.json();
-    expect(body.registrationId).toBeTruthy();
-    return { registrationId: body.registrationId, cookie };
+    expect(regRes.status).toBe(201);
+    const regBody = await regRes.json();
+    expect(regBody.registration?.id).toBeTruthy();
+    return { registrationId: regBody.registration.id, cookie };
   }
 
   it("rejects an unauthenticated request with 401", async () => {
-    const { registrationId } = await mintGuestRegistration();
-    const res = await apiFetch(`/api/registrations/${registrationId}/complete`, {
-      method: "POST",
-      body: JSON.stringify({
-        waiverAccepted: true,
-        waiverSignature: "Complete Flow",
-      }),
-    });
+    const res = await apiFetch(
+      "/api/registrations/00000000-0000-0000-0000-000000000000/complete",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          waiverAccepted: true,
+          waiverSignature: "Nobody",
+        }),
+      },
+    );
     expect(res.status).toBe(401);
   });
 
   it("rejects a malformed registration id with 400 instead of a DB error", async () => {
-    const { cookie } = await mintGuestRegistration();
+    const cookie = await getAuthCookie(
+      "parent@test.aspiresports.com",
+      "TestParent123!",
+    );
     const res = await apiFetch("/api/registrations/not-a-uuid/complete", {
       method: "POST",
       cookie,
@@ -148,7 +179,8 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
   });
 
   it("signs the waiver on the happy path, then is idempotent on a repeat call", async () => {
-    const { registrationId, cookie } = await mintGuestRegistration();
+    // In-range DOB (adult 18+ season) — stored on the dependent at creation.
+    const { registrationId, cookie } = await mintOwnedRegistration("1990-05-15");
 
     const res = await apiFetch(`/api/registrations/${registrationId}/complete`, {
       method: "POST",
@@ -156,7 +188,6 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
       body: JSON.stringify({
         waiverAccepted: true,
         waiverSignature: "Complete Flow",
-        birthDate: "1990-05-15",
       }),
     });
     expect(res.status).toBe(200);
@@ -178,7 +209,10 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
   });
 
   it("flags age review for a DOB outside the season's age group without blocking the sign", async () => {
-    const { registrationId, cookie } = await mintGuestRegistration();
+    // Adult 18+ season (minAge 18) — this DOB is well under that, stored on
+    // the dependent at creation (create-registration.ts enforces no
+    // age-eligibility gate, so the mint itself is not rejected).
+    const { registrationId, cookie } = await mintOwnedRegistration("2015-01-01");
 
     const res = await apiFetch(`/api/registrations/${registrationId}/complete`, {
       method: "POST",
@@ -186,8 +220,6 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
       body: JSON.stringify({
         waiverAccepted: true,
         waiverSignature: "Complete Flow",
-        // Adult 18+ season (minAge 18) — this DOB is well under that.
-        birthDate: "2015-01-01",
       }),
     });
     expect(res.status).toBe(200);
