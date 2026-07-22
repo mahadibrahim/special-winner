@@ -5,6 +5,12 @@ import { Loader2, CheckCircle2, Copy, Check, Send, Plus, X, Mail } from "lucide-
 import { EmbeddedPayment } from "./embedded-payment";
 import { CAPTAIN_DEPOSIT_CENTS } from "@/lib/registrations/team-deposit";
 import { TurnstileWidget } from "@/components/auth/turnstile-widget";
+import {
+  trackTeamCreateViewed,
+  trackTeamCreateSubmitted,
+  trackTeamDepositViewed,
+  trackTeamHqViewed,
+} from "@/lib/analytics/events";
 
 // localStorage key for the pending captain form of a signed-out visitor —
 // stashed before we send them a magic link, rehydrated when they return
@@ -174,6 +180,13 @@ export default function TeamCreate({
     "idle" | "submitting" | "deposit" | "ok" | "error" | "link_sent"
   >("idle");
   const [error, setError] = useState<string | null>(null);
+  // Distinguishes why we landed on link_sent: an anonymous submit whose email
+  // already has an account (409) gets different copy than the stale-session
+  // 401 fallback below.
+  const [linkSentReason, setLinkSentReason] = useState<"account_exists" | null>(null);
+  // Required backstop consent — the captain affirms the saved card may be
+  // charged (off-session) for unpaid teammate shares after the deadline.
+  const [backstopConsent, setBackstopConsent] = useState(false);
   // Cloudflare Turnstile token — only rendered/collected for signed-out
   // captains, whose submit goes to the magic-link auth endpoints (which
   // verify Turnstile server-side and fail closed in prod).
@@ -199,6 +212,16 @@ export default function TeamCreate({
   const [inviteStatus, setInviteStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [sentCount, setSentCount] = useState(0);
+
+  // Funnel eventing — one fire per state entry. Keyed on `status` so React's
+  // effect-dependency semantics do the guarding: the body only reruns when
+  // `status` actually changes value, never on an unrelated re-render.
+  useEffect(() => {
+    if (status === "idle") trackTeamCreateViewed({ seasonId });
+    else if (status === "submitting") trackTeamCreateSubmitted({ seasonId, authed: isAuthed });
+    else if (status === "deposit") trackTeamDepositViewed({ seasonId });
+    else if (status === "ok") trackTeamHqViewed({ seasonId });
+  }, [status, seasonId, isAuthed]);
 
   // Rehydrate a stashed form on return (the signed-out captain tapped their
   // magic link and landed back on /register/{seasonId}?mode=team, now authed).
@@ -306,22 +329,13 @@ export default function TeamCreate({
     e.preventDefault();
     setStatus("submitting");
     setError(null);
+    setLinkSentReason(null);
 
-    // Signed-out captain: no dead 401 — stash the form, send the magic link,
-    // and show the check-your-inbox state. The team gets created on return.
-    if (!isAuthed) {
-      try {
-        await requestMagicLink();
-        setStatus("link_sent");
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Could not send your sign-in link",
-        );
-        setStatus("error");
-      }
-      return;
-    }
-
+    // Anonymous captains POST directly — same as authed — rather than
+    // pre-emptively detouring through a magic link. The endpoint accepts
+    // anonymous callers: a new email upserts a guest account + session and
+    // creates the team in one request; an existing email 409s below without
+    // creating a team.
     try {
       const res = await fetch("/api/public/team-registrations", {
         method: "POST",
@@ -332,9 +346,25 @@ export default function TeamCreate({
           captainName: captainName.trim(),
           captainEmail: captainEmail.trim(),
           notes: notes.trim() || undefined,
+          backstopConsent: true,
         }),
       });
       if (!res.ok) {
+        // Anonymous submit, email already has an account: no team was
+        // created server-side — fall back to the existing magic-link flow so
+        // the real owner can sign in and pick this up.
+        if (res.status === 409) {
+          try {
+            await requestMagicLink();
+            setLinkSentReason("account_exists");
+            setStatus("link_sent");
+            return;
+          } catch (err) {
+            throw new Error(
+              err instanceof Error ? err.message : "Could not send your sign-in link",
+            );
+          }
+        }
         // Friendly fallback: a stale session can still 401 here even though
         // the page thought we were signed in — fall back to the magic link
         // instead of surfacing the raw error.
@@ -388,6 +418,34 @@ export default function TeamCreate({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create team");
       setStatus("error");
+    }
+  };
+
+  /**
+   * Tell the server a deposit PaymentIntent succeeded, right after Stripe.js
+   * confirms it client-side — a bridge over the payment_intent.succeeded
+   * webhook's lag window (mirrors recordConfirmedPayment's role for
+   * registration payments, but this one is money-relevant server state, not
+   * a localStorage display hint, so it has to be a real request that the
+   * server re-verifies against Stripe). Never throws — a failure here just
+   * means the credit stays invisible until the webhook lands on its own.
+   */
+  const confirmDeposit = async (paymentIntentId: string): Promise<void> => {
+    if (!inviteToken) return;
+    try {
+      const res = await fetch(
+        `/api/public/team-registrations/${encodeURIComponent(inviteToken)}/confirm-deposit`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ paymentIntentId }),
+        },
+      );
+      if (!res.ok) {
+        console.error("[team-create] confirm-deposit failed", res.status);
+      }
+    } catch (err) {
+      console.error("[team-create] confirm-deposit request failed", err);
     }
   };
 
@@ -468,11 +526,18 @@ export default function TeamCreate({
           <Mail className="w-6 h-6 text-primary-orange flex-shrink-0 mt-0.5" />
           <div>
             <h3 className="font-display text-2xl text-ink mb-2">Check your inbox</h3>
-            <p className="text-ink-2 leading-relaxed text-sm">
-              Tap the link we sent to{" "}
-              <strong className="text-ink">{captainEmail.trim()}</strong> and
-              your team picks up right here. No password needed.
-            </p>
+            {linkSentReason === "account_exists" ? (
+              <p className="text-ink-2 leading-relaxed text-sm">
+                This email already has an account — we sent you a sign-in
+                link to continue.
+              </p>
+            ) : (
+              <p className="text-ink-2 leading-relaxed text-sm">
+                Tap the link we sent to{" "}
+                <strong className="text-ink">{captainEmail.trim()}</strong> and
+                your team picks up right here. No password needed.
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -506,7 +571,16 @@ export default function TeamCreate({
           valueCents={20000}
           paymentType="deposit"
           returnUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/register/${seasonId}?team=${encodeURIComponent(inviteToken ?? "")}`}
-          onSuccess={() => setStatus("ok")}
+          onSuccess={async (paymentIntentId) => {
+            // Best-effort bridge so the captain's own "Register myself"
+            // click right after this doesn't beat the payment_intent.succeeded
+            // webhook and get quoted full price (captain-credit.ts reads only
+            // webhook-written state). The webhook remains the source of
+            // truth — a failed/slow confirm here just means the credit stays
+            // invisible for a few more seconds, not that it's lost.
+            await confirmDeposit(paymentIntentId);
+            setStatus("ok");
+          }}
           onCancel={() => {
             // Back out of the deposit; the team row exists but is unpaid. Let
             // the captain retry by re-rendering the form.
@@ -688,6 +762,8 @@ export default function TeamCreate({
             onChange={(e) => setTeamName(e.target.value)}
             maxLength={200}
             placeholder="e.g. The Last Pick, FC Worthington, Friday Crew"
+            autoCapitalize="words"
+            enterKeyHint="next"
             className="w-full px-3 py-2.5 bg-paper border border-ink/15 rounded-lg text-ink placeholder:text-ink-faint focus:outline-none focus:border-primary-orange transition-colors"
           />
         </label>
@@ -703,6 +779,9 @@ export default function TeamCreate({
               value={captainName}
               onChange={(e) => setCaptainName(e.target.value)}
               maxLength={200}
+              autoComplete="name"
+              autoCapitalize="words"
+              enterKeyHint="next"
               className="w-full px-3 py-2.5 bg-paper border border-ink/15 rounded-lg text-ink focus:outline-none focus:border-primary-orange transition-colors"
             />
           </label>
@@ -716,6 +795,9 @@ export default function TeamCreate({
               value={captainEmail}
               onChange={(e) => setCaptainEmail(e.target.value)}
               maxLength={320}
+              autoComplete="email"
+              inputMode="email"
+              enterKeyHint="next"
               className="w-full px-3 py-2.5 bg-paper border border-ink/15 rounded-lg text-ink focus:outline-none focus:border-primary-orange transition-colors"
             />
           </label>
@@ -731,6 +813,7 @@ export default function TeamCreate({
             rows={3}
             maxLength={2000}
             placeholder="Returning team from last season, schedule preferences, etc."
+            enterKeyHint="done"
             className="w-full px-3 py-2.5 bg-paper border border-ink/15 rounded-lg text-ink focus:outline-none focus:border-primary-orange transition-colors resize-y"
           />
         </label>
@@ -746,9 +829,28 @@ export default function TeamCreate({
           </div>
         )}
 
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            required
+            checked={backstopConsent}
+            onChange={(e) => setBackstopConsent(e.target.checked)}
+            className="mt-1 w-4 h-4 accent-primary-orange"
+          />
+          <span className="text-sm leading-relaxed">
+            <span className="block text-ink">
+              Save my card to cover unpaid teammate shares after the deadline
+            </span>
+            <span className="block text-ink-muted text-xs mt-0.5">
+              Charged only if your team hasn't collected the full fee by the
+              payment deadline.
+            </span>
+          </span>
+        </label>
+
         <button
           type="submit"
-          disabled={status === "submitting"}
+          disabled={status === "submitting" || !backstopConsent}
           className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-ink text-cream text-sm font-medium tracking-wide uppercase hover:bg-primary-orange transition-colors disabled:opacity-60"
           style={{ letterSpacing: "0.08em" }}
         >
@@ -763,8 +865,8 @@ export default function TeamCreate({
         </button>
         {!isAuthed && (
           <p className="text-xs text-ink-muted leading-relaxed">
-            We'll email you a one-tap sign-in link first — your team form is
-            saved and picks up right where you left off.
+            Creating your team also creates your account. If this email
+            already has one, we'll send you a sign-in link instead.
           </p>
         )}
       </form>

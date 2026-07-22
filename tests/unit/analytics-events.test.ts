@@ -3,6 +3,8 @@ import * as track from "@/lib/analytics/track";
 import {
   trackDivisionRegisterClicked, trackLandingTabViewed, trackRegistrationStepViewed,
   trackCatalogSportTileClicked, LEAGUE_EVENTS,
+  trackTeamCreateViewed, trackTeamCreateSubmitted, trackTeamDepositViewed, trackTeamHqViewed,
+  TEAM_EVENTS, SERVER_EVENTS,
 } from "@/lib/analytics/events";
 
 describe("analytics events", () => {
@@ -32,5 +34,48 @@ describe("analytics events", () => {
   });
   it("exposes the event-name catalog", () => {
     expect(LEAGUE_EVENTS.divisionRegisterClicked).toBe("division_register_clicked");
+  });
+
+  it("team_create_viewed passes season_id + in_app_browser, no PII", () => {
+    trackTeamCreateViewed({ seasonId: "s1" });
+    expect(spy).toHaveBeenCalledWith(TEAM_EVENTS.teamCreateViewed, {
+      season_id: "s1",
+      in_app_browser: expect.any(Boolean),
+    });
+    const props = spy.mock.calls[0][1] ?? {};
+    for (const k of Object.keys(props)) expect(/email|name|phone/i.test(k)).toBe(false);
+  });
+
+  it("team_create_submitted passes season_id + authed + in_app_browser", () => {
+    trackTeamCreateSubmitted({ seasonId: "s1", authed: true });
+    expect(spy).toHaveBeenCalledWith(TEAM_EVENTS.teamCreateSubmitted, {
+      season_id: "s1",
+      authed: true,
+      in_app_browser: expect.any(Boolean),
+    });
+  });
+
+  it("team_deposit_viewed passes season_id + in_app_browser", () => {
+    trackTeamDepositViewed({ seasonId: "s1" });
+    expect(spy).toHaveBeenCalledWith(TEAM_EVENTS.teamDepositViewed, {
+      season_id: "s1",
+      in_app_browser: expect.any(Boolean),
+    });
+  });
+
+  it("team_hq_viewed passes season_id + in_app_browser", () => {
+    trackTeamHqViewed({ seasonId: "s1" });
+    expect(spy).toHaveBeenCalledWith(TEAM_EVENTS.teamHqViewed, {
+      season_id: "s1",
+      in_app_browser: expect.any(Boolean),
+    });
+  });
+
+  it("exposes the team event-name catalog + server event name", () => {
+    expect(TEAM_EVENTS.teamCreateViewed).toBe("team_create_viewed");
+    expect(TEAM_EVENTS.teamCreateSubmitted).toBe("team_create_submitted");
+    expect(TEAM_EVENTS.teamDepositViewed).toBe("team_deposit_viewed");
+    expect(TEAM_EVENTS.teamHqViewed).toBe("team_hq_viewed");
+    expect(SERVER_EVENTS.teamDepositPaid).toBe("team_deposit_paid");
   });
 });

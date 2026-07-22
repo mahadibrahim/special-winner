@@ -1,11 +1,8 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
-import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   users,
-  userRoles,
-  roles,
   familyMembers as familyMembersTable,
 } from "@/lib/db/schema";
 import {
@@ -16,6 +13,7 @@ import {
   createCheckoutForRegistration,
   CheckoutError,
 } from "@/lib/payments/create-checkout-for-registration";
+import { upsertGuestUser } from "@/lib/registrations/upsert-guest-user";
 import { createSession } from "@/lib/auth";
 import { getPostHogServer } from "@/lib/posthog-server";
 import { resolvePerson } from "@/lib/registrations/resolve-person";
@@ -150,68 +148,6 @@ export const POST: APIRoute = async (context) => {
       brand,
       ...collectAdAttribution(url, request.headers.get("cookie")),
     };
-
-    // -------------------------------------------------------------------------
-    // Shared helper: upsert user by email, assign parent role if new.
-    // Returns { userRow, wasNewUser }.
-    // -------------------------------------------------------------------------
-    async function upsertGuestUser(opts: {
-      email: string;
-      firstName: string;
-      lastName: string;
-      phone?: string | null;
-      birthDate?: string | null;
-    }) {
-      const normalizedEmail = opts.email.toLowerCase().trim();
-      let wasNewUser = false;
-
-      const insertedUsers = await db
-        .insert(users)
-        .values({
-          email: normalizedEmail,
-          passwordHash: null,
-          firstName: opts.firstName,
-          lastName: opts.lastName,
-          phone: opts.phone ?? null,
-          birthDate: opts.birthDate ?? null,
-          emailVerified: false,
-        })
-        .onConflictDoNothing({ target: users.email })
-        .returning();
-
-      let userRow: typeof users.$inferSelect;
-      if (insertedUsers.length > 0) {
-        userRow = insertedUsers[0];
-        wasNewUser = true;
-
-        // Assign global parent role (mirroring /api/auth/signup)
-        const [parentRole] = await db
-          .select()
-          .from(roles)
-          .where(eq(roles.name, "parent"));
-        if (parentRole) {
-          await db.insert(userRoles).values({
-            userId: userRow.id,
-            roleId: parentRole.id,
-            scopeType: "global",
-          });
-        }
-      } else {
-        // Either the email already existed or a concurrent insert won the race.
-        // Either way, re-fetch the row that's now in the table.
-        const [existing] = await db
-          .select()
-          .from(users)
-          .where(eq(users.email, normalizedEmail));
-        if (!existing) {
-          // Should be impossible — log and 500
-          throw new Error("User row vanished after upsert race");
-        }
-        userRow = existing;
-      }
-
-      return { userRow, wasNewUser, normalizedEmail };
-    }
 
     // -------------------------------------------------------------------------
     // Shared helper: run registration + Stripe checkout + session cookie.
@@ -435,7 +371,7 @@ export const POST: APIRoute = async (context) => {
       const r = data.registrant;
       posthog.capture({ distinctId: r.email.toLowerCase().trim(), event: "guest_checkout_started", properties: { $session_id: phSessionId, season_id: data.seasonId, registration_type: data.registrationType, brand } });
 
-      const { userRow, wasNewUser } = await upsertGuestUser({
+      const { userRow, wasNewUser } = await upsertGuestUser(db, {
         email: r.email,
         firstName: r.firstName,
         lastName: r.lastName,
@@ -481,7 +417,7 @@ export const POST: APIRoute = async (context) => {
     // -------------------------------------------------------------------------
     posthog.capture({ distinctId: data.parent.email.toLowerCase().trim(), event: "guest_checkout_started", properties: { $session_id: phSessionId, season_id: data.seasonId, registration_type: data.registrationType, brand } });
 
-    const { userRow, wasNewUser } = await upsertGuestUser({
+    const { userRow, wasNewUser } = await upsertGuestUser(db, {
       email: data.parent.email,
       firstName: data.parent.firstName,
       lastName: data.parent.lastName,

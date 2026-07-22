@@ -88,6 +88,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
           joinedAt: teamRegistrationMembers.joinedAt,
           registrationStatus: registrations.status,
           paymentStatus: registrations.paymentStatus,
+          waiverSigned: registrations.waiverSigned,
           firstName: familyMembers.firstName,
           lastName: familyMembers.lastName,
         })
@@ -184,6 +185,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
             role: m.role,
             registrationStatus: m.registrationStatus,
             paymentStatus: m.paymentStatus,
+            waiverSigned: m.waiverSigned,
           })),
           inviteeCount: invitees.length,
           invitees: invitees.map((i) => ({

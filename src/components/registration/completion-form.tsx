@@ -13,7 +13,7 @@ import { WaiverText } from "./waiver-text"
 import { MediaAuthStep, type MediaAuthScope } from "./media-auth-step"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { parseApiError } from "@/lib/api/error-message"
-import { trackRegistrationStepViewed } from "@/lib/analytics/events"
+import { trackRegistrationStepViewed, type RegFlow } from "@/lib/analytics/events"
 
 export interface CompletionFormProps {
   registrationId: string
@@ -30,6 +30,12 @@ export interface CompletionFormProps {
   /** Display name of the participant, for media-authorization copy. Falls
    *  back to generic phrasing when omitted. */
   participantName?: string
+  /** Flow classification for the completion-step analytics event
+   *  (solo/team_captain/team_member). Defaults to "solo" — the right value
+   *  for the `/account/complete/[registrationId]` resume page, which has no
+   *  way to know the original registration's flow. Wizard call sites should
+   *  pass their own computed flow instead of relying on the default. */
+  flow?: RegFlow
 }
 
 /**
@@ -81,6 +87,7 @@ export function CompletionForm({
   via,
   isSelf = false,
   participantName = "",
+  flow = "solo",
 }: CompletionFormProps) {
   // Top-level island on the resume page; a harmless extra beacon set when
   // embedded inside the wizard (which already fires its own).
@@ -106,7 +113,7 @@ export function CompletionForm({
     trackRegistrationStepViewed({
       step: "completion",
       seasonId,
-      flow: "solo",
+      flow,
       variant: "v2",
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps

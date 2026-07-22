@@ -34,6 +34,7 @@ interface TeamView {
     lastInitial: string | null;
     role: string;
     paymentStatus: string;
+    waiverSigned: boolean;
   }>;
 }
 
@@ -64,6 +65,7 @@ try {
         .select({
           role: teamRegistrationMembers.role,
           paymentStatus: registrations.paymentStatus,
+          waiverSigned: registrations.waiverSigned,
           firstName: familyMembers.firstName,
           lastName: familyMembers.lastName,
         })
@@ -93,6 +95,7 @@ try {
           lastInitial: m.lastName ? m.lastName[0] : null,
           role: m.role,
           paymentStatus: m.paymentStatus,
+          waiverSigned: m.waiverSigned,
         })),
       };
     }
@@ -179,6 +182,15 @@ const cleanLocation = view.locationName.replace(/^Soccer One\s+/i, "");
                   {m.role === "captain" ? "Captain" : "Player"}
                   {m.paymentStatus === "paid" ? " · Paid" : m.paymentStatus === "partial" ? " · Deposit" : " · Pending"}
                 </p>
+                <span
+                  class={`inline-block mt-2 text-[10px] font-bold rounded px-1.5 py-0.5 border ${
+                    m.waiverSigned
+                      ? "bg-emerald-500/10 text-emerald-700 border-emerald-500/20"
+                      : "bg-amber-500/10 text-amber-700 border-amber-500/20"
+                  }`}
+                >
+                  {m.waiverSigned ? "waiver ✓" : "waiver pending"}
+                </span>
               </li>
             ))}
           </ul>

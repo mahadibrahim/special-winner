@@ -1,0 +1,1 @@
+ALTER TABLE "team_registrations" ADD COLUMN IF NOT EXISTS "backstop_consented_at" timestamp with time zone;

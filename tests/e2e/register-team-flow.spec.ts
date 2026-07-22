@@ -27,11 +27,24 @@ test("team-capable season shows choose-mode and reaches team-create @critical", 
   await expect(bringTeam).toBeVisible();
   await bringTeam.click();
 
-  // The team-create captain form renders (no auth required to view it — only
-  // submitting the form hits the authed endpoint). Assert on the team-name
-  // field label + the create CTA, which render in the initial idle form.
+  // The team-create captain form renders in full for anonymous visitors — the
+  // create endpoint now accepts anonymous callers directly (guest upsert +
+  // recorded backstop consent), so there's no auth gate on the form itself.
+  // Assert on the team-name field label + the create CTA, which render in the
+  // initial idle form.
   await expect(page.getByText(/team name/i).first()).toBeVisible({ timeout: 10_000 });
-  await expect(
-    page.getByRole("button", { name: /create team & get link/i }),
-  ).toBeVisible();
+  const submitButton = page.getByRole("button", { name: /create team & get link/i });
+  await expect(submitButton).toBeVisible();
+
+  // Required backstop consent checkbox: unchecked by default, and it gates
+  // the submit button client-side (no POST fired by this assertion).
+  const consentCheckbox = page.getByRole("checkbox", {
+    name: /save my card to cover unpaid teammate shares/i,
+  });
+  await expect(consentCheckbox).toBeVisible();
+  await expect(consentCheckbox).not.toBeChecked();
+  await expect(submitButton).toBeDisabled();
+
+  await consentCheckbox.check();
+  await expect(submitButton).toBeEnabled();
 });

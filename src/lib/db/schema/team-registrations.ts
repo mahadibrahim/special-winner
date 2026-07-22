@@ -55,6 +55,10 @@ export const teamRegistrations = pgTable("team_registrations", {
   paymentDeadline: timestamp("payment_deadline"),          // = season.registrationCloses at creation
   backstopStatus: varchar("backstop_status", { length: 20 }).default("none").notNull(),
   // 'none' | 'pending' | 'charged' | 'failed'
+  // Captain's explicit affirmation that the saved card may be charged for
+  // unpaid teammate shares after the deadline (off-session backstop). Recorded
+  // at team creation; legacy rows predate the checkbox and stay null.
+  backstopConsentedAt: timestamp("backstop_consented_at", { withTimezone: true }),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
