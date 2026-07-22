@@ -1647,6 +1647,7 @@ export default function RegistrationWizard({
         {stepName === "confirm" && registrationComplete && (
           <ConfirmationStep
             seasonName={season.name}
+            seasonId={season.id}
             registrantDisplayName={
               isGuest
                 ? guestMode === "adult"
@@ -1655,6 +1656,13 @@ export default function RegistrationWizard({
                 : selectedDisplayName
             }
             isSelf={isGuest ? guestMode === "adult" : selectedKey === "self"}
+            registrationId={activeRegistrationId}
+            waiverSigned={flowVariant === "v1"}
+            // v1 always requires DOB up front (guest child/adult steps and
+            // the authed self profile-completion form all gate on it before
+            // the wizard can proceed); only the v2 minimal guest step defers
+            // it to this completion form.
+            needsBirthDate={isGuest && flowVariant === "v2"}
           />
         )}
       </div>

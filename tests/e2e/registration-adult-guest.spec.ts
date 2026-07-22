@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { waitForHydration } from "../utils/test-helpers";
+import { waitForHydration, signIn, TEST_USERS } from "../utils/test-helpers";
 
 // This test exercises the guest (anonymous) adult self-registration path under
 // the v2 (adult-locked) flow: an adult lands on
@@ -160,5 +160,85 @@ test.describe("Anonymous adult guest checkout (v2)", { tag: "@critical" }, () =>
     await expect(
       page.locator("div.space-y-2").filter({ has: page.locator("label", { hasText: "Birth date *" }) }),
     ).toHaveCount(0);
+  });
+});
+
+// The two specs above stop at the payment step — the wizard hands off to a
+// Stripe Elements iframe there, and no e2e spec in this repo drives a real
+// card through Stripe test mode to actually complete a payment (see the
+// iframe-mount-only assertions in registration-guest-flow.spec.ts). So the
+// v2 completion form's "reached confirm, signed the deferred waiver" path
+// is exercised as a standalone spec against the resume page instead of by
+// continuing this wizard flow through to confirm.
+test.describe("Post-payment completion resume page (/account/complete)", () => {
+  test("visiting a registration you don't own 404s", async ({ page }) => {
+    await signIn(page, TEST_USERS.parent.email, TEST_USERS.parent.password);
+
+    // A syntactically valid uuid guaranteed not to exist (or, even if it
+    // somehow collided, not owned by the signed-in parent) — the endpoint
+    // returns 404 either way, so no seeded fixture is needed for this case.
+    const notOwnedId = "00000000-0000-4000-8000-000000000000";
+    const res = await page.goto(`/account/complete/${notOwnedId}`, {
+      waitUntil: "domcontentloaded",
+    });
+    const status = res!.status();
+    if (status === 404) {
+      expect(status).toBe(404);
+    } else {
+      // Astro.rewrite("/404") dev-vs-prod quirk (see location-pages.spec.ts):
+      // dev can return 200 with the 404 page's content instead of a 404
+      // status. Fall back to asserting the rendered content.
+      expect(status).toBe(200);
+      await expect(page.locator("h1")).toContainText(/couldn't find that page/i);
+    }
+  });
+
+  // Owner-path coverage (visit your own unsigned registration, sign the
+  // waiver via CompletionForm, assert the success copy and that
+  // waiverSigned flips to true) needs a seeded v2 registration owned by the
+  // parent test account with waiverSigned: false — that fixture doesn't
+  // exist yet (Task 11 wires the email-reminder flow that will need the
+  // same fixture and is expected to add it to seed-e2e-tests.ts). Gated on
+  // an env var so this activates the moment that fixture id is exported,
+  // without another spec-file edit.
+  const unsignedRegistrationId = process.env.E2E_UNSIGNED_REGISTRATION_ID;
+
+  test("owner signs the deferred waiver from the resume page", async ({ page }) => {
+    test.skip(
+      !unsignedRegistrationId,
+      "requires E2E_UNSIGNED_REGISTRATION_ID (seeded unsigned v2 registration owned by parent@test.aspiresports.com) — not wired until Task 11",
+    );
+
+    await signIn(page, TEST_USERS.parent.email, TEST_USERS.parent.password);
+    await page.goto(`/account/complete/${unsignedRegistrationId}`, {
+      waitUntil: "domcontentloaded",
+    });
+    await waitForHydration(page);
+
+    await expect(page.getByText(/You're in — finish before game 1/i)).toBeVisible();
+
+    // Matches the convention in registration-guest-flow.spec.ts: the waiver
+    // checkbox is a Radix button (role="checkbox"), addressed by id rather
+    // than getByLabel.
+    await page.locator("#completion-waiver-accept").check();
+    await page.getByPlaceholder("Type your full legal name").fill("Test Parent");
+    await page.getByRole("button", { name: /sign & finish/i }).click();
+
+    await expect(page.getByText(/You're all set for game 1\./i)).toBeVisible({
+      timeout: 10_000,
+    });
+
+    // The completion endpoint is POST-only and idempotent — re-POSTing is
+    // the way to verify the signed state via the API without a separate
+    // GET endpoint. A freshly-signed registration returns alreadySigned.
+    const verify = await page.request.post(
+      `/api/registrations/${unsignedRegistrationId}/complete`,
+      {
+        data: { waiverAccepted: true, waiverSignature: "Test Parent" },
+      },
+    );
+    expect(verify.ok()).toBe(true);
+    const body = await verify.json();
+    expect(body.alreadySigned).toBe(true);
   });
 });
