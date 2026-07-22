@@ -5,6 +5,12 @@ import { Loader2, CheckCircle2, Copy, Check, Send, Plus, X, Mail } from "lucide-
 import { EmbeddedPayment } from "./embedded-payment";
 import { CAPTAIN_DEPOSIT_CENTS } from "@/lib/registrations/team-deposit";
 import { TurnstileWidget } from "@/components/auth/turnstile-widget";
+import {
+  trackTeamCreateViewed,
+  trackTeamCreateSubmitted,
+  trackTeamDepositViewed,
+  trackTeamHqViewed,
+} from "@/lib/analytics/events";
 
 // localStorage key for the pending captain form of a signed-out visitor —
 // stashed before we send them a magic link, rehydrated when they return
@@ -206,6 +212,16 @@ export default function TeamCreate({
   const [inviteStatus, setInviteStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [sentCount, setSentCount] = useState(0);
+
+  // Funnel eventing — one fire per state entry. Keyed on `status` so React's
+  // effect-dependency semantics do the guarding: the body only reruns when
+  // `status` actually changes value, never on an unrelated re-render.
+  useEffect(() => {
+    if (status === "idle") trackTeamCreateViewed({ seasonId });
+    else if (status === "submitting") trackTeamCreateSubmitted({ seasonId, authed: isAuthed });
+    else if (status === "deposit") trackTeamDepositViewed({ seasonId });
+    else if (status === "ok") trackTeamHqViewed({ seasonId });
+  }, [status, seasonId, isAuthed]);
 
   // Rehydrate a stashed form on return (the signed-out captain tapped their
   // magic link and landed back on /register/{seasonId}?mode=team, now authed).

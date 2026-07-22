@@ -15,11 +15,20 @@ export const LEAGUE_EVENTS = {
   registrationPaymentMethodSelected: "registration_payment_method_selected",
 } as const;
 
+// Team funnel client events (team-create.tsx form → deposit → HQ share view).
+export const TEAM_EVENTS = {
+  teamCreateViewed: "team_create_viewed", // form rendered
+  teamCreateSubmitted: "team_create_submitted", // POST fired (client, pre-response)
+  teamDepositViewed: "team_deposit_viewed", // deposit screen rendered
+  teamHqViewed: "team_hq_viewed", // "ok" share/invite state rendered
+} as const;
+
 // Server-side event names (used by posthog-node callsites elsewhere).
 export const SERVER_EVENTS = {
   dropRegisterSubmitted: "drop_register_submitted",
   waiverSigned: "waiver_signed",
   waiverReminderSent: "waiver_reminder_sent",
+  teamDepositPaid: "team_deposit_paid",
 } as const;
 
 export type RegStep = "player" | "agreements" | "payment" | "confirm" | "completion";
@@ -50,3 +59,16 @@ export const trackRegistrationStepViewed = (p: { step: RegStep; seasonId: string
   });
 export const trackRegistrationPaymentMethodSelected = (p: { method: "bank" | "card" }) =>
   track(LEAGUE_EVENTS.registrationPaymentMethodSelected, { method: p.method });
+
+export const trackTeamCreateViewed = (p: { seasonId: string }) =>
+  track(TEAM_EVENTS.teamCreateViewed, { season_id: p.seasonId, in_app_browser: isInAppBrowser() });
+export const trackTeamCreateSubmitted = (p: { seasonId: string; authed: boolean }) =>
+  track(TEAM_EVENTS.teamCreateSubmitted, {
+    season_id: p.seasonId,
+    authed: p.authed,
+    in_app_browser: isInAppBrowser(),
+  });
+export const trackTeamDepositViewed = (p: { seasonId: string }) =>
+  track(TEAM_EVENTS.teamDepositViewed, { season_id: p.seasonId, in_app_browser: isInAppBrowser() });
+export const trackTeamHqViewed = (p: { seasonId: string }) =>
+  track(TEAM_EVENTS.teamHqViewed, { season_id: p.seasonId, in_app_browser: isInAppBrowser() });

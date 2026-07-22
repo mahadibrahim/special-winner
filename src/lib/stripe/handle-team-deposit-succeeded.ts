@@ -2,6 +2,8 @@ import type Stripe from "stripe";
 import { eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { teamRegistrations, payments } from "@/lib/db/schema";
+import { getPostHogServer } from "@/lib/posthog-server";
+import { SERVER_EVENTS } from "@/lib/analytics/events";
 
 /**
  * Handles `payment_intent.succeeded` for the captain's $200 team deposit
@@ -39,6 +41,7 @@ export async function handleTeamDepositSucceeded(
   const [team] = await db
     .select({
       id: teamRegistrations.id,
+      seasonId: teamRegistrations.seasonId,
       backstopStatus: teamRegistrations.backstopStatus,
       captainUserId: teamRegistrations.captainUserId,
     })
@@ -75,6 +78,21 @@ export async function handleTeamDepositSucceeded(
       updatedAt: new Date(),
     })
     .where(eq(teamRegistrations.id, teamRegistrationId));
+
+  // Fire-and-forget analytics — never block or fail the webhook on this.
+  // captainUserId should always be set (the deposit requires an authed
+  // captain), but skip the capture rather than send an anonymous event.
+  if (team.captainUserId) {
+    getPostHogServer().capture({
+      distinctId: team.captainUserId,
+      event: SERVER_EVENTS.teamDepositPaid,
+      properties: {
+        team_registration_id: team.id,
+        season_id: team.seasonId,
+        amount_cents: paymentIntent.amount,
+      },
+    });
+  }
 
   // Record the $200 deposit in the payments ledger. Defensive: a failure here
   // must never break the (already-committed) card-saving + status update above,

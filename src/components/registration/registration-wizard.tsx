@@ -333,6 +333,13 @@ export default function RegistrationWizard({
   // by the deposit (typically to $0). This fetch is display-only — the server
   // recomputes the credit in createRegistration and never trusts the client.
   const [captainCredit, setCaptainCredit] = useState<CaptainCredit | null>(null)
+  // Whether the captain-credit fetch below has settled (success, no-op, or
+  // error) for a teamToken + signed-in visitor. Gates the step-viewed
+  // analytics effect so it waits for the real team_captain/team_member
+  // classification instead of firing early with a guess. `!teamToken` and
+  // guest sessions never fetch, so they're settled from the start.
+  const [captainCreditLoaded, setCaptainCreditLoaded] = useState(false)
+  const captainCreditSettled = !teamToken || isGuest || captainCreditLoaded
   // The credit only applies to the captain's SELF registration (server gate:
   // familyMember.selfUserId === user.id) — never to a dependent registered
   // through the same account. Mirror that here so the payment step doesn't
@@ -355,6 +362,8 @@ export default function RegistrationWizard({
       } catch {
         // non-fatal — the payment step falls back to the season price and the
         // server still applies the credit at registration time
+      } finally {
+        if (!cancelled) setCaptainCreditLoaded(true)
       }
     })()
     return () => {
@@ -537,16 +546,19 @@ export default function RegistrationWizard({
     // If no lock, leave at the "child" default
   }, [isGuest, season, lockedGuestMode])
 
-  // Track each wizard step view (league analytics).
+  // Track each wizard step view (league analytics). Gated on
+  // captainCreditSettled so a team-token visitor's flow is classified
+  // team_captain/team_member with the SETTLED value — never fired early with
+  // a guess, and never double-fired for the same step once it resolves.
   useEffect(() => {
-    if (season) trackRegistrationStepViewed({
+    if (season && captainCreditSettled) trackRegistrationStepViewed({
       step: stepName,
       seasonId: season.id,
-      flow: teamToken ? "team_member" : "solo",
+      flow: teamToken ? (captainCredit != null ? "team_captain" : "team_member") : "solo",
       variant: flowVariant,
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentStep, season, teamToken])
+  }, [currentStep, season, teamToken, captainCreditSettled])
 
   // Fire view_item once when entering the payment step
   useEffect(() => {
