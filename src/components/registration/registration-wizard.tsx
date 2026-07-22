@@ -29,6 +29,7 @@ import { recordConfirmedPayment } from "@/lib/registrations/payment-confirmation
 import {
   trackRegistrationStepViewed,
   trackRegistrationPaymentMethodSelected,
+  type RegVariant,
 } from "@/lib/analytics/events"
 
 interface Season {
@@ -112,23 +113,27 @@ interface RegistrationWizardProps {
   teamToken?: string | null
 }
 
-// Step ids — named so the renumber (media folded into Agreements) stays
-// readable everywhere the wizard branches on the current step.
-const STEP_PLAYER = 1
-const STEP_AGREEMENTS = 2
-const STEP_PAYMENT = 3
-const STEP_CONFIRM = 4
+// Wizard steps by name. `currentStep` stays 1-based, but which step that
+// number maps to depends on the flow variant: v1 keeps the four-step flow
+// (agreements pre-payment), v2 (adult-locked seasons) drops the agreements
+// interstitial — the waiver + details are collected after payment.
+type WizardStepName = "player" | "agreements" | "payment" | "confirm"
 
-const STEP_NAME: Record<number, "player" | "agreements" | "payment" | "confirm"> = {
-  1: "player", 2: "agreements", 3: "payment", 4: "confirm",
+const STEP_LISTS: Record<RegVariant, WizardStepName[]> = {
+  v1: ["player", "agreements", "payment", "confirm"],
+  v2: ["player", "payment", "confirm"],
 }
 
-const STEPS = [
-  { id: STEP_PLAYER, name: "Player", icon: User },
-  { id: STEP_AGREEMENTS, name: "Agreements", icon: FileCheck },
-  { id: STEP_PAYMENT, name: "Payment", icon: CreditCard },
-  { id: STEP_CONFIRM, name: "Confirm", icon: CheckCircle2 },
-]
+// Draft-restore heuristics reference the v1 layout numerically; the v2 clamp
+// is derived from the live step list (see applyDraft).
+const STEP_AGREEMENTS = 2
+
+const STEP_META: Record<WizardStepName, { name: string; icon: typeof User }> = {
+  player: { name: "Player", icon: User },
+  agreements: { name: "Agreements", icon: FileCheck },
+  payment: { name: "Payment", icon: CreditCard },
+  confirm: { name: "Confirm", icon: CheckCircle2 },
+}
 
 // localStorage draft schema version. Bump to invalidate older shapes.
 const DRAFT_VERSION = 1
@@ -183,6 +188,24 @@ export default function RegistrationWizard({
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // ── Flow variant ─────────────────────────────────────────────────────────
+  // Adult-locked seasons (audience=adult or ageGroup.minAge ≥ 18) run the v2
+  // flow: no pre-payment agreements step (the waiver + player details are
+  // collected after payment) and, for guests, a minimal name+email step.
+  const flowVariant: RegVariant =
+    audienceHint === "adult" || (season?.ageGroup?.minAge ?? 0) >= 18 ? "v2" : "v1"
+  const stepList = STEP_LISTS[flowVariant]
+  const stepName = stepList[currentStep - 1] ?? "player"
+  // 1-based number of a named step in the active list (confirm is step 4 in
+  // v1 but step 3 in v2; payment is step 3 vs 2).
+  const stepNumberOf = (name: WizardStepName) => stepList.indexOf(name) + 1
+  // Progress-header steps derived from the active list (v2 shows 3 dots).
+  const steps = stepList.map((n, i) => ({
+    id: i + 1,
+    name: STEP_META[n].name,
+    icon: STEP_META[n].icon,
+  }))
 
   // ── Submission state ─────────────────────────────────────────────────────
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -417,8 +440,10 @@ export default function RegistrationWizard({
     setMediaAuthOptOuts(new Set(d.mediaOptOuts ?? []))
     setPaymentOption(d.paymentOption === "deposit" ? "deposit" : "full")
     // Don't restore onto the payment step — the registration row isn't created
-    // until a method is picked, so land them on Agreements to continue cleanly.
-    setCurrentStep(Math.min(Math.max(d.currentStep ?? 1, 1), STEP_AGREEMENTS))
+    // until a method is picked. Land on the last step before payment (v1:
+    // Agreements; v2: Player) to continue cleanly.
+    const maxRestoreStep = Math.max(1, stepList.indexOf("payment"))
+    setCurrentStep(Math.min(Math.max(d.currentStep ?? 1, 1), maxRestoreStep))
     setRestorable(null)
   }
 
@@ -515,16 +540,17 @@ export default function RegistrationWizard({
   // Track each wizard step view (league analytics).
   useEffect(() => {
     if (season) trackRegistrationStepViewed({
-      step: STEP_NAME[currentStep] ?? "player",
+      step: stepName,
       seasonId: season.id,
       flow: teamToken ? "team_member" : "solo",
-      variant: "v1", // variant becomes dynamic when the v2 flow lands
+      variant: flowVariant,
     })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep, season, teamToken])
 
   // Fire view_item once when entering the payment step
   useEffect(() => {
-    if (currentStep === STEP_PAYMENT && season) {
+    if (stepName === "payment" && season) {
       import("@/lib/analytics/datalayer").then(({ trackViewItem }) => {
         trackViewItem({
           id: season.id,
@@ -772,7 +798,7 @@ export default function RegistrationWizard({
     clearDraft()
     setRegistrationComplete(true)
     setPaymentClientSecret(null)
-    setCurrentStep(STEP_CONFIRM)
+    setCurrentStep(stepNumberOf("confirm"))
   }
 
   const handlePaymentCancel = () => {
@@ -847,7 +873,7 @@ export default function RegistrationWizard({
       // No clientSecret + ok → discount zeroed the bill; treat as complete.
       clearDraft()
       setRegistrationComplete(true)
-      setCurrentStep(STEP_CONFIRM)
+      setCurrentStep(stepNumberOf("confirm"))
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start payment")
     } finally {
@@ -856,7 +882,10 @@ export default function RegistrationWizard({
   }
 
   const handleSubmitGuestCheckout = async (categoryOverride?: "bank" | "card") => {
-    if (!season || !waiverAccepted || !waiverSignature) return
+    // v2 (adult-locked) defers the waiver to the post-payment completion step,
+    // so the signed-waiver guard only applies to v1.
+    if (!season) return
+    if (flowVariant === "v1" && (!waiverAccepted || !waiverSignature)) return
     // The selected method is passed in directly because setState hasn't
     // flushed yet when the method button fires this.
     const category = categoryOverride ?? selectedPaymentCategory
@@ -865,7 +894,28 @@ export default function RegistrationWizard({
     try {
       const mediaAuthOptOutsArr = Array.from(mediaAuthOptOuts)
       const payload =
-        guestMode === "adult"
+        flowVariant === "v2"
+          ? {
+              // Minimal adult self-registration: name + email only. DOB, gender
+              // and the signed waiver are collected after payment via the
+              // completion step (waiverSigned:false, no birthDate/waiverSignedBy).
+              seasonId,
+              registrant: {
+                firstName: guestParentFirstName,
+                lastName: guestParentLastName,
+                email: guestParentEmail,
+                isSelf: true as const,
+              },
+              smsConsent: guestSmsConsent,
+              registrationType: paymentOption,
+              waiverSigned: false,
+              discountCode: discountCode || undefined,
+              lookingForTeam,
+              mediaAuthOptOuts: mediaAuthOptOutsArr,
+              paymentMethodCategory: category,
+              teamToken: teamToken ?? undefined,
+            }
+          : guestMode === "adult"
           ? {
               seasonId,
               registrant: {
@@ -969,7 +1019,10 @@ export default function RegistrationWizard({
   }
 
   const handleSubmitRegistration = async (categoryOverride?: "bank" | "card") => {
-    if (!selectedKey || !waiverAccepted || !waiverSignature) return
+    if (!selectedKey) return
+    // v2 (adult-locked) has no pre-payment agreements step, so the waiver is
+    // signed after payment — only v1 requires the signed waiver here.
+    if (flowVariant === "v1" && (!waiverAccepted || !waiverSignature)) return
 
     // Passed in directly from the method button (setState hasn't flushed).
     const category = categoryOverride ?? selectedPaymentCategory
@@ -977,14 +1030,18 @@ export default function RegistrationWizard({
     setError(null)
 
     const mediaAuthOptOutsArr = Array.from(mediaAuthOptOuts)
+    // v2 defers the waiver: create the row unsigned; v1 carries the signature.
+    const waiverFields =
+      flowVariant === "v2"
+        ? { waiverSigned: false as const }
+        : { waiverSigned: true as const, waiverSignedBy: waiverSignature }
     const registrationBody =
       selectedKey === "self"
         ? {
             seasonId,
             registerSelf: true,
             registrationType: paymentOption,
-            waiverSigned: true,
-            waiverSignedBy: waiverSignature,
+            ...waiverFields,
             discountCode: discountCode || undefined,
             lookingForTeam,
             mediaAuthOptOuts: mediaAuthOptOutsArr,
@@ -997,8 +1054,7 @@ export default function RegistrationWizard({
             seasonId,
             familyMemberId: selectedKey,
             registrationType: paymentOption,
-            waiverSigned: true,
-            waiverSignedBy: waiverSignature,
+            ...waiverFields,
             discountCode: discountCode || undefined,
             mediaAuthOptOuts: mediaAuthOptOutsArr,
             teamToken: teamToken ?? undefined,
@@ -1090,7 +1146,7 @@ export default function RegistrationWizard({
       // Waitlisted or no payment required — go straight to confirmation
       clearDraft()
       setRegistrationComplete(true)
-      setCurrentStep(STEP_CONFIRM)
+      setCurrentStep(stepNumberOf("confirm"))
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to complete registration")
     } finally {
@@ -1127,6 +1183,11 @@ export default function RegistrationWizard({
         ? "That email doesn't look right — check for typos."
         : "Enter your email."
     }
+    // v2 (adult-locked) guest step collects name + email only; the player's
+    // DOB/gender and the waiver are deferred to the post-payment completion.
+    if (flowVariant === "v2") {
+      return Object.keys(errors).length > 0 ? errors : null
+    }
     if (guestMode === "adult") {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(guestAdultBirthDate))
         errors.adultBirthDate = "Enter your birth date."
@@ -1145,7 +1206,7 @@ export default function RegistrationWizard({
   const guestFieldErrors = guestAttempted ? computeGuestErrors() : null
 
   const handleContinue = () => {
-    if (currentStep === STEP_PLAYER && isGuest) {
+    if (stepName === "player" && isGuest) {
       const errors = computeGuestErrors()
       if (errors) {
         setGuestAttempted(true)
@@ -1157,17 +1218,17 @@ export default function RegistrationWizard({
   }
 
   const canProceed = () => {
-    switch (currentStep) {
-      case 1:
+    switch (stepName) {
+      case "player":
         // Guests: always allow the tap — handleContinue validates and surfaces
         // per-field errors instead of a dead button.
         if (isGuest) return true
         return selectedKey !== null
-      case STEP_AGREEMENTS:
+      case "agreements":
         // Waiver is the gate; media consent below it is optional. The full
         // legal text being collapsed doesn't change what's required.
         return waiverAccepted && waiverSignature.length >= 2
-      case STEP_PAYMENT:
+      case "payment":
         return true
       default:
         return false
@@ -1310,10 +1371,10 @@ export default function RegistrationWizard({
           <div className="absolute top-5 left-0 right-0 h-0.5 bg-border" />
           <div
             className="absolute top-5 left-0 h-0.5 bg-primary transition-all duration-500"
-            style={{ width: `${((currentStep - 1) / (STEPS.length - 1)) * 100}%` }}
+            style={{ width: `${((currentStep - 1) / (steps.length - 1)) * 100}%` }}
           />
 
-          {STEPS.map((step) => {
+          {steps.map((step) => {
             const StepIcon = step.icon
             const isActive = currentStep === step.id
             const isComplete = currentStep > step.id
@@ -1362,7 +1423,7 @@ export default function RegistrationWizard({
       {/* Step Content */}
       <div className="bg-paper border border-border rounded-2xl p-6">
         {/* Step 1: Who are you registering? (authenticated path) */}
-        {currentStep === 1 && !isGuest && !showAddMember && (
+        {stepName === "player" && !isGuest && !showAddMember && (
           <WhoStep
             selfOption={
               completedBirthDate
@@ -1403,7 +1464,7 @@ export default function RegistrationWizard({
         )}
 
         {/* Add dependent inline form (authenticated path, step 1) */}
-        {currentStep === 1 && !isGuest && showAddMember && (
+        {stepName === "player" && !isGuest && showAddMember && (
           <AddDependentForm
             firstName={newMemberFirstName}
             lastName={newMemberLastName}
@@ -1425,12 +1486,13 @@ export default function RegistrationWizard({
         )}
 
         {/* Step 1 (guest): About you + player */}
-        {currentStep === 1 && isGuest && (
+        {stepName === "player" && isGuest && (
           <GuestInfoStep
             seasonId={seasonId}
             mode={guestMode}
             onModeChange={setGuestMode}
             lockedMode={lockedGuestMode}
+            minimal={flowVariant === "v2"}
             parentFirstName={guestParentFirstName}
             parentLastName={guestParentLastName}
             parentEmail={guestParentEmail}
@@ -1459,8 +1521,9 @@ export default function RegistrationWizard({
           />
         )}
 
-        {/* Step 2: Agreements — waiver (required) + media consent (optional) */}
-        {currentStep === STEP_AGREEMENTS && (
+        {/* Step 2: Agreements — waiver (required) + media consent (optional).
+            v2 (adult-locked) has no agreements step; the waiver is deferred. */}
+        {stepName === "agreements" && (
           <div className="space-y-6">
             <WaiverStep
               isSelf={selectedKey === "self"}
@@ -1503,7 +1566,18 @@ export default function RegistrationWizard({
         )}
 
         {/* Step 3: Payment */}
-        {currentStep === STEP_PAYMENT && (
+        {stepName === "payment" && (
+          <div className="space-y-6">
+            {/* v2 has no agreements interstitial, so recap what's being bought
+                right above the payment options (name · price · venue). */}
+            {flowVariant === "v2" && (
+              <div className="rounded-xl border border-border bg-cream-2 px-4 py-3">
+                <p className="text-sm font-medium text-ink">{season.name}</p>
+                <p className="text-xs text-ink-muted">
+                  ${fullPrice(season)} · {season.location.name}
+                </p>
+              </div>
+            )}
           <PaymentStep
             seasonName={season.name}
             seasonPrice={fullPrice(season)}
@@ -1566,10 +1640,11 @@ export default function RegistrationWizard({
             onPaymentSuccess={handlePaymentSuccess}
             onPaymentCancel={handlePaymentCancel}
           />
+          </div>
         )}
 
         {/* Step 4: Confirmation */}
-        {currentStep === STEP_CONFIRM && registrationComplete && (
+        {stepName === "confirm" && registrationComplete && (
           <ConfirmationStep
             seasonName={season.name}
             registrantDisplayName={
@@ -1586,19 +1661,19 @@ export default function RegistrationWizard({
 
       {/* Navigation — on the payment step there's no forward button; selecting
           a payment method is what advances the flow. */}
-      {currentStep < STEP_CONFIRM && !paymentClientSecret && (
+      {stepName !== "confirm" && !paymentClientSecret && (
         <div className="mt-6 flex items-center justify-between">
           <Button
             variant="ghost"
             onClick={() => setCurrentStep(currentStep - 1)}
-            disabled={currentStep === STEP_PLAYER || isSubmitting}
+            disabled={stepName === "player" || isSubmitting}
             className="text-ink-muted hover:text-ink"
           >
             <ChevronLeft className="w-4 h-4 mr-1" />
             Back
           </Button>
 
-          {currentStep < STEP_PAYMENT && (
+          {currentStep < stepNumberOf("payment") && (
             <div className="flex flex-col items-end gap-1.5">
               <Button
                 onClick={handleContinue}
@@ -1608,7 +1683,7 @@ export default function RegistrationWizard({
                 Continue
                 <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
-              {currentStep === STEP_PLAYER && isGuest && guestFieldErrors && (
+              {stepName === "player" && isGuest && guestFieldErrors && (
                 <p className="text-xs text-destructive text-right">
                   Fix the highlighted fields above to continue.
                 </p>
