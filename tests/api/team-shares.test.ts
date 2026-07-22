@@ -44,6 +44,7 @@ async function createTeam(cookie: string): Promise<string | null> {
       teamName: `Shares Test ${stamp}`,
       captainName: "Share Captain",
       captainEmail: `share-cap-${stamp}@test.aspiresports.com`,
+      backstopConsent: true,
     }),
   });
   if (!res.ok) return null; // Stripe likely unconfigured — defer to Task 7.
@@ -58,20 +59,10 @@ async function getTeam(token: string) {
 }
 
 describe("team captain-assigned shares", () => {
-  it("rejects an unauthenticated team creation (captain must sign in)", async () => {
-    const res = await fetch(`${BASE}/api/public/team-registrations`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        seasonId: "00000000-0000-0000-0000-000000000000",
-        teamName: "No Auth",
-        captainName: "Nobody",
-        captainEmail: "nobody@test.aspiresports.com",
-      }),
-    });
-    // 401 (no session) is the relevant guard; 400 (bad org/season) also acceptable.
-    expect([400, 401]).toContain(res.status);
-  });
+  // Anonymous team creation is no longer a 401 — see
+  // tests/api/team-registrations-anon.test.ts, which owns the anon-captain
+  // assertions (new email -> 200 + session; existing email -> 409
+  // account_exists, no team created).
 
   it("the invite endpoint 404s for an unknown token", async () => {
     const res = await fetch(

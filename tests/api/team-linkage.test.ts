@@ -36,6 +36,7 @@ describe("team linkage via ?team= token", () => {
           teamName: `Linkage Test ${stamp}`,
           captainName: "Cap Tain",
           captainEmail: `cap-${stamp}@test.aspiresports.com`,
+          backstopConsent: true,
         }),
       })
     ).json();

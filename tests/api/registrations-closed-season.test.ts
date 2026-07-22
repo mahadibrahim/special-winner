@@ -76,6 +76,7 @@ describe("live-until enforcement — closed-window season", () => {
         teamName: "Too Late FC",
         captainName: "Adult Self",
         captainEmail: "adult-self@test.aspiresports.com",
+        backstopConsent: true,
       }),
     });
     expect(res.status).toBe(400);
