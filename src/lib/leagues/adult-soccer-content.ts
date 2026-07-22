@@ -58,7 +58,7 @@ export type FaqEntry = { q: string; a: string };
 
 export const FAQ: FaqEntry[] = [
   { q: "Don't have a team?", a: "Register solo in any D or Open division — we place free agents on balanced teams by skill and schedule." },
-  { q: "How do I pay?", a: "A $200 non-refundable deposit holds your spot; the balance is due in full by game 1. Early-bird team pricing is $1,000 through the early-bird deadline." },
+  { q: "How do I pay?", a: "Solo players pay $120 at registration — that's it, no deposit. Teams pay $1,000 early-bird ($1,050 after), or reserve with a $200 deposit and pay the balance before game 1." },
   { q: "Indoor vs outdoor?", a: "Indoor walled 7v7 — faster, no offside, and the wall keeps the ball in play. Games run rain or shine." },
   { q: "Roster size?", a: "Up to 14 on a roster, 7 on the field. Free substitution on the fly; the roster locks after game 3." },
 ];

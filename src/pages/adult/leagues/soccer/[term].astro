@@ -3,6 +3,7 @@
 export const prerender = false;
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { SeasonTabs } from "@/components/leagues/season-tabs";
+import { getVenueFacts } from "@/lib/locations/venue-facts";
 import type { Division } from "@/lib/leagues/division-filters";
 import { FORMAT_FACTS } from "@/lib/leagues/adult-soccer-content";
 
@@ -135,6 +136,33 @@ const faqSchema = {
         initialTab={allCompleted ? "standings" : "divisions"}
       />
     </div>
+
+    {/* Where you'll play — replays showed people leaving the funnel to
+        research venues and not coming back. Answer it in place. */}
+    {venues.length > 0 && (
+      <section class="bg-cream-2 border-t border-ink/10 py-14 px-6" aria-label="Where you'll play">
+        <div class="max-w-[1080px] mx-auto">
+          <h2 class="font-display text-3xl text-ink mb-6">Where you'll play</h2>
+          <div class="grid gap-5 md:grid-cols-2">
+            {venues.map(({ slug, label }) => {
+              const vf = getVenueFacts(slug);
+              return (
+                <a href={`/locations/${slug}`} class="group rounded-2xl border border-border bg-paper overflow-hidden flex flex-col sm:flex-row">
+                  {vf?.photos[0] && (
+                    <img src={vf.photos[0].src} alt={vf.photos[0].alt} loading="lazy" class="sm:w-44 h-32 sm:h-auto object-cover" />
+                  )}
+                  <div class="p-5">
+                    <div class="font-display text-xl text-ink group-hover:text-primary">{label}</div>
+                    {vf && <p class="text-[13px] text-ink-2 mt-1 max-w-sm">{vf.tagline}</p>}
+                    <span class="inline-block text-xs font-semibold text-primary mt-2.5">Venue details & directions →</span>
+                  </div>
+                </a>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+    )}
   </main>
 </BaseLayout>
 
