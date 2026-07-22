@@ -187,7 +187,8 @@ export async function handleRegistrationPaymentSucceeded(
           if (!registration.waiverSigned) {
             const destPath = `/account/complete/${registrationId}?via=email_link`;
             const brandAppUrl =
-              originForBrand(paymentIntent.metadata?.brand) ?? env.PUBLIC_APP_URL;
+              originForBrand(normalizeBrand(paymentIntent.metadata?.brand)) ??
+              env.PUBLIC_APP_URL;
             if (row.user.passwordHash === null) {
               const link = await createMagicLink({
                 userId: registration.registeredByUserId,

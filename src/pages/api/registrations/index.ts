@@ -9,6 +9,9 @@ import { getPostHogServer } from "@/lib/posthog-server";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
 import { recordConsent, recordDefaultMediaAuth } from "@/lib/consents/record";
 
+// waiverSignedBy is only required when the client actually claims the
+// waiver was signed at checkout time (v2 solo checkout defers waiver
+// signing to a post-payment completion step — mirrors guest-checkout.ts).
 const createRegistrationSchema = z
   .object({
     seasonId: z.string().uuid("Invalid season ID"),
@@ -16,7 +19,7 @@ const createRegistrationSchema = z
     registerSelf: z.boolean().optional(),
     registrationType: z.enum(["full", "deposit"]),
     waiverSigned: z.boolean(),
-    waiverSignedBy: z.string().min(1, "Waiver signature required"),
+    waiverSignedBy: z.string().min(1, "Waiver signature required").optional(),
     notes: z.string().optional(),
     lookingForTeam: z.boolean().optional(),
     teamToken: z.string().max(64).optional(),
@@ -27,7 +30,16 @@ const createRegistrationSchema = z
   .refine(
     (v) => Boolean(v.familyMemberId) !== Boolean(v.registerSelf),
     { message: "Provide exactly one of familyMemberId or registerSelf:true" },
-  );
+  )
+  .superRefine((d, ctx) => {
+    if (d.waiverSigned && !d.waiverSignedBy?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["waiverSignedBy"],
+        message: "Signature required when signing the waiver",
+      });
+    }
+  });
 
 // GET - List registrations for current user
 export const GET: APIRoute = async ({ locals, url }) => {
@@ -202,7 +214,7 @@ export const POST: APIRoute = async ({ request, clientAddress, locals }) => {
         seasonId: data.seasonId,
         registrationType: data.registrationType,
         waiverSigned: data.waiverSigned,
-        waiverSignedBy: data.waiverSignedBy,
+        waiverSignedBy: data.waiverSignedBy ?? "",
         notes: data.notes,
         lookingForTeam: data.registerSelf ? (data.lookingForTeam ?? false) : false,
         teamToken: data.teamToken ?? null,
@@ -218,7 +230,7 @@ export const POST: APIRoute = async ({ request, clientAddress, locals }) => {
           registrationId: result.registration.id,
           organizationId: result.organizationId,
           signedByUserId: user.id,
-          signedByName: data.waiverSignedBy,
+          signedByName: data.waiverSignedBy ?? "",
           ipAddress: clientAddress ?? null,
           userAgent: userAgent ?? null,
         };
