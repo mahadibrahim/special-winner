@@ -1198,8 +1198,10 @@ export default function RegistrationWizard({
   // ── Loading / error states ─────────────────────────────────────────────────
 
   if (isLoading) {
+    // min-h matches the reserved skeleton height in RegisterExperience so
+    // neither loading state collapses when the wizard content mounts.
     return (
-      <div className="flex items-center justify-center py-20">
+      <div className="flex items-center justify-center min-h-[70vh]">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     )

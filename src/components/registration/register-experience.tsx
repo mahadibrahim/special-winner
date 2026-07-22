@@ -75,7 +75,15 @@ export default function RegisterExperience({
   }, [season]);
 
   if (err) return <ErrorBanner message={err} />;
-  if (!season) return <LoadingSkeleton />;
+  // min-h reserves roughly the wizard's height so the loading→content swap
+  // doesn't shift the whole page (register page measured CLS 0.34 — the
+  // spinner/skeleton collapse was the biggest single shift).
+  if (!season)
+    return (
+      <div className="min-h-[70vh]">
+        <LoadingSkeleton />
+      </div>
+    );
   if (season.status !== "open")
     return <ErrorBanner message="Registration for this division isn't open." />;
   if (season.registrationClosed)
