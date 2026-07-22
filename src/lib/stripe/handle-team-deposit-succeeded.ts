@@ -82,38 +82,42 @@ export async function handleTeamDepositSucceeded(
       ? paymentIntent.payment_method
       : paymentIntent.payment_method?.id ?? null;
 
-  await db
-    .update(teamRegistrations)
-    .set({
-      captainPaymentMethodId: paymentMethodId,
-      backstopStatus: "pending",
-      updatedAt: new Date(),
-    })
-    .where(eq(teamRegistrations.id, teamRegistrationId));
+  // Single transaction for the status write + ledger insert + depositPaymentId
+  // backfill. All three must land together: if depositPaymentId is left null
+  // by a crash between the ledger insert and this update, the dedupe gate
+  // above never closes and a redelivered webhook re-runs the ledger insert
+  // (harmless — onConflictDoNothing guards it) AND re-fires the PostHog
+  // capture (not harmless — see below). Wrapping them atomically means either
+  // all three commit or none do, so a redelivery after a crash safely re-enters
+  // this same transaction rather than resuming from a half-written state.
+  //
+  // backstopStatus is written advance-only, mirroring the bridge's guard in
+  // confirm-deposit.ts: only "none" flips to "pending". Without this guard, a
+  // webhook delivery delayed past a cron backstop charge would downgrade
+  // "charged" back to "pending", and the next cron run would charge the
+  // captain's card a second time.
+  //
+  // captainPaymentMethodId uses COALESCE for the same reason the bridge does:
+  // don't clobber a value either side already wrote.
+  const result = await db.transaction(async (tx) => {
+    await tx
+      .update(teamRegistrations)
+      .set({
+        ...(paymentMethodId
+          ? {
+              captainPaymentMethodId: sql`COALESCE(${teamRegistrations.captainPaymentMethodId}, ${paymentMethodId})`,
+            }
+          : {}),
+        backstopStatus: sql`CASE WHEN ${teamRegistrations.backstopStatus} = 'none' THEN 'pending' ELSE ${teamRegistrations.backstopStatus} END`,
+        updatedAt: new Date(),
+      })
+      .where(eq(teamRegistrations.id, teamRegistrationId));
 
-  // Fire-and-forget analytics — never block or fail the webhook on this.
-  // captainUserId should always be set (the deposit requires an authed
-  // captain), but skip the capture rather than send an anonymous event.
-  if (team.captainUserId) {
-    getPostHogServer().capture({
-      distinctId: team.captainUserId,
-      event: SERVER_EVENTS.teamDepositPaid,
-      properties: {
-        team_registration_id: team.id,
-        season_id: team.seasonId,
-        amount_cents: paymentIntent.amount,
-      },
-    });
-  }
-
-  // Record the $200 deposit in the payments ledger. Defensive: a failure here
-  // must never break the (already-committed) card-saving + status update above,
-  // so it's wrapped in try/catch and onConflictDoNothing guards webhook retries.
-  // captainUserId should always be set (the deposit requires an authed captain),
-  // but skip the ledger row if it's somehow null rather than insert a bad row.
-  if (team.captainUserId) {
-    try {
-      const [paymentRow] = await db
+    // Record the $200 deposit in the payments ledger. captainUserId should
+    // always be set (the deposit requires an authed captain), but skip the
+    // ledger row if it's somehow null rather than insert a bad row.
+    if (team.captainUserId) {
+      const [paymentRow] = await tx
         .insert(payments)
         .values({
           registrationId: null,
@@ -131,17 +135,36 @@ export async function handleTeamDepositSucceeded(
         .returning({ id: payments.id });
 
       if (paymentRow?.id) {
-        await db
+        await tx
           .update(teamRegistrations)
           .set({ depositPaymentId: paymentRow.id, updatedAt: new Date() })
           .where(eq(teamRegistrations.id, teamRegistrationId));
       }
-    } catch (ledgerErr) {
-      console.error(
-        `[handleTeamDepositSucceeded] failed to record deposit payment for team ${teamRegistrationId}:`,
-        ledgerErr,
-      );
+
+      return { ledgerRowInserted: paymentRow?.id != null };
     }
+
+    return { ledgerRowInserted: false };
+  });
+
+  // Fire-and-forget analytics — deliberately AFTER the transaction commits,
+  // and only when this call is the one that actually inserted the ledger
+  // row. That keeps the capture to at most once per successful terminal
+  // transition: a crash before commit rolls back the whole transaction (so a
+  // retry re-enters cleanly and fires again, correctly, since nothing
+  // committed), and a crash after commit can never re-fire (depositPaymentId
+  // is now set, so the dedupe gate above short-circuits future deliveries
+  // before this code even runs).
+  if (team.captainUserId && result.ledgerRowInserted) {
+    getPostHogServer().capture({
+      distinctId: team.captainUserId,
+      event: SERVER_EVENTS.teamDepositPaid,
+      properties: {
+        team_registration_id: team.id,
+        season_id: team.seasonId,
+        amount_cents: paymentIntent.amount,
+      },
+    });
   }
 
   return { status: "processed", teamRegistrationId };
