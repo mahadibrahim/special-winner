@@ -79,3 +79,105 @@ describe("guest-checkout v2 (deferred waiver/DOB)", () => {
     expect(res.status).toBe(400);
   });
 });
+
+// Task 7: POST /api/registrations/{id}/complete — post-payment completion.
+// Per the Execution Addendum (Task 7 adjustments), the fixture is minted
+// in-test rather than seeded: a v2 guest-checkout call with a unique email
+// creates a brand-new user, whose response carries both the session
+// Set-Cookie (new users only — see guest-checkout.ts's
+// "account-takeover prevention" comment) and registrationId (Task 6
+// addendum). Payment status is irrelevant to signing, so the Stripe-gated
+// itWithStripe split from the suite above doesn't apply here.
+describe("registration completion (POST /api/registrations/{id}/complete)", () => {
+  async function mintGuestRegistration(): Promise<{
+    registrationId: string;
+    cookie: string;
+  }> {
+    const email = `complete-${Date.now()}-${Math.random().toString(36).slice(2)}@test.aspiresports.com`;
+    const res = await apiFetch("/api/registrations/guest-checkout", {
+      method: "POST",
+      body: JSON.stringify({
+        seasonId: adultSeasonId,
+        registrant: {
+          firstName: "Complete",
+          lastName: "Flow",
+          email,
+          isSelf: true,
+        },
+        registrationType: "full",
+        waiverSigned: false,
+      }),
+    });
+    expect(res.status).toBe(200);
+    const cookie = res.headers.get("set-cookie");
+    if (!cookie) {
+      throw new Error(
+        "guest-checkout did not return a session cookie for a new user",
+      );
+    }
+    const body = await res.json();
+    expect(body.registrationId).toBeTruthy();
+    return { registrationId: body.registrationId, cookie };
+  }
+
+  it("rejects an unauthenticated request with 401", async () => {
+    const { registrationId } = await mintGuestRegistration();
+    const res = await apiFetch(`/api/registrations/${registrationId}/complete`, {
+      method: "POST",
+      body: JSON.stringify({
+        waiverAccepted: true,
+        waiverSignature: "Complete Flow",
+      }),
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it("signs the waiver on the happy path, then is idempotent on a repeat call", async () => {
+    const { registrationId, cookie } = await mintGuestRegistration();
+
+    const res = await apiFetch(`/api/registrations/${registrationId}/complete`, {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({
+        waiverAccepted: true,
+        waiverSignature: "Complete Flow",
+        birthDate: "1990-05-15",
+      }),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.signed).toBe(true);
+    expect(body.ageReviewNeeded).toBe(false);
+
+    const repeat = await apiFetch(`/api/registrations/${registrationId}/complete`, {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({
+        waiverAccepted: true,
+        waiverSignature: "Complete Flow",
+      }),
+    });
+    expect(repeat.status).toBe(200);
+    const repeatBody = await repeat.json();
+    expect(repeatBody.alreadySigned).toBe(true);
+  });
+
+  it("flags age review for a DOB outside the season's age group without blocking the sign", async () => {
+    const { registrationId, cookie } = await mintGuestRegistration();
+
+    const res = await apiFetch(`/api/registrations/${registrationId}/complete`, {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({
+        waiverAccepted: true,
+        waiverSignature: "Complete Flow",
+        // Adult 18+ season (minAge 18) — this DOB is well under that.
+        birthDate: "2015-01-01",
+      }),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.signed).toBe(true);
+    expect(body.ageReviewNeeded).toBe(true);
+  });
+});
