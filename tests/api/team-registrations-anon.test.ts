@@ -17,6 +17,10 @@ import { describe, it, expect } from "vitest";
 const BASE = process.env.TEST_BASE_URL ?? "http://localhost:4321";
 const SEASON_SLUG = "e2e-adult-team-soccer-2026";
 
+// Consumes the shared 5/min/IP budget and starves sibling team suites —
+// run explicitly via RATE_LIMIT_TESTS=yes, not in the default CI batch.
+const itRateLimit = process.env.RATE_LIMIT_TESTS === "yes" ? it : it.skip;
+
 async function getTeamSeasonId(): Promise<string> {
   const season = (
     await (
@@ -153,7 +157,7 @@ describe("anonymous captain team creation", () => {
     expect(res.status).toBe(400);
   });
 
-  it("rate limits after 5 requests/min/IP", async () => {
+  itRateLimit("rate limits after 5 requests/min/IP", async () => {
     // The limiter is in-memory/per-instance and fails open on error (see
     // rate-limit.ts), and the broader suite may run with
     // DISABLE_RATE_LIMIT=1. Bodies here are intentionally invalid-but-
