@@ -15,7 +15,7 @@ import { teamRegistrations, payments } from "@/lib/db/schema";
  * their shares by the deadline.
  *
  * NOTE — deposit is NOT recorded in the `payments` table. `payments.registrationId`
- * is NOT NULL (onDelete: restrict), and a team deposit has no owning
+ * is nullable (onDelete: restrict), and a team deposit has no owning
  * registration row — it's a team-level reservation, not a per-player payment.
  * We therefore leave `team_registrations.depositPaymentId` NULL and record the
  * deposit minimally on the team row (Stripe PI id is recoverable from Stripe;
