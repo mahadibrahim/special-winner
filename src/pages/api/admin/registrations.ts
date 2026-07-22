@@ -67,6 +67,7 @@ export const GET: APIRoute = async (context) => {
           amountDueCents: registrations.amountDueCents,
           registrationType: registrations.registrationType,
           waiverSigned: registrations.waiverSigned,
+          ageReviewNeeded: registrations.ageReviewNeeded,
           waitlistPosition: registrations.waitlistPosition,
           createdAt: registrations.createdAt,
           cancelledAt: registrations.cancelledAt,
