@@ -282,7 +282,7 @@ export default function ProgramCardV2({
             row, not a meta-text segment. */}
         <div className="mt-2 min-h-[1.125rem] flex items-center gap-1.5">
           {formatBadge && (
-            <span className="text-[10px] font-semibold tracking-wide uppercase rounded-full px-2 py-0.5 bg-primary-orange-soft text-primary">
+            <span className="inline-flex items-center font-semibold tracking-wide uppercase text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded">
               {formatBadge}
             </span>
           )}
