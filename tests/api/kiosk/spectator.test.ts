@@ -459,15 +459,18 @@ describe("kiosk spectator waiver", () => {
     expect(sms.length, "a whatsapp tick must not create an sms consent").toBe(0);
   });
 
-  it("a VALID OTP must NOT promote a row the kiosk was never allowed to touch", async () => {
-    // The invariant a carrier reviewer probes. This number opted in at the kiosk
-    // once (optInSource = kiosk_spectator — so the promotion's SOURCE filter does
-    // not save us here) and later replied STOP. Someone signs at the kiosk with
-    // that number and completes a perfectly valid OTP.
+  it("a STOPped number gets no OTP at all — the block moved from promotion to the send", async () => {
+    // The invariant a carrier reviewer probes, one layer earlier than it used
+    // to be. This number opted in at the kiosk once (optInSource =
+    // kiosk_spectator — so the promotion's SOURCE filter does not save us
+    // here) and later replied STOP. Someone signs at the kiosk with that
+    // number.
     //
-    // Holding the phone is not the same as withdrawing a STOP. The `status =
-    // 'pending'` predicate in promotePendingPhoneConsents is the ONLY thing that
-    // makes that true, and this test is what proves it is still there.
+    // Since 5471c9bd, resolveConsentGate blocks `opted_out` unconditionally —
+    // even for the OTP's own bypassOptInCheck send — so createPhoneVerification
+    // never generates a code for this number. There is nothing left to
+    // promote because there is nothing that was ever sent to confirm.
+    // Holding the phone is still not the same as withdrawing a STOP.
     const db = getDb();
     const optedOutAt = new Date("2026-02-03T04:05:06Z");
     await db.insert(phoneOptIns).values({
@@ -496,11 +499,25 @@ describe("kiosk spectator waiver", () => {
     // The signature stands — consent is separable from entry.
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.phoneVerificationId).toBeTruthy();
+    // No confirmation in flight — the send was blocked before a code
+    // existed. The endpoint fails soft: 200, channel reported "pending".
+    expect(body.phoneVerificationId, "no OTP means no verification id").toBeFalsy();
+    expect(body.awaitingCode).toEqual([]);
+    expect(body.pending).toEqual(["sms"]);
 
-    // A real code, entered correctly, on the number that really received it.
-    const code = await readOtpCode(STOPPED_KIOSK_PHONE_E164, since);
-    await completeOtp(body.phoneVerificationId, code);
+    // Prove the block happened at the send, not merely at a later promotion
+    // step: nothing was ever texted to this number.
+    const mockRes = await apiFetch(
+      `/api/test/messaging-mock?to=${encodeURIComponent(STOPPED_KIOSK_PHONE_E164)}` +
+        `&channel=sms&since=${encodeURIComponent(since)}`,
+    );
+    expect(mockRes.status).toBe(200);
+    const mockBody = (await mockRes.json()) as { enabled: boolean; messages: unknown[] };
+    expect(mockBody.enabled, "MESSAGING_MOCK must be on for this suite").toBe(true);
+    expect(
+      mockBody.messages,
+      "STOP must block the OTP itself, not just its promotion",
+    ).toEqual([]);
 
     const rows = await db
       .select()
@@ -514,7 +531,7 @@ describe("kiosk spectator waiver", () => {
     expect(rows.length).toBe(1);
     expect(
       rows[0].status,
-      "a valid OTP must not resurrect a STOPped number — the way back is START",
+      "no OTP was ever sent, so there is nothing that could have promoted it",
     ).toBe("opted_out");
     expect(rows[0].optedOutAt).not.toBeNull();
     // The audit survives intact: a row reading "opted in" while carrying "this

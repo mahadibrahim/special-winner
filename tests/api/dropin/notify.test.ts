@@ -10,7 +10,8 @@
  *      texts them once the number is verified). Email-only opt-in files NO
  *      subscription — the dispatcher is SMS-only.
  *   3. A verified OTP promotes the pending intent; a STOPped number is never
- *      resurrected, even by a perfectly valid OTP.
+ *      resurrected — sendSms now blocks the OTP itself before it is ever
+ *      generated, so there's no code left to enter for that number at all.
  *
  * OTP retrieval mirrors tests/api/kiosk/spectator.test.ts exactly: the OTP is
  * read out of the MESSAGING_MOCK=1 inbox via /api/test/messaging-mock (keyed on
@@ -340,11 +341,15 @@ describe("pickup notify opt-in", () => {
     expect(subs[0].active).toBe(true);
   });
 
-  it("a STOPped number is NOT resurrected, even by a valid OTP", async () => {
-    // The compliance invariant. This number replied STOP with optInSource =
-    // pickup_notify — so the promotion's SOURCE filter does NOT protect it; only
-    // the `status = 'pending'` predicate in promotePendingPhoneConsents keeps a
-    // valid OTP from resurrecting it. Holding the phone is not withdrawing a STOP.
+  it("a STOPped number gets no OTP at all — sendSms blocks the send, not just the promotion", async () => {
+    // The compliance invariant, one layer earlier than it used to be. This
+    // number replied STOP with optInSource = pickup_notify — so the
+    // promotion's SOURCE filter does NOT protect it. Since 5471c9bd,
+    // resolveConsentGate blocks `opted_out` unconditionally — even for the
+    // OTP's own bypassOptInCheck send — so createPhoneVerification never
+    // generates a code for this number in the first place. There is no OTP
+    // left to enter, valid or otherwise; holding the phone is still not
+    // withdrawing a STOP.
     const db = getDb();
     await db.insert(phoneOptIns).values({
       organizationId,
@@ -368,21 +373,34 @@ describe("pickup notify opt-in", () => {
     });
     expect(res.status).toBe(200);
     const body = await res.json();
-    // An OTP is still sent (the number is unverified from this surface's view)...
-    expect(body.phoneVerificationId).toBeTruthy();
+    // The endpoint fails soft: 200, no confirmation in flight (the send was
+    // blocked before a code existed to confirm), channel reported "pending".
+    expect(body.phoneVerificationId, "no OTP means no verification id").toBeFalsy();
+    expect(body.awaitingCode).not.toContain("sms");
+    expect(body.pending).toContain("sms");
 
-    // ...and a valid code, entered correctly, still must not touch the STOP row.
-    const code = await readOtpCode(STOP_PHONE_E164, since);
-    await completeOtp(body.phoneVerificationId, code);
+    // Prove the block happened at the send, not merely absent because we
+    // didn't look hard enough: nothing was texted to this number at all.
+    const mockRes = await apiFetch(
+      `/api/test/messaging-mock?to=${encodeURIComponent(STOP_PHONE_E164)}` +
+        `&channel=sms&since=${encodeURIComponent(since)}`,
+    );
+    expect(mockRes.status).toBe(200);
+    const mockBody = (await mockRes.json()) as { enabled: boolean; messages: unknown[] };
+    expect(mockBody.enabled, "MESSAGING_MOCK must be on for this suite").toBe(true);
+    expect(
+      mockBody.messages,
+      "STOP must block the OTP itself, not just its promotion",
+    ).toEqual([]);
 
     const rows = await db
       .select()
       .from(phoneOptIns)
       .where(and(eq(phoneOptIns.phone, STOP_PHONE_E164), eq(phoneOptIns.channel, "sms")));
-    expect(rows.length, "the pending upsert must not have added a second row").toBe(1);
+    expect(rows.length, "no second row must have been added").toBe(1);
     expect(
       rows[0].status,
-      "a valid OTP must not resurrect a STOPped number — the way back is START",
+      "a STOPped number must stay opted_out — the way back is START",
     ).toBe("opted_out");
     expect(rows[0].optedOutAt).not.toBeNull();
     expect(rows[0].stopKeywordTriggered).toBe("STOP");
