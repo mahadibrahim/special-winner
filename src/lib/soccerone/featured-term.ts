@@ -35,7 +35,7 @@ export interface TermAggregate {
   kickoff: string | null;
   /** Earliest non-null registrationCloses ISO instant across the group. */
   closes: string | null;
-  /** "$120/player · $1,050/team" — only when uniform across the group. */
+  /** "$120/player · team: $200 reserves it, $1,050 total" — only when uniform across the group. */
   uniformPrice: string | null;
 }
 
