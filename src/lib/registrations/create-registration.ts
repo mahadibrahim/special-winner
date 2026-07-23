@@ -1,4 +1,4 @@
-import { eq, and, asc, sql } from "drizzle-orm";
+import { eq, and, asc, notInArray, sql } from "drizzle-orm";
 import type { getDb } from "@/lib/db";
 import {
   registrations,
@@ -65,7 +65,18 @@ export type CreateRegistrationResult = {
 };
 
 export class RegistrationError extends Error {
-  constructor(public status: number, message: string) {
+  /**
+   * Optional machine-readable code for callers that need to branch on the
+   * error rather than pattern-match `message`. Not every RegistrationError
+   * carries one — API routes surfacing this error must preserve their
+   * existing `{ error: message }` response shape when `code` is absent, and
+   * only add `{ error: code, message }` when it is present.
+   */
+  constructor(
+    public status: number,
+    message: string,
+    public code?: string,
+  ) {
     super(message);
     this.name = "RegistrationError";
   }
@@ -306,6 +317,14 @@ export async function createRegistration(
         and(
           eq(registrations.seasonId, seasonId),
           eq(registrations.familyMemberId, familyMember.id),
+          // Cancelled/refunded rows are invisible to this lookup — mirrors
+          // the DB's own registrations_member_season_active_uniq partial
+          // index (see schema/registrations.ts), which already excludes
+          // both statuses so a member can re-register after cancelling or
+          // being refunded. Without this filter, the oldest cancelled row
+          // would win the `.limit(1)` and permanently block re-registration
+          // via the throw below.
+          notInArray(registrations.status, ["cancelled", "refunded"]),
         ),
       )
       .orderBy(asc(registrations.createdAt))
@@ -431,8 +450,9 @@ export async function createRegistration(
       };
     }
     throw new RegistrationError(
-      400,
+      409,
       "This player is already registered for this season",
+      "already_registered",
     );
   }
 

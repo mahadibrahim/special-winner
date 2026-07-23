@@ -271,10 +271,17 @@ export const POST: APIRoute = async ({ request, clientAddress, locals }) => {
       );
     } catch (err) {
       if (err instanceof RegistrationError) {
-        return new Response(JSON.stringify({ error: err.message }), {
-          status: err.status,
-          headers: { "Content-Type": "application/json" },
-        });
+        return new Response(
+          JSON.stringify(
+            err.code
+              ? { error: err.code, message: err.message }
+              : { error: err.message },
+          ),
+          {
+            status: err.status,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
       }
       throw err;
     }
