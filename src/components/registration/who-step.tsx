@@ -98,7 +98,9 @@ function computeMissing(profile: SelfProfileSnapshot): {
     phone: !normalizePhone(profile.phone ?? ""),
     birthDate: !profile.birthDate,
   };
-  return { ...missing, any: Object.values(missing).some(Boolean) };
+  // Phone does not block the form — only firstName, lastName, birthDate.
+  const any = missing.firstName || missing.lastName || missing.birthDate;
+  return { ...missing, any };
 }
 
 export function WhoStep({
@@ -133,10 +135,11 @@ export function WhoStep({
   const phoneValid = normalizedPhone.length === 10;
 
   // Required fields for THIS form are exactly the ones currently missing.
+  // Phone is optional: if typed, must be valid; if empty, that's fine.
   const requiredOk =
     (!missing?.firstName || firstName.trim().length > 0) &&
     (!missing?.lastName || lastName.trim().length > 0) &&
-    (!missing?.phone || phoneValid) &&
+    (phone.trim().length === 0 || phoneValid) &&
     (!missing?.birthDate || birthDate.length > 0);
 
   const handleSubmitProfile = () => {
@@ -144,7 +147,8 @@ export function WhoStep({
     const update: SelfProfileUpdate = {};
     if (missing.firstName) update.firstName = firstName.trim();
     if (missing.lastName) update.lastName = lastName.trim();
-    if (missing.phone) {
+    // Submit phone if the user typed a valid one (even if not originally missing).
+    if (phone.trim().length > 0 && normalizedPhone.length === 10) {
       update.phone = normalizedPhone;
       update.smsConsent = smsConsent;
     }
@@ -202,7 +206,10 @@ export function WhoStep({
             )}
             {missing.phone && (
               <div className="space-y-1">
-                <Label className="text-ink-muted">Phone *</Label>
+                <Label className="text-ink-muted">
+                  Phone{" "}
+                  <span className="text-ink-faint font-normal">(optional)</span>
+                </Label>
                 <Input
                   type="tel"
                   inputMode="tel"
@@ -255,8 +262,9 @@ export function WhoStep({
             </div>
           </div>
           {/* SMS consent sits below the field grid so the required 10DLC
-              disclosure gets full width rather than a cramped grid column. */}
-          {missing.phone && (
+              disclosure gets full width rather than a cramped grid column.
+              Show it when the user has typed a phone, whether or not it was missing. */}
+          {phone.trim().length > 0 && (
             <SmsConsentCheckbox
               id="sms-consent-profile"
               checked={smsConsent}
