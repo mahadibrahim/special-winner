@@ -259,8 +259,6 @@ export default function ProgramCardV2({
             )}
             {" · "}
             {audienceLabel}
-            {" · "}
-            {formatBadge ?? "—"}
           </span>
         </div>
 
@@ -277,10 +275,17 @@ export default function ProgramCardV2({
           <span className="truncate">{startsLabel}</span>
         </div>
 
-        {/* 5 · Fixed-height chip slot — early-bird chip when active, empty
-            otherwise. Reserved height keeps cards aligned regardless of
-            whether a season has a discount. */}
-        <div className="mt-2 min-h-[1.125rem] flex items-center">
+        {/* 5 · Fixed-height chip slot — format pill (dual/team-only signal)
+            and/or early-bird chip; empty for the default youth solo case.
+            Reserved height keeps cards aligned regardless of chip count —
+            matches the approved proposal mockup, where format is a badge
+            row, not a meta-text segment. */}
+        <div className="mt-2 min-h-[1.125rem] flex items-center gap-1.5">
+          {formatBadge && (
+            <span className="text-[10px] font-semibold tracking-wide uppercase rounded-full px-2 py-0.5 bg-primary-orange-soft text-primary">
+              {formatBadge}
+            </span>
+          )}
           {ebLabel && (
             <span className="text-[10px] font-semibold tracking-wide uppercase text-primary">
               {ebLabel}
