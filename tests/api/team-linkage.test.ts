@@ -1,5 +1,4 @@
 import { describe, it, expect } from "vitest";
-import { getAuthCookie } from "./setup/test-helpers";
 
 const BASE = process.env.TEST_BASE_URL ?? "http://localhost:4321";
 
@@ -19,18 +18,20 @@ describe("team linkage via ?team= token", () => {
     expect(season?.id, `expected seeded season "${SEASON_SLUG}" — re-seed e2e data`).toBeTruthy();
 
     // Phase B: creating a team requires an authenticated captain (the deposit
-    // saves a card on file). With no Stripe configured in CI the endpoint
-    // gracefully skips the deposit but still requires auth.
-    const captainCookie = await getAuthCookie(
-      "parent@test.aspiresports.com",
-      "TestParent123!",
-    );
-
+    // saves a card on file). Team creation now accepts anonymous callers too
+    // (see team-registrations-anon.test.ts) — used here to mint a FRESH
+    // captain user per run rather than authenticating as the shared
+    // parent@test.aspiresports.com fixture. That fixture's Stripe customer
+    // (idempotency key `${userId}:stripe-customer:v1`, see saved-cards.ts)
+    // was created against some earlier email; this dev/staging Stripe
+    // account now 502s every subsequent deposit-intent call for that same
+    // user id with a different email (idempotency same-key-different-params
+    // conflict), which made `create.inviteToken` silently undefined here.
     const stamp = Date.now();
     const create = await (
       await fetch(`${BASE}/api/public/team-registrations`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", Cookie: captainCookie },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           seasonId: season.id,
           teamName: `Linkage Test ${stamp}`,

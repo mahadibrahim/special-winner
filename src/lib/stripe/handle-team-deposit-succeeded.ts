@@ -6,6 +6,7 @@ import { getPostHogServer } from "@/lib/posthog-server";
 import { SERVER_EVENTS } from "@/lib/analytics/events";
 import { sendTeamDepositReceiptEmail } from "@/lib/email/send";
 import type { BrandId } from "@/lib/branding/themes";
+import { CAPTAIN_DEPOSIT_CENTS } from "@/lib/registrations/team-deposit";
 
 /**
  * Handles `payment_intent.succeeded` for the captain's $200 team deposit
@@ -133,7 +134,7 @@ export async function handleTeamDepositSucceeded(
           registrationId: null,
           teamRegistrationId: team.id,
           userId: team.captainUserId,
-          amountCents: 20000,
+          amountCents: CAPTAIN_DEPOSIT_CENTS,
           paymentType: "deposit",
           status: "succeeded",
           stripePaymentIntentId: paymentIntent.id,
@@ -204,7 +205,7 @@ export async function handleTeamDepositSucceeded(
         seasonId: team.seasonId,
         inviteToken: team.inviteToken,
         teamFeeCents: team.teamFeeCents,
-        depositCents: team.depositCents ?? 20000,
+        depositCents: team.depositCents ?? CAPTAIN_DEPOSIT_CENTS,
         paymentDeadline: team.paymentDeadline,
         brand: (team.brand as BrandId | undefined) ?? undefined,
       });

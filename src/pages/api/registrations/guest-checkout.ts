@@ -408,6 +408,7 @@ export const POST: APIRoute = async (context) => {
               paid: true,
               registrationId: regResult.registration.id,
               wasNewUser,
+              amountDueCents: regResult.registration.amountDueCents,
             }),
             { status: 200, headers: { "Content-Type": "application/json" } },
           );
@@ -422,6 +423,7 @@ export const POST: APIRoute = async (context) => {
             // Lets the wizard record the client-confirmed payment signal
             // (webhook-lag bridge) against the right registration.
             registrationId: regResult.registration.id,
+            amountDueCents: regResult.registration.amountDueCents,
           }),
           { status: 200, headers: { "Content-Type": "application/json" } },
         );

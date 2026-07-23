@@ -50,6 +50,16 @@ export interface PaymentStepProps {
    *  credit; no payment method, no Stripe session). */
   onCompleteZeroDue?: () => void
 
+  /** Team-invite share amount (server-resolved, from the personal invite
+   *  ref) — when set, the "Pay in Full" tile shows this amount labeled
+   *  "Your share — set by your captain" instead of the solo season price,
+   *  and the deposit option is not offered (shares are paid in full). */
+  teamShareCents?: number | null
+  /** True when a personal team invite promised a share amount but the
+   *  server didn't apply it (email didn't match the invite) — renders an
+   *  explanatory notice above the payment options. */
+  shareMismatch?: boolean
+
   // Payment-method category (the bank-vs-card choice that drives surcharge).
   paymentMethodCategory: "bank" | "card"
   /**
@@ -114,6 +124,8 @@ export function PaymentStep({
   paymentOption,
   captainCredit = null,
   onCompleteZeroDue,
+  teamShareCents = null,
+  shareMismatch = false,
   paymentMethodCategory,
   onMethodSelected,
   isCreatingSession,
@@ -153,7 +165,11 @@ export function PaymentStep({
   // deposit (e.g. $200) alongside a $120 solo price; rendering it would show
   // "Remaining $-80.00" and charge more than paying in full. Server twin:
   // registrationAmountDueCents in src/lib/registrations/amount-due.ts.
+  // Team-share registrations are always paid in full — the invite promised
+  // an exact share, and a partial "deposit" against it isn't a concept the
+  // server supports (there's no per-share deposit split).
   const depositAvailable =
+    teamShareCents == null &&
     allowDeposit &&
     seasonDeposit != null &&
     seasonDepositCents != null &&
@@ -173,9 +189,11 @@ export function PaymentStep({
   // credit replaces the season price with the post-credit due.
   const baseAmountCents = captainCredit
     ? captainCredit.dueCents
-    : effectivePaymentOption === "deposit" && seasonDepositCents
-      ? seasonDepositCents
-      : seasonPriceCents
+    : teamShareCents != null
+      ? teamShareCents
+      : effectivePaymentOption === "deposit" && seasonDepositCents
+        ? seasonDepositCents
+        : seasonPriceCents
   const discountedBaseCents = appliedDiscount
     ? Math.max(0, baseAmountCents - appliedDiscount.discountAmountCents)
     : baseAmountCents
@@ -209,6 +227,24 @@ export function PaymentStep({
 
   return (
     <div className="space-y-6">
+      {/* A personal team invite promised a share amount, but the server
+          didn't apply it (registering email didn't match the invite) — the
+          season full price is about to be charged instead. Explain why
+          before the customer confirms. */}
+      {shareMismatch && (
+        <div
+          role="alert"
+          className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
+        >
+          <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+          <p>
+            This email doesn't match your team invite, so your captain's
+            share amount didn't apply. Register with the invited email, or
+            ask your captain to re-invite this one.
+          </p>
+        </div>
+      )}
+
       {/* Captain deposit credit — replaces the season-price option/summary
           sections entirely: one credit source, one clear total. */}
       {captainCredit && (
@@ -272,14 +308,18 @@ export function PaymentStep({
           >
             <RadioGroupItem value="full" id="pay-full" className="mr-4" disabled={optionLocked} />
             <div className="flex-1">
-              <p className="font-medium text-ink">Pay in Full</p>
+              <p className="font-medium text-ink">
+                {teamShareCents != null ? "Your share — set by your captain" : "Pay in Full"}
+              </p>
               <p className="text-sm text-ink-muted">Complete payment now</p>
             </div>
             <div className="text-right">
-              {earlyBirdActive && (
+              {earlyBirdActive && teamShareCents == null && (
                 <p className="text-xs font-medium text-primary">Early-bird</p>
               )}
-              <div className="text-xl font-bold text-ink">${seasonPrice}</div>
+              <div className="text-xl font-bold text-ink">
+                ${teamShareCents != null ? (teamShareCents / 100).toFixed(2) : seasonPrice}
+              </div>
             </div>
           </Label>
 
@@ -387,13 +427,15 @@ export function PaymentStep({
         </label>
       )}
 
-      {/* Order Summary */}
+      {/* Order Summary — team-share registrations show the share amount
+          (the same value the "Pay in Full" tile above renders), never the
+          solo season price. */}
       <OrderSummary
         seasonName={seasonName}
-        seasonPrice={seasonPrice}
+        seasonPrice={teamShareCents != null ? teamShareCents / 100 : seasonPrice}
         seasonDeposit={seasonDeposit}
         allowDeposit={allowDeposit}
-        earlyBirdActive={earlyBirdActive}
+        earlyBirdActive={teamShareCents != null ? false : earlyBirdActive}
         paymentOption={effectivePaymentOption}
         registrantName={registrantName}
         appliedDiscount={appliedDiscount}

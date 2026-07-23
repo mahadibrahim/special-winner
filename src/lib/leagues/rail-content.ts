@@ -14,7 +14,15 @@ export function tierColorClass(skillLevel: string | null | undefined): string {
 }
 
 function usd(n: number): string {
-  return "$" + n.toLocaleString("en-US");
+  // Whole dollars stay terse ("$120"); fractional amounts keep both cent
+  // digits ("$90.50", never "$90.5") — odd-cent team-share splits hit this.
+  return (
+    "$" +
+    n.toLocaleString("en-US", {
+      minimumFractionDigits: Number.isInteger(n) ? 0 : 2,
+      maximumFractionDigits: 2,
+    })
+  );
 }
 
 /**
@@ -50,6 +58,7 @@ export function priceLabel(
     effectiveTeamPrice?: number | null;
     teamEarlyBirdActive?: boolean;
   },
+  opts?: { shareCents?: number | null },
 ): { amount: string; unit: string } {
   if (mode === "team") {
     // Deposit-first: the amount a captain pays TODAY leads; the total is
@@ -63,11 +72,18 @@ export function priceLabel(
         : `today · ${story.total} total · your roster pays the rest`,
     };
   }
-  // Solo/share display the per-player price the charge path would use right
+  if (mode === "share") {
+    // An invite-link visitor's rail must show the amount the captain actually
+    // assigned them — never the solo price (they may owe more or less). With
+    // no assigned share known yet, render nothing; the rail itself renders
+    // the fallback sentence instead of guessing.
+    if (opts?.shareCents == null) return { amount: "", unit: "" };
+    return { amount: usd(opts.shareCents / 100), unit: "your share" };
+  }
+  // Solo displays the per-player price the charge path would use right
   // now — the early-bird price while active. Falls back to the list price for
   // callers that don't carry effectivePrice.
   const soloPrice = usd(season.effectivePrice ?? season.price);
-  if (mode === "share") return { amount: soloPrice, unit: "your share" };
   return { amount: soloPrice, unit: "solo" };
 }
 

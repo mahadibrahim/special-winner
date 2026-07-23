@@ -25,7 +25,7 @@ import { registrationAmountDueCents } from "@/lib/registrations/amount-due";
  * joining players see what they're signing up for, and by the captain
  * status view to see who has joined.
  */
-export const GET: APIRoute = async ({ params, locals }) => {
+export const GET: APIRoute = async ({ params, locals, request }) => {
   const token = params.token;
   if (!token) {
     return new Response(
@@ -107,6 +107,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
       // much, and whether they've paid.
       db
         .select({
+          id: teamInvitees.id,
           email: teamInvitees.email,
           assignedShareCents: teamInvitees.assignedShareCents,
           status: teamInvitees.status,
@@ -140,34 +141,57 @@ export const GET: APIRoute = async ({ params, locals }) => {
     // client what their own registration will cost after the deposit credit.
     // Display-only — createRegistration recomputes the credit server-side.
     const viewer = locals.user;
+    const viewerEmailLower = viewer?.email.toLowerCase() ?? null;
+    // Hoisted so both the captain-credit preview below AND invitee-list
+    // serialization can reuse the same captain check. Guests → false.
+    const isCaptain = viewer
+      ? t.team.captainUserId != null
+        ? t.team.captainUserId === viewer.id
+        : captainEmailLower === viewerEmailLower
+      : false;
+
     let viewerCaptainCredit: {
       shareCents: number;
       creditCents: number;
       dueCents: number;
       depositCents: number;
     } | null = null;
-    if (viewer) {
-      const viewerEmailLower = viewer.email.toLowerCase();
-      const isCaptain =
-        t.team.captainUserId != null
-          ? t.team.captainUserId === viewer.id
-          : captainEmailLower === viewerEmailLower;
-      if (isCaptain && teamDepositPaid(t.team)) {
-        const inviteeRow = invitees.find(
-          (i) => i.email.toLowerCase() === viewerEmailLower,
-        );
-        if (!inviteeRow || inviteeRow.status !== "paid") {
-          const shareCents = inviteeRow
-            ? inviteeRow.assignedShareCents ?? 0
-            : registrationAmountDueCents(t.season, "full");
-          viewerCaptainCredit = {
-            shareCents,
-            creditCents: captainDepositCreditCents(shareCents, depositCents),
-            dueCents: captainShareDueCents(shareCents, depositCents),
-            depositCents,
-          };
-        }
+    if (isCaptain && teamDepositPaid(t.team)) {
+      const inviteeRow = invitees.find(
+        (i) => i.email.toLowerCase() === viewerEmailLower,
+      );
+      if (!inviteeRow || inviteeRow.status !== "paid") {
+        const shareCents = inviteeRow
+          ? inviteeRow.assignedShareCents ?? 0
+          : registrationAmountDueCents(t.season, "full");
+        viewerCaptainCredit = {
+          shareCents,
+          creditCents: captainDepositCreditCents(shareCents, depositCents),
+          dueCents: captainShareDueCents(shareCents, depositCents),
+          depositCents,
+        };
       }
+    }
+
+    // Viewer-scoped share: the ONE invitee row this viewer may see. Authed
+    // email match wins; otherwise an `?invitee=<id>` ref carried by the
+    // personal invite-email link. Never exposes any other invitee.
+    const url = new URL(request.url);
+    const inviteeRef = url.searchParams.get("invitee");
+    let viewerShare: { shareCents: number; status: string } | null = null;
+    const ownRow = viewerEmailLower
+      ? invitees.find((i) => i.email.toLowerCase() === viewerEmailLower)
+      : null;
+    const refRow =
+      !ownRow && inviteeRef
+        ? invitees.find((i) => i.id === inviteeRef)
+        : null;
+    const shareRow = ownRow ?? refRow;
+    if (shareRow) {
+      viewerShare = {
+        shareCents: shareRow.assignedShareCents,
+        status: shareRow.status,
+      };
     }
 
     return new Response(
@@ -188,23 +212,29 @@ export const GET: APIRoute = async ({ params, locals }) => {
             waiverSigned: m.waiverSigned,
           })),
           inviteeCount: invitees.length,
-          invitees: invitees.map((i) => ({
-            email: i.email,
-            assignedShareCents: i.assignedShareCents,
-            status: i.status,
-            paidAt: i.paidAt,
-          })),
+          invitees: isCaptain
+            ? invitees.map((i) => ({
+                id: i.id,
+                email: i.email,
+                assignedShareCents: i.assignedShareCents,
+                status: i.status,
+                paidAt: i.paidAt,
+              }))
+            : [],
         },
         viewerCaptainCredit,
+        viewerShare,
         payment: {
           teamFeeCents: t.team.teamFeeCents ?? null,
           depositCents,
           collectedCents,
-          invitees: invitees.map((i) => ({
-            email: i.email,
-            assignedShareCents: i.assignedShareCents,
-            status: i.status,
-          })),
+          invitees: isCaptain
+            ? invitees.map((i) => ({
+                email: i.email,
+                assignedShareCents: i.assignedShareCents,
+                status: i.status,
+              }))
+            : [],
         },
         season: {
           id: t.season.id,

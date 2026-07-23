@@ -15,12 +15,13 @@ describe("rail-content", () => {
       amount: "$200 down",
       unit: "today · $1,000 total · your roster pays the rest",
     });
-    expect(priceLabel("share", s)).toEqual({ amount: "$120", unit: "your share" });
+    // Share mode with no assigned-share value renders nothing — the rail
+    // shows the fallback sentence instead of ever guessing the solo price.
+    expect(priceLabel("share", s)).toEqual({ amount: "", unit: "" });
   });
-  it("priceLabel prefers effectivePrice for solo/share, not team", () => {
+  it("priceLabel prefers effectivePrice for solo, not team", () => {
     const s = { price: 120, teamPrice: 1000, deposit: 200, effectivePrice: 100 } as any;
     expect(priceLabel("solo", s)).toEqual({ amount: "$100", unit: "solo" });
-    expect(priceLabel("share", s)).toEqual({ amount: "$100", unit: "your share" });
     // The per-player early-bird must not bleed into the team price.
     expect(priceLabel("team", s)).toEqual({
       amount: "$200 down",
@@ -49,6 +50,32 @@ describe("rail-content", () => {
 
     // A team early-bird never discounts the solo price (Aspire policy).
     expect(priceLabel("solo", live)).toEqual({ amount: "$120", unit: "solo" });
+  });
+  it("priceLabel share mode with an assigned share renders the real amount, not the solo price", () => {
+    const s = { price: 120, teamPrice: 1000, deposit: 200 } as any;
+    expect(priceLabel("share", s, { shareCents: 9000 })).toEqual({
+      amount: "$90",
+      unit: "your share",
+    });
+    // Odd-cent splits keep both cent digits — "$90.50", never "$90.5".
+    expect(priceLabel("share", s, { shareCents: 9050 })).toEqual({
+      amount: "$90.50",
+      unit: "your share",
+    });
+  });
+  it("priceLabel share mode without a share value renders nothing (rail handles fallback copy)", () => {
+    const s = { price: 120, teamPrice: 1000, deposit: 200 } as any;
+    expect(priceLabel("share", s)).toEqual({ amount: "", unit: "" });
+    expect(priceLabel("share", s, {})).toEqual({ amount: "", unit: "" });
+    expect(priceLabel("share", s, { shareCents: null })).toEqual({ amount: "", unit: "" });
+  });
+  it("priceLabel solo/team modes ignore opts.shareCents", () => {
+    const s = { price: 120, teamPrice: 1000, deposit: 200 } as any;
+    expect(priceLabel("solo", s, { shareCents: 9000 })).toEqual({ amount: "$120", unit: "solo" });
+    expect(priceLabel("team", s, { shareCents: 9000 })).toEqual({
+      amount: "$200 down",
+      unit: "today · $1,000 total · your roster pays the rest",
+    });
   });
   it("formatDayTime renders day + time window (dayOfWeek is lowercase 'tue')", () => {
     expect(formatDayTime("tue", "19:00:00", "22:00:00")).toBe("Tue nights · 7–10pm");

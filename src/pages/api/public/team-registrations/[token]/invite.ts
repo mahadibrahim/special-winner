@@ -138,7 +138,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     // (teamRegistrationId, email) unique index so re-inviting updates the share
     // rather than erroring. Done before the emails so the share we persist
     // matches the one we quote in the message.
-    await db
+    const upserted = await db
       .insert(teamInvitees)
       .values(
         invites.map((i) => ({
@@ -150,19 +150,30 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       .onConflictDoUpdate({
         target: [teamInvitees.teamRegistrationId, teamInvitees.email],
         set: { assignedShareCents: sql`excluded.assigned_share_cents` },
-      });
+      })
+      .returning({ id: teamInvitees.id, email: teamInvitees.email });
+
+    // emailSchema already normalizes to lowercase, but key defensively by
+    // lowercase in case that ever changes.
+    const idByEmail = new Map(
+      upserted.map((row) => [row.email.toLowerCase(), row.id]),
+    );
 
     const results = await Promise.all(
-      invites.map((i) =>
-        sendTeamInviteEmail({
+      invites.map((i) => {
+        const inviteeId = idByEmail.get(i.email.toLowerCase());
+        const personalJoinUrl = inviteeId
+          ? `${joinUrl}&i=${encodeURIComponent(inviteeId)}`
+          : joinUrl;
+        return sendTeamInviteEmail({
           to: i.email,
           teamName: team.teamName,
           captainName: team.captainName,
-          joinUrl,
+          joinUrl: personalJoinUrl,
           brand,
           shareCents: i.shareCents,
-        }),
-      ),
+        });
+      }),
     );
 
     const sent = results.filter((r) => r.success).length;
