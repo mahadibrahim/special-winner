@@ -1103,7 +1103,10 @@ export default function RegistrationWizard({
   // belong to a parent registering a child, and the child fields are never
   // eligible for this stash (see Global Constraints — adult self only).
   const handleGuestSignInClick = () => {
-    if (flowVariant !== "v2") return
+    // Stash whenever the guest is in ADULT mode — the fields are adult-self in
+    // both the v2 minimal flow and v1's ambiguous-audience adult sub-mode.
+    // Child mode never stashes (PII rule: adult self fields only).
+    if (guestMode !== "adult") return
     stashGuestDraft({
       v: 1,
       seasonId,
