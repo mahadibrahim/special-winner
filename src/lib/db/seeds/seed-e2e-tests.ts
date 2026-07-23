@@ -1706,8 +1706,18 @@ async function seedE2ETests() {
         slug: "e2e-adult-open-soccer",
         description: "Adult open soccer league for E2E testing",
         programType: "league",
+        audienceType: "adults",
         active: true,
       })
+      .returning();
+  } else if (adultProgram.audienceType !== "adults") {
+    // Backfill for rows created before this field was added to the insert —
+    // without this, re-seeding a DB that already has the row leaves it stuck
+    // on the "parents" default and the catalog keeps saying "per kid".
+    [adultProgram] = await db
+      .update(programs)
+      .set({ audienceType: "adults" })
+      .where(eq(programs.id, adultProgram.id))
       .returning();
   }
   console.log(`   ✓ Adult Program: ${adultProgram.name}`);

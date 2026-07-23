@@ -131,6 +131,14 @@ interface RegistrationWizardProps {
   audienceHint?: string | null
   /** Opaque token linking this registration to a specific team (threaded to checkout). */
   teamToken?: string | null
+  /** Captain-assigned share (cents) for an invite-link visitor, resolved by
+   *  RegisterExperience from GET /api/public/team-registrations/[token].
+   *  null = not known yet / not an invite-link visitor. Not yet consumed by
+   *  wizard behavior (Task 4). */
+  inviteeShareCents?: number | null
+  /** Team name resolved alongside inviteeShareCents. Not yet consumed by
+   *  wizard behavior (Task 5). */
+  teamName?: string | null
 }
 
 // Wizard steps by name. `currentStep` stays 1-based, but which step that
@@ -196,6 +204,8 @@ export default function RegistrationWizard({
   user,
   audienceHint,
   teamToken,
+  inviteeShareCents,
+  teamName,
 }: RegistrationWizardProps) {
   const isGuest = user === null
   useHydrationBeacon()
@@ -312,6 +322,11 @@ export default function RegistrationWizard({
 
   // ── Cancel-resume state ──────────────────────────────────────────────────
   const [resumableRegistrationId, setResumableRegistrationId] = useState<string | null>(null)
+  // The resumable row's server-computed amountDueCents (from GET
+  // /api/registrations) — same role as serverAmountDueCents below, but for
+  // the resume-payment path, which never goes through handleSubmit* and so
+  // never gets a fresh POST response to read amountDueCents off of.
+  const [resumableAmountDueCents, setResumableAmountDueCents] = useState<number | null>(null)
   const [isResumingPayment, setIsResumingPayment] = useState(false)
 
   // ── Already-registered state (authed only, Task 5) ───────────────────────
@@ -366,6 +381,10 @@ export default function RegistrationWizard({
     "bank" | "card"
   >("card")
   const [appliedSurchargeCents, setAppliedSurchargeCents] = useState(0)
+  // The server's amountDueCents from the most recent submit (guest or authed
+  // path) — stashed purely for the invite-share mismatch check below; never
+  // used to compute what's charged.
+  const [serverAmountDueCents, setServerAmountDueCents] = useState<number | null>(null)
 
   // ── Account credit state (authed only — guests have no balance) ─────────
   const [creditBalanceCents, setCreditBalanceCents] = useState(0)
@@ -397,6 +416,19 @@ export default function RegistrationWizard({
   // through the same account. Mirror that here so the payment step doesn't
   // show credit math the server would refuse.
   const effectiveCaptainCredit = selectedKey === "self" ? captainCredit : null
+  // The personal invite link (`inviteeShareCents`) promised a specific share,
+  // but the server only applies it when the registering email matches the
+  // invitee it was minted for. If the registrant used a different email, the
+  // server falls back to the full price — this flags that mismatch so
+  // PaymentStep can explain the charge instead of silently showing full
+  // price after a share was promised. Only meaningful post-submit, once
+  // serverAmountDueCents is populated.
+  const shareMismatch =
+    teamToken != null &&
+    inviteeShareCents != null &&
+    !effectiveCaptainCredit &&
+    serverAmountDueCents != null &&
+    serverAmountDueCents !== inviteeShareCents
   // Same classification the step-viewed analytics effect below uses, hoisted
   // to a variable so it can also be threaded to ConfirmationStep/CompletionForm
   // (which otherwise defaults to "solo" and mislabels every team registration's
@@ -497,6 +529,7 @@ export default function RegistrationWizard({
           status: string
           paymentStatus: string
           waiverSigned: boolean
+          amountDueCents: number
           season: { id: string }
           familyMember: { id: string }
         }>
@@ -514,7 +547,14 @@ export default function RegistrationWizard({
         const pendingUnpaid = active.find(
           (r) => r.status === "pending" && r.paymentStatus === "unpaid",
         )
-        if (pendingUnpaid) setResumableRegistrationId(pendingUnpaid.id)
+        if (pendingUnpaid) {
+          setResumableRegistrationId(pendingUnpaid.id)
+          setResumableAmountDueCents(
+            typeof pendingUnpaid.amountDueCents === "number"
+              ? pendingUnpaid.amountDueCents
+              : null,
+          )
+        }
         setActiveSeasonRegistrations(
           active.map((r) => ({
             id: r.id,
@@ -880,9 +920,24 @@ export default function RegistrationWizard({
     setDiscountError(null)
 
     try {
-      const purchaseAmountCents = paymentOption === "deposit" && depositValid(season)
-        ? season.depositCents!
-        : fullPriceCents(season)
+      // Team-share base precedes the deposit branch, same ordering as the
+      // valueCents sites above: a personal invite's share is paid in full
+      // (no deposit concept), and — like those sites — a stale-draft
+      // paymentOption:"deposit" must never override it. When teamToken is
+      // set but the share isn't known yet (open joiner, or ref hasn't
+      // resolved), full price is the correct preview base — open joiners
+      // genuinely pay full price. Residual: an email-mismatch invitee (one
+      // whose registering email doesn't match the invite the ref was minted
+      // for) still previews against inviteeShareCents here even though the
+      // server will redeem the discount against the full price instead —
+      // the shareMismatch notice on PaymentStep is what surfaces that case,
+      // not this preview.
+      const purchaseAmountCents =
+        teamToken != null && inviteeShareCents != null
+          ? inviteeShareCents
+          : paymentOption === "deposit" && depositValid(season)
+            ? season.depositCents!
+            : fullPriceCents(season)
 
       const response = await fetch("/api/public/validate-discount", {
         method: "POST",
@@ -969,11 +1024,17 @@ export default function RegistrationWizard({
         )
       }
       if (data.clientSecret) {
+        // Team-token branch precedes the deposit branch: a stale localStorage
+        // draft (paymentOption:"deposit" from an earlier solo browse of this
+        // season) must not force the deposit display on a team-invite resume
+        // — the server-resolved amount always wins once we have it.
         const valueCents = effectiveCaptainCredit
           ? effectiveCaptainCredit.dueCents
-          : paymentOption === "deposit" && depositValid(season!)
-            ? season!.depositCents!
-            : fullPriceCents(season!)
+          : teamToken != null && resumableAmountDueCents != null
+            ? resumableAmountDueCents
+            : paymentOption === "deposit" && depositValid(season!)
+              ? season!.depositCents!
+              : fullPriceCents(season!)
         const baseAfterDiscount = appliedDiscount
           ? valueCents - appliedDiscount.discountAmountCents
           : valueCents
@@ -1111,11 +1172,19 @@ export default function RegistrationWizard({
         }
         throw new Error(parseApiError(data, "Failed to complete registration"))
       }
+      if (typeof data.amountDueCents === "number") {
+        setServerAmountDueCents(data.amountDueCents)
+      }
       if (data.clientSecret) {
+        // Team-token branch precedes the deposit branch — see the resume-
+        // payment site's comment for why (stale-draft paymentOption must
+        // never bypass the server-resolved share/full-price amount).
         const valueCents =
-          paymentOption === "deposit" && depositValid(season!)
-            ? season!.depositCents!
-            : fullPriceCents(season!)
+          teamToken != null && typeof data.amountDueCents === "number"
+            ? data.amountDueCents
+            : paymentOption === "deposit" && depositValid(season!)
+              ? season!.depositCents!
+              : fullPriceCents(season!)
         const baseAfterDiscount = appliedDiscount
           ? valueCents - appliedDiscount.discountAmountCents
           : valueCents
@@ -1254,7 +1323,9 @@ export default function RegistrationWizard({
             setRaceAlreadyRegistered(true)
           } else {
             setError(
-              `${selectedDisplayName || "This player"} is already registered for this season.`,
+              teamToken != null
+                ? `${selectedDisplayName || "This player"} is already registered for this season. To appear on ${teamName ?? "the team"}'s roster, ask your captain to add them — nothing more to pay through this link.`
+                : `${selectedDisplayName || "This player"} is already registered for this season.`,
             )
           }
           return
@@ -1263,6 +1334,9 @@ export default function RegistrationWizard({
       }
 
       const regData = await regResponse.json()
+      if (typeof regData.amountDueCents === "number") {
+        setServerAmountDueCents(regData.amountDueCents)
+      }
 
       if (regData.requiresPayment) {
         // Step 2: Create Stripe checkout session
@@ -1295,11 +1369,16 @@ export default function RegistrationWizard({
 
         // Hand off to embedded form rendered inside step 4
         if (checkoutData.clientSecret) {
+          // Team-token branch precedes the deposit branch — see the resume-
+          // payment site's comment for why (stale-draft paymentOption must
+          // never bypass the server-resolved share/full-price amount).
           const valueCents = effectiveCaptainCredit
             ? effectiveCaptainCredit.dueCents
-            : paymentOption === "deposit" && depositValid(season!)
-              ? season!.depositCents!
-              : fullPriceCents(season!)
+            : teamToken != null && typeof regData.amountDueCents === "number"
+              ? regData.amountDueCents
+              : paymentOption === "deposit" && depositValid(season!)
+                ? season!.depositCents!
+                : fullPriceCents(season!)
           const baseAfterDiscount = appliedDiscount
             ? valueCents - appliedDiscount.discountAmountCents
             : valueCents
@@ -1571,7 +1650,10 @@ export default function RegistrationWizard({
             </Button>
             <Button
               variant="ghost"
-              onClick={() => setResumableRegistrationId(null)}
+              onClick={() => {
+                setResumableRegistrationId(null)
+                setResumableAmountDueCents(null)
+              }}
               disabled={isResumingPayment}
             >
               Start over
@@ -1710,8 +1792,13 @@ export default function RegistrationWizard({
               You're already registered 🎉
             </h3>
             <p className="text-ink-muted mb-6 max-w-md mx-auto">
-              This email has a spot in this division. We've sent you a link
-              to view and manage it — no sign-in needed.
+              {teamToken != null
+                ? `This email already has a spot in this season. ${
+                    teamName
+                      ? `To appear on ${teamName}'s roster, ask your captain to add you.`
+                      : "To appear on the team's roster, ask your captain to add you."
+                  } Nothing more to pay through this link.`
+                : "This email has a spot in this division. We've sent you a link to view and manage it — no sign-in needed."}
             </p>
             <div className="mx-auto max-w-sm rounded-xl border border-border bg-cream-2 px-4 py-3 text-sm text-ink mb-6">
               Check your email — the link opens your registration.
@@ -1902,6 +1989,8 @@ export default function RegistrationWizard({
             paymentMethodCategory={selectedPaymentCategory}
             onMethodSelected={handleMethodSelected}
             captainCredit={effectiveCaptainCredit}
+            teamShareCents={!effectiveCaptainCredit && teamToken ? inviteeShareCents ?? null : null}
+            shareMismatch={shareMismatch}
             onCompleteZeroDue={() => {
               // Zero-due captain registration: no method, no Stripe intent —
               // the server finalizes the row as paid via the deposit credit.

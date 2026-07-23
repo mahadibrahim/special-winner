@@ -2,7 +2,7 @@ import type { APIRoute } from "astro";
 import { and, eq, lt, gte, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { teamRegistrations, teamInvitees, payments } from "@/lib/db/schema";
-import { sendTeamShareReminderEmail } from "@/lib/email/send";
+import { sendTeamShareReminderEmail, sendTeamBackstopWarningEmail } from "@/lib/email/send";
 import {
   sumUnpaidSharesCents,
   chargeTeamBackstop,
@@ -122,15 +122,35 @@ export const POST: APIRoute = async ({ request }) => {
         const brand =
           (team.brand as "aspire" | "soccerone" | undefined) ?? undefined;
 
-        // Captain gets a heads-up (no specific share).
-        await sendTeamShareReminderEmail({
-          to: team.captainEmail,
-          teamName: team.teamName,
-          captainName: team.captainName,
-          joinUrl,
-          deadline,
-          brand,
-        });
+        // Captain gets the backstop warning (what will land on their card),
+        // not the teammate "pay your share" template. Isolated in its own
+        // try/catch so a captain-send failure can't skip the teammate loop
+        // below.
+        try {
+          const unpaidTotalCents = unpaid.reduce(
+            (sum, inv) => sum + inv.assignedShareCents,
+            0,
+          );
+          await sendTeamBackstopWarningEmail({
+            to: team.captainEmail,
+            captainName: team.captainName,
+            teamName: team.teamName,
+            joinUrl,
+            unpaidTotalCents,
+            unpaidCount: unpaid.length,
+            deadline: team.paymentDeadline ?? null,
+            brand,
+          });
+        } catch (captainErr) {
+          console.error(
+            `[cron] team backstop warning failed for team ${team.id}:`,
+            captainErr,
+          );
+          void captureServerException(captainErr, {
+            component: "cron/charge-unpaid-team-shares",
+            metadata: { team_registration_id: team.id, phase: "reminder-captain" },
+          });
+        }
 
         // Each unpaid teammate gets their own share reminder.
         for (const inv of unpaid) {

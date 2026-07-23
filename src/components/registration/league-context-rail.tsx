@@ -31,15 +31,23 @@ interface Props {
   step: number;
   stepCount: number;
   variant?: "active" | "success";
+  /** The captain-assigned share for an invite-link visitor (share mode only).
+   *  null/undefined → the exact amount isn't known yet; the rail renders the
+   *  fallback sentence instead of ever guessing the solo price. */
+  shareCents?: number | null;
   children: React.ReactNode;
 }
 
 const fmtDate = (iso: string | null) =>
   iso ? formatDateOnly(iso, { month: "short", day: "numeric" }) : null;
 
-export default function LeagueContextRail({ season, mode, step, stepCount, variant = "active", children }: Props) {
+const NO_SHARE_FALLBACK =
+  "Your captain set your share — you'll see the exact amount before payment.";
+
+export default function LeagueContextRail({ season, mode, step, stepCount, variant = "active", shareCents, children }: Props) {
   const tier = (season.skillLevel ?? "").toUpperCase();
-  const { amount, unit } = priceLabel(mode, season);
+  const { amount, unit } = priceLabel(mode, season, { shareCents });
+  const noShareYet = mode === "share" && !amount;
   const dayTime = formatDayTime(season.dayOfWeek, season.startTime, season.endTime);
   const success = variant === "success";
   const railBg = success ? "bg-sage text-ink" : "bg-ink text-cream";
@@ -76,9 +84,13 @@ export default function LeagueContextRail({ season, mode, step, stepCount, varia
         {!success && (
           <>
             <div className="border-t border-cream/20 my-4" />
-            <div className="font-display text-2xl font-bold">
-              {amount}<span className="text-xs font-sans font-normal opacity-70"> {unit}</span>
-            </div>
+            {noShareYet ? (
+              <div className="text-xs opacity-80">{NO_SHARE_FALLBACK}</div>
+            ) : (
+              <div className="font-display text-2xl font-bold">
+                {amount}<span className="text-xs font-sans font-normal opacity-70"> {unit}</span>
+              </div>
+            )}
             {season.earlyBirdDeadline && (season.earlyBirdActive ?? true) && (
               <div className="text-xs text-primary-orange-bright mt-1">Early-bird ends {fmtDate(season.earlyBirdDeadline)}</div>
             )}
@@ -94,7 +106,10 @@ export default function LeagueContextRail({ season, mode, step, stepCount, varia
             <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-cream ${tierColorClass(season.skillLevel)}`}>{tier}</span>
           )}
           <span className="font-display text-lg">{season.name}</span>
-          {!success && <span className="ml-auto font-display font-bold">{amount}</span>}
+          {!success && noShareYet && (
+            <span className="ml-auto text-[11px] opacity-80 text-right max-w-[55%]">{NO_SHARE_FALLBACK}</span>
+          )}
+          {!success && !noShareYet && <span className="ml-auto font-display font-bold">{amount}</span>}
         </div>
         {/* Most registrants arrive on mobile straight from a catalog card — the
             facts line confirms what they picked (night, venue, start) without
