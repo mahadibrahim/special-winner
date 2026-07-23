@@ -322,6 +322,11 @@ export default function RegistrationWizard({
 
   // ── Cancel-resume state ──────────────────────────────────────────────────
   const [resumableRegistrationId, setResumableRegistrationId] = useState<string | null>(null)
+  // The resumable row's server-computed amountDueCents (from GET
+  // /api/registrations) — same role as serverAmountDueCents below, but for
+  // the resume-payment path, which never goes through handleSubmit* and so
+  // never gets a fresh POST response to read amountDueCents off of.
+  const [resumableAmountDueCents, setResumableAmountDueCents] = useState<number | null>(null)
   const [isResumingPayment, setIsResumingPayment] = useState(false)
 
   // ── Already-registered state (authed only, Task 5) ───────────────────────
@@ -524,6 +529,7 @@ export default function RegistrationWizard({
           status: string
           paymentStatus: string
           waiverSigned: boolean
+          amountDueCents: number
           season: { id: string }
           familyMember: { id: string }
         }>
@@ -541,7 +547,14 @@ export default function RegistrationWizard({
         const pendingUnpaid = active.find(
           (r) => r.status === "pending" && r.paymentStatus === "unpaid",
         )
-        if (pendingUnpaid) setResumableRegistrationId(pendingUnpaid.id)
+        if (pendingUnpaid) {
+          setResumableRegistrationId(pendingUnpaid.id)
+          setResumableAmountDueCents(
+            typeof pendingUnpaid.amountDueCents === "number"
+              ? pendingUnpaid.amountDueCents
+              : null,
+          )
+        }
         setActiveSeasonRegistrations(
           active.map((r) => ({
             id: r.id,
@@ -907,9 +920,24 @@ export default function RegistrationWizard({
     setDiscountError(null)
 
     try {
-      const purchaseAmountCents = paymentOption === "deposit" && depositValid(season)
-        ? season.depositCents!
-        : fullPriceCents(season)
+      // Team-share base precedes the deposit branch, same ordering as the
+      // valueCents sites above: a personal invite's share is paid in full
+      // (no deposit concept), and — like those sites — a stale-draft
+      // paymentOption:"deposit" must never override it. When teamToken is
+      // set but the share isn't known yet (open joiner, or ref hasn't
+      // resolved), full price is the correct preview base — open joiners
+      // genuinely pay full price. Residual: an email-mismatch invitee (one
+      // whose registering email doesn't match the invite the ref was minted
+      // for) still previews against inviteeShareCents here even though the
+      // server will redeem the discount against the full price instead —
+      // the shareMismatch notice on PaymentStep is what surfaces that case,
+      // not this preview.
+      const purchaseAmountCents =
+        teamToken != null && inviteeShareCents != null
+          ? inviteeShareCents
+          : paymentOption === "deposit" && depositValid(season)
+            ? season.depositCents!
+            : fullPriceCents(season)
 
       const response = await fetch("/api/public/validate-discount", {
         method: "POST",
@@ -996,11 +1024,17 @@ export default function RegistrationWizard({
         )
       }
       if (data.clientSecret) {
+        // Team-token branch precedes the deposit branch: a stale localStorage
+        // draft (paymentOption:"deposit" from an earlier solo browse of this
+        // season) must not force the deposit display on a team-invite resume
+        // — the server-resolved amount always wins once we have it.
         const valueCents = effectiveCaptainCredit
           ? effectiveCaptainCredit.dueCents
-          : paymentOption === "deposit" && depositValid(season!)
-            ? season!.depositCents!
-            : fullPriceCents(season!)
+          : teamToken != null && resumableAmountDueCents != null
+            ? resumableAmountDueCents
+            : paymentOption === "deposit" && depositValid(season!)
+              ? season!.depositCents!
+              : fullPriceCents(season!)
         const baseAfterDiscount = appliedDiscount
           ? valueCents - appliedDiscount.discountAmountCents
           : valueCents
@@ -1142,11 +1176,14 @@ export default function RegistrationWizard({
         setServerAmountDueCents(data.amountDueCents)
       }
       if (data.clientSecret) {
+        // Team-token branch precedes the deposit branch — see the resume-
+        // payment site's comment for why (stale-draft paymentOption must
+        // never bypass the server-resolved share/full-price amount).
         const valueCents =
-          paymentOption === "deposit" && depositValid(season!)
-            ? season!.depositCents!
-            : teamToken != null && typeof data.amountDueCents === "number"
-              ? data.amountDueCents
+          teamToken != null && typeof data.amountDueCents === "number"
+            ? data.amountDueCents
+            : paymentOption === "deposit" && depositValid(season!)
+              ? season!.depositCents!
               : fullPriceCents(season!)
         const baseAfterDiscount = appliedDiscount
           ? valueCents - appliedDiscount.discountAmountCents
@@ -1330,12 +1367,15 @@ export default function RegistrationWizard({
 
         // Hand off to embedded form rendered inside step 4
         if (checkoutData.clientSecret) {
+          // Team-token branch precedes the deposit branch — see the resume-
+          // payment site's comment for why (stale-draft paymentOption must
+          // never bypass the server-resolved share/full-price amount).
           const valueCents = effectiveCaptainCredit
             ? effectiveCaptainCredit.dueCents
-            : paymentOption === "deposit" && depositValid(season!)
-              ? season!.depositCents!
-              : teamToken != null && typeof regData.amountDueCents === "number"
-                ? regData.amountDueCents
+            : teamToken != null && typeof regData.amountDueCents === "number"
+              ? regData.amountDueCents
+              : paymentOption === "deposit" && depositValid(season!)
+                ? season!.depositCents!
                 : fullPriceCents(season!)
           const baseAfterDiscount = appliedDiscount
             ? valueCents - appliedDiscount.discountAmountCents
@@ -1608,7 +1648,10 @@ export default function RegistrationWizard({
             </Button>
             <Button
               variant="ghost"
-              onClick={() => setResumableRegistrationId(null)}
+              onClick={() => {
+                setResumableRegistrationId(null)
+                setResumableAmountDueCents(null)
+              }}
               disabled={isResumingPayment}
             >
               Start over
