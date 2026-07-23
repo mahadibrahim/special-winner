@@ -6,6 +6,7 @@ import { SeasonTabs } from "@/components/leagues/season-tabs";
 import { getVenueFacts } from "@/lib/locations/venue-facts";
 import type { Division } from "@/lib/leagues/division-filters";
 import { FORMAT_FACTS } from "@/lib/leagues/adult-soccer-content";
+import { CAPTAIN_DEPOSIT_DOLLARS } from "@/lib/registrations/team-deposit";
 
 const { term } = Astro.params;
 const origin = Astro.url.origin;
@@ -59,6 +60,8 @@ const divisions: Division[] = seasons.map((s) => ({
   // Solo price on the row — paid-traffic sessions showed people tapping
   // Register just to find the price, then bouncing off the form.
   price: (s.signupModes ?? ["individual"]).includes("individual") ? (s.effectivePrice ?? s.price ?? null) : null,
+  // Team offer on the row — the same price-hunters bounce applies to captains.
+  teamTotal: (s.signupModes ?? []).includes("team") ? (s.effectiveTeamPrice ?? s.teamPrice ?? null) : null,
 }));
 
 // A fully-wrapped term is an archive: standings are the content, and no
@@ -118,7 +121,7 @@ const faqSchema = {
                 already on, i.e. inert). You still pick a division before a
                 mode, so the finder is the honest destination. Archive terms
                 (all completed) offer no register CTA at all. */}
-            <a href="#divisions" class="font-sans font-semibold text-[13px] bg-primary text-cream px-5 py-3 rounded-md" data-testid="hero-register" data-term-cta>Register a team →</a>
+            <a href="#divisions" class="font-sans font-semibold text-[13px] bg-primary text-cream px-5 py-3 rounded-md" data-testid="hero-register" data-term-cta>{`Register a team · $${CAPTAIN_DEPOSIT_DOLLARS} down →`}</a>
             <a href="#divisions" class="font-sans font-semibold text-[13px] border border-cream/40 text-cream px-5 py-3 rounded-md" data-term-cta>Join solo</a>
           </div>
         )}
