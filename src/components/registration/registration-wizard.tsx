@@ -1323,7 +1323,9 @@ export default function RegistrationWizard({
             setRaceAlreadyRegistered(true)
           } else {
             setError(
-              `${selectedDisplayName || "This player"} is already registered for this season.`,
+              teamToken != null
+                ? `${selectedDisplayName || "This player"} is already registered for this season. To appear on ${teamName ?? "the team"}'s roster, ask your captain to add them — nothing more to pay through this link.`
+                : `${selectedDisplayName || "This player"} is already registered for this season.`,
             )
           }
           return
@@ -1790,8 +1792,13 @@ export default function RegistrationWizard({
               You're already registered 🎉
             </h3>
             <p className="text-ink-muted mb-6 max-w-md mx-auto">
-              This email has a spot in this division. We've sent you a link
-              to view and manage it — no sign-in needed.
+              {teamToken != null
+                ? `This email already has a spot in this season. ${
+                    teamName
+                      ? `To appear on ${teamName}'s roster, ask your captain to add you.`
+                      : "To appear on the team's roster, ask your captain to add you."
+                  } Nothing more to pay through this link.`
+                : "This email has a spot in this division. We've sent you a link to view and manage it — no sign-in needed."}
             </p>
             <div className="mx-auto max-w-sm rounded-xl border border-border bg-cream-2 px-4 py-3 text-sm text-ink mb-6">
               Check your email — the link opens your registration.
