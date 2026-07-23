@@ -15,7 +15,7 @@ import {
 } from "@/lib/payments/create-checkout-for-registration";
 import { upsertGuestUser } from "@/lib/registrations/upsert-guest-user";
 import { createSession } from "@/lib/auth";
-import { getPostHogServer } from "@/lib/posthog-server";
+import { getPostHogServer, flushPostHog } from "@/lib/posthog-server";
 import { resolvePerson } from "@/lib/registrations/resolve-person";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
 import {
@@ -23,7 +23,7 @@ import {
   recordDefaultMediaAuth,
   hasActiveConsent,
 } from "@/lib/consents/record";
-import { collectAdAttribution } from "@/lib/analytics/parse-cookies";
+import { collectAdAttribution, parsePhDistinctId } from "@/lib/analytics/parse-cookies";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 import { recordPhoneOptIn } from "@/lib/sms/opt-in";
 
@@ -107,6 +107,12 @@ export const POST: APIRoute = async (context) => {
   const { request, url, clientAddress } = context;
   const posthog = getPostHogServer();
   const phSessionId = request.headers.get("X-PostHog-Session-Id") || undefined;
+  // The browser's anonymous PostHog distinct id. Guests never call identify
+  // client-side (the account is created here, after the fact), so events
+  // keyed to the DB user id land on a separate person and funnels can't
+  // join. Capturing against the browser id — and aliasing it to the user id
+  // once one exists — keeps the whole journey on one person.
+  const phClientId = parsePhDistinctId(request.headers.get("cookie"));
   const userAgent = request.headers.get("user-agent");
 
   // Per-IP throttle: this endpoint is unauthenticated and creates Stripe
@@ -327,8 +333,17 @@ export const POST: APIRoute = async (context) => {
           await createSession(userRow.id, context);
         }
 
+        if (phClientId && phClientId !== userRow.id) {
+          // Merge the anonymous browser person into the user person so the
+          // pre-checkout journey and later server events unify (mirrors
+          // capturePaymentCompleted in payment-telemetry.ts).
+          posthog.alias({ distinctId: phClientId, alias: userRow.id });
+        }
         posthog.identify({ distinctId: userRow.id, properties: { email: userRow.email, firstName: userRow.firstName, lastName: userRow.lastName } });
-        posthog.capture({ distinctId: userRow.id, event: "guest_checkout_completed", properties: { $session_id: phSessionId, season_id: seasonId, registration_id: regResult.registration.id, was_new_user: wasNewUser, discount_code: discountCode, paid_zero: checkout.kind === "paid_zero", brand } });
+        posthog.capture({ distinctId: phClientId || userRow.id, event: "guest_checkout_completed", properties: { $session_id: phSessionId, season_id: seasonId, registration_id: regResult.registration.id, was_new_user: wasNewUser, discount_code: discountCode, paid_zero: checkout.kind === "paid_zero", brand, user_id: userRow.id } });
+        // Deliver before returning — Netlify freezes the instance after the
+        // response, which can drop in-flight capture requests.
+        await flushPostHog();
 
         if (checkout.kind === "paid_zero") {
           return new Response(
@@ -369,7 +384,7 @@ export const POST: APIRoute = async (context) => {
     // -------------------------------------------------------------------------
     if ("registrant" in data) {
       const r = data.registrant;
-      posthog.capture({ distinctId: r.email.toLowerCase().trim(), event: "guest_checkout_started", properties: { $session_id: phSessionId, season_id: data.seasonId, registration_type: data.registrationType, brand } });
+      posthog.capture({ distinctId: phClientId || r.email.toLowerCase().trim(), event: "guest_checkout_started", properties: { $session_id: phSessionId, season_id: data.seasonId, registration_type: data.registrationType, brand, email: r.email.toLowerCase().trim() } });
 
       const { userRow, wasNewUser } = await upsertGuestUser(db, {
         email: r.email,
@@ -415,7 +430,7 @@ export const POST: APIRoute = async (context) => {
     // -------------------------------------------------------------------------
     // PARENT + CHILD PATH (original behavior — preserved unchanged)
     // -------------------------------------------------------------------------
-    posthog.capture({ distinctId: data.parent.email.toLowerCase().trim(), event: "guest_checkout_started", properties: { $session_id: phSessionId, season_id: data.seasonId, registration_type: data.registrationType, brand } });
+    posthog.capture({ distinctId: phClientId || data.parent.email.toLowerCase().trim(), event: "guest_checkout_started", properties: { $session_id: phSessionId, season_id: data.seasonId, registration_type: data.registrationType, brand, email: data.parent.email.toLowerCase().trim() } });
 
     const { userRow, wasNewUser } = await upsertGuestUser(db, {
       email: data.parent.email,
