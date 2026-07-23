@@ -79,6 +79,6 @@ Two PRs to keep review tractable:
 
 Persistent captain tracker/dashboard page, per-invitee resend/edit affordances, escalating reminder cadence, renaming the Telegram "team groups" surfaces, deeper SoccerOne funnel work.
 
-### Open items
+### Resolved decisions
 
-- Seasons with `teamPrice` $750 / `deposit` $150 still charge the flat $200 captain deposit by design (`team-deposit.ts` is deliberately season-independent); the individual `deposit` field only governs solo hold-a-spot checkout. Copy must always quote the flat $200 for teams. Flagging in case the owner expects a cheaper reserve on cheaper divisions.
+- Flat $200 captain deposit stays for all divisions, including $750-fee ones (owner confirmed 2026-07-23). `team-deposit.ts` remains season-independent; the individual `deposit` field only governs solo hold-a-spot checkout. Copy always quotes the flat $200 for teams.
