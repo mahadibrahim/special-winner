@@ -241,6 +241,16 @@ export default function RegistrationWizard({
   const [guestEmailCollision, setGuestEmailCollision] = useState(false)
   const [isCheckingEmail, setIsCheckingEmail] = useState(false)
 
+  // Guest submit hit the server's `already_registered` 409 (this email
+  // already has a live registration for this season). Renders a friendly
+  // state in place of the step content instead of the generic error banner —
+  // per the disclosure rule, no registration detail is shown, just that the
+  // email has a spot and a manage-link email was sent.
+  const [guestAlreadyRegistered, setGuestAlreadyRegistered] = useState(false)
+  // Set by "Register a different player instead" so the effect below can
+  // focus the email field once step 1 has actually re-rendered.
+  const [focusGuestEmailOnMount, setFocusGuestEmailOnMount] = useState(false)
+
   // ── Guest registration mode (child vs adult) ─────────────────────────────
   // Default is determined after season data loads (see effect below).
   // audienceHint="adult" or minAge>=18 → "adult", otherwise "child".
@@ -620,6 +630,16 @@ export default function RegistrationWizard({
     }
   }, [isGuest, guestParentEmail])
 
+  // Focus the guest email field after "Register a different player instead"
+  // sends the wizard back to step 1 — runs once step 1 has actually
+  // re-rendered (stepName flips async with currentStep).
+  useEffect(() => {
+    if (focusGuestEmailOnMount && stepName === "player") {
+      document.getElementById("guest-parent-email")?.focus()
+      setFocusGuestEmailOnMount(false)
+    }
+  }, [focusGuestEmailOnMount, stepName])
+
   // ── Data fetching ─────────────────────────────────────────────────────────
 
   const fetchData = async () => {
@@ -990,6 +1010,13 @@ export default function RegistrationWizard({
       })
       const data = await res.json()
       if (!res.ok) {
+        if (data?.code === "already_registered") {
+          // Friendly state instead of the generic error banner — see
+          // `guestAlreadyRegistered` render branch below. Never paid: this
+          // 409 fires before guest-checkout creates any Stripe PaymentIntent.
+          setGuestAlreadyRegistered(true)
+          return
+        }
         throw new Error(parseApiError(data, "Failed to complete registration"))
       }
       if (data.clientSecret) {
@@ -1038,6 +1065,17 @@ export default function RegistrationWizard({
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  // "Register a different player instead" — leaves the already-registered
+  // state, clears the email that collided (never the name fields — those
+  // are still useful if this is actually a sibling), and sends the guest
+  // back to step 1 with the email field focused.
+  const handleRegisterDifferentPlayer = () => {
+    setGuestAlreadyRegistered(false)
+    setGuestParentEmail("")
+    setCurrentStep(1)
+    setFocusGuestEmailOnMount(true)
   }
 
   const handleSubmitRegistration = async (categoryOverride?: "bank" | "card") => {
@@ -1449,6 +1487,32 @@ export default function RegistrationWizard({
 
       {/* Step Content */}
       <div className="bg-paper border border-border rounded-2xl p-6">
+        {guestAlreadyRegistered ? (
+          /* Guest repeat-registrant friendly state — replaces the step
+             content entirely (never the generic error banner). Disclosure
+             rule: confirms only that this email has a spot, nothing about
+             the underlying registration. */
+          <div className="text-center py-8">
+            <h3 className="font-display text-2xl text-ink mb-2">
+              You're already registered 🎉
+            </h3>
+            <p className="text-ink-muted mb-6 max-w-md mx-auto">
+              This email has a spot in this division. We've sent you a link
+              to view and manage it — no sign-in needed.
+            </p>
+            <div className="mx-auto max-w-sm rounded-xl border border-border bg-cream-2 px-4 py-3 text-sm text-ink mb-6">
+              Check your email — the link opens your registration.
+            </div>
+            <Button
+              variant="ghost"
+              onClick={handleRegisterDifferentPlayer}
+              className="text-ink-muted hover:text-ink"
+            >
+              Register a different player instead
+            </Button>
+          </div>
+        ) : (
+        <>
         {/* Step 1: Who are you registering? (authenticated path) */}
         {stepName === "player" && !isGuest && !showAddMember && (
           <WhoStep
@@ -1693,11 +1757,14 @@ export default function RegistrationWizard({
             needsBirthDate={isGuest && flowVariant === "v2"}
           />
         )}
+        </>
+        )}
       </div>
 
       {/* Navigation — on the payment step there's no forward button; selecting
-          a payment method is what advances the flow. */}
-      {stepName !== "confirm" && !paymentClientSecret && (
+          a payment method is what advances the flow. Hidden entirely for the
+          already-registered friendly state, which has its own action. */}
+      {!guestAlreadyRegistered && stepName !== "confirm" && !paymentClientSecret && (
         <div className="mt-6 flex items-center justify-between">
           <Button
             variant="ghost"

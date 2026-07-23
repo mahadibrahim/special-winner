@@ -26,6 +26,9 @@ import {
 import { collectAdAttribution, parsePhDistinctId } from "@/lib/analytics/parse-cookies";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 import { recordPhoneOptIn } from "@/lib/sms/opt-in";
+import { sendMagicLinkLoginEmail } from "@/lib/email/send";
+import { awaitEmailSend } from "@/lib/notifications/await-dispatch";
+import { createMagicLink, buildMagicLinkUrl } from "@/lib/auth/magic-link";
 
 const guestRegistrantSchema = z.object({
   firstName: z.string().min(1),
@@ -222,6 +225,53 @@ export const POST: APIRoute = async (context) => {
         });
       } catch (err) {
         if (err instanceof RegistrationError) {
+          if (err.code === "already_registered") {
+            // Guest already has a live registration for this person+season.
+            // Nudge them to their existing account with the same magic-link
+            // login email the post-payment webhook sends new guests — the
+            // "manage link" from the funnel-friction proposal. This is
+            // best-effort and rate-limited per user; it must never change
+            // the 409 below (disclosure rule: the response itself never
+            // reveals whether an email was sent).
+            const manageLinkGate = rateLimit(
+              `already-registered-link:${userRow.id}`,
+              1,
+              10 * 60_000,
+            );
+            if (manageLinkGate.allowed) {
+              try {
+                const link = await createMagicLink({
+                  userId: userRow.id,
+                  purpose: "login",
+                  purposeContext: { redirectTo: "/dashboard" },
+                  deliveredChannel: "email",
+                  deliveredTo: userRow.email,
+                });
+                // Awaited (not truly un-awaited fire-and-forget): Netlify
+                // freezes the function instance once the response is sent,
+                // so an un-awaited send here would be abandoned mid-flight
+                // (see await-dispatch.ts). Errors are caught below and never
+                // surface to the caller.
+                await awaitEmailSend("already-registered manage link", () =>
+                  sendMagicLinkLoginEmail({
+                    userId: userRow.id,
+                    parentEmail: userRow.email,
+                    parentName: userRow.firstName || userRow.email.split("@")[0],
+                    magicLinkUrl: buildMagicLinkUrl(link.token, {
+                      origin: url.origin,
+                    }),
+                    expiresIn: "15 minutes",
+                    brand,
+                  }),
+                );
+              } catch (emailErr) {
+                console.error(
+                  "[guest-checkout] already-registered manage-link failed:",
+                  emailErr,
+                );
+              }
+            }
+          }
           return new Response(
             JSON.stringify(
               err.code
