@@ -21,7 +21,7 @@ export function VenueLink({ slug, label }: { slug?: string | null; label: string
     <a
       href={`/locations/${slug}`}
       data-testid="card-venue-link"
-      className="relative z-10 hover:text-ink hover:underline"
+      className="relative z-10 underline underline-offset-2 decoration-border hover:text-ink hover:decoration-ink"
       onClick={(e) => e.stopPropagation()}
     >
       {label}
