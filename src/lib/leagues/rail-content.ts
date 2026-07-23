@@ -1,4 +1,6 @@
 // Pure helpers for the league-context rail. No React, no DOM — unit-testable.
+import { CAPTAIN_DEPOSIT_DOLLARS } from "@/lib/registrations/team-deposit";
+
 type Tier = "a" | "b" | "c" | "d";
 export type RailMode = "solo" | "team" | "share";
 
@@ -15,6 +17,27 @@ function usd(n: number): string {
   return "$" + n.toLocaleString("en-US");
 }
 
+/**
+ * The one canonical team-price story: a flat $200 deposit reserves the team
+ * today; the roster splits the (early-bird-aware) total. Every surface that
+ * mentions team pricing renders from this so the framing can't drift.
+ */
+export function teamPriceStory(season: {
+  price: number;
+  teamPrice: number | null;
+  effectiveTeamPrice?: number | null;
+  teamEarlyBirdActive?: boolean;
+}): { deposit: string; total: string; baseTotal: string | null } {
+  const list = season.teamPrice ?? season.price;
+  const eff = season.effectiveTeamPrice ?? list;
+  const discountLive = season.teamEarlyBirdActive === true && eff < list;
+  return {
+    deposit: usd(CAPTAIN_DEPOSIT_DOLLARS),
+    total: usd(eff),
+    baseTotal: discountLive ? usd(list) : null,
+  };
+}
+
 export function priceLabel(
   mode: RailMode,
   season: {
@@ -29,15 +52,15 @@ export function priceLabel(
   },
 ): { amount: string; unit: string } {
   if (mode === "team") {
-    // Show the fee the team-create flow will actually charge, and only call it
-    // early-bird when the window is genuinely live. This label used to hardcode
-    // "· early-bird" next to the plain list price, which said early-bird even
-    // when no discount applied.
-    const teamList = season.teamPrice ?? season.price;
-    const amount = usd(season.effectiveTeamPrice ?? teamList);
+    // Deposit-first: the amount a captain pays TODAY leads; the total is
+    // context. teamPriceStory is early-bird-aware and only marks a discount
+    // when the window is genuinely live.
+    const story = teamPriceStory(season);
     return {
-      amount,
-      unit: season.teamEarlyBirdActive ? "team · early-bird" : "team",
+      amount: `${story.deposit} down`,
+      unit: story.baseTotal
+        ? `today · ${story.total} total (early-bird) · your roster pays the rest`
+        : `today · ${story.total} total · your roster pays the rest`,
     };
   }
   // Solo/share display the per-player price the charge path would use right
