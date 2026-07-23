@@ -29,10 +29,12 @@ export function InAppEscapeBanner({ seasonId }: InAppEscapeBannerProps) {
   const [isInstagram, setIsInstagram] = useState(false)
   const [breakout, setBreakout] = useState<BreakoutResult>({ kind: "none", url: null })
 
-  // "Can't switch? Email yourself a link" disclosure — never pre-filled,
-  // the visitor types their own address.
+  // "Can't switch? Email/text yourself a link" disclosure — never pre-filled,
+  // the visitor types their own address or number.
   const [recaptureOpen, setRecaptureOpen] = useState(false)
+  const [recaptureChannel, setRecaptureChannel] = useState<"email" | "sms">("email")
   const [recaptureEmail, setRecaptureEmail] = useState("")
+  const [recapturePhone, setRecapturePhone] = useState("")
   const [recaptureStatus, setRecaptureStatus] = useState<
     "idle" | "sending" | "sent" | "error"
   >("idle")
@@ -71,14 +73,18 @@ export function InAppEscapeBanner({ seasonId }: InAppEscapeBannerProps) {
       const res = await fetch("/api/public/register-recapture", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ seasonId, email: recaptureEmail }),
+        body: JSON.stringify(
+          recaptureChannel === "sms"
+            ? { seasonId, phone: recapturePhone }
+            : { seasonId, email: recaptureEmail },
+        ),
       })
       if (!res.ok) {
         setRecaptureStatus("error")
         return
       }
       setRecaptureStatus("sent")
-      trackInappRecaptureRequested({ seasonId })
+      trackInappRecaptureRequested({ seasonId, channel: recaptureChannel })
     } catch {
       setRecaptureStatus("error")
     }
@@ -110,26 +116,83 @@ export function InAppEscapeBanner({ seasonId }: InAppEscapeBannerProps) {
 
           {recaptureStatus === "sent" ? (
             <p className="mt-3 text-sm text-amber-800">
-              Sent — check your email.
+              {recaptureChannel === "sms"
+                ? "Sent — check your texts."
+                : "Sent — check your email."}
             </p>
           ) : recaptureOpen ? (
             <form
               onSubmit={handleSendRecapture}
               className="mt-3 flex flex-wrap items-center gap-2"
             >
-              <input
-                type="email"
-                inputMode="email"
-                autoComplete="email"
-                required
-                placeholder="you@example.com"
-                value={recaptureEmail}
-                onChange={(e) => {
-                  setRecaptureEmail(e.target.value)
-                  if (recaptureStatus === "error") setRecaptureStatus("idle")
-                }}
-                className="min-w-0 flex-1 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-sm text-amber-900 placeholder:text-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
-              />
+              <div
+                role="tablist"
+                aria-label="Send link via"
+                className="flex w-full gap-1 rounded-lg bg-amber-100 p-0.5"
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={recaptureChannel === "email"}
+                  onClick={() => {
+                    setRecaptureChannel("email")
+                    if (recaptureStatus === "error") setRecaptureStatus("idle")
+                  }}
+                  className={`flex-1 rounded-md px-3 py-1 text-sm font-medium transition-colors ${
+                    recaptureChannel === "email"
+                      ? "bg-white text-amber-900 shadow-sm"
+                      : "text-amber-700"
+                  }`}
+                >
+                  Email
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={recaptureChannel === "sms"}
+                  onClick={() => {
+                    setRecaptureChannel("sms")
+                    if (recaptureStatus === "error") setRecaptureStatus("idle")
+                  }}
+                  className={`flex-1 rounded-md px-3 py-1 text-sm font-medium transition-colors ${
+                    recaptureChannel === "sms"
+                      ? "bg-white text-amber-900 shadow-sm"
+                      : "text-amber-700"
+                  }`}
+                >
+                  Text
+                </button>
+              </div>
+
+              {recaptureChannel === "sms" ? (
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  required
+                  placeholder="(614) 555-0100"
+                  value={recapturePhone}
+                  onChange={(e) => {
+                    setRecapturePhone(e.target.value)
+                    if (recaptureStatus === "error") setRecaptureStatus("idle")
+                  }}
+                  className="min-w-0 flex-1 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-sm text-amber-900 placeholder:text-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              ) : (
+                <input
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  required
+                  placeholder="you@example.com"
+                  value={recaptureEmail}
+                  onChange={(e) => {
+                    setRecaptureEmail(e.target.value)
+                    if (recaptureStatus === "error") setRecaptureStatus("idle")
+                  }}
+                  className="min-w-0 flex-1 rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-sm text-amber-900 placeholder:text-amber-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                />
+              )}
               <button
                 type="submit"
                 disabled={recaptureStatus === "sending"}
@@ -139,7 +202,9 @@ export function InAppEscapeBanner({ seasonId }: InAppEscapeBannerProps) {
               </button>
               {recaptureStatus === "error" ? (
                 <p className="w-full text-sm text-red-700">
-                  Couldn't send that — check the address and try again.
+                  {recaptureChannel === "sms"
+                    ? "Couldn't send that — check the number and try again."
+                    : "Couldn't send that — check the address and try again."}
                 </p>
               ) : null}
             </form>
@@ -149,7 +214,7 @@ export function InAppEscapeBanner({ seasonId }: InAppEscapeBannerProps) {
               onClick={() => setRecaptureOpen(true)}
               className="mt-3 block text-sm font-medium text-amber-900 underline underline-offset-2 hover:text-amber-950"
             >
-              Can't switch? Email yourself a link
+              Can't switch? Email or text yourself a link
             </button>
           )}
         </div>

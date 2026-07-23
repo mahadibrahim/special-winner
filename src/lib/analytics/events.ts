@@ -76,9 +76,13 @@ export const trackInappBannerClicked = (p: { seasonId: string; kind: "ios" | "an
     kind: p.kind,
     in_app_browser: isInAppBrowser(),
   });
-export const trackInappRecaptureRequested = (p: { seasonId: string }) =>
+export const trackInappRecaptureRequested = (p: {
+  seasonId: string
+  channel: "email" | "sms"
+}) =>
   track(LEAGUE_EVENTS.inappRecaptureRequested, {
     season_id: p.seasonId,
+    channel: p.channel,
     in_app_browser: isInAppBrowser(),
   });
 

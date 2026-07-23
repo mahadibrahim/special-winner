@@ -47,4 +47,42 @@ describe("POST /api/public/register-recapture", () => {
     // actual resend — the response must never leak "we already emailed you".
     expect(secondBody).toEqual({ sent: true });
   });
+
+  it("rejects a phone that doesn't normalize to 10 digits (400)", async () => {
+    const res = await apiFetch(ENDPOINT, {
+      method: "POST",
+      body: JSON.stringify({
+        seasonId: "00000000-0000-0000-0000-000000000000",
+        phone: "12345",
+      }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("404s for an unknown season on the phone path", async () => {
+    const res = await apiFetch(ENDPOINT, {
+      method: "POST",
+      body: JSON.stringify({
+        seasonId: "00000000-0000-0000-0000-000000000000",
+        phone: "6145550100",
+      }),
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it("responds { sent: true } for a valid phone + real season (never discloses whether the number is known)", async () => {
+    const list = await apiFetch("/api/public/seasons", { method: "GET" });
+    const body = await expectJson(list, 200);
+    const anySeason = body.seasons[0];
+    if (!anySeason) return; // seed has no season fixture — skip, not fail
+
+    const payload = JSON.stringify({
+      seasonId: anySeason.id,
+      phone: "(614) 555-0100",
+    });
+
+    const res = await apiFetch(ENDPOINT, { method: "POST", body: payload });
+    const resBody = await expectJson(res, 200);
+    expect(resBody).toEqual({ sent: true });
+  });
 });
