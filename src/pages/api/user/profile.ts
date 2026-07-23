@@ -98,13 +98,14 @@ export const PUT: APIRoute = async (context) => {
       lastName: result.data.lastName,
       updatedAt: new Date(),
     };
-    // Only set phone/birthDate/gender when the caller actually included them —
-    // a PUT that omits these should not blank existing values. Phone is
-    // skippable in the profile-completion form, so only update when provided
-    // as a non-empty value.
-    if (result.data.phone) {
-      updates.phone = result.data.phone;
+    // Only set phone when the caller actually included it —
+    // a PUT that omits phone should not touch the existing value.
+    // An explicitly empty string clears the phone (write null).
+    if (result.data.phone !== undefined) {
+      updates.phone = result.data.phone === "" ? null : result.data.phone;
     }
+    // Only set birthDate/gender when the caller actually included them —
+    // a PUT that omits these should not blank existing values.
     if (result.data.birthDate !== undefined) {
       updates.birthDate = result.data.birthDate;
     }
