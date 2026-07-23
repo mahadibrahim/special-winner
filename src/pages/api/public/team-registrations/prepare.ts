@@ -38,7 +38,9 @@ function json(body: unknown, status: number): Response {
 export const POST: APIRoute = async (context) => {
   const { request, locals, clientAddress } = context;
   if (!db) return json({ error: "Database unavailable" }, 503);
-  if (!stripe) return json({ error: "Payments are temporarily unavailable" }, 503);
+  // Stripe is only needed to mint the intent at the very end — input validation,
+  // the email gate, and discount checks below don't need it (and shouldn't be
+  // masked by a 503 when Stripe is merely unconfigured, e.g. on CI).
 
   const org = locals.organization;
   if (!org) return json({ error: "Organization context required" }, 400);
@@ -121,6 +123,9 @@ export const POST: APIRoute = async (context) => {
   }
 
   const teamFeeCents = effectiveFeeCents - discountCents;
+
+  // Everything validated — now we actually need Stripe to mint the deposit.
+  if (!stripe) return json({ error: "Payments are temporarily unavailable" }, 503);
 
   // Stripe customer: authed → reuse the user's; guest → a bare customer keyed
   // by email (a billing object, not an app account). The card is saved
