@@ -33,10 +33,11 @@ test("adult soccer season page: filter divisions and reach register @critical", 
   const after = await page.getByTestId("result-count").innerText();
   expect(Number(after)).toBeLessThanOrEqual(Number(before));
 
-  // a Register link in the finder rows points to the wizard (scope to the
-  // rows so we don't match the hero's "Register a team" anchor, which is a
-  // same-page scroll link, not a /register/ wizard link)
-  const reg = rows.getByRole("link", { name: /Register/i }).first();
+  // a register link in the finder rows points to the wizard (scope to the
+  // rows so we don't match the hero CTA, which is a same-page scroll link,
+  // not a /register/ wizard link). Rows offer one action per signup mode —
+  // "Register team →" and/or "Join solo →" — either proves the wizard link.
+  const reg = rows.getByRole("link", { name: /Register team|Join solo/i }).first();
   await expect(reg).toHaveAttribute("href", /\/register\//);
 });
 

@@ -15,10 +15,6 @@ const FACET_FOR: Record<keyof DivisionFilters, "level" | "format" | "day" | "ven
   venue: "venue",
 };
 
-function registerMode(d: Division): "team" | "individual" | "interest" {
-  if (d.status === "forming") return "interest";
-  return d.signupModes.includes("team") ? "team" : "individual";
-}
 
 const DAYS: { key: DayKey; label: string }[] = [
   { key: "mon", label: "Mon" }, { key: "tue", label: "Tue" }, { key: "wed", label: "Wed" },
@@ -30,7 +26,7 @@ const GENDERS: { key: DivisionGender; label: string }[] = [
 const BARS_FOR: Record<string, number> = { a: 4, b: 3, c: 2, d: 1, open: 4 };
 const TIER_TEXT: Record<string, string> = { a: "text-ink", b: "text-primary", c: "text-ochre", d: "text-sage", open: "text-navy" };
 
-export function registerHref(d: Division): string | null {
+export function registerHref(d: Division, mode: "individual" | "team" = "individual"): string | null {
   // Forming divisions capture interest in place (InterestCapture) — there is
   // no navigation target. The old return value here was a GET against the
   // POST-only season-interest endpoint: every click 405'd.
@@ -38,11 +34,10 @@ export function registerHref(d: Division): string | null {
   // Completed divisions are archive rows: a register link over a finished
   // season is a dead button (RegisterExperience refuses non-open anyway).
   if (d.status === "completed") return null;
-  // Individual CTA — the register page skips the solo/team chooser when this
-  // param is present. Team signup uses a separate CTA elsewhere in the app
-  // (program-card-v2.tsx, team-create.tsx's post-auth redirect, the
-  // /register/team/{id} 301) that links `?mode=team`.
-  return `/register/${d.seasonId}?mode=individual`;
+  // The mode param skips the solo/team chooser on the register page. A row
+  // only links a mode its season actually offers.
+  if (!d.signupModes.includes(mode)) return null;
+  return `/register/${d.seasonId}?mode=${mode}`;
 }
 
 export function DivisionsFinder({ divisions, venues, term }: {
@@ -124,10 +119,13 @@ export function DivisionsFinder({ divisions, venues, term }: {
 
 function DivisionRow({ d, term }: { d: Division; term: string }) {
   const [capturing, setCapturing] = useState(false);
-  const track = () =>
-    trackDivisionRegisterClicked({ seasonId: d.seasonId, level: d.level, gender: d.gender, venue: d.venueSlug, mode: registerMode(d), term });
-  const ctaClass = cn("font-sans font-semibold text-xs px-3.5 py-2 rounded-md whitespace-nowrap text-center sm:text-left mt-1.5 sm:mt-0",
-    d.status === "forming" ? "text-primary border border-primary" : "text-cream bg-primary");
+  const track = (mode: "team" | "individual" | "interest") =>
+    trackDivisionRegisterClicked({ seasonId: d.seasonId, level: d.level, gender: d.gender, venue: d.venueSlug, mode, term });
+  const teamHref = registerHref(d, "team");
+  const soloHref = registerHref(d, "individual");
+  const ctaClass = (primary: boolean) =>
+    cn("font-sans font-semibold text-xs px-3.5 py-2 rounded-md whitespace-nowrap text-center sm:text-left",
+      primary ? "text-cream bg-primary" : "text-primary border border-primary");
   return (
     <>
       <div className="flex flex-col gap-1.5 sm:grid sm:grid-cols-[30px_1.6fr_1.2fr_0.9fr_0.8fr_auto] sm:items-center sm:gap-3.5 py-3 px-2 border-b border-cream-2 hover:bg-paper">
@@ -156,14 +154,25 @@ function DivisionRow({ d, term }: { d: Division; term: string }) {
           <span className="font-mono text-[10px] tracking-wide uppercase text-ink-muted mt-1.5 sm:mt-0">Season complete</span>
         ) : d.status === "forming" ? (
           <button type="button" aria-expanded={capturing}
-            onClick={() => { track(); setCapturing((v) => !v); }}
-            className={ctaClass}>
+            onClick={() => { track("interest"); setCapturing((v) => !v); }}
+            className={cn(ctaClass(false), "mt-1.5 sm:mt-0")}>
             Notify me
           </button>
         ) : (
-          <a href={registerHref(d)!} onClick={track} className={ctaClass}>
-            Register →
-          </a>
+          /* One action per offered mode — the hero CTA no longer picks a
+             mode, so the row is where team vs solo is decided. */
+          <div className="flex sm:flex-col xl:flex-row gap-1.5 mt-1.5 sm:mt-0">
+            {teamHref && (
+              <a href={teamHref} onClick={() => track("team")} className={ctaClass(true)}>
+                Register team →
+              </a>
+            )}
+            {soloHref && (
+              <a href={soloHref} onClick={() => track("individual")} className={ctaClass(!teamHref)}>
+                Join solo →
+              </a>
+            )}
+          </div>
         )}
       </div>
       {capturing && (

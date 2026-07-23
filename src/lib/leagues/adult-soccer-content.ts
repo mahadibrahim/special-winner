@@ -25,6 +25,17 @@ export const FORMAT_FACTS: string[] = [
   "Walled-arena rules (no offside, the wall is in play)",
 ];
 
+/** Hero facts grid — the four format facts a first-time visitor must get at
+ *  a glance. Kept separate from FORMAT_FACTS (a flat list used in meta
+ *  descriptions and the rules surface) because the hero needs a title/sub
+ *  shape. */
+export const HERO_FACTS: { title: string; sub: string }[] = [
+  { title: "Indoor 7v7", sub: "turf, rain-proof" },
+  { title: "24-min halves", sub: "2-min halftime" },
+  { title: "7 games", sub: "no playoffs" },
+  { title: "Most points wins", sub: "league table" },
+];
+
 export type RuleSection = { title: string; items: string[] };
 
 export const RULE_SECTIONS: RuleSection[] = [

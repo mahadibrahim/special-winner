@@ -12,6 +12,12 @@ describe("registerHref", () => {
       "/register/s1?mode=individual",
     );
   });
+  it("open team-capable division, team mode → /register/{id}?mode=team", () => {
+    expect(registerHref({ ...base, status: "open" } as any, "team")).toBe("/register/s1?mode=team");
+  });
+  it("team mode on an individual-only division → null (never link a mode the season doesn't offer)", () => {
+    expect(registerHref({ ...base, signupModes: ["individual"], status: "open" } as any, "team")).toBeNull();
+  });
   it("completed division → null (archive row — a register link over a finished season is a dead button)", () => {
     expect(registerHref({ ...base, status: "completed" } as any)).toBeNull();
   });

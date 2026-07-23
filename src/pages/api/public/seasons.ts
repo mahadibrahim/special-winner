@@ -202,6 +202,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
           id: r.location.id,
           name: r.location.name,
           slug: r.location.slug,
+          // Street address for venue-forward surfaces (term hero). Same field
+          // name as the single-season endpoint's location.address.
+          address: r.location.addressLine1,
           city: r.location.city,
           state: r.location.state,
         },
