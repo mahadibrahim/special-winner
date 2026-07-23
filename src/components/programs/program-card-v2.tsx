@@ -14,6 +14,8 @@ import {
 import { formatDaySchedule, formatTimeWindow, formatDateOnly } from "@/lib/time/format-date"
 import { CAPTAIN_DEPOSIT_DOLLARS } from "@/lib/registrations/team-deposit"
 import { SeasonInterestForm } from "./season-interest-form"
+import { CardShell } from "./card-shell"
+import { VenueLink } from "./venue-link"
 
 interface Season extends SeasonForDerive {
   id: string
@@ -207,80 +209,55 @@ export default function ProgramCardV2({
   const effTeamTotal = season.teamPrice != null ? (teamEb ?? season.teamPrice) : null
 
   return (
-    <div
-      data-testid="program-card"
-      className="group h-full flex flex-col bg-paper border border-border rounded-2xl overflow-hidden transition-all hover:border-primary/40 hover:-translate-y-0.5"
-    >
-      {/* Media slot — sport-color fallback block. Photo support drops in here
-          later with no structural change. */}
-      <div
-        className="relative h-28 flex-shrink-0"
-        style={{
-          // `${sportColor}cc` appends hex alpha (80%) — assumes sportColor is a
-          // 6-digit hex. SPORT_FALLBACK_COLORS and the #52525b default all are.
-          background: `linear-gradient(135deg, ${sportColor}, ${sportColor}cc)`,
-        }}
-      >
+    <CardShell
+      sportColor={sportColor}
+      mediaBottomLeft={
         <span className="absolute bottom-2 left-3 text-[10px] font-bold uppercase tracking-wide text-white/90">
           {season.sport.icon ? `${season.sport.icon} ` : ""}
           {season.sport.name}
         </span>
+      }
+      mediaTopRight={
         <span
           className={`absolute top-2 right-2 inline-flex items-center text-[10px] font-semibold tracking-wide uppercase px-2 py-0.5 rounded-full ${STATUS_PILL_STYLES[status.tone]}`}
         >
           {status.label}
         </span>
-      </div>
-
-      {/* Body */}
-      <div className="flex flex-col flex-1 p-4">
-        {/* 1 · What — heading, reserved 2-line height */}
-        <h3 className="font-display text-base leading-tight text-ink line-clamp-2 min-h-[2.5rem]">
-          {headingName}
-        </h3>
-
-        {/* 2 · Meta A — venue (linked to its location page) · age · format.
-            Every season resolves all three; a genuinely missing single value
-            renders an em-dash rather than dropping the row. */}
-        <div className="flex items-center gap-1.5 text-xs text-ink-muted mt-2">
+      }
+      title={headingName}
+      metaA={
+        // Venue (linked to its location page) · age · format. Every season
+        // resolves all three; a genuinely missing single value renders an
+        // em-dash rather than dropping the row.
+        <>
           <MapPin className="w-3 h-3 flex-shrink-0" />
           <span className="truncate">
-            {season.location.slug ? (
-              <a
-                href={`/locations/${season.location.slug}`}
-                data-testid="card-venue-link"
-                className="hover:text-ink hover:underline"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {venueLabel}
-              </a>
-            ) : (
-              venueLabel
-            )}
+            <VenueLink slug={season.location.slug} label={venueLabel} />
             {" · "}
             {audienceLabel}
           </span>
-        </div>
-
-        {/* 3 · Meta B — day + time, always resolves (structured day/time wins;
-            a bare time window is next; the derived duration is the floor) */}
-        <div className="flex items-center gap-1.5 text-xs text-ink-muted mt-1">
+        </>
+      }
+      metaB={
+        // Day + time, always resolves (structured day/time wins; a bare time
+        // window is next; the derived duration is the floor)
+        <>
           <Clock className="w-3 h-3 flex-shrink-0" />
           <span className="truncate">{dayTime || duration}</span>
-        </div>
-
-        {/* 4 · Meta C — start date, always resolves */}
-        <div className="flex items-center gap-1.5 text-xs text-ink-muted mt-1">
+        </>
+      }
+      metaC={
+        // Start date, always resolves
+        <>
           <Calendar className="w-3 h-3 flex-shrink-0" />
           <span className="truncate">{startsLabel}</span>
-        </div>
-
-        {/* 5 · Fixed-height chip slot — format pill (dual/team-only signal)
-            and/or early-bird chip; empty for the default youth solo case.
-            Reserved height keeps cards aligned regardless of chip count —
-            matches the approved proposal mockup, where format is a badge
-            row, not a meta-text segment. */}
-        <div className="mt-2 min-h-[1.375rem] flex items-center gap-1.5">
+        </>
+      }
+      chip={
+        // Format pill (dual/team-only signal) and/or early-bird chip; empty
+        // for the default youth solo case. Reserved height (shell) keeps
+        // cards aligned regardless of chip count.
+        <>
           {formatBadge && (
             <span className="inline-flex items-center font-semibold tracking-wide uppercase text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded">
               {formatBadge}
@@ -291,22 +268,18 @@ export default function ProgramCardV2({
               {ebLabel}
             </span>
           )}
-        </div>
-
-        {/* Spacer pushes price + CTA to a consistent bottom band */}
-        <div className="flex-1 min-h-[0.75rem]" />
-
-        {/* 6-7 · Price band + CTA — dual-mode keeps two actions; forming
-            seasons show interest-capture; sold-out seasons show the
-            waitlist form */}
-        {signupMode === "interest" ? (
+        </>
+      }
+      footer={
+        // Price band + CTA — dual-mode keeps two actions; forming seasons
+        // show interest-capture; sold-out seasons show the waitlist form
+        signupMode === "interest" ? (
           <div className="mt-3">
             <SeasonInterestForm seasonId={season.id} seasonName={season.name} />
           </div>
         ) : (
-          <>
-            <div className="pt-3 border-t border-border">
-              {dual && season.teamPrice != null ? (
+          <div className="pt-3 border-t border-border">
+            {dual && season.teamPrice != null ? (
                 <>
                   {(() => {
                     // Column order: solo leads by default; the captain
@@ -416,10 +389,9 @@ export default function ProgramCardV2({
                 </>
               )}
             </div>
-          </>
-        )}
-      </div>
-    </div>
+          )
+      }
+    />
   )
 }
 
