@@ -1535,8 +1535,16 @@ export default function RegistrationWizard({
   if (!season) return null
 
   // ── Resume-payment early return ────────────────────────────────────────────
+  // v2 (adult-locked, self-only) shows the resume card on ANY return. v1
+  // keeps its original trigger — only after a cancelled Stripe session —
+  // because a parent registering a SECOND child must never be interrupted
+  // by a sibling's unfinished payment (that row still resumes server-side
+  // if the same child is re-selected).
 
-  if (resumableRegistrationId) {
+  const showResumeCard =
+    Boolean(resumableRegistrationId) && (flowVariant === "v2" || wasCancelled)
+
+  if (showResumeCard) {
     return (
       <div className="mx-auto max-w-xl">
         <div className="rounded-xl border border-ink/10 bg-cream px-6 py-8 shadow-sm">
@@ -1604,7 +1612,7 @@ export default function RegistrationWizard({
   // Shown only when there's no further-along cancelled-payment registration to
   // resume (that card takes precedence).
 
-  if (restorable && !resumableRegistrationId) {
+  if (restorable && !showResumeCard) {
     return (
       <div className="mx-auto max-w-xl">
         <div className="rounded-xl border border-ink/10 bg-cream px-6 py-8 shadow-sm">
