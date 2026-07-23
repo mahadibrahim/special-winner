@@ -45,7 +45,7 @@ describe("Parent Registration API", () => {
   // ---- POST (Create Registration) ----
 
   describe("POST /api/registrations - Create registration", () => {
-    it("creates a registration or reports already registered (200/201/400)", async () => {
+    it("creates a registration or reports already registered (200/201/400/409)", async () => {
       if (!seasonId || !familyMemberId) {
         console.warn(
           "Skipping: no open season or family member available",
@@ -66,8 +66,9 @@ describe("Parent Registration API", () => {
         }),
       });
 
-      // 201 = created, 400 = already registered or validation issue
-      expect([200, 201, 400]).toContain(res.status);
+      // 201 = created, 400 = validation issue, 409 = already registered
+      // (a live, non-cancelled/refunded row already exists for this member+season)
+      expect([200, 201, 400, 409]).toContain(res.status);
 
       const json = await res.json();
 
@@ -75,7 +76,12 @@ describe("Parent Registration API", () => {
         expect(json.registration).toBeDefined();
         expect(json.registration.id).toBeDefined();
       } else if (res.status === 400) {
-        // Already registered or validation error — both are acceptable
+        // Validation error
+        expect(json.error).toBeDefined();
+      } else if (res.status === 409) {
+        // Already registered — structured error, human-readable message
+        // stays in `error`, machine code is the sibling `code` field.
+        expect(json.code).toBe("already_registered");
         expect(json.error).toBeDefined();
       }
     });
@@ -122,9 +128,9 @@ describe("Parent Registration API", () => {
         body,
       });
 
-      // If first call came back 400 (already confirmed/waitlisted), we cannot
+      // If first call came back 409 (already confirmed/waitlisted), we cannot
       // exercise the resume path — skip gracefully.
-      if (first.status === 400) {
+      if (first.status === 409) {
         const json = await first.json();
         console.warn("Skipping resume test: registration already confirmed/waitlisted:", json.error);
         return;

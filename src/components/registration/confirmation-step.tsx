@@ -48,7 +48,12 @@ export function ConfirmationStep({
       <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
         <CheckCircle2 className="w-8 h-8 text-green-500" />
       </div>
-      <h3 className="text-xl font-semibold text-ink mb-2">Your spot is locked!</h3>
+      {/* Don't declare victory above a still-required waiver form — the
+          heading softens to "one step left" whenever CompletionForm renders
+          below (waiver unsigned). */}
+      <h3 className="text-xl font-semibold text-ink mb-2">
+        {waiverSigned ? "Your spot is locked!" : "You're in — one step left before game 1"}
+      </h3>
       <p className="text-ink-muted mb-6">
         {isSelf || !registrantDisplayName
           ? `You're registered for ${seasonName}.`

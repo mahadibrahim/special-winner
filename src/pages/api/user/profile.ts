@@ -96,9 +96,14 @@ export const PUT: APIRoute = async (context) => {
     const updates: Record<string, unknown> = {
       firstName: result.data.firstName,
       lastName: result.data.lastName,
-      phone: result.data.phone,
       updatedAt: new Date(),
     };
+    // Only set phone when the caller actually included it —
+    // a PUT that omits phone should not touch the existing value.
+    // An explicitly empty string clears the phone (write null).
+    if (result.data.phone !== undefined) {
+      updates.phone = result.data.phone === "" ? null : result.data.phone;
+    }
     // Only set birthDate/gender when the caller actually included them —
     // a PUT that omits these should not blank existing values.
     if (result.data.birthDate !== undefined) {

@@ -108,6 +108,70 @@ test.describe("Anonymous adult guest checkout (v2)", { tag: "@critical" }, () =>
     await expect(registrationForRow).toContainText("Floor Walker");
   });
 
+  test("Sign in link carries the current URL and stashes the adult-self draft", async ({ page }) => {
+    const registerUrl = `/register/${seasonId}?audience=adult`;
+    await page.goto(registerUrl, { waitUntil: "domcontentloaded" });
+    await waitForHydration(page);
+
+    const joinSolo = page.getByText(/Join solo/i);
+    if (await joinSolo.isVisible({ timeout: 8_000 }).catch(() => false)) await joinSolo.click();
+
+    await expect(
+      page.getByRole("heading", { name: "Claim your spot" }),
+    ).toBeVisible({ timeout: 10_000 });
+
+    const firstNameInput = page
+      .locator("div.space-y-2")
+      .filter({ has: page.locator("label", { hasText: "First name *" }) })
+      .first()
+      .locator("input");
+    const lastNameInput = page
+      .locator("div.space-y-2")
+      .filter({ has: page.locator("label", { hasText: "Last name *" }) })
+      .first()
+      .locator("input");
+    const emailInput = page
+      .locator("div.space-y-2")
+      .filter({ has: page.locator("label", { hasText: "Email *" }) })
+      .locator("input");
+
+    const email = `signin-roundtrip-${Date.now()}@example.com`;
+    await firstNameInput.fill("Signin");
+    await lastNameInput.fill("Roundtrip");
+    await emailInput.fill(email);
+
+    // Href upgrades from an SSR-safe path-only fallback to the full
+    // path+search once the client-side effect runs post-hydration — the
+    // retrying `expect` absorbs that timing instead of a fixed sleep.
+    // Scoped by href prefix — the global nav also renders a "Sign In" link
+    // (plain `/signin`, no redirect param) and getByRole name matching is
+    // case-insensitive, so a name-based query resolves to both that and the
+    // wizard's own link.
+    const signInLink = page.locator('a[href^="/signin?redirect="]');
+    const expectedHref = `/signin?redirect=${encodeURIComponent(registerUrl)}`;
+    await expect(signInLink).toHaveAttribute("href", expectedHref, { timeout: 10_000 });
+
+    // Clicking stashes the adult-self draft (v2 guest context) before the
+    // real navigation to /signin proceeds — sessionStorage is per-origin and
+    // survives the same-tab navigation, so we can read it back on the
+    // destination page without a preventDefault/goBack workaround.
+    await Promise.all([page.waitForURL(/\/signin/), signInLink.click()]);
+
+    const stashed = await page.evaluate(
+      (id) => sessionStorage.getItem(`aspire:guest-draft:${id}`),
+      seasonId,
+    );
+    expect(stashed).not.toBeNull();
+    const draft = JSON.parse(stashed!);
+    expect(draft).toEqual({
+      v: 1,
+      seasonId,
+      firstName: "Signin",
+      lastName: "Roundtrip",
+      email,
+    });
+  });
+
   test("empty Continue attempt surfaces per-field errors instead of a dead button", async ({ page }) => {
     await page.goto(`/register/${seasonId}?audience=adult`, { waitUntil: "domcontentloaded" });
     await waitForHydration(page);
