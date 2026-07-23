@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
+import { SoCardShell, SoCardTitle, SoBadge, SoStatusPill, SoPriceRow, SoCardStyles } from "@/components/soccerone/SoCard";
 
 // Shape returned by GET /api/dropin/sessions.
 // venueName is a flat field (left-joined from venues); confirmedCount is
@@ -107,17 +108,17 @@ function GameCard({
   const priceDollars = priceCents != null ? priceCents / 100 : null;
 
   return (
-    <div className="pickup-game-card" style={{ borderColor: skillC.border, background: skillC.bg }}>
+    <SoCardShell variant="pickup" style={{ borderColor: skillC.border, background: skillC.bg }}>
       <div className="pgc-header">
-        <span className="pgc-skill-badge" style={{ color: skillC.text, background: `${skillC.text}20` }}>
+        <SoBadge kind="skill" style={{ color: skillC.text, background: `${skillC.text}20` }}>
           {displaySkill}
-        </span>
+        </SoBadge>
         {spotsLeft <= 2 && (
-          <span className="pgc-urgent-badge">Almost full</span>
+          <SoStatusPill tone="urgent">Almost full</SoStatusPill>
         )}
       </div>
 
-      <div className="pgc-name">{session.sportOrClassLabel}</div>
+      <SoCardTitle variant="pickup">{session.sportOrClassLabel}</SoCardTitle>
 
       <div className="pgc-meta">
         <div className="pgc-meta-item">
@@ -150,136 +151,14 @@ function GameCard({
           <span className="pgc-spots-label" style={{ color: spots.color }}>{spots.label}</span>
         </div>
 
-        <div className="pgc-price-row">
+        <SoPriceRow>
           <span className="pgc-price">{priceDollars != null ? `$${priceDollars}` : "—"}</span>
           <a href={`/dropin/${session.id}`} className="pgc-book-btn">
             Book Now
           </a>
-        </div>
+        </SoPriceRow>
       </div>
-
-      <style>{`
-        .pickup-game-card {
-          border-width: 1.5px;
-          border-style: solid;
-          border-radius: var(--so-radius-xl);
-          padding: 1.25rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.875rem;
-          min-width: 260px;
-          max-width: 340px;
-          transition: transform 0.2s;
-          font-family: var(--so-font-body);
-        }
-        .pickup-game-card:hover {
-          transform: translateY(-2px);
-        }
-        .pgc-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 0.5rem;
-        }
-        .pgc-skill-badge {
-          font-family: var(--so-font-body);
-          font-size: 0.6875rem;
-          font-weight: 700;
-          letter-spacing: 0.09em;
-          text-transform: uppercase;
-          padding: 3px 10px;
-          border-radius: var(--so-radius-pill);
-        }
-        .pgc-urgent-badge {
-          font-size: 0.6875rem;
-          font-weight: 700;
-          letter-spacing: 0.06em;
-          color: #f97316;
-          background: rgba(249,115,22,0.15);
-          padding: 3px 8px;
-          border-radius: var(--so-radius-pill);
-          text-transform: uppercase;
-        }
-        .pgc-name {
-          font-family: var(--so-font-body);
-          font-size: 1rem;
-          font-weight: 700;
-          color: #ffffff;
-          line-height: 1.25;
-        }
-        .pgc-meta {
-          display: flex;
-          flex-direction: column;
-          gap: 0.375rem;
-        }
-        .pgc-meta-item {
-          display: flex;
-          align-items: center;
-          gap: 0.375rem;
-          font-size: 0.8125rem;
-          color: rgba(255,255,255,0.55);
-        }
-        .pgc-footer {
-          display: flex;
-          flex-direction: column;
-          gap: 0.75rem;
-        }
-        .pgc-spots {
-          display: flex;
-          flex-direction: column;
-          gap: 0.375rem;
-        }
-        .pgc-spots-bar {
-          height: 4px;
-          background: rgba(255,255,255,0.1);
-          border-radius: var(--so-radius-xs);
-          overflow: hidden;
-        }
-        .pgc-spots-fill {
-          height: 100%;
-          background: rgba(255,255,255,0.35);
-          border-radius: var(--so-radius-xs);
-          transition: width 0.3s;
-        }
-        .pgc-spots-label {
-          font-size: 0.8125rem;
-          font-weight: 600;
-        }
-        .pgc-price-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 0.5rem;
-        }
-        .pgc-price {
-          font-family: var(--so-font-body);
-          font-size: 1.375rem;
-          font-weight: 800;
-          color: #facc15;
-          letter-spacing: -0.03em;
-        }
-        .pgc-book-btn {
-          background: #facc15;
-          color: var(--so-navy);
-          font-family: var(--so-font-body);
-          font-size: 0.8125rem;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.04em;
-          border: none;
-          border-radius: var(--so-radius-md);
-          padding: 0.5rem 1rem;
-          cursor: pointer;
-          transition: filter 0.15s, transform 0.1s;
-          text-decoration: none;
-          display: inline-block;
-        }
-        .pgc-book-btn:hover {
-          filter: brightness(1.08);
-          transform: translateY(-1px);
-        }
-      `}</style>
-    </div>
+    </SoCardShell>
   );
 }
 
@@ -340,6 +219,7 @@ export default function PickupGames({ facility = "all" }: { facility?: string })
 
   return (
     <div className="pickup-games-root">
+      <SoCardStyles />
       {/* Today's games */}
       {todaySessions.length > 0 && (
         <div className="games-section-wrap">
@@ -451,6 +331,81 @@ export default function PickupGames({ facility = "all" }: { facility?: string })
           scroll-snap-align: start;
           flex-shrink: 0;
           width: 285px;
+        }
+
+        /* GameCard's own layout — shell/badge/status-pill/price-row/title
+           anatomy is shared via <SoCardStyles /> above; these are the parts
+           specific to this card (icon rows, spots bar, book button). */
+        .pgc-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.5rem;
+        }
+        .pgc-meta {
+          display: flex;
+          flex-direction: column;
+          gap: 0.375rem;
+        }
+        .pgc-meta-item {
+          display: flex;
+          align-items: center;
+          gap: 0.375rem;
+          font-size: 0.8125rem;
+          color: rgba(255,255,255,0.55);
+        }
+        .pgc-footer {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+        }
+        .pgc-spots {
+          display: flex;
+          flex-direction: column;
+          gap: 0.375rem;
+        }
+        .pgc-spots-bar {
+          height: 4px;
+          background: rgba(255,255,255,0.1);
+          border-radius: var(--so-radius-xs);
+          overflow: hidden;
+        }
+        .pgc-spots-fill {
+          height: 100%;
+          background: rgba(255,255,255,0.35);
+          border-radius: var(--so-radius-xs);
+          transition: width 0.3s;
+        }
+        .pgc-spots-label {
+          font-size: 0.8125rem;
+          font-weight: 600;
+        }
+        .pgc-price {
+          font-family: var(--so-font-body);
+          font-size: 1.375rem;
+          font-weight: 800;
+          color: #facc15;
+          letter-spacing: -0.03em;
+        }
+        .pgc-book-btn {
+          background: #facc15;
+          color: var(--so-navy);
+          font-family: var(--so-font-body);
+          font-size: 0.8125rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          border: none;
+          border-radius: var(--so-radius-md);
+          padding: 0.5rem 1rem;
+          cursor: pointer;
+          transition: filter 0.15s, transform 0.1s;
+          text-decoration: none;
+          display: inline-block;
+        }
+        .pgc-book-btn:hover {
+          filter: brightness(1.08);
+          transform: translateY(-1px);
         }
       `}</style>
     </div>

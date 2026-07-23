@@ -5,6 +5,7 @@ import { useFinderFilter } from "@/lib/hooks/use-finder-filter"
 import { formatDateOnly, formatDaySchedule } from "@/lib/time/format-date"
 import SoccerOneInterestCapture from "@/components/soccerone/SoccerOneInterestCapture"
 import SoccerOneLevelLadder from "@/components/soccerone/SoccerOneLevelLadder"
+import { SoCardShell, SoCardTitle, SoBadge, SoStatusPill, SoCardStyles } from "@/components/soccerone/SoCard"
 import { trackDivisionRegisterClicked, trackDivisionFilterApplied } from "@/lib/analytics/events"
 import {
   deriveLocationChips, deriveDivisionChips, deriveNightChips, deriveLevelChips, deriveAgesChips, filterSeasons,
@@ -123,88 +124,15 @@ export default function SoccerOneLeaguesFinder({ seasons }: { seasons: FinderSea
           gap: 1.5rem;
         }
 
-        .league-card {
-          background: var(--so-surface);
-          border: 1px solid var(--so-lime-a20);
-          border-left: 3px solid var(--so-lime);
-          border-radius: var(--so-radius-lg);
-          padding: 1.75rem;
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-          position: relative;
-          transition: border-color 0.2s, transform 0.2s;
-        }
-        .league-card:hover { border-color: var(--so-lime-a40); border-left-color: var(--so-lime); transform: translateY(-4px); }
-        .league-card--active { border-color: var(--so-lime-a15); }
-        .league-card--downtown { border-color: rgba(100,160,255,0.2); border-left-color: rgba(100,160,255,0.8); }
-        .league-card--downtown:hover { border-color: rgba(100,160,255,0.4); border-left-color: rgba(100,160,255,1); }
-        .league-card--youth { border-color: rgba(192,132,252,0.2); border-left-color: rgba(192,132,252,0.8); }
-
-        .lc-location-badge {
-          font-family: var(--so-font-mono);
-          font-size: 0.5rem;
-          font-weight: 600;
-          letter-spacing: 0.12em;
-          background: var(--so-lime-a08);
-          color: var(--so-lime-a60);
-          border: 1px solid var(--so-lime-a15);
-          padding: 2px 7px;
-          border-radius: 3px;
-          display: inline-block;
-          width: fit-content;
-        }
-        .lc-location-badge--downtown {
-          background: rgba(100,160,255,0.08);
-          color: rgba(147,197,253,0.7);
-          border-color: rgba(100,160,255,0.15);
-        }
-
-        .lc-level-badge {
-          font-family: var(--so-font-mono);
-          font-size: 0.55rem;
-          letter-spacing: 0.08em;
-          color: var(--so-lime);
-          border: 1px solid var(--so-lime-a30);
-          border-radius: 99px;
-          padding: 2px 7px;
-        }
+        /* League card shell/badge/status/title anatomy lives in SoCard.tsx
+           (<SoCardStyles /> below) — only this finder's own layout classes
+           (grid, meta rows, detail rows, CTA) stay local. */
 
         .lc-meta-row { display: flex; align-items: center; gap: 0.375rem; flex-shrink: 0; }
 
-        .lc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; }
-
-        .lc-division { display: flex; flex-direction: column; gap: 2px; }
-        .lc-div-label { font-family: var(--so-font-mono); font-size: 0.5rem; font-weight: 600; letter-spacing: 0.1em; color: rgba(255,255,255,0.3); }
-        .lc-div-name { font-size: 0.875rem; font-weight: 600; color: rgba(255,255,255,0.7); }
-
-        .lc-status {
-          font-family: var(--so-font-mono);
-          font-size: 0.5rem;
-          font-weight: 600;
-          letter-spacing: 0.1em;
-          padding: 3px 8px;
-          border-radius: 3px;
-          flex-shrink: 0;
-        }
-        .lc-status--open { background: var(--so-lime-a12); color: var(--so-lime); border: 1px solid var(--so-lime-a20); }
-        .lc-status--filling { background: rgba(251,191,36,0.1); color: #fbbf24; border: 1px solid rgba(251,191,36,0.2); }
-        .lc-status--coming { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.4); border: 1px solid rgba(255,255,255,0.1); }
-
-        .lc-name {
-          font-family: var(--so-font-display);
-          font-size: 1.75rem;
-          color: #ffffff;
-          letter-spacing: 0.01em;
-          line-height: 1;
-        }
-
-        .lc-desc {
-          font-size: 0.9375rem;
-          color: rgba(255,255,255,0.45);
-          line-height: 1.55;
-          flex: 1;
-        }
+        .lc-meta-line { display: flex; align-items: center; gap: 0.5rem; }
+        .lc-meta-sep { color: rgba(255,255,255,0.25); }
+        .lc-meta-text { font-size: 0.875rem; font-weight: 600; color: rgba(255,255,255,0.7); }
 
         .lc-details { display: flex; flex-direction: column; gap: 0.5rem; }
         .lc-detail-row {
@@ -254,6 +182,7 @@ export default function SoccerOneLeaguesFinder({ seasons }: { seasons: FinderSea
         @media (max-width: 1100px) { .leagues-grid { grid-template-columns: repeat(2, 1fr); } }
         @media (max-width: 768px) { .leagues-grid { grid-template-columns: 1fr; } }
       `}</style>
+      <SoCardStyles />
       {arrivedFrom && (
         <div className="so-finder-arrived">
           Showing leagues at <strong>{locationChips.find(c => c.value === arrivedFrom)?.label ?? arrivedFrom}</strong>
@@ -362,30 +291,61 @@ function LeagueCard({ season }: { season: LeagueCardSeason }) {
     ? `$${season.price}/player · $${teamFee}/team${earlyBird ? " early-bird" : ""}`
     : `$${season.price}/player`
   const dayLabel = formatDaySchedule(season.dayOfWeek, season.startTime, season.endTime)
+  // Day/time and starts are separate meta rows in the canonical order (day/
+  // time, then starts) and always render — a fallback em-dash keeps every
+  // card in a grid row the same height instead of some cards growing an
+  // extra row when a field is missing (the ragged-grid bug this task fixes).
+  const dayOrScheduleLabel = dayLabel || season.scheduleNotes || "—"
+  const startsLabel = season.startDate ? formatDateOnly(season.startDate) : "—"
+  // Same content as the old "PROGRAM" row (program.name) — just relocated
+  // into the canonical "venue · X" meta row instead of its own row.
+  const divisionLabel = season.program.name
   return (
-    <div className={`league-card ${isDowntown ? "league-card--downtown" : "league-card--active"}`}>
-      <div className={`lc-location-badge ${isDowntown ? "lc-location-badge--downtown" : ""}`}>{season.location.name.toUpperCase()}</div>
-      <div className="lc-top">
-        <div className="lc-division"><span className="lc-div-label">PROGRAM</span><span className="lc-div-name">{season.program.name}</span></div>
-        <div className="lc-meta-row">
-          {season.program?.audienceType === "parents" && <span className="lc-level-badge">Youth</span>}
-          {season.skillLevel && (
-            <span className="lc-level-badge">
-              {season.skillLevel === "open" ? "Open" : String(season.skillLevel).toUpperCase()}
-            </span>
-          )}
-          <span className={`lc-status lc-status--${statusKey}`}>{String(season.status).toUpperCase()}</span>
-        </div>
+    <SoCardShell variant="league" modifier={isDowntown ? "downtown" : "active"}>
+      {/* 1. title (clamped, reserved height) */}
+      <SoCardTitle variant="league">{season.name}</SoCardTitle>
+
+      {/* 2. venue · program — this league card's analog of the canonical
+          "venue · age" row (program.name is the closest SoccerOne field to
+          Aspire's age-group classifier). Venue is plain text, never a link:
+          /locations/{slug} renders full Aspire-branded marketing copy (see
+          [slug].astro) with no brand/host check, so linking it from a
+          SoccerOne card would send a SoccerOne visitor to what reads as a
+          different company's page. */}
+      <div className="lc-meta-line">
+        <SoBadge kind={isDowntown ? "tag-downtown" : "tag"}>{season.location.name.toUpperCase()}</SoBadge>
+        <span className="lc-meta-sep">·</span>
+        <span className="lc-meta-text">{divisionLabel}</span>
       </div>
-      <h3 className="lc-name">{season.name}</h3>
+
       <div className="lc-details">
-        {season.startDate && <div className="lc-detail-row"><span className="lcd-label">STARTS</span><span className="lcd-val">{formatDateOnly(season.startDate)}</span></div>}
-        {dayLabel
-          ? <div className="lc-detail-row"><span className="lcd-label">DAY</span><span className="lcd-val">{dayLabel}</span></div>
-          : season.scheduleNotes && <div className="lc-detail-row"><span className="lcd-label">SCHEDULE</span><span className="lcd-val">{season.scheduleNotes}</span></div>}
-        {!completed && <div className="lc-detail-row"><span className="lcd-label">SPOTS</span><span className="lcd-val">{season.spotsLeft != null ? `${season.spotsLeft} left of ${season.maxParticipants}` : "Open"}</span></div>}
+        {/* 3. day/time */}
+        <div className="lc-detail-row"><span className="lcd-label">DAY</span><span className="lcd-val">{dayOrScheduleLabel}</span></div>
+        {/* 4. starts */}
+        <div className="lc-detail-row"><span className="lcd-label">STARTS</span><span className="lcd-val">{startsLabel}</span></div>
+      </div>
+
+      {/* 5. chip row: status + level/youth badges — always rendered */}
+      <div className="lc-meta-row">
+        {season.program?.audienceType === "parents" && <SoBadge kind="outline">Youth</SoBadge>}
+        {season.skillLevel && (
+          <SoBadge kind="outline">{season.skillLevel === "open" ? "Open" : String(season.skillLevel).toUpperCase()}</SoBadge>
+        )}
+        <SoStatusPill tone={statusKey}>{String(season.status).toUpperCase()}</SoStatusPill>
+      </div>
+
+      {!completed && (
+        <div className="lc-details">
+          <div className="lc-detail-row"><span className="lcd-label">SPOTS</span><span className="lcd-val">{season.spotsLeft != null ? `${season.spotsLeft} left of ${season.maxParticipants}` : "Open"}</span></div>
+        </div>
+      )}
+
+      {/* 6. price band */}
+      <div className="lc-details">
         <div className="lc-detail-row"><span className="lcd-label">PRICE</span><span className="lcd-val mono accent">{priceLabel}</span></div>
       </div>
+
+      {/* 7. CTA */}
       {completed ? (
         // Archive state: no CTA at all — a register link over a finished
         // season is exactly the dead-button class this page's comments ban.
@@ -433,7 +393,7 @@ function LeagueCard({ season }: { season: LeagueCardSeason }) {
           }
         >Register Now →</a>
       )}
-    </div>
+    </SoCardShell>
   )
 }
 
