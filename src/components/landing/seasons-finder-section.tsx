@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react"
 import ProgramCardV2 from "@/components/programs/program-card-v2"
+import { ProgramCardSkeleton } from "@/components/programs/program-card-skeleton"
+import { CardGrid } from "@/components/programs/card-grid"
 import { FilterChips, type ChipOption } from "./filter-chips"
 import { EmptyNotifyForm } from "./empty-notify-form"
 import type { ApiSeason } from "@/lib/programs/api-season"
@@ -189,15 +191,11 @@ export function SeasonsFinderSection({
         {/* Body */}
         <div className="mt-8">
           {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <CardGrid layout="grid">
               {[0, 1, 2].map((i) => (
-                <div
-                  key={i}
-                  className="bg-paper border border-border rounded-2xl h-[320px] animate-pulse"
-                  aria-hidden="true"
-                />
+                <ProgramCardSkeleton key={i} />
               ))}
-            </div>
+            </CardGrid>
           ) : seasons.length === 0 ? (
             // data-finder-empty: hero tiles with a fallback href check this
             // marker to decide between scroll-filtering and navigating away
@@ -229,11 +227,11 @@ export function SeasonsFinderSection({
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <CardGrid layout="grid">
                 {filtered.slice(0, visible).map((s) => (
                   <ProgramCardV2 key={s.id} season={s} />
                 ))}
-              </div>
+              </CardGrid>
               {visible < filtered.length && (
                 <div className="mt-8 text-center">
                   <button

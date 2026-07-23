@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react"
 import ProgramCardV2 from "@/components/programs/program-card-v2"
+import { ProgramCardSkeleton } from "@/components/programs/program-card-skeleton"
+import { CardGrid } from "@/components/programs/card-grid"
 import { deriveAudience } from "@/lib/programs/derive"
 import { byRegistrationCloses } from "@/lib/programs/category-pages"
 import { fetchPublicCatalogSeasons } from "@/lib/programs/public-seasons-client"
@@ -208,21 +210,17 @@ function AudienceRow({
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <CardGrid layout="grid">
           {[0, 1, 2].map((i) => (
-            <div
-              key={i}
-              className="bg-paper border border-border rounded-2xl h-[320px] animate-pulse"
-              aria-hidden="true"
-            />
+            <ProgramCardSkeleton key={i} />
           ))}
-        </div>
+        </CardGrid>
       ) : items.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <CardGrid layout="grid">
           {items.map((s) => (
             <ProgramCardV2 key={s.id} season={s} />
           ))}
-        </div>
+        </CardGrid>
       ) : (
         // Zero-inventory fallback — never a blank row.
         <div className="bg-paper border border-border rounded-2xl px-5 py-6">
