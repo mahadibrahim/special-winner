@@ -5,7 +5,7 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import { SeasonTabs } from "@/components/leagues/season-tabs";
 import { getVenueFacts } from "@/lib/locations/venue-facts";
 import type { Division } from "@/lib/leagues/division-filters";
-import { FORMAT_FACTS } from "@/lib/leagues/adult-soccer-content";
+import { FORMAT_FACTS, HERO_FACTS } from "@/lib/leagues/adult-soccer-content";
 import { CAPTAIN_DEPOSIT_DOLLARS } from "@/lib/registrations/team-deposit";
 
 const { term } = Astro.params;
@@ -69,6 +69,76 @@ const divisions: Division[] = seasons.map((s) => ({
 const allCompleted = seasons.every((s) => s.status === "completed");
 const anyOpen = seasons.some((s) => s.status === "open");
 
+// ---- Hero deadline + pricing aggregates -----------------------------------
+// Deadlines can differ per division; the hero shows the EARLIEST of each so
+// it never promises a cutoff some division has already passed. Rows keep
+// their exact per-division dates.
+const TZ = Astro.locals.organization?.timezone ?? "America/New_York";
+const now = Date.now();
+const openSeasons = seasons.filter((s) => s.status === "open");
+const minDate = (ts: number[]) => (ts.length ? new Date(Math.min(...ts)) : null);
+
+const ebEnds = minDate(
+  openSeasons
+    .filter((s) => s.teamEarlyBirdActive && s.earlyBirdDeadline)
+    .map((s) => new Date(s.earlyBirdDeadline).getTime())
+    .filter((t) => t > now)
+);
+// registrationCloses NULL means the API expires the season at startDate —
+// mirror that here so the hero never shows a blank close date.
+const regCloses = minDate(
+  openSeasons.map((s) => new Date(s.registrationCloses ?? `${s.startDate}T12:00:00Z`).getTime())
+);
+
+const fmtDeadline = (d: Date) =>
+  d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: TZ });
+const fmtShort = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+const daysLeft = (d: Date) => Math.max(1, Math.ceil((d.getTime() - now) / 86_400_000));
+
+// Timeline geometry: axis runs today -> close; the early-bird pip sits at its
+// proportional position (clamped so the three labels never collide).
+const ebFrac =
+  ebEnds && regCloses
+    ? Math.min(0.8, Math.max(0.15, (ebEnds.getTime() - now) / (regCloses.getTime() - now)))
+    : null;
+
+const soloPrices = openSeasons
+  .filter((s) => (s.signupModes ?? []).includes("individual"))
+  .map((s) => s.effectivePrice ?? s.price)
+  .filter((v: number | null) => v != null);
+const soloPrice = soloPrices.length ? Math.min(...soloPrices) : null;
+const teamSeasons = openSeasons.filter((s) => (s.signupModes ?? []).includes("team") && s.teamPrice != null);
+const teamPrice = teamSeasons.length ? Math.min(...teamSeasons.map((s) => s.teamPrice)) : null;
+const teamNow = teamSeasons.length
+  ? Math.min(...teamSeasons.map((s) => s.effectiveTeamPrice ?? s.teamPrice))
+  : null;
+const teamEarlyBird = teamNow != null && teamPrice != null && teamNow < teamPrice;
+
+// Support line under the team price: "$1,050 after Aug 3 · $200 down holds
+// your spot" while early bird is live, deposit-only after.
+const teamFine = [
+  teamEarlyBird && ebEnds && teamPrice != null
+    ? `$${teamPrice.toLocaleString()} after ${fmtDeadline(ebEnds).replace(/^\w+, /, "")}`
+    : null,
+  `$${CAPTAIN_DEPOSIT_DOLLARS} down holds your spot`,
+]
+  .filter(Boolean)
+  .join(" · ");
+
+const todayLabel = new Date(now).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: TZ });
+
+// Venue line: one venue -> full street address; multiple -> names only.
+// Every part is nullable in the DB, so fall back through city/state to the
+// location name rather than rendering "null, null".
+const primaryLoc = seasons[0].location;
+const cityState = [primaryLoc.city, primaryLoc.state].filter(Boolean).join(", ");
+const subPlace = venues.length === 1 ? cityState || primaryLoc.name : `${venues.length} venues`;
+const venueLine =
+  venues.length === 1
+    ? [primaryLoc.address, cityState].filter(Boolean).join(", ") || primaryLoc.name
+    : venues.map((v) => v.label).join(" · ");
+
 const STATUS_LABEL: Record<string, string> = { open: "Registration Open", active: "In Progress", forming: "Forming", completed: "Complete" };
 const heroPhoto = "https://images.unsplash.com/photo-1543326727-cf6c39e8f84c?auto=format&fit=crop&w=1600&q=60";
 
@@ -105,24 +175,93 @@ const faqSchema = {
   </Fragment>
   <main id="main-content">
     <section
-      class="relative text-cream pt-16 px-9 bg-cover bg-center"
+      class="relative text-cream pt-10 sm:pt-14 px-5 sm:px-9 bg-cover bg-center"
       style={`background-image:linear-gradient(180deg,oklch(0.18 0.07 262/0.78),oklch(0.18 0.07 262/0.93)),linear-gradient(100deg,oklch(0.18 0.07 262/0.95),oklch(0.18 0.07 262/0.4)),url('${heroPhoto}')`}
     >
-      <div class="max-w-[1080px] mx-auto pb-6">
-        <span class="inline-flex items-center gap-1.5 bg-primary/20 border border-primary/60 text-cream rounded-full px-3 py-1.5 font-mono text-[10px] tracking-widest uppercase">
-          {STATUS_LABEL[heroStatus] ?? heroStatus}
-        </span>
-        <h1 class="font-display font-semibold text-5xl md:text-6xl tracking-tight mt-3 mb-1.5">{termLabel} · Adult Soccer</h1>
-        <p class="font-mono text-[12.5px] text-cream/85 mb-4">Indoor 7v7 · {startDate} – {endDate} · 7-game season, no playoffs · {venues.length} venues · {divisions.length} divisions</p>
+      <div class="max-w-[1080px] mx-auto pb-7 lg:grid lg:grid-cols-[1.35fr_1fr] lg:gap-10 lg:items-end">
+        <div>
+          <h1 class="font-display font-semibold text-[42px] leading-[1.05] sm:text-5xl md:text-6xl tracking-tight mb-1.5">{termLabel} · Adult Soccer</h1>
+          <p class="text-sm text-cream/85">
+            <b class="font-semibold text-cream">{fmtShort(startDate)} – {fmtShort(endDate)}</b> · {subPlace}
+            {!anyOpen && (
+              <span class="ml-2 inline-flex items-center font-mono text-[10px] tracking-widest uppercase border border-cream/40 rounded-full px-2.5 py-0.5 align-middle">
+                {STATUS_LABEL[heroStatus] ?? heroStatus}
+              </span>
+            )}
+          </p>
+
+          {/* Deadline timeline — replaces the old "Registration Open" pill.
+              Open is implied by a live countdown; once early bird lapses the
+              middle pip disappears and only the close date remains. */}
+          {anyOpen && regCloses && (
+            <div class="mt-5" data-testid="hero-deadlines">
+              <div class="relative h-1 rounded-full bg-cream/20">
+                {ebFrac != null && (
+                  <div class="absolute inset-y-0 left-0 rounded-full bg-ochre" style={`width:${(ebFrac * 100).toFixed(1)}%`}></div>
+                )}
+                <span class="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-cream shadow-[0_0_0_3px_rgba(250,248,243,0.3)]" style="left:0%"></span>
+                {ebFrac != null && (
+                  <span class="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-ochre" style={`left:${(ebFrac * 100).toFixed(1)}%`}></span>
+                )}
+                <span class="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-cream/55" style="left:100%"></span>
+              </div>
+              <div class="flex justify-between gap-2 mt-2 font-mono text-[9.5px] tracking-wide uppercase text-cream/75">
+                <span><b class="block font-medium text-[10.5px] text-cream normal-case">Today</b>{todayLabel}</span>
+                {ebEnds && (
+                  <span class="text-center"><b class="block font-medium text-[10.5px] text-ochre normal-case">Early bird ends</b>{fmtDeadline(ebEnds)} · {daysLeft(ebEnds)} {daysLeft(ebEnds) === 1 ? "day" : "days"}</span>
+                )}
+                <span class="text-right"><b class="block font-medium text-[10.5px] text-cream normal-case">Registration closes</b>{fmtDeadline(regCloses)}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Format facts a first-time visitor must get at a glance. */}
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-cream/15 border border-cream/15 rounded-xl overflow-hidden mt-5">
+            {HERO_FACTS.map((f) => (
+              <div class="bg-navy-deep/70 px-3 py-2.5">
+                <b class="block text-[13.5px] font-semibold">{f.title}</b>
+                <span class="text-[11px] text-cream/70">{f.sub}</span>
+              </div>
+            ))}
+          </div>
+          {venueLine && (
+            <p class="flex items-center gap-2 mt-3 text-[12.5px] text-cream/90">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+              {venueLine}
+            </p>
+          )}
+        </div>
+
         {anyOpen && (
-          <div class="flex flex-wrap gap-3 items-center pb-1">
-            {/* #divisions is a real anchor on the tabs wrapper below — these
-                used to point at #main-content (the top of the page they were
-                already on, i.e. inert). You still pick a division before a
-                mode, so the finder is the honest destination. Archive terms
-                (all completed) offer no register CTA at all. */}
-            <a href="#divisions" class="font-sans font-semibold text-[13px] bg-primary text-cream px-5 py-3 rounded-md" data-testid="hero-register" data-term-cta>{`Register a team · $${CAPTAIN_DEPOSIT_DOLLARS} down →`}</a>
-            <a href="#divisions" class="font-sans font-semibold text-[13px] border border-cream/40 text-cream px-5 py-3 rounded-md" data-term-cta>Join solo</a>
+          <div class="mt-5 lg:mt-0">
+            {/* Price board — team and solo side by side, early-bird aware. */}
+            {(teamNow != null || soloPrice != null) && (
+              <div class="flex gap-2.5" data-testid="hero-prices">
+                {teamNow != null && (
+                  <div class="flex-1 bg-cream/[0.08] border border-cream/25 rounded-xl px-3.5 py-2.5">
+                    <div class="font-mono text-[9.5px] tracking-widest uppercase text-cream/70">Per team</div>
+                    <div class="text-xl font-semibold">
+                      ${teamNow.toLocaleString()}{teamEarlyBird && <small class="text-[11px] font-normal opacity-80"> early bird</small>}
+                    </div>
+                    <div class="text-[10.5px] text-cream/70 mt-0.5">{teamFine}</div>
+                  </div>
+                )}
+                {soloPrice != null && (
+                  <div class="flex-1 bg-cream/[0.08] border border-cream/25 rounded-xl px-3.5 py-2.5">
+                    <div class="font-mono text-[9.5px] tracking-widest uppercase text-cream/70">Solo player</div>
+                    <div class="text-xl font-semibold">${soloPrice.toLocaleString()}</div>
+                    <div class="text-[10.5px] text-cream/70 mt-0.5">we place you on a team</div>
+                  </div>
+                )}
+              </div>
+            )}
+            {/* #divisions is a real anchor on the tabs wrapper below. You
+                still pick a division before a mode, so the finder is the
+                honest destination — the label says exactly that. Archive
+                terms (all completed) offer no register CTA at all. */}
+            <a href="#divisions" class="flex items-center justify-between gap-2 font-sans font-semibold text-[15px] bg-primary text-cream px-4 py-3.5 rounded-xl mt-2.5" data-testid="hero-register" data-term-cta>
+              Pick your division &amp; register <span aria-hidden="true">↓</span>
+            </a>
           </div>
         )}
       </div>
