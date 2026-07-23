@@ -1,11 +1,10 @@
 "use client"
 
-import { Calendar, MapPin, ArrowRight, User, Users, Clock, Info } from "lucide-react"
+import { Calendar, MapPin, ArrowRight, User, Users, Clock } from "lucide-react"
 import {
   deriveStatusPill,
   deriveIndividualUnit,
   deriveDuration,
-  deriveDeadline,
   deriveAudience,
   isDualMode,
   isTeamOnly,
@@ -15,6 +14,8 @@ import {
 import { formatDaySchedule, formatTimeWindow, formatDateOnly } from "@/lib/time/format-date"
 import { CAPTAIN_DEPOSIT_DOLLARS } from "@/lib/registrations/team-deposit"
 import { SeasonInterestForm } from "./season-interest-form"
+import { CardShell, STRETCHED_LINK_CLASSES } from "./card-shell"
+import { VenueLink } from "./venue-link"
 
 interface Season extends SeasonForDerive {
   id: string
@@ -103,7 +104,6 @@ export default function ProgramCardV2({
   const status = deriveStatusPill(season)
   const indivUnit = deriveIndividualUnit(season)
   const duration = deriveDuration(season)
-  const deadline = deriveDeadline(season)
   const dual = isDualMode(season)
   const teamOnly = isTeamOnly(season)
   const signupMode = deriveSignupMode(season)
@@ -129,7 +129,6 @@ export default function ProgramCardV2({
     formatDaySchedule(season.dayOfWeek, season.startTime, season.endTime) ||
     formatTimeWindow(season.startTime, season.endTime)
   const startsLabel = `starts ${formatDateOnly(season.startDate, { month: "short", day: "numeric" })}`
-  const scheduleLabel = `${dayTime || duration} · ${startsLabel}`
   const sportColor =
     season.sport.color ?? SPORT_FALLBACK_COLORS[season.sport.slug] ?? "#52525b"
 
@@ -210,96 +209,77 @@ export default function ProgramCardV2({
   const effTeamTotal = season.teamPrice != null ? (teamEb ?? season.teamPrice) : null
 
   return (
-    <div className="group h-full flex flex-col bg-paper border border-border rounded-2xl overflow-hidden transition-all hover:border-primary/40 hover:-translate-y-0.5">
-      {/* Media slot — sport-color fallback block. Photo support drops in here
-          later with no structural change. */}
-      <div
-        className="relative h-28 flex-shrink-0"
-        style={{
-          // `${sportColor}cc` appends hex alpha (80%) — assumes sportColor is a
-          // 6-digit hex. SPORT_FALLBACK_COLORS and the #52525b default all are.
-          background: `linear-gradient(135deg, ${sportColor}, ${sportColor}cc)`,
-        }}
-      >
+    <CardShell
+      sportColor={sportColor}
+      mediaBottomLeft={
         <span className="absolute bottom-2 left-3 text-[10px] font-bold uppercase tracking-wide text-white/90">
           {season.sport.icon ? `${season.sport.icon} ` : ""}
           {season.sport.name}
         </span>
+      }
+      mediaTopRight={
         <span
           className={`absolute top-2 right-2 inline-flex items-center text-[10px] font-semibold tracking-wide uppercase px-2 py-0.5 rounded-full ${STATUS_PILL_STYLES[status.tone]}`}
         >
           {status.label}
         </span>
-      </div>
-
-      {/* Body */}
-      <div className="flex flex-col flex-1 p-4">
-        {/* 1 · What — heading, reserved 2-line height */}
-        <h3 className="font-display text-base leading-tight text-ink line-clamp-2 min-h-[2.5rem]">
-          {headingName}
-        </h3>
-
-        {/* 2 · Who — location · age, always one line */}
-        <div className="flex items-center gap-1.5 text-xs text-ink-muted mt-2">
+      }
+      title={headingName}
+      metaA={
+        // Venue (linked to its location page) · age · format. Every season
+        // resolves all three; a genuinely missing single value renders an
+        // em-dash rather than dropping the row.
+        <>
           <MapPin className="w-3 h-3 flex-shrink-0" />
           <span className="truncate">
-            {venueLabel} · {audienceLabel}
+            <VenueLink slug={season.location.slug} label={venueLabel} />
+            {" · "}
+            {audienceLabel}
           </span>
-        </div>
-
-        {/* 3 · When it runs — day/time + start date, always resolves */}
-        <div className="flex items-center gap-1.5 text-xs text-ink-muted mt-1">
+        </>
+      }
+      metaB={
+        // Day + time, always resolves (structured day/time wins; a bare time
+        // window is next; the derived duration is the floor)
+        <>
+          <Clock className="w-3 h-3 flex-shrink-0" />
+          <span className="truncate">{dayTime || duration}</span>
+        </>
+      }
+      metaC={
+        // Start date, always resolves
+        <>
           <Calendar className="w-3 h-3 flex-shrink-0" />
-          <span className="truncate">{scheduleLabel}</span>
-        </div>
-
-        {/* 3b · Free-text schedule detail ("7-game season", …) when present */}
-        {season.scheduleNotes && (
-          <div className="flex items-center gap-1.5 text-xs text-ink-muted mt-1">
-            <Info className="w-3 h-3 flex-shrink-0" />
-            <span className="truncate">{season.scheduleNotes}</span>
-          </div>
-        )}
-
-        {/* 4 · When to act — deadline, conditional urgency */}
-        {deadline && (
-          <div
-            className={`flex items-center gap-1.5 text-xs mt-1 ${
-              deadline.urgent ? "text-primary font-semibold" : "text-ink-faint"
-            }`}
-          >
-            <Clock className="w-3 h-3 flex-shrink-0" />
-            <span className="truncate">{deadline.label}</span>
-          </div>
-        )}
-
-        {/* Format badge — at most one */}
-        {formatBadge && (
-          <div className="mt-2">
+          <span className="truncate">{startsLabel}</span>
+        </>
+      }
+      chip={
+        // Format pill (dual/team-only signal) and/or early-bird chip; empty
+        // for the default youth solo case. Reserved height (shell) keeps
+        // cards aligned regardless of chip count.
+        <>
+          {formatBadge && (
             <span className="inline-flex items-center font-semibold tracking-wide uppercase text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded">
               {formatBadge}
             </span>
-          </div>
-        )}
-
-        {/* Spacer pushes price + CTA to a consistent bottom band */}
-        <div className="flex-1 min-h-[0.75rem]" />
-
-        {/* 5 · How much + CTA — dual-mode keeps two actions; forming seasons
-            show interest-capture; sold-out seasons show the waitlist form */}
-        {signupMode === "interest" ? (
+          )}
+          {ebLabel && (
+            <span className="text-[10px] font-semibold tracking-wide uppercase text-primary">
+              {ebLabel}
+            </span>
+          )}
+        </>
+      }
+      footer={
+        // Price band + CTA — dual-mode keeps two actions; forming seasons
+        // show interest-capture; sold-out seasons show the waitlist form
+        signupMode === "interest" ? (
           <div className="mt-3">
             <SeasonInterestForm seasonId={season.id} seasonName={season.name} />
           </div>
         ) : (
-          <>
-            <div className="pt-3 border-t border-border">
-              {ebLabel && (
-                <div className="text-[10px] font-semibold tracking-wide uppercase text-primary mb-2">
-                  {ebLabel}
-                </div>
-              )}
-              {dual && season.teamPrice != null ? (
+          <div className="pt-3 border-t border-border">
+            {dual && season.teamPrice != null ? (
                 <>
                   {(() => {
                     // Column order: solo leads by default; the captain
@@ -347,11 +327,16 @@ export default function ProgramCardV2({
                     <WaitlistBlock seasonId={season.id} seasonName={season.name} />
                   ) : (
                     (() => {
+                      // teamFirst puts the filled "Reserve a team" CTA in the
+                      // primary (first) position with "Sign up solo"
+                      // secondary — and the stretched whole-card link follows
+                      // the same primary slot; the secondary CTA gets
+                      // `relative z-10` so it stacks above the stretch.
                       const soloBtn = (
                         <a
                           key="solo-cta"
                           href={`/register/${season.id}?mode=individual`}
-                          className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold tracking-wide uppercase border border-ink text-ink hover:bg-ink hover:text-cream px-3 py-2 rounded-md transition-colors"
+                          className={`inline-flex items-center justify-center gap-1.5 text-xs font-semibold tracking-wide uppercase border border-ink text-ink hover:bg-ink hover:text-cream px-3 py-2 rounded-md transition-colors ${teamFirst ? "relative z-10" : STRETCHED_LINK_CLASSES}`}
                         >
                           <User className="w-3.5 h-3.5" />
                           {soloCta}
@@ -361,14 +346,12 @@ export default function ProgramCardV2({
                         <a
                           key="team-cta"
                           href={`/register/${season.id}?mode=team`}
-                          className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold tracking-wide uppercase bg-ink text-cream hover:bg-primary px-3 py-2 rounded-md transition-colors"
+                          className={`inline-flex items-center justify-center gap-1.5 text-xs font-semibold tracking-wide uppercase bg-ink text-cream hover:bg-primary px-3 py-2 rounded-md transition-colors ${teamFirst ? STRETCHED_LINK_CLASSES : "relative z-10"}`}
                         >
                           <Users className="w-3.5 h-3.5" />
                           {teamCta}
                         </a>
                       )
-                      // teamFirst puts the filled "Reserve a team" CTA in the
-                      // primary (first) position with "Sign up solo" secondary.
                       return (
                         <div className="grid grid-cols-2 gap-2">
                           {teamFirst ? [teamBtn, soloBtn] : [soloBtn, teamBtn]}
@@ -390,7 +373,7 @@ export default function ProgramCardV2({
                     {!soldOut && (
                       <a
                         href={teamOnly ? `/register/${season.id}?mode=team` : `/register/${season.id}`}
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wide uppercase bg-ink text-cream px-3 py-2 rounded-md group-hover:bg-primary transition-colors"
+                        className={`inline-flex items-center gap-1.5 text-xs font-semibold tracking-wide uppercase bg-ink text-cream px-3 py-2 rounded-md group-hover:bg-primary transition-colors ${STRETCHED_LINK_CLASSES}`}
                       >
                         {teamOnly ? teamCta : soloCta}
                         <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
@@ -409,10 +392,9 @@ export default function ProgramCardV2({
                 </>
               )}
             </div>
-          </>
-        )}
-      </div>
-    </div>
+          )
+      }
+    />
   )
 }
 

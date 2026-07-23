@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { MembershipTier } from "@/components/soccerone/MembershipTier";
+import { SoCardStyles } from "@/components/soccerone/SoCard";
 
 interface TierRow {
   id: string;
@@ -93,6 +94,7 @@ export function MembershipTiersLive({ tiers, authed }: Props) {
 
   return (
     <>
+      <SoCardStyles />
       <MembershipTier
         name="Day Pass"
         monthlyPrice={fmtDollars(dayPass?.monthlyPriceCents)}

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { ChevronRight, SlidersHorizontal } from "lucide-react"
 import ProgramCardV2 from "./program-card-v2"
+import { CardGrid, CardGridItem } from "./card-grid"
 import { deriveAudience, deriveDayKey, DAY_KEYS, DAY_LABELS, type SeasonForDerive } from "@/lib/programs/derive"
 
 type Audience = "youth" | "adult" | "team"
@@ -435,13 +436,13 @@ export default function ProgramsCatalog({ initialAudience, initialType, initialA
             <h2 className="font-display text-xl text-ink">{row.title}</h2>
             <span className="text-xs text-ink-muted">{row.items.length} program{row.items.length === 1 ? "" : "s"}</span>
           </div>
-          <div className="flex gap-4 overflow-x-auto pb-3 -mx-4 px-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 snap-x snap-mandatory">
+          <CardGrid layout="scroll-row">
             {row.items.map((s) => (
-              <div key={`${row.title}-${s.id}`} className="flex-none w-[300px] sm:w-[320px] snap-start">
+              <CardGridItem key={`${row.title}-${s.id}`}>
                 <ProgramCardV2 season={s} emphasis={audience === "team" ? "team" : undefined} />
-              </div>
+              </CardGridItem>
             ))}
-          </div>
+          </CardGrid>
         </section>
       ))}
 
@@ -476,11 +477,11 @@ export default function ProgramsCatalog({ initialAudience, initialType, initialA
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <CardGrid layout="grid">
               {sorted.slice(0, visibleCount).map((s) => (
                 <ProgramCardV2 key={s.id} season={s} emphasis={audience === "team" ? "team" : undefined} />
               ))}
-            </div>
+            </CardGrid>
             {visibleCount < sorted.length && (
               <div className="mt-8 text-center">
                 <button

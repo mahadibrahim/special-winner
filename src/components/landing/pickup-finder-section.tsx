@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react"
 import type { SessionCardData } from "@/components/dropin/SessionCard"
 import PickupCard from "./pickup-card"
+import { ProgramCardSkeleton } from "@/components/programs/program-card-skeleton"
+import { CardGrid } from "@/components/programs/card-grid"
 import { FilterChips, type ChipOption } from "./filter-chips"
 import { useFinderFilter } from "@/lib/hooks/use-finder-filter"
 import { deriveVenueTabs, filterPickupSessions } from "@/lib/landing/pickup-session-filters"
@@ -174,15 +176,11 @@ export function PickupFinderSection({
         {/* Body */}
         <div className="mt-8">
           {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <CardGrid layout="grid">
               {[0, 1, 2].map((i) => (
-                <div
-                  key={i}
-                  className="bg-paper border border-border rounded-2xl h-[280px] animate-pulse"
-                  aria-hidden="true"
-                />
+                <ProgramCardSkeleton key={i} />
               ))}
-            </div>
+            </CardGrid>
           ) : sessions.length === 0 ? (
             <div className="bg-paper border border-border rounded-2xl py-12 px-6 text-center">
               <p className="font-display text-lg text-ink">No pickup sessions scheduled.</p>
@@ -214,7 +212,7 @@ export function PickupFinderSection({
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <CardGrid layout="grid">
                 {filtered.slice(0, visible).map((s) => (
                   <PickupCard
                     key={s.id}
@@ -222,7 +220,7 @@ export function PickupFinderSection({
                     defaultSessionRateCents={defaultSessionRateCents}
                   />
                 ))}
-              </div>
+              </CardGrid>
               {visible < filtered.length && (
                 <div className="mt-8 text-center">
                   <button
