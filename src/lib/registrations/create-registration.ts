@@ -70,7 +70,10 @@ export class RegistrationError extends Error {
    * error rather than pattern-match `message`. Not every RegistrationError
    * carries one — API routes surfacing this error must preserve their
    * existing `{ error: message }` response shape when `code` is absent, and
-   * only add `{ error: code, message }` when it is present.
+   * only add a sibling `code` field (`{ error: message, code }`) when it is
+   * present. `error` must always stay the human-readable sentence — it's the
+   * field every frontend consumer (`parseApiError`) renders directly to the
+   * customer.
    */
   constructor(
     public status: number,

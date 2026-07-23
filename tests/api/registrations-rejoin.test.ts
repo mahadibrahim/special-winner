@@ -162,8 +162,8 @@ describe("cancelled registrations no longer block re-registration", () => {
     });
     expect(blockedRes.status).toBe(409);
     const body = await blockedRes.json();
-    expect(body.error).toBe("already_registered");
-    expect(body.message).toBe("This player is already registered for this season");
+    expect(body.code).toBe("already_registered");
+    expect(body.error).toBe("This player is already registered for this season");
   });
 
   it("a pending/unpaid row still resumes instead of blocking", async () => {

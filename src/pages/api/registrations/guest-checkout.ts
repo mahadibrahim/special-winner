@@ -225,7 +225,7 @@ export const POST: APIRoute = async (context) => {
           return new Response(
             JSON.stringify(
               err.code
-                ? { error: err.code, message: err.message }
+                ? { error: err.message, code: err.code }
                 : { error: err.message },
             ),
             {
