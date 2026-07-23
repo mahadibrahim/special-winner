@@ -9,6 +9,8 @@
 // pricing) and route to /leagues where the finder helps people pick a
 // division. Single open season → the direct division card stays.
 
+import { CAPTAIN_DEPOSIT_DOLLARS } from "@/lib/registrations/team-deposit";
+
 export interface SeasonLike {
   id: string;
   name: string;
@@ -84,7 +86,7 @@ export function aggregateFeaturedTerm(openSeasons: SeasonLike[]): TermAggregate 
     const [p] = prices; const [tp] = teamPrices;
     if (p != null) {
       uniformPrice = tp != null
-        ? `${fmtMoney(p)}/player · ${fmtMoney(tp)}/team`
+        ? `${fmtMoney(p)}/player · team: $${CAPTAIN_DEPOSIT_DOLLARS} reserves it, ${fmtMoney(tp)} total`
         : `${fmtMoney(p)}/player`;
     }
   }

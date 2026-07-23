@@ -28,7 +28,7 @@ describe("aggregateFeaturedTerm", () => {
     expect(agg.families).toEqual(["Co-Ed", "Men's", "Women's", "30+/40+", "Open"]);
     expect(agg.kickoff).toBe("2026-09-14");
     expect(agg.closes).toBe("2026-09-03T23:59:59.000Z");
-    expect(agg.uniformPrice).toBe("$120/player · $1,050/team");
+    expect(agg.uniformPrice).toBe("$120/player · team: $200 reserves it, $1,050 total");
   });
 
   it("stays single for a lone season and for null terms", () => {
