@@ -9,6 +9,7 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
 import { HOME_GOOGLE_RATING, HOME_REVIEWS } from '@/lib/soccerone/home-reviews';
 import { SOCCERONE_ORG_JSONLD } from '@/lib/seo/soccerone-jsonld';
 import { aggregateFeaturedTerm } from '@/lib/soccerone/featured-term';
+import { CAPTAIN_DEPOSIT_DOLLARS } from '@/lib/registrations/team-deposit';
 
 // Live season data — same org-scoped fetch + filters as leagues.astro.
 // The homepage features the first upcoming open ADULT season (youth as
@@ -85,9 +86,16 @@ const featuredCloses = featured?.registrationCloses
       weekday: 'short', month: 'short', day: 'numeric', timeZone: 'America/New_York',
     })
   : null;
+// Same canonical team-fee framing as leagues.astro's featuredTeamFee: prefer
+// the early-bird-active effective price when the API supplied one.
+const featuredTeamFee = featured
+  ? (featured.teamEarlyBirdActive && featured.effectiveTeamPrice != null
+      ? featured.effectiveTeamPrice
+      : featured.teamPrice)
+  : null;
 const featuredPrice = featured
-  ? (featured.teamPrice
-      ? `$${featured.price}/player · $${featured.teamPrice}/team`
+  ? (featuredTeamFee
+      ? `$${featured.price}/player · team: $${CAPTAIN_DEPOSIT_DOLLARS} reserves it, $${featuredTeamFee} total${featured.teamEarlyBirdActive ? ' early-bird' : ''}`
       : `$${featured.price}/player`)
   : null;
 

@@ -228,8 +228,16 @@ export default function TeamCreate({
   const feeTotalDollars = season ? (season.effectiveTeamPrice ?? season.teamPrice ?? season.price) : null;
   const rosterRemainderDollars =
     feeTotalDollars != null ? Math.max(0, feeTotalDollars - CAPTAIN_DEPOSIT_CENTS / 100) : null;
+  // registrationCloses is a full ISO instant (not a date-only column), so it
+  // must be pinned to the org timezone (America/New_York) — otherwise it
+  // renders in the viewer's local zone and can disagree with the receipt
+  // email, which formats the same instant in America/New_York.
   const deadlineLabel = season?.registrationCloses
-    ? formatDateOnly(season.registrationCloses, { month: "short", day: "numeric" })
+    ? formatDateOnly(season.registrationCloses, {
+        month: "short",
+        day: "numeric",
+        timeZone: "America/New_York",
+      })
     : null;
 
   // Funnel eventing — one fire per state entry. Keyed on `status` so React's

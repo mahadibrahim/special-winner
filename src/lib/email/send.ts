@@ -1213,8 +1213,15 @@ export function buildTeamDepositReceipt(params: TeamDepositReceiptParams): {
     params.teamFeeCents != null
       ? `$${(Math.max(0, params.teamFeeCents - params.depositCents) / 100).toLocaleString("en-US")}`
       : null;
+  // paymentDeadline is a full instant — pin to the org timezone
+  // (America/New_York) so this agrees with the fee box on team-create.tsx,
+  // which formats the same registrationCloses instant the same way.
   const deadline = params.paymentDeadline
-    ? params.paymentDeadline.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })
+    ? params.paymentDeadline.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        timeZone: "America/New_York",
+      })
     : null;
 
   const subject = `${params.teamName} is reserved — here's your team link`;

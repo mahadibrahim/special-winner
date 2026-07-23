@@ -10,7 +10,10 @@ const base = {
   inviteToken: "tok_abc",
   teamFeeCents: 100000,
   depositCents: 20000,
-  paymentDeadline: new Date("2026-09-03T00:00:00Z"),
+  // Noon ET, unambiguously Sep 3 in America/New_York — the deadline is
+  // rendered in the org timezone, not UTC (2026-09-03T00:00:00Z would be
+  // Sep 2, 8pm ET, which would falsely fail the "Sep 3" assertion below).
+  paymentDeadline: new Date("2026-09-03T16:00:00Z"),
 };
 
 describe("buildTeamDepositReceipt", () => {
