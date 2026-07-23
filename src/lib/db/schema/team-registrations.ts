@@ -47,7 +47,13 @@ export const teamRegistrations = pgTable("team_registrations", {
   brand: varchar("brand", { length: 20 }), // 'aspire' | 'soccerone' — set from host at creation
 
   // Phase B — captain payment backstop (TeamPayer model)
-  teamFeeCents: integer("team_fee_cents"),                 // snapshot of season team price at creation
+  // teamFeeCents holds the EFFECTIVE team total the roster splits: the
+  // early-bird snapshot at creation, minus any discount applied on the reserve
+  // step. discountCents records how much was taken off (original fee =
+  // teamFeeCents + discountCents), so the breakdown survives a reload.
+  teamFeeCents: integer("team_fee_cents"),                 // effective team total (early-bird − discount)
+  discountCodeId: uuid("discount_code_id"),                // soft ref to discount_codes.id (applied on reserve)
+  discountCents: integer("discount_cents"),                // amount taken off the team fee, if any
   depositCents: integer("deposit_cents").default(20000),   // $200 (locked decision)
   depositPaymentId: uuid("deposit_payment_id"),            // soft ref to payments.id, set after charge
   captainStripeCustomerId: varchar("captain_stripe_customer_id", { length: 255 }),

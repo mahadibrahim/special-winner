@@ -139,6 +139,9 @@ interface RegistrationWizardProps {
   /** Team name resolved alongside inviteeShareCents. Not yet consumed by
    *  wizard behavior (Task 5). */
   teamName?: string | null
+  /** Reports the live (step, stepCount) up to RegisterExperience so the
+   *  context rail's progress bar tracks the wizard. */
+  onStepChange?: (step: number, stepCount: number) => void
 }
 
 // Wizard steps by name. `currentStep` stays 1-based, but which step that
@@ -206,6 +209,7 @@ export default function RegistrationWizard({
   teamToken,
   inviteeShareCents,
   teamName,
+  onStepChange,
 }: RegistrationWizardProps) {
   const isGuest = user === null
   useHydrationBeacon()
@@ -236,6 +240,11 @@ export default function RegistrationWizard({
     name: STEP_META[n].name,
     icon: STEP_META[n].icon,
   }))
+
+  // Mirror the live step up to the context rail (see RegisterExperience).
+  useEffect(() => {
+    onStepChange?.(currentStep, stepList.length)
+  }, [currentStep, stepList.length, onStepChange])
 
   // ── Submission state ─────────────────────────────────────────────────────
   const [isSubmitting, setIsSubmitting] = useState(false)

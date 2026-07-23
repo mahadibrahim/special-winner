@@ -125,6 +125,18 @@ function PaymentForm({
   const [expressMethodsAvailable, setExpressMethodsAvailable] = useState(false);
   const [expressLoadErrored, setExpressLoadErrored] = useState(false);
 
+  // Link is desktop-only by product decision: on mobile the native wallets
+  // (Apple Pay on iOS, Google Pay on Android) are the high-conversion path, so
+  // the express Link button is suppressed below the desktop breakpoint. Read
+  // once at mount — the element's paymentMethods option is evaluated at
+  // creation, so a mid-checkout resize across the breakpoint won't flip it
+  // (a non-issue for real sessions). Apple/Google Pay stay "auto" everywhere.
+  const [isDesktop] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(min-width: 1024px)").matches,
+  );
+
   // Shared by the card-form Pay button and the Express Checkout Element's
   // onConfirm — both call stripe.confirmPayment(...) the same way and must
   // settle the result identically (success tracking, onSuccess, pending
@@ -234,6 +246,13 @@ function PaymentForm({
               vertical gap before onReady resolves or when zero wallets are
               available on this device/browser. */}
           <ExpressCheckoutElement
+            options={{
+              paymentMethods: {
+                link: isDesktop ? "auto" : "never",
+                applePay: "auto",
+                googlePay: "auto",
+              },
+            }}
             onConfirm={handleExpressConfirm}
             onReady={(event: StripeExpressCheckoutElementReadyEvent) => {
               setExpressMethodsAvailable(
