@@ -196,6 +196,9 @@ export default function TeamCreate({
   const [captainName, setCaptainName] = useState(defaultName);
   const [captainEmail, setCaptainEmail] = useState(defaultEmail);
   const [notes, setNotes] = useState("");
+  // Explicit affirmation that the saved card may be charged off-session for
+  // unpaid teammate shares after the deadline (required to reserve).
+  const [backstopConsent, setBackstopConsent] = useState(false);
 
   const [status, setStatus] = useState<
     "idle" | "submitting" | "deposit" | "ok" | "error" | "link_sent"
@@ -209,16 +212,24 @@ export default function TeamCreate({
   // captains, whose submit goes to the magic-link auth endpoints (which
   // verify Turnstile server-side and fail closed in prod).
   const [turnstileToken, setTurnstileToken] = useState("");
+  const [sendingLink, setSendingLink] = useState(false);
   const [joinUrl, setJoinUrl] = useState<string | null>(null);
   const [inviteToken, setInviteToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   // Captain $200 deposit (saves a card for the post-deadline backstop charge).
-  const [depositClientSecret, setDepositClientSecret] = useState<string | null>(null);
-  const [depositPublishableKey, setDepositPublishableKey] = useState<string | null>(null);
+  // Set by `prepare`; nothing (account/team) exists until this deposit succeeds.
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [publishableKey, setPublishableKey] = useState<string | null>(null);
+  const [preparing, setPreparing] = useState(false);
 
-  // Snapshot of the season team fee (returned by the create endpoint), used to
-  // default the per-teammate even split of (teamFee − $200 captain deposit).
+  // Guest email gate: does this email already have an account? null = unchecked.
+  // Existing → sign-in first (before the rest of the form); new → deferred flow.
+  const [emailExists, setEmailExists] = useState<boolean | null>(isAuthed ? false : null);
+  const [checkingEmail, setCheckingEmail] = useState(false);
+
+  // Snapshot of the (discounted) team fee, returned by prepare/finalize and used
+  // to default the per-teammate even split of (teamFee − $200 captain deposit).
   const [teamFeeCents, setTeamFeeCents] = useState<number | null>(null);
 
   // Invite-by-email state: a repeatable list of { email, amount } rows. `amount`
@@ -263,70 +274,69 @@ export default function TeamCreate({
   // effect-dependency semantics do the guarding: the body only reruns when
   // `status` actually changes value, never on an unrelated re-render.
   useEffect(() => {
-    if (status === "idle") trackTeamCreateViewed({ seasonId });
-    else if (status === "submitting") trackTeamCreateSubmitted({ seasonId, authed: isAuthed });
-    else if (status === "deposit") trackTeamDepositViewed({ seasonId });
-    else if (status === "ok") trackTeamHqViewed({ seasonId });
-  }, [status, seasonId, isAuthed]);
-
-  // Mirror the flow step + applied discount up to the context rail.
+    if (status === "ok") trackTeamHqViewed({ seasonId });
+    else if (status === "idle") trackTeamCreateViewed({ seasonId });
+  }, [status, seasonId]);
+  // "Deposit viewed" fires when the payment element is revealed (post-prepare).
   useEffect(() => {
-    onStepChange?.(status === "deposit" ? 2 : status === "ok" ? 3 : 1);
+    if (clientSecret) trackTeamDepositViewed({ seasonId });
+  }, [clientSecret, seasonId]);
+
+  // Mirror the flow step + applied discount up to the context rail. Details +
+  // payment now share one screen, so the team flow is 3 steps: Reserve (1) →
+  // Register yourself (2, the HQ screen) → Invite roster (3, optional).
+  useEffect(() => {
+    onStepChange?.(status === "ok" ? 2 : 1);
   }, [status, onStepChange]);
   useEffect(() => {
     onDiscountChange?.(discount?.cents ?? null);
   }, [discount, onDiscountChange]);
 
-  // Apply / remove a discount code against the just-created team. The endpoint
-  // validates the code and rewrites the stored team fee; we mirror its result
-  // into local state so the fee box + rail + invite defaults all agree.
+  // Validate a discount code against the season (no team exists yet — it's
+  // created at finalize). Client-side validation is for immediate feedback and
+  // the breakdown; `prepare` re-validates + applies it authoritatively. The
+  // deposit is always $200, so the code can take at most (fee − $200) off.
   const applyDiscount = async () => {
     const code = discountInput.trim();
-    if (!code || !inviteToken) return;
+    if (!code) return;
+    const feeDollars = season ? (season.effectiveTeamPrice ?? season.teamPrice ?? season.price) : null;
+    if (feeDollars == null) return;
+    const feeCents = Math.round(feeDollars * 100);
+    const maxOffCents = feeCents - CAPTAIN_DEPOSIT_CENTS;
     setDiscountBusy(true);
     setDiscountError(null);
     try {
-      const res = await fetch(
-        `/api/public/team-registrations/${encodeURIComponent(inviteToken)}/discount`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code }),
-        },
-      );
+      const res = await fetch("/api/public/validate-discount", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, seasonId, purchaseAmountCents: feeCents }),
+      });
       const json = await res.json();
-      if (!res.ok || !json.applied) {
+      if (!res.ok || !json.valid) {
         setDiscountError(json.error ?? "That code isn't valid for this league.");
         return;
       }
-      setDiscount({ code: json.code, cents: json.discountCents });
-      if (typeof json.teamFeeCents === "number") setTeamFeeCents(json.teamFeeCents);
+      const cents: number = json.calculatedDiscount?.discountAmountCents ?? 0;
+      if (cents > maxOffCents) {
+        setDiscountError(
+          `A $${CAPTAIN_DEPOSIT_DOLLARS} deposit is always due today, so a code can take at most $${(maxOffCents / 100).toLocaleString()} off this team. This one's larger than that.`,
+        );
+        return;
+      }
+      setDiscount({ code: json.discount?.code ?? code.toUpperCase(), cents });
       setDiscountInput("");
       setDiscountOpen(false);
     } catch {
-      setDiscountError("Couldn't apply that code. Please try again.");
+      setDiscountError("Couldn't check that code. Please try again.");
     } finally {
       setDiscountBusy(false);
     }
   };
 
-  const removeDiscount = async () => {
-    if (!inviteToken) return;
-    setDiscountBusy(true);
+  // No team to mutate pre-payment — just clear local state.
+  const removeDiscount = () => {
+    setDiscount(null);
     setDiscountError(null);
-    try {
-      const res = await fetch(
-        `/api/public/team-registrations/${encodeURIComponent(inviteToken)}/discount`,
-        { method: "DELETE" },
-      );
-      const json = await res.json();
-      if (res.ok && typeof json.teamFeeCents === "number") setTeamFeeCents(json.teamFeeCents);
-    } catch {
-      // Best-effort — a failed remove just leaves the discount applied.
-    } finally {
-      setDiscount(null);
-      setDiscountBusy(false);
-    }
   };
 
   // Rehydrate a stashed form on return (the signed-out captain tapped their
@@ -431,19 +441,45 @@ export default function TeamCreate({
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setStatus("submitting");
-    setError(null);
-    setLinkSentReason(null);
-
-    // Anonymous captains POST directly — same as authed — rather than
-    // pre-emptively detouring through a magic link. The endpoint accepts
-    // anonymous callers: a new email upserts a guest account + session and
-    // creates the team in one request; an existing email 409s below without
-    // creating a team.
+  // Guest email gate: is this email already an account? Existing → sign-in
+  // first (the render shows the gate); new → the deferred reserve continues.
+  const checkEmail = async () => {
+    if (isAuthed) return;
+    const email = captainEmail.trim().toLowerCase();
+    if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+      setEmailExists(null);
+      return;
+    }
+    setCheckingEmail(true);
     try {
-      const res = await fetch("/api/public/team-registrations", {
+      const r = await fetch(`/api/auth/check-email?email=${encodeURIComponent(email)}`);
+      setEmailExists(r.ok ? (await r.json()).exists === true : false);
+    } catch {
+      setEmailExists(false); // fail open — prepare re-checks server-side anyway
+    } finally {
+      setCheckingEmail(false);
+    }
+  };
+
+  const formReady =
+    teamName.trim().length > 0 &&
+    captainName.trim().length > 0 &&
+    captainEmail.trim().length > 0 &&
+    backstopConsent &&
+    (isAuthed || emailExists === false);
+
+  /**
+   * Prepare the $200 deposit WITHOUT creating an account or team. On success
+   * the payment element reveals inline (same page). A guest whose email turns
+   * out to have an account is bounced to the magic-link sign-in.
+   */
+  const prepareDeposit = async () => {
+    if (!formReady || preparing) return;
+    setPreparing(true);
+    setError(null);
+    trackTeamCreateSubmitted({ seasonId, authed: isAuthed });
+    try {
+      const res = await fetch("/api/public/team-registrations/prepare", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -453,105 +489,67 @@ export default function TeamCreate({
           captainEmail: captainEmail.trim(),
           notes: notes.trim() || undefined,
           backstopConsent: true,
+          discountCode: discount?.code,
         }),
       });
-      if (!res.ok) {
-        // Anonymous submit, email already has an account: no team was
-        // created server-side — fall back to the existing magic-link flow so
-        // the real owner can sign in and pick this up.
-        if (res.status === 409) {
-          try {
-            await requestMagicLink();
-            setLinkSentReason("account_exists");
-            setStatus("link_sent");
-            return;
-          } catch (err) {
-            throw new Error(
-              err instanceof Error ? err.message : "Could not send your sign-in link",
-            );
-          }
-        }
-        // Friendly fallback: a stale session can still 401 here even though
-        // the page thought we were signed in — fall back to the magic link
-        // instead of surfacing the raw error.
-        if (res.status === 401) {
-          try {
-            await requestMagicLink();
-            setStatus("link_sent");
-            return;
-          } catch {
-            throw new Error(
-              "Please sign in to reserve a team — we couldn't send a sign-in link automatically.",
-            );
-          }
-        }
-        const json = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(json.error ?? "Could not create team");
+      const json = await res.json().catch(() => ({}));
+      if (res.status === 409 && json.needsSignIn) {
+        setEmailExists(true); // render the sign-in gate
+        return;
+      }
+      if (!res.ok || !json.ok) {
+        throw new Error(json.error ?? "We couldn't start your reservation. Please try again.");
+      }
+      if (typeof json.teamFeeCents === "number") setTeamFeeCents(json.teamFeeCents);
+      setPublishableKey(json.publishableKey);
+      setClientSecret(json.clientSecret);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "We couldn't start your reservation.");
+    } finally {
+      setPreparing(false);
+    }
+  };
+
+  /**
+   * The deposit succeeded — create the account + team (server-side, verified
+   * against Stripe) and advance to the team HQ. The webhook backstop does the
+   * same team creation if this call ever fails, so a slow/failed finalize never
+   * loses a paid captain their team; it just means they sign in to find it.
+   */
+  const finalize = async (paymentIntentId: string): Promise<void> => {
+    try {
+      const res = await fetch("/api/public/team-registrations/finalize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paymentIntentId }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.ok) {
+        throw new Error(json.error ?? "We couldn't finish setting up your team.");
       }
       clearDraft();
-      const json = (await res.json()) as {
-        joinUrl: string;
-        inviteToken: string;
-        teamFeeCents?: number;
-        depositClientSecret?: string;
-        publishableKey?: string;
-      };
       setInviteToken(json.inviteToken);
-      if (typeof json.teamFeeCents === "number") {
-        setTeamFeeCents(json.teamFeeCents);
-        // Seed the two starter rows with the even split of (teamFee − $200).
-        const splittable = Math.max(0, json.teamFeeCents - CAPTAIN_DEPOSIT_CENTS);
+      if (teamFeeCents != null) {
+        const splittable = Math.max(0, teamFeeCents - CAPTAIN_DEPOSIT_CENTS);
         const [a, b] = evenSplitCents(splittable, 2);
         setInviteRows([
           { email: "", amount: ((a ?? 0) / 100).toFixed(2) },
           { email: "", amount: ((b ?? 0) / 100).toFixed(2) },
         ]);
       }
-      // The shareable link is the one-door register URL tagged to this team.
       setJoinUrl(
         `${window.location.origin}/register/${seasonId}?team=${encodeURIComponent(json.inviteToken)}`,
       );
-      // Collect the $200 deposit before revealing the share view. If the server
-      // didn't return a client secret (Stripe unconfigured), fall through to the
-      // share view so the flow isn't fully blocked locally.
-      if (json.depositClientSecret && json.publishableKey) {
-        setDepositClientSecret(json.depositClientSecret);
-        setDepositPublishableKey(json.publishableKey);
-        setStatus("deposit");
-      } else {
-        setStatus("ok");
-      }
+      setStatus("ok");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not create team");
-      setStatus("error");
-    }
-  };
-
-  /**
-   * Tell the server a deposit PaymentIntent succeeded, right after Stripe.js
-   * confirms it client-side — a bridge over the payment_intent.succeeded
-   * webhook's lag window (mirrors recordConfirmedPayment's role for
-   * registration payments, but this one is money-relevant server state, not
-   * a localStorage display hint, so it has to be a real request that the
-   * server re-verifies against Stripe). Never throws — a failure here just
-   * means the credit stays invisible until the webhook lands on its own.
-   */
-  const confirmDeposit = async (paymentIntentId: string): Promise<void> => {
-    if (!inviteToken) return;
-    try {
-      const res = await fetch(
-        `/api/public/team-registrations/${encodeURIComponent(inviteToken)}/confirm-deposit`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ paymentIntentId }),
-        },
+      // The deposit is safe and the webhook backstop will create the team —
+      // surface a recoverable message rather than losing the captain.
+      setError(
+        err instanceof Error
+          ? `${err.message} Your $${CAPTAIN_DEPOSIT_DOLLARS} deposit went through — refresh or check your email for your team link.`
+          : "Your deposit went through — check your email for your team link.",
       );
-      if (!res.ok) {
-        console.error("[team-create] confirm-deposit failed", res.status);
-      }
-    } catch (err) {
-      console.error("[team-create] confirm-deposit request failed", err);
+      setStatus("error");
     }
   };
 
@@ -646,161 +644,6 @@ export default function TeamCreate({
             )}
           </div>
         </div>
-      </div>
-    );
-  }
-
-  if (status === "deposit" && depositClientSecret && depositPublishableKey) {
-    return (
-      <div className="space-y-6">
-        <div className="space-y-4">
-          <div>
-            <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">
-              Step 2 of 4 · Required
-            </p>
-            <h1 className="font-display text-2xl text-ink mt-1 mb-2">
-              Reserve your team
-            </h1>
-            <p className="text-ink-2 text-sm leading-relaxed">
-              <b>${CAPTAIN_DEPOSIT_DOLLARS}</b> reserves your team today. Your roster
-              splits the rest when they register.
-            </p>
-          </div>
-
-          {/* Price breakdown — team fee (early-bird), any discount, then the
-              $200 due today and the roster's remaining split. */}
-          <div className="rounded-xl border border-ink/10 bg-paper p-4">
-            <table className="w-full text-sm">
-              <tbody>
-                <tr>
-                  <td className="py-0.5 text-ink-2">
-                    Team fee
-                    {season?.teamEarlyBirdActive && (
-                      <span className="ml-2 rounded bg-ochre px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wide text-ink align-middle">
-                        Early-bird
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-0.5 text-right tabular-nums">
-                    {story?.baseTotal && (
-                      <span className="mr-1.5 text-ink-muted line-through">{story.baseTotal}</span>
-                    )}
-                    {story ? story.total : baseFeeDollars != null ? `$${baseFeeDollars.toLocaleString()}` : "—"}
-                  </td>
-                </tr>
-                {discount && (
-                  <tr className="text-sage">
-                    <td className="py-0.5">Discount · {discount.code}</td>
-                    <td className="py-0.5 text-right tabular-nums">−${(discount.cents / 100).toLocaleString()}</td>
-                  </tr>
-                )}
-                {discount && feeTotalDollars != null && (
-                  <tr className="border-t border-ink/10">
-                    <td className="pt-2 text-ink-2">Team total</td>
-                    <td className="pt-2 text-right tabular-nums">${feeTotalDollars.toLocaleString()}</td>
-                  </tr>
-                )}
-                <tr className={discount ? "" : "border-t border-ink/10"}>
-                  <td className={`${discount ? "pt-1" : "pt-2"} font-semibold text-ink`}>Due today (deposit)</td>
-                  <td className={`${discount ? "pt-1" : "pt-2"} text-right font-semibold tabular-nums text-primary-orange`}>
-                    ${CAPTAIN_DEPOSIT_DOLLARS}
-                  </td>
-                </tr>
-                {rosterRemainderDollars != null && (
-                  <tr>
-                    <td className="text-ink-muted text-xs">Your roster pays · split among teammates</td>
-                    <td className="text-right text-ink-muted text-xs tabular-nums">${rosterRemainderDollars.toLocaleString()}</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Discount code — collapsed until asked for, so it never competes
-              with the pay action. Applying rewrites the team total above and
-              the roster split; the $200 deposit is unchanged. */}
-          {discount ? (
-            <div className="flex items-center gap-2 rounded-xl border border-sage/40 bg-sage/10 px-4 py-3 text-sm">
-              <span>
-                Code <span className="font-mono font-semibold text-sage">{discount.code}</span> applied —
-                team total −${(discount.cents / 100).toLocaleString()}
-              </span>
-              <button
-                type="button"
-                onClick={removeDiscount}
-                disabled={discountBusy}
-                className="ml-auto text-xs text-ink-muted underline disabled:opacity-50"
-              >
-                Remove
-              </button>
-            </div>
-          ) : discountOpen ? (
-            <div className="rounded-xl border border-ink/10 bg-paper p-3">
-              <div className="flex gap-2">
-                <input
-                  value={discountInput}
-                  onChange={(e) => setDiscountInput(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); applyDiscount(); } }}
-                  placeholder="Enter code"
-                  autoFocus
-                  className="flex-1 rounded-lg border border-ink/15 bg-paper px-3 py-2 text-sm font-mono uppercase tracking-wide focus:outline-none focus:border-primary-orange"
-                />
-                <button
-                  type="button"
-                  onClick={applyDiscount}
-                  disabled={discountBusy || !discountInput.trim()}
-                  className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-cream disabled:opacity-50"
-                >
-                  {discountBusy ? "…" : "Apply"}
-                </button>
-              </div>
-              {discountError && <p className="mt-2 text-xs text-red-500">{discountError}</p>}
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => setDiscountOpen(true)}
-              className="text-sm text-ink-2 underline underline-offset-2 hover:text-primary-orange"
-            >
-              Have a discount code?
-            </button>
-          )}
-        </div>
-        <EmbeddedPayment
-          clientSecret={depositClientSecret}
-          publishableKey={depositPublishableKey}
-          seasonItem={{
-            id: seasonId,
-            name: teamName.trim() || "Team deposit",
-            category: "Team",
-            category2: "Team",
-            priceCents: 20000,
-          }}
-          valueCents={20000}
-          paymentType="deposit"
-          returnUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/register/${seasonId}?team=${encodeURIComponent(inviteToken ?? "")}`}
-          onSuccess={async (paymentIntentId) => {
-            // Best-effort bridge so the captain's own "Register myself"
-            // click right after this doesn't beat the payment_intent.succeeded
-            // webhook and get quoted full price (captain-credit.ts reads only
-            // webhook-written state). The webhook remains the source of
-            // truth — a failed/slow confirm here just means the credit stays
-            // invisible for a few more seconds, not that it's lost.
-            await confirmDeposit(paymentIntentId);
-            setStatus("ok");
-          }}
-          onCancel={() => {
-            // Back out of the deposit; the team row exists but is unpaid. Let
-            // the captain retry by re-rendering the form.
-            setStatus("idle");
-            setDepositClientSecret(null);
-            setDepositPublishableKey(null);
-          }}
-        />
-        <p className="text-xs text-ink-muted leading-relaxed">
-          Your card stays on file for the team — unpaid teammate shares are
-          charged to it after the deadline.
-        </p>
       </div>
     );
   }
@@ -965,145 +808,282 @@ export default function TeamCreate({
     );
   }
 
-  return (
-    <div>
-      <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">
-        Step 1 of 4
-      </p>
-      <h1 className="font-display text-2xl text-ink mt-1 mb-4">Bring a team</h1>
-      <form onSubmit={handleSubmit} className="space-y-5">
-        <label className="block">
-          <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted block mb-2">
-            Team name <span className="text-primary-orange">*</span>
-          </span>
-          <input
-            type="text"
-            required
-            value={teamName}
-            onChange={(e) => setTeamName(e.target.value)}
-            maxLength={200}
-            placeholder="e.g. The Last Pick, FC Worthington, Friday Crew"
-            autoCapitalize="words"
-            enterKeyHint="next"
-            className="w-full px-3 py-2.5 bg-paper border border-ink/15 rounded-lg text-ink placeholder:text-ink-faint focus:outline-none focus:border-primary-orange transition-colors"
-          />
-        </label>
+  const labelClass = "text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted block mb-2";
+  const inputClass =
+    "w-full px-3 py-2.5 bg-paper border border-ink/15 rounded-lg text-ink placeholder:text-ink-faint focus:outline-none focus:border-primary-orange transition-colors disabled:opacity-60";
+  const validEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(captainEmail.trim());
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+  // Price breakdown — shown in both the form and the payment view.
+  const breakdown = (
+    <div className="rounded-xl border border-ink/10 bg-paper p-4">
+      <table className="w-full text-sm">
+        <tbody>
+          <tr>
+            <td className="py-0.5 text-ink-2">
+              Team fee
+              {season?.teamEarlyBirdActive && (
+                <span className="ml-2 rounded bg-ochre px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wide text-ink align-middle">
+                  Early-bird
+                </span>
+              )}
+            </td>
+            <td className="py-0.5 text-right tabular-nums">
+              {story?.baseTotal && <span className="mr-1.5 text-ink-muted line-through">{story.baseTotal}</span>}
+              {story ? story.total : baseFeeDollars != null ? `$${baseFeeDollars.toLocaleString()}` : "—"}
+            </td>
+          </tr>
+          {discount && (
+            <tr className="text-sage">
+              <td className="py-0.5">Discount · {discount.code}</td>
+              <td className="py-0.5 text-right tabular-nums">−${(discount.cents / 100).toLocaleString()}</td>
+            </tr>
+          )}
+          {discount && feeTotalDollars != null && (
+            <tr className="border-t border-ink/10">
+              <td className="pt-2 text-ink-2">Team total</td>
+              <td className="pt-2 text-right tabular-nums">${feeTotalDollars.toLocaleString()}</td>
+            </tr>
+          )}
+          <tr className={discount ? "" : "border-t border-ink/10"}>
+            <td className={`${discount ? "pt-1" : "pt-2"} font-semibold text-ink`}>Due today (deposit)</td>
+            <td className={`${discount ? "pt-1" : "pt-2"} text-right font-semibold tabular-nums text-primary-orange`}>
+              ${CAPTAIN_DEPOSIT_DOLLARS}
+            </td>
+          </tr>
+          {rosterRemainderDollars != null && (
+            <tr>
+              <td className="text-ink-muted text-xs">Your roster pays · split among teammates</td>
+              <td className="text-right text-ink-muted text-xs tabular-nums">${rosterRemainderDollars.toLocaleString()}</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+
+  const discountUi = discount ? (
+    <div className="flex items-center gap-2 rounded-xl border border-sage/40 bg-sage/10 px-4 py-3 text-sm">
+      <span>
+        Code <span className="font-mono font-semibold text-sage">{discount.code}</span> applied —
+        team total −${(discount.cents / 100).toLocaleString()}
+      </span>
+      <button type="button" onClick={removeDiscount} className="ml-auto text-xs text-ink-muted underline">Remove</button>
+    </div>
+  ) : discountOpen ? (
+    <div className="rounded-xl border border-ink/10 bg-paper p-3">
+      <div className="flex gap-2">
+        <input
+          value={discountInput}
+          onChange={(e) => setDiscountInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); applyDiscount(); } }}
+          placeholder="Enter code"
+          autoFocus
+          className="flex-1 rounded-lg border border-ink/15 bg-paper px-3 py-2 text-sm font-mono uppercase tracking-wide focus:outline-none focus:border-primary-orange"
+        />
+        <button
+          type="button"
+          onClick={applyDiscount}
+          disabled={discountBusy || !discountInput.trim()}
+          className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-cream disabled:opacity-50"
+        >
+          {discountBusy ? "…" : "Apply"}
+        </button>
+      </div>
+      {discountError && <p className="mt-2 text-xs text-red-500">{discountError}</p>}
+    </div>
+  ) : (
+    <button
+      type="button"
+      onClick={() => setDiscountOpen(true)}
+      className="text-sm text-ink-2 underline underline-offset-2 hover:text-primary-orange"
+    >
+      Have a discount code?
+    </button>
+  );
+
+  const handleSendSignIn = async () => {
+    setSendingLink(true);
+    setError(null);
+    try {
+      await requestMagicLink();
+      setLinkSentReason("account_exists");
+      setStatus("link_sent");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not send your sign-in link");
+    } finally {
+      setSendingLink(false);
+    }
+  };
+
+  // ── One page: identity → (sign-in gate | form) → inline payment ───────────
+  return (
+    <div className="space-y-5">
+      <div>
+        <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">Step 1 of 3 · Required</p>
+        <h1 className="font-display text-2xl text-ink mt-1 mb-2">Reserve your team</h1>
+        <p className="text-ink-2 text-sm leading-relaxed">
+          <b>${CAPTAIN_DEPOSIT_DOLLARS}</b> reserves your team today. Your roster splits the rest when they register.
+        </p>
+      </div>
+
+      <label className="block">
+        <span className={labelClass}>Your email <span className="text-primary-orange">*</span></span>
+        <input
+          type="email"
+          value={captainEmail}
+          onChange={(e) => { setCaptainEmail(e.target.value); if (!isAuthed) setEmailExists(null); }}
+          onBlur={() => { if (!isAuthed && emailExists === null) checkEmail(); }}
+          disabled={isAuthed || clientSecret != null}
+          maxLength={320}
+          autoComplete="email"
+          inputMode="email"
+          placeholder="you@example.com"
+          className={inputClass}
+        />
+        {!isAuthed && emailExists === false && !clientSecret && (
+          <span className="mt-1.5 block text-xs text-sage">
+            ✓ New here — we'll set up your team account when your deposit goes through.
+          </span>
+        )}
+      </label>
+
+      {!isAuthed && emailExists === true ? (
+        /* Existing account → sign in before the rest of the form. */
+        <div className="rounded-xl border border-ochre/50 bg-ochre/10 p-4 space-y-3">
+          <h3 className="font-display text-lg text-ink">You already have an account</h3>
+          <p className="text-ink-2 text-sm">Sign in to keep your teams and registrations together — no password needed.</p>
+          <div className="flex justify-start">
+            <TurnstileWidget onToken={(t) => setTurnstileToken(t)} onError={() => setTurnstileToken("")} />
+          </div>
+          {error && <p className="text-sm text-red-500">{error}</p>}
+          <button
+            type="button"
+            onClick={handleSendSignIn}
+            disabled={sendingLink}
+            className="inline-flex items-center gap-2 bg-ink text-cream rounded-lg px-4 py-2.5 text-sm font-semibold disabled:opacity-60"
+          >
+            {sendingLink ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+            Email me a sign-in link
+          </button>
+          <button
+            type="button"
+            onClick={() => setEmailExists(null)}
+            className="block text-xs text-ink-muted underline"
+          >
+            wrong email? edit it
+          </button>
+        </div>
+      ) : !isAuthed && emailExists === null ? (
+        /* Guest hasn't confirmed the email yet — email-first gate. */
+        <div className="space-y-2">
+          {error && <p className="text-sm text-red-500">{error}</p>}
+          <button
+            type="button"
+            onClick={checkEmail}
+            disabled={!validEmail || checkingEmail}
+            className="inline-flex items-center gap-2 bg-ink text-cream rounded-lg px-5 py-2.5 text-sm font-semibold disabled:opacity-50"
+          >
+            {checkingEmail ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+            Continue →
+          </button>
+        </div>
+      ) : clientSecret && publishableKey ? (
+        /* Payment revealed inline — details locked with an edit affordance. */
+        <>
+          <div className="flex items-center justify-between rounded-xl border border-ink/10 bg-cream-2 px-4 py-3 text-sm">
+            <span className="text-ink font-semibold">{teamName.trim() || "Your team"}</span>
+            <button
+              type="button"
+              onClick={() => { setClientSecret(null); setPublishableKey(null); }}
+              className="text-xs text-ink-muted underline"
+            >
+              Edit details
+            </button>
+          </div>
+          {breakdown}
+          <EmbeddedPayment
+            clientSecret={clientSecret}
+            publishableKey={publishableKey}
+            seasonItem={{ id: seasonId, name: teamName.trim() || "Team deposit", category: "Team", category2: "Team", priceCents: CAPTAIN_DEPOSIT_CENTS }}
+            valueCents={CAPTAIN_DEPOSIT_CENTS}
+            paymentType="deposit"
+            returnUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/register/${seasonId}?mode=team`}
+            onSuccess={finalize}
+            onCancel={() => { setClientSecret(null); setPublishableKey(null); }}
+          />
+          {error && <p className="text-sm text-red-500">{error}</p>}
+          <p className="text-xs text-ink-muted leading-relaxed">
+            Your account and team are created when this deposit succeeds — nothing before. Your card stays on file for
+            the team; unpaid teammate shares are charged to it after the deadline.
+          </p>
+        </>
+      ) : (
+        /* Reserve form (authed, or guest with a new email). */
+        <>
           <label className="block">
-            <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted block mb-2">
-              Your name <span className="text-primary-orange">*</span>
-            </span>
+            <span className={labelClass}>Team name <span className="text-primary-orange">*</span></span>
             <input
               type="text"
-              required
+              value={teamName}
+              onChange={(e) => setTeamName(e.target.value)}
+              maxLength={200}
+              placeholder="e.g. The Last Pick, FC Worthington, Friday Crew"
+              autoCapitalize="words"
+              className={inputClass}
+            />
+          </label>
+          <label className="block">
+            <span className={labelClass}>Your name <span className="text-primary-orange">*</span></span>
+            <input
+              type="text"
               value={captainName}
               onChange={(e) => setCaptainName(e.target.value)}
               maxLength={200}
               autoComplete="name"
               autoCapitalize="words"
-              enterKeyHint="next"
-              className="w-full px-3 py-2.5 bg-paper border border-ink/15 rounded-lg text-ink focus:outline-none focus:border-primary-orange transition-colors"
+              className={inputClass}
             />
           </label>
           <label className="block">
-            <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted block mb-2">
-              Your email <span className="text-primary-orange">*</span>
-            </span>
-            <input
-              type="email"
-              required
-              value={captainEmail}
-              onChange={(e) => setCaptainEmail(e.target.value)}
-              maxLength={320}
-              autoComplete="email"
-              inputMode="email"
-              enterKeyHint="next"
-              className="w-full px-3 py-2.5 bg-paper border border-ink/15 rounded-lg text-ink focus:outline-none focus:border-primary-orange transition-colors"
+            <span className={labelClass}>Anything we should know? (optional)</span>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+              maxLength={2000}
+              placeholder="Returning team, schedule preferences, etc."
+              className={`${inputClass} resize-y`}
             />
           </label>
-        </div>
 
-        <label className="block">
-          <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted block mb-2">
-            Anything we should know? (optional)
-          </span>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={3}
-            maxLength={2000}
-            placeholder="Returning team from last season, schedule preferences, etc."
-            enterKeyHint="done"
-            className="w-full px-3 py-2.5 bg-paper border border-ink/15 rounded-lg text-ink focus:outline-none focus:border-primary-orange transition-colors resize-y"
-          />
-        </label>
-
-        {error && <p className="text-sm text-red-400">{error}</p>}
-
-        {!isAuthed && (
-          <div className="flex justify-start">
-            <TurnstileWidget
-              onToken={(t) => setTurnstileToken(t)}
-              onError={() => setTurnstileToken("")}
+          <label className="flex items-start gap-3 text-sm text-ink-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={backstopConsent}
+              onChange={(e) => setBackstopConsent(e.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-primary-orange"
             />
-          </div>
-        )}
+            <span>
+              OK to charge my saved card for any teammate shares still unpaid after
+              {deadlineLabel ? <> <b>{deadlineLabel}</b></> : " the deadline"}. My ${CAPTAIN_DEPOSIT_DOLLARS} deposit counts toward the team fee.
+            </span>
+          </label>
 
-        {story && (
-          <div className="rounded-xl border border-primary-orange/25 bg-cream-2 px-4 py-3 text-sm">
-            <div className="flex justify-between py-0.5">
-              <span className="text-ink">Today — reserves your team</span>
-              <span className="font-semibold text-ink">{story.deposit}</span>
-            </div>
-            <div className="flex justify-between py-0.5">
-              <span className="text-ink">Season team fee</span>
-              <span className="font-semibold text-ink">
-                {story.total}
-                {story.baseTotal && (
-                  <span className="ml-1.5 line-through text-ink-faint font-normal text-xs">{story.baseTotal}</span>
-                )}
-              </span>
-            </div>
-            {rosterRemainderDollars != null && (
-              <div className="flex justify-between py-0.5 text-ink-muted text-xs">
-                <span>Your roster pays the rest when they register</span>
-                <span>${rosterRemainderDollars.toLocaleString()}</span>
-              </div>
-            )}
-            <p className="border-t border-primary-orange/20 mt-2 pt-2 text-xs text-ink-muted leading-relaxed">
-              <span className="font-semibold text-ink">Your card stays on file for the team.</span>{" "}
-              Teammate shares still unpaid after{deadlineLabel ? <> <b>{deadlineLabel}</b></> : " the payment deadline"} are
-              charged to it. Your {story.deposit} counts toward the team fee.
-            </p>
-          </div>
-        )}
+          {breakdown}
+          {discountUi}
+          {error && <p className="text-sm text-red-500">{error}</p>}
 
-        <button
-          type="submit"
-          disabled={status === "submitting"}
-          className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-ink text-cream text-sm font-medium tracking-wide uppercase hover:bg-primary-orange transition-colors disabled:opacity-60"
-          style={{ letterSpacing: "0.08em" }}
-        >
-          {status === "submitting" ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Creating team…
-            </>
-          ) : (
-            `Reserve your team · $${CAPTAIN_DEPOSIT_DOLLARS} →`
-          )}
-        </button>
-        <p className="text-xs text-ink-muted leading-relaxed">
-          By reserving, you agree to the payment terms above.
-        </p>
-        {!isAuthed && (
-          <p className="text-xs text-ink-muted leading-relaxed">
-            Creating your team also creates your account. If this email
-            already has one, we'll send you a sign-in link instead.
-          </p>
-        )}
-      </form>
+          <button
+            type="button"
+            onClick={prepareDeposit}
+            disabled={!formReady || preparing}
+            className="inline-flex items-center justify-center gap-2 w-full px-7 py-3.5 bg-primary-orange text-cream text-sm font-semibold tracking-wide uppercase hover:bg-ink transition-colors disabled:opacity-50"
+            style={{ letterSpacing: "0.06em" }}
+          >
+            {preparing ? <><Loader2 className="w-4 h-4 animate-spin" /> Setting up payment…</> : "Continue to payment →"}
+          </button>
+        </>
+      )}
     </div>
   );
 }
