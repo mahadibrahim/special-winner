@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Locator, type Page } from "@playwright/test";
 import { waitForHydration, signIn } from "../utils/test-helpers";
 
 // The adult self-registration flow exercises the "Myself" card path through
@@ -8,6 +8,45 @@ import { waitForHydration, signIn } from "../utils/test-helpers";
 // pre-payment agreements/waiver step — Player advances straight to Payment.
 
 const ADULT_OPEN_SEASON_SLUG = "e2e-adult-open-soccer-2026";
+
+// Locator.isVisible({ timeout }) is a documented no-op in Playwright — it
+// does NOT wait, the option is ignored and it checks immediately. Several
+// checks below need real polling (the wizard's up-front state resolves
+// async, after an internal loading gate), so this wraps waitFor() instead.
+async function appears(locator: Locator, timeout = 8_000): Promise<boolean> {
+  return locator
+    .waitFor({ state: "visible", timeout })
+    .then(() => true)
+    .catch(() => false);
+}
+
+/**
+ * This account/season pair is shared with several API suites that
+ * create-but-never-confirm registrations here (see
+ * tests/api/registrations-self.test.ts, registrations-membership.test.ts),
+ * so a pending+unpaid self-registration for this season is very likely to
+ * already exist by the time these specs run. Task 5 surfaces that state up
+ * front now (not just behind ?payment=cancelled), so a spec that wants a
+ * *fresh* Player → Payment walk needs to dismiss the resume card first via
+ * "Start over" — that only clears the wizard's local resume state; the
+ * underlying pending row (if any) is untouched and just gets resumed again
+ * on the next payment-method commit.
+ *
+ * Returns "already-registered" when the account is fully blocked (a
+ * confirmed/paid row renders the "You're already in" state) — callers
+ * should skip in that case; there's no "start over" out of it, and clearing
+ * it isn't this suite's job.
+ */
+async function clearAnyResumeState(page: Page): Promise<"clear" | "already-registered"> {
+  if (await appears(page.getByText(/You're already in/i))) {
+    return "already-registered";
+  }
+  const startOver = page.getByRole("button", { name: /start over/i });
+  if (await appears(startOver, 3_000)) {
+    await startOver.click();
+  }
+  return "clear";
+}
 
 test.describe("Adult self registration", { tag: "@critical" }, () => {
   test.setTimeout(120_000);
@@ -67,6 +106,17 @@ test.describe("Adult self registration", { tag: "@critical" }, () => {
         // No spinner shown — that's fine
       });
 
+    // Task 5: this account may already have a resumable or blocking
+    // registration for this season from other suites (see
+    // clearAnyResumeState above) — dismiss the resume card, or skip
+    // outright if fully blocked, so this test's fresh-wizard walk is
+    // deterministic regardless of prior test runs.
+    const priorState = await clearAnyResumeState(page);
+    test.skip(
+      priorState === "already-registered",
+      "Account already has a confirmed registration for this season",
+    );
+
     // 3. Step 1: Who are you registering?
     await expect(page.getByText("Who are you registering?")).toBeVisible({ timeout: 10_000 });
 
@@ -104,5 +154,73 @@ test.describe("Adult self registration", { tag: "@critical" }, () => {
 
     // Do NOT click "Complete Registration" — we don't want to hit Stripe.
     // Reaching this step confirms the adult self-registration wizard path works.
+  });
+
+  test("returning to the register page after starting payment shows the resume card (Task 5)", async ({
+    page,
+  }) => {
+    // Selecting a payment method is what actually creates the registration
+    // (POST /api/registrations) — it's the single commit action on this
+    // step, there's no separate "continue" button. We deliberately go this
+    // far (but no further — never completing the embedded Stripe form) so
+    // the account ends up with a real, deterministic pending+unpaid row for
+    // this season: either freshly created here, or resumed if a prior test
+    // run already left one (this account/season pair is shared with several
+    // API suites that create-but-never-confirm registrations here — see
+    // tests/api/registrations-self.test.ts and registrations-membership.test.ts).
+    // Either way the row stays pending+unpaid, since nothing in this suite
+    // ever completes a real Stripe payment against it.
+    await signIn(page, "adult-self@test.aspiresports.com", "TestParent123!");
+    await expect(page).toHaveURL(/\/(dashboard|admin)/);
+
+    await page.goto(`/register/${seasonId}`, { waitUntil: "domcontentloaded" });
+    await waitForHydration(page);
+
+    const joinSolo = page.getByText(/Join solo/i);
+    if (await appears(joinSolo, 8_000)) await joinSolo.click();
+
+    // If a prior run already left this account already-registered (e.g. a
+    // confirmed row from some unrelated flow), the wizard short-circuits to
+    // the "You're already in" state instead of Player/Payment — that's still
+    // a valid Task 5 state, just not the one this test targets. Skip rather
+    // than false-fail in that case.
+    if (await appears(page.getByText(/You're already in/i), 10_000)) {
+      test.skip(true, "Account already has a confirmed registration for this season");
+    }
+
+    // If we land straight on the resume card (a prior run already created
+    // the pending row — very likely, see the comment above), there's
+    // nothing left to do — assert directly.
+    const resumeHeading = page.getByText(/Finish your payment/i);
+    if (await appears(resumeHeading, 3_000)) {
+      await expect(resumeHeading).toBeVisible();
+      return;
+    }
+
+    // Otherwise, walk through Player → Payment and commit to a method to
+    // create a fresh pending+unpaid row ourselves.
+    await expect(page.getByText("Who are you registering?")).toBeVisible({ timeout: 10_000 });
+    const myselfCard = page.getByText(/Myself —/);
+    await expect(myselfCard).toBeVisible({ timeout: 10_000 });
+    await myselfCard.click();
+    await page.getByRole("button", { name: /continue/i }).click();
+
+    await expect(page.getByText(/Payment Option/i)).toBeVisible({ timeout: 10_000 });
+    await page.getByRole("button", { name: /card or wallet/i }).click();
+
+    // Wait for the POST to settle — either the embedded Stripe form mounts,
+    // or (Stripe not configured locally) the request still creates the
+    // pending registration row even if the checkout-session step 404s/503s.
+    await page
+      .waitForSelector("text=Payment Details", { timeout: 15_000 })
+      .catch(() => {});
+
+    // Revisit the registration page on a plain, direct load — no
+    // ?payment=cancelled param. Task 5 widens the resume-payment fetch to
+    // run unconditionally for signed-in users, so the card must render here
+    // too, not just on the cancelled-checkout redirect.
+    await page.goto(`/register/${seasonId}`, { waitUntil: "domcontentloaded" });
+    await waitForHydration(page);
+    await expect(page.getByText(/Finish your payment/i)).toBeVisible({ timeout: 15_000 });
   });
 });

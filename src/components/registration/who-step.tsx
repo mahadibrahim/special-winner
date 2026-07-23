@@ -36,8 +36,17 @@ export interface SelfProfileUpdate {
 
 export type WhoStepProps = {
   /** Current user's first/last name + age eligibility for the active season.
-   * Pass null if the user has not signed in or has no birthDate on file. */
-  selfOption: { firstName: string; lastName: string; ageEligible: boolean } | null;
+   * Pass null if the user has not signed in or has no birthDate on file.
+   * `registered` marks a pre-existing, non-cancelled/refunded registration
+   * for THIS season — the card shows a "Registered ✓" badge and can't be
+   * selected (Task 5's per-person state; a global block is a decision the
+   * wizard makes separately for adult-locked flows, not this component). */
+  selfOption: {
+    firstName: string;
+    lastName: string;
+    ageEligible: boolean;
+    registered?: boolean;
+  } | null;
   /**
    * Current profile snapshot. When this is non-null AND any required field
    * is missing, the step renders an inline "Complete your profile" form
@@ -70,6 +79,8 @@ export type WhoStepProps = {
     // post-payment review (their row can surface here alongside dependents).
     birthDate: string | null;
     ageEligible: boolean;
+    /** Already has a non-cancelled/refunded registration for THIS season. */
+    registered?: boolean;
   }>;
   /** "self" or a dependent id, or null when nothing is selected yet. */
   selectedKey: string | null;
@@ -300,23 +311,40 @@ export function WhoStep({
         <Card
           role="button"
           aria-pressed={selectedKey === "self"}
-          aria-disabled={!selfOption.ageEligible}
-          tabIndex={selfOption.ageEligible ? 0 : -1}
-          onClick={() => selfOption.ageEligible && onSelect("self")}
+          aria-disabled={!selfOption.ageEligible || Boolean(selfOption.registered)}
+          tabIndex={selfOption.ageEligible && !selfOption.registered ? 0 : -1}
+          onClick={() =>
+            selfOption.ageEligible && !selfOption.registered && onSelect("self")
+          }
           onKeyDown={(e) => {
-            if ((e.key === "Enter" || e.key === " ") && selfOption.ageEligible) {
+            if (
+              (e.key === "Enter" || e.key === " ") &&
+              selfOption.ageEligible &&
+              !selfOption.registered
+            ) {
               e.preventDefault();
               onSelect("self");
             }
           }}
           className={`p-4 cursor-pointer transition-colors ${
             selectedKey === "self" ? "border-primary ring-2 ring-primary/30" : ""
-          } ${!selfOption.ageEligible ? "opacity-50 cursor-not-allowed" : ""}`}
+          } ${
+            !selfOption.ageEligible || selfOption.registered
+              ? "opacity-50 cursor-not-allowed"
+              : ""
+          }`}
         >
-          <div className="font-semibold">
-            Myself — {selfOption.firstName} {selfOption.lastName}
+          <div className="font-semibold flex items-center gap-2">
+            <span>
+              Myself — {selfOption.firstName} {selfOption.lastName}
+            </span>
+            {selfOption.registered && (
+              <span className="text-xs font-medium text-emerald-700 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                Registered ✓
+              </span>
+            )}
           </div>
-          {!selfOption.ageEligible && (
+          {!selfOption.registered && !selfOption.ageEligible && (
             <div className="text-xs text-muted-foreground mt-1">
               This program isn't in your age range.
             </div>
@@ -336,21 +364,28 @@ export function WhoStep({
             key={d.id}
             role="button"
             aria-pressed={selectedKey === d.id}
-            aria-disabled={!d.ageEligible}
-            tabIndex={d.ageEligible ? 0 : -1}
-            onClick={() => d.ageEligible && onSelect(d.id)}
+            aria-disabled={!d.ageEligible || Boolean(d.registered)}
+            tabIndex={d.ageEligible && !d.registered ? 0 : -1}
+            onClick={() => d.ageEligible && !d.registered && onSelect(d.id)}
             onKeyDown={(e) => {
-              if ((e.key === "Enter" || e.key === " ") && d.ageEligible) {
+              if ((e.key === "Enter" || e.key === " ") && d.ageEligible && !d.registered) {
                 e.preventDefault();
                 onSelect(d.id);
               }
             }}
             className={`p-4 cursor-pointer transition-colors ${
               selectedKey === d.id ? "border-primary ring-2 ring-primary/30" : ""
-            } ${!d.ageEligible ? "opacity-50 cursor-not-allowed" : ""}`}
+            } ${!d.ageEligible || d.registered ? "opacity-50 cursor-not-allowed" : ""}`}
           >
-            <div className="font-semibold">{d.firstName} {d.lastName}</div>
-            {!d.ageEligible && (
+            <div className="font-semibold flex items-center gap-2">
+              <span>{d.firstName} {d.lastName}</span>
+              {d.registered && (
+                <span className="text-xs font-medium text-emerald-700 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                  Registered ✓
+                </span>
+              )}
+            </div>
+            {!d.registered && !d.ageEligible && (
               <div className="text-xs text-muted-foreground mt-1">
                 Not in age range for this program.
               </div>

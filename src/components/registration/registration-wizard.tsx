@@ -93,6 +93,24 @@ interface FamilyMember {
   // post-payment review (their row can surface here alongside dependents).
   birthDate: string | null
   gender: string | null
+  // Present when this row is the signed-in user's own self-registration
+  // record (created by resolvePerson on first self-checkout). Used to match
+  // this user's own rows out of GET /api/registrations for the Task 5
+  // already-registered / resume states, and to keep that same row out of
+  // the dependents list (it belongs on the "Myself" card, not as a lookalike
+  // dependent entry).
+  selfUserId?: string | null
+}
+
+/** A signed-in user's non-cancelled/refunded registration row for THIS
+ *  season, as reduced from GET /api/registrations (Task 5's already-
+ *  registered / resume states). */
+interface ActiveSeasonRegistration {
+  id: string
+  status: string
+  paymentStatus: string
+  waiverSigned: boolean
+  familyMemberId: string
 }
 
 interface AuthedUser {
@@ -296,6 +314,28 @@ export default function RegistrationWizard({
   const [resumableRegistrationId, setResumableRegistrationId] = useState<string | null>(null)
   const [isResumingPayment, setIsResumingPayment] = useState(false)
 
+  // ── Already-registered state (authed only, Task 5) ───────────────────────
+  // The signed-in user's non-cancelled/refunded registrations for THIS
+  // season, keyed to their family member. Adult-locked v2 self flows use
+  // this to short-circuit the whole wizard; v1/dependent-capable flows only
+  // use it to mark individual people in WhoStep (a parent may still
+  // register a second, not-yet-registered child).
+  const [activeSeasonRegistrations, setActiveSeasonRegistrations] = useState<
+    ActiveSeasonRegistration[]
+  >([])
+  // Whether the GET /api/registrations check below has settled (success,
+  // no-op for guests, or error). The main loading gate waits on this too —
+  // without it, the wizard would render the normal Player step for a beat
+  // and then flash to the resume/already-registered card once this fetch
+  // resolves, since it's independent of the season+family-members fetch
+  // that isLoading otherwise tracks.
+  const [registrationsChecked, setRegistrationsChecked] = useState(isGuest)
+  // Set when the up-front fetch above found nothing but the submit still
+  // hit the server's 409 (race: another tab/device beat us, or the fetch was
+  // stale). v2 renders the same full-screen state as the up-front check;
+  // there's no detailed registration row to show in this case.
+  const [raceAlreadyRegistered, setRaceAlreadyRegistered] = useState(false)
+
   // Registration the live Stripe session is paying for — handlePaymentSuccess
   // needs it to record the client-confirmed payment signal (webhook-lag
   // bridge; see payment-confirmation-signal.ts).
@@ -438,32 +478,66 @@ export default function RegistrationWizard({
     }
   }, [isGuest])
 
-  // Check for cancelled-payment resumable registration
+  // Fetch the signed-in user's existing registrations for THIS season —
+  // unconditional (not just on the wasCancelled/?payment=cancelled redirect)
+  // so both the resume-payment card and the already-registered state render
+  // on a normal, direct visit too (Task 5). Guests are excluded — they have
+  // no account to look up and get their own friendly state via the
+  // guest-checkout 409 path (see guestAlreadyRegistered above).
   useEffect(() => {
-    if (!wasCancelled || isGuest) return
+    if (isGuest) return
     let cancelled = false
     ;(async () => {
       try {
         const res = await fetch("/api/registrations")
         if (!res.ok) return
         const data = await res.json()
-        const match = (data.registrations ?? []).find(
-          (r: { id: string; season: { id: string }; status: string; paymentStatus: string }) =>
+        const rows = (data.registrations ?? []) as Array<{
+          id: string
+          status: string
+          paymentStatus: string
+          waiverSigned: boolean
+          season: { id: string }
+          familyMember: { id: string }
+        }>
+        if (cancelled) return
+        // This season only. Cancelled/refunded rows are never "existing" —
+        // mirrors create-registration.ts's notInArray(["cancelled",
+        // "refunded"]) filter, so a member can freely re-register after
+        // cancelling or being refunded.
+        const active = rows.filter(
+          (r) =>
             r.season.id === seasonId &&
-            r.status === "pending" &&
-            r.paymentStatus === "unpaid"
+            r.status !== "cancelled" &&
+            r.status !== "refunded",
         )
-        if (!cancelled && match) {
-          setResumableRegistrationId(match.id)
-        }
+        const pendingUnpaid = active.find(
+          (r) => r.status === "pending" && r.paymentStatus === "unpaid",
+        )
+        if (pendingUnpaid) setResumableRegistrationId(pendingUnpaid.id)
+        setActiveSeasonRegistrations(
+          active.map((r) => ({
+            id: r.id,
+            status: r.status,
+            paymentStatus: r.paymentStatus,
+            waiverSigned: r.waiverSigned,
+            familyMemberId: r.familyMember.id,
+          })),
+        )
       } catch {
         // swallow — fall back to normal wizard
+      } finally {
+        // Settled (success, non-ok response, or network error) — the main
+        // loading gate below waits on this so the wizard never flashes the
+        // normal Player step before a resume/already-registered state has
+        // had a chance to resolve.
+        if (!cancelled) setRegistrationsChecked(true)
       }
     })()
     return () => {
       cancelled = true
     }
-  }, [wasCancelled, seasonId, isGuest])
+  }, [seasonId, isGuest])
 
   // ── Draft persistence (authed only) ───────────────────────────────────────
   // We persist non-sensitive wizard progress (selection key, signed-waiver
@@ -1168,6 +1242,23 @@ export default function RegistrationWizard({
 
       if (!regResponse.ok) {
         const data = await regResponse.json().catch(() => null)
+        if (data?.code === "already_registered") {
+          // Race/edge fallback: the up-front GET /api/registrations effect
+          // found nothing (another tab/device beat us, or the fetch was
+          // stale) but the server still knows better. v2 (adult-locked,
+          // self-only) renders the same full-screen state as the up-front
+          // check; v1 can't globally block — a different child may still be
+          // registrable — so it gets a named inline message instead of the
+          // generic banner.
+          if (flowVariant === "v2") {
+            setRaceAlreadyRegistered(true)
+          } else {
+            setError(
+              `${selectedDisplayName || "This player"} is already registered for this season.`,
+            )
+          }
+          return
+        }
         throw new Error(parseApiError(data, "Failed to complete registration"))
       }
 
@@ -1369,9 +1460,59 @@ export default function RegistrationWizard({
         })()
       : ""
 
+  // ── Already-registered derivations (Task 5) ────────────────────────────────
+  // A registration row "blocks" re-registration exactly when the server's
+  // createRegistration would 409 on it: any non-cancelled/refunded row that
+  // ISN'T pending+unpaid (pending+unpaid is the resumable case, handled
+  // separately by resumableRegistrationId above).
+  const isBlockingRegistration = (r: ActiveSeasonRegistration) =>
+    !(r.status === "pending" && r.paymentStatus === "unpaid")
+
+  const paymentStatusLabel = (paymentStatus: string): string => {
+    switch (paymentStatus) {
+      case "paid":
+        return "paid"
+      case "deposit_paid":
+        return "deposit paid"
+      case "partial_refund":
+        return "partially refunded"
+      case "refunded":
+        return "refunded"
+      default:
+        return "payment pending"
+    }
+  }
+
+  // The signed-in user's own family-member row, if resolvePerson has already
+  // created one (i.e. they've self-registered somewhere before). `null`
+  // means no self row exists yet, so there is nothing to block on.
+  const selfFamilyMemberId =
+    familyMembers.find((m) => m.selfUserId === user?.id)?.id ?? null
+
+  // v2 (adult-locked): the self row's blocking registration for THIS season,
+  // if any — drives the full-screen "You're already in" short-circuit.
+  const selfBlockingRegistration =
+    selfFamilyMemberId != null
+      ? activeSeasonRegistrations.find(
+          (r) => r.familyMemberId === selfFamilyMemberId && isBlockingRegistration(r),
+        ) ?? null
+      : null
+
+  // v1/dependent flows: every family member (self or dependent) who already
+  // has a blocking registration for this season — WhoStep marks these
+  // "Registered ✓" and disables selection, without blocking the rest of the
+  // wizard (a parent may still register a different, unregistered child).
+  const registeredMemberIds = new Set(
+    activeSeasonRegistrations.filter(isBlockingRegistration).map((r) => r.familyMemberId),
+  )
+
   // ── Loading / error states ─────────────────────────────────────────────────
 
-  if (isLoading) {
+  // Also waits on registrationsChecked (Task 5) so the wizard never flashes
+  // the normal Player step before the resume/already-registered check has
+  // had a chance to resolve — that fetch is independent of the season +
+  // family-members load isLoading otherwise tracks.
+  if (isLoading || !registrationsChecked) {
     // min-h matches the reserved skeleton height in RegisterExperience so
     // neither loading state collapses when the wizard content mounts.
     return (
@@ -1428,6 +1569,32 @@ export default function RegistrationWizard({
               Start over
             </Button>
           </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Already-registered early return (v2 self, Task 5) ──────────────────────
+  // Adult-locked seasons are self-only, so a blocking registration on the
+  // self row means THIS wizard is done — no steps to render. v1/dependent
+  // flows never hit this: they only get the per-person WhoStep marker below,
+  // since a parent may still register a different, unregistered child.
+  // Mutually exclusive with the resume card above (the DB's active-row
+  // unique index means a member can't be both pending+unpaid and blocking
+  // for the same season).
+  if (flowVariant === "v2" && !registrationComplete && (selfBlockingRegistration || raceAlreadyRegistered)) {
+    return (
+      <div className="mx-auto max-w-xl">
+        <div className="rounded-xl border border-ink/10 bg-cream px-6 py-8 shadow-sm text-center">
+          <h2 className="text-2xl font-medium text-ink mb-2">You're already in ✓</h2>
+          <p className="text-ink/80 mb-6">
+            {selfBlockingRegistration
+              ? `${selfBlockingRegistration.status === "waitlisted" ? "Waitlisted" : "Registered"} · ${paymentStatusLabel(selfBlockingRegistration.paymentStatus)} · waiver ${selfBlockingRegistration.waiverSigned ? "signed" : "pending"}`
+              : "You already have a registration for this season."}
+          </p>
+          <Button asChild>
+            <a href="/dashboard">View my registration</a>
+          </Button>
         </div>
       </div>
     )
@@ -1560,6 +1727,8 @@ export default function RegistrationWizard({
                     firstName: completedProfile.firstName || (user?.firstName ?? ""),
                     lastName: completedProfile.lastName || (user?.lastName ?? ""),
                     ageEligible: isAgeEligible(completedBirthDate, season),
+                    registered:
+                      selfFamilyMemberId != null && registeredMemberIds.has(selfFamilyMemberId),
                   }
                 : null
             }
@@ -1579,13 +1748,18 @@ export default function RegistrationWizard({
             dependentError={error}
             onCompleteProfile={handleCompleteProfile}
             adultOnly={(season?.ageGroup?.minAge ?? 0) >= 18}
-            dependents={familyMembers.map((m) => ({
-              id: m.id,
-              firstName: m.firstName,
-              lastName: m.lastName,
-              birthDate: m.birthDate,
-              ageEligible: isAgeEligible(m.birthDate, season),
-            }))}
+            dependents={familyMembers
+              // The signed-in user's own self-registration row belongs on
+              // the Myself card above, not as a lookalike dependent entry.
+              .filter((m) => m.selfUserId !== user?.id)
+              .map((m) => ({
+                id: m.id,
+                firstName: m.firstName,
+                lastName: m.lastName,
+                birthDate: m.birthDate,
+                ageEligible: isAgeEligible(m.birthDate, season),
+                registered: registeredMemberIds.has(m.id),
+              }))}
             selectedKey={selectedKey}
             onSelect={setSelectedKey}
             onAddDependent={() => setShowAddMember(true)}
