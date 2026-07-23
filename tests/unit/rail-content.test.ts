@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { tierColorClass, priceLabel, teamPriceStory, formatDayTime } from "@/lib/leagues/rail-content";
+import { tierColorClass, priceLabel, teamPriceStory, teamRailBreakdown, formatDayTime } from "@/lib/leagues/rail-content";
 
 describe("rail-content", () => {
   it("maps tier → text color (a=ink b=primary c=ochre d=sage)", () => {
@@ -102,5 +102,31 @@ describe("teamPriceStory", () => {
     expect(teamPriceStory({ price: 120, teamPrice: null })).toEqual({
       deposit: "$200", total: "$120", baseTotal: null,
     });
+  });
+});
+
+describe("teamRailBreakdown", () => {
+  it("no early-bird, no discount: total leads, no struck base", () => {
+    expect(teamRailBreakdown({ price: 120, teamPrice: 1000, effectiveTeamPrice: 1000 })).toEqual({
+      total: "$1,000", baseTotal: null, depositToday: "$200", rosterPays: "$800",
+    });
+  });
+  it("early-bird live: total is the early-bird price, base is the struck list price", () => {
+    expect(
+      teamRailBreakdown({ price: 120, teamPrice: 1050, effectiveTeamPrice: 1000, teamEarlyBirdActive: true }),
+    ).toEqual({ total: "$1,000", baseTotal: "$1,050", depositToday: "$200", rosterPays: "$800" });
+  });
+  it("discount applied strikes the early-bird price and shrinks the roster split", () => {
+    expect(
+      teamRailBreakdown(
+        { price: 120, teamPrice: 1050, effectiveTeamPrice: 1000, teamEarlyBirdActive: true },
+        { discountCents: 10000 },
+      ),
+    ).toEqual({ total: "$900", baseTotal: "$1,000", depositToday: "$200", rosterPays: "$700" });
+  });
+  it("discount without an early-bird window strikes the plain team fee", () => {
+    expect(
+      teamRailBreakdown({ price: 120, teamPrice: 1000, effectiveTeamPrice: 1000 }, { discountCents: 10000 }),
+    ).toEqual({ total: "$900", baseTotal: "$1,000", depositToday: "$200", rosterPays: "$700" });
   });
 });

@@ -164,6 +164,8 @@ export default function TeamCreate({
   defaultName,
   defaultEmail,
   onCaptainRegister,
+  onStepChange,
+  onDiscountChange,
   season,
 }: {
   seasonId: string;
@@ -173,6 +175,12 @@ export default function TeamCreate({
   defaultName: string;
   defaultEmail: string;
   onCaptainRegister: (inviteToken: string) => void;
+  /** Reports the team flow's step (1 details → 2 reserve → 3 register/invite)
+      up to the context rail's progress bar. */
+  onStepChange?: (step: number) => void;
+  /** Reports an applied team discount (cents) so the rail's total + roster
+      split reflect it. null = none. */
+  onDiscountChange?: (cents: number | null) => void;
   /** Season pricing/deadline snapshot from the register page's detail fetch —
       renders the fee box + deadline BEFORE the deposit charge. Optional so the
       component stays render-safe if the parent ever mounts it without one. */
@@ -223,9 +231,20 @@ export default function TeamCreate({
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [sentCount, setSentCount] = useState(0);
 
+  // Applied team discount (reduces the team total, never the $200 deposit).
+  // Set on the reserve screen; the server stores it on the team registration
+  // so the roster split and any backstop charge inherit the reduced total.
+  const [discount, setDiscount] = useState<{ code: string; cents: number } | null>(null);
+  const [discountInput, setDiscountInput] = useState("");
+  const [discountOpen, setDiscountOpen] = useState(false);
+  const [discountBusy, setDiscountBusy] = useState(false);
+  const [discountError, setDiscountError] = useState<string | null>(null);
+
   // Fee box math — display-only; the server recomputes the fee at create time.
   const story = season ? teamPriceStory(season) : null;
-  const feeTotalDollars = season ? (season.effectiveTeamPrice ?? season.teamPrice ?? season.price) : null;
+  const baseFeeDollars = season ? (season.effectiveTeamPrice ?? season.teamPrice ?? season.price) : null;
+  const discountDollars = (discount?.cents ?? 0) / 100;
+  const feeTotalDollars = baseFeeDollars != null ? Math.max(0, baseFeeDollars - discountDollars) : null;
   const rosterRemainderDollars =
     feeTotalDollars != null ? Math.max(0, feeTotalDollars - CAPTAIN_DEPOSIT_CENTS / 100) : null;
   // registrationCloses is a full ISO instant (not a date-only column), so it
@@ -249,6 +268,66 @@ export default function TeamCreate({
     else if (status === "deposit") trackTeamDepositViewed({ seasonId });
     else if (status === "ok") trackTeamHqViewed({ seasonId });
   }, [status, seasonId, isAuthed]);
+
+  // Mirror the flow step + applied discount up to the context rail.
+  useEffect(() => {
+    onStepChange?.(status === "deposit" ? 2 : status === "ok" ? 3 : 1);
+  }, [status, onStepChange]);
+  useEffect(() => {
+    onDiscountChange?.(discount?.cents ?? null);
+  }, [discount, onDiscountChange]);
+
+  // Apply / remove a discount code against the just-created team. The endpoint
+  // validates the code and rewrites the stored team fee; we mirror its result
+  // into local state so the fee box + rail + invite defaults all agree.
+  const applyDiscount = async () => {
+    const code = discountInput.trim();
+    if (!code || !inviteToken) return;
+    setDiscountBusy(true);
+    setDiscountError(null);
+    try {
+      const res = await fetch(
+        `/api/public/team-registrations/${encodeURIComponent(inviteToken)}/discount`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code }),
+        },
+      );
+      const json = await res.json();
+      if (!res.ok || !json.applied) {
+        setDiscountError(json.error ?? "That code isn't valid for this league.");
+        return;
+      }
+      setDiscount({ code: json.code, cents: json.discountCents });
+      if (typeof json.teamFeeCents === "number") setTeamFeeCents(json.teamFeeCents);
+      setDiscountInput("");
+      setDiscountOpen(false);
+    } catch {
+      setDiscountError("Couldn't apply that code. Please try again.");
+    } finally {
+      setDiscountBusy(false);
+    }
+  };
+
+  const removeDiscount = async () => {
+    if (!inviteToken) return;
+    setDiscountBusy(true);
+    setDiscountError(null);
+    try {
+      const res = await fetch(
+        `/api/public/team-registrations/${encodeURIComponent(inviteToken)}/discount`,
+        { method: "DELETE" },
+      );
+      const json = await res.json();
+      if (res.ok && typeof json.teamFeeCents === "number") setTeamFeeCents(json.teamFeeCents);
+    } catch {
+      // Best-effort — a failed remove just leaves the discount applied.
+    } finally {
+      setDiscount(null);
+      setDiscountBusy(false);
+    }
+  };
 
   // Rehydrate a stashed form on return (the signed-out captain tapped their
   // magic link and landed back on /register/{seasonId}?mode=team, now authed).
@@ -574,24 +653,118 @@ export default function TeamCreate({
   if (status === "deposit" && depositClientSecret && depositPublishableKey) {
     return (
       <div className="space-y-6">
-        <div>
-          <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">
-            Step 2 of 4
-          </p>
-          <h1 className="font-display text-2xl text-ink mt-1 mb-2">
-            Reserve your team
-          </h1>
-          <div className="text-ink-2 leading-relaxed text-sm space-y-0.5">
-            <p>
-              Due today: <b>${CAPTAIN_DEPOSIT_DOLLARS}</b> — reserves your team.
+        <div className="space-y-4">
+          <div>
+            <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">
+              Step 2 of 4 · Required
             </p>
-            {feeTotalDollars != null && rosterRemainderDollars != null && (
-              <p className="text-ink-muted text-xs">
-                Team fee ${feeTotalDollars.toLocaleString()} − your deposit = $
-                {rosterRemainderDollars.toLocaleString()} left for your roster.
-              </p>
-            )}
+            <h1 className="font-display text-2xl text-ink mt-1 mb-2">
+              Reserve your team
+            </h1>
+            <p className="text-ink-2 text-sm leading-relaxed">
+              <b>${CAPTAIN_DEPOSIT_DOLLARS}</b> reserves your team today. Your roster
+              splits the rest when they register.
+            </p>
           </div>
+
+          {/* Price breakdown — team fee (early-bird), any discount, then the
+              $200 due today and the roster's remaining split. */}
+          <div className="rounded-xl border border-ink/10 bg-paper p-4">
+            <table className="w-full text-sm">
+              <tbody>
+                <tr>
+                  <td className="py-0.5 text-ink-2">
+                    Team fee
+                    {season?.teamEarlyBirdActive && (
+                      <span className="ml-2 rounded bg-ochre px-1.5 py-0.5 text-[9px] font-mono uppercase tracking-wide text-ink align-middle">
+                        Early-bird
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-0.5 text-right tabular-nums">
+                    {story?.baseTotal && (
+                      <span className="mr-1.5 text-ink-muted line-through">{story.baseTotal}</span>
+                    )}
+                    {story ? story.total : baseFeeDollars != null ? `$${baseFeeDollars.toLocaleString()}` : "—"}
+                  </td>
+                </tr>
+                {discount && (
+                  <tr className="text-sage">
+                    <td className="py-0.5">Discount · {discount.code}</td>
+                    <td className="py-0.5 text-right tabular-nums">−${(discount.cents / 100).toLocaleString()}</td>
+                  </tr>
+                )}
+                {discount && feeTotalDollars != null && (
+                  <tr className="border-t border-ink/10">
+                    <td className="pt-2 text-ink-2">Team total</td>
+                    <td className="pt-2 text-right tabular-nums">${feeTotalDollars.toLocaleString()}</td>
+                  </tr>
+                )}
+                <tr className={discount ? "" : "border-t border-ink/10"}>
+                  <td className={`${discount ? "pt-1" : "pt-2"} font-semibold text-ink`}>Due today (deposit)</td>
+                  <td className={`${discount ? "pt-1" : "pt-2"} text-right font-semibold tabular-nums text-primary-orange`}>
+                    ${CAPTAIN_DEPOSIT_DOLLARS}
+                  </td>
+                </tr>
+                {rosterRemainderDollars != null && (
+                  <tr>
+                    <td className="text-ink-muted text-xs">Your roster pays · split among teammates</td>
+                    <td className="text-right text-ink-muted text-xs tabular-nums">${rosterRemainderDollars.toLocaleString()}</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Discount code — collapsed until asked for, so it never competes
+              with the pay action. Applying rewrites the team total above and
+              the roster split; the $200 deposit is unchanged. */}
+          {discount ? (
+            <div className="flex items-center gap-2 rounded-xl border border-sage/40 bg-sage/10 px-4 py-3 text-sm">
+              <span>
+                Code <span className="font-mono font-semibold text-sage">{discount.code}</span> applied —
+                team total −${(discount.cents / 100).toLocaleString()}
+              </span>
+              <button
+                type="button"
+                onClick={removeDiscount}
+                disabled={discountBusy}
+                className="ml-auto text-xs text-ink-muted underline disabled:opacity-50"
+              >
+                Remove
+              </button>
+            </div>
+          ) : discountOpen ? (
+            <div className="rounded-xl border border-ink/10 bg-paper p-3">
+              <div className="flex gap-2">
+                <input
+                  value={discountInput}
+                  onChange={(e) => setDiscountInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); applyDiscount(); } }}
+                  placeholder="Enter code"
+                  autoFocus
+                  className="flex-1 rounded-lg border border-ink/15 bg-paper px-3 py-2 text-sm font-mono uppercase tracking-wide focus:outline-none focus:border-primary-orange"
+                />
+                <button
+                  type="button"
+                  onClick={applyDiscount}
+                  disabled={discountBusy || !discountInput.trim()}
+                  className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-cream disabled:opacity-50"
+                >
+                  {discountBusy ? "…" : "Apply"}
+                </button>
+              </div>
+              {discountError && <p className="mt-2 text-xs text-red-500">{discountError}</p>}
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setDiscountOpen(true)}
+              className="text-sm text-ink-2 underline underline-offset-2 hover:text-primary-orange"
+            >
+              Have a discount code?
+            </button>
+          )}
         </div>
         <EmbeddedPayment
           clientSecret={depositClientSecret}
@@ -639,10 +812,11 @@ export default function TeamCreate({
           <div className="flex items-start gap-4 mb-6">
             <CheckCircle2 className="w-6 h-6 text-primary-orange flex-shrink-0 mt-0.5" />
             <div>
-              <h3 className="font-display text-2xl text-ink mb-2">Team created.</h3>
+              <h3 className="font-display text-2xl text-ink mb-2">Your team is reserved.</h3>
               <p className="text-ink-2 leading-relaxed text-sm">
-                Share the link below with your players. Each one clicks it, registers, and
-                pays their share. You'll see them join your roster as they complete signup.
+                You're up next — register yourself as a player below. Share your team link
+                whenever you're ready; each teammate registers and pays their share, and
+                you'll see them join your roster as they do.
               </p>
             </div>
           </div>
@@ -679,8 +853,36 @@ export default function TeamCreate({
           </div>
         </div>
 
+        {/* Expected next step — every captain plays. */}
+        <div className="bg-paper border-2 border-primary-orange/40 rounded-2xl p-6">
+          <div className="flex items-center gap-3 mb-3">
+            <h4 className="font-display text-lg text-ink">Register yourself as a player</h4>
+            <span className="ml-auto text-[10px] font-mono uppercase tracking-wide text-primary-orange border border-primary-orange/50 rounded-full px-2 py-0.5">
+              Next step
+            </span>
+          </div>
+          <p className="text-ink-muted text-sm mb-4 leading-relaxed">
+            Sign your waiver and finish your own signup — captains play too. Your
+            $200 deposit is already applied to your share.
+          </p>
+          <button
+            type="button"
+            onClick={() => inviteToken && onCaptainRegister(inviteToken)}
+            className="inline-flex items-center gap-3 bg-primary-orange text-cream px-6 py-3 text-sm font-medium tracking-wide uppercase hover:bg-ink transition-colors"
+            style={{ letterSpacing: "0.08em" }}
+          >
+            Register myself as a player →
+          </button>
+        </div>
+
+        {/* Optional — invite the roster now or later from the team link. */}
         <div className="bg-paper border border-ink/10 rounded-2xl p-6">
-          <h4 className="font-display text-lg text-ink mb-3">Invite teammates</h4>
+          <div className="flex items-center gap-3 mb-3">
+            <h4 className="font-display text-lg text-ink">Invite your roster</h4>
+            <span className="ml-auto text-[10px] font-mono uppercase tracking-wide text-ink-muted border border-ink/15 rounded-full px-2 py-0.5">
+              Optional
+            </span>
+          </div>
           <p className="text-ink-muted text-sm mb-3 leading-relaxed">
             Add each teammate's email and the share they should pay. We default
             to an even split of the team fee minus your $200 deposit — adjust any
@@ -759,22 +961,6 @@ export default function TeamCreate({
         </div>
 
         {inviteToken && <PaymentTracker inviteToken={inviteToken} />}
-
-        <div className="bg-paper border border-ink/10 rounded-2xl p-6">
-          <h4 className="font-display text-lg text-ink mb-3">Next: register yourself</h4>
-          <p className="text-ink-muted text-sm mb-4 leading-relaxed">
-            Captains complete their own registration like any other player. Click below to
-            sign up; your registration will be tagged to this team.
-          </p>
-          <button
-            type="button"
-            onClick={() => inviteToken && onCaptainRegister(inviteToken)}
-            className="inline-flex items-center gap-3 bg-ink text-cream px-6 py-3 text-sm font-medium tracking-wide uppercase hover:bg-primary-orange transition-colors"
-            style={{ letterSpacing: "0.08em" }}
-          >
-            Register myself as a player →
-          </button>
-        </div>
       </div>
     );
   }

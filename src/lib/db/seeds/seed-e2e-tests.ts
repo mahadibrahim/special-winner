@@ -33,6 +33,7 @@ import {
   venues,
   events,
   feedbackRequests,
+  discountCodes,
   type OrganizationFeatures,
   type OrganizationSettings,
 } from "../schema";
@@ -1856,6 +1857,25 @@ async function seedE2ETests() {
       .returning();
   }
   console.log(`   ✓ Adult Season: ${adultTeamSeason.name} (id: ${adultTeamSeason.id}) signupModes=${adultTeamSeason.signupModes}`);
+
+  // Org-wide 10% discount code, so the team reserve step's apply-discount
+  // endpoint has a real code to redeem in API/e2e. Idempotent on re-seed.
+  const [existingDiscount] = await db
+    .select({ id: discountCodes.id })
+    .from(discountCodes)
+    .where(and(eq(discountCodes.organizationId, org.id), eq(discountCodes.code, "E2ETEAM10")))
+    .limit(1);
+  if (!existingDiscount) {
+    await db.insert(discountCodes).values({
+      organizationId: org.id,
+      code: "E2ETEAM10",
+      description: "E2E team reserve-step discount (10%)",
+      discountType: "percentage",
+      discountValue: 1000, // 10% (percentage × 100)
+      active: true,
+    });
+    console.log("   ✓ Discount code: E2ETEAM10 (10%)");
+  }
 
   // Second Aspire adult-soccer division (Men's D) so the soccer season page's
   // divisions finder has >1 row and the gender filter is exercised. Same

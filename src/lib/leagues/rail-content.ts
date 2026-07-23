@@ -46,6 +46,44 @@ export function teamPriceStory(season: {
   };
 }
 
+/**
+ * Price-led team breakdown for the context rail. The team total leads (with
+ * the struck base price while early-bird is live); the $200 deposit and the
+ * roster's split are shown as a plain two-line breakdown beneath it. This is
+ * the rail-side counterpart to teamPriceStory — same source numbers, shaped
+ * for the sidebar card rather than a one-line label.
+ *
+ * When a discount has been applied to the team, pass discountCents: the total
+ * and roster split reflect it, and baseTotal shows the pre-discount team fee.
+ */
+export function teamRailBreakdown(
+  season: {
+    price: number;
+    teamPrice: number | null;
+    effectiveTeamPrice?: number | null;
+    teamEarlyBirdActive?: boolean;
+  },
+  opts?: { discountCents?: number | null },
+): { total: string; baseTotal: string | null; depositToday: string; rosterPays: string } {
+  const list = season.teamPrice ?? season.price;
+  const earlyBird = season.effectiveTeamPrice ?? list;
+  const discount = (opts?.discountCents ?? 0) / 100;
+  const effective = Math.max(0, earlyBird - discount);
+  // baseTotal (the struck-through number) is whichever higher figure the
+  // effective price is a discount from: the list price when an early-bird
+  // window is live, or the early-bird price when a code has been applied.
+  const discountLive = discount > 0;
+  const earlyBirdLive = season.teamEarlyBirdActive === true && earlyBird < list;
+  const base = discountLive ? earlyBird : earlyBirdLive ? list : null;
+  const rosterPays = Math.max(0, effective - CAPTAIN_DEPOSIT_DOLLARS);
+  return {
+    total: usd(effective),
+    baseTotal: base != null && base > effective ? usd(base) : null,
+    depositToday: usd(CAPTAIN_DEPOSIT_DOLLARS),
+    rosterPays: usd(rosterPays),
+  };
+}
+
 export function priceLabel(
   mode: RailMode,
   season: {

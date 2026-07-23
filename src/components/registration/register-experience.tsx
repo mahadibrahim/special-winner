@@ -1,7 +1,7 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
-import LeagueContextRail, { type RailSeason } from "./league-context-rail";
+import LeagueContextRail, { type RailSeason, type RailStep } from "./league-context-rail";
 import ChooseMode from "./choose-mode";
 import TeamCreate from "./team-create";
 import RegistrationWizard from "./registration-wizard";
@@ -59,6 +59,19 @@ export default function RegisterExperience({
   const [inviteeRef] = useState<string | null>(() =>
     typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("i") : null,
   );
+
+  // Live wizard step, lifted from the child flows so the rail's progress bar
+  // reflects where the visitor actually is (it used to be hard-pinned to 1/4).
+  // Team: 1 details → 2 reserve → 3 register yourself → 4 invite (optional).
+  const [teamStep, setTeamStep] = useState(1);
+  const [teamDiscountCents, setTeamDiscountCents] = useState<number | null>(null);
+  const [soloFlow, setSoloFlow] = useState<{ step: number; count: number }>({ step: 1, count: 3 });
+  // Stable identity + bail-out-on-unchanged: the wizard's reporting effect
+  // depends on this callback's identity, and setSoloFlow with a fresh object
+  // every call would loop (parent re-render → new callback → effect re-fires).
+  const handleSoloStep = useCallback((step: number, count: number) => {
+    setSoloFlow((prev) => (prev.step === step && prev.count === count ? prev : { step, count }));
+  }, []);
 
   // Resolve the real assigned share (never the solo price) + team name for
   // an invite-link visitor. Best-effort: any failure just leaves both null,
@@ -157,7 +170,7 @@ export default function RegisterExperience({
 
   if (effectiveMode === "team") {
     return (
-      <LeagueContextRail season={season} mode="team" step={1} stepCount={4}>
+      <LeagueContextRail season={season} mode="team" step={teamStep} stepCount={TEAM_STEPS.length} steps={TEAM_STEPS} discountCents={teamDiscountCents}>
         <InAppEscapeBanner seasonId={seasonId} />
         {modeLine}
         <TeamCreate
@@ -166,6 +179,8 @@ export default function RegisterExperience({
           defaultName={user ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() : ""}
           defaultEmail={user?.email ?? ""}
           season={season}
+          onStepChange={setTeamStep}
+          onDiscountChange={setTeamDiscountCents}
           onCaptainRegister={(tok) => {
             window.location.href = `/register/${seasonId}?team=${encodeURIComponent(tok)}`;
           }}
@@ -173,8 +188,11 @@ export default function RegisterExperience({
       </LeagueContextRail>
     );
   }
+  // Solo/share: unlabeled progress of the real step count, so the bar tracks
+  // the wizard instead of sitting frozen at 1/4.
+  const soloSteps: RailStep[] = Array.from({ length: soloFlow.count }, () => ({ label: "" }));
   return (
-    <LeagueContextRail season={season} mode={railMode} step={1} stepCount={4} shareCents={viewerShareCents}>
+    <LeagueContextRail season={season} mode={railMode} step={soloFlow.step} stepCount={soloFlow.count} steps={soloSteps} shareCents={viewerShareCents}>
       <InAppEscapeBanner seasonId={seasonId} />
       {modeLine}
       <RegistrationWizard
@@ -185,7 +203,17 @@ export default function RegisterExperience({
         teamToken={teamToken}
         inviteeShareCents={viewerShareCents}
         teamName={teamName}
+        onStepChange={handleSoloStep}
       />
     </LeagueContextRail>
   );
 }
+
+// Team flow steps for the rail. Every captain plays, so "Register yourself"
+// is a required step; only inviting the roster is optional.
+const TEAM_STEPS: RailStep[] = [
+  { label: "Team details" },
+  { label: "Reserve" },
+  { label: "Register yourself" },
+  { label: "Invite roster", optional: true },
+];
