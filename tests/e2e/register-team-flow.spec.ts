@@ -31,26 +31,15 @@ test("team-capable season shows choose-mode and reaches team-create @critical", 
   await expect(bringTeam).toBeVisible();
   await bringTeam.click();
 
-  // The team-create captain form renders in full for anonymous visitors — the
-  // create endpoint now accepts anonymous callers directly (guest upsert +
-  // recorded backstop consent), so there's no auth gate on the form itself.
-  // Assert on the team-name field label + the create CTA, which render in the
-  // initial idle form.
-  await expect(page.getByText(/team name/i).first()).toBeVisible({ timeout: 10_000 });
+  // One-page reserve (deferred-account flow 2026-07-23): identity is resolved
+  // first, so a guest sees the "Reserve your team" screen with an email field
+  // and an email-first "Continue" gate — the team name + payment reveal only
+  // after a new email is confirmed. Nothing is created until the deposit
+  // succeeds, so there's no team-create POST on this screen.
+  await expect(page.getByRole("heading", { name: /Reserve your team/i })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText(/Your email/i).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: /Continue/i })).toBeVisible();
 
-  // Fee box: the charge is announced BEFORE the deposit screen…
-  await expect(page.getByText(/Today — reserves your team/i)).toBeVisible();
-  await expect(page.getByText(/Your card stays on file for the team/i)).toBeVisible();
-
-  // …the button names the charge and is NOT gated on a checkbox (card-on-file
-  // is notice, not opt-in — owner decision 2026-07-23)…
-  const submitButton = page.getByRole("button", { name: /reserve your team · \$200/i });
-  await expect(submitButton).toBeVisible();
-  await expect(submitButton).toBeEnabled();
-  await expect(page.getByText(/By reserving, you agree to the payment terms above/i)).toBeVisible();
-
-  // …and the old consent checkbox is gone.
-  await expect(
-    page.getByRole("checkbox", { name: /save my card to cover unpaid teammate shares/i }),
-  ).toHaveCount(0);
+  // Guests haven't confirmed their email yet → the team-name field is not shown.
+  await expect(page.getByText(/Team name/i)).toHaveCount(0);
 });
