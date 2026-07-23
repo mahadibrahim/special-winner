@@ -209,10 +209,10 @@ export default function RegisterExperience({
   );
 }
 
-// Team flow steps for the rail. Every captain plays, so "Register yourself"
-// is a required step; only inviting the roster is optional.
+// Team flow steps for the rail. Details + payment now share one screen, so the
+// flow is 3 steps. Every captain plays, so "Register yourself" is required;
+// only inviting the roster is optional.
 const TEAM_STEPS: RailStep[] = [
-  { label: "Team details" },
   { label: "Reserve" },
   { label: "Register yourself" },
   { label: "Invite roster", optional: true },
