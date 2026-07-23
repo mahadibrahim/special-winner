@@ -104,7 +104,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
       - name: Type check
+        # Bump Node's heap: the project crossed tsc's default ~2 GB limit and the
+        # job started OOMing ("Ineffective mark-compacts near heap limit") on the
+        # ubuntu runner, even though the code type-checks clean locally and via build.
         run: npm run typecheck
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
 
   # ── Migration drift gate (fast, no DB) ─────────────────────────────
   # Catches the 0024-class incident: a PR edits src/lib/db/schema/* but
