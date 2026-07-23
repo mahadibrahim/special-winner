@@ -23,6 +23,7 @@ const PARENT_EMAIL = "parent@test.aspiresports.com";
 
 let seasonId: string;
 let parentUserId: string;
+let originalMaxParticipants: number | null = null;
 let parentCookie: string;
 const cleanupMemberIds: string[] = [];
 
@@ -47,6 +48,10 @@ beforeAll(async () => {
   // tests, so uncap it here rather than have unrelated pollution flip
   // "created" into "waitlisted" underneath these assertions.
   if (season.maxParticipants !== null) {
+    // Remember the original cap so afterAll can restore it — a permanent
+    // uncap already broke an unrelated spec once (guest-flow's season pick
+    // flipped to this season when it suddenly "had capacity").
+    originalMaxParticipants = season.maxParticipants;
     await db
       .update(seasons)
       .set({ maxParticipants: null })
@@ -67,8 +72,15 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  if (cleanupMemberIds.length === 0) return;
   const db = getDb();
+  // Restore the season cap this suite temporarily lifted (see beforeAll).
+  if (originalMaxParticipants !== null && seasonId) {
+    await db
+      .update(seasons)
+      .set({ maxParticipants: originalMaxParticipants })
+      .where(eq(seasons.id, seasonId));
+  }
+  if (cleanupMemberIds.length === 0) return;
   await db.delete(registrations).where(inArray(registrations.familyMemberId, cleanupMemberIds));
   await db.delete(familyMembers).where(inArray(familyMembers.id, cleanupMemberIds));
 });
