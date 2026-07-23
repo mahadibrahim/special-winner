@@ -1336,6 +1336,82 @@ export async function sendTeamShareReminderEmail(params: SendTeamShareReminderPa
   return result;
 }
 
+// ---- Team backstop warning (captain, ~3 days before the deadline) ----
+
+export interface TeamBackstopWarningParams {
+  to: string;
+  captainName: string;
+  teamName: string;
+  joinUrl: string;
+  /** Sum of assignedShareCents across still-unpaid invitees. */
+  unpaidTotalCents: number;
+  unpaidCount: number;
+  deadline: Date | null;
+  brand?: BrandId;
+}
+
+/**
+ * Pure body builder — exported for unit tests. This is what the captain
+ * should get instead of the teammate "pay your share" template: it names
+ * the total that will land on their card if teammates don't pay, not a
+ * confusing self-referential "your captain will be charged" line.
+ */
+export function buildTeamBackstopWarning(params: TeamBackstopWarningParams): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  const total = `$${(params.unpaidTotalCents / 100).toLocaleString("en-US")}`;
+  // deadline is a full instant — pin to the org timezone (America/New_York)
+  // so this agrees with the deadline rendering elsewhere (e.g.
+  // buildTeamDepositReceipt, team-create.tsx).
+  const deadline = params.deadline
+    ? params.deadline.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        timeZone: "America/New_York",
+      })
+    : null;
+
+  const subject = `Heads up: ${total} in unpaid shares for ${params.teamName}`;
+  const teammateWord = params.unpaidCount === 1 ? "teammate" : "teammates";
+  const bodyLine = `${params.unpaidCount} ${teammateWord} haven't paid. Shares still unpaid are charged to your card on ${deadline ?? "the payment deadline"}. Nudge them or adjust splits from your team page.`;
+
+  const html = `<!doctype html><html><body style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1a1a1a;line-height:1.5;">
+    <p>${escapeHtml(params.captainName)}, <strong>${escapeHtml(total)}</strong> in unpaid shares for <strong>${escapeHtml(params.teamName)}</strong> is coming due.</p>
+    <p>${escapeHtml(bodyLine)}</p>
+    <p><a href="${params.joinUrl}" style="display:inline-block;background:#1a1a1a;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">Open your team page →</a></p>
+    <p style="color:#666;font-size:13px;">Or paste this link into your browser:<br>${escapeHtml(params.joinUrl)}</p>
+  </body></html>`;
+
+  const text = `${params.captainName}, ${total} in unpaid shares for ${params.teamName} is coming due.\n\n${bodyLine}\n\nOpen your team page:\n${params.joinUrl}\n`;
+
+  return { subject, html, text };
+}
+
+export async function sendTeamBackstopWarningEmail(params: TeamBackstopWarningParams) {
+  if (!isEmailConfigured()) {
+    console.warn("Email not configured, skipping team backstop warning email");
+    return { success: false, error: "Email not configured" };
+  }
+  const { subject, html, text } = buildTeamBackstopWarning(params);
+  const result = await sendEmail({
+    to: params.to,
+    subject,
+    html,
+    text,
+    from: fromForBrand(params.brand),
+  });
+  await logEmail({
+    emailType: "team_backstop_warning",
+    recipientEmail: params.to,
+    subject,
+    resendMessageId: result.messageId,
+    status: result.success ? "sent" : "failed",
+  });
+  return result;
+}
+
 /** Minimal HTML-escape for interpolating user-supplied strings into email bodies. */
 function escapeHtml(value: string): string {
   return value
