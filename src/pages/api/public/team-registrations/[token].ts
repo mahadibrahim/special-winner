@@ -214,6 +214,7 @@ export const GET: APIRoute = async ({ params, locals, request }) => {
           inviteeCount: invitees.length,
           invitees: isCaptain
             ? invitees.map((i) => ({
+                id: i.id,
                 email: i.email,
                 assignedShareCents: i.assignedShareCents,
                 status: i.status,

@@ -292,12 +292,43 @@ describe("team captain-assigned shares", () => {
     expect(team.viewerShare).toEqual({ shareCents: 6300, status: "pending" });
   });
 
-  // The `?invitee=<uuid>` ref path (for a viewer who isn't authed as the
-  // matching email — e.g. clicking their personal invite-email link) can't
-  // be exercised yet: the invite POST response doesn't return per-invitee
-  // ids for the test to mint a real ref against. Task 2 adds `inviteeIds`
-  // to that response; complete this assertion there.
-  it.todo(
-    "?invitee=<uuid> ref resolves viewerShare for an anonymous caller (needs Task 2's inviteeIds)",
-  );
+  /**
+   * The `?invitee=<uuid>` ref path (for a viewer who isn't authed as the
+   * matching email — e.g. clicking their personal invite-email link).
+   * Task 2 exposes each invitee's `id` on the captain-authed GET
+   * (team.invitees[].id) so the captain session can mint a real ref for the
+   * anonymous request below to exercise.
+   */
+  it("?invitee=<uuid> ref resolves viewerShare for an anonymous caller", async () => {
+    const created = await createTeam();
+    if (!created) return; // Stripe not configured — deferred to Task 7
+    const { token, cookie } = created;
+
+    const stamp = Date.now();
+    const email = `mate-ref-${stamp}@test.aspiresports.com`;
+
+    await fetch(`${BASE}/api/public/team-registrations/${token}/invite`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ invites: [{ email, shareCents: 3300 }] }),
+    });
+
+    // Captain-authed read: only the captain session can see invitee ids.
+    const captainTeam = await getTeam(token, cookie);
+    const inviteeRow = captainTeam.team.invitees.find(
+      (i: any) => i.email === email,
+    );
+    expect(inviteeRow?.id).toBeTruthy();
+
+    // Anonymous caller, carrying only the id (as the personal invite-email
+    // link would): should resolve viewerShare for that one row, without
+    // exposing the captain-only invitees list.
+    const res = await fetch(
+      `${BASE}/api/public/team-registrations/${token}?invitee=${encodeURIComponent(inviteeRow.id)}`,
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.team.invitees).toEqual([]);
+    expect(body.viewerShare).toEqual({ shareCents: 3300, status: "pending" });
+  });
 });
