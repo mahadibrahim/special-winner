@@ -9,6 +9,11 @@
  *
  * Must only be used inside a non-anchor card root — an `<a>` cannot legally
  * nest another `<a>`.
+ *
+ * `relative z-10` stacks this link above the card's stretched primary-CTA
+ * overlay (see `STRETCHED_LINK_CLASSES` in `card-shell.tsx`) so tapping the
+ * venue name still navigates to the location page instead of being
+ * swallowed by the whole-card link.
  */
 export function VenueLink({ slug, label }: { slug?: string | null; label: string }) {
   if (!slug) return <>{label}</>
@@ -16,7 +21,7 @@ export function VenueLink({ slug, label }: { slug?: string | null; label: string
     <a
       href={`/locations/${slug}`}
       data-testid="card-venue-link"
-      className="hover:text-ink hover:underline"
+      className="relative z-10 hover:text-ink hover:underline"
       onClick={(e) => e.stopPropagation()}
     >
       {label}

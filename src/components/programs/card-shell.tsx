@@ -94,7 +94,22 @@ function CardBody({
 }
 
 const ROOT_CLASSES =
-  "group h-full flex flex-col bg-paper border border-border rounded-2xl overflow-hidden transition-all hover:border-primary/40 hover:-translate-y-0.5"
+  "group relative h-full flex flex-col bg-paper border border-border rounded-2xl overflow-hidden transition-all hover:border-primary/40 hover:-translate-y-0.5"
+
+/**
+ * Applied to a card's PRIMARY CTA anchor to make its hit area cover the
+ * whole card (stretched-link pattern) — an accessible alternative to a div
+ * onClick that keeps the CTA a real, keyboard-reachable, screen-reader
+ * announced link. Relies on `ROOT_CLASSES` giving the card root
+ * `position: relative` as the containing block for this `::after`.
+ *
+ * Any OTHER interactive element inside the same card (nested links,
+ * secondary CTAs, form inputs) must add `relative z-10` so it paints above
+ * this overlay — see `venue-link.tsx` for the reference implementation.
+ * Do not apply this class in a footer branch that renders a form (interest
+ * capture / waitlist) — those states have no primary navigation to stretch.
+ */
+export const STRETCHED_LINK_CLASSES = "after:absolute after:inset-0 after:content-['']"
 
 export function CardShell({ testId = "program-card", href, ...body }: CardShellProps) {
   if (href) {

@@ -14,7 +14,7 @@ import {
 import { formatDaySchedule, formatTimeWindow, formatDateOnly } from "@/lib/time/format-date"
 import { CAPTAIN_DEPOSIT_DOLLARS } from "@/lib/registrations/team-deposit"
 import { SeasonInterestForm } from "./season-interest-form"
-import { CardShell } from "./card-shell"
+import { CardShell, STRETCHED_LINK_CLASSES } from "./card-shell"
 import { VenueLink } from "./venue-link"
 
 interface Season extends SeasonForDerive {
@@ -327,11 +327,16 @@ export default function ProgramCardV2({
                     <WaitlistBlock seasonId={season.id} seasonName={season.name} />
                   ) : (
                     (() => {
+                      // teamFirst puts the filled "Reserve a team" CTA in the
+                      // primary (first) position with "Sign up solo"
+                      // secondary — and the stretched whole-card link follows
+                      // the same primary slot; the secondary CTA gets
+                      // `relative z-10` so it stacks above the stretch.
                       const soloBtn = (
                         <a
                           key="solo-cta"
                           href={`/register/${season.id}?mode=individual`}
-                          className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold tracking-wide uppercase border border-ink text-ink hover:bg-ink hover:text-cream px-3 py-2 rounded-md transition-colors"
+                          className={`inline-flex items-center justify-center gap-1.5 text-xs font-semibold tracking-wide uppercase border border-ink text-ink hover:bg-ink hover:text-cream px-3 py-2 rounded-md transition-colors ${teamFirst ? "relative z-10" : STRETCHED_LINK_CLASSES}`}
                         >
                           <User className="w-3.5 h-3.5" />
                           {soloCta}
@@ -341,14 +346,12 @@ export default function ProgramCardV2({
                         <a
                           key="team-cta"
                           href={`/register/${season.id}?mode=team`}
-                          className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold tracking-wide uppercase bg-ink text-cream hover:bg-primary px-3 py-2 rounded-md transition-colors"
+                          className={`inline-flex items-center justify-center gap-1.5 text-xs font-semibold tracking-wide uppercase bg-ink text-cream hover:bg-primary px-3 py-2 rounded-md transition-colors ${teamFirst ? STRETCHED_LINK_CLASSES : "relative z-10"}`}
                         >
                           <Users className="w-3.5 h-3.5" />
                           {teamCta}
                         </a>
                       )
-                      // teamFirst puts the filled "Reserve a team" CTA in the
-                      // primary (first) position with "Sign up solo" secondary.
                       return (
                         <div className="grid grid-cols-2 gap-2">
                           {teamFirst ? [teamBtn, soloBtn] : [soloBtn, teamBtn]}
@@ -370,7 +373,7 @@ export default function ProgramCardV2({
                     {!soldOut && (
                       <a
                         href={teamOnly ? `/register/${season.id}?mode=team` : `/register/${season.id}`}
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wide uppercase bg-ink text-cream px-3 py-2 rounded-md group-hover:bg-primary transition-colors"
+                        className={`inline-flex items-center gap-1.5 text-xs font-semibold tracking-wide uppercase bg-ink text-cream px-3 py-2 rounded-md group-hover:bg-primary transition-colors ${STRETCHED_LINK_CLASSES}`}
                       >
                         {teamOnly ? teamCta : soloCta}
                         <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
