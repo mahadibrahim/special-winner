@@ -18,15 +18,14 @@ import type { ReactNode } from "react"
  * "Pickup" pill), and `footer` is the entire price/CTA (or interest-form)
  * band, since its internal layout varies by signup mode.
  *
- * `href` renders the whole card as a single anchor. Omit it (the
- * `ProgramCardV2` and pickup shape) when the body needs its own nested
- * anchors — e.g. the venue link — since an anchor cannot legally nest
- * another anchor.
+ * Whole-card navigation comes from the STRETCHED-LINK pattern (a consumer
+ * marks its primary CTA anchor with STRETCHED_LINK_CLASSES), never from an
+ * anchor root — an anchor root cannot nest the venue link and would
+ * reintroduce the tap-through bug this shell exists to prevent.
  */
 export interface CardShellProps {
   /** Defaults to "program-card" — every card in the family shares one testid. */
   testId?: string
-  href?: string
   sportColor: string
   mediaBottomLeft: ReactNode
   mediaTopRight: ReactNode
@@ -51,7 +50,7 @@ function CardBody({
   metaC,
   chip,
   footer,
-}: Omit<CardShellProps, "testId" | "href">) {
+}: Omit<CardShellProps, "testId">) {
   return (
     <>
       {/* Media slot — sport-color fallback block, fixed height across every
@@ -111,14 +110,7 @@ const ROOT_CLASSES =
  */
 export const STRETCHED_LINK_CLASSES = "after:absolute after:inset-0 after:content-['']"
 
-export function CardShell({ testId = "program-card", href, ...body }: CardShellProps) {
-  if (href) {
-    return (
-      <a href={href} data-testid={testId} className={ROOT_CLASSES}>
-        <CardBody {...body} />
-      </a>
-    )
-  }
+export function CardShell({ testId = "program-card", ...body }: CardShellProps) {
   return (
     <div data-testid={testId} className={ROOT_CLASSES}>
       <CardBody {...body} />
