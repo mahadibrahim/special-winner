@@ -163,7 +163,6 @@ export default function TeamCreate({
   isAuthed,
   defaultName,
   defaultEmail,
-  onCaptainRegister,
   onStepChange,
   onDiscountChange,
   season,
@@ -174,7 +173,6 @@ export default function TeamCreate({
   isAuthed: boolean;
   defaultName: string;
   defaultEmail: string;
-  onCaptainRegister: (inviteToken: string) => void;
   /** Reports the team flow's step (1 details → 2 reserve → 3 register/invite)
       up to the context rail's progress bar. */
   onStepChange?: (step: number) => void;
@@ -196,9 +194,6 @@ export default function TeamCreate({
   const [captainName, setCaptainName] = useState(defaultName);
   const [captainEmail, setCaptainEmail] = useState(defaultEmail);
   const [notes, setNotes] = useState("");
-  // Explicit affirmation that the saved card may be charged off-session for
-  // unpaid teammate shares after the deadline (required to reserve).
-  const [backstopConsent, setBackstopConsent] = useState(false);
 
   const [status, setStatus] = useState<
     "idle" | "submitting" | "deposit" | "ok" | "error" | "link_sent"
@@ -465,7 +460,6 @@ export default function TeamCreate({
     teamName.trim().length > 0 &&
     captainName.trim().length > 0 &&
     captainEmail.trim().length > 0 &&
-    backstopConsent &&
     (isAuthed || emailExists === false);
 
   /**
@@ -655,11 +649,11 @@ export default function TeamCreate({
           <div className="flex items-start gap-4 mb-6">
             <CheckCircle2 className="w-6 h-6 text-primary-orange flex-shrink-0 mt-0.5" />
             <div>
-              <h3 className="font-display text-2xl text-ink mb-2">Your team is reserved.</h3>
+              <h3 className="font-display text-2xl text-ink mb-2">You're in — team reserved.</h3>
               <p className="text-ink-2 leading-relaxed text-sm">
-                You're up next — register yourself as a player below. Share your team link
-                whenever you're ready; each teammate registers and pays their share, and
-                you'll see them join your roster as they do.
+                You're on the roster as captain (your $200 deposit covers your spot). Share your
+                team link whenever you're ready; each teammate registers and pays their share, and
+                you'll see them join as they do. We'll email you a waiver link to sign before game 1.
               </p>
             </div>
           </div>
@@ -696,29 +690,8 @@ export default function TeamCreate({
           </div>
         </div>
 
-        {/* Expected next step — every captain plays. */}
-        <div className="bg-paper border-2 border-primary-orange/40 rounded-2xl p-6">
-          <div className="flex items-center gap-3 mb-3">
-            <h4 className="font-display text-lg text-ink">Register yourself as a player</h4>
-            <span className="ml-auto text-[10px] font-mono uppercase tracking-wide text-primary-orange border border-primary-orange/50 rounded-full px-2 py-0.5">
-              Next step
-            </span>
-          </div>
-          <p className="text-ink-muted text-sm mb-4 leading-relaxed">
-            Sign your waiver and finish your own signup — captains play too. Your
-            $200 deposit is already applied to your share.
-          </p>
-          <button
-            type="button"
-            onClick={() => inviteToken && onCaptainRegister(inviteToken)}
-            className="inline-flex items-center gap-3 bg-primary-orange text-cream px-6 py-3 text-sm font-medium tracking-wide uppercase hover:bg-ink transition-colors"
-            style={{ letterSpacing: "0.08em" }}
-          >
-            Register myself as a player →
-          </button>
-        </div>
-
-        {/* Optional — invite the roster now or later from the team link. */}
+        {/* Optional — invite the roster now or later from the team link. The
+            captain is already on the roster (auto-registered at deposit). */}
         <div className="bg-paper border border-ink/10 rounded-2xl p-6">
           <div className="flex items-center gap-3 mb-3">
             <h4 className="font-display text-lg text-ink">Invite your roster</h4>
@@ -919,7 +892,7 @@ export default function TeamCreate({
   return (
     <div className="space-y-5">
       <div>
-        <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">Step 1 of 3 · Required</p>
+        <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">Step 1 of 2 · Required</p>
         <h1 className="font-display text-2xl text-ink mt-1 mb-2">Reserve your team</h1>
         <p className="text-ink-2 text-sm leading-relaxed">
           <b>${CAPTAIN_DEPOSIT_DOLLARS}</b> reserves your team today. Your roster splits the rest when they register.
@@ -1056,21 +1029,13 @@ export default function TeamCreate({
             />
           </label>
 
-          <label className="flex items-start gap-3 text-sm text-ink-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={backstopConsent}
-              onChange={(e) => setBackstopConsent(e.target.checked)}
-              className="mt-0.5 h-4 w-4 accent-primary-orange"
-            />
-            <span>
-              OK to charge my saved card for any teammate shares still unpaid after
-              {deadlineLabel ? <> <b>{deadlineLabel}</b></> : " the deadline"}. My ${CAPTAIN_DEPOSIT_DOLLARS} deposit counts toward the team fee.
-            </span>
-          </label>
-
           {breakdown}
           {discountUi}
+          <p className="text-xs text-ink-muted leading-relaxed">
+            Reserving keeps your card on file for the team — any teammate shares still unpaid after
+            {deadlineLabel ? <> <b>{deadlineLabel}</b></> : " the deadline"} are charged to it. Your
+            ${CAPTAIN_DEPOSIT_DOLLARS} deposit counts toward the team fee, and you're added to the roster as captain.
+          </p>
           {error && <p className="text-sm text-red-500">{error}</p>}
 
           <button
