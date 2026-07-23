@@ -57,6 +57,11 @@ describe("rail-content", () => {
       amount: "$90",
       unit: "your share",
     });
+    // Odd-cent splits keep both cent digits — "$90.50", never "$90.5".
+    expect(priceLabel("share", s, { shareCents: 9050 })).toEqual({
+      amount: "$90.50",
+      unit: "your share",
+    });
   });
   it("priceLabel share mode without a share value renders nothing (rail handles fallback copy)", () => {
     const s = { price: 120, teamPrice: 1000, deposit: 200 } as any;

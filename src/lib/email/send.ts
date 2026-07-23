@@ -1361,7 +1361,13 @@ export function buildTeamBackstopWarning(params: TeamBackstopWarningParams): {
   html: string;
   text: string;
 } {
-  const total = `$${(params.unpaidTotalCents / 100).toLocaleString("en-US")}`;
+  // Keep both cent digits on fractional totals ("$450.50", never "$450.5") —
+  // even splits of odd remainders produce non-whole-dollar sums.
+  const totalDollars = params.unpaidTotalCents / 100;
+  const total = `$${totalDollars.toLocaleString("en-US", {
+    minimumFractionDigits: Number.isInteger(totalDollars) ? 0 : 2,
+    maximumFractionDigits: 2,
+  })}`;
   // deadline is a full instant — pin to the org timezone (America/New_York)
   // so this agrees with the deadline rendering elsewhere (e.g.
   // buildTeamDepositReceipt, team-create.tsx).

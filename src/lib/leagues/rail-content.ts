@@ -14,7 +14,15 @@ export function tierColorClass(skillLevel: string | null | undefined): string {
 }
 
 function usd(n: number): string {
-  return "$" + n.toLocaleString("en-US");
+  // Whole dollars stay terse ("$120"); fractional amounts keep both cent
+  // digits ("$90.50", never "$90.5") — odd-cent team-share splits hit this.
+  return (
+    "$" +
+    n.toLocaleString("en-US", {
+      minimumFractionDigits: Number.isInteger(n) ? 0 : 2,
+      maximumFractionDigits: 2,
+    })
+  );
 }
 
 /**
