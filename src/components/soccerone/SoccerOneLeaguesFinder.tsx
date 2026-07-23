@@ -296,6 +296,8 @@ function LeagueCard({ season }: { season: LeagueCardSeason }) {
   // card in a grid row the same height instead of some cards growing an
   // extra row when a field is missing (the ragged-grid bug this task fixes).
   const dayOrScheduleLabel = dayLabel || season.scheduleNotes || "—"
+  // Freeform schedule notes get the honest label; a real play day says DAY.
+  const dayRowLabel = dayLabel ? "DAY" : season.scheduleNotes ? "SCHEDULE" : "DAY"
   const startsLabel = season.startDate ? formatDateOnly(season.startDate) : "—"
   // Same content as the old "PROGRAM" row (program.name) — just relocated
   // into the canonical "venue · X" meta row instead of its own row.
@@ -320,7 +322,7 @@ function LeagueCard({ season }: { season: LeagueCardSeason }) {
 
       <div className="lc-details">
         {/* 3. day/time */}
-        <div className="lc-detail-row"><span className="lcd-label">DAY</span><span className="lcd-val">{dayOrScheduleLabel}</span></div>
+        <div className="lc-detail-row"><span className="lcd-label">{dayRowLabel}</span><span className="lcd-val">{dayOrScheduleLabel}</span></div>
         {/* 4. starts */}
         <div className="lc-detail-row"><span className="lcd-label">STARTS</span><span className="lcd-val">{startsLabel}</span></div>
       </div>

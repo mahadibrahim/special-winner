@@ -126,6 +126,7 @@ export function SoCardStyles() {
         transition: border-color 0.2s, transform 0.2s;
       }
       .so-card-league:hover { border-color: var(--so-lime-a40); border-left-color: var(--so-lime); transform: translateY(-4px); }
+      .so-card-league-active { border-color: var(--so-lime-a15); }
       .so-card-league-downtown { border-color: rgba(100,160,255,0.2); border-left-color: rgba(100,160,255,0.8); }
       .so-card-league-downtown:hover { border-color: rgba(100,160,255,0.4); border-left-color: rgba(100,160,255,1); }
       .so-card-league-youth { border-color: rgba(192,132,252,0.2); border-left-color: rgba(192,132,252,0.8); }
