@@ -181,9 +181,6 @@ export default function RegisterExperience({
           season={season}
           onStepChange={setTeamStep}
           onDiscountChange={setTeamDiscountCents}
-          onCaptainRegister={(tok) => {
-            window.location.href = `/register/${seasonId}?team=${encodeURIComponent(tok)}`;
-          }}
         />
       </LeagueContextRail>
     );
@@ -209,11 +206,10 @@ export default function RegisterExperience({
   );
 }
 
-// Team flow steps for the rail. Details + payment now share one screen, so the
-// flow is 3 steps. Every captain plays, so "Register yourself" is required;
-// only inviting the roster is optional.
+// Team flow steps for the rail. The captain is auto-registered on the roster at
+// deposit, so the flow is just 2 steps: reserve (details + payment on one
+// screen), then optionally invite the roster.
 const TEAM_STEPS: RailStep[] = [
   { label: "Reserve" },
-  { label: "Register yourself" },
   { label: "Invite roster", optional: true },
 ];

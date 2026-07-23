@@ -4,6 +4,8 @@ import { randomBytes } from "node:crypto";
 import { getDb } from "@/lib/db";
 import { teamRegistrations, payments, discountUsages, discountCodes, seasons } from "@/lib/db/schema";
 import { upsertGuestUser } from "@/lib/registrations/upsert-guest-user";
+import { resolvePerson } from "@/lib/registrations/resolve-person";
+import { createRegistration, RegistrationError } from "@/lib/registrations/create-registration";
 import { CAPTAIN_DEPOSIT_CENTS } from "@/lib/registrations/team-deposit";
 import { getPostHogServer } from "@/lib/posthog-server";
 import { SERVER_EVENTS } from "@/lib/analytics/events";
@@ -38,6 +40,56 @@ const num = (v: string | undefined): number | null => {
 };
 
 /**
+ * Auto-register the captain as a player on their own team — every captain
+ * plays, so there's no separate "register yourself" step. Their $200 deposit
+ * credits against their share (solo price ≤ deposit → $0 more due), and the
+ * waiver is deferred exactly like any other adult self-registration.
+ *
+ * Best-effort + idempotent: createRegistration links the captain into
+ * team_registration_members with the captain role and returns "resumed" (or
+ * throws a benign "already registered") on a re-run, so calling it from both
+ * finalize and the webhook backstop never double-registers. A failure here is
+ * logged, never fatal — the team + deposit are already committed.
+ */
+async function ensureCaptainRegistration(args: {
+  captainUserId: string;
+  captainEmail: string;
+  captainName: string;
+  seasonId: string;
+  inviteToken: string;
+  brand?: string;
+}): Promise<void> {
+  const db = getDb();
+  const { firstName, lastName } = splitName(args.captainName);
+  try {
+    const person = await resolvePerson(db, {
+      kind: "self",
+      user: { id: args.captainUserId, firstName, lastName, birthDate: null, gender: null },
+    });
+    await createRegistration({
+      db,
+      user: { id: args.captainUserId, email: args.captainEmail, firstName },
+      familyMember: {
+        id: person.id,
+        firstName: person.firstName,
+        lastName: person.lastName ?? "",
+        selfUserId: person.selfUserId,
+      },
+      seasonId: args.seasonId,
+      registrationType: "full",
+      waiverSigned: false, // deferred — same as any adult self-registration
+      waiverSignedBy: "",
+      lookingForTeam: false,
+      teamToken: args.inviteToken,
+      brand: (args.brand as BrandId | undefined) || undefined,
+    });
+  } catch (err) {
+    if (err instanceof RegistrationError) return; // already registered → idempotent success
+    console.error("[finalizeTeamDeposit] captain auto-register failed:", err);
+  }
+}
+
+/**
  * Create the captain's account (if a guest) + the team_registration, and record
  * the $200 deposit — from a succeeded `team_deposit_pending` PaymentIntent whose
  * metadata carries everything (no team/user existed before payment).
@@ -70,6 +122,19 @@ export async function finalizeTeamDeposit(pi: Stripe.PaymentIntent): Promise<Fin
     .where(eq(teamRegistrations.depositPaymentIntentId, pi.id))
     .limit(1);
   if (existing) {
+    // Team already created — but ensure the captain's own registration exists
+    // (idempotent), so a webhook arriving after a finalize that created the team
+    // but failed to register the captain still closes that gap.
+    if (existing.captainUserId) {
+      await ensureCaptainRegistration({
+        captainUserId: existing.captainUserId,
+        captainEmail,
+        captainName,
+        seasonId,
+        inviteToken: existing.inviteToken,
+        brand: m.brand,
+      });
+    }
     return {
       teamRegistrationId: existing.id,
       inviteToken: existing.inviteToken,
@@ -232,6 +297,17 @@ export async function finalizeTeamDeposit(pi: Stripe.PaymentIntent): Promise<Fin
   } catch (err) {
     console.error("[finalizeTeamDeposit] receipt email failed:", err);
   }
+
+  // Auto-register the captain as a player (deposit covers their spot, waiver
+  // deferred) — runs after the deposit ledger so the credit resolves.
+  await ensureCaptainRegistration({
+    captainUserId,
+    captainEmail,
+    captainName,
+    seasonId,
+    inviteToken: team.inviteToken,
+    brand: m.brand,
+  });
 
   return { teamRegistrationId: team.id, inviteToken: team.inviteToken, captainUserId, created: true, wasNewUser };
 }
