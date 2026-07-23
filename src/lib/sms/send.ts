@@ -22,8 +22,14 @@ export interface SendSmsInput {
   body: string;
   organizationId: string;
   /**
-   * Set to true for the initial opt-in welcome message or STOP/HELP responses,
-   * which are legally permitted even without prior opt-in.
+   * Relaxes ONLY the "no opt-in on file yet" gate (missing row / `pending`
+   * status) — e.g. the initial opt-in welcome message, an OTP that itself
+   * establishes opt-in, or a single user-requested transactional text. It
+   * does NOT relax STOP suppression: a `phone_opt_ins.status = 'opted_out'`
+   * row always blocks the send, bypass or not. TCPA/10DLC treat STOP as
+   * absolute — there is no legal carve-out that lets any caller text a
+   * number that has withdrawn consent, so this flag must never be read as
+   * "skip the opt-in table entirely."
    */
   bypassOptInCheck?: boolean;
 }
@@ -112,6 +118,39 @@ export function classifyProviderError(
   return "provider_error";
 }
 
+export type ConsentGateResult =
+  | { allowed: true }
+  | { allowed: false; reason: "not_opted_in" | "opted_out" };
+
+/**
+ * Pure decision function for the opt-in gate. Pulled out of sendSms so the
+ * four-state matrix (status x bypass) is unit-testable without a DB.
+ *
+ * `status` is undefined when no phone_opt_ins row exists for (org, phone,
+ * "sms") at all — treated the same as "pending" (blocked unless bypassed).
+ *
+ * STOP suppression is checked FIRST and unconditionally: an "opted_out"
+ * status returns blocked regardless of `bypassOptInCheck`. That ordering is
+ * the whole point of this function — see the bypassOptInCheck doc comment
+ * on SendSmsInput.
+ */
+export function resolveConsentGate(
+  status: string | undefined,
+  bypassOptInCheck: boolean,
+): ConsentGateResult {
+  if (status === "opted_out") {
+    return { allowed: false, reason: "opted_out" };
+  }
+  if (bypassOptInCheck) {
+    return { allowed: true };
+  }
+  if (status === undefined || status === "pending") {
+    return { allowed: false, reason: "not_opted_in" };
+  }
+  // status === "opted_in"
+  return { allowed: true };
+}
+
 export async function sendSms(input: SendSmsInput): Promise<SendSmsResult> {
   if (!isSmsConfigured()) {
     console.warn("SMS not configured — skipping send to", input.to);
@@ -122,31 +161,29 @@ export async function sendSms(input: SendSmsInput): Promise<SendSmsResult> {
     return { ok: false, reason: "invalid_phone" };
   }
 
-  // Opt-in gate (bypassed for welcome messages and compliance responses)
-  if (!input.bypassOptInCheck) {
-    const optIn = await getDb()
-      .select({ status: phoneOptIns.status })
-      .from(phoneOptIns)
-      .where(
-        and(
-          eq(phoneOptIns.organizationId, input.organizationId),
-          eq(phoneOptIns.phone, input.to),
-          // Without this, optIn[0] can be the WhatsApp row and WhatsApp consent
-          // would decide whether we may send an SMS. SMS (TCPA/10DLC) and
-          // WhatsApp (Meta policy) are legally distinct consents.
-          eq(phoneOptIns.channel, "sms"),
-        ),
-      )
-      // Deterministic pick on the shared CI/staging DB (multi-tenant hazard).
-      .orderBy(asc(phoneOptIns.createdAt))
-      .limit(1);
+  // Opt-in gate. The lookup always runs — bypassOptInCheck only relaxes the
+  // "missing/pending" branch inside resolveConsentGate, never the STOP
+  // ("opted_out") branch. See the SendSmsInput.bypassOptInCheck doc comment.
+  const optIn = await getDb()
+    .select({ status: phoneOptIns.status })
+    .from(phoneOptIns)
+    .where(
+      and(
+        eq(phoneOptIns.organizationId, input.organizationId),
+        eq(phoneOptIns.phone, input.to),
+        // Without this, optIn[0] can be the WhatsApp row and WhatsApp consent
+        // would decide whether we may send an SMS. SMS (TCPA/10DLC) and
+        // WhatsApp (Meta policy) are legally distinct consents.
+        eq(phoneOptIns.channel, "sms"),
+      ),
+    )
+    // Deterministic pick on the shared CI/staging DB (multi-tenant hazard).
+    .orderBy(asc(phoneOptIns.createdAt))
+    .limit(1);
 
-    if (optIn.length === 0 || optIn[0].status === "pending") {
-      return { ok: false, reason: "not_opted_in" };
-    }
-    if (optIn[0].status === "opted_out") {
-      return { ok: false, reason: "opted_out" };
-    }
+  const gate = resolveConsentGate(optIn[0]?.status, !!input.bypassOptInCheck);
+  if (!gate.allowed) {
+    return { ok: false, reason: gate.reason };
   }
 
   // Length guard

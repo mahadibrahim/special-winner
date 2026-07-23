@@ -126,4 +126,9 @@ export const PHONE_OPT_IN_SOURCE = [
   // The lobby kiosk's spectator waiver. Unauthenticated surface: rows it writes
   // start `pending` and are only promoted by the phone OTP.
   "kiosk_spectator",
+  // The in-app-browser escape banner's "text me a link" disclosure
+  // (register-recapture.ts). A single self-requested transactional send, not
+  // a marketing opt-in — the row is written `pending` for evidence only and
+  // is never promoted to `opted_in` by this surface.
+  "recapture_request",
 ] as const;

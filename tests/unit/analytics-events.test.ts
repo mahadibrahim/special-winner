@@ -5,7 +5,7 @@ import {
   trackCatalogSportTileClicked, LEAGUE_EVENTS,
   trackTeamCreateViewed, trackTeamCreateSubmitted, trackTeamDepositViewed, trackTeamHqViewed,
   trackExpressCheckoutConfirmed,
-  trackInappBannerShown, trackInappBannerClicked,
+  trackInappBannerShown, trackInappBannerClicked, trackInappRecaptureRequested,
   TEAM_EVENTS, SERVER_EVENTS,
 } from "@/lib/analytics/events";
 
@@ -109,6 +109,30 @@ describe("analytics events", () => {
   it("exposes the inapp banner event names", () => {
     expect(LEAGUE_EVENTS.inappBannerShown).toBe("inapp_banner_shown");
     expect(LEAGUE_EVENTS.inappBannerClicked).toBe("inapp_banner_clicked");
+  });
+
+  it("inapp_recapture_requested passes season_id + channel + in_app_browser, no PII", () => {
+    trackInappRecaptureRequested({ seasonId: "s1", channel: "sms" });
+    expect(spy).toHaveBeenCalledWith(LEAGUE_EVENTS.inappRecaptureRequested, {
+      season_id: "s1",
+      channel: "sms",
+      in_app_browser: expect.any(Boolean),
+    });
+    const props = spy.mock.calls[0][1] ?? {};
+    for (const k of Object.keys(props)) expect(/email|name|phone/i.test(k)).toBe(false);
+  });
+
+  it("inapp_recapture_requested accepts the email channel too", () => {
+    trackInappRecaptureRequested({ seasonId: "s1", channel: "email" });
+    expect(spy).toHaveBeenCalledWith(LEAGUE_EVENTS.inappRecaptureRequested, {
+      season_id: "s1",
+      channel: "email",
+      in_app_browser: expect.any(Boolean),
+    });
+  });
+
+  it("exposes the inapp recapture event name", () => {
+    expect(LEAGUE_EVENTS.inappRecaptureRequested).toBe("inapp_recapture_requested");
   });
 
   it("exposes the team event-name catalog + server event name", () => {
