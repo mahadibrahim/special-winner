@@ -190,13 +190,19 @@ export default function ProgramCardV2({
     season.deposit > 0 &&
     season.deposit < headlinePrice
   const teamPath = dual || teamOnly
+  // Team story is keyed on the team offer itself (teamPath + a real teamPrice),
+  // NOT on season.deposit — that field only governs the individual
+  // deposit-checkout and used to make this note appear/disappear on unrelated
+  // admin data. Youth/individual hold-a-spot notes still key on depositValid.
   const depositNote =
-    !soldOut && signupMode === "register" && depositValid
-      ? audience === "youth"
-        ? `$${season.deposit!.toLocaleString()} holds a spot today`
-        : teamPath
-          ? `$${CAPTAIN_DEPOSIT_DOLLARS.toLocaleString()} reserves your team — split the rest with your roster`
-          : `$${season.deposit!.toLocaleString()} holds your spot today`
+    !soldOut && signupMode === "register"
+      ? teamPath && season.teamPrice != null
+        ? `$${CAPTAIN_DEPOSIT_DOLLARS.toLocaleString()} reserves your team — split the rest with your roster`
+        : depositValid
+          ? audience === "youth"
+            ? `$${season.deposit!.toLocaleString()} holds a spot today`
+            : `$${season.deposit!.toLocaleString()} holds your spot today`
+          : null
       : null
 
   // CTA labels by audience.
@@ -296,21 +302,11 @@ export default function ProgramCardV2({
                         </div>
                       </div>
                     )
-                    const teamCol = teamFirst ? (
-                      <div key="team">
+                    const teamCol = (
+                      <div key="team" className={teamFirst ? undefined : "border-l border-border pl-3"}>
                         <PriceFigure price={CAPTAIN_DEPOSIT_DOLLARS} basePrice={null} />
                         <div className="text-[10px] text-ink-muted mt-1 uppercase tracking-wide font-semibold">
                           down · ${effTeamTotal!.toLocaleString()} total
-                        </div>
-                      </div>
-                    ) : (
-                      <div key="team" className="border-l border-border pl-3">
-                        <PriceFigure
-                          price={teamEb ?? season.teamPrice!}
-                          basePrice={teamEb != null ? season.teamPrice : null}
-                        />
-                        <div className="text-[10px] text-ink-muted mt-1 uppercase tracking-wide font-semibold">
-                          per team
                         </div>
                       </div>
                     )

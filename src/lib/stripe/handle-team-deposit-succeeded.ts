@@ -1,9 +1,11 @@
 import type Stripe from "stripe";
 import { eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { teamRegistrations, payments } from "@/lib/db/schema";
+import { teamRegistrations, payments, seasons } from "@/lib/db/schema";
 import { getPostHogServer } from "@/lib/posthog-server";
 import { SERVER_EVENTS } from "@/lib/analytics/events";
+import { sendTeamDepositReceiptEmail } from "@/lib/email/send";
+import type { BrandId } from "@/lib/branding/themes";
 
 /**
  * Handles `payment_intent.succeeded` for the captain's $200 team deposit
@@ -45,6 +47,14 @@ export async function handleTeamDepositSucceeded(
       backstopStatus: teamRegistrations.backstopStatus,
       captainUserId: teamRegistrations.captainUserId,
       depositPaymentId: teamRegistrations.depositPaymentId,
+      captainEmail: teamRegistrations.captainEmail,
+      captainName: teamRegistrations.captainName,
+      teamName: teamRegistrations.teamName,
+      inviteToken: teamRegistrations.inviteToken,
+      teamFeeCents: teamRegistrations.teamFeeCents,
+      depositCents: teamRegistrations.depositCents,
+      paymentDeadline: teamRegistrations.paymentDeadline,
+      brand: teamRegistrations.brand,
     })
     .from(teamRegistrations)
     .where(eq(teamRegistrations.id, teamRegistrationId));
@@ -165,6 +175,42 @@ export async function handleTeamDepositSucceeded(
         amount_cents: paymentIntent.amount,
       },
     });
+
+    // Deposit receipt — the captain's durable copy of the join link + next
+    // steps. Same exactly-once gate as the capture above (ledgerRowInserted).
+    // The season-name lookup lives inside this try/catch too: a transient DB
+    // blip here must never throw out of the handler — depositPaymentId is
+    // already committed by this point, so a thrown error would 500 the
+    // webhook, Stripe would retry, and the retry would short-circuit at the
+    // dedupe gate above, permanently losing this email (the capture above has
+    // already fired by then, so it's safe either way). Awaited so the
+    // serverless function doesn't freeze mid-send; any failure here logs and
+    // never fails the webhook.
+    try {
+      let seasonRow: { name: string } | undefined;
+      try {
+        [seasonRow] = await db
+          .select({ name: seasons.name })
+          .from(seasons)
+          .where(eq(seasons.id, team.seasonId));
+      } catch (err) {
+        console.error("[team-deposit] season name lookup failed:", err);
+      }
+      await sendTeamDepositReceiptEmail({
+        to: team.captainEmail,
+        captainName: team.captainName,
+        teamName: team.teamName,
+        seasonName: seasonRow?.name ?? "your season",
+        seasonId: team.seasonId,
+        inviteToken: team.inviteToken,
+        teamFeeCents: team.teamFeeCents,
+        depositCents: team.depositCents ?? 20000,
+        paymentDeadline: team.paymentDeadline,
+        brand: (team.brand as BrandId | undefined) ?? undefined,
+      });
+    } catch (err) {
+      console.error("[team-deposit] receipt email failed:", err);
+    }
   }
 
   return { status: "processed", teamRegistrationId };

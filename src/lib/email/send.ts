@@ -1177,6 +1177,96 @@ export async function sendTeamInviteEmail(params: SendTeamInviteParams) {
   return result;
 }
 
+// ---- Team deposit receipt (captain, right after the $200 deposit succeeds) ----
+
+export interface TeamDepositReceiptParams {
+  to: string;
+  captainName: string;
+  teamName: string;
+  seasonName: string;
+  seasonId: string;
+  inviteToken: string;
+  /** Snapshot from team_registrations — null on legacy rows. */
+  teamFeeCents: number | null;
+  depositCents: number;
+  paymentDeadline: Date | null;
+  brand?: BrandId;
+}
+
+/**
+ * Pure body builder — exported for unit tests. The receipt is the captain's
+ * only durable copy of the join link and next steps: before this email
+ * existed, closing the post-deposit tab lost both.
+ */
+export function buildTeamDepositReceipt(params: TeamDepositReceiptParams): {
+  subject: string;
+  html: string;
+  text: string;
+  joinUrl: string;
+} {
+  const appUrl = originForBrand(params.brand) ?? env.PUBLIC_APP_URL;
+  const joinUrl = `${appUrl}/register/${params.seasonId}?team=${encodeURIComponent(params.inviteToken)}`;
+  const deposit = `$${(params.depositCents / 100).toLocaleString("en-US")}`;
+  const total =
+    params.teamFeeCents != null ? `$${(params.teamFeeCents / 100).toLocaleString("en-US")}` : null;
+  const remainder =
+    params.teamFeeCents != null
+      ? `$${(Math.max(0, params.teamFeeCents - params.depositCents) / 100).toLocaleString("en-US")}`
+      : null;
+  // paymentDeadline is a full instant — pin to the org timezone
+  // (America/New_York) so this agrees with the fee box on team-create.tsx,
+  // which formats the same registrationCloses instant the same way.
+  const deadline = params.paymentDeadline
+    ? params.paymentDeadline.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        timeZone: "America/New_York",
+      })
+    : null;
+
+  const subject = `${params.teamName} is reserved — here's your team link`;
+  const feeLine = total
+    ? `Your ${deposit} deposit is in and counts toward the ${total} team fee — your roster covers the remaining ${remainder} as they register.`
+    : `Your ${deposit} deposit is in and counts toward the team fee — your roster covers the rest as they register.`;
+  const deadlineLine = `Teammate shares still unpaid after ${deadline ?? "the payment deadline"} are charged to your card on file.`;
+
+  const html = `<!doctype html><html><body style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1a1a1a;line-height:1.5;">
+    <p>${escapeHtml(params.captainName)}, <strong>${escapeHtml(params.teamName)}</strong> is reserved for ${escapeHtml(params.seasonName)}.</p>
+    <p>${escapeHtml(feeLine)}</p>
+    <p><strong>Your team link</strong> — share it so teammates can register and pay their share:</p>
+    <p><a href="${joinUrl}" style="display:inline-block;background:#1a1a1a;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">Open your team page →</a></p>
+    <p style="color:#666;font-size:13px;">Or paste this link into your browser:<br>${escapeHtml(joinUrl)}</p>
+    <p style="color:#666;font-size:13px;">${escapeHtml(deadlineLine)}</p>
+  </body></html>`;
+
+  const text = `${params.captainName}, ${params.teamName} is reserved for ${params.seasonName}.\n\n${feeLine}\n\nYour team link — share it so teammates can register and pay their share:\n${joinUrl}\n\n${deadlineLine}\n`;
+
+  return { subject, html, text, joinUrl };
+}
+
+export async function sendTeamDepositReceiptEmail(params: TeamDepositReceiptParams) {
+  if (!isEmailConfigured()) {
+    console.warn("Email not configured, skipping team deposit receipt");
+    return { success: false, error: "Email not configured" };
+  }
+  const { subject, html, text } = buildTeamDepositReceipt(params);
+  const result = await sendEmail({
+    to: params.to,
+    subject,
+    html,
+    text,
+    from: fromForBrand(params.brand),
+  });
+  await logEmail({
+    emailType: "team_deposit_receipt",
+    recipientEmail: params.to,
+    subject,
+    resendMessageId: result.messageId,
+    status: result.success ? "sent" : "failed",
+  });
+  return result;
+}
+
 // ---- Team share reminder (~3 days before the payment deadline) ----
 
 export interface SendTeamShareReminderParams {

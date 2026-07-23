@@ -12,6 +12,7 @@ import {
   NIGHT_LABELS, type FinderSeason, type FinderFilters,
 } from "@/lib/soccerone/leagues-finder"
 import { WEEK_ORDER } from "@/lib/leagues/division-filters"
+import { CAPTAIN_DEPOSIT_DOLLARS } from "@/lib/registrations/team-deposit"
 
 const SECTION_ID = "leagues-finder"
 const ALL: FinderFilters = { location: "all", division: "all", night: "all", level: "all", ages: "all" }
@@ -288,7 +289,7 @@ function LeagueCard({ season }: { season: LeagueCardSeason }) {
   const earlyBird = season.teamEarlyBirdActive && season.effectiveTeamPrice != null
   const teamFee = earlyBird ? season.effectiveTeamPrice : season.teamPrice
   const priceLabel = teamFee
-    ? `$${season.price}/player · $${teamFee}/team${earlyBird ? " early-bird" : ""}`
+    ? `$${season.price}/player · team: $${CAPTAIN_DEPOSIT_DOLLARS} reserves it, $${teamFee} total${earlyBird ? " early-bird" : ""}`
     : `$${season.price}/player`
   const dayLabel = formatDaySchedule(season.dayOfWeek, season.startTime, season.endTime)
   // Day/time and starts are separate meta rows in the canonical order (day/

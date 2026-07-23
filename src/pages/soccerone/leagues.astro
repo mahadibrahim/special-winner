@@ -10,6 +10,7 @@ import { seasonsToSportsEvents } from '@/lib/seo/events';
 import { partitionTerms, type TermSeason } from '@/lib/leagues/terms';
 import { aggregateFeaturedTerm } from '@/lib/soccerone/featured-term';
 import { WHY_INDOOR, RULE_SECTIONS } from '@/lib/leagues/adult-soccer-content';
+import { CAPTAIN_DEPOSIT_DOLLARS } from "@/lib/registrations/team-deposit";
 
 // Phase 2 — fetch live SoccerOne seasons via the tenant-scoped public API.
 // The endpoint is org-scoped from Phase 0 (reads Astro.locals.organization),
@@ -135,7 +136,7 @@ const featuredTeamFee = featured
   : null;
 const featuredPrice = featured
   ? (featuredTeamFee
-      ? `$${featured.price}/player · $${featuredTeamFee}/team${featured.teamEarlyBirdActive ? ' early-bird' : ''}`
+      ? `$${featured.price}/player · team: $${CAPTAIN_DEPOSIT_DOLLARS} reserves it, $${featuredTeamFee} total${featured.teamEarlyBirdActive ? ' early-bird' : ''}`
       : `$${featured.price}/player`)
   : null;
 // Structured play day wins over the free-text scheduleNotes when set.

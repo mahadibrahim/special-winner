@@ -132,6 +132,7 @@ export default function RegisterExperience({
           isAuthed={!!user}
           defaultName={user ? `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() : ""}
           defaultEmail={user?.email ?? ""}
+          season={season}
           onCaptainRegister={(tok) => {
             window.location.href = `/register/${seasonId}?team=${encodeURIComponent(tok)}`;
           }}

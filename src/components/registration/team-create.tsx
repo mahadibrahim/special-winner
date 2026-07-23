@@ -3,8 +3,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { Loader2, CheckCircle2, Copy, Check, Send, Plus, X, Mail } from "lucide-react";
 import { EmbeddedPayment } from "./embedded-payment";
-import { CAPTAIN_DEPOSIT_CENTS } from "@/lib/registrations/team-deposit";
+import { CAPTAIN_DEPOSIT_CENTS, CAPTAIN_DEPOSIT_DOLLARS } from "@/lib/registrations/team-deposit";
 import { TurnstileWidget } from "@/components/auth/turnstile-widget";
+import { teamPriceStory } from "@/lib/leagues/rail-content";
+import { formatDateOnly } from "@/lib/time/format-date";
 import {
   trackTeamCreateViewed,
   trackTeamCreateSubmitted,
@@ -162,6 +164,7 @@ export default function TeamCreate({
   defaultName,
   defaultEmail,
   onCaptainRegister,
+  season,
 }: {
   seasonId: string;
   /** Whether the register page has a signed-in user. Signed-out captains get
@@ -170,6 +173,16 @@ export default function TeamCreate({
   defaultName: string;
   defaultEmail: string;
   onCaptainRegister: (inviteToken: string) => void;
+  /** Season pricing/deadline snapshot from the register page's detail fetch —
+      renders the fee box + deadline BEFORE the deposit charge. Optional so the
+      component stays render-safe if the parent ever mounts it without one. */
+  season?: {
+    price: number;
+    teamPrice: number | null;
+    effectiveTeamPrice?: number | null;
+    teamEarlyBirdActive?: boolean;
+    registrationCloses?: string | null;
+  };
 }) {
   const [teamName, setTeamName] = useState("");
   const [captainName, setCaptainName] = useState(defaultName);
@@ -184,9 +197,6 @@ export default function TeamCreate({
   // already has an account (409) gets different copy than the stale-session
   // 401 fallback below.
   const [linkSentReason, setLinkSentReason] = useState<"account_exists" | null>(null);
-  // Required backstop consent — the captain affirms the saved card may be
-  // charged (off-session) for unpaid teammate shares after the deadline.
-  const [backstopConsent, setBackstopConsent] = useState(false);
   // Cloudflare Turnstile token — only rendered/collected for signed-out
   // captains, whose submit goes to the magic-link auth endpoints (which
   // verify Turnstile server-side and fail closed in prod).
@@ -212,6 +222,23 @@ export default function TeamCreate({
   const [inviteStatus, setInviteStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [sentCount, setSentCount] = useState(0);
+
+  // Fee box math — display-only; the server recomputes the fee at create time.
+  const story = season ? teamPriceStory(season) : null;
+  const feeTotalDollars = season ? (season.effectiveTeamPrice ?? season.teamPrice ?? season.price) : null;
+  const rosterRemainderDollars =
+    feeTotalDollars != null ? Math.max(0, feeTotalDollars - CAPTAIN_DEPOSIT_CENTS / 100) : null;
+  // registrationCloses is a full ISO instant (not a date-only column), so it
+  // must be pinned to the org timezone (America/New_York) — otherwise it
+  // renders in the viewer's local zone and can disagree with the receipt
+  // email, which formats the same instant in America/New_York.
+  const deadlineLabel = season?.registrationCloses
+    ? formatDateOnly(season.registrationCloses, {
+        month: "short",
+        day: "numeric",
+        timeZone: "America/New_York",
+      })
+    : null;
 
   // Funnel eventing — one fire per state entry. Keyed on `status` so React's
   // effect-dependency semantics do the guarding: the body only reruns when
@@ -554,9 +581,17 @@ export default function TeamCreate({
           <h1 className="font-display text-2xl text-ink mt-1 mb-2">
             Reserve your team
           </h1>
-          <p className="text-ink-2 leading-relaxed text-sm">
-            $200 deposit · credits the team fee.
-          </p>
+          <div className="text-ink-2 leading-relaxed text-sm space-y-0.5">
+            <p>
+              Due today: <b>${CAPTAIN_DEPOSIT_DOLLARS}</b> — reserves your team.
+            </p>
+            {feeTotalDollars != null && rosterRemainderDollars != null && (
+              <p className="text-ink-muted text-xs">
+                Team fee ${feeTotalDollars.toLocaleString()} − your deposit = $
+                {rosterRemainderDollars.toLocaleString()} left for your roster.
+              </p>
+            )}
+          </div>
         </div>
         <EmbeddedPayment
           clientSecret={depositClientSecret}
@@ -829,28 +864,38 @@ export default function TeamCreate({
           </div>
         )}
 
-        <label className="flex items-start gap-3 cursor-pointer">
-          <input
-            type="checkbox"
-            required
-            checked={backstopConsent}
-            onChange={(e) => setBackstopConsent(e.target.checked)}
-            className="mt-1 w-4 h-4 accent-primary-orange"
-          />
-          <span className="text-sm leading-relaxed">
-            <span className="block text-ink">
-              Save my card to cover unpaid teammate shares after the deadline
-            </span>
-            <span className="block text-ink-muted text-xs mt-0.5">
-              Charged only if your team hasn't collected the full fee by the
-              payment deadline.
-            </span>
-          </span>
-        </label>
+        {story && (
+          <div className="rounded-xl border border-primary-orange/25 bg-cream-2 px-4 py-3 text-sm">
+            <div className="flex justify-between py-0.5">
+              <span className="text-ink">Today — reserves your team</span>
+              <span className="font-semibold text-ink">{story.deposit}</span>
+            </div>
+            <div className="flex justify-between py-0.5">
+              <span className="text-ink">Season team fee</span>
+              <span className="font-semibold text-ink">
+                {story.total}
+                {story.baseTotal && (
+                  <span className="ml-1.5 line-through text-ink-faint font-normal text-xs">{story.baseTotal}</span>
+                )}
+              </span>
+            </div>
+            {rosterRemainderDollars != null && (
+              <div className="flex justify-between py-0.5 text-ink-muted text-xs">
+                <span>Your roster pays the rest when they register</span>
+                <span>${rosterRemainderDollars.toLocaleString()}</span>
+              </div>
+            )}
+            <p className="border-t border-primary-orange/20 mt-2 pt-2 text-xs text-ink-muted leading-relaxed">
+              <span className="font-semibold text-ink">Your card stays on file for the team.</span>{" "}
+              Teammate shares still unpaid after{deadlineLabel ? <> <b>{deadlineLabel}</b></> : " the payment deadline"} are
+              charged to it. Your {story.deposit} counts toward the team fee.
+            </p>
+          </div>
+        )}
 
         <button
           type="submit"
-          disabled={status === "submitting" || !backstopConsent}
+          disabled={status === "submitting"}
           className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-ink text-cream text-sm font-medium tracking-wide uppercase hover:bg-primary-orange transition-colors disabled:opacity-60"
           style={{ letterSpacing: "0.08em" }}
         >
@@ -860,9 +905,12 @@ export default function TeamCreate({
               Creating team…
             </>
           ) : (
-            "Create team & get link →"
+            `Reserve your team · $${CAPTAIN_DEPOSIT_DOLLARS} →`
           )}
         </button>
+        <p className="text-xs text-ink-muted leading-relaxed">
+          By reserving, you agree to the payment terms above.
+        </p>
         {!isAuthed && (
           <p className="text-xs text-ink-muted leading-relaxed">
             Creating your team also creates your account. If this email

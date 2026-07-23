@@ -5,6 +5,7 @@ import { LevelLadder, Bars } from "@/components/leagues/level-ladder";
 import { InterestCapture } from "@/components/leagues/interest-capture";
 import { trackDivisionFilterApplied, trackDivisionRegisterClicked } from "@/lib/analytics/events";
 import { cn } from "@/lib/utils";
+import { CAPTAIN_DEPOSIT_DOLLARS } from "@/lib/registrations/team-deposit";
 
 // Map internal filter keys to spec facet names.
 const FACET_FOR: Record<keyof DivisionFilters, "level" | "format" | "day" | "venue"> = {
@@ -142,6 +143,11 @@ function DivisionRow({ d, term }: { d: Division; term: string }) {
               <> · <span className="text-ink font-semibold">${d.price.toLocaleString()}/player</span></>
             )}
           </div>
+          {d.teamTotal != null && d.status !== "completed" && (
+            <div className="font-mono text-[10.5px] tracking-wide text-ink-muted mt-0.5">
+              or reserve a team — ${CAPTAIN_DEPOSIT_DOLLARS} down, ${d.teamTotal.toLocaleString()} total
+            </div>
+          )}
         </div>
         <div className="text-[13px] text-ink-2">{d.day ? <b className="text-ink">{labelDay(d.day)}</b> : null} {d.time ? `· ${d.time}` : ""}</div>
         <div className="text-xs text-ink-muted">{d.venueName}</div>
