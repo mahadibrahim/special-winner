@@ -26,6 +26,7 @@ import { AddDependentForm } from "./add-dependent-form"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { parseApiError } from "@/lib/api/error-message"
 import { recordConfirmedPayment } from "@/lib/registrations/payment-confirmation-signal"
+import { readGuestDraft, clearGuestDraft, stashGuestDraft } from "@/lib/registrations/guest-draft"
 import {
   trackRegistrationStepViewed,
   trackRegistrationPaymentMethodSelected,
@@ -396,6 +397,23 @@ export default function RegistrationWizard({
   useEffect(() => {
     fetchData()
   }, [seasonId])
+
+  // Rehydrate the guest adult-self draft stashed before a sign-in round trip
+  // (see handleGuestSignInClick below). Guests get the three fields prefilled
+  // once and the stash cleared; authed users just clear it — their profile
+  // supersedes a stashed guest draft, and leaving it around risks it leaking
+  // into a future anonymous session on this device.
+  useEffect(() => {
+    const draft = readGuestDraft(seasonId)
+    if (!draft) return
+    if (isGuest) {
+      setGuestParentFirstName(draft.firstName)
+      setGuestParentLastName(draft.lastName)
+      setGuestParentEmail(draft.email)
+    }
+    clearGuestDraft(seasonId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seasonId, isGuest])
 
   // Fetch the signed-in user's account credit balance so the payment step
   // can offer to apply it. Guests never have a balance (no signed-in user
@@ -1078,6 +1096,23 @@ export default function RegistrationWizard({
     setFocusGuestEmailOnMount(true)
   }
 
+  // Guest taps "Sign in" mid-wizard: stash the adult-self fields so the
+  // round trip through /signin doesn't make them retype. Scoped to the v2
+  // (adult-locked) guest flow only — those three fields are unambiguously
+  // the adult registering themselves. The v1 flow's "about you" fields can
+  // belong to a parent registering a child, and the child fields are never
+  // eligible for this stash (see Global Constraints — adult self only).
+  const handleGuestSignInClick = () => {
+    if (flowVariant !== "v2") return
+    stashGuestDraft({
+      v: 1,
+      seasonId,
+      firstName: guestParentFirstName.trim(),
+      lastName: guestParentLastName.trim(),
+      email: guestParentEmail.trim(),
+    })
+  }
+
   const handleSubmitRegistration = async (categoryOverride?: "bank" | "card") => {
     if (!selectedKey) return
     // v2 (adult-locked) has no pre-payment agreements step, so the waiver is
@@ -1609,6 +1644,7 @@ export default function RegistrationWizard({
             onAdultBirthDateChange={setGuestAdultBirthDate}
             onAdultGenderChange={setGuestAdultGender}
             fieldErrors={guestFieldErrors}
+            onSignInClick={handleGuestSignInClick}
           />
         )}
 

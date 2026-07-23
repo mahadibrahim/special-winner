@@ -1,10 +1,12 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { SmsConsentCheckbox } from "@/components/sms/sms-consent-checkbox"
+import { buildSigninRedirectHref } from "@/lib/auth/signin-redirect-href"
 
 export type GuestRegistrationMode = "child" | "adult"
 
@@ -73,6 +75,15 @@ export interface GuestInfoStepProps {
   /** Set by the wizard after a failed Continue attempt; null/absent = no
    *  validation attempted yet (fields render without error styling). */
   fieldErrors?: GuestFieldErrors | null
+
+  /**
+   * Fired when the visitor taps "Sign in". The wizard uses this to stash the
+   * adult-self draft (v2 flow only — see registration-wizard.tsx) before the
+   * anchor's normal navigation to /signin proceeds. Synchronous — no
+   * preventDefault needed, sessionStorage.setItem completes before the
+   * browser follows the href.
+   */
+  onSignInClick?: () => void
 }
 
 export function GuestInfoStep({
@@ -106,8 +117,26 @@ export function GuestInfoStep({
   lockedMode,
   minimal = false,
   fieldErrors = null,
+  onSignInClick,
 }: GuestInfoStepProps) {
   const showModeToggle = !lockedMode && !minimal
+
+  // Sign-in link href: carries the full current path + query string so
+  // magic-link redemption lands back on this exact page (mode/audience
+  // hints included), not a bare `/register/{seasonId}`. Computed
+  // render-safely — SSR has no `window`, so the initial render falls back
+  // to the path-only href and upgrades to the full href once mounted (a
+  // stale-then-correct href across hydration is acceptable; reading
+  // `window` during SSR is not).
+  const [signInHref, setSignInHref] = useState(() =>
+    buildSigninRedirectHref(`/register/${seasonId}`),
+  )
+  useEffect(() => {
+    setSignInHref(
+      buildSigninRedirectHref(window.location.pathname, window.location.search),
+    )
+  }, [])
+
   const err = (key: keyof GuestFieldErrors) => fieldErrors?.[key] ?? null
   const errText = (key: keyof GuestFieldErrors) => {
     const msg = err(key)
@@ -481,7 +510,8 @@ export function GuestInfoStep({
       <p className="text-xs text-ink-muted">
         Already have an account?{" "}
         <a
-          href={`/signin?redirect=/register/${seasonId}`}
+          href={signInHref}
+          onClick={() => onSignInClick?.()}
           className="text-primary hover:text-primary/80 font-medium"
         >
           Sign in
