@@ -1,10 +1,17 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { loadStripe, type Stripe as StripeJs } from "@stripe/stripe-js";
+import {
+  loadStripe,
+  type Stripe as StripeJs,
+  type PaymentIntentResult,
+  type StripeExpressCheckoutElementReadyEvent,
+  type StripeExpressCheckoutElementConfirmEvent,
+} from "@stripe/stripe-js";
 import {
   Elements,
   PaymentElement,
+  ExpressCheckoutElement,
   useStripe,
   useElements,
 } from "@stripe/react-stripe-js";
@@ -17,6 +24,7 @@ import {
   type SeasonItem,
   type CheckoutPaymentType,
 } from "@/lib/analytics/datalayer";
+import { trackExpressCheckoutConfirmed } from "@/lib/analytics/events";
 
 interface EmbeddedPaymentProps {
   /** PaymentIntent client secret (pi_xxx_secret_xxx). */
@@ -114,24 +122,17 @@ function PaymentForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasFiredAddPaymentInfo, setHasFiredAddPaymentInfo] = useState(false);
+  const [expressMethodsAvailable, setExpressMethodsAvailable] = useState(false);
+  const [expressLoadErrored, setExpressLoadErrored] = useState(false);
 
-  const handlePay = async () => {
-    if (!stripe || !elements) return;
-    setIsSubmitting(true);
-    setError(null);
-
-    const { error: submitError } = await elements.submit();
-    if (submitError) {
-      setError(submitError.message ?? "Card details are invalid");
-      setIsSubmitting(false);
-      return;
-    }
-
-    const { error: confirmError, paymentIntent } = await stripe.confirmPayment({
-      elements,
-      confirmParams: { return_url: returnUrl },
-      redirect: "if_required",
-    });
+  // Shared by the card-form Pay button and the Express Checkout Element's
+  // onConfirm — both call stripe.confirmPayment(...) the same way and must
+  // settle the result identically (success tracking, onSuccess, pending
+  // redirect). The pre-confirm collection step differs: handlePay calls
+  // elements.submit() first (required for the PaymentElement path), while
+  // handleExpressConfirm does not (see the comment there for why).
+  const settleConfirmResult = (result: PaymentIntentResult) => {
+    const { error: confirmError, paymentIntent } = result;
 
     if (confirmError) {
       setError(confirmError.message ?? "Payment failed");
@@ -159,8 +160,106 @@ function PaymentForm({
     }
   };
 
+  const handlePay = async () => {
+    if (!stripe || !elements) return;
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    setError(null);
+
+    const { error: submitError } = await elements.submit();
+    if (submitError) {
+      setError(submitError.message ?? "Card details are invalid");
+      setIsSubmitting(false);
+      return;
+    }
+
+    const result = await stripe.confirmPayment({
+      elements,
+      confirmParams: { return_url: returnUrl },
+      redirect: "if_required",
+    });
+
+    settleConfirmResult(result);
+  };
+
+  const handleExpressConfirm = async (
+    event: StripeExpressCheckoutElementConfirmEvent,
+  ) => {
+    if (!stripe || !elements) return;
+    if (isSubmitting) return;
+    setIsSubmitting(true);
+    setError(null);
+
+    trackExpressCheckoutConfirmed({
+      expressPaymentType: event.expressPaymentType,
+    });
+
+    // NOTE: no elements.submit() here. elements.submit() is only for an
+    // Elements group created WITHOUT a PaymentIntent/SetupIntent (the
+    // "deferred" / amount-based flow) — it validates and collects data from
+    // whichever payment Element is mounted in the group before you create
+    // and confirm the intent yourself. This <Elements> instance is created
+    // WITH `clientSecret` (see EmbeddedPayment above), so the intent already
+    // exists and submit() is neither required nor appropriate: the Express
+    // Checkout Element shares this Elements group with the (empty, unfilled)
+    // PaymentElement below, and calling submit() here would validate/collect
+    // against that empty PaymentElement and reject the wallet payment. Go
+    // straight to stripe.confirmPayment — the ECE has already collected and
+    // attached the wallet payment method via its own internal flow by the
+    // time onConfirm fires.
+    const result = await stripe.confirmPayment({
+      elements,
+      confirmParams: { return_url: returnUrl },
+      redirect: "if_required",
+    });
+
+    settleConfirmResult(result);
+  };
+
+  const showExpressCheckout =
+    paymentMethodCategory !== "bank" && !expressLoadErrored;
+
   return (
     <div className="space-y-4">
+      {showExpressCheckout && (
+        <div
+          className={
+            expressMethodsAvailable ? "space-y-4" : "h-0 overflow-hidden"
+          }
+        >
+          {/* ECE must always mount (even while collapsed) — onReady only
+              fires for a mounted element, and that's how we learn whether
+              any wallets are available. Collapse the wrapper instead of
+              conditionally rendering the element, so there's no dead
+              vertical gap before onReady resolves or when zero wallets are
+              available on this device/browser. */}
+          <ExpressCheckoutElement
+            onConfirm={handleExpressConfirm}
+            onReady={(event: StripeExpressCheckoutElementReadyEvent) => {
+              setExpressMethodsAvailable(
+                Boolean(event.availablePaymentMethods),
+              );
+            }}
+            onLoadError={(event) => {
+              // Never surface this to the user — the card path below is
+              // unaffected. Just hide the element and move on.
+              console.warn(
+                "ExpressCheckoutElement failed to load",
+                event.error,
+              );
+              setExpressLoadErrored(true);
+              setExpressMethodsAvailable(false);
+            }}
+          />
+          {expressMethodsAvailable && (
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-1 bg-border" />
+              <span className="text-xs text-ink-faint">or pay with card</span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+          )}
+        </div>
+      )}
       <PaymentElement
         options={{
           layout: "accordion",

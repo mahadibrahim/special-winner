@@ -23,6 +23,7 @@ import { WelcomeEmail2 } from "./templates/welcome-2-story";
 import { WelcomeEmail3 } from "./templates/welcome-3-activation";
 import { DisputeAlertEmail } from "./templates/dispute-alert";
 import { CaptureIncentiveEmail } from "./templates/capture-incentive";
+import { InappRecaptureEmail } from "./templates/inapp-recapture";
 import { FeedbackNpsEmail } from "./templates/feedback-nps";
 import { FeedbackDetractorAlertEmail } from "./templates/feedback-detractor-alert";
 import { FeedbackRefereeRatingEmail } from "./templates/feedback-referee-rating";
@@ -1020,6 +1021,88 @@ export async function sendCaptureIncentiveEmail(params: {
   await logEmail({
     emailType,
     recipientEmail: params.recipientEmail,
+    subject,
+    resendMessageId: result.messageId,
+    status: result.success ? "sent" : "failed",
+  });
+
+  return result;
+}
+
+// ---- In-app browser recapture (escape banner "email yourself a link") ----
+
+// One-shot recapture-link delivery for a visitor stuck in an in-app browser
+// (Instagram/Facebook webview) who asked the escape banner to email them a
+// link instead of switching apps manually. Transactional one-off, not a
+// drip series — no List-Unsubscribe, and no userId (the visitor may not
+// have an account yet). Deduped per address via email_logs, exact structural
+// clone of sendCaptureIncentiveEmail.
+export async function sendInappRecaptureEmail(params: {
+  email: string;
+  seasonId: string;
+  seasonName: string;
+  brand?: BrandId;
+}) {
+  const brand = params.brand ?? "aspire";
+  const emailType = "inapp_recapture";
+  const subject = `Finish signing up for ${params.seasonName}`;
+
+  // Existence check — a sent/skipped row means we already handled this
+  // address, so no orderBy is needed on the limit(1). Failed sends are
+  // excluded on purpose: a resubmit after a transient Resend error must
+  // retry, not dedupe.
+  const [already] = await getDb()
+    .select({ id: emailLogs.id })
+    .from(emailLogs)
+    .where(
+      and(
+        eq(emailLogs.emailType, emailType),
+        eq(emailLogs.recipientEmail, params.email),
+        ne(emailLogs.status, "failed"),
+      ),
+    )
+    .limit(1);
+  if (already) {
+    return { success: true, deduped: true };
+  }
+
+  if (!isEmailConfigured()) {
+    console.warn("Email not configured, skipping inapp-recapture email");
+    // Record the attempt anyway so the dedupe gate holds (same pattern as
+    // the welcome series).
+    await logEmail({
+      emailType,
+      recipientEmail: params.email,
+      subject,
+      status: "skipped",
+    });
+    return { success: false, error: "Email not configured" };
+  }
+
+  const appUrl = originForBrand(brand) ?? env.PUBLIC_APP_URL;
+  const registerUrl = `${appUrl}/register/${params.seasonId}?mode=individual&utm_source=inapp_recapture`;
+  const { html, text } = await renderEmail(
+    InappRecaptureEmail({
+      seasonName: params.seasonName,
+      registerUrl,
+      brand,
+    }),
+  );
+
+  // Direct sendEmail rather than sendTransactionalEmail: there is no userId
+  // for the log association, so we log manually with the recipient email
+  // alone (same pattern as sendCaptureIncentiveEmail).
+  const result = await sendEmail({
+    to: params.email,
+    subject,
+    html,
+    text,
+    from: fromForBrand(params.brand),
+  });
+
+  await logEmail({
+    emailType,
+    recipientEmail: params.email,
     subject,
     resendMessageId: result.messageId,
     status: result.success ? "sent" : "failed",
