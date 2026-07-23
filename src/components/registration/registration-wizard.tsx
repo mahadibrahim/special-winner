@@ -376,6 +376,10 @@ export default function RegistrationWizard({
     "bank" | "card"
   >("card")
   const [appliedSurchargeCents, setAppliedSurchargeCents] = useState(0)
+  // The server's amountDueCents from the most recent submit (guest or authed
+  // path) — stashed purely for the invite-share mismatch check below; never
+  // used to compute what's charged.
+  const [serverAmountDueCents, setServerAmountDueCents] = useState<number | null>(null)
 
   // ── Account credit state (authed only — guests have no balance) ─────────
   const [creditBalanceCents, setCreditBalanceCents] = useState(0)
@@ -407,6 +411,19 @@ export default function RegistrationWizard({
   // through the same account. Mirror that here so the payment step doesn't
   // show credit math the server would refuse.
   const effectiveCaptainCredit = selectedKey === "self" ? captainCredit : null
+  // The personal invite link (`inviteeShareCents`) promised a specific share,
+  // but the server only applies it when the registering email matches the
+  // invitee it was minted for. If the registrant used a different email, the
+  // server falls back to the full price — this flags that mismatch so
+  // PaymentStep can explain the charge instead of silently showing full
+  // price after a share was promised. Only meaningful post-submit, once
+  // serverAmountDueCents is populated.
+  const shareMismatch =
+    teamToken != null &&
+    inviteeShareCents != null &&
+    !effectiveCaptainCredit &&
+    serverAmountDueCents != null &&
+    serverAmountDueCents !== inviteeShareCents
   // Same classification the step-viewed analytics effect below uses, hoisted
   // to a variable so it can also be threaded to ConfirmationStep/CompletionForm
   // (which otherwise defaults to "solo" and mislabels every team registration's
@@ -1121,11 +1138,16 @@ export default function RegistrationWizard({
         }
         throw new Error(parseApiError(data, "Failed to complete registration"))
       }
+      if (typeof data.amountDueCents === "number") {
+        setServerAmountDueCents(data.amountDueCents)
+      }
       if (data.clientSecret) {
         const valueCents =
           paymentOption === "deposit" && depositValid(season!)
             ? season!.depositCents!
-            : fullPriceCents(season!)
+            : teamToken != null && typeof data.amountDueCents === "number"
+              ? data.amountDueCents
+              : fullPriceCents(season!)
         const baseAfterDiscount = appliedDiscount
           ? valueCents - appliedDiscount.discountAmountCents
           : valueCents
@@ -1273,6 +1295,9 @@ export default function RegistrationWizard({
       }
 
       const regData = await regResponse.json()
+      if (typeof regData.amountDueCents === "number") {
+        setServerAmountDueCents(regData.amountDueCents)
+      }
 
       if (regData.requiresPayment) {
         // Step 2: Create Stripe checkout session
@@ -1309,7 +1334,9 @@ export default function RegistrationWizard({
             ? effectiveCaptainCredit.dueCents
             : paymentOption === "deposit" && depositValid(season!)
               ? season!.depositCents!
-              : fullPriceCents(season!)
+              : teamToken != null && typeof regData.amountDueCents === "number"
+                ? regData.amountDueCents
+                : fullPriceCents(season!)
           const baseAfterDiscount = appliedDiscount
             ? valueCents - appliedDiscount.discountAmountCents
             : valueCents
@@ -1912,6 +1939,8 @@ export default function RegistrationWizard({
             paymentMethodCategory={selectedPaymentCategory}
             onMethodSelected={handleMethodSelected}
             captainCredit={effectiveCaptainCredit}
+            teamShareCents={!effectiveCaptainCredit && teamToken ? inviteeShareCents ?? null : null}
+            shareMismatch={shareMismatch}
             onCompleteZeroDue={() => {
               // Zero-due captain registration: no method, no Stripe intent —
               // the server finalizes the row as paid via the deposit credit.
