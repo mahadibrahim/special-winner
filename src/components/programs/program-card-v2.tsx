@@ -1,11 +1,10 @@
 "use client"
 
-import { Calendar, MapPin, ArrowRight, User, Users, Clock, Info } from "lucide-react"
+import { Calendar, MapPin, ArrowRight, User, Users, Clock } from "lucide-react"
 import {
   deriveStatusPill,
   deriveIndividualUnit,
   deriveDuration,
-  deriveDeadline,
   deriveAudience,
   isDualMode,
   isTeamOnly,
@@ -103,7 +102,6 @@ export default function ProgramCardV2({
   const status = deriveStatusPill(season)
   const indivUnit = deriveIndividualUnit(season)
   const duration = deriveDuration(season)
-  const deadline = deriveDeadline(season)
   const dual = isDualMode(season)
   const teamOnly = isTeamOnly(season)
   const signupMode = deriveSignupMode(season)
@@ -129,7 +127,6 @@ export default function ProgramCardV2({
     formatDaySchedule(season.dayOfWeek, season.startTime, season.endTime) ||
     formatTimeWindow(season.startTime, season.endTime)
   const startsLabel = `starts ${formatDateOnly(season.startDate, { month: "short", day: "numeric" })}`
-  const scheduleLabel = `${dayTime || duration} · ${startsLabel}`
   const sportColor =
     season.sport.color ?? SPORT_FALLBACK_COLORS[season.sport.slug] ?? "#52525b"
 
@@ -210,7 +207,10 @@ export default function ProgramCardV2({
   const effTeamTotal = season.teamPrice != null ? (teamEb ?? season.teamPrice) : null
 
   return (
-    <div className="group h-full flex flex-col bg-paper border border-border rounded-2xl overflow-hidden transition-all hover:border-primary/40 hover:-translate-y-0.5">
+    <div
+      data-testid="program-card"
+      className="group h-full flex flex-col bg-paper border border-border rounded-2xl overflow-hidden transition-all hover:border-primary/40 hover:-translate-y-0.5"
+    >
       {/* Media slot — sport-color fallback block. Photo support drops in here
           later with no structural change. */}
       <div
@@ -239,54 +239,61 @@ export default function ProgramCardV2({
           {headingName}
         </h3>
 
-        {/* 2 · Who — location · age, always one line */}
+        {/* 2 · Meta A — venue (linked to its location page) · age · format.
+            Every season resolves all three; a genuinely missing single value
+            renders an em-dash rather than dropping the row. */}
         <div className="flex items-center gap-1.5 text-xs text-ink-muted mt-2">
           <MapPin className="w-3 h-3 flex-shrink-0" />
           <span className="truncate">
-            {venueLabel} · {audienceLabel}
+            {season.location.slug ? (
+              <a
+                href={`/locations/${season.location.slug}`}
+                data-testid="card-venue-link"
+                className="hover:text-ink hover:underline"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {venueLabel}
+              </a>
+            ) : (
+              venueLabel
+            )}
+            {" · "}
+            {audienceLabel}
+            {" · "}
+            {formatBadge ?? "—"}
           </span>
         </div>
 
-        {/* 3 · When it runs — day/time + start date, always resolves */}
+        {/* 3 · Meta B — day + time, always resolves (structured day/time wins;
+            a bare time window is next; the derived duration is the floor) */}
         <div className="flex items-center gap-1.5 text-xs text-ink-muted mt-1">
-          <Calendar className="w-3 h-3 flex-shrink-0" />
-          <span className="truncate">{scheduleLabel}</span>
+          <Clock className="w-3 h-3 flex-shrink-0" />
+          <span className="truncate">{dayTime || duration}</span>
         </div>
 
-        {/* 3b · Free-text schedule detail ("7-game season", …) when present */}
-        {season.scheduleNotes && (
-          <div className="flex items-center gap-1.5 text-xs text-ink-muted mt-1">
-            <Info className="w-3 h-3 flex-shrink-0" />
-            <span className="truncate">{season.scheduleNotes}</span>
-          </div>
-        )}
+        {/* 4 · Meta C — start date, always resolves */}
+        <div className="flex items-center gap-1.5 text-xs text-ink-muted mt-1">
+          <Calendar className="w-3 h-3 flex-shrink-0" />
+          <span className="truncate">{startsLabel}</span>
+        </div>
 
-        {/* 4 · When to act — deadline, conditional urgency */}
-        {deadline && (
-          <div
-            className={`flex items-center gap-1.5 text-xs mt-1 ${
-              deadline.urgent ? "text-primary font-semibold" : "text-ink-faint"
-            }`}
-          >
-            <Clock className="w-3 h-3 flex-shrink-0" />
-            <span className="truncate">{deadline.label}</span>
-          </div>
-        )}
-
-        {/* Format badge — at most one */}
-        {formatBadge && (
-          <div className="mt-2">
-            <span className="inline-flex items-center font-semibold tracking-wide uppercase text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded">
-              {formatBadge}
+        {/* 5 · Fixed-height chip slot — early-bird chip when active, empty
+            otherwise. Reserved height keeps cards aligned regardless of
+            whether a season has a discount. */}
+        <div className="mt-2 min-h-[1.125rem] flex items-center">
+          {ebLabel && (
+            <span className="text-[10px] font-semibold tracking-wide uppercase text-primary">
+              {ebLabel}
             </span>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Spacer pushes price + CTA to a consistent bottom band */}
         <div className="flex-1 min-h-[0.75rem]" />
 
-        {/* 5 · How much + CTA — dual-mode keeps two actions; forming seasons
-            show interest-capture; sold-out seasons show the waitlist form */}
+        {/* 6-7 · Price band + CTA — dual-mode keeps two actions; forming
+            seasons show interest-capture; sold-out seasons show the
+            waitlist form */}
         {signupMode === "interest" ? (
           <div className="mt-3">
             <SeasonInterestForm seasonId={season.id} seasonName={season.name} />
@@ -294,11 +301,6 @@ export default function ProgramCardV2({
         ) : (
           <>
             <div className="pt-3 border-t border-border">
-              {ebLabel && (
-                <div className="text-[10px] font-semibold tracking-wide uppercase text-primary mb-2">
-                  {ebLabel}
-                </div>
-              )}
               {dual && season.teamPrice != null ? (
                 <>
                   {(() => {

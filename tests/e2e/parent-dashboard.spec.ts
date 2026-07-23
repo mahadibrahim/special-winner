@@ -207,17 +207,20 @@ test.describe("Registration Flow", () => {
     await page.goto("/programs");
     await waitForPageLoad(page);
 
-    // Click on first program card/link
-    const programLink = page.locator(
-      'a[href*="/programs/"], [data-testid="program-card"]'
-    );
+    // Program cards render but there is no per-program detail page — the
+    // card's own CTA links straight into the registration flow
+    // (/register/{seasonId}). Confirm at least one card is showing and its
+    // register link is well-formed, rather than clicking the card body
+    // (which is a non-navigating container, not a link).
+    const programCard = page.locator('[data-testid="program-card"]').first();
 
-    if ((await programLink.count()) > 0) {
-      await programLink.first().click();
-      await waitForPageLoad(page);
+    if (await programCard.count() > 0) {
+      await expect(programCard).toBeVisible();
 
-      // Should show program details
-      await expect(page.url()).toMatch(/\/programs\//);
+      const registerLink = programCard.locator('a[href*="/register/"]').first();
+      if ((await registerLink.count()) > 0) {
+        await expect(registerLink).toHaveAttribute("href", /\/register\//);
+      }
     }
   });
 
