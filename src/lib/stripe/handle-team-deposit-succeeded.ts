@@ -1,9 +1,11 @@
 import type Stripe from "stripe";
 import { eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { teamRegistrations, payments } from "@/lib/db/schema";
+import { teamRegistrations, payments, seasons } from "@/lib/db/schema";
 import { getPostHogServer } from "@/lib/posthog-server";
 import { SERVER_EVENTS } from "@/lib/analytics/events";
+import { sendTeamDepositReceiptEmail } from "@/lib/email/send";
+import type { BrandId } from "@/lib/branding/themes";
 
 /**
  * Handles `payment_intent.succeeded` for the captain's $200 team deposit
@@ -45,6 +47,14 @@ export async function handleTeamDepositSucceeded(
       backstopStatus: teamRegistrations.backstopStatus,
       captainUserId: teamRegistrations.captainUserId,
       depositPaymentId: teamRegistrations.depositPaymentId,
+      captainEmail: teamRegistrations.captainEmail,
+      captainName: teamRegistrations.captainName,
+      teamName: teamRegistrations.teamName,
+      inviteToken: teamRegistrations.inviteToken,
+      teamFeeCents: teamRegistrations.teamFeeCents,
+      depositCents: teamRegistrations.depositCents,
+      paymentDeadline: teamRegistrations.paymentDeadline,
+      brand: teamRegistrations.brand,
     })
     .from(teamRegistrations)
     .where(eq(teamRegistrations.id, teamRegistrationId));
@@ -155,6 +165,13 @@ export async function handleTeamDepositSucceeded(
   // committed), and a crash after commit can never re-fire (depositPaymentId
   // is now set, so the dedupe gate above short-circuits future deliveries
   // before this code even runs).
+  let seasonRow: { name: string } | undefined;
+  if (team.captainUserId && result.ledgerRowInserted) {
+    [seasonRow] = await db
+      .select({ name: seasons.name })
+      .from(seasons)
+      .where(eq(seasons.id, team.seasonId));
+  }
   if (team.captainUserId && result.ledgerRowInserted) {
     getPostHogServer().capture({
       distinctId: team.captainUserId,
@@ -165,6 +182,27 @@ export async function handleTeamDepositSucceeded(
         amount_cents: paymentIntent.amount,
       },
     });
+
+    // Deposit receipt — the captain's durable copy of the join link + next
+    // steps. Same exactly-once gate as the capture above (ledgerRowInserted).
+    // Awaited so the serverless function doesn't freeze mid-send; a failure
+    // logs and never fails the webhook.
+    try {
+      await sendTeamDepositReceiptEmail({
+        to: team.captainEmail,
+        captainName: team.captainName,
+        teamName: team.teamName,
+        seasonName: seasonRow?.name ?? "your season",
+        seasonId: team.seasonId,
+        inviteToken: team.inviteToken,
+        teamFeeCents: team.teamFeeCents,
+        depositCents: team.depositCents ?? 20000,
+        paymentDeadline: team.paymentDeadline,
+        brand: (team.brand as BrandId | undefined) ?? undefined,
+      });
+    } catch (err) {
+      console.error("[team-deposit] receipt email failed:", err);
+    }
   }
 
   return { status: "processed", teamRegistrationId };
