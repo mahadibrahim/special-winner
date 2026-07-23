@@ -280,7 +280,7 @@ export default function ProgramCardV2({
             Reserved height keeps cards aligned regardless of chip count —
             matches the approved proposal mockup, where format is a badge
             row, not a meta-text segment. */}
-        <div className="mt-2 min-h-[1.125rem] flex items-center gap-1.5">
+        <div className="mt-2 min-h-[1.375rem] flex items-center gap-1.5">
           {formatBadge && (
             <span className="inline-flex items-center font-semibold tracking-wide uppercase text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded">
               {formatBadge}
