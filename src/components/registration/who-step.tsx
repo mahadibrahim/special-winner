@@ -84,8 +84,10 @@ export type WhoStepProps = {
 };
 
 /** A field is "missing" if the stored value is null/empty or, for phone,
- *  doesn't normalize to 10 digits (so we re-prompt malformed numbers). */
-function computeMissing(profile: SelfProfileSnapshot): {
+ *  doesn't normalize to 10 digits (so we re-prompt malformed numbers).
+ *  Note: phone is not part of the `any` gate — it does not block the form.
+ *  Only firstName, lastName, and birthDate block. */
+export function computeMissing(profile: SelfProfileSnapshot): {
   firstName: boolean;
   lastName: boolean;
   phone: boolean;
