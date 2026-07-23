@@ -131,6 +131,14 @@ interface RegistrationWizardProps {
   audienceHint?: string | null
   /** Opaque token linking this registration to a specific team (threaded to checkout). */
   teamToken?: string | null
+  /** Captain-assigned share (cents) for an invite-link visitor, resolved by
+   *  RegisterExperience from GET /api/public/team-registrations/[token].
+   *  null = not known yet / not an invite-link visitor. Not yet consumed by
+   *  wizard behavior (Task 4). */
+  inviteeShareCents?: number | null
+  /** Team name resolved alongside inviteeShareCents. Not yet consumed by
+   *  wizard behavior (Task 5). */
+  teamName?: string | null
 }
 
 // Wizard steps by name. `currentStep` stays 1-based, but which step that
@@ -196,6 +204,8 @@ export default function RegistrationWizard({
   user,
   audienceHint,
   teamToken,
+  inviteeShareCents,
+  teamName,
 }: RegistrationWizardProps) {
   const isGuest = user === null
   useHydrationBeacon()

@@ -38,6 +38,12 @@ export default function RegisterExperience({
     | null
   >(null);
   const [err, setErr] = useState<string | null>(null);
+  // Invite-link rail truth: the captain-assigned share (never the solo
+  // price) and team name for an invite-link visitor. Resolved best-effort
+  // from the team-token endpoint below — failure just leaves these null and
+  // the rail/wizard fall back to their own defaults, no error UI.
+  const [viewerShareCents, setViewerShareCents] = useState<number | null>(null);
+  const [teamName, setTeamName] = useState<string | null>(null);
   // Precedence: an invite token always means solo-join-a-roster; then the
   // catalog card's ?mode= hint; then the explicit chooser. A "team" hint is
   // re-checked against server truth below (canTeam) — a hand-edited URL on an
@@ -46,6 +52,33 @@ export default function RegisterExperience({
   const [mode, setMode] = useState<"choose" | "solo" | "team">(
     teamToken ? "solo" : modeHint === "individual" ? "solo" : modeHint === "team" ? "team" : "choose",
   );
+  // Personal invite-email links carry `?i=<inviteeId>` so the (possibly
+  // signed-out) recipient's exact assigned share can be resolved without
+  // requiring auth. Read once at mount — window is unavailable during this
+  // island's server render, hence the guard.
+  const [inviteeRef] = useState<string | null>(() =>
+    typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("i") : null,
+  );
+
+  // Resolve the real assigned share (never the solo price) + team name for
+  // an invite-link visitor. Best-effort: any failure just leaves both null,
+  // no error UI — the rail/wizard fall back to their own defaults.
+  useEffect(() => {
+    if (!teamToken) return;
+    const qs = inviteeRef ? `?invitee=${encodeURIComponent(inviteeRef)}` : "";
+    fetch(`/api/public/team-registrations/${encodeURIComponent(teamToken)}${qs}`)
+      .then(async (r) => {
+        if (!r.ok) throw new Error("not_found");
+        const body = await r.json();
+        setViewerShareCents(body.viewerShare?.shareCents ?? null);
+        setTeamName(body.team?.teamName ?? null);
+      })
+      .catch(() => {
+        setViewerShareCents(null);
+        setTeamName(null);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teamToken]);
 
   useEffect(() => {
     fetch(`/api/public/seasons/${seasonId}`)
@@ -141,7 +174,7 @@ export default function RegisterExperience({
     );
   }
   return (
-    <LeagueContextRail season={season} mode={railMode} step={1} stepCount={4}>
+    <LeagueContextRail season={season} mode={railMode} step={1} stepCount={4} shareCents={viewerShareCents}>
       <InAppEscapeBanner seasonId={seasonId} />
       {modeLine}
       <RegistrationWizard
@@ -150,6 +183,8 @@ export default function RegisterExperience({
         audienceHint={audienceHint}
         wasCancelled={wasCancelled}
         teamToken={teamToken}
+        inviteeShareCents={viewerShareCents}
+        teamName={teamName}
       />
     </LeagueContextRail>
   );
