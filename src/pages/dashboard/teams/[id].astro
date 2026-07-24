@@ -1,0 +1,28 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import TeamHub from "@/components/dashboard/teams/TeamHub";
+
+// Middleware guarantees auth for /dashboard routes. Captain-ownership of THIS
+// team is enforced by the GET /api/dashboard/teams/[id] endpoint the island
+// calls (404 → the component shows a "can't find this team" message), so we
+// never trust the id in the URL alone.
+const user = Astro.locals.user!;
+const { id } = Astro.params;
+---
+
+<BaseLayout title="Team Hub — Aspire Sports">
+  <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
+    <div class="max-w-3xl mx-auto fade-in">
+      <!-- Breadcrumb -->
+      <nav class="flex items-center gap-2 text-sm text-ink-faint mb-6">
+        <a href="/dashboard" class="hover:text-ink transition-colors">Dashboard</a>
+        <span>/</span>
+        <a href="/dashboard/teams" class="hover:text-ink transition-colors">My Teams</a>
+        <span>/</span>
+        <span class="text-ink">Team Hub</span>
+      </nav>
+
+      <TeamHub client:load teamId={id} />
+    </div>
+  </main>
+</BaseLayout>

@@ -61,6 +61,7 @@ export async function apiFetch(
 let _adminCookie: string | null = null;
 let _coachCookie: string | null = null;
 let _parentCookie: string | null = null;
+let _teamHubCaptainCookie: string | null = null;
 let _mediaStaffCookie: string | null = null;
 let _mediaEditorCookie: string | null = null;
 let _refereeCookie: string | null = null;
@@ -102,6 +103,21 @@ export async function getParentCookie(): Promise<string> {
     );
   }
   return _parentCookie;
+}
+
+/**
+ * Returns a cached Team Hub captain auth cookie. Signs in on first call. This
+ * is the dedicated adult-captain account (real @aspiresportsohio.com alias) that
+ * owns the seeded Team Hub fixture.
+ */
+export async function getTeamHubCaptainCookie(): Promise<string> {
+  if (!_teamHubCaptainCookie) {
+    _teamHubCaptainCookie = await getAuthCookie(
+      "teamhub-captain@aspiresportsohio.com",
+      "TestCaptain123!"
+    );
+  }
+  return _teamHubCaptainCookie;
 }
 
 /**
@@ -159,6 +175,7 @@ export function resetCookies(): void {
   _adminCookie = null;
   _coachCookie = null;
   _parentCookie = null;
+  _teamHubCaptainCookie = null;
   _mediaStaffCookie = null;
   _mediaEditorCookie = null;
   _refereeCookie = null;
