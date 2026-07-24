@@ -37,6 +37,9 @@ export * from "./discounts";
 export * from "./products";
 export * from "./program-gear";
 
+// Printful-backed merch catalog (merch shop Phase 1)
+export * from "./merch";
+
 // Team groups (Telegram group management)
 export * from "./team-groups";
 
