@@ -92,13 +92,24 @@ export type WhoStepProps = {
    * adult leagues.
    */
   adultOnly?: boolean;
+  /**
+   * Defer birth date to the post-payment waiver step (adult v2 flow). When set,
+   * a missing DOB does not surface the pre-payment "Complete your profile" form.
+   */
+  deferBirthDate?: boolean;
 };
 
 /** A field is "missing" if the stored value is null/empty or, for phone,
  *  doesn't normalize to 10 digits (so we re-prompt malformed numbers).
  *  Note: phone is not part of the `any` gate — it does not block the form.
  *  Only firstName, lastName, and birthDate block. */
-export function computeMissing(profile: SelfProfileSnapshot): {
+export function computeMissing(
+  profile: SelfProfileSnapshot,
+  // Adult (v2) self-registration defers DOB to the post-payment waiver step, so
+  // a missing birth date must NOT block the pre-payment "who" step — otherwise a
+  // signed-in adult hits a "Complete your profile" wall before they can pay.
+  deferBirthDate = false,
+): {
   firstName: boolean;
   lastName: boolean;
   phone: boolean;
@@ -109,7 +120,7 @@ export function computeMissing(profile: SelfProfileSnapshot): {
     firstName: !profile.firstName?.trim(),
     lastName: !profile.lastName?.trim(),
     phone: !normalizePhone(profile.phone ?? ""),
-    birthDate: !profile.birthDate,
+    birthDate: deferBirthDate ? false : !profile.birthDate,
   };
   // Phone does not block the form — only firstName, lastName, birthDate.
   const any = missing.firstName || missing.lastName || missing.birthDate;
@@ -128,6 +139,7 @@ export function WhoStep({
   onSelect,
   onAddDependent,
   adultOnly = false,
+  deferBirthDate = false,
 }: WhoStepProps) {
   // Pre-fill any fields we already know — the customer just confirms or
   // edits. Phone is reformatted into the (NNN) NNN-NNNN display while
@@ -139,7 +151,7 @@ export function WhoStep({
   const [birthDate, setBirthDate] = useState(selfProfile?.birthDate ?? "");
   const [gender, setGender] = useState(selfProfile?.gender ?? "");
 
-  const missing = selfProfile ? computeMissing(selfProfile) : null;
+  const missing = selfProfile ? computeMissing(selfProfile, deferBirthDate) : null;
   const showCompletionForm = Boolean(
     selfProfile && missing?.any && onCompleteProfile,
   );
