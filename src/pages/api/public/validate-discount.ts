@@ -9,7 +9,10 @@ const validateDiscountSchema = z.object({
   code: z.string().min(1, "Code is required").toUpperCase(),
   seasonId: z.string().uuid().optional(),
   purchaseAmountCents: z.number().min(0).optional(),
-  userId: z.string().uuid().optional(), // Optional user ID to check per-user limits
+  // NOTE: no client-supplied userId. The per-user usage cap is checked against
+  // the authenticated session only (locals.user) — trusting a body userId let
+  // a caller spoof/omit it to sidestep the per-user limit. Any userId in the
+  // body is ignored (zod strips it).
 });
 
 // POST - Validate a discount code
@@ -49,7 +52,9 @@ export const POST: APIRoute = async ({ request, locals, clientAddress }) => {
       );
     }
 
-    const { code, seasonId, purchaseAmountCents, userId } = validation.data;
+    const { code, seasonId, purchaseAmountCents } = validation.data;
+    // Per-user cap is keyed to the authenticated user, never a client value.
+    const userId = locals.user?.id ?? null;
 
     // Find the discount code - filter by organization to prevent cross-tenant access
     const [discountCode] = await getDb()

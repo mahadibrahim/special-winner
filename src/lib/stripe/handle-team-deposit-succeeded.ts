@@ -19,14 +19,13 @@ import { CAPTAIN_DEPOSIT_CENTS } from "@/lib/registrations/team-deposit";
  * charge (Task 6) can charge the captain off-session if invitees don't pay
  * their shares by the deadline.
  *
- * NOTE — deposit is NOT recorded in the `payments` table. `payments.registrationId`
- * is nullable (onDelete: restrict), and a team deposit has no owning
- * registration row — it's a team-level reservation, not a per-player payment.
- * We therefore leave `team_registrations.depositPaymentId` NULL and record the
- * deposit minimally on the team row (Stripe PI id is recoverable from Stripe;
- * the backstop logic only needs customerId + paymentMethodId + backstopStatus).
- * If a money-trail row is later required, it needs either a nullable
- * `registrationId` on `payments` or a dedicated team-payments table.
+ * The deposit IS recorded in the `payments` table (`paymentType: "deposit"`,
+ * `registrationId` null — a team deposit is a team-level reservation, not a
+ * per-player payment), and its id is written back to
+ * `team_registrations.depositPaymentId`. Both, plus the status write, happen in
+ * one transaction below (see the ledger insert + depositPaymentId backfill), so
+ * `depositPaymentId` is the idempotency key: a non-null value means this deposit
+ * already finalized and a retry short-circuits.
  */
 export async function handleTeamDepositSucceeded(
   paymentIntent: Stripe.PaymentIntent,
