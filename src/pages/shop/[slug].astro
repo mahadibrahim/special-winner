@@ -1,0 +1,35 @@
+---
+// Merch product detail — SSR by org + slug. 404s on unknown/inactive slug.
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import ProductDetail from "@/components/shop/product-detail";
+import { getMerchProductBySlug } from "@/lib/merch/catalog";
+
+const { slug } = Astro.params;
+const org = Astro.locals.organization;
+const data = org && slug ? await getMerchProductBySlug(org.id, slug) : null;
+
+if (!data) {
+  return new Response(null, { status: 404 });
+}
+
+const { product, variants } = data;
+const detailVariants = variants.map((v) => ({
+  id: v.id,
+  size: v.size,
+  color: v.color,
+  retailPriceCents: v.retailPriceCents,
+}));
+---
+
+<BaseLayout title={`${product.name} — Aspire Sports Shop`} description={product.description ?? `${product.name} — Aspire Sports gear.`}>
+  <main id="main-content" class="flex-1 max-w-[1080px] mx-auto w-full px-6 py-14">
+    <a href="/shop" class="text-sm text-ink-muted hover:text-ink mb-8 inline-block">← Back to shop</a>
+    <ProductDetail
+      client:load
+      name={product.name}
+      description={product.description}
+      images={product.images ?? []}
+      variants={detailVariants}
+    />
+  </main>
+</BaseLayout>
