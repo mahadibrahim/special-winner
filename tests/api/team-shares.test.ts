@@ -91,6 +91,16 @@ async function getTeam(token: string, cookie?: string) {
   ).json();
 }
 
+// The invite endpoint is captain-only (see team-invite-auth), so every invite
+// call carries the captain session cookie that createTeam() returned.
+async function invite(token: string, cookie: string, body: object) {
+  return fetch(`${BASE}/api/public/team-registrations/${token}/invite`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: cookie },
+    body: JSON.stringify(body),
+  });
+}
+
 /**
  * Mints a fresh authed session for a brand-new email via the anonymous-
  * captain team creation path (see team-registrations-anon.test.ts) — cheaper
@@ -125,7 +135,9 @@ describe("team captain-assigned shares", () => {
   // assertions (new email -> 200 + session; existing email -> 409
   // account_exists, no team created).
 
-  it("the invite endpoint 404s for an unknown token", async () => {
+  it("the invite endpoint requires auth (401 unauthenticated)", async () => {
+    // Captain-only now: the auth gate fires before the token lookup, so an
+    // unauthenticated call is 401 regardless of whether the token is real.
     const res = await fetch(
       `${BASE}/api/public/team-registrations/definitely-not-a-real-token/invite`,
       {
@@ -134,7 +146,7 @@ describe("team captain-assigned shares", () => {
         body: JSON.stringify({ emails: ["x@test.aspiresports.com"] }),
       },
     );
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(401);
   });
 
   it("explicit invites persist assigned shares visible in GET [token]", async () => {
@@ -150,19 +162,12 @@ describe("team captain-assigned shares", () => {
     const emailA = `mate-a-${stamp}@test.aspiresports.com`;
     const emailB = `mate-b-${stamp}@test.aspiresports.com`;
 
-    const res = await fetch(
-      `${BASE}/api/public/team-registrations/${token}/invite`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          invites: [
-            { email: emailA, shareCents: 5000 },
-            { email: emailB, shareCents: 7500 },
-          ],
-        }),
-      },
-    );
+    const res = await invite(token, cookie, {
+      invites: [
+        { email: emailA, shareCents: 5000 },
+        { email: emailB, shareCents: 7500 },
+      ],
+    });
     expect(res.status).toBe(200);
     const body = (await res.json()) as { invitees: number };
     expect(body.invitees).toBe(2);
@@ -188,16 +193,8 @@ describe("team captain-assigned shares", () => {
     const stamp = Date.now();
     const email = `mate-upsert-${stamp}@test.aspiresports.com`;
 
-    await fetch(`${BASE}/api/public/team-registrations/${token}/invite`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ invites: [{ email, shareCents: 5000 }] }),
-    });
-    await fetch(`${BASE}/api/public/team-registrations/${token}/invite`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ invites: [{ email, shareCents: 9000 }] }),
-    });
+    await invite(token, cookie, { invites: [{ email, shareCents: 5000 }] });
+    await invite(token, cookie, { invites: [{ email, shareCents: 9000 }] });
 
     const team = await getTeam(token, cookie);
     expect(team.team.inviteeCount).toBe(1); // upsert, not duplicate
@@ -216,14 +213,7 @@ describe("team captain-assigned shares", () => {
       `split-c-${stamp}@test.aspiresports.com`,
     ];
 
-    const res = await fetch(
-      `${BASE}/api/public/team-registrations/${token}/invite`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ emails }),
-      },
-    );
+    const res = await invite(token, cookie, { emails });
     expect(res.status).toBe(200);
 
     const team = await getTeam(token, cookie);
@@ -247,15 +237,11 @@ describe("team captain-assigned shares", () => {
   it("anonymous GET returns empty invitees arrays, a correct inviteeCount, and a null viewerShare", async () => {
     const created = await createTeam();
     if (!created) return; // Stripe not configured — deferred to Task 7
-    const { token } = created;
+    const { token, cookie } = created;
 
     const stamp = Date.now();
     const email = `anon-view-${stamp}@test.aspiresports.com`;
-    await fetch(`${BASE}/api/public/team-registrations/${token}/invite`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ invites: [{ email, shareCents: 4200 }] }),
-    });
+    await invite(token, cookie, { invites: [{ email, shareCents: 4200 }] });
 
     const team = await getTeam(token); // no cookie — anonymous
     expect(team.team.inviteeCount).toBe(1); // aggregate stays public
@@ -267,21 +253,17 @@ describe("team captain-assigned shares", () => {
   it("authed non-captain whose email matches an invitee sees only their own viewerShare", async () => {
     const created = await createTeam();
     if (!created) return; // Stripe not configured — deferred to Task 7
-    const { token } = created;
+    const { token, cookie } = created;
 
     const stamp = Date.now();
     const viewerEmail = `mate-viewer-${stamp}@test.aspiresports.com`;
     const otherEmail = `mate-other-${stamp}@test.aspiresports.com`;
 
-    await fetch(`${BASE}/api/public/team-registrations/${token}/invite`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        invites: [
-          { email: viewerEmail, shareCents: 6300 },
-          { email: otherEmail, shareCents: 7100 },
-        ],
-      }),
+    await invite(token, cookie, {
+      invites: [
+        { email: viewerEmail, shareCents: 6300 },
+        { email: otherEmail, shareCents: 7100 },
+      ],
     });
 
     const viewerCookie = await mintViewerSession(viewerEmail);
@@ -307,11 +289,7 @@ describe("team captain-assigned shares", () => {
     const stamp = Date.now();
     const email = `mate-ref-${stamp}@test.aspiresports.com`;
 
-    await fetch(`${BASE}/api/public/team-registrations/${token}/invite`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ invites: [{ email, shareCents: 3300 }] }),
-    });
+    await invite(token, cookie, { invites: [{ email, shareCents: 3300 }] });
 
     // Captain-authed read: only the captain session can see invitee ids.
     const captainTeam = await getTeam(token, cookie);
