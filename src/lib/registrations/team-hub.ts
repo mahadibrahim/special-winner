@@ -18,7 +18,7 @@
  * calling the detail builder. Never trust an id alone.
  */
 
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, ne } from "drizzle-orm";
 import type { getDb } from "@/lib/db";
 import {
   teamRegistrations,
@@ -87,6 +87,8 @@ export async function listCaptainTeams(
       and(
         eq(teamRegistrations.captainUserId, userId),
         eq(teamRegistrations.organizationId, organizationId),
+        // A cancelled team isn't something the captain is still "running".
+        ne(teamRegistrations.status, "cancelled"),
       ),
     )
     .orderBy(asc(teamRegistrations.createdAt));
@@ -291,9 +293,13 @@ export async function buildTeamHubDetail(
 
   // Captain's own-registration credit preview (display-only; createRegistration
   // recomputes server-side). Only when the deposit is verifiably paid and the
-  // captain hasn't already paid their share.
+  // captain hasn't already registered. Since #468/#469 the captain is
+  // auto-registered as a member at finalize, so this is normally suppressed —
+  // showing "you still owe $X for your own spot" to an already-registered
+  // captain (whenever solo price > deposit) is just misleading.
+  const captainRegistered = members.some((m) => m.role === "captain");
   let captainCredit: TeamHubDetail["captainCredit"] = null;
-  if (teamDepositPaid(team)) {
+  if (teamDepositPaid(team) && !captainRegistered) {
     const ownInvitee = invitees.find(
       (i) => i.email.toLowerCase() === captainEmailLower,
     );

@@ -120,7 +120,12 @@ function fmtCents(cents: number | null | undefined): string {
 
 function fmtDate(iso: string | null, opts?: Intl.DateTimeFormatOptions): string {
   if (!iso) return ""
-  return new Date(iso).toLocaleDateString("en-US", opts ?? {
+  // A bare date-only string (season start/end, a `date` column) parses as UTC
+  // midnight, which renders the PRIOR day in negative-offset zones (e.g. ET).
+  // Build it as a local date so "Season starts Sep 1" doesn't show "Aug 31".
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso)
+  const d = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(iso)
+  return d.toLocaleDateString("en-US", opts ?? {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -308,7 +313,9 @@ function FeeProgress({
         />
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2 mt-2 text-xs text-ink-muted">
-        {remaining != null && remaining > 0 ? (
+        {remaining == null ? (
+          <span>{fmtCents(collectedCents)} collected</span>
+        ) : remaining > 0 ? (
           <span>{fmtCents(remaining)} still to collect</span>
         ) : (
           <span className="text-emerald-600">Fully collected 🎉</span>
@@ -382,9 +389,11 @@ function Roster({
       )
       const json = await res.json()
       if (!res.ok) throw new Error(json.error ?? "Could not send reminders")
+      // Key the message off `unpaid` (who was reminded), not `sent` (successful
+      // deliveries) — otherwise a send failure reads as "nobody to remind".
       toast.success(
-        json.sent > 0
-          ? `Reminder sent to ${json.sent} unpaid teammate${json.sent === 1 ? "" : "s"}.`
+        json.unpaid > 0
+          ? `Reminder sent to ${json.unpaid} unpaid teammate${json.unpaid === 1 ? "" : "s"}.`
           : "No unpaid teammates to remind.",
       )
     } catch (err) {
