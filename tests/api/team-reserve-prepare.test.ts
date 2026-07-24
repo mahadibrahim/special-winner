@@ -29,7 +29,13 @@ const hasStripe = process.env.TEST_HAS_STRIPE === "yes";
 const itStripe = hasStripe ? it : it.skip;
 
 describe("team reserve — prepare", () => {
-  it("a guest whose email already has an account is bounced to sign-in (no charge)", async () => {
+  it("a guest whose email already has an account is NOT bounced — reserves as a guest", async () => {
+    // The old 409 `needsSignIn` wall (forcing an off-site magic-link before
+    // payment) is gone: an existing-email guest is treated like any guest and
+    // proceeds toward payment. finalize links the team to the existing account
+    // and — because a session is only created for a NEW user — never logs the
+    // guest in as that account. On CI (no Stripe) this reaches the Stripe step
+    // and 503s, exactly like a new-email prepare; the point is it's NOT a 409.
     const seasonId = await teamSeasonId();
     const res = await prepare({
       seasonId,
@@ -38,8 +44,23 @@ describe("team reserve — prepare", () => {
       captainEmail: "parent@test.aspiresports.com", // seeded account
       backstopConsent: true,
     });
-    expect(res.status).toBe(409);
-    expect((await res.json()).needsSignIn).toBe(true);
+    expect(res.status).not.toBe(409);
+    expect((await res.json()).needsSignIn).toBeFalsy();
+  });
+
+  itStripe("an existing-account email reaches a payment intent as a guest", async () => {
+    const seasonId = await teamSeasonId();
+    const res = await prepare({
+      seasonId,
+      teamName: "Existing Cap FC",
+      captainName: "Existing Cap",
+      captainEmail: "parent@test.aspiresports.com",
+      backstopConsent: true,
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.clientSecret).toMatch(/^pi_.*_secret_/);
   });
 
   it("rejects a code that would drop the team total to/below the $200 deposit", async () => {
