@@ -1186,6 +1186,12 @@ export interface TeamDepositReceiptParams {
   seasonName: string;
   seasonId: string;
   inviteToken: string;
+  /**
+   * team_registrations.id — powers the "Manage your team" deep-link into the
+   * Team Hub (/dashboard/teams/{id}). Optional so legacy callers/tests still
+   * build; when absent, the receipt shows only the shareable join link.
+   */
+  teamRegistrationId?: string;
   /** Snapshot from team_registrations — null on legacy rows. */
   teamFeeCents: number | null;
   depositCents: number;
@@ -1206,6 +1212,11 @@ export function buildTeamDepositReceipt(params: TeamDepositReceiptParams): {
 } {
   const appUrl = originForBrand(params.brand) ?? env.PUBLIC_APP_URL;
   const joinUrl = `${appUrl}/register/${params.seasonId}?team=${encodeURIComponent(params.inviteToken)}`;
+  // Deep-link into the persistent Team Hub. A signed-out captain hits the
+  // middleware auth gate and is bounced through /signin back to this URL.
+  const manageUrl = params.teamRegistrationId
+    ? `${appUrl}/dashboard/teams/${params.teamRegistrationId}`
+    : null;
   const deposit = `$${(params.depositCents / 100).toLocaleString("en-US")}`;
   const total =
     params.teamFeeCents != null ? `$${(params.teamFeeCents / 100).toLocaleString("en-US")}` : null;
@@ -1230,16 +1241,24 @@ export function buildTeamDepositReceipt(params: TeamDepositReceiptParams): {
     : `Your ${deposit} deposit is in and counts toward the team fee — your roster covers the rest as they register.`;
   const deadlineLine = `Teammate shares still unpaid after ${deadline ?? "the payment deadline"} are charged to your card on file.`;
 
+  const manageButton = manageUrl
+    ? `<p><a href="${manageUrl}" style="display:inline-block;background:#1a1a1a;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">Manage your team →</a></p>
+    <p style="color:#666;font-size:13px;">Invite teammates, track who's paid, and follow your schedule anytime here:<br>${escapeHtml(manageUrl)}</p>`
+    : "";
+  const manageText = manageUrl
+    ? `Manage your team — invite teammates, track who's paid, and follow your schedule anytime:\n${manageUrl}\n\n`
+    : "";
+
   const html = `<!doctype html><html><body style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1a1a1a;line-height:1.5;">
     <p>${escapeHtml(params.captainName)}, <strong>${escapeHtml(params.teamName)}</strong> is reserved for ${escapeHtml(params.seasonName)}.</p>
     <p>${escapeHtml(feeLine)}</p>
+    ${manageButton}
     <p><strong>Your team link</strong> — share it so teammates can register and pay their share:</p>
-    <p><a href="${joinUrl}" style="display:inline-block;background:#1a1a1a;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">Open your team page →</a></p>
-    <p style="color:#666;font-size:13px;">Or paste this link into your browser:<br>${escapeHtml(joinUrl)}</p>
+    <p style="color:#666;font-size:13px;">${escapeHtml(joinUrl)}</p>
     <p style="color:#666;font-size:13px;">${escapeHtml(deadlineLine)}</p>
   </body></html>`;
 
-  const text = `${params.captainName}, ${params.teamName} is reserved for ${params.seasonName}.\n\n${feeLine}\n\nYour team link — share it so teammates can register and pay their share:\n${joinUrl}\n\n${deadlineLine}\n`;
+  const text = `${params.captainName}, ${params.teamName} is reserved for ${params.seasonName}.\n\n${feeLine}\n\n${manageText}Your team link — share it so teammates can register and pay their share:\n${joinUrl}\n\n${deadlineLine}\n`;
 
   return { subject, html, text, joinUrl };
 }

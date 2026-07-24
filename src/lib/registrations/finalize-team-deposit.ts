@@ -289,6 +289,7 @@ export async function finalizeTeamDeposit(pi: Stripe.PaymentIntent): Promise<Fin
       seasonName,
       seasonId,
       inviteToken: team.inviteToken,
+      teamRegistrationId: team.id,
       teamFeeCents,
       depositCents: CAPTAIN_DEPOSIT_CENTS,
       paymentDeadline: season?.registrationCloses ?? null,

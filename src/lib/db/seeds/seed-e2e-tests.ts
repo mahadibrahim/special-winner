@@ -54,7 +54,7 @@ import {
   suspensions,
 } from "../schema";
 import { fieldRentalRateCard } from "../schema/field-rentals";
-import { teamRegistrations } from "../schema/team-registrations";
+import { teamRegistrations, teamInvitees } from "../schema/team-registrations";
 import { dropInSessions, dropInBookings } from "../schema/drop-in";
 import { hostProfiles, hostGameReports } from "../schema/hosts";
 import { membershipTiers, memberships } from "../schema/memberships";
@@ -68,7 +68,7 @@ import {
 import { DOMAINS, STAGES } from "../../curriculum/content/reference";
 import type { DomainName } from "../../curriculum/content/types";
 import { recomputePlayerSnapshots } from "../../curriculum/snapshots";
-import { asc, eq, ne, and, or, inArray } from "drizzle-orm";
+import { asc, eq, ne, and, or, inArray, sql } from "drizzle-orm";
 
 // Test user credentials - use these in E2E tests
 export const TEST_USERS = {
@@ -173,6 +173,19 @@ export const TEST_USERS = {
     firstName: "Test",
     lastName: "Host",
   },
+  // Adult team captain — adult-self persona (hasPlay). Unlike the other test
+  // accounts, this one uses a REAL, deliverable @aspiresportsohio.com Migadu
+  // alias (→ mahad@aspiresportsohio.com) so the captain email flow (deposit
+  // receipt + "Manage your team" deep-link) can be verified end-to-end on
+  // staging with messaging live. Its team invites the teamhub-mate{1,2}
+  // aliases. See the Team Hub fixture block in seedE2ETests().
+  teamHubCaptain: {
+    email: "teamhub-captain@aspiresportsohio.com",
+    password: "TestCaptain123!",
+    firstName: "Team",
+    lastName: "Captain",
+    birthDate: "1990-04-12",
+  },
 };
 
 /**
@@ -202,6 +215,22 @@ export const E2E_ORG_ID = "04836321-9e38-430e-b6a1-4bf4e6ca1b62";
  */
 export const E2E_TEAM_REG_TOKEN_ORG_A = "e2e-team-token-orga-fixture-0001";
 export const E2E_TEAM_REG_TOKEN_ORG_B = "e2e-team-token-orgb-fixture-0001";
+
+/**
+ * A team_registration OWNED (captainUserId) by the dedicated TEAM-HUB CAPTAIN
+ * test user (adult-self persona — who actually captains adult-league teams), in
+ * Org A, with two invitees (one pending, one paid). Powers the Team Hub
+ * dashboard tests (list-my-teams, hub detail, remove-invitee, remind) — those
+ * endpoints are captain-auth'd and NOT Stripe-dependent, so a seeded owner +
+ * invitees lets them run on CI without a payment path.
+ *
+ * The captain + both invitees use REAL, deliverable @aspiresportsohio.com Migadu
+ * aliases (all → mahad@aspiresportsohio.com) so the invite / reminder / receipt
+ * emails can be verified in a real inbox on staging with messaging live.
+ */
+export const E2E_TEAM_HUB_TOKEN = "e2e-team-hub-captain-fixture-0001";
+export const E2E_TEAM_HUB_INVITEE_PENDING = "teamhub-mate1@aspiresportsohio.com";
+export const E2E_TEAM_HUB_INVITEE_PAID = "teamhub-mate2@aspiresportsohio.com";
 
 /**
  * Fixed UUID for the rental-enabled venue seeded for field-rental API tests.
@@ -2884,6 +2913,122 @@ async function seedE2ETests() {
     .delete(familyMembers)
     .where(eq(familyMembers.parentUserId, playerUser.id));
   console.log(`   ✓ Player: ${playerUser.email} (self family_members row)`);
+
+  // ---- Team Hub fixture (dedicated adult-captain user, REAL email aliases) ----
+  // A dedicated captain account (adult-self persona → hasPlay, lands on
+  // /dashboard/play where the "My Teams" card lives) on a real deliverable
+  // Migadu alias, so the deposit-receipt + invite + reminder emails can be
+  // verified in a real inbox on staging. Distinct from player@ so its footprint
+  // stays isolated from the dashboard-persona specs.
+  const captainPasswordHash = await hashPassword(TEST_USERS.teamHubCaptain.password);
+  let [captainUser] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, TEST_USERS.teamHubCaptain.email))
+    .limit(1);
+
+  if (!captainUser) {
+    [captainUser] = await db
+      .insert(users)
+      .values({
+        email: TEST_USERS.teamHubCaptain.email,
+        passwordHash: captainPasswordHash,
+        firstName: TEST_USERS.teamHubCaptain.firstName,
+        lastName: TEST_USERS.teamHubCaptain.lastName,
+        birthDate: TEST_USERS.teamHubCaptain.birthDate,
+        emailVerified: true,
+      })
+      .returning();
+  } else {
+    await db
+      .update(users)
+      .set({ passwordHash: captainPasswordHash, emailVerified: true })
+      .where(eq(users.id, captainUser.id));
+  }
+  await db.delete(userRoles).where(eq(userRoles.userId, captainUser.id));
+  await db.insert(userRoles).values({
+    userId: captainUser.id,
+    roleId: roleMap.parent.id,
+    scopeType: "organization",
+    scopeId: org.id,
+  });
+  // Adult-self family_members row → hasPlay=true (unique on selfUserId).
+  const [captainSelfRow] = await db
+    .select()
+    .from(familyMembers)
+    .where(eq(familyMembers.selfUserId, captainUser.id))
+    .limit(1);
+  if (!captainSelfRow) {
+    await db.insert(familyMembers).values({
+      selfUserId: captainUser.id,
+      firstName: TEST_USERS.teamHubCaptain.firstName,
+      lastName: TEST_USERS.teamHubCaptain.lastName,
+      birthDate: TEST_USERS.teamHubCaptain.birthDate!,
+    });
+  }
+  console.log(`   ✓ Team Hub captain: ${captainUser.email}`);
+
+  // The team itself (Org A). captainUserId is set so the captain-auth'd
+  // /api/dashboard/teams endpoints resolve it without a Stripe path, and two
+  // invitees (one pending, one paid) give roster + remind + remove data.
+  let [hubTeamReg] = await db
+    .select()
+    .from(teamRegistrations)
+    .where(eq(teamRegistrations.inviteToken, E2E_TEAM_HUB_TOKEN))
+    .limit(1);
+
+  if (!hubTeamReg) {
+    [hubTeamReg] = await db
+      .insert(teamRegistrations)
+      .values({
+        organizationId: org.id,
+        seasonId: season.id,
+        captainUserId: captainUser.id,
+        captainEmail: captainUser.email,
+        captainName: `${TEST_USERS.teamHubCaptain.firstName} ${TEST_USERS.teamHubCaptain.lastName}`,
+        teamName: "E2E Team Hub",
+        inviteToken: E2E_TEAM_HUB_TOKEN,
+        status: "forming",
+        teamFeeCents: 60000,
+        depositCents: 20000,
+      })
+      .returning();
+  } else {
+    // Keep ownership pinned even if an older run created it under another user.
+    await db
+      .update(teamRegistrations)
+      .set({ captainUserId: captainUser.id, captainEmail: captainUser.email })
+      .where(eq(teamRegistrations.id, hubTeamReg.id));
+  }
+
+  // Own the invitee set exactly: clear any existing rows first (a prior seed
+  // may have used different invitee emails, and a test may have added/removed
+  // some) so the fixture is deterministic — exactly one pending + one paid.
+  await db.delete(teamInvitees).where(eq(teamInvitees.teamRegistrationId, hubTeamReg.id));
+  await db
+    .insert(teamInvitees)
+    .values([
+      {
+        teamRegistrationId: hubTeamReg.id,
+        email: E2E_TEAM_HUB_INVITEE_PENDING,
+        assignedShareCents: 20000,
+        status: "pending",
+      },
+      {
+        teamRegistrationId: hubTeamReg.id,
+        email: E2E_TEAM_HUB_INVITEE_PAID,
+        assignedShareCents: 20000,
+        status: "paid",
+      },
+    ])
+    .onConflictDoUpdate({
+      target: [teamInvitees.teamRegistrationId, teamInvitees.email],
+      set: {
+        assignedShareCents: sql`excluded.assigned_share_cents`,
+        status: sql`excluded.status`,
+      },
+    });
+  console.log(`   ✓ Hub TeamReg: ${hubTeamReg.teamName} (captain: ${captainUser.email})`);
 
   // --- both account: one dependent row + one self row → hasFamily=true, hasPlay=true ---
   const bothPasswordHash = await hashPassword(TEST_USERS.both.password);

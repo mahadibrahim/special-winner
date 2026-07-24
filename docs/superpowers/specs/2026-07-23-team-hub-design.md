@@ -46,8 +46,9 @@ Surfaces existing data — **no new schema**:
 - `POST …/[token]/remind` — re-send the invite email to unpaid invitees (captain-only, rate-limited).
 - The hub reads the captain's team by **id** (dashboard-scoped, auth by captainUserId) — mirror the token GET's shape but keyed by team id + captain auth (so the captain doesn't need the token in the dashboard).
 
-**Schema — the one durable hook:**
-- Add `team_registrations.team_group_id` (nullable uuid, soft ref to `team_groups.id`). At team creation (finalize) or lazily, associate the season's team with a persistent `team_group` (create one if none) so rollover (#472) has an anchor. Additive migration. v1 only writes/links it; rollover consumes it later.
+**Schema — the identity hook: DEFERRED to #472 (build decision 2026-07-24).**
+- ~~Add `team_registrations.team_group_id`~~. Premise was wrong: `team_groups` is a **per-season messaging chat group** (Telegram/WhatsApp, keyed to `teams.id`), not a cross-season lineage anchor — linking to it would conflate two concepts. Rollover (#472) will design its own lineage anchor when it's actually built. **v1 ships with no migration and no change to `finalize-team-deposit.ts`.**
+- Season-tab note: no schema needed either — a reserved team's roster team (`teams.id`) derives via `team_registration_members → registrations → rosters → teams`. Pre-season there is no roster, which is the empty state.
 
 ## Reuse boundaries / new files
 

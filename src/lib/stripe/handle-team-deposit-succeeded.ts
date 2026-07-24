@@ -204,6 +204,7 @@ export async function handleTeamDepositSucceeded(
         seasonName: seasonRow?.name ?? "your season",
         seasonId: team.seasonId,
         inviteToken: team.inviteToken,
+        teamRegistrationId: team.id,
         teamFeeCents: team.teamFeeCents,
         depositCents: team.depositCents ?? CAPTAIN_DEPOSIT_CENTS,
         paymentDeadline: team.paymentDeadline,
