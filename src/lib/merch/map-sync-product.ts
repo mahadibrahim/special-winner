@@ -19,10 +19,10 @@ export interface MappedMerchProduct {
 }
 
 export function retailPriceToCents(price: string): number {
-  const value = Number.parseFloat(price);
-  if (!Number.isFinite(value)) {
+  if (!/^-?\d+(\.\d+)?$/.test(price.trim())) {
     throw new Error(`Unparseable Printful retail_price: ${price}`);
   }
+  const value = Number(price);
   return Math.round(value * 100);
 }
 

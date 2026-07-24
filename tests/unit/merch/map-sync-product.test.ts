@@ -15,6 +15,9 @@ describe("retailPriceToCents", () => {
   it("throws on an unparseable price", () => {
     expect(() => retailPriceToCents("free")).toThrow();
   });
+  it("throws on a numeric prefix with trailing garbage", () => {
+    expect(() => retailPriceToCents("25.00abc")).toThrow();
+  });
 });
 
 describe("slugifyName", () => {
