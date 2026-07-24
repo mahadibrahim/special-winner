@@ -1594,6 +1594,28 @@ export default function RegistrationWizard({
     activeSeasonRegistrations.filter(isBlockingRegistration).map((r) => r.familyMemberId),
   )
 
+  // Auto-select "Myself" for the adult (v2) self-registration flow. Adult
+  // leagues are self-only (the Add-Player button is hidden and self is the sole
+  // registerable option), so making the customer tap the lone card before
+  // Continue is pure friction — costly for the returning users ads re-engage.
+  // Skipped when something is already selected, or when the self row is already
+  // registered for this season (the v2 short-circuit owns that case).
+  useEffect(() => {
+    if (isGuest || flowVariant !== "v2") return
+    if (!registrationsChecked || isLoading) return
+    if (selectedKey !== null || !user) return
+    if (selfBlockingRegistration) return
+    setSelectedKey("self")
+  }, [
+    isGuest,
+    flowVariant,
+    registrationsChecked,
+    isLoading,
+    selectedKey,
+    user,
+    selfBlockingRegistration,
+  ])
+
   // ── Loading / error states ─────────────────────────────────────────────────
 
   // Also waits on registrationsChecked (Task 5) so the wizard never flashes
