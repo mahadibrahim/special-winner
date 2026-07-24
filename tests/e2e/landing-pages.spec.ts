@@ -78,13 +78,17 @@ test.describe("Landing-page finders", () => {
     await expect(page).toHaveURL(/\/adult\/pickup$/);
   });
 
-  test("/shop returns 200 and is noindex", async ({ page }) => {
+  test("/shop returns 200 and renders the indexable storefront", async ({ page }) => {
+    // The merch storefront (Printful-backed, #479) replaced the old "coming
+    // soon" placeholder: it is now a real SSR page that SHOULD be indexed, so
+    // the previous noindex assertion is gone. The store heading renders
+    // regardless of catalog state (empty-state still shows the <h1>).
     const response = await page.goto("/shop", { waitUntil: "domcontentloaded" });
     expect(response?.status()).toBe(200);
-    await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
-      "content",
-      "noindex",
-    );
+    await expect(
+      page.getByRole("heading", { name: "Aspire Sports Shop" }),
+    ).toBeVisible();
+    await expect(page.locator('meta[name="robots"][content="noindex"]')).toHaveCount(0);
   });
 
   test("homepage — evolved sections: hero copy, benefits, strip, capture", async ({ page }) => {
