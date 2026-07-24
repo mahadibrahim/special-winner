@@ -44,3 +44,28 @@ export interface PrintfulListResponse<T> {
   paging?: { total: number; offset: number; limit: number };
   error?: { reason: string; message: string };
 }
+
+export interface PrintfulRecipient {
+  name: string;
+  address1: string;
+  address2?: string;
+  city: string;
+  state_code: string;
+  country_code: string;
+  zip: string;
+}
+
+export interface PrintfulShippingRate {
+  id: string;          // e.g. "STANDARD"
+  name: string;
+  rate: string;        // "5.99"
+  currency: string;
+  minDeliveryDays?: number;
+  maxDeliveryDays?: number;
+}
+
+export interface PrintfulOrderResult {
+  id: number;
+  status: string;
+  external_id?: string;
+}
