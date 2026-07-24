@@ -172,12 +172,13 @@ export const POST: APIRoute = async ({ request, clientAddress, locals }) => {
 
     let familyMember;
     if (data.registerSelf) {
-      if (!user.birthDate) {
-        return new Response(
-          JSON.stringify({ error: "Profile birthDate required for self registration" }),
-          { status: 400, headers: { "Content-Type": "application/json" } },
-        );
-      }
+      // birthDate may be null for adult self-registration: the v2 (adult-locked)
+      // flow defers DOB (and the waiver) to the post-payment completion step,
+      // exactly like the guest path. Requiring it here forced returning users
+      // through a "Complete your profile" wall before payment — a bounce driver
+      // for the very audience ads re-engage. resolvePerson accepts null, and
+      // POST /api/registrations/[id]/complete backfills users.birthDate + the
+      // self family_member once the waiver is signed.
       familyMember = await resolvePerson(db, {
         kind: "self",
         user: {

@@ -1594,6 +1594,28 @@ export default function RegistrationWizard({
     activeSeasonRegistrations.filter(isBlockingRegistration).map((r) => r.familyMemberId),
   )
 
+  // Auto-select "Myself" for the adult (v2) self-registration flow. Adult
+  // leagues are self-only (the Add-Player button is hidden and self is the sole
+  // registerable option), so making the customer tap the lone card before
+  // Continue is pure friction — costly for the returning users ads re-engage.
+  // Skipped when something is already selected, or when the self row is already
+  // registered for this season (the v2 short-circuit owns that case).
+  useEffect(() => {
+    if (isGuest || flowVariant !== "v2") return
+    if (!registrationsChecked || isLoading) return
+    if (selectedKey !== null || !user) return
+    if (selfBlockingRegistration) return
+    setSelectedKey("self")
+  }, [
+    isGuest,
+    flowVariant,
+    registrationsChecked,
+    isLoading,
+    selectedKey,
+    user,
+    selfBlockingRegistration,
+  ])
+
   // ── Loading / error states ─────────────────────────────────────────────────
 
   // Also waits on registrationsChecked (Task 5) so the wizard never flashes
@@ -1826,7 +1848,10 @@ export default function RegistrationWizard({
         {stepName === "player" && !isGuest && !showAddMember && (
           <WhoStep
             selfOption={
-              completedBirthDate
+              // Adult v2 defers DOB to post-payment, so "Myself" is selectable
+              // even with no birthDate on file — otherwise a returning user hits
+              // the "Complete your profile" wall before payment.
+              completedBirthDate || flowVariant === "v2"
                 ? {
                     firstName: completedProfile.firstName || (user?.firstName ?? ""),
                     lastName: completedProfile.lastName || (user?.lastName ?? ""),
@@ -1836,6 +1861,7 @@ export default function RegistrationWizard({
                   }
                 : null
             }
+            deferBirthDate={flowVariant === "v2"}
             selfProfile={
               user
                 ? {
@@ -2069,11 +2095,14 @@ export default function RegistrationWizard({
             registrationId={activeRegistrationId}
             flow={regFlow}
             waiverSigned={flowVariant === "v1"}
-            // v1 always requires DOB up front (guest child/adult steps and
-            // the authed self profile-completion form all gate on it before
-            // the wizard can proceed); only the v2 minimal guest step defers
-            // it to this completion form.
-            needsBirthDate={isGuest && flowVariant === "v2"}
+            // v2 (adult-locked) defers DOB to this post-payment step for BOTH
+            // guests (minimal name+email step) and signed-in users without a
+            // stored birthDate (previously walled off by "Complete your profile"
+            // before payment). v1 always has DOB up front, so it never needs it.
+            needsBirthDate={
+              flowVariant === "v2" &&
+              (isGuest || (selectedKey === "self" && !completedBirthDate))
+            }
           />
         )}
         </>
