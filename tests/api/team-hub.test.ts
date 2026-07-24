@@ -218,3 +218,68 @@ describe("DELETE /api/public/team-registrations/[token]/invitee", () => {
     expect(res.status).toBe(401);
   });
 });
+
+describe("POST /api/public/team-registrations/[token]/invite (captain-only)", () => {
+  it("401s when unauthenticated (the assigned share IS the amount billed)", async () => {
+    const res = await apiFetch(
+      `/api/public/team-registrations/${HUB_TOKEN}/invite`,
+      {
+        method: "POST",
+        body: JSON.stringify({ invites: [{ email: "attacker@test.aspiresports.com", shareCents: 0 }] }),
+      },
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it("404s for a signed-in non-captain (token is a bearer credential)", async () => {
+    const res = await apiFetch(
+      `/api/public/team-registrations/${HUB_TOKEN}/invite`,
+      {
+        method: "POST",
+        cookie: adminCookie,
+        body: JSON.stringify({ invites: [{ email: "attacker@test.aspiresports.com", shareCents: 0 }] }),
+      },
+    );
+    expect(res.status).toBe(404);
+  });
+
+  it("refuses to overwrite a PAID invitee's share (no re-pricing collected money)", async () => {
+    // Re-invite the seeded PAID teammate at $0.01 — must be skipped, not applied.
+    const res = await apiFetch(
+      `/api/public/team-registrations/${HUB_TOKEN}/invite`,
+      {
+        method: "POST",
+        cookie: captainCookie,
+        body: JSON.stringify({ invites: [{ email: INVITEE_PAID, shareCents: 1 }] }),
+      },
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { skippedPaid: number; invitees: number };
+    expect(body.skippedPaid).toBeGreaterThanOrEqual(1);
+
+    // The paid invitee's share is unchanged in the hub detail.
+    const detail = await (
+      await apiFetch(`/api/dashboard/teams/${hubTeamId}`, { cookie: captainCookie })
+    ).json();
+    const paid = detail.team.invitees.find(
+      (i: { email: string; assignedShareCents: number; status: string }) =>
+        i.email === INVITEE_PAID,
+    );
+    expect(paid.status).toBe("paid");
+    expect(paid.assignedShareCents).toBe(20000);
+  });
+
+  it("lets the captain invite a fresh teammate", async () => {
+    const fresh = `hub-invite-${Date.now()}@test.aspiresports.com`;
+    const res = await apiFetch(
+      `/api/public/team-registrations/${HUB_TOKEN}/invite`,
+      {
+        method: "POST",
+        cookie: captainCookie,
+        body: JSON.stringify({ invites: [{ email: fresh, shareCents: 5000 }] }),
+      },
+    );
+    expect(res.status).toBe(200);
+    expect((await res.json()).invitees).toBe(1);
+  });
+});
