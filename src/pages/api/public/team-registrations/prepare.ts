@@ -1,11 +1,10 @@
 import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
-import { seasons, users } from "@/lib/db/schema";
+import { seasons } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { stripe } from "@/lib/stripe/client";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
-import { normalizeForUniqueness } from "@/lib/auth/email-normalize";
 import { isRegistrationClosed } from "@/lib/programs/registration-window";
 import { effectiveTeamPriceCents } from "@/lib/programs/early-bird";
 import { CAPTAIN_DEPOSIT_CENTS } from "@/lib/registrations/team-deposit";
@@ -58,19 +57,14 @@ export const POST: APIRoute = async (context) => {
   if (!parsed.success) return json({ error: "Invalid input", issues: parsed.error.issues }, 400);
   const { seasonId, teamName, captainName, captainEmail, notes, discountCode } = parsed.data;
 
-  // Guest with an existing account → sign in first. (Authed captains skip this;
-  // they reserve under their own id.)
-  let captainUserId: string | null = locals.user?.id ?? null;
-  if (!captainUserId) {
-    const [existing] = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(eq(users.emailCanonical, normalizeForUniqueness(captainEmail)))
-      .limit(1);
-    if (existing) {
-      return json({ needsSignIn: true, error: "This email already has an account — sign in to continue." }, 409);
-    }
-  }
+  // A guest whose email already has an account is NOT forced to sign in first
+  // (that off-site magic-link detour before payment was the biggest team-funnel
+  // leak). They reserve as a guest exactly like the solo path: finalize resolves
+  // the existing user by email and attaches the team, and — because a session is
+  // only ever created for a NEW user (finalize.ts / upsertGuestUser wasNewUser
+  // gate) — a guest is never logged in as an existing account. Sign-in remains
+  // available (offered inline in the form) for anyone who prefers it.
+  const captainUserId: string | null = locals.user?.id ?? null;
 
   // Season + team fee (early-bird aware), and the registration window gate.
   const [season] = await db

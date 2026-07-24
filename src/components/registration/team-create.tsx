@@ -208,6 +208,9 @@ export default function TeamCreate({
   // verify Turnstile server-side and fail closed in prod).
   const [turnstileToken, setTurnstileToken] = useState("");
   const [sendingLink, setSendingLink] = useState(false);
+  // Returning captain (existing email) — sign-in is now OPTIONAL (offered inline
+  // in the reserve form), not a wall. This toggles the inline sign-in affordance.
+  const [showSignIn, setShowSignIn] = useState(false);
   const [joinUrl, setJoinUrl] = useState<string | null>(null);
   const [inviteToken, setInviteToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -920,33 +923,7 @@ export default function TeamCreate({
         )}
       </label>
 
-      {!isAuthed && emailExists === true ? (
-        /* Existing account → sign in before the rest of the form. */
-        <div className="rounded-xl border border-ochre/50 bg-ochre/10 p-4 space-y-3">
-          <h3 className="font-display text-lg text-ink">You already have an account</h3>
-          <p className="text-ink-2 text-sm">Sign in to keep your teams and registrations together — no password needed.</p>
-          <div className="flex justify-start">
-            <TurnstileWidget onToken={(t) => setTurnstileToken(t)} onError={() => setTurnstileToken("")} />
-          </div>
-          {error && <p className="text-sm text-red-500">{error}</p>}
-          <button
-            type="button"
-            onClick={handleSendSignIn}
-            disabled={sendingLink}
-            className="inline-flex items-center gap-2 bg-ink text-cream rounded-lg px-4 py-2.5 text-sm font-semibold disabled:opacity-60"
-          >
-            {sendingLink ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
-            Email me a sign-in link
-          </button>
-          <button
-            type="button"
-            onClick={() => setEmailExists(null)}
-            className="block text-xs text-ink-muted underline"
-          >
-            wrong email? edit it
-          </button>
-        </div>
-      ) : !isAuthed && emailExists === null ? (
+      {!isAuthed && emailExists === null ? (
         /* Guest hasn't confirmed the email yet — email-first gate. */
         <div className="space-y-2">
           {error && <p className="text-sm text-red-500">{error}</p>}
@@ -991,8 +968,40 @@ export default function TeamCreate({
           </p>
         </>
       ) : (
-        /* Reserve form (authed, or guest with a new email). */
+        /* Reserve form (authed, or guest — new OR existing email). */
         <>
+          {!isAuthed && emailExists === true && (
+            /* Existing account → sign-in is OPTIONAL, not a wall. The captain
+               reserves as a guest now; the team links to their account after
+               the deposit (finalize resolves the user by email and, per the
+               new-user-only session rule, never logs a guest in as them). */
+            <div className="rounded-xl border border-ochre/40 bg-ochre/10 p-3 text-sm space-y-2">
+              <p className="text-ink-2">
+                You already have an account — we'll connect this team to it after your deposit.{" "}
+                <button
+                  type="button"
+                  onClick={() => setShowSignIn((v) => !v)}
+                  className="underline text-ink font-medium"
+                >
+                  Prefer to sign in first?
+                </button>
+              </p>
+              {showSignIn && (
+                <div className="space-y-2 pt-1">
+                  <TurnstileWidget onToken={(t) => setTurnstileToken(t)} onError={() => setTurnstileToken("")} />
+                  <button
+                    type="button"
+                    onClick={handleSendSignIn}
+                    disabled={sendingLink}
+                    className="inline-flex items-center gap-2 bg-ink text-cream rounded-lg px-3 py-2 text-xs font-semibold disabled:opacity-60"
+                  >
+                    {sendingLink ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+                    Email me a sign-in link
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
           <label className="block">
             <span className={labelClass}>Team name <span className="text-primary-orange">*</span></span>
             <input
