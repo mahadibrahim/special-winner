@@ -459,11 +459,15 @@ export default function TeamCreate({
     }
   };
 
+  const validEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(captainEmail.trim());
+  // Ready to reserve once the fields are filled with a valid email. NOT gated on
+  // emailExists: an existing-account email reserves as a guest too (the backend
+  // no longer bounces it; prepare re-checks server-side), so a returning captain
+  // isn't stuck with a disabled button.
   const formReady =
     teamName.trim().length > 0 &&
     captainName.trim().length > 0 &&
-    captainEmail.trim().length > 0 &&
-    (isAuthed || emailExists === false);
+    (isAuthed || validEmail);
 
   /**
    * Prepare the $200 deposit WITHOUT creating an account or team. On success
@@ -787,7 +791,6 @@ export default function TeamCreate({
   const labelClass = "text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted block mb-2";
   const inputClass =
     "w-full px-3 py-2.5 bg-paper border border-ink/15 rounded-lg text-ink placeholder:text-ink-faint focus:outline-none focus:border-primary-orange transition-colors disabled:opacity-60";
-  const validEmail = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(captainEmail.trim());
 
   // Price breakdown — shown in both the form and the payment view.
   const breakdown = (
@@ -923,21 +926,7 @@ export default function TeamCreate({
         )}
       </label>
 
-      {!isAuthed && emailExists === null ? (
-        /* Guest hasn't confirmed the email yet — email-first gate. */
-        <div className="space-y-2">
-          {error && <p className="text-sm text-red-500">{error}</p>}
-          <button
-            type="button"
-            onClick={checkEmail}
-            disabled={!validEmail || checkingEmail}
-            className="inline-flex items-center gap-2 bg-ink text-cream rounded-lg px-5 py-2.5 text-sm font-semibold disabled:opacity-50"
-          >
-            {checkingEmail ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-            Continue →
-          </button>
-        </div>
-      ) : clientSecret && publishableKey ? (
+      {clientSecret && publishableKey ? (
         /* Payment revealed inline — details locked with an edit affordance. */
         <>
           <div className="flex items-center justify-between rounded-xl border border-ink/10 bg-cream-2 px-4 py-3 text-sm">

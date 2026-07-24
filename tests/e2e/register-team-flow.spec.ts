@@ -31,15 +31,15 @@ test("team-capable season shows choose-mode and reaches team-create @critical", 
   await expect(bringTeam).toBeVisible();
   await bringTeam.click();
 
-  // One-page reserve (deferred-account flow 2026-07-23): identity is resolved
-  // first, so a guest sees the "Reserve your team" screen with an email field
-  // and an email-first "Continue" gate — the team name + payment reveal only
-  // after a new email is confirmed. Nothing is created until the deposit
-  // succeeds, so there's no team-create POST on this screen.
+  // One-page reserve (deferred-account flow): a guest sees the FULL "Reserve
+  // your team" form immediately — email, team name, your name — no email-first
+  // gate. The email is checked in the background (on blur) only to drive a
+  // "new here" / "you already have an account" note, never to reveal the form.
+  // Nothing is created until the deposit succeeds, so there's no team-create
+  // POST on this screen.
   await expect(page.getByRole("heading", { name: /Reserve your team/i })).toBeVisible({ timeout: 10_000 });
   await expect(page.getByText(/Your email/i).first()).toBeVisible();
-  await expect(page.getByRole("button", { name: /Continue/i })).toBeVisible();
-
-  // Guests haven't confirmed their email yet → the team-name field is not shown.
-  await expect(page.getByText(/Team name/i)).toHaveCount(0);
+  // The whole form is present up front (previously hidden behind an email gate).
+  await expect(page.getByText(/Team name/i).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: /Continue to payment/i })).toBeVisible();
 });
