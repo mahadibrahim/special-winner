@@ -26,19 +26,19 @@ export class PrintfulApiError extends Error {
 // process.env first — Netlify SSR inlines import.meta.env at build time, so a
 // rotated runtime secret only reads reliably via process.env.
 function getApiKey(): string {
-  const key = process.env.PRINTFUL_API_KEY ?? import.meta.env.PRINTFUL_API_KEY;
+  const key = process.env.PRINTFUL_API_KEY ?? import.meta.env?.PRINTFUL_API_KEY;
   if (!key) throw new PrintfulNotConfiguredError();
   return key;
 }
 
 function getStoreId(): string | undefined {
   return (
-    process.env.PRINTFUL_STORE_ID ?? import.meta.env.PRINTFUL_STORE_ID ?? undefined
+    process.env.PRINTFUL_STORE_ID ?? import.meta.env?.PRINTFUL_STORE_ID ?? undefined
   );
 }
 
 export function isPrintfulConfigured(): boolean {
-  return Boolean(process.env.PRINTFUL_API_KEY ?? import.meta.env.PRINTFUL_API_KEY);
+  return Boolean(process.env.PRINTFUL_API_KEY ?? import.meta.env?.PRINTFUL_API_KEY);
 }
 
 async function pfGet<T>(path: string): Promise<PrintfulListResponse<T>> {
