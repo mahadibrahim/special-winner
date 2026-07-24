@@ -1,12 +1,10 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
-import { and, eq, inArray } from "drizzle-orm";
-import { getDb } from "@/lib/db";
-import { merchVariants, merchProducts } from "@/lib/db/schema";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 import { isPrintfulConfigured, calculateShipping, PrintfulApiError } from "@/lib/printful/client";
 import { toPrintfulRecipient, pickCheapestRate, shippingRateToCents } from "@/lib/printful/order-mappers";
 import { assembleQuote } from "@/lib/merch/quote";
+import { repriceCartItems } from "@/lib/merch/reprice";
 
 const schema = z.object({
   address: z.object({
@@ -28,27 +26,10 @@ export const POST: APIRoute = async (context) => {
   const parsed = schema.safeParse(await context.request.json().catch(() => null));
   if (!parsed.success) return new Response(JSON.stringify({ error: "Invalid", details: parsed.error.flatten() }), { status: 400 });
 
-  const db = getDb();
-  const ids = parsed.data.items.map((i) => i.variantId);
   // server-authoritative re-price: only active variants of active products in this org
-  const rows = await db
-    .select({
-      id: merchVariants.id, printfulVariantId: merchVariants.printfulVariantId,
-      printfulSyncVariantId: merchVariants.printfulSyncVariantId,
-      retailPriceCents: merchVariants.retailPriceCents,
-      productName: merchProducts.name,
-    })
-    .from(merchVariants)
-    .innerJoin(merchProducts, eq(merchVariants.productId, merchProducts.id))
-    .where(and(inArray(merchVariants.id, ids), eq(merchVariants.active, true), eq(merchProducts.active, true), eq(merchProducts.organizationId, org.id)));
-
-  if (rows.length !== ids.length) return new Response(JSON.stringify({ error: "Some items are unavailable" }), { status: 422 });
-
-  const byId = new Map(rows.map((r) => [r.id, r]));
-  const priced = parsed.data.items.map((i) => {
-    const r = byId.get(i.variantId)!;
-    return { ...r, quantity: i.quantity, unitPriceCents: r.retailPriceCents };
-  });
+  const repriced = await repriceCartItems(org.id, parsed.data.items);
+  if (!repriced.ok) return new Response(JSON.stringify({ error: "Some items are unavailable" }), { status: 422 });
+  const priced = repriced.lines;
 
   try {
     const rates = await calculateShipping(
@@ -61,7 +42,7 @@ export const POST: APIRoute = async (context) => {
     const quote = assembleQuote(priced.map((p) => ({ unitPriceCents: p.unitPriceCents, quantity: p.quantity })), shippingCents);
     return new Response(JSON.stringify({
       ...quote, currency: "usd",
-      items: priced.map((p) => ({ variantId: p.id, unitPriceCents: p.unitPriceCents, quantity: p.quantity })),
+      items: priced.map((p) => ({ variantId: p.variantId, unitPriceCents: p.unitPriceCents, quantity: p.quantity })),
     }), { status: 200, headers: { "Content-Type": "application/json" } });
   } catch (e) {
     if (e instanceof PrintfulApiError) return new Response(JSON.stringify({ error: "Shipping quote failed" }), { status: 502 });
