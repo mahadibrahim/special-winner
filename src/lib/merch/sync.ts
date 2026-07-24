@@ -15,12 +15,17 @@ export interface SyncResult {
 
 /** Make slugs unique + order-preserving; empty base → "item". */
 export function dedupeSlugs(items: { baseSlug: string }[]): string[] {
-  const seen = new Map<string, number>();
+  const used = new Set<string>();
   return items.map(({ baseSlug }) => {
     const base = baseSlug || "item";
-    const count = seen.get(base) ?? 0;
-    seen.set(base, count + 1);
-    return count === 0 ? base : `${base}-${count + 1}`;
+    let candidate = base;
+    let n = 1;
+    while (used.has(candidate)) {
+      n += 1;
+      candidate = `${base}-${n}`;
+    }
+    used.add(candidate);
+    return candidate;
   });
 }
 
@@ -121,6 +126,10 @@ export async function syncMerchCatalog(orgId: string): Promise<SyncResult> {
 
   // deactivate products removed from Printful entirely
   let deactivated = 0;
+  // Guard: only deactivate when Printful returned at least one product. This
+  // protects against an erroneously-empty API response wiping the catalog —
+  // with the tradeoff that a genuinely-emptied store won't auto-deactivate
+  // its last products (an admin can deactivate them directly).
   if (seenSyncProductIds.length > 0) {
     const rows = await db
       .update(merchProducts)

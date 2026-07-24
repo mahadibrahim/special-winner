@@ -19,4 +19,9 @@ describe("dedupeSlugs", () => {
       "item-2",
     ]);
   });
+  it("resolves a suffix-vs-literal collision to all-unique slugs", () => {
+    const out = dedupeSlugs([{ baseSlug: "tee" }, { baseSlug: "tee-2" }, { baseSlug: "tee" }]);
+    expect(new Set(out).size).toBe(out.length); // no duplicates
+    expect(out).toEqual(["tee", "tee-2", "tee-3"]);
+  });
 });

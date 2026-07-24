@@ -9,7 +9,7 @@ const org = Astro.locals.organization;
 const data = org && slug ? await getMerchProductBySlug(org.id, slug) : null;
 
 if (!data) {
-  return new Response(null, { status: 404 });
+  return new Response("Not found", { status: 404 });
 }
 
 const { product, variants } = data;

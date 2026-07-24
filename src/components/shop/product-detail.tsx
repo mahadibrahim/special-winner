@@ -58,9 +58,10 @@ export default function ProductDetail({
           <div className="flex gap-2 flex-wrap">
             {images.map((img, i) => (
               <button
-                key={img.url}
+                key={`${img.url}-${i}`}
                 type="button"
                 onClick={() => setActiveImage(i)}
+                aria-pressed={i === activeImage}
                 className={`w-16 h-16 overflow-hidden border ${
                   i === activeImage ? "border-ink" : "border-transparent"
                 }`}
@@ -94,6 +95,7 @@ export default function ProductDetail({
                     key={v.id}
                     type="button"
                     onClick={() => setSelectedId(v.id)}
+                    aria-pressed={isSel}
                     className={`px-3 py-2 text-sm border ${
                       isSel ? "border-ink bg-ink text-cream" : "border-ink/30 text-ink"
                     }`}
