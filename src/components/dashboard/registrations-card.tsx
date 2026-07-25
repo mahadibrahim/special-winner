@@ -430,7 +430,7 @@ export default function RegistrationsCard() {
                       </div>
 
                       {/* Actions section */}
-                      {(reg.status === "pending" && reg.paymentStatus === "unpaid") || reg.paymentStatus === "deposit_paid" || canCancel(reg.status) || canEdit(reg.status) ? (
+                      {(reg.status === "pending" && reg.paymentStatus === "unpaid") || reg.paymentStatus === "deposit_paid" || reg.paymentStatus === "failed" || canCancel(reg.status) || canEdit(reg.status) ? (
                         <div className="mt-3 pt-3 border-t border-border flex items-center justify-between">
                           {reg.status === "pending" && reg.paymentStatus === "unpaid" ? (
                             <span className="text-sm text-ink-muted">
@@ -439,6 +439,10 @@ export default function RegistrationsCard() {
                           ) : reg.paymentStatus === "deposit_paid" ? (
                             <span className="text-sm text-ink-muted">
                               Balance due: <span className="text-ink font-medium">${((reg.amountDueCents - reg.amountPaidCents) / 100).toFixed(2)}</span>
+                            </span>
+                          ) : reg.paymentStatus === "failed" ? (
+                            <span className="text-sm font-medium text-destructive">
+                              Payment didn't go through
                             </span>
                           ) : (
                             <span />
@@ -491,6 +495,17 @@ export default function RegistrationsCard() {
                               >
                                 <a href={`/dashboard/registrations/${reg.id}/pay-balance`}>
                                   Pay Balance
+                                </a>
+                              </Button>
+                            )}
+                            {reg.paymentStatus === "failed" && (
+                              <Button
+                                asChild
+                                size="sm"
+                                className="bg-primary hover:bg-primary/90"
+                              >
+                                <a href={`/dashboard/registrations/${reg.id}/pay-balance`}>
+                                  Complete Payment
                                 </a>
                               </Button>
                             )}
