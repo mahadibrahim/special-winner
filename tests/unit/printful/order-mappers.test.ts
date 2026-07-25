@@ -4,7 +4,21 @@ import {
   pickCheapestRate,
   shippingRateToCents,
   buildPrintfulOrderItems,
+  toPrintfulExternalId,
 } from "@/lib/printful/order-mappers";
+
+describe("toPrintfulExternalId", () => {
+  it("strips hyphens from the order UUID (Printful rejects the 36-char hyphenated form)", () => {
+    expect(toPrintfulExternalId("1499136e-0ae0-4e15-bbc5-3e8d743999a8")).toBe(
+      "1499136e0ae04e15bbc53e8d743999a8",
+    );
+  });
+  it("produces a 32-char id with no hyphens", () => {
+    const out = toPrintfulExternalId("1499136e-0ae0-4e15-bbc5-3e8d743999a8");
+    expect(out).toHaveLength(32);
+    expect(out).not.toContain("-");
+  });
+});
 
 describe("toPrintfulRecipient", () => {
   it("maps a merch shipping address to Printful's recipient shape", () => {

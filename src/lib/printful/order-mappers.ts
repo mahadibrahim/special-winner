@@ -35,3 +35,14 @@ export function buildPrintfulOrderItems(
     quantity: i.quantity,
   }));
 }
+
+/**
+ * Printful's order `external_id` rejects our 36-char hyphenated order UUID with
+ * "Invalid External ID specified" (confirmed via a live test payment — the
+ * Printful order creation failed and the order was left paid-but-unfulfilled).
+ * Strip the hyphens → 32 hex chars, which Printful accepts. Reversible for
+ * lookups: re-insert hyphens at 8-4-4-4-12 if you ever need the UUID back.
+ */
+export function toPrintfulExternalId(orderId: string): string {
+  return orderId.replace(/-/g, "");
+}

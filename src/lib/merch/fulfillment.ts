@@ -2,7 +2,7 @@ import { getDb } from "@/lib/db";
 import { eq } from "drizzle-orm";
 import { merchOrders, merchOrderItems } from "@/lib/db/schema";
 import { createOrder } from "@/lib/printful/client";
-import { toPrintfulRecipient, buildPrintfulOrderItems } from "@/lib/printful/order-mappers";
+import { toPrintfulRecipient, buildPrintfulOrderItems, toPrintfulExternalId } from "@/lib/printful/order-mappers";
 import { sendMerchOrderConfirmation } from "./order-confirmation-email";
 
 export class UnsupportedFulfillmentError extends Error {
@@ -34,7 +34,7 @@ export async function fulfillMerchOrder(orderId: string): Promise<{ printfulOrde
   const result = await createOrder({
     recipient: toPrintfulRecipient(order.shippingAddress),
     items: buildPrintfulOrderItems(items.map((i) => ({ printfulSyncVariantId: i.printfulSyncVariantId, quantity: i.quantity }))),
-    external_id: order.id,
+    external_id: toPrintfulExternalId(order.id),
   }, { confirm: true });
 
   const printfulOrderId = String(result.id);
