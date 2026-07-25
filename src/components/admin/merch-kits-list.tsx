@@ -42,8 +42,8 @@ interface MerchKit {
 interface TeamOption {
   id: string
   name: string
-  season: { id: string; name: string } | null
-  program: { id: string; name: string } | null
+  seasonName: string | null
+  programName: string | null
 }
 
 interface KitFormState {
@@ -65,7 +65,10 @@ const EMPTY_FORM: KitFormState = {
 }
 
 function toDatetimeLocal(iso: string | null): string {
-  return iso ? new Date(iso).toISOString().slice(0, 16) : ""
+  if (!iso) return ""
+  const d = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, "0")
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 function toIsoOrNull(value: string): string | null {
@@ -99,18 +102,11 @@ export function MerchKitsList() {
   const load = useCallback(async () => {
     setIsLoading(true)
     try {
-      const [kitsRes, teamsRes] = await Promise.all([
-        fetch("/api/admin/merch/kits"),
-        fetch("/api/admin/teams"),
-      ])
+      const kitsRes = await fetch("/api/admin/merch/kits")
       if (!kitsRes.ok) throw new Error("Failed to fetch kits")
       const kitsData = await kitsRes.json()
       setKits(kitsData.kits ?? [])
-
-      if (teamsRes.ok) {
-        const teamsData = await teamsRes.json()
-        setTeams(teamsData.teams ?? [])
-      }
+      setTeams(kitsData.teams ?? [])
     } catch (err) {
       console.error(err)
       toast.error("Failed to load kits")
@@ -281,7 +277,7 @@ export function MerchKitsList() {
                       </CardTitle>
                       <CardDescription>
                         {team
-                          ? `${team.name}${team.season || team.program ? ` — ${[team.season?.name, team.program?.name].filter(Boolean).join(" / ")}` : ""}`
+                          ? `${team.name}${team.seasonName || team.programName ? ` — ${[team.seasonName, team.programName].filter(Boolean).join(" / ")}` : ""}`
                           : "Team not found"}
                       </CardDescription>
                     </div>
@@ -356,8 +352,8 @@ export function MerchKitsList() {
                     {teams.map((team) => (
                       <SelectItem key={team.id} value={team.id}>
                         {team.name}
-                        {(team.season || team.program) &&
-                          ` (${[team.season?.name, team.program?.name].filter(Boolean).join(" / ")})`}
+                        {(team.seasonName || team.programName) &&
+                          ` (${[team.seasonName, team.programName].filter(Boolean).join(" / ")})`}
                       </SelectItem>
                     ))}
                   </SelectContent>

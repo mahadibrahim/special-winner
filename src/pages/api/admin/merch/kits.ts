@@ -1,8 +1,9 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { merchTeamKits } from "@/lib/db/schema";
+import { merchTeamKits, teams, seasons, programs } from "@/lib/db/schema";
+import { locations } from "@/lib/db/schema/organizations";
 import { requireOrgAdminAccess } from "@/lib/auth";
 import { requireSameOrgTeam, ownershipDeniedResponse } from "@/lib/auth/require-resource-ownership";
 import { listKits, generateShareToken } from "@/lib/merch/kits";
@@ -23,7 +24,16 @@ export const GET: APIRoute = async (context) => {
   const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
   try {
-    return json({ kits: await listKits(auth.organizationId) });
+    const kits = await listKits(auth.organizationId);
+    const orgTeams = await getDb()
+      .select({ id: teams.id, name: teams.name, seasonName: seasons.name, programName: programs.name })
+      .from(teams)
+      .innerJoin(seasons, eq(teams.seasonId, seasons.id))
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
+      .where(eq(locations.organizationId, auth.organizationId))
+      .orderBy(asc(teams.name));
+    return json({ kits, teams: orgTeams });
   } catch (error) {
     console.error("Error fetching merch kits:", error);
     return json({ error: "Something went wrong" }, 500);
