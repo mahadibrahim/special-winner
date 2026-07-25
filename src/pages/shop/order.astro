@@ -1,0 +1,39 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { stripe } from "@/lib/stripe/client";
+import { getDb } from "@/lib/db";
+import { and, eq } from "drizzle-orm";
+import { merchOrders, merchOrderItems } from "@/lib/db/schema";
+
+const sessionId = Astro.url.searchParams.get("session_id");
+const org = Astro.locals.organization;
+let order = null, items: any[] = [];
+if (sessionId && org && stripe) {
+  const [row] = await getDb().select().from(merchOrders)
+    .where(and(eq(merchOrders.stripeCheckoutSessionId, sessionId), eq(merchOrders.organizationId, org.id))).limit(1);
+  if (row) { order = row; items = await getDb().select().from(merchOrderItems).where(eq(merchOrderItems.orderId, row.id)); }
+}
+if (!order) return new Response("Not found", { status: 404 });
+const money = (c: number) => `$${(c / 100).toFixed(2)}`;
+---
+<BaseLayout title="Order confirmed — Aspire Sports" description="Your order is confirmed.">
+  <main id="main-content" class="flex-1 max-w-[640px] mx-auto w-full px-6 py-14">
+    <h1 class="font-display text-3xl text-ink mb-3">Thank you!</h1>
+    <p class="text-ink-muted mb-8">Your order is confirmed. A receipt is on its way to {order.email}.</p>
+    <ul class="list-none p-0 m-0 divide-y divide-ink/10">
+      {items.map((i) => (
+        <li class="py-3 flex justify-between text-sm">
+          <span>{i.productName} {[i.color, i.size].filter(Boolean).join(" · ")} × {i.quantity}</span>
+          <span>{money(i.unitPriceCents * i.quantity)}</span>
+        </li>
+      ))}
+    </ul>
+    <div class="mt-4 text-sm text-ink">
+      <p class="flex justify-between"><span>Shipping</span><span>{money(order.shippingCents)}</span></p>
+      <p class="flex justify-between"><span>Tax</span><span>{money(order.taxCents)}</span></p>
+      <p class="flex justify-between font-medium"><span>Total</span><span>{money(order.totalCents)}</span></p>
+    </div>
+    <a href="/shop" class="mt-8 inline-block text-sm text-ink-muted hover:text-ink">← Back to shop</a>
+  </main>
+</BaseLayout>
+<script>localStorage.removeItem("aspire_merch_cart_v1"); window.dispatchEvent(new Event("merch-cart-changed"));</script>
