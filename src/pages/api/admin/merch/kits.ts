@@ -22,59 +22,79 @@ const json = (body: unknown, status = 200) =>
 export const GET: APIRoute = async (context) => {
   const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-  return json({ kits: await listKits(auth.organizationId) });
+  try {
+    return json({ kits: await listKits(auth.organizationId) });
+  } catch (error) {
+    console.error("Error fetching merch kits:", error);
+    return json({ error: "Something went wrong" }, 500);
+  }
 };
 
 export const POST: APIRoute = async (context) => {
   const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-  const parsed = kitSchema.safeParse(await context.request.json().catch(() => null));
-  if (!parsed.success) return json({ error: "Invalid", details: parsed.error.flatten() }, 400);
-  const owns = await requireSameOrgTeam(auth.organizationId, parsed.data.teamId);
-  if (!owns.ok) return ownershipDeniedResponse();
-  const [kit] = await getDb().insert(merchTeamKits).values({
-    organizationId: auth.organizationId,
-    teamId: parsed.data.teamId,
-    name: parsed.data.name,
-    shareToken: generateShareToken(),
-    orderOpensAt: parsed.data.orderOpensAt ? new Date(parsed.data.orderOpensAt) : null,
-    orderClosesAt: parsed.data.orderClosesAt ? new Date(parsed.data.orderClosesAt) : null,
-    pickupLocation: parsed.data.pickupLocation ?? null,
-    active: parsed.data.active,
-  }).returning();
-  return json({ kit }, 201);
+  try {
+    const parsed = kitSchema.safeParse(await context.request.json().catch(() => null));
+    if (!parsed.success) return json({ error: "Invalid", details: parsed.error.flatten() }, 400);
+    const owns = await requireSameOrgTeam(auth.organizationId, parsed.data.teamId);
+    if (!owns.ok) return ownershipDeniedResponse();
+    const [kit] = await getDb().insert(merchTeamKits).values({
+      organizationId: auth.organizationId,
+      teamId: parsed.data.teamId,
+      name: parsed.data.name,
+      shareToken: generateShareToken(),
+      orderOpensAt: parsed.data.orderOpensAt ? new Date(parsed.data.orderOpensAt) : null,
+      orderClosesAt: parsed.data.orderClosesAt ? new Date(parsed.data.orderClosesAt) : null,
+      pickupLocation: parsed.data.pickupLocation ?? null,
+      active: parsed.data.active,
+    }).returning();
+    return json({ kit }, 201);
+  } catch (error) {
+    console.error("Error creating merch kit:", error);
+    return json({ error: "Something went wrong" }, 500);
+  }
 };
 
 export const PUT: APIRoute = async (context) => {
   const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-  const body = await context.request.json().catch(() => null);
-  const id = body?.id;
-  if (!id) return json({ error: "id required" }, 400);
-  const parsed = kitSchema.safeParse(body);
-  if (!parsed.success) return json({ error: "Invalid", details: parsed.error.flatten() }, 400);
-  const owns = await requireSameOrgTeam(auth.organizationId, parsed.data.teamId);
-  if (!owns.ok) return ownershipDeniedResponse();
-  const [kit] = await getDb().update(merchTeamKits).set({
-    teamId: parsed.data.teamId,
-    name: parsed.data.name,
-    orderOpensAt: parsed.data.orderOpensAt ? new Date(parsed.data.orderOpensAt) : null,
-    orderClosesAt: parsed.data.orderClosesAt ? new Date(parsed.data.orderClosesAt) : null,
-    pickupLocation: parsed.data.pickupLocation ?? null,
-    active: parsed.data.active,
-    updatedAt: new Date(),
-  }).where(and(eq(merchTeamKits.id, id), eq(merchTeamKits.organizationId, auth.organizationId))).returning();
-  if (!kit) return json({ error: "Not found" }, 404);
-  return json({ kit });
+  try {
+    const body = await context.request.json().catch(() => null);
+    const id = body?.id;
+    if (!id || !z.string().uuid().safeParse(id).success) return json({ error: "Valid id required" }, 400);
+    const parsed = kitSchema.safeParse(body);
+    if (!parsed.success) return json({ error: "Invalid", details: parsed.error.flatten() }, 400);
+    const owns = await requireSameOrgTeam(auth.organizationId, parsed.data.teamId);
+    if (!owns.ok) return ownershipDeniedResponse();
+    const [kit] = await getDb().update(merchTeamKits).set({
+      teamId: parsed.data.teamId,
+      name: parsed.data.name,
+      orderOpensAt: parsed.data.orderOpensAt ? new Date(parsed.data.orderOpensAt) : null,
+      orderClosesAt: parsed.data.orderClosesAt ? new Date(parsed.data.orderClosesAt) : null,
+      pickupLocation: parsed.data.pickupLocation ?? null,
+      active: parsed.data.active,
+      updatedAt: new Date(),
+    }).where(and(eq(merchTeamKits.id, id), eq(merchTeamKits.organizationId, auth.organizationId))).returning();
+    if (!kit) return json({ error: "Not found" }, 404);
+    return json({ kit });
+  } catch (error) {
+    console.error("Error updating merch kit:", error);
+    return json({ error: "Something went wrong" }, 500);
+  }
 };
 
 export const DELETE: APIRoute = async (context) => {
   const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
-  const id = new URL(context.request.url).searchParams.get("id");
-  if (!id) return json({ error: "id required" }, 400);
-  const [row] = await getDb().delete(merchTeamKits)
-    .where(and(eq(merchTeamKits.id, id), eq(merchTeamKits.organizationId, auth.organizationId))).returning();
-  if (!row) return json({ error: "Not found" }, 404);
-  return json({ success: true });
+  try {
+    const id = new URL(context.request.url).searchParams.get("id");
+    if (!id || !z.string().uuid().safeParse(id).success) return json({ error: "Valid id required" }, 400);
+    const [row] = await getDb().delete(merchTeamKits)
+      .where(and(eq(merchTeamKits.id, id), eq(merchTeamKits.organizationId, auth.organizationId))).returning();
+    if (!row) return json({ error: "Not found" }, 404);
+    return json({ success: true });
+  } catch (error) {
+    console.error("Error deleting merch kit:", error);
+    return json({ error: "Something went wrong" }, 500);
+  }
 };
