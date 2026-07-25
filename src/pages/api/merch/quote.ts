@@ -51,6 +51,15 @@ export const POST: APIRoute = async (context) => {
   const { printful } = partitionByFulfillment(priced);
   const needsShipping = priced.some(lineNeedsShipping);
 
+  // required personalization present? (relies on repriceStoreCartItems preserving request order)
+  // mirrors checkout.ts so a quote and the subsequent checkout never disagree
+  for (let i = 0; i < priced.length; i++) {
+    const cfg = priced[i].personalizationConfig;
+    const val = parsed.data.items[i]?.personalization ?? null;
+    if (cfg?.name && !val?.name) return json({ error: "Name required for a personalized item" }, 422);
+    if (cfg?.number && !val?.number) return json({ error: "Number required for a personalized item" }, 422);
+  }
+
   try {
     let shippingCents = 0;
     if (needsShipping) {

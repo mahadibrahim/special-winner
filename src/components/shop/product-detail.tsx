@@ -56,6 +56,7 @@ export default function ProductDetail({
   );
   const [personalName, setPersonalName] = useState("");
   const [personalNumber, setPersonalNumber] = useState("");
+  const [personalizationError, setPersonalizationError] = useState<string | null>(null);
 
   const selected = useMemo(
     () => variants.find((v) => v.id === selectedId) ?? null,
@@ -63,6 +64,9 @@ export default function ProductDetail({
   );
 
   const wantsPersonalization = Boolean(personalization?.name || personalization?.number);
+  const missingRequiredPersonalization =
+    (Boolean(personalization?.name) && personalName.trim() === "") ||
+    (Boolean(personalization?.number) && personalNumber.trim() === "");
 
   return (
     <div className="grid md:grid-cols-2 gap-10">
@@ -148,9 +152,13 @@ export default function ProductDetail({
                 <input
                   type="text"
                   value={personalName}
-                  onChange={(e) => setPersonalName(e.target.value)}
-                  placeholder="Name"
+                  onChange={(e) => {
+                    setPersonalName(e.target.value);
+                    setPersonalizationError(null);
+                  }}
+                  placeholder="Name (required)"
                   aria-label="Personalization name"
+                  aria-required="true"
                   maxLength={40}
                   className="border border-ink/30 px-3 py-2 text-sm flex-1 min-w-[8rem]"
                 />
@@ -159,14 +167,23 @@ export default function ProductDetail({
                 <input
                   type="text"
                   value={personalNumber}
-                  onChange={(e) => setPersonalNumber(e.target.value)}
-                  placeholder="Number"
+                  onChange={(e) => {
+                    setPersonalNumber(e.target.value);
+                    setPersonalizationError(null);
+                  }}
+                  placeholder="Number (required)"
                   aria-label="Personalization number"
+                  aria-required="true"
                   maxLength={4}
                   className="border border-ink/30 px-3 py-2 text-sm w-24"
                 />
               )}
             </div>
+            {personalizationError && (
+              <p className="text-sm text-red-600 mt-2" role="alert">
+                {personalizationError}
+              </p>
+            )}
           </fieldset>
         )}
 
@@ -176,16 +193,23 @@ export default function ProductDetail({
 
         <button
           type="button"
-          disabled={!selected || !shoppable}
+          disabled={!selected || !shoppable || missingRequiredPersonalization}
           onClick={() => {
             if (!selected || !shoppable) return;
-            const personalizationValue =
-              wantsPersonalization && (personalName || personalNumber)
-                ? {
-                    ...(personalization?.name ? { name: personalName } : {}),
-                    ...(personalization?.number ? { number: personalNumber } : {}),
-                  }
-                : undefined;
+            if (missingRequiredPersonalization) {
+              setPersonalizationError(
+                personalization?.name && personalName.trim() === ""
+                  ? "Name is required for this item."
+                  : "Number is required for this item.",
+              );
+              return;
+            }
+            const personalizationValue = wantsPersonalization
+              ? {
+                  ...(personalization?.name ? { name: personalName.trim() } : {}),
+                  ...(personalization?.number ? { number: personalNumber.trim() } : {}),
+                }
+              : undefined;
             cart.add({
               variantId: selected.id,
               productSlug: slug,
@@ -206,6 +230,7 @@ export default function ProductDetail({
             setAdded(true);
             setPersonalName("");
             setPersonalNumber("");
+            setPersonalizationError(null);
             setTimeout(() => setAdded(false), 1500);
           }}
           className="mt-8 bg-ink text-cream px-6 py-3 text-sm font-medium uppercase tracking-wide disabled:opacity-50"

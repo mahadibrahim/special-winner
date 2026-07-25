@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { merchProducts, merchVariants } from "@/lib/db/schema";
 import { requireOrgAdminAccess } from "@/lib/auth";
@@ -28,7 +28,9 @@ export const GET: APIRoute = async (context) => {
     const storeId = new URL(context.request.url).searchParams.get("storeId");
     if (!storeId || !z.string().uuid().safeParse(storeId).success) return json({ error: "Valid storeId required" }, 400);
     if (!(await getStoreById(auth.organizationId, storeId))) return json({ error: "Not found" }, 404);
-    const products = await getDb().select().from(merchProducts).where(eq(merchProducts.storeId, storeId));
+    // manual-only: Printful-synced products are managed via the sync flow, not this editor
+    const products = await getDb().select().from(merchProducts)
+      .where(and(eq(merchProducts.storeId, storeId), eq(merchProducts.source, "manual")));
     const withVariants = await Promise.all(products.map(async (p) => ({
       ...p,
       variants: await getDb().select().from(merchVariants).where(eq(merchVariants.productId, p.id)),
@@ -103,6 +105,10 @@ export const PUT: APIRoute = async (context) => {
     if (!existing || !existing.storeId) return json({ error: "Not found" }, 404);
     // tenant isolation: the product's current store must resolve inside the caller's org
     if (!(await getStoreById(auth.organizationId, existing.storeId))) return json({ error: "Not found" }, 404);
+    // manual-only: never let this endpoint touch Printful-synced products
+    if (existing.source !== "manual") {
+      return json({ error: "Only manually-created products can be edited here." }, 400);
+    }
     // if the request moves the product to a different store, that target store must also be in-org
     const targetStore = await getStoreById(auth.organizationId, d.storeId);
     if (!targetStore) return json({ error: "Store not found" }, 404);
@@ -155,6 +161,10 @@ export const DELETE: APIRoute = async (context) => {
     if (!existing || !existing.storeId) return json({ error: "Not found" }, 404);
     // tenant isolation: the product's store must resolve inside the caller's org
     if (!(await getStoreById(auth.organizationId, existing.storeId))) return json({ error: "Not found" }, 404);
+    // manual-only: never let this endpoint touch Printful-synced products
+    if (existing.source !== "manual") {
+      return json({ error: "Only manually-created products can be edited here." }, 400);
+    }
 
     // cascades to merch_variants via the FK's onDelete: "cascade"
     await db.delete(merchProducts).where(eq(merchProducts.id, id));

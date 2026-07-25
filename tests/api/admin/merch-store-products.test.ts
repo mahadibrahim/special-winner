@@ -213,6 +213,74 @@ describe("/api/admin/merch/store-products — delete cascades", () => {
   });
 });
 
+describe("/api/admin/merch/store-products — Printful-sourced products are guarded", () => {
+  let printfulProductId: string;
+
+  beforeAll(async () => {
+    // uniquely fabricated (not real Printful ids) to avoid unique-constraint
+    // collisions on the shared CI DB across parallel/repeated test runs
+    const fakeSyncProductId = `${Date.now()}${Math.floor(Math.random() * 1e6)}`;
+    const fakeSyncVariantId = `${Date.now()}${Math.floor(Math.random() * 1e6)}v`;
+
+    const [store] = await getDb().select().from(merchStores).where(eq(merchStores.id, storeId)).limit(1);
+    const [product] = await getDb().insert(merchProducts).values({
+      organizationId: store.organizationId,
+      storeId,
+      source: "printful",
+      fulfillmentType: "printful_pod",
+      printfulSyncProductId: fakeSyncProductId,
+      name: testSlug("Printful Fixture Product"),
+      slug: testSlug("printful-fixture-product"),
+      category: "jersey",
+    }).returning();
+    printfulProductId = product.id;
+    createdProductIds.push(printfulProductId);
+
+    await getDb().insert(merchVariants).values({
+      productId: printfulProductId,
+      printfulSyncVariantId: fakeSyncVariantId,
+      printfulVariantId: 777777,
+      name: "Printful Fixture Product / M",
+      size: "M",
+      color: null,
+      sku: null,
+      retailPriceCents: 2500,
+      sortOrder: 0,
+    });
+  });
+
+  it("GET does not list the Printful-sourced product", async () => {
+    const list = await expectJson(
+      await apiFetch(`/api/admin/merch/store-products?storeId=${storeId}`, { cookie: adminCookie }),
+      200,
+    );
+    expect(list.products.find((p: { id: string }) => p.id === printfulProductId)).toBeUndefined();
+  });
+
+  it("PUT against a Printful-sourced product → 400", async () => {
+    const res = await apiFetch("/api/admin/merch/store-products", {
+      method: "PUT",
+      cookie: adminCookie,
+      body: JSON.stringify({
+        id: printfulProductId,
+        storeId,
+        name: "Hacked Printful Product",
+        priceCents: 1000,
+        sizes: ["M"],
+      }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("DELETE against a Printful-sourced product → 400", async () => {
+    const res = await apiFetch(`/api/admin/merch/store-products?id=${printfulProductId}`, {
+      method: "DELETE",
+      cookie: adminCookie,
+    });
+    expect(res.status).toBe(400);
+  });
+});
+
 describe("/api/admin/merch/store-products — tenant isolation", () => {
   let orgBStoreId: string;
   let orgBProductId: string;
