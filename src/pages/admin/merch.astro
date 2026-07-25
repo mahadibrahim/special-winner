@@ -16,6 +16,14 @@ const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
     currentPath="/admin/merch"
     user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
   >
+    <div class="mb-6">
+      <a
+        href="/admin/merch/stores"
+        class="inline-flex items-center gap-2 text-sm font-medium text-gray-900 hover:underline"
+      >
+        Manage stores (team, league, and general storefronts) &rarr;
+      </a>
+    </div>
     <MerchSyncPanel client:load />
   </AdminLayout>
 </BaseLayout>
