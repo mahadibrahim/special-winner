@@ -107,11 +107,12 @@ test.describe("Anonymous registration (guest checkout)", { tag: "@critical" }, (
 
     await page.getByRole("button", { name: /continue/i }).click();
 
-    // Step 3 — Payment: keep "Pay in Full", then commit to the free "Bank
-    // transfer" method. Selecting a method is the action that creates the
+    // Step 3 — Payment: keep "Pay in Full", then commit to the card method.
+    // Checkout is card-only (ACH/bank is disabled via ACH_ENABLED), so "Card or
+    // wallet" is the only method. Selecting it is the action that creates the
     // registration + Stripe session and mounts the inline payment form — there
-    // is no separate "continue to payment" button anymore.
-    await page.getByRole("button", { name: /bank transfer/i }).click();
+    // is no separate "continue to payment" button.
+    await page.getByRole("button", { name: /card or wallet/i }).click();
 
     // Outcome: with embedded checkout, the contract is "Stripe Elements iframe mounted
     // inline" instead of "navigated to checkout.stripe.com". Other valid outcomes:
