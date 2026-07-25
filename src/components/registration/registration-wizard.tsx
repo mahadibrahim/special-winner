@@ -384,8 +384,8 @@ export default function RegistrationWizard({
   const [paymentValueCents, setPaymentValueCents] = useState(0)
   // Customer's choice of payment-method group. Drives both the displayed
   // surcharge and the Stripe Checkout Session's payment_method_types.
-  // Defaults to "card" — the fastest path (Apple Pay / Google Pay / any
-  // card); the bank option stays one tap away for the fee-averse.
+  // Card-only checkout: default to card. ACH/bank is disabled in the payment
+  // step (ACH_ENABLED), so the bank option never renders.
   const [selectedPaymentCategory, setSelectedPaymentCategory] = useState<
     "bank" | "card"
   >("card")

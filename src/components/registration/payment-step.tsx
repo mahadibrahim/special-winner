@@ -11,6 +11,12 @@ import { EmbeddedPayment } from "./embedded-payment"
 import { computeSurchargeCents } from "@/lib/payments/surcharge"
 import type { SeasonItem, CheckoutPaymentType } from "@/lib/analytics/datalayer"
 
+// ACH/bank debit is disabled — checkout is card-only. The bank branch in
+// createCheckoutSession (client.ts) and the ACH surcharge-preview math below
+// are left in place but unreachable; flip this to true to re-enable the bank
+// option (and its "no fee" path) without rebuilding the flow.
+const ACH_ENABLED = false
+
 interface AppliedDiscount {
   code: string
   discountType: "percentage" | "fixed_amount"
@@ -474,8 +480,9 @@ export function PaymentStep({
           <div>
             <h3 className="text-lg font-semibold text-ink mb-1">Payment Method</h3>
             <p className="text-ink-muted text-sm">
-              Pick a method to enter your payment details. Bank transfer is free;
-              card payments include the processor fee.
+              {ACH_ENABLED
+                ? "Pick a method to enter your payment details. Bank transfer is free; card payments include the processor fee."
+                : "Pay securely by card or wallet — Visa, Mastercard, Apple Pay, or Google Pay."}
             </p>
             {/* Trust signals BEFORE the commit tap — replays showed hesitation
                 right here, and the refund promise previously appeared only
@@ -494,10 +501,10 @@ export function PaymentStep({
               </span>
             </p>
           </div>
-          {/* Card/wallet leads: ~2/3 of paid traffic is iOS and the observed
-              behavior was "tap bank → hit the ACH connect flow → back out →
-              pay by card anyway". Bank stays one tap away for the fee-averse. */}
-          <div className="grid sm:grid-cols-2 gap-3">
+          {/* Card/wallet leads. Card-only for now — the bank option below is
+              gated off (ACH_ENABLED=false) but kept one flag-flip away for the
+              fee-averse; grid collapses to one column while it's hidden. */}
+          <div className={`grid gap-3 ${ACH_ENABLED ? "sm:grid-cols-2" : ""}`}>
             <button
               type="button"
               onClick={() => onMethodSelected("card")}
@@ -513,40 +520,44 @@ export function PaymentStep({
                 <div className="flex items-center gap-2 mb-1">
                   <CreditCard className="w-4 h-4 text-ink-2" />
                   <p className="font-medium text-ink">Card or wallet</p>
-                  <span className="ml-auto text-xs font-medium text-ink-2 bg-ink/5 px-2 py-0.5 rounded-full">
-                    +${(previewCardSurcharge / 100).toFixed(2)} fee
-                  </span>
+                  {previewCardSurcharge > 0 && (
+                    <span className="ml-auto text-xs font-medium text-ink-2 bg-ink/5 px-2 py-0.5 rounded-full">
+                      +${(previewCardSurcharge / 100).toFixed(2)} fee
+                    </span>
+                  )}
                 </div>
                 <p className="text-sm text-ink-muted">
                   Fastest — Apple Pay, Google Pay, or any card.
                 </p>
               </div>
             </button>
-            <button
-              type="button"
-              onClick={() => onMethodSelected("bank")}
-              disabled={isCreatingSession}
-              aria-pressed={paymentMethodCategory === "bank"}
-              className={`text-left flex items-start gap-3 p-4 rounded-xl border transition-all disabled:opacity-60 disabled:cursor-wait ${
-                paymentMethodCategory === "bank"
-                  ? "border-primary bg-primary/10"
-                  : "border-border hover:border-ink-faint bg-paper"
-              }`}
-            >
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <Landmark className="w-4 h-4 text-primary" />
-                  <p className="font-medium text-ink">Bank transfer</p>
-                  <span className="ml-auto text-xs font-medium text-emerald-700 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                    No fee
-                  </span>
+            {ACH_ENABLED && (
+              <button
+                type="button"
+                onClick={() => onMethodSelected("bank")}
+                disabled={isCreatingSession}
+                aria-pressed={paymentMethodCategory === "bank"}
+                className={`text-left flex items-start gap-3 p-4 rounded-xl border transition-all disabled:opacity-60 disabled:cursor-wait ${
+                  paymentMethodCategory === "bank"
+                    ? "border-primary bg-primary/10"
+                    : "border-border hover:border-ink-faint bg-paper"
+                }`}
+              >
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Landmark className="w-4 h-4 text-primary" />
+                    <p className="font-medium text-ink">Bank transfer</p>
+                    <span className="ml-auto text-xs font-medium text-emerald-700 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                      No fee
+                    </span>
+                  </div>
+                  <p className="text-sm text-ink-muted">
+                    Save the ${(previewCardSurcharge / 100).toFixed(2)} fee — pay by ACH (takes a
+                    few days to confirm).
+                  </p>
                 </div>
-                <p className="text-sm text-ink-muted">
-                  Save the ${(previewCardSurcharge / 100).toFixed(2)} fee — pay by ACH (takes a
-                  few days to confirm).
-                </p>
-              </div>
-            </button>
+              </button>
+            )}
           </div>
           {isCreatingSession && (
             <div className="flex items-center gap-2 text-sm text-ink-muted">
