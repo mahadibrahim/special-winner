@@ -28,7 +28,7 @@ if (!store) {
 
 // (b) unlisted gate
 const token = Astro.url.searchParams.get("k");
-if (store.visibility === "unlisted" && store.shareToken !== token) {
+if (store.visibility === "unlisted" && (!store.shareToken || store.shareToken !== token)) {
   return new Response("Not found", { status: 404 });
 }
 

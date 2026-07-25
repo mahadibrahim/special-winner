@@ -15,7 +15,7 @@ const store = await getStoreBySlug(org.id, storeSlug);
 if (!store) return new Response("Not found", { status: 404 });
 
 const token = Astro.url.searchParams.get("k");
-if (store.visibility === "unlisted" && store.shareToken !== token) return new Response("Not found", { status: 404 });
+if (store.visibility === "unlisted" && (!store.shareToken || store.shareToken !== token)) return new Response("Not found", { status: 404 });
 
 const data = await getMerchProductBySlug(store.id, productSlug);
 if (!data) return new Response("Not found", { status: 404 });

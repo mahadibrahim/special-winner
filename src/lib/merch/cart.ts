@@ -1,7 +1,7 @@
 import type { OrderItemPersonalization } from "@/lib/db/schema";
 
-// Local union (Slice 2 predates reprice.ts's export in Slice 3). Keep in sync
-// with merchFulfillmentTypeEnum; reprice.ts re-declares the same `MerchFulfillmentType`.
+// Local union (Slice 2 predates a shared export in Slice 3). Keep in sync
+// with merchFulfillmentTypeEnum.
 export type CartFulfillmentType = "printful_pod" | "self_shipped" | "pickup" | "digital";
 
 export interface CartItem {
