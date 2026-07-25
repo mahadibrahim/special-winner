@@ -2,6 +2,7 @@
 // Merch product detail — SSR by org + slug. 404s on unknown/inactive slug.
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import ProductDetail from "@/components/shop/product-detail";
+import CartDrawer from "@/components/shop/cart-drawer";
 import { getMerchProductBySlug } from "@/lib/merch/catalog";
 
 const { slug } = Astro.params;
@@ -18,18 +19,23 @@ const detailVariants = variants.map((v) => ({
   size: v.size,
   color: v.color,
   retailPriceCents: v.retailPriceCents,
+  printfulSyncVariantId: v.printfulSyncVariantId,
 }));
 ---
 
 <BaseLayout title={`${product.name} — Aspire Sports Shop`} description={product.description ?? `${product.name} — Aspire Sports gear.`}>
   <main id="main-content" class="flex-1 max-w-[1080px] mx-auto w-full px-6 py-14">
-    <a href="/shop" class="text-sm text-ink-muted hover:text-ink mb-8 inline-block">← Back to shop</a>
+    <header class="flex items-center justify-between mb-8">
+      <a href="/shop" class="text-sm text-ink-muted hover:text-ink inline-block">← Back to shop</a>
+      <CartDrawer client:load />
+    </header>
     <ProductDetail
       client:load
       name={product.name}
       description={product.description}
       images={product.images ?? []}
       variants={detailVariants}
+      slug={slug}
     />
   </main>
 </BaseLayout>

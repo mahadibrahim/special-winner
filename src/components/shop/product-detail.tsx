@@ -2,12 +2,14 @@
 
 import { useMemo, useState } from "react";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
+import { useCart } from "./cart-store";
 
 export interface ProductDetailVariant {
   id: string;
   size: string | null;
   color: string | null;
   retailPriceCents: number;
+  printfulSyncVariantId: string;
 }
 
 export interface ProductDetailProps {
@@ -15,6 +17,7 @@ export interface ProductDetailProps {
   description: string | null;
   images: { url: string; alt?: string }[];
   variants: ProductDetailVariant[];
+  slug: string;
 }
 
 const money = (cents: number) =>
@@ -25,9 +28,12 @@ export default function ProductDetail({
   description,
   images,
   variants,
+  slug,
 }: ProductDetailProps) {
   useHydrationBeacon();
 
+  const cart = useCart();
+  const [added, setAdded] = useState(false);
   const [activeImage, setActiveImage] = useState(0);
   const [selectedId, setSelectedId] = useState<string | null>(
     variants[0]?.id ?? null,
@@ -114,10 +120,29 @@ export default function ProductDetail({
           </div>
         )}
 
-        {/* Phase 2 adds an Add-to-cart button here. */}
-        <p className="mt-8 text-sm text-ink-muted">
-          Online ordering opens soon.
-        </p>
+        <button
+          type="button"
+          disabled={!selected}
+          onClick={() => {
+            if (!selected) return;
+            cart.add({
+              variantId: selected.id,
+              productSlug: slug,
+              name,
+              size: selected.size,
+              color: selected.color,
+              unitPriceCents: selected.retailPriceCents,
+              imageUrl: images[0]?.url ?? null,
+              printfulSyncVariantId: selected.printfulSyncVariantId,
+              quantity: 1,
+            });
+            setAdded(true);
+            setTimeout(() => setAdded(false), 1500);
+          }}
+          className="mt-8 bg-ink text-cream px-6 py-3 text-sm font-medium uppercase tracking-wide disabled:opacity-50"
+        >
+          {added ? "Added ✓" : "Add to cart"}
+        </button>
       </div>
     </div>
   );

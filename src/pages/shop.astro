@@ -3,6 +3,7 @@
 // SSR: reads the request org and queries active products. Not prerendered.
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { EmptyState } from "@/components/ui/empty-state";
+import CartDrawer from "@/components/shop/cart-drawer";
 import { listActiveMerchProducts } from "@/lib/merch/catalog";
 
 const org = Astro.locals.organization;
@@ -17,9 +18,12 @@ const money = (cents: number) =>
   description="Aspire Sports gear and merchandise."
 >
   <main id="main-content" class="flex-1 max-w-[1080px] mx-auto w-full px-6 py-14">
-    <header class="mb-10">
-      <h1 class="font-display text-4xl text-ink mb-3">Aspire Sports Shop</h1>
-      <p class="text-ink-muted">Gear for players, parents, and fans.</p>
+    <header class="mb-10 flex items-start justify-between gap-6">
+      <div>
+        <h1 class="font-display text-4xl text-ink mb-3">Aspire Sports Shop</h1>
+        <p class="text-ink-muted">Gear for players, parents, and fans.</p>
+      </div>
+      <CartDrawer client:load />
     </header>
 
     {products.length === 0 ? (

@@ -14,6 +14,7 @@ import { handleTeamDepositSucceeded } from "./handle-team-deposit-succeeded";
 import { finalizeTeamDeposit } from "@/lib/registrations/finalize-team-deposit";
 import { handleChargeRefunded } from "./handle-charge-refunded";
 import { handleChargeDispute } from "./handle-charge-dispute";
+import { handleMerchOrderCompleted } from "@/lib/merch/fulfillment";
 import {
   handleCheckoutSessionCompleted as handleMembershipCheckoutComplete,
   handleSubscriptionUpdated,
@@ -160,6 +161,11 @@ async function dispatch(event: Stripe.Event): Promise<void> {
               ? session.subscription
               : session.subscription?.id ?? "(none)"
           }`,
+        );
+      } else if (session.metadata?.type === "merch_order") {
+        const result = await handleMerchOrderCompleted(session as any);
+        console.log(
+          `[stripe webhook] checkout.session.completed (merch_order) → ${result.status}`,
         );
       } else {
         console.log(

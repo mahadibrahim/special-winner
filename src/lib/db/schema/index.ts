@@ -40,6 +40,9 @@ export * from "./program-gear";
 // Printful-backed merch catalog (merch shop Phase 1)
 export * from "./merch";
 
+// Merch orders (merch shop Phase 2)
+export * from "./merch-orders";
+
 // Team groups (Telegram group management)
 export * from "./team-groups";
 
