@@ -51,8 +51,15 @@ export default function CheckoutForm() {
         address1.trim() &&
         city.trim() &&
         state.trim().length === 2 &&
-        zip.trim(),
+        zip.trim().length >= 3,
     );
+
+  function updateField<T>(setter: (value: T) => void) {
+    return (value: T) => {
+      setter(value);
+      setQuote((prev) => (prev ? null : prev));
+    };
+  }
 
   const buildAddress = () => ({
     name: name.trim(),
@@ -89,6 +96,7 @@ export default function CheckoutForm() {
       setQuote(json);
     } catch {
       setError("Could not get a shipping total. Check your connection and try again.");
+      setQuote(null);
     } finally {
       setQuoteLoading(false);
     }
@@ -159,7 +167,7 @@ export default function CheckoutForm() {
             type="email"
             required
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => updateField(setEmail)(e.target.value)}
             className="w-full border border-ink/30 px-3 py-2 text-sm"
           />
         </div>
@@ -173,7 +181,7 @@ export default function CheckoutForm() {
             type="text"
             required
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => updateField(setName)(e.target.value)}
             className="w-full border border-ink/30 px-3 py-2 text-sm"
           />
         </div>
@@ -187,7 +195,7 @@ export default function CheckoutForm() {
             type="text"
             required
             value={address1}
-            onChange={(e) => setAddress1(e.target.value)}
+            onChange={(e) => updateField(setAddress1)(e.target.value)}
             className="w-full border border-ink/30 px-3 py-2 text-sm"
           />
         </div>
@@ -200,7 +208,7 @@ export default function CheckoutForm() {
             id="address2"
             type="text"
             value={address2}
-            onChange={(e) => setAddress2(e.target.value)}
+            onChange={(e) => updateField(setAddress2)(e.target.value)}
             className="w-full border border-ink/30 px-3 py-2 text-sm"
           />
         </div>
@@ -215,7 +223,7 @@ export default function CheckoutForm() {
               type="text"
               required
               value={city}
-              onChange={(e) => setCity(e.target.value)}
+              onChange={(e) => updateField(setCity)(e.target.value)}
               className="w-full border border-ink/30 px-3 py-2 text-sm"
             />
           </div>
@@ -229,7 +237,7 @@ export default function CheckoutForm() {
               required
               maxLength={2}
               value={state}
-              onChange={(e) => setState(e.target.value.toUpperCase())}
+              onChange={(e) => updateField(setState)(e.target.value.toUpperCase())}
               className="w-full border border-ink/30 px-3 py-2 text-sm uppercase"
               placeholder="OH"
             />
@@ -245,7 +253,7 @@ export default function CheckoutForm() {
             type="text"
             required
             value={zip}
-            onChange={(e) => setZip(e.target.value)}
+            onChange={(e) => updateField(setZip)(e.target.value)}
             onBlur={handleZipBlur}
             className="w-full border border-ink/30 px-3 py-2 text-sm"
           />
