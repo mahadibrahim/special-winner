@@ -381,9 +381,11 @@ export function PaymentStep({
                 <div className="flex items-center gap-2 mb-1">
                   <CreditCard className="w-4 h-4 text-ink-2" />
                   <p className="font-medium text-ink">Card or wallet</p>
-                  <span className="ml-auto text-xs font-medium text-ink-2 bg-ink/5 px-2 py-0.5 rounded-full">
-                    +${(previewCardSurcharge / 100).toFixed(2)} fee
-                  </span>
+                  {previewCardSurcharge > 0 && (
+                    <span className="ml-auto text-xs font-medium text-ink-2 bg-ink/5 px-2 py-0.5 rounded-full">
+                      +${(previewCardSurcharge / 100).toFixed(2)} fee
+                    </span>
+                  )}
                 </div>
                 <p className="text-sm text-ink-muted">
                   Pay ${(previewCardTotal / 100).toFixed(2)} by Visa, Mastercard, Apple Pay, or

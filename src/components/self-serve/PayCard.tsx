@@ -322,10 +322,12 @@ function PayCardForm({
             <span>Session</span>
             <span>{fmt(amounts.baseAmountCents)}</span>
           </div>
-          <div className="flex justify-between text-ink-muted">
-            <span>Card processing fee</span>
-            <span>{fmt(amounts.surchargeCents)}</span>
-          </div>
+          {amounts.surchargeCents > 0 && (
+            <div className="flex justify-between text-ink-muted">
+              <span>Card processing fee</span>
+              <span>{fmt(amounts.surchargeCents)}</span>
+            </div>
+          )}
           <div className="flex justify-between font-medium text-ink border-t border-border pt-1">
             <span>Total</span>
             <span>{fmt(amounts.totalCents)}</span>
