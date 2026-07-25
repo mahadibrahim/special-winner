@@ -27,10 +27,19 @@ export function useCart() {
   return {
     items,
     count: items.reduce((n, i) => n + i.quantity, 0),
-    add: (item: CartItem) => persist(mergeCartItem(read(), item)),
-    setQty: (variantId: string, qty: number) =>
-      persist(read().map((i) => (i.variantId === variantId ? { ...i, quantity: qty } : i)).filter((i) => i.quantity > 0)),
-    remove: (variantId: string) => persist(read().filter((i) => i.variantId !== variantId)),
+    add: (item: CartItem) => {
+      const current = read();
+      // Carts are single-store: adding an item from a different store than
+      // the current cart replaces it rather than mixing stores.
+      const sameStore = current.length === 0 || current[0].storeId === item.storeId;
+      persist(sameStore ? mergeCartItem(current, item) : [item]);
+    },
+    // `key` identifies a single cart line: `lineId` for personalized lines
+    // (which can repeat a variantId across distinct personalizations), else
+    // `variantId`. See cart-drawer.tsx for the matching key it passes in.
+    setQty: (key: string, qty: number) =>
+      persist(read().map((i) => ((i.lineId ?? i.variantId) === key ? { ...i, quantity: qty } : i)).filter((i) => i.quantity > 0)),
+    remove: (key: string) => persist(read().filter((i) => (i.lineId ?? i.variantId) !== key)),
     clear: () => persist([]),
   };
 }

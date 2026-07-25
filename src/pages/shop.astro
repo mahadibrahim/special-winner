@@ -5,9 +5,11 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import { EmptyState } from "@/components/ui/empty-state";
 import CartDrawer from "@/components/shop/cart-drawer";
 import { listActiveMerchProducts } from "@/lib/merch/catalog";
+import { getGeneralStore } from "@/lib/merch/stores";
 
 const org = Astro.locals.organization;
-const products = org ? await listActiveMerchProducts(org.id) : [];
+const store = org ? await getGeneralStore(org.id) : null;
+const products = store ? await listActiveMerchProducts(store.id) : [];
 
 const money = (cents: number) =>
   `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })}`;
@@ -35,7 +37,7 @@ const money = (cents: number) =>
       <ul class="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-10 list-none p-0 m-0">
         {products.map((p) => (
           <li>
-            <a href={`/shop/${p.slug}`} class="group block">
+            <a href={`/shop/${store!.slug}/${p.slug}`} class="group block">
               <div class="aspect-square bg-cream-dark overflow-hidden mb-3">
                 {p.imageUrl ? (
                   <img

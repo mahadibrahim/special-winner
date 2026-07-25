@@ -3,13 +3,15 @@
 import { useMemo, useState } from "react";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import { useCart } from "./cart-store";
+import type { CartFulfillmentType } from "@/lib/merch/cart";
+import type { ProductPersonalization } from "@/lib/db/schema";
 
 export interface ProductDetailVariant {
   id: string;
   size: string | null;
   color: string | null;
   retailPriceCents: number;
-  printfulSyncVariantId: string;
+  printfulSyncVariantId: string | null;
 }
 
 export interface ProductDetailProps {
@@ -18,6 +20,14 @@ export interface ProductDetailProps {
   images: { url: string; alt?: string }[];
   variants: ProductDetailVariant[];
   slug: string;
+  storeId: string;
+  storeSlug: string;
+  /** Whether the store is currently open for ordering; disables add-to-cart when false. */
+  shoppable: boolean;
+  fulfillmentType: CartFulfillmentType;
+  personalization: ProductPersonalization | null;
+  /** Unlisted store's share token, appended to links generated from this page. */
+  shareToken: string | null;
 }
 
 const money = (cents: number) =>
@@ -29,6 +39,12 @@ export default function ProductDetail({
   images,
   variants,
   slug,
+  storeId,
+  storeSlug,
+  shoppable,
+  fulfillmentType,
+  personalization,
+  shareToken,
 }: ProductDetailProps) {
   useHydrationBeacon();
 
@@ -38,11 +54,15 @@ export default function ProductDetail({
   const [selectedId, setSelectedId] = useState<string | null>(
     variants[0]?.id ?? null,
   );
+  const [personalName, setPersonalName] = useState("");
+  const [personalNumber, setPersonalNumber] = useState("");
 
   const selected = useMemo(
     () => variants.find((v) => v.id === selectedId) ?? null,
     [variants, selectedId],
   );
+
+  const wantsPersonalization = Boolean(personalization?.name || personalization?.number);
 
   return (
     <div className="grid md:grid-cols-2 gap-10">
@@ -120,11 +140,52 @@ export default function ProductDetail({
           </div>
         )}
 
+        {wantsPersonalization && (
+          <fieldset className="mt-6 mb-6 border-0 p-0 m-0">
+            <legend className="text-sm font-medium text-ink mb-2">Personalize</legend>
+            <div className="flex gap-2 flex-wrap">
+              {personalization?.name && (
+                <input
+                  type="text"
+                  value={personalName}
+                  onChange={(e) => setPersonalName(e.target.value)}
+                  placeholder="Name"
+                  aria-label="Personalization name"
+                  maxLength={40}
+                  className="border border-ink/30 px-3 py-2 text-sm flex-1 min-w-[8rem]"
+                />
+              )}
+              {personalization?.number && (
+                <input
+                  type="text"
+                  value={personalNumber}
+                  onChange={(e) => setPersonalNumber(e.target.value)}
+                  placeholder="Number"
+                  aria-label="Personalization number"
+                  maxLength={4}
+                  className="border border-ink/30 px-3 py-2 text-sm w-24"
+                />
+              )}
+            </div>
+          </fieldset>
+        )}
+
+        {!shoppable && (
+          <p className="text-sm text-ink-muted mt-6">Not available for ordering right now.</p>
+        )}
+
         <button
           type="button"
-          disabled={!selected}
+          disabled={!selected || !shoppable}
           onClick={() => {
-            if (!selected) return;
+            if (!selected || !shoppable) return;
+            const personalizationValue =
+              wantsPersonalization && (personalName || personalNumber)
+                ? {
+                    ...(personalization?.name ? { name: personalName } : {}),
+                    ...(personalization?.number ? { number: personalNumber } : {}),
+                  }
+                : undefined;
             cart.add({
               variantId: selected.id,
               productSlug: slug,
@@ -134,9 +195,17 @@ export default function ProductDetail({
               unitPriceCents: selected.retailPriceCents,
               imageUrl: images[0]?.url ?? null,
               printfulSyncVariantId: selected.printfulSyncVariantId,
+              storeId,
+              storeSlug,
+              fulfillmentType,
+              ...(personalizationValue
+                ? { personalization: personalizationValue, lineId: crypto.randomUUID() }
+                : {}),
               quantity: 1,
             });
             setAdded(true);
+            setPersonalName("");
+            setPersonalNumber("");
             setTimeout(() => setAdded(false), 1500);
           }}
           className="mt-8 bg-ink text-cream px-6 py-3 text-sm font-medium uppercase tracking-wide disabled:opacity-50"
