@@ -12,6 +12,7 @@ import {
 import { sendPaymentFailedEmail } from "@/lib/email/send";
 import { env } from "@/lib/env";
 import { normalizeBrand, originForBrand } from "@/lib/organization/soccerone-routing";
+import { createMagicLink, buildMagicLinkUrl } from "@/lib/auth/magic-link";
 
 /**
  * Handler for `payment_intent.payment_failed` webhook events.
@@ -63,13 +64,14 @@ export async function handlePaymentFailed(
     return { status: "skipped", reason: "registration already paid" };
   }
 
-  // Note: the `payment_status` enum doesn't include `failed`, so we leave
-  // the existing status (`unpaid` / `deposit_paid`) intact. The signal to
-  // the parent is the email + the dashboard retry CTA. We bump updatedAt
-  // and mark the registration so admin views can surface failed attempts.
+  // Record the failure durably. `failed` is distinct from `unpaid`
+  // (never-attempted), so the dashboard shows a clear retry CTA and admin/
+  // reconciliation can tell a failed payment apart from an abandoned row.
+  // The guard above already skips an already-paid registration.
   await db
     .update(registrations)
     .set({
+      paymentStatus: "failed",
       updatedAt: new Date(),
     })
     .where(eq(registrations.id, registrationId));
@@ -85,6 +87,28 @@ export async function handlePaymentFailed(
   );
   const appUrl = originForBrand(brand) ?? env.PUBLIC_APP_URL;
 
+  // Wizard-free retry: land the parent directly on the pay-balance page for
+  // THIS registration — no re-running the registration flow. Guests have no
+  // password, so a plain /dashboard link would bounce to /signin; mint a
+  // login magic-link that redirects to the pay-balance page instead.
+  const payBalancePath = `/dashboard/registrations/${registrationId}/pay-balance`;
+  let retryUrl = `${appUrl}${payBalancePath}`;
+  if (row.user.passwordHash === null) {
+    try {
+      const link = await createMagicLink({
+        userId: row.registration.registeredByUserId,
+        organizationId: row.location.organizationId ?? undefined,
+        purpose: "login",
+        purposeContext: { redirectTo: payBalancePath },
+        deliveredChannel: "email",
+        deliveredTo: row.user.email,
+      });
+      retryUrl = buildMagicLinkUrl(link.token, { origin: appUrl });
+    } catch (err) {
+      console.error("[stripe webhook] payment-failed magic-link mint failed:", err);
+    }
+  }
+
   // Fire-and-forget email — don't block webhook ack.
   sendPaymentFailedEmail({
     userId: row.user.id,
@@ -96,7 +120,7 @@ export async function handlePaymentFailed(
     programName: row.program.name,
     seasonName: row.season.name,
     failureMessage,
-    retryUrl: `${appUrl}/dashboard?retry=${registrationId}`,
+    retryUrl,
     brand,
   }).catch((err) =>
     console.error("[stripe webhook] payment-failed email send failed:", err),
