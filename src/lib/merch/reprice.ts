@@ -77,7 +77,16 @@ export async function repriceCartItems(
         eq(merchVariants.active, true),
         eq(merchProducts.active, true),
         eq(merchProducts.organizationId, orgId),
+        // This is the Printful POD checkout path — manual/kit products
+        // (Phase 3a) don't carry Printful variant ids and get their own
+        // checkout flow. Guard against nulls defensively even though the
+        // source filter already excludes them.
+        eq(merchProducts.source, "printful"),
       ),
     );
-  return matchRequestedToRows(items, rows);
+  const printfulRows = rows.filter(
+    (r): r is typeof r & { printfulVariantId: number; printfulSyncVariantId: string } =>
+      r.printfulVariantId !== null && r.printfulSyncVariantId !== null,
+  );
+  return matchRequestedToRows(items, printfulRows);
 }
