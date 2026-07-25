@@ -99,6 +99,10 @@ export async function handlePaymentFailed(
         userId: row.registration.registeredByUserId,
         organizationId: row.location.organizationId ?? undefined,
         purpose: "login",
+        // This link is emailed for asynchronous decline recovery — the parent
+        // may open it hours later, so override the 15-min interactive-login
+        // default with a wide window (matches re-registration campaigns).
+        expiresInSeconds: 72 * 60 * 60,
         purposeContext: { redirectTo: payBalancePath },
         deliveredChannel: "email",
         deliveredTo: row.user.email,
