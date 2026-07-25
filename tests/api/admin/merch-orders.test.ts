@@ -17,7 +17,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { apiFetch, getAdminCookie, expectJson, testSlug } from "../setup/test-helpers";
 import { getDb } from "@/lib/db";
-import { merchStores, merchOrders, merchOrderItems } from "@/lib/db/schema";
+import { merchStores, merchOrders, merchOrderItems, merchProducts, merchVariants } from "@/lib/db/schema";
 import { eq, inArray } from "drizzle-orm";
 import { E2E_ORG_ID } from "@/lib/db/seeds/seed-e2e-tests";
 
@@ -27,6 +27,8 @@ let adminCookie: string;
 let adminUserId: string;
 let teamId: string;
 let storeId: string;
+let fixtureVariantId: string;
+let fixtureProductId: string;
 
 const createdStoreIds: string[] = [];
 const createdOrderIds: string[] = [];
@@ -90,6 +92,29 @@ beforeAll(async () => {
   const store = await expectJson(storeRes, 201);
   storeId = store.store.id;
   createdStoreIds.push(storeId);
+
+  // Self-contained fixture for the GET-items test below: a throwaway manual
+  // product + variant under this store, so the test never depends on the
+  // shared staging catalog having any pre-existing merch_variants rows.
+  // Mirrors the insert pattern in merch-store-products.test.ts (~line 244).
+  const [product] = await getDb().insert(merchProducts).values({
+    organizationId: E2E_ORG_ID,
+    storeId,
+    source: "manual",
+    fulfillmentType: "pickup",
+    name: "Orders Fixture Product",
+    slug: testSlug("orders-fixture-product"),
+    category: "jersey",
+  }).returning();
+  fixtureProductId = product.id;
+
+  const [variant] = await getDb().insert(merchVariants).values({
+    productId: fixtureProductId,
+    name: "Orders Fixture Product / M",
+    size: "M",
+    retailPriceCents: 1000,
+  }).returning();
+  fixtureVariantId = variant.id;
 });
 
 afterAll(async () => {
@@ -97,6 +122,13 @@ afterAll(async () => {
   if (createdOrderIds.length) {
     await db.delete(merchOrderItems).where(inArray(merchOrderItems.orderId, createdOrderIds));
     await db.delete(merchOrders).where(inArray(merchOrders.id, createdOrderIds));
+  }
+  // variant before product (FK), product before store (FK)
+  if (fixtureVariantId) {
+    await db.delete(merchVariants).where(eq(merchVariants.id, fixtureVariantId));
+  }
+  if (fixtureProductId) {
+    await db.delete(merchProducts).where(eq(merchProducts.id, fixtureProductId));
   }
   if (createdStoreIds.length) {
     await db.delete(merchStores).where(inArray(merchStores.id, createdStoreIds));
@@ -126,7 +158,7 @@ describe("/api/admin/merch/orders — GET", () => {
       .insert(merchOrderItems)
       .values({
         orderId: order.id,
-        merchVariantId: (await ensureAnyVariantId()),
+        merchVariantId: fixtureVariantId,
         productName: "Test Jersey",
         variantName: "Test Jersey / M",
         size: "M",
@@ -258,15 +290,3 @@ describe("/api/admin/merch/orders — tenant isolation", () => {
     expect(res.status).toBe(404);
   });
 });
-
-// Order items require a real merch_variant row (FK, onDelete: restrict).
-// Reuses whatever variant already exists in the seeded catalog rather than
-// creating a whole product/variant fixture just for this test file.
-async function ensureAnyVariantId(): Promise<string> {
-  const { merchVariants } = await import("@/lib/db/schema");
-  const [existing] = await getDb().select({ id: merchVariants.id }).from(merchVariants).limit(1);
-  if (existing) return existing.id;
-  throw new Error(
-    "No merch_variants rows found in the seeded catalog — run npm run db:seed:e2e or seed a Printful sync first.",
-  );
-}
