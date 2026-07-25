@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback, type KeyboardEvent } from "react"
-import { Plus, Pencil, Trash2, Loader2, X, ArrowLeft, Shirt, Copy } from "lucide-react"
+import { Plus, Pencil, Trash2, Loader2, X, ArrowLeft, Shirt, Copy, ClipboardList } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -323,6 +323,12 @@ export function MerchStoreEditor({ storeId }: { storeId: string }) {
               Copy link
             </Button>
           )}
+          <Button variant="outline" asChild>
+            <a href={`/admin/merch/stores/${storeId}/orders`}>
+              <ClipboardList className="h-4 w-4 mr-2" />
+              Orders
+            </a>
+          </Button>
           <Button onClick={openCreateDialog}>
             <Plus className="h-4 w-4 mr-2" />
             Add product
