@@ -43,6 +43,9 @@ export * from "./merch";
 // Merch orders (merch shop Phase 2)
 export * from "./merch-orders";
 
+// Team kits (merch Phase 3a)
+export * from "./merch-team-kits";
+
 // Team groups (Telegram group management)
 export * from "./team-groups";
 

@@ -1,0 +1,22 @@
+---
+import BaseLayout from '../../../../layouts/BaseLayout.astro';
+import { AdminLayout } from '../../../../components/admin/admin-layout';
+import { getPrimaryRoleName } from "@/lib/auth";
+import { MerchKitEditor } from '../../../../components/admin/merch-kit-editor';
+
+// Middleware guarantees user is an admin for /admin routes.
+const user = Astro.locals.user!;
+const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
+const id = Astro.params.id!;
+---
+
+<BaseLayout title="Kit editor — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    role={primaryRole}
+    currentPath="/admin/merch/kits"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <MerchKitEditor kitId={id} client:load />
+  </AdminLayout>
+</BaseLayout>

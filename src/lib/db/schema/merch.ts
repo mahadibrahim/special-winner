@@ -13,6 +13,8 @@ import {
 import { relations } from "drizzle-orm";
 import { organizations } from "./organizations";
 import { productCategoryEnum } from "./products";
+import { merchFulfillmentTypeEnum } from "./merch-orders";
+import { merchProductSourceEnum, merchTeamKits, type ProductPersonalization } from "./merch-team-kits";
 
 export interface MerchImage {
   url: string;
@@ -32,7 +34,13 @@ export const merchProducts = pgTable(
     organizationId: uuid("organization_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
-    printfulSyncProductId: varchar("printful_sync_product_id", { length: 64 }).notNull(),
+    printfulSyncProductId: varchar("printful_sync_product_id", { length: 64 }),
+    source: merchProductSourceEnum("source").notNull().default("printful"),
+    fulfillmentType: merchFulfillmentTypeEnum("fulfillment_type")
+      .notNull()
+      .default("printful_pod"),
+    kitId: uuid("kit_id").references(() => merchTeamKits.id, { onDelete: "cascade" }),
+    personalization: jsonb("personalization").$type<ProductPersonalization>(),
     name: varchar("name", { length: 255 }).notNull(),
     slug: varchar("slug", { length: 140 }).notNull(),
     description: text("description"),
@@ -62,10 +70,10 @@ export const merchVariants = pgTable(
     productId: uuid("product_id")
       .notNull()
       .references(() => merchProducts.id, { onDelete: "cascade" }),
-    printfulSyncVariantId: varchar("printful_sync_variant_id", { length: 64 }).notNull(),
+    printfulSyncVariantId: varchar("printful_sync_variant_id", { length: 64 }),
     // Printful catalog variant id — the id Phase 2 passes to shipping-rate and
     // order-create calls. Distinct from the sync-variant id above.
-    printfulVariantId: integer("printful_variant_id").notNull(),
+    printfulVariantId: integer("printful_variant_id"),
     name: varchar("name", { length: 255 }).notNull(),
     size: varchar("size", { length: 40 }),
     color: varchar("color", { length: 60 }),
@@ -88,6 +96,10 @@ export const merchProductsRelations = relations(merchProducts, ({ one, many }) =
     references: [organizations.id],
   }),
   variants: many(merchVariants),
+  kit: one(merchTeamKits, {
+    fields: [merchProducts.kitId],
+    references: [merchTeamKits.id],
+  }),
 }));
 
 export const merchVariantsRelations = relations(merchVariants, ({ one }) => ({
