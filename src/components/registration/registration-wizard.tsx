@@ -254,9 +254,11 @@ export default function RegistrationWizard({
   // Customer's choice of payment-method group. Drives both the displayed
   // surcharge and the Stripe Checkout Session's payment_method_types.
   // Defaults to "bank" to anchor on the no-fee path.
+  // Card-only checkout: default to card so the order summary shows the card
+  // surcharge upfront. ACH/bank is disabled in the payment step (ACH_ENABLED).
   const [selectedPaymentCategory, setSelectedPaymentCategory] = useState<
     "bank" | "card"
-  >("bank")
+  >("card")
   const [appliedSurchargeCents, setAppliedSurchargeCents] = useState(0)
 
   // ── Account credit state (authed only — guests have no balance) ─────────
