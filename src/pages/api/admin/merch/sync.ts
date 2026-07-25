@@ -29,7 +29,8 @@ export const POST: APIRoute = async (context) => {
   }
 
   try {
-    const result = await syncMerchCatalog(auth.organizationId);
+    const orgName = context.locals.organization?.name ?? "Aspire Sports";
+    const result = await syncMerchCatalog(auth.organizationId, orgName);
     return new Response(JSON.stringify(result), {
       status: 200,
       headers: { "Content-Type": "application/json" },

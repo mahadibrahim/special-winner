@@ -6,6 +6,7 @@ import {
   mapSyncProductDetail,
   type MappedMerchProduct,
 } from "@/lib/merch/map-sync-product";
+import { ensureGeneralStore } from "@/lib/merch/stores";
 
 export interface SyncResult {
   products: number;
@@ -35,8 +36,9 @@ export function dedupeSlugs(items: { baseSlug: string }[]): string[] {
  * deactivated (never deleted — keeps historical order references intact for
  * Phase 2). Idempotent: safe to re-run.
  */
-export async function syncMerchCatalog(orgId: string): Promise<SyncResult> {
+export async function syncMerchCatalog(orgId: string, orgName: string): Promise<SyncResult> {
   const db = getDb();
+  const store = await ensureGeneralStore(orgId, orgName);
 
   const summaries = await listStoreProducts();
   const mapped: MappedMerchProduct[] = [];
@@ -57,6 +59,7 @@ export async function syncMerchCatalog(orgId: string): Promise<SyncResult> {
       .insert(merchProducts)
       .values({
         organizationId: orgId,
+        storeId: store.id,
         printfulSyncProductId: m.printfulSyncProductId,
         name: m.name,
         slug: slugs[i],
@@ -137,6 +140,7 @@ export async function syncMerchCatalog(orgId: string): Promise<SyncResult> {
       .where(
         and(
           eq(merchProducts.organizationId, orgId),
+          eq(merchProducts.storeId, store.id),
           notInArray(merchProducts.printfulSyncProductId, seenSyncProductIds),
         ),
       )
