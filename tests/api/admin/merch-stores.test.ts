@@ -116,7 +116,7 @@ describe("/api/admin/merch/stores — create", () => {
       cookie: adminCookie,
       body: JSON.stringify({
         scope: "team",
-        teamId: "00000000-0000-0000-0000-000000000099",
+        teamId: "99999999-9999-4999-8999-999999999999",
         name: testSlug("Team Store Bad Team"),
         visibility: "public",
         active: true,
