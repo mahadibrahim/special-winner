@@ -1,21 +1,15 @@
 "use client"
 
-import { Tag, CheckCircle2, AlertCircle, Loader2, X, Landmark, CreditCard, Lock } from "lucide-react"
+import { Tag, CheckCircle2, AlertCircle, Loader2, X, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { OrderSummary } from "./order-summary"
-import { EmbeddedPayment } from "./embedded-payment"
+import { EmbeddedPayment, type CreateIntentResult } from "./embedded-payment"
 import { computeSurchargeCents } from "@/lib/payments/surcharge"
 import type { SeasonItem, CheckoutPaymentType } from "@/lib/analytics/datalayer"
-
-// ACH/bank debit is disabled — checkout is card-only. The bank branch in
-// createCheckoutSession (client.ts) and the ACH surcharge-preview math below
-// are left in place but unreachable; flip this to true to re-enable the bank
-// option (and its "no fee" path) without rebuilding the flow.
-const ACH_ENABLED = false
 
 interface AppliedDiscount {
   code: string
@@ -52,8 +46,9 @@ export interface PaymentStepProps {
    *  result is $0 due, which renders a single "Complete registration" button
    *  and never creates a Stripe intent. */
   captainCredit?: CaptainCreditView | null
-  /** Finalize a $0-due captain-credit registration (server recomputes the
-   *  credit; no payment method, no Stripe session). */
+  /** Finalize a $0-due registration (captain deposit credit, or a discount
+   *  that zeroes the bill). Server recomputes the amount; no payment method,
+   *  no Stripe session. */
   onCompleteZeroDue?: () => void
 
   /** Team-invite share amount (server-resolved, from the personal invite
@@ -66,25 +61,8 @@ export interface PaymentStepProps {
    *  explanatory notice above the payment options. */
   shareMismatch?: boolean
 
-  // Payment-method category (the bank-vs-card choice that drives surcharge).
-  paymentMethodCategory: "bank" | "card"
-  /**
-   * Commit to a payment method. Selecting a method is the single action that
-   * creates the registration + Stripe session and reveals the inline payment
-   * form below — there's no separate "continue" step. Re-selecting the other
-   * method recreates the session for that method.
-   */
-  onMethodSelected: (category: "bank" | "card") => void
-  /** True while the registration + Stripe session is being created. */
+  /** True while a $0-due "Complete registration" is being finalized. */
   isCreatingSession: boolean
-  /**
-   * Locks the full/deposit choice once the registration has been created
-   * (its amount is fixed for the rest of the wizard). Stays locked even after
-   * the customer hits "Change" on the method, since the row already exists.
-   */
-  optionLocked: boolean
-  /** Server-confirmed surcharge applied to the active session, in cents. */
-  appliedSurchargeCents: number
 
   // Discount state
   discountCodeInput: string
@@ -103,16 +81,15 @@ export interface PaymentStepProps {
   creditBalanceCents: number
   applyAccountCredit: boolean
   onApplyAccountCreditChange: (v: boolean) => void
-  /** Server-confirmed credit applied to the active session, in cents. */
-  appliedCreditCents: number
 
-  // Embedded-payment props — when clientSecret is set, renders the
-  // payment form below the order summary. When null, the method picker
-  // shows instead.
-  clientSecret: string | null
-  publishableKey: string | null
+  // Deferred embedded-payment wiring. The card form mounts inline and
+  // immediately; the registration row + PaymentIntent are created only when
+  // the customer clicks Pay, via createIntent.
+  /** Creates the registration + PaymentIntent on Pay and returns the new
+   *  client secret (or an error). Card-only, deferred. */
+  createIntent: () => Promise<CreateIntentResult>
+  publishableKey: string
   seasonItem: SeasonItem | null
-  paymentValueCents: number
   checkoutPaymentType: CheckoutPaymentType
   paymentReturnUrl: string
   onPaymentSuccess: (paymentIntentId: string) => void
@@ -132,11 +109,7 @@ export function PaymentStep({
   onCompleteZeroDue,
   teamShareCents = null,
   shareMismatch = false,
-  paymentMethodCategory,
-  onMethodSelected,
   isCreatingSession,
-  optionLocked,
-  appliedSurchargeCents,
   registrantName,
   discountCodeInput,
   isValidatingDiscount,
@@ -149,22 +122,14 @@ export function PaymentStep({
   creditBalanceCents,
   applyAccountCredit,
   onApplyAccountCreditChange,
-  appliedCreditCents,
-  clientSecret,
+  createIntent,
   publishableKey,
   seasonItem,
-  paymentValueCents,
   checkoutPaymentType,
   paymentReturnUrl,
   onPaymentSuccess,
   onPaymentCancel,
 }: PaymentStepProps) {
-  // Once we have a clientSecret the payment form is mounted; the picker
-  // collapses to a one-line summary (the customer changes method via "Change",
-  // which recreates the session). The amount is fixed for the live session, so
-  // the payment option + discount are locked until they go back.
-  const sessionLocked = clientSecret !== null
-
   // The deposit option is only offered when the deposit is a genuine partial
   // payment — strictly less than the amount the pay-in-full option charges
   // (the early-bird-aware seasonPrice). Seasons have carried a team-sized
@@ -186,13 +151,9 @@ export function PaymentStep({
   // summary fall back to pay-in-full when the deposit isn't offered.
   const effectivePaymentOption = depositAvailable ? paymentOption : "full"
 
-  // Zero-due captain path: the deposit fully covers the captain's share —
-  // one "Complete registration" button, no method picker, no Stripe intent.
-  const captainZeroDue = captainCredit != null && captainCredit.dueCents === 0
-
-  // Compute a preview surcharge for each method group so the picker can show
-  // exactly what each option costs before the customer commits. A captain
-  // credit replaces the season price with the post-credit due.
+  // Compute the live payable total so the deferred Elements can mount with the
+  // exact amount before the customer clicks Pay. A captain credit replaces the
+  // season price with the post-credit due.
   const baseAmountCents = captainCredit
     ? captainCredit.dueCents
     : teamShareCents != null
@@ -214,22 +175,17 @@ export function PaymentStep({
     0,
     discountedBaseCents - previewCreditAppliedCents,
   )
-  const previewCardSurcharge = computeSurchargeCents(amountAfterCreditCents, "card")
+  // Card-only checkout: the surcharge is always the card-processor fee.
+  const cardSurchargeCents = computeSurchargeCents(amountAfterCreditCents, "card")
+  // The exact amount the card form charges — feeds the deferred Elements
+  // `valueCents` and the Pay button, and must equal the server-created
+  // PaymentIntent amount for stripe.confirmPayment to succeed.
+  const payableTotalCents = amountAfterCreditCents + cardSurchargeCents
 
-  // Display surcharge: post-commit, use the server-confirmed value so we can't
-  // get out of sync with what Stripe actually charged.
-  const displaySurchargeCents = sessionLocked
-    ? appliedSurchargeCents
-    : paymentMethodCategory === "card"
-      ? previewCardSurcharge
-      : 0
-
-  // Display credit applied: post-commit, use the server-confirmed value
-  // (returned by the checkout endpoint) so it can't drift from what was
-  // actually redeemed.
-  const displayCreditAppliedCents = sessionLocked
-    ? appliedCreditCents
-    : previewCreditAppliedCents
+  // Zero-due path: a captain deposit credit (or a discount) fully covers the
+  // bill — one "Complete registration" button, no card form, no Stripe intent.
+  const captainZeroDue = captainCredit != null && captainCredit.dueCents === 0
+  const zeroDue = payableTotalCents === 0
 
   return (
     <div className="space-y-6">
@@ -299,20 +255,17 @@ export function PaymentStep({
       <RadioGroup
         value={effectivePaymentOption}
         onValueChange={(v) => onPaymentOptionChange(v as "full" | "deposit")}
-        disabled={optionLocked}
       >
         <div className="space-y-3">
           <Label
             htmlFor="pay-full"
-            className={`flex items-center p-4 rounded-xl border transition-all ${
-              optionLocked ? "cursor-not-allowed opacity-70" : "cursor-pointer"
-            } ${
+            className={`flex items-center p-4 rounded-xl border transition-all cursor-pointer ${
               effectivePaymentOption === "full"
                 ? "border-primary bg-primary/10"
                 : "border-border hover:border-ink-faint bg-paper"
             }`}
           >
-            <RadioGroupItem value="full" id="pay-full" className="mr-4" disabled={optionLocked} />
+            <RadioGroupItem value="full" id="pay-full" className="mr-4" />
             <div className="flex-1">
               <p className="font-medium text-ink">
                 {teamShareCents != null ? "Your share — set by your captain" : "Pay in Full"}
@@ -332,15 +285,13 @@ export function PaymentStep({
           {depositAvailable && seasonDeposit != null && (
             <Label
               htmlFor="pay-deposit"
-              className={`flex items-center p-4 rounded-xl border transition-all ${
-                optionLocked ? "cursor-not-allowed opacity-70" : "cursor-pointer"
-              } ${
+              className={`flex items-center p-4 rounded-xl border transition-all cursor-pointer ${
                 effectivePaymentOption === "deposit"
                   ? "border-primary bg-primary/10"
                   : "border-border hover:border-ink-faint bg-paper"
               }`}
             >
-              <RadioGroupItem value="deposit" id="pay-deposit" className="mr-4" disabled={optionLocked} />
+              <RadioGroupItem value="deposit" id="pay-deposit" className="mr-4" />
               <div className="flex-1">
                 <p className="font-medium text-ink">Pay Deposit</p>
                 <p className="text-sm text-ink-muted">
@@ -368,15 +319,13 @@ export function PaymentStep({
                 (-${(appliedDiscount.discountAmountCents / 100).toFixed(2)})
               </span>
             </div>
-            {!sessionLocked && (
-              <button
-                type="button"
-                onClick={onRemoveDiscount}
-                className="text-ink-muted hover:text-ink p-1"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={onRemoveDiscount}
+              className="text-ink-muted hover:text-ink p-1"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
         ) : (
           <div className="flex gap-2">
@@ -386,14 +335,13 @@ export function PaymentStep({
                 onDiscountCodeInputChange(e.target.value.toUpperCase())
               }}
               placeholder="Enter code"
-              disabled={sessionLocked}
               className="bg-cream-2 border-border text-ink focus:border-primary placeholder:text-ink-faint uppercase"
             />
             <Button
               type="button"
               variant="outline"
               onClick={onApplyDiscount}
-              disabled={!discountCodeInput.trim() || isValidatingDiscount || sessionLocked}
+              disabled={!discountCodeInput.trim() || isValidatingDiscount}
               className="border-border text-ink-2 hover:text-ink hover:bg-cream-2 px-6"
             >
               {isValidatingDiscount ? (
@@ -415,16 +363,11 @@ export function PaymentStep({
       {/* Account credit — hidden entirely for guest checkout / no balance,
           since creditBalanceCents is 0 in both cases. */}
       {creditBalanceCents > 0 && (
-        <label
-          className={`flex items-center justify-between p-3 rounded-lg border border-border bg-paper ${
-            sessionLocked ? "cursor-not-allowed opacity-70" : "cursor-pointer"
-          }`}
-        >
+        <label className="flex items-center justify-between p-3 rounded-lg border border-border bg-paper cursor-pointer">
           <span className="flex items-center gap-2">
             <Checkbox
               checked={applyAccountCredit}
               onCheckedChange={(v) => onApplyAccountCreditChange(v === true)}
-              disabled={sessionLocked}
             />
             <span className="text-sm text-ink">
               Apply my ${(creditBalanceCents / 100).toFixed(2)} account credit
@@ -445,19 +388,19 @@ export function PaymentStep({
         paymentOption={effectivePaymentOption}
         registrantName={registrantName}
         appliedDiscount={appliedDiscount}
-        surchargeCents={displaySurchargeCents}
-        paymentMethodCategory={paymentMethodCategory}
-        creditAppliedCents={displayCreditAppliedCents}
+        surchargeCents={cardSurchargeCents}
+        paymentMethodCategory="card"
+        creditAppliedCents={previewCreditAppliedCents}
       />
       </>
       )}
 
-      {/* Zero-due captain completion — no payment method, no Stripe intent.
-          The server recomputes the credit and finalizes the row as paid. */}
-      {captainZeroDue && !sessionLocked && (
+      {/* Zero-due completion — no payment method, no Stripe intent. The server
+          recomputes the credit/discount and finalizes the row as paid. */}
+      {zeroDue && (
         <div className="space-y-3">
           <Button
-            onClick={onCompleteZeroDue}
+            onClick={() => onCompleteZeroDue?.()}
             disabled={isCreatingSession}
             className="w-full bg-primary hover:bg-primary/90 py-6 text-base font-semibold"
           >
@@ -470,136 +413,40 @@ export function PaymentStep({
               "Complete registration"
             )}
           </Button>
-        </div>
-      )}
-
-      {/* Payment method — selecting one creates the session and reveals the
-          inline payment form. No separate "continue to payment" step. */}
-      {!sessionLocked && !captainZeroDue && (
-        <div className="space-y-3">
-          <div>
-            <h3 className="text-lg font-semibold text-ink mb-1">Payment Method</h3>
-            <p className="text-ink-muted text-sm">
-              {ACH_ENABLED
-                ? "Pick a method to enter your payment details. Bank transfer is free; card payments include the processor fee."
-                : "Pay securely by card or wallet — Visa, Mastercard, Apple Pay, or Google Pay."}
-            </p>
-            {/* Trust signals BEFORE the commit tap — replays showed hesitation
-                right here, and the refund promise previously appeared only
-                after a method was already selected. */}
-            <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-muted">
-              <span className="inline-flex items-center gap-1">
-                <Lock className="w-3 h-3" aria-hidden="true" />
-                Secure checkout — powered by Stripe
-              </span>
-              <span aria-hidden="true">·</span>
-              <span>
-                Full refund until 14 days before the season ·{" "}
-                <a href="/refund-policy" target="_blank" rel="noopener" className="underline underline-offset-2 hover:text-ink">
-                  Refund policy
-                </a>
-              </span>
-            </p>
-          </div>
-          {/* Card/wallet leads. Card-only for now — the bank option below is
-              gated off (ACH_ENABLED=false) but kept one flag-flip away for the
-              fee-averse; grid collapses to one column while it's hidden. */}
-          <div className={`grid gap-3 ${ACH_ENABLED ? "sm:grid-cols-2" : ""}`}>
+          <div className="text-center">
             <button
               type="button"
-              onClick={() => onMethodSelected("card")}
+              onClick={onPaymentCancel}
               disabled={isCreatingSession}
-              aria-pressed={paymentMethodCategory === "card"}
-              className={`text-left flex items-start gap-3 p-4 rounded-xl border transition-all disabled:opacity-60 disabled:cursor-wait ${
-                paymentMethodCategory === "card"
-                  ? "border-primary bg-primary/10"
-                  : "border-border hover:border-ink-faint bg-paper"
-              }`}
+              className="text-sm text-ink-muted hover:text-ink underline underline-offset-2 disabled:opacity-60"
             >
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <CreditCard className="w-4 h-4 text-ink-2" />
-                  <p className="font-medium text-ink">Card or wallet</p>
-                  {previewCardSurcharge > 0 && (
-                    <span className="ml-auto text-xs font-medium text-ink-2 bg-ink/5 px-2 py-0.5 rounded-full">
-                      +${(previewCardSurcharge / 100).toFixed(2)} fee
-                    </span>
-                  )}
-                </div>
-                <p className="text-sm text-ink-muted">
-                  Fastest — Apple Pay, Google Pay, or any card.
-                </p>
-              </div>
+              Back
             </button>
-            {ACH_ENABLED && (
-              <button
-                type="button"
-                onClick={() => onMethodSelected("bank")}
-                disabled={isCreatingSession}
-                aria-pressed={paymentMethodCategory === "bank"}
-                className={`text-left flex items-start gap-3 p-4 rounded-xl border transition-all disabled:opacity-60 disabled:cursor-wait ${
-                  paymentMethodCategory === "bank"
-                    ? "border-primary bg-primary/10"
-                    : "border-border hover:border-ink-faint bg-paper"
-                }`}
-              >
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Landmark className="w-4 h-4 text-primary" />
-                    <p className="font-medium text-ink">Bank transfer</p>
-                    <span className="ml-auto text-xs font-medium text-emerald-700 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                      No fee
-                    </span>
-                  </div>
-                  <p className="text-sm text-ink-muted">
-                    Save the ${(previewCardSurcharge / 100).toFixed(2)} fee — pay by ACH (takes a
-                    few days to confirm).
-                  </p>
-                </div>
-              </button>
-            )}
           </div>
-          {isCreatingSession && (
-            <div className="flex items-center gap-2 text-sm text-ink-muted">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Starting secure payment…
-            </div>
-          )}
         </div>
       )}
 
-      {/* Embedded payment — mounted once a method is selected. */}
-      {clientSecret && publishableKey && seasonItem && (
+      {/* Inline deferred card form — mounts immediately whenever there's an
+          amount to charge. The registration row + PaymentIntent are created
+          only on Pay (createIntent), so visitors who reach this step but
+          never pay leave nothing behind. */}
+      {!zeroDue && seasonItem && (
         <div className="mt-6 pt-6 border-t border-border">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-ink">Payment Details</h3>
-            <div className="flex items-center gap-2 text-sm">
-              {paymentMethodCategory === "bank" ? (
-                <Landmark className="w-4 h-4 text-primary" />
-              ) : (
-                <CreditCard className="w-4 h-4 text-ink-2" />
-              )}
-              <span className="text-ink-muted">
-                Paying by {paymentMethodCategory === "bank" ? "bank" : "card or wallet"}
-              </span>
-              <button
-                type="button"
-                onClick={onPaymentCancel}
-                className="text-primary hover:underline"
-              >
-                Change
-              </button>
-            </div>
+            <span className="inline-flex items-center gap-1 text-xs text-ink-muted">
+              <Lock className="w-3 h-3" aria-hidden="true" />
+              Secure checkout — powered by Stripe
+            </span>
           </div>
           <EmbeddedPayment
-            clientSecret={clientSecret}
+            createIntent={createIntent}
             publishableKey={publishableKey}
             seasonItem={seasonItem}
-            valueCents={paymentValueCents}
+            valueCents={payableTotalCents}
             paymentType={checkoutPaymentType}
             coupon={appliedDiscount?.code}
             returnUrl={paymentReturnUrl}
-            paymentMethodCategory={paymentMethodCategory}
             onSuccess={onPaymentSuccess}
             onCancel={onPaymentCancel}
           />
