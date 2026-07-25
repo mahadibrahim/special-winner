@@ -19,7 +19,16 @@ export async function fulfillMerchOrder(orderId: string): Promise<{ printfulOrde
   const db = getDb();
   const [order] = await db.select().from(merchOrders).where(eq(merchOrders.id, orderId)).limit(1);
   if (!order) throw new Error(`merch order not found: ${orderId}`);
+
+  // Idempotency guard: never re-submit an order that already reached Printful.
+  // (Protects a future admin "retry fulfillment" caller from creating a duplicate
+  // physical order.)
+  if (order.printfulOrderId || order.status === "submitted" || order.status === "shipped") {
+    return { printfulOrderId: order.printfulOrderId ?? "" };
+  }
+
   const items = await db.select().from(merchOrderItems).where(eq(merchOrderItems.orderId, orderId));
+  if (items.length === 0) throw new Error(`merch order ${orderId} has no items to fulfill`);
   assertSupportedFulfillment(items.map((i) => i.fulfillmentType));
 
   const result = await createOrder({
