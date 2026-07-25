@@ -15,6 +15,7 @@ import { organizations } from "./organizations";
 import { productCategoryEnum } from "./products";
 import { merchFulfillmentTypeEnum } from "./merch-orders";
 import { merchProductSourceEnum, merchStores, type ProductPersonalization } from "./merch-stores";
+import { merchTeamKits } from "./merch-team-kits";
 
 export interface MerchImage {
   url: string;
@@ -40,6 +41,10 @@ export const merchProducts = pgTable(
       .notNull()
       .default("printful_pod"),
     storeId: uuid("store_id").notNull().references(() => merchStores.id, { onDelete: "cascade" }),
+    // DEPRECATED: superseded by store_id. Kept as a vestigial nullable column
+    // through Phase 3b slices 1–3 so migration 0110 can backfill team stores
+    // from it; dropped together with merch_team_kits in the retire-kits task.
+    kitId: uuid("kit_id").references(() => merchTeamKits.id, { onDelete: "cascade" }),
     personalization: jsonb("personalization").$type<ProductPersonalization>(),
     name: varchar("name", { length: 255 }).notNull(),
     slug: varchar("slug", { length: 140 }).notNull(),
