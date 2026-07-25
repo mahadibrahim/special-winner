@@ -1,5 +1,4 @@
 import { describe, it, expect } from "vitest";
-import { getParentCookie } from "./setup/test-helpers";
 
 /**
  * Captain-assigned shares: the captain assigns each teammate a per-player share
@@ -18,62 +17,127 @@ import { getParentCookie } from "./setup/test-helpers";
  *  - The invitee row flipping to status "paid" on payment_intent.succeeded
  *    (handle-registration-payment-succeeded.ts).
  *
- * NOTE: creating a team (POST /api/public/team-registrations) requires an authed
- * captain AND a Stripe deposit intent (saves a card). When Stripe is not
- * configured the create endpoint rolls back and returns a non-2xx with no
+ * NOTE: creating a team (POST /api/public/team-registrations) requires an
+ * authed captain AND a Stripe deposit intent (saves a card). When Stripe is
+ * not configured the create endpoint rolls back and returns a non-2xx with no
  * inviteToken — in that case we skip the share assertions (they're covered by
  * the Task 7 dry run). The auth + body-shape paths still run.
+ *
+ * createTeam mints its OWN fresh captain account (anonymous-captain path,
+ * new stamped email) rather than authenticating as the shared
+ * parent@test.aspiresports.com fixture user. That fixture user's Stripe
+ * customer was created (idempotency key `${userId}:stripe-customer:v1`,
+ * see saved-cards.ts) against some earlier email and this dev/staging Stripe
+ * account now rejects every subsequent deposit-intent call for that same
+ * user id with a different email — a same-key-different-params idempotency
+ * conflict, not a Stripe-unconfigured condition. It was silently degrading
+ * every test in this file to its `if (!token) return` no-op path. A fresh
+ * per-call userId (and thus a fresh idempotency key) sidesteps it — see the
+ * already-reliable pattern in team-registrations-anon.test.ts.
  */
 
 const BASE = process.env.TEST_BASE_URL ?? "http://localhost:4321";
 
-async function createTeam(cookie: string): Promise<string | null> {
-  const season = (
+// Pin to the seeded open team season by slug (same fixture
+// team-registrations-anon.test.ts uses). `seasons?.[0]` previously picked
+// whichever season the seed happened to list first, which can be a closed
+// one (data drift over time) — that silently no-ops every Stripe-dependent
+// test below via the `if (!token) return` early-out, without any signal
+// that they weren't actually exercising anything.
+const TEAM_SEASON_SLUG = "e2e-adult-team-soccer-2026";
+
+async function getTeamSeasonId(): Promise<string | null> {
+  const seasons = (
     await (
       await fetch(`${BASE}/api/public/seasons?sport=soccer&audience=adult`)
     ).json()
-  ).seasons?.[0];
-  if (!season?.id) return null;
+  ).seasons;
+  const season =
+    seasons?.find((s: { slug?: string }) => s.slug === TEAM_SEASON_SLUG) ??
+    seasons?.[0];
+  return season?.id ?? null;
+}
+
+async function createTeam(): Promise<
+  { token: string; cookie: string } | null
+> {
+  const seasonId = await getTeamSeasonId();
+  if (!seasonId) return null;
 
   const stamp = Date.now();
   const res = await fetch(`${BASE}/api/public/team-registrations`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Cookie: cookie },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      seasonId: season.id,
+      seasonId,
       teamName: `Shares Test ${stamp}`,
       captainName: "Share Captain",
       captainEmail: `share-cap-${stamp}@test.aspiresports.com`,
+      backstopConsent: true,
     }),
   });
   if (!res.ok) return null; // Stripe likely unconfigured — defer to Task 7.
   const json = (await res.json()) as { inviteToken?: string };
-  return json.inviteToken ?? null;
+  const cookie = res.headers.get("set-cookie");
+  if (!json.inviteToken || !cookie) return null;
+  return { token: json.inviteToken, cookie };
 }
 
-async function getTeam(token: string) {
+async function getTeam(token: string, cookie?: string) {
   return (
-    await fetch(`${BASE}/api/public/team-registrations/${token}`)
+    await fetch(`${BASE}/api/public/team-registrations/${token}`, {
+      headers: cookie ? { Cookie: cookie } : undefined,
+    })
   ).json();
 }
 
-describe("team captain-assigned shares", () => {
-  it("rejects an unauthenticated team creation (captain must sign in)", async () => {
-    const res = await fetch(`${BASE}/api/public/team-registrations`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        seasonId: "00000000-0000-0000-0000-000000000000",
-        teamName: "No Auth",
-        captainName: "Nobody",
-        captainEmail: "nobody@test.aspiresports.com",
-      }),
-    });
-    // 401 (no session) is the relevant guard; 400 (bad org/season) also acceptable.
-    expect([400, 401]).toContain(res.status);
+// The invite endpoint is captain-only (see team-invite-auth), so every invite
+// call carries the captain session cookie that createTeam() returned.
+async function invite(token: string, cookie: string, body: object) {
+  return fetch(`${BASE}/api/public/team-registrations/${token}/invite`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Cookie: cookie },
+    body: JSON.stringify(body),
   });
+}
 
-  it("the invite endpoint 404s for an unknown token", async () => {
+/**
+ * Mints a fresh authed session for a brand-new email via the anonymous-
+ * captain team creation path (see team-registrations-anon.test.ts) — cheaper
+ * than a full signup, and we only need *a* session tied to a known email.
+ * The throwaway team it creates is irrelevant to the caller.
+ */
+async function mintViewerSession(
+  email: string,
+): Promise<string> {
+  const seasonId = await getTeamSeasonId();
+  const stamp = Date.now();
+  const res = await fetch(`${BASE}/api/public/team-registrations`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      seasonId,
+      teamName: `Viewer Throwaway ${stamp}`,
+      captainName: "Throwaway Captain",
+      captainEmail: email,
+      backstopConsent: true,
+    }),
+  });
+  expect(res.status).toBe(200);
+  const setCookie = res.headers.get("set-cookie");
+  expect(setCookie).toBeTruthy();
+  return setCookie!;
+}
+
+describe("team captain-assigned shares", () => {
+  // Anonymous team creation is no longer a 401 — see
+  // tests/api/team-registrations-anon.test.ts, which owns the anon-captain
+  // assertions (new email -> 200 + session; existing email -> 409
+  // account_exists, no team created).
+
+  it("the invite endpoint requires auth (401 unauthenticated)", async () => {
+    // Captain-only now: the auth gate fires before the token lookup, so an
+    // unauthenticated call is 401 regardless of whether the token is real.
     const res = await fetch(
       `${BASE}/api/public/team-registrations/definitely-not-a-real-token/invite`,
       {
@@ -82,40 +146,34 @@ describe("team captain-assigned shares", () => {
         body: JSON.stringify({ emails: ["x@test.aspiresports.com"] }),
       },
     );
-    expect(res.status).toBe(404);
+    expect(res.status).toBe(401);
   });
 
   it("explicit invites persist assigned shares visible in GET [token]", async () => {
-    const cookie = await getParentCookie();
-    const token = await createTeam(cookie);
-    if (!token) {
+    const created = await createTeam();
+    if (!created) {
       // Stripe not configured in this environment — share assignment is
       // covered end-to-end in the Task 7 test-mode dry run.
       return;
     }
+    const { token, cookie } = created;
 
     const stamp = Date.now();
     const emailA = `mate-a-${stamp}@test.aspiresports.com`;
     const emailB = `mate-b-${stamp}@test.aspiresports.com`;
 
-    const res = await fetch(
-      `${BASE}/api/public/team-registrations/${token}/invite`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          invites: [
-            { email: emailA, shareCents: 5000 },
-            { email: emailB, shareCents: 7500 },
-          ],
-        }),
-      },
-    );
+    const res = await invite(token, cookie, {
+      invites: [
+        { email: emailA, shareCents: 5000 },
+        { email: emailB, shareCents: 7500 },
+      ],
+    });
     expect(res.status).toBe(200);
     const body = (await res.json()) as { invitees: number };
     expect(body.invitees).toBe(2);
 
-    const team = await getTeam(token);
+    // Captain-authed: full invitees array (privacy scope-down is captain-only).
+    const team = await getTeam(token, cookie);
     expect(team.team.inviteeCount).toBe(2);
     const byEmail = new Map<string, number>(
       team.team.invitees.map((i: any) => [i.email, i.assignedShareCents]),
@@ -128,33 +186,25 @@ describe("team captain-assigned shares", () => {
   });
 
   it("re-inviting the same email UPSERTs the assigned share", async () => {
-    const cookie = await getParentCookie();
-    const token = await createTeam(cookie);
-    if (!token) return; // deferred to Task 7
+    const created = await createTeam();
+    if (!created) return; // deferred to Task 7
+    const { token, cookie } = created;
 
     const stamp = Date.now();
     const email = `mate-upsert-${stamp}@test.aspiresports.com`;
 
-    await fetch(`${BASE}/api/public/team-registrations/${token}/invite`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ invites: [{ email, shareCents: 5000 }] }),
-    });
-    await fetch(`${BASE}/api/public/team-registrations/${token}/invite`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ invites: [{ email, shareCents: 9000 }] }),
-    });
+    await invite(token, cookie, { invites: [{ email, shareCents: 5000 }] });
+    await invite(token, cookie, { invites: [{ email, shareCents: 9000 }] });
 
-    const team = await getTeam(token);
+    const team = await getTeam(token, cookie);
     expect(team.team.inviteeCount).toBe(1); // upsert, not duplicate
     expect(team.team.invitees[0].assignedShareCents).toBe(9000);
   });
 
   it("bare email list even-splits the team fee minus the deposit", async () => {
-    const cookie = await getParentCookie();
-    const token = await createTeam(cookie);
-    if (!token) return; // deferred to Task 7
+    const created = await createTeam();
+    if (!created) return; // deferred to Task 7
+    const { token, cookie } = created;
 
     const stamp = Date.now();
     const emails = [
@@ -163,17 +213,10 @@ describe("team captain-assigned shares", () => {
       `split-c-${stamp}@test.aspiresports.com`,
     ];
 
-    const res = await fetch(
-      `${BASE}/api/public/team-registrations/${token}/invite`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ emails }),
-      },
-    );
+    const res = await invite(token, cookie, { emails });
     expect(res.status).toBe(200);
 
-    const team = await getTeam(token);
+    const team = await getTeam(token, cookie);
     expect(team.team.inviteeCount).toBe(3);
     const shares: number[] = team.team.invitees.map(
       (i: any) => i.assignedShareCents,
@@ -183,5 +226,87 @@ describe("team captain-assigned shares", () => {
     const max = Math.max(...shares);
     expect(max - min).toBeLessThanOrEqual(1);
     expect(min).toBeGreaterThanOrEqual(0);
+  });
+
+  /**
+   * Privacy scope-down (team-clarity PR 2 Task 1): the invite list is
+   * captain-only. Anyone else — anonymous or an authed non-captain — gets
+   * empty invitees arrays and, if they can be identified as one specific
+   * invitee, a `viewerShare` scoped to just their own row.
+   */
+  it("anonymous GET returns empty invitees arrays, a correct inviteeCount, and a null viewerShare", async () => {
+    const created = await createTeam();
+    if (!created) return; // Stripe not configured — deferred to Task 7
+    const { token, cookie } = created;
+
+    const stamp = Date.now();
+    const email = `anon-view-${stamp}@test.aspiresports.com`;
+    await invite(token, cookie, { invites: [{ email, shareCents: 4200 }] });
+
+    const team = await getTeam(token); // no cookie — anonymous
+    expect(team.team.inviteeCount).toBe(1); // aggregate stays public
+    expect(team.team.invitees).toEqual([]);
+    expect(team.payment.invitees).toEqual([]);
+    expect(team.viewerShare).toBeNull();
+  });
+
+  it("authed non-captain whose email matches an invitee sees only their own viewerShare", async () => {
+    const created = await createTeam();
+    if (!created) return; // Stripe not configured — deferred to Task 7
+    const { token, cookie } = created;
+
+    const stamp = Date.now();
+    const viewerEmail = `mate-viewer-${stamp}@test.aspiresports.com`;
+    const otherEmail = `mate-other-${stamp}@test.aspiresports.com`;
+
+    await invite(token, cookie, {
+      invites: [
+        { email: viewerEmail, shareCents: 6300 },
+        { email: otherEmail, shareCents: 7100 },
+      ],
+    });
+
+    const viewerCookie = await mintViewerSession(viewerEmail);
+
+    const team = await getTeam(token, viewerCookie);
+    expect(team.team.invitees).toEqual([]); // not the captain — no list
+    expect(team.payment.invitees).toEqual([]);
+    expect(team.viewerShare).toEqual({ shareCents: 6300, status: "pending" });
+  });
+
+  /**
+   * The `?invitee=<uuid>` ref path (for a viewer who isn't authed as the
+   * matching email — e.g. clicking their personal invite-email link).
+   * Task 2 exposes each invitee's `id` on the captain-authed GET
+   * (team.invitees[].id) so the captain session can mint a real ref for the
+   * anonymous request below to exercise.
+   */
+  it("?invitee=<uuid> ref resolves viewerShare for an anonymous caller", async () => {
+    const created = await createTeam();
+    if (!created) return; // Stripe not configured — deferred to Task 7
+    const { token, cookie } = created;
+
+    const stamp = Date.now();
+    const email = `mate-ref-${stamp}@test.aspiresports.com`;
+
+    await invite(token, cookie, { invites: [{ email, shareCents: 3300 }] });
+
+    // Captain-authed read: only the captain session can see invitee ids.
+    const captainTeam = await getTeam(token, cookie);
+    const inviteeRow = captainTeam.team.invitees.find(
+      (i: any) => i.email === email,
+    );
+    expect(inviteeRow?.id).toBeTruthy();
+
+    // Anonymous caller, carrying only the id (as the personal invite-email
+    // link would): should resolve viewerShare for that one row, without
+    // exposing the captain-only invitees list.
+    const res = await fetch(
+      `${BASE}/api/public/team-registrations/${token}?invitee=${encodeURIComponent(inviteeRow.id)}`,
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.team.invitees).toEqual([]);
+    expect(body.viewerShare).toEqual({ shareCents: 3300, status: "pending" });
   });
 });

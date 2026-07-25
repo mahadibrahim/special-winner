@@ -1,5 +1,5 @@
 "use client";
-import { priceLabel } from "@/lib/leagues/rail-content";
+import { priceLabel, teamPriceStory } from "@/lib/leagues/rail-content";
 
 export default function ChooseMode({
   season,
@@ -19,13 +19,16 @@ export default function ChooseMode({
   onPick: (m: "solo" | "team") => void;
 }) {
   const solo = priceLabel("solo", season);
-  const team = priceLabel("team", season);
+  const team = teamPriceStory(season);
   return (
     <div>
       <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">
         Step 1 of 4
       </p>
-      <h1 className="font-display text-2xl text-ink mt-1 mb-4">How do you want to join?</h1>
+      <h1 className="font-display text-2xl text-ink mt-1 mb-1.5">How do you want to join?</h1>
+      <p className="text-xs text-ink-muted mb-4">
+        No account or password needed — about 3 minutes start to finish.
+      </p>
       <button
         onClick={() => onPick("solo")}
         className="block w-full text-left rounded-xl border border-ink/15 hover:border-primary p-4 mb-3"
@@ -45,10 +48,12 @@ export default function ChooseMode({
         >
           <div className="font-display text-lg">Bring a team →</div>
           <div className="text-sm text-ink-muted">
-            You captain a full roster. <b>{team.amount}</b>
-            {season.teamEarlyBirdActive && (
-              <span className="text-primary-orange-bright"> · Early-bird</span>
-            )}
+            You captain a full roster. <b>{team.deposit} today</b> reserves your
+            team · <b>{team.total}</b>
+            {team.baseTotal && (
+              <span className="line-through text-ink-faint"> {team.baseTotal}</span>
+            )}{" "}
+            total, split with your roster
           </div>
         </button>
       )}

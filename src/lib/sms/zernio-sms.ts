@@ -10,6 +10,8 @@
  * `src/lib/sms/send.ts`, which calls into this.
  */
 
+import { resolveSmsEnv } from "./resolve-env";
+
 const DEFAULT_BASE_URL = "https://zernio.com/api/v1";
 
 export interface ZernioSmsClientConfig {
@@ -87,7 +89,7 @@ interface ZernioSmsEnv {
 
 /** True when both Zernio SMS credentials are present (SMS via Zernio can be enabled). */
 export function isZernioSmsConfigured(
-  env: ZernioSmsEnv = import.meta.env as unknown as ZernioSmsEnv,
+  env: ZernioSmsEnv = resolveSmsEnv(),
 ): boolean {
   return Boolean(env.ZERNIO_API_KEY && env.ZERNIO_SMS_FROM);
 }
@@ -97,7 +99,7 @@ export function isZernioSmsConfigured(
  * unconfigured so callers fail loudly rather than send nowhere.
  */
 export function createZernioSmsClientFromEnv(
-  env: ZernioSmsEnv = import.meta.env as unknown as ZernioSmsEnv,
+  env: ZernioSmsEnv = resolveSmsEnv(),
   fetchImpl?: typeof fetch,
 ): ZernioSmsClient {
   if (!env.ZERNIO_API_KEY) {

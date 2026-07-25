@@ -3,6 +3,14 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import { db } from "@/lib/db";
 import { locations, programs, seasons, organizations } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
+import { breadcrumbJsonLd } from "@/lib/seo/breadcrumbs";
+import { getVenueFacts } from "@/lib/locations/venue-facts";
+import {
+  summarizeOpenLeagues,
+  summarizeUpcomingTerms,
+} from "@/lib/locations/season-summary";
+import VenueMap from "@/components/locations/VenueMap.astro";
+import StayInLoop from "@/components/locations/StayInLoop.astro";
 
 // SSR — request-time queries against the catalog. Each location's open
 // programs change as seasons open and close.
@@ -17,7 +25,6 @@ interface LocationRow {
   id: string;
   name: string;
   slug: string;
-  description: string | null;
   city: string | null;
   state: string | null;
   addressLine1: string | null;
@@ -35,7 +42,6 @@ try {
         id: locations.id,
         name: locations.name,
         slug: locations.slug,
-        description: locations.description,
         city: locations.city,
         state: locations.state,
         addressLine1: locations.addressLine1,
@@ -77,117 +83,78 @@ if (!location) {
 
 const displayLocationName = location.name;
 const cityState = [location.city, location.state].filter(Boolean).join(", ");
-const fullAddress = [
-  location.addressLine1,
-  location.addressLine2,
-  cityState,
-  location.postalCode,
-]
+
+// Venue-first data plumbing — hand-written facility facts (Task 1) plus
+// live season data scoped to this venue (Task 2 summarizer).
+const facts = getVenueFacts(slug);
+
+// Live seasons for this venue — same-origin fetch, the [term].astro pattern.
+let venueSeasons: any[] = [];
+try {
+  const res = await fetch(
+    `${Astro.url.origin}/api/public/seasons?location=${encodeURIComponent(slug)}`,
+    { headers: { cookie: Astro.request.headers.get("cookie") ?? "" } },
+  );
+  if (res.ok) venueSeasons = (await res.json()).seasons ?? [];
+} catch (err) {
+  console.error("[locations/[slug]] seasons fetch failed", err);
+}
+const leagueSummary = summarizeOpenLeagues(venueSeasons);
+// Omitting ?status= now returns open/active/forming (see api/public/seasons.ts),
+// so this must stay scoped to status "open" — otherwise "X open now" would
+// count active (already-started) or forming (not-yet-open) seasons too.
+const youthOpenCount = venueSeasons.filter(
+  (s) => s.status === "open" && (s.ageGroup?.maxAge ?? 99) < 18,
+).length;
+
+// "Later": forming future terms beyond the one the main card shows.
+const upcomingTerms = summarizeUpcomingTerms(
+  venueSeasons,
+  leagueSummary?.termSlug ?? null,
+);
+
+// Live pickup: next upcoming session at this venue. Wired, not curated —
+// the card must never claim a cadence the schedule doesn't back up.
+let nextPickup: { label: string; upcomingCount: number } | null = null;
+if (facts?.offerings.pickup) {
+  try {
+    const res = await fetch(
+      `${Astro.url.origin}/api/dropin/sessions?location=${encodeURIComponent(slug)}`,
+      { headers: { cookie: Astro.request.headers.get("cookie") ?? "" } },
+    );
+    if (res.ok) {
+      const sessions: Array<{ startsAt: string }> =
+        (await res.json()).sessions ?? [];
+      const now = Date.now();
+      const upcoming = sessions
+        .filter((s) => new Date(s.startsAt).getTime() > now)
+        .sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+      if (upcoming.length > 0) {
+        const label = new Date(upcoming[0].startsAt).toLocaleString("en-US", {
+          weekday: "short",
+          hour: "numeric",
+          minute: "2-digit",
+          timeZone: "America/New_York",
+        });
+        nextPickup = { label, upcomingCount: upcoming.length };
+      }
+    }
+  } catch (err) {
+    console.error("[locations/[slug]] dropin sessions fetch failed", err);
+  }
+}
+
+const fullAddress = [location.addressLine1, location.addressLine2, cityState, location.postalCode]
   .filter(Boolean)
   .join(", ");
+const mapsHref = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+  `${location.name} ${fullAddress}`,
+)}`;
+const fmtCloses = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : null;
 
-// Per-venue hand-written copy. Update slug keys when partner facility
-// names finalize; falls back to a generic copy block for unknown slugs.
-const LOCATION_COPY: Record<string, {
-  audienceSummary: string;
-  neighborhoods: string[];
-  adultPitch: string;
-  youthPitch: string;
-  amenities: string[];
-  faq: Array<{ q: string; a: string }>;
-}> = {
-  worthington: {
-    audienceSummary: "Family-friendly. Suburban. Youth development by day, adult leagues on weeknights and weekends.",
-    neighborhoods: [
-      "Worthington",
-      "Powell",
-      "Dublin",
-      "Linworth",
-      "Westerville",
-      "North Columbus suburbs",
-    ],
-    adultPitch: "Adult co-ed soccer at the Worthington facility, scheduled around real adult lives — after-work and weekend slots, never before 6 PM on weeknights. Free parking, indoor turf, post-game space.",
-    youthPitch: "The Worthington venue is the youth-programming home. Age-banded sessions from U6 through U18 on a published weekly schedule. Same coaches week over week, same field, same time.",
-    amenities: [
-      "Indoor turf — year-round, no weather cancellations",
-      "Free on-site parking",
-      "Family-friendly viewing area",
-      "Restrooms + locker rooms",
-      "{{TBD — concession / cafe details when partnership confirms}}",
-    ],
-    faq: [
-      {
-        q: "Where exactly is the Worthington venue?",
-        a: "Worthington, Ohio — north of downtown Columbus, off I-270. Specific address publishes once partnership terms finalize. Free on-site parking.",
-      },
-      {
-        q: "Is there parking?",
-        a: "Yes — free on-site parking. The venue is designed for family drop-off and afternoon-into-evening pickup.",
-      },
-      {
-        q: "What ages does the Worthington facility serve?",
-        a: "Youth programs from U6 through U18, plus adult co-ed leagues for ages 18 and up. Family-friendly hours across the week.",
-      },
-      {
-        q: "Do you run year-round?",
-        a: "Yes — fully indoor. No weather cancellations, no seasonal gaps between sessions.",
-      },
-    ],
-  },
-  downtown: {
-    audienceSummary: "Urban core. Adult-focused. Designed for the 22–40 weeknight league crowd.",
-    neighborhoods: [
-      "Short North",
-      "Italian Village",
-      "German Village",
-      "Clintonville",
-      "Grandview",
-      "Victorian Village",
-      "OSU campus area",
-    ],
-    adultPitch: "Aspire's flagship adult venue — co-ed 7v7 indoor soccer on weeknight evenings, walk-in pickup games, and a post-game scene that's a short walk from the field. Built for the after-work league night that actually feels like a night out.",
-    youthPitch: "Selective youth programming at the downtown venue when scheduling permits — primarily clinics and camps for families already in the core. The Worthington facility is our family-programming home.",
-    amenities: [
-      "Indoor turf, year-round operation",
-      "Walking distance to post-game bars + restaurants",
-      "Locker rooms + showers",
-      "{{TBD — specific transit / parking details when partner facility confirms}}",
-    ],
-    faq: [
-      {
-        q: "Where is the Downtown venue?",
-        a: "Central Columbus, near the OSU campus. Walkable from Short North, Italian Village, and Victorian Village. Specific address publishes once partnership terms finalize.",
-      },
-      {
-        q: "Is this the adult-league venue?",
-        a: "Yes — this is the home of Aspire's adult co-ed soccer leagues. Selective youth clinics also run here when scheduling permits, but the family programming lives in Worthington.",
-      },
-      {
-        q: "What about parking and transit?",
-        a: "Parking and transit guidance for the downtown venue will publish once the partner facility agreement finalizes. Most adult-league players arrive by car, bike, or rideshare; the venue is in the urban core for walkability after the game.",
-      },
-      {
-        q: "Can I drop in for pickup soccer?",
-        a: "Yes — drop-in pickup is part of the downtown offer. Walk-in registration runs through the kiosk at the front desk; sign the waiver on your phone, pay for the session, and you're on the field.",
-      },
-    ],
-  },
-};
-
-const copy = LOCATION_COPY[slug] ?? {
-  audienceSummary: "Aspire Sports programs for kids and adults.",
-  neighborhoods: [] as string[],
-  adultPitch: `Aspire adult programs at ${displayLocationName}.`,
-  youthPitch: `Aspire youth programs at ${displayLocationName}.`,
-  amenities: [
-    "{{TBD — amenities for this venue}}",
-  ],
-  faq: [] as Array<{ q: string; a: string }>,
-};
-
-// JSON-LD: SportsActivityLocation with parent org pointer. We omit `geo`
-// and `streetAddress` until the partnership terms publish the final
-// address; locality + region are safe to ship now.
+// JSON-LD: SportsActivityLocation with parent org pointer. streetAddress is
+// included; we omit `geo` (no verified lat/long yet).
 const venueSchema = {
   "@context": "https://schema.org",
   "@type": "SportsActivityLocation",
@@ -209,17 +176,12 @@ const venueSchema = {
   },
 };
 
-const faqSchema = copy.faq.length
-  ? {
-      "@context": "https://schema.org",
-      "@type": "FAQPage",
-      mainEntity: copy.faq.map((item) => ({
-        "@type": "Question",
-        name: item.q,
-        acceptedAnswer: { "@type": "Answer", text: item.a },
-      })),
-    }
-  : null;
+const ORIGIN = import.meta.env.PUBLIC_APP_URL || "https://aspiresportsohio.com";
+const breadcrumbSchema = breadcrumbJsonLd([
+  { name: "Home", url: `${ORIGIN}/` },
+  { name: "Locations", url: `${ORIGIN}/locations` },
+  { name: displayLocationName, url: `${ORIGIN}/locations/${slug}` },
+]);
 ---
 
 <BaseLayout
@@ -227,242 +189,283 @@ const faqSchema = copy.faq.length
   description={`Aspire Sports youth and adult soccer programs at ${displayLocationName}${cityState ? ` (${cityState})` : ""}. ${openSeasonCount > 0 ? `${openSeasonCount} program${openSeasonCount === 1 ? "" : "s"} open for registration.` : "Year-round indoor, captain-first operations."}`}
 >
   <script type="application/ld+json" set:html={JSON.stringify(venueSchema)} />
-  {faqSchema && (
-    <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
-  )}
+  <script type="application/ld+json" set:html={JSON.stringify(breadcrumbSchema)} />
 
-  <main id="main-content" class="bg-cream">
-    {/* Hero */}
-    <section class="relative pt-24 pb-12 lg:pt-32 lg:pb-16">
-      <div class="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16">
-        <div class="flex items-center justify-between py-6 border-b border-ink/15 mb-12">
-          <span class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">
-            Aspire Sports {cityState && `· ${cityState}`}
-          </span>
-          <span class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted hidden sm:inline">
-            {displayLocationName}
-          </span>
-        </div>
-
-        <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-6 flex items-center gap-3">
-          <span class="inline-block w-8 h-px bg-primary-orange"></span>
-          {openSeasonCount > 0 ? `${openSeasonCount} program${openSeasonCount === 1 ? "" : "s"} open` : "Aspire Venue"}
-        </p>
-
-        <h1
-          class="font-display text-ink leading-tight mb-8"
-          style="font-size: clamp(2.5rem, 7vw, 5.5rem); letter-spacing: -0.03em;"
-        >
-          Aspire in <span class="italic text-primary-orange">{displayLocationName}.</span>
+  <main id="main-content">
+    {/* 1 · Hero — photo background + ink wash, like the [term].astro hero pattern */}
+    <section
+      class="relative text-cream pt-24 pb-10 px-6 bg-cover bg-center"
+      style={`background-image:linear-gradient(180deg,oklch(0.2 0.03 100/0.72),oklch(0.2 0.03 100/0.9)),url('${facts?.heroPoster ?? "/media/soccerone/still-action.jpg"}')`}
+    >
+      <div class="max-w-[1080px] mx-auto">
+        <p class="font-mono text-[11px] tracking-widest uppercase opacity-80">Aspire Sports · {cityState}</p>
+        <h1 class="font-display text-5xl md:text-6xl mt-2 mb-2">
+          Aspire in <em class="text-primary-orange-bright font-display italic">{displayLocationName}.</em>
         </h1>
-
-        <p class="text-lg sm:text-xl text-ink-2 max-w-2xl leading-relaxed mb-10">
-          {location.description ?? copy.audienceSummary}
-        </p>
-
-        <div class="flex flex-wrap items-center gap-4">
-          <a
-            href="#adult"
-            class="inline-flex items-center gap-3 bg-ink text-cream px-7 py-4 text-sm font-medium tracking-wide uppercase hover:bg-primary-orange transition-colors"
-            style="letter-spacing: 0.08em;"
-          >
-            Adult leagues here →
-          </a>
-          <a
-            href="#youth"
-            class="inline-flex items-center gap-3 border border-ink text-ink px-7 py-4 text-sm font-medium tracking-wide uppercase hover:border-primary-orange hover:text-primary-orange transition-colors"
-            style="letter-spacing: 0.08em;"
-          >
-            Youth programs here →
-          </a>
-        </div>
-      </div>
-    </section>
-
-    {/* Venue facts */}
-    <section class="bg-cream-2 border-y border-ink/10">
-      <div class="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16 py-10">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div>
-            <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted mb-2">
-              Address
-            </p>
-            <p class="text-ink leading-snug">
-              {fullAddress || `${cityState || "Columbus, OH"} — full address publishing soon.`}
-            </p>
-          </div>
-          <div>
-            <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted mb-2">
-              Open programs
-            </p>
-            <p class="text-ink leading-snug">
-              {openSeasonCount > 0
-                ? `${openSeasonCount} season${openSeasonCount === 1 ? "" : "s"} accepting registrations`
-                : "Catalog updates regularly — check back soon"}
-            </p>
-          </div>
-          <div>
-            <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted mb-2">
-              Audiences
-            </p>
-            <p class="text-ink leading-snug">Kids · Adults 18+</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    {/* Adult section */}
-    <section id="adult" class="py-20 lg:py-28">
-      <div class="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16">
-        <div class="grid grid-cols-12 gap-8 lg:gap-16">
-          <div class="col-span-12 lg:col-span-7">
-            <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-4">
-              Adult
-            </p>
-            <h2 class="font-display text-3xl lg:text-5xl text-ink leading-tight mb-6">
-              Adult leagues at {displayLocationName}.
-            </h2>
-            <p class="text-lg text-ink-2 leading-relaxed mb-6 max-w-prose">
-              {copy.adultPitch}
-            </p>
+        {facts && <p class="max-w-xl text-cream/90">{facts.tagline}</p>}
+        <div class="flex flex-wrap gap-3 mt-5">
+          {leagueSummary && (
             <a
-              href={`/programs?location=${slug}&audience=adult`}
-              class="inline-flex items-center gap-3 bg-ink text-cream px-7 py-4 text-sm font-medium tracking-wide uppercase hover:bg-primary-orange transition-colors"
-              style="letter-spacing: 0.08em;"
+              href={leagueSummary.termHref}
+              class="font-sans font-semibold text-[13px] bg-primary text-cream px-5 py-3 rounded-md"
+              data-testid="loc-hero-adult"
             >
-              See open adult programs →
+              Adult leagues →
             </a>
-          </div>
-          <aside class="col-span-12 lg:col-span-5 lg:pl-8 lg:border-l lg:border-ink/15">
-            <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted mb-4">
-              Neighborhoods served
-            </p>
-            {copy.neighborhoods.length > 0 ? (
-              <ul class="flex flex-wrap gap-2 mb-6">
-                {copy.neighborhoods.map((n) => (
-                  <li class="text-sm text-ink-2 bg-cream-2 border border-ink/15 px-3 py-1 rounded-full">
-                    {n}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p class="text-sm text-ink-muted italic mb-6">
-                {`{{TBD — neighborhoods served}}`}
+          )}
+          {facts?.offerings.youth && (
+            <a href="/youth" class="font-sans font-semibold text-[13px] border border-cream/40 text-cream px-5 py-3 rounded-md">
+              Youth programs
+            </a>
+          )}
+          {facts?.offerings.pickup && (
+            <a href="/adult/pickup" class="font-sans font-semibold text-[13px] border border-cream/40 text-cream px-5 py-3 rounded-md">
+              Play pickup
+            </a>
+          )}
+        </div>
+      </div>
+    </section>
+
+    {/* facts ticker */}
+    <div class="bg-ink text-cream/90 font-mono text-[11px] tracking-wider uppercase px-6 py-2.5">
+      <div class="max-w-[1080px] mx-auto flex flex-wrap gap-x-8 gap-y-1">
+        <span>{fullAddress}</span>
+        {facts?.ticker.map((t) => <span>{t}</span>)}
+      </div>
+    </div>
+
+    {/* 2 · What's happening — live cards; a card renders only when real */}
+    <section class="py-16 px-6" aria-label="What's happening">
+      <div class="max-w-[1080px] mx-auto">
+        <h2 class="font-display text-3xl text-ink mb-1">What's happening</h2>
+        <p class="text-ink-muted text-sm mb-8">Live from the season catalog.</p>
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4" data-testid="whats-happening">
+          {leagueSummary && (
+            <a href={leagueSummary.termHref} class="block p-5 rounded-xl border border-border bg-paper hover:border-primary/40">
+              <p class="font-mono text-[10px] tracking-widest uppercase text-primary font-bold">
+                {leagueSummary.hasOpen
+                  ? `Open now${fmtCloses(leagueSummary.closes) ? ` · closes ${fmtCloses(leagueSummary.closes)}` : ""}`
+                  : "Forming — join the interest list"}
               </p>
-            )}
-            <p class="text-sm text-ink-muted leading-relaxed">
-              We're a neighborhood-anchored operator — the captains and players here are from the
-              surrounding zip codes, and the schedule is built around their week.
-            </p>
-          </aside>
-        </div>
-      </div>
-    </section>
-
-    {/* Youth section */}
-    <section id="youth" class="bg-cream-2 border-y border-ink/10 py-20 lg:py-28">
-      <div class="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16">
-        <div class="grid grid-cols-12 gap-8 lg:gap-16">
-          <div class="col-span-12 lg:col-span-7">
-            <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary-orange mb-4">
-              Youth
-            </p>
-            <h2 class="font-display text-3xl lg:text-5xl text-ink leading-tight mb-6">
-              Youth programs at {displayLocationName}.
-            </h2>
-            <p class="text-lg text-ink-2 leading-relaxed mb-6 max-w-prose">
-              {copy.youthPitch}
-            </p>
-            <a
-              href={`/programs?location=${slug}&audience=youth`}
-              class="inline-flex items-center gap-3 bg-ink text-cream px-7 py-4 text-sm font-medium tracking-wide uppercase hover:bg-primary-orange transition-colors"
-              style="letter-spacing: 0.08em;"
-            >
-              See open youth programs →
+              <h3 class="font-display text-xl text-ink mt-1">Adult leagues</h3>
+              <p class="text-sm text-ink-2 mt-1">
+                {leagueSummary.divisionCount} divisions · {leagueSummary.nights.join(" & ")} nights
+                {leagueSummary.soloPrice != null ? ` · from $${leagueSummary.soloPrice}/player` : ""}
+              </p>
+              <span class="text-sm font-semibold text-primary mt-2 inline-block">
+                {leagueSummary.hasOpen ? "See divisions & register →" : "Get notified →"}
+              </span>
             </a>
-          </div>
-          <aside class="col-span-12 lg:col-span-5 lg:pl-8 lg:border-l lg:border-ink/15">
-            <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted mb-4">
-              At this venue
-            </p>
-            <ul class="space-y-3 text-base text-ink-2 leading-relaxed">
-              {copy.amenities.map((a) => (
-                <li class="flex gap-3">
-                  <span class="text-primary-orange font-display italic shrink-0">→</span>
-                  <span>{a}</span>
-                </li>
+          )}
+          {facts?.offerings.youth && (
+            <a href="/youth" class="block p-5 rounded-xl border border-border bg-paper hover:border-primary/40">
+              <p class="font-mono text-[10px] tracking-widest uppercase text-ink-muted font-bold">Weekly · U6–U18</p>
+              <h3 class="font-display text-xl text-ink mt-1">Youth programs</h3>
+              <p class="text-sm text-ink-2 mt-1">
+                Age-banded sessions, same coaches week over week.{youthOpenCount ? ` ${youthOpenCount} open now.` : ""}
+              </p>
+              <span class="text-sm font-semibold text-primary mt-2 inline-block">Browse youth programs →</span>
+            </a>
+          )}
+          {facts?.offerings.pickup && (
+            <a href="/adult/pickup" class="block p-5 rounded-xl border border-border bg-paper hover:border-primary/40">
+              <p class="font-mono text-[10px] tracking-widest uppercase text-ink-muted font-bold">
+                {nextPickup ? `Next session · ${nextPickup.label}` : "Show up & play"}
+              </p>
+              <h3 class="font-display text-xl text-ink mt-1">Drop-in pickup</h3>
+              <p class="text-sm text-ink-2 mt-1">
+                {nextPickup
+                  ? `${nextPickup.upcomingCount} upcoming session${nextPickup.upcomingCount === 1 ? "" : "s"} — balanced teams, pay per session.`
+                  : "Balanced teams, pay per session. Sessions post weekly — see the schedule."}
+              </p>
+              <span class="text-sm font-semibold text-primary mt-2 inline-block">
+                {nextPickup ? "Grab a spot →" : "See the schedule →"}
+              </span>
+            </a>
+          )}
+        </div>
+
+        {/* "Later" — forming future terms, wired from the same catalog. */}
+        {upcomingTerms.length > 0 && (
+          <div class="mt-10" data-testid="coming-up">
+            <h3 class="font-mono text-[11px] tracking-widest uppercase text-ink-muted mb-3">Coming up</h3>
+            <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {upcomingTerms.map((t) => (
+                <a href={t.termHref} class="flex items-baseline justify-between gap-3 p-4 rounded-xl border border-dashed border-border bg-paper hover:border-primary/40">
+                  <span>
+                    <span class="font-display text-lg text-ink">{t.termLabel}</span>
+                    <span class="block text-xs text-ink-muted mt-0.5">
+                      {t.count} division{t.count === 1 ? "" : "s"}
+                      {fmtCloses(t.startDate) ? ` · starts ${fmtCloses(t.startDate)}` : ""}
+                    </span>
+                  </span>
+                  <span class="text-xs font-semibold text-primary whitespace-nowrap">Get notified →</span>
+                </a>
               ))}
-            </ul>
-          </aside>
-        </div>
+            </div>
+          </div>
+        )}
       </div>
     </section>
 
-    {/* What you get */}
-    <section class="py-20 lg:py-28">
-      <div class="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16">
-        <h2 class="font-display text-3xl lg:text-4xl text-ink mb-10 max-w-2xl leading-tight">
-          What you get at {displayLocationName}.
-        </h2>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12">
-          <div>
-            <h3 class="font-display text-lg italic text-ink mb-3">Local team</h3>
-            <p class="text-ink-muted leading-relaxed">
-              Coaches and refs who live in or near {displayLocationName}, who know the captains
-              and families, and who keep the same faces on the field across the season.
-            </p>
-          </div>
-          <div>
-            <h3 class="font-display text-lg italic text-ink mb-3">Reliable schedules</h3>
-            <p class="text-ink-muted leading-relaxed">
-              Same time, same field, every week. Schedules publish before you pay — and once
-              they're up, they don't move.
-            </p>
-          </div>
-          <div>
-            <h3 class="font-display text-lg italic text-ink mb-3">One Aspire account</h3>
-            <p class="text-ink-muted leading-relaxed">
-              Your registrations, your kid's history, your adult-league rosters — all on one
-              account. Sign up once; we remember you.
-            </p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    {/* FAQ */}
-    {copy.faq.length > 0 && (
-      <section class="bg-cream-2 border-y border-ink/10 py-20 lg:py-28">
-        <div class="max-w-[1100px] mx-auto px-6 sm:px-10 lg:px-16">
-          <h2 class="font-display text-3xl lg:text-4xl text-ink mb-10">
-            About {displayLocationName}
-          </h2>
-          <dl class="space-y-8">
-            {copy.faq.map((item) => (
-              <div>
-                <dt class="font-display text-lg italic text-ink mb-2">{item.q}</dt>
-                <dd class="text-ink-muted leading-relaxed">{item.a}</dd>
+    {/* 3 · The facility — spec tiles + features + coming-soon chip */}
+    {facts && (
+      <section class="bg-cream-2 border-y border-ink/10 py-16 px-6" aria-label="The facility">
+        <div class="max-w-[1080px] mx-auto">
+          <h2 class="font-display text-3xl text-ink mb-8">The facility</h2>
+          <div class="grid grid-cols-2 lg:grid-cols-4 gap-4" data-testid="facility-specs">
+            {facts.specs.map((sp) => (
+              <div class="p-5 rounded-xl border border-border bg-paper">
+                <div class="font-display text-3xl text-ink">{sp.n}</div>
+                <div class="font-mono text-[10px] tracking-widest uppercase text-ink-muted mt-1">{sp.label}</div>
               </div>
             ))}
-          </dl>
+          </div>
+          <ul class="mt-8 grid sm:grid-cols-2 gap-x-10 gap-y-3">
+            {facts.features.map((f) => (
+              <li class="text-ink-2 text-sm flex gap-2">
+                <span class="text-primary">→</span>{f}
+              </li>
+            ))}
+          </ul>
+          {facts.comingSoon.length > 0 && (
+            <p class="mt-6 inline-block font-mono text-[11px] tracking-wider uppercase bg-primary/10 text-primary px-3 py-1.5 rounded-full">
+              Coming soon: {facts.comingSoon.join(" · ")}
+            </p>
+          )}
         </div>
       </section>
     )}
 
-    {/* CTA */}
-    <section class="py-20 lg:py-24 bg-ink text-cream">
-      <div class="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16 text-center">
-        <h2 class="font-display text-3xl lg:text-5xl mb-6">
-          See what's open at {displayLocationName}.
-        </h2>
-        <a
-          href={`/programs?location=${slug}`}
-          class="inline-flex items-center gap-3 bg-cream text-ink px-8 py-4 text-sm font-medium tracking-wide uppercase hover:bg-primary-orange hover:text-cream transition-colors"
-          style="letter-spacing: 0.08em;"
-        >
-          Browse {displayLocationName} programs →
-        </a>
+    {/* 4 · Inside the building */}
+    {facts && facts.photos.length > 0 && (
+      <section class="py-14 px-6" aria-label="Inside the building">
+        <div class="max-w-[1080px] mx-auto grid grid-cols-1 sm:grid-cols-[2fr_1fr_1fr] gap-3">
+          {facts.photos.map((p) => (
+            <img src={p.src} alt={p.alt} loading="lazy" class="rounded-xl object-cover w-full h-44" />
+          ))}
+        </div>
+      </section>
+    )}
+
+    {/* 5 · Season pricing band — only while a term is open (not forming) */}
+    {leagueSummary && leagueSummary.hasOpen && (
+      <section class="bg-ink text-cream py-16 px-6" aria-label="Season pricing">
+        <div class="max-w-[1080px] mx-auto lg:grid lg:grid-cols-[1.2fr_1fr] gap-10 items-center">
+          <div>
+            <h2 class="font-display text-4xl mb-3">Leagues are open at {displayLocationName}.</h2>
+            <p class="text-cream/80 max-w-md">
+              {leagueSummary.divisionCount} divisions · {leagueSummary.nights.join(" & ")} nights
+              {fmtCloses(leagueSummary.closes) ? ` · registration closes ${fmtCloses(leagueSummary.closes)}` : ""}.
+            </p>
+          </div>
+          <div class="mt-8 lg:mt-0 rounded-2xl bg-cream/5 border border-cream/15 p-6">
+            {leagueSummary.soloPrice != null && (
+              <div class="flex justify-between py-2 border-b border-cream/15">
+                <span>Solo / free agent</span><b>${leagueSummary.soloPrice}</b>
+              </div>
+            )}
+            {leagueSummary.teamPrice != null && (
+              <div class="flex justify-between py-2 border-b border-cream/15">
+                <span>Per team</span><b>${leagueSummary.teamPrice.toLocaleString()}</b>
+              </div>
+            )}
+            <a href={leagueSummary.termHref} class="mt-5 block text-center font-sans font-semibold text-[13px] bg-primary text-cream px-5 py-3 rounded-md">
+              Register →
+            </a>
+          </div>
+        </div>
+      </section>
+    )}
+
+    {/* 6 · Good to know — rewritten; stale answers deleted */}
+    <section class="py-16 px-6" aria-label="Good to know">
+      <div class="max-w-[1080px] mx-auto">
+        <h2 class="font-display text-3xl text-ink mb-8">Good to know</h2>
+        <div class="grid sm:grid-cols-2 gap-x-12 gap-y-7 max-w-3xl">
+          <div>
+            <h3 class="font-display italic text-lg text-ink mb-1.5">What ages do you serve?</h3>
+            <p class="text-sm text-ink-2">
+              {facts?.offerings.youth
+                ? "Youth programs from U6 through U18, plus adult leagues 18 and up."
+                : "Adult programming — 18 and up."}
+            </p>
+          </div>
+          <div>
+            <h3 class="font-display italic text-lg text-ink mb-1.5">Can I come alone?</h3>
+            <p class="text-sm text-ink-2">Yes — register solo and we place you on a team, or drop into pickup where offered.</p>
+          </div>
+          <div>
+            <h3 class="font-display italic text-lg text-ink mb-1.5">Do you run year-round?</h3>
+            <p class="text-sm text-ink-2">Yes — fully indoor. No weather cancellations, no seasonal gaps.</p>
+          </div>
+        </div>
       </div>
     </section>
+
+    {/* 7 · Getting here */}
+    <section class="bg-cream-2 border-y border-ink/10 py-16 px-6" aria-label="Getting here">
+      <div class="max-w-[1080px] mx-auto grid lg:grid-cols-2 gap-10">
+        <div class="space-y-5 text-sm text-ink-2">
+          <div>
+            <p class="font-mono text-[10px] tracking-widest uppercase text-ink-muted mb-1">Address</p>
+            {fullAddress}
+          </div>
+          {facts && facts.directions.length > 0 && (
+            <div>
+              <p class="font-mono text-[10px] tracking-widest uppercase text-ink-muted mb-1">Directions</p>
+              <ol class="list-decimal ml-4 space-y-1">
+                {facts.directions.map((d) => <li>{d}</li>)}
+              </ol>
+            </div>
+          )}
+          <a
+            href={mapsHref}
+            target="_blank"
+            rel="noopener"
+            class="inline-block font-sans font-semibold text-[13px] border border-ink text-ink px-5 py-2.5 rounded-md hover:bg-ink hover:text-cream transition-colors"
+            data-testid="maps-link"
+          >
+            Open in Google Maps →
+          </a>
+        </div>
+        {slug === "worthington" || slug === "downtown" ? (
+          <VenueMap slug={slug} />
+        ) : (
+          <img
+            src={facts?.photos[0]?.src ?? "/media/soccerone/still-entrance.jpg"}
+            alt={`${displayLocationName} facility`}
+            loading="lazy"
+            class="rounded-2xl object-cover w-full h-64 lg:h-auto"
+          />
+        )}
+      </div>
+    </section>
+
+    {/* 8 · Bottom CTA band */}
+    <section class="py-16 px-6 bg-ink text-cream text-center" aria-label="Get started">
+      <h2 class="font-display text-4xl mb-6">Ready to play at {displayLocationName}?</h2>
+      <div class="flex flex-wrap justify-center gap-3">
+        {leagueSummary && (
+          <a href={leagueSummary.termHref} class="font-sans font-semibold text-[13px] bg-primary text-cream px-6 py-3 rounded-md">
+            Register for leagues →
+          </a>
+        )}
+        {facts?.offerings.youth && (
+          <a href="/youth" class="font-sans font-semibold text-[13px] border border-cream/40 px-6 py-3 rounded-md">
+            Youth programs
+          </a>
+        )}
+        {facts?.offerings.pickup && (
+          <a href="/adult/pickup" class="font-sans font-semibold text-[13px] border border-cream/40 px-6 py-3 rounded-md">
+            Play pickup
+          </a>
+        )}
+      </div>
+    </section>
+
+    {/* 9 · Stay in the loop — email now, WhatsApp when the group goes live */}
+    <StayInLoop locationSlug={slug} />
   </main>
 </BaseLayout>

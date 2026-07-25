@@ -6,6 +6,7 @@ import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
 import { DOWNTOWN_JSONLD } from '@/lib/seo/soccerone-jsonld';
 import HomeSignupStrip from '@/components/soccerone/HomeSignupStrip';
 import { HOME_GOOGLE_RATING, HOME_REVIEWS } from '@/lib/soccerone/home-reviews';
+import { breadcrumbJsonLd } from '@/lib/seo/breadcrumbs';
 
 // Live season data — org-scoped fetch pinned to the Downtown location,
 // same pattern as src/pages/soccerone/worthington/index.astro:11-41.
@@ -142,6 +143,12 @@ const liveFallRows = DAY_ORDER
 import { aggregateFeaturedTerm } from '@/lib/soccerone/featured-term';
 import { setMarketingEdgeCache } from '@/lib/http/edge-cache';
 setMarketingEdgeCache(Astro); // after fetches; a degraded (empty-seasons) render may cache for 60s — SWR refreshes it
+
+const SO = 'https://www.gosoccerone.com';
+const breadcrumbSchema = breadcrumbJsonLd([
+  { name: 'SoccerOne', url: `${SO}/` },
+  { name: 'Downtown', url: `${SO}/downtown` },
+]);
 ---
 
 <BaseLayout
@@ -160,6 +167,7 @@ setMarketingEdgeCache(Astro); // after fetches; a degraded (empty-seasons) rende
       rel="stylesheet"
     />
     <script type="application/ld+json" is:inline set:html={JSON.stringify(DOWNTOWN_JSONLD)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbSchema)} />
   </Fragment>
 
   <SoccerOneHeader currentFacility="downtown" />
@@ -555,7 +563,10 @@ setMarketingEdgeCache(Astro); // after fetches; a degraded (empty-seasons) rende
           {featured ? (
             <a href="#fall" class="bc-btn">Register for Fall</a>
           ) : (
-            <a href="/leagues" class="bc-btn">See Leagues</a>
+            <!-- ?location= pre-filters the finder and renders its "Showing
+                 leagues at Downtown" arrival chip — same pattern as the
+                 /pickup?facility= and /rent?facility= links above. -->
+            <a href="/leagues?location=downtown" class="bc-btn">See Leagues</a>
           )}
           <a href="/pickup?facility=downtown" class="bc-btn bc-btn--ghost">See Pickup Sessions</a>
           <a href="/rent?facility=downtown" class="bc-btn bc-btn--ghost">Book the Field</a>

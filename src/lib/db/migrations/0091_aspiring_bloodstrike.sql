@@ -1,1 +1,0 @@
-ALTER TYPE "public"."payment_status" ADD VALUE 'failed' BEFORE 'partial_refund';

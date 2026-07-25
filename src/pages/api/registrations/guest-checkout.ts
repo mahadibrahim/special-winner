@@ -1,11 +1,8 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
-import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   users,
-  userRoles,
-  roles,
   familyMembers as familyMembersTable,
 } from "@/lib/db/schema";
 import {
@@ -16,8 +13,9 @@ import {
   createCheckoutForRegistration,
   CheckoutError,
 } from "@/lib/payments/create-checkout-for-registration";
+import { upsertGuestUser } from "@/lib/registrations/upsert-guest-user";
 import { createSession } from "@/lib/auth";
-import { getPostHogServer } from "@/lib/posthog-server";
+import { getPostHogServer, flushPostHog } from "@/lib/posthog-server";
 import { resolvePerson } from "@/lib/registrations/resolve-person";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
 import {
@@ -25,16 +23,20 @@ import {
   recordDefaultMediaAuth,
   hasActiveConsent,
 } from "@/lib/consents/record";
-import { collectAdAttribution } from "@/lib/analytics/parse-cookies";
+import { collectAdAttribution, parsePhDistinctId } from "@/lib/analytics/parse-cookies";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 import { recordPhoneOptIn } from "@/lib/sms/opt-in";
+import { sendMagicLinkLoginEmail } from "@/lib/email/send";
+import { awaitEmailSend } from "@/lib/notifications/await-dispatch";
+import { createMagicLink, buildMagicLinkUrl } from "@/lib/auth/magic-link";
 
 const guestRegistrantSchema = z.object({
   firstName: z.string().min(1),
   lastName: z.string().min(1),
   email: z.string().email(),
   phone: z.string().optional(),
-  birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  // v2 defers DOB to the post-payment completion step (Task 8).
+  birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   isSelf: z.literal(true),
   gender: z.enum(["male", "female", "other"]).optional(),
 });
@@ -43,54 +45,77 @@ const mediaAuthOptOutsSchema = z
   .array(z.enum(["internal", "promotional", "public"]))
   .optional();
 
-const guestCheckoutSchema = z.union([
-  // Legacy parent + child shape (preserved unchanged)
-  z.object({
-    seasonId: z.string().uuid(),
-    parent: z.object({
-      firstName: z.string().min(1),
-      lastName: z.string().min(1),
-      email: z.string().email(),
-      phone: z.string().optional(),
-    }),
-    child: z.object({
-      firstName: z.string().min(1),
-      lastName: z.string().min(1),
-      birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-      gender: z.enum(["male", "female", "other"]).optional(),
-    }),
-    registrationType: z.enum(["full", "deposit"]),
-    waiverSigned: z.boolean(),
-    waiverSignedBy: z.string().min(1),
-    discountCode: z.string().optional(),
-    lookingForTeam: z.boolean().optional(),
-    teamToken: z.string().max(64).optional(),
-    mediaAuthOptOuts: mediaAuthOptOutsSchema,
-    paymentMethodCategory: z.enum(["bank", "card"]).optional(),
-    // SMS consent checkbox next to the phone field (unchecked by default).
-    // Only meaningful when a phone is provided.
-    smsConsent: z.boolean().optional(),
+// Legacy parent + child shape (preserved unchanged)
+const legacyGuestCheckoutSchema = z.object({
+  seasonId: z.string().uuid(),
+  parent: z.object({
+    firstName: z.string().min(1),
+    lastName: z.string().min(1),
+    email: z.string().email(),
+    phone: z.string().optional(),
   }),
-  // New adult self shape
-  z.object({
+  child: z.object({
+    firstName: z.string().min(1),
+    lastName: z.string().min(1),
+    birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    gender: z.enum(["male", "female", "other"]).optional(),
+  }),
+  registrationType: z.enum(["full", "deposit"]),
+  waiverSigned: z.boolean(),
+  waiverSignedBy: z.string().min(1),
+  discountCode: z.string().optional(),
+  lookingForTeam: z.boolean().optional(),
+  teamToken: z.string().max(64).optional(),
+  mediaAuthOptOuts: mediaAuthOptOutsSchema,
+  paymentMethodCategory: z.enum(["bank", "card"]).optional(),
+  // SMS consent checkbox next to the phone field (unchecked by default).
+  // Only meaningful when a phone is provided.
+  smsConsent: z.boolean().optional(),
+});
+
+// New adult self shape (v2: waiver/signature deferred to a post-payment
+// completion step — see docs/superpowers/plans/2026-07-22-checkout-redesign-
+// wave1-solo.md Task 6/8). waiverSignedBy is only required when the client
+// actually claims the waiver was signed at checkout time.
+const adultGuestCheckoutSchema = z
+  .object({
     seasonId: z.string().uuid(),
     registrant: guestRegistrantSchema,
     registrationType: z.enum(["full", "deposit"]),
     waiverSigned: z.boolean(),
-    waiverSignedBy: z.string().min(1),
+    waiverSignedBy: z.string().min(1).optional(),
     discountCode: z.string().optional(),
     lookingForTeam: z.boolean().optional(),
     teamToken: z.string().max(64).optional(),
     mediaAuthOptOuts: mediaAuthOptOutsSchema,
     paymentMethodCategory: z.enum(["bank", "card"]).optional(),
     smsConsent: z.boolean().optional(),
-  }),
+  })
+  .superRefine((d, ctx) => {
+    if (d.waiverSigned && !d.waiverSignedBy?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["waiverSignedBy"],
+        message: "Signature required when signing the waiver",
+      });
+    }
+  });
+
+export const guestCheckoutSchema = z.union([
+  legacyGuestCheckoutSchema,
+  adultGuestCheckoutSchema,
 ]);
 
 export const POST: APIRoute = async (context) => {
   const { request, url, clientAddress } = context;
   const posthog = getPostHogServer();
   const phSessionId = request.headers.get("X-PostHog-Session-Id") || undefined;
+  // The browser's anonymous PostHog distinct id. Guests never call identify
+  // client-side (the account is created here, after the fact), so events
+  // keyed to the DB user id land on a separate person and funnels can't
+  // join. Capturing against the browser id — and aliasing it to the user id
+  // once one exists — keeps the whole journey on one person.
+  const phClientId = parsePhDistinctId(request.headers.get("cookie"));
   const userAgent = request.headers.get("user-agent");
 
   // Per-IP throttle: this endpoint is unauthenticated and creates Stripe
@@ -132,68 +157,6 @@ export const POST: APIRoute = async (context) => {
       brand,
       ...collectAdAttribution(url, request.headers.get("cookie")),
     };
-
-    // -------------------------------------------------------------------------
-    // Shared helper: upsert user by email, assign parent role if new.
-    // Returns { userRow, wasNewUser }.
-    // -------------------------------------------------------------------------
-    async function upsertGuestUser(opts: {
-      email: string;
-      firstName: string;
-      lastName: string;
-      phone?: string | null;
-      birthDate?: string | null;
-    }) {
-      const normalizedEmail = opts.email.toLowerCase().trim();
-      let wasNewUser = false;
-
-      const insertedUsers = await db
-        .insert(users)
-        .values({
-          email: normalizedEmail,
-          passwordHash: null,
-          firstName: opts.firstName,
-          lastName: opts.lastName,
-          phone: opts.phone ?? null,
-          birthDate: opts.birthDate ?? null,
-          emailVerified: false,
-        })
-        .onConflictDoNothing({ target: users.email })
-        .returning();
-
-      let userRow: typeof users.$inferSelect;
-      if (insertedUsers.length > 0) {
-        userRow = insertedUsers[0];
-        wasNewUser = true;
-
-        // Assign global parent role (mirroring /api/auth/signup)
-        const [parentRole] = await db
-          .select()
-          .from(roles)
-          .where(eq(roles.name, "parent"));
-        if (parentRole) {
-          await db.insert(userRoles).values({
-            userId: userRow.id,
-            roleId: parentRole.id,
-            scopeType: "global",
-          });
-        }
-      } else {
-        // Either the email already existed or a concurrent insert won the race.
-        // Either way, re-fetch the row that's now in the table.
-        const [existing] = await db
-          .select()
-          .from(users)
-          .where(eq(users.email, normalizedEmail));
-        if (!existing) {
-          // Should be impossible — log and 500
-          throw new Error("User row vanished after upsert race");
-        }
-        userRow = existing;
-      }
-
-      return { userRow, wasNewUser, normalizedEmail };
-    }
 
     // -------------------------------------------------------------------------
     // Shared helper: run registration + Stripe checkout + session cookie.
@@ -262,10 +225,64 @@ export const POST: APIRoute = async (context) => {
         });
       } catch (err) {
         if (err instanceof RegistrationError) {
-          return new Response(JSON.stringify({ error: err.message }), {
-            status: err.status,
-            headers: { "Content-Type": "application/json" },
-          });
+          if (err.code === "already_registered") {
+            // Guest already has a live registration for this person+season.
+            // Nudge them to their existing account with the same magic-link
+            // login email the post-payment webhook sends new guests — the
+            // "manage link" from the funnel-friction proposal. This is
+            // best-effort and rate-limited per user; it must never change
+            // the 409 below (disclosure rule: the response itself never
+            // reveals whether an email was sent).
+            const manageLinkGate = rateLimit(
+              `already-registered-link:${userRow.id}`,
+              1,
+              10 * 60_000,
+            );
+            if (manageLinkGate.allowed) {
+              try {
+                const link = await createMagicLink({
+                  userId: userRow.id,
+                  purpose: "login",
+                  purposeContext: { redirectTo: "/dashboard" },
+                  deliveredChannel: "email",
+                  deliveredTo: userRow.email,
+                });
+                // Awaited (not truly un-awaited fire-and-forget): Netlify
+                // freezes the function instance once the response is sent,
+                // so an un-awaited send here would be abandoned mid-flight
+                // (see await-dispatch.ts). Errors are caught below and never
+                // surface to the caller.
+                await awaitEmailSend("already-registered manage link", () =>
+                  sendMagicLinkLoginEmail({
+                    userId: userRow.id,
+                    parentEmail: userRow.email,
+                    parentName: userRow.firstName || userRow.email.split("@")[0],
+                    magicLinkUrl: buildMagicLinkUrl(link.token, {
+                      origin: url.origin,
+                    }),
+                    expiresIn: "15 minutes",
+                    brand,
+                  }),
+                );
+              } catch (emailErr) {
+                console.error(
+                  "[guest-checkout] already-registered manage-link failed:",
+                  emailErr,
+                );
+              }
+            }
+          }
+          return new Response(
+            JSON.stringify(
+              err.code
+                ? { error: err.message, code: err.code }
+                : { error: err.message },
+            ),
+            {
+              status: err.status,
+              headers: { "Content-Type": "application/json" },
+            },
+          );
         }
         throw err;
       }
@@ -338,6 +355,24 @@ export const POST: APIRoute = async (context) => {
         );
       }
 
+      // Step 4b: zero-due registrations (captain deposit credit) are already
+      // finalized inside createRegistration — no Stripe session to create.
+      // Without this guard, createCheckoutForRegistration would 400 on the
+      // already-paid row.
+      if (!regResult.requiresPayment) {
+        if (wasNewUser) {
+          await createSession(userRow.id, context);
+        }
+        return new Response(
+          JSON.stringify({
+            paid: true,
+            registrationId: regResult.registration.id,
+            wasNewUser,
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
       // Step 5: create Stripe checkout session
       try {
         const checkout = await createCheckoutForRegistration({
@@ -355,8 +390,17 @@ export const POST: APIRoute = async (context) => {
           await createSession(userRow.id, context);
         }
 
+        if (phClientId && phClientId !== userRow.id) {
+          // Merge the anonymous browser person into the user person so the
+          // pre-checkout journey and later server events unify (mirrors
+          // capturePaymentCompleted in payment-telemetry.ts).
+          posthog.alias({ distinctId: phClientId, alias: userRow.id });
+        }
         posthog.identify({ distinctId: userRow.id, properties: { email: userRow.email, firstName: userRow.firstName, lastName: userRow.lastName } });
-        posthog.capture({ distinctId: userRow.id, event: "guest_checkout_completed", properties: { $session_id: phSessionId, season_id: seasonId, registration_id: regResult.registration.id, was_new_user: wasNewUser, discount_code: discountCode, paid_zero: checkout.kind === "paid_zero", brand } });
+        posthog.capture({ distinctId: phClientId || userRow.id, event: "guest_checkout_completed", properties: { $session_id: phSessionId, season_id: seasonId, registration_id: regResult.registration.id, was_new_user: wasNewUser, discount_code: discountCode, paid_zero: checkout.kind === "paid_zero", brand, user_id: userRow.id } });
+        // Deliver before returning — Netlify freezes the instance after the
+        // response, which can drop in-flight capture requests.
+        await flushPostHog();
 
         if (checkout.kind === "paid_zero") {
           return new Response(
@@ -364,6 +408,7 @@ export const POST: APIRoute = async (context) => {
               paid: true,
               registrationId: regResult.registration.id,
               wasNewUser,
+              amountDueCents: regResult.registration.amountDueCents,
             }),
             { status: 200, headers: { "Content-Type": "application/json" } },
           );
@@ -375,6 +420,10 @@ export const POST: APIRoute = async (context) => {
             surchargeCents: checkout.surchargeCents,
             publishableKey: import.meta.env.STRIPE_PUBLISHABLE_KEY,
             wasNewUser,
+            // Lets the wizard record the client-confirmed payment signal
+            // (webhook-lag bridge) against the right registration.
+            registrationId: regResult.registration.id,
+            amountDueCents: regResult.registration.amountDueCents,
           }),
           { status: 200, headers: { "Content-Type": "application/json" } },
         );
@@ -394,14 +443,14 @@ export const POST: APIRoute = async (context) => {
     // -------------------------------------------------------------------------
     if ("registrant" in data) {
       const r = data.registrant;
-      posthog.capture({ distinctId: r.email.toLowerCase().trim(), event: "guest_checkout_started", properties: { $session_id: phSessionId, season_id: data.seasonId, registration_type: data.registrationType, brand } });
+      posthog.capture({ distinctId: phClientId || r.email.toLowerCase().trim(), event: "guest_checkout_started", properties: { $session_id: phSessionId, season_id: data.seasonId, registration_type: data.registrationType, brand, email: r.email.toLowerCase().trim() } });
 
-      const { userRow, wasNewUser } = await upsertGuestUser({
+      const { userRow, wasNewUser } = await upsertGuestUser(db, {
         email: r.email,
         firstName: r.firstName,
         lastName: r.lastName,
         phone: r.phone,
-        birthDate: r.birthDate,
+        birthDate: r.birthDate ?? null,
       });
 
       // resolve self person (find-or-create the self-row on family_members)
@@ -411,7 +460,7 @@ export const POST: APIRoute = async (context) => {
           id: userRow.id,
           firstName: userRow.firstName ?? r.firstName,
           lastName: userRow.lastName ?? r.lastName,
-          birthDate: userRow.birthDate ?? r.birthDate,
+          birthDate: userRow.birthDate ?? r.birthDate ?? null,
           gender: r.gender ?? null,
         },
       });
@@ -423,7 +472,7 @@ export const POST: APIRoute = async (context) => {
         seasonId: data.seasonId,
         registrationType: data.registrationType,
         waiverSigned: data.waiverSigned,
-        waiverSignedBy: data.waiverSignedBy,
+        waiverSignedBy: data.waiverSignedBy ?? "",
         discountCode: data.discountCode,
         wasNewUser,
         distinctIdForPosthog: userRow.email,
@@ -440,9 +489,9 @@ export const POST: APIRoute = async (context) => {
     // -------------------------------------------------------------------------
     // PARENT + CHILD PATH (original behavior — preserved unchanged)
     // -------------------------------------------------------------------------
-    posthog.capture({ distinctId: data.parent.email.toLowerCase().trim(), event: "guest_checkout_started", properties: { $session_id: phSessionId, season_id: data.seasonId, registration_type: data.registrationType, brand } });
+    posthog.capture({ distinctId: phClientId || data.parent.email.toLowerCase().trim(), event: "guest_checkout_started", properties: { $session_id: phSessionId, season_id: data.seasonId, registration_type: data.registrationType, brand, email: data.parent.email.toLowerCase().trim() } });
 
-    const { userRow, wasNewUser } = await upsertGuestUser({
+    const { userRow, wasNewUser } = await upsertGuestUser(db, {
       email: data.parent.email,
       firstName: data.parent.firstName,
       lastName: data.parent.lastName,

@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { users } from "@/lib/db/schema/users";
 import { registrations } from "@/lib/db/schema/registrations";
@@ -254,8 +254,11 @@ export const POST: APIRoute = async (context) => {
           and(
             eq(phoneOptIns.organizationId, organizationId),
             eq(phoneOptIns.phone, adultNormalizedPhone),
+            // This flow collects SMS consent only (welcome text → reply YES).
+            eq(phoneOptIns.channel, "sms"),
           ),
         )
+        .orderBy(asc(phoneOptIns.createdAt))
         .limit(1);
 
       if (existingOptIn.length === 0) {
@@ -263,6 +266,7 @@ export const POST: APIRoute = async (context) => {
           organizationId,
           userId: adultUserId,
           phone: adultNormalizedPhone,
+          channel: "sms",
           status: "pending",
           optInSource: "admin_added",
         });
@@ -446,8 +450,11 @@ export const POST: APIRoute = async (context) => {
       and(
         eq(phoneOptIns.organizationId, organizationId),
         eq(phoneOptIns.phone, normalizedPhone),
+        // This flow collects SMS consent only (welcome text → reply YES).
+        eq(phoneOptIns.channel, "sms"),
       ),
     )
+    .orderBy(asc(phoneOptIns.createdAt))
     .limit(1);
 
   if (existingOptIn.length === 0) {
@@ -455,6 +462,7 @@ export const POST: APIRoute = async (context) => {
       organizationId,
       userId: parentUserId,
       phone: normalizedPhone,
+      channel: "sms",
       status: "pending",
       optInSource: "admin_added",
     });

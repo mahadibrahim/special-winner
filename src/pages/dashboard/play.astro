@@ -6,6 +6,7 @@ import PlayAttention from "@/components/dashboard/play/PlayAttention";
 import PlayUpcoming from "@/components/dashboard/play/PlayUpcoming";
 import PlayMembership from "@/components/dashboard/play/PlayMembership";
 import PlayExplore from "@/components/dashboard/play/PlayExplore";
+import MyTeamsCard from "@/components/dashboard/teams/MyTeamsCard";
 import MyDropInBookings from "@/components/dashboard/MyDropInBookings";
 import MyFieldRentals from "@/components/dashboard/MyFieldRentals";
 import MembershipCard from "@/components/dashboard/MembershipCard";
@@ -55,6 +56,7 @@ const { hasFamily, hasPlay } = await getDashboardDestinations(user.id);
           {/* What you're part of */}
           <DashboardSection icon="shield" title="What you're part of" accent="default">
             <div class="flex flex-col gap-8 mt-1">
+              <MyTeamsCard client:load />
               <PlayMembership client:visible />
               <MembershipCard client:load />
               <MyDropInBookings client:visible />

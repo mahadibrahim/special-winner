@@ -13,6 +13,8 @@ import {
   PaymentBalanceReminderEmail,
   type BalanceReminderType,
 } from "./templates/payment-balance-reminder";
+import { WaiverReminderEmail } from "./templates/waiver-reminder";
+import type { WaiverReminderWindowType } from "@/lib/registrations/waiver-reminder-windows";
 import { SignInLinkEmail } from "./templates/sign-in-link";
 import { CoachInviteEmail } from "./templates/coach-invite";
 import { EmailVerificationEmail } from "./templates/email-verification";
@@ -21,6 +23,7 @@ import { WelcomeEmail2 } from "./templates/welcome-2-story";
 import { WelcomeEmail3 } from "./templates/welcome-3-activation";
 import { DisputeAlertEmail } from "./templates/dispute-alert";
 import { CaptureIncentiveEmail } from "./templates/capture-incentive";
+import { InappRecaptureEmail } from "./templates/inapp-recapture";
 import { FeedbackNpsEmail } from "./templates/feedback-nps";
 import { FeedbackDetractorAlertEmail } from "./templates/feedback-detractor-alert";
 import { FeedbackRefereeRatingEmail } from "./templates/feedback-referee-rating";
@@ -171,6 +174,10 @@ export interface SendRegistrationConfirmationParams {
   registrationStatus: string;
   /** Pass true when the parent already has Telegram linked to suppress the connect CTA in the email. */
   hasLinkedTelegram?: boolean;
+  /** Magic-link (or plain) URL to /account/complete/{registrationId} — pass
+   *  only when the registration's waiver is still unsigned. See the prop
+   *  doc on RegistrationConfirmationEmailProps for the render contract. */
+  completionUrl?: string;
   /** Brand attribution for the purchase — from Stripe metadata.brand or
    *  the request host. Controls email template + link origin. Defaults
    *  to aspire. */
@@ -203,6 +210,7 @@ export async function sendRegistrationConfirmationEmail(params: SendRegistration
       hasLinkedTelegram: params.hasLinkedTelegram ?? false,
       paymentUrl: `${appUrl}/dashboard/registrations/${params.registrationId}/pay-balance`,
       waitlistClaimHours: WAITLIST_PROMOTION_HOURS,
+      completionUrl: params.completionUrl,
       brand: params.brand,
     }),
   );
@@ -614,6 +622,55 @@ export async function sendBalanceReminderEmail(
   });
 }
 
+// Waiver reminder email — fired by /api/cron/send-waiver-reminders on the
+// cadence documented in src/lib/registrations/waiver-reminder-windows.ts.
+export interface SendWaiverReminderParams {
+  userId: string;
+  organizationId?: string;
+  registrationId: string;
+  parentEmail: string;
+  parentName: string;
+  seasonName: string;
+  seasonStartDate: Date | string;
+  locationName: string;
+  /** Caller must build completionUrl using the brand origin (magic-link for
+   *  guest/passwordless parents, plain path otherwise). */
+  completionUrl: string;
+  reminderType: WaiverReminderWindowType;
+  brand?: BrandId;
+}
+
+export async function sendWaiverReminderEmail(params: SendWaiverReminderParams) {
+  if (!isEmailConfigured()) {
+    console.warn("Email not configured, skipping waiver reminder email");
+    return { success: false, error: "Email not configured" };
+  }
+
+  const { html, text } = await renderEmail(
+    WaiverReminderEmail({
+      parentName: params.parentName,
+      seasonName: params.seasonName,
+      seasonStartDate: formatEmailDate(params.seasonStartDate),
+      locationName: params.locationName,
+      completionUrl: params.completionUrl,
+      brand: params.brand,
+    }),
+  );
+
+  const subject = `Sign your waiver before game 1 — ${params.seasonName}`;
+
+  return sendTransactionalEmail({
+    userId: params.userId,
+    registrationId: params.registrationId,
+    emailType: `waiver_reminder_${params.reminderType}`,
+    to: params.parentEmail,
+    subject,
+    html,
+    text,
+    from: fromForBrand(params.brand),
+  });
+}
+
 // Sign-in link email (magic-link for signup + forgot-password flows)
 export interface SendSignInLinkParams {
   userId: string;
@@ -732,6 +789,54 @@ export async function sendEmailVerificationEmail(
     emailType: "email_verification",
     to: params.recipientEmail,
     subject,
+    html,
+    text,
+    from: fromForBrand(params.brand),
+  });
+}
+
+// Marketing double opt-in confirmation. THE address is not on any list until
+// this link is clicked — the click is the verified act that promotes the
+// captured intent (see /api/consent/confirm/[token] and
+// promotePendingEmailConsents). The message itself is TRANSACTIONAL: it is the
+// one email we may send an unconfirmed address, and it asks for nothing but the
+// confirmation.
+export interface SendEmailConsentConfirmationParams {
+  userId: string;
+  recipientEmail: string;
+  name: string;
+  confirmUrl: string;
+  /** The literal sentence they ticked — quoted back so the click is informed. */
+  consentTextShown: string;
+  expiresIn?: string;
+  brand?: BrandId;
+}
+
+export async function sendEmailConsentConfirmationEmail(
+  params: SendEmailConsentConfirmationParams,
+) {
+  if (!isEmailConfigured()) {
+    console.warn("Email not configured, skipping consent confirmation email");
+    return { success: false, error: "Email not configured" };
+  }
+
+  const brandName = getBrandTheme(params.brand).displayName;
+
+  const { html, text } = await renderEmail(
+    EmailVerificationEmail({
+      name: params.name,
+      verifyUrl: params.confirmUrl,
+      expiresIn: params.expiresIn ?? "14 days",
+      brand: params.brand,
+      consentTextShown: params.consentTextShown,
+    }),
+  );
+
+  return sendTransactionalEmail({
+    userId: params.userId,
+    emailType: "email_consent_confirmation",
+    to: params.recipientEmail,
+    subject: `Confirm your email — ${brandName}`,
     html,
     text,
     from: fromForBrand(params.brand),
@@ -924,6 +1029,88 @@ export async function sendCaptureIncentiveEmail(params: {
   return result;
 }
 
+// ---- In-app browser recapture (escape banner "email yourself a link") ----
+
+// One-shot recapture-link delivery for a visitor stuck in an in-app browser
+// (Instagram/Facebook webview) who asked the escape banner to email them a
+// link instead of switching apps manually. Transactional one-off, not a
+// drip series — no List-Unsubscribe, and no userId (the visitor may not
+// have an account yet). Deduped per address via email_logs, exact structural
+// clone of sendCaptureIncentiveEmail.
+export async function sendInappRecaptureEmail(params: {
+  email: string;
+  seasonId: string;
+  seasonName: string;
+  brand?: BrandId;
+}) {
+  const brand = params.brand ?? "aspire";
+  const emailType = "inapp_recapture";
+  const subject = `Finish signing up for ${params.seasonName}`;
+
+  // Existence check — a sent/skipped row means we already handled this
+  // address, so no orderBy is needed on the limit(1). Failed sends are
+  // excluded on purpose: a resubmit after a transient Resend error must
+  // retry, not dedupe.
+  const [already] = await getDb()
+    .select({ id: emailLogs.id })
+    .from(emailLogs)
+    .where(
+      and(
+        eq(emailLogs.emailType, emailType),
+        eq(emailLogs.recipientEmail, params.email),
+        ne(emailLogs.status, "failed"),
+      ),
+    )
+    .limit(1);
+  if (already) {
+    return { success: true, deduped: true };
+  }
+
+  if (!isEmailConfigured()) {
+    console.warn("Email not configured, skipping inapp-recapture email");
+    // Record the attempt anyway so the dedupe gate holds (same pattern as
+    // the welcome series).
+    await logEmail({
+      emailType,
+      recipientEmail: params.email,
+      subject,
+      status: "skipped",
+    });
+    return { success: false, error: "Email not configured" };
+  }
+
+  const appUrl = originForBrand(brand) ?? env.PUBLIC_APP_URL;
+  const registerUrl = `${appUrl}/register/${params.seasonId}?mode=individual&utm_source=inapp_recapture`;
+  const { html, text } = await renderEmail(
+    InappRecaptureEmail({
+      seasonName: params.seasonName,
+      registerUrl,
+      brand,
+    }),
+  );
+
+  // Direct sendEmail rather than sendTransactionalEmail: there is no userId
+  // for the log association, so we log manually with the recipient email
+  // alone (same pattern as sendCaptureIncentiveEmail).
+  const result = await sendEmail({
+    to: params.email,
+    subject,
+    html,
+    text,
+    from: fromForBrand(params.brand),
+  });
+
+  await logEmail({
+    emailType,
+    recipientEmail: params.email,
+    subject,
+    resendMessageId: result.messageId,
+    status: result.success ? "sent" : "failed",
+  });
+
+  return result;
+}
+
 // ---- Team invite (captain → prospective teammate) ----
 
 export interface SendTeamInviteParams {
@@ -987,6 +1174,115 @@ export async function sendTeamInviteEmail(params: SendTeamInviteParams) {
     status: result.success ? "sent" : "failed",
   });
 
+  return result;
+}
+
+// ---- Team deposit receipt (captain, right after the $200 deposit succeeds) ----
+
+export interface TeamDepositReceiptParams {
+  to: string;
+  captainName: string;
+  teamName: string;
+  seasonName: string;
+  seasonId: string;
+  inviteToken: string;
+  /**
+   * team_registrations.id — powers the "Manage your team" deep-link into the
+   * Team Hub (/dashboard/teams/{id}). Optional so legacy callers/tests still
+   * build; when absent, the receipt shows only the shareable join link.
+   */
+  teamRegistrationId?: string;
+  /** Snapshot from team_registrations — null on legacy rows. */
+  teamFeeCents: number | null;
+  depositCents: number;
+  paymentDeadline: Date | null;
+  brand?: BrandId;
+}
+
+/**
+ * Pure body builder — exported for unit tests. The receipt is the captain's
+ * only durable copy of the join link and next steps: before this email
+ * existed, closing the post-deposit tab lost both.
+ */
+export function buildTeamDepositReceipt(params: TeamDepositReceiptParams): {
+  subject: string;
+  html: string;
+  text: string;
+  joinUrl: string;
+} {
+  const appUrl = originForBrand(params.brand) ?? env.PUBLIC_APP_URL;
+  const joinUrl = `${appUrl}/register/${params.seasonId}?team=${encodeURIComponent(params.inviteToken)}`;
+  // Deep-link into the persistent Team Hub. A signed-out captain hits the
+  // middleware auth gate and is bounced through /signin back to this URL.
+  const manageUrl = params.teamRegistrationId
+    ? `${appUrl}/dashboard/teams/${params.teamRegistrationId}`
+    : null;
+  const deposit = `$${(params.depositCents / 100).toLocaleString("en-US")}`;
+  const total =
+    params.teamFeeCents != null ? `$${(params.teamFeeCents / 100).toLocaleString("en-US")}` : null;
+  const remainder =
+    params.teamFeeCents != null
+      ? `$${(Math.max(0, params.teamFeeCents - params.depositCents) / 100).toLocaleString("en-US")}`
+      : null;
+  // paymentDeadline is a full instant — pin to the org timezone
+  // (America/New_York) so this agrees with the fee box on team-create.tsx,
+  // which formats the same registrationCloses instant the same way.
+  const deadline = params.paymentDeadline
+    ? params.paymentDeadline.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        timeZone: "America/New_York",
+      })
+    : null;
+
+  const subject = `${params.teamName} is reserved — here's your team link`;
+  const feeLine = total
+    ? `Your ${deposit} deposit is in and counts toward the ${total} team fee — your roster covers the remaining ${remainder} as they register.`
+    : `Your ${deposit} deposit is in and counts toward the team fee — your roster covers the rest as they register.`;
+  const deadlineLine = `Teammate shares still unpaid after ${deadline ?? "the payment deadline"} are charged to your card on file.`;
+
+  const manageButton = manageUrl
+    ? `<p><a href="${manageUrl}" style="display:inline-block;background:#1a1a1a;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">Manage your team →</a></p>
+    <p style="color:#666;font-size:13px;">Invite teammates, track who's paid, and follow your schedule anytime here:<br>${escapeHtml(manageUrl)}</p>`
+    : "";
+  const manageText = manageUrl
+    ? `Manage your team — invite teammates, track who's paid, and follow your schedule anytime:\n${manageUrl}\n\n`
+    : "";
+
+  const html = `<!doctype html><html><body style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1a1a1a;line-height:1.5;">
+    <p>${escapeHtml(params.captainName)}, <strong>${escapeHtml(params.teamName)}</strong> is reserved for ${escapeHtml(params.seasonName)}.</p>
+    <p>${escapeHtml(feeLine)}</p>
+    ${manageButton}
+    <p><strong>Your team link</strong> — share it so teammates can register and pay their share:</p>
+    <p style="color:#666;font-size:13px;">${escapeHtml(joinUrl)}</p>
+    <p style="color:#666;font-size:13px;">${escapeHtml(deadlineLine)}</p>
+  </body></html>`;
+
+  const text = `${params.captainName}, ${params.teamName} is reserved for ${params.seasonName}.\n\n${feeLine}\n\n${manageText}Your team link — share it so teammates can register and pay their share:\n${joinUrl}\n\n${deadlineLine}\n`;
+
+  return { subject, html, text, joinUrl };
+}
+
+export async function sendTeamDepositReceiptEmail(params: TeamDepositReceiptParams) {
+  if (!isEmailConfigured()) {
+    console.warn("Email not configured, skipping team deposit receipt");
+    return { success: false, error: "Email not configured" };
+  }
+  const { subject, html, text } = buildTeamDepositReceipt(params);
+  const result = await sendEmail({
+    to: params.to,
+    subject,
+    html,
+    text,
+    from: fromForBrand(params.brand),
+  });
+  await logEmail({
+    emailType: "team_deposit_receipt",
+    recipientEmail: params.to,
+    subject,
+    resendMessageId: result.messageId,
+    status: result.success ? "sent" : "failed",
+  });
   return result;
 }
 
@@ -1056,6 +1352,88 @@ export async function sendTeamShareReminderEmail(params: SendTeamShareReminderPa
     status: result.success ? "sent" : "failed",
   });
 
+  return result;
+}
+
+// ---- Team backstop warning (captain, ~3 days before the deadline) ----
+
+export interface TeamBackstopWarningParams {
+  to: string;
+  captainName: string;
+  teamName: string;
+  joinUrl: string;
+  /** Sum of assignedShareCents across still-unpaid invitees. */
+  unpaidTotalCents: number;
+  unpaidCount: number;
+  deadline: Date | null;
+  brand?: BrandId;
+}
+
+/**
+ * Pure body builder — exported for unit tests. This is what the captain
+ * should get instead of the teammate "pay your share" template: it names
+ * the total that will land on their card if teammates don't pay, not a
+ * confusing self-referential "your captain will be charged" line.
+ */
+export function buildTeamBackstopWarning(params: TeamBackstopWarningParams): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  // Keep both cent digits on fractional totals ("$450.50", never "$450.5") —
+  // even splits of odd remainders produce non-whole-dollar sums.
+  const totalDollars = params.unpaidTotalCents / 100;
+  const total = `$${totalDollars.toLocaleString("en-US", {
+    minimumFractionDigits: Number.isInteger(totalDollars) ? 0 : 2,
+    maximumFractionDigits: 2,
+  })}`;
+  // deadline is a full instant — pin to the org timezone (America/New_York)
+  // so this agrees with the deadline rendering elsewhere (e.g.
+  // buildTeamDepositReceipt, team-create.tsx).
+  const deadline = params.deadline
+    ? params.deadline.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        timeZone: "America/New_York",
+      })
+    : null;
+
+  const subject = `Heads up: ${total} in unpaid shares for ${params.teamName}`;
+  const teammateWord = params.unpaidCount === 1 ? "teammate" : "teammates";
+  const bodyLine = `${params.unpaidCount} ${teammateWord} haven't paid. Shares still unpaid are charged to your card on ${deadline ?? "the payment deadline"}. Nudge them or adjust splits from your team page.`;
+
+  const html = `<!doctype html><html><body style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1a1a1a;line-height:1.5;">
+    <p>${escapeHtml(params.captainName)}, <strong>${escapeHtml(total)}</strong> in unpaid shares for <strong>${escapeHtml(params.teamName)}</strong> is coming due.</p>
+    <p>${escapeHtml(bodyLine)}</p>
+    <p><a href="${params.joinUrl}" style="display:inline-block;background:#1a1a1a;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">Open your team page →</a></p>
+    <p style="color:#666;font-size:13px;">Or paste this link into your browser:<br>${escapeHtml(params.joinUrl)}</p>
+  </body></html>`;
+
+  const text = `${params.captainName}, ${total} in unpaid shares for ${params.teamName} is coming due.\n\n${bodyLine}\n\nOpen your team page:\n${params.joinUrl}\n`;
+
+  return { subject, html, text };
+}
+
+export async function sendTeamBackstopWarningEmail(params: TeamBackstopWarningParams) {
+  if (!isEmailConfigured()) {
+    console.warn("Email not configured, skipping team backstop warning email");
+    return { success: false, error: "Email not configured" };
+  }
+  const { subject, html, text } = buildTeamBackstopWarning(params);
+  const result = await sendEmail({
+    to: params.to,
+    subject,
+    html,
+    text,
+    from: fromForBrand(params.brand),
+  });
+  await logEmail({
+    emailType: "team_backstop_warning",
+    recipientEmail: params.to,
+    subject,
+    resendMessageId: result.messageId,
+    status: result.success ? "sent" : "failed",
+  });
   return result;
 }
 

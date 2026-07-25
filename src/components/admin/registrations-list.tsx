@@ -34,6 +34,7 @@ interface Registration {
   amountDueCents: number
   registrationType: string | null
   waiverSigned: boolean
+  ageReviewNeeded: boolean
   waitlistPosition: number | null
   createdAt: string
   cancelledAt: string | null
@@ -80,6 +81,7 @@ export function RegistrationsList() {
   const [statusFilter, setStatusFilter] = useState("all")
   const [paymentFilter, setPaymentFilter] = useState("all")
   const [search, setSearch] = useState("")
+  const [needsAttentionOnly, setNeedsAttentionOnly] = useState(false)
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
 
   useEffect(() => {
@@ -157,7 +159,12 @@ export function RegistrationsList() {
     }
   }
 
+  function needsAttention(r: Registration) {
+    return !r.waiverSigned || r.ageReviewNeeded
+  }
+
   const filteredRegistrations = registrations.filter((r) => {
+    if (needsAttentionOnly && !needsAttention(r)) return false
     if (!search) return true
     const searchLower = search.toLowerCase()
     return (
@@ -253,6 +260,18 @@ export function RegistrationsList() {
                 <SelectItem value="deposit_paid">Deposit Paid</SelectItem>
               </SelectContent>
             </Select>
+            <button
+              type="button"
+              onClick={() => setNeedsAttentionOnly((prev) => !prev)}
+              aria-pressed={needsAttentionOnly}
+              className={`inline-flex items-center px-3 py-2 text-sm font-medium rounded border transition-colors whitespace-nowrap ${
+                needsAttentionOnly
+                  ? "border-amber-300 bg-amber-100 text-amber-800"
+                  : "border-border text-ink-muted hover:text-ink hover:bg-cream-2"
+              }`}
+            >
+              Needs attention
+            </button>
             {/* Server streams the CSV with the same filter params the
                 list uses (search is client-side only and not applied). */}
             <a
@@ -305,6 +324,16 @@ export function RegistrationsList() {
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
+                        {!registration.waiverSigned && (
+                          <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-100">
+                            Waiver pending
+                          </Badge>
+                        )}
+                        {registration.ageReviewNeeded && (
+                          <Badge className="bg-red-100 text-red-800 hover:bg-red-100">
+                            Age review
+                          </Badge>
+                        )}
                         {getStatusBadge(registration.status)}
                         {getPaymentBadge(registration.paymentStatus)}
                       </div>

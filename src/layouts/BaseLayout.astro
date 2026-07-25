@@ -12,16 +12,23 @@ import SoccerOneHeader from '@/components/soccerone/SoccerOneHeader.astro';
 import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
 import { AppToaster } from '@/components/ui/app-toaster';
 import { getBrandTheme } from '@/lib/branding/themes';
+import { resolveOgOrigin, toAbsoluteUrl } from '@/lib/branding/og';
 import { resolveNavUser } from '@/lib/branding/nav-user';
+import { resolveCanonicalUrl } from '@/lib/seo/canonical';
 
 const theme = getBrandTheme(Astro.locals.brandId);
 
 interface Props {
   title: string;
   description?: string;
+  /** Override the brand's default share card. Absolute path or absolute URL. */
   ogImage?: string;
+  /** Alt text for og:image:alt. Defaults to the brand's card alt. */
+  ogImageAlt?: string;
   /** Per-brand favicon path. Defaults to the theme favicon. */
   favicon?: string;
+  /** Override the auto-derived canonical URL. Absolute URL. */
+  canonical?: string;
   bodyClass?: string;
   navigation?: boolean;
   footer?: boolean;
@@ -30,12 +37,28 @@ interface Props {
 const {
   title,
   description = theme.defaultDescription,
-  ogImage,
+  ogImage = theme.ogImage,
+  ogImageAlt = theme.ogImageAlt,
   favicon = theme.favicon,
+  canonical,
   bodyClass = "min-h-screen flex flex-col bg-cream text-ink antialiased",
   navigation = true,
   footer = true,
 } = Astro.props;
+
+// Link-preview (og:*/twitter:*) tags need ABSOLUTE URLs or iMessage/WhatsApp
+// drop the image. SSR uses the real request origin (correct per brand domain);
+// prerendered pages (always Aspire, Astro.url.origin = build-time localhost)
+// fall back to the Aspire canonical origin.
+const PRERENDER_ORIGIN = import.meta.env.PUBLIC_APP_URL || "https://aspiresportsohio.com";
+const ogOrigin = resolveOgOrigin(Astro.isPrerendered, Astro.url.origin, PRERENDER_ORIGIN);
+const ogImageUrl = toAbsoluteUrl(ogImage, ogOrigin);
+
+// Canonical uses the brand's canonical host (not the raw request origin) so
+// preview deploys / apex-vs-www / the SoccerOne long-form path all collapse to
+// the one production URL we want indexed. og:url is aligned to it.
+const canonicalUrl =
+  canonical ?? resolveCanonicalUrl(theme.id, Astro.url.pathname, PRERENDER_ORIGIN);
 
 // Shared pages hardcode "… — Aspire Sports" titles. The tab/og title is
 // chrome-level brand identity, so swap the brand name per theme rather
@@ -90,7 +113,20 @@ const navUser = resolveNavUser({
     <meta property="og:title" content={brandedTitle} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
-    {ogImage && <meta property="og:image" content={ogImage} />}
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:site_name" content={theme.displayName} />
+    <meta property="og:image" content={ogImageUrl} />
+    <meta property="og:image:secure_url" content={ogImageUrl} />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={ogImageAlt} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={brandedTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImageUrl} />
+    <meta name="twitter:image:alt" content={ogImageAlt} />
+    <link rel="canonical" href={canonicalUrl} />
     <link rel="icon" type="image/svg+xml" href={favicon} />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -100,6 +136,25 @@ const navUser = resolveNavUser({
     />
     {theme.fontsHref && <link href={theme.fontsHref} rel="stylesheet" />}
     {brandCss && <style is:inline set:html={brandCss} />}
+    <script is:inline>
+      // Recover from stale-deploy chunk loads: a tab opened before a deploy
+      // can dynamic-import a hashed chunk that no longer exists ("Importing a
+      // module script failed"). Vite surfaces that as vite:preloadError —
+      // reload once to pick up the new build. The timestamp guard stops a
+      // reload loop when the page is genuinely broken; sessionStorage is
+      // try/caught because some privacy modes deny it.
+      window.addEventListener("vite:preloadError", function (event) {
+        var KEY = "stale-chunk-reload-at";
+        try {
+          if (Date.now() - Number(sessionStorage.getItem(KEY) || 0) < 60000) return;
+          sessionStorage.setItem(KEY, String(Date.now()));
+        } catch (_) {
+          return;
+        }
+        event.preventDefault();
+        window.location.reload();
+      });
+    </script>
     <title>{brandedTitle}</title>
     <PostHog />
     <GoogleTagManager containerId={gtmContainerId} />

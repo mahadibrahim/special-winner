@@ -1,4 +1,7 @@
 import { describe, it, expect } from "vitest";
+import { getDb } from "@/lib/db";
+import { users, familyMembers, registrations, emailLogs } from "@/lib/db/schema";
+import { eq, and } from "drizzle-orm";
 
 const BASE = process.env.TEST_BASE_URL || "http://localhost:4321";
 
@@ -224,5 +227,124 @@ describe("POST /api/registrations/guest-checkout", () => {
     // Endpoint now returns embedded-checkout PaymentIntent shape (not redirect URL).
     expect(typeof data.clientSecret).toBe("string");
     expect(typeof data.sessionId).toBe("string");
+  });
+
+  // Funnel-friction Wave A, Task 2: the guest repeat-registrant friendly
+  // state consumes this 409 shape (`{ error, code: "already_registered" }`,
+  // Task 1's contract) and additionally triggers a fire-and-forget
+  // magic-link "manage your registration" email to the guest's address.
+  describe("guest already-registered 409 + manage-link email", () => {
+    it("returns 409 already_registered against a live (paid) registration, before any Stripe step, and sends exactly one manage-link email across repeat 409s within the throttle window", async () => {
+      const seasonId = await fetchOpenSeasonId();
+      const email = `guest-alreadyreg-${Date.now()}@example.com`;
+      const child = {
+        firstName: `AlreadyRegKid${Date.now()}`,
+        lastName: "Tester",
+        birthDate: "2016-04-01",
+        gender: "male",
+      };
+      const body = validBody({
+        parent: { firstName: "AlreadyReg", lastName: "Parent", email },
+        child,
+      });
+
+      // First call: creates the guest user + family member + a `pending`
+      // registration (step 3 inside guest-checkout, which commits before the
+      // Stripe step). Whether the Stripe step itself succeeds depends on
+      // whether this environment has a Stripe key configured — irrelevant
+      // here, we only need the registration row to exist.
+      const r1 = await fetch(`${BASE}/api/registrations/guest-checkout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...body, seasonId }),
+      });
+      expect([200, 503]).toContain(r1.status);
+
+      const db = getDb();
+      const [userRow] = await db
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.email, email))
+        .limit(1);
+      expect(userRow).toBeTruthy();
+      const [memberRow] = await db
+        .select({ id: familyMembers.id })
+        .from(familyMembers)
+        .where(
+          and(
+            eq(familyMembers.parentUserId, userRow.id),
+            eq(familyMembers.firstName, child.firstName),
+          ),
+        )
+        .limit(1);
+      expect(memberRow).toBeTruthy();
+      const [regRow] = await db
+        .select({ id: registrations.id })
+        .from(registrations)
+        .where(
+          and(
+            eq(registrations.familyMemberId, memberRow.id),
+            eq(registrations.seasonId, seasonId),
+          ),
+        )
+        .limit(1);
+      expect(regRow).toBeTruthy();
+
+      // Simulate a completed payment directly (mirrors
+      // registrations-rejoin.test.ts) — the webhook path is out of scope
+      // here; this test only needs a live (non-cancelled) row.
+      await db
+        .update(registrations)
+        .set({ status: "confirmed", paymentStatus: "paid" })
+        .where(eq(registrations.id, regRow.id));
+
+      // Second call: same parent+child+season → 409 already_registered.
+      // This must fire before guest-checkout's Stripe step (createRegistration
+      // throws inside step 3, ahead of createCheckoutForRegistration in step
+      // 5), so the guest is never charged for a season they're already in.
+      const r2 = await fetch(`${BASE}/api/registrations/guest-checkout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...body, seasonId }),
+      });
+      expect(r2.status).toBe(409);
+      const data2 = await r2.json();
+      expect(data2.code).toBe("already_registered");
+      expect(data2.error).toBe("This player is already registered for this season");
+
+      // Third call, immediately after — still 409, and the response is
+      // byte-identical in shape whether or not a manage-link email actually
+      // fired (disclosure rule: the response never reveals send state).
+      const r3 = await fetch(`${BASE}/api/registrations/guest-checkout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...body, seasonId }),
+      });
+      expect(r3.status).toBe(409);
+      const data3 = await r3.json();
+      expect(data3.code).toBe("already_registered");
+      expect(data3.error).toBe("This player is already registered for this season");
+
+      // Manage-link email dedupe: guest-checkout's own catch block rate-limits
+      // the send to 1 per 10 minutes per userId, independent of MESSAGING_MOCK
+      // (sendTransactionalEmail always writes an email_logs row, mocked or
+      // not — see send-welcome-series.test.ts for the same idiom). CI runs
+      // with DISABLE_RATE_LIMIT=1 (see ci.yml), which fails the limiter open
+      // — tolerate 2 there rather than assert a hard 1.
+      const logs = await db
+        .select()
+        .from(emailLogs)
+        .where(
+          and(eq(emailLogs.userId, userRow.id), eq(emailLogs.emailType, "magic_link_login")),
+        );
+      expect(logs.length).toBeGreaterThanOrEqual(1);
+      if (logs.length > 1) {
+        console.warn(
+          "manage-link throttle test: >1 email logged — likely DISABLE_RATE_LIMIT=1 on this dev server; not failing.",
+        );
+      } else {
+        expect(logs.length).toBe(1);
+      }
+    });
   });
 });

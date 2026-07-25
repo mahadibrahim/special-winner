@@ -10,16 +10,20 @@ test.describe("Anonymous registration (guest checkout)", { tag: "@critical" }, (
   test.setTimeout(120_000);
 
   test("anonymous visitor can fill the wizard and reach Stripe embedded checkout", async ({ page, request }) => {
-    // Find an open season with capacity
+    // Pin the YOUTH seed season by slug. This spec fills the v1 parent+child
+    // form, which only renders for youth/ambiguous seasons — adult-locked
+    // seasons get the v2 minimal form (covered by registration-adult-guest
+    // .spec.ts). Picking "the first open season with capacity" silently
+    // flipped to an adult season once shared-staging capacity state drifted
+    // (the multi-tenant "never trust the first match" hazard, e2e edition).
     const seasonsRes = await request.get("/api/public/seasons?status=open");
     expect(seasonsRes.ok()).toBe(true);
     const seasonsBody = await seasonsRes.json();
     const seasons = seasonsBody.seasons ?? [];
     const season = seasons.find(
-      (s: { maxParticipants?: number; registeredCount?: number }) =>
-        !s.maxParticipants || (s.registeredCount ?? 0) < s.maxParticipants,
-    ) ?? seasons[0];
-    expect(season, "expected at least one open season in the test DB").toBeTruthy();
+      (s: { slug?: string }) => s.slug === "e2e-test-spring-2026",
+    );
+    expect(season, "expected seeded youth season e2e-test-spring-2026 — re-seed e2e data").toBeTruthy();
 
     // Visit the registration page as an anonymous visitor
     await page.goto(`/register/${season.id}`, { waitUntil: "domcontentloaded" });

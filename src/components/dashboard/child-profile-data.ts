@@ -28,8 +28,10 @@ export interface ChildProfileData {
   id: string
   firstName: string
   lastName: string
-  age: number
-  dateOfBirth: Date
+  // Null for adult self-registrants whose DOB is still pending
+  // post-payment review.
+  age: number | null
+  dateOfBirth: Date | null
   avatarUrl?: string
   programs: Program[]
   upcomingEvents: ScheduledEvent[]
@@ -40,7 +42,7 @@ export interface FamilyMemberApi {
   id: string
   firstName: string
   lastName: string
-  birthDate: string // YYYY-MM-DD
+  birthDate: string | null // YYYY-MM-DD, null while DOB is pending
   photoUrl: string | null
 }
 
@@ -136,12 +138,14 @@ export function buildProfile(
   upcomingEvents.sort((a, b) => a.date.getTime() - b.date.getTime())
   seasonHistory.sort((a, b) => b.year - a.year)
 
+  const dateOfBirth = member.birthDate ? parseLocalDate(member.birthDate) : null
+
   return {
     id: member.id,
     firstName: member.firstName,
     lastName: member.lastName,
-    age: computeAge(parseLocalDate(member.birthDate), new Date(nowMs)),
-    dateOfBirth: parseLocalDate(member.birthDate),
+    age: dateOfBirth ? computeAge(dateOfBirth, new Date(nowMs)) : null,
+    dateOfBirth,
     avatarUrl: member.photoUrl ?? undefined,
     programs,
     upcomingEvents,

@@ -36,8 +36,17 @@ export interface SelfProfileUpdate {
 
 export type WhoStepProps = {
   /** Current user's first/last name + age eligibility for the active season.
-   * Pass null if the user has not signed in or has no birthDate on file. */
-  selfOption: { firstName: string; lastName: string; ageEligible: boolean } | null;
+   * Pass null if the user has not signed in or has no birthDate on file.
+   * `registered` marks a pre-existing, non-cancelled/refunded registration
+   * for THIS season — the card shows a "Registered ✓" badge and can't be
+   * selected (Task 5's per-person state; a global block is a decision the
+   * wizard makes separately for adult-locked flows, not this component). */
+  selfOption: {
+    firstName: string;
+    lastName: string;
+    ageEligible: boolean;
+    registered?: boolean;
+  } | null;
   /**
    * Current profile snapshot. When this is non-null AND any required field
    * is missing, the step renders an inline "Complete your profile" form
@@ -66,8 +75,12 @@ export type WhoStepProps = {
     id: string;
     firstName: string;
     lastName: string;
-    birthDate: string;
+    // Null for adult self-registrants whose DOB is still pending
+    // post-payment review (their row can surface here alongside dependents).
+    birthDate: string | null;
     ageEligible: boolean;
+    /** Already has a non-cancelled/refunded registration for THIS season. */
+    registered?: boolean;
   }>;
   /** "self" or a dependent id, or null when nothing is selected yet. */
   selectedKey: string | null;
@@ -79,11 +92,24 @@ export type WhoStepProps = {
    * adult leagues.
    */
   adultOnly?: boolean;
+  /**
+   * Defer birth date to the post-payment waiver step (adult v2 flow). When set,
+   * a missing DOB does not surface the pre-payment "Complete your profile" form.
+   */
+  deferBirthDate?: boolean;
 };
 
 /** A field is "missing" if the stored value is null/empty or, for phone,
- *  doesn't normalize to 10 digits (so we re-prompt malformed numbers). */
-function computeMissing(profile: SelfProfileSnapshot): {
+ *  doesn't normalize to 10 digits (so we re-prompt malformed numbers).
+ *  Note: phone is not part of the `any` gate — it does not block the form.
+ *  Only firstName, lastName, and birthDate block. */
+export function computeMissing(
+  profile: SelfProfileSnapshot,
+  // Adult (v2) self-registration defers DOB to the post-payment waiver step, so
+  // a missing birth date must NOT block the pre-payment "who" step — otherwise a
+  // signed-in adult hits a "Complete your profile" wall before they can pay.
+  deferBirthDate = false,
+): {
   firstName: boolean;
   lastName: boolean;
   phone: boolean;
@@ -94,9 +120,11 @@ function computeMissing(profile: SelfProfileSnapshot): {
     firstName: !profile.firstName?.trim(),
     lastName: !profile.lastName?.trim(),
     phone: !normalizePhone(profile.phone ?? ""),
-    birthDate: !profile.birthDate,
+    birthDate: deferBirthDate ? false : !profile.birthDate,
   };
-  return { ...missing, any: Object.values(missing).some(Boolean) };
+  // Phone does not block the form — only firstName, lastName, birthDate.
+  const any = missing.firstName || missing.lastName || missing.birthDate;
+  return { ...missing, any };
 }
 
 export function WhoStep({
@@ -111,6 +139,7 @@ export function WhoStep({
   onSelect,
   onAddDependent,
   adultOnly = false,
+  deferBirthDate = false,
 }: WhoStepProps) {
   // Pre-fill any fields we already know — the customer just confirms or
   // edits. Phone is reformatted into the (NNN) NNN-NNNN display while
@@ -122,7 +151,7 @@ export function WhoStep({
   const [birthDate, setBirthDate] = useState(selfProfile?.birthDate ?? "");
   const [gender, setGender] = useState(selfProfile?.gender ?? "");
 
-  const missing = selfProfile ? computeMissing(selfProfile) : null;
+  const missing = selfProfile ? computeMissing(selfProfile, deferBirthDate) : null;
   const showCompletionForm = Boolean(
     selfProfile && missing?.any && onCompleteProfile,
   );
@@ -131,10 +160,11 @@ export function WhoStep({
   const phoneValid = normalizedPhone.length === 10;
 
   // Required fields for THIS form are exactly the ones currently missing.
+  // Phone is optional: if typed, must be valid; if empty, that's fine.
   const requiredOk =
     (!missing?.firstName || firstName.trim().length > 0) &&
     (!missing?.lastName || lastName.trim().length > 0) &&
-    (!missing?.phone || phoneValid) &&
+    (phone.trim().length === 0 || phoneValid) &&
     (!missing?.birthDate || birthDate.length > 0);
 
   const handleSubmitProfile = () => {
@@ -142,7 +172,8 @@ export function WhoStep({
     const update: SelfProfileUpdate = {};
     if (missing.firstName) update.firstName = firstName.trim();
     if (missing.lastName) update.lastName = lastName.trim();
-    if (missing.phone) {
+    // Submit phone if the user typed a valid one (even if not originally missing).
+    if (phone.trim().length > 0 && normalizedPhone.length === 10) {
       update.phone = normalizedPhone;
       update.smsConsent = smsConsent;
     }
@@ -200,7 +231,10 @@ export function WhoStep({
             )}
             {missing.phone && (
               <div className="space-y-1">
-                <Label className="text-ink-muted">Phone *</Label>
+                <Label className="text-ink-muted">
+                  Phone{" "}
+                  <span className="text-ink-faint font-normal">(optional)</span>
+                </Label>
                 <Input
                   type="tel"
                   inputMode="tel"
@@ -253,8 +287,9 @@ export function WhoStep({
             </div>
           </div>
           {/* SMS consent sits below the field grid so the required 10DLC
-              disclosure gets full width rather than a cramped grid column. */}
-          {missing.phone && (
+              disclosure gets full width rather than a cramped grid column.
+              Show it when the user has typed a phone, whether or not it was missing. */}
+          {phone.trim().length > 0 && (
             <SmsConsentCheckbox
               id="sms-consent-profile"
               checked={smsConsent}
@@ -288,23 +323,40 @@ export function WhoStep({
         <Card
           role="button"
           aria-pressed={selectedKey === "self"}
-          aria-disabled={!selfOption.ageEligible}
-          tabIndex={selfOption.ageEligible ? 0 : -1}
-          onClick={() => selfOption.ageEligible && onSelect("self")}
+          aria-disabled={!selfOption.ageEligible || Boolean(selfOption.registered)}
+          tabIndex={selfOption.ageEligible && !selfOption.registered ? 0 : -1}
+          onClick={() =>
+            selfOption.ageEligible && !selfOption.registered && onSelect("self")
+          }
           onKeyDown={(e) => {
-            if ((e.key === "Enter" || e.key === " ") && selfOption.ageEligible) {
+            if (
+              (e.key === "Enter" || e.key === " ") &&
+              selfOption.ageEligible &&
+              !selfOption.registered
+            ) {
               e.preventDefault();
               onSelect("self");
             }
           }}
           className={`p-4 cursor-pointer transition-colors ${
             selectedKey === "self" ? "border-primary ring-2 ring-primary/30" : ""
-          } ${!selfOption.ageEligible ? "opacity-50 cursor-not-allowed" : ""}`}
+          } ${
+            !selfOption.ageEligible || selfOption.registered
+              ? "opacity-50 cursor-not-allowed"
+              : ""
+          }`}
         >
-          <div className="font-semibold">
-            Myself — {selfOption.firstName} {selfOption.lastName}
+          <div className="font-semibold flex items-center gap-2">
+            <span>
+              Myself — {selfOption.firstName} {selfOption.lastName}
+            </span>
+            {selfOption.registered && (
+              <span className="text-xs font-medium text-emerald-700 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                Registered ✓
+              </span>
+            )}
           </div>
-          {!selfOption.ageEligible && (
+          {!selfOption.registered && !selfOption.ageEligible && (
             <div className="text-xs text-muted-foreground mt-1">
               This program isn't in your age range.
             </div>
@@ -324,21 +376,28 @@ export function WhoStep({
             key={d.id}
             role="button"
             aria-pressed={selectedKey === d.id}
-            aria-disabled={!d.ageEligible}
-            tabIndex={d.ageEligible ? 0 : -1}
-            onClick={() => d.ageEligible && onSelect(d.id)}
+            aria-disabled={!d.ageEligible || Boolean(d.registered)}
+            tabIndex={d.ageEligible && !d.registered ? 0 : -1}
+            onClick={() => d.ageEligible && !d.registered && onSelect(d.id)}
             onKeyDown={(e) => {
-              if ((e.key === "Enter" || e.key === " ") && d.ageEligible) {
+              if ((e.key === "Enter" || e.key === " ") && d.ageEligible && !d.registered) {
                 e.preventDefault();
                 onSelect(d.id);
               }
             }}
             className={`p-4 cursor-pointer transition-colors ${
               selectedKey === d.id ? "border-primary ring-2 ring-primary/30" : ""
-            } ${!d.ageEligible ? "opacity-50 cursor-not-allowed" : ""}`}
+            } ${!d.ageEligible || d.registered ? "opacity-50 cursor-not-allowed" : ""}`}
           >
-            <div className="font-semibold">{d.firstName} {d.lastName}</div>
-            {!d.ageEligible && (
+            <div className="font-semibold flex items-center gap-2">
+              <span>{d.firstName} {d.lastName}</span>
+              {d.registered && (
+                <span className="text-xs font-medium text-emerald-700 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                  Registered ✓
+                </span>
+              )}
+            </div>
+            {!d.registered && !d.ageEligible && (
               <div className="text-xs text-muted-foreground mt-1">
                 Not in age range for this program.
               </div>

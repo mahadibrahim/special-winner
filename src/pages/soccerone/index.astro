@@ -9,6 +9,7 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
 import { HOME_GOOGLE_RATING, HOME_REVIEWS } from '@/lib/soccerone/home-reviews';
 import { SOCCERONE_ORG_JSONLD } from '@/lib/seo/soccerone-jsonld';
 import { aggregateFeaturedTerm } from '@/lib/soccerone/featured-term';
+import { CAPTAIN_DEPOSIT_DOLLARS } from '@/lib/registrations/team-deposit';
 
 // Live season data — same org-scoped fetch + filters as leagues.astro.
 // The homepage features the first upcoming open ADULT season (youth as
@@ -85,9 +86,16 @@ const featuredCloses = featured?.registrationCloses
       weekday: 'short', month: 'short', day: 'numeric', timeZone: 'America/New_York',
     })
   : null;
+// Same canonical team-fee framing as leagues.astro's featuredTeamFee: prefer
+// the early-bird-active effective price when the API supplied one.
+const featuredTeamFee = featured
+  ? (featured.teamEarlyBirdActive && featured.effectiveTeamPrice != null
+      ? featured.effectiveTeamPrice
+      : featured.teamPrice)
+  : null;
 const featuredPrice = featured
-  ? (featured.teamPrice
-      ? `$${featured.price}/player · $${featured.teamPrice}/team`
+  ? (featuredTeamFee
+      ? `$${featured.price}/player · team: $${CAPTAIN_DEPOSIT_DOLLARS} reserves it, $${featuredTeamFee} total${featured.teamEarlyBirdActive ? ' early-bird' : ''}`
       : `$${featured.price}/player`)
   : null;
 
@@ -186,9 +194,11 @@ setMarketingEdgeCache(Astro); // after fetches; a degraded (empty-seasons) rende
               </div>
               <div class="season-cta-row">
                 {/* Term-level CTA routes to the division finder — no
-                    data-so-register-cta: that event is division-scoped and
-                    fires from the leagues page's own CTAs. */}
-                <a href="/leagues" class="season-cta">
+                    data-so-register-cta (division-scoped), but it DOES fire
+                    the term-level landing event: without it, the multi-
+                    division home state emitted zero league events and the
+                    funnel only became observable at /leagues. */}
+                <a href={`/leagues/${featured.termSlug}`} class="season-cta" data-so-leagues-cta data-term={featured.termSlug ?? ''}>
                   Register for {termAgg.termLabel} →
                 </a>
                 <span class="season-cta-note">Pick your division · team &amp; free-agent spots</span>
@@ -448,41 +458,6 @@ setMarketingEdgeCache(Astro); // after fetches; a degraded (empty-seasons) rende
       </section>
     )}
 
-    <!-- ============================================================
-         MEMBERSHIPS CALLOUT — asymmetric, accent band
-    ============================================================ -->
-    <section class="mem-callout" aria-label="Memberships">
-      <div class="mem-callout-inner">
-        <div class="mem-callout-text">
-          <h2 class="mem-callout-title">One membership.<br />All facilities.<br />Future locations<br />included.</h2>
-          <p class="mem-callout-sub">
-            Members get discounted field rentals, priority league signup, and access to every SoccerOne location — including new ones as we expand across Columbus.
-          </p>
-          <a href="/memberships" class="mem-callout-cta">See Membership Plans</a>
-        </div>
-        <div class="mem-callout-visual" aria-hidden="true">
-          <div class="mem-card-stack">
-            <div class="mem-card mem-card--founder">
-              <div class="mc-tier">FOUNDER</div>
-              <div class="mc-price">$99<span>/mo</span></div>
-              <div class="mc-perks">All facilities · Unlimited pickup · 72h early league access</div>
-              <div class="mc-badge">All SoccerOne locations</div>
-            </div>
-            <div class="mem-card mem-card--member">
-              <div class="mc-tier">MEMBER</div>
-              <div class="mc-price">$29<span>/mo</span></div>
-              <div class="mc-perks">All facilities · Members-only pickup · 48h early access</div>
-            </div>
-            <div class="mem-card mem-card--day">
-              <div class="mc-tier">DAY PASS</div>
-              <div class="mc-price">$15<span>/visit</span></div>
-              <div class="mc-perks">Drop-in access at any facility</div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
     {featured && (
       <section class="cta-band" aria-label="League registration CTA">
         <div class="cta-band-inner">
@@ -507,9 +482,9 @@ setMarketingEdgeCache(Astro); // after fetches; a degraded (empty-seasons) rende
             {/* Multi-division term: route to the finder (division-scoped
                 analytics fire there); single season: direct register. */}
             <a
-              href={heroMulti ? '/leagues' : `/register/${featured.id}`}
+              href={heroMulti ? `/leagues/${featured.termSlug}` : `/register/${featured.id}`}
               class="cta-band-btn"
-              {...(heroMulti ? {} : {
+              {...(heroMulti ? { 'data-so-leagues-cta': true, 'data-term': featured.termSlug ?? '' } : {
                 'data-so-register-cta': true,
                 'data-season-id': featured.id,
                 'data-level': featured.skillLevel ?? 'open',
@@ -1122,131 +1097,6 @@ setMarketingEdgeCache(Astro); // after fetches; a degraded (empty-seasons) rende
     }
     @media (max-width: 1000px) { .proof-grid { grid-template-columns: 1fr; } }
 
-    /* ---- MEMBERSHIP CALLOUT ---- */
-    .mem-callout {
-      background: var(--so-surface);
-      border-top: 1px solid var(--border);
-      border-bottom: 1px solid var(--border);
-      padding: 6rem 0;
-    }
-
-    .mem-callout-inner {
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 0 2rem;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 5rem;
-      align-items: center;
-    }
-
-    .mem-callout-title {
-      font-family: var(--so-font-display);
-      font-size: clamp(2.5rem, 5vw, 4.5rem);
-      color: #ffffff;
-      line-height: 1.02;
-      letter-spacing: 0.01em;
-      margin-bottom: 1.5rem;
-    }
-
-    .mem-callout-sub {
-      font-size: 1.0625rem;
-      color: var(--muted);
-      line-height: 1.65;
-      max-width: 460px;
-      margin-bottom: 2.5rem;
-    }
-
-    .mem-callout-cta {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      background: var(--so-lime);
-      color: var(--so-ink);
-      font-family: var(--so-font-body);
-      font-size: 0.9375rem;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      text-decoration: none;
-      padding: 0.875rem 1.75rem;
-      border-radius: var(--so-radius-sm);
-      transition: background 0.15s;
-    }
-    .mem-callout-cta:hover { background: var(--so-lime-bright); }
-
-    /* Membership card stack */
-    .mem-card-stack {
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
-
-    .mem-card {
-      border-radius: var(--so-radius-lg);
-      padding: 1.5rem;
-      border: 1px solid var(--border);
-      transition: transform 0.2s;
-    }
-    .mem-card:hover { transform: translateX(4px); }
-
-    .mem-card--founder {
-      background: var(--so-lime-a07);
-      border-color: var(--so-lime-a30);
-    }
-    .mem-card--member {
-      background: rgba(255,255,255,0.03);
-    }
-    .mem-card--day {
-      background: rgba(255,255,255,0.02);
-      opacity: 0.75;
-    }
-
-    .mc-tier {
-      font-family: var(--so-font-mono);
-      font-size: 0.5625rem;
-      font-weight: 600;
-      letter-spacing: 0.14em;
-      color: var(--so-lime-a70);
-      margin-bottom: 0.375rem;
-    }
-
-    .mc-price {
-      font-family: var(--so-font-display);
-      font-size: 2.25rem;
-      color: #ffffff;
-      letter-spacing: 0.02em;
-      line-height: 1;
-      margin-bottom: 0.5rem;
-    }
-    .mc-price span {
-      font-family: var(--so-font-body);
-      font-size: 0.875rem;
-      font-weight: 400;
-      color: var(--muted);
-    }
-
-    .mc-perks {
-      font-size: 0.8125rem;
-      color: var(--muted);
-      line-height: 1.4;
-    }
-
-    .mc-badge {
-      margin-top: 0.75rem;
-      display: inline-flex;
-      align-items: center;
-      gap: 0.375rem;
-      font-family: var(--so-font-mono);
-      font-size: 0.5rem;
-      font-weight: 600;
-      letter-spacing: 0.1em;
-      background: var(--so-lime-a12);
-      color: var(--so-lime);
-      padding: 3px 8px;
-      border-radius: 3px;
-    }
-
     /* ---- CTA BAND ---- */
     .cta-band {
       background: var(--so-lime);
@@ -1549,7 +1399,6 @@ setMarketingEdgeCache(Astro); // after fetches; a degraded (empty-seasons) rende
     /* ---- RESPONSIVE ---- */
     @media (max-width: 1100px) {
       .play-grid { grid-template-columns: repeat(2, 1fr); }
-      .mem-callout-inner { grid-template-columns: 1fr; gap: 3rem; }
       .about-inner { grid-template-columns: 1fr; gap: 3rem; }
       .about-visual-col { order: -1; }
     }
@@ -1575,7 +1424,7 @@ setMarketingEdgeCache(Astro); // after fetches; a degraded (empty-seasons) rende
 
   <script>
     // Intersection observer for staggered card reveals
-    const cards = document.querySelectorAll('.play-card, .mem-card, .review-card');
+    const cards = document.querySelectorAll('.play-card, .review-card');
     const obs = new IntersectionObserver((entries) => {
       entries.forEach((entry, i) => {
         if (entry.isIntersecting) {
@@ -1597,7 +1446,14 @@ setMarketingEdgeCache(Astro); // after fetches; a degraded (empty-seasons) rende
   </script>
 
   <script>
-    import { trackDivisionRegisterClicked } from "@/lib/analytics/events";
+    import { trackDivisionRegisterClicked, trackLandingCtaClicked } from "@/lib/analytics/events";
+
+    // Term-level home → /leagues handoff (heroMulti state). Division-scoped
+    // register events fire from the leagues page; this is the tier the funnel
+    // was blind to.
+    document.querySelectorAll<HTMLAnchorElement>("[data-so-leagues-cta]").forEach((el) => {
+      el.addEventListener("click", () => trackLandingCtaClicked({ term: el.dataset.term ?? "" }));
+    });
 
     // Conversion analytics on the server-rendered register CTAs (hero season
     // card + fall CTA band).

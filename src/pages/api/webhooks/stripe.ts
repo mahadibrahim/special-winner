@@ -3,6 +3,7 @@ import type Stripe from "stripe";
 import { verifyWebhookSignature } from "@/lib/stripe/client";
 import { handleStripeEvent } from "@/lib/stripe/handle-stripe-event";
 import { captureWebhookException } from "@/lib/observability/webhook-telemetry";
+import { flushPostHog } from "@/lib/posthog-server";
 
 /**
  * Stripe webhook endpoint.
@@ -64,6 +65,11 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     await handleStripeEvent(event);
+
+    // Deliver payment_completed / stripe_webhook_outcome before returning —
+    // Netlify freezes the instance after the response, which can drop
+    // in-flight capture requests.
+    await flushPostHog();
 
     return new Response(JSON.stringify({ received: true }), {
       status: 200,

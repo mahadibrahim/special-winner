@@ -1,9 +1,11 @@
 "use client";
 import { useState, type ReactNode } from "react";
-import { filterDivisions, type Division, type DivisionFilters, type DayKey, type DivisionGender } from "@/lib/leagues/division-filters";
+import { filterDivisions, groupDivisionsByDay, type Division, type DivisionFilters, type DayKey, type DivisionGender } from "@/lib/leagues/division-filters";
 import { LevelLadder, Bars } from "@/components/leagues/level-ladder";
+import { InterestCapture } from "@/components/leagues/interest-capture";
 import { trackDivisionFilterApplied, trackDivisionRegisterClicked } from "@/lib/analytics/events";
 import { cn } from "@/lib/utils";
+import { CAPTAIN_DEPOSIT_DOLLARS } from "@/lib/registrations/team-deposit";
 
 // Map internal filter keys to spec facet names.
 const FACET_FOR: Record<keyof DivisionFilters, "level" | "format" | "day" | "venue"> = {
@@ -13,10 +15,6 @@ const FACET_FOR: Record<keyof DivisionFilters, "level" | "format" | "day" | "ven
   venue: "venue",
 };
 
-function registerMode(d: Division): "team" | "individual" | "interest" {
-  if (d.status === "forming") return "interest";
-  return d.signupModes.includes("team") ? "team" : "individual";
-}
 
 const DAYS: { key: DayKey; label: string }[] = [
   { key: "mon", label: "Mon" }, { key: "tue", label: "Tue" }, { key: "wed", label: "Wed" },
@@ -28,9 +26,18 @@ const GENDERS: { key: DivisionGender; label: string }[] = [
 const BARS_FOR: Record<string, number> = { a: 4, b: 3, c: 2, d: 1, open: 4 };
 const TIER_TEXT: Record<string, string> = { a: "text-ink", b: "text-primary", c: "text-ochre", d: "text-sage", open: "text-navy" };
 
-export function registerHref(d: Division): string {
-  if (d.status === "forming") return `/api/public/season-interest?seasonId=${d.seasonId}`;
-  return `/register/${d.seasonId}`;
+export function registerHref(d: Division, mode: "individual" | "team" = "individual"): string | null {
+  // Forming divisions capture interest in place (InterestCapture) — there is
+  // no navigation target. The old return value here was a GET against the
+  // POST-only season-interest endpoint: every click 405'd.
+  if (d.status === "forming") return null;
+  // Completed divisions are archive rows: a register link over a finished
+  // season is a dead button (RegisterExperience refuses non-open anyway).
+  if (d.status === "completed") return null;
+  // The mode param skips the solo/team chooser on the register page. A row
+  // only links a mode its season actually offers.
+  if (!d.signupModes.includes(mode)) return null;
+  return `/register/${d.seasonId}?mode=${mode}`;
 }
 
 export function DivisionsFinder({ divisions, venues, term }: {
@@ -80,30 +87,25 @@ export function DivisionsFinder({ divisions, venues, term }: {
       </p>
 
       {results.length === 0 ? (
-        <div className="p-7 text-center text-ink-muted text-sm border border-dashed border-cream-3 rounded-xl">
-          No divisions match those filters — try clearing one.{" "}
-          <a className="text-primary font-semibold" href="#interest">Join the interest list →</a>
+        <div className="p-7 border border-dashed border-cream-3 rounded-xl">
+          <p className="text-center text-ink-muted text-sm mb-3">No divisions match those filters — try clearing one.</p>
+          {/* No seasonId: nothing specific to point season-interest at — this
+              feeds the newsletter list tagged with the slot source. */}
+          <InterestCapture
+            compact
+            source="divisions-empty-state"
+            title="Tell me when a matching division opens"
+            subtitle="One email when new divisions are announced — nothing else."
+          />
         </div>
       ) : (
         <div className="border-t border-cream-3" data-testid="division-rows">
-          {results.map((d) => (
-            <div key={d.id} className="flex flex-col gap-1.5 sm:grid sm:grid-cols-[30px_1.6fr_1.2fr_0.9fr_0.8fr_auto] sm:items-center sm:gap-3.5 py-3 px-2 border-b border-cream-2 hover:bg-paper">
-              <Bars filled={BARS_FOR[d.level]} className={TIER_TEXT[d.level]} />
-              <div>
-                <div className="font-display font-semibold text-base">{d.name}</div>
-                <div className="font-mono text-[10.5px] tracking-wide uppercase text-ink-muted mt-0.5">
-                  {d.gender === "mens" ? "Men's" : d.gender === "womens" ? "Women's" : "Coed"} · Level {d.level.toUpperCase()}
-                </div>
-              </div>
-              <div className="text-[13px] text-ink-2">{d.day ? <b className="text-ink">{labelDay(d.day)}</b> : null} {d.time ? `· ${d.time}` : ""}</div>
-              <div className="text-xs text-ink-muted">{d.venueName}</div>
-              <div className={cn("font-mono text-[11px] font-semibold", d.status === "forming" ? "text-ochre" : "text-sage")}>{d.spotsLabel}</div>
-              <a href={registerHref(d)}
-                 onClick={() => trackDivisionRegisterClicked({ seasonId: d.seasonId, level: d.level, gender: d.gender, venue: d.venueSlug, mode: registerMode(d), term })}
-                 className={cn("font-sans font-semibold text-xs px-3.5 py-2 rounded-md whitespace-nowrap text-center sm:text-left mt-1.5 sm:mt-0",
-                   d.status === "forming" ? "text-primary border border-primary" : "text-cream bg-primary")}>
-                {d.status === "forming" ? "Notify me" : "Register →"}
-              </a>
+          {groupDivisionsByDay(results).map((g) => (
+            <div key={g.day ?? "tbd"} data-testid="division-day-group">
+              <h3 className="font-mono text-[11px] tracking-widest uppercase text-primary pt-4 pb-1.5 border-b border-cream-3">
+                {g.label} <span className="text-ink-muted">· {g.items.length}</span>
+              </h3>
+              {g.items.map((d) => <DivisionRow key={d.id} d={d} term={term} />)}
             </div>
           ))}
         </div>
@@ -112,6 +114,79 @@ export function DivisionsFinder({ divisions, venues, term }: {
         Age divisions · 30+ and 40+ also available at Worthington
       </p>
     </div>
+  );
+}
+
+function DivisionRow({ d, term }: { d: Division; term: string }) {
+  const [capturing, setCapturing] = useState(false);
+  const track = (mode: "team" | "individual" | "interest") =>
+    trackDivisionRegisterClicked({ seasonId: d.seasonId, level: d.level, gender: d.gender, venue: d.venueSlug, mode, term });
+  const teamHref = registerHref(d, "team");
+  const soloHref = registerHref(d, "individual");
+  const ctaClass = (primary: boolean) =>
+    cn("font-sans font-semibold text-xs px-3.5 py-2 rounded-md whitespace-nowrap text-center sm:text-left",
+      primary ? "text-cream bg-primary" : "text-primary border border-primary");
+  return (
+    <>
+      <div className="flex flex-col gap-1.5 sm:grid sm:grid-cols-[30px_1.6fr_1.2fr_0.9fr_0.8fr_auto] sm:items-center sm:gap-3.5 py-3 px-2 border-b border-cream-2 hover:bg-paper">
+        <Bars filled={BARS_FOR[d.level]} flat={d.level === "open"} className={TIER_TEXT[d.level]} />
+        <div>
+          <div className="font-display font-semibold text-base">{d.name}</div>
+          <div className="font-mono text-[10.5px] tracking-wide uppercase text-ink-muted mt-0.5">
+            {d.gender === "mens" ? "Men's" : d.gender === "womens" ? "Women's" : "Coed"} ·{" "}
+            {d.level === "open" ? "All levels" : `Level ${d.level.toUpperCase()}`}
+            {/* Solo price up front — paid-traffic replays showed price-hunters
+                tapping Register just to learn the cost, then bouncing. */}
+            {d.price != null && d.status !== "completed" && (
+              <> · <span className="text-ink font-semibold">${d.price.toLocaleString()}/player</span></>
+            )}
+          </div>
+          {d.teamTotal != null && d.status !== "completed" && (
+            <div className="font-mono text-[10.5px] tracking-wide text-ink-muted mt-0.5">
+              or reserve a team — ${CAPTAIN_DEPOSIT_DOLLARS} down, ${d.teamTotal.toLocaleString()} total
+            </div>
+          )}
+        </div>
+        <div className="text-[13px] text-ink-2">{d.day ? <b className="text-ink">{labelDay(d.day)}</b> : null} {d.time ? `· ${d.time}` : ""}</div>
+        <div className="text-xs text-ink-muted">{d.venueName}</div>
+        <div className={cn("font-mono text-[11px] font-semibold", d.status === "forming" ? "text-ochre" : "text-sage")}>{d.spotsLabel}</div>
+        {d.status === "completed" ? (
+          <span className="font-mono text-[10px] tracking-wide uppercase text-ink-muted mt-1.5 sm:mt-0">Season complete</span>
+        ) : d.status === "forming" ? (
+          <button type="button" aria-expanded={capturing}
+            onClick={() => { track("interest"); setCapturing((v) => !v); }}
+            className={cn(ctaClass(false), "mt-1.5 sm:mt-0")}>
+            Notify me
+          </button>
+        ) : (
+          /* One action per offered mode — the hero CTA no longer picks a
+             mode, so the row is where team vs solo is decided. */
+          <div className="flex sm:flex-col xl:flex-row gap-1.5 mt-1.5 sm:mt-0">
+            {teamHref && (
+              <a href={teamHref} onClick={() => track("team")} className={ctaClass(true)}>
+                Register team →
+              </a>
+            )}
+            {soloHref && (
+              <a href={soloHref} onClick={() => track("individual")} className={ctaClass(!teamHref)}>
+                Join solo →
+              </a>
+            )}
+          </div>
+        )}
+      </div>
+      {capturing && (
+        <div className="py-2.5 px-2 border-b border-cream-2">
+          <InterestCapture
+            compact
+            seasonId={d.seasonId}
+            source="division-forming"
+            title={`Get notified when ${d.name} opens`}
+            subtitle="One email the day registration opens — nothing else."
+          />
+        </div>
+      )}
+    </>
   );
 }
 

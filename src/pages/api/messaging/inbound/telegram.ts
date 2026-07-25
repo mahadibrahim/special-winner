@@ -1,5 +1,5 @@
 import type { APIRoute } from "astro";
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { users } from "@/lib/db/schema/users";
 import {
@@ -181,11 +181,14 @@ export const POST: APIRoute = async ({ request }) => {
     return json({ ok: true, skipped: "unbound chat" });
   }
 
-  // Look up the parent's organization (via phone_opt_ins for now)
+  // Look up the parent's organization (via phone_opt_ins for now). Org
+  // resolution only — not a consent gate, so any channel's row will do; the
+  // orderBy keeps the pick deterministic now that a user can have several.
   const [optIn] = await db
     .select({ orgId: phoneOptIns.organizationId })
     .from(phoneOptIns)
     .where(eq(phoneOptIns.userId, parent.id))
+    .orderBy(asc(phoneOptIns.createdAt))
     .limit(1);
 
   if (!optIn) {

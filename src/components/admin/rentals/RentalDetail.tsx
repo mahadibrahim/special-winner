@@ -15,7 +15,7 @@ interface Rental {
   fieldNumber: number;
   startsAt: string;
   endsAt: string;
-  status: "pending_payment" | "confirmed" | "cancelled" | "completed" | "no_show";
+  status: "requested" | "pending_payment" | "confirmed" | "cancelled" | "completed" | "no_show";
   source: string;
   renterName: string;
   renterEmail: string | null;
@@ -42,9 +42,21 @@ interface Venue {
   name: string;
 }
 
+interface RentalPlayer {
+  id: string;
+  playerName: string;
+  isMinor: boolean;
+  signerEmail: string;
+  status: "pending" | "signed";
+  signedAt: string | null;
+}
+
 interface DetailResponse {
   rental: Rental;
   venue: Venue | null;
+  players: RentalPlayer[];
+  playersSigned: number;
+  playersTotal: number;
 }
 
 interface RentalDetailProps {
@@ -55,6 +67,8 @@ interface RentalDetailProps {
 
 function statusColor(s: Rental["status"]): string {
   switch (s) {
+    case "requested":
+      return "bg-sky-100 text-sky-900 border-sky-200";
     case "confirmed":
       return "bg-emerald-100 text-emerald-900 border-emerald-200";
     case "pending_payment":
@@ -91,6 +105,7 @@ export function RentalDetail({ rentalId, timeZone = BUSINESS_TIMEZONE }: RentalD
   const [error, setError] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
+  const [resendingPlayerId, setResendingPlayerId] = useState<string | null>(null);
 
   // Correct-time form state
   const [rescheduleDate, setRescheduleDate] = useState("");
@@ -165,6 +180,66 @@ export function RentalDetail({ rentalId, timeZone = BUSINESS_TIMEZONE }: RentalD
     }
   };
 
+  const approve = async () => {
+    if (!data) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/rentals/${rentalId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ approve: true }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error ?? "Approve failed");
+        return;
+      }
+      toast.success("Request approved");
+      await reload();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const decline = async () => {
+    if (!data) return;
+    if (!window.confirm("Decline this request? The slot will be freed.")) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/rentals/${rentalId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decline: true }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error ?? "Decline failed");
+        return;
+      }
+      toast.success("Request declined");
+      await reload();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resendPlayerInvite = async (playerId: string) => {
+    setResendingPlayerId(playerId);
+    try {
+      const res = await fetch(`/api/admin/rentals/${rentalId}/players/${playerId}/resend`, {
+        method: "POST",
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error ?? "Resend failed");
+        return;
+      }
+      toast.success("Waiver invite resent");
+    } finally {
+      setResendingPlayerId(null);
+    }
+  };
+
   const rescheduleRental = async () => {
     if (!data) return;
     if (!rescheduleDate) {
@@ -231,17 +306,33 @@ export function RentalDetail({ rentalId, timeZone = BUSINESS_TIMEZONE }: RentalD
             </Badge>
           </div>
         </div>
-        {!isTerminal && (
-          <Button
-            variant="outline"
-            disabled={busy}
-            onClick={cancelRental}
-            className="text-rose-700 border-rose-200 hover:bg-rose-50"
-          >
-            {rental.paymentStatus === "paid" && rental.amountPaidCents > 0
-              ? "Refund and cancel"
-              : "Cancel rental"}
-          </Button>
+        {rental.status === "requested" ? (
+          <div className="flex gap-2">
+            <Button disabled={busy} onClick={approve}>
+              Approve
+            </Button>
+            <Button
+              variant="outline"
+              disabled={busy}
+              onClick={decline}
+              className="text-rose-700 border-rose-200 hover:bg-rose-50"
+            >
+              Decline
+            </Button>
+          </div>
+        ) : (
+          !isTerminal && (
+            <Button
+              variant="outline"
+              disabled={busy}
+              onClick={cancelRental}
+              className="text-rose-700 border-rose-200 hover:bg-rose-50"
+            >
+              {rental.paymentStatus === "paid" && rental.amountPaidCents > 0
+                ? "Refund and cancel"
+                : "Cancel rental"}
+            </Button>
+          )
         )}
       </header>
 
@@ -329,6 +420,61 @@ export function RentalDetail({ rentalId, timeZone = BUSINESS_TIMEZONE }: RentalD
             </div>
           </div>
         </div>
+      </section>
+
+      {/* Players & waivers */}
+      <section className="rounded-xl border border-border bg-cream-2 p-5">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-semibold text-ink">Players &amp; waivers</h2>
+          <span className="text-xs text-ink-muted">
+            {data.playersSigned} of {data.playersTotal} signed
+          </span>
+        </div>
+        {data.players.length === 0 ? (
+          <p className="text-sm text-ink-muted">No players added yet.</p>
+        ) : (
+          <ul className="space-y-2">
+            {data.players.map((p) => (
+              <li
+                key={p.id}
+                className="flex items-center justify-between gap-3 rounded-lg border border-border bg-cream px-3 py-2 text-sm flex-wrap"
+              >
+                <div className="min-w-0">
+                  <div className="text-ink font-medium">{p.playerName}</div>
+                  <div className="text-xs text-ink-muted">
+                    {p.isMinor ? "Minor" : "Adult"} · {p.signerEmail}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Badge
+                    variant="outline"
+                    className={
+                      p.status === "signed"
+                        ? "bg-emerald-100 text-emerald-900 border-emerald-200"
+                        : "bg-amber-100 text-amber-900 border-amber-200"
+                    }
+                  >
+                    {p.status === "signed" ? "Signed" : "Pending"}
+                  </Badge>
+                  {p.status === "signed" && p.signedAt ? (
+                    <span className="text-xs text-ink-muted">
+                      {new Date(p.signedAt).toLocaleString()}
+                    </span>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={resendingPlayerId === p.id}
+                      onClick={() => resendPlayerInvite(p.id)}
+                    >
+                      {resendingPlayerId === p.id ? "Sending…" : "Resend"}
+                    </Button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       {/* Notes */}

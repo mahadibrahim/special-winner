@@ -1,0 +1,1 @@
+ALTER TYPE "public"."self_service_token_kind" ADD VALUE IF NOT EXISTS 'rental_claim' BEFORE 'roster_entry';

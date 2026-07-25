@@ -4,8 +4,11 @@ export interface FinderSeason {
   dayOfWeek: string | null         // 'mon'..'sun'
   location: { slug: string; name: string }
   skillLevel: string | null        // 'a' | 'b' | 'c' | 'd' | 'open' | null
+  /** The API nests audience under program: 'parents' = youth (parents
+      register kids). Absent → adult. */
+  program?: { audienceType?: string | null } | null
   // Presentational fields (name, status, price, etc.) ride along untyped on the
-  // real payload; the finder only filters on the five fields above.
+  // real payload; the finder only filters on the fields above.
   [extra: string]: unknown
 }
 
@@ -17,6 +20,9 @@ export interface FinderFilters {
   division: string  // divisionGender | "all"
   night: string     // dayOfWeek | "all"
   level: string     // skillLevel | "all"
+  /** "adult" | "youth" | "all". Term pages fetch without an audience filter,
+      so both audiences share one finder — this axis separates them. */
+  ages?: string
 }
 
 export interface Chip { value: string; label: string }
@@ -66,11 +72,53 @@ export function deriveLevelChips(seasons: FinderSeason[]): Chip[] {
   return LEVEL_ORDER.filter((l) => present.has(l)).map((value) => ({ value, label: LEVEL_LABELS[value] ?? value }))
 }
 
+/**
+ * An `open` division accepts players of any level, so it must survive every
+ * level filter — hiding it from a B player is wrong, and it hides the
+ * divisions that are easiest to fill at the exact moment of intent.
+ *
+ * Mirrors the Aspire sibling `filterDivisions` in lib/leagues/division-filters.ts,
+ * which has always done this deliberately. Keep the two in step: if this rule
+ * changes, change it in both, or the same league behaves differently depending
+ * on which brand's page you're standing on.
+ *
+ * A null skillLevel is NOT open — it's unset. The 30+/40+ age divisions in prod
+ * carry null and are age-scoped, not open-to-every-level, so a level filter
+ * correctly excludes them.
+ */
+function matchesLevel(skillLevel: string | null, level: string): boolean {
+  if (level === "all") return true
+  if (skillLevel === "open") return true
+  return skillLevel === level
+}
+
+/** Youth = the program's audienceType is 'parents'; anything else is adult. */
+function isYouth(s: FinderSeason): boolean {
+  return s.program?.audienceType === "parents"
+}
+
+/** Ages chips render only when the catalog actually mixes both audiences. */
+export function deriveAgesChips(seasons: FinderSeason[]): Chip[] {
+  const hasYouth = seasons.some(isYouth)
+  const hasAdult = seasons.some((s) => !isYouth(s))
+  if (!hasYouth || !hasAdult) return []
+  return [
+    { value: "adult", label: "Adult" },
+    { value: "youth", label: "Youth" },
+  ]
+}
+
+function matchesAges(s: FinderSeason, ages: string | undefined): boolean {
+  if (!ages || ages === "all") return true
+  return ages === "youth" ? isYouth(s) : !isYouth(s)
+}
+
 export function filterSeasons(seasons: FinderSeason[], f: FinderFilters): FinderSeason[] {
   return seasons.filter((s) =>
     (f.location === "all" || s.location.slug === f.location) &&
     (f.division === "all" || s.divisionGender === f.division) &&
     (f.night === "all" || s.dayOfWeek === f.night) &&
-    (f.level === "all" || s.skillLevel === f.level),
+    matchesLevel(s.skillLevel, f.level) &&
+    matchesAges(s, f.ages),
   )
 }

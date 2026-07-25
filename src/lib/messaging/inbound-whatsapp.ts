@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { users } from "@/lib/db/schema/users";
 import {
@@ -151,11 +151,19 @@ export async function handleInboundWhatsApp(
   if (!parent) return { ok: false, reason: "unknown_sender" };
 
   // Resolve org via the parent's opt-in record (mirrors the Telegram path).
+  // This is ORG RESOLUTION, not a consent gate — receiving an inbound message
+  // requires no consent, and hard-filtering to channel='whatsapp' would strand
+  // every sender whose only row is the (today, universal) SMS one. So: prefer
+  // the WhatsApp row when one exists, fall back to the oldest row otherwise.
+  // Outbound WhatsApp sends must still gate on a channel='whatsapp' consent.
   const [optIn] = await db
     .select({ orgId: phoneOptIns.organizationId })
     .from(phoneOptIns)
     .where(eq(phoneOptIns.userId, parent.id))
-    .orderBy(phoneOptIns.createdAt)
+    .orderBy(
+      sql`case when ${phoneOptIns.channel} = 'whatsapp' then 0 else 1 end`,
+      phoneOptIns.createdAt,
+    )
     .limit(1);
   if (!optIn) return { ok: false, reason: "no_org_context" };
 

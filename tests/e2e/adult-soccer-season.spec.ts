@@ -1,4 +1,17 @@
 import { test, expect } from "@playwright/test";
+
+test("completed term renders as an archive instead of redirecting (URL permanence)", async ({ page }) => {
+  const BASE = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:4321";
+  // Seed fixture: winter-2026-archive is fully completed. Before the archive
+  // fix this URL 302'd to /adult/leagues/soccer — killing an indexed page the
+  // day its season wrapped.
+  await page.goto(`${BASE}/adult/leagues/soccer/winter-2026-archive`, { waitUntil: "domcontentloaded" });
+  expect(page.url()).toContain("/adult/leagues/soccer/winter-2026-archive");
+  // Archive anatomy: Complete chip, no register CTAs, tabs open on Standings.
+  await expect(page.getByText("Complete", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("hero-register")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Standings" })).toHaveAttribute("aria-selected", "true");
+});
 import { waitForHydration } from "../utils/test-helpers";
 
 const BASE = process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:4321";
@@ -20,10 +33,11 @@ test("adult soccer season page: filter divisions and reach register @critical", 
   const after = await page.getByTestId("result-count").innerText();
   expect(Number(after)).toBeLessThanOrEqual(Number(before));
 
-  // a Register link in the finder rows points to the wizard (scope to the
-  // rows so we don't match the hero's "Register a team" anchor, which is a
-  // same-page scroll link, not a /register/ wizard link)
-  const reg = rows.getByRole("link", { name: /Register/i }).first();
+  // a register link in the finder rows points to the wizard (scope to the
+  // rows so we don't match the hero CTA, which is a same-page scroll link,
+  // not a /register/ wizard link). Rows offer one action per signup mode —
+  // "Register team →" and/or "Join solo →" — either proves the wizard link.
+  const reg = rows.getByRole("link", { name: /Register team|Join solo/i }).first();
   await expect(reg).toHaveAttribute("href", /\/register\//);
 });
 

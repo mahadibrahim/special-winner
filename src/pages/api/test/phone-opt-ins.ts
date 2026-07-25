@@ -35,6 +35,7 @@ export const GET: APIRoute = async ({ url }) => {
   const rows = await getDb()
     .select({
       organizationId: phoneOptIns.organizationId,
+      channel: phoneOptIns.channel,
       status: phoneOptIns.status,
       optInSource: phoneOptIns.optInSource,
       optedInAt: phoneOptIns.optedInAt,

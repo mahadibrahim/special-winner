@@ -5,10 +5,12 @@ import { waitForHydration } from "../utils/test-helpers";
  * Landing hubs + the homepage gateway + header nav.
  *
  * /youth and /adult are one-screen hubs: a server-rendered hero plus
- * category door cards (plain <a> links — no React island, so no
- * hydration wait is needed). Legacy section anchors redirect to the
- * category pages. The homepage hero/CTA-banner route into the hubs; the
- * header nav exposes audience dropdowns over the category pages.
+ * category door cards (plain <a> links, so no hydration wait is needed
+ * to click them — the Leagues tiles carry a decorative TileFactsLine
+ * island, but it never gates navigation). Legacy section anchors
+ * redirect to the category pages. The homepage hero/CTA-banner route
+ * into the hubs; the header nav exposes audience dropdowns over the
+ * category pages.
  */
 
 test.describe("Landing-page finders", () => {
@@ -40,7 +42,8 @@ test.describe("Landing-page finders", () => {
       await expect(page.locator(`[data-landing-cta="${cta}"]`)).toBeVisible();
     }
 
-    // No React island on the hub — door links are plain <a> navigations.
+    // Door links are plain server-rendered <a> navigations — the facts-line
+    // island inside the Leagues tile never gates the click.
     await page.locator('[data-landing-cta="adult-hub-pickup"]').click();
     await expect(page).toHaveURL(/\/adult\/pickup$/);
 
@@ -75,13 +78,17 @@ test.describe("Landing-page finders", () => {
     await expect(page).toHaveURL(/\/adult\/pickup$/);
   });
 
-  test("/shop returns 200 and is noindex", async ({ page }) => {
+  test("/shop returns 200 and renders the indexable storefront", async ({ page }) => {
+    // The merch storefront (Printful-backed, #479) replaced the old "coming
+    // soon" placeholder: it is now a real SSR page that SHOULD be indexed, so
+    // the previous noindex assertion is gone. The store heading renders
+    // regardless of catalog state (empty-state still shows the <h1>).
     const response = await page.goto("/shop", { waitUntil: "domcontentloaded" });
     expect(response?.status()).toBe(200);
-    await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
-      "content",
-      "noindex",
-    );
+    await expect(
+      page.getByRole("heading", { name: "Aspire Sports Shop" }),
+    ).toBeVisible();
+    await expect(page.locator('meta[name="robots"][content="noindex"]')).toHaveCount(0);
   });
 
   test("homepage — evolved sections: hero copy, benefits, strip, capture", async ({ page }) => {

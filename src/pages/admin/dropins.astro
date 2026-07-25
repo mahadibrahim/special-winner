@@ -5,11 +5,30 @@ import { getPrimaryRoleName } from "@/lib/auth";
 import { SessionsList } from "@/components/admin/dropin/SessionsList";
 import { RateCardEditor } from "@/components/admin/dropin/RateCardEditor";
 import { HostsPanel } from "@/components/admin/dropin/HostsPanel";
+import { getDb } from "@/lib/db";
+import { locations } from "@/lib/db/schema/organizations";
+import { eq } from "drizzle-orm";
 
 export const prerender = false;
 
 const user = Astro.locals.user!;
 const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
+const timezone = Astro.locals.organization?.timezone ?? "America/New_York";
+
+// The venue picker's pinned selection (if any) silently scopes the
+// sessions list to one location — surface that as a hint above the week
+// grid so an admin who forgot they pinned a venue doesn't mistake a
+// narrow view for "no sessions". A cheap single findFirst; there's no
+// existing helper that resolves just the pinned location's name.
+const activeLocationId = Astro.locals.activeLocationId ?? null;
+const pinnedLocationName = activeLocationId
+  ? ((
+      await getDb().query.locations.findFirst({
+        where: eq(locations.id, activeLocationId),
+        orderBy: (t, { asc }) => asc(t.createdAt),
+      })
+    )?.name ?? null)
+  : null;
 
 type Tab = "sessions" | "rate-card" | "hosts";
 const tabRaw = Astro.url.searchParams.get("tab");
@@ -23,7 +42,7 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 ---
 
-<BaseLayout title="Drop-ins — Admin — Aspire Sports" navigation={false} footer={false}>
+<BaseLayout title="Manage Pickup and Hosts — Admin — Aspire Sports" navigation={false} footer={false}>
   <AdminLayout
     client:load
     role={primaryRole}
@@ -31,7 +50,7 @@ const TABS: { id: Tab; label: string }[] = [
     user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
   >
     <div class="space-y-4">
-      <h1 class="font-display text-3xl font-semibold text-ink">Drop-ins</h1>
+      <h1 class="font-display text-3xl font-semibold text-ink">Manage Pickup and Hosts</h1>
       <div class="border-b border-border flex gap-4 overflow-x-auto">
         {
           TABS.map((t) => (
@@ -48,7 +67,15 @@ const TABS: { id: Tab; label: string }[] = [
           ))
         }
       </div>
-      {tab === "sessions" && <SessionsList client:load />}
+      {
+        tab === "sessions" && (
+          <SessionsList
+            client:load
+            timezone={timezone}
+            pinnedLocationName={pinnedLocationName}
+          />
+        )
+      }
       {tab === "rate-card" && <RateCardEditor client:load />}
       {tab === "hosts" && <HostsPanel client:load />}
     </div>

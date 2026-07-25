@@ -1,28 +1,35 @@
 ---
 // SoccerOne footer — dark anthracite, lime accent, two-facility chain
 import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
+
+interface Props {
+  hideStatsBand?: boolean;
+}
+const { hideStatsBand = false } = Astro.props;
 ---
 
 <footer class="so-footer">
   <!-- Diagonal accent bar -->
-  <div class="footer-accent-bar" aria-hidden="true">
-    <div class="accent-diagonal"></div>
-    <div class="accent-stat">
-      <span class="as-num">4</span>
-      <span class="as-label">FIELDS ACROSS COLUMBUS</span>
+  {!hideStatsBand && (
+    <div class="footer-accent-bar" aria-hidden="true">
+      <div class="accent-diagonal"></div>
+      <div class="accent-stat">
+        <span class="as-num">3</span>
+        <span class="as-label">FIELDS ACROSS COLUMBUS</span>
+      </div>
+      <div class="accent-stat">
+        <span class="as-num">2</span>
+        <span class="as-label">LOCATIONS OPEN NOW</span>
+      </div>
+      <div class="accent-stat">
+        <span class="as-num">4PM–12AM</span>
+        <span class="as-label">DAILY</span>
+      </div>
+      <div class="accent-cta">
+        <a href="/rent" class="accent-btn">Book a Field</a>
+      </div>
     </div>
-    <div class="accent-stat">
-      <span class="as-num">2</span>
-      <span class="as-label">LOCATIONS OPEN NOW</span>
-    </div>
-    <div class="accent-stat">
-      <span class="as-num">4PM–12AM</span>
-      <span class="as-label">DAILY</span>
-    </div>
-    <div class="accent-cta">
-      <a href="/rent" class="accent-btn">Book a Field</a>
-    </div>
-  </div>
+  )}
 
   <!-- Main grid -->
   <div class="footer-main">
@@ -59,12 +66,15 @@ import { SOCCERONE_CONTACT_EMAIL } from '@/lib/soccerone/contact';
     <div class="footer-col">
       <h3 class="fcol-heading">Play</h3>
       <ul class="fcol-links">
-        <li><a href="/leagues">Adult Coed League</a></li>
-        <li><a href="/leagues">Adult Premier League</a></li>
+        {/* Two links, one honest: "Premier" is not a division we run — the
+            catalog has Coed / Men's / Women's / 30+/40+ / Futsal. Promising
+            a league that doesn't exist is the stale-banner mistake in the
+            footer. */}
+        <li><a href="/leagues">Adult Leagues</a></li>
+        <li><a href="/leagues?audience=youth">Youth Leagues</a></li>
         <li><a href="/pickup">Drop-In Pickup</a></li>
         <li><a href="/#programs">Youth Programs</a></li>
         <li><a href="/rent">Field Rentals</a></li>
-        <li><a href="/memberships">Memberships</a></li>
       </ul>
     </div>
 

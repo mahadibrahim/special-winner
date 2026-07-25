@@ -2,28 +2,91 @@
 
 import { useEffect, useState } from "react"
 import ProgramCardV2 from "@/components/programs/program-card-v2"
+import { ProgramCardSkeleton } from "@/components/programs/program-card-skeleton"
+import { CardGrid } from "@/components/programs/card-grid"
 import { deriveAudience } from "@/lib/programs/derive"
 import { byRegistrationCloses } from "@/lib/programs/category-pages"
+import { fetchPublicCatalogSeasons } from "@/lib/programs/public-seasons-client"
+import {
+  openScopedSeasons,
+  minIndividualPrice,
+  minTeamTotal,
+  minHoldDeposit,
+  earliestRegistrationCloses,
+  primaryTermLabel,
+  ageRangeAcross,
+} from "@/lib/programs/season-facts"
+import { CAPTAIN_DEPOSIT_DOLLARS } from "@/lib/registrations/team-deposit"
+import { EmptyNotifyForm } from "@/components/landing/empty-notify-form"
 import type { ApiSeason } from "@/lib/programs/api-season"
 
 /**
- * Homepage "Open now" strip — deadline-sorted, cross-audience.
+ * Homepage "Pick your season." — two audience rows under one section header.
  *
- * Single 3-card grid spanning both Youth and Adult open programs, sorted by
- * `byRegistrationCloses` (soonest deadline first) so urgent inventory leads.
- * Each card gets an audience badge overlay (orange = Adult, emerald = Youth)
- * so a mixed grid stays legible without audience-split rows.
+ * Row 1 "For adults": up to 3 open/forming adult LEAGUE cards plus a computed
+ * facts line ("Fall 2026 · $120 solo / $200 reserves a team · closes Sep 3").
+ * Row 2 "For kids": up to 3 open/forming youth cards (any program type;
+ * forming cards render their interest form exactly as in the catalog) plus a
+ * computed facts line ("Winter I · ages 4–12 · $50 holds a spot · closes
+ * Oct 29"). Facts are computed from the OPEN slice only — forming prices are
+ * not commitments — and any fact lacking data is omitted, never invented.
+ *
+ * A row with zero open/forming inventory renders the notify capture
+ * (source "homepage-{audience}") instead of empty cards — never a blank row.
  *
  * The section header is always rendered (even mid-fetch or with zero open
  * programs) so the homepage's `#programs` anchor always has visible content;
- * the Playwright homepage test (public-pages.spec.ts) depends on that.
+ * the Playwright homepage tests (public-pages.spec.ts, landing-pages.spec.ts)
+ * depend on that and on the header's "All programs →" link.
  */
 
-const STRIP_LIMIT = 3
+const ROW_LIMIT = 3
 
-const AUDIENCE_BADGE: Record<string, { label: string; cls: string }> = {
-  adult: { label: "Adult", cls: "bg-primary text-cream" },
-  youth: { label: "Youth", cls: "bg-emerald-600 text-cream" },
+/** Open first (soonest deadline), forming after, capped at ROW_LIMIT. */
+function rowItems(seasons: ApiSeason[]): ApiSeason[] {
+  const open = seasons.filter((s) => s.status === "open").sort(byRegistrationCloses)
+  const forming = seasons.filter((s) => s.status === "forming").sort(byRegistrationCloses)
+  return [...open, ...forming].slice(0, ROW_LIMIT)
+}
+
+function joinFacts(parts: Array<string | null>): string | null {
+  const kept = parts.filter((p): p is string => p != null && p.length > 0)
+  return kept.length > 0 ? kept.join(" · ") : null
+}
+
+const closesLabel = (d: Date | null) =>
+  d != null
+    ? `closes ${d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}`
+    : null
+
+/** "Fall 2026 · $120 solo / $200 reserves a team · closes Sep 3" */
+function adultFactsLine(open: ApiSeason[]): string | null {
+  const price = minIndividualPrice(open)
+  const teamTotal = minTeamTotal(open)
+  const priceParts = [
+    price != null ? `$${price.toLocaleString()} solo` : null,
+    // $200 is the flat captain deposit (authoritative constant — the
+    // team-create flow charges exactly this); only advertised when at least
+    // one open season actually accepts a team.
+    teamTotal != null ? `$${CAPTAIN_DEPOSIT_DOLLARS.toLocaleString()} reserves a team` : null,
+  ].filter((p): p is string => p != null)
+  return joinFacts([
+    primaryTermLabel(open),
+    priceParts.length > 0 ? priceParts.join(" / ") : null,
+    closesLabel(earliestRegistrationCloses(open)),
+  ])
+}
+
+/** "Winter I · ages 4–12 · $50 holds a spot · closes Oct 29" */
+function youthFactsLine(open: ApiSeason[]): string | null {
+  const ages = ageRangeAcross(open)
+  const deposit = minHoldDeposit(open)
+  return joinFacts([
+    primaryTermLabel(open),
+    ages != null ? `ages ${ages.min}–${ages.max}` : null,
+    deposit != null ? `$${deposit.toLocaleString()} holds a spot` : null,
+    closesLabel(earliestRegistrationCloses(open)),
+  ])
 }
 
 export default function HomepageProgramsPreview() {
@@ -32,13 +95,12 @@ export default function HomepageProgramsPreview() {
 
   useEffect(() => {
     let cancelled = false
-    fetch("/api/public/seasons?status=open")
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error())))
-      .then((j: { seasons: ApiSeason[] }) => {
-        if (!cancelled) setSeasons(j.seasons)
+    fetchPublicCatalogSeasons()
+      .then((all) => {
+        if (!cancelled) setSeasons(all)
       })
       .catch(() => {
-        // Silent — empty state renders when no data.
+        // Silent — the notify fallback renders when no data.
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -48,15 +110,19 @@ export default function HomepageProgramsPreview() {
     }
   }, [])
 
-  const stripItems = [...seasons]
-    .filter((s) => {
-      const a = deriveAudience(s)
-      return a === "adult" || a === "youth"
-    })
-    .sort(byRegistrationCloses)
-    .slice(0, STRIP_LIMIT)
+  // Advertisable inventory only: open (register) + forming (interest list).
+  // Audience derivation goes through deriveAudience — the nested
+  // program.audienceType plus age-range signals, never a top-level field.
+  const advertisable = seasons.filter((s) => s.status === "open" || s.status === "forming")
+  const adultLeagues = advertisable.filter(
+    (s) => deriveAudience(s) === "adult" && s.program.programType === "league",
+  )
+  const youthAll = advertisable.filter((s) => deriveAudience(s) === "youth")
 
-  const hasContent = stripItems.length > 0
+  // Facts compute over the OPEN slice only (leagues for adults; every youth
+  // program type for kids — the row spans them all).
+  const adultOpen = openScopedSeasons(seasons, "adult", ["league"])
+  const youthOpen = seasons.filter((s) => s.status === "open" && deriveAudience(s) === "youth")
 
   return (
     <section className="bg-cream py-20 lg:py-28">
@@ -82,56 +148,91 @@ export default function HomepageProgramsPreview() {
           </a>
         </div>
 
-        {/* Loading state — three skeleton cards so the section has shape
-            while data is in flight. */}
-        {loading && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[0, 1, 2].map((i) => (
-              <div
-                key={i}
-                className="bg-paper border border-border rounded-2xl h-[320px] animate-pulse"
-                aria-hidden="true"
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Empty state — preserves section height and points the visitor
-            at the audience finders so they still have somewhere to go. */}
-        {!loading && !hasContent && (
-          <p className="text-ink-muted text-base max-w-xl">
-            New programs are added each season. Head to{" "}
-            <a href="/adult/leagues" className="text-primary font-medium hover:underline">
-              adult leagues
-            </a>{" "}
-            or{" "}
-            <a href="/youth/leagues" className="text-primary font-medium hover:underline">
-              youth leagues
-            </a>{" "}
-            to see what's coming up — or check back soon.
-          </p>
-        )}
-
-        {/* Single cross-audience grid sorted by deadline */}
-        {!loading && hasContent && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {stripItems.map((s) => {
-              const audience = deriveAudience(s) as "adult" | "youth"
-              const badge = AUDIENCE_BADGE[audience]
-              return (
-                <div key={s.id} className="relative">
-                  <span
-                    className={`absolute top-3 left-3 z-10 text-[10px] font-bold tracking-[0.12em] uppercase px-2 py-0.5 rounded ${badge.cls}`}
-                  >
-                    {badge.label}
-                  </span>
-                  <ProgramCardV2 season={s} />
-                </div>
-              )
-            })}
-          </div>
-        )}
+        <AudienceRow
+          title="For adults"
+          facts={adultFactsLine(adultOpen)}
+          items={rowItems(adultLeagues)}
+          linkHref="/adult/leagues"
+          linkLabel="All adult leagues →"
+          notifyAudience="adult"
+          notifySource="homepage-adult"
+          loading={loading}
+        />
+        <AudienceRow
+          title="For kids"
+          facts={youthFactsLine(youthOpen)}
+          items={rowItems(youthAll)}
+          linkHref="/youth/leagues"
+          linkLabel="All youth programs →"
+          notifyAudience="parent"
+          notifySource="homepage-youth"
+          loading={loading}
+        />
       </div>
     </section>
+  )
+}
+
+function AudienceRow({
+  title,
+  facts,
+  items,
+  linkHref,
+  linkLabel,
+  notifyAudience,
+  notifySource,
+  loading,
+}: {
+  title: string
+  facts: string | null
+  items: ApiSeason[]
+  linkHref: string
+  linkLabel: string
+  notifyAudience: "parent" | "adult"
+  notifySource: string
+  loading: boolean
+}) {
+  return (
+    <div className="mb-14 last:mb-0">
+      {/* Row header: audience title + mono facts line, row link right */}
+      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 mb-5">
+        <div className="min-w-0">
+          <h3 className="font-display text-xl text-ink">{title}</h3>
+          {!loading && facts && (
+            <p className="font-mono text-[11px] tracking-[0.02em] text-ink-muted mt-1.5">
+              {facts}
+            </p>
+          )}
+        </div>
+        <a href={linkHref} className="text-sm font-medium text-primary hover:underline">
+          {linkLabel}
+        </a>
+      </div>
+
+      {loading ? (
+        <CardGrid layout="grid">
+          {[0, 1, 2].map((i) => (
+            <ProgramCardSkeleton key={i} />
+          ))}
+        </CardGrid>
+      ) : items.length > 0 ? (
+        <CardGrid layout="grid">
+          {items.map((s) => (
+            <ProgramCardV2 key={s.id} season={s} />
+          ))}
+        </CardGrid>
+      ) : (
+        // Zero-inventory fallback — never a blank row.
+        <div className="bg-paper border border-border rounded-2xl px-5 py-6">
+          <p className="text-ink-muted text-sm">
+            Registration opens soon —{" "}
+            <span className="font-medium text-ink">get notified</span>.
+          </p>
+          <div className="max-w-md">
+            <EmptyNotifyForm audience={notifyAudience} source={notifySource} />
+          </div>
+        </div>
+      )}
+    </div>
   )
 }

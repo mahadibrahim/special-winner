@@ -1,11 +1,12 @@
 import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
 import { teamRegistrations, teamInvitees } from "@/lib/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { sendTeamInviteEmail } from "@/lib/email/send";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
 import { assignEvenShares } from "@/lib/payments/team-captain-charge";
+import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 
 const emailSchema = z.string().trim().toLowerCase().email().max(320);
 
@@ -30,14 +31,20 @@ const BodySchema = z.union([
 
 /**
  * Send team-invite emails to prospective teammates AND persist each invitee's
- * assigned per-player share. The captain (or anyone holding the invite token)
- * supplies either explicit `{ invites: [{ email, shareCents }] }` or a bare
- * `{ emails: [] }` list (we even-split the team fee minus the captain deposit
- * across them). Each invitee gets the one-door join link tagged to this team
- * and, when they register, pays exactly their assigned share. Tenant-scoped
- * via locals.organization, mirroring the sibling GET [token].ts handler.
+ * assigned per-player share. The captain supplies either explicit
+ * `{ invites: [{ email, shareCents }] }` or a bare `{ emails: [] }` list (we
+ * even-split the team fee minus the captain deposit across them). Each invitee
+ * gets the one-door join link tagged to this team and, when they register, pays
+ * exactly their assigned share.
+ *
+ * CAPTAIN-ONLY (locals.user must be this team's captain). The assigned share
+ * IS the amount the teammate is charged (create-registration.ts uses it as the
+ * amountDueOverride), and the invite token is a bearer credential shared with
+ * every teammate — so a token-only endpoint would let any teammate set their
+ * own share to $0, grief others' shares, or email-bomb through the org sender.
+ * Mirrors the auth on the sibling remind.ts / invitee.ts. Rate-limited too.
  */
-export const POST: APIRoute = async ({ params, request, locals }) => {
+export const POST: APIRoute = async ({ params, request, locals, clientAddress }) => {
   const token = params.token;
   if (!token) {
     return new Response(JSON.stringify({ error: "Missing token" }), {
@@ -52,6 +59,17 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       headers: { "Content-Type": "application/json" },
     });
   }
+
+  if (!locals.user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const ip = clientAddress || "unknown";
+  const limit = rateLimit(`team-invite:ip:${ip}`, 10, 60_000);
+  if (!limit.allowed) return rateLimitedResponse(limit.retryAfter ?? 60);
 
   let parsed;
   try {
@@ -79,6 +97,8 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
         seasonId: teamRegistrations.seasonId,
         teamName: teamRegistrations.teamName,
         captainName: teamRegistrations.captainName,
+        captainEmail: teamRegistrations.captainEmail,
+        captainUserId: teamRegistrations.captainUserId,
         inviteToken: teamRegistrations.inviteToken,
         teamFeeCents: teamRegistrations.teamFeeCents,
         depositCents: teamRegistrations.depositCents,
@@ -99,6 +119,19 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     // Cross-tenant guard: 404 (not 403) — hides existence of cross-tenant rows.
     const organization = locals.organization;
     if (!organization || team.organizationId !== organization.id) {
+      return new Response(JSON.stringify({ error: "Not found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    // Captain-only: match by user id, falling back to email (captainUserId is
+    // nullable). Non-captains get 404 — never leak the team's existence.
+    const isCaptain =
+      team.captainUserId != null
+        ? team.captainUserId === locals.user.id
+        : team.captainEmail.toLowerCase() === locals.user.email.toLowerCase();
+    if (!isCaptain) {
       return new Response(JSON.stringify({ error: "Not found" }), {
         status: 404,
         headers: { "Content-Type": "application/json" },
@@ -130,15 +163,50 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       shareByEmail = new Map(emails.map((e, i) => [e, shares[i]!]));
     }
 
-    const invites = Array.from(shareByEmail.entries()).map(
+    const requested = Array.from(shareByEmail.entries()).map(
       ([email, shareCents]) => ({ email, shareCents }),
     );
 
+    // Never touch an invitee who has already paid (or been charged to the
+    // captain): their assignedShareCents is what they were billed, and
+    // teamCollectedCents sums paid shares at their current value — overwriting
+    // it would corrupt the collected/backstop math and re-email someone who's
+    // already square. Skip those emails entirely (persist + send).
+    const existing = await db
+      .select({ email: teamInvitees.email, status: teamInvitees.status })
+      .from(teamInvitees)
+      .where(
+        and(
+          eq(teamInvitees.teamRegistrationId, team.id),
+          inArray(
+            teamInvitees.email,
+            requested.map((i) => i.email),
+          ),
+        ),
+      );
+    const settledEmails = new Set(
+      existing
+        .filter((e) => e.status !== "pending")
+        .map((e) => e.email.toLowerCase()),
+    );
+    const invites = requested.filter(
+      (i) => !settledEmails.has(i.email.toLowerCase()),
+    );
+    const skippedPaid = requested.length - invites.length;
+
+    if (invites.length === 0) {
+      return new Response(
+        JSON.stringify({ sent: 0, invitees: 0, skippedPaid }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
     // Persist each invitee's assigned share. UPSERT on the
     // (teamRegistrationId, email) unique index so re-inviting updates the share
-    // rather than erroring. Done before the emails so the share we persist
-    // matches the one we quote in the message.
-    await db
+    // rather than erroring. `setWhere status='pending'` is the race guard for a
+    // teammate who pays between the SELECT above and this write. Done before the
+    // emails so the share we persist matches the one we quote in the message.
+    const upserted = await db
       .insert(teamInvitees)
       .values(
         invites.map((i) => ({
@@ -150,27 +218,39 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       .onConflictDoUpdate({
         target: [teamInvitees.teamRegistrationId, teamInvitees.email],
         set: { assignedShareCents: sql`excluded.assigned_share_cents` },
-      });
+        setWhere: eq(teamInvitees.status, "pending"),
+      })
+      .returning({ id: teamInvitees.id, email: teamInvitees.email });
+
+    // emailSchema already normalizes to lowercase, but key defensively by
+    // lowercase in case that ever changes.
+    const idByEmail = new Map(
+      upserted.map((row) => [row.email.toLowerCase(), row.id]),
+    );
 
     const results = await Promise.all(
-      invites.map((i) =>
-        sendTeamInviteEmail({
+      invites.map((i) => {
+        const inviteeId = idByEmail.get(i.email.toLowerCase());
+        const personalJoinUrl = inviteeId
+          ? `${joinUrl}&i=${encodeURIComponent(inviteeId)}`
+          : joinUrl;
+        return sendTeamInviteEmail({
           to: i.email,
           teamName: team.teamName,
           captainName: team.captainName,
-          joinUrl,
+          joinUrl: personalJoinUrl,
           brand,
           shareCents: i.shareCents,
-        }),
-      ),
+        });
+      }),
     );
 
     const sent = results.filter((r) => r.success).length;
 
-    return new Response(JSON.stringify({ sent, invitees: invites.length }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ sent, invitees: invites.length, skippedPaid }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
   } catch (err) {
     console.error("[team-registrations/[token]/invite] send failed", err);
     return new Response(JSON.stringify({ error: "Could not send invites" }), {

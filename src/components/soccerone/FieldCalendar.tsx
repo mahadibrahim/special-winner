@@ -1,15 +1,15 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { quoteRentalCents } from "@/lib/rentals/soccerone-pricing";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
-import { SOCCERONE_CONTACT_EMAIL } from "@/lib/soccerone/contact";
 import { zonedHourToUtc } from "@/lib/activity-tracking/tz-day";
+import { fieldInfoForName, fieldColorForName } from "@/lib/soccerone/field-info";
+import { fetchRentalAvailability } from "@/lib/rentals/fetch-availability";
 
 // --- Live availability types ---
 
@@ -58,6 +58,36 @@ function formatDuration(mins: number): string {
 }
 
 /**
+ * Day-of-week + full date for the day-nav header. `dateStr` is a plain
+ * YYYY-MM-DD calendar date (same convention used everywhere else in this
+ * file); parsed as UTC-midnight purely so the weekday/date text doesn't
+ * shift with the browser's local timezone — it's label text, not an
+ * instant, so it doesn't need zonedHourToUtc.
+ */
+function formatDayHeader(dateStr: string): { dow: string; full: string } {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  return {
+    dow: d.toLocaleDateString("en-US", { weekday: "long", timeZone: "UTC" }),
+    full: d.toLocaleDateString("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+      timeZone: "UTC",
+    }),
+  };
+}
+
+/** Step a YYYY-MM-DD calendar date by `deltaDays`, clamped to [min, max]. */
+function shiftDate(dateStr: string, deltaDays: number, min: string, max: string): string {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + deltaDays);
+  const next = d.toISOString().slice(0, 10);
+  if (next < min) return min;
+  if (next > max) return max;
+  return next;
+}
+
+/**
  * True if the integer hour `h` (e.g. 19 = 7pm) is inside any free block
  * for the given field on the selected date.
  * hour is local wall-clock in the org tz; convert to the UTC instant to match availability blocks.
@@ -76,6 +106,22 @@ function isHourBookable(
     const blockEnd = new Date(b.endsAt).getTime();
     return blockStart <= hourStart && blockEnd >= hourEnd;
   });
+}
+
+/**
+ * True if hour `h` on `dateStr` is at least `leadHours` hours from now.
+ * UX mirror of the server's minLeadTimeHours check (Task 5) — the server
+ * remains the source of truth; this just keeps near-term slots from
+ * rendering as clickable when the request would 422.
+ */
+function meetsLeadTime(
+  dateStr: string,
+  h: number,
+  timeZone: string,
+  leadHours: number,
+): boolean {
+  const hourStart = zonedHourToUtc(dateStr, h, timeZone).getTime();
+  return hourStart >= Date.now() + leadHours * 60 * 60_000;
 }
 
 /**
@@ -142,11 +188,6 @@ export interface FieldCalendarProps {
   /** Initial date (YYYY-MM-DD). Defaults to today. */
   initialDate?: string;
   /**
-   * Member discount percentage (0–100). Pass from the server based on signed-in
-   * user's membership status. Defaults to 0 (no discount shown).
-   */
-  memberDiscountPct?: number;
-  /**
    * IANA timezone for the org/facility (e.g. "America/New_York"). Used to
    * resolve the correct pricing tier from wall-clock hour. Defaults to
    * "America/New_York" (SoccerOne's venue timezone).
@@ -158,14 +199,29 @@ export interface FieldCalendarProps {
    * 7-day window.
    */
   bookingWindowDays?: number;
+  /**
+   * Minimum hours of advance notice a request needs (server-resolved from
+   * the org's rate card; the API enforces the same limit). Defaults to the
+   * public 48h window.
+   */
+  minLeadTimeHours?: number;
+  /**
+   * Whether the visitor has an active session. Signed-in users' contact
+   * info comes from their account; signed-out visitors ("guests") request
+   * with no account and must supply name/email/phone inline. Defaults to
+   * false — an un-prop'd caller just shows the guest fields, which the
+   * endpoint accepts either way.
+   */
+  signedIn?: boolean;
 }
 
 export function FieldCalendar({
   venues,
   initialDate,
-  memberDiscountPct = 0,
   timeZone = "America/New_York",
   bookingWindowDays = 7,
+  minLeadTimeHours = 48,
+  signedIn = false,
 }: FieldCalendarProps) {
   // Top-level client:load island on /rent; set the hydration beacon so e2e
   // waitForHydration() resolves (per CLAUDE.md Playwright conventions).
@@ -177,7 +233,24 @@ export function FieldCalendar({
   const maxDate = new Date(Date.now() + bookingWindowDays * 24 * 60 * 60 * 1000)
     .toISOString()
     .slice(0, 10);
-  const [date, setDate] = useState(initialDate ?? today);
+  // Default to the first bookable day rather than "today" — with the
+  // minLeadTimeHours guard, every slot on "today" shows the 48h-notice
+  // reason and nothing is actually requestable on load. Clamp within the
+  // booking window in case minLeadTimeHours somehow exceeds it.
+  let firstBookableDate = (() => {
+    const d = new Date(Date.now() + minLeadTimeHours * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    return d > maxDate ? maxDate : d;
+  })();
+  // Guarantee the default day's earliest slot clears the lead-time window, not
+  // just the calendar-day math above. Depending on the current wall-clock hour
+  // in the org tz, the first slot (HOURS[0]) on today+leadDays can still fall
+  // inside the 48h window; if so, bump one more day (clamped to maxDate).
+  if (!meetsLeadTime(firstBookableDate, HOURS[0]!, timeZone, minLeadTimeHours)) {
+    firstBookableDate = shiftDate(firstBookableDate, 1, firstBookableDate, maxDate);
+  }
+  const [date, setDate] = useState(initialDate ?? firstBookableDate);
   const [venueId, setVenueId] = useState<string | null>(venues[0]?.id ?? null);
   const [availability, setAvailability] = useState<AvailabilityResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -189,14 +262,17 @@ export function FieldCalendar({
   // Duration in whole-hour increments (60, 120, 180, or 240 minutes).
   const [durationMinutes, setDurationMinutes] = useState(60);
 
-  // Real booking state — this panel drives the same flow as the Aspire
-  // /rentals page: waiver → POST /api/rentals/bookings → Stripe Checkout.
+  // Real request state — this panel drives the same flow as the Aspire
+  // /rentals page: waiver → POST /api/rentals/bookings → request held for
+  // admin review → pay link emailed once approved.
   const [partySize, setPartySize] = useState(8);
   const [waiverAccepted, setWaiverAccepted] = useState(false);
   const [waiverName, setWaiverName] = useState("");
+  const [guestEmail, setGuestEmail] = useState("");
+  const [guestPhone, setGuestPhone] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [needsSignIn, setNeedsSignIn] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [requestSubmitted, setRequestSubmitted] = useState(false);
 
   // Fetch availability whenever venueId or date changes
   useEffect(() => {
@@ -207,12 +283,8 @@ export function FieldCalendar({
     let cancelled = false;
     setLoading(true);
     setError(null);
-    fetch(
-      `/api/rentals/availability?venueId=${encodeURIComponent(venueId)}&date=${encodeURIComponent(date)}`,
-    )
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const body = (await res.json()) as AvailabilityResponse;
+    fetchRentalAvailability<AvailabilityResponse>(venueId, date)
+      .then((body) => {
         if (!cancelled) {
           setAvailability(body);
           // Reset selected field to first available if current field no longer present
@@ -270,23 +342,33 @@ export function FieldCalendar({
   // Same engine as the server, so the display matches the charged amount.
   const standardCents = startsAt && endsAt ? quoteRentalCents(startsAt, endsAt, timeZone) : null;
 
-  const memberCents =
-    standardCents !== null && memberDiscountPct > 0
-      ? Math.round(standardCents * (1 - memberDiscountPct / 100))
-      : null;
+  // Day-nav ‹ › — step the selected date, clamped to the same [today, maxDate]
+  // window the date input already enforces.
+  const goToPrevDay = () => {
+    setDate((d) => shiftDate(d, -1, today, maxDate));
+    setSelectedSlot(null);
+  };
+  const goToNextDay = () => {
+    setDate((d) => shiftDate(d, 1, today, maxDate));
+    setSelectedSlot(null);
+  };
 
   const handleSlotClick = (h: number) => {
-    if (!isHourBookable(currentField, date, h, timeZone)) return;
+    if (
+      !isHourBookable(currentField, date, h, timeZone) ||
+      !meetsLeadTime(date, h, timeZone, minLeadTimeHours)
+    )
+      return;
     setSelectedSlot({ field: selectedField, hour: h });
     setSubmitError(null);
-    setNeedsSignIn(false);
+    setRequestSubmitted(false);
     // Reset duration to 1h so we always start fresh on a new selection.
     setDurationMinutes(60);
   };
 
-  // Same booking flow as the Aspire /rentals page (RentalBooking.tsx):
-  // POST creates a 10-minute hold and returns a Stripe Checkout URL.
-  // Pricing, member discounts, and conflicts are all server-side.
+  // Same request flow as the Aspire /rentals page (RentalBooking.tsx):
+  // POST creates a request held for admin review; no Stripe interaction
+  // happens here — payment is collected via a pay link after approval.
   const handleBook = async () => {
     if (!venueId || !selectedSlot || !startsAt || !endsAt) return;
     setSubmitting(true);
@@ -303,27 +385,26 @@ export function FieldCalendar({
           partySize,
           waiverName: waiverName.trim(),
           waiverAccepted: true,
+          ...(!signedIn && {
+            renterName: waiverName.trim(),
+            renterEmail: guestEmail.trim(),
+            renterPhone: guestPhone.trim() || undefined,
+          }),
         }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        if (res.status === 401) {
-          setNeedsSignIn(true);
-          return;
-        }
         const msg =
           typeof body.error === "string" ? body.error : `Error ${res.status}`;
         setSubmitError(msg);
         return;
       }
-      if (body.paymentRequired && body.checkoutUrl) {
-        toast.success("Slot held — redirecting to payment…", { duration: 1200 });
-        window.setTimeout(() => {
-          window.location.href = body.checkoutUrl as string;
-        }, 800);
-      } else {
-        window.location.href = "/dashboard/bookings?rental=success";
+      if (body.requested) {
+        setRequestSubmitted(true);
+        return;
       }
+      // Legacy fallback (should not happen in request mode).
+      window.location.href = "/dashboard/bookings";
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Network error");
     } finally {
@@ -345,38 +426,63 @@ export function FieldCalendar({
       ? (venues.find((v) => v.id === venueId)?.name ?? "Field")
       : `Field ${selectedField}`;
 
+  // Venue name backing the currently-selected bookable unit, for the
+  // per-field info card. Venues are modeled one-per-physical-field, so in
+  // both selector modes the current selection maps to a single venue name
+  // (or null if there isn't one to show, e.g. no venues at this facility).
+  const selectedVenueName =
+    venues.length > 1
+      ? (venues.find((v) => v.id === venueId)?.name ?? null)
+      : (venues[0]?.name ?? null);
+
+  const selectedFieldInfo = selectedVenueName ? fieldInfoForName(selectedVenueName) : null;
+
+  // "110 × 60" -> ["110 FT", "60 FT"] for the pitch diagram's dimension labels.
+  const pitchDimLabels = selectedFieldInfo
+    ? selectedFieldInfo.dimensions.split("×").map((s) => `${s.trim()} FT`)
+    : null;
+
   return (
     <div className="field-calendar-root">
       {/* Filter bar */}
       <div className="calendar-filters">
         <div className="filter-group">
-          <label htmlFor="field-select" className="filter-label">Field</label>
+          <span className="filter-label">Field</span>
           {venues.length > 1 ? (
-            <select
-              id="field-select"
-              className="filter-select"
-              value={venueId ?? ""}
-              onChange={(e) => {
-                setVenueId(e.target.value);
-                setSelectedField(1);
-                setSelectedSlot(null);
-              }}
-            >
+            <div className="field-chips" role="group" aria-label="Field">
               {venues.map((v) => (
-                <option key={v.id} value={v.id}>{v.name}</option>
+                <button
+                  key={v.id}
+                  type="button"
+                  className={cn("field-chip", venueId === v.id && "field-chip--active")}
+                  onClick={() => {
+                    setVenueId(v.id);
+                    setSelectedField(1);
+                    setSelectedSlot(null);
+                  }}
+                >
+                  <span className="field-chip-dot" style={{ background: fieldColorForName(v.name) }} />
+                  {v.name}
+                </button>
               ))}
-            </select>
+            </div>
           ) : (
-            <select
-              id="field-select"
-              className="filter-select"
-              value={selectedField}
-              onChange={(e) => { setSelectedField(Number(e.target.value)); setSelectedSlot(null); }}
-            >
-              {fieldNumbers.map((n) => (
-                <option key={n} value={n}>Field {n}</option>
-              ))}
-            </select>
+            <div className="field-chips" role="group" aria-label="Field">
+              {fieldNumbers.map((n) => {
+                const label = venues[0]?.name ?? `Field ${n}`;
+                return (
+                  <button
+                    key={n}
+                    type="button"
+                    className={cn("field-chip", selectedField === n && "field-chip--active")}
+                    onClick={() => { setSelectedField(n); setSelectedSlot(null); }}
+                  >
+                    <span className="field-chip-dot" style={{ background: fieldColorForName(label) }} />
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
           )}
         </div>
 
@@ -391,10 +497,6 @@ export function FieldCalendar({
             max={maxDate}
             onChange={(e) => { setDate(e.target.value); setSelectedSlot(null); }}
           />
-          <span className="filter-hint">
-            Online booking opens {bookingWindowDays} days ahead — email{" "}
-            <a href={`mailto:${SOCCERONE_CONTACT_EMAIL}`}>{SOCCERONE_CONTACT_EMAIL}</a> for later dates.
-          </span>
         </div>
 
         <div className="filter-group">
@@ -410,20 +512,76 @@ export function FieldCalendar({
             ))}
           </select>
         </div>
-
-        {/* Member savings note — contextual per discount status */}
-        <div className="member-toggle-group">
-          {memberDiscountPct > 0 ? (
-            <span className="member-note">Member discount ({memberDiscountPct}%) applied at checkout</span>
-          ) : (
-            <span className="member-note">Members save up to 25% — sign in</span>
-          )}
-        </div>
       </div>
+
+      {selectedFieldInfo && pitchDimLabels && (
+        <div className="field-view-card">
+          <div className="pitch-diagram">
+            <svg viewBox="0 0 560 300" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <rect x="20" y="30" width="520" height="240" rx="8" stroke="#a3e635" strokeWidth="2" fill="rgba(163,230,53,0.04)" />
+              <line x1="280" y1="30" x2="280" y2="270" stroke="rgba(163,230,53,0.35)" strokeWidth="1.5" />
+              <circle cx="280" cy="150" r="42" stroke="rgba(163,230,53,0.35)" strokeWidth="1.5" />
+              <rect x="20" y="105" width="30" height="90" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
+              <rect x="510" y="105" width="30" height="90" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
+              <text x="280" y="20" fill="rgba(255,255,255,0.6)" fontFamily="var(--so-font-mono)" fontSize="13" textAnchor="middle">
+                {pitchDimLabels[0]}
+              </text>
+              <text x="10" y="150" fill="rgba(255,255,255,0.6)" fontFamily="var(--so-font-mono)" fontSize="13" textAnchor="middle" transform="rotate(-90 10 150)">
+                {pitchDimLabels[1]}
+              </text>
+            </svg>
+          </div>
+          <div className="field-specs">
+            <div className="field-spec-row">
+              <span className="field-spec-k">Size</span>
+              <span className="field-spec-v">{selectedFieldInfo.dimensions} ft</span>
+            </div>
+            <div className="field-spec-row">
+              <span className="field-spec-k">Surface</span>
+              <span className="field-spec-v">{selectedFieldInfo.surface}</span>
+            </div>
+            <div className="field-spec-row">
+              <span className="field-spec-k">Format</span>
+              <span className="field-spec-v">{selectedFieldInfo.format}</span>
+            </div>
+            <div className="field-spec-row">
+              <span className="field-spec-k">Location</span>
+              <span className="field-spec-v">{selectedFieldInfo.location}</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="calendar-layout">
         {/* Calendar grid */}
         <div className="calendar-grid-wrapper">
+          <div className="day-nav-header">
+            <button
+              type="button"
+              className="day-nav-btn"
+              onClick={goToPrevDay}
+              disabled={date <= today}
+              aria-label="Previous day"
+            >
+              ‹
+            </button>
+            <div className="day-nav-label">
+              <div className="day-nav-dow">{formatDayHeader(date).dow}</div>
+              <div className="day-nav-date">
+                {formatDayHeader(date).full} · {selectedUnitLabel}
+              </div>
+            </div>
+            <button
+              type="button"
+              className="day-nav-btn"
+              onClick={goToNextDay}
+              disabled={date >= maxDate}
+              aria-label="Next day"
+            >
+              ›
+            </button>
+          </div>
+
           <div className="calendar-legend">
             <div className="legend-item">
               <span className="legend-swatch legend-available"></span>Available
@@ -456,7 +614,12 @@ export function FieldCalendar({
           {!loading && !error && availability && availability.fields.length > 0 && (
             <div className="calendar-grid">
               {HOURS.map((h) => {
-                const bookable = isHourBookable(currentField, date, h, timeZone);
+                const withinLead = meetsLeadTime(date, h, timeZone, minLeadTimeHours);
+                const bookable =
+                  isHourBookable(currentField, date, h, timeZone) && withinLead;
+                const reason = !withinLead
+                  ? `Requests need ${minLeadTimeHours}h notice — call the venue for sooner`
+                  : hourReason(currentField, date, h, timeZone);
                 const isSelected =
                   selectedSlot?.hour === h && selectedSlot?.field === selectedField;
 
@@ -485,7 +648,7 @@ export function FieldCalendar({
                     {!bookable && (
                       <div className="row-event">
                         <span className="event-reason-chip">
-                          {hourReason(currentField, date, h, timeZone) ?? "Unavailable"}
+                          {reason ?? "Unavailable"}
                         </span>
                       </div>
                     )}
@@ -509,7 +672,7 @@ export function FieldCalendar({
           {selectedSlot ? (
             <>
               <div className="panel-header">
-                <h3 className="panel-title">Book Slot</h3>
+                <h3 className="panel-title">Request Slot</h3>
                 <button className="panel-close" onClick={() => setSelectedSlot(null)} aria-label="Close">
                   <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                     <line x1="4" y1="4" x2="14" y2="14"/><line x1="14" y1="4" x2="4" y2="14"/>
@@ -559,72 +722,95 @@ export function FieldCalendar({
                     <span className="total-amount">${(standardCents / 100).toFixed(0)}</span>
                   </div>
                 )}
-                {memberCents !== null ? (
-                  <p className="member-price-line">
-                    Members: ${(memberCents / 100).toFixed(0)}{" "}
-                    <span className="member-savings-badge">−{memberDiscountPct}%</span>
-                  </p>
-                ) : (
-                  <p className="member-nudge">
-                    Members save up to 25% —{" "}
-                    <a
-                      className="nudge-link"
-                      href={`/signin?redirect=${encodeURIComponent(typeof window !== "undefined" ? window.location.pathname : "/rent")}`}
-                    >
-                      sign in
-                    </a>
-                  </p>
-                )}
               </div>
 
-              {/* Waiver — required by POST /api/rentals/bookings, same as
-                  the Aspire rentals flow. */}
-              <div className="panel-addons">
-                <h4 className="addons-heading">Liability waiver</h4>
-                <label className="addon-row">
-                  <input
-                    type="checkbox"
-                    className="addon-check"
-                    checked={waiverAccepted}
-                    onChange={(e) => setWaiverAccepted(e.target.checked)}
-                  />
-                  <span className="addon-label">
-                    I accept the liability waiver: I understand indoor soccer
-                    involves physical activity and inherent risk of injury, and
-                    I release SoccerOne and Aspire Sports from liability for
-                    injury arising from my rental.
-                  </span>
-                </label>
-                <input
-                  type="text"
-                  className="filter-input waiver-name-input"
-                  placeholder="Full name (typed signature)"
-                  value={waiverName}
-                  onChange={(e) => setWaiverName(e.target.value)}
-                  aria-label="Full name (typed signature)"
-                />
-              </div>
-
-              <p className="panel-note">Final price confirmed at checkout · slot held 10 min while you pay</p>
-
-              {needsSignIn ? (
-                <a
-                  className="panel-book-btn panel-book-link"
-                  href={`/signin?redirect=${encodeURIComponent(typeof window !== "undefined" ? window.location.pathname : "/rent")}`}
-                >
-                  Sign in to book
-                </a>
+              {requestSubmitted ? (
+                <div className="request-success">
+                  <h4 className="addons-heading">Request submitted</h4>
+                  <p>
+                    Thanks — we've got your request for this slot. Our team will
+                    review it and email you a link to pay once it's approved.
+                    The slot is held for you in the meantime.
+                  </p>
+                </div>
               ) : (
-                <button
-                  className="panel-book-btn"
-                  onClick={handleBook}
-                  disabled={submitting || !waiverAccepted || !waiverName.trim()}
-                >
-                  {submitting ? "Holding slot…" : "Book this slot"}
-                </button>
-              )}
+                <>
+                  {!signedIn && (
+                    <div className="panel-addons">
+                      <h4 className="addons-heading">Your contact info</h4>
+                      <input
+                        type="email"
+                        className="filter-input guest-contact-input"
+                        placeholder="Email"
+                        value={guestEmail}
+                        onChange={(e) => setGuestEmail(e.target.value)}
+                        aria-label="Email"
+                      />
+                      <input
+                        type="tel"
+                        className="filter-input guest-contact-input"
+                        placeholder="Phone (optional)"
+                        value={guestPhone}
+                        onChange={(e) => setGuestPhone(e.target.value)}
+                        aria-label="Phone (optional)"
+                      />
+                      <p className="waiver-requirement-note">
+                        No account needed — we&apos;ll email your approval and pay
+                        link to this address.
+                      </p>
+                    </div>
+                  )}
 
-              {submitError && <p className="panel-error" role="alert">{submitError}</p>}
+                  {/* Waiver — required by POST /api/rentals/bookings, same as
+                      the Aspire rentals flow. */}
+                  <div className="panel-addons">
+                    <h4 className="addons-heading">Liability waiver</h4>
+                    <label className="addon-row">
+                      <input
+                        type="checkbox"
+                        className="addon-check"
+                        checked={waiverAccepted}
+                        onChange={(e) => setWaiverAccepted(e.target.checked)}
+                      />
+                      <span className="addon-label">
+                        I accept the liability waiver: I understand indoor soccer
+                        involves physical activity and inherent risk of injury, and
+                        I release SoccerOne and Aspire Sports from liability for
+                        injury arising from my rental.
+                      </span>
+                    </label>
+                    <input
+                      type="text"
+                      className="filter-input waiver-name-input"
+                      placeholder="Full name (typed signature)"
+                      value={waiverName}
+                      onChange={(e) => setWaiverName(e.target.value)}
+                      aria-label="Full name (typed signature)"
+                    />
+                    <p className="waiver-requirement-note">
+                      Every player must have a signed waiver on file to play. You&apos;ll
+                      confirm your roster and waivers after your request is approved.
+                    </p>
+                  </div>
+
+                  <p className="panel-note">Final price confirmed once approved · your slot is held while we review</p>
+
+                  <button
+                    className="panel-book-btn"
+                    onClick={handleBook}
+                    disabled={
+                      submitting ||
+                      !waiverAccepted ||
+                      !waiverName.trim() ||
+                      (!signedIn && !guestEmail.trim())
+                    }
+                  >
+                    {submitting ? "Submitting…" : "Request this slot"}
+                  </button>
+
+                  {submitError && <p className="panel-error" role="alert">{submitError}</p>}
+                </>
+              )}
 
               <p className="panel-note">
                 Cancel 14+ days out for a full refund. Within 14 days, bookings are final.
@@ -638,12 +824,9 @@ export function FieldCalendar({
                   <path d="M16 24h16M24 16v16" stroke="#facc15" strokeWidth="2.5" strokeLinecap="round"/>
                 </svg>
               </div>
-              <p className="panel-empty-text">Select an available time slot on the calendar to book {selectedUnitLabel}.</p>
+              <p className="panel-empty-text">Select an available time slot on the calendar to request {selectedUnitLabel}.</p>
               <p className="panel-empty-rate">
                 Tiered rates — peak evenings from <strong>$190</strong>
-                {memberDiscountPct > 0
-                  ? ` · member rate (${memberDiscountPct}% off) applied at checkout`
-                  : " · members save up to 25%"}
               </p>
             </div>
           )}
@@ -678,16 +861,6 @@ export function FieldCalendar({
           text-transform: uppercase;
           color: rgba(250,204,21,0.8);
         }
-        .filter-hint {
-          font-size: 0.75rem;
-          color: rgba(255,255,255,0.45);
-          line-height: 1.4;
-          max-width: 240px;
-        }
-        .filter-hint a {
-          color: rgba(250,204,21,0.8);
-          text-decoration: underline;
-        }
         .filter-select, .filter-input {
           background: var(--so-navy);
           border: 1.5px solid rgba(255,255,255,0.15);
@@ -710,15 +883,139 @@ export function FieldCalendar({
           background: var(--so-navy);
           color: white;
         }
-        .member-toggle-group {
+        /* Field chips — replace the old field <select> */
+        .field-chips {
           display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-          padding-bottom: 2px;
+          flex-wrap: wrap;
+          gap: 0.625rem;
         }
-        .member-note {
-          font-size: 0.8125rem;
-          color: rgba(250,204,21,0.65);
+        .field-chip {
+          display: flex;
+          align-items: center;
+          gap: 0.625rem;
+          background: rgba(255,255,255,0.04);
+          border: 1.5px solid rgba(255,255,255,0.15);
+          border-radius: var(--so-radius-lg);
+          color: white;
+          font-family: var(--so-font-body);
+          font-size: 0.9375rem;
+          font-weight: 600;
+          padding: 0.625rem 1rem;
+          cursor: pointer;
+          transition: border-color 0.15s, background 0.15s;
+        }
+        .field-chip:hover {
+          border-color: rgba(163,230,53,0.4);
+        }
+        .field-chip--active {
+          border-color: var(--so-lime);
+          background: var(--so-lime-a12);
+        }
+        .field-chip-dot {
+          width: 12px;
+          height: 12px;
+          border-radius: 50%;
+          box-shadow: 0 0 0 3px rgba(255,255,255,0.06);
+          flex-shrink: 0;
+        }
+        /* Pitch diagram + specs */
+        .field-view-card {
+          display: grid;
+          grid-template-columns: 200px 1fr;
+          gap: 1.25rem;
+          align-items: center;
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: var(--so-radius-md);
+          padding: 1rem 1.5rem;
+          margin-bottom: 1.5rem;
+        }
+        .pitch-diagram {
+          background: var(--so-lime-a06);
+          border: 1px solid rgba(255,255,255,0.1);
+          border-radius: var(--so-radius-md);
+          padding: 0.625rem;
+        }
+        .pitch-diagram svg {
+          display: block;
+          width: 100%;
+          height: auto;
+        }
+        .field-specs {
+          display: grid;
+          gap: 0.75rem;
+        }
+        .field-spec-row {
+          display: grid;
+          grid-template-columns: 92px 1fr;
+          gap: 0.625rem;
+          align-items: baseline;
+        }
+        .field-spec-k {
+          font-family: var(--so-font-mono);
+          font-size: 0.625rem;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: rgba(255,255,255,0.45);
+        }
+        .field-spec-v {
+          font-size: 0.875rem;
+          font-weight: 600;
+          color: rgba(255,255,255,0.9);
+        }
+        @media (max-width: 560px) {
+          .field-view-card {
+            grid-template-columns: 1fr;
+          }
+        }
+        /* Day header with prev/next nav */
+        .day-nav-header {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 1rem;
+          margin-bottom: 1rem;
+        }
+        .day-nav-btn {
+          flex-shrink: 0;
+          width: 40px;
+          height: 40px;
+          border-radius: var(--so-radius-md);
+          border: 1.5px solid rgba(255,255,255,0.15);
+          background: rgba(255,255,255,0.04);
+          color: white;
+          font-size: 1.125rem;
+          display: grid;
+          place-items: center;
+          cursor: pointer;
+          transition: border-color 0.15s, color 0.15s;
+        }
+        .day-nav-btn:hover:not(:disabled) {
+          border-color: rgba(163,230,53,0.4);
+          color: var(--so-lime);
+        }
+        .day-nav-btn:disabled {
+          opacity: 0.35;
+          cursor: default;
+        }
+        .day-nav-label {
+          text-align: center;
+          min-width: 220px;
+        }
+        .day-nav-dow {
+          font-family: var(--so-font-display);
+          text-transform: uppercase;
+          letter-spacing: 0.02em;
+          font-size: 1.625rem;
+          line-height: 1;
+          color: white;
+        }
+        .day-nav-date {
+          font-family: var(--so-font-mono);
+          font-size: 0.75rem;
+          color: rgba(255,255,255,0.5);
+          letter-spacing: 0.04em;
+          margin-top: 0.25rem;
         }
         .calendar-layout {
           display: grid;
@@ -965,40 +1262,25 @@ export function FieldCalendar({
           color: #facc15;
           letter-spacing: -0.03em;
         }
-        .member-price-line {
-          font-size: 0.8125rem;
-          color: rgba(74,222,128,0.85);
-          margin: 0;
-          text-align: right;
-          display: flex;
-          align-items: center;
-          justify-content: flex-end;
-          gap: 0.375rem;
-        }
-        .member-savings-badge {
-          font-size: 0.6875rem;
-          font-weight: 700;
-          background: rgba(74,222,128,0.15);
-          color: #86efac;
-          padding: 2px 7px;
-          border-radius: var(--so-radius-pill);
-          letter-spacing: 0.04em;
-        }
-        .member-nudge {
-          font-size: 0.8125rem;
-          color: rgba(250,204,21,0.65);
-          margin: 0;
-          text-align: right;
-        }
-        .nudge-link {
-          color: #facc15;
-          font-weight: 600;
-          text-decoration: underline;
-        }
         .panel-addons {
           display: flex;
           flex-direction: column;
           gap: 0.5rem;
+        }
+        .request-success {
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+          background: rgba(250,204,21,0.08);
+          border: 1px solid rgba(250,204,21,0.3);
+          border-radius: var(--so-radius-lg);
+          padding: 1rem;
+        }
+        .request-success p {
+          font-size: 0.875rem;
+          color: rgba(255,255,255,0.75);
+          line-height: 1.5;
+          margin: 0;
         }
         .addons-heading {
           font-size: 0.75rem;
@@ -1063,6 +1345,17 @@ export function FieldCalendar({
           width: 100%;
           margin-top: 0.625rem;
           box-sizing: border-box;
+        }
+        .guest-contact-input {
+          width: 100%;
+          margin-top: 0.5rem;
+          box-sizing: border-box;
+        }
+        .waiver-requirement-note {
+          font-size: 0.8125rem;
+          color: rgba(255,255,255,0.55);
+          line-height: 1.5;
+          margin: 0.625rem 0 0;
         }
         .panel-error {
           font-size: 0.8125rem;

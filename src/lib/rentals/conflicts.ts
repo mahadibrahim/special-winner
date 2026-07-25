@@ -58,6 +58,13 @@ export async function assertNoRentalConflict(
               gte(fieldRentals.paymentExpiresAt, now),
             ),
           ),
+          and(
+            eq(fieldRentals.status, "requested"),
+            or(
+              isNull(fieldRentals.requestExpiresAt),
+              gte(fieldRentals.requestExpiresAt, now),
+            ),
+          ),
         ),
       ),
     )

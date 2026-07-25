@@ -2,8 +2,9 @@
  * Regression test for Phase 3 R4 — member rental discount integration.
  *
  * Highest-priority assertion: Aspire users (no membership tier on the org)
- * pay the exact base price. The discount branch in
- * `src/pages/api/rentals/bookings/index.ts` MUST NOT alter their
+ * pay the exact base price. Rentals are now flat-priced — the discount
+ * branch that used to live in `src/pages/api/rentals/bookings/index.ts` was
+ * removed on this branch, so no code path should alter their
  * `amountDueCents`.
  *
  * The SoccerOne member-discount case is skipped until Task 17 seeds the

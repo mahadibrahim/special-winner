@@ -17,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { hasConfirmedPayment } from "@/lib/registrations/payment-confirmation-signal"
 
 interface Registration {
   id: string
@@ -92,6 +93,21 @@ const statusConfig: Record<string, { label: string; icon: typeof CheckCircle2; c
     className: "bg-gray-500/10 text-ink-muted border-gray-500/20",
   },
 }
+
+// Webhook-lag presentation: Stripe confirmed the payment in this browser but
+// the server hasn't processed payment_intent.succeeded yet, so the row still
+// reads pending/unpaid. Amber pending-badge idiom per the design system.
+const awaitingConfirmationStatus = {
+  label: "Payment received — confirming",
+  icon: Clock,
+  className: "bg-amber-500/10 text-amber-700 border-amber-500/20",
+}
+
+// True while a registration is in that webhook-lag state — it must be
+// presented as paid-and-confirming, never nagged for payment (offering
+// "Complete Payment" again would start a second charge).
+const isAwaitingConfirmation = (r: Registration) =>
+  r.status === "pending" && r.paymentStatus === "unpaid" && hasConfirmedPayment(r.id)
 
 const fallbackIcons: Record<string, string> = {
   soccer: "⚽",
@@ -311,7 +327,10 @@ export default function RegistrationsCard() {
   }
 
   const pendingUnpaidCount = registrations.filter(
-    (r) => r.status === "pending" && r.paymentStatus === "unpaid",
+    (r) =>
+      r.status === "pending" &&
+      r.paymentStatus === "unpaid" &&
+      !isAwaitingConfirmation(r),
   ).length
 
   return (
@@ -381,9 +400,18 @@ export default function RegistrationsCard() {
         ) : (
           <div className="space-y-4">
             {registrations.map((reg) => {
-              const status = statusConfig[reg.status] || statusConfig.pending
+              const awaitingConfirmation = isAwaitingConfirmation(reg)
+              const status = awaitingConfirmation
+                ? awaitingConfirmationStatus
+                : statusConfig[reg.status] || statusConfig.pending
               const StatusIcon = status.icon
               const sportIcon = reg.sport.icon || fallbackIcons[reg.sport.name.toLowerCase()] || "🏃"
+              // Genuinely unpaid — show the amount due + Complete Payment CTA.
+              // Excludes the webhook-lag state above.
+              const needsPayment =
+                reg.status === "pending" &&
+                reg.paymentStatus === "unpaid" &&
+                !awaitingConfirmation
 
               return (
                 <div
@@ -430,9 +458,9 @@ export default function RegistrationsCard() {
                       </div>
 
                       {/* Actions section */}
-                      {(reg.status === "pending" && reg.paymentStatus === "unpaid") || reg.paymentStatus === "deposit_paid" || reg.paymentStatus === "failed" || canCancel(reg.status) || canEdit(reg.status) ? (
+                      {needsPayment || reg.paymentStatus === "deposit_paid" || reg.paymentStatus === "failed" || canCancel(reg.status) || canEdit(reg.status) ? (
                         <div className="mt-3 pt-3 border-t border-border flex items-center justify-between">
-                          {reg.status === "pending" && reg.paymentStatus === "unpaid" ? (
+                          {needsPayment ? (
                             <span className="text-sm text-ink-muted">
                               Amount due: <span className="text-ink font-medium">${(reg.amountDueCents / 100).toFixed(2)}</span>
                             </span>
@@ -470,7 +498,7 @@ export default function RegistrationsCard() {
                                 Cancel
                               </Button>
                             )}
-                            {reg.status === "pending" && reg.paymentStatus === "unpaid" && (
+                            {needsPayment && (
                               <Button
                                 size="sm"
                                 className="bg-primary hover:bg-primary/90"

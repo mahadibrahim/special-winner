@@ -19,10 +19,18 @@ const profileSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format (YYYY-MM-DD)")
     .optional()
     .nullable(),
-  gender: z
-    .enum(["male", "female", "other", "prefer_not_to_say"])
-    .optional()
-    .nullable(),
+  // Gender is always optional. "" is treated as absent (it's the unset
+  // placeholder value of the wizard's profile-completion select) rather than
+  // failing the enum with a raw zod error.
+  gender: z.preprocess(
+    (v) => (v === "" ? undefined : v),
+    z
+      .enum(["male", "female", "other", "prefer_not_to_say"], {
+        message: "Pick a gender from the list, or leave it blank",
+      })
+      .optional()
+      .nullable(),
+  ),
   // Sent only by forms that collect a phone next to the SmsConsentCheckbox
   // (e.g. the wizard's complete-your-profile step). When present, records
   // phone opt-in state for the resolved organization; when absent, opt-in
@@ -88,9 +96,14 @@ export const PUT: APIRoute = async (context) => {
     const updates: Record<string, unknown> = {
       firstName: result.data.firstName,
       lastName: result.data.lastName,
-      phone: result.data.phone,
       updatedAt: new Date(),
     };
+    // Only set phone when the caller actually included it —
+    // a PUT that omits phone should not touch the existing value.
+    // An explicitly empty string clears the phone (write null).
+    if (result.data.phone !== undefined) {
+      updates.phone = result.data.phone === "" ? null : result.data.phone;
+    }
     // Only set birthDate/gender when the caller actually included them —
     // a PUT that omits these should not blank existing values.
     if (result.data.birthDate !== undefined) {

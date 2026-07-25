@@ -104,9 +104,12 @@ async function scanDropIns(now: Date, enabledOrgs: Set<string>): Promise<Candida
       label: dropInSessions.sportOrClassLabel,
       endsAt: dropInSessions.endsAt,
       venueId: dropInSessions.venueId,
+      hostUserId: dropInSessions.hostUserId,
+      hostFirstName: users.firstName,
     })
     .from(dropInBookings)
     .innerJoin(dropInSessions, eq(dropInBookings.sessionId, dropInSessions.id))
+    .leftJoin(users, eq(dropInSessions.hostUserId, users.id))
     .where(
       and(
         eq(dropInBookings.status, "confirmed"),
@@ -139,6 +142,17 @@ async function scanDropIns(now: Date, enabledOrgs: Set<string>): Promise<Candida
       metadata: {
         eventLabel: `${r.label} — ${formatEventDate(r.endsAt)}`,
         venueId: r.venueId,
+        // hostName is stamped ONLY when the host has a real first name —
+        // omitted (not a "your host" placeholder) otherwise, so the form
+        // never renders "How was your host, your host?". The form instead
+        // derives whether to show the host question at all from hasHost
+        // (metadata.hostUserId presence), independent of hostName.
+        ...(r.hostUserId
+          ? {
+              hostUserId: r.hostUserId,
+              ...(r.hostFirstName ? { hostName: r.hostFirstName } : {}),
+            }
+          : {}),
       },
       expiryDays: NPS_EXPIRY_DAYS,
     }));

@@ -102,6 +102,7 @@ export async function handleFieldRentalWalkUpPayment(
     if (renterUserId) {
       capturePaymentCompleted({
         distinctId: renterUserId,
+        clientDistinctId: paymentIntent.metadata?.ph_distinct_id,
         kind: "field_rental",
         amountCents: result.paidCents,
         brand: normalizeBrand(paymentIntent.metadata?.brand),

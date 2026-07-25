@@ -1,8 +1,9 @@
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { phoneOptIns } from "@/lib/db/schema/phone-verifications";
 import { getTwilioClient, getSmsFrom, isSmsConfigured, getSmsProvider } from "./client";
 import { createZernioSmsClientFromEnv } from "./zernio-sms";
+import { resolveSmsEnv } from "./resolve-env";
 import { isMessagingMockEnabled, recordMockMessage } from "@/lib/messaging/mock";
 
 /**
@@ -21,8 +22,14 @@ export interface SendSmsInput {
   body: string;
   organizationId: string;
   /**
-   * Set to true for the initial opt-in welcome message or STOP/HELP responses,
-   * which are legally permitted even without prior opt-in.
+   * Relaxes ONLY the "no opt-in on file yet" gate (missing row / `pending`
+   * status) — e.g. the initial opt-in welcome message, an OTP that itself
+   * establishes opt-in, or a single user-requested transactional text. It
+   * does NOT relax STOP suppression: a `phone_opt_ins.status = 'opted_out'`
+   * row always blocks the send, bypass or not. TCPA/10DLC treat STOP as
+   * absolute — there is no legal carve-out that lets any caller text a
+   * number that has withdrawn consent, so this flag must never be read as
+   * "skip the opt-in table entirely."
    */
   bypassOptInCheck?: boolean;
 }
@@ -36,7 +43,8 @@ export type SendSmsResult =
         | "not_opted_in"
         | "opted_out"
         | "provider_error"
-        | "invalid_phone";
+        | "invalid_phone"
+        | "channel_dormant";
       error?: string;
     };
 
@@ -55,7 +63,7 @@ interface DispatchEnv {
  */
 export async function dispatchToProvider(
   input: { to: string; text: string },
-  env: DispatchEnv = import.meta.env as unknown as DispatchEnv,
+  env: DispatchEnv = resolveSmsEnv(),
   fetchImpl?: typeof fetch,
 ): Promise<{ messageId: string }> {
   if (getSmsProvider(env) === "zernio") {
@@ -70,6 +78,79 @@ export async function dispatchToProvider(
   return { messageId: message.sid };
 }
 
+/**
+ * Map a provider transport error to a reason.
+ *
+ * "Dormant" is not "broken". While a 10DLC registration is under carrier review
+ * a send returns `403 … still under carrier review` — the number is real, the
+ * consent is real, the channel is simply not awake yet. Callers must keep the
+ * consent and park the message, not discard it. See
+ * docs/operations/zernio-sms-unpark-checklist.md.
+ *
+ * Classify on HTTP status FIRST, wording SECOND. `zernio-sms.ts` throws
+ * `Zernio SMS <status> on /sms/messages: <detail>`, and `<detail>` falls back
+ * to the literal string "(non-JSON error body)" whenever the carrier's error
+ * response isn't valid JSON — so a real dormant 403 can arrive with no
+ * "under carrier review" wording at all, and wording alone would misclassify
+ * it as a generic provider_error and DISCARD THE CONSENT. The status code is
+ * reliable even when the body isn't, so it must win. A missed dormant
+ * classification destroys consent a customer genuinely gave; a missed
+ * provider_error classification just means one retry — the failure modes are
+ * not symmetric, so ties go to "dormant" whenever the signal is a 403.
+ *
+ * The wording matches are kept as a fallback for providers that don't embed
+ * a parseable status in the message (e.g. non-Zernio callers of this helper).
+ */
+export function classifyProviderError(
+  err: unknown,
+): "channel_dormant" | "not_configured" | "provider_error" {
+  const msg = err instanceof Error ? err.message : String(err);
+
+  const statusMatch = /^Zernio SMS (\d+) on /.exec(msg);
+  if (statusMatch) {
+    const status = Number(statusMatch[1]);
+    if (status === 403) return "channel_dormant";
+    if (status === 404) return "not_configured";
+  }
+
+  if (/under carrier review/i.test(msg)) return "channel_dormant";
+  if (/no sms-enabled number matches/i.test(msg)) return "not_configured";
+  return "provider_error";
+}
+
+export type ConsentGateResult =
+  | { allowed: true }
+  | { allowed: false; reason: "not_opted_in" | "opted_out" };
+
+/**
+ * Pure decision function for the opt-in gate. Pulled out of sendSms so the
+ * four-state matrix (status x bypass) is unit-testable without a DB.
+ *
+ * `status` is undefined when no phone_opt_ins row exists for (org, phone,
+ * "sms") at all — treated the same as "pending" (blocked unless bypassed).
+ *
+ * STOP suppression is checked FIRST and unconditionally: an "opted_out"
+ * status returns blocked regardless of `bypassOptInCheck`. That ordering is
+ * the whole point of this function — see the bypassOptInCheck doc comment
+ * on SendSmsInput.
+ */
+export function resolveConsentGate(
+  status: string | undefined,
+  bypassOptInCheck: boolean,
+): ConsentGateResult {
+  if (status === "opted_out") {
+    return { allowed: false, reason: "opted_out" };
+  }
+  if (bypassOptInCheck) {
+    return { allowed: true };
+  }
+  if (status === undefined || status === "pending") {
+    return { allowed: false, reason: "not_opted_in" };
+  }
+  // status === "opted_in"
+  return { allowed: true };
+}
+
 export async function sendSms(input: SendSmsInput): Promise<SendSmsResult> {
   if (!isSmsConfigured()) {
     console.warn("SMS not configured — skipping send to", input.to);
@@ -80,25 +161,29 @@ export async function sendSms(input: SendSmsInput): Promise<SendSmsResult> {
     return { ok: false, reason: "invalid_phone" };
   }
 
-  // Opt-in gate (bypassed for welcome messages and compliance responses)
-  if (!input.bypassOptInCheck) {
-    const optIn = await getDb()
-      .select({ status: phoneOptIns.status })
-      .from(phoneOptIns)
-      .where(
-        and(
-          eq(phoneOptIns.organizationId, input.organizationId),
-          eq(phoneOptIns.phone, input.to),
-        ),
-      )
-      .limit(1);
+  // Opt-in gate. The lookup always runs — bypassOptInCheck only relaxes the
+  // "missing/pending" branch inside resolveConsentGate, never the STOP
+  // ("opted_out") branch. See the SendSmsInput.bypassOptInCheck doc comment.
+  const optIn = await getDb()
+    .select({ status: phoneOptIns.status })
+    .from(phoneOptIns)
+    .where(
+      and(
+        eq(phoneOptIns.organizationId, input.organizationId),
+        eq(phoneOptIns.phone, input.to),
+        // Without this, optIn[0] can be the WhatsApp row and WhatsApp consent
+        // would decide whether we may send an SMS. SMS (TCPA/10DLC) and
+        // WhatsApp (Meta policy) are legally distinct consents.
+        eq(phoneOptIns.channel, "sms"),
+      ),
+    )
+    // Deterministic pick on the shared CI/staging DB (multi-tenant hazard).
+    .orderBy(asc(phoneOptIns.createdAt))
+    .limit(1);
 
-    if (optIn.length === 0 || optIn[0].status === "pending") {
-      return { ok: false, reason: "not_opted_in" };
-    }
-    if (optIn[0].status === "opted_out") {
-      return { ok: false, reason: "opted_out" };
-    }
+  const gate = resolveConsentGate(optIn[0]?.status, !!input.bypassOptInCheck);
+  if (!gate.allowed) {
+    return { ok: false, reason: gate.reason };
   }
 
   // Length guard
@@ -128,7 +213,7 @@ export async function sendSms(input: SendSmsInput): Promise<SendSmsResult> {
     console.error("SMS send error:", error);
     return {
       ok: false,
-      reason: "provider_error",
+      reason: classifyProviderError(error),
       error: error instanceof Error ? error.message : String(error),
     };
   }

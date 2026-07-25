@@ -1,5 +1,5 @@
 {
-  "id": "3d7460fa-4f45-4e13-a9e8-c123d84f118e",
+  "id": "481f4ecd-1229-4a35-a76c-dbbe67fe343b",
   "prevId": "f243ac3e-36fc-4d0c-97fa-f3f6d87d907f",
   "version": "7",
   "dialect": "postgresql",
@@ -16583,6 +16583,13 @@
           "primaryKey": false,
           "notNull": true
         },
+        "channel": {
+          "name": "channel",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'sms'"
+        },
         "status": {
           "name": "status",
           "type": "varchar(20)",
@@ -16629,8 +16636,8 @@
         }
       },
       "indexes": {
-        "idx_phone_opt_ins_org_phone": {
-          "name": "idx_phone_opt_ins_org_phone",
+        "idx_phone_opt_ins_org_phone_channel": {
+          "name": "idx_phone_opt_ins_org_phone_channel",
           "columns": [
             {
               "expression": "organization_id",
@@ -16640,6 +16647,12 @@
             },
             {
               "expression": "phone",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "channel",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -22516,7 +22529,6 @@
         "unpaid",
         "deposit_paid",
         "paid",
-        "failed",
         "partial_refund",
         "refunded"
       ]

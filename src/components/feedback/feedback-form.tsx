@@ -12,6 +12,12 @@ interface FeedbackFormProps {
   kind: FeedbackRequestKind | null;
   eventLabel: string | null;
   refereeName: string | null;
+  hostName: string | null;
+  /** nps_drop_in only — true whenever the session had an assigned host,
+   *  even one with no first name on file. Drives whether the host-rating
+   *  fieldset shows at all; hostName alone can't (a nameless host still
+   *  gets rated, just under a generic "How was your host?" label). */
+  hasHost: boolean;
 }
 
 type Category = "promoter" | "passive" | "detractor";
@@ -51,7 +57,14 @@ export function FeedbackForm(props: FeedbackFormProps) {
     );
   }
 
-  return <NpsForm token={props.token} eventLabel={props.eventLabel} />;
+  return (
+    <NpsForm
+      token={props.token}
+      eventLabel={props.eventLabel}
+      hostName={props.kind === "nps_drop_in" ? props.hostName : null}
+      hasHost={props.kind === "nps_drop_in" ? props.hasHost : false}
+    />
+  );
 }
 
 function RefereeBranch({
@@ -91,12 +104,24 @@ function TerminalCard({ title, body }: { title: string; body: string }) {
   );
 }
 
-function NpsForm({ token, eventLabel }: { token: string; eventLabel: string | null }) {
+function NpsForm({
+  token,
+  eventLabel,
+  hostName,
+  hasHost,
+}: {
+  token: string;
+  eventLabel: string | null;
+  hostName: string | null;
+  hasHost: boolean;
+}) {
   const [phase, setPhase] = useState<"score" | "followup" | "done">("score");
   const [category, setCategory] = useState<Category | null>(null);
   const [reviewUrl, setReviewUrl] = useState<string | null>(null);
   const [selectedScore, setSelectedScore] = useState<number | null>(null);
   const [comment, setComment] = useState("");
+  const [hostRating, setHostRating] = useState<number | null>(null);
+  const [hostComment, setHostComment] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -109,7 +134,10 @@ function NpsForm({ token, eventLabel }: { token: string; eventLabel: string | nu
       const res = await fetch(`/api/feedback/${token}/score`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ score }),
+        body: JSON.stringify({
+          score,
+          ...(hostRating ? { hostRating, hostComment: hostComment.trim() || undefined } : {}),
+        }),
       });
       const json = await res.json();
       if (!res.ok) {
@@ -253,6 +281,47 @@ function NpsForm({ token, eventLabel }: { token: string; eventLabel: string | nu
         <span>Not likely</span>
         <span>Very likely</span>
       </div>
+      {hasHost && (
+        <fieldset className="mt-6 border-t pt-6">
+          <legend className="text-sm font-medium">
+            {hostName ? `How was your host, ${hostName}?` : "How was your host?"}{" "}
+            <span className="font-normal text-muted-foreground">(optional)</span>
+          </legend>
+          <div className="mt-2 flex gap-1" role="radiogroup" aria-label="Host rating">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button
+                key={n}
+                type="button"
+                role="radio"
+                aria-checked={hostRating === n}
+                aria-label={`${n} star${n === 1 ? "" : "s"}`}
+                disabled={busy}
+                onClick={() => {
+                  const next = hostRating === n ? null : n;
+                  setHostRating(next);
+                  if (next === null) setHostComment("");
+                }}
+                className={`text-2xl leading-none ${
+                  hostRating != null && n <= hostRating ? "text-foreground" : "text-muted-foreground/40"
+                }`}
+              >
+                ★
+              </button>
+            ))}
+          </div>
+          {hostRating != null && (
+            <textarea
+              value={hostComment}
+              onChange={(e) => setHostComment(e.target.value)}
+              maxLength={2000}
+              rows={2}
+              disabled={busy}
+              placeholder="Anything to add? (optional)"
+              className="mt-2 w-full rounded-md border p-3 text-sm"
+            />
+          )}
+        </fieldset>
+      )}
     </div>
   );
 }

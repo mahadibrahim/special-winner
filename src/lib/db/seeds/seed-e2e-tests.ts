@@ -33,6 +33,7 @@ import {
   venues,
   events,
   feedbackRequests,
+  discountCodes,
   type OrganizationFeatures,
   type OrganizationSettings,
 } from "../schema";
@@ -53,7 +54,7 @@ import {
   suspensions,
 } from "../schema";
 import { fieldRentalRateCard } from "../schema/field-rentals";
-import { teamRegistrations } from "../schema/team-registrations";
+import { teamRegistrations, teamInvitees } from "../schema/team-registrations";
 import { dropInSessions, dropInBookings } from "../schema/drop-in";
 import { hostProfiles, hostGameReports } from "../schema/hosts";
 import { membershipTiers, memberships } from "../schema/memberships";
@@ -67,7 +68,7 @@ import {
 import { DOMAINS, STAGES } from "../../curriculum/content/reference";
 import type { DomainName } from "../../curriculum/content/types";
 import { recomputePlayerSnapshots } from "../../curriculum/snapshots";
-import { asc, eq, ne, and, or, inArray } from "drizzle-orm";
+import { asc, eq, ne, and, or, inArray, sql } from "drizzle-orm";
 
 // Test user credentials - use these in E2E tests
 export const TEST_USERS = {
@@ -172,6 +173,19 @@ export const TEST_USERS = {
     firstName: "Test",
     lastName: "Host",
   },
+  // Adult team captain — adult-self persona (hasPlay). Unlike the other test
+  // accounts, this one uses a REAL, deliverable @aspiresportsohio.com Migadu
+  // alias (→ mahad@aspiresportsohio.com) so the captain email flow (deposit
+  // receipt + "Manage your team" deep-link) can be verified end-to-end on
+  // staging with messaging live. Its team invites the teamhub-mate{1,2}
+  // aliases. See the Team Hub fixture block in seedE2ETests().
+  teamHubCaptain: {
+    email: "teamhub-captain@aspiresportsohio.com",
+    password: "TestCaptain123!",
+    firstName: "Team",
+    lastName: "Captain",
+    birthDate: "1990-04-12",
+  },
 };
 
 /**
@@ -201,6 +215,22 @@ export const E2E_ORG_ID = "04836321-9e38-430e-b6a1-4bf4e6ca1b62";
  */
 export const E2E_TEAM_REG_TOKEN_ORG_A = "e2e-team-token-orga-fixture-0001";
 export const E2E_TEAM_REG_TOKEN_ORG_B = "e2e-team-token-orgb-fixture-0001";
+
+/**
+ * A team_registration OWNED (captainUserId) by the dedicated TEAM-HUB CAPTAIN
+ * test user (adult-self persona — who actually captains adult-league teams), in
+ * Org A, with two invitees (one pending, one paid). Powers the Team Hub
+ * dashboard tests (list-my-teams, hub detail, remove-invitee, remind) — those
+ * endpoints are captain-auth'd and NOT Stripe-dependent, so a seeded owner +
+ * invitees lets them run on CI without a payment path.
+ *
+ * The captain + both invitees use REAL, deliverable @aspiresportsohio.com Migadu
+ * aliases (all → mahad@aspiresportsohio.com) so the invite / reminder / receipt
+ * emails can be verified in a real inbox on staging with messaging live.
+ */
+export const E2E_TEAM_HUB_TOKEN = "e2e-team-hub-captain-fixture-0001";
+export const E2E_TEAM_HUB_INVITEE_PENDING = "teamhub-mate1@aspiresportsohio.com";
+export const E2E_TEAM_HUB_INVITEE_PAID = "teamhub-mate2@aspiresportsohio.com";
 
 /**
  * Fixed UUID for the rental-enabled venue seeded for field-rental API tests.
@@ -1706,8 +1736,18 @@ async function seedE2ETests() {
         slug: "e2e-adult-open-soccer",
         description: "Adult open soccer league for E2E testing",
         programType: "league",
+        audienceType: "adults",
         active: true,
       })
+      .returning();
+  } else if (adultProgram.audienceType !== "adults") {
+    // Backfill for rows created before this field was added to the insert —
+    // without this, re-seeding a DB that already has the row leaves it stuck
+    // on the "parents" default and the catalog keeps saying "per kid".
+    [adultProgram] = await db
+      .update(programs)
+      .set({ audienceType: "adults" })
+      .where(eq(programs.id, adultProgram.id))
       .returning();
   }
   console.log(`   ✓ Adult Program: ${adultProgram.name}`);
@@ -1847,6 +1887,25 @@ async function seedE2ETests() {
   }
   console.log(`   ✓ Adult Season: ${adultTeamSeason.name} (id: ${adultTeamSeason.id}) signupModes=${adultTeamSeason.signupModes}`);
 
+  // Org-wide 10% discount code, so the team reserve step's apply-discount
+  // endpoint has a real code to redeem in API/e2e. Idempotent on re-seed.
+  const [existingDiscount] = await db
+    .select({ id: discountCodes.id })
+    .from(discountCodes)
+    .where(and(eq(discountCodes.organizationId, org.id), eq(discountCodes.code, "E2ETEAM10")))
+    .limit(1);
+  if (!existingDiscount) {
+    await db.insert(discountCodes).values({
+      organizationId: org.id,
+      code: "E2ETEAM10",
+      description: "E2E team reserve-step discount (10%)",
+      discountType: "percentage",
+      discountValue: 1000, // 10% (percentage × 100)
+      active: true,
+    });
+    console.log("   ✓ Discount code: E2ETEAM10 (10%)");
+  }
+
   // Second Aspire adult-soccer division (Men's D) so the soccer season page's
   // divisions finder has >1 row and the gender filter is exercised. Same
   // program/org as the coed season; unique slug.
@@ -1895,6 +1954,46 @@ async function seedE2ETests() {
       .returning();
   }
   console.log(`   ✓ Adult Season: ${adultMensSeason.name} (id: ${adultMensSeason.id})`);
+
+  // Completed-term archive fixture. Regression coverage for the mirror of the
+  // SoccerOne archive fix: a fully-completed Aspire term must RENDER at
+  // /adult/leagues/soccer/{term} (standings-first, no register CTAs, rows say
+  // "Season complete") instead of redirecting away and killing the URL.
+  const archiveStart = new Date(Date.now() - 20 * 7 * 24 * 60 * 60 * 1000);
+  const archiveEnd = new Date(Date.now() - 13 * 7 * 24 * 60 * 60 * 1000);
+  let [archiveSeason] = await db
+    .select()
+    .from(seasons)
+    .where(eq(seasons.slug, "e2e-adult-soccer-winter-2026-archive"))
+    .limit(1);
+  if (!archiveSeason) {
+    [archiveSeason] = await db
+      .insert(seasons)
+      .values({
+        programId: adultProgram.id,
+        ageGroupId: adultAgeGroup.id,
+        name: "Winter 2026 — Co-Ed C (archive)",
+        slug: "e2e-adult-soccer-winter-2026-archive",
+        startDate: formatDate(archiveStart),
+        endDate: formatDate(archiveEnd),
+        status: "completed",
+        priceCents: 10000,
+        maxParticipants: 30,
+        termSlug: "winter-2026-archive",
+        termLabel: "Winter 2026 (Archive)",
+        divisionGender: "coed",
+        skillLevel: "c",
+        dayOfWeek: "tue",
+      })
+      .returning();
+  } else {
+    [archiveSeason] = await db
+      .update(seasons)
+      .set({ status: "completed", termSlug: "winter-2026-archive", termLabel: "Winter 2026 (Archive)" })
+      .where(eq(seasons.id, archiveSeason.id))
+      .returning();
+  }
+  console.log(`   ✓ Archive Season: ${archiveSeason.name} (status=${archiveSeason.status})`);
 
   // Keep the OPEN test seasons registerable on re-runs. The shared CI DB
   // accumulates: rows created weeks ago would age past registration_closes /
@@ -2779,12 +2878,17 @@ async function seedE2ETests() {
       organizationId: org.id,
       userId: playerUser.id,
       phone: TEST_USERS.player.phone!,
+      channel: "sms",
       status: "opted_in",
       optedInAt: new Date(),
       optInSource: "admin_added",
     })
     .onConflictDoUpdate({
-      target: [phoneOptIns.organizationId, phoneOptIns.phone],
+      target: [
+        phoneOptIns.organizationId,
+        phoneOptIns.phone,
+        phoneOptIns.channel,
+      ],
       set: { status: "opted_in", optedInAt: new Date(), optedOutAt: null },
     });
 
@@ -2809,6 +2913,122 @@ async function seedE2ETests() {
     .delete(familyMembers)
     .where(eq(familyMembers.parentUserId, playerUser.id));
   console.log(`   ✓ Player: ${playerUser.email} (self family_members row)`);
+
+  // ---- Team Hub fixture (dedicated adult-captain user, REAL email aliases) ----
+  // A dedicated captain account (adult-self persona → hasPlay, lands on
+  // /dashboard/play where the "My Teams" card lives) on a real deliverable
+  // Migadu alias, so the deposit-receipt + invite + reminder emails can be
+  // verified in a real inbox on staging. Distinct from player@ so its footprint
+  // stays isolated from the dashboard-persona specs.
+  const captainPasswordHash = await hashPassword(TEST_USERS.teamHubCaptain.password);
+  let [captainUser] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, TEST_USERS.teamHubCaptain.email))
+    .limit(1);
+
+  if (!captainUser) {
+    [captainUser] = await db
+      .insert(users)
+      .values({
+        email: TEST_USERS.teamHubCaptain.email,
+        passwordHash: captainPasswordHash,
+        firstName: TEST_USERS.teamHubCaptain.firstName,
+        lastName: TEST_USERS.teamHubCaptain.lastName,
+        birthDate: TEST_USERS.teamHubCaptain.birthDate,
+        emailVerified: true,
+      })
+      .returning();
+  } else {
+    await db
+      .update(users)
+      .set({ passwordHash: captainPasswordHash, emailVerified: true })
+      .where(eq(users.id, captainUser.id));
+  }
+  await db.delete(userRoles).where(eq(userRoles.userId, captainUser.id));
+  await db.insert(userRoles).values({
+    userId: captainUser.id,
+    roleId: roleMap.parent.id,
+    scopeType: "organization",
+    scopeId: org.id,
+  });
+  // Adult-self family_members row → hasPlay=true (unique on selfUserId).
+  const [captainSelfRow] = await db
+    .select()
+    .from(familyMembers)
+    .where(eq(familyMembers.selfUserId, captainUser.id))
+    .limit(1);
+  if (!captainSelfRow) {
+    await db.insert(familyMembers).values({
+      selfUserId: captainUser.id,
+      firstName: TEST_USERS.teamHubCaptain.firstName,
+      lastName: TEST_USERS.teamHubCaptain.lastName,
+      birthDate: TEST_USERS.teamHubCaptain.birthDate!,
+    });
+  }
+  console.log(`   ✓ Team Hub captain: ${captainUser.email}`);
+
+  // The team itself (Org A). captainUserId is set so the captain-auth'd
+  // /api/dashboard/teams endpoints resolve it without a Stripe path, and two
+  // invitees (one pending, one paid) give roster + remind + remove data.
+  let [hubTeamReg] = await db
+    .select()
+    .from(teamRegistrations)
+    .where(eq(teamRegistrations.inviteToken, E2E_TEAM_HUB_TOKEN))
+    .limit(1);
+
+  if (!hubTeamReg) {
+    [hubTeamReg] = await db
+      .insert(teamRegistrations)
+      .values({
+        organizationId: org.id,
+        seasonId: season.id,
+        captainUserId: captainUser.id,
+        captainEmail: captainUser.email,
+        captainName: `${TEST_USERS.teamHubCaptain.firstName} ${TEST_USERS.teamHubCaptain.lastName}`,
+        teamName: "E2E Team Hub",
+        inviteToken: E2E_TEAM_HUB_TOKEN,
+        status: "forming",
+        teamFeeCents: 60000,
+        depositCents: 20000,
+      })
+      .returning();
+  } else {
+    // Keep ownership pinned even if an older run created it under another user.
+    await db
+      .update(teamRegistrations)
+      .set({ captainUserId: captainUser.id, captainEmail: captainUser.email })
+      .where(eq(teamRegistrations.id, hubTeamReg.id));
+  }
+
+  // Own the invitee set exactly: clear any existing rows first (a prior seed
+  // may have used different invitee emails, and a test may have added/removed
+  // some) so the fixture is deterministic — exactly one pending + one paid.
+  await db.delete(teamInvitees).where(eq(teamInvitees.teamRegistrationId, hubTeamReg.id));
+  await db
+    .insert(teamInvitees)
+    .values([
+      {
+        teamRegistrationId: hubTeamReg.id,
+        email: E2E_TEAM_HUB_INVITEE_PENDING,
+        assignedShareCents: 20000,
+        status: "pending",
+      },
+      {
+        teamRegistrationId: hubTeamReg.id,
+        email: E2E_TEAM_HUB_INVITEE_PAID,
+        assignedShareCents: 20000,
+        status: "paid",
+      },
+    ])
+    .onConflictDoUpdate({
+      target: [teamInvitees.teamRegistrationId, teamInvitees.email],
+      set: {
+        assignedShareCents: sql`excluded.assigned_share_cents`,
+        status: sql`excluded.status`,
+      },
+    });
+  console.log(`   ✓ Hub TeamReg: ${hubTeamReg.teamName} (captain: ${captainUser.email})`);
 
   // --- both account: one dependent row + one self row → hasFamily=true, hasPlay=true ---
   const bothPasswordHash = await hashPassword(TEST_USERS.both.password);
@@ -3123,6 +3343,8 @@ async function seedE2ETests() {
           name: "Adult Coed — Spring 2026",
           slug: "soccerone-adult-coed-spring-2026",
           status: "open",
+          divisionGender: "coed",
+          skillLevel: null,
           isTest: false,
           startDate: sixWeeksOut.toISOString().slice(0, 10),
           endDate: tenWeeksOut.toISOString().slice(0, 10),
@@ -3143,6 +3365,8 @@ async function seedE2ETests() {
           endDate: tenWeeksOut.toISOString().slice(0, 10),
           termSlug: "spring-2026",
           termLabel: "Spring 2026",
+          divisionGender: "coed",
+          skillLevel: null,
         })
         .where(eq(seasons.id, soccerOneSeason.id))
         .returning();
@@ -3168,6 +3392,8 @@ async function seedE2ETests() {
           name: "Adult Coed B — Spring 2026",
           slug: "soccerone-adult-coed-b-spring-2026",
           status: "open",
+          divisionGender: "coed",
+          skillLevel: "b",
           isTest: false,
           startDate: sixWeeksOut.toISOString().slice(0, 10),
           endDate: tenWeeksOut.toISOString().slice(0, 10),
@@ -3186,6 +3412,8 @@ async function seedE2ETests() {
           endDate: tenWeeksOut.toISOString().slice(0, 10),
           termSlug: "spring-2026",
           termLabel: "Spring 2026",
+          divisionGender: "coed",
+          skillLevel: "b",
         })
         .where(eq(seasons.id, soccerOneSeasonB.id))
         .returning();
@@ -3217,6 +3445,8 @@ async function seedE2ETests() {
           name: "Co-Ed 6v6 — Fall",
           slug: "soccerone-downtown-fall-coed-6v6",
           status: "open",
+          divisionGender: "coed",
+          skillLevel: null,
           isTest: false,
           startDate: downtownFallStart.toISOString().slice(0, 10),
           endDate: downtownFallEnd.toISOString().slice(0, 10),
@@ -3242,6 +3472,8 @@ async function seedE2ETests() {
           startDate: downtownFallStart.toISOString().slice(0, 10),
           endDate: downtownFallEnd.toISOString().slice(0, 10),
           registrationCloses: downtownRegCloses,
+          divisionGender: "coed",
+          skillLevel: null,
         })
         .where(eq(seasons.id, soccerOneDowntownFallSeason.id))
         .returning();
@@ -3349,16 +3581,22 @@ async function seedE2ETests() {
     const worthingtonFallEnd = new Date(Date.now() + 16 * 7 * 24 * 60 * 60 * 1000);
     const worthingtonRegCloses = new Date(Date.now() + 7 * 7 * 24 * 60 * 60 * 1000);
 
+    // divisionGender/skillLevel mirror what the names imply, because prod
+    // does the same — the fixtures previously left both null, which made the
+    // level ladder untestable off prod (and hid the two rules that need e2e
+    // coverage: Women's Open has skillLevel='open' and must survive every
+    // level filter; Co-Ed 30+ is an AGE division whose null level must NOT
+    // be treated as open-to-all).
     const worthingtonFallSeasons = [
-      { slug: "soccerone-worthington-fall-coed-30", name: "Co-Ed 30+ — Fall", dayOfWeek: "sun" },
-      { slug: "soccerone-worthington-fall-mens-c", name: "Men's C — Fall", dayOfWeek: "mon" },
-      { slug: "soccerone-worthington-fall-womens-open", name: "Women's Open — Fall", dayOfWeek: "wed" },
+      { slug: "soccerone-worthington-fall-coed-30", name: "Co-Ed 30+ — Fall", dayOfWeek: "sun", divisionGender: "coed", skillLevel: null },
+      { slug: "soccerone-worthington-fall-mens-c", name: "Men's C — Fall", dayOfWeek: "mon", divisionGender: "mens", skillLevel: "c" },
+      { slug: "soccerone-worthington-fall-womens-open", name: "Women's Open — Fall", dayOfWeek: "wed", divisionGender: "womens", skillLevel: "open" },
       // Futsal on Tuesday + Thursday mirrors the prod catalog shape — it
       // exercises the location page's fall-row dedupe branches (no doubled
       // futsal suffix; live Thursday suppresses the static pickup row) and
       // the LEAGUES + FUTSAL tag variant, which plain sun/mon/wed can't.
-      { slug: "soccerone-worthington-fall-coed-futsal", name: "Co-Ed Futsal — Fall", dayOfWeek: "tue" },
-      { slug: "soccerone-worthington-fall-mens-futsal", name: "Men's Futsal — Fall", dayOfWeek: "thu" },
+      { slug: "soccerone-worthington-fall-coed-futsal", name: "Co-Ed Futsal — Fall", dayOfWeek: "tue", divisionGender: "coed", skillLevel: null },
+      { slug: "soccerone-worthington-fall-mens-futsal", name: "Men's Futsal — Fall", dayOfWeek: "thu", divisionGender: "mens", skillLevel: "c" },
     ] as const;
 
     for (const fixture of worthingtonFallSeasons) {
@@ -3387,6 +3625,8 @@ async function seedE2ETests() {
             dayOfWeek: fixture.dayOfWeek,
             startTime: "18:00",
             endTime: "23:00",
+            divisionGender: fixture.divisionGender,
+            skillLevel: fixture.skillLevel,
             // Shared term across the division fixtures — exercises the
             // multi-division term-aggregate hero (featured-term.ts).
             termSlug: "fall-2026",
@@ -3407,12 +3647,64 @@ async function seedE2ETests() {
             registrationCloses: worthingtonRegCloses,
             termSlug: "fall-2026",
             termLabel: "Fall 2026",
+            // Backfill on re-run: pre-existing rows on the shared CI DB were
+            // seeded before these fields existed and carry nulls.
+            divisionGender: fixture.divisionGender,
+            skillLevel: fixture.skillLevel,
           })
           .where(eq(seasons.id, worthingtonSeason.id))
           .returning();
       }
       console.log(`   ✓ SoccerOne Worthington Season: ${worthingtonSeason.name} (dayOfWeek=${worthingtonSeason.dayOfWeek})`);
     }
+
+    // 12c-3. Forming winter season — an UPCOMING term. Regression fixture for
+    // the round-3 leak: forming seasons from future terms must appear as a
+    // term card in the /leagues Upcoming tab and must NOT leak into the
+    // This Season finder (in prod, 51 winter/spring "Notify me" cards drowned
+    // the 13 registerable fall divisions). One season is enough to derive an
+    // upcoming term.
+    const winterStart = new Date(Date.now() + 20 * 7 * 24 * 60 * 60 * 1000);
+    const winterEnd = new Date(Date.now() + 27 * 7 * 24 * 60 * 60 * 1000);
+    let [winterForming] = await db
+      .select()
+      .from(seasons)
+      .where(eq(seasons.slug, "soccerone-worthington-winter-coed-forming"))
+      .limit(1);
+    if (!winterForming) {
+      [winterForming] = await db
+        .insert(seasons)
+        .values({
+          programId: soccerOneWorthingtonProgram.id,
+          name: "Co-Ed — Winter",
+          slug: "soccerone-worthington-winter-coed-forming",
+          status: "forming",
+          isTest: false,
+          startDate: winterStart.toISOString().slice(0, 10),
+          endDate: winterEnd.toISOString().slice(0, 10),
+          priceCents: 12000,
+          teamPriceCents: 105000,
+          dayOfWeek: "mon",
+          divisionGender: "coed",
+          skillLevel: null,
+          termSlug: "winter-fixture",
+          termLabel: "Winter (Fixture)",
+        })
+        .returning();
+    } else {
+      [winterForming] = await db
+        .update(seasons)
+        .set({
+          status: "forming",
+          startDate: winterStart.toISOString().slice(0, 10),
+          endDate: winterEnd.toISOString().slice(0, 10),
+          termSlug: "winter-fixture",
+          termLabel: "Winter (Fixture)",
+        })
+        .where(eq(seasons.id, winterForming.id))
+        .returning();
+    }
+    console.log(`   ✓ SoccerOne Winter Forming Season: ${winterForming.name} (status=${winterForming.status})`);
 
     // 12d. SoccerOne rental-enabled venue.
     let [soccerOneVenue] = await db

@@ -87,14 +87,18 @@ export const GET: APIRoute = async ({ params, locals }) => {
       .where(eq(rosters.teamId, teamId))
       .orderBy(familyMembers.lastName, familyMembers.firstName);
 
-    // Calculate age for each player
+    // Calculate age for each player. birthDate can be null for adult
+    // self-registrants whose DOB is still pending post-payment review.
     const roster = rosterData.map((item) => {
-      const birthDate = new Date(item.player.birthDate);
-      const today = new Date();
-      let age = today.getFullYear() - birthDate.getFullYear();
-      const monthDiff = today.getMonth() - birthDate.getMonth();
-      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-        age--;
+      let age: number | null = null;
+      if (item.player.birthDate) {
+        const birthDate = new Date(item.player.birthDate);
+        const today = new Date();
+        age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+          age--;
+        }
       }
 
       return {

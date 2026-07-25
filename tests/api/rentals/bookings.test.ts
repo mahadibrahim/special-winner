@@ -42,15 +42,21 @@ function validBody(overrides: Record<string, unknown> = {}) {
 }
 
 describe("POST /api/rentals/bookings", () => {
-  it("returns 401 when not authenticated", async () => {
+  it("guest (no auth) can request with contact info", async () => {
     const res = await fetch(`${BASE}/api/rentals/bookings`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(validBody()),
+      body: JSON.stringify(
+        validBody({
+          fieldNumber: 1,
+          ...slot(12, 1),
+          renterName: "Guest Gal",
+          renterEmail: `guest_${Date.now()}@test.aspiresports.com`,
+        }),
+      ),
     });
-    expect(res.status).toBe(401);
-    const body = await res.json();
-    expect(body).toHaveProperty("error");
+    expect(res.status).toBe(200);
+    expect((await res.json()).requested).toBe(true);
   });
 
   it("returns 422 when waiverAccepted is false", async () => {
@@ -67,29 +73,42 @@ describe("POST /api/rentals/bookings", () => {
     expect(body).toHaveProperty("error");
   });
 
-  it("returns 200 with paymentRequired and checkoutUrl for a valid paid booking", async () => {
+  // Under E2E_TEST_ENDPOINTS=yes (the flag the dev server runs with here) the
+  // min-lead-time guard is skipped along with the near/far-window checks, so
+  // these far-future slots go straight to `requested: true`. The guard's
+  // 422 path is unit-tested separately, not over HTTP against a shared slot
+  // space.
+  it("returns 200 with requested:true for a valid booking request", async () => {
     const cookie = await getParentCookie();
     // Use a distinct slot (field 1, hour 14) so it doesn't collide with
     // conflict.test.ts which uses field 2 at hours 10-13.
     const res = await apiFetch("/api/rentals/bookings", {
       method: "POST",
       cookie,
-      body: JSON.stringify(
-        validBody({ fieldNumber: 1, ...slot(14, 2) }),
-      ),
+      body: JSON.stringify(validBody({ fieldNumber: 1, ...slot(14, 2) })),
     });
     const body = await res.json();
-    // If Stripe is not configured the endpoint returns 500 — flag it.
-    if (res.status === 500 && body?.error === "Stripe not configured") {
-      console.warn(
-        "[bookings.test] Stripe not configured in staging env — paid path cannot be verified",
-      );
-      return;
-    }
     expect(res.status).toBe(200);
-    expect(body.paymentRequired).toBe(true);
-    expect(typeof body.checkoutUrl).toBe("string");
+    expect(body.requested).toBe(true);
     expect(typeof body.rentalId).toBe("string");
+    expect(body).not.toHaveProperty("checkoutUrl");
+  });
+
+  it("holds the slot — a second request for the same slot conflicts", async () => {
+    const cookie = await getParentCookie();
+    const s = slot(16, 1);
+    const first = await apiFetch("/api/rentals/bookings", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify(validBody({ fieldNumber: 1, ...s })),
+    });
+    expect(first.status).toBe(200);
+    const second = await apiFetch("/api/rentals/bookings", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify(validBody({ fieldNumber: 1, ...s })),
+    });
+    expect(second.status).toBe(409);
   });
 });
 

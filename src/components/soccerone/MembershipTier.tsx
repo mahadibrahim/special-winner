@@ -3,6 +3,7 @@
 import React from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { SoCardShell } from "@/components/soccerone/SoCard";
 
 interface Benefit {
   text: string;
@@ -58,16 +59,10 @@ export function MembershipTier({
   };
 
   return (
-    <div
-      className={cn(
-        "membership-tier",
-        highlighted && "membership-tier--highlighted"
-      )}
-      style={
-        {
-          "--tier-accent": accentColor,
-        } as React.CSSProperties
-      }
+    <SoCardShell
+      variant="tier"
+      modifier={highlighted ? "highlighted" : undefined}
+      style={{ "--tier-accent": accentColor } as React.CSSProperties}
     >
       {highlighted && (
         <div className="tier-badge">Most Popular</div>
@@ -136,27 +131,14 @@ export function MembershipTier({
       </button>
 
       <style>{`
-        .membership-tier {
-          background: var(--so-navy-raised);
-          border: 1.5px solid rgba(255,255,255,0.1);
-          border-radius: var(--so-radius-xl);
-          padding: 2rem;
-          display: flex;
-          flex-direction: column;
-          gap: 1.5rem;
-          position: relative;
-          font-family: var(--so-font-body);
-          transition: border-color 0.2s, transform 0.2s;
-        }
-        .membership-tier:hover {
-          border-color: rgba(250,204,21,0.3);
-          transform: translateY(-2px);
-        }
-        .membership-tier--highlighted {
-          border-color: var(--tier-accent);
-          background: #0e2540;
-          box-shadow: 0 0 0 1px var(--tier-accent), 0 8px 32px rgba(250,204,21,0.12);
-        }
+        /* Shell (background/border/hover/highlight) now lives in SoCard.tsx
+           as .so-card-tier / .so-card-tier-highlighted — this stays a
+           shell-only adoption (the plan's pre-authorized fallback): the
+           pricing-plan anatomy below (badge ribbon, price block, benefit
+           list, testimonial, full-width CTA) is different enough from the
+           league/pickup cards' badge/status/price-row shapes that forcing
+           it through those shared sub-parts would risk changing this card's
+           look, so it stays local. */
         .tier-badge {
           position: absolute;
           top: -14px;
@@ -310,6 +292,6 @@ export function MembershipTier({
           transform: translateY(0);
         }
       `}</style>
-    </div>
+    </SoCardShell>
   );
 }

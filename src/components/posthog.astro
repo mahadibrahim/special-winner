@@ -2,13 +2,14 @@
 // PostHog client snippet — analytics + session replay + error tracking.
 //
 // PII posture for Aspire Sports:
-//   - Youth-sports platform; replays will surface kid PII (names, ages, photos)
-//     and payment fields. Default everything to "masked, not captured" and
-//     selectively allow safe surfaces with `data-ph-allow`.
-//   - Password fields, payment forms, refund flows, and the registration
-//     wizard are mask-by-default via session_recording config below.
-//   - Auto-blocking domains (cloudinary, mock-r2, stripe iframe) keeps avatar
-//     URLs and Stripe Elements out of recordings.
+//   - Replays record page text and form inputs as-is. Passwords are masked;
+//     card details are unreachable (Stripe Elements are cross-origin iframes);
+//     avatar/media images are blocked.
+//   - Everything else is captured, INCLUDING child PII (names, DOBs, coach and
+//     medical notes) on the dashboard, rosters, tagger, and admin pages. Treat
+//     PostHog project access as access to that data.
+//   - To withhold a specific surface: `ph-no-capture` class or
+//     `data-ph-no-capture` attr blocks the element from replays entirely.
 
 // Authed account holder for client-side identify-on-load. On SSR pages the
 // middleware already validated the session, so we can identify immediately
@@ -49,26 +50,31 @@ const phUser = (!Astro.isPrerendered && !edgeCached && Astro.locals.user)
       capture_pageview: true,
       capture_pageleave: true,
       autocapture: {
-        // Don't auto-capture clicks on payment / verification / role-mgmt UIs.
-        css_selector_allowlist: undefined,
+        // No element_allowlist: clickmaps/heatmaps are built from $autocapture
+        // events, so restricting to a/button/input/select/textarea silently
+        // drops every click on a card, tile, or div — which is most of the
+        // dashboard and program-browse UI, and made the heatmaps look empty.
         dom_event_allowlist: ['click', 'submit', 'change'],
-        element_allowlist: ['a', 'button', 'input', 'select', 'textarea'],
       },
-      // Session replay — mask EVERYTHING by default (COPPA: kids' names, DOBs,
-      // photos, medical notes routinely appear on parent dashboard, rosters,
-      // tagger, and admin pages). Replays still capture clicks, scrolls, and
-      // mouse motion — useful for UX debugging without exposing child PII.
-      // Opt back in per-element with `data-ph-no-mask` (rare; never on text
-      // that could contain a child's name, DOB, photo, or medical info).
+      // Heatmaps (pointer/rage-click/scroll depth) — independent of autocapture
+      // and of replay masking.
+      capture_heatmaps: true,
+      // Session replay — text and inputs are recorded as-is. Only the things
+      // that are genuinely unsafe to keep are withheld:
+      //   - password inputs (masked below; never useful in a replay)
+      //   - card details: Stripe Elements are cross-origin iframes, so the
+      //     recorder cannot see inside them at all. The blockSelector entry is
+      //     belt-and-suspenders, not the actual mechanism.
+      //   - uploaded photos (avatar/media URLs) stay blocked.
+      // Anything else — including kids' names, DOBs, and coach/medical notes on
+      // the dashboard, rosters, and admin pages — WILL appear in replays. That
+      // is a deliberate call; if it needs to change, add `ph-mask` to those
+      // elements and set maskTextClass rather than reinstating a global mask.
       session_recording: {
-        maskAllInputs: true,
+        maskAllInputs: false,
         maskInputOptions: {
           password: true,
-          email: true,
-          tel: true,
-          number: true,
         },
-        maskTextSelector: '*',
         // CSS selectors below are blocked from recording entirely. Add
         // `data-ph-no-capture` to any element that should never appear in
         // replays.

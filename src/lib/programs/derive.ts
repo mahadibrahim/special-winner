@@ -3,15 +3,22 @@
  * Used by the catalog and any program card. No React, no DOM.
  */
 
+import { parseDateOnly } from "@/lib/time/format-date";
+
 export interface SeasonForDerive {
   startDate: string;
   endDate: string;
+  /** Season lifecycle status ('open' | 'forming' | 'active' | …) when known. */
+  status?: string;
   registeredCount: number;
   maxParticipants: number | null;
   pricingMode: string; // 'per_individual' | 'per_team' (legacy — derivable from signupModes)
   signupModes?: string[]; // ['individual'] | ['team'] | ['individual','team']
   registrationCloses?: string | null;
   scheduleNotes?: string | null;
+  dayOfWeek?: string | null; // 'mon'..'sun' — structured play day when set
+  startTime?: string | null;
+  endTime?: string | null;
   minAge?: number | null;
   maxAge?: number | null;
   program: {
@@ -57,15 +64,31 @@ export function deriveIndividualUnit(s: SeasonForDerive): string {
   }
 }
 
+/** Remaining-capacity threshold under which a card shows scarcity messaging:
+ *  the larger of 3 spots or 25% of capacity. */
+export function scarcityThreshold(maxParticipants: number): number {
+  return Math.max(3, Math.ceil(maxParticipants * 0.25));
+}
+
 /** Smart status pill replacing naked spot counts. */
 export function deriveStatusPill(s: SeasonForDerive): {
   label: string;
-  tone: "open" | "filling" | "last";
+  tone: "open" | "filling" | "last" | "forming" | "soldout";
 } {
+  // Forming seasons collect interest — they are not registerable, so they
+  // must never read as "Open" (or hit any capacity-based branch below).
+  if (s.status === "forming") return { label: "Forming", tone: "forming" };
   const cap = s.maxParticipants;
   if (cap == null) return { label: "Open", tone: "open" };
   const remaining = Math.max(0, cap - s.registeredCount);
-  if (remaining <= 5) return { label: `Only ${remaining} left`, tone: "last" };
+  // Never "Only 0 left" — zero remaining is sold out, full stop.
+  if (remaining === 0) return { label: "Sold out", tone: "soldout" };
+  if (remaining <= scarcityThreshold(cap)) {
+    return {
+      label: remaining === 1 ? "1 spot left" : `${remaining} spots left`,
+      tone: "last",
+    };
+  }
   const fill = s.registeredCount / cap;
   if (fill >= 0.8) return { label: "Filling up", tone: "filling" };
   if (fill >= 0.5) return { label: "Now enrolling", tone: "open" };
@@ -111,17 +134,26 @@ export function deriveDuration(s: SeasonForDerive): string {
   }
 }
 
-/** Time-of-day bucket for chip filtering: weekday morning / weekday evening / weekend. */
-export function deriveDayBucket(s: SeasonForDerive): string {
-  // Without explicit per-week schedule data we fall back to the start
-  // date's day of the week. Better than nothing; the season's first
-  // session typically anchors the rhythm.
-  const d = new Date(s.startDate);
-  const dow = d.getDay(); // 0 = Sun
-  const isWeekend = dow === 0 || dow === 6;
-  if (isWeekend) return "Weekend";
-  // For weekday rough split — caller can refine when scheduleNotes is parsed.
-  return "Weekday";
+/** Canonical Mon→Sun ordering for day filter chips. */
+export const DAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
+export type DayKey = (typeof DAY_KEYS)[number];
+
+/** Short chip labels keyed by day. */
+export const DAY_LABELS: Record<DayKey, string> = {
+  mon: "Mon", tue: "Tue", wed: "Wed", thu: "Thu", fri: "Fri", sat: "Sat", sun: "Sun",
+};
+
+/** Play day for chip filtering, as a 'mon'..'sun' key. */
+export function deriveDayKey(s: SeasonForDerive): DayKey {
+  // Prefer the structured play day when an admin has set it — it's the actual
+  // weekly rhythm, not a guess.
+  const day = (s.dayOfWeek ?? "").toLowerCase();
+  if ((DAY_KEYS as readonly string[]).includes(day)) return day as DayKey;
+  // Otherwise fall back to the start date's day of the week. Better than
+  // nothing; the season's first session typically anchors the rhythm.
+  // (parseDateOnly avoids the UTC off-by-one on date-only strings.)
+  const dow = parseDateOnly(s.startDate).getDay(); // 0 = Sun
+  return DAY_KEYS[(dow + 6) % 7];
 }
 
 /** Audience inferred from age group (best-effort) and program audience type. */

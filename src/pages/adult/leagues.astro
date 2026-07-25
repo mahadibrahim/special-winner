@@ -1,11 +1,71 @@
 ---
-// SSR like /adult — the island fetches host-scoped public endpoints
+// SSR like /adult — the islands fetch host-scoped public endpoints
 // client-side; keep request-time rendering (no prerender flag).
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import CategoryFinder from "@/components/landing/category-finder.tsx";
+import SeasonFactsBand from "@/components/landing/season-facts-band.tsx";
+import HowItWorksStrip from "@/components/landing/how-it-works-strip.astro";
+import SeasonCalendarBand, { type CalendarTermConfig } from "@/components/landing/season-calendar-band.tsx";
+import LandingFaq, { type LandingFaqItem } from "@/components/landing/landing-faq.tsx";
 import CTABanner from "@/components/cta-banner";
 import { setMarketingEdgeCache } from "@/lib/http/edge-cache";
 setMarketingEdgeCache(Astro);
+
+const howItWorksSteps = [
+  {
+    title: "Reserve for $200",
+    body: "Your deposit locks the roster spot and counts toward the team fee.",
+  },
+  {
+    title: "Share your link",
+    body: "Teammates tap it, register, and pay their own share — you front nothing else.",
+  },
+  {
+    title: "Watch it fill",
+    body: "Live tracker shows who's paid. Unpaid shares fall to your card only after the deadline.",
+  },
+];
+
+// Authored future-term cells for the calendar band — live terms from the
+// catalog replace any cell they match. Months are authored estimates until
+// upcoming seasons exist in the DB (see the follow-up note in
+// season-calendar-band.tsx).
+const calendarTerms: CalendarTermConfig[] = [
+  { name: "Fall", months: "Sep–Nov", games: "7 games", match: "fall" },
+  { name: "Winter I", months: "Dec–Feb", games: "7 games", match: "winter-i" },
+  { name: "Winter II", months: "Feb–Apr", games: "7 games", match: "winter-ii" },
+  { name: "Spring", months: "Apr–Jun", games: "7 games", match: "spring" },
+];
+
+const faqs: LandingFaqItem[] = [
+  {
+    question: "Who can register?",
+    answer:
+      "Anyone 18 or older. Sign up a full team with a captain link, or register solo as a free agent and we'll place you on a team.",
+  },
+  {
+    question: "How does team signup work?",
+    answer:
+      "The captain puts down a $200 deposit that reserves the roster spot and counts toward the team fee. You get a share link; teammates register and pay their own share online, and a live tracker shows who's paid. Only shares still unpaid after the deadline fall back to the captain's card.",
+  },
+  {
+    question: "What's the refund policy?",
+    answer:
+      "Cancel 14 or more days before the season starts for a full refund. Inside 14 days, we review case by case — the default is a prorated credit toward a future season.",
+    linkHref: "/refund-policy",
+    linkLabel: "Read the full refund policy",
+  },
+  {
+    question: "What's included in the season?",
+    answer:
+      "A 7-game season with referees at every match, standings tracked all season, and your full schedule published before week 1.",
+  },
+  {
+    question: "What if I don't have a full team?",
+    answer:
+      "Register as a free agent. We place free agents on teams that need players — balanced by skill level where possible — and you'll get your team and schedule before the first game.",
+  },
+];
 ---
 
 <BaseLayout
@@ -52,6 +112,16 @@ setMarketingEdgeCache(Astro);
       </div>
     </section>
 
+    <SeasonFactsBand
+      client:load
+      audience="adult"
+      programTypes={["league"]}
+      authoredFact={{ label: "Format", value: "7-game season" }}
+      faqHref="#faq"
+    />
+
+    <HowItWorksStrip heading="How team signup works" steps={howItWorksSteps} />
+
     <CategoryFinder
       client:load
       audience="adult"
@@ -60,6 +130,20 @@ setMarketingEdgeCache(Astro);
       descriptor="Seasons open to full teams and free agents."
       sectionId="adult-leagues"
     />
+
+    <SeasonCalendarBand
+      client:visible
+      audience="adult"
+      programTypes={["league"]}
+      pageKey="adult-leagues"
+      cardsSectionId="adult-leagues"
+      heading="The league year."
+      descriptor="Back-to-back seasons all year — if you miss one window, the next is never far."
+      futureTerms={calendarTerms}
+      liveGamesLabel="7 games"
+    />
+
+    <LandingFaq client:visible id="faq" heading="Adult league FAQs" items={faqs} />
 
     <CTABanner client:visible />
   </main>

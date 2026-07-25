@@ -9,6 +9,9 @@
  *
  * createConfirmedRentalNonStripe: inserts a `confirmed` row directly for
  * cash/comp admin bookings (no Stripe object).
+ *
+ * createRentalRequest: inserts a `requested` row that holds the slot without
+ * a Stripe object — payment happens only after an admin approves.
  */
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
@@ -154,6 +157,83 @@ export async function createConfirmedRentalNonStripe(
         amountPaidCents:
           input.paymentMethod === "cash" ? input.amountDueCents : 0,
         paymentStatus: "paid",
+        renterUserId: input.renterUserId,
+        renterName: input.renterName,
+        renterEmail: input.renterEmail,
+        renterPhone: input.renterPhone,
+        partySize: input.partySize,
+        purpose: input.purpose,
+        notes: input.notes,
+        createdByUserId: input.createdByUserId,
+        waiverSigned: input.waiverSigned,
+        waiverSignedAt: input.waiverSigned ? new Date() : null,
+        waiverSignedBy: input.waiverSignedBy,
+        brand: input.brand ?? "aspire",
+      })
+      .returning();
+    return { ok: true as const, rental };
+  });
+  return withLedgerSync(created);
+}
+
+export interface RentalRequestInput {
+  organizationId: string;
+  venueId: string;
+  fieldNumber: number;
+  startsAt: Date;
+  endsAt: Date;
+  amountDueCents: number;
+  requestHoldHours: number;
+  renterUserId: string | null;
+  renterName: string;
+  renterEmail: string | null;
+  renterPhone: string | null;
+  partySize: number;
+  purpose: string | null;
+  notes: string | null;
+  createdByUserId: string | null;
+  waiverSigned: boolean;
+  waiverSignedBy: string | null;
+  brand?: BrandId;
+}
+
+/**
+ * Insert a `requested` field rental after a conflict check. Holds the slot
+ * (conflict check + ledger see `requested`) but is NOT swept by the
+ * payment-expiry cron — a separate sweep releases it after requestHoldHours.
+ * No Stripe object: payment happens only after an admin approves.
+ */
+export async function createRentalRequest(
+  input: RentalRequestInput,
+): Promise<RentalHoldResult> {
+  const db = getDb();
+  const created = await db.transaction(async (tx) => {
+    const conflict = await assertNoRentalConflict(tx, {
+      venueId: input.venueId,
+      fieldNumber: input.fieldNumber,
+      startsAt: input.startsAt,
+      endsAt: input.endsAt,
+    });
+    if (conflict) return { ok: false as const, error: conflict };
+
+    const [rental] = await tx
+      .insert(fieldRentals)
+      .values({
+        organizationId: input.organizationId,
+        venueId: input.venueId,
+        fieldNumber: input.fieldNumber,
+        startsAt: input.startsAt,
+        endsAt: input.endsAt,
+        status: "requested",
+        source: "online_booking",
+        // Free requests confirm as comp on approval; paid as card_online.
+        paymentMethod: input.amountDueCents === 0 ? "comp" : "card_online",
+        amountDueCents: input.amountDueCents,
+        amountPaidCents: 0,
+        paymentStatus: "unpaid",
+        requestExpiresAt: new Date(
+          Date.now() + input.requestHoldHours * 60 * 60_000,
+        ),
         renterUserId: input.renterUserId,
         renterName: input.renterName,
         renterEmail: input.renterEmail,

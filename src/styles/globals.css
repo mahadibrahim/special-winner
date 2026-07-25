@@ -450,3 +450,26 @@
   position: relative;
   z-index: 1;
 }
+
+/* ── Mobile tap responsiveness ──────────────────────────────────────────
+   ~80% of paid traffic is mobile; session replays showed double/triple-taps
+   on CTAs. touch-action kills the double-tap-zoom wait heuristic on
+   interactive elements; the pressed state gives instant feedback so a slow
+   navigation doesn't read as a dead tap. Opacity only — no transform, so
+   nothing shifts and prefers-reduced-motion needs no carve-out. */
+a,
+button,
+[role="button"],
+input,
+select,
+textarea,
+label {
+  touch-action: manipulation;
+}
+@media (hover: none) {
+  a:active,
+  button:not(:disabled):active,
+  [role="button"]:active {
+    opacity: 0.75;
+  }
+}

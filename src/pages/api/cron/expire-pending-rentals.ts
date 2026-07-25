@@ -10,7 +10,10 @@
  * pilots.
  */
 import type { APIRoute } from "astro";
-import { expirePendingRentals } from "@/lib/rentals/expire";
+import {
+  expirePendingRentals,
+  expireStaleRentalRequests,
+} from "@/lib/rentals/expire";
 import { captureServerException } from "@/lib/observability/server-error";
 import { warmDbConnection } from "@/lib/db/retry";
 
@@ -42,11 +45,16 @@ export const POST: APIRoute = async ({ request }) => {
     // transient Railway CONNECT_TIMEOUT blips that otherwise fail the run.
     await warmDbConnection();
     const startedAt = Date.now();
-    const result = await expirePendingRentals();
+    const holds = await expirePendingRentals();
+    const requests = await expireStaleRentalRequests();
+    const result = {
+      expired: holds.expired,
+      expiredRequests: requests.expired,
+    };
     const elapsedMs = Date.now() - startedAt;
 
     console.info(
-      `[cron] Field-rental pending-payment expiry: expired=${result.expired} in ${elapsedMs}ms`,
+      `[cron] Field-rental pending-payment expiry: expired=${result.expired} expiredRequests=${result.expiredRequests} in ${elapsedMs}ms`,
     );
 
     return new Response(JSON.stringify({ ...result, elapsedMs }), {

@@ -46,6 +46,16 @@ describe("GET /api/public/team-registrations/[token] — cross-tenant isolation"
     expect(body.team.teamName).toBeDefined();
   });
 
+  it("members payload includes a waiverSigned boolean per member", async () => {
+    const res = await apiFetch(`/api/public/team-registrations/${orgAToken}`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(Array.isArray(body.team.members)).toBe(true);
+    for (const member of body.team.members) {
+      expect(typeof member.waiverSigned).toBe("boolean");
+    }
+  });
+
   it("Org B token on the default (Org A) host returns 404 — org mismatch hidden", async () => {
     const res = await apiFetch(`/api/public/team-registrations/${orgBToken}`);
     expect(res.status).toBe(404);

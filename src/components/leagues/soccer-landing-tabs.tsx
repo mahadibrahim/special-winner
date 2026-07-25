@@ -40,7 +40,7 @@ export function SoccerLandingTabs({ current, upcoming, past }: Props) {
         </div>
       </div>
       <div className="bg-cream min-h-[360px]" data-testid="landing-tabs">
-        {tab === "overview" && (
+        <div hidden={tab !== "overview"}>
           <>
             <div className="bg-navy-deep text-cream px-9 py-9">
               <div className="max-w-[1080px] mx-auto">
@@ -78,8 +78,8 @@ export function SoccerLandingTabs({ current, upcoming, past }: Props) {
               </div>
             </div></div>
           </>
-        )}
-        {tab === "this" && (
+        </div>
+        <div hidden={tab !== "this"}>
           <div className="px-9 py-9"><div className="max-w-[1080px] mx-auto">
             <h2 className="font-display font-semibold text-2xl mb-4">This season</h2>
             {current ? (
@@ -91,8 +91,8 @@ export function SoccerLandingTabs({ current, upcoming, past }: Props) {
               </a>
             ) : <p className="text-ink-muted text-sm">No season is open for registration right now — check Upcoming.</p>}
           </div></div>
-        )}
-        {tab === "upcoming" && (
+        </div>
+        <div hidden={tab !== "upcoming"}>
           <div className="px-9 py-9"><div className="max-w-[1080px] mx-auto">
             <h2 className="font-display font-semibold text-2xl">Upcoming seasons</h2>
             <p className="text-ink-muted text-[13px] mt-0.5 mb-4">Get on the interest list — we'll email when registration opens.</p>
@@ -103,8 +103,8 @@ export function SoccerLandingTabs({ current, upcoming, past }: Props) {
               </div>
             )) : <div className="text-center py-9 border border-dashed border-cream-3 rounded-xl text-ink-muted text-sm">No upcoming seasons announced yet.</div>}
           </div></div>
-        )}
-        {tab === "past" && (
+        </div>
+        <div hidden={tab !== "past"}>
           <div className="px-9 py-9"><div className="max-w-[1080px] mx-auto">
             <h2 className="font-display font-semibold text-2xl">Past seasons</h2>
             <p className="text-ink-muted text-[13px] mt-0.5 mb-4">Final standings &amp; results live here once a season wraps.</p>
@@ -115,7 +115,7 @@ export function SoccerLandingTabs({ current, upcoming, past }: Props) {
               </a>
             )) : <div className="text-center py-9 border border-dashed border-cream-3 rounded-xl text-ink-muted text-sm">No completed seasons yet — Fall 2026 is the first. Results &amp; champions will appear here.</div>}
           </div></div>
-        )}
+        </div>
       </div>
     </div>
   );

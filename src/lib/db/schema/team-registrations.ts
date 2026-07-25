@@ -47,18 +47,37 @@ export const teamRegistrations = pgTable("team_registrations", {
   brand: varchar("brand", { length: 20 }), // 'aspire' | 'soccerone' — set from host at creation
 
   // Phase B — captain payment backstop (TeamPayer model)
-  teamFeeCents: integer("team_fee_cents"),                 // snapshot of season team price at creation
+  // teamFeeCents holds the EFFECTIVE team total the roster splits: the
+  // early-bird snapshot at creation, minus any discount applied on the reserve
+  // step. discountCents records how much was taken off (original fee =
+  // teamFeeCents + discountCents), so the breakdown survives a reload.
+  teamFeeCents: integer("team_fee_cents"),                 // effective team total (early-bird − discount)
+  discountCodeId: uuid("discount_code_id"),                // soft ref to discount_codes.id (applied on reserve)
+  discountCents: integer("discount_cents"),                // amount taken off the team fee, if any
   depositCents: integer("deposit_cents").default(20000),   // $200 (locked decision)
+  // Stripe deposit PaymentIntent id. The team is created ONLY when this intent
+  // succeeds (deferred-account flow), so both the browser finalize call and the
+  // webhook backstop dedupe on it — unique, first writer creates the team.
+  depositPaymentIntentId: varchar("deposit_payment_intent_id", { length: 255 }),
   depositPaymentId: uuid("deposit_payment_id"),            // soft ref to payments.id, set after charge
   captainStripeCustomerId: varchar("captain_stripe_customer_id", { length: 255 }),
   captainPaymentMethodId: varchar("captain_payment_method_id", { length: 255 }),
   paymentDeadline: timestamp("payment_deadline"),          // = season.registrationCloses at creation
   backstopStatus: varchar("backstop_status", { length: 20 }).default("none").notNull(),
   // 'none' | 'pending' | 'charged' | 'failed'
+  // Captain's explicit affirmation that the saved card may be charged for
+  // unpaid teammate shares after the deadline (off-session backstop). Recorded
+  // at team creation; legacy rows predate the checkbox and stay null.
+  backstopConsentedAt: timestamp("backstop_consented_at", { withTimezone: true }),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (t) => [
+  // One team per deposit PaymentIntent — the finalize endpoint and the webhook
+  // backstop both create-if-absent keyed on this, so the unique index is what
+  // makes "exactly one team per successful deposit" true under a race.
+  uniqueIndex("team_registrations_deposit_pi_uniq").on(t.depositPaymentIntentId),
+]);
 
 /**
  * Membership lookup: registrations that belong to a team.

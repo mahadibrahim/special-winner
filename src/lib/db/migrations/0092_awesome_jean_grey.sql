@@ -1,0 +1,1 @@
+ALTER TABLE "phone_opt_ins" ADD COLUMN IF NOT EXISTS "consent_text_shown" text;

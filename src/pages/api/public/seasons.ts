@@ -1,4 +1,5 @@
 import type { APIRoute } from "astro";
+import { isTeamEarlyBirdActive, effectiveTeamPriceCents } from "@/lib/programs/early-bird";
 import { db } from "@/lib/db";
 import { seasons, programs, sports, locations, ageGroups, registrations, organizations } from "@/lib/db/schema";
 import { eq, and, sql, asc } from "drizzle-orm";
@@ -145,6 +146,25 @@ export const GET: APIRoute = async ({ url, locals }) => {
         registrationCloses: r.season.registrationCloses,
         price: r.season.priceCents / 100,
         teamPrice: r.season.teamPriceCents != null ? r.season.teamPriceCents / 100 : null,
+        // Team early-bird, DISPLAY ONLY (leagues are team-only early-bird by
+        // policy). The charge path recomputes from the same pure helpers —
+        // these fields exist so the catalog can show the discount at the
+        // decision point instead of after the click into checkout.
+        teamEarlyBirdActive: isTeamEarlyBirdActive(r.season),
+        effectiveTeamPrice:
+          r.season.teamPriceCents != null
+            ? effectiveTeamPriceCents(r.season, r.season.teamPriceCents) / 100
+            : null,
+        // Raw early-bird fields (dollars, null-safe) — DISPLAY ONLY, like the
+        // two fields above. Cards check the deadline client-side and strike
+        // through the base price; the charge path recomputes from cents.
+        earlyBirdPrice:
+          r.season.earlyBirdPriceCents != null ? r.season.earlyBirdPriceCents / 100 : null,
+        earlyBirdTeamPrice:
+          r.season.earlyBirdTeamPriceCents != null
+            ? r.season.earlyBirdTeamPriceCents / 100
+            : null,
+        earlyBirdDeadline: r.season.earlyBirdDeadline,
         signupModes: r.season.signupModes,
         deposit: r.season.depositCents ? r.season.depositCents / 100 : null,
         allowDeposit: r.season.allowDeposit,
@@ -182,6 +202,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
           id: r.location.id,
           name: r.location.name,
           slug: r.location.slug,
+          // Street address for venue-forward surfaces (term hero). Same field
+          // name as the single-season endpoint's location.address.
+          address: r.location.addressLine1,
           city: r.location.city,
           state: r.location.state,
         },

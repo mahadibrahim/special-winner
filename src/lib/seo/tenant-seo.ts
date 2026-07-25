@@ -41,6 +41,10 @@ export function robotsTxt(origin: string): string {
     ...DISALLOW.map((p) => `Disallow: ${p}`),
     "",
     `Sitemap: ${origin}/sitemap.xml`,
+    // Term pages (/leagues/{term}, /adult/leagues/soccer/{term}) are
+    // DB-driven and can't live in the static lists above or the build-time
+    // @astrojs/sitemap output — they get their own dynamic sitemap.
+    `Sitemap: ${origin}/sitemap-leagues.xml`,
     "",
   ];
   return lines.join("\n");

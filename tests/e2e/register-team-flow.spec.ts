@@ -22,16 +22,24 @@ test("team-capable season shows choose-mode and reaches team-create @critical", 
     page.getByRole("heading", { name: /how do you want to join/i }),
   ).toBeVisible({ timeout: 15_000 });
 
+  // Deposit-first story on the chooser card.
+  await expect(page.getByText(/\$200 today/i).first()).toBeVisible();
+  await expect(page.getByText(/split with your roster/i).first()).toBeVisible();
+
   // The "Bring a team" option is present and click-able for anon users.
   const bringTeam = page.getByText(/Bring a team/i).first();
   await expect(bringTeam).toBeVisible();
   await bringTeam.click();
 
-  // The team-create captain form renders (no auth required to view it — only
-  // submitting the form hits the authed endpoint). Assert on the team-name
-  // field label + the create CTA, which render in the initial idle form.
-  await expect(page.getByText(/team name/i).first()).toBeVisible({ timeout: 10_000 });
-  await expect(
-    page.getByRole("button", { name: /create team & get link/i }),
-  ).toBeVisible();
+  // One-page reserve (deferred-account flow): a guest sees the FULL "Reserve
+  // your team" form immediately — email, team name, your name — no email-first
+  // gate. The email is checked in the background (on blur) only to drive a
+  // "new here" / "you already have an account" note, never to reveal the form.
+  // Nothing is created until the deposit succeeds, so there's no team-create
+  // POST on this screen.
+  await expect(page.getByRole("heading", { name: /Reserve your team/i })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText(/Your email/i).first()).toBeVisible();
+  // The whole form is present up front (previously hidden behind an email gate).
+  await expect(page.getByText(/Team name/i).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: /Continue to payment/i })).toBeVisible();
 });

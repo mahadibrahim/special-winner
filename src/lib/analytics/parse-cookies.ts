@@ -23,6 +23,33 @@ export function readQueryOrCookie(url: URL, cookieHeader: string | null, name: s
 }
 
 /**
+ * Parse the browser's PostHog distinct id from the `ph_<token>_posthog`
+ * cookie (posthog-js persistence). This is the id the whole anonymous
+ * pre-payment journey is keyed to — webhooks that capture server-side
+ * revenue events need it to join funnels, because guest checkouts never
+ * call identify (the account is created after payment).
+ */
+export function parsePhDistinctId(cookieHeader: string | null): string | null {
+  if (!cookieHeader) return null;
+  const token =
+    process.env.PUBLIC_POSTHOG_PROJECT_TOKEN ||
+    import.meta.env.PUBLIC_POSTHOG_PROJECT_TOKEN;
+  if (!token) return null;
+  const re = new RegExp(`(?:^|;\\s*)ph_${token}_posthog=([^;]+)`);
+  const m = cookieHeader.match(re);
+  if (!m) return null;
+  try {
+    const parsed = JSON.parse(decodeURIComponent(m[1]));
+    const id = parsed?.distinct_id;
+    return typeof id === "string" && id.length > 0 && id.length <= 200
+      ? id
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Collect the full set of ad-attribution identifiers from a request, ready to
  * spread into Stripe Checkout/PaymentIntent metadata. The webhook handlers
  * read these back to fire server-side GA4 Measurement Protocol + Meta
@@ -32,7 +59,9 @@ export function readQueryOrCookie(url: URL, cookieHeader: string | null, name: s
  * (Stripe metadata values must be strings; empty keys are omitted, not "").
  *
  * Keys: `ga_client_id` (GA4 client_id), `gclid` (Google Ads), `fbclid` (Meta
- * click id), `_fbc` / `_fbp` (Meta cookies — best CAPI match quality).
+ * click id), `_fbc` / `_fbp` (Meta cookies — best CAPI match quality),
+ * `ph_distinct_id` (browser PostHog id — joins server revenue events to the
+ * anonymous funnel).
  */
 export function collectAdAttribution(
   url: URL,
@@ -41,6 +70,8 @@ export function collectAdAttribution(
   const out: Record<string, string> = {};
   const gaClientId = parseGaClientId(cookieHeader);
   if (gaClientId) out.ga_client_id = gaClientId;
+  const phDistinctId = parsePhDistinctId(cookieHeader);
+  if (phDistinctId) out.ph_distinct_id = phDistinctId;
   const gclid = readQueryOrCookie(url, cookieHeader, "gclid");
   if (gclid) out.gclid = gclid;
   const fbclid = readQueryOrCookie(url, cookieHeader, "fbclid");

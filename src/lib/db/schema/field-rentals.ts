@@ -17,6 +17,7 @@ import { users } from "./users";
 // === enums ===
 
 export const fieldRentalStatusEnum = pgEnum("field_rental_status", [
+  "requested",
   "pending_payment",
   "confirmed",
   "cancelled",
@@ -42,6 +43,10 @@ export const fieldRentalCancellationReasonEnum = pgEnum(
   "field_rental_cancellation_reason",
   ["user_request", "admin_override", "venue_unavailable"],
 );
+export const fieldRentalPlayerStatusEnum = pgEnum("field_rental_player_status", [
+  "pending",
+  "signed",
+]);
 
 // === tables ===
 
@@ -78,6 +83,10 @@ export const fieldRentals = pgTable(
     stripePaymentIntentId: text("stripe_payment_intent_id"),
     stripeRefundId: text("stripe_refund_id"),
     paymentExpiresAt: timestamp("payment_expires_at", { withTimezone: true }),
+    // When a `requested` row auto-releases if no admin approves/declines it.
+    // Distinct from paymentExpiresAt so the request-hold sweep and the
+    // payment-hold sweep never key off the same column.
+    requestExpiresAt: timestamp("request_expires_at", { withTimezone: true }),
     waiverSigned: boolean("waiver_signed").notNull().default(false),
     waiverSignedAt: timestamp("waiver_signed_at", { withTimezone: true }),
     waiverSignedBy: text("waiver_signed_by"),
@@ -102,9 +111,42 @@ export const fieldRentals = pgTable(
     index("field_rentals_renter_starts_at_idx").on(table.renterUserId, table.startsAt),
     index("field_rentals_active_field_idx")
       .on(table.venueId, table.fieldNumber, table.startsAt)
-      .where(sql`status IN ('pending_payment', 'confirmed')`),
+      .where(sql`status IN ('requested', 'pending_payment', 'confirmed')`),
   ],
 );
+
+export const fieldRentalPlayers = pgTable(
+  "field_rental_players",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    rentalId: uuid("rental_id")
+      .notNull()
+      .references(() => fieldRentals.id, { onDelete: "cascade" }),
+    playerName: text("player_name").notNull(),
+    isMinor: boolean("is_minor").notNull().default(false),
+    // Adult's own email, or the parent/guardian's for a minor.
+    signerEmail: text("signer_email").notNull(),
+    status: fieldRentalPlayerStatusEnum("status").notNull().default("pending"),
+    // Captured at signing (the parent's name when isMinor).
+    signerName: text("signer_name"),
+    waiverId: uuid("waiver_id"),
+    contentHash: text("content_hash"),
+    signedAt: timestamp("signed_at", { withTimezone: true }),
+    signedIp: text("signed_ip"),
+    signedUa: text("signed_ua"),
+    reminderSentAt: timestamp("reminder_sent_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("field_rental_players_rental_idx").on(t.rentalId),
+    index("field_rental_players_pending_idx")
+      .on(t.rentalId)
+      .where(sql`status = 'pending'`),
+  ],
+);
+
+export type FieldRentalPlayer = typeof fieldRentalPlayers.$inferSelect;
+export type NewFieldRentalPlayer = typeof fieldRentalPlayers.$inferInsert;
 
 export const fieldRentalRateCard = pgTable("field_rental_rate_card", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -118,6 +160,12 @@ export const fieldRentalRateCard = pgTable("field_rental_rate_card", {
   minDurationMinutes: integer("min_duration_minutes").notNull().default(60),
   maxDurationMinutes: integer("max_duration_minutes").notNull().default(240),
   checkInWindowMinutes: integer("check_in_window_minutes").notNull().default(60),
+  // Hours a `requested` (un-approved) rental holds its slot before the sweep
+  // auto-cancels it and frees the field.
+  requestHoldHours: integer("request_hold_hours").notNull().default(24),
+  // Minimum hours in advance a slot may be requested online. Sooner than this
+  // → "contact the venue". Gives runway for approve + 24h pay window.
+  minLeadTimeHours: integer("min_lead_time_hours").notNull().default(48),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   updatedByUserId: uuid("updated_by_user_id").references(() => users.id, {
     onDelete: "set null",

@@ -1,4 +1,4 @@
-import { eq, and, asc, sql } from "drizzle-orm";
+import { eq, and, asc, notInArray, sql } from "drizzle-orm";
 import type { getDb } from "@/lib/db";
 import {
   registrations,
@@ -14,14 +14,27 @@ import { awaitEmailSend } from "@/lib/notifications/await-dispatch";
 import type { BrandId } from "@/lib/branding/themes";
 import { isRegistrationClosed } from "@/lib/programs/registration-window";
 import { ensureCustomerOrgMembership } from "@/lib/organization/ensure-membership";
-import { effectivePriceCents } from "@/lib/programs/early-bird";
+import { registrationAmountDueCents } from "@/lib/registrations/amount-due";
+import {
+  captainShareDueCents,
+  teamDepositPaid,
+} from "@/lib/registrations/captain-credit";
 
 export type RegistrationKind = "created" | "resumed" | "waitlisted";
 
 export interface CreateRegistrationInput {
   db: ReturnType<typeof getDb>;
   user: { id: string; email: string; firstName: string | null };
-  familyMember: { id: string; firstName: string; lastName: string };
+  /** selfUserId gates the captain deposit credit — the credit only applies
+   * when the captain registers THEMSELVES (their self person row), never a
+   * dependent or another player registered through the same account. Both
+   * real callers pass full family_members rows, so the field is present. */
+  familyMember: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    selfUserId?: string | null;
+  };
   seasonId: string;
   registrationType: "full" | "deposit";
   waiverSigned: boolean;
@@ -52,7 +65,21 @@ export type CreateRegistrationResult = {
 };
 
 export class RegistrationError extends Error {
-  constructor(public status: number, message: string) {
+  /**
+   * Optional machine-readable code for callers that need to branch on the
+   * error rather than pattern-match `message`. Not every RegistrationError
+   * carries one — API routes surfacing this error must preserve their
+   * existing `{ error: message }` response shape when `code` is absent, and
+   * only add a sibling `code` field (`{ error: message, code }`) when it is
+   * present. `error` must always stay the human-readable sentence — it's the
+   * field every frontend consumer (`parseApiError`) renders directly to the
+   * customer.
+   */
+  constructor(
+    public status: number,
+    message: string,
+    public code?: string,
+  ) {
     super(message);
     this.name = "RegistrationError";
   }
@@ -185,6 +212,95 @@ async function resolveTeamInvitee(opts: {
   }
 }
 
+/**
+ * Team-token pricing for a registrant, shared by the create and resume paths
+ * so a resumed pending registration can never quote a different amount than a
+ * fresh one (the captain-double-charge bug's second life).
+ *
+ * - Invitee share: an unpaid invitee row matching the registrant's email
+ *   overrides the season price with the captain-assigned share.
+ * - Captain deposit credit: on the captain's SELF registration with a
+ *   verifiably PAID team deposit, the share is credited by the deposit
+ *   (never below zero). Matched by captain_user_id, email fallback only when
+ *   user linkage is absent. Recomputed server-side from the team row —
+ *   a client can never claim the credit.
+ *
+ * `amountDueOverride` is null when nothing about the token changes pricing
+ * (uninvited open-join, already-paid invitee, unresolved token).
+ */
+async function resolveTeamPricing(opts: {
+  db: ReturnType<typeof getDb>;
+  teamToken: string;
+  organizationId: string | null;
+  user: { id: string; email: string };
+  familyMember: { selfUserId?: string | null };
+  season: typeof seasons.$inferSelect;
+}): Promise<{
+  resolvedTeamReg: typeof teamRegistrations.$inferSelect | null | undefined;
+  matchedTeamInvitee: typeof teamInvitees.$inferSelect | null;
+  amountDueOverride: number | null;
+  captainCreditApplied: boolean;
+}> {
+  const { db, teamToken, organizationId, user, familyMember, season } = opts;
+  const resolved = await resolveTeamInvitee({
+    db,
+    teamToken,
+    organizationId,
+    registrantEmail: user.email,
+  });
+  // A null result is ambiguous (token genuinely not found, OR
+  // resolveTeamInvitee's internal try/catch swallowed an error) — leave
+  // resolvedTeamReg undefined so linkRegistrationToTeam falls back to its
+  // own query rather than silently skipping linkage.
+  if (!resolved) {
+    return {
+      resolvedTeamReg: undefined,
+      matchedTeamInvitee: null,
+      amountDueOverride: null,
+      captainCreditApplied: false,
+    };
+  }
+
+  let matchedTeamInvitee: typeof teamInvitees.$inferSelect | null = null;
+  let amountDueOverride: number | null = null;
+  if (resolved.invitee && resolved.invitee.status !== "paid") {
+    matchedTeamInvitee = resolved.invitee;
+    amountDueOverride = resolved.invitee.assignedShareCents;
+  }
+  // If found-but-already-paid, treat as normal (don't re-charge a share).
+
+  let captainCreditApplied = false;
+  if (
+    resolved.invitee?.status !== "paid" &&
+    familyMember.selfUserId === user.id
+  ) {
+    const teamReg = resolved.teamRegistration;
+    const isCaptain =
+      teamReg.captainUserId != null
+        ? teamReg.captainUserId === user.id
+        : teamReg.captainEmail.toLowerCase() === user.email.toLowerCase();
+    if (isCaptain && teamDepositPaid(teamReg)) {
+      // Share: the captain-assigned invitee share when one exists, else the
+      // season's individual effective price (early-bird aware).
+      const shareCents = matchedTeamInvitee
+        ? matchedTeamInvitee.assignedShareCents
+        : registrationAmountDueCents(season, "full");
+      amountDueOverride = captainShareDueCents(
+        shareCents,
+        teamReg.depositCents ?? 0,
+      );
+      captainCreditApplied = true;
+    }
+  }
+
+  return {
+    resolvedTeamReg: resolved.teamRegistration,
+    matchedTeamInvitee,
+    amountDueOverride,
+    captainCreditApplied,
+  };
+}
+
 export async function createRegistration(
   input: CreateRegistrationInput,
 ): Promise<CreateRegistrationResult> {
@@ -204,6 +320,14 @@ export async function createRegistration(
         and(
           eq(registrations.seasonId, seasonId),
           eq(registrations.familyMemberId, familyMember.id),
+          // Cancelled/refunded rows are invisible to this lookup — mirrors
+          // the DB's own registrations_member_season_active_uniq partial
+          // index (see schema/registrations.ts), which already excludes
+          // both statuses so a member can re-register after cancelling or
+          // being refunded. Without this filter, the oldest cancelled row
+          // would win the `.limit(1)` and permanently block re-registration
+          // via the throw below.
+          notInArray(registrations.status, ["cancelled", "refunded"]),
         ),
       )
       .orderBy(asc(registrations.createdAt))
@@ -262,6 +386,64 @@ export async function createRegistration(
           .returning();
         resumedReg = updated;
       }
+
+      // A resumed row must re-price under the team token exactly like a fresh
+      // one — the stale row may predate the invitee share or the captain's
+      // paid deposit (start registration → abandon → pay deposit → return),
+      // and returning it untouched re-creates the double-charge.
+      if (input.teamToken) {
+        const pricing = await resolveTeamPricing({
+          db,
+          teamToken: input.teamToken,
+          organizationId,
+          user,
+          familyMember,
+          season,
+        });
+        const newDue = pricing.amountDueOverride;
+        if (newDue != null && newDue !== resumedReg.amountDueCents) {
+          const zeroDue = pricing.captainCreditApplied && newDue === 0;
+          const [updated] = await db
+            .update(registrations)
+            .set({
+              amountDueCents: newDue,
+              ...(zeroDue
+                ? { status: "confirmed" as const, paymentStatus: "paid" as const }
+                : {}),
+              updatedAt: new Date(),
+            })
+            .where(eq(registrations.id, resumedReg.id))
+            .returning();
+          resumedReg = updated;
+
+          // Same side effects as the create path: roster/member linkage and,
+          // for the zero-due captain, settling the invitee row as paid so the
+          // backstop cron never re-charges the deposit-covered share.
+          await linkRegistrationToTeam({
+            db,
+            teamToken: input.teamToken,
+            registrationId: resumedReg.id,
+            organizationId,
+            user,
+            registrantEmail: user.email,
+            preloadedTeamReg: pricing.resolvedTeamReg,
+          });
+          if (pricing.matchedTeamInvitee) {
+            try {
+              await db
+                .update(teamInvitees)
+                .set({
+                  registrationId: resumedReg.id,
+                  ...(zeroDue ? { status: "paid", paidAt: new Date() } : {}),
+                })
+                .where(eq(teamInvitees.id, pricing.matchedTeamInvitee.id));
+            } catch (err) {
+              console.error("Error linking team invitee to registration:", err);
+            }
+          }
+        }
+      }
+
       return {
         kind: "resumed",
         registration: resumedReg,
@@ -271,8 +453,9 @@ export async function createRegistration(
       };
     }
     throw new RegistrationError(
-      400,
+      409,
       "This player is already registered for this season",
+      "already_registered",
     );
   }
 
@@ -288,12 +471,9 @@ export async function createRegistration(
         ),
       );
     if (confirmedRows.length >= season.maxParticipants) {
-      // Deposits are never early-bird discounted; only the full-price
-      // component honors an active early-bird window.
-      const amountDue =
-        input.registrationType === "deposit" && season.depositCents
-          ? season.depositCents
-          : effectivePriceCents(season);
+      // Deposits are never early-bird discounted, and are only honored when
+      // strictly below the full amount due — see registrationAmountDueCents.
+      const amountDue = registrationAmountDueCents(season, input.registrationType);
       const [waitlisted] = await db
         .insert(registrations)
         .values({
@@ -375,12 +555,10 @@ export async function createRegistration(
     }
   }
 
-  // Normal creation. Deposits are never early-bird discounted; only the
-  // full-price component honors an active early-bird window.
-  let amountDue =
-    input.registrationType === "deposit" && season.depositCents
-      ? season.depositCents
-      : effectivePriceCents(season);
+  // Normal creation. Deposits are never early-bird discounted, and are only
+  // honored when strictly below the full amount due — an invalid (too-large)
+  // deposit request falls back to the full amount rather than erroring.
+  let amountDue = registrationAmountDueCents(season, input.registrationType);
 
   // Team-invitee share: when joining via a `?team=` token, the captain may have
   // assigned this email a specific share. Resolve it BEFORE the insert so we can
@@ -399,27 +577,33 @@ export async function createRegistration(
   // its own lookup) whenever resolveTeamInvitee didn't reach a conclusive
   // answer — e.g. it threw, or organizationId/email were missing.
   let resolvedTeamReg: typeof teamRegistrations.$inferSelect | null | undefined;
+  // True when the registrant is the CAPTAIN of the team and their share was
+  // credited by the (verified-paid) team deposit. Drives the zero-due
+  // finalize path below — the server recomputes this itself; a client can
+  // never claim the credit.
+  let captainCreditApplied = false;
   if (input.teamToken) {
-    const resolved = await resolveTeamInvitee({
+    const pricing = await resolveTeamPricing({
       db,
       teamToken: input.teamToken,
       organizationId,
-      registrantEmail: user.email,
+      user,
+      familyMember,
+      season,
     });
-    if (resolved) {
-      // A conclusive hit — reuse it in linkRegistrationToTeam below.
-      resolvedTeamReg = resolved.teamRegistration;
-    }
-    // A null result is ambiguous (token genuinely not found, OR
-    // resolveTeamInvitee's internal try/catch swallowed an error) — leave
-    // resolvedTeamReg undefined so linkRegistrationToTeam falls back to its
-    // own query rather than silently skipping linkage.
-    if (resolved?.invitee && resolved.invitee.status !== "paid") {
-      matchedTeamInvitee = resolved.invitee;
-      amountDue = resolved.invitee.assignedShareCents;
-    }
-    // If found-but-already-paid, treat as normal (don't re-charge a share).
+    resolvedTeamReg = pricing.resolvedTeamReg;
+    matchedTeamInvitee = pricing.matchedTeamInvitee;
+    captainCreditApplied = pricing.captainCreditApplied;
+    if (pricing.amountDueOverride != null) amountDue = pricing.amountDueOverride;
   }
+
+  // Zero-due captain-credit finalize: the deposit fully covers the captain's
+  // share, so there is nothing to charge and no Stripe intent is ever
+  // created. Follows the paid_zero idiom from
+  // create-checkout-for-registration.ts (100%-off discounts): status
+  // "confirmed" + paymentStatus "paid", amountDue 0, and no payments row —
+  // the money trail is the team deposit itself, already on the team row.
+  const captainZeroDue = captainCreditApplied && amountDue === 0;
 
   const [created] = await db
     .insert(registrations)
@@ -427,8 +611,8 @@ export async function createRegistration(
       seasonId,
       familyMemberId: familyMember.id,
       registeredByUserId: user.id,
-      status: "pending",
-      paymentStatus: "unpaid",
+      status: captainZeroDue ? "confirmed" : "pending",
+      paymentStatus: captainZeroDue ? "paid" : "unpaid",
       amountPaidCents: 0,
       amountDueCents: amountDue,
       registrationType: input.registrationType,
@@ -451,13 +635,22 @@ export async function createRegistration(
     });
 
     // Link the invitee row to this registration (status flips to "paid" on
-    // payment success — see handle-registration-payment-succeeded.ts). Wrapped
-    // so an invitee-link failure never breaks the registration.
+    // payment success — see handle-registration-payment-succeeded.ts). For a
+    // zero-due captain-credit registration there is no payment success event,
+    // so settle the row here: "paid" keeps the backstop cron
+    // (sumUnpaidSharesCents counts everything != 'paid') from re-charging the
+    // deposit-covered share to the captain's card at the deadline. The
+    // payment tracker won't double-count it — teamCollectedCents caps the
+    // captain's row by the deposit. Wrapped so an invitee-link failure never
+    // breaks the registration.
     if (matchedTeamInvitee) {
       try {
         await db
           .update(teamInvitees)
-          .set({ registrationId: created.id })
+          .set({
+            registrationId: created.id,
+            ...(captainZeroDue ? { status: "paid", paidAt: new Date() } : {}),
+          })
           .where(eq(teamInvitees.id, matchedTeamInvitee.id));
       } catch (err) {
         console.error("Error linking team invitee to registration:", err);
@@ -468,7 +661,7 @@ export async function createRegistration(
   return {
     kind: "created",
     registration: created,
-    requiresPayment: true,
+    requiresPayment: amountDue > 0,
     amountDueCents: amountDue,
     organizationId,
   };

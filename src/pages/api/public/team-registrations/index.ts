@@ -9,8 +9,10 @@ import { stripe } from "@/lib/stripe/client";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
 import { isRegistrationClosed } from "@/lib/programs/registration-window";
 import { effectiveTeamPriceCents } from "@/lib/programs/early-bird";
-
-const DEPOSIT_AMOUNT_CENTS = 20000; // $200 (locked decision)
+import { CAPTAIN_DEPOSIT_CENTS } from "@/lib/registrations/team-deposit";
+import { upsertGuestUser } from "@/lib/registrations/upsert-guest-user";
+import { createSession } from "@/lib/auth";
+import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 
 const BodySchema = z.object({
   seasonId: z.string().uuid(),
@@ -18,10 +20,28 @@ const BodySchema = z.object({
   captainName: z.string().trim().min(1).max(200),
   captainEmail: z.string().trim().toLowerCase().email().max(320),
   notes: z.string().trim().max(2000).optional(),
+  // The UI can't submit without checking this — captain affirms the saved
+  // card may be charged (off-session) for unpaid teammate shares after the
+  // payment deadline. Recorded onto the row for every path (authed too).
+  backstopConsent: z.literal(true),
 });
 
 function generateInviteToken(): string {
   return randomBytes(24).toString("base64url");
+}
+
+/**
+ * Split a single "captain name" field into first/last for upsertGuestUser.
+ * Single-word names go entirely to firstName; users.lastName is nullable
+ * but upsertGuestUser's type wants a string, so we pass "" rather than null.
+ */
+function splitCaptainName(name: string): { firstName: string; lastName: string } {
+  const trimmed = name.trim();
+  const idx = trimmed.lastIndexOf(" ");
+  if (idx === -1) {
+    return { firstName: trimmed, lastName: "" };
+  }
+  return { firstName: trimmed.slice(0, idx), lastName: trimmed.slice(idx + 1) };
 }
 
 /**
@@ -32,7 +52,8 @@ function generateInviteToken(): string {
  * through the existing per-player registration flow at /register/[seasonId];
  * teammates do the same after clicking the invite URL.
  */
-export const POST: APIRoute = async ({ request, locals }) => {
+export const POST: APIRoute = async (context) => {
+  const { request, locals, clientAddress } = context;
   if (!db) {
     return new Response(
       JSON.stringify({ error: "Database unavailable" }),
@@ -48,13 +69,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
     );
   }
 
-  // The captain pays a $200 deposit that SAVES a card (off-session) for the
-  // backstop charge, so we need a Stripe customer tied to a real user.
-  if (!locals.user) {
-    return new Response(
-      JSON.stringify({ error: "Please sign in to reserve a team." }),
-      { status: 401, headers: { "Content-Type": "application/json" } },
-    );
+  // This endpoint now accepts anonymous callers (guest captains), which
+  // makes it an unauthenticated write surface — upserts a user and, for
+  // authed Stripe environments, creates a Stripe customer + PaymentIntent.
+  // 5/min/IP, before any DB work, mirroring guest-checkout.ts.
+  const ip = clientAddress || "unknown";
+  const ipLimit = rateLimit(`team-create:ip:${ip}`, 5, 60_000);
+  if (!ipLimit.allowed) {
+    return rateLimitedResponse(ipLimit.retryAfter ?? 60);
   }
 
   let parsed;
@@ -77,7 +99,51 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   const { seasonId, teamName, captainName, captainEmail, notes } = parsed.data;
 
-  const captainUserId = locals.user.id;
+  let captainUserId: string;
+  let wasNewUser = false;
+
+  if (locals.user) {
+    captainUserId = locals.user.id;
+  } else {
+    // Anonymous captain path. Upsert-by-email is the single source of truth
+    // for "does this email already have an account" — using its result
+    // (rather than a separate SELECT beforehand) avoids a check-then-act
+    // race with a concurrent signup/registration for the same email.
+    let upserted;
+    try {
+      const { firstName, lastName } = splitCaptainName(captainName);
+      upserted = await upsertGuestUser(db, {
+        email: captainEmail,
+        firstName,
+        lastName,
+      });
+    } catch (err) {
+      console.error("[team-registrations] guest upsert failed", err);
+      return new Response(
+        JSON.stringify({ error: "Could not create team" }),
+        { status: 500, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    if (!upserted.wasNewUser) {
+      // Account-takeover prevention: never attach a team or mint a session
+      // for an email that already has an account. The client falls back to
+      // its existing requestMagicLink flow to let the real owner sign in.
+      return new Response(
+        JSON.stringify({
+          error: "account_exists",
+          message:
+            "We emailed you a link to continue — this email already has an account.",
+        }),
+        { status: 409, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    captainUserId = upserted.userRow.id;
+    wasNewUser = true;
+    await createSession(captainUserId, context);
+  }
+
   let teamRegistrationId: string | undefined;
 
   try {
@@ -136,8 +202,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
         status: "forming",
         brand,
         teamFeeCents,
-        depositCents: DEPOSIT_AMOUNT_CENTS,
+        depositCents: CAPTAIN_DEPOSIT_CENTS,
         paymentDeadline: season.registrationCloses,
+        backstopConsentedAt: new Date(),
       })
       .returning({ id: teamRegistrations.id });
 
@@ -151,6 +218,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       captainEmail,
       inviteToken,
       teamFeeCents,
+      wasNewUser,
     });
   } catch (err) {
     console.error("[team-registrations] insert failed", err);
@@ -173,8 +241,9 @@ async function finishWithDepositIntent(params: {
   captainEmail: string;
   inviteToken: string;
   teamFeeCents: number;
+  wasNewUser: boolean;
 }): Promise<Response> {
-  const { teamRegistrationId, captainUserId, captainEmail, inviteToken, teamFeeCents } =
+  const { teamRegistrationId, captainUserId, captainEmail, inviteToken, teamFeeCents, wasNewUser } =
     params;
   if (!db) {
     return new Response(
@@ -197,6 +266,7 @@ async function finishWithDepositIntent(params: {
         teamFeeCents,
         depositClientSecret: null,
         publishableKey: null,
+        wasNewUser,
       }),
       { status: 200, headers: { "Content-Type": "application/json" } },
     );
@@ -208,7 +278,7 @@ async function finishWithDepositIntent(params: {
     const intent = await createDepositIntentWithSavedCard({
       userId: captainUserId,
       email: captainEmail,
-      amountCents: DEPOSIT_AMOUNT_CENTS,
+      amountCents: CAPTAIN_DEPOSIT_CENTS,
       metadata: {
         team_registration_id: teamRegistrationId,
         kind: "team_deposit",
@@ -250,6 +320,7 @@ async function finishWithDepositIntent(params: {
       teamFeeCents,
       depositClientSecret: clientSecret,
       publishableKey: import.meta.env.STRIPE_PUBLISHABLE_KEY,
+      wasNewUser,
     }),
     { status: 200, headers: { "Content-Type": "application/json" } },
   );

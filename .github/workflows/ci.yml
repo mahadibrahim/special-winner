@@ -104,7 +104,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
       - name: Type check
+        # Bump Node's heap: the project crossed tsc's default ~2 GB limit and the
+        # job started OOMing ("Ineffective mark-compacts near heap limit") on the
+        # ubuntu runner, even though the code type-checks clean locally and via build.
         run: npm run typecheck
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
 
   # ── Migration drift gate (fast, no DB) ─────────────────────────────
   # Catches the 0024-class incident: a PR edits src/lib/db/schema/* but
@@ -136,6 +141,9 @@ jobs:
   # run real queries at build time (SELECT FROM sports …) and hard-fail
   # on a connection error.
   build:
+    # PR + manual only. Post-merge relies on Netlify's own build for the deploy,
+    # so re-running build on push is a redundant ~2.5m (CI cost dedup).
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -159,8 +167,10 @@ jobs:
       - name: Build
         run: npm run build
 
-  # ── Full API integration tests (every event) ───────────────────────
+  # ── Full API integration tests (PR + manual; post-merge runs test-full) ──
   test-api:
+    # PR + manual only — already gates the PR; skip the ~5m re-run on merge.
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     services:
       postgres:

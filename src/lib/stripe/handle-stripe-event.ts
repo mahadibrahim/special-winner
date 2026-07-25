@@ -11,8 +11,10 @@ import { handleFieldRentalWalkUpPayment } from "./handle-field-rental-walkup-pay
 import { handlePaymentFailed } from "./handle-payment-failed";
 import { handleRegistrationPaymentSucceeded } from "./handle-registration-payment-succeeded";
 import { handleTeamDepositSucceeded } from "./handle-team-deposit-succeeded";
+import { finalizeTeamDeposit } from "@/lib/registrations/finalize-team-deposit";
 import { handleChargeRefunded } from "./handle-charge-refunded";
 import { handleChargeDispute } from "./handle-charge-dispute";
+import { handleMerchOrderCompleted } from "@/lib/merch/fulfillment";
 import {
   handleCheckoutSessionCompleted as handleMembershipCheckoutComplete,
   handleSubscriptionUpdated,
@@ -160,6 +162,11 @@ async function dispatch(event: Stripe.Event): Promise<void> {
               : session.subscription?.id ?? "(none)"
           }`,
         );
+      } else if (session.metadata?.type === "merch_order") {
+        const result = await handleMerchOrderCompleted(session as any);
+        console.log(
+          `[stripe webhook] checkout.session.completed (merch_order) → ${result.status}`,
+        );
       } else {
         console.log(
           `[stripe webhook] checkout.session.completed with unrecognized metadata.type=${
@@ -246,6 +253,14 @@ async function dispatch(event: Stripe.Event): Promise<void> {
         console.log(
           `[stripe webhook] payment_intent.succeeded (team deposit) → ${result.status}`,
           result,
+        );
+      } else if (paymentIntent.metadata?.kind === "team_deposit_pending") {
+        // Deferred-account team reserve: the browser finalize call is the happy
+        // path; this is the idempotent backstop that creates the account + team
+        // (minus a session) if that call never landed.
+        const result = await finalizeTeamDeposit(paymentIntent);
+        console.log(
+          `[stripe webhook] payment_intent.succeeded (team deposit pending) → created=${result.created} team=${result.teamRegistrationId}`,
         );
       } else {
         console.log("Payment succeeded:", paymentIntent.id);

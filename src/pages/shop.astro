@@ -1,34 +1,63 @@
 ---
-// Static placeholder. noindex until the real Printful store ships — a thin
-// "coming soon" page should not be crawled/indexed.
-export const prerender = true;
+// Aspire merch storefront — Printful-backed catalog (Phase 1: browse only).
+// SSR: reads the request org and queries active products. Not prerendered.
 import BaseLayout from "@/layouts/BaseLayout.astro";
+import { EmptyState } from "@/components/ui/empty-state";
+import CartDrawer from "@/components/shop/cart-drawer";
+import { listActiveMerchProducts } from "@/lib/merch/catalog";
+
+const org = Astro.locals.organization;
+const products = org ? await listActiveMerchProducts(org.id) : [];
+
+const money = (cents: number) =>
+  `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })}`;
 ---
 
 <BaseLayout
   title="Shop — Aspire Sports"
-  description="Aspire Sports gear and merchandise — coming soon."
+  description="Aspire Sports gear and merchandise."
 >
-  <Fragment slot="head">
-    <meta name="robots" content="noindex" />
-  </Fragment>
+  <main id="main-content" class="flex-1 max-w-[1080px] mx-auto w-full px-6 py-14">
+    <header class="mb-10 flex items-start justify-between gap-6">
+      <div>
+        <h1 class="font-display text-4xl text-ink mb-3">Aspire Sports Shop</h1>
+        <p class="text-ink-muted">Gear for players, parents, and fans.</p>
+      </div>
+      <CartDrawer client:load />
+    </header>
 
-  <main id="main-content" class="flex-1 flex items-center justify-center py-32">
-    <div class="text-center max-w-md px-6">
-      <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary mb-4">
-        Aspire Sports Shop
-      </p>
-      <h1 class="font-display text-4xl text-ink mb-4">Gear is coming soon.</h1>
-      <p class="text-ink-muted mb-8">
-        We're putting together Aspire Sports gear and team merchandise. Check
-        back after the season-one launch.
-      </p>
-      <a
-        href="/programs"
-        class="inline-flex items-center gap-2 bg-ink text-cream px-6 py-3 text-sm font-medium tracking-wide uppercase hover:bg-primary transition-colors"
-      >
-        Browse programs instead →
-      </a>
-    </div>
+    {products.length === 0 ? (
+      <EmptyState
+        title="No gear yet"
+        description="Our shop is being stocked. Check back soon."
+      />
+    ) : (
+      <ul class="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-10 list-none p-0 m-0">
+        {products.map((p) => (
+          <li>
+            <a href={`/shop/${p.slug}`} class="group block">
+              <div class="aspect-square bg-cream-dark overflow-hidden mb-3">
+                {p.imageUrl ? (
+                  <img
+                    src={p.imageUrl}
+                    alt={p.name}
+                    loading="lazy"
+                    class="w-full h-full object-cover group-hover:scale-[1.03] transition-transform"
+                  />
+                ) : (
+                  <div class="w-full h-full grid place-items-center text-ink-muted text-sm">
+                    No image
+                  </div>
+                )}
+              </div>
+              <h2 class="text-sm font-medium text-ink">{p.name}</h2>
+              {p.fromCents !== null && (
+                <p class="text-sm text-ink-muted">from {money(p.fromCents)}</p>
+              )}
+            </a>
+          </li>
+        ))}
+      </ul>
+    )}
   </main>
 </BaseLayout>

@@ -5,6 +5,10 @@ import { getDb } from "@/lib/db";
 import { phoneVerifications } from "@/lib/db/schema/phone-verifications";
 import { verifyPhoneCode } from "@/lib/auth/phone-otp";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
+import {
+  promotePendingPhoneConsents,
+  MARKETING_CONSENT_SOURCES,
+} from "@/lib/consents/marketing";
 
 /**
  * POST /api/auth/phone-verify/check
@@ -38,7 +42,10 @@ export const POST: APIRoute = async ({ request }) => {
     // that loop. Look up the phone before calling verify so the limit
     // applies even on wrong codes.
     const phoneRow = await getDb()
-      .select({ phone: phoneVerifications.phone })
+      .select({
+        phone: phoneVerifications.phone,
+        purposeContext: phoneVerifications.purposeContext,
+      })
       .from(phoneVerifications)
       .where(eq(phoneVerifications.id, result.data.verificationId))
       .limit(1);
@@ -83,6 +90,39 @@ export const POST: APIRoute = async ({ request }) => {
         }),
         { status: statusMap[verify.reason] },
       );
+    }
+
+    // The code was entered on the phone we texted, so whoever ticked the boxes
+    // at the source surface holds this number. THAT is the verified act — it is
+    // what turns that surface's `pending` INTENT into consent. Until now this
+    // OTP was ceremonial: the opt-in row was already written `opted_in` before
+    // the message was even sent, so entering the code changed nothing.
+    //
+    // Scoped hard to the rows an allowlisted surface wrote (optInSource in
+    // MARKETING_CONSENT_SOURCES, still pending): a consent another flow owns is
+    // not this endpoint's to touch, and a number that replied STOP is not
+    // resurrected here.
+    const ctx = (phoneRow[0]?.purposeContext ?? null) as {
+      source?: string;
+      organizationId?: string;
+    } | null;
+    if (
+      ctx?.source &&
+      ctx.organizationId &&
+      MARKETING_CONSENT_SOURCES.has(ctx.source)
+    ) {
+      try {
+        await promotePendingPhoneConsents({
+          db: getDb(),
+          organizationId: ctx.organizationId,
+          phone: verify.phone,
+          source: ctx.source,
+        });
+      } catch (err) {
+        // The phone is verified either way — do not fail the check because the
+        // consent promotion did. It is retried on the next verified OTP.
+        console.error("[phone-verify/check] consent promotion failed:", err);
+      }
     }
 
     return new Response(

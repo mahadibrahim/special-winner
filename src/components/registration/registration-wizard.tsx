@@ -13,7 +13,11 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { WhoStep } from "./who-step"
-import { GuestInfoStep, type GuestRegistrationMode } from "./guest-info-step"
+import {
+  GuestInfoStep,
+  type GuestRegistrationMode,
+  type GuestFieldErrors,
+} from "./guest-info-step"
 import { WaiverStep } from "./waiver-step"
 import { MediaAuthStep, type MediaAuthScope } from "./media-auth-step"
 import { PaymentStep } from "./payment-step"
@@ -21,9 +25,13 @@ import { ConfirmationStep } from "./confirmation-step"
 import { AddDependentForm } from "./add-dependent-form"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { parseApiError } from "@/lib/api/error-message"
+import { recordConfirmedPayment } from "@/lib/registrations/payment-confirmation-signal"
+import { readGuestDraft, clearGuestDraft, stashGuestDraft } from "@/lib/registrations/guest-draft"
 import {
   trackRegistrationStepViewed,
   trackRegistrationPaymentMethodSelected,
+  type RegVariant,
+  type RegFlow,
 } from "@/lib/analytics/events"
 
 interface Season {
@@ -81,8 +89,28 @@ interface FamilyMember {
   id: string
   firstName: string
   lastName: string
-  birthDate: string
+  // Null for adult self-registrants whose DOB is still pending
+  // post-payment review (their row can surface here alongside dependents).
+  birthDate: string | null
   gender: string | null
+  // Present when this row is the signed-in user's own self-registration
+  // record (created by resolvePerson on first self-checkout). Used to match
+  // this user's own rows out of GET /api/registrations for the Task 5
+  // already-registered / resume states, and to keep that same row out of
+  // the dependents list (it belongs on the "Myself" card, not as a lookalike
+  // dependent entry).
+  selfUserId?: string | null
+}
+
+/** A signed-in user's non-cancelled/refunded registration row for THIS
+ *  season, as reduced from GET /api/registrations (Task 5's already-
+ *  registered / resume states). */
+interface ActiveSeasonRegistration {
+  id: string
+  status: string
+  paymentStatus: string
+  waiverSigned: boolean
+  familyMemberId: string
 }
 
 interface AuthedUser {
@@ -103,25 +131,40 @@ interface RegistrationWizardProps {
   audienceHint?: string | null
   /** Opaque token linking this registration to a specific team (threaded to checkout). */
   teamToken?: string | null
+  /** Captain-assigned share (cents) for an invite-link visitor, resolved by
+   *  RegisterExperience from GET /api/public/team-registrations/[token].
+   *  null = not known yet / not an invite-link visitor. Not yet consumed by
+   *  wizard behavior (Task 4). */
+  inviteeShareCents?: number | null
+  /** Team name resolved alongside inviteeShareCents. Not yet consumed by
+   *  wizard behavior (Task 5). */
+  teamName?: string | null
+  /** Reports the live (step, stepCount) up to RegisterExperience so the
+   *  context rail's progress bar tracks the wizard. */
+  onStepChange?: (step: number, stepCount: number) => void
 }
 
-// Step ids — named so the renumber (media folded into Agreements) stays
-// readable everywhere the wizard branches on the current step.
-const STEP_PLAYER = 1
+// Wizard steps by name. `currentStep` stays 1-based, but which step that
+// number maps to depends on the flow variant: v1 keeps the four-step flow
+// (agreements pre-payment), v2 (adult-locked seasons) drops the agreements
+// interstitial — the waiver + details are collected after payment.
+type WizardStepName = "player" | "agreements" | "payment" | "confirm"
+
+const STEP_LISTS: Record<RegVariant, WizardStepName[]> = {
+  v1: ["player", "agreements", "payment", "confirm"],
+  v2: ["player", "payment", "confirm"],
+}
+
+// Draft-restore heuristics reference the v1 layout numerically; the v2 clamp
+// is derived from the live step list (see applyDraft).
 const STEP_AGREEMENTS = 2
-const STEP_PAYMENT = 3
-const STEP_CONFIRM = 4
 
-const STEP_NAME: Record<number, "player" | "agreements" | "payment" | "confirm"> = {
-  1: "player", 2: "agreements", 3: "payment", 4: "confirm",
+const STEP_META: Record<WizardStepName, { name: string; icon: typeof User }> = {
+  player: { name: "Player", icon: User },
+  agreements: { name: "Agreements", icon: FileCheck },
+  payment: { name: "Payment", icon: CreditCard },
+  confirm: { name: "Confirm", icon: CheckCircle2 },
 }
-
-const STEPS = [
-  { id: STEP_PLAYER, name: "Player", icon: User },
-  { id: STEP_AGREEMENTS, name: "Agreements", icon: FileCheck },
-  { id: STEP_PAYMENT, name: "Payment", icon: CreditCard },
-  { id: STEP_CONFIRM, name: "Confirm", icon: CheckCircle2 },
-]
 
 // localStorage draft schema version. Bump to invalidate older shapes.
 const DRAFT_VERSION = 1
@@ -131,6 +174,13 @@ const DRAFT_VERSION = 1
 const fullPriceCents = (s: Season) => s.effectivePriceCents ?? s.priceCents
 const fullPrice = (s: Season) => s.effectivePrice ?? s.price
 
+// A deposit is only a real option when it's strictly less than the
+// early-bird-aware full price — a misconfigured deposit at or above the full
+// price would charge more than paying in full. Mirrors PaymentStep's
+// `depositAvailable` guard and the server's registrationAmountDueCents.
+const depositValid = (s: Season) =>
+  s.allowDeposit && !!s.depositCents && s.depositCents < fullPriceCents(s)
+
 interface WizardDraft {
   v: number
   currentStep: number
@@ -139,7 +189,16 @@ interface WizardDraft {
   waiverSignature: string
   mediaOptOuts: MediaAuthScope[]
   paymentOption: "full" | "deposit"
-  lookingForTeam: boolean
+}
+
+/** Captain deposit credit served by GET /api/public/team-registrations/[token]
+ *  (viewerCaptainCredit) when the signed-in user is the captain of the
+ *  team behind `teamToken` and the $200 deposit is verifiably paid. */
+interface CaptainCredit {
+  shareCents: number
+  creditCents: number
+  dueCents: number
+  depositCents: number
 }
 
 export default function RegistrationWizard({
@@ -148,6 +207,9 @@ export default function RegistrationWizard({
   user,
   audienceHint,
   teamToken,
+  inviteeShareCents,
+  teamName,
+  onStepChange,
 }: RegistrationWizardProps) {
   const isGuest = user === null
   useHydrationBeacon()
@@ -161,6 +223,29 @@ export default function RegistrationWizard({
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // ── Flow variant ─────────────────────────────────────────────────────────
+  // Adult-locked seasons (audience=adult or ageGroup.minAge ≥ 18) run the v2
+  // flow: no pre-payment agreements step (the waiver + player details are
+  // collected after payment) and, for guests, a minimal name+email step.
+  const flowVariant: RegVariant =
+    audienceHint === "adult" || (season?.ageGroup?.minAge ?? 0) >= 18 ? "v2" : "v1"
+  const stepList = STEP_LISTS[flowVariant]
+  const stepName = stepList[currentStep - 1] ?? "player"
+  // 1-based number of a named step in the active list (confirm is step 4 in
+  // v1 but step 3 in v2; payment is step 3 vs 2).
+  const stepNumberOf = (name: WizardStepName) => stepList.indexOf(name) + 1
+  // Progress-header steps derived from the active list (v2 shows 3 dots).
+  const steps = stepList.map((n, i) => ({
+    id: i + 1,
+    name: STEP_META[n].name,
+    icon: STEP_META[n].icon,
+  }))
+
+  // Mirror the live step up to the context rail (see RegisterExperience).
+  useEffect(() => {
+    onStepChange?.(currentStep, stepList.length)
+  }, [currentStep, stepList.length, onStepChange])
+
   // ── Submission state ─────────────────────────────────────────────────────
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [registrationComplete, setRegistrationComplete] = useState(false)
@@ -171,7 +256,11 @@ export default function RegistrationWizard({
   const [waiverAccepted, setWaiverAccepted] = useState(false)
   const [waiverSignature, setWaiverSignature] = useState("")
   const [paymentOption, setPaymentOption] = useState<"full" | "deposit">("full")
-  const [lookingForTeam, setLookingForTeam] = useState(false)
+  // Free-agent placement flag, derived instead of asked: an individual-mode
+  // registration without a team token means "place me on a house team";
+  // joining via a team invite token means the opposite. (The old Agreements
+  // checkbox that asked this is gone.)
+  const lookingForTeam = !teamToken
   // Media-auth opt-outs: empty Set = all 3 scopes granted (the default).
   const [mediaAuthOptOuts, setMediaAuthOptOuts] = useState<ReadonlySet<MediaAuthScope>>(
     new Set(),
@@ -189,6 +278,16 @@ export default function RegistrationWizard({
   const [guestChildGender, setGuestChildGender] = useState("")
   const [guestEmailCollision, setGuestEmailCollision] = useState(false)
   const [isCheckingEmail, setIsCheckingEmail] = useState(false)
+
+  // Guest submit hit the server's `already_registered` 409 (this email
+  // already has a live registration for this season). Renders a friendly
+  // state in place of the step content instead of the generic error banner —
+  // per the disclosure rule, no registration detail is shown, just that the
+  // email has a spot and a manage-link email was sent.
+  const [guestAlreadyRegistered, setGuestAlreadyRegistered] = useState(false)
+  // Set by "Register a different player instead" so the effect below can
+  // focus the email field once step 1 has actually re-rendered.
+  const [focusGuestEmailOnMount, setFocusGuestEmailOnMount] = useState(false)
 
   // ── Guest registration mode (child vs adult) ─────────────────────────────
   // Default is determined after season data loads (see effect below).
@@ -232,7 +331,39 @@ export default function RegistrationWizard({
 
   // ── Cancel-resume state ──────────────────────────────────────────────────
   const [resumableRegistrationId, setResumableRegistrationId] = useState<string | null>(null)
+  // The resumable row's server-computed amountDueCents (from GET
+  // /api/registrations) — same role as serverAmountDueCents below, but for
+  // the resume-payment path, which never goes through handleSubmit* and so
+  // never gets a fresh POST response to read amountDueCents off of.
+  const [resumableAmountDueCents, setResumableAmountDueCents] = useState<number | null>(null)
   const [isResumingPayment, setIsResumingPayment] = useState(false)
+
+  // ── Already-registered state (authed only, Task 5) ───────────────────────
+  // The signed-in user's non-cancelled/refunded registrations for THIS
+  // season, keyed to their family member. Adult-locked v2 self flows use
+  // this to short-circuit the whole wizard; v1/dependent-capable flows only
+  // use it to mark individual people in WhoStep (a parent may still
+  // register a second, not-yet-registered child).
+  const [activeSeasonRegistrations, setActiveSeasonRegistrations] = useState<
+    ActiveSeasonRegistration[]
+  >([])
+  // Whether the GET /api/registrations check below has settled (success,
+  // no-op for guests, or error). The main loading gate waits on this too —
+  // without it, the wizard would render the normal Player step for a beat
+  // and then flash to the resume/already-registered card once this fetch
+  // resolves, since it's independent of the season+family-members fetch
+  // that isLoading otherwise tracks.
+  const [registrationsChecked, setRegistrationsChecked] = useState(isGuest)
+  // Set when the up-front fetch above found nothing but the submit still
+  // hit the server's 409 (race: another tab/device beat us, or the fetch was
+  // stale). v2 renders the same full-screen state as the up-front check;
+  // there's no detailed registration row to show in this case.
+  const [raceAlreadyRegistered, setRaceAlreadyRegistered] = useState(false)
+
+  // Registration the live Stripe session is paying for — handlePaymentSuccess
+  // needs it to record the client-confirmed payment signal (webhook-lag
+  // bridge; see payment-confirmation-signal.ts).
+  const [activeRegistrationId, setActiveRegistrationId] = useState<string | null>(null)
 
   // ── Draft-restore state (authed only) ────────────────────────────────────
   // A saved draft surfaced on return; the user explicitly resumes or starts
@@ -253,13 +384,16 @@ export default function RegistrationWizard({
   const [paymentValueCents, setPaymentValueCents] = useState(0)
   // Customer's choice of payment-method group. Drives both the displayed
   // surcharge and the Stripe Checkout Session's payment_method_types.
-  // Defaults to "bank" to anchor on the no-fee path.
-  // Card-only checkout: default to card so the order summary shows the card
-  // surcharge upfront. ACH/bank is disabled in the payment step (ACH_ENABLED).
+  // Card-only checkout: default to card. ACH/bank is disabled in the payment
+  // step (ACH_ENABLED), so the bank option never renders.
   const [selectedPaymentCategory, setSelectedPaymentCategory] = useState<
     "bank" | "card"
   >("card")
   const [appliedSurchargeCents, setAppliedSurchargeCents] = useState(0)
+  // The server's amountDueCents from the most recent submit (guest or authed
+  // path) — stashed purely for the invite-share mismatch check below; never
+  // used to compute what's charged.
+  const [serverAmountDueCents, setServerAmountDueCents] = useState<number | null>(null)
 
   // ── Account credit state (authed only — guests have no balance) ─────────
   const [creditBalanceCents, setCreditBalanceCents] = useState(0)
@@ -273,11 +407,94 @@ export default function RegistrationWizard({
     "deposit" | "balance" | "full"
   >("full")
 
+  // ── Captain deposit credit (team-token registrations only) ───────────────
+  // When the signed-in registrant is the CAPTAIN of the team behind
+  // `teamToken` and the $200 deposit is paid, the server credits their share
+  // by the deposit (typically to $0). This fetch is display-only — the server
+  // recomputes the credit in createRegistration and never trusts the client.
+  const [captainCredit, setCaptainCredit] = useState<CaptainCredit | null>(null)
+  // Whether the captain-credit fetch below has settled (success, no-op, or
+  // error) for a teamToken + signed-in visitor. Gates the step-viewed
+  // analytics effect so it waits for the real team_captain/team_member
+  // classification instead of firing early with a guess. `!teamToken` and
+  // guest sessions never fetch, so they're settled from the start.
+  const [captainCreditLoaded, setCaptainCreditLoaded] = useState(false)
+  const captainCreditSettled = !teamToken || isGuest || captainCreditLoaded
+  // The credit only applies to the captain's SELF registration (server gate:
+  // familyMember.selfUserId === user.id) — never to a dependent registered
+  // through the same account. Mirror that here so the payment step doesn't
+  // show credit math the server would refuse.
+  const effectiveCaptainCredit = selectedKey === "self" ? captainCredit : null
+  // The personal invite link (`inviteeShareCents`) promised a specific share,
+  // but the server only applies it when the registering email matches the
+  // invitee it was minted for. If the registrant used a different email, the
+  // server falls back to the full price — this flags that mismatch so
+  // PaymentStep can explain the charge instead of silently showing full
+  // price after a share was promised. Only meaningful post-submit, once
+  // serverAmountDueCents is populated.
+  const shareMismatch =
+    teamToken != null &&
+    inviteeShareCents != null &&
+    !effectiveCaptainCredit &&
+    serverAmountDueCents != null &&
+    serverAmountDueCents !== inviteeShareCents
+  // Same classification the step-viewed analytics effect below uses, hoisted
+  // to a variable so it can also be threaded to ConfirmationStep/CompletionForm
+  // (which otherwise defaults to "solo" and mislabels every team registration's
+  // completion-step event).
+  const regFlow: RegFlow = teamToken
+    ? captainCredit != null
+      ? "team_captain"
+      : "team_member"
+    : "solo"
+
+  useEffect(() => {
+    if (!teamToken || isGuest) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch(
+          `/api/public/team-registrations/${encodeURIComponent(teamToken)}`,
+        )
+        if (!res.ok) return
+        const data = await res.json()
+        if (!cancelled && data.viewerCaptainCredit) {
+          setCaptainCredit(data.viewerCaptainCredit as CaptainCredit)
+        }
+      } catch {
+        // non-fatal — the payment step falls back to the season price and the
+        // server still applies the credit at registration time
+      } finally {
+        if (!cancelled) setCaptainCreditLoaded(true)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [teamToken, isGuest])
+
   // ── Effects ──────────────────────────────────────────────────────────────
 
   useEffect(() => {
     fetchData()
   }, [seasonId])
+
+  // Rehydrate the guest adult-self draft stashed before a sign-in round trip
+  // (see handleGuestSignInClick below). Guests get the three fields prefilled
+  // once and the stash cleared; authed users just clear it — their profile
+  // supersedes a stashed guest draft, and leaving it around risks it leaking
+  // into a future anonymous session on this device.
+  useEffect(() => {
+    const draft = readGuestDraft(seasonId)
+    if (!draft) return
+    if (isGuest) {
+      setGuestParentFirstName(draft.firstName)
+      setGuestParentLastName(draft.lastName)
+      setGuestParentEmail(draft.email)
+    }
+    clearGuestDraft(seasonId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seasonId, isGuest])
 
   // Fetch the signed-in user's account credit balance so the payment step
   // can offer to apply it. Guests never have a balance (no signed-in user
@@ -302,32 +519,74 @@ export default function RegistrationWizard({
     }
   }, [isGuest])
 
-  // Check for cancelled-payment resumable registration
+  // Fetch the signed-in user's existing registrations for THIS season —
+  // unconditional (not just on the wasCancelled/?payment=cancelled redirect)
+  // so both the resume-payment card and the already-registered state render
+  // on a normal, direct visit too (Task 5). Guests are excluded — they have
+  // no account to look up and get their own friendly state via the
+  // guest-checkout 409 path (see guestAlreadyRegistered above).
   useEffect(() => {
-    if (!wasCancelled || isGuest) return
+    if (isGuest) return
     let cancelled = false
     ;(async () => {
       try {
         const res = await fetch("/api/registrations")
         if (!res.ok) return
         const data = await res.json()
-        const match = (data.registrations ?? []).find(
-          (r: { id: string; season: { id: string }; status: string; paymentStatus: string }) =>
+        const rows = (data.registrations ?? []) as Array<{
+          id: string
+          status: string
+          paymentStatus: string
+          waiverSigned: boolean
+          amountDueCents: number
+          season: { id: string }
+          familyMember: { id: string }
+        }>
+        if (cancelled) return
+        // This season only. Cancelled/refunded rows are never "existing" —
+        // mirrors create-registration.ts's notInArray(["cancelled",
+        // "refunded"]) filter, so a member can freely re-register after
+        // cancelling or being refunded.
+        const active = rows.filter(
+          (r) =>
             r.season.id === seasonId &&
-            r.status === "pending" &&
-            r.paymentStatus === "unpaid"
+            r.status !== "cancelled" &&
+            r.status !== "refunded",
         )
-        if (!cancelled && match) {
-          setResumableRegistrationId(match.id)
+        const pendingUnpaid = active.find(
+          (r) => r.status === "pending" && r.paymentStatus === "unpaid",
+        )
+        if (pendingUnpaid) {
+          setResumableRegistrationId(pendingUnpaid.id)
+          setResumableAmountDueCents(
+            typeof pendingUnpaid.amountDueCents === "number"
+              ? pendingUnpaid.amountDueCents
+              : null,
+          )
         }
+        setActiveSeasonRegistrations(
+          active.map((r) => ({
+            id: r.id,
+            status: r.status,
+            paymentStatus: r.paymentStatus,
+            waiverSigned: r.waiverSigned,
+            familyMemberId: r.familyMember.id,
+          })),
+        )
       } catch {
         // swallow — fall back to normal wizard
+      } finally {
+        // Settled (success, non-ok response, or network error) — the main
+        // loading gate below waits on this so the wizard never flashes the
+        // normal Player step before a resume/already-registered state has
+        // had a chance to resolve.
+        if (!cancelled) setRegistrationsChecked(true)
       }
     })()
     return () => {
       cancelled = true
     }
-  }, [wasCancelled, seasonId, isGuest])
+  }, [seasonId, isGuest])
 
   // ── Draft persistence (authed only) ───────────────────────────────────────
   // We persist non-sensitive wizard progress (selection key, signed-waiver
@@ -350,10 +609,11 @@ export default function RegistrationWizard({
     setWaiverSignature(d.waiverSignature ?? "")
     setMediaAuthOptOuts(new Set(d.mediaOptOuts ?? []))
     setPaymentOption(d.paymentOption === "deposit" ? "deposit" : "full")
-    setLookingForTeam(Boolean(d.lookingForTeam))
     // Don't restore onto the payment step — the registration row isn't created
-    // until a method is picked, so land them on Agreements to continue cleanly.
-    setCurrentStep(Math.min(Math.max(d.currentStep ?? 1, 1), STEP_AGREEMENTS))
+    // until a method is picked. Land on the last step before payment (v1:
+    // Agreements; v2: Player) to continue cleanly.
+    const maxRestoreStep = Math.max(1, stepList.indexOf("payment"))
+    setCurrentStep(Math.min(Math.max(d.currentStep ?? 1, 1), maxRestoreStep))
     setRestorable(null)
   }
 
@@ -399,7 +659,6 @@ export default function RegistrationWizard({
       waiverSignature,
       mediaOptOuts: Array.from(mediaAuthOptOuts),
       paymentOption,
-      lookingForTeam,
     }
     try {
       window.localStorage.setItem(draftKey, JSON.stringify(draft))
@@ -418,7 +677,6 @@ export default function RegistrationWizard({
     waiverSignature,
     mediaAuthOptOuts,
     paymentOption,
-    lookingForTeam,
   ])
 
   // Compute whether the season's audience is unambiguous. When it is, the
@@ -449,14 +707,23 @@ export default function RegistrationWizard({
     // If no lock, leave at the "child" default
   }, [isGuest, season, lockedGuestMode])
 
-  // Track each wizard step view (league analytics).
+  // Track each wizard step view (league analytics). Gated on
+  // captainCreditSettled so a team-token visitor's flow is classified
+  // team_captain/team_member with the SETTLED value — never fired early with
+  // a guess, and never double-fired for the same step once it resolves.
   useEffect(() => {
-    if (season) trackRegistrationStepViewed({ step: STEP_NAME[currentStep] ?? "player", seasonId: season.id })
-  }, [currentStep, season])
+    if (season && captainCreditSettled) trackRegistrationStepViewed({
+      step: stepName,
+      seasonId: season.id,
+      flow: regFlow,
+      variant: flowVariant,
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep, season, teamToken, captainCreditSettled])
 
   // Fire view_item once when entering the payment step
   useEffect(() => {
-    if (currentStep === STEP_PAYMENT && season) {
+    if (stepName === "payment" && season) {
       import("@/lib/analytics/datalayer").then(({ trackViewItem }) => {
         trackViewItem({
           id: season.id,
@@ -503,6 +770,16 @@ export default function RegistrationWizard({
       ctrl.abort()
     }
   }, [isGuest, guestParentEmail])
+
+  // Focus the guest email field after "Register a different player instead"
+  // sends the wizard back to step 1 — runs once step 1 has actually
+  // re-rendered (stepName flips async with currentStep).
+  useEffect(() => {
+    if (focusGuestEmailOnMount && stepName === "player") {
+      document.getElementById("guest-parent-email")?.focus()
+      setFocusGuestEmailOnMount(false)
+    }
+  }, [focusGuestEmailOnMount, stepName])
 
   // ── Data fetching ─────────────────────────────────────────────────────────
 
@@ -609,7 +886,11 @@ export default function RegistrationWizard({
         lastName: data.lastName ?? completedProfile.lastName ?? user.lastName ?? "",
         phone: data.phone ?? completedProfile.phone ?? user.phone ?? undefined,
         birthDate: data.birthDate ?? completedProfile.birthDate ?? user.birthDate ?? undefined,
-        gender: data.gender ?? completedProfile.gender ?? user.gender ?? undefined,
+        // "" is the form's unset placeholder — omit the key entirely instead
+        // of sending it, since the API's gender enum has no "" member and a
+        // customer who leaves the optional Gender select on "—" would get a
+        // raw "Invalid option" zod error on Save profile.
+        gender: (data.gender || completedProfile.gender || user.gender) || undefined,
         // Only sent when the form collected a phone — the server records
         // opt-in state solely for phones provided alongside the checkbox.
         smsConsent: data.smsConsent,
@@ -648,9 +929,24 @@ export default function RegistrationWizard({
     setDiscountError(null)
 
     try {
-      const purchaseAmountCents = paymentOption === "deposit" && season.depositCents
-        ? season.depositCents
-        : fullPriceCents(season)
+      // Team-share base precedes the deposit branch, same ordering as the
+      // valueCents sites above: a personal invite's share is paid in full
+      // (no deposit concept), and — like those sites — a stale-draft
+      // paymentOption:"deposit" must never override it. When teamToken is
+      // set but the share isn't known yet (open joiner, or ref hasn't
+      // resolved), full price is the correct preview base — open joiners
+      // genuinely pay full price. Residual: an email-mismatch invitee (one
+      // whose registering email doesn't match the invite the ref was minted
+      // for) still previews against inviteeShareCents here even though the
+      // server will redeem the discount against the full price instead —
+      // the shareMismatch notice on PaymentStep is what surfaces that case,
+      // not this preview.
+      const purchaseAmountCents =
+        teamToken != null && inviteeShareCents != null
+          ? inviteeShareCents
+          : paymentOption === "deposit" && depositValid(season)
+            ? season.depositCents!
+            : fullPriceCents(season)
 
       const response = await fetch("/api/public/validate-discount", {
         method: "POST",
@@ -691,10 +987,16 @@ export default function RegistrationWizard({
   }
 
   const handlePaymentSuccess = (_paymentIntentId: string) => {
+    // Bridge the webhook-lag window: the dashboard + nav read this signal to
+    // present the (still pending/unpaid) registration as "Payment received —
+    // confirming" instead of nagging for payment the customer just made.
+    if (activeRegistrationId) {
+      recordConfirmedPayment(activeRegistrationId, "succeeded")
+    }
     clearDraft()
     setRegistrationComplete(true)
     setPaymentClientSecret(null)
-    setCurrentStep(STEP_CONFIRM)
+    setCurrentStep(stepNumberOf("confirm"))
   }
 
   const handlePaymentCancel = () => {
@@ -719,7 +1021,9 @@ export default function RegistrationWizard({
           registrationId: resumableRegistrationId,
           paymentMethodCategory: selectedPaymentCategory,
           teamToken: teamToken ?? undefined,
-          applyAccountCredit,
+          // Captain-credit checkouts keep the math to one credit source —
+          // the deposit — so the displayed due can't drift from the charge.
+          applyAccountCredit: effectiveCaptainCredit ? false : applyAccountCredit,
         }),
       })
       const data = await res.json()
@@ -729,10 +1033,17 @@ export default function RegistrationWizard({
         )
       }
       if (data.clientSecret) {
-        const valueCents =
-          paymentOption === "deposit" && season!.depositCents
-            ? season!.depositCents
-            : fullPriceCents(season!)
+        // Team-token branch precedes the deposit branch: a stale localStorage
+        // draft (paymentOption:"deposit" from an earlier solo browse of this
+        // season) must not force the deposit display on a team-invite resume
+        // — the server-resolved amount always wins once we have it.
+        const valueCents = effectiveCaptainCredit
+          ? effectiveCaptainCredit.dueCents
+          : teamToken != null && resumableAmountDueCents != null
+            ? resumableAmountDueCents
+            : paymentOption === "deposit" && depositValid(season!)
+              ? season!.depositCents!
+              : fullPriceCents(season!)
         const baseAfterDiscount = appliedDiscount
           ? valueCents - appliedDiscount.discountAmountCents
           : valueCents
@@ -741,10 +1052,11 @@ export default function RegistrationWizard({
         const surchargeCents = data.surchargeCents ?? 0
         const finalValueCents = baseAfterCredit + surchargeCents
 
+        setActiveRegistrationId(resumableRegistrationId)
         setAppliedSurchargeCents(surchargeCents)
         setAppliedCreditCents(creditCents)
         setPaymentValueCents(finalValueCents)
-        setPaymentTypeForTracking(paymentOption === "deposit" ? "deposit" : "full")
+        setPaymentTypeForTracking(paymentOption === "deposit" && depositValid(season!) ? "deposit" : "full")
         setPaymentPublishableKey(data.publishableKey)
         setPaymentClientSecret(data.clientSecret)
 
@@ -765,7 +1077,7 @@ export default function RegistrationWizard({
       // No clientSecret + ok → discount zeroed the bill; treat as complete.
       clearDraft()
       setRegistrationComplete(true)
-      setCurrentStep(STEP_CONFIRM)
+      setCurrentStep(stepNumberOf("confirm"))
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start payment")
     } finally {
@@ -774,7 +1086,10 @@ export default function RegistrationWizard({
   }
 
   const handleSubmitGuestCheckout = async (categoryOverride?: "bank" | "card") => {
-    if (!season || !waiverAccepted || !waiverSignature) return
+    // v2 (adult-locked) defers the waiver to the post-payment completion step,
+    // so the signed-waiver guard only applies to v1.
+    if (!season) return
+    if (flowVariant === "v1" && (!waiverAccepted || !waiverSignature)) return
     // The selected method is passed in directly because setState hasn't
     // flushed yet when the method button fires this.
     const category = categoryOverride ?? selectedPaymentCategory
@@ -783,7 +1098,28 @@ export default function RegistrationWizard({
     try {
       const mediaAuthOptOutsArr = Array.from(mediaAuthOptOuts)
       const payload =
-        guestMode === "adult"
+        flowVariant === "v2"
+          ? {
+              // Minimal adult self-registration: name + email only. DOB, gender
+              // and the signed waiver are collected after payment via the
+              // completion step (waiverSigned:false, no birthDate/waiverSignedBy).
+              seasonId,
+              registrant: {
+                firstName: guestParentFirstName,
+                lastName: guestParentLastName,
+                email: guestParentEmail,
+                isSelf: true as const,
+              },
+              smsConsent: guestSmsConsent,
+              registrationType: paymentOption,
+              waiverSigned: false,
+              discountCode: discountCode || undefined,
+              lookingForTeam,
+              mediaAuthOptOuts: mediaAuthOptOutsArr,
+              paymentMethodCategory: category,
+              teamToken: teamToken ?? undefined,
+            }
+          : guestMode === "adult"
           ? {
               seasonId,
               registrant: {
@@ -800,6 +1136,7 @@ export default function RegistrationWizard({
               waiverSigned: true,
               waiverSignedBy: waiverSignature,
               discountCode: discountCode || undefined,
+              lookingForTeam,
               mediaAuthOptOuts: mediaAuthOptOutsArr,
               paymentMethodCategory: category,
               teamToken: teamToken ?? undefined,
@@ -835,22 +1172,38 @@ export default function RegistrationWizard({
       })
       const data = await res.json()
       if (!res.ok) {
+        if (data?.code === "already_registered") {
+          // Friendly state instead of the generic error banner — see
+          // `guestAlreadyRegistered` render branch below. Never paid: this
+          // 409 fires before guest-checkout creates any Stripe PaymentIntent.
+          setGuestAlreadyRegistered(true)
+          return
+        }
         throw new Error(parseApiError(data, "Failed to complete registration"))
       }
+      if (typeof data.amountDueCents === "number") {
+        setServerAmountDueCents(data.amountDueCents)
+      }
       if (data.clientSecret) {
+        // Team-token branch precedes the deposit branch — see the resume-
+        // payment site's comment for why (stale-draft paymentOption must
+        // never bypass the server-resolved share/full-price amount).
         const valueCents =
-          paymentOption === "deposit" && season!.depositCents
-            ? season!.depositCents
-            : fullPriceCents(season!)
+          teamToken != null && typeof data.amountDueCents === "number"
+            ? data.amountDueCents
+            : paymentOption === "deposit" && depositValid(season!)
+              ? season!.depositCents!
+              : fullPriceCents(season!)
         const baseAfterDiscount = appliedDiscount
           ? valueCents - appliedDiscount.discountAmountCents
           : valueCents
         const surchargeCents = data.surchargeCents ?? 0
         const finalValueCents = baseAfterDiscount + surchargeCents
 
+        setActiveRegistrationId(data.registrationId ?? null)
         setAppliedSurchargeCents(surchargeCents)
         setPaymentValueCents(finalValueCents)
-        setPaymentTypeForTracking(paymentOption === "deposit" ? "deposit" : "full")
+        setPaymentTypeForTracking(paymentOption === "deposit" && depositValid(season!) ? "deposit" : "full")
         setPaymentPublishableKey(data.publishableKey)
         setPaymentClientSecret(data.clientSecret)
 
@@ -884,8 +1237,42 @@ export default function RegistrationWizard({
     }
   }
 
+  // "Register a different player instead" — leaves the already-registered
+  // state, clears the email that collided (never the name fields — those
+  // are still useful if this is actually a sibling), and sends the guest
+  // back to step 1 with the email field focused.
+  const handleRegisterDifferentPlayer = () => {
+    setGuestAlreadyRegistered(false)
+    setGuestParentEmail("")
+    setCurrentStep(1)
+    setFocusGuestEmailOnMount(true)
+  }
+
+  // Guest taps "Sign in" mid-wizard: stash the adult-self fields so the
+  // round trip through /signin doesn't make them retype. Scoped to the v2
+  // (adult-locked) guest flow only — those three fields are unambiguously
+  // the adult registering themselves. The v1 flow's "about you" fields can
+  // belong to a parent registering a child, and the child fields are never
+  // eligible for this stash (see Global Constraints — adult self only).
+  const handleGuestSignInClick = () => {
+    // Stash whenever the guest is in ADULT mode — the fields are adult-self in
+    // both the v2 minimal flow and v1's ambiguous-audience adult sub-mode.
+    // Child mode never stashes (PII rule: adult self fields only).
+    if (guestMode !== "adult") return
+    stashGuestDraft({
+      v: 1,
+      seasonId,
+      firstName: guestParentFirstName.trim(),
+      lastName: guestParentLastName.trim(),
+      email: guestParentEmail.trim(),
+    })
+  }
+
   const handleSubmitRegistration = async (categoryOverride?: "bank" | "card") => {
-    if (!selectedKey || !waiverAccepted || !waiverSignature) return
+    if (!selectedKey) return
+    // v2 (adult-locked) has no pre-payment agreements step, so the waiver is
+    // signed after payment — only v1 requires the signed waiver here.
+    if (flowVariant === "v1" && (!waiverAccepted || !waiverSignature)) return
 
     // Passed in directly from the method button (setState hasn't flushed).
     const category = categoryOverride ?? selectedPaymentCategory
@@ -893,26 +1280,34 @@ export default function RegistrationWizard({
     setError(null)
 
     const mediaAuthOptOutsArr = Array.from(mediaAuthOptOuts)
+    // v2 defers the waiver: create the row unsigned; v1 carries the signature.
+    const waiverFields =
+      flowVariant === "v2"
+        ? { waiverSigned: false as const }
+        : { waiverSigned: true as const, waiverSignedBy: waiverSignature }
     const registrationBody =
       selectedKey === "self"
         ? {
             seasonId,
             registerSelf: true,
             registrationType: paymentOption,
-            waiverSigned: true,
-            waiverSignedBy: waiverSignature,
+            ...waiverFields,
             discountCode: discountCode || undefined,
             lookingForTeam,
             mediaAuthOptOuts: mediaAuthOptOutsArr,
+            // Without the token the server can't resolve the invitee share
+            // or the captain's deposit credit — the signed-in path must send
+            // it just like the guest path does.
+            teamToken: teamToken ?? undefined,
           }
         : {
             seasonId,
             familyMemberId: selectedKey,
             registrationType: paymentOption,
-            waiverSigned: true,
-            waiverSignedBy: waiverSignature,
+            ...waiverFields,
             discountCode: discountCode || undefined,
             mediaAuthOptOuts: mediaAuthOptOutsArr,
+            teamToken: teamToken ?? undefined,
           }
 
     try {
@@ -925,10 +1320,32 @@ export default function RegistrationWizard({
 
       if (!regResponse.ok) {
         const data = await regResponse.json().catch(() => null)
+        if (data?.code === "already_registered") {
+          // Race/edge fallback: the up-front GET /api/registrations effect
+          // found nothing (another tab/device beat us, or the fetch was
+          // stale) but the server still knows better. v2 (adult-locked,
+          // self-only) renders the same full-screen state as the up-front
+          // check; v1 can't globally block — a different child may still be
+          // registrable — so it gets a named inline message instead of the
+          // generic banner.
+          if (flowVariant === "v2") {
+            setRaceAlreadyRegistered(true)
+          } else {
+            setError(
+              teamToken != null
+                ? `${selectedDisplayName || "This player"} is already registered for this season. To appear on ${teamName ?? "the team"}'s roster, ask your captain to add them — nothing more to pay through this link.`
+                : `${selectedDisplayName || "This player"} is already registered for this season.`,
+            )
+          }
+          return
+        }
         throw new Error(parseApiError(data, "Failed to complete registration"))
       }
 
       const regData = await regResponse.json()
+      if (typeof regData.amountDueCents === "number") {
+        setServerAmountDueCents(regData.amountDueCents)
+      }
 
       if (regData.requiresPayment) {
         // Step 2: Create Stripe checkout session
@@ -940,7 +1357,9 @@ export default function RegistrationWizard({
             discountCode: discountCode || undefined,
             paymentMethodCategory: category,
             teamToken: teamToken ?? undefined,
-            applyAccountCredit,
+            // Captain-credit checkouts keep the math to one credit source —
+            // the deposit — so the displayed due can't drift from the charge.
+            applyAccountCredit: effectiveCaptainCredit ? false : applyAccountCredit,
           }),
         })
 
@@ -959,10 +1378,16 @@ export default function RegistrationWizard({
 
         // Hand off to embedded form rendered inside step 4
         if (checkoutData.clientSecret) {
-          const valueCents =
-            paymentOption === "deposit" && season!.depositCents
-              ? season!.depositCents
-              : fullPriceCents(season!)
+          // Team-token branch precedes the deposit branch — see the resume-
+          // payment site's comment for why (stale-draft paymentOption must
+          // never bypass the server-resolved share/full-price amount).
+          const valueCents = effectiveCaptainCredit
+            ? effectiveCaptainCredit.dueCents
+            : teamToken != null && typeof regData.amountDueCents === "number"
+              ? regData.amountDueCents
+              : paymentOption === "deposit" && depositValid(season!)
+                ? season!.depositCents!
+                : fullPriceCents(season!)
           const baseAfterDiscount = appliedDiscount
             ? valueCents - appliedDiscount.discountAmountCents
             : valueCents
@@ -971,10 +1396,11 @@ export default function RegistrationWizard({
           const surchargeCents = checkoutData.surchargeCents ?? 0
           const finalValueCents = baseAfterCredit + surchargeCents
 
+          setActiveRegistrationId(regData.registration.id)
           setAppliedSurchargeCents(surchargeCents)
           setAppliedCreditCents(creditCents)
           setPaymentValueCents(finalValueCents)
-          setPaymentTypeForTracking(paymentOption === "deposit" ? "deposit" : "full")
+          setPaymentTypeForTracking(paymentOption === "deposit" && depositValid(season!) ? "deposit" : "full")
           setPaymentPublishableKey(checkoutData.publishableKey)
           setPaymentClientSecret(checkoutData.clientSecret)
 
@@ -994,10 +1420,15 @@ export default function RegistrationWizard({
         }
       }
 
-      // Waitlisted or no payment required — go straight to confirmation
+      // Waitlisted or no payment required — go straight to confirmation.
+      // Must still set activeRegistrationId: ConfirmationStep's inline
+      // CompletionForm (v2's post-payment waiver capture) gates on
+      // `registrationId` being present, and zero-due registrations never
+      // pass through the clientSecret branch above that normally sets it.
+      setActiveRegistrationId(regData.registration.id)
       clearDraft()
       setRegistrationComplete(true)
-      setCurrentStep(STEP_CONFIRM)
+      setCurrentStep(stepNumberOf("confirm"))
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to complete registration")
     } finally {
@@ -1020,30 +1451,66 @@ export default function RegistrationWizard({
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
+  // Per-field guest validation. Returns null when everything required for the
+  // active mode is present. Drives the attempt-based Continue on step 1: the
+  // button stays tappable and a failed attempt marks exactly what's missing —
+  // a silently disabled button reads as "broken page" on mobile and was
+  // costing registrations (users left without typing anything).
+  const computeGuestErrors = (): GuestFieldErrors | null => {
+    const errors: GuestFieldErrors = {}
+    if (!guestParentFirstName.trim()) errors.parentFirstName = "Enter your first name."
+    if (!guestParentLastName.trim()) errors.parentLastName = "Enter your last name."
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestParentEmail)) {
+      errors.parentEmail = guestParentEmail.trim()
+        ? "That email doesn't look right — check for typos."
+        : "Enter your email."
+    }
+    // v2 (adult-locked) guest step collects name + email only; the player's
+    // DOB/gender and the waiver are deferred to the post-payment completion.
+    if (flowVariant === "v2") {
+      return Object.keys(errors).length > 0 ? errors : null
+    }
+    if (guestMode === "adult") {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(guestAdultBirthDate))
+        errors.adultBirthDate = "Enter your birth date."
+    } else {
+      if (!guestChildFirstName.trim()) errors.childFirstName = "Enter the player's first name."
+      if (!guestChildLastName.trim()) errors.childLastName = "Enter the player's last name."
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(guestChildBirthDate))
+        errors.childBirthDate = "Enter the player's birth date."
+    }
+    return Object.keys(errors).length > 0 ? errors : null
+  }
+
+  // Errors only render after the first failed Continue attempt, then update
+  // live as the customer fixes fields (so resolved errors clear themselves).
+  const [guestAttempted, setGuestAttempted] = useState(false)
+  const guestFieldErrors = guestAttempted ? computeGuestErrors() : null
+
+  const handleContinue = () => {
+    if (stepName === "player" && isGuest) {
+      const errors = computeGuestErrors()
+      if (errors) {
+        setGuestAttempted(true)
+        return
+      }
+      setGuestAttempted(false)
+    }
+    setCurrentStep(currentStep + 1)
+  }
+
   const canProceed = () => {
-    switch (currentStep) {
-      case 1:
-        if (isGuest) {
-          const baseValid =
-            guestParentFirstName.trim().length > 0 &&
-            guestParentLastName.trim().length > 0 &&
-            /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestParentEmail)
-          if (guestMode === "adult") {
-            return baseValid && /^\d{4}-\d{2}-\d{2}$/.test(guestAdultBirthDate)
-          }
-          return (
-            baseValid &&
-            guestChildFirstName.trim().length > 0 &&
-            guestChildLastName.trim().length > 0 &&
-            /^\d{4}-\d{2}-\d{2}$/.test(guestChildBirthDate)
-          )
-        }
+    switch (stepName) {
+      case "player":
+        // Guests: always allow the tap — handleContinue validates and surfaces
+        // per-field errors instead of a dead button.
+        if (isGuest) return true
         return selectedKey !== null
-      case STEP_AGREEMENTS:
+      case "agreements":
         // Waiver is the gate; media consent below it is optional. The full
         // legal text being collapsed doesn't change what's required.
         return waiverAccepted && waiverSignature.length >= 2
-      case STEP_PAYMENT:
+      case "payment":
         return true
       default:
         return false
@@ -1061,8 +1528,11 @@ export default function RegistrationWizard({
     return age
   }
 
-  const isAgeEligible = (birthDate: string, currentSeason: Season): boolean => {
+  const isAgeEligible = (birthDate: string | null, currentSeason: Season): boolean => {
     if (!currentSeason.ageGroup) return true
+    // DOB not known yet (post-payment deferral) — treat as unknown-yet-
+    // allowed; the post-payment age check owns enforcement.
+    if (!birthDate) return true
     const age = calculateAge(birthDate)
     return age >= currentSeason.ageGroup.minAge && age <= currentSeason.ageGroup.maxAge
   }
@@ -1078,11 +1548,85 @@ export default function RegistrationWizard({
         })()
       : ""
 
+  // ── Already-registered derivations (Task 5) ────────────────────────────────
+  // A registration row "blocks" re-registration exactly when the server's
+  // createRegistration would 409 on it: any non-cancelled/refunded row that
+  // ISN'T pending+unpaid (pending+unpaid is the resumable case, handled
+  // separately by resumableRegistrationId above).
+  const isBlockingRegistration = (r: ActiveSeasonRegistration) =>
+    !(r.status === "pending" && r.paymentStatus === "unpaid")
+
+  const paymentStatusLabel = (paymentStatus: string): string => {
+    switch (paymentStatus) {
+      case "paid":
+        return "paid"
+      case "deposit_paid":
+        return "deposit paid"
+      case "partial_refund":
+        return "partially refunded"
+      case "refunded":
+        return "refunded"
+      default:
+        return "payment pending"
+    }
+  }
+
+  // The signed-in user's own family-member row, if resolvePerson has already
+  // created one (i.e. they've self-registered somewhere before). `null`
+  // means no self row exists yet, so there is nothing to block on.
+  const selfFamilyMemberId =
+    familyMembers.find((m) => m.selfUserId === user?.id)?.id ?? null
+
+  // v2 (adult-locked): the self row's blocking registration for THIS season,
+  // if any — drives the full-screen "You're already in" short-circuit.
+  const selfBlockingRegistration =
+    selfFamilyMemberId != null
+      ? activeSeasonRegistrations.find(
+          (r) => r.familyMemberId === selfFamilyMemberId && isBlockingRegistration(r),
+        ) ?? null
+      : null
+
+  // v1/dependent flows: every family member (self or dependent) who already
+  // has a blocking registration for this season — WhoStep marks these
+  // "Registered ✓" and disables selection, without blocking the rest of the
+  // wizard (a parent may still register a different, unregistered child).
+  const registeredMemberIds = new Set(
+    activeSeasonRegistrations.filter(isBlockingRegistration).map((r) => r.familyMemberId),
+  )
+
+  // Auto-select "Myself" for the adult (v2) self-registration flow. Adult
+  // leagues are self-only (the Add-Player button is hidden and self is the sole
+  // registerable option), so making the customer tap the lone card before
+  // Continue is pure friction — costly for the returning users ads re-engage.
+  // Skipped when something is already selected, or when the self row is already
+  // registered for this season (the v2 short-circuit owns that case).
+  useEffect(() => {
+    if (isGuest || flowVariant !== "v2") return
+    if (!registrationsChecked || isLoading) return
+    if (selectedKey !== null || !user) return
+    if (selfBlockingRegistration) return
+    setSelectedKey("self")
+  }, [
+    isGuest,
+    flowVariant,
+    registrationsChecked,
+    isLoading,
+    selectedKey,
+    user,
+    selfBlockingRegistration,
+  ])
+
   // ── Loading / error states ─────────────────────────────────────────────────
 
-  if (isLoading) {
+  // Also waits on registrationsChecked (Task 5) so the wizard never flashes
+  // the normal Player step before the resume/already-registered check has
+  // had a chance to resolve — that fetch is independent of the season +
+  // family-members load isLoading otherwise tracks.
+  if (isLoading || !registrationsChecked) {
+    // min-h matches the reserved skeleton height in RegisterExperience so
+    // neither loading state collapses when the wizard content mounts.
     return (
-      <div className="flex items-center justify-center py-20">
+      <div className="flex items-center justify-center min-h-[70vh]">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     )
@@ -1101,8 +1645,16 @@ export default function RegistrationWizard({
   if (!season) return null
 
   // ── Resume-payment early return ────────────────────────────────────────────
+  // v2 (adult-locked, self-only) shows the resume card on ANY return. v1
+  // keeps its original trigger — only after a cancelled Stripe session —
+  // because a parent registering a SECOND child must never be interrupted
+  // by a sibling's unfinished payment (that row still resumes server-side
+  // if the same child is re-selected).
 
-  if (resumableRegistrationId) {
+  const showResumeCard =
+    Boolean(resumableRegistrationId) && (flowVariant === "v2" || wasCancelled)
+
+  if (showResumeCard) {
     return (
       <div className="mx-auto max-w-xl">
         <div className="rounded-xl border border-ink/10 bg-cream px-6 py-8 shadow-sm">
@@ -1129,7 +1681,10 @@ export default function RegistrationWizard({
             </Button>
             <Button
               variant="ghost"
-              onClick={() => setResumableRegistrationId(null)}
+              onClick={() => {
+                setResumableRegistrationId(null)
+                setResumableAmountDueCents(null)
+              }}
               disabled={isResumingPayment}
             >
               Start over
@@ -1140,11 +1695,37 @@ export default function RegistrationWizard({
     )
   }
 
+  // ── Already-registered early return (v2 self, Task 5) ──────────────────────
+  // Adult-locked seasons are self-only, so a blocking registration on the
+  // self row means THIS wizard is done — no steps to render. v1/dependent
+  // flows never hit this: they only get the per-person WhoStep marker below,
+  // since a parent may still register a different, unregistered child.
+  // Mutually exclusive with the resume card above (the DB's active-row
+  // unique index means a member can't be both pending+unpaid and blocking
+  // for the same season).
+  if (flowVariant === "v2" && !registrationComplete && (selfBlockingRegistration || raceAlreadyRegistered)) {
+    return (
+      <div className="mx-auto max-w-xl">
+        <div className="rounded-xl border border-ink/10 bg-cream px-6 py-8 shadow-sm text-center">
+          <h2 className="text-2xl font-medium text-ink mb-2">You're already in ✓</h2>
+          <p className="text-ink/80 mb-6">
+            {selfBlockingRegistration
+              ? `${selfBlockingRegistration.status === "waitlisted" ? "Waitlisted" : "Registered"} · ${paymentStatusLabel(selfBlockingRegistration.paymentStatus)} · waiver ${selfBlockingRegistration.waiverSigned ? "signed" : "pending"}`
+              : "You already have a registration for this season."}
+          </p>
+          <Button asChild>
+            <a href="/dashboard">View my registration</a>
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   // ── Draft-restore early return ─────────────────────────────────────────────
   // Shown only when there's no further-along cancelled-payment registration to
   // resume (that card takes precedence).
 
-  if (restorable && !resumableRegistrationId) {
+  if (restorable && !showResumeCard) {
     return (
       <div className="mx-auto max-w-xl">
         <div className="rounded-xl border border-ink/10 bg-cream px-6 py-8 shadow-sm">
@@ -1181,10 +1762,10 @@ export default function RegistrationWizard({
           <div className="absolute top-5 left-0 right-0 h-0.5 bg-border" />
           <div
             className="absolute top-5 left-0 h-0.5 bg-primary transition-all duration-500"
-            style={{ width: `${((currentStep - 1) / (STEPS.length - 1)) * 100}%` }}
+            style={{ width: `${((currentStep - 1) / (steps.length - 1)) * 100}%` }}
           />
 
-          {STEPS.map((step) => {
+          {steps.map((step) => {
             const StepIcon = step.icon
             const isActive = currentStep === step.id
             const isComplete = currentStep > step.id
@@ -1232,18 +1813,55 @@ export default function RegistrationWizard({
 
       {/* Step Content */}
       <div className="bg-paper border border-border rounded-2xl p-6">
+        {guestAlreadyRegistered ? (
+          /* Guest repeat-registrant friendly state — replaces the step
+             content entirely (never the generic error banner). Disclosure
+             rule: confirms only that this email has a spot, nothing about
+             the underlying registration. */
+          <div className="text-center py-8">
+            <h3 className="font-display text-2xl text-ink mb-2">
+              You're already registered 🎉
+            </h3>
+            <p className="text-ink-muted mb-6 max-w-md mx-auto">
+              {teamToken != null
+                ? `This email already has a spot in this season. ${
+                    teamName
+                      ? `To appear on ${teamName}'s roster, ask your captain to add you.`
+                      : "To appear on the team's roster, ask your captain to add you."
+                  } Nothing more to pay through this link.`
+                : "This email has a spot in this division. We've sent you a link to view and manage it — no sign-in needed."}
+            </p>
+            <div className="mx-auto max-w-sm rounded-xl border border-border bg-cream-2 px-4 py-3 text-sm text-ink mb-6">
+              Check your email — the link opens your registration.
+            </div>
+            <Button
+              variant="ghost"
+              onClick={handleRegisterDifferentPlayer}
+              className="text-ink-muted hover:text-ink"
+            >
+              Register a different player instead
+            </Button>
+          </div>
+        ) : (
+        <>
         {/* Step 1: Who are you registering? (authenticated path) */}
-        {currentStep === 1 && !isGuest && !showAddMember && (
+        {stepName === "player" && !isGuest && !showAddMember && (
           <WhoStep
             selfOption={
-              completedBirthDate
+              // Adult v2 defers DOB to post-payment, so "Myself" is selectable
+              // even with no birthDate on file — otherwise a returning user hits
+              // the "Complete your profile" wall before payment.
+              completedBirthDate || flowVariant === "v2"
                 ? {
                     firstName: completedProfile.firstName || (user?.firstName ?? ""),
                     lastName: completedProfile.lastName || (user?.lastName ?? ""),
                     ageEligible: isAgeEligible(completedBirthDate, season),
+                    registered:
+                      selfFamilyMemberId != null && registeredMemberIds.has(selfFamilyMemberId),
                   }
                 : null
             }
+            deferBirthDate={flowVariant === "v2"}
             selfProfile={
               user
                 ? {
@@ -1260,13 +1878,18 @@ export default function RegistrationWizard({
             dependentError={error}
             onCompleteProfile={handleCompleteProfile}
             adultOnly={(season?.ageGroup?.minAge ?? 0) >= 18}
-            dependents={familyMembers.map((m) => ({
-              id: m.id,
-              firstName: m.firstName,
-              lastName: m.lastName,
-              birthDate: m.birthDate,
-              ageEligible: isAgeEligible(m.birthDate, season),
-            }))}
+            dependents={familyMembers
+              // The signed-in user's own self-registration row belongs on
+              // the Myself card above, not as a lookalike dependent entry.
+              .filter((m) => m.selfUserId !== user?.id)
+              .map((m) => ({
+                id: m.id,
+                firstName: m.firstName,
+                lastName: m.lastName,
+                birthDate: m.birthDate,
+                ageEligible: isAgeEligible(m.birthDate, season),
+                registered: registeredMemberIds.has(m.id),
+              }))}
             selectedKey={selectedKey}
             onSelect={setSelectedKey}
             onAddDependent={() => setShowAddMember(true)}
@@ -1274,7 +1897,7 @@ export default function RegistrationWizard({
         )}
 
         {/* Add dependent inline form (authenticated path, step 1) */}
-        {currentStep === 1 && !isGuest && showAddMember && (
+        {stepName === "player" && !isGuest && showAddMember && (
           <AddDependentForm
             firstName={newMemberFirstName}
             lastName={newMemberLastName}
@@ -1296,12 +1919,13 @@ export default function RegistrationWizard({
         )}
 
         {/* Step 1 (guest): About you + player */}
-        {currentStep === 1 && isGuest && (
+        {stepName === "player" && isGuest && (
           <GuestInfoStep
             seasonId={seasonId}
             mode={guestMode}
             onModeChange={setGuestMode}
             lockedMode={lockedGuestMode}
+            minimal={flowVariant === "v2"}
             parentFirstName={guestParentFirstName}
             parentLastName={guestParentLastName}
             parentEmail={guestParentEmail}
@@ -1326,11 +1950,14 @@ export default function RegistrationWizard({
             adultGender={guestAdultGender}
             onAdultBirthDateChange={setGuestAdultBirthDate}
             onAdultGenderChange={setGuestAdultGender}
+            fieldErrors={guestFieldErrors}
+            onSignInClick={handleGuestSignInClick}
           />
         )}
 
-        {/* Step 2: Agreements — waiver (required) + media consent (optional) */}
-        {currentStep === STEP_AGREEMENTS && (
+        {/* Step 2: Agreements — waiver (required) + media consent (optional).
+            v2 (adult-locked) has no agreements step; the waiver is deferred. */}
+        {stepName === "agreements" && (
           <div className="space-y-6">
             <WaiverStep
               isSelf={selectedKey === "self"}
@@ -1350,10 +1977,8 @@ export default function RegistrationWizard({
               }
               waiverAccepted={waiverAccepted}
               waiverSignature={waiverSignature}
-              lookingForTeam={lookingForTeam}
               onWaiverAcceptedChange={setWaiverAccepted}
               onWaiverSignatureChange={setWaiverSignature}
-              onLookingForTeamChange={setLookingForTeam}
             />
             <MediaAuthStep
               isSelf={
@@ -1375,7 +2000,18 @@ export default function RegistrationWizard({
         )}
 
         {/* Step 3: Payment */}
-        {currentStep === STEP_PAYMENT && (
+        {stepName === "payment" && (
+          <div className="space-y-6">
+            {/* v2 has no agreements interstitial, so recap what's being bought
+                right above the payment options (name · price · venue). */}
+            {flowVariant === "v2" && (
+              <div className="rounded-xl border border-border bg-cream-2 px-4 py-3">
+                <p className="text-sm font-medium text-ink">{season.name}</p>
+                <p className="text-xs text-ink-muted">
+                  ${fullPrice(season)} · {season.location.name}
+                </p>
+              </div>
+            )}
           <PaymentStep
             seasonName={season.name}
             seasonPrice={fullPrice(season)}
@@ -1387,6 +2023,15 @@ export default function RegistrationWizard({
             paymentOption={paymentOption}
             paymentMethodCategory={selectedPaymentCategory}
             onMethodSelected={handleMethodSelected}
+            captainCredit={effectiveCaptainCredit}
+            teamShareCents={!effectiveCaptainCredit && teamToken ? inviteeShareCents ?? null : null}
+            shareMismatch={shareMismatch}
+            onCompleteZeroDue={() => {
+              // Zero-due captain registration: no method, no Stripe intent —
+              // the server finalizes the row as paid via the deposit credit.
+              setPaymentStarted(true)
+              handleSubmitRegistration()
+            }}
             isCreatingSession={isSubmitting}
             optionLocked={paymentStarted}
             appliedSurchargeCents={appliedSurchargeCents}
@@ -1431,40 +2076,70 @@ export default function RegistrationWizard({
             onPaymentSuccess={handlePaymentSuccess}
             onPaymentCancel={handlePaymentCancel}
           />
+          </div>
         )}
 
         {/* Step 4: Confirmation */}
-        {currentStep === STEP_CONFIRM && registrationComplete && (
+        {stepName === "confirm" && registrationComplete && (
           <ConfirmationStep
             seasonName={season.name}
-            registrantDisplayName={selectedDisplayName}
+            seasonId={season.id}
+            registrantDisplayName={
+              isGuest
+                ? guestMode === "adult"
+                  ? `${guestParentFirstName} ${guestParentLastName}`.trim()
+                  : `${guestChildFirstName} ${guestChildLastName}`.trim()
+                : selectedDisplayName
+            }
+            isSelf={isGuest ? guestMode === "adult" : selectedKey === "self"}
+            registrationId={activeRegistrationId}
+            flow={regFlow}
+            waiverSigned={flowVariant === "v1"}
+            // v2 (adult-locked) defers DOB to this post-payment step for BOTH
+            // guests (minimal name+email step) and signed-in users without a
+            // stored birthDate (previously walled off by "Complete your profile"
+            // before payment). v1 always has DOB up front, so it never needs it.
+            needsBirthDate={
+              flowVariant === "v2" &&
+              (isGuest || (selectedKey === "self" && !completedBirthDate))
+            }
           />
+        )}
+        </>
         )}
       </div>
 
       {/* Navigation — on the payment step there's no forward button; selecting
-          a payment method is what advances the flow. */}
-      {currentStep < STEP_CONFIRM && !paymentClientSecret && (
+          a payment method is what advances the flow. Hidden entirely for the
+          already-registered friendly state, which has its own action. */}
+      {!guestAlreadyRegistered && stepName !== "confirm" && !paymentClientSecret && (
         <div className="mt-6 flex items-center justify-between">
           <Button
             variant="ghost"
             onClick={() => setCurrentStep(currentStep - 1)}
-            disabled={currentStep === STEP_PLAYER || isSubmitting}
+            disabled={stepName === "player" || isSubmitting}
             className="text-ink-muted hover:text-ink"
           >
             <ChevronLeft className="w-4 h-4 mr-1" />
             Back
           </Button>
 
-          {currentStep < STEP_PAYMENT && (
-            <Button
-              onClick={() => setCurrentStep(currentStep + 1)}
-              disabled={!canProceed()}
-              className="bg-primary hover:bg-primary/90"
-            >
-              Continue
-              <ChevronRight className="w-4 h-4 ml-1" />
-            </Button>
+          {currentStep < stepNumberOf("payment") && (
+            <div className="flex flex-col items-end gap-1.5">
+              <Button
+                onClick={handleContinue}
+                disabled={!canProceed()}
+                className="bg-primary hover:bg-primary/90"
+              >
+                Continue
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+              {stepName === "player" && isGuest && guestFieldErrors && (
+                <p className="text-xs text-destructive text-right">
+                  Fix the highlighted fields above to continue.
+                </p>
+              )}
+            </div>
           )}
         </div>
       )}

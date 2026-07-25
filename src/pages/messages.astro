@@ -1,6 +1,12 @@
 ---
 import BaseLayout from '@/layouts/BaseLayout.astro';
+import { AdminLayout } from '@/components/admin/admin-layout';
+import { CoachLayout } from '@/components/coach/coach-layout';
 import { StaffInbox } from '../components/messages/staff-inbox';
+import { getPrimaryRoleName } from '@/lib/auth';
+import { resolveVenueLabel } from '@/lib/admin/venue-label';
+
+export const prerender = false;
 
 // Middleware guarantees user is authenticated for /messages routes.
 const user = Astro.locals.user!;
@@ -13,30 +19,43 @@ const isCoach = Astro.locals.isCoach ?? false;
 if (!isAdmin && !isCoach) {
   return Astro.redirect('/dashboard');
 }
+
+const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
+const venueLabel =
+  isAdmin && primaryRole !== 'super_admin' ? await resolveVenueLabel(user.id) : undefined;
+const userInfo = { firstName: user.firstName, lastName: user.lastName, email: user.email };
 ---
 
-<BaseLayout title="Messages — Aspire Sports" footer={false}>
-  <Fragment slot="head">
-    <style>
-      .messages-bg {
-        background-image:
-          radial-gradient(ellipse 70% 40% at 50% -10%, rgba(59, 130, 246, 0.05), transparent),
-          radial-gradient(circle at 85% 85%, rgba(59, 130, 246, 0.03), transparent);
-      }
-    </style>
-  </Fragment>
-
-  <main id="main-content" class="flex-1 pt-24 pb-6 px-4 messages-bg">
-    <div class="max-w-[1600px] mx-auto fade-in">
-      <header class="mb-6">
-        <h1 class="text-2xl sm:text-3xl font-bold text-ink">Messages</h1>
-        <p class="text-sm text-ink-faint mt-1">
-          Parent conversations routed to {isAdmin ? 'the admin inbox' : 'your coach inbox'}.
-          The bot handles most messages automatically — everything you see here needed a human.
-        </p>
-      </header>
-
-      <StaffInbox client:load currentUserId={user.id} isAdmin={isAdmin} />
-    </div>
-  </main>
+<BaseLayout title="Messages — Aspire Sports" navigation={false} footer={false}>
+  {
+    isAdmin ? (
+      <AdminLayout
+        client:load
+        role={primaryRole}
+        venueLabel={venueLabel}
+        currentPath="/messages"
+        user={userInfo}
+      >
+        <header class="mb-4">
+          <h1 class="text-2xl font-bold text-ink">Messages</h1>
+          <p class="text-sm text-ink-muted mt-1">
+            Parent conversations routed to the admin inbox. The bot handles most messages
+            automatically — everything you see here needed a human.
+          </p>
+        </header>
+        <StaffInbox client:load currentUserId={user.id} isAdmin={isAdmin} />
+      </AdminLayout>
+    ) : (
+      <CoachLayout client:load currentPath="/messages" user={userInfo}>
+        <header class="mb-4">
+          <h1 class="text-2xl font-bold text-ink">Messages</h1>
+          <p class="text-sm text-ink-muted mt-1">
+            Parent conversations routed to your coach inbox. The bot handles most messages
+            automatically — everything you see here needed a human.
+          </p>
+        </header>
+        <StaffInbox client:load currentUserId={user.id} isAdmin={isAdmin} />
+      </CoachLayout>
+    )
+  }
 </BaseLayout>

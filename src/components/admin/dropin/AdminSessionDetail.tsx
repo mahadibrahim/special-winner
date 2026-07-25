@@ -96,6 +96,10 @@ export function AdminSessionDetail({ sessionId }: AdminSessionDetailProps) {
   const [repeatUntil, setRepeatUntil] = useState("");
   const [busy, setBusy] = useState(false);
   const [hostOptions, setHostOptions] = useState<HostOption[]>([]);
+  // Distinguishes "still loading / fetch failed" from "org genuinely has
+  // zero active hosts" in the Change/Assign host panel below — mirrors
+  // SessionsList's hostsLoaded pattern.
+  const [hostsLoaded, setHostsLoaded] = useState(false);
   const [changingHost, setChangingHost] = useState(false);
   const [pickedHostUserId, setPickedHostUserId] = useState("");
 
@@ -120,13 +124,17 @@ export function AdminSessionDetail({ sessionId }: AdminSessionDetailProps) {
     void (async () => {
       try {
         const res = await fetch("/api/admin/hosts");
-        if (!res.ok) return;
+        if (!res.ok) {
+          console.error(`GET /api/admin/hosts failed: HTTP ${res.status}`);
+          return;
+        }
         const json = await res.json();
         setHostOptions(
           (json.hosts ?? []).filter((h: HostOption) => h.status === "active"),
         );
-      } catch {
-        /* host picker nice-to-have */
+        setHostsLoaded(true);
+      } catch (err) {
+        console.error("GET /api/admin/hosts failed", err);
       }
     })();
   }, []);
@@ -211,6 +219,32 @@ export function AdminSessionDetail({ sessionId }: AdminSessionDetailProps) {
         `Cancelled · ${json.refundedBookings}/${json.cancelledBookings} bookings refunded`,
       );
       await reload();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const deleteSession = async () => {
+    const ok = await confirm({
+      title: "Delete session?",
+      description:
+        "Permanently removes this session from the schedule and the field-time ledger. If people are booked, use Cancel instead — it refunds and notifies them.",
+      confirmLabel: "Delete session",
+      destructive: true,
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/dropin/sessions/${sessionId}`, {
+        method: "DELETE",
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error ?? "Delete failed");
+        return;
+      }
+      toast.success("Session deleted");
+      window.location.href = "/admin/dropins";
     } finally {
       setBusy(false);
     }
@@ -351,6 +385,14 @@ export function AdminSessionDetail({ sessionId }: AdminSessionDetailProps) {
           >
             Cancel session
           </Button>
+          <Button
+            variant="outline"
+            disabled={busy}
+            onClick={deleteSession}
+            className="text-rose-700"
+          >
+            Delete
+          </Button>
         </div>
       </header>
 
@@ -456,7 +498,26 @@ export function AdminSessionDetail({ sessionId }: AdminSessionDetailProps) {
             </Button>
           </div>
         )}
-        {changingHost && (
+        {changingHost && !hostsLoaded && (
+          <div className="mt-3">
+            <p className="text-sm text-ink-muted">Loading hosts…</p>
+          </div>
+        )}
+        {changingHost && hostsLoaded && hostOptions.length === 0 && (
+          <div className="mt-3">
+            <p className="text-sm text-ink-muted">
+              No active hosts yet — approve applicants or add one in the{" "}
+              <a
+                href="/admin/dropins?tab=hosts"
+                className="underline hover:text-ink"
+              >
+                Hosts tab
+              </a>
+              .
+            </p>
+          </div>
+        )}
+        {changingHost && hostsLoaded && hostOptions.length > 0 && (
           <div className="mt-3 flex items-center gap-2 flex-wrap">
             <select
               value={pickedHostUserId}

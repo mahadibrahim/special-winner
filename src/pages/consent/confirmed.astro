@@ -1,0 +1,68 @@
+---
+// The landing for the email double-opt-in click (/api/consent/confirm/[token]).
+// NOT prerendered: reads Astro.url.searchParams at request time.
+//
+// Every variant tells the truth about the LIST, because that is the only thing
+// the customer cares about: "ok" means the consent is now real, anything else
+// means it is not — and that we will not email them.
+import BaseLayout from '@/layouts/BaseLayout.astro';
+
+const status = Astro.url.searchParams.get('status') || 'invalid';
+
+const messages: Record<string, { title: string; body: string; tone: 'ok' | 'warn' }> = {
+  ok: {
+    title: "You're confirmed",
+    body: "Thanks — your email is confirmed and you're on the list. You can unsubscribe from any message we send.",
+    tone: 'ok',
+  },
+  expired: {
+    title: 'This confirmation link has expired',
+    body: "Confirmation links are short-lived. You have not been added to any list — tick the box again next time you're in and we'll send a fresh one.",
+    tone: 'warn',
+  },
+  invalid: {
+    title: "We couldn't confirm that link",
+    body: "The link may have been mistyped or removed. Nothing has changed — you have not been added to any list.",
+    tone: 'warn',
+  },
+};
+
+const message = messages[status] || messages.invalid;
+const ok = message.tone === 'ok';
+---
+
+<BaseLayout title="Email confirmation — Aspire Sports">
+  <main id="main-content" class="flex-1 pt-24 pb-16 px-4 flex items-center justify-center">
+    <div class="max-w-md w-full text-center p-8 rounded-2xl bg-cream-2 border border-border">
+      <div
+        class:list={[
+          'w-14 h-14 rounded-full flex items-center justify-center mx-auto mb-5 border',
+          ok
+            ? 'bg-emerald-500/10 border-emerald-500/20'
+            : 'bg-amber-500/10 border-amber-500/20',
+        ]}
+      >
+        <svg
+          class:list={['w-7 h-7', ok ? 'text-emerald-500' : 'text-amber-400']}
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          {ok ? (
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+          ) : (
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          )}
+        </svg>
+      </div>
+      <h1 class="text-2xl font-bold mb-3">{message.title}</h1>
+      <p class="text-ink-muted leading-relaxed mb-6">{message.body}</p>
+      <a
+        href="/"
+        class="inline-flex items-center justify-center px-5 py-3 rounded-lg bg-primary hover:bg-primary/90 text-white font-medium transition-colors"
+      >
+        Back to home
+      </a>
+    </div>
+  </main>
+</BaseLayout>

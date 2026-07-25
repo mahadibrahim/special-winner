@@ -1,12 +1,32 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
+import { addWeeks, groupByDay, weekBoundsFor } from "@/lib/dropin/week-schedule";
+import { toast } from "sonner";
 
 interface SessionRow {
   id: string;
@@ -17,19 +37,64 @@ interface SessionRow {
   endsAt: string;
   capacity: number;
   status: "scheduled" | "cancelled" | "completed";
+  venueId: string;
   venueName: string | null;
   confirmedCount: number;
   waitlistCount: number;
+  hostUserId: string | null;
+  hostName: string | null;
 }
 
-function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
+interface ActiveHost {
+  userId: string;
+  firstName: string;
+  lastName: string;
+}
+
+interface SessionsListProps {
+  timezone: string;
+  /** Name of the venue picker's pinned location, if any — surfaced as a
+   *  scope hint above the week grid so a pinned venue doesn't read as
+   *  "no sessions". Null when nothing is pinned. */
+  pinnedLocationName: string | null;
+}
+
+function fmtTimeRange(startsAt: string, endsAt: string, timezone: string): string {
+  const opts: Intl.DateTimeFormatOptions = {
+    timeZone: timezone,
     hour: "numeric",
     minute: "2-digit",
+  };
+  const start = new Date(startsAt).toLocaleTimeString(undefined, opts);
+  const end = new Date(endsAt).toLocaleTimeString(undefined, opts);
+  return `${start} – ${end}`;
+}
+
+function weekRangeLabel(from: Date, to: Date, timezone: string): string {
+  const lastDay = new Date(to.getTime() - 24 * 60 * 60 * 1000);
+  const fmt = new Intl.DateTimeFormat(undefined, {
+    timeZone: timezone,
+    year: "numeric",
+    month: "short",
+    day: "numeric",
   });
+  const startParts = Object.fromEntries(fmt.formatToParts(from).map((p) => [p.type, p.value]));
+  const endParts = Object.fromEntries(fmt.formatToParts(lastDay).map((p) => [p.type, p.value]));
+
+  const sameYear = startParts.year === endParts.year;
+  const sameMonth = sameYear && startParts.month === endParts.month;
+
+  const startLabel = `${startParts.month} ${startParts.day}`;
+  // Repeat the month name on the end date whenever the week crosses a month
+  // boundary (and, crossing a year boundary, tack on the year too — the
+  // start date's year stays implicit since it's clear from context).
+  const endLabel = sameMonth
+    ? endParts.day
+    : sameYear
+      ? `${endParts.month} ${endParts.day}`
+      : `${endParts.month} ${endParts.day}, ${endParts.year}`;
+
+  return `${startLabel} – ${endLabel}`;
 }
 
 function statusColor(s: SessionRow["status"]): string {
@@ -43,113 +108,512 @@ function statusColor(s: SessionRow["status"]): string {
   }
 }
 
-export function SessionsList() {
+interface SessionCardProps {
+  s: SessionRow;
+  timezone: string;
+  activeHosts: ActiveHost[];
+  /** False until the /api/admin/hosts fetch in SessionsList resolves (or
+   *  fails) — distinguishes "still loading / fetch failed" from "org
+   *  genuinely has zero active hosts" in the Assign popover. */
+  hostsLoaded: boolean;
+  /** Re-fetches the week's sessions. Wired to the Cancel/Delete actions in
+   *  the overflow menu, and the Assign/Change host popover, below. */
+  onChanged: () => void;
+}
+
+function SessionCard({
+  s,
+  timezone,
+  activeHosts,
+  hostsLoaded,
+  onChanged,
+}: SessionCardProps) {
+  const { confirm, dialog: confirmDialog } = useConfirmDialog();
+  const [busy, setBusy] = useState(false);
+  const [repeatOpen, setRepeatOpen] = useState(false);
+  const [repeatUntil, setRepeatUntil] = useState("");
+  const pct =
+    s.capacity > 0 ? Math.min(100, Math.round((s.confirmedCount / s.capacity) * 100)) : 0;
+
+  const assignHost = async (hostUserId: string) => {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/dropin/sessions/${s.id}/host`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hostUserId, replace: true }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error ?? "Could not assign host");
+        return;
+      }
+      toast.success("Host assigned");
+      onChanged();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const cancelSession = async () => {
+    const ok = await confirm({
+      title: "Cancel session?",
+      description:
+        "All bookings are refunded (where owed) and the assigned host, if any, is unassigned. This cannot be undone.",
+      confirmLabel: "Cancel session",
+      destructive: true,
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/dropin/sessions/${s.id}/cancel`, {
+        method: "POST",
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error ?? "Cancel failed");
+        return;
+      }
+      toast.success(
+        `Cancelled · ${json.refundedBookings}/${json.cancelledBookings} bookings refunded`,
+      );
+      onChanged();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const deleteSession = async () => {
+    const ok = await confirm({
+      title: "Delete session?",
+      description:
+        "Permanently removes this session from the schedule and the field-time ledger. If people are booked, use Cancel instead — it refunds and notifies them.",
+      confirmLabel: "Delete session",
+      destructive: true,
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/dropin/sessions/${s.id}`, {
+        method: "DELETE",
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error ?? "Delete failed");
+        return;
+      }
+      toast.success("Session deleted");
+      onChanged();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitRepeat = async () => {
+    if (!repeatUntil) {
+      toast.error("Pick a repeat-until date");
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/dropin/sessions/${s.id}/repeat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ untilDate: repeatUntil }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error ?? "Repeat failed");
+        return;
+      }
+      toast.success(`Created ${json.count} weekly copies`);
+      setRepeatOpen(false);
+      setRepeatUntil("");
+      onChanged();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div
+      data-testid="session-card"
+      className={`bg-cream-2 border border-border rounded-xl p-4 ${
+        s.status === "cancelled" ? "opacity-60" : ""
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <a
+            href={`/admin/dropin/sessions/${s.id}`}
+            className="font-medium text-ink hover:underline"
+          >
+            {s.sportOrClassLabel}
+            {s.formatLabel && ` · ${s.formatLabel}`}
+          </a>
+          <div className="text-sm text-ink-muted mt-0.5">
+            {fmtTimeRange(s.startsAt, s.endsAt, timezone)}
+            {s.venueName && ` · ${s.venueName}`}
+          </div>
+          <div className="mt-1 flex items-center gap-1">
+            <Badge variant="outline" className="text-[10px]">
+              {s.kind}
+            </Badge>
+            {s.status !== "scheduled" && (
+              <Badge variant="outline" className={`text-[10px] ${statusColor(s.status)}`}>
+                {s.status}
+              </Badge>
+            )}
+          </div>
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="text-ink-muted hover:text-ink">
+              ⋯
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="bg-paper border-border">
+            <DropdownMenuItem asChild>
+              <a href={`/admin/dropin/sessions/${s.id}`} className="cursor-pointer">
+                View
+              </a>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <a href={`/admin/dropin/sessions/${s.id}/edit`} className="cursor-pointer">
+                Edit
+              </a>
+            </DropdownMenuItem>
+            {s.status === "scheduled" && (
+              <DropdownMenuItem
+                disabled={busy}
+                onClick={() => setRepeatOpen(true)}
+                className="cursor-pointer"
+              >
+                Repeat weekly…
+              </DropdownMenuItem>
+            )}
+            {s.status === "scheduled" && (
+              <DropdownMenuItem
+                disabled={busy}
+                onClick={cancelSession}
+                className="cursor-pointer text-rose-700"
+              >
+                Cancel
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem
+              disabled={busy}
+              onClick={deleteSession}
+              className="cursor-pointer text-rose-700"
+            >
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      <div className="mt-2 flex items-center gap-2 text-sm">
+        <div className="h-2 w-28 rounded-full bg-cream overflow-hidden border border-border">
+          <div className="h-full bg-ink" style={{ width: `${pct}%` }} />
+        </div>
+        <span className="text-ink">
+          {s.confirmedCount}/{s.capacity}
+        </span>
+        {s.waitlistCount > 0 && (
+          <span className="text-ink-muted">· {s.waitlistCount} waitlist</span>
+        )}
+      </div>
+
+      <div className="mt-1 text-sm flex items-center gap-2">
+        {s.hostName ? (
+          <span className="text-ink">Host: {s.hostName}</span>
+        ) : (
+          <span className="text-ink-muted">No host</span>
+        )}
+        {s.status === "scheduled" && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={busy}
+                className="h-6 px-2 text-xs text-ink-muted hover:text-ink"
+              >
+                {s.hostName ? "Change" : "Assign"}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-64 bg-paper border-border">
+              {!hostsLoaded ? (
+                <DropdownMenuLabel className="font-normal text-ink-muted">
+                  Loading hosts…
+                </DropdownMenuLabel>
+              ) : activeHosts.length === 0 ? (
+                <DropdownMenuLabel className="font-normal text-ink-muted whitespace-normal">
+                  No active hosts yet — approve applicants or add one in the{" "}
+                  <a
+                    href="/admin/dropins?tab=hosts"
+                    className="underline hover:text-ink"
+                  >
+                    Hosts tab
+                  </a>
+                  .
+                </DropdownMenuLabel>
+              ) : (
+                activeHosts.map((h) => (
+                  <DropdownMenuItem
+                    key={h.userId}
+                    disabled={busy || h.userId === s.hostUserId}
+                    onClick={() => assignHost(h.userId)}
+                    className="cursor-pointer"
+                  >
+                    {h.firstName} {h.lastName}
+                    {h.userId === s.hostUserId && (
+                      <span className="text-ink-muted"> · current</span>
+                    )}
+                  </DropdownMenuItem>
+                ))
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
+      {confirmDialog}
+      <Dialog open={repeatOpen} onOpenChange={setRepeatOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Repeat weekly</DialogTitle>
+            <DialogDescription>
+              Creates independent weekly copies of this session through the
+              chosen end date. Editing one copy doesn't propagate to others.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor={`repeat-until-${s.id}`}>Repeat until</Label>
+            <Input
+              id={`repeat-until-${s.id}`}
+              type="date"
+              value={repeatUntil}
+              onChange={(e) => setRepeatUntil(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setRepeatOpen(false)}
+              disabled={busy}
+            >
+              Cancel
+            </Button>
+            <Button onClick={submitRepeat} disabled={busy}>
+              {busy ? "Creating…" : "Create copies"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+export function SessionsList({ timezone, pinnedLocationName }: SessionsListProps) {
   useHydrationBeacon();
+  const [weekAnchor, setWeekAnchor] = useState<Date>(() => new Date());
   const [rows, setRows] = useState<SessionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [activeHosts, setActiveHosts] = useState<ActiveHost[]>([]);
+  // Distinguishes "still loading / fetch failed" from "org genuinely has
+  // zero active hosts" in the Assign popover — see the effect below.
+  const [hostsLoaded, setHostsLoaded] = useState(false);
+  // The week `rows` actually reflects. Compared against the CURRENT week
+  // below so weekIsEmpty can't fire off a stale week's (empty-looking) rows
+  // the frame before a navigation's fetch completes — see task-3 fix notes.
+  const [loadedWeekKey, setLoadedWeekKey] = useState<string | null>(null);
+  // Only the most recently started fetch is allowed to commit state. Guards
+  // against rapid ◀/▶ clicks where an older response resolves after a newer
+  // one (the network doesn't guarantee response order).
+  const abortRef = useRef<AbortController | null>(null);
+
+  const { from, to } = weekBoundsFor(weekAnchor, timezone);
+  const weekKey = from.toISOString();
+
+  const reload = async () => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/admin/dropin/sessions?from=${from.toISOString()}&to=${to.toISOString()}`,
+        { signal: controller.signal },
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      if (abortRef.current !== controller) return; // superseded by a newer request
+      setRows(json.sessions ?? []);
+      setLoadedWeekKey(weekKey);
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      if (abortRef.current !== controller) return; // superseded by a newer request
+      setError(err instanceof Error ? err.message : "Failed to load");
+    } finally {
+      if (abortRef.current === controller) setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await fetch("/api/admin/dropin/sessions");
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json = await res.json();
-        setRows(json.sessions ?? []);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load");
-      } finally {
-        setLoading(false);
-      }
+    // Set synchronously (not just inside reload) so the render triggered by
+    // a week change never shows the previous week's day list before the
+    // fetch for the new week has even started.
+    setLoading(true);
+    void reload();
+    return () => {
+      abortRef.current?.abort();
     };
-    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weekKey, timezone]);
+
+  useEffect(() => {
+    // Fetched once, alongside sessions — fail-soft: on a non-OK response or
+    // thrown error, hostsLoaded stays false and the Assign popover shows a
+    // neutral "loading/unavailable" state rather than claiming the org has
+    // zero active hosts.
+    void (async () => {
+      try {
+        const res = await fetch("/api/admin/hosts");
+        if (!res.ok) {
+          console.error(`GET /api/admin/hosts failed: HTTP ${res.status}`);
+          return;
+        }
+        const json = await res.json();
+        setActiveHosts(
+          (json.hosts ?? []).filter(
+            (h: { status: string }) => h.status === "active",
+          ),
+        );
+        setHostsLoaded(true);
+      } catch (err) {
+        console.error("GET /api/admin/hosts failed", err);
+      }
+    })();
   }, []);
+
+  // goToWeek sets loading synchronously (batched with the weekAnchor update)
+  // ONLY when the target actually lands in a different week — so the very
+  // next render, before the effect below even runs, already shows the
+  // skeleton instead of a flash of the old week's rows grouped under the
+  // new week's (empty) day buckets. Guarding on an actual weekKey change
+  // matters: the reload effect is keyed on [weekKey, timezone], so if
+  // nextAnchor lands in the SAME week (e.g. "Today" clicked while already
+  // viewing the current week) that effect never re-fires — an unconditional
+  // setLoading(true) here would hang on the skeleton forever with nothing
+  // left to clear it.
+  const goToWeek = (nextAnchor: Date) => {
+    const nextWeekKey = weekBoundsFor(nextAnchor, timezone).from.toISOString();
+    if (nextWeekKey !== weekKey) setLoading(true);
+    setWeekAnchor(nextAnchor);
+  };
+
+  const days = groupByDay(rows, timezone, weekAnchor);
+  // `rows` only reflects the CURRENT week once loadedWeekKey catches up to
+  // weekKey. On a failed fetch, loading goes back to false but rows/
+  // loadedWeekKey are left at whatever the last successful load was — so
+  // gridReady stays false and the grid (and the empty state) both stay
+  // hidden rather than rendering the previous week's sessions grouped
+  // under the new week's day buckets. See task-3/task-7 fix notes.
+  const gridReady = !loading && loadedWeekKey === weekKey;
+  const weekIsEmpty = gridReady && days.every((d) => d.sessions.length === 0);
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-ink">Drop-in sessions</h1>
-          <p className="text-sm text-ink-muted mt-1">
-            Schedule, monitor, and run pick-up and class sessions.
-          </p>
+      <div>
+        <h1 className="text-2xl font-bold text-ink">Drop-in sessions</h1>
+        <p className="text-sm text-ink-muted mt-1">
+          Schedule, monitor, and run pick-up and class sessions.
+        </p>
+      </div>
+
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => goToWeek(addWeeks(weekAnchor, -1))}
+          >
+            ◀
+          </Button>
+          <div className="text-sm font-medium text-ink min-w-40 text-center">
+            {weekRangeLabel(from, to, timezone)}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => goToWeek(addWeeks(weekAnchor, 1))}
+          >
+            ▶
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => goToWeek(new Date())}>
+            Today
+          </Button>
         </div>
         <Button asChild>
           <a href="/admin/dropin/sessions/new">+ New session</a>
         </Button>
       </div>
 
-      {error && <ErrorBanner message={error} />}
+      {error && (
+        <div className="space-y-2">
+          <ErrorBanner message={error} />
+          <Button variant="outline" size="sm" onClick={() => void reload()}>
+            Retry
+          </Button>
+        </div>
+      )}
       {loading && <LoadingSkeleton />}
-      {!loading && rows.length === 0 && (
+      {gridReady && pinnedLocationName && (
+        <p className="text-sm text-ink-muted">
+          Showing {pinnedLocationName} only — clear the venue picker to see
+          all locations.
+        </p>
+      )}
+      {weekIsEmpty && (
         // The header CTA stays visible in the empty state, so no
         // duplicate action inside the empty-state card.
         <EmptyState
-          title="No sessions yet"
-          description="Create your first drop-in session to get on the schedule."
+          title="No sessions in this view"
+          description="This list shows sessions for the visible week at the venue location selected in the top-right picker. If you expected sessions here, switch or clear the venue picker or page to another week — otherwise create a session to get on the schedule."
         />
       )}
-      {!loading && rows.length > 0 && (
-        <div className="rounded-lg border border-border bg-cream-2 overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-cream border-b border-border">
-              <tr className="text-left">
-                <th className="px-4 py-2 font-medium text-ink-muted">When</th>
-                <th className="px-4 py-2 font-medium text-ink-muted">Session</th>
-                <th className="px-4 py-2 font-medium text-ink-muted">Space</th>
-                <th className="px-4 py-2 font-medium text-ink-muted">Roster</th>
-                <th className="px-4 py-2 font-medium text-ink-muted">Status</th>
-                <th className="px-4 py-2"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr
-                  key={r.id}
-                  className="border-t border-border hover:bg-cream/60"
+      {gridReady && !weekIsEmpty && (
+        <div>
+          {days.map((day) => (
+            <section data-testid="day-group" key={day.dayKey}>
+              <h3 className="text-xs uppercase tracking-wider text-ink-muted mt-6 mb-2">
+                {day.label}
+              </h3>
+              {day.sessions.length === 0 ? (
+                <a
+                  href={`/admin/dropin/sessions/new?date=${day.dayKey}`}
+                  className="block rounded-lg border border-dashed border-border px-4 py-3 text-sm text-ink-muted hover:text-ink"
                 >
-                  <td className="px-4 py-3 align-top">
-                    <div className="text-ink">{fmtDate(r.startsAt)}</div>
-                  </td>
-                  <td className="px-4 py-3 align-top">
-                    <div className="font-medium text-ink">
-                      {r.sportOrClassLabel}
-                    </div>
-                    <div className="text-xs text-ink-muted flex items-center gap-1">
-                      <Badge variant="outline" className="text-[10px]">
-                        {r.kind}
-                      </Badge>
-                      {r.formatLabel && <span>{r.formatLabel}</span>}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 align-top text-ink-muted">
-                    {r.venueName ?? "—"}
-                  </td>
-                  <td className="px-4 py-3 align-top text-ink-muted">
-                    {r.confirmedCount} / {r.capacity}
-                    {r.waitlistCount > 0 && (
-                      <span className="ml-2 text-xs">
-                        +{r.waitlistCount} wl
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 align-top">
-                    <Badge variant="outline" className={statusColor(r.status)}>
-                      {r.status}
-                    </Badge>
-                  </td>
-                  <td className="px-4 py-3 align-top text-right">
-                    <a
-                      href={`/admin/dropin/sessions/${r.id}`}
-                      className="text-xs text-ink underline"
-                    >
-                      Open
-                    </a>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  No sessions · + add
+                </a>
+              ) : (
+                <div className="space-y-2">
+                  {day.sessions.map((s) => (
+                    <SessionCard
+                      key={s.id}
+                      s={s}
+                      timezone={timezone}
+                      activeHosts={activeHosts}
+                      hostsLoaded={hostsLoaded}
+                      onChanged={reload}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          ))}
         </div>
       )}
     </div>

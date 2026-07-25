@@ -25,6 +25,17 @@ export const FORMAT_FACTS: string[] = [
   "Walled-arena rules (no offside, the wall is in play)",
 ];
 
+/** Hero facts grid — the four format facts a first-time visitor must get at
+ *  a glance. Kept separate from FORMAT_FACTS (a flat list used in meta
+ *  descriptions and the rules surface) because the hero needs a title/sub
+ *  shape. */
+export const HERO_FACTS: { title: string; sub: string }[] = [
+  { title: "Indoor 7v7", sub: "turf, rain-proof" },
+  { title: "24-min halves", sub: "2-min halftime" },
+  { title: "7 games", sub: "no playoffs" },
+  { title: "Most points wins", sub: "league table" },
+];
+
 export type RuleSection = { title: string; items: string[] };
 
 export const RULE_SECTIONS: RuleSection[] = [
@@ -58,7 +69,7 @@ export type FaqEntry = { q: string; a: string };
 
 export const FAQ: FaqEntry[] = [
   { q: "Don't have a team?", a: "Register solo in any D or Open division — we place free agents on balanced teams by skill and schedule." },
-  { q: "How do I pay?", a: "A $200 non-refundable deposit holds your spot; the balance is due in full by game 1. Early-bird team pricing is $1,000 through the early-bird deadline." },
+  { q: "How do I pay?", a: "Solo players pay $120 at registration — that's it, no deposit. Teams pay $1,000 early-bird ($1,050 after), or reserve with a $200 deposit and pay the balance before game 1." },
   { q: "Indoor vs outdoor?", a: "Indoor walled 7v7 — faster, no offside, and the wall keeps the ball in play. Games run rain or shine." },
   { q: "Roster size?", a: "Up to 14 on a roster, 7 on the field. Free substitution on the fly; the roster locks after game 3." },
 ];

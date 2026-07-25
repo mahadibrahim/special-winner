@@ -38,7 +38,7 @@
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
-import { fieldRentals } from "@/lib/db/schema/field-rentals";
+import { fieldRentals, fieldRentalPlayers } from "@/lib/db/schema/field-rentals";
 import { rosters, teams } from "@/lib/db/schema/teams";
 import { seasons, programs } from "@/lib/db/schema/programs";
 import { registrations, familyMembers } from "@/lib/db/schema/registrations";
@@ -49,7 +49,26 @@ export type SelfServiceKind =
   | "drop_in_booking"
   | "field_rental"
   | "roster_entry"
-  | "walkin_session";
+  | "walkin_session"
+  | "rental_player";
+
+/** Kinds this signer-resolution flow handles. `email_consent` is deliberately
+ *  absent — it is not a signable target; it is a marketing double-opt-in token
+ *  owned by /api/consent/confirm and must never be routed through the
+ *  waiver/photo/check-in machinery. */
+const SELF_SERVICE_KINDS = new Set<string>([
+  "drop_in_booking",
+  "field_rental",
+  "roster_entry",
+  "walkin_session",
+  "rental_player",
+]);
+
+/** Narrow a raw token kind (widened by non-self-serve kinds like
+ *  `email_consent`) to a SelfServiceKind, or null if it is not one. */
+export function asSelfServiceKind(kind: string): SelfServiceKind | null {
+  return SELF_SERVICE_KINDS.has(kind) ? (kind as SelfServiceKind) : null;
+}
 
 export interface ResolvedSigner {
   signerName: string;
@@ -185,6 +204,33 @@ export async function resolveSigner(
       recipientUserId: null,
       familyMemberId: null,
       isMinor: false,
+    };
+  }
+
+  if (kind === "rental_player") {
+    const [p] = await db
+      .select()
+      .from(fieldRentalPlayers)
+      .innerJoin(fieldRentals, eq(fieldRentals.id, fieldRentalPlayers.rentalId))
+      .where(
+        and(
+          eq(fieldRentalPlayers.id, targetId),
+          eq(fieldRentals.organizationId, orgId),
+        ),
+      )
+      .limit(1);
+    if (!p) return null;
+    const row = p.field_rental_players;
+    return {
+      // Adult signs own; a minor's parent signs — but the name is captured at
+      // signing time (signerName), so before signing we show the player name.
+      signerName: row.signerName ?? row.playerName,
+      displayName: row.playerName,
+      recipientEmail: row.signerEmail,
+      recipientPhone: null,
+      recipientUserId: null,
+      familyMemberId: null,
+      isMinor: row.isMinor,
     };
   }
 

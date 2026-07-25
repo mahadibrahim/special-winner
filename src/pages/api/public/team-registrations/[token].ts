@@ -12,13 +12,20 @@ import {
   familyMembers,
 } from "@/lib/db/schema";
 import { eq, asc } from "drizzle-orm";
+import {
+  captainDepositCreditCents,
+  captainShareDueCents,
+  teamCollectedCents,
+  teamDepositPaid,
+} from "@/lib/registrations/captain-credit";
+import { registrationAmountDueCents } from "@/lib/registrations/amount-due";
 
 /**
  * Resolve a team by its invite token. Used by the team landing page so
  * joining players see what they're signing up for, and by the captain
  * status view to see who has joined.
  */
-export const GET: APIRoute = async ({ params, locals }) => {
+export const GET: APIRoute = async ({ params, locals, request }) => {
   const token = params.token;
   if (!token) {
     return new Response(
@@ -81,6 +88,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
           joinedAt: teamRegistrationMembers.joinedAt,
           registrationStatus: registrations.status,
           paymentStatus: registrations.paymentStatus,
+          waiverSigned: registrations.waiverSigned,
           firstName: familyMembers.firstName,
           lastName: familyMembers.lastName,
         })
@@ -99,6 +107,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
       // much, and whether they've paid.
       db
         .select({
+          id: teamInvitees.id,
           email: teamInvitees.email,
           assignedShareCents: teamInvitees.assignedShareCents,
           status: teamInvitees.status,
@@ -112,15 +121,78 @@ export const GET: APIRoute = async ({ params, locals }) => {
 
     // Live payment summary for the captain tracker: deposit + sum of paid
     // teammate shares, against the full team fee. Computed server-side so the
-    // client never has to trust/replay status logic.
+    // client never has to trust/replay status logic. The captain's own paid
+    // share is capped by the deposit (teamCollectedCents) — the deposit
+    // already covers the first $deposit of it, so counting both would
+    // double-count (see captain-credit.ts).
     const depositCents = t.team.depositCents ?? 0;
-    const collectedCents =
-      depositCents +
-      invitees.reduce(
-        (sum, i) =>
-          i.status === "paid" ? sum + (i.assignedShareCents ?? 0) : sum,
-        0,
+    const captainEmailLower = t.team.captainEmail.toLowerCase();
+    const collectedCents = teamCollectedCents({
+      depositCents,
+      invitees: invitees.map((i) => ({
+        assignedShareCents: i.assignedShareCents,
+        status: i.status,
+        isCaptain: i.email.toLowerCase() === captainEmailLower,
+      })),
+    });
+
+    // Captain-credit preview for the authed viewer: when the signed-in user
+    // is this team's captain and the deposit is verifiably paid, tell the
+    // client what their own registration will cost after the deposit credit.
+    // Display-only — createRegistration recomputes the credit server-side.
+    const viewer = locals.user;
+    const viewerEmailLower = viewer?.email.toLowerCase() ?? null;
+    // Hoisted so both the captain-credit preview below AND invitee-list
+    // serialization can reuse the same captain check. Guests → false.
+    const isCaptain = viewer
+      ? t.team.captainUserId != null
+        ? t.team.captainUserId === viewer.id
+        : captainEmailLower === viewerEmailLower
+      : false;
+
+    let viewerCaptainCredit: {
+      shareCents: number;
+      creditCents: number;
+      dueCents: number;
+      depositCents: number;
+    } | null = null;
+    if (isCaptain && teamDepositPaid(t.team)) {
+      const inviteeRow = invitees.find(
+        (i) => i.email.toLowerCase() === viewerEmailLower,
       );
+      if (!inviteeRow || inviteeRow.status !== "paid") {
+        const shareCents = inviteeRow
+          ? inviteeRow.assignedShareCents ?? 0
+          : registrationAmountDueCents(t.season, "full");
+        viewerCaptainCredit = {
+          shareCents,
+          creditCents: captainDepositCreditCents(shareCents, depositCents),
+          dueCents: captainShareDueCents(shareCents, depositCents),
+          depositCents,
+        };
+      }
+    }
+
+    // Viewer-scoped share: the ONE invitee row this viewer may see. Authed
+    // email match wins; otherwise an `?invitee=<id>` ref carried by the
+    // personal invite-email link. Never exposes any other invitee.
+    const url = new URL(request.url);
+    const inviteeRef = url.searchParams.get("invitee");
+    let viewerShare: { shareCents: number; status: string } | null = null;
+    const ownRow = viewerEmailLower
+      ? invitees.find((i) => i.email.toLowerCase() === viewerEmailLower)
+      : null;
+    const refRow =
+      !ownRow && inviteeRef
+        ? invitees.find((i) => i.id === inviteeRef)
+        : null;
+    const shareRow = ownRow ?? refRow;
+    if (shareRow) {
+      viewerShare = {
+        shareCents: shareRow.assignedShareCents,
+        status: shareRow.status,
+      };
+    }
 
     return new Response(
       JSON.stringify({
@@ -137,24 +209,32 @@ export const GET: APIRoute = async ({ params, locals }) => {
             role: m.role,
             registrationStatus: m.registrationStatus,
             paymentStatus: m.paymentStatus,
+            waiverSigned: m.waiverSigned,
           })),
           inviteeCount: invitees.length,
-          invitees: invitees.map((i) => ({
-            email: i.email,
-            assignedShareCents: i.assignedShareCents,
-            status: i.status,
-            paidAt: i.paidAt,
-          })),
+          invitees: isCaptain
+            ? invitees.map((i) => ({
+                id: i.id,
+                email: i.email,
+                assignedShareCents: i.assignedShareCents,
+                status: i.status,
+                paidAt: i.paidAt,
+              }))
+            : [],
         },
+        viewerCaptainCredit,
+        viewerShare,
         payment: {
           teamFeeCents: t.team.teamFeeCents ?? null,
           depositCents,
           collectedCents,
-          invitees: invitees.map((i) => ({
-            email: i.email,
-            assignedShareCents: i.assignedShareCents,
-            status: i.status,
-          })),
+          invitees: isCaptain
+            ? invitees.map((i) => ({
+                email: i.email,
+                assignedShareCents: i.assignedShareCents,
+                status: i.status,
+              }))
+            : [],
         },
         season: {
           id: t.season.id,

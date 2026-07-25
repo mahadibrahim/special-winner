@@ -47,6 +47,42 @@ export const SOCCERONE_MARKETING_REWRITES: Readonly<Record<string, string>> = {
   "/careers": "/soccerone/careers",
 } as const;
 
+/**
+ * The season tier (`/leagues/<term>`) — the one dynamic route on a SoccerOne
+ * host.
+ *
+ * Everything else in this module is exact-match: `SOCCERONE_MARKETING_REWRITES`
+ * is a fixed table and its inverse is *derived* from it, so the two directions
+ * cannot drift. Term slugs are generated per season (`fall-2026`,
+ * `winter-1-2627`, …), so they cannot live in that table without a code change
+ * and a deploy for every season we ever run.
+ *
+ * The trade: this rule is hand-written in BOTH directions
+ * (`rewriteSoccerOnePath` / `getSoccerOneCanonicalRedirect`), so nothing
+ * structural keeps them symmetric. The round-trip test in
+ * tests/unit/organization/soccerone-routing.test.ts is what enforces it —
+ * short → long → short must be the identity, or a visitor ping-pongs between
+ * the rewrite and the canonical redirect.
+ *
+ * Exactly ONE path segment is dynamic, and only under /leagues. A term slug is
+ * lowercase alphanumeric with single dashes between parts. This deliberately
+ * rejects empty segments, nested paths, uppercase, dots (file extensions) and
+ * `..` traversal — all of which must fall through to a 404 rather than rewrite.
+ */
+const TERM_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const SHORT_LEAGUES_PREFIX = "/leagues/";
+const LONG_LEAGUES_PREFIX = "/soccerone/leagues/";
+
+/**
+ * If `pathname` is `<prefix><term-slug>` with exactly one valid slug segment,
+ * return the slug. Otherwise null.
+ */
+function leagueTermSlug(pathname: string, prefix: string): string | null {
+  if (!pathname.startsWith(prefix)) return null;
+  const rest = pathname.slice(prefix.length);
+  return TERM_SLUG.test(rest) ? rest : null;
+}
+
 function normalizeHost(host: string): string {
   return host.split(":")[0].toLowerCase();
 }
@@ -97,7 +133,12 @@ export function originForBrand(brand: string | null | undefined): string | null 
  * non-SoccerOne hosts hitting the same path are unaffected).
  */
 export function rewriteSoccerOnePath(pathname: string): string | null {
-  return SOCCERONE_MARKETING_REWRITES[pathname] ?? null;
+  const exact = SOCCERONE_MARKETING_REWRITES[pathname];
+  if (exact) return exact;
+
+  // Season tier — the sole dynamic route. See TERM_SLUG above.
+  const term = leagueTermSlug(pathname, SHORT_LEAGUES_PREFIX);
+  return term ? `${LONG_LEAGUES_PREFIX}${term}` : null;
 }
 
 /**
@@ -152,7 +193,13 @@ const SOCCERONE_LONG_TO_SHORT: Readonly<Record<string, string>> =
  * re-enters this check, so there is no redirect↔rewrite loop.
  */
 export function getSoccerOneCanonicalRedirect(pathname: string): string | null {
-  return SOCCERONE_LONG_TO_SHORT[pathname] ?? null;
+  const short = SOCCERONE_LONG_TO_SHORT[pathname];
+  if (short) return short;
+
+  // Season tier — the exact inverse of the dynamic rule in
+  // rewriteSoccerOnePath. Kept symmetric by the round-trip unit test.
+  const term = leagueTermSlug(pathname, LONG_LEAGUES_PREFIX);
+  return term ? `${SHORT_LEAGUES_PREFIX}${term}` : null;
 }
 
 // NOTE: the Phase-1 `isUnmappedSoccerOneHost` 404-guard is gone. It existed

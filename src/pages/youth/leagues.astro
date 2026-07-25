@@ -1,19 +1,81 @@
 ---
 // src/pages/youth/leagues.astro
-// SSR — the island fetches host-scoped public endpoints client-side.
+// SSR — the islands fetch host-scoped public endpoints client-side.
 import BaseLayout from "@/layouts/BaseLayout.astro"
 import CategoryHero from "@/components/landing/category-hero.astro"
 import CategoryFinder from "@/components/landing/category-finder.tsx"
+import SeasonFactsBand from "@/components/landing/season-facts-band.tsx"
+import HowItWorksStrip from "@/components/landing/how-it-works-strip.astro"
+import SeasonCalendarBand, { type CalendarTermConfig } from "@/components/landing/season-calendar-band.tsx"
+import LandingFaq, { type LandingFaqItem } from "@/components/landing/landing-faq.tsx"
 import CTABanner from "@/components/cta-banner"
 import type { HeroTile } from "@/lib/landing/hero-tiles"
 import { setMarketingEdgeCache } from "@/lib/http/edge-cache"
 
 const tiles: HeroTile[] = [
-  { label: "Soccer", key: "soccer", state: "live", statusLabel: "● Now enrolling", meta: "Leagues & classes", color: "oklch(0.66 0.21 35)" },
+  // fallbackHref: when the finder has no seasons the Soccer tile navigates to
+  // the full catalog instead of scroll-filtering an empty grid (also the
+  // no-JS path). With inventory present it scroll-filters as before.
+  { label: "Soccer", key: "soccer", state: "live", statusLabel: "● Now enrolling", meta: "Leagues & classes", color: "oklch(0.66 0.21 35)", fallbackHref: "/programs?audience=youth" },
   { label: "Basketball", key: "basketball", state: "coming_soon", statusLabel: "Coming soon", meta: "Interested? Notify me" },
   { label: "Multi-sport", key: "multi-sport", state: "coming_soon", statusLabel: "Coming soon", meta: "Interested? Notify me" },
 ]
 setMarketingEdgeCache(Astro);
+
+const howItWorksSteps = [
+  {
+    title: "Pick the age group",
+    body: "Every program shows its ages right on the card.",
+  },
+  {
+    title: "Three-minute signup",
+    body: "Register your kid and pay online — no account or password needed up front.",
+  },
+  {
+    title: "You're set",
+    body: "Schedule, coach intro, and any updates land by email and text before week 1.",
+  },
+]
+
+// Authored future-term cells for the calendar band — live terms from the
+// catalog replace any cell they match. Months are authored estimates until
+// upcoming seasons exist in the DB (see the follow-up note in
+// season-calendar-band.tsx).
+const calendarTerms: CalendarTermConfig[] = [
+  { name: "Winter I", months: "Dec–Feb", match: "winter-i" },
+  { name: "Winter II", months: "Feb–Apr", match: "winter-ii" },
+  { name: "Spring", months: "Apr–Jun", match: "spring" },
+]
+
+const faqs: LandingFaqItem[] = [
+  {
+    question: "What ages can play?",
+    answer:
+      "Youth programs run for ages 3 through 18, organized into age divisions so kids play against kids their own age. Every program card shows its exact age range.",
+  },
+  {
+    question: "When are games?",
+    answer:
+      "Every game is on a Saturday or Sunday, scheduled between 7am and 8pm. Your team's exact game times come with the schedule before week 1.",
+  },
+  {
+    question: "Could a game's location change?",
+    answer:
+      "Your division's home venue is set before the season. If a game ever moves to our other location, we notify every family by text and email as soon as it's scheduled — never day-of.",
+  },
+  {
+    question: "What's the refund policy?",
+    answer:
+      "Cancel 14 or more days before the season starts for a full refund. Inside 14 days, we review case by case — the default is a prorated credit toward a future season.",
+    linkHref: "/refund-policy",
+    linkLabel: "Read the full refund policy",
+  },
+  {
+    question: "What does my kid need to bring?",
+    answer:
+      "Basic equipment is provided for most programs — players bring their own athletic shoes and apparel. Anything program-specific is listed on the program page.",
+  },
+]
 ---
 
 <BaseLayout
@@ -38,6 +100,18 @@ setMarketingEdgeCache(Astro);
       crosslink={{ prompt: "School breaks coming up?", href: "/youth/camps", label: "Youth camps →" }}
     />
 
+    <SeasonFactsBand
+      client:load
+      audience="youth"
+      programTypes={["league"]}
+      authoredFact={{ label: "Game days", value: "Sat & Sun · games 7am–8pm" }}
+      faqHref="#faq"
+      locationNote
+      fallbackVenueName="Worthington"
+    />
+
+    <HowItWorksStrip heading="How it works for parents" steps={howItWorksSteps} />
+
     <CategoryFinder
       client:load
       audience="youth"
@@ -47,6 +121,19 @@ setMarketingEdgeCache(Astro);
       ageChips
       sectionId="youth-leagues"
     />
+
+    <SeasonCalendarBand
+      client:visible
+      audience="youth"
+      programTypes={["league"]}
+      pageKey="youth-leagues"
+      cardsSectionId="youth-leagues"
+      heading="The season calendar."
+      descriptor="Seasons run back-to-back all year — leave your email and you'll hear the moment the next one opens."
+      futureTerms={calendarTerms}
+    />
+
+    <LandingFaq client:visible id="faq" heading="Parent FAQs" items={faqs} />
 
     <CTABanner client:visible />
   </main>

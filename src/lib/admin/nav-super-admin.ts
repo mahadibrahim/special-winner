@@ -24,6 +24,8 @@ import {
   CreditCard,
   Tag,
   ShoppingBag,
+  Store,
+  Shirt,
   Camera,
   UserCog,
   Tags,
@@ -76,7 +78,7 @@ export const SUPER_ADMIN_NAV: NavGroup[] = [
   {
     name: "Casual play",
     items: [
-      { name: "Drop-ins", href: "/admin/dropins", icon: Zap },
+      { name: "Manage Pickup and Hosts", href: "/admin/dropins", icon: Zap },
       { name: "Drop League", href: "/admin/drop-league", icon: TrendingDown },
       { name: "Rentals", href: "/admin/rentals", icon: Key },
       { name: "Memberships", href: "/admin/memberships", icon: Gem },
@@ -107,6 +109,8 @@ export const SUPER_ADMIN_NAV: NavGroup[] = [
       { name: "Payments", href: "/admin/payments", icon: CreditCard },
       { name: "Discount codes", href: "/admin/discount-codes", icon: Tag },
       { name: "Gear", href: "/admin/gear", icon: ShoppingBag },
+      { name: "Shop", href: "/admin/merch", icon: Store },
+      { name: "Team kits", href: "/admin/merch/kits", icon: Shirt },
     ],
   },
   {

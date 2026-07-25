@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { phoneOptIns } from "@/lib/db/schema/phone-verifications";
 
@@ -45,8 +45,14 @@ export function detectComplianceKeyword(body: string): ComplianceMatch {
 }
 
 /**
- * Process a STOP keyword — marks the phone as opted_out for every org that
- * has it on file. Returns the number of records updated.
+ * Process a STOP keyword — marks the phone as opted_out for SMS in every org
+ * that has it on file. Returns the number of records updated.
+ *
+ * An SMS STOP opts the sender out of SMS. It does NOT revoke WhatsApp consent
+ * — they are distinct consents under distinct regimes, and a person who
+ * texted STOP has not said anything about WhatsApp. A WhatsApp opt-out
+ * arrives on the WhatsApp inbound path and scopes itself the same way.
+ * (Cross-org is deliberate and pre-existing: STOP to our number means stop.)
  */
 export async function processStopKeyword(
   phone: string,
@@ -63,14 +69,16 @@ export async function processStopKeyword(
       stopKeywordTriggered: keyword,
       updatedAt: now,
     })
-    .where(eq(phoneOptIns.phone, phone))
+    .where(and(eq(phoneOptIns.phone, phone), eq(phoneOptIns.channel, "sms")))
     .returning({ id: phoneOptIns.id });
 
   return result.length;
 }
 
 /**
- * Process a START keyword — re-opts the phone in for every org that has it on file.
+ * Process a START keyword — re-opts the phone in for SMS in every org that has
+ * it on file. Like STOP, it is scoped to the SMS channel: a text message says
+ * nothing about the sender's WhatsApp consent.
  */
 export async function processStartKeyword(
   phone: string,
@@ -89,15 +97,16 @@ export async function processStartKeyword(
       optInSource: "welcome_reply_yes",
       updatedAt: now,
     })
-    .where(eq(phoneOptIns.phone, phone))
+    .where(and(eq(phoneOptIns.phone, phone), eq(phoneOptIns.channel, "sms")))
     .returning({ id: phoneOptIns.id });
 
   return result.length;
 }
 
 /**
- * Find the pending opt-in record for this phone (used when a parent replies
- * YES to a welcome message that admin just sent).
+ * Find the pending SMS opt-in record for this phone (used when a parent replies
+ * YES via text to a welcome message that admin just sent). Scoped to the SMS
+ * channel — an SMS reply can only grant SMS consent.
  */
 export async function findPendingOptIn(phone: string): Promise<{
   id: string;
@@ -110,7 +119,15 @@ export async function findPendingOptIn(phone: string): Promise<{
       organizationId: phoneOptIns.organizationId,
     })
     .from(phoneOptIns)
-    .where(and(eq(phoneOptIns.phone, phone), eq(phoneOptIns.status, "pending")))
+    .where(
+      and(
+        eq(phoneOptIns.phone, phone),
+        eq(phoneOptIns.channel, "sms"),
+        eq(phoneOptIns.status, "pending"),
+      ),
+    )
+    // Deterministic pick on the shared CI/staging DB (multi-tenant hazard).
+    .orderBy(asc(phoneOptIns.createdAt))
     .limit(1);
 
   return rows[0] ?? null;

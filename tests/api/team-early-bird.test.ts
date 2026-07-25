@@ -62,6 +62,7 @@ describe("team early-bird", () => {
         teamName: `EarlyBird Test ${stamp}`,
         captainName: "Cap Tain",
         captainEmail: `cap-eb-${stamp}@test.aspiresports.com`,
+        backstopConsent: true,
       }),
     });
     expect(res.status).toBe(200);

@@ -69,9 +69,10 @@ test.describe("SoccerOne homepage", () => {
     const name = (await card.locator(".season-name").innerText()).trim();
     // .season-name renders uppercased (CSS text-transform), so match case-insensitively.
     if (/adult leagues$/i.test(name)) {
-      // Term-aggregate mode: multi-division terms sell the term and route
-      // to the division finder; no division-scoped analytics attr.
-      expect(href).toBe("/leagues");
+      // Term-aggregate mode: multi-division terms sell the term and deep-link
+      // its season page directly (one hop less than routing through the
+      // catalog); no division-scoped analytics attr.
+      expect(href).toMatch(/^\/leagues\/[a-z0-9-]+$/);
       expect(await cta.getAttribute("data-so-register-cta")).toBeNull();
       await expect(card.getByText(/\d+ divisions/)).toBeVisible();
     } else {

@@ -64,7 +64,11 @@ export const familyMembers = pgTable(
       .unique(),
     firstName: varchar("first_name", { length: 100 }).notNull(),
     lastName: varchar("last_name", { length: 100 }).notNull(),
-    birthDate: date("birth_date").notNull(),
+    // DOB is deferred to post-payment for v2 adult self-registrant flows, so
+    // self-rows may exist without one. Dependent rows still always carry a
+    // DOB (v1 youth flow unchanged) — resolvePerson's dependent dedupe
+    // requires it and enforces it at the application layer.
+    birthDate: date("birth_date"),
     gender: genderEnum("gender"),
     medicalNotes: text("medical_notes"),
     emergencyContactName: varchar("emergency_contact_name", { length: 200 }),
@@ -146,6 +150,9 @@ export const registrations = pgTable(
     waitlistExpiresAt: timestamp("waitlist_expires_at"),
     // Free-agent flag: adult self-registrants who want placement on a team
     lookingForTeam: boolean("looking_for_team").default(false).notNull(),
+    // Set when a post-payment DOB fails the season's age-group check —
+    // surfaces an admin badge instead of blocking the paid registration.
+    ageReviewNeeded: boolean("age_review_needed").default(false).notNull(),
     // Storefront brand the registration was created through ("aspire" |
     // "soccerone"). Brands share one org; this is the only durable brand
     // signal for request-less contexts (crons). Default covers all

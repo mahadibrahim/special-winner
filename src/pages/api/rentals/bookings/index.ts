@@ -1,10 +1,9 @@
 /**
  * GET  /api/rentals/bookings → the authenticated user's field rentals.
- * POST /api/rentals/bookings → create a rental.
- *   - comp/$0 path: insert a confirmed row immediately.
- *   - paid path: insert a `pending_payment` hold, create a Stripe Checkout
- *     Session (Connect-aware), return the URL. The webhook flips the row to
- *     `confirmed`.
+ * POST /api/rentals/bookings → create a rental REQUEST.
+ *   Requests are held for `requestHoldHours` pending admin approval; no
+ *   Stripe interaction happens here — payment is collected via the pay
+ *   endpoint after approval.
  *
  * Mirrors src/pages/api/dropin/bookings/index.ts.
  */
@@ -16,25 +15,23 @@ import {
   fieldRentalRateCard,
 } from "@/lib/db/schema/field-rentals";
 import { venues } from "@/lib/db/schema/teams";
-import { stripe } from "@/lib/stripe/client";
 import {
   resolveRentalHourlyRateCents,
   computeRentalPriceCents,
 } from "@/lib/rentals/pricing";
 import { quoteRentalCents } from "@/lib/rentals/soccerone-pricing";
 import { validateRentalBookingRequest } from "@/lib/rentals/validators";
+import { createRentalRequest } from "@/lib/rentals/booking";
 import {
-  createRentalHold,
-  createConfirmedRentalNonStripe,
-} from "@/lib/rentals/booking";
-import { getActiveMembershipForOrg } from "@/lib/memberships/get-active-membership";
-import { applyMemberRentalDiscount } from "@/lib/memberships/discount";
+  dispatchRentalRequestReceived,
+  dispatchNewRentalRequestToAdmin,
+} from "@/lib/rentals/messages/dispatch";
 import {
-  resolveBookingWindowDays,
+  DEFAULT_BOOKING_WINDOW_DAYS,
   bookingWindowEndUtc,
 } from "@/lib/memberships/booking-window";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
-import { collectAdAttribution } from "@/lib/analytics/parse-cookies";
+import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 
 export const prerender = false;
 
@@ -75,8 +72,13 @@ export const GET: APIRoute = async ({ locals }) => {
   return json({ rentals: rows }, 200);
 };
 
-export const POST: APIRoute = async ({ request, locals, url }) => {
-  if (!locals.user) return json({ error: "Unauthorized" }, 401);
+export const POST: APIRoute = async ({ request, locals, clientAddress }) => {
+  // Rate-limit guest submissions (public unauthenticated write path).
+  if (!locals.user) {
+    const ip = clientAddress || "unknown";
+    const rl = rateLimit(`rental-request:ip:${ip}`, 8, 60_000);
+    if (!rl.allowed) return rateLimitedResponse(rl.retryAfter ?? 60);
+  }
 
   let body: Record<string, unknown>;
   try {
@@ -96,6 +98,27 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
   const purpose = (body.purpose as string) ?? null;
   const waiverName = (body.waiverName as string).trim();
 
+  // Guest path: no session. Require contact fields; store renterUserId = null.
+  let renterUserId: string | null = null;
+  let renterName: string;
+  let renterEmail: string | null;
+  let renterPhone: string | null = null;
+  if (locals.user) {
+    renterUserId = locals.user.id;
+    renterName = waiverName; // signed-in: waiver name is the renter
+    renterEmail = locals.user.email;
+  } else {
+    const gName = (body.renterName as string | undefined)?.trim() || waiverName;
+    const gEmail = (body.renterEmail as string | undefined)?.trim() ?? "";
+    if (!gName) return json({ error: "Your name is required" }, 422);
+    if (!gEmail || gEmail.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(gEmail)) {
+      return json({ error: "A valid email is required" }, 422);
+    }
+    renterName = gName;
+    renterEmail = gEmail;
+    renterPhone = (body.renterPhone as string | undefined)?.trim() || null;
+  }
+
   const db = getDb();
   const [venue] = await db
     .select()
@@ -109,41 +132,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
   const orgId = locals.organization?.id;
   if (!orgId) return json({ error: "No organization context" }, 400);
 
-  // Membership is looked up once and feeds BOTH the advance-booking window
-  // and the rental discount below. A lookup failure falls back to no
-  // membership: base price, default window.
-  let membership: Awaited<ReturnType<typeof getActiveMembershipForOrg>> = null;
-  try {
-    membership = await getActiveMembershipForOrg(locals.user.id, orgId);
-  } catch (err) {
-    console.error("[rentals] membership lookup failed (continuing without membership)", err);
-  }
-
   const orgTimeZone = locals.organization?.timezone ?? "America/New_York";
-
-  // Advance-booking window: online booking opens DEFAULT_BOOKING_WINDOW_DAYS
-  // ahead; membership benefits (booking_window_days) can extend it (Founder
-  // = 14). Beyond the window is a contact-the-venue conversation — venue
-  // staff create those through the admin path, which is not window-limited.
-  //
-  // Skipped under E2E_TEST_ENDPOINTS (CI/test dev servers only — same flag
-  // that gates /api/test/*): the rentals API tests book far-future slots on
-  // purpose so concurrent runs never contend for the same slot space on the
-  // shared CI database. The window math itself is unit-tested.
-  if (process.env.E2E_TEST_ENDPOINTS !== "yes") {
-    if (endsAt.getTime() <= Date.now()) {
-      return json({ error: "That time has already passed" }, 422);
-    }
-    const windowDays = resolveBookingWindowDays(membership?.tier.benefits ?? null);
-    if (startsAt >= bookingWindowEndUtc(new Date(), windowDays, orgTimeZone)) {
-      return json(
-        {
-          error: `Online booking opens ${windowDays} days ahead. To reserve a date further out, contact the venue.`,
-        },
-        422,
-      );
-    }
-  }
 
   let [rateCard] = await db
     .select()
@@ -160,6 +149,39 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
       .from(fieldRentalRateCard)
       .where(eq(fieldRentalRateCard.organizationId, orgId))
       .limit(1);
+  }
+
+  // Advance-booking window: online booking opens DEFAULT_BOOKING_WINDOW_DAYS
+  // ahead. Beyond the window is a contact-the-venue conversation — venue
+  // staff create those through the admin path, which is not window-limited.
+  //
+  // Skipped under E2E_TEST_ENDPOINTS (CI/test dev servers only — same flag
+  // that gates /api/test/*): the rentals API tests book far-future slots on
+  // purpose so concurrent runs never contend for the same slot space on the
+  // shared CI database. The window math itself is unit-tested.
+  if (process.env.E2E_TEST_ENDPOINTS !== "yes") {
+    if (endsAt.getTime() <= Date.now()) {
+      return json({ error: "That time has already passed" }, 422);
+    }
+    const windowDays = DEFAULT_BOOKING_WINDOW_DAYS;
+    if (startsAt >= bookingWindowEndUtc(new Date(), windowDays, orgTimeZone)) {
+      return json(
+        {
+          error: `Online booking opens ${windowDays} days ahead. To reserve a date further out, contact the venue.`,
+        },
+        422,
+      );
+    }
+
+    const minLeadHours = rateCard.minLeadTimeHours;
+    if (startsAt.getTime() < Date.now() + minLeadHours * 60 * 60_000) {
+      return json(
+        {
+          error: `Requests must be at least ${minLeadHours} hours in advance. To book sooner, contact the venue directly.`,
+        },
+        422,
+      );
+    }
   }
 
   const durationMinutes = (endsAt.getTime() - startsAt.getTime()) / 60_000;
@@ -189,149 +211,41 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
           ),
         );
 
-  // Member rental discount — reuses the membership fetched above for the
-  // booking-window check. For Aspire (no tiers seeded), the lookup returned
-  // null and amountDueCents is byte-identical to baseAmountDueCents.
-  let amountDueCents = baseAmountDueCents;
-  let memberDiscountMembershipId: string | null = null;
-  if (membership) {
-    amountDueCents = applyMemberRentalDiscount(
-      baseAmountDueCents,
-      membership.tier.benefits,
-    );
-    if (amountDueCents !== baseAmountDueCents) {
-      memberDiscountMembershipId = membership.id;
-    }
-  }
+  // Rentals are flat-priced — no member discount (removed 2026-07). Members
+  // get no rental discount; the membership system is unaffected elsewhere.
+  const amountDueCents = baseAmountDueCents;
 
   const bookingBrand = brandFromHost(request.headers.get("host") ?? "");
 
-  if (amountDueCents === 0) {
-    const result = await createConfirmedRentalNonStripe({
-      organizationId: orgId,
-      venueId,
-      fieldNumber,
-      startsAt,
-      endsAt,
-      source: "online_booking",
-      paymentMethod: "comp",
-      amountDueCents: 0,
-      renterUserId: locals.user.id,
-      renterName: waiverName,
-      renterEmail: locals.user.email,
-      renterPhone: null,
-      partySize,
-      purpose,
-      notes: null,
-      createdByUserId: locals.user.id,
-      waiverSigned: true,
-      waiverSignedBy: waiverName,
-      brand: bookingBrand,
-    });
-    if (!result.ok) return json({ error: result.error }, 409);
-    return json({ paymentRequired: false, rentalId: result.rental.id }, 200);
-  }
-
-  // Run the conflict check + create the hold BEFORE checking Stripe so a
-  // genuine 409 is reported even on environments without Stripe configured
-  // (e.g. CI). If Stripe is missing we clean up the hold below.
-  const hold = await createRentalHold({
+  const req = await createRentalRequest({
     organizationId: orgId,
     venueId,
     fieldNumber,
     startsAt,
     endsAt,
-    source: "online_booking",
-    paymentMethod: "card_online",
     amountDueCents,
-    renterUserId: locals.user.id,
-    renterName: waiverName,
-    renterEmail: locals.user.email,
-    renterPhone: null,
+    requestHoldHours: rateCard.requestHoldHours,
+    renterUserId,
+    renterName,
+    renterEmail,
+    renterPhone,
     partySize,
     purpose,
     notes: null,
-    createdByUserId: locals.user.id,
+    createdByUserId: renterUserId,
     waiverSigned: true,
     waiverSignedBy: waiverName,
     brand: bookingBrand,
   });
-  if (!hold.ok) return json({ error: hold.error }, 409);
+  if (!req.ok) return json({ error: req.error }, 409);
 
-  if (!stripe) {
-    // Stripe missing — release the hold and surface the misconfig.
-    await db.delete(fieldRentals).where(eq(fieldRentals.id, hold.rental.id));
-    return json({ error: "Stripe not configured" }, 500);
-  }
+  // Fire-and-forget notifications — never fail the request over a send error.
+  await dispatchRentalRequestReceived(req.rental.id).catch((e) =>
+    console.error("[rentals] request-received dispatch failed", e),
+  );
+  await dispatchNewRentalRequestToAdmin(req.rental.id).catch((e) =>
+    console.error("[rentals] admin new-request dispatch failed", e),
+  );
 
-  const partnerStripeAccountId = venue.partnerStripeAccountId ?? null;
-  const applicationFeePct = venue.partnerApplicationFeePct ?? 0;
-  const applicationFeeCents = partnerStripeAccountId
-    ? Math.round((amountDueCents * applicationFeePct) / 100)
-    : undefined;
-  // Request origin, not PUBLIC_APP_URL — Stripe success/cancel redirects
-  // must return to the domain the customer booked from (brand host).
-  const appUrl = url.origin;
-
-  try {
-    const checkoutSession = await stripe.checkout.sessions.create(
-      {
-        mode: "payment",
-        payment_method_types: ["card"],
-        customer_email: locals.user.email,
-        line_items: [
-          {
-            price_data: {
-              currency: "usd",
-              product_data: {
-                name: `Field rental — ${venue.name}`,
-                description: `Field ${fieldNumber}, ${startsAt.toISOString()}`,
-              },
-              unit_amount: amountDueCents,
-            },
-            quantity: 1,
-          },
-        ],
-        metadata: {
-          type: "field_rental",
-          rental_id: hold.rental.id,
-          organization_id: orgId,
-          membership_id: memberDiscountMembershipId ?? "",
-          base_amount_cents: String(baseAmountDueCents),
-          // Storefront brand — host-derived, since both brands share one org.
-          brand: bookingBrand,
-          // Carried for the webhook's revenue + ad-conversion fires.
-          user_id: locals.user.id,
-          venue_name: venue.name,
-          // Ad-attribution ids → server-side GA4 + Meta purchase conversions.
-          ...collectAdAttribution(url, request.headers.get("cookie")),
-        },
-        payment_intent_data: partnerStripeAccountId
-          ? {
-              application_fee_amount: applicationFeeCents,
-              transfer_data: { destination: partnerStripeAccountId },
-            }
-          : undefined,
-        success_url: `${appUrl}/dashboard/bookings?rental=success`,
-        cancel_url: `${appUrl}/rentals?rental=cancelled`,
-      },
-      { idempotencyKey: `${hold.rental.id}:rental-checkout:${amountDueCents}` },
-    );
-    return json(
-      {
-        paymentRequired: true,
-        checkoutUrl: checkoutSession.url,
-        rentalId: hold.rental.id,
-        // Surfaced so the booking UI can show a "slot held until X" notice
-        // before bouncing the user to the Stripe Checkout page.
-        paymentExpiresAt: hold.rental.paymentExpiresAt,
-      },
-      200,
-    );
-  } catch (err) {
-    // Stripe call failed after the hold row was committed (no outer tx) — manually undo it to release the field.
-    await db.delete(fieldRentals).where(eq(fieldRentals.id, hold.rental.id));
-    console.error("[rentals] checkout session create failed", err);
-    return json({ error: "Could not start checkout" }, 502);
-  }
+  return json({ requested: true, rentalId: req.rental.id }, 200);
 };

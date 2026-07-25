@@ -1,0 +1,144 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import RentalClaimForm from '@/components/rentals/RentalClaimForm';
+import { getDb } from '@/lib/db';
+import { fieldRentals } from '@/lib/db/schema/field-rentals';
+import { venues } from '@/lib/db/schema';
+import { eq } from 'drizzle-orm';
+import { verifyToken } from '@/lib/check-in/tokens-db';
+import { claimRentalForUser } from '@/lib/rentals/claim';
+import { normalizeForUniqueness } from '@/lib/auth/email-normalize';
+import { SOCCERONE_CONTACT_PHONE } from '@/lib/soccerone/contact';
+import { BUSINESS_TIMEZONE } from '@/lib/time/business-timezone';
+
+// SSR — reads Astro.locals.user and does request-time DB/token work.
+export const prerender = false;
+
+const token = Astro.params.token;
+if (!token) return Astro.redirect('/');
+
+let errorMessage: string | null = null;
+// When set, the "Link unavailable" card also offers a sign-out link — used
+// for the signed-in-as-the-wrong-account case, where the fix is to sign out
+// and reopen the link.
+let showSignOut = false;
+let rental: typeof fieldRentals.$inferSelect | null = null;
+let venueName: string | null = null;
+
+const v = await verifyToken(token);
+if (!v.ok || v.token.kind !== 'rental_claim') {
+  errorMessage = `This link has expired or is invalid. Call or text us at ${SOCCERONE_CONTACT_PHONE} and we'll help you get squared away.`;
+} else {
+  const db = getDb();
+  const [row] = await db
+    .select({ rental: fieldRentals, venueName: venues.name })
+    .from(fieldRentals)
+    .leftJoin(venues, eq(venues.id, fieldRentals.venueId))
+    .where(eq(fieldRentals.id, v.token.targetId))
+    .limit(1);
+  if (!row?.rental) {
+    errorMessage = `This booking couldn't be found. Call or text us at ${SOCCERONE_CONTACT_PHONE}.`;
+  } else {
+    rental = row.rental;
+    venueName = row.venueName ?? null;
+  }
+}
+
+// Already claimed: send the owner to their dashboard, otherwise show a
+// neutral note (never reveal who claimed it).
+if (rental?.renterUserId) {
+  if (Astro.locals.user?.id === rental.renterUserId) {
+    return Astro.redirect('/dashboard/bookings');
+  }
+  errorMessage = 'This booking has already been claimed.';
+  rental = null;
+}
+
+// No email on file — the claim endpoint requires one (it's what proves
+// account ownership) and there's nothing the form can collect to fix it.
+if (rental && !rental.renterEmail) {
+  errorMessage = `We don't have an email on file for this booking. Call or text us at ${SOCCERONE_CONTACT_PHONE} and we'll help.`;
+  rental = null;
+}
+
+// Signed-in visitor on an unclaimed rental. Only auto-claim when the
+// signed-in account's email matches the address the booking was requested
+// with — otherwise a claim link opened on a shared/family device (where a
+// DIFFERENT person is signed in) would silently attach the booking to the
+// wrong account. Compare on the canonical form, the same helper the claim
+// endpoint uses for uniqueness.
+if (rental && !errorMessage && Astro.locals.user) {
+  const signedInCanonical = normalizeForUniqueness(Astro.locals.user.email);
+  const rentalCanonical = normalizeForUniqueness(rental.renterEmail!);
+  if (signedInCanonical === rentalCanonical) {
+    const claimed = await claimRentalForUser(rental.id, Astro.locals.user.id);
+    if (claimed) {
+      return Astro.redirect('/dashboard/bookings');
+    }
+    // Raced (claimed by someone else between our checks) — fall through to
+    // the neutral "already claimed" message.
+    errorMessage = 'This booking has already been claimed.';
+    rental = null;
+  } else {
+    // Wrong account signed in. Never claim to a mismatched user, and don't
+    // show the create-account form (they're already signed in).
+    errorMessage =
+      'This booking was requested with a different email. Sign out and open this link again to claim it with the right account.';
+    showSignOut = true;
+    rental = null;
+  }
+}
+
+const whenLabel = rental
+  ? new Date(rental.startsAt).toLocaleString('en-US', {
+      timeZone: BUSINESS_TIMEZONE,
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    })
+  : null;
+---
+
+<BaseLayout
+  title="Claim your booking — Aspire Sports"
+  description="Create your account to pay for and manage your field rental."
+>
+  <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
+    <div class="max-w-md mx-auto">
+      {errorMessage ? (
+        <div class="rounded-xl border border-border bg-paper p-6 text-center">
+          <h1 class="text-lg font-semibold text-ink mb-2">
+            {showSignOut ? 'Wrong account' : 'Link unavailable'}
+          </h1>
+          <p class="text-sm text-muted-foreground">{errorMessage}</p>
+          {showSignOut && (
+            <a
+              href="/api/auth/signout"
+              class="mt-4 inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+            >
+              Sign out
+            </a>
+          )}
+        </div>
+      ) : rental ? (
+        <div>
+          <div class="mb-6 text-center">
+            <h1 class="text-2xl font-bold text-stone-900">Claim your booking</h1>
+            <p class="mt-2 text-sm text-stone-600">
+              {venueName ? `${venueName} — ` : ''}{whenLabel}
+            </p>
+          </div>
+          <RentalClaimForm
+            client:load
+            token={token}
+            renterEmail={rental.renterEmail ?? ''}
+            renterName={rental.renterName}
+            contactPhone={SOCCERONE_CONTACT_PHONE}
+          />
+        </div>
+      ) : null}
+    </div>
+  </main>
+</BaseLayout>

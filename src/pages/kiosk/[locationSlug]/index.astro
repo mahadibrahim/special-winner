@@ -15,6 +15,7 @@ const brandName = getBrandTheme(brandId).displayName;
 
 const slug = Astro.params.locationSlug;
 let locationName: string | null = null;
+let organizationId: string | null = null;
 // Default to the business timezone; overridden below with the resolved
 // location's own timezone.
 let locationTimezone: string = BUSINESS_TIMEZONE;
@@ -29,6 +30,7 @@ if (slug) {
   const k = await requireKioskLocation(slug, Astro.locals.organization?.id ?? null);
   if (k.ok) {
     locationName = k.location.name;
+    organizationId = k.location.organizationId;
     locationTimezone = k.location.timezone ?? locationTimezone;
   } else {
     invalid = true;
@@ -76,6 +78,7 @@ const today = new Date().toLocaleDateString("en-US", {
           client:load
           locationSlug={slug!}
           locationName={locationName!}
+          organizationId={organizationId!}
           brandId={brandId}
           publishableKey={import.meta.env.STRIPE_PUBLISHABLE_KEY ?? ""}
         />

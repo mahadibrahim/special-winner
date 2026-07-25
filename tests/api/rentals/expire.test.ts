@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { fieldRentals } from "@/lib/db/schema/field-rentals";
 import { E2E_RENTAL_VENUE_ID, E2E_ORG_ID } from "@/lib/db/seeds/seed-e2e-tests";
+import { expireStaleRentalRequests } from "@/lib/rentals/expire";
 
 // A distinct calendar DAY per test run, far in the future. A random component
 // is added so parallel CI jobs starting at the same millisecond still get
@@ -87,5 +88,35 @@ describe("POST /api/cron/expire-pending-rentals", () => {
     });
 
     expect(res.status).toBe(401);
+  });
+});
+
+describe("expireStaleRentalRequests", () => {
+  it("cancels a requested row past its requestExpiresAt and frees it", async () => {
+    const [row] = await getDb()
+      .insert(fieldRentals)
+      .values({
+        organizationId: E2E_ORG_ID,
+        venueId: E2E_RENTAL_VENUE_ID,
+        fieldNumber: 31,
+        ...slot(9, 1),
+        status: "requested",
+        source: "online_booking",
+        paymentMethod: "card_online",
+        amountDueCents: 5000,
+        renterName: "Stale Request",
+        requestExpiresAt: new Date(Date.now() - 60_000), // already lapsed
+      })
+      .returning();
+
+    const { expired } = await expireStaleRentalRequests();
+    expect(expired).toBeGreaterThanOrEqual(1);
+
+    const [after] = await getDb()
+      .select({ status: fieldRentals.status })
+      .from(fieldRentals)
+      .where(eq(fieldRentals.id, row.id))
+      .limit(1);
+    expect(after.status).toBe("cancelled");
   });
 });

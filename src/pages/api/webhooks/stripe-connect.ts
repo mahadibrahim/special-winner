@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import type Stripe from "stripe";
 import { stripe, updateOrganizationStripeStatus } from "@/lib/stripe/connect";
-import { getPostHogServer } from "@/lib/posthog-server";
+import { getPostHogServer, flushPostHog } from "@/lib/posthog-server";
 import {
   captureWebhookException,
   captureWebhookOutcome,
@@ -166,6 +166,9 @@ export const POST: APIRoute = async ({ request }) => {
       eventType: event.type,
       eventId: event.id,
     });
+    // Deliver telemetry before returning — Netlify freezes the instance
+    // after the response, which can drop in-flight capture requests.
+    await flushPostHog();
     return new Response(JSON.stringify({ received: true }), {
       status: 200,
       headers: { "Content-Type": "application/json" },

@@ -1,18 +1,21 @@
 ---
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import SessionList from '@/components/dropin/SessionList';
-import { PickupAlertSignup } from '@/components/dropin/PickupAlertSignup';
+import { PickupNotifyBanner } from '@/components/dropin/PickupNotifyBanner';
 
 // SSR — needs request-time host context for org resolution.
 export const prerender = false;
 ---
 
-<BaseLayout title="Drop In — Aspire Sports">
+<BaseLayout
+  title="Drop In — Aspire Sports"
+  description="Browse open drop-in sessions across every Aspire Sports venue. Pay per session, no team or season required — filter by sport, skill, and venue."
+>
   <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
     <div class="max-w-6xl mx-auto">
       <SessionList client:load />
       <div class="max-w-xl mx-auto mt-10">
-        <PickupAlertSignup client:load signedIn={!!Astro.locals.user} />
+        <PickupNotifyBanner client:load signedIn={!!Astro.locals.user} />
       </div>
     </div>
   </main>

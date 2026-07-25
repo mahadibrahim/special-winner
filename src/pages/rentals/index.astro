@@ -39,17 +39,23 @@ if (org) {
 }
 ---
 
-<BaseLayout title="Book a Field — Aspire Sports">
+<BaseLayout
+  title="Request a Field — Aspire Sports"
+  description="Request an indoor field at Aspire Sports for practice, pickup, or events. Pick a venue and date, submit your request, and we'll email you a secure pay link once it's approved."
+>
   <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
     <div class="max-w-4xl mx-auto">
       <div class="mb-8">
-        <h1 class="text-3xl font-bold text-stone-900">Book a Field</h1>
+        <h1 class="text-3xl font-bold text-stone-900">Request a Field</h1>
         <p class="mt-2 text-stone-600">
-          Reserve a field for practice, pickup, or events. Select a venue and
-          date to see available time slots.
+          Request a field for practice, pickup, or events. Select a venue and
+          date to see available time slots — your slot is held while we
+          review the request, and we'll email you a secure link to pay once
+          it's approved. Requests open 48 hours ahead; call us for anything
+          sooner.
         </p>
       </div>
-      <RentalBooking client:load venues={rentalVenues} />
+      <RentalBooking client:load venues={rentalVenues} signedIn={!!Astro.locals.user} />
     </div>
   </main>
 </BaseLayout>

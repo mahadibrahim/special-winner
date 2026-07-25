@@ -74,12 +74,17 @@ async function ensurePlayerOptIn(organizationId: string): Promise<void> {
       .values({
         organizationId,
         phone,
+        channel: "sms",
         status: "opted_in",
         optedInAt: new Date(),
         optInSource: "admin_added",
       })
       .onConflictDoUpdate({
-        target: [phoneOptIns.organizationId, phoneOptIns.phone],
+        target: [
+          phoneOptIns.organizationId,
+          phoneOptIns.phone,
+          phoneOptIns.channel,
+        ],
         set: { status: "opted_in", optedInAt: new Date(), optedOutAt: null },
       });
   }

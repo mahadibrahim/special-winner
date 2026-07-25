@@ -20,7 +20,9 @@ type PersonResult = {
   id: string
   firstName: string
   lastName: string
-  birthDate: string
+  // Null for adult self-registrants whose DOB is still pending
+  // post-payment review.
+  birthDate: string | null
   parentUserId: string | null
   selfUserId: string | null
 }
@@ -241,7 +243,7 @@ function PersonRow({ person }: { person: PersonResult }) {
             {person.firstName} {person.lastName}
           </div>
           <div className="text-xs text-ink-muted">
-            {age != null ? `Age ${age}` : `DOB ${person.birthDate}`}
+            {age != null ? `Age ${age}` : person.birthDate ? `DOB ${person.birthDate}` : "DOB pending"}
             {person.selfUserId ? " · Self" : person.parentUserId ? " · Dependent" : ""}
           </div>
         </div>
@@ -250,7 +252,8 @@ function PersonRow({ person }: { person: PersonResult }) {
   )
 }
 
-function computeAge(birthDate: string): number | null {
+function computeAge(birthDate: string | null): number | null {
+  if (!birthDate) return null
   const dob = new Date(birthDate)
   if (Number.isNaN(dob.getTime())) return null
   const now = new Date()

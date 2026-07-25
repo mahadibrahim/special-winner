@@ -1,0 +1,2 @@
+ALTER TABLE "team_registrations" ADD COLUMN "deposit_payment_intent_id" varchar(255);--> statement-breakpoint
+CREATE UNIQUE INDEX "team_registrations_deposit_pi_uniq" ON "team_registrations" USING btree ("deposit_payment_intent_id");

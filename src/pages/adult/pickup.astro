@@ -4,32 +4,14 @@
 // band reads the org drop-in rate card server-side (falls back to enum
 // defaults if unset). Bold-catalog redesign — see
 // docs/superpowers/specs/2026-06-18-adult-youth-sitemap-redesign-design.md
-import { eq } from "drizzle-orm"
 import BaseLayout from "@/layouts/BaseLayout.astro"
 import CategoryHero from "@/components/landing/category-hero.astro"
-import PickupPricingBand from "@/components/landing/pickup-pricing-band.astro"
 import PickupLevels from "@/components/landing/pickup-levels.astro"
 import PickupPageFinder from "@/components/landing/pickup-page-finder.tsx"
-import { PickupAlertSignup } from "@/components/dropin/PickupAlertSignup"
+import { PickupNotifyBanner } from "@/components/dropin/PickupNotifyBanner"
 import CTABanner from "@/components/cta-banner"
-import { getDb } from "@/lib/db"
-import { dropInRateCard } from "@/lib/db/schema/drop-in"
 import type { HeroTile } from "@/lib/landing/hero-tiles"
 import { setMarketingEdgeCache } from "@/lib/http/edge-cache"
-
-const orgId = Astro.locals.organization?.id ?? null
-let rate = { defaultSessionRateCents: 1500, defaultMemberRateCents: 1200 }
-if (orgId) {
-  const [card] = await getDb()
-    .select({
-      defaultSessionRateCents: dropInRateCard.defaultSessionRateCents,
-      defaultMemberRateCents: dropInRateCard.defaultMemberRateCents,
-    })
-    .from(dropInRateCard)
-    .where(eq(dropInRateCard.organizationId, orgId))
-    .limit(1)
-  if (card) rate = card
-}
 
 const tiles: HeroTile[] = [
   { label: "Soccer", key: "soccer", state: "live", statusLabel: "● Open this week", meta: "Sessions most nights", color: "oklch(0.66 0.21 35)" },
@@ -61,13 +43,12 @@ setMarketingEdgeCache(Astro);
       crosslink={{ prompt: "Ready for a season?", href: "/adult/leagues", label: "Adult leagues →" }}
     />
 
-    <PickupPricingBand rate={rate} />
     <PickupLevels />
 
     <PickupPageFinder client:load />
 
     <div class="max-w-xl mx-auto px-4 mb-16">
-      <PickupAlertSignup client:load signedIn={!!Astro.locals.user} />
+      <PickupNotifyBanner client:load signedIn={!!Astro.locals.user} />
     </div>
 
     <CTABanner client:visible />

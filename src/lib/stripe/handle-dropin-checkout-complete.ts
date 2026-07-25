@@ -314,6 +314,7 @@ export async function handleDropInCheckoutComplete(
     // Brand-attributed for two-brand segmentation.
     capturePaymentCompleted({
       distinctId: userId,
+      clientDistinctId: session.metadata?.ph_distinct_id,
       kind: "dropin",
       amountCents: session.amount_total ?? 0,
       brand,

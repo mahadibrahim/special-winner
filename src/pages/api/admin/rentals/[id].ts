@@ -11,14 +11,20 @@
 import type { APIRoute } from "astro";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { fieldRentals } from "@/lib/db/schema/field-rentals";
+import { fieldRentals, fieldRentalPlayers } from "@/lib/db/schema/field-rentals";
 import { venues } from "@/lib/db/schema/teams";
 import { requireOrgAdminAccess } from "@/lib/auth/roles";
 import { callerCanActOnVenue } from "@/lib/admin/require-location-scope";
 import { assertNoRentalConflict } from "@/lib/rentals/conflicts";
-import { BlockConflictError } from "@/lib/scheduling/blocks";
+import { BlockConflictError, removeSourceBlock } from "@/lib/scheduling/blocks";
 import { syncRentalBlock } from "@/lib/scheduling/sync";
 import { zonedHourToUtc } from "@/lib/activity-tracking/tz-day";
+import {
+  dispatchRentalConfirmation,
+  dispatchRentalRequestApproved,
+  dispatchRentalRequestDeclined,
+} from "@/lib/rentals/messages/dispatch";
+import { addRequesterAsSignedPlayer } from "@/lib/rentals/players";
 
 export const prerender = false;
 
@@ -27,6 +33,20 @@ const json = (body: unknown, status: number) =>
     status,
     headers: { "Content-Type": "application/json" },
   });
+
+/**
+ * Auto-add the requester as player #1 on approve — they accepted the waiver
+ * at request time, so record them as already signed (no invite email). Only
+ * fires for an online-booked (renterUserId-bearing) rental; a GUEST rental
+ * has a null renterUserId at approval and instead gets its requester added
+ * when the guest claims (the shared helper is also called from the claim
+ * endpoint). The shared helper's own existence-check + onConflictDoNothing
+ * guard against a double-click re-running approve, or a resend/webhook race.
+ */
+async function autoAddRequesterAsPlayer(rental: typeof fieldRentals.$inferSelect) {
+  if (!rental.renterUserId) return;
+  await addRequesterAsSignedPlayer(rental);
+}
 
 export const GET: APIRoute = async (context) => {
   const auth = await requireOrgAdminAccess(context);
@@ -47,7 +67,34 @@ export const GET: APIRoute = async (context) => {
   if (!(await callerCanActOnVenue(context, row.field_rentals.venueId))) {
     return json({ error: "Rental not found" }, 404);
   }
-  return json({ rental: row.field_rentals, venue: row.venues }, 200);
+
+  // Roster is read-only from this admin surface — the renter-owned
+  // GET /api/rentals/bookings/:id/players checks renterUserId, which an
+  // admin caller never satisfies, so the roster rides along in this
+  // response instead of a separate admin players endpoint.
+  const playerRows = await getDb()
+    .select({
+      id: fieldRentalPlayers.id,
+      playerName: fieldRentalPlayers.playerName,
+      isMinor: fieldRentalPlayers.isMinor,
+      signerEmail: fieldRentalPlayers.signerEmail,
+      status: fieldRentalPlayers.status,
+      signedAt: fieldRentalPlayers.signedAt,
+    })
+    .from(fieldRentalPlayers)
+    .where(eq(fieldRentalPlayers.rentalId, rentalId));
+  const playersSigned = playerRows.filter((p) => p.status === "signed").length;
+
+  return json(
+    {
+      rental: row.field_rentals,
+      venue: row.venues,
+      players: playerRows,
+      playersSigned,
+      playersTotal: playerRows.length,
+    },
+    200,
+  );
 };
 
 export const PATCH: APIRoute = async (context) => {
@@ -61,6 +108,8 @@ export const PATCH: APIRoute = async (context) => {
     notes?: string;
     purpose?: string;
     cancel?: boolean;
+    approve?: boolean;
+    decline?: boolean;
     reschedule?: { date: string; startHour: number; durationMinutes: number };
   };
   try {
@@ -80,6 +129,72 @@ export const PATCH: APIRoute = async (context) => {
   }
   if (!(await callerCanActOnVenue(context, rental.venueId))) {
     return json({ error: "Rental not found" }, 404);
+  }
+
+  // --- approve / decline a requested rental ---
+  if (body.approve === true || body.decline === true) {
+    if (rental.status !== "requested") {
+      return json({ error: "Only requested rentals can be approved or declined" }, 422);
+    }
+
+    if (body.decline === true) {
+      const [updated] = await db
+        .update(fieldRentals)
+        .set({
+          status: "cancelled",
+          cancelledAt: new Date(),
+          cancellationReason: "venue_unavailable",
+          requestExpiresAt: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(fieldRentals.id, rentalId))
+        .returning();
+      await removeSourceBlock("rental", rentalId);
+      await dispatchRentalRequestDeclined(rentalId).catch((e) =>
+        console.error("[rentals] decline dispatch failed", e),
+      );
+      return json({ rental: updated }, 200);
+    }
+
+    // approve
+    if (rental.amountDueCents === 0) {
+      const [updated] = await db
+        .update(fieldRentals)
+        .set({
+          status: "confirmed",
+          paymentMethod: "comp",
+          paymentStatus: "paid",
+          requestExpiresAt: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(fieldRentals.id, rentalId))
+        .returning();
+      await syncRentalBlock(rentalId);
+      await autoAddRequesterAsPlayer(rental);
+      await dispatchRentalConfirmation(rentalId).catch((e) =>
+        console.error("[rentals] confirm dispatch failed", e),
+      );
+      return json({ rental: updated }, 200);
+    }
+
+    const [updated] = await db
+      .update(fieldRentals)
+      .set({
+        status: "pending_payment",
+        paymentMethod: "card_online",
+        requestExpiresAt: null,
+        paymentExpiresAt: new Date(Date.now() + 24 * 60 * 60_000),
+        updatedAt: new Date(),
+      })
+      .where(eq(fieldRentals.id, rentalId))
+      .returning();
+    // Refresh the ledger block so its expiry tracks the 24h pay window.
+    await syncRentalBlock(rentalId);
+    await autoAddRequesterAsPlayer(rental);
+    await dispatchRentalRequestApproved(rentalId).catch((e) =>
+      console.error("[rentals] approve dispatch failed", e),
+    );
+    return json({ rental: updated }, 200);
   }
 
   // --- reschedule action (conflict-checked + ledger re-sync) ---

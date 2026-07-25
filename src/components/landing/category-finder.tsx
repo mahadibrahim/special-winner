@@ -12,10 +12,12 @@ import {
 import { SeasonsFinderSection } from "./seasons-finder-section"
 import { FilterChips, type ChipOption } from "./filter-chips"
 import type { ApiSeason } from "@/lib/programs/api-season"
+import { fetchPublicCatalogSeasons } from "@/lib/programs/public-seasons-client"
 
 /**
  * The island behind an audience-scoped category page (/adult/leagues,
- * /youth/camps, …). Fetches the open-seasons catalog once, scopes it to
+ * /youth/camps, …). Fetches the public catalog once (open + forming, same
+ * inventory as /programs), scopes it to
  * this page's audience + program types, sorts soonest-deadline-first, and
  * renders the existing SeasonsFinderSection (which owns the Format/Sport/
  * Venue chips, pagination, and the empty states — including the
@@ -53,10 +55,16 @@ export default function CategoryFinder({
 
   useEffect(() => {
     let cancelled = false
-    fetch("/api/public/seasons?status=open")
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error())))
-      .then((j: { seasons: ApiSeason[] }) => {
-        if (!cancelled) setSeasons(j.seasons)
+    // Fetch the full public set (default returns open/active/forming) and keep
+    // the advertisable ones — open (register) and forming (interest list) —
+    // mirroring programs-catalog.tsx, so category finders show the same
+    // inventory as the catalog. Forming cards render their interest form.
+    // The fetch is memoized module-wide so the facts band / calendar band on
+    // the same page share this one request.
+    fetchPublicCatalogSeasons()
+      .then((all) => {
+        if (!cancelled)
+          setSeasons(all.filter((s) => s.status === "open" || s.status === "forming"))
       })
       .catch(() => {
         // Silent — the section renders its own empty state.

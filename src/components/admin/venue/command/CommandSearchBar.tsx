@@ -21,7 +21,9 @@ type PersonResult = {
   id: string
   firstName: string
   lastName: string
-  birthDate: string
+  // Null for adult self-registrants whose DOB is still pending
+  // post-payment review.
+  birthDate: string | null
   parentUserId: string | null
   selfUserId: string | null
 }
@@ -42,7 +44,8 @@ interface Props {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function computeAge(birthDate: string): number | null {
+function computeAge(birthDate: string | null): number | null {
+  if (!birthDate) return null
   const dob = new Date(birthDate)
   if (Number.isNaN(dob.getTime())) return null
   const now = new Date()
@@ -231,7 +234,11 @@ export function CommandSearchBar({ onOpenPerson, onWalkIn, onFindBooking }: Prop
                               {person.firstName} {person.lastName}
                             </div>
                             <div className="text-[12px] text-[#8a8175] truncate">
-                              {age != null ? `Age ${age}` : `DOB ${person.birthDate}`}
+                              {age != null
+                                ? `Age ${age}`
+                                : person.birthDate
+                                  ? `DOB ${person.birthDate}`
+                                  : "DOB pending"}
                               {person.selfUserId
                                 ? " · self"
                                 : person.parentUserId

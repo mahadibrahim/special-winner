@@ -49,6 +49,10 @@ export interface FeedbackRequestMetadata {
    * time without a polymorphic join back to the booking.
    */
   venueId?: string;
+  /** nps_drop_in only — the session's community host, when one was assigned. */
+  hostUserId?: string;
+  /** nps_drop_in only — display name shown on the rating form. */
+  hostName?: string;
 }
 
 // === tables ===

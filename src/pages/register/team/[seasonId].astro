@@ -1,7 +1,9 @@
 ---
 // The standalone team registration page is retired — team creation now lives
 // inside the unified /register/{seasonId} experience (choose "Bring a team").
-// 301 so old links/bookmarks resolve to the canonical entry.
+// 301 so old links/bookmarks resolve to the canonical entry. Carries
+// ?mode=team so the visitor lands directly on team-create instead of being
+// re-asked "How do you want to join?" by the chooser.
 const { seasonId } = Astro.params;
-return Astro.redirect(`/register/${seasonId ?? ""}`, 301);
+return Astro.redirect(`/register/${seasonId ?? ""}?mode=team`, 301);
 ---

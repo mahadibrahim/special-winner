@@ -17,8 +17,15 @@ import { users } from "./users";
 export const selfServiceTokenKindEnum = pgEnum("self_service_token_kind", [
   "drop_in_booking",
   "field_rental",
+  "rental_player",
+  "rental_claim",
   "roster_entry",
   "walkin_session",
+  // Email double opt-in. targetId = the users.id the consent hangs off; the
+  // token is delivered to the address itself, so clicking it is the proof of
+  // mailbox ownership that promotes a pending email consent (see
+  // /api/consent/confirm/[token]).
+  "email_consent",
 ]);
 
 export const selfServiceSendChannelEnum = pgEnum("self_service_send_channel", [
