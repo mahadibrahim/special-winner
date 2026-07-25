@@ -141,6 +141,9 @@ jobs:
   # run real queries at build time (SELECT FROM sports …) and hard-fail
   # on a connection error.
   build:
+    # PR + manual only. Post-merge relies on Netlify's own build for the deploy,
+    # so re-running build on push is a redundant ~2.5m (CI cost dedup).
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -164,8 +167,10 @@ jobs:
       - name: Build
         run: npm run build
 
-  # ── Full API integration tests (every event) ───────────────────────
+  # ── Full API integration tests (PR + manual; post-merge runs test-full) ──
   test-api:
+    # PR + manual only — already gates the PR; skip the ~5m re-run on merge.
+    if: github.event_name != 'push'
     runs-on: ubuntu-latest
     services:
       postgres:
