@@ -43,18 +43,6 @@ export * from "./merch";
 // Merch orders (merch shop Phase 2)
 export * from "./merch-orders";
 
-// Team kits (merch Phase 3a)
-// NOTE: merchProductSourceEnum + ProductPersonalization are excluded here —
-// they're re-homed to merch-stores.ts (Task 1.1) and re-exporting both via
-// `export *` collides (TS2308). merch-team-kits.ts still declares its own
-// copies for its own internal use until it's retired in Slice 4.
-export {
-  merchTeamKits,
-  merchTeamKitsRelations,
-  type MerchTeamKit,
-  type NewMerchTeamKit,
-} from "./merch-team-kits";
-
 // Multi-store foundation (merch Phase 3b)
 export * from "./merch-stores";
 
