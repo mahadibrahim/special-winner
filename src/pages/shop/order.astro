@@ -14,6 +14,13 @@ if (sessionId && org && stripe) {
   if (row) { order = row; items = await getDb().select().from(merchOrderItems).where(eq(merchOrderItems.orderId, row.id)); }
 }
 if (!order) return new Response("Not found", { status: 404 });
+
+let session = null;
+try { session = await stripe!.checkout.sessions.retrieve(sessionId!); } catch { /* fall back to order row */ }
+const shippingCents = session?.total_details?.amount_shipping ?? order.shippingCents;
+const taxCents = session?.total_details?.amount_tax ?? order.taxCents;
+const totalCents = session?.amount_total ?? order.totalCents;
+
 const money = (c: number) => `$${(c / 100).toFixed(2)}`;
 ---
 <BaseLayout title="Order confirmed — Aspire Sports" description="Your order is confirmed.">
@@ -29,9 +36,9 @@ const money = (c: number) => `$${(c / 100).toFixed(2)}`;
       ))}
     </ul>
     <div class="mt-4 text-sm text-ink">
-      <p class="flex justify-between"><span>Shipping</span><span>{money(order.shippingCents)}</span></p>
-      <p class="flex justify-between"><span>Tax</span><span>{money(order.taxCents)}</span></p>
-      <p class="flex justify-between font-medium"><span>Total</span><span>{money(order.totalCents)}</span></p>
+      <p class="flex justify-between"><span>Shipping</span><span>{money(shippingCents)}</span></p>
+      <p class="flex justify-between"><span>Tax</span><span>{money(taxCents)}</span></p>
+      <p class="flex justify-between font-medium"><span>Total</span><span>{money(totalCents)}</span></p>
     </div>
     <a href="/shop" class="mt-8 inline-block text-sm text-ink-muted hover:text-ink">← Back to shop</a>
   </main>

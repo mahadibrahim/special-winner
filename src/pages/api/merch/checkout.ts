@@ -64,11 +64,27 @@ export const POST: APIRoute = async (context) => {
       printfulSyncVariantId: p.printfulSyncVariantId, unitPriceCents: p.unitPriceCents, quantity: p.quantity,
     })));
 
+    const a = parsed.data.address;
+    const stripeAddress = {
+      line1: a.address1,
+      line2: a.address2 ?? undefined,
+      city: a.city,
+      state: a.state,
+      postal_code: a.zip,
+      country: a.country,
+    };
+    const customer = await stripe.customers.create({
+      email: parsed.data.email,
+      name: a.name,
+      address: stripeAddress,
+      shipping: { name: a.name, address: stripeAddress },
+    });
+
     const appUrl = new URL(context.request.url).origin;
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
-      customer_email: parsed.data.email,
+      customer: customer.id,
       line_items: buildMerchLineItems(priced.map((p) => ({
         productName: p.productName, variantLabel: [p.color, p.size].filter(Boolean).join(" · "),
         unitPriceCents: p.unitPriceCents, quantity: p.quantity,
@@ -76,7 +92,6 @@ export const POST: APIRoute = async (context) => {
       shipping_options: [{
         shipping_rate_data: { type: "fixed_amount", display_name: "Shipping", fixed_amount: { amount: shippingCents, currency: "usd" } },
       }],
-      shipping_address_collection: { allowed_countries: ["US"] },
       automatic_tax: { enabled: true },
       metadata: { type: "merch_order", order_id: order.id, organization_id: org.id },
       success_url: `${appUrl}/shop/order?session_id={CHECKOUT_SESSION_ID}`,
