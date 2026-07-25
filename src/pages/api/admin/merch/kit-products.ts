@@ -26,7 +26,7 @@ export const GET: APIRoute = async (context) => {
   if (!auth.authorized) return auth.response;
   try {
     const kitId = new URL(context.request.url).searchParams.get("kitId");
-    if (!kitId) return json({ error: "kitId required" }, 400);
+    if (!kitId || !z.string().uuid().safeParse(kitId).success) return json({ error: "Valid kitId required" }, 400);
     if (!(await getKitById(auth.organizationId, kitId))) return json({ error: "Not found" }, 404);
     const products = await getDb().select().from(merchProducts).where(eq(merchProducts.kitId, kitId));
     const withVariants = await Promise.all(products.map(async (p) => ({
@@ -52,31 +52,34 @@ export const POST: APIRoute = async (context) => {
     const d = parsed.data;
     // slug unique per org — suffix the kit id fragment to avoid collisions across kits
     const slug = `${slugify(d.name)}-${parsed.data.kitId.slice(0, 8)}`;
-    const [product] = await db.insert(merchProducts).values({
-      organizationId: auth.organizationId,
-      printfulSyncProductId: null,
-      source: "manual",
-      fulfillmentType: "pickup",
-      kitId: d.kitId,
-      name: d.name,
-      slug,
-      description: d.description ?? null,
-      category: d.category,
-      images: d.imageUrl ? [{ url: d.imageUrl }] : null,
-      personalization: d.personalization ?? null,
-      active: d.active,
-    }).returning({ id: merchProducts.id });
-    await db.insert(merchVariants).values(d.sizes.map((size, i) => ({
-      productId: product.id,
-      printfulSyncVariantId: null,
-      printfulVariantId: null,
-      name: `${d.name} / ${size}`,
-      size,
-      color: null,
-      sku: null,
-      retailPriceCents: d.priceCents,
-      sortOrder: i,
-    })));
+    const [product] = await db.transaction(async (tx) => {
+      const [prod] = await tx.insert(merchProducts).values({
+        organizationId: auth.organizationId,
+        printfulSyncProductId: null,
+        source: "manual",
+        fulfillmentType: "pickup",
+        kitId: d.kitId,
+        name: d.name,
+        slug,
+        description: d.description ?? null,
+        category: d.category,
+        images: d.imageUrl ? [{ url: d.imageUrl }] : null,
+        personalization: d.personalization ?? null,
+        active: d.active,
+      }).returning({ id: merchProducts.id });
+      await tx.insert(merchVariants).values(d.sizes.map((size, i) => ({
+        productId: prod.id,
+        printfulSyncVariantId: null,
+        printfulVariantId: null,
+        name: `${d.name} / ${size}`,
+        size,
+        color: null,
+        sku: null,
+        retailPriceCents: d.priceCents,
+        sortOrder: i,
+      })));
+      return [prod];
+    });
     return json({ productId: product.id }, 201);
   } catch (error) {
     console.error("Error creating kit product:", error);
