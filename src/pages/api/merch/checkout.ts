@@ -9,101 +9,198 @@ import { upsertGuestUser } from "@/lib/registrations/upsert-guest-user";
 import { isPrintfulConfigured, calculateShipping, PrintfulApiError } from "@/lib/printful/client";
 import { toPrintfulRecipient, pickCheapestRate, shippingRateToCents } from "@/lib/printful/order-mappers";
 import { assembleQuote } from "@/lib/merch/quote";
-import { repriceCartItems } from "@/lib/merch/reprice";
+import { repriceStoreCartItems } from "@/lib/merch/reprice";
 import { buildMerchLineItems } from "@/lib/merch/checkout-line-items";
+import { partitionByFulfillment, lineNeedsShipping } from "@/lib/merch/checkout-store";
+import { getStoreById, isStoreShoppable } from "@/lib/merch/stores";
+import { getOrgOriginAddress } from "@/lib/merch/org-origin";
+
+const addressSchema = z.object({
+  name: z.string().trim().min(1),
+  address1: z.string().min(1),
+  address2: z.string().optional().nullable(),
+  city: z.string().min(1),
+  state: z.string().min(2),
+  zip: z.string().min(3),
+  country: z.string().length(2),
+});
+
+const personalizationSchema = z.object({
+  name: z.string().max(40).optional(),
+  number: z.string().max(10).optional(),
+}).optional().nullable();
 
 const schema = z.object({
+  storeId: z.string().uuid(),
   email: z.string().email(),
-  address: z.object({
-    name: z.string().trim().min(1), address1: z.string().min(1), address2: z.string().optional().nullable(),
-    city: z.string().min(1), state: z.string().min(2), zip: z.string().min(3), country: z.string().length(2),
-  }),
-  items: z.array(z.object({ variantId: z.string().uuid(), quantity: z.number().int().min(1).max(50) })).min(1),
+  address: addressSchema.optional().nullable(),
+  items: z.array(z.object({
+    variantId: z.string().uuid(),
+    quantity: z.number().int().min(1).max(50),
+    personalization: personalizationSchema,
+  })).min(1),
 });
+
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
 export const POST: APIRoute = async (context) => {
   const ip = context.clientAddress ?? "unknown";
   const limit = rateLimit(`merch-checkout:ip:${ip}`, 10, 60_000);
   if (!limit.allowed) return rateLimitedResponse(limit.retryAfter ?? 60);
-  if (!stripe || !isPrintfulConfigured()) return new Response(JSON.stringify({ error: "Checkout unavailable" }), { status: 503 });
+  if (!stripe) return json({ error: "Checkout unavailable" }, 503);
 
   const org = context.locals.organization;
-  if (!org) return new Response(JSON.stringify({ error: "No organization" }), { status: 400 });
+  if (!org) return json({ error: "No organization" }, 400);
 
   const parsed = schema.safeParse(await context.request.json().catch(() => null));
-  if (!parsed.success) return new Response(JSON.stringify({ error: "Invalid", details: parsed.error.flatten() }), { status: 400 });
+  if (!parsed.success) return json({ error: "Invalid", details: parsed.error.flatten() }, 400);
 
-  // server-authoritative re-price: only active variants of active products in this org
+  const store = await getStoreById(org.id, parsed.data.storeId);
+  if (!store) return json({ error: "Store not found" }, 404);
+  if (!isStoreShoppable(store, new Date())) {
+    return json({ error: "This store isn't accepting orders right now" }, 422);
+  }
+
   const db = getDb();
-  const repriced = await repriceCartItems(org.id, parsed.data.items);
-  if (!repriced.ok) return new Response(JSON.stringify({ error: "Some items are unavailable" }), { status: 422 });
+  const repriced = await repriceStoreCartItems(store.id, parsed.data.items);
+  if (!repriced.ok) return json({ error: "Some items are unavailable" }, 422);
   const priced = repriced.lines;
+  const { printful } = partitionByFulfillment(priced);
+  const needsShipping = priced.some(lineNeedsShipping);
 
-  // live shipping + order creation + Stripe session
+  // required personalization present? (relies on repriceStoreCartItems preserving request order)
+  for (let i = 0; i < priced.length; i++) {
+    const cfg = priced[i].personalizationConfig;
+    const val = parsed.data.items[i]?.personalization ?? null;
+    if (cfg?.name && !val?.name) return json({ error: "Name required for a personalized item" }, 422);
+    if (cfg?.number && !val?.number) return json({ error: "Number required for a personalized item" }, 422);
+  }
+
   try {
-    const rates = await calculateShipping(toPrintfulRecipient(parsed.data.address), priced.map((p) => ({ variant_id: p.printfulVariantId, quantity: p.quantity })));
-    const cheapest = pickCheapestRate(rates);
-    if (!cheapest) return new Response(JSON.stringify({ error: "We can't ship to that address" }), { status: 422, headers: { "Content-Type": "application/json" } });
-    const shippingCents = shippingRateToCents(cheapest.rate);
+    // ---- shipping (printful/self-shipped lines only) ----
+    let shippingCents = 0;
+    if (needsShipping) {
+      if (!isPrintfulConfigured()) return json({ error: "Shipping unavailable" }, 503);
+      if (!parsed.data.address) return json({ error: "Shipping address required" }, 422);
+      const rates = await calculateShipping(
+        toPrintfulRecipient(parsed.data.address),
+        printful
+          .filter((p) => p.printfulVariantId !== null)
+          .map((p) => ({ variant_id: p.printfulVariantId as number, quantity: p.quantity })),
+      );
+      const cheapest = pickCheapestRate(rates);
+      if (!cheapest) return json({ error: "We can't ship to that address" }, 422);
+      shippingCents = shippingRateToCents(cheapest.rate);
+    }
 
-    const quote = assembleQuote(priced.map((p) => ({ unitPriceCents: p.unitPriceCents, quantity: p.quantity })), shippingCents);
+    const quote = assembleQuote(
+      priced.map((p) => ({ unitPriceCents: p.unitPriceCents, quantity: p.quantity })),
+      shippingCents,
+    );
 
-    // guest user + order (pending)
-    const [firstName, ...rest] = parsed.data.address.name.trim().split(/\s+/);
-    const { userRow } = await upsertGuestUser(db, { email: parsed.data.email, firstName: firstName ?? parsed.data.email, lastName: rest.join(" ") || "-" });
+    // guest user
+    const nameForUser = parsed.data.address?.name ?? parsed.data.email;
+    const [firstName, ...rest] = nameForUser.trim().split(/\s+/);
+    const { userRow } = await upsertGuestUser(db, {
+      email: parsed.data.email,
+      firstName: firstName ?? parsed.data.email,
+      lastName: rest.join(" ") || "-",
+    });
 
+    // order (pending). shippingAddress: real address if shipping, else the store pickup marker.
+    const shippingAddress = parsed.data.address ?? {
+      name: nameForUser,
+      address1: store.pickupLocation ?? "Pickup",
+      city: "-",
+      state: "-",
+      zip: "-",
+      country: "US",
+    };
     const [order] = await db.insert(merchOrders).values({
-      organizationId: org.id, userId: userRow.id, email: parsed.data.email, status: "pending",
-      shippingAddress: parsed.data.address, subtotalCents: quote.subtotalCents, shippingCents, taxCents: 0,
-      totalCents: quote.totalBeforeTaxCents, currency: "usd",
+      organizationId: org.id,
+      storeId: store.id,
+      userId: userRow.id,
+      email: parsed.data.email,
+      status: "pending",
+      shippingAddress,
+      subtotalCents: quote.subtotalCents,
+      shippingCents,
+      taxCents: 0,
+      totalCents: quote.totalBeforeTaxCents,
+      currency: "usd",
     }).returning({ id: merchOrders.id });
 
-    await db.insert(merchOrderItems).values(priced.map((p) => ({
-      orderId: order.id, merchVariantId: p.variantId, fulfillmentType: "printful_pod" as const,
-      productName: p.productName, variantName: p.variantName, size: p.size, color: p.color,
-      printfulSyncVariantId: p.printfulSyncVariantId, unitPriceCents: p.unitPriceCents, quantity: p.quantity,
+    await db.insert(merchOrderItems).values(priced.map((p, i) => ({
+      orderId: order.id,
+      merchVariantId: p.variantId,
+      fulfillmentType: p.fulfillmentType,
+      productName: p.productName,
+      variantName: p.variantName,
+      size: p.size,
+      color: p.color,
+      printfulSyncVariantId: p.printfulSyncVariantId,
+      personalization: parsed.data.items[i]?.personalization ?? null,
+      unitPriceCents: p.unitPriceCents,
+      quantity: p.quantity,
     })));
 
-    const a = parsed.data.address;
-    const stripeAddress = {
-      line1: a.address1,
-      line2: a.address2 ?? undefined,
-      city: a.city,
-      state: a.state,
-      postal_code: a.zip,
-      country: a.country,
-    };
+    // Stripe customer — address drives Stripe Tax. Shipping order: buyer address.
+    // Pickup order: org origin (Ohio) so tax computes at the pickup jurisdiction.
+    const taxAddr = parsed.data.address
+      ? {
+          line1: parsed.data.address.address1,
+          line2: parsed.data.address.address2 ?? undefined,
+          city: parsed.data.address.city,
+          state: parsed.data.address.state,
+          postal_code: parsed.data.address.zip,
+          country: parsed.data.address.country,
+        }
+      : await getOrgOriginAddress(org.id);
     const customer = await stripe.customers.create({
       email: parsed.data.email,
-      name: a.name,
-      address: stripeAddress,
-      shipping: { name: a.name, address: stripeAddress },
+      name: nameForUser,
+      address: taxAddr,
+      ...(parsed.data.address ? { shipping: { name: nameForUser, address: taxAddr } } : {}),
     });
 
     const appUrl = new URL(context.request.url).origin;
+    const backPath = `/shop/${store.slug}${store.visibility === "unlisted" ? `?k=${store.shareToken}` : ""}`;
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
       customer: customer.id,
       line_items: buildMerchLineItems(priced.map((p) => ({
-        productName: p.productName, variantLabel: [p.color, p.size].filter(Boolean).join(" · "),
-        unitPriceCents: p.unitPriceCents, quantity: p.quantity,
+        productName: p.productName,
+        variantLabel: [p.color, p.size].filter(Boolean).join(" · "),
+        unitPriceCents: p.unitPriceCents,
+        quantity: p.quantity,
       })), "usd"),
-      shipping_options: [{
-        shipping_rate_data: { type: "fixed_amount", display_name: "Shipping", fixed_amount: { amount: shippingCents, currency: "usd" } },
-      }],
+      ...(needsShipping
+        ? {
+            shipping_options: [{
+              shipping_rate_data: {
+                type: "fixed_amount" as const,
+                display_name: "Shipping",
+                fixed_amount: { amount: shippingCents, currency: "usd" },
+              },
+            }],
+          }
+        : {}),
       automatic_tax: { enabled: true },
       metadata: { type: "merch_order", order_id: order.id, organization_id: org.id },
       success_url: `${appUrl}/shop/order?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${appUrl}/shop/checkout`,
+      cancel_url: `${appUrl}${backPath}`,
     }, { idempotencyKey: `merch:${order.id}:session` });
 
-    await db.update(merchOrders).set({ stripeCheckoutSessionId: session.id, updatedAt: new Date() }).where(eq(merchOrders.id, order.id));
+    await db.update(merchOrders)
+      .set({ stripeCheckoutSessionId: session.id, updatedAt: new Date() })
+      .where(eq(merchOrders.id, order.id));
 
-    return new Response(JSON.stringify({ url: session.url }), { status: 200, headers: { "Content-Type": "application/json" } });
+    return json({ url: session.url }, 200);
   } catch (e) {
-    if (e instanceof PrintfulApiError) return new Response(JSON.stringify({ error: "Shipping quote failed" }), { status: 502, headers: { "Content-Type": "application/json" } });
+    if (e instanceof PrintfulApiError) return json({ error: "Shipping quote failed" }, 502);
     console.error("merch checkout failed", e);
-    return new Response(JSON.stringify({ error: "We couldn't start checkout. Please try again." }), { status: 500, headers: { "Content-Type": "application/json" } });
+    return json({ error: "We couldn't start checkout. Please try again." }, 500);
   }
 };

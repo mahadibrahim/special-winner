@@ -4,49 +4,88 @@ import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 import { isPrintfulConfigured, calculateShipping, PrintfulApiError } from "@/lib/printful/client";
 import { toPrintfulRecipient, pickCheapestRate, shippingRateToCents } from "@/lib/printful/order-mappers";
 import { assembleQuote } from "@/lib/merch/quote";
-import { repriceCartItems } from "@/lib/merch/reprice";
+import { repriceStoreCartItems } from "@/lib/merch/reprice";
+import { partitionByFulfillment, lineNeedsShipping } from "@/lib/merch/checkout-store";
+import { getStoreById, isStoreShoppable } from "@/lib/merch/stores";
 
 const schema = z.object({
+  storeId: z.string().uuid(),
   address: z.object({
     name: z.string().min(1), address1: z.string().min(1), address2: z.string().optional().nullable(),
     city: z.string().min(1), state: z.string().min(2), zip: z.string().min(3), country: z.string().length(2),
-  }),
-  items: z.array(z.object({ variantId: z.string().uuid(), quantity: z.number().int().min(1).max(50) })).min(1),
+  }).optional().nullable(),
+  items: z.array(z.object({
+    variantId: z.string().uuid(),
+    quantity: z.number().int().min(1).max(50),
+    personalization: z.object({
+      name: z.string().max(40).optional(),
+      number: z.string().max(10).optional(),
+    }).optional().nullable(),
+  })).min(1),
 });
+
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
 export const POST: APIRoute = async (context) => {
   const ip = context.clientAddress ?? "unknown";
   const limit = rateLimit(`merch-quote:ip:${ip}`, 20, 60_000);
   if (!limit.allowed) return rateLimitedResponse(limit.retryAfter ?? 60);
-  if (!isPrintfulConfigured()) return new Response(JSON.stringify({ error: "Shop unavailable" }), { status: 503 });
 
   const org = context.locals.organization;
-  if (!org) return new Response(JSON.stringify({ error: "No organization" }), { status: 400 });
+  if (!org) return json({ error: "No organization" }, 400);
 
   const parsed = schema.safeParse(await context.request.json().catch(() => null));
-  if (!parsed.success) return new Response(JSON.stringify({ error: "Invalid", details: parsed.error.flatten() }), { status: 400 });
+  if (!parsed.success) return json({ error: "Invalid", details: parsed.error.flatten() }, 400);
 
-  // server-authoritative re-price: only active variants of active products in this org
-  const repriced = await repriceCartItems(org.id, parsed.data.items);
-  if (!repriced.ok) return new Response(JSON.stringify({ error: "Some items are unavailable" }), { status: 422 });
+  const store = await getStoreById(org.id, parsed.data.storeId);
+  if (!store) return json({ error: "Store not found" }, 404);
+  if (!isStoreShoppable(store, new Date())) {
+    return json({ error: "This store isn't accepting orders right now" }, 422);
+  }
+
+  // server-authoritative re-price: only active variants of active products in this store
+  const repriced = await repriceStoreCartItems(store.id, parsed.data.items);
+  if (!repriced.ok) return json({ error: "Some items are unavailable" }, 422);
   const priced = repriced.lines;
+  const { printful } = partitionByFulfillment(priced);
+  const needsShipping = priced.some(lineNeedsShipping);
 
   try {
-    const rates = await calculateShipping(
-      toPrintfulRecipient(parsed.data.address),
-      priced.map((p) => ({ variant_id: p.printfulVariantId, quantity: p.quantity })),
+    let shippingCents = 0;
+    if (needsShipping) {
+      if (!isPrintfulConfigured()) return json({ error: "Shop unavailable" }, 503);
+      if (!parsed.data.address) return json({ error: "Shipping address required" }, 422);
+      const rates = await calculateShipping(
+        toPrintfulRecipient(parsed.data.address),
+        printful
+          .filter((p) => p.printfulVariantId !== null)
+          .map((p) => ({ variant_id: p.printfulVariantId as number, quantity: p.quantity })),
+      );
+      const cheapest = pickCheapestRate(rates);
+      if (!cheapest) return json({ error: "We can't ship to that address" }, 422);
+      shippingCents = shippingRateToCents(cheapest.rate);
+    }
+
+    const quote = assembleQuote(
+      priced.map((p) => ({ unitPriceCents: p.unitPriceCents, quantity: p.quantity })),
+      shippingCents,
     );
-    const cheapest = pickCheapestRate(rates);
-    if (!cheapest) return new Response(JSON.stringify({ error: "We can't ship to that address" }), { status: 422 });
-    const shippingCents = shippingRateToCents(cheapest.rate);
-    const quote = assembleQuote(priced.map((p) => ({ unitPriceCents: p.unitPriceCents, quantity: p.quantity })), shippingCents);
-    return new Response(JSON.stringify({
-      ...quote, currency: "usd",
+    return json({
+      ...quote,
+      currency: "usd",
+      store: {
+        id: store.id,
+        name: store.name,
+        pickupLocation: store.pickupLocation,
+        orderOpensAt: store.orderOpensAt,
+        orderClosesAt: store.orderClosesAt,
+      },
       items: priced.map((p) => ({ variantId: p.variantId, unitPriceCents: p.unitPriceCents, quantity: p.quantity })),
-    }), { status: 200, headers: { "Content-Type": "application/json" } });
+    }, 200);
   } catch (e) {
-    if (e instanceof PrintfulApiError) return new Response(JSON.stringify({ error: "Shipping quote failed" }), { status: 502 });
+    if (e instanceof PrintfulApiError) return json({ error: "Shipping quote failed" }, 502);
     console.error("merch quote failed", e);
-    return new Response(JSON.stringify({ error: "Quote failed" }), { status: 500 });
+    return json({ error: "Quote failed" }, 500);
   }
 };
