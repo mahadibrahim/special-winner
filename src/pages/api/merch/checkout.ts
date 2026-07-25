@@ -33,6 +33,7 @@ const personalizationSchema = z.object({
 const schema = z.object({
   storeId: z.string().uuid(),
   email: z.string().email(),
+  name: z.string().trim().min(1).max(120).optional(),
   address: addressSchema.optional().nullable(),
   items: z.array(z.object({
     variantId: z.string().uuid(),
@@ -100,7 +101,7 @@ export const POST: APIRoute = async (context) => {
     );
 
     // guest user
-    const nameForUser = parsed.data.address?.name ?? parsed.data.email;
+    const nameForUser = parsed.data.name ?? parsed.data.address?.name ?? parsed.data.email;
     const [firstName, ...rest] = nameForUser.trim().split(/\s+/);
     const { userRow } = await upsertGuestUser(db, {
       email: parsed.data.email,

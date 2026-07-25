@@ -126,6 +126,10 @@ export default function CheckoutForm() {
       setError("Your cart is empty.");
       return;
     }
+    if (pickupOnly && !name.trim()) {
+      setError("Enter your name so staff can identify your pickup order.");
+      return;
+    }
     if (!pickupOnly && !isAddressComplete()) {
       setError("Enter a complete shipping address to check out.");
       return;
@@ -138,6 +142,7 @@ export default function CheckoutForm() {
         body: JSON.stringify({
           storeId,
           email: email.trim(),
+          ...(pickupOnly ? { name: name.trim() } : {}),
           address: pickupOnly ? null : buildAddress(),
           items: buildItems(),
         }),
@@ -213,8 +218,21 @@ export default function CheckoutForm() {
       </section>
 
       {pickupOnly ? (
-        <section className="space-y-2">
+        <section className="space-y-4">
           <h2 className="font-display text-lg text-ink">Pickup</h2>
+          <div>
+            <label htmlFor="pickup-name" className="block text-sm text-ink mb-1">
+              Your name
+            </label>
+            <input
+              id="pickup-name"
+              type="text"
+              required
+              value={name}
+              onChange={(e) => updateField(setName)(e.target.value)}
+              className="w-full border border-ink/30 px-3 py-2 text-sm"
+            />
+          </div>
           <p className="text-sm text-ink">This order is for pickup — no shipping required.</p>
           {quote?.store?.pickupLocation && (
             <p className="text-sm text-ink-muted">Pickup location: {quote.store.pickupLocation}</p>
