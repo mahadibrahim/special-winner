@@ -8,3 +8,10 @@ describe("POST /api/admin/merch/sync", () => {
     expect(res.status).toBe(401);
   });
 });
+
+describe("GET /api/admin/merch/sync", () => {
+  it("rejects an unauthenticated request with 401", async () => {
+    const res = await fetch(`${BASE}/api/admin/merch/sync`);
+    expect(res.status).toBe(401);
+  });
+});

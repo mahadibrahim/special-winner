@@ -2,6 +2,19 @@ import type { APIRoute } from "astro";
 import { requireOrgAdminAccess } from "@/lib/auth";
 import { isPrintfulConfigured, PrintfulApiError } from "@/lib/printful/client";
 import { syncMerchCatalog } from "@/lib/merch/sync";
+import { listActiveMerchProducts } from "@/lib/merch/catalog";
+
+/** GET — current synced catalog + whether Printful is configured (for the admin panel). */
+export const GET: APIRoute = async (context) => {
+  const auth = await requireOrgAdminAccess(context);
+  if (!auth.authorized) return auth.response;
+
+  const products = await listActiveMerchProducts(auth.organizationId);
+  return new Response(
+    JSON.stringify({ configured: isPrintfulConfigured(), products }),
+    { status: 200, headers: { "Content-Type": "application/json" } },
+  );
+};
 
 /** POST — pull the Printful store catalog into this org's merch tables. */
 export const POST: APIRoute = async (context) => {
