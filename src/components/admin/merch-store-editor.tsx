@@ -185,7 +185,7 @@ export function MerchStoreEditor({ storeId }: { storeId: string }) {
   const luluInteriorInputRef = useRef<HTMLInputElement>(null)
   const luluCoverInputRef = useRef<HTMLInputElement>(null)
   const [isCheckingLuluCost, setIsCheckingLuluCost] = useState(false)
-  const [luluCostPreview, setLuluCostPreview] = useState<{ printCents: number; mailShippingCents: number } | null>(null)
+  const [luluCostPreview, setLuluCostPreview] = useState<{ printCents: number; mailShippingCents: number; fulfillmentCents: number } | null>(null)
   const [luluCostError, setLuluCostError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
@@ -381,7 +381,11 @@ export function MerchStoreEditor({ storeId }: { storeId: string }) {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || "Failed to check print cost")
-      setLuluCostPreview({ printCents: data.printCents, mailShippingCents: data.mailShippingCents })
+      setLuluCostPreview({
+        printCents: data.printCents,
+        mailShippingCents: data.mailShippingCents,
+        fulfillmentCents: data.fulfillmentCents,
+      })
     } catch (err) {
       setLuluCostError(err instanceof Error ? err.message : "Failed to check print cost")
     } finally {
@@ -818,7 +822,8 @@ export function MerchStoreEditor({ storeId }: { storeId: string }) {
                     </Button>
                     {luluCostPreview && (
                       <span className="text-sm text-muted-foreground">
-                        Print cost: {money(luluCostPreview.printCents)} · Mail shipping:{" "}
+                        Print cost: {money(luluCostPreview.printCents)} · Fulfillment:{" "}
+                        {money(luluCostPreview.fulfillmentCents)} · Mail shipping:{" "}
                         {money(luluCostPreview.mailShippingCents)}
                       </span>
                     )}

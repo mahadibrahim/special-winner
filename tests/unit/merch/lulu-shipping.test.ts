@@ -84,7 +84,7 @@ describe("resolveLuluShippingOptions (Lulu API failures, LULU_MOCK)", () => {
     // response (missing shipping_cost.total_cost_incl_tax collapses to 0
     // cents in the client). The other 4 levels fall through to the real
     // LULU_MOCK implementation and must still come back.
-    mockedCalculatePrintJobCost.mockImplementationOnce(async () => ({ shippingCents: 0, printCents: 700 }));
+    mockedCalculatePrintJobCost.mockImplementationOnce(async () => ({ shippingCents: 0, printCents: 700, fulfillmentCents: 81 }));
     const r = await resolveLuluShippingOptions(address, [bookLine]);
     if (!r.ok) throw new Error(r.error);
     expect(r.options.map((o) => o.level)).not.toContain("MAIL");
@@ -93,11 +93,11 @@ describe("resolveLuluShippingOptions (Lulu API failures, LULU_MOCK)", () => {
 
   it("422s when every shipping level returns non-positive shipping (malformed 200s)", async () => {
     mockedCalculatePrintJobCost
-      .mockImplementationOnce(async () => ({ shippingCents: 0, printCents: 700 }))
-      .mockImplementationOnce(async () => ({ shippingCents: 0, printCents: 700 }))
-      .mockImplementationOnce(async () => ({ shippingCents: 0, printCents: 700 }))
-      .mockImplementationOnce(async () => ({ shippingCents: 0, printCents: 700 }))
-      .mockImplementationOnce(async () => ({ shippingCents: 0, printCents: 700 }));
+      .mockImplementationOnce(async () => ({ shippingCents: 0, printCents: 700, fulfillmentCents: 81 }))
+      .mockImplementationOnce(async () => ({ shippingCents: 0, printCents: 700, fulfillmentCents: 81 }))
+      .mockImplementationOnce(async () => ({ shippingCents: 0, printCents: 700, fulfillmentCents: 81 }))
+      .mockImplementationOnce(async () => ({ shippingCents: 0, printCents: 700, fulfillmentCents: 81 }))
+      .mockImplementationOnce(async () => ({ shippingCents: 0, printCents: 700, fulfillmentCents: 81 }));
     const r = await resolveLuluShippingOptions(address, [bookLine]);
     expect(r).toEqual({ ok: false, status: 422, error: "We can't ship to that address" });
   });
