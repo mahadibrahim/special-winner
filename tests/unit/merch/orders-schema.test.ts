@@ -12,7 +12,7 @@ import { merchOrderStatusEnum } from "@/lib/db/schema/merch-orders";
 describe("merch order/product schema (3b)", () => {
   it("order status enum includes pickup states", () => {
     expect(merchOrderStatusEnum.enumValues).toEqual(
-      ["pending","paid","submitted","shipped","cancelled","failed","awaiting_pickup","collected"],
+      ["pending","paid","submitted","shipped","cancelled","failed","awaiting_pickup","collected","delivered"],
     );
   });
   it("products carry store_id", () => {
