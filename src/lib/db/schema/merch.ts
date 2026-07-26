@@ -52,6 +52,13 @@ export const merchProducts = pgTable(
     // downloadable file; digitalAssetName is the buyer-facing filename.
     digitalAssetKey: varchar("digital_asset_key", { length: 500 }),
     digitalAssetName: varchar("digital_asset_name", { length: 255 }),
+    // Lulu POD print books. Nullable: only set for fulfillmentType "lulu_pod".
+    // The two asset keys are R2 objects (print-ready PDFs) uploaded via the
+    // admin editor; podPackageId is Lulu's format SKU; pageCount feeds cost calc.
+    luluPodPackageId: varchar("lulu_pod_package_id", { length: 32 }),
+    luluPageCount: integer("lulu_page_count"),
+    luluInteriorAssetKey: varchar("lulu_interior_asset_key", { length: 500 }),
+    luluCoverAssetKey: varchar("lulu_cover_asset_key", { length: 500 }),
     active: boolean("active").notNull().default(true),
     sortOrder: integer("sort_order").notNull().default(0),
     syncedAt: timestamp("synced_at").notNull().defaultNow(),
