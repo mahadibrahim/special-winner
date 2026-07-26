@@ -33,6 +33,14 @@ export interface PaymentCompletedInput {
    * paid step lands on a separate person and every funnel shows 0 paid.
    */
   clientDistinctId?: string | null;
+  /**
+   * The browser's PostHog session id, threaded through Stripe metadata as
+   * `ph_session_id` by the checkout-creating route. Emitted as `$session_id`
+   * so this webhook-fired event joins the same session as the client-side
+   * funnel events — the piece that lets a session-aggregated funnel link
+   * landing → payment.
+   */
+  sessionId?: string | null;
   kind: PaymentKind;
   amountCents: number;
   /** Host-derived brand attribution, matching the charge metadata. */
@@ -57,6 +65,7 @@ export function capturePaymentCompleted(input: PaymentCompletedInput): void {
       distinctId: input.clientDistinctId || input.distinctId,
       event: "payment_completed",
       properties: {
+        ...(input.sessionId ? { $session_id: input.sessionId } : {}),
         // PostHog revenue analytics reads `revenue` (major units) + `currency`.
         revenue: input.amountCents / 100,
         currency: "USD",

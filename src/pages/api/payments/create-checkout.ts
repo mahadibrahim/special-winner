@@ -59,9 +59,13 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     //
     // Storefront the charge came through — the brands share one org and
     // one Stripe account, so the request host is the only brand signal.
+    const phSessionId = request.headers.get("X-PostHog-Session-Id") || undefined;
     const extraMetadata: Record<string, string> = {
       brand: brandFromHost(request.headers.get("host") ?? ""),
       ...collectAdAttribution(url, request.headers.get("cookie")),
+      // PostHog session id, read back by the webhook so payment_completed
+      // carries the same $session_id as the client-side funnel events.
+      ...(phSessionId ? { ph_session_id: phSessionId } : {}),
     };
 
     const result = await createCheckoutForRegistration({
@@ -76,7 +80,6 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     });
 
     const posthog = getPostHogServer();
-    const phSessionId = request.headers.get("X-PostHog-Session-Id") || undefined;
 
     if (result.kind === "paid_zero") {
       posthog.capture({

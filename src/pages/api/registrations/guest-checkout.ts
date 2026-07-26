@@ -156,6 +156,10 @@ export const POST: APIRoute = async (context) => {
       via_guest_checkout: "true",
       brand,
       ...collectAdAttribution(url, request.headers.get("cookie")),
+      // PostHog session id, read back by the webhook so payment_completed
+      // carries the same $session_id as the rest of the funnel — the piece
+      // that lets a session-aggregated funnel link landing → payment.
+      ...(phSessionId ? { ph_session_id: phSessionId } : {}),
     };
 
     // -------------------------------------------------------------------------
@@ -397,7 +401,7 @@ export const POST: APIRoute = async (context) => {
           posthog.alias({ distinctId: phClientId, alias: userRow.id });
         }
         posthog.identify({ distinctId: userRow.id, properties: { email: userRow.email, firstName: userRow.firstName, lastName: userRow.lastName } });
-        posthog.capture({ distinctId: phClientId || userRow.id, event: "guest_checkout_completed", properties: { $session_id: phSessionId, season_id: seasonId, registration_id: regResult.registration.id, was_new_user: wasNewUser, discount_code: discountCode, paid_zero: checkout.kind === "paid_zero", brand, user_id: userRow.id } });
+        posthog.capture({ distinctId: phClientId || userRow.id, event: "payment_form_reached", properties: { $session_id: phSessionId, season_id: seasonId, registration_id: regResult.registration.id, was_new_user: wasNewUser, discount_code: discountCode, paid_zero: checkout.kind === "paid_zero", brand, user_id: userRow.id } });
         // Deliver before returning — Netlify freezes the instance after the
         // response, which can drop in-flight capture requests.
         await flushPostHog();

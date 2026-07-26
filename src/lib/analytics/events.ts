@@ -12,7 +12,6 @@ export const LEAGUE_EVENTS = {
   standingsDivisionSelected: "standings_division_selected",
   catalogSportTileClicked: "catalog_sport_tile_clicked",
   registrationStepViewed: "registration_step_viewed",
-  registrationPaymentMethodSelected: "registration_payment_method_selected",
   expressCheckoutConfirmed: "express_checkout_confirmed",
   inappBannerShown: "inapp_banner_shown",
   inappBannerClicked: "inapp_banner_clicked",
@@ -61,8 +60,6 @@ export const trackRegistrationStepViewed = (p: { step: RegStep; seasonId: string
     variant: p.variant,
     in_app_browser: isInAppBrowser(),
   });
-export const trackRegistrationPaymentMethodSelected = (p: { method: "bank" | "card" }) =>
-  track(LEAGUE_EVENTS.registrationPaymentMethodSelected, { method: p.method });
 export const trackExpressCheckoutConfirmed = (p: { expressPaymentType: string }) =>
   track(LEAGUE_EVENTS.expressCheckoutConfirmed, {
     express_payment_type: p.expressPaymentType,
