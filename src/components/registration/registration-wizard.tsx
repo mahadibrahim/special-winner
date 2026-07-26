@@ -290,6 +290,11 @@ export default function RegistrationWizard({
   // per the disclosure rule, no registration detail is shown, just that the
   // email has a spot and a manage-link email was sent.
   const [guestAlreadyRegistered, setGuestAlreadyRegistered] = useState(false)
+  // Season filled between reaching the payment step and clicking Pay (the
+  // deferred flow checks capacity at Pay-time). Renders an explicit "you're
+  // on the waitlist, card NOT charged" terminal state — never a silent
+  // dashboard bounce, and never the "Your spot is locked!" confirmation.
+  const [waitlistedAtCheckout, setWaitlistedAtCheckout] = useState(false)
   // Set by "Register a different player instead" so the effect below can
   // focus the email field once step 1 has actually re-rendered.
   const [focusGuestEmailOnMount, setFocusGuestEmailOnMount] = useState(false)
@@ -1163,12 +1168,17 @@ export default function RegistrationWizard({
         return { clientSecret: data.clientSecret }
       }
       if (data.paid) {
-        window.location.href = `/dashboard?registered=${data.registrationId}`
+        // payment=success + registration are the params the dashboard's
+        // PaymentSuccessBanner reads — `registered=` was consumed by nothing.
+        window.location.href = `/dashboard?payment=success&registration=${data.registrationId}`
         return { error: "redirecting" }
       }
       if (data.waitlisted) {
-        window.location.href = `/dashboard?waitlisted=${data.registrationId}`
-        return { error: "redirecting" }
+        // The customer just entered card details — tell them plainly what
+        // happened (season filled, no charge, they're on the list) instead of
+        // silently bouncing to the dashboard with a param nothing reads.
+        setWaitlistedAtCheckout(true)
+        return { error: "waitlisted" }
       }
       const unexpected = "Unexpected response — please try again."
       setError(unexpected)
@@ -1369,7 +1379,14 @@ export default function RegistrationWizard({
         }
       }
 
-      // Waitlisted or no payment required — go straight to confirmation.
+      // Season filled — the row was created as waitlisted, nothing charged.
+      // Show the explicit waitlist state, NOT the "Your spot is locked!"
+      // confirmation (which would lie to an unpaid, waitlisted customer).
+      if (regData.registration.status === "waitlisted") {
+        setWaitlistedAtCheckout(true)
+        return { error: "waitlisted" }
+      }
+      // No payment required (zero-due) — go straight to confirmation.
       // Must still set activeRegistrationId: ConfirmationStep's inline
       // CompletionForm (v2's post-payment waiver capture) gates on
       // `registrationId` being present, and zero-due registrations never
@@ -1378,9 +1395,9 @@ export default function RegistrationWizard({
       clearDraft()
       setRegistrationComplete(true)
       setCurrentStep(stepNumberOf("confirm"))
-      // No payment was required (zero-due / waitlist); the wizard already
-      // advanced to the confirmation step. The benign error just stops the
-      // deferred caller — there's no client secret to confirm against.
+      // The wizard already advanced to the confirmation step. The benign
+      // error just stops the deferred caller — there's no client secret to
+      // confirm against.
       return { error: "completed" }
     } catch (err) {
       const message =
@@ -1762,7 +1779,29 @@ export default function RegistrationWizard({
 
       {/* Step Content */}
       <div className="bg-paper border border-border rounded-2xl p-6">
-        {guestAlreadyRegistered ? (
+        {waitlistedAtCheckout ? (
+          /* Season filled at Pay-time (deferred capacity check). The customer
+             may have just typed card details — lead with "not charged". */
+          <div className="text-center py-8">
+            <h3 className="font-display text-2xl text-ink mb-2">
+              This season just filled up
+            </h3>
+            <p className="text-ink-muted mb-4 max-w-md mx-auto">
+              The last open spots went while you were checking out.{" "}
+              <strong className="text-ink">Your card was not charged.</strong>{" "}
+              You're on the waitlist — we'll email you the moment a spot opens,
+              with a link to complete your registration.
+            </p>
+            <div className="flex justify-center gap-3">
+              <Button asChild variant="outline" className="border-border text-ink hover:bg-cream-2">
+                <a href="/dashboard">View my dashboard</a>
+              </Button>
+              <Button asChild className="bg-primary hover:bg-primary/90">
+                <a href="/programs">Browse other programs</a>
+              </Button>
+            </div>
+          </div>
+        ) : guestAlreadyRegistered ? (
           /* Guest repeat-registrant friendly state — replaces the step
              content entirely (never the generic error banner). Disclosure
              rule: confirms only that this email has a spot, nothing about
