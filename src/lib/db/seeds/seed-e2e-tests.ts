@@ -1777,7 +1777,12 @@ async function seedE2ETests() {
         priceCents: 10000, // $100
         depositCents: 3000, // $30 deposit
         allowDeposit: true,
-        maxParticipants: 30,
+        // Effectively unbounded: the shared staging/CI DB accumulates
+        // registrations across runs and never clears them, so a realistic cap
+        // eventually fills and every registration test silently waitlists
+        // (this happened at 30). Capacity/waitlist behavior gets its own
+        // dedicated fixtures — this season must always accept registrations.
+        maxParticipants: 100000,
         // Fall 2026 adult-soccer division metadata. Both brand hosts resolve
         // to this (Aspire) org post-cutover, so /adult/leagues/soccer/fall-2026
         // is driven by these Aspire-org seasons.
@@ -1792,12 +1797,13 @@ async function seedE2ETests() {
       .returning();
   } else {
     // Reset status and capacity so the season always shows "Register Now";
-    // keep the Fall 2026 division metadata in sync on re-seed.
+    // keep the Fall 2026 division metadata in sync on re-seed. Capacity is
+    // effectively unbounded — see the insert branch above for why.
     [adultSeason] = await db
       .update(seasons)
       .set({
         status: "open",
-        maxParticipants: 30,
+        maxParticipants: 100000,
         termSlug: "fall-2026",
         termLabel: "Fall 2026",
         divisionGender: "coed",

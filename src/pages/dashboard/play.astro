@@ -14,12 +14,20 @@ import { MyPickupAlerts } from "@/components/dropin/PickupAlertSignup";
 import { getDashboardDestinations } from "@/lib/dashboard/persona";
 import { writeLastVisited } from "@/lib/dashboard/last-visited";
 import { currentBusinessHour } from "@/lib/time/business-timezone";
+import { PaymentSuccessBanner } from "@/components/dashboard/payment-success-banner";
 
 // Middleware guarantees user is authenticated for /dashboard routes.
 const user = Astro.locals.user!;
 
 // Record last-visited destination
 writeLastVisited(Astro.cookies, "play");
+
+// Post-payment arrival (pay-balance / payment-return CTA): render the
+// confirmation banner — mirrors family.astro so adults get the same
+// "Payment confirmed" reinforcement parents do.
+const paymentStatus = Astro.url.searchParams.get("payment");
+const registrationIdParam = Astro.url.searchParams.get("registration");
+const showPaymentSuccessBanner = paymentStatus === "success" && !!registrationIdParam;
 
 // Greeting hour in the business timezone — this page renders server-side.
 const hour = currentBusinessHour();
@@ -42,6 +50,10 @@ const { hasFamily, hasPlay } = await getDashboardDestinations(user.id);
         hasPlay={hasPlay}
       >
         <div class="space-y-10 mt-8">
+
+          {showPaymentSuccessBanner && (
+            <PaymentSuccessBanner registrationId={registrationIdParam!} client:load />
+          )}
 
           {/* Needs your attention (self-contained — no DashboardSection wrapper) */}
           <PlayAttention client:load />

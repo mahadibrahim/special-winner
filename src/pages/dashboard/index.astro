@@ -13,5 +13,8 @@ if (hasFamily && hasPlay) {
 } else if (hasPlay) {
   target = "/dashboard/play";
 }
-return Astro.redirect(target, 302);
+// Forward query params through the redirect — payment flows land on
+// /dashboard?payment=success&registration=… and the destination page's
+// PaymentSuccessBanner needs those params to survive the 302.
+return Astro.redirect(`${target}${Astro.url.search}`, 302);
 ---

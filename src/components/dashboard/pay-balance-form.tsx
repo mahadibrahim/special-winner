@@ -104,8 +104,12 @@ export default function PayBalanceForm({ registrationId }: PayBalanceFormProps) 
     }
   }, [registrationId])
 
-  const handlePaymentSuccess = (_paymentIntentId: string) => {
-    window.location.href = `/dashboard?payment=success&registration=${registrationId}`
+  const handlePaymentSuccess = (paymentIntentId: string) => {
+    // Land on the canonical payment-status page — a full-screen "Payment
+    // confirmed" the customer can't miss — rather than dumping them on the
+    // dashboard and hoping a banner renders. Its Continue CTA carries the
+    // payment=success params so the dashboard banner reinforces on arrival.
+    window.location.href = `/payment/return?payment_intent=${paymentIntentId}`
   }
 
   const handlePaymentCancel = () => {

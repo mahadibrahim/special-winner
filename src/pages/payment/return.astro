@@ -82,8 +82,11 @@ if (paymentIntentId && stripe) {
 // `redirect_status` from Stripe is informational; we trust the PI status above.
 const _ = redirectStatus;
 
+// payment=success + registration are the params the dashboard's
+// PaymentSuccessBanner reads (family + play) — `registered=` was a dead
+// param nothing consumed.
 const dashboardHref = registrationId
-  ? `/dashboard?registered=${registrationId}`
+  ? `/dashboard?payment=success&registration=${registrationId}`
   : "/dashboard";
 ---
 
