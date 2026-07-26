@@ -37,9 +37,20 @@ test.describe("Merch book checkout", () => {
     const picker = form.getByRole("radiogroup", { name: "Shipping speed" });
     await expect(picker).toBeVisible();
     await expect(picker.getByText("Mail", { exact: true })).toBeVisible();
-    await expect(form.getByText("$3.99").first()).toBeVisible(); // default = cheapest
+
+    // Assert the *totals block*'s shipping/total rows specifically, not the
+    // static per-option price labels inside the picker (every option's price
+    // — including "Express … $24.99" — is in the DOM as soon as the picker
+    // renders, regardless of which radio is selected; asserting against
+    // `form.getByText(...)` without this scope would pass even if the
+    // reprice never actually fired). The rows carry a data-testid for this.
+    const shippingTotal = form.getByTestId("checkout-shipping-total");
+    const orderTotal = form.getByTestId("checkout-order-total");
+    await expect(shippingTotal).toHaveText("$3.99"); // default = cheapest (MAIL)
+    await expect(orderTotal).toHaveText("$18.99"); // $15.00 subtotal + $3.99 shipping
 
     await picker.getByText("Express", { exact: true }).click();
-    await expect(form.getByText("$24.99").first()).toBeVisible(); // repriced total row
+    await expect(shippingTotal).toHaveText("$24.99"); // repriced shipping row
+    await expect(orderTotal).toHaveText("$39.99"); // $15.00 subtotal + $24.99 shipping
   });
 });

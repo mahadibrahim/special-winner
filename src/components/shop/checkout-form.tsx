@@ -408,11 +408,11 @@ export default function CheckoutForm() {
           </p>
           <p className="flex justify-between">
             <span>Shipping</span>
-            <span>{money(quote.shippingCents)}</span>
+            <span data-testid="checkout-shipping-total">{money(quote.shippingCents)}</span>
           </p>
           <p className="flex justify-between font-medium">
             <span>Total</span>
-            <span>{money(quote.totalBeforeTaxCents)}</span>
+            <span data-testid="checkout-order-total">{money(quote.totalBeforeTaxCents)}</span>
           </p>
           <p className="text-xs text-ink-muted">Tax calculated at payment.</p>
         </div>
