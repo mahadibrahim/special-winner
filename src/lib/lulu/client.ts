@@ -48,12 +48,24 @@ async function getToken(): Promise<string> {
 }
 
 async function luluFetch<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<T> {
-  const token = await getToken();
-  const res = await fetch(`${apiBase()}${path}`, {
+  let token = await getToken();
+  let res = await fetch(`${apiBase()}${path}`, {
     method,
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
+
+  // If 401, cached token is stale; invalidate and retry once with a fresh token
+  if (res.status === 401) {
+    cachedToken = null;
+    token = await getToken();
+    res = await fetch(`${apiBase()}${path}`, {
+      method,
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+    });
+  }
+
   const json = (await res.json().catch(() => null)) as T | null;
   if (!res.ok || json === null) {
     throw new LuluApiError(res.status, `Lulu ${method} ${path} failed: ${res.statusText}`);
