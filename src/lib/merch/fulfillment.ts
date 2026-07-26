@@ -5,6 +5,7 @@ import { createOrder } from "@/lib/printful/client";
 import { toPrintfulRecipient, buildPrintfulOrderItems, toPrintfulExternalId } from "@/lib/printful/order-mappers";
 import { sendMerchOrderConfirmation, sendMerchPickupConfirmation, sendMerchDigitalDelivery } from "./order-confirmation-email";
 import { generateDownloadToken, grantExpiryFrom } from "./digital-delivery";
+import { submitLuluOrder } from "./lulu-fulfillment";
 
 export class UnsupportedFulfillmentError extends Error {
   constructor(type: string) { super(`Unsupported fulfillment type: ${type}`); this.name = "UnsupportedFulfillmentError"; }
@@ -19,7 +20,7 @@ export class UnsupportedFulfillmentError extends Error {
  * that must not have reached checkout yet — fail loudly rather than
  * silently drop. */
 export function assertSupportedFulfillment(types: string[]): void {
-  for (const t of types) if (t !== "printful_pod" && t !== "pickup" && t !== "self_shipped" && t !== "digital") throw new UnsupportedFulfillmentError(t);
+  for (const t of types) if (t !== "printful_pod" && t !== "pickup" && t !== "self_shipped" && t !== "digital" && t !== "lulu_pod") throw new UnsupportedFulfillmentError(t);
 }
 
 /** True if any line in the order is digital-fulfilled. */
@@ -44,11 +45,12 @@ export function orderIsAllDigital(items: { fulfillmentType: string }[]): boolean
  * is handled + returned before this is called; if it somehow reaches here the
  * empty-physical set defaults to "printful" (pre-existing empty behavior —
  * fulfillMerchOrder already throws on empty items). */
-export function orderFulfillmentPlan(items: { fulfillmentType: string }[]): "pickup" | "self_shipped" | "printful" {
+export function orderFulfillmentPlan(items: { fulfillmentType: string }[]): "pickup" | "self_shipped" | "printful" | "lulu" {
   const physical = items.filter((i) => i.fulfillmentType !== "digital");
   if (physical.length === 0) return "printful";
   if (physical.every((i) => i.fulfillmentType === "pickup")) return "pickup";
   if (physical.every((i) => i.fulfillmentType === "self_shipped")) return "self_shipped";
+  if (physical.every((i) => i.fulfillmentType === "lulu_pod")) return "lulu";
   return "printful";
 }
 
@@ -188,6 +190,19 @@ export async function handleMerchOrderCompleted(session: {
   if (plan === "self_shipped") {
     try { await sendMerchOrderConfirmation(orderId); } catch (e) { console.error(`[merch] confirmation email failed for ${orderId}:`, e); }
     return { status: "processed-self-shipped" };
+  }
+
+  // lulu: submit the print job. Money-safe like the printful path — a failure
+  // (Lulu down, PDF rejected) leaves the order 'paid' for admin retry; the
+  // payment is captured and the order recorded either way.
+  if (plan === "lulu") {
+    try {
+      await submitLuluOrder(orderId);
+    } catch (e) {
+      console.error(`[merch] lulu submission failed for paid order ${orderId} — left 'paid' for retry:`, e);
+    }
+    try { await sendMerchOrderConfirmation(orderId); } catch (e) { console.error(`[merch] confirmation email failed for ${orderId}:`, e); }
+    return { status: "processed-lulu" };
   }
 
   // printful path — money-safe: a failure leaves the order 'paid' for retry, never lost
