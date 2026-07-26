@@ -42,9 +42,11 @@ const getCoachWisdom = (placement: string) =>
           <p class="minibook-subtitle">{book.meta.subtitle}</p>
         </div>
 
-        <div class="minibook-cover-bottom">
-          <div class="minibook-tagline">{book.introduction.hook}</div>
-        </div>
+      </section>
+
+      <!-- Epigraph Page -->
+      <section class="minibook-epigraph">
+        <p class="epigraph-text">{book.introduction.hook}</p>
       </section>
 
       <!-- Half-Title Page -->
@@ -232,7 +234,7 @@ const getCoachWisdom = (placement: string) =>
       </section>
 
       <!-- Part One: Science Foundation -->
-      <section class="section-divider">
+      <section class="section-divider content-start">
         <span class="section-divider-number">Part One</span>
         <h2 class="section-divider-title">{book.scienceFoundation.title.replace('Part One: ', '')}</h2>
         <p class="section-divider-subtitle">{book.scienceFoundation.subtitle}</p>
