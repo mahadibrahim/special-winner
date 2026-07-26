@@ -6,6 +6,7 @@ const row = {
   variantName: "Hoodie / M", size: "M", color: null, retailPriceCents: 4650, productName: "Hoodie",
   fulfillmentType: "printful_pod" as const, personalizationConfig: null,
   weightOz: null, lengthIn: null, widthIn: null, heightIn: null,
+  luluPodPackageId: null, luluPageCount: null,
 };
 
 const pickupRow: VariantPriceRow = {
@@ -13,6 +14,7 @@ const pickupRow: VariantPriceRow = {
   variantName: "Jersey / M", size: "M", color: null, retailPriceCents: 4500,
   productName: "Home Jersey", fulfillmentType: "pickup", personalizationConfig: { name: true, number: true },
   weightOz: null, lengthIn: null, widthIn: null, heightIn: null,
+  luluPodPackageId: null, luluPageCount: null,
 };
 
 const selfShippedRow: VariantPriceRow = {
@@ -20,6 +22,7 @@ const selfShippedRow: VariantPriceRow = {
   variantName: "Mug / 11oz", size: null, color: null, retailPriceCents: 1500,
   productName: "Camp Mug", fulfillmentType: "self_shipped", personalizationConfig: null,
   weightOz: 12, lengthIn: 5, widthIn: 4, heightIn: 4,
+  luluPodPackageId: null, luluPageCount: null,
 };
 
 describe("matchRequestedToRows", () => {
