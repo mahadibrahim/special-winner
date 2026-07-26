@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { partitionByFulfillment, lineNeedsShipping } from "@/lib/merch/checkout-store";
+import { partitionByFulfillment, lineNeedsShipping, cartNeedsAddress } from "@/lib/merch/checkout-store";
 import type { RepricedLine } from "@/lib/merch/reprice";
 
 const line = (ft: RepricedLine["fulfillmentType"]): RepricedLine => ({
@@ -31,5 +31,26 @@ describe("checkout-store partition", () => {
     expect(lineNeedsShipping(line("self_shipped"))).toBe(true);
     expect(lineNeedsShipping(line("pickup"))).toBe(false);
     expect(lineNeedsShipping(line("digital"))).toBe(false);
+  });
+});
+
+describe("cartNeedsAddress", () => {
+  it("pure-digital cart never needs an address", () => {
+    expect(cartNeedsAddress([line("digital"), line("digital")])).toBe(false);
+  });
+  it("digital + printful cart needs an address", () => {
+    expect(cartNeedsAddress([line("digital"), line("printful_pod")])).toBe(true);
+  });
+  it("pure-pickup cart never needs an address", () => {
+    expect(cartNeedsAddress([line("pickup"), line("pickup")])).toBe(false);
+  });
+  it("digital + pickup cart never needs an address", () => {
+    expect(cartNeedsAddress([line("digital"), line("pickup")])).toBe(false);
+  });
+  it("self_shipped alone needs an address", () => {
+    expect(cartNeedsAddress([line("self_shipped")])).toBe(true);
+  });
+  it("empty cart needs no address", () => {
+    expect(cartNeedsAddress([])).toBe(false);
   });
 });

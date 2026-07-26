@@ -1,6 +1,6 @@
 import { getDb } from "@/lib/db";
-import { eq } from "drizzle-orm";
-import { merchOrders, merchOrderItems, merchStores } from "@/lib/db/schema";
+import { and, eq } from "drizzle-orm";
+import { merchOrders, merchOrderItems, merchStores, merchDownloadGrants } from "@/lib/db/schema";
 import { sendEmail } from "@/lib/email";
 
 const money = (c: number) => `$${(c / 100).toFixed(2)}`;
@@ -103,4 +103,49 @@ export async function sendMerchShippedEmail(orderId: string): Promise<void> {
     html,
   });
   if (!result.success) console.error(`[merch] shipped email not sent for ${orderId}:`, result.error);
+}
+
+/** Pure body builder for the digital delivery email — one download link per
+ * digital item. The link is the grant token URL; it's the same URL the
+ * buyer can revisit later from the order page. */
+export function buildDigitalDeliveryHtml(args: { items: { name: string; url: string }[] }): string {
+  const rows = args.items
+    .map((i) => `<li>${i.name} — <a href="${i.url}">Download</a></li>`)
+    .join("");
+  return `<h1>Your download is ready!</h1>
+      <ul>${rows}</ul>
+      <p>Each download link is valid for 6 months from purchase.</p>`;
+}
+
+/** Sent when a paid order contains at least one digital line. Lists a
+ * download link per digital order-item's grant (one grant per item, created
+ * by handleMerchOrderCompleted before this is called). Guarded by the
+ * caller — a failure here must not block fulfillment of any physical lines
+ * in a mixed order. */
+export async function sendMerchDigitalDelivery(orderId: string): Promise<void> {
+  const db = getDb();
+  const [order] = await db.select().from(merchOrders).where(eq(merchOrders.id, orderId)).limit(1);
+  if (!order) return;
+
+  const rows = await db
+    .select({
+      productName: merchOrderItems.productName,
+      token: merchDownloadGrants.token,
+    })
+    .from(merchOrderItems)
+    .innerJoin(merchDownloadGrants, eq(merchDownloadGrants.orderItemId, merchOrderItems.id))
+    .where(and(eq(merchOrderItems.orderId, orderId), eq(merchOrderItems.fulfillmentType, "digital")));
+
+  if (rows.length === 0) return; // no grants yet — nothing to deliver
+
+  const appUrl = import.meta.env.PUBLIC_APP_URL ?? "http://localhost:4321";
+  const html = buildDigitalDeliveryHtml({
+    items: rows.map((r) => ({ name: r.productName, url: `${appUrl}/shop/download/${r.token}` })),
+  });
+  const result = await sendEmail({
+    to: order.email,
+    subject: "Your Aspire Sports download is ready",
+    html,
+  });
+  if (!result.success) console.error(`[merch] digital delivery email not sent for ${orderId}:`, result.error);
 }

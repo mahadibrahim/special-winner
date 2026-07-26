@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback, type KeyboardEvent } from "react"
+import { useEffect, useState, useCallback, useRef, type KeyboardEvent } from "react"
 import { Plus, Pencil, Trash2, Loader2, X, ArrowLeft, Shirt, Copy, ClipboardList } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -54,11 +54,12 @@ const CATEGORY_LABELS: Record<Category, string> = {
   other: "Other",
 }
 
-type FulfillmentType = "pickup" | "self_shipped"
+type FulfillmentType = "pickup" | "self_shipped" | "digital"
 
 const FULFILLMENT_LABELS: Record<FulfillmentType, string> = {
   pickup: "Pickup (org hands it out on-site)",
   self_shipped: "Self-shipped (org packs + ships; admin enters tracking)",
+  digital: "Digital (buyer downloads a file — no shipping)",
 }
 
 interface MerchVariant {
@@ -80,6 +81,8 @@ interface MerchStoreProduct {
   personalization: { name?: boolean; number?: boolean } | null
   active: boolean
   fulfillmentType: FulfillmentType
+  digitalAssetKey: string | null
+  digitalAssetName: string | null
   variants: MerchVariant[]
 }
 
@@ -115,6 +118,10 @@ interface ProductFormState {
   // Keyed by size — only relevant (and required) when fulfillmentType is
   // self_shipped; see missingSelfShippedWeights in store-products.ts.
   variantWeights: Record<string, VariantWeightDraft>
+  // Only relevant (and required) when fulfillmentType is digital — set once
+  // the file finishes uploading to R2 via /api/admin/merch/digital-asset-url.
+  digitalAssetKey: string | null
+  digitalAssetName: string | null
 }
 
 const EMPTY_FORM: ProductFormState = {
@@ -130,6 +137,8 @@ const EMPTY_FORM: ProductFormState = {
   active: true,
   fulfillmentType: "pickup",
   variantWeights: {},
+  digitalAssetKey: null,
+  digitalAssetName: null,
 }
 
 const money = (c: number) => `$${(c / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })}`
@@ -147,6 +156,8 @@ export function MerchStoreEditor({ storeId }: { storeId: string }) {
   const [editingProduct, setEditingProduct] = useState<MerchStoreProduct | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState<ProductFormState>(EMPTY_FORM)
+  const [isUploadingAsset, setIsUploadingAsset] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const load = useCallback(async () => {
     setIsLoading(true)
@@ -208,6 +219,8 @@ export function MerchStoreEditor({ storeId }: { storeId: string }) {
       active: product.active,
       fulfillmentType: product.fulfillmentType ?? "pickup",
       variantWeights,
+      digitalAssetKey: product.digitalAssetKey ?? null,
+      digitalAssetName: product.digitalAssetName ?? null,
     })
     setError(null)
     setIsDialogOpen(true)
@@ -255,12 +268,53 @@ export function MerchStoreEditor({ storeId }: { storeId: string }) {
     }
   }
 
+  async function handleDigitalFileSelect(file: File) {
+    setIsUploadingAsset(true)
+    setError(null)
+    try {
+      const presignRes = await fetch("/api/admin/merch/digital-asset-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filename: file.name,
+          contentType: file.type || "application/octet-stream",
+        }),
+      })
+      const presignData = await presignRes.json()
+      if (!presignRes.ok) throw new Error(presignData.error || "Failed to get an upload URL")
+
+      const putRes = await fetch(presignData.uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+        body: file,
+      })
+      if (!putRes.ok) throw new Error("File upload failed")
+
+      setFormData((prev) => ({
+        ...prev,
+        digitalAssetKey: presignData.key,
+        digitalAssetName: file.name,
+      }))
+      toast.success("File uploaded")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "File upload failed")
+    } finally {
+      setIsUploadingAsset(false)
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
 
-    if (formData.sizes.length === 0) {
+    const isDigital = formData.fulfillmentType === "digital"
+
+    if (!isDigital && formData.sizes.length === 0) {
       setError("Add at least one size")
+      return
+    }
+    if (isDigital && !formData.digitalAssetKey) {
+      setError("Upload a file for this digital product")
       return
     }
     const priceCents = Math.round(parseFloat(formData.priceDollars) * 100)
@@ -300,8 +354,11 @@ export function MerchStoreEditor({ storeId }: { storeId: string }) {
         imageUrl: formData.imageUrl || null,
         priceCents,
         fulfillmentType: formData.fulfillmentType,
-        sizes: formData.sizes,
+        sizes: isDigital ? [] : formData.sizes,
         ...(variantWeights ? { variantWeights } : {}),
+        ...(isDigital
+          ? { digitalAssetKey: formData.digitalAssetKey, digitalAssetName: formData.digitalAssetName }
+          : {}),
         personalization:
           formData.personalizeName || formData.personalizeNumber
             ? { name: formData.personalizeName, number: formData.personalizeNumber }
@@ -594,89 +651,144 @@ export function MerchStoreEditor({ storeId }: { storeId: string }) {
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="sizeDraft">Sizes</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="sizeDraft"
-                    value={formData.sizeDraft}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, sizeDraft: e.target.value }))
-                    }
-                    onKeyDown={handleSizeKeyDown}
-                    placeholder="S, M, L, XL"
-                  />
-                  <Button type="button" variant="outline" onClick={addSizes}>
-                    Add
-                  </Button>
-                </div>
-                {formData.sizes.length > 0 && (
-                  <div className="flex flex-wrap gap-1 pt-1">
-                    {formData.sizes.map((size) => (
-                      <Badge key={size} variant="secondary" className="gap-1">
-                        {size}
-                        <button
-                          type="button"
-                          onClick={() => removeSize(size)}
-                          className="hover:text-destructive"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {formData.fulfillmentType === "self_shipped" && formData.sizes.length > 0 && (
+              {formData.fulfillmentType === "digital" ? (
                 <div className="space-y-2">
-                  <Label>Per-size weight (oz) — required for shipping rates</Label>
-                  <div className="space-y-2">
-                    {formData.sizes.map((size) => {
-                      const draft = formData.variantWeights[size] ?? EMPTY_WEIGHT_DRAFT
-                      return (
-                        <div key={size} className="flex items-center gap-2">
-                          <Badge variant="secondary" className="w-14 justify-center shrink-0">
-                            {size}
-                          </Badge>
-                          <Input
-                            type="number"
-                            min="1"
-                            step="1"
-                            value={draft.weightOz}
-                            onChange={(e) => updateVariantWeight(size, { weightOz: e.target.value })}
-                            placeholder="Weight (oz) *"
-                            required
-                          />
-                          <Input
-                            type="number"
-                            min="1"
-                            step="1"
-                            value={draft.lengthIn}
-                            onChange={(e) => updateVariantWeight(size, { lengthIn: e.target.value })}
-                            placeholder="L (in)"
-                          />
-                          <Input
-                            type="number"
-                            min="1"
-                            step="1"
-                            value={draft.widthIn}
-                            onChange={(e) => updateVariantWeight(size, { widthIn: e.target.value })}
-                            placeholder="W (in)"
-                          />
-                          <Input
-                            type="number"
-                            min="1"
-                            step="1"
-                            value={draft.heightIn}
-                            onChange={(e) => updateVariantWeight(size, { heightIn: e.target.value })}
-                            placeholder="H (in)"
-                          />
-                        </div>
-                      )
-                    })}
-                  </div>
+                  <Label>File</Label>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) handleDigitalFileSelect(file)
+                      e.target.value = ""
+                    }}
+                  />
+                  {formData.digitalAssetName ? (
+                    <div className="flex items-center justify-between gap-2 rounded-md border p-2 text-sm">
+                      <span className="truncate">{formData.digitalAssetName}</span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploadingAsset}
+                      >
+                        {isUploadingAsset ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          "Replace file"
+                        )}
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploadingAsset}
+                    >
+                      {isUploadingAsset ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Uploading...
+                        </>
+                      ) : (
+                        "Upload file"
+                      )}
+                    </Button>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Buyers get a secure, time-limited download link after payment.
+                  </p>
                 </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="sizeDraft">Sizes</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="sizeDraft"
+                        value={formData.sizeDraft}
+                        onChange={(e) =>
+                          setFormData((prev) => ({ ...prev, sizeDraft: e.target.value }))
+                        }
+                        onKeyDown={handleSizeKeyDown}
+                        placeholder="S, M, L, XL"
+                      />
+                      <Button type="button" variant="outline" onClick={addSizes}>
+                        Add
+                      </Button>
+                    </div>
+                    {formData.sizes.length > 0 && (
+                      <div className="flex flex-wrap gap-1 pt-1">
+                        {formData.sizes.map((size) => (
+                          <Badge key={size} variant="secondary" className="gap-1">
+                            {size}
+                            <button
+                              type="button"
+                              onClick={() => removeSize(size)}
+                              className="hover:text-destructive"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {formData.fulfillmentType === "self_shipped" && formData.sizes.length > 0 && (
+                    <div className="space-y-2">
+                      <Label>Per-size weight (oz) — required for shipping rates</Label>
+                      <div className="space-y-2">
+                        {formData.sizes.map((size) => {
+                          const draft = formData.variantWeights[size] ?? EMPTY_WEIGHT_DRAFT
+                          return (
+                            <div key={size} className="flex items-center gap-2">
+                              <Badge variant="secondary" className="w-14 justify-center shrink-0">
+                                {size}
+                              </Badge>
+                              <Input
+                                type="number"
+                                min="1"
+                                step="1"
+                                value={draft.weightOz}
+                                onChange={(e) => updateVariantWeight(size, { weightOz: e.target.value })}
+                                placeholder="Weight (oz) *"
+                                required
+                              />
+                              <Input
+                                type="number"
+                                min="1"
+                                step="1"
+                                value={draft.lengthIn}
+                                onChange={(e) => updateVariantWeight(size, { lengthIn: e.target.value })}
+                                placeholder="L (in)"
+                              />
+                              <Input
+                                type="number"
+                                min="1"
+                                step="1"
+                                value={draft.widthIn}
+                                onChange={(e) => updateVariantWeight(size, { widthIn: e.target.value })}
+                                placeholder="W (in)"
+                              />
+                              <Input
+                                type="number"
+                                min="1"
+                                step="1"
+                                value={draft.heightIn}
+                                onChange={(e) => updateVariantWeight(size, { heightIn: e.target.value })}
+                                placeholder="H (in)"
+                              />
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
 
               <div className="space-y-2">
@@ -727,7 +839,14 @@ export function MerchStoreEditor({ storeId }: { storeId: string }) {
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button
+                type="submit"
+                disabled={
+                  isSubmitting ||
+                  isUploadingAsset ||
+                  (formData.fulfillmentType === "digital" && !formData.digitalAssetKey)
+                }
+              >
                 {isSubmitting ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />

@@ -6,6 +6,12 @@ export function lineNeedsShipping(line: Pick<RepricedLine, "fulfillmentType">): 
   return line.fulfillmentType === "printful_pod" || line.fulfillmentType === "self_shipped";
 }
 
+/** Address required iff any line in the cart needs shipping — a pure-digital or
+ * pure-pickup cart (or a mix of the two) never requires an address. */
+export function cartNeedsAddress(lines: Pick<RepricedLine, "fulfillmentType">[]): boolean {
+  return lines.some(lineNeedsShipping);
+}
+
 /** Split repriced cart lines by fulfillment branch for checkout. */
 export function partitionByFulfillment(lines: RepricedLine[]): {
   printful: RepricedLine[];

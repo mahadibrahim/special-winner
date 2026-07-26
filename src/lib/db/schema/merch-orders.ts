@@ -23,6 +23,7 @@ export const merchOrderStatusEnum = pgEnum("merch_order_status", [
   "failed",
   "awaiting_pickup",
   "collected",
+  "delivered",
 ]);
 
 export interface MerchShippingAddress {

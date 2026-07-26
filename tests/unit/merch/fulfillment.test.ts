@@ -11,7 +11,10 @@ describe("assertSupportedFulfillment", () => {
   it("allows self_shipped", () => {
     expect(() => assertSupportedFulfillment(["printful_pod", "self_shipped"])).not.toThrow();
   });
+  it("allows digital", () => {
+    expect(() => assertSupportedFulfillment(["printful_pod", "digital"])).not.toThrow();
+  });
   it("throws on an unsupported fulfillment type", () => {
-    expect(() => assertSupportedFulfillment(["printful_pod", "digital"])).toThrow(UnsupportedFulfillmentError);
+    expect(() => assertSupportedFulfillment(["printful_pod", "bogus"])).toThrow(UnsupportedFulfillmentError);
   });
 });

@@ -49,6 +49,9 @@ export * from "./merch-stores";
 // Bundles (merch Phase 3d)
 export * from "./merch-bundles";
 
+// Digital goods: download grants (merch Phase 3e)
+export * from "./merch-downloads";
+
 // Team groups (Telegram group management)
 export * from "./team-groups";
 

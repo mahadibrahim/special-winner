@@ -47,6 +47,11 @@ export const merchProducts = pgTable(
     category: productCategoryEnum("category").notNull().default("other"),
     // mockup image URLs served by Printful's CDN; null == none yet
     images: jsonb("images").$type<MerchImage[]>(),
+    // Digital goods (merch Phase 3e). Nullable: only set for digital products
+    // (fulfillmentType "digital"). digitalAssetKey is the storage key for the
+    // downloadable file; digitalAssetName is the buyer-facing filename.
+    digitalAssetKey: varchar("digital_asset_key", { length: 500 }),
+    digitalAssetName: varchar("digital_asset_name", { length: 255 }),
     active: boolean("active").notNull().default(true),
     sortOrder: integer("sort_order").notNull().default(0),
     syncedAt: timestamp("synced_at").notNull().defaultNow(),
