@@ -6,10 +6,16 @@
  *   - amountCents === 0  → create the booking immediately via the
  *                         free-path orchestrator and return a 200 with
  *                         paymentRequired: false.
- *   - amountCents > 0    → create a Stripe Checkout Session and return
- *                         the URL. The booking row is inserted by the
- *                         `checkout.session.completed` webhook handler
- *                         to avoid orphan rows on Checkout abandonment.
+ *   - amountCents > 0    → two request modes:
+ *       - paymentFlow "embedded" (current UI): create a bare PaymentIntent
+ *         and return { clientSecret, amountCents } for the inline deferred
+ *         Payment Element on the session page. The booking row is inserted
+ *         by the `payment_intent.succeeded` webhook handler
+ *         (metadata.type "dropin_booking_embedded").
+ *       - default (legacy): create a hosted Stripe Checkout Session and
+ *         return the URL; row inserted by `checkout.session.completed`.
+ *     Either way the row is webhook-inserted, so abandonment leaves no
+ *     orphan rows.
  *
  * Marketplace fee: when the venue carries `partnerStripeAccountId`, the
  * Checkout Session uses Connect `transfer_data` so funds settle on the
@@ -30,7 +36,10 @@ import {
   createConfirmedBookingFreePath,
   getActiveMembershipForUser,
 } from "@/lib/dropin/booking";
-import { createDropInCheckoutSession } from "@/lib/dropin/create-checkout";
+import {
+  createDropInCheckoutSession,
+  createDropInPaymentIntent,
+} from "@/lib/dropin/create-checkout";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
 import { collectAdAttribution } from "@/lib/analytics/parse-cookies";
 
@@ -112,6 +121,12 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     waiverName?: string;
     /** `?src=` from the share link the customer booked from (e.g. host-share). */
     src?: string;
+    /** "embedded" → deferred PaymentIntent for the inline Payment Element
+     *  (current UI). Absent → legacy hosted Checkout redirect. */
+    paymentFlow?: string;
+    /** Client-minted id, fresh per Pay click — Stripe idempotency scope for
+     *  the intent create (dedupes duplicate deliveries of one attempt). */
+    attemptId?: string;
   };
   try {
     body = await request.json();
@@ -232,6 +247,40 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
 
   if (!stripe) {
     return json({ error: "Stripe not configured" }, 500);
+  }
+
+  // Inline deferred Payment Element (current UI): mint a bare PaymentIntent
+  // carrying the same fulfillment metadata the hosted flow stamps; the card
+  // form confirms it in-page, no redirect. Row inserted by
+  // payment_intent.succeeded → handle-dropin-booking-payment.ts.
+  if (body.paymentFlow === "embedded") {
+    const attemptId =
+      typeof body.attemptId === "string" && /^[\w-]{1,64}$/.test(body.attemptId)
+        ? body.attemptId
+        : crypto.randomUUID();
+    const intent = await createDropInPaymentIntent({
+      db,
+      session,
+      user: { id: locals.user.id, email: locals.user.email },
+      rate,
+      waiverSignedAt,
+      waiverName,
+      referralSource: body.src,
+      extraMetadata: {
+        brand: brandFromHost(request.headers.get("host") ?? ""),
+        ...collectAdAttribution(url, request.headers.get("cookie")),
+      },
+      idempotencyKey: `dropin-embedded:${sessionId}:${locals.user.id}:${attemptId}`,
+    });
+    return json(
+      {
+        paymentRequired: true,
+        clientSecret: intent.clientSecret,
+        paymentIntentId: intent.paymentIntentId,
+        amountCents: intent.amountCents,
+      },
+      200,
+    );
   }
 
   const checkout = await createDropInCheckoutSession({

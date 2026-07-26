@@ -48,9 +48,16 @@ interface SessionDetailProps {
   sessionId: string;
   isAuthenticated: boolean;
   bannerKind: "success" | "cancelled" | null;
-  /** Stripe checkout session id from the success redirect; lets the detail
-   *  API resolve the booking for guests who returned anonymous. */
+  /** Stripe checkout session id from a legacy hosted-Checkout success
+   *  redirect; lets the detail API resolve the booking for guests who
+   *  returned anonymous. */
   checkoutSessionId?: string | null;
+  /** PaymentIntent id from an inline-payment success (appended by the
+   *  client on success or by Stripe on a 3DS return) — same guest
+   *  booking-resolution role as checkoutSessionId, for the embedded flow. */
+  paymentIntentId?: string | null;
+  /** Server-threaded STRIPE_PUBLISHABLE_KEY for the inline payment form. */
+  stripePublishableKey: string;
 }
 
 function fmtDate(iso: string): string {
@@ -68,6 +75,8 @@ export default function SessionDetail({
   isAuthenticated,
   bannerKind,
   checkoutSessionId,
+  paymentIntentId,
+  stripePublishableKey,
 }: SessionDetailProps) {
   useHydrationBeacon();
 
@@ -90,9 +99,15 @@ export default function SessionDetail({
     const POLL_INTERVAL_MS = 1500;
     const pollDeadline = Date.now() + 20_000;
 
-    const detailUrl = checkoutSessionId
-      ? `/api/dropin/sessions/${sessionId}?checkout_session_id=${encodeURIComponent(checkoutSessionId)}`
-      : `/api/dropin/sessions/${sessionId}`;
+    // Guest booking resolution: the inline flow carries the PaymentIntent
+    // id, the legacy hosted flow the checkout session id. Either lets the
+    // detail API find the booking for a buyer with no login session.
+    const detailParams = new URLSearchParams();
+    if (paymentIntentId) detailParams.set("payment_intent", paymentIntentId);
+    else if (checkoutSessionId)
+      detailParams.set("checkout_session_id", checkoutSessionId);
+    const qs = detailParams.toString();
+    const detailUrl = `/api/dropin/sessions/${sessionId}${qs ? `?${qs}` : ""}`;
 
     const load = async (isPoll: boolean) => {
       try {
@@ -128,7 +143,7 @@ export default function SessionDetail({
       cancelled = true;
       if (pollTimer) clearTimeout(pollTimer);
     };
-  }, [sessionId, bannerKind, checkoutSessionId]);
+  }, [sessionId, bannerKind, checkoutSessionId, paymentIntentId]);
 
   // Auto-advance to the dashboard for a signed-in user who just confirmed a
   // booking (fresh ?booking=success). Guests are excluded — their dashboard is
@@ -303,6 +318,10 @@ export default function SessionDetail({
             isFull={isFull}
             alreadyBookedStatus={data.alreadyBookedStatus}
             isAuthenticated={isAuthenticated}
+            stripePublishableKey={stripePublishableKey}
+            sportOrClassLabel={session.sportOrClassLabel}
+            formatLabel={session.formatLabel}
+            venueName={data.venueName}
           />
         )}
 

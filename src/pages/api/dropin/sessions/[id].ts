@@ -178,13 +178,35 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
     }
   }
 
-  // Guest fallback: an existing-account guest who booked without signing in
-  // returns from Stripe anonymous, so the user lookup above finds nothing and
-  // the success page would poll forever. Resolve their booking via the
-  // checkout session id carried back in the success_url. The id is a
-  // capability only the buyer holds (it's in their redirect URL). Only hit
-  // Stripe when we still have no status, to avoid a round-trip per poll for
-  // signed-in users.
+  // Guest fallback #1 (inline Payment Element flow): an existing-account
+  // guest who paid inline gets no login session (account-takeover
+  // prevention), so the user lookup above finds nothing and the success
+  // page would poll forever. The success URL carries the PaymentIntent id
+  // (`?payment_intent=…`, appended by the client on success / by Stripe on
+  // a 3DS return) — an unguessable capability only the buyer holds, same
+  // trust model as the hosted flow's checkout_session_id. Resolve the
+  // booking row it paid for directly; no Stripe round-trip needed.
+  const paymentIntentParam = url.searchParams.get("payment_intent");
+  if (alreadyBookedStatus === null && paymentIntentParam) {
+    const [booked] = await db
+      .select({ status: dropInBookings.status })
+      .from(dropInBookings)
+      .where(
+        and(
+          eq(dropInBookings.sessionId, sessionId),
+          eq(dropInBookings.stripePaymentIntentId, paymentIntentParam),
+        ),
+      )
+      .limit(1);
+    if (booked && ACTIVE_BOOKING_STATUSES.includes(booked.status)) {
+      alreadyBookedStatus = booked.status;
+    }
+  }
+
+  // Guest fallback #2 (legacy hosted Checkout flow): same situation, but the
+  // success_url carried the checkout session id instead — resolve it to its
+  // PaymentIntent via Stripe. Only hit Stripe when we still have no status,
+  // to avoid a round-trip per poll for signed-in users.
   const checkoutSessionId = url.searchParams.get("checkout_session_id");
   if (alreadyBookedStatus === null && checkoutSessionId && stripe) {
     try {

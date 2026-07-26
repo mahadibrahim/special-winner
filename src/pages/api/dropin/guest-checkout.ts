@@ -15,10 +15,13 @@
  *     booking
  *
  * Rate resolution uses the upserted user, so an existing member who
- * guest-books still gets their member rate. Paid path reuses
- * createDropInCheckoutSession — identical webhook metadata contract,
- * booking row created by `checkout.session.completed`. Free path books
- * immediately via the shared orchestrator.
+ * guest-books still gets their member rate. Paid path reuses the shared
+ * producers in create-checkout.ts — identical webhook metadata contract to
+ * the authed endpoint. paymentFlow "embedded" (current UI) mints a deferred
+ * PaymentIntent for the inline Payment Element (row created by
+ * `payment_intent.succeeded`); the default legacy mode mints a hosted
+ * Checkout Session (row created by `checkout.session.completed`). Free
+ * path books immediately via the shared orchestrator.
  *
  * Waitlist is deliberately NOT offered to guests — joining one is a
  * commitment to come back later, which only makes sense with an account.
@@ -40,7 +43,10 @@ import {
   createConfirmedBookingFreePath,
   getActiveMembershipForUser,
 } from "@/lib/dropin/booking";
-import { createDropInCheckoutSession } from "@/lib/dropin/create-checkout";
+import {
+  createDropInCheckoutSession,
+  createDropInPaymentIntent,
+} from "@/lib/dropin/create-checkout";
 import { createSession } from "@/lib/auth";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
@@ -57,6 +63,12 @@ const bodySchema = z.object({
   waiverName: z.string().trim().min(1).max(200),
   /** `?src=` from the share link the guest booked from (e.g. host-share). */
   src: z.string().optional(),
+  /** "embedded" → deferred PaymentIntent for the inline Payment Element
+   *  (current UI). Absent → legacy hosted Checkout redirect. */
+  paymentFlow: z.literal("embedded").optional(),
+  /** Client-minted id, fresh per Pay click — Stripe idempotency scope for
+   *  the intent create (dedupes duplicate deliveries of one attempt). */
+  attemptId: z.string().regex(/^[\w-]{1,64}$/).optional(),
 });
 
 const json = (body: unknown, status: number) =>
@@ -227,9 +239,51 @@ export const POST: APIRoute = async (context) => {
     );
   }
 
-  // Paid path → Stripe Checkout. Booking row created on webhook.
+  // Paid path → booking row created on webhook (either mode).
   if (!stripe) {
     return json({ error: "Stripe not configured" }, 500);
+  }
+
+  // Inline deferred Payment Element (current UI): mint a bare PaymentIntent
+  // carrying the same fulfillment metadata the hosted flow stamps; the card
+  // form confirms it in-page, no redirect. Row inserted by
+  // payment_intent.succeeded → handle-dropin-booking-payment.ts.
+  if (data.paymentFlow === "embedded") {
+    const attemptId = data.attemptId ?? crypto.randomUUID();
+    const intent = await createDropInPaymentIntent({
+      db,
+      session,
+      user: { id: userRow.id, email: userRow.email },
+      rate,
+      waiverSignedAt,
+      waiverName: data.waiverName,
+      referralSource: data.src,
+      extraMetadata: {
+        via_guest_checkout: "true",
+        // Storefront brand — host-derived, since both brands share one org.
+        brand: brandFromHost(request.headers.get("host") ?? ""),
+        // Ad-attribution ids → read back by the webhook to fire server-side
+        // GA4 + Meta purchase conversions.
+        ...collectAdAttribution(context.url, request.headers.get("cookie")),
+      },
+      idempotencyKey: `dropin-embedded:${data.sessionId}:${userRow.id}:${attemptId}`,
+    });
+
+    // Account-takeover prevention: only set a session for genuinely new users.
+    if (wasNewUser) {
+      await createSession(userRow.id, context);
+    }
+
+    return json(
+      {
+        paymentRequired: true,
+        clientSecret: intent.clientSecret,
+        paymentIntentId: intent.paymentIntentId,
+        amountCents: intent.amountCents,
+        wasNewUser,
+      },
+      200,
+    );
   }
 
   const checkout = await createDropInCheckoutSession({
