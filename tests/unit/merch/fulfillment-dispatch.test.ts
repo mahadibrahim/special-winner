@@ -11,4 +11,12 @@ describe("orderFulfillmentPlan", () => {
   it("printful when items is empty", () => {
     expect(orderFulfillmentPlan([])).toBe("printful");
   });
+  it("self_shipped when all items are self_shipped", () => {
+    expect(orderFulfillmentPlan([{ fulfillmentType: "self_shipped" }])).toBe("self_shipped");
+  });
+  it("printful when self_shipped is mixed with printful_pod", () => {
+    expect(
+      orderFulfillmentPlan([{ fulfillmentType: "self_shipped" }, { fulfillmentType: "printful_pod" }]),
+    ).toBe("printful");
+  });
 });
