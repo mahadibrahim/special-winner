@@ -54,10 +54,21 @@ const CATEGORY_LABELS: Record<Category, string> = {
   other: "Other",
 }
 
+type FulfillmentType = "pickup" | "self_shipped"
+
+const FULFILLMENT_LABELS: Record<FulfillmentType, string> = {
+  pickup: "Pickup (org hands it out on-site)",
+  self_shipped: "Self-shipped (org packs + ships; admin enters tracking)",
+}
+
 interface MerchVariant {
   id: string
   size: string | null
   retailPriceCents: number
+  weightOz: number | null
+  lengthIn: number | null
+  widthIn: number | null
+  heightIn: number | null
 }
 
 interface MerchStoreProduct {
@@ -68,8 +79,18 @@ interface MerchStoreProduct {
   images: { url: string; alt?: string }[] | null
   personalization: { name?: boolean; number?: boolean } | null
   active: boolean
+  fulfillmentType: FulfillmentType
   variants: MerchVariant[]
 }
+
+interface VariantWeightDraft {
+  weightOz: string
+  lengthIn: string
+  widthIn: string
+  heightIn: string
+}
+
+const EMPTY_WEIGHT_DRAFT: VariantWeightDraft = { weightOz: "", lengthIn: "", widthIn: "", heightIn: "" }
 
 interface StoreSummary {
   id: string
@@ -90,6 +111,10 @@ interface ProductFormState {
   personalizeName: boolean
   personalizeNumber: boolean
   active: boolean
+  fulfillmentType: FulfillmentType
+  // Keyed by size — only relevant (and required) when fulfillmentType is
+  // self_shipped; see missingSelfShippedWeights in store-products.ts.
+  variantWeights: Record<string, VariantWeightDraft>
 }
 
 const EMPTY_FORM: ProductFormState = {
@@ -103,6 +128,8 @@ const EMPTY_FORM: ProductFormState = {
   personalizeName: false,
   personalizeNumber: false,
   active: true,
+  fulfillmentType: "pickup",
+  variantWeights: {},
 }
 
 const money = (c: number) => `$${(c / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })}`
@@ -158,6 +185,16 @@ export function MerchStoreEditor({ storeId }: { storeId: string }) {
   function openEditDialog(product: MerchStoreProduct) {
     setEditingProduct(product)
     const priceCents = product.variants[0]?.retailPriceCents ?? 0
+    const variantWeights: Record<string, VariantWeightDraft> = {}
+    for (const v of product.variants) {
+      if (!v.size) continue
+      variantWeights[v.size] = {
+        weightOz: v.weightOz != null ? String(v.weightOz) : "",
+        lengthIn: v.lengthIn != null ? String(v.lengthIn) : "",
+        widthIn: v.widthIn != null ? String(v.widthIn) : "",
+        heightIn: v.heightIn != null ? String(v.heightIn) : "",
+      }
+    }
     setFormData({
       name: product.name,
       description: product.description ?? "",
@@ -169,6 +206,8 @@ export function MerchStoreEditor({ storeId }: { storeId: string }) {
       personalizeName: Boolean(product.personalization?.name),
       personalizeNumber: Boolean(product.personalization?.number),
       active: product.active,
+      fulfillmentType: product.fulfillmentType ?? "pickup",
+      variantWeights,
     })
     setError(null)
     setIsDialogOpen(true)
@@ -181,15 +220,32 @@ export function MerchStoreEditor({ storeId }: { storeId: string }) {
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean)
-    setFormData((prev) => ({
-      ...prev,
-      sizes: Array.from(new Set([...prev.sizes, ...next])),
-      sizeDraft: "",
-    }))
+    setFormData((prev) => {
+      const sizes = Array.from(new Set([...prev.sizes, ...next]))
+      const variantWeights = { ...prev.variantWeights }
+      for (const size of next) {
+        if (!variantWeights[size]) variantWeights[size] = { ...EMPTY_WEIGHT_DRAFT }
+      }
+      return { ...prev, sizes, sizeDraft: "", variantWeights }
+    })
   }
 
   function removeSize(size: string) {
-    setFormData((prev) => ({ ...prev, sizes: prev.sizes.filter((s) => s !== size) }))
+    setFormData((prev) => {
+      const variantWeights = { ...prev.variantWeights }
+      delete variantWeights[size]
+      return { ...prev, sizes: prev.sizes.filter((s) => s !== size), variantWeights }
+    })
+  }
+
+  function updateVariantWeight(size: string, patch: Partial<VariantWeightDraft>) {
+    setFormData((prev) => ({
+      ...prev,
+      variantWeights: {
+        ...prev.variantWeights,
+        [size]: { ...(prev.variantWeights[size] ?? EMPTY_WEIGHT_DRAFT), ...patch },
+      },
+    }))
   }
 
   function handleSizeKeyDown(e: KeyboardEvent<HTMLInputElement>) {
@@ -213,6 +269,24 @@ export function MerchStoreEditor({ storeId }: { storeId: string }) {
       return
     }
 
+    let variantWeights: { size: string; weightOz: number; lengthIn?: number; widthIn?: number; heightIn?: number }[] | undefined
+    if (formData.fulfillmentType === "self_shipped") {
+      const missing: string[] = []
+      variantWeights = formData.sizes.map((size) => {
+        const draft = formData.variantWeights[size] ?? EMPTY_WEIGHT_DRAFT
+        const weightOz = Math.round(parseFloat(draft.weightOz))
+        if (!Number.isFinite(weightOz) || weightOz <= 0) missing.push(size)
+        const lengthIn = draft.lengthIn.trim() ? Math.round(parseFloat(draft.lengthIn)) : undefined
+        const widthIn = draft.widthIn.trim() ? Math.round(parseFloat(draft.widthIn)) : undefined
+        const heightIn = draft.heightIn.trim() ? Math.round(parseFloat(draft.heightIn)) : undefined
+        return { size, weightOz, lengthIn, widthIn, heightIn }
+      })
+      if (missing.length > 0) {
+        setError(`Enter a weight (oz) for: ${missing.join(", ")}`)
+        return
+      }
+    }
+
     setIsSubmitting(true)
     try {
       const url = "/api/admin/merch/store-products"
@@ -225,7 +299,9 @@ export function MerchStoreEditor({ storeId }: { storeId: string }) {
         category: formData.category,
         imageUrl: formData.imageUrl || null,
         priceCents,
+        fulfillmentType: formData.fulfillmentType,
         sizes: formData.sizes,
+        ...(variantWeights ? { variantWeights } : {}),
         personalization:
           formData.personalizeName || formData.personalizeNumber
             ? { name: formData.personalizeName, number: formData.personalizeNumber }
@@ -498,6 +574,27 @@ export function MerchStoreEditor({ storeId }: { storeId: string }) {
               </div>
 
               <div className="space-y-2">
+                <Label>Fulfillment</Label>
+                <Select
+                  value={formData.fulfillmentType}
+                  onValueChange={(value) =>
+                    setFormData((prev) => ({ ...prev, fulfillmentType: value as FulfillmentType }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(FULFILLMENT_LABELS) as FulfillmentType[]).map((f) => (
+                      <SelectItem key={f} value={f}>
+                        {FULFILLMENT_LABELS[f]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="sizeDraft">Sizes</Label>
                 <div className="flex gap-2">
                   <Input
@@ -530,6 +627,57 @@ export function MerchStoreEditor({ storeId }: { storeId: string }) {
                   </div>
                 )}
               </div>
+
+              {formData.fulfillmentType === "self_shipped" && formData.sizes.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Per-size weight (oz) — required for shipping rates</Label>
+                  <div className="space-y-2">
+                    {formData.sizes.map((size) => {
+                      const draft = formData.variantWeights[size] ?? EMPTY_WEIGHT_DRAFT
+                      return (
+                        <div key={size} className="flex items-center gap-2">
+                          <Badge variant="secondary" className="w-14 justify-center shrink-0">
+                            {size}
+                          </Badge>
+                          <Input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={draft.weightOz}
+                            onChange={(e) => updateVariantWeight(size, { weightOz: e.target.value })}
+                            placeholder="Weight (oz) *"
+                            required
+                          />
+                          <Input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={draft.lengthIn}
+                            onChange={(e) => updateVariantWeight(size, { lengthIn: e.target.value })}
+                            placeholder="L (in)"
+                          />
+                          <Input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={draft.widthIn}
+                            onChange={(e) => updateVariantWeight(size, { widthIn: e.target.value })}
+                            placeholder="W (in)"
+                          />
+                          <Input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={draft.heightIn}
+                            onChange={(e) => updateVariantWeight(size, { heightIn: e.target.value })}
+                            placeholder="H (in)"
+                          />
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label>Personalization</Label>

@@ -10,12 +10,17 @@ export interface CsvRow {
   personalization: { name?: string; number?: string } | null;
   quantity: number;
   status: string;
+  // Order-level shipping fields (Task 4.2) — only populated for self-shipped
+  // orders the org has marked shipped; blank for pickup/other statuses.
+  carrier?: string | null;
+  service?: string | null;
+  trackingNumber?: string | null;
 }
 
 const esc = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
 
 export function buildOrdersCsv(rows: CsvRow[]): string {
-  const header = "email,product,size,name,number,quantity,status";
+  const header = "email,product,size,name,number,quantity,status,carrier,service,tracking";
   const body = rows
     .map((r) =>
       [
@@ -26,6 +31,9 @@ export function buildOrdersCsv(rows: CsvRow[]): string {
         r.personalization?.number ?? "",
         String(r.quantity),
         r.status,
+        r.carrier ?? "",
+        r.service ?? "",
+        r.trackingNumber ?? "",
       ]
         .map(esc)
         .join(","),

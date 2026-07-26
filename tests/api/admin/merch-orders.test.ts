@@ -1,11 +1,14 @@
 /**
- * Admin order aggregation, CSV export, mark-collected — org-scoped merch
- * orders (Phase 3b, Task 4.4).
+ * Admin order aggregation, CSV export, mark-collected/mark-shipped —
+ * org-scoped merch orders (Phase 3b Task 4.4; mark-shipped added Phase 3c
+ * Task 4.2).
  *
  * Covers: auth gate, GET orders for a store (org-scoped, with items),
- * PATCH mark-collected (awaiting_pickup → collected), illegal transitions
- * (a non-awaiting_pickup order → 409), and tenant isolation (another org's
- * store/order via Org A context → 404).
+ * PATCH mark-collected (awaiting_pickup → collected), PATCH mark-shipped
+ * (paid → shipped, self-shipped orders only, requires a tracking number),
+ * illegal transitions (a non-awaiting_pickup / non-paid order → 409), a
+ * missing tracking number on mark-shipped (→ 422), and tenant isolation
+ * (another org's store/order via Org A context → 404).
  *
  * Mirrors the fixture/cleanup pattern in merch-stores.test.ts: Org B rows
  * are inserted directly via the db (we can't sign in "as" an Org B admin
@@ -224,9 +227,84 @@ describe("/api/admin/merch/orders — PATCH mark-collected", () => {
   });
 });
 
+describe("/api/admin/merch/orders — PATCH mark-shipped", () => {
+  it("transitions a paid (self-shipped) order to shipped with tracking persisted", async () => {
+    const order = await insertOrder("paid");
+    const res = await apiFetch("/api/admin/merch/orders", {
+      method: "PATCH",
+      cookie: adminCookie,
+      body: JSON.stringify({
+        orderId: order.id,
+        status: "shipped",
+        trackingNumber: "9400111899223344556677",
+        carrier: "USPS",
+        service: "Priority",
+        trackingUrl: "https://tools.usps.com/go/TrackConfirmAction?tLabels=9400111899223344556677",
+      }),
+    });
+    const json = await expectJson(res, 200);
+    expect(json.order.status).toBe("shipped");
+    expect(json.order.trackingNumber).toBe("9400111899223344556677");
+    expect(json.order.shippingCarrier).toBe("USPS");
+    expect(json.order.shippingService).toBe("Priority");
+    expect(json.order.shippedAt).toBeTruthy();
+  });
+
+  it("422s when trackingNumber is missing", async () => {
+    const order = await insertOrder("paid");
+    const res = await apiFetch("/api/admin/merch/orders", {
+      method: "PATCH",
+      cookie: adminCookie,
+      body: JSON.stringify({ orderId: order.id, status: "shipped" }),
+    });
+    expect(res.status).toBe(422);
+  });
+
+  it("422s when trackingNumber is blank", async () => {
+    const order = await insertOrder("paid");
+    const res = await apiFetch("/api/admin/merch/orders", {
+      method: "PATCH",
+      cookie: adminCookie,
+      body: JSON.stringify({ orderId: order.id, status: "shipped", trackingNumber: "   " }),
+    });
+    expect(res.status).toBe(422);
+  });
+
+  it("rejects an illegal source status (pending → shipped) with 409", async () => {
+    const order = await insertOrder("pending");
+    const res = await apiFetch("/api/admin/merch/orders", {
+      method: "PATCH",
+      cookie: adminCookie,
+      body: JSON.stringify({ orderId: order.id, status: "shipped", trackingNumber: "1Z999AA10123456784" }),
+    });
+    expect(res.status).toBe(409);
+  });
+
+  it("rejects an illegal source status (awaiting_pickup → shipped) with 409", async () => {
+    const order = await insertOrder("awaiting_pickup");
+    const res = await apiFetch("/api/admin/merch/orders", {
+      method: "PATCH",
+      cookie: adminCookie,
+      body: JSON.stringify({ orderId: order.id, status: "shipped", trackingNumber: "1Z999AA10123456784" }),
+    });
+    expect(res.status).toBe(409);
+  });
+
+  it("rejects an illegal source status (already shipped → shipped) with 409", async () => {
+    const order = await insertOrder("shipped");
+    const res = await apiFetch("/api/admin/merch/orders", {
+      method: "PATCH",
+      cookie: adminCookie,
+      body: JSON.stringify({ orderId: order.id, status: "shipped", trackingNumber: "1Z999AA10123456784" }),
+    });
+    expect(res.status).toBe(409);
+  });
+});
+
 describe("/api/admin/merch/orders — tenant isolation", () => {
   let orgBStoreId: string;
   let orgBOrderId: string;
+  let orgBPaidOrderId: string;
 
   beforeAll(async () => {
     const orgBFixtureRes = await apiFetch("/api/test/org-fixtures?slug=orgb");
@@ -267,10 +345,27 @@ describe("/api/admin/merch/orders — tenant isolation", () => {
       })
       .returning();
     orgBOrderId = order.id;
+
+    const [paidOrder] = await getDb()
+      .insert(merchOrders)
+      .values({
+        organizationId: orgBId,
+        storeId: orgBStoreId,
+        userId: adminUserId,
+        email: "orgb-orders-fixture-paid@test.aspiresports.com",
+        status: "paid",
+        shippingAddress: shippingAddress("Org B Buyer"),
+        subtotalCents: 1000,
+        shippingCents: 500,
+        totalCents: 1500,
+      })
+      .returning();
+    orgBPaidOrderId = paidOrder.id;
   });
 
   afterAll(async () => {
     await getDb().delete(merchOrders).where(eq(merchOrders.id, orgBOrderId));
+    await getDb().delete(merchOrders).where(eq(merchOrders.id, orgBPaidOrderId));
     await getDb().delete(merchStores).where(eq(merchStores.id, orgBStoreId));
   });
 
@@ -286,6 +381,19 @@ describe("/api/admin/merch/orders — tenant isolation", () => {
       method: "PATCH",
       cookie: adminCookie,
       body: JSON.stringify({ orderId: orgBOrderId, status: "collected" }),
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it("PATCH mark-shipped with an Org B orderId via Org A context → 404", async () => {
+    const res = await apiFetch("/api/admin/merch/orders", {
+      method: "PATCH",
+      cookie: adminCookie,
+      body: JSON.stringify({
+        orderId: orgBPaidOrderId,
+        status: "shipped",
+        trackingNumber: "1Z999AA10123456784",
+      }),
     });
     expect(res.status).toBe(404);
   });
