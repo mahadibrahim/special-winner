@@ -148,14 +148,23 @@ export async function handleMerchOrderCompleted(session: {
   if (!order) return { status: "order-not-found" };
   if (order.status !== "pending") return { status: `already-${order.status}` }; // idempotent
 
-  // 1) mark paid (record Stripe-computed tax + total)
-  await db.update(merchOrders).set({
+  // 1) mark paid (record Stripe-computed tax + total) — an atomic conditional
+  // update, not select-then-update: Stripe can (and does) deliver
+  // checkout.session.completed more than once for the same session, and a
+  // bare read-then-write here would let two concurrent deliveries both pass
+  // the `status !== "pending"` check above and both go on to submit a print
+  // job (Lulu or Printful). The WHERE clause re-checks status="pending" at
+  // write time, so only one concurrent delivery can win the transition; the
+  // loser bails out below instead of double-submitting.
+  const [claimed] = await db.update(merchOrders).set({
     status: "paid",
     stripePaymentIntentId: typeof session.payment_intent === "string" ? session.payment_intent : order.stripePaymentIntentId,
     taxCents: session.total_details?.amount_tax ?? 0,
     totalCents: session.amount_total ?? order.totalCents,
     updatedAt: new Date(),
-  }).where(eq(merchOrders.id, orderId));
+  }).where(and(eq(merchOrders.id, orderId), eq(merchOrders.status, "pending")))
+    .returning({ id: merchOrders.id });
+  if (!claimed) return { status: "already-processed" };
 
   const itemsForPlan = await db.select({ fulfillmentType: merchOrderItems.fulfillmentType })
     .from(merchOrderItems).where(eq(merchOrderItems.orderId, orderId));
