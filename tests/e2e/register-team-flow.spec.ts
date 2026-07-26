@@ -41,5 +41,12 @@ test("team-capable season shows choose-mode and reaches team-create @critical", 
   await expect(page.getByText(/Your email/i).first()).toBeVisible();
   // The whole form is present up front (previously hidden behind an email gate).
   await expect(page.getByText(/Team name/i).first()).toBeVisible();
-  await expect(page.getByRole("button", { name: /Continue to payment/i })).toBeVisible();
+  // Inline deferred deposit: the Stripe card form mounts WITH the details —
+  // there is no "Continue to payment" reveal click. The $200 Pay button is
+  // the single commit action (nothing exists until it succeeds).
+  await expect(
+    page.locator('iframe[name^="__privateStripeFrame"]').first(),
+  ).toBeVisible({ timeout: 25_000 });
+  await expect(page.getByRole("button", { name: /^pay \$200/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Continue to payment/i })).toHaveCount(0);
 });
