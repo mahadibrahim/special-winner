@@ -98,20 +98,29 @@ const MOCK_SHIPPING_CENTS: Record<LuluShippingLevel, number> = {
   MAIL: 399, PRIORITY_MAIL: 899, GROUND: 599, EXPEDITED: 1299, EXPRESS: 2499,
 };
 const MOCK_PRINT_CENTS_PER_UNIT = 700;
+// Mirrors the live sandbox's fulfillment_cost.total_cost_incl_tax — Lulu's
+// per-order fulfillment fee, separate from print and shipping cost. This is
+// an org cost (never charged to the buyer).
+const MOCK_FULFILLMENT_CENTS = 81;
 
 /** Per-level cost: one POST /print-job-cost-calculations/ call. */
 export async function calculatePrintJobCost(args: {
   lineItems: LuluCostLineItem[];
   address: LuluAddressInput;
   level: LuluShippingLevel;
-}): Promise<{ shippingCents: number; printCents: number }> {
+}): Promise<{ shippingCents: number; printCents: number; fulfillmentCents: number }> {
   if (isMock()) {
     const qty = args.lineItems.reduce((s, l) => s + l.quantity, 0);
-    return { shippingCents: MOCK_SHIPPING_CENTS[args.level], printCents: MOCK_PRINT_CENTS_PER_UNIT * qty };
+    return {
+      shippingCents: MOCK_SHIPPING_CENTS[args.level],
+      printCents: MOCK_PRINT_CENTS_PER_UNIT * qty,
+      fulfillmentCents: MOCK_FULFILLMENT_CENTS,
+    };
   }
   const res = await luluFetch<{
     line_item_costs?: { total_cost_incl_tax?: string }[] | null;
     shipping_cost?: { total_cost_incl_tax?: string } | null;
+    fulfillment_cost?: { total_cost_incl_tax?: string } | null;
   }>("POST", "/print-job-cost-calculations/", {
     line_items: args.lineItems.map((l) => ({
       pod_package_id: l.podPackageId, page_count: l.pageCount, quantity: l.quantity,
@@ -120,7 +129,11 @@ export async function calculatePrintJobCost(args: {
     shipping_option: args.level,
   });
   const printCents = (res.line_item_costs ?? []).reduce((s, li) => s + toCents(li.total_cost_incl_tax), 0);
-  return { shippingCents: toCents(res.shipping_cost?.total_cost_incl_tax), printCents };
+  return {
+    shippingCents: toCents(res.shipping_cost?.total_cost_incl_tax),
+    printCents,
+    fulfillmentCents: toCents(res.fulfillment_cost?.total_cost_incl_tax),
+  };
 }
 
 /** Create (and pay for, via the Lulu account's stored payment method) a print job. */

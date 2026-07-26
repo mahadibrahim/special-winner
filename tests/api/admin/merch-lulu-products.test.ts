@@ -94,7 +94,7 @@ describe("admin lulu_pod products", () => {
     expect(bad.status).toBe(400);
   });
 
-  it("cost preview returns mock print + Mail shipping costs", async () => {
+  it("cost preview returns mock print + fulfillment + Mail shipping costs", async () => {
     const res = await apiFetch("/api/admin/merch/lulu-cost-preview", {
       method: "POST", cookie: adminCookie,
       body: JSON.stringify({ luluFormat: "6x9_bw", pageCount: 40 }),
@@ -102,5 +102,6 @@ describe("admin lulu_pod products", () => {
     const json = await expectJson(res, 200);
     expect(json.printCents).toBe(700);
     expect(json.mailShippingCents).toBe(399);
+    expect(json.fulfillmentCents).toBe(81);
   });
 });

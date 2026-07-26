@@ -22,6 +22,10 @@ describe("lulu client (LULU_MOCK)", () => {
     expect(express.shippingCents).toBe(2499);
     expect(mail.printCents).toBe(700 * 2);
   });
+  it("cost calc returns Lulu's fulfillment fee separately from print/shipping (mirrors the live sandbox's fulfillment_cost object)", async () => {
+    const mail = await calculatePrintJobCost({ lineItems: [line], address, level: "MAIL" });
+    expect(mail.fulfillmentCents).toBe(81);
+  });
   it("createPrintJob echoes a deterministic mock id", async () => {
     const job = await createPrintJob({
       externalId: "order-1", contactEmail: "b@x.com",
