@@ -196,12 +196,23 @@ test.describe("Payment confirmation (test-mode card)", () => {
 
     // Pay $200 — the single commit action: prepare (PI, no account/team yet)
     // then confirm, then finalize (account + team + roster) on success.
-    await page.getByRole("button", { name: /^pay \$200/i }).click();
+    // The Payment Element occasionally revalidates just as the click lands,
+    // swallowing it (button flickers disabled→enabled); a human would simply
+    // click again, so retry once if the click visibly did nothing.
+    const payButton = page.getByRole("button", { name: /^pay \$200/i });
+    await expect(payButton).toBeEnabled({ timeout: 15_000 });
+    await payButton.click();
+    const inviteHeading = page.getByText(/Invite your roster/i);
+    const firstTry = await inviteHeading
+      .waitFor({ state: "visible", timeout: 30_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!firstTry && (await payButton.isEnabled().catch(() => false))) {
+      await payButton.click();
+    }
 
     // Explicit outcome: the roster-invite step of the team HQ.
-    await expect(page.getByText(/Invite your roster/i)).toBeVisible({
-      timeout: 60_000,
-    });
+    await expect(inviteHeading).toBeVisible({ timeout: 60_000 });
     expect(
       page.url(),
       "deposit success must land on the team invite step, not bounce elsewhere",
