@@ -32,16 +32,23 @@ export function orderIsAllDigital(items: { fulfillmentType: string }[]): boolean
   return items.length > 0 && items.every((i) => i.fulfillmentType === "digital");
 }
 
-/** Pure dispatch: an order is a "pickup" order only if every line is
- * pickup-fulfilled, and a "self_shipped" order only if every line is
- * self_shipped. Mixed or all-printful orders go through the existing
- * Printful path (the catch-all for any shippable/mixed order — its path
- * only submits printful lines). Empty items defaults to "printful" (the
- * pre-existing behavior — fulfillMerchOrder already throws on empty items). */
+/** Pure dispatch for the PHYSICAL lines of an order: an order is a "pickup"
+ * order only if every physical line is pickup-fulfilled, and a "self_shipped"
+ * order only if every physical line is self_shipped. Mixed or all-printful
+ * orders go through the existing Printful path (the catch-all for any
+ * shippable/mixed order — its path only submits printful lines).
+ *
+ * Digital lines are delivered orthogonally (download grants) and are excluded
+ * here, so a mixed digital+pickup order still resolves to "pickup" (not the
+ * printful fallback) and gets its pickup status + email. An all-digital order
+ * is handled + returned before this is called; if it somehow reaches here the
+ * empty-physical set defaults to "printful" (pre-existing empty behavior —
+ * fulfillMerchOrder already throws on empty items). */
 export function orderFulfillmentPlan(items: { fulfillmentType: string }[]): "pickup" | "self_shipped" | "printful" {
-  if (items.length === 0) return "printful";
-  if (items.every((i) => i.fulfillmentType === "pickup")) return "pickup";
-  if (items.every((i) => i.fulfillmentType === "self_shipped")) return "self_shipped";
+  const physical = items.filter((i) => i.fulfillmentType !== "digital");
+  if (physical.length === 0) return "printful";
+  if (physical.every((i) => i.fulfillmentType === "pickup")) return "pickup";
+  if (physical.every((i) => i.fulfillmentType === "self_shipped")) return "self_shipped";
   return "printful";
 }
 

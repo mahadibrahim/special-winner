@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { orderHasDigital, orderIsAllDigital } from "@/lib/merch/fulfillment";
+import { orderHasDigital, orderIsAllDigital, orderFulfillmentPlan } from "@/lib/merch/fulfillment";
 import { buildDigitalDeliveryHtml } from "@/lib/merch/order-confirmation-email";
 
 describe("orderHasDigital", () => {
@@ -29,6 +29,31 @@ describe("orderIsAllDigital", () => {
   });
   it("is false when no item is digital", () => {
     expect(orderIsAllDigital([{ fulfillmentType: "printful_pod" }])).toBe(false);
+  });
+});
+
+describe("orderFulfillmentPlan — digital lines are orthogonal to the physical plan", () => {
+  it("resolves a mixed digital + pickup order to pickup (not the printful fallback)", () => {
+    expect(
+      orderFulfillmentPlan([{ fulfillmentType: "digital" }, { fulfillmentType: "pickup" }]),
+    ).toBe("pickup");
+  });
+
+  it("resolves a mixed digital + self_shipped order to self_shipped", () => {
+    expect(
+      orderFulfillmentPlan([{ fulfillmentType: "self_shipped" }, { fulfillmentType: "digital" }]),
+    ).toBe("self_shipped");
+  });
+
+  it("still resolves a mixed digital + printful order to printful", () => {
+    expect(
+      orderFulfillmentPlan([{ fulfillmentType: "digital" }, { fulfillmentType: "printful_pod" }]),
+    ).toBe("printful");
+  });
+
+  it("leaves a pure-physical order's plan unchanged (no digital present)", () => {
+    expect(orderFulfillmentPlan([{ fulfillmentType: "pickup" }, { fulfillmentType: "pickup" }])).toBe("pickup");
+    expect(orderFulfillmentPlan([{ fulfillmentType: "pickup" }, { fulfillmentType: "self_shipped" }])).toBe("printful");
   });
 });
 
