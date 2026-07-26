@@ -29,9 +29,11 @@ test.describe("Merch bundle storefront", () => {
 
     await expect(page.locator("h1")).toContainText("E2E Team Kit Bundle");
 
-    // Two slots (jersey + shorts) => two <select> elements, one per fieldset.
-    const selects = page.locator("select");
-    await expect(selects).toHaveCount(2);
+    // Two slots (jersey + shorts) => two per-slot variant selects (the page
+    // also has a bundle-quantity select, so target the slot selects by their
+    // aria-label rather than every <select> on the page).
+    const slotSelects = page.locator('select[aria-label^="Choose option for"]');
+    await expect(slotSelects).toHaveCount(2);
 
     // Both variants default-selected on load, so the discounted price should
     // be visible immediately (bundle-detail.tsx pre-selects slots[0] for
