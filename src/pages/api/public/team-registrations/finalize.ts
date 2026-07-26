@@ -5,6 +5,7 @@ import { stripe } from "@/lib/stripe/client";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 import { createSession } from "@/lib/auth";
 import { finalizeTeamDeposit } from "@/lib/registrations/finalize-team-deposit";
+import { flushPostHog } from "@/lib/posthog-server";
 
 const BodySchema = z.object({ paymentIntentId: z.string().trim().min(1).max(255) });
 
@@ -71,6 +72,12 @@ export const POST: APIRoute = async (context) => {
       // Non-fatal: the team exists; they can sign in with their email to reach it.
     }
   }
+
+  // Deliver the deposit analytics (team_deposit_paid / payment_completed)
+  // before responding — Netlify freezes the instance once the response is
+  // sent, which drops in-flight capture requests. The webhook backstop
+  // flushes on its own path; this is the happy path's only flush.
+  await flushPostHog();
 
   return json(
     {

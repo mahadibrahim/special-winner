@@ -13,6 +13,7 @@ import { CAPTAIN_DEPOSIT_CENTS } from "@/lib/registrations/team-deposit";
 import { upsertGuestUser } from "@/lib/registrations/upsert-guest-user";
 import { createSession } from "@/lib/auth";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
+import { collectAdAttribution } from "@/lib/analytics/parse-cookies";
 
 const BodySchema = z.object({
   seasonId: z.string().uuid(),
@@ -212,6 +213,7 @@ export const POST: APIRoute = async (context) => {
     if (!teamRegistrationId) {
       throw new Error("team_registrations insert returned no id");
     }
+    const phSessionId = request.headers.get("X-PostHog-Session-Id") || undefined;
     return await finishWithDepositIntent({
       teamRegistrationId,
       captainUserId,
@@ -219,6 +221,11 @@ export const POST: APIRoute = async (context) => {
       inviteToken,
       teamFeeCents,
       wasNewUser,
+      attributionMetadata: {
+        brand,
+        ...collectAdAttribution(context.url, request.headers.get("cookie")),
+        ...(phSessionId ? { ph_session_id: phSessionId } : {}),
+      },
     });
   } catch (err) {
     console.error("[team-registrations] insert failed", err);
@@ -242,8 +249,10 @@ async function finishWithDepositIntent(params: {
   inviteToken: string;
   teamFeeCents: number;
   wasNewUser: boolean;
+  /** brand + ad/PostHog attribution riders to stamp on the deposit intent. */
+  attributionMetadata: Record<string, string>;
 }): Promise<Response> {
-  const { teamRegistrationId, captainUserId, captainEmail, inviteToken, teamFeeCents, wasNewUser } =
+  const { teamRegistrationId, captainUserId, captainEmail, inviteToken, teamFeeCents, wasNewUser, attributionMetadata } =
     params;
   if (!db) {
     return new Response(
@@ -282,6 +291,10 @@ async function finishWithDepositIntent(params: {
       metadata: {
         team_registration_id: teamRegistrationId,
         kind: "team_deposit",
+        // brand + attribution riders, read back by
+        // handle-team-deposit-succeeded so the deposit's analytics join the
+        // captain's browser session/person.
+        ...attributionMetadata,
       },
     });
     clientSecret = intent.clientSecret;

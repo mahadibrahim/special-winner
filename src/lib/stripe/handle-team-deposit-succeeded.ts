@@ -7,6 +7,8 @@ import { SERVER_EVENTS } from "@/lib/analytics/events";
 import { sendTeamDepositReceiptEmail } from "@/lib/email/send";
 import type { BrandId } from "@/lib/branding/themes";
 import { CAPTAIN_DEPOSIT_CENTS } from "@/lib/registrations/team-deposit";
+import { capturePaymentCompleted } from "@/lib/observability/payment-telemetry";
+import { normalizeBrand } from "@/lib/organization/soccerone-routing";
 
 /**
  * Handles `payment_intent.succeeded` for the captain's $200 team deposit
@@ -166,14 +168,31 @@ export async function handleTeamDepositSucceeded(
   // is now set, so the dedupe gate above short-circuits future deliveries
   // before this code even runs).
   if (team.captainUserId && result.ledgerRowInserted) {
+    const md = paymentIntent.metadata ?? {};
     getPostHogServer().capture({
-      distinctId: team.captainUserId,
+      // Capture against the browser's PostHog id when the creating route
+      // stored one, so the deposit joins the captain's anonymous funnel
+      // (team_create_viewed → deposit) — mirrors payment-telemetry.ts.
+      distinctId: md.ph_distinct_id || team.captainUserId,
       event: SERVER_EVENTS.teamDepositPaid,
       properties: {
+        ...(md.ph_session_id ? { $session_id: md.ph_session_id } : {}),
         team_registration_id: team.id,
         season_id: team.seasonId,
         amount_cents: paymentIntent.amount,
+        user_id: team.captainUserId,
       },
+    });
+    // Revenue signal — the $200 deposit is captured money and belongs in
+    // payment_completed alongside registration/dropin revenue.
+    capturePaymentCompleted({
+      distinctId: team.captainUserId,
+      clientDistinctId: md.ph_distinct_id,
+      sessionId: md.ph_session_id,
+      kind: "team_deposit",
+      amountCents: paymentIntent.amount,
+      brand: normalizeBrand(md.brand ?? team.brand),
+      metadata: { team_registration_id: team.id, season_id: team.seasonId },
     });
 
     // Deposit receipt — the captain's durable copy of the join link + next

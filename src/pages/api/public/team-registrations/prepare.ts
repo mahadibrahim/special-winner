@@ -11,6 +11,7 @@ import { CAPTAIN_DEPOSIT_CENTS } from "@/lib/registrations/team-deposit";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
 import { getOrCreateStripeCustomer } from "@/lib/memberships/stripe";
 import { checkDiscountEligibility, computeDiscountCents } from "@/lib/discounts/validate";
+import { collectAdAttribution } from "@/lib/analytics/parse-cookies";
 
 const BodySchema = z.object({
   seasonId: z.string().uuid(),
@@ -134,6 +135,11 @@ export const POST: APIRoute = async (context) => {
     return json({ error: "We couldn't start your reservation. Please try again." }, 502);
   }
 
+  // Attribution riders: ph_distinct_id / gclid / fbclid etc. + the PostHog
+  // session id, read back by finalizeTeamDeposit so the deposit's analytics
+  // events join the captain's browser session and person (mirrors
+  // guest-checkout.ts).
+  const phSessionId = request.headers.get("X-PostHog-Session-Id") || undefined;
   const metadata: Record<string, string> = {
     kind: "team_deposit_pending",
     organizationId: org.id,
@@ -144,6 +150,8 @@ export const POST: APIRoute = async (context) => {
     backstopConsent: "true",
     brand: brandFromHost(request.headers.get("host") ?? ""),
     teamFeeCents: String(teamFeeCents),
+    ...collectAdAttribution(context.url, request.headers.get("cookie")),
+    ...(phSessionId ? { ph_session_id: phSessionId } : {}),
   };
   if (notes) metadata.notes = notes;
   if (captainUserId) metadata.captainUserId = captainUserId;

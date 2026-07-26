@@ -9,6 +9,8 @@ import { createRegistration, RegistrationError } from "@/lib/registrations/creat
 import { CAPTAIN_DEPOSIT_CENTS } from "@/lib/registrations/team-deposit";
 import { getPostHogServer } from "@/lib/posthog-server";
 import { SERVER_EVENTS } from "@/lib/analytics/events";
+import { capturePaymentCompleted } from "@/lib/observability/payment-telemetry";
+import { normalizeBrand } from "@/lib/organization/soccerone-routing";
 import { sendTeamDepositReceiptEmail } from "@/lib/email/send";
 import type { BrandId } from "@/lib/branding/themes";
 
@@ -280,13 +282,35 @@ export async function finalizeTeamDeposit(pi: Stripe.PaymentIntent): Promise<Fin
   // Analytics + receipt email (once).
   try {
     getPostHogServer().capture({
-      distinctId: captainUserId,
+      // Capture against the browser's PostHog id when the prepare route
+      // stored one, so the deposit joins the captain's anonymous funnel
+      // (team_create_viewed → deposit) — mirrors payment-telemetry.ts.
+      distinctId: m.ph_distinct_id || captainUserId,
       event: SERVER_EVENTS.teamDepositPaid,
-      properties: { team_registration_id: team.id, season_id: seasonId, amount_cents: pi.amount },
+      properties: {
+        ...(m.ph_session_id ? { $session_id: m.ph_session_id } : {}),
+        team_registration_id: team.id,
+        season_id: seasonId,
+        amount_cents: pi.amount,
+        user_id: captainUserId,
+      },
     });
   } catch (err) {
     console.error("[finalizeTeamDeposit] analytics failed:", err);
   }
+  // Revenue signal — the $200 deposit is captured money and belongs in
+  // payment_completed alongside registration/dropin revenue (it was the one
+  // paid flow missing from revenue analytics).
+  capturePaymentCompleted({
+    distinctId: captainUserId,
+    clientDistinctId: m.ph_distinct_id,
+    sessionId: m.ph_session_id,
+    kind: "team_deposit",
+    amountCents: pi.amount,
+    brand: normalizeBrand(m.brand),
+    organizationId,
+    metadata: { team_registration_id: team.id, season_id: seasonId },
+  });
   try {
     let seasonName = "your season";
     try {

@@ -18,7 +18,12 @@
  */
 import { getPostHogServer } from "@/lib/posthog-server";
 
-export type PaymentKind = "registration" | "dropin" | "field_rental" | "membership";
+export type PaymentKind =
+  | "registration"
+  | "dropin"
+  | "field_rental"
+  | "membership"
+  | "team_deposit";
 
 export interface PaymentCompletedInput {
   /** Paying user's id — used as the PostHog distinct id. */

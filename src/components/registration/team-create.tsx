@@ -13,6 +13,7 @@ import {
   trackTeamDepositViewed,
   trackTeamHqViewed,
 } from "@/lib/analytics/events";
+import { phSessionHeader } from "@/lib/analytics/track";
 
 // localStorage key for the pending captain form of a signed-out visitor —
 // stashed before we send them a magic link, rehydrated when they return
@@ -492,7 +493,7 @@ export default function TeamCreate({
     try {
       const res = await fetch("/api/public/team-registrations/prepare", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...phSessionHeader() },
         body: JSON.stringify({
           seasonId,
           teamName: teamName.trim(),
