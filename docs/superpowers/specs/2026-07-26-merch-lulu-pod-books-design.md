@@ -101,6 +101,14 @@ A book product has **one price variant** (like digital — no size/color options
 - **E2E** (`tests/e2e/`): admin creates a book product with uploaded PDFs (`R2_MOCK`); buyer checkout renders the level picker and completes (mock Lulu + Stripe test card). Note the post-merge `test-full` gap — run affected specs locally before merge.
 - **Go-live validation (owner, manual):** a sandbox print job end-to-end on staging, then **one real proof copy ordered and inspected** before the book store goes public — this is also the quality verdict on the current Chromium/paged.js PDFs vs a WeasyPrint migration.
 
+## Implementation deviations
+
+Recorded during Task 12 verification — none change the design's behavior contract; all are fixture/test-plumbing details this spec didn't anticipate:
+
+- **E2E/API book-store fixtures use `scope: "team"`, not `"general"`.** The shared E2E org already has one general-scope store, and `uq_merch_stores_one_general` enforces one general-scope store per org. The book store fixture (`tests/e2e/merch-book-checkout.spec.ts` via `seedMerchBookFixture`) and the direct-DB fixture stores in `tests/api/merch/lulu-quote.test.ts`, `tests/api/merch/lulu-checkout.test.ts`, and `tests/api/admin/merch-lulu-products.test.ts` all use `scope: "team"` with `visibility: "public"` instead, mirroring the existing digital-download test's fixture-store pattern. No product-facing behavior change — a team-scoped public store renders identically to a general-scope one at `/shop/<slug>`.
+- **Book products default to `category: "other"`.** `product_category` (`src/lib/db/schema/products.ts`) has no book-specific enum value (`jersey`, `shorts`, `socks`, `hoodie`, `t_shirt`, ...); the design didn't call out a category for `lulu_pod` products. `merch_products.category` defaults to `"other"` and the E2E/seed fixtures rely on that default rather than setting an explicit value. Deferred: add a `"book"` category value if/when book merchandising needs its own facet (not required for v1 checkout or admin flows).
+- **Checkout totals rows gained `data-testid` hooks.** `src/components/shop/checkout-form.tsx` now renders `data-testid="checkout-shipping-total"` and `data-testid="checkout-order-total"` on the shipping/order total `<span>`s. Added during Task 11 fix-round 1 after a live-level-picker E2E test produced a false positive matching the wrong total on the page (multiple dollar-amount spans). Not in the original design; a pure test-stability addition with no behavior change.
+
 ## Rollout
 
 1. Land the integration behind config-absence (no Lulu keys in prod → book products simply can't be quoted; none will exist yet).
