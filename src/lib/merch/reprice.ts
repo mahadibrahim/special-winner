@@ -20,6 +20,9 @@ export interface RepricedLine {
   lengthIn: number | null;
   widthIn: number | null;
   heightIn: number | null;
+  // Bundle attribution (merch Phase 3d). Optional: product lines omit these.
+  bundleId?: string | null;
+  bundleName?: string | null;
 }
 
 export interface VariantPriceRow {

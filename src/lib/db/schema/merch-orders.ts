@@ -92,6 +92,11 @@ export const merchOrderItems = pgTable(
     personalization: jsonb("personalization").$type<OrderItemPersonalization>(),
     unitPriceCents: integer("unit_price_cents").notNull(),
     quantity: integer("quantity").notNull(),
+    // Bundle attribution snapshot (merch Phase 3d). Nullable, no FK: bundles
+    // can be edited/removed after purchase without touching historical order
+    // lines — bundleName preserves what the buyer saw at checkout.
+    bundleId: uuid("bundle_id"),
+    bundleName: varchar("bundle_name", { length: 255 }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => ({
