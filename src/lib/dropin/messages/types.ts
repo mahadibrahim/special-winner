@@ -59,6 +59,12 @@ export interface DropInBaseContext {
 export interface BookingConfirmationContext extends DropInBaseContext {
   booking: DropInMessageBooking;
   source: "online_booking" | "walk_up";
+  /**
+   * Sign-the-waiver backstop link — set ONLY while the booking's waiver is
+   * unsigned (the online flows capture it after payment). Null/absent when
+   * already signed; the confirmation then omits the waiver CTA entirely.
+   */
+  signWaiverUrl?: string | null;
 }
 
 export interface WaitlistPromotedContext extends DropInBaseContext {

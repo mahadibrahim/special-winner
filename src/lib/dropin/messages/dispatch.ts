@@ -146,6 +146,8 @@ interface BookingContextRow {
   teamAssignment: string | null;
   source: "online_booking" | "walk_up";
   brand: BrandId;
+  waiverSigned: boolean;
+  stripePaymentIntentId: string | null;
 }
 
 async function loadBooking(bookingId: string): Promise<BookingContextRow | null> {
@@ -160,6 +162,8 @@ async function loadBooking(bookingId: string): Promise<BookingContextRow | null>
       teamAssignment: dropInBookings.teamAssignment,
       source: dropInBookings.source,
       brand: dropInBookings.brand,
+      waiverSigned: dropInBookings.waiverSigned,
+      stripePaymentIntentId: dropInBookings.stripePaymentIntentId,
     })
     .from(dropInBookings)
     .where(eq(dropInBookings.id, bookingId))
@@ -174,6 +178,8 @@ async function loadBooking(bookingId: string): Promise<BookingContextRow | null>
     teamAssignment: row.teamAssignment,
     source: row.source as "online_booking" | "walk_up",
     brand: (row.brand as BrandId) ?? "aspire",
+    waiverSigned: row.waiverSigned,
+    stripePaymentIntentId: row.stripePaymentIntentId,
   };
 }
 
@@ -356,6 +362,19 @@ export async function dispatchBookingConfirmation(
     amountCents: booking.amountPaidCents,
   });
 
+  // Waiver backstop: when the booking is unsigned (the online flows defer
+  // the waiver to after payment), the confirmation carries a sign-the-waiver
+  // link. The PaymentIntent id doubles as the guest capability token — a
+  // buyer with no login session can still resolve their booking and sign
+  // (same trust model as the session page's ?payment_intent resolution).
+  const signWaiverUrl = booking.waiverSigned
+    ? null
+    : `${publicAppUrl(resolvedBrand)}/dropin/${session.sessionId}${
+        booking.stripePaymentIntentId
+          ? `?payment_intent=${encodeURIComponent(booking.stripePaymentIntentId)}`
+          : ""
+      }`;
+
   const ctx: BookingConfirmationContext = {
     ...baseCtx(session, recipientFromUser(user), resolvedBrand),
     booking: {
@@ -365,6 +384,7 @@ export async function dispatchBookingConfirmation(
       teamAssignment: booking.teamAssignment,
     },
     source: booking.source,
+    signWaiverUrl,
   };
 
   const variants = await renderBookingConfirmation(ctx);

@@ -105,14 +105,23 @@ async function resolveDropInChargeContext(
  * Stamped identically on the hosted Checkout Session and the embedded
  * PaymentIntent, differing only in `type`. All values are strings ≤500
  * chars (Stripe metadata limit).
+ *
+ * Waiver fields are OPTIONAL since the sign-before-you-PLAY change: the
+ * online flows no longer collect a waiver pre-payment, so they omit both
+ * fields and the fulfillment core writes an unsigned booking (the waiver
+ * is captured post-payment via /api/dropin/bookings/[id]/waiver). Callers
+ * that DO have a signature at payment time (kiosk claim flows, any legacy
+ * in-flight producer) keep stamping it and the core records it unchanged
+ * — empty string is the wire encoding for "absent" (Stripe metadata has
+ * no null), and the core's `md.waiver_name || null` reads it back as null.
  */
 function buildDropInFulfillmentMetadata(opts: {
   type: string;
   session: typeof dropInSessions.$inferSelect;
   user: { id: string };
   rate: ResolvedRate;
-  waiverSignedAt: Date;
-  waiverName: string;
+  waiverSignedAt?: Date | null;
+  waiverName?: string | null;
   referralSource?: string;
   extraMetadata?: Record<string, string>;
 }): Record<string, string> {
@@ -123,8 +132,8 @@ function buildDropInFulfillmentMetadata(opts: {
     payment_method: opts.rate.paymentMethod,
     membership_id: opts.rate.membershipId ?? "",
     organization_id: opts.session.organizationId,
-    waiver_signed_at: opts.waiverSignedAt.toISOString(),
-    waiver_name: opts.waiverName,
+    waiver_signed_at: opts.waiverSignedAt ? opts.waiverSignedAt.toISOString() : "",
+    waiver_name: opts.waiverName ?? "",
     referral_source: sanitizeReferralSource(opts.referralSource) ?? "",
     ...(opts.extraMetadata ?? {}),
   };
@@ -143,8 +152,9 @@ export async function createDropInPaymentIntent(opts: {
   session: typeof dropInSessions.$inferSelect;
   user: { id: string; email: string };
   rate: ResolvedRate;
-  waiverSignedAt: Date;
-  waiverName: string;
+  /** Optional — the online flow defers the waiver to after payment. */
+  waiverSignedAt?: Date | null;
+  waiverName?: string | null;
   /** Raw `?src=` query value from the share link — sanitized before it lands
    *  in intent metadata (and, later, the booking row via the webhook). */
   referralSource?: string;
@@ -209,8 +219,9 @@ export async function createDropInCheckoutSession(opts: {
   session: typeof dropInSessions.$inferSelect;
   user: { id: string; email: string };
   rate: ResolvedRate;
-  waiverSignedAt: Date;
-  waiverName: string;
+  /** Optional — the online flow defers the waiver to after payment. */
+  waiverSignedAt?: Date | null;
+  waiverName?: string | null;
   /** Raw `?src=` query value from the share link — sanitized before it lands
    *  in Checkout metadata (and, later, the booking row via the webhook). */
   referralSource?: string;

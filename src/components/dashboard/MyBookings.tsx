@@ -357,6 +357,16 @@ export default function MyBookings({ timeZone = "America/New_York" }: { timeZone
             <a href={`/dropin/${item.dropin!.sessionId}`}>Details</a>
           </Button>
         )}
+        {/* Sign-before-you-play backstop: the waiver is captured after
+            payment; the session page renders the signing card for the
+            booking owner. SOFT — an unsigned waiver never blocks check-in. */}
+        {item.kind === "dropin" &&
+          item.dropin!.status === "confirmed" &&
+          item.dropin!.waiverSigned === false && (
+            <Button asChild size="sm">
+              <a href={`/dropin/${item.dropin!.sessionId}`}>Sign waiver</a>
+            </Button>
+          )}
         {item.kind === "rental" && item.rental!.status === "pending_payment" && (
           <Button size="sm" disabled={paying.has(item.id)} onClick={() => payNow(item.id)}>
             {paying.has(item.id) ? "Starting…" : "Pay now"}

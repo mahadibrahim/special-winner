@@ -14,6 +14,8 @@ export interface DropInBookingRow {
     | "no_show";
   teamAssignment: string | null;
   checkedInAt: string | null;
+  /** False = post-payment waiver still unsigned (sign-before-you-play). */
+  waiverSigned?: boolean;
   session: {
     sportOrClassLabel: string;
     formatLabel: string | null;

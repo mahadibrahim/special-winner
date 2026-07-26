@@ -100,6 +100,49 @@ describe("POST /api/dropin/guest-checkout", () => {
     expect(booking.waiverSignedBy).toBe("Guest Booker");
   });
 
+  it("books WITHOUT waiver fields — unsigned row, waiver deferred to post-payment", async () => {
+    const ctx = await freeSessionInDefaultOrg();
+    const email = `guest-dropin-nowaiver-${Date.now()}@example.com`;
+
+    const res = await apiFetch(ENDPOINT, {
+      method: "POST",
+      body: JSON.stringify({
+        sessionId: ctx.sessionId,
+        firstName: "Guest",
+        lastName: "Booker",
+        email,
+      }),
+    });
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.paymentRequired).toBe(false);
+    expect(json.bookingId).toBeTruthy();
+
+    const db = getDb();
+    const [booking] = await db
+      .select()
+      .from(dropInBookings)
+      .where(eq(dropInBookings.id, json.bookingId));
+    expect(booking.waiverSigned).toBe(false);
+    expect(booking.waiverSignedAt).toBeNull();
+    expect(booking.waiverSignedBy).toBeNull();
+  });
+
+  it("400s waiverAccepted:true without a typed name (malformed signature)", async () => {
+    const ctx = await freeSessionInDefaultOrg();
+    const res = await apiFetch(ENDPOINT, {
+      method: "POST",
+      body: JSON.stringify({
+        sessionId: ctx.sessionId,
+        firstName: "Guest",
+        lastName: "Booker",
+        email: `guest-dropin-badwaiver-${Date.now()}@example.com`,
+        waiverAccepted: true,
+      }),
+    });
+    expect(res.status).toBe(400);
+  });
+
   it("409s when the same email already holds an active booking for the session", async () => {
     const ctx = await freeSessionInDefaultOrg();
     const email = `guest-dropin-dupe-${Date.now()}@example.com`;

@@ -67,6 +67,7 @@ export const GET: APIRoute = async ({ locals }) => {
       amountPaidCents: dropInBookings.amountPaidCents,
       teamAssignment: dropInBookings.teamAssignment,
       checkedInAt: dropInBookings.checkedInAt,
+      waiverSigned: dropInBookings.waiverSigned,
       createdAt: dropInBookings.createdAt,
       sportOrClassLabel: dropInSessions.sportOrClassLabel,
       formatLabel: dropInSessions.formatLabel,
@@ -90,6 +91,7 @@ export const GET: APIRoute = async ({ locals }) => {
         amountPaidCents: r.amountPaidCents,
         teamAssignment: r.teamAssignment,
         checkedInAt: r.checkedInAt ?? null,
+        waiverSigned: r.waiverSigned,
         createdAt: r.createdAt,
         session: {
           sportOrClassLabel: r.sportOrClassLabel,
@@ -139,15 +141,21 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     return json({ error: "sessionId required" }, 400);
   }
 
-  // Waiver acceptance is required for all customer-facing direct bookings.
-  if (body.waiverAccepted !== true) {
-    return json({ error: "Waiver acceptance is required" }, 422);
-  }
+  // Waiver is OPTIONAL at booking time (sign before you PLAY, not before
+  // you pay): the current UI books/pays first and captures the signature on
+  // the confirmation surface (POST /api/dropin/bookings/[id]/waiver), with
+  // email/dashboard/host-roster backstops. When a caller DOES send a
+  // signature (legacy clients, kiosk-adjacent flows), record it exactly as
+  // before — but an accepted-without-name payload is still malformed.
   const waiverName = typeof body.waiverName === "string" ? body.waiverName.trim() : "";
-  if (!waiverName) {
-    return json({ error: "waiverName is required" }, 422);
+  const waiverProvided = body.waiverAccepted === true && waiverName.length > 0;
+  if (body.waiverAccepted === true && !waiverProvided) {
+    return json({ error: "waiverName is required when accepting the waiver" }, 422);
   }
-  const waiverSignedAt = new Date();
+  if (waiverName.length > 200) {
+    return json({ error: "waiverName too long" }, 422);
+  }
+  const waiverSignedAt = waiverProvided ? new Date() : null;
 
   const db = getDb();
   const [session] = await db
@@ -191,9 +199,9 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
       sessionId,
       userId: locals.user.id,
       source: "online_booking",
-      waiverSigned: true,
-      waiverSignedAt,
-      waiverSignedBy: waiverName,
+      waiverSigned: waiverProvided,
+      waiverSignedAt: waiverSignedAt ?? undefined,
+      waiverSignedBy: waiverProvided ? waiverName : undefined,
       brand: brandFromHost(request.headers.get("host") ?? ""),
       referralSource: body.src,
     });
@@ -264,7 +272,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
       user: { id: locals.user.id, email: locals.user.email },
       rate,
       waiverSignedAt,
-      waiverName,
+      waiverName: waiverProvided ? waiverName : null,
       referralSource: body.src,
       extraMetadata: {
         brand: brandFromHost(request.headers.get("host") ?? ""),
@@ -289,7 +297,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     user: { id: locals.user.id, email: locals.user.email },
     rate,
     waiverSignedAt,
-    waiverName,
+    waiverName: waiverProvided ? waiverName : null,
     referralSource: body.src,
     // Storefront brand — host-derived, since both brands share one org.
     // Ad-attribution ids → server-side GA4 + Meta purchase conversions.
