@@ -1,4 +1,6 @@
 import type { Page } from "@playwright/test";
+import { readFile } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
 
 export interface PdfProfile {
   name: string;
@@ -10,6 +12,33 @@ export interface PdfProfile {
 /** KDP white paper: 0.002252 in per page. */
 export function spineWidthInches(pageCount: number): number {
   return pageCount * 0.002252;
+}
+
+/**
+ * Count pages in an already-rendered PDF by reading it back off disk.
+ *
+ * Book mode gets its page count for free: paged.js's `Previewer` runs
+ * client-side and sets `window.__pagedPageCount` before the PDF is printed.
+ * Minibook `.astro` pages have no paged.js step at all — they paginate purely
+ * via native Chromium `@page` CSS during print — so there's no in-page JS
+ * count to read for minibook mode. Instead we read the count back out of the
+ * PDF itself: `pdfinfo` (poppler) is tried first since it's authoritative,
+ * falling back to a byte-level scan for non-"/Type /Pages" page objects if
+ * `pdfinfo` isn't on PATH (Chromium/PDFium PDFs are uncompressed enough at
+ * this size for the object markers to be found directly in the bytes).
+ */
+export async function countPdfPages(pdfPath: string): Promise<number> {
+  try {
+    const out = execFileSync("pdfinfo", [pdfPath], { encoding: "utf-8" });
+    const m = out.match(/^Pages:\s+(\d+)/m);
+    if (m) return parseInt(m[1], 10);
+  } catch {
+    // pdfinfo missing or failed — fall through to the byte-level scan below.
+  }
+  const buf = await readFile(pdfPath);
+  const text = buf.toString("latin1");
+  const matches = text.match(/\/Type\s*\/Page(?!s)/g);
+  return matches ? matches.length : 0;
 }
 
 export const PROFILES: Record<string, PdfProfile> = {

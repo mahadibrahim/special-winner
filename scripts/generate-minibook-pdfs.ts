@@ -1,7 +1,7 @@
 import { chromium } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
-import { profileFor, resolveRunConfig, spineWidthInches } from "./pdf-profiles";
+import { countPdfPages, profileFor, resolveRunConfig, spineWidthInches } from "./pdf-profiles";
 
 const BASE_URL = process.env.MINIBOOK_BASE_URL ?? "http://localhost:4321";
 const MINIBOOK_OUT_DIR = resolve(process.cwd(), "pdfs/minibooks");
@@ -87,18 +87,18 @@ async function main() {
       await page.goto(url, { waitUntil: "networkidle" });
       await page.emulateMedia({ media: "print" });
 
-      if (profile.waitForPaged) {
-        await page.waitForFunction(() => (window as any).__pagedDone === true, {
-          timeout: 120_000,
-        });
-      }
+      // Unlike --book mode, minibook .astro pages have no paged.js step (no
+      // `Previewer`, no window.__pagedDone) — they paginate purely via native
+      // Chromium @page CSS during print, so `profile.waitForPaged` (which
+      // exists for book mode's client-side pagedjs pass) doesn't apply here.
 
       await page.pdf({
         path: out,
         ...profile.pdfOptions,
       });
 
-      process.stdout.write(`done → ${out}\n`);
+      const pageCount = await countPdfPages(out);
+      process.stdout.write(`done → ${out}, pages: ${pageCount}, spine: ${spineWidthInches(pageCount).toFixed(4)}in\n`);
     }
 
     await browser.close();
