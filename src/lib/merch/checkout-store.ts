@@ -9,10 +9,12 @@ export function lineNeedsShipping(line: Pick<RepricedLine, "fulfillmentType">): 
 /** Split repriced cart lines by fulfillment branch for checkout. */
 export function partitionByFulfillment(lines: RepricedLine[]): {
   printful: RepricedLine[];
+  selfShipped: RepricedLine[];
   pickup: RepricedLine[];
 } {
   return {
     printful: lines.filter((l) => l.fulfillmentType === "printful_pod"),
+    selfShipped: lines.filter((l) => l.fulfillmentType === "self_shipped"),
     pickup: lines.filter((l) => l.fulfillmentType === "pickup"),
   };
 }
