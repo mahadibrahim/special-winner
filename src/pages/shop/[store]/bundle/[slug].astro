@@ -1,0 +1,68 @@
+---
+// Per-store merch bundle detail — SSR by org + store slug + bundle slug.
+// Mirrors [product].astro: unlisted stores require ?k=<shareToken>, else 404;
+// sets noindex; shoppable is gated on store active + order window.
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import BundleDetail from "@/components/shop/bundle-detail";
+import CartDrawer from "@/components/shop/cart-drawer";
+import { getStoreBySlug, isStoreShoppable } from "@/lib/merch/stores";
+import { getBundleBySlug, getBundleWithItems } from "@/lib/merch/bundles";
+
+const { store: storeSlug, slug: bundleSlug } = Astro.params;
+const org = Astro.locals.organization;
+if (!org || !storeSlug || !bundleSlug) return new Response("Not found", { status: 404 });
+
+const store = await getStoreBySlug(org.id, storeSlug);
+if (!store) return new Response("Not found", { status: 404 });
+
+const token = Astro.url.searchParams.get("k");
+if (store.visibility === "unlisted" && (!store.shareToken || store.shareToken !== token)) return new Response("Not found", { status: 404 });
+
+const bundle = await getBundleBySlug(store.id, bundleSlug);
+if (!bundle || !bundle.active) return new Response("Not found", { status: 404 });
+
+const data = await getBundleWithItems(bundle.id);
+if (!data) return new Response("Not found", { status: 404 });
+
+const { items } = data;
+const shoppable = isStoreShoppable(store, new Date());
+const noindex = store.visibility === "unlisted";
+const tokenQS = store.visibility === "unlisted" ? `?k=${store.shareToken}` : "";
+
+const detailSlots = items.map(({ slot, product, variants }) => ({
+  slotId: slot.id,
+  label: slot.label ?? product.name,
+  quantity: slot.quantity,
+  variants: variants.map((v) => ({
+    id: v.id,
+    productId: product.id,
+    size: v.size,
+    color: v.color,
+    retailPriceCents: v.retailPriceCents,
+  })),
+}));
+---
+<BaseLayout title={`${bundle.name} — ${store.name}`} description={bundle.description ?? `${bundle.name}.`} noindex={noindex}>
+  <main id="main-content" class="flex-1 max-w-[1080px] mx-auto w-full px-6 py-14">
+    <header class="flex items-center justify-between mb-8">
+      <a href={`/shop/${store.slug}${tokenQS}`} class="text-sm text-ink-muted hover:text-ink inline-block">← Back to {store.name}</a>
+      <CartDrawer client:load />
+    </header>
+    <BundleDetail
+      client:load
+      name={bundle.name}
+      description={bundle.description}
+      images={bundle.images ?? []}
+      slots={detailSlots}
+      discountType={bundle.discountType}
+      discountValue={bundle.discountValue}
+      bundleId={bundle.id}
+      bundleSlug={bundle.slug}
+      storeId={store.id}
+      storeSlug={store.slug}
+      shoppable={shoppable}
+      fulfillmentType={bundle.fulfillmentType}
+      shareToken={store.visibility === "unlisted" ? store.shareToken : null}
+    />
+  </main>
+</BaseLayout>
