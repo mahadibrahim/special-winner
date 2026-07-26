@@ -58,6 +58,8 @@ import { teamRegistrations, teamInvitees } from "../schema/team-registrations";
 import { dropInSessions, dropInBookings } from "../schema/drop-in";
 import { hostProfiles, hostGameReports } from "../schema/hosts";
 import { membershipTiers, memberships } from "../schema/memberships";
+import { merchStores } from "../schema/merch-stores";
+import { merchProducts, merchVariants } from "../schema/merch";
 import { phoneOptIns } from "../schema/phone-verifications";
 import {
   skillDomains,
@@ -252,6 +254,17 @@ export const E2E_RENTAL_VENUE_ID = "4b237a78-868d-4e64-8487-f3dce687b603";
  */
 export const E2E_HOST_CLAIMABLE_SESSION_ID = "e981c7f2-2921-4eb5-9eee-07f75827c5b1";
 export const E2E_HOST_WRAPUP_SESSION_ID = "cc5be8dc-c19c-40ec-bf09-f4ff4dcca0de";
+
+/**
+ * Merch Phase 3b fast-follow (2.4) — an unlisted team store, for
+ * tests/e2e/merch-stores.spec.ts to assert unlisted stores 404 without the
+ * share token (?k=) and render (with noindex) with it. Fixed slug + token so
+ * the spec can navigate directly instead of discovering them via an admin
+ * API call — same fixed-ID-plus-upsert rationale as E2E_RENTAL_VENUE_ID /
+ * E2E_HOST_CLAIMABLE_SESSION_ID above.
+ */
+export const E2E_MERCH_UNLISTED_STORE_SLUG = "e2e-unlisted-team-store";
+export const E2E_MERCH_UNLISTED_STORE_TOKEN = "e2eunlistedstoretoken000000000000";
 
 /**
  * Phase 2 training-walkthrough fixture accounts. Kept fully separate from
@@ -1169,6 +1182,92 @@ async function seedHostPortalFixture(
   console.log(
     `   ✓ Host wrap-up fixture session reset (${wrapupSession.id}, starts 30m ago, report cleared)`,
   );
+}
+
+/**
+ * Merch Phase 3b fast-follow (2.4) — an unlisted team store + one manual
+ * pickup product, for tests/e2e/merch-stores.spec.ts. Fixed slug + shareToken
+ * (see E2E_MERCH_UNLISTED_STORE_SLUG/_TOKEN above) so the spec can hit
+ * /shop/<slug> and /shop/<slug>?k=<token> directly. Idempotent: checked by
+ * slug (store) and by slug (product/variant) rather than onConflictDoNothing,
+ * since merch_variants has no unique constraint that would dedupe a re-seed.
+ */
+async function seedMerchUnlistedStoreFixture(db: Database, orgId: string, teamId: string) {
+  let [store] = await db
+    .select()
+    .from(merchStores)
+    .where(and(eq(merchStores.organizationId, orgId), eq(merchStores.slug, E2E_MERCH_UNLISTED_STORE_SLUG)))
+    .limit(1);
+
+  if (!store) {
+    [store] = await db
+      .insert(merchStores)
+      .values({
+        organizationId: orgId,
+        scope: "team",
+        teamId,
+        name: "E2E Unlisted Team Store",
+        slug: E2E_MERCH_UNLISTED_STORE_SLUG,
+        visibility: "unlisted",
+        shareToken: E2E_MERCH_UNLISTED_STORE_TOKEN,
+        pickupLocation: "Front desk, E2E Test Location",
+        active: true,
+      })
+      .returning();
+  } else if (store.shareToken !== E2E_MERCH_UNLISTED_STORE_TOKEN || store.visibility !== "unlisted") {
+    // Keep the fixture stable across re-seeds even if a prior manual edit drifted it.
+    [store] = await db
+      .update(merchStores)
+      .set({ shareToken: E2E_MERCH_UNLISTED_STORE_TOKEN, visibility: "unlisted", active: true, updatedAt: new Date() })
+      .where(eq(merchStores.id, store.id))
+      .returning();
+  }
+  console.log(`   ✓ Unlisted team store: /shop/${store.slug} (token: ${store.shareToken})`);
+
+  const productSlug = "e2e-unlisted-store-jersey";
+  let [product] = await db
+    .select()
+    .from(merchProducts)
+    .where(and(eq(merchProducts.storeId, store.id), eq(merchProducts.slug, productSlug)))
+    .limit(1);
+
+  if (!product) {
+    [product] = await db
+      .insert(merchProducts)
+      .values({
+        organizationId: orgId,
+        storeId: store.id,
+        source: "manual",
+        fulfillmentType: "pickup",
+        name: "E2E Unlisted Store Jersey",
+        slug: productSlug,
+        category: "jersey",
+        personalization: { name: true, number: true },
+        active: true,
+      })
+      .returning();
+  }
+
+  const [existingVariant] = await db
+    .select()
+    .from(merchVariants)
+    .where(eq(merchVariants.productId, product.id))
+    .limit(1);
+
+  if (!existingVariant) {
+    await db.insert(merchVariants).values({
+      productId: product.id,
+      printfulSyncVariantId: null,
+      printfulVariantId: null,
+      name: "E2E Unlisted Store Jersey / M",
+      size: "M",
+      color: null,
+      sku: null,
+      retailPriceCents: 2500,
+      sortOrder: 0,
+    });
+  }
+  console.log(`   ✓ Manual pickup product + variant under ${store.slug}`);
 }
 
 async function seedE2ETests() {
@@ -3964,6 +4063,10 @@ async function seedE2ETests() {
   // Stage 18 — Host portal fixtures (Task 15).
   console.log("\n18. Setting up host portal fixtures...");
   await seedHostPortalFixture(db, org.id, venue.id, hostUser.id, parentUser.id);
+
+  // Stage 19 — Merch unlisted-store fixture (Phase 3b fast-follow 2.4).
+  console.log("\n19. Setting up merch unlisted-store fixture...");
+  await seedMerchUnlistedStoreFixture(db, org.id, team.id);
 
   console.log("\n✅ E2E test data seeded successfully!");
   console.log("\n📋 Test Credentials:");
