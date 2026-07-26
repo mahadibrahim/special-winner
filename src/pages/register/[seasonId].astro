@@ -27,6 +27,6 @@ const userProp = user
 
 <BaseLayout title="Register — Aspire Sports">
   <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
-    <RegisterExperience seasonId={seasonId!} user={userProp} audienceHint={audienceHint} wasCancelled={wasCancelled} teamToken={teamToken} modeHint={modeHint} client:load />
+    <RegisterExperience seasonId={seasonId!} user={userProp} audienceHint={audienceHint} wasCancelled={wasCancelled} teamToken={teamToken} modeHint={modeHint} stripePublishableKey={import.meta.env.STRIPE_PUBLISHABLE_KEY ?? ""} client:load />
   </main>
 </BaseLayout>
