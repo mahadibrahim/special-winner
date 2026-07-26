@@ -40,6 +40,12 @@ type EmbeddedPaymentBase = {
   onSuccess: (paymentIntentId: string) => void;
   /** Called when the user clicks Back. */
   onCancel: () => void;
+  /** DEFERRED MODE ONLY: must mirror the server-created PaymentIntent's
+   *  setup_future_usage exactly, or Stripe rejects the confirm with
+   *  "provided setup_future_usage does not match". The team deposit sets
+   *  "off_session" (the card is saved for the post-deadline backstop
+   *  charge); one-off payments omit it. */
+  setupFutureUsage?: "off_session";
 };
 
 /**
@@ -99,6 +105,10 @@ export function EmbeddedPayment(props: EmbeddedPaymentProps) {
         amount: props.valueCents,
         currency: "usd",
         paymentMethodTypes: ["card"],
+        // Must mirror the intent createIntent will produce — see the prop doc.
+        ...(props.setupFutureUsage
+          ? { setupFutureUsage: props.setupFutureUsage }
+          : {}),
         appearance: APPEARANCE,
         loader: "auto" as const,
       }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Loader2, CheckCircle2, Copy, Check, Send, Plus, X, Mail } from "lucide-react";
-import { EmbeddedPayment } from "./embedded-payment";
+import { EmbeddedPayment, type CreateIntentResult } from "./embedded-payment";
 import { CAPTAIN_DEPOSIT_CENTS, CAPTAIN_DEPOSIT_DOLLARS } from "@/lib/registrations/team-deposit";
 import { TurnstileWidget } from "@/components/auth/turnstile-widget";
 import { teamPriceStory } from "@/lib/leagues/rail-content";
@@ -166,6 +166,7 @@ export default function TeamCreate({
   onStepChange,
   onDiscountChange,
   season,
+  stripePublishableKey,
 }: {
   seasonId: string;
   /** Whether the register page has a signed-in user. Signed-out captains get
@@ -189,6 +190,10 @@ export default function TeamCreate({
     teamEarlyBirdActive?: boolean;
     registrationCloses?: string | null;
   };
+  /** Server env STRIPE_PUBLISHABLE_KEY threaded from the register page — the
+      deferred card form mounts inline on load, before any server round-trip
+      could supply it. */
+  stripePublishableKey: string;
 }) {
   const [teamName, setTeamName] = useState("");
   const [captainName, setCaptainName] = useState(defaultName);
@@ -216,10 +221,9 @@ export default function TeamCreate({
   const [copied, setCopied] = useState(false);
 
   // Captain $200 deposit (saves a card for the post-deadline backstop charge).
-  // Set by `prepare`; nothing (account/team) exists until this deposit succeeds.
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [publishableKey, setPublishableKey] = useState<string | null>(null);
-  const [preparing, setPreparing] = useState(false);
+  // DEFERRED: the card form renders inline with the details form — `prepare`
+  // runs only when the captain clicks Pay (via createIntent), and nothing
+  // (account/team/PaymentIntent) exists before that.
 
   // Guest email gate: does this email already have an account? null = unchecked.
   // Existing → sign-in first (before the rest of the form); new → deferred flow.
@@ -273,12 +277,14 @@ export default function TeamCreate({
   // `status` actually changes value, never on an unrelated re-render.
   useEffect(() => {
     if (status === "ok") trackTeamHqViewed({ seasonId });
-    else if (status === "idle") trackTeamCreateViewed({ seasonId });
+    else if (status === "idle") {
+      trackTeamCreateViewed({ seasonId });
+      // Deferred inline flow: the deposit card form renders with the details
+      // form (no reveal click), so "deposit viewed" fires alongside
+      // "create viewed" — the two funnel steps merged when the screens did.
+      trackTeamDepositViewed({ seasonId });
+    }
   }, [status, seasonId]);
-  // "Deposit viewed" fires when the payment element is revealed (post-prepare).
-  useEffect(() => {
-    if (clientSecret) trackTeamDepositViewed({ seasonId });
-  }, [clientSecret, seasonId]);
 
   // Mirror the flow step + applied discount up to the context rail. Details +
   // payment now share one screen, so the team flow is 3 steps: Reserve (1) →
@@ -470,13 +476,17 @@ export default function TeamCreate({
     (isAuthed || validEmail);
 
   /**
-   * Prepare the $200 deposit WITHOUT creating an account or team. On success
-   * the payment element reveals inline (same page). A guest whose email turns
-   * out to have an account is bounced to the magic-link sign-in.
+   * Deferred create-on-Pay: prepare the $200 deposit PaymentIntent WITHOUT
+   * creating an account or team, returning its client secret for the inline
+   * card form to confirm against. Runs when the captain clicks Pay — the form
+   * itself is always visible, so this is also where the details validate.
    */
-  const prepareDeposit = async () => {
-    if (!formReady || preparing) return;
-    setPreparing(true);
+  const createDepositIntent = async (): Promise<CreateIntentResult> => {
+    if (!formReady) {
+      return {
+        error: "Add your team name, your name, and a valid email above first.",
+      };
+    }
     setError(null);
     trackTeamCreateSubmitted({ seasonId, authed: isAuthed });
     try {
@@ -495,19 +505,26 @@ export default function TeamCreate({
       });
       const json = await res.json().catch(() => ({}));
       if (res.status === 409 && json.needsSignIn) {
-        setEmailExists(true); // render the sign-in gate
-        return;
+        // Defensive: prepare normally reserves existing-email captains as
+        // guests (#477); if it ever bounces, render the sign-in affordance.
+        setEmailExists(true);
+        return {
+          error:
+            "This email already has an account — sign in via the note above, or use a different email.",
+        };
       }
       if (!res.ok || !json.ok) {
-        throw new Error(json.error ?? "We couldn't start your reservation. Please try again.");
+        return {
+          error:
+            typeof json.error === "string"
+              ? json.error
+              : "We couldn't start your reservation. Please try again.",
+        };
       }
       if (typeof json.teamFeeCents === "number") setTeamFeeCents(json.teamFeeCents);
-      setPublishableKey(json.publishableKey);
-      setClientSecret(json.clientSecret);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "We couldn't start your reservation.");
-    } finally {
-      setPreparing(false);
+      return { clientSecret: json.clientSecret };
+    } catch {
+      return { error: "We couldn't start your reservation. Please try again." };
     }
   };
 
@@ -912,53 +929,24 @@ export default function TeamCreate({
           value={captainEmail}
           onChange={(e) => { setCaptainEmail(e.target.value); if (!isAuthed) setEmailExists(null); }}
           onBlur={() => { if (!isAuthed && emailExists === null) checkEmail(); }}
-          disabled={isAuthed || clientSecret != null}
+          disabled={isAuthed}
           maxLength={320}
           autoComplete="email"
           inputMode="email"
           placeholder="you@example.com"
           className={inputClass}
         />
-        {!isAuthed && emailExists === false && !clientSecret && (
+        {!isAuthed && emailExists === false && (
           <span className="mt-1.5 block text-xs text-sage">
             ✓ New here — we'll set up your team account when your deposit goes through.
           </span>
         )}
       </label>
 
-      {clientSecret && publishableKey ? (
-        /* Payment revealed inline — details locked with an edit affordance. */
-        <>
-          <div className="flex items-center justify-between rounded-xl border border-ink/10 bg-cream-2 px-4 py-3 text-sm">
-            <span className="text-ink font-semibold">{teamName.trim() || "Your team"}</span>
-            <button
-              type="button"
-              onClick={() => { setClientSecret(null); setPublishableKey(null); }}
-              className="text-xs text-ink-muted underline"
-            >
-              Edit details
-            </button>
-          </div>
-          {breakdown}
-          <EmbeddedPayment
-            clientSecret={clientSecret}
-            publishableKey={publishableKey}
-            seasonItem={{ id: seasonId, name: teamName.trim() || "Team deposit", category: "Team", category2: "Team", priceCents: CAPTAIN_DEPOSIT_CENTS }}
-            valueCents={CAPTAIN_DEPOSIT_CENTS}
-            paymentType="deposit"
-            returnUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/register/${seasonId}?mode=team`}
-            onSuccess={finalize}
-            onCancel={() => { setClientSecret(null); setPublishableKey(null); }}
-          />
-          {error && <p className="text-sm text-red-500">{error}</p>}
-          <p className="text-xs text-ink-muted leading-relaxed">
-            Your account and team are created when this deposit succeeds — nothing before. Your card stays on file for
-            the team; unpaid teammate shares are charged to it after the deadline.
-          </p>
-        </>
-      ) : (
-        /* Reserve form (authed, or guest — new OR existing email). */
-        <>
+      {/* Reserve form (authed, or guest — new OR existing email). Details and
+          the deposit card form share one always-visible screen: no
+          "Continue to payment" reveal click. */}
+      <>
           {!isAuthed && emailExists === true && (
             /* Existing account → sign-in is OPTIONAL, not a wall. The captain
                reserves as a guest now; the team links to their account after
@@ -1036,17 +1024,29 @@ export default function TeamCreate({
           </p>
           {error && <p className="text-sm text-red-500">{error}</p>}
 
-          <button
-            type="button"
-            onClick={prepareDeposit}
-            disabled={!formReady || preparing}
-            className="inline-flex items-center justify-center gap-2 w-full px-7 py-3.5 bg-primary-orange text-cream text-sm font-semibold tracking-wide uppercase hover:bg-ink transition-colors disabled:opacity-50"
-            style={{ letterSpacing: "0.06em" }}
-          >
-            {preparing ? <><Loader2 className="w-4 h-4 animate-spin" /> Setting up payment…</> : "Continue to payment →"}
-          </button>
-        </>
-      )}
+          {/* Inline deferred deposit form — always visible with the details
+              above. The account + team + PaymentIntent are created only when
+              the captain clicks Pay (createDepositIntent), so an abandoned
+              page leaves nothing behind. The deposit is a fixed $200
+              (discount codes reduce the TEAM fee, never today's deposit), so
+              the mounted amount always equals the prepared intent's amount. */}
+          <div className="pt-4 border-t border-ink/10">
+            <EmbeddedPayment
+              createIntent={createDepositIntent}
+              publishableKey={stripePublishableKey}
+              setupFutureUsage="off_session"
+              seasonItem={{ id: seasonId, name: teamName.trim() || "Team deposit", category: "Team", category2: "Team", priceCents: CAPTAIN_DEPOSIT_CENTS }}
+              valueCents={CAPTAIN_DEPOSIT_CENTS}
+              paymentType="deposit"
+              returnUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/register/${seasonId}?mode=team`}
+              onSuccess={finalize}
+              onCancel={() => window.history.back()}
+            />
+          </div>
+          <p className="text-xs text-ink-muted leading-relaxed">
+            Your account and team are created when this deposit succeeds — nothing before.
+          </p>
+      </>
     </div>
   );
 }

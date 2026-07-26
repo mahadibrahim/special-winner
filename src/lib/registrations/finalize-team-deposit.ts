@@ -236,7 +236,18 @@ export async function finalizeTeamDeposit(pi: Stripe.PaymentIntent): Promise<Fin
         status: "succeeded",
         stripePaymentIntentId: pi.id,
       })
-      .onConflictDoNothing({ target: payments.stripePaymentIntentId })
+      .onConflictDoNothing({
+        target: payments.stripePaymentIntentId,
+        // The unique index is PARTIAL (WHERE stripe_payment_intent_id IS NOT
+        // NULL) — Postgres refuses to infer a partial index as the conflict
+        // arbiter without a matching predicate, failing the whole insert with
+        // "no unique or exclusion constraint matching the ON CONFLICT
+        // specification". Without this predicate the ledger insert threw on
+        // EVERY deferred-flow team deposit and the catch below swallowed it:
+        // deposits charged fine but never recorded a payments row. (Same
+        // predicate idiom as handle-team-deposit-succeeded.ts.)
+        where: sql`stripe_payment_intent_id IS NOT NULL`,
+      })
       .returning({ id: payments.id });
     if (paymentRow?.id) {
       await db

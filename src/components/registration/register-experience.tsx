@@ -186,6 +186,7 @@ export default function RegisterExperience({
           season={season}
           onStepChange={setTeamStep}
           onDiscountChange={setTeamDiscountCents}
+          stripePublishableKey={stripePublishableKey}
         />
       </LeagueContextRail>
     );
