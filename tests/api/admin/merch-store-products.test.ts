@@ -145,6 +145,77 @@ describe("/api/admin/merch/store-products — create + read", () => {
   });
 });
 
+describe("/api/admin/merch/store-products — self-shipped fulfillment + weight", () => {
+  it("creates a self_shipped product with per-size weights → persists fulfillment_type + variant weight_oz", async () => {
+    const res = await apiFetch("/api/admin/merch/store-products", {
+      method: "POST",
+      cookie: adminCookie,
+      body: JSON.stringify({
+        storeId,
+        name: testSlug("Self Shipped Hoodie"),
+        category: "hoodie",
+        priceCents: 4500,
+        fulfillmentType: "self_shipped",
+        sizes: ["S", "M"],
+        variantWeights: [
+          { size: "S", weightOz: 18, lengthIn: 12, widthIn: 10, heightIn: 2 },
+          { size: "M", weightOz: 20 },
+        ],
+        active: true,
+      }),
+    });
+    const json = await expectJson(res, 201);
+    expect(json.productId).toBeTruthy();
+    createdProductIds.push(json.productId);
+
+    const [product] = await getDb().select().from(merchProducts).where(eq(merchProducts.id, json.productId));
+    expect(product.fulfillmentType).toBe("self_shipped");
+
+    const variants = await getDb().select().from(merchVariants).where(eq(merchVariants.productId, json.productId));
+    expect(variants).toHaveLength(2);
+    const sVariant = variants.find((v) => v.size === "S");
+    const mVariant = variants.find((v) => v.size === "M");
+    expect(sVariant?.weightOz).toBe(18);
+    expect(sVariant?.lengthIn).toBe(12);
+    expect(sVariant?.widthIn).toBe(10);
+    expect(sVariant?.heightIn).toBe(2);
+    expect(mVariant?.weightOz).toBe(20);
+  });
+
+  it("rejects a self_shipped product missing weightOz for a size → 422", async () => {
+    const res = await apiFetch("/api/admin/merch/store-products", {
+      method: "POST",
+      cookie: adminCookie,
+      body: JSON.stringify({
+        storeId,
+        name: testSlug("Self Shipped Missing Weight"),
+        priceCents: 3000,
+        fulfillmentType: "self_shipped",
+        sizes: ["S", "M"],
+        variantWeights: [{ size: "S", weightOz: 18 }],
+        active: true,
+      }),
+    });
+    expect(res.status).toBe(422);
+  });
+
+  it("rejects a self_shipped product with no variantWeights at all → 422", async () => {
+    const res = await apiFetch("/api/admin/merch/store-products", {
+      method: "POST",
+      cookie: adminCookie,
+      body: JSON.stringify({
+        storeId,
+        name: testSlug("Self Shipped No Weights"),
+        priceCents: 3000,
+        fulfillmentType: "self_shipped",
+        sizes: ["M"],
+        active: true,
+      }),
+    });
+    expect(res.status).toBe(422);
+  });
+});
+
 describe("/api/admin/merch/store-products — update replaces variants", () => {
   let productId: string;
 

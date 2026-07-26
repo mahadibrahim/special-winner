@@ -14,6 +14,7 @@ import { buildMerchLineItems } from "@/lib/merch/checkout-line-items";
 import { partitionByFulfillment, lineNeedsShipping } from "@/lib/merch/checkout-store";
 import { getStoreById, isStoreShoppable } from "@/lib/merch/stores";
 import { getOrgOriginAddress } from "@/lib/merch/org-origin";
+import { resolveSelfShippedRate } from "@/lib/merch/self-shipped-shipping";
 
 const addressSchema = z.object({
   name: z.string().trim().min(1),
@@ -67,7 +68,7 @@ export const POST: APIRoute = async (context) => {
   const repriced = await repriceStoreCartItems(store.id, parsed.data.items);
   if (!repriced.ok) return json({ error: "Some items are unavailable" }, 422);
   const priced = repriced.lines;
-  const { printful } = partitionByFulfillment(priced);
+  const { printful, selfShipped } = partitionByFulfillment(priced);
   const needsShipping = priced.some(lineNeedsShipping);
 
   // required personalization present? (relies on repriceStoreCartItems preserving request order)
@@ -79,9 +80,13 @@ export const POST: APIRoute = async (context) => {
   }
 
   try {
-    // ---- shipping (printful/self-shipped lines only) ----
+    // ---- shipping (printful/self-shipped lines only; a store could in theory mix
+    // both fulfillment types in one order, so sum into a running accumulator rather
+    // than assigning — never let one branch clobber the other's shipping cost) ----
     let shippingCents = 0;
-    if (needsShipping) {
+    let shipCarrier: string | null = null;
+    let shipService: string | null = null;
+    if (printful.length) {
       if (!isPrintfulConfigured()) return json({ error: "Shipping unavailable" }, 503);
       if (!parsed.data.address) return json({ error: "Shipping address required" }, 422);
       const rates = await calculateShipping(
@@ -92,7 +97,15 @@ export const POST: APIRoute = async (context) => {
       );
       const cheapest = pickCheapestRate(rates);
       if (!cheapest) return json({ error: "We can't ship to that address" }, 422);
-      shippingCents = shippingRateToCents(cheapest.rate);
+      shippingCents += shippingRateToCents(cheapest.rate);
+    }
+    if (selfShipped.length) {
+      if (!parsed.data.address) return json({ error: "Shipping address required" }, 422);
+      const r = await resolveSelfShippedRate(org.id, parsed.data.address, selfShipped);
+      if (!r.ok) return json({ error: r.error }, r.status);
+      shippingCents += r.shippingCents;
+      shipCarrier = r.carrier?.slice(0, 60) ?? null;
+      shipService = r.service?.slice(0, 120) ?? null;
     }
 
     const quote = assembleQuote(
@@ -130,6 +143,8 @@ export const POST: APIRoute = async (context) => {
       taxCents: 0,
       totalCents: quote.totalBeforeTaxCents,
       currency: "usd",
+      shippingCarrier: shipCarrier,
+      shippingService: shipService,
     }).returning({ id: merchOrders.id });
 
     await db.insert(merchOrderItems).values(priced.map((p, i) => ({

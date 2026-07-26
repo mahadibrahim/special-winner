@@ -6,6 +6,18 @@ import { merchProducts, merchVariants } from "@/lib/db/schema";
 import { requireOrgAdminAccess } from "@/lib/auth";
 import { getStoreById } from "@/lib/merch/stores";
 
+// Per-size shipping dims, keyed by `size` (matched against the `sizes` array
+// below). Kept as a separate, optional array — rather than turning `sizes`
+// into an array of objects — so existing manual (pickup) callers that only
+// ever send `sizes: string[]` are untouched.
+const variantWeightSchema = z.object({
+  size: z.string().min(1).max(40),
+  weightOz: z.number().int().positive().optional(),
+  lengthIn: z.number().int().positive().optional(),
+  widthIn: z.number().int().positive().optional(),
+  heightIn: z.number().int().positive().optional(),
+});
+
 const productSchema = z.object({
   storeId: z.string().uuid(),
   name: z.string().min(1).max(255),
@@ -13,13 +25,35 @@ const productSchema = z.object({
   category: z.enum(["jersey","shorts","socks","hoodie","t_shirt","hat","bag","accessory","other"]).default("jersey"),
   imageUrl: z.string().url().optional().nullable(),
   priceCents: z.number().int().min(0),
+  fulfillmentType: z.enum(["pickup", "self_shipped"]).default("pickup"),
   sizes: z.array(z.string().min(1).max(40)).min(1),
+  variantWeights: z.array(variantWeightSchema).optional(),
   personalization: z.object({ name: z.boolean().optional(), number: z.boolean().optional() }).optional().nullable(),
   active: z.boolean().default(true),
 });
 
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { "Content-Type": "application/json" } });
 const slugify = (n: string) => n.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
+
+/**
+ * For self-shipped products, every size in `sizes` must have a positive
+ * `weightOz` entry in `variantWeights` — Printful/Shippo rate lookups need a
+ * real parcel weight per variant (see `parcelForLines` in `src/lib/shipping`).
+ * Returns the offending sizes (empty array = valid); pickup products are
+ * exempt since they never enter the shipping-rate path.
+ */
+function missingSelfShippedWeights(
+  fulfillmentType: "pickup" | "self_shipped",
+  sizes: string[],
+  variantWeights?: z.infer<typeof variantWeightSchema>[],
+): string[] {
+  if (fulfillmentType !== "self_shipped") return [];
+  const weightBySize = new Map((variantWeights ?? []).map((vw) => [vw.size, vw.weightOz]));
+  return sizes.filter((size) => {
+    const w = weightBySize.get(size);
+    return w == null || w <= 0;
+  });
+}
 
 export const GET: APIRoute = async (context) => {
   const auth = await requireOrgAdminAccess(context);
@@ -50,8 +84,13 @@ export const POST: APIRoute = async (context) => {
     if (!parsed.success) return json({ error: "Invalid", details: parsed.error.flatten() }, 400);
     const store = await getStoreById(auth.organizationId, parsed.data.storeId);
     if (!store) return json({ error: "Store not found" }, 404);
-    const db = getDb();
     const d = parsed.data;
+    const missingWeights = missingSelfShippedWeights(d.fulfillmentType, d.sizes, d.variantWeights);
+    if (missingWeights.length) {
+      return json({ error: `weightOz is required for self-shipped variants: ${missingWeights.join(", ")}` }, 422);
+    }
+    const db = getDb();
+    const weightBySize = new Map((d.variantWeights ?? []).map((vw) => [vw.size, vw]));
     // slug unique per store — suffix the store id fragment for cross-store safety
     const slug = `${slugify(d.name)}-${parsed.data.storeId.slice(0, 8)}`;
     const [product] = await db.transaction(async (tx) => {
@@ -59,7 +98,7 @@ export const POST: APIRoute = async (context) => {
         organizationId: auth.organizationId,
         printfulSyncProductId: null,
         source: "manual",
-        fulfillmentType: "pickup",
+        fulfillmentType: d.fulfillmentType,
         storeId: d.storeId,
         name: d.name,
         slug,
@@ -69,17 +108,24 @@ export const POST: APIRoute = async (context) => {
         personalization: d.personalization ?? null,
         active: d.active,
       }).returning({ id: merchProducts.id });
-      await tx.insert(merchVariants).values(d.sizes.map((size, i) => ({
-        productId: prod.id,
-        printfulSyncVariantId: null,
-        printfulVariantId: null,
-        name: `${d.name} / ${size}`,
-        size,
-        color: null,
-        sku: null,
-        retailPriceCents: d.priceCents,
-        sortOrder: i,
-      })));
+      await tx.insert(merchVariants).values(d.sizes.map((size, i) => {
+        const dims = d.fulfillmentType === "self_shipped" ? weightBySize.get(size) : undefined;
+        return {
+          productId: prod.id,
+          printfulSyncVariantId: null,
+          printfulVariantId: null,
+          name: `${d.name} / ${size}`,
+          size,
+          color: null,
+          sku: null,
+          retailPriceCents: d.priceCents,
+          weightOz: dims?.weightOz ?? null,
+          lengthIn: dims?.lengthIn ?? null,
+          widthIn: dims?.widthIn ?? null,
+          heightIn: dims?.heightIn ?? null,
+          sortOrder: i,
+        };
+      }));
       return [prod];
     });
     return json({ productId: product.id }, 201);
@@ -99,6 +145,11 @@ export const PUT: APIRoute = async (context) => {
     const parsed = productSchema.safeParse(body);
     if (!parsed.success) return json({ error: "Invalid", details: parsed.error.flatten() }, 400);
     const d = parsed.data;
+    const missingWeights = missingSelfShippedWeights(d.fulfillmentType, d.sizes, d.variantWeights);
+    if (missingWeights.length) {
+      return json({ error: `weightOz is required for self-shipped variants: ${missingWeights.join(", ")}` }, 422);
+    }
+    const weightBySize = new Map((d.variantWeights ?? []).map((vw) => [vw.size, vw]));
 
     const db = getDb();
     const [existing] = await db.select().from(merchProducts).where(eq(merchProducts.id, id)).limit(1);
@@ -122,6 +173,7 @@ export const PUT: APIRoute = async (context) => {
         slug,
         description: d.description ?? null,
         category: d.category,
+        fulfillmentType: d.fulfillmentType,
         images: d.imageUrl ? [{ url: d.imageUrl }] : null,
         personalization: d.personalization ?? null,
         active: d.active,
@@ -129,17 +181,24 @@ export const PUT: APIRoute = async (context) => {
       }).where(eq(merchProducts.id, id));
 
       await tx.delete(merchVariants).where(eq(merchVariants.productId, id));
-      await tx.insert(merchVariants).values(d.sizes.map((size, i) => ({
-        productId: id,
-        printfulSyncVariantId: null,
-        printfulVariantId: null,
-        name: `${d.name} / ${size}`,
-        size,
-        color: null,
-        sku: null,
-        retailPriceCents: d.priceCents,
-        sortOrder: i,
-      })));
+      await tx.insert(merchVariants).values(d.sizes.map((size, i) => {
+        const dims = d.fulfillmentType === "self_shipped" ? weightBySize.get(size) : undefined;
+        return {
+          productId: id,
+          printfulSyncVariantId: null,
+          printfulVariantId: null,
+          name: `${d.name} / ${size}`,
+          size,
+          color: null,
+          sku: null,
+          retailPriceCents: d.priceCents,
+          weightOz: dims?.weightOz ?? null,
+          lengthIn: dims?.lengthIn ?? null,
+          widthIn: dims?.widthIn ?? null,
+          heightIn: dims?.heightIn ?? null,
+          sortOrder: i,
+        };
+      }));
     });
 
     return json({ productId: id });

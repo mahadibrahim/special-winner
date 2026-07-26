@@ -5,12 +5,16 @@ import { sendEmail } from "@/lib/email";
 
 const money = (c: number) => `$${(c / 100).toFixed(2)}`;
 
+function renderItemRows(items: { productName: string; color: string | null; size: string | null; unitPriceCents: number; quantity: number }[]): string {
+  return items.map((i) => `<tr><td>${i.productName} ${[i.color, i.size].filter(Boolean).join(" · ")} × ${i.quantity}</td><td align="right">${money(i.unitPriceCents * i.quantity)}</td></tr>`).join("");
+}
+
 export async function sendMerchOrderConfirmation(orderId: string): Promise<void> {
   const db = getDb();
   const [order] = await db.select().from(merchOrders).where(eq(merchOrders.id, orderId)).limit(1);
   if (!order) return;
   const items = await db.select().from(merchOrderItems).where(eq(merchOrderItems.orderId, orderId));
-  const rows = items.map((i) => `<tr><td>${i.productName} ${[i.color, i.size].filter(Boolean).join(" · ")} × ${i.quantity}</td><td align="right">${money(i.unitPriceCents * i.quantity)}</td></tr>`).join("");
+  const rows = renderItemRows(items);
   const result = await sendEmail({
     to: order.email,
     subject: "Your Aspire Sports order is confirmed",
@@ -49,4 +53,54 @@ export async function sendMerchPickupConfirmation(orderId: string): Promise<void
       </table>${where}${when}<p>We'll let you know when it's ready to collect.</p>`,
   });
   if (!result.success) console.error(`[merch] pickup email not sent for ${orderId}:`, result.error);
+}
+
+/** Pure body builder for the shipped/tracking email — this IS the tracking
+ * notification (unlike the order confirmation, which only promises tracking
+ * later), so it always shows the carrier/service + tracking number, linked
+ * to the carrier tracking page when a URL is available. */
+export function buildShippedEmailHtml(args: {
+  productRows: string;
+  carrier?: string | null;
+  service?: string | null;
+  trackingNumber: string;
+  trackingUrl?: string | null;
+}): string {
+  const { productRows, carrier, service, trackingNumber, trackingUrl } = args;
+  const carrierService = [carrier, service].filter(Boolean).join(" · ");
+  const trackingLine = trackingUrl
+    ? `<a href="${trackingUrl}">${trackingNumber}</a>`
+    : trackingNumber;
+  return `<h1>Your order has shipped!</h1>
+      ${carrierService ? `<p><strong>Carrier:</strong> ${carrierService}</p>` : ""}
+      <p><strong>Tracking number:</strong> ${trackingLine}</p>
+      <table>${productRows}</table>`;
+}
+
+/** Sent when an admin marks a self_shipped (or otherwise manually-fulfilled)
+ * order as shipped with carrier + tracking info. This is the one email that
+ * actually carries tracking — the order confirmation only promises it. */
+export async function sendMerchShippedEmail(orderId: string): Promise<void> {
+  const db = getDb();
+  const [order] = await db.select().from(merchOrders).where(eq(merchOrders.id, orderId)).limit(1);
+  if (!order) return;
+  if (!order.trackingNumber) {
+    console.error(`[merch] shipped email skipped for ${orderId}: no tracking number recorded`);
+    return;
+  }
+  const items = await db.select().from(merchOrderItems).where(eq(merchOrderItems.orderId, orderId));
+  const productRows = renderItemRows(items);
+  const html = buildShippedEmailHtml({
+    productRows,
+    carrier: order.shippingCarrier,
+    service: order.shippingService,
+    trackingNumber: order.trackingNumber,
+    trackingUrl: order.trackingUrl,
+  });
+  const result = await sendEmail({
+    to: order.email,
+    subject: "Your Aspire Sports order has shipped",
+    html,
+  });
+  if (!result.success) console.error(`[merch] shipped email not sent for ${orderId}:`, result.error);
 }

@@ -6,11 +6,23 @@ const line = (ft: RepricedLine["fulfillmentType"]): RepricedLine => ({
   variantId: "v", fulfillmentType: ft, printfulVariantId: null, printfulSyncVariantId: null,
   productName: "P", variantName: "V", size: null, color: null, unitPriceCents: 1000,
   personalizationConfig: null, quantity: 1,
+  weightOz: null, lengthIn: null, widthIn: null, heightIn: null,
 });
 
 describe("checkout-store partition", () => {
   it("splits printful vs pickup", () => {
     const { printful, pickup } = partitionByFulfillment([line("printful_pod"), line("pickup")]);
+    expect(printful).toHaveLength(1);
+    expect(pickup).toHaveLength(1);
+  });
+  it("buckets self_shipped separately", () => {
+    const { selfShipped, printful, pickup } = partitionByFulfillment([
+      line("self_shipped"),
+      line("printful_pod"),
+      line("pickup"),
+    ]);
+    expect(selfShipped).toHaveLength(1);
+    expect(selfShipped[0].fulfillmentType).toBe("self_shipped");
     expect(printful).toHaveLength(1);
     expect(pickup).toHaveLength(1);
   });
