@@ -17,6 +17,12 @@ const getPlayerStory = (placement: string) =>
 // Helper to get coach wisdom by placement
 const getCoachWisdom = (placement: string) =>
   book.coachWisdom?.find(w => w.placement === placement);
+
+// Dedupe helper: suppress a hardcoded sub-heading label when it exactly
+// repeats the section's own title (e.g. "Passing by Zone" heading followed
+// by a "Passing by Zone" sub-label).
+const isDupeOfTitle = (label: string, title: string) =>
+  label.trim().toLowerCase() === title.trim().toLowerCase();
 ---
 
 <html lang="en">
@@ -42,9 +48,11 @@ const getCoachWisdom = (placement: string) =>
           <p class="minibook-subtitle">{book.meta.subtitle}</p>
         </div>
 
-        <div class="minibook-cover-bottom">
-          <div class="minibook-tagline">{book.introduction.hook}</div>
-        </div>
+      </section>
+
+      <!-- Epigraph Page -->
+      <section class="minibook-epigraph">
+        <p class="epigraph-text">{book.introduction.hook}</p>
       </section>
 
       <!-- Half-Title Page -->
@@ -232,7 +240,7 @@ const getCoachWisdom = (placement: string) =>
       </section>
 
       <!-- Part One: Science Foundation -->
-      <section class="section-divider">
+      <section class="section-divider content-start">
         <span class="section-divider-number">Part One</span>
         <h2 class="section-divider-title">{book.scienceFoundation.title.replace('Part One: ', '')}</h2>
         <p class="section-divider-subtitle">{book.scienceFoundation.subtitle}</p>
@@ -521,7 +529,9 @@ const getCoachWisdom = (placement: string) =>
 
           {section.decisionQuestions && (
             <div class="decision-tree">
-              <h4>The Passing Decision Framework</h4>
+              {!isDupeOfTitle('The Passing Decision Framework', section.title) && (
+                <h4>The Passing Decision Framework</h4>
+              )}
               <div class="decision-flow">
                 {Object.entries(section.decisionQuestions).map(([key, node]) => (
                   <div class="decision-node">
@@ -559,7 +569,9 @@ const getCoachWisdom = (placement: string) =>
 
           {section.receivingPrinciples && (
             <div class="receiving-principles">
-              <h4>Receiving to Pass</h4>
+              {!isDupeOfTitle('Receiving to Pass', section.title) && (
+                <h4>Receiving to Pass</h4>
+              )}
               {section.receivingPrinciples.map(principle => (
                 <div class="principle-item">
                   <h5>{principle.principle}</h5>
@@ -572,7 +584,9 @@ const getCoachWisdom = (placement: string) =>
 
           {section.zones && (
             <div class="field-zones">
-              <h4>Passing by Zone</h4>
+              {!isDupeOfTitle('Passing by Zone', section.title) && (
+                <h4>Passing by Zone</h4>
+              )}
               <div class="zones-grid">
                 {section.zones.map(zone => (
                   <div class={`zone-card zone-${zone.riskLevel?.toLowerCase().replace(' ', '-')}`}>

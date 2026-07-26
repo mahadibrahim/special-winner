@@ -56,6 +56,14 @@
 
   /* Content Area */
   --content-width: calc(var(--page-width) - var(--margin-outside) - var(--margin-inside));
+  /* Usable vertical space on one printed page. Full-page front/back-matter
+     sections (cover, epigraph, half-title, title page, copyright, back
+     cover) live inside the @page margin box, so their target height is
+     this — not --page-height, which is the physical sheet size including
+     the 1.625in of margin the browser already reserves outside the
+     content box. Sizing them to --page-height was guaranteeing every one
+     of them would overflow onto a mostly-blank second page. */
+  --content-height: calc(var(--page-height) - var(--margin-top) - var(--margin-bottom));
   --line-height-body: 1.58;
   --line-height-tight: 1.25;
 }
@@ -88,9 +96,33 @@
   --color-positive-bg: #dbeafe;
 }
 
+/* The browser default UA stylesheet gives <body> an 8px margin. That's
+   8px this page-based layout never accounts for: it pushes every
+   full-page section 8px past the printable window of the very first
+   physical page (subsequent pages don't inherit it — it's a one-time
+   offset before pagination begins), which was enough on its own to spill
+   the last line or two of several front-matter pages onto a stray
+   continuation page. */
+body {
+  margin: 0;
+}
+
 /* ============================================
    BASE STYLES
    ============================================ */
+.minibook,
+.minibook *,
+.minibook *::before,
+.minibook *::after {
+  /* Every full-page section below combines a fixed min-height (one page)
+     with its own padding. Under content-box sizing, padding is additive on
+     top of min-height, so the box exceeds one physical page and spills a
+     near-empty continuation page (this was the cause of the split title
+     page and the stray numbered blank pages in front matter). Border-box
+     keeps padding inside the declared page height. */
+  box-sizing: border-box;
+}
+
 .minibook {
   font-family: var(--font-body);
   font-size: 10.5pt;
@@ -131,17 +163,68 @@
   margin-right: var(--margin-outside);
 }
 
-@page :first {
+/* Front matter (cover through table of contents): no folio. Applied via
+   the `page:` property on each front-matter section below rather than
+   `@page :first`, because :first only ever matches the single first page
+   of the document — front matter spans several pages. */
+@page front-matter {
   @bottom-center { content: none; }
+}
+
+.minibook-cover,
+.minibook-epigraph,
+.minibook-half-title,
+.minibook-title-page,
+.minibook-copyright,
+.minibook-toc-page {
+  page: front-matter;
+}
+
+/* Content numbering starts at 1 on the first content page (the Part One
+   divider), not wherever the front matter happened to land. `content-start`
+   is applied to that single divider in each minibook page. */
+.content-start {
+  /* Chromium's print-to-PDF pipeline does not actually honor an author
+     counter-reset on the reserved "page" counter (verified empirically —
+     it's a native engine limitation, not a bug in this rule), so this
+     alone can't make the first content page read "1". The invisible
+     marker below lets the generation script (generate-minibook-pdfs.ts)
+     find which physical page this divider landed on and stamp correct
+     "1, 2, 3…" folios on that page and everything after it. Kept anyway
+     in case a future renderer (e.g. paged.js, Prince, WeasyPrint) does
+     support it. */
+  counter-reset: page 1;
+  position: relative;
+}
+
+.content-start::after {
+  /* Genuinely invisible (not just color: transparent — Chromium's PDF
+     export omits the paint entirely for a fully-transparent fill, which
+     strips the underlying text run and defeats pdftotext extraction).
+     White-on-white at a sub-visible size keeps a real, extractable text
+     object without showing on the printed page. */
+  content: "CONTENT-START-MARKER";
+  position: absolute;
+  top: 0;
+  left: 0;
+  font-size: 0.1pt;
+  color: #fefefe;
 }
 
 /* ============================================
    COVER PAGE
    ============================================ */
 .minibook-cover {
-  min-height: var(--page-height);
-  display: flex;
-  flex-direction: column;
+  min-height: calc(var(--content-height) - 0.05in); /* fills the printable area of one page, trimmed a hair to avoid an exact-boundary spillover */
+  /* Deliberately plain block layout, not flex. A flex column relies on
+     flex-grow to center .minibook-cover-main vertically, and Chromium's
+     print pagination does not fragment flex-grow reliably: the grown
+     item can compute as far taller than the page than its content
+     actually needs, silently splitting the title from its own subtitle
+     onto a stray, mostly-blank second page. Fixed padding below achieves
+     the same visual centering without depending on fragmentable flex
+     sizing. */
+  display: block;
   padding: 0.75in 0.625in;
   page-break-after: always;
   background: var(--paper-white);
@@ -187,12 +270,8 @@
 }
 
 .minibook-cover-main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
   text-align: center;
-  padding: 1.5in 0;
+  padding: 1.1in 0;
 }
 
 /* Sport indicator - elegant typographic treatment */
@@ -233,22 +312,30 @@
   margin: 0;
 }
 
-.minibook-cover-bottom {
-  margin-top: auto;
+/* Epigraph — its own page, vertically centered, no top-anchoring rule,
+   unnumbered (front matter). Previously this text lived inside the cover
+   and was pinned to the bottom via margin-top: auto with hairline rules
+   above and below; on overflow it stranded itself onto a second, numbered
+   page. It now gets its own page in the front-matter flow. */
+.minibook-epigraph {
+  min-height: calc(var(--content-height) - 0.05in); /* fills the printable area of one page (page height minus the @page top/bottom margins), not the full physical page height; trimmed a hair so a box that lands exactly at the page boundary doesn't spill an empty continuation page */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 1.5in 0.9in;
+  page-break-after: always;
 }
 
-.minibook-tagline {
+.epigraph-text {
   font-family: var(--font-body);
-  font-size: 10.5pt;
+  font-size: 12pt;
   font-style: italic;
-  line-height: 1.6;
+  line-height: 1.75;
   color: var(--ink-dark);
   text-align: center;
-  max-width: 4in;
-  margin: 0 auto;
-  padding: 0.3in 0.4in;
-  border-top: 0.5pt solid var(--rule-medium);
-  border-bottom: 0.5pt solid var(--rule-medium);
+  max-width: 3.75in;
+  margin: 0;
 }
 
 /* ============================================
@@ -496,10 +583,12 @@
 
 .section-content p {
   margin-bottom: 0.15in;
-  text-align: justify;
-  hyphens: auto;
-  -webkit-hyphens: auto;
-  hyphenate-limit-chars: 6 3 2;
+  /* Ragged-right: at this column width, justification was producing loose,
+     gap-toothed lines and forced mid-word hyphenation artifacts. Left-aligned
+     reads cleaner at 6in trim. */
+  text-align: left;
+  hyphens: none;
+  -webkit-hyphens: none;
 }
 
 .section-content p:first-of-type::first-letter {
@@ -518,7 +607,8 @@
    ============================================ */
 .research-box {
   background: var(--paper-cream);
-  padding: 0.2in 0.25in;
+  border: 0.5pt solid var(--rule-medium);
+  padding: 0.18in 0.22in;
   margin: 0.25in 0;
   page-break-inside: avoid;
   position: relative;
@@ -578,6 +668,7 @@
    ============================================ */
 .parent-takeaway {
   background: var(--accent-light);
+  border: 0.5pt solid var(--rule-medium);
   padding: 0.18in 0.22in;
   margin: 0.2in 0;
   page-break-inside: avoid;
@@ -612,6 +703,7 @@
 }
 
 .comparison-item {
+  border: 0.5pt solid var(--rule-medium);
   padding: 0.15in 0.18in;
 }
 
@@ -651,6 +743,7 @@
 .comparison-why {
   grid-column: 1 / -1;
   background: var(--paper-cream);
+  border: 0.5pt solid var(--rule-medium);
   padding: 0.12in 0.15in;
   font-size: 9pt;
   line-height: 1.5;
@@ -897,8 +990,9 @@
 
 .strategy-item {
   background: var(--paper-cream);
-  padding: 0.15in 0.18in;
-  margin-bottom: 0.12in;
+  border: 0.5pt solid var(--rule-medium);
+  padding: 0.18in;
+  margin-bottom: 0.15in;
   page-break-inside: avoid;
 }
 
@@ -930,7 +1024,11 @@
   background: var(--color-highlight);
   padding: 0.18in 0.22in;
   margin: 0.2in 0;
+  border-top: 0.5pt solid var(--rule-medium);
+  border-right: 0.5pt solid var(--rule-medium);
+  border-bottom: 0.5pt solid var(--rule-medium);
   border-left: 3pt solid var(--color-highlight-border);
+  page-break-inside: avoid;
 }
 
 .creativity-tips ul {
@@ -959,8 +1057,8 @@
 
 .decision-node {
   background: var(--paper-cream);
-  border: 1pt solid var(--rule-medium);
-  padding: 0.15in 0.18in;
+  border: 0.5pt solid var(--rule-medium);
+  padding: 0.18in;
   page-break-inside: avoid;
 }
 
@@ -1010,7 +1108,8 @@
 }
 
 .zone-card {
-  padding: 0.15in;
+  border: 0.5pt solid var(--rule-medium);
+  padding: 0.18in;
   page-break-inside: avoid;
 }
 
@@ -1063,7 +1162,17 @@
   border: 1.5pt solid var(--ink-black);
   margin: 0.25in 0;
   padding: 0.25in !important;
-  page-break-inside: avoid;
+  /* This box holds an entire age stage — header, focus/research notes,
+     principles, every activity card, home activities, signs of progress —
+     routinely several pages of content. `avoid` on a block that long
+     forces the whole thing onto a fresh page no matter what, abandoning
+     the remainder of whatever page came before it (the dead half-pages
+     seen after each Part Four intro/interlude). Letting it flow keeps the
+     border printing correctly across the break (box-decoration-break
+     defaults to slice: only the first fragment gets a top rule, only the
+     last gets a bottom rule) while the individual cards inside
+     (.activity-card etc.) still carry their own break-inside: avoid. */
+  page-break-inside: auto;
 }
 
 .stage-header {
@@ -1189,12 +1298,47 @@
 }
 
 /* ============================================
+   RUN-IN LABELS — one consistent treatment for every
+   "Label: value" callout (Benefit:, Focus:, Research Basis:,
+   External Cue:, Why:, Instead:, etc.), distinct from headings
+   (which use the serif display face). Small, mono, uppercase,
+   neutral ink color — regardless of what colored/italic
+   surrounding element the label happens to sit inside.
+   ============================================ */
+.stage-focus strong,
+.stage-research strong,
+.activity-focus strong,
+.activity-cue strong,
+.activity-variation strong,
+.activity-note strong,
+.activity-progression strong,
+.activity-debrief strong,
+.principle-benefit strong,
+.pattern-why strong,
+.comparison-why strong,
+.do-item p strong,
+.avoid-item p strong,
+.video-analysis p strong,
+.mental-skill-item strong,
+.interlude-principle strong {
+  font-family: var(--font-mono);
+  font-size: 0.82em;
+  font-weight: 700;
+  font-style: normal;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-medium);
+}
+
+/* ============================================
    HOME ACTIVITIES
    ============================================ */
 .home-activities {
   background: var(--accent-light);
-  padding: 0.15in 0.18in;
+  border: 0.5pt solid var(--rule-medium);
+  padding: 0.18in;
   margin: 0.15in 0;
+  page-break-inside: avoid;
 }
 
 .home-activities h4 {
@@ -1256,8 +1400,10 @@
    ============================================ */
 .video-analysis {
   background: var(--paper-cream);
-  padding: 0.15in 0.18in;
+  border: 0.5pt solid var(--rule-medium);
+  padding: 0.18in;
   margin: 0.15in 0;
+  page-break-inside: avoid;
 }
 
 .video-analysis h4 {
@@ -1307,7 +1453,10 @@
 
 .do-item,
 .avoid-item {
-  padding: 0.15in 0.18in;
+  padding: 0.18in;
+  border-top: 0.5pt solid var(--rule-medium);
+  border-right: 0.5pt solid var(--rule-medium);
+  border-bottom: 0.5pt solid var(--rule-medium);
   page-break-inside: avoid;
 }
 
@@ -1406,8 +1555,9 @@
 }
 
 .book-item {
-  padding: 0.12in 0.15in;
+  padding: 0.18in;
   background: var(--paper-cream);
+  border: 0.5pt solid var(--rule-medium);
   page-break-inside: avoid;
 }
 
@@ -1446,7 +1596,7 @@
    BACK COVER
    ============================================ */
 .minibook-back-cover {
-  min-height: var(--page-height);
+  min-height: calc(var(--content-height) - 0.05in); /* fills the printable area of one page (page height minus the @page top/bottom margins), not the full physical page height; trimmed a hair so a box that lands exactly at the page boundary doesn't spill an empty continuation page */
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -1582,8 +1732,8 @@
 
 .interlude-content p {
   margin: 0 0 0.12in 0;
-  text-align: justify;
-  hyphens: auto;
+  text-align: left;
+  hyphens: none;
 }
 
 .interlude-content p:last-child {
@@ -1674,10 +1824,13 @@
     padding: 0;
   }
 
-  .minibook-cover,
-  .minibook-back-cover {
-    min-height: 100vh;
-  }
+  /* Previously: min-height: 100vh on .minibook-cover/.minibook-back-cover.
+     100vh resolves against the browser's viewport height, which has
+     nothing to do with the 6in x 9in physical page these are printed to
+     (Playwright's default viewport is 1280x720, i.e. 7.5in at 96dpi) — it
+     was overriding the correct var(--page-height)-based sizing set above
+     and was the actual cause of the cover splitting across pages. The
+     base rules already size these correctly for print. */
 
   /* Ensure page breaks */
   .section-divider {
@@ -1715,7 +1868,7 @@
 
 /* Half-Title Page — Simple, elegant */
 .minibook-half-title {
-  min-height: var(--page-height);
+  min-height: calc(var(--content-height) - 0.05in); /* fills the printable area of one page (page height minus the @page top/bottom margins), not the full physical page height; trimmed a hair so a box that lands exactly at the page boundary doesn't spill an empty continuation page */
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -1736,14 +1889,45 @@
 
 /* Title Page — Full credits */
 .minibook-title-page {
-  min-height: var(--page-height);
+  min-height: calc(var(--content-height) - 0.05in); /* fills the printable area of one page, trimmed a hair to avoid an exact-boundary spillover */
+  /* Plain block layout, not flex. A flex column centered with
+     justify-content does not fragment reliably under Chromium's print
+     pagination — it was the actual cause of the title block (composed of
+     header + title + credits) splitting across two pages, most often
+     stranding just the bottom publisher logo alone on its own page. Fixed
+     top padding approximates the same vertically-centered composition
+     without depending on fragmentable flex sizing. */
+  display: block;
+  text-align: center;
+  /* Kept lean on purpose: titles run 2-3 lines depending on the book
+     ("The Path to Better Passing" vs "The Path to Better Ball Handling"),
+     and this box has no flex-grow to safely absorb the extra line — it
+     needs real spare room in the padding/margins budget instead. */
+  padding: 0.4in 0.75in 0.3in;
+  page-break-after: always;
+}
+
+/* .title-page-header wraps the top logo + series line; .title-page-logo
+   and the h1 (.title-page-title) previously had no rules at all — the
+   logo rendered at its raw intrinsic pixel size and the heading inherited
+   the browser's default h1 sizing (~2em of whatever it was nested in),
+   which together were the actual cause of the title page overflowing
+   onto a second page. Both are styled explicitly now. */
+.title-page-header {
   display: flex;
   flex-direction: column;
-  justify-content: center;
   align-items: center;
-  text-align: center;
-  padding: 1in 0.75in;
-  page-break-after: always;
+  /* No margin-bottom here: .title-page-series (the last child) already
+     carries its own margin-bottom, so this stayed on top of it would
+     double the gap and was the last bit pushing the page a hair past
+     one physical page (spilling just the bottom logo onto a stray
+     second page). */
+}
+
+.title-page-logo {
+  height: 22pt;
+  width: auto;
+  margin-bottom: 0.15in;
 }
 
 .title-page-sport {
@@ -1757,6 +1941,12 @@
 }
 
 .title-page-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.title-page-title {
   font-family: var(--font-display);
   font-size: 32pt;
   font-weight: 700;
@@ -1772,21 +1962,54 @@
   font-weight: 400;
   font-style: italic;
   color: var(--ink-medium);
-  margin: 0 0 0.75in 0;
+  margin: 0 0 0.3in 0;
 }
 
 .title-page-series {
   font-family: var(--font-body);
   font-size: 10pt;
   color: var(--ink-medium);
-  margin-bottom: 0.5in;
+  margin-bottom: 0.25in;
   padding: 0.15in 0.3in;
   border-top: 0.5pt solid var(--rule-medium);
   border-bottom: 0.5pt solid var(--rule-medium);
 }
 
+.title-page-credits {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* Fixed gap, not margin-top: auto — the whole title block (header,
+     title, credits) should read as one composed group vertically
+     centered on the page, not have the credits pinned away to the
+     bottom edge. */
+  margin-top: 0.3in;
+}
+
+.title-page-author {
+  margin-bottom: 0.25in;
+}
+
+.credit-label {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 8pt;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--ink-muted);
+  margin-bottom: 0.05in;
+}
+
+.credit-name {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 12pt;
+  font-weight: 600;
+  color: var(--ink-black);
+}
+
 .title-page-publisher {
-  margin-top: auto;
+  margin-top: 0;
 }
 
 .title-page-publisher img {
@@ -1805,7 +2028,7 @@
 
 /* Copyright Page */
 .minibook-copyright {
-  min-height: var(--page-height);
+  min-height: calc(var(--content-height) - 0.05in); /* fills the printable area of one page (page height minus the @page top/bottom margins), not the full physical page height; trimmed a hair so a box that lands exactly at the page boundary doesn't spill an empty continuation page */
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -1961,7 +2184,7 @@
 
 .about-content p {
   margin-bottom: 0.18in;
-  text-align: justify;
+  text-align: left;
 }
 
 .about-mission {
