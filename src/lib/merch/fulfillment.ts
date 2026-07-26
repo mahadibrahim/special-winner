@@ -55,6 +55,14 @@ export async function fulfillMerchOrder(orderId: string): Promise<{ printfulOrde
     (i): i is typeof i & { printfulSyncVariantId: string } => i.printfulSyncVariantId !== null,
   );
 
+  // No Printful-fulfilled lines (e.g. a pickup + self_shipped mix routed here by
+  // the catch-all plan) — nothing to submit. Leave the order 'paid'; pickup and
+  // self_shipped lines are handled by their own flows / admin. Mixed-fulfillment
+  // orders are a documented 3c simplification (spec non-goals).
+  if (printfulItems.length === 0) {
+    return { printfulOrderId: "" };
+  }
+
   const result = await createOrder({
     recipient: toPrintfulRecipient(order.shippingAddress),
     items: buildPrintfulOrderItems(printfulItems.map((i) => ({ printfulSyncVariantId: i.printfulSyncVariantId, quantity: i.quantity }))),
