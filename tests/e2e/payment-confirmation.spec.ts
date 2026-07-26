@@ -37,6 +37,17 @@ test.describe("Payment confirmation (test-mode card)", () => {
       `Adult open soccer season not found (slug: ${ADULT_OPEN_SEASON_SLUG}) — run npm run db:seed:e2e`,
     ).toBeTruthy();
     seasonId = match!.id;
+
+    // Self-heal capacity: the shared DB accumulates confirmed registrations
+    // and any branch's seed re-clamps maxParticipants — a full season makes
+    // Pay silently waitlist instead of charging, which is exactly the path
+    // this spec must NOT take. Best-effort: 404s when E2E_TEST_ENDPOINTS
+    // isn't set; the paid-path assertion below surfaces that loudly.
+    await request
+      .post("/api/test/season-capacity", {
+        data: { slug: ADULT_OPEN_SEASON_SLUG, maxParticipants: 100000 },
+      })
+      .catch(() => {});
   });
 
   test("guest pays with 4242 and lands on the confirmation step, not the dashboard", async ({
@@ -74,10 +85,19 @@ test.describe("Payment confirmation (test-mode card)", () => {
       .catch(() => false);
     test.skip(!mounted, "Stripe not configured in this environment (no payment iframe)");
 
-    // Fill the card inside the Payment Element. The accordion may render the
-    // card fields collapsed (multiple methods on the staging account) — click
-    // the Card row first if the number field isn't already visible.
+    // Card-only drift guard: the checkout posture is card + Apple/Google Pay
+    // ONLY (Link/Klarna/ACH/BNPL are disabled on the Stripe account — live by
+    // the Dashboard, the sandbox via the payment_method_configurations API).
+    // If someone re-enables them on the account, this catches it before a
+    // customer sees a "$5 back" bank rail again.
     const frame = page.frameLocator('iframe[name^="__privateStripeFrame"]').first();
+    await expect(frame.getByText("Klarna", { exact: true })).toHaveCount(0);
+    await expect(frame.getByText("Powered by Link")).toHaveCount(0);
+    await expect(frame.getByText("Bank", { exact: true })).toHaveCount(0);
+
+    // Fill the card inside the Payment Element. The accordion may render the
+    // card fields collapsed (multiple methods on the account) — click the
+    // Card row first if the number field isn't already visible.
     const cardNumber = frame.locator('input[name="number"]');
     if (!(await cardNumber.isVisible({ timeout: 3_000 }).catch(() => false))) {
       await frame.getByText("Card", { exact: true }).first().click();
