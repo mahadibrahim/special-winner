@@ -72,6 +72,10 @@ export async function resolveLuluShippingOptions(
   for (const level of LULU_SHIPPING_LEVELS) {
     try {
       const { shippingCents } = await calculatePrintJobCost({ lineItems: cost.items, address: luluAddress, level });
+      // A non-positive shippingCents means Lulu's response was missing/malformed
+      // shipping_cost data (a 200 with no real quote) — treat it the same as a
+      // level Lulu rejects outright, never charge the buyer $0 shipping.
+      if (shippingCents <= 0) continue;
       options.push({ level, label: LULU_LEVEL_LABELS[level], amountCents: shippingCents });
     } catch (e) {
       // Per-level failure = that level isn't offered for this destination.

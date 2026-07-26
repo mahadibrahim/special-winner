@@ -78,6 +78,29 @@ describe("resolveLuluShippingOptions (Lulu API failures, LULU_MOCK)", () => {
     mockedCalculatePrintJobCost.mockRejectedValueOnce(new Error("network down"));
     await expect(resolveLuluShippingOptions(address, [bookLine])).rejects.toThrow("network down");
   });
+
+  it("omits a level whose cost response has non-positive shipping (malformed 200), keeping the rest", async () => {
+    // First call is MAIL (LULU_SHIPPING_LEVELS[0]) — force a malformed-but-200
+    // response (missing shipping_cost.total_cost_incl_tax collapses to 0
+    // cents in the client). The other 4 levels fall through to the real
+    // LULU_MOCK implementation and must still come back.
+    mockedCalculatePrintJobCost.mockImplementationOnce(async () => ({ shippingCents: 0, printCents: 700 }));
+    const r = await resolveLuluShippingOptions(address, [bookLine]);
+    if (!r.ok) throw new Error(r.error);
+    expect(r.options.map((o) => o.level)).not.toContain("MAIL");
+    expect(r.options).toHaveLength(4);
+  });
+
+  it("422s when every shipping level returns non-positive shipping (malformed 200s)", async () => {
+    mockedCalculatePrintJobCost
+      .mockImplementationOnce(async () => ({ shippingCents: 0, printCents: 700 }))
+      .mockImplementationOnce(async () => ({ shippingCents: 0, printCents: 700 }))
+      .mockImplementationOnce(async () => ({ shippingCents: 0, printCents: 700 }))
+      .mockImplementationOnce(async () => ({ shippingCents: 0, printCents: 700 }))
+      .mockImplementationOnce(async () => ({ shippingCents: 0, printCents: 700 }));
+    const r = await resolveLuluShippingOptions(address, [bookLine]);
+    expect(r).toEqual({ ok: false, status: 422, error: "We can't ship to that address" });
+  });
 });
 
 describe("toLuluAddress", () => {
