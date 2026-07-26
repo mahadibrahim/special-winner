@@ -1,9 +1,15 @@
 /**
- * Stripe webhook handler for drop-in booking checkout completion.
+ * Stripe webhook fulfillment for paid drop-in bookings.
  *
- * Dispatched from /api/webhooks/stripe when
- * `event.type === "checkout.session.completed"` AND
- * `metadata.type === "dropin_booking"`.
+ * Two adapters over ONE shared core (`fulfillDropInBookingPayment`):
+ *   - `handleDropInCheckoutComplete` — legacy hosted Checkout, dispatched on
+ *     `checkout.session.completed` with `metadata.type === "dropin_booking"`.
+ *     Kept intact for any Checkout Sessions in flight at deploy time.
+ *   - handle-dropin-booking-payment.ts — the current inline Payment Element
+ *     flow, dispatched on `payment_intent.succeeded` with
+ *     `metadata.type === "dropin_booking_embedded"`.
+ * Both producers stamp the same metadata contract (see
+ * src/lib/dropin/create-checkout.ts), so the core is payload-agnostic.
  *
  * Inserts the drop-in booking row in the *paid* state (the free path
  * handles its own row insertion in the orchestrator). Idempotency is
@@ -75,24 +81,57 @@ type HandlerResult =
  *  `skipped` HandlerResult. */
 type TxResult = HandlerResult | { status: "duplicate_user"; activeStatus: string };
 
+/**
+ * Payload-agnostic view of a settled drop-in booking payment — everything
+ * the fulfillment core needs, extracted by the per-event-type adapters.
+ */
+export interface DropInBookingFulfillmentInput {
+  /** The fulfillment metadata contract (see create-checkout.ts). */
+  metadata: Record<string, string> | null;
+  paymentIntentId: string | null;
+  /** Total actually charged, in cents. */
+  amountTotalCents: number;
+  /** Buyer email — server-side ad-conversion identity. */
+  customerEmail: string | null;
+  /** Conversion-dedupe event id when no PaymentIntent id is available. */
+  fallbackEventId: string;
+}
+
+/** Adapter: legacy hosted Checkout (`checkout.session.completed`,
+ *  metadata.type "dropin_booking"). */
 export async function handleDropInCheckoutComplete(
   session: Stripe.Checkout.Session,
 ): Promise<HandlerResult> {
-  const sessionDbId = session.metadata?.session_id;
-  const userId = session.metadata?.user_id;
-  const paymentMethod = session.metadata?.payment_method as
-    | DropInPaymentMethod
-    | undefined;
-  const membershipId = session.metadata?.membership_id || null;
-  const waiverName = session.metadata?.waiver_name || null;
-  const waiverSignedAtRaw = session.metadata?.waiver_signed_at;
+  return fulfillDropInBookingPayment({
+    metadata: session.metadata ?? null,
+    paymentIntentId:
+      typeof session.payment_intent === "string"
+        ? session.payment_intent
+        : (session.payment_intent?.id ?? null),
+    amountTotalCents: session.amount_total ?? 0,
+    customerEmail:
+      session.customer_details?.email ?? session.customer_email ?? null,
+    fallbackEventId: session.id,
+  });
+}
+
+export async function fulfillDropInBookingPayment(
+  input: DropInBookingFulfillmentInput,
+): Promise<HandlerResult> {
+  const md = input.metadata ?? {};
+  const sessionDbId = md.session_id;
+  const userId = md.user_id;
+  const paymentMethod = md.payment_method as DropInPaymentMethod | undefined;
+  const membershipId = md.membership_id || null;
+  const waiverName = md.waiver_name || null;
+  const waiverSignedAtRaw = md.waiver_signed_at;
   const waiverSignedAt = waiverSignedAtRaw ? new Date(waiverSignedAtRaw) : null;
-  // Brand is set in extraMetadata at checkout creation time (PR #168, bookings/index.ts).
-  const brand = normalizeBrand(session.metadata?.brand);
+  // Brand is set in extraMetadata at payment creation time (PR #168, bookings/index.ts).
+  const brand = normalizeBrand(md.brand);
   // Re-sanitize even though create-checkout.ts already sanitized before
   // stamping metadata — the webhook is the DB insert boundary, so it never
   // trusts a round-tripped Stripe value without re-checking the allow-list.
-  const referralSource = sanitizeReferralSource(session.metadata?.referral_source);
+  const referralSource = sanitizeReferralSource(md.referral_source);
 
   if (!sessionDbId || !userId) {
     return { status: "skipped", reason: "missing dropin metadata" };
@@ -102,7 +141,7 @@ export async function handleDropInCheckoutComplete(
   }
 
   const db = getDb();
-  const paymentIntentId = (session.payment_intent as string) ?? null;
+  const paymentIntentId = input.paymentIntentId;
 
   // Idempotency: if we've already created a booking for this PaymentIntent,
   // bail. The stripe_events ledger upstream is the canonical dedupe; this
@@ -240,7 +279,7 @@ export async function handleDropInCheckoutComplete(
           // commits, see refundOverflowPayment) records that it was given
           // back. Keeping the real amount here lets the overflow message
           // quote a real refund figure instead of "$0".
-          amountPaidCents: session.amount_total ?? 0,
+          amountPaidCents: input.amountTotalCents,
           membershipId,
           stripePaymentIntentId: paymentIntentId,
           teamAssignment: null,
@@ -294,7 +333,7 @@ export async function handleDropInCheckoutComplete(
         status: "confirmed",
         source: "online_booking",
         paymentMethod,
-        amountPaidCents: session.amount_total ?? 0,
+        amountPaidCents: input.amountTotalCents,
         membershipId,
         stripePaymentIntentId: paymentIntentId,
         teamAssignment: team,
@@ -314,9 +353,9 @@ export async function handleDropInCheckoutComplete(
     // Brand-attributed for two-brand segmentation.
     capturePaymentCompleted({
       distinctId: userId,
-      clientDistinctId: session.metadata?.ph_distinct_id,
+      clientDistinctId: md.ph_distinct_id,
       kind: "dropin",
-      amountCents: session.amount_total ?? 0,
+      amountCents: input.amountTotalCents,
       brand,
       metadata: {
         booking_id: booking.id,
@@ -329,7 +368,7 @@ export async function handleDropInCheckoutComplete(
     return {
       status: "processed",
       bookingId: booking.id,
-      paidCents: session.amount_total ?? 0,
+      paidCents: input.amountTotalCents,
     };
   });
 
@@ -384,16 +423,15 @@ export async function handleDropInCheckoutComplete(
       { bookingId: result.bookingId, brand },
     );
 
-    const md = session.metadata ?? {};
     const hasAttribution = md.ga_client_id || md.fbclid || md._fbc || md._fbp;
     if (hasAttribution) {
-      const amount = session.amount_total ?? 0;
+      const amount = input.amountTotalCents;
       fireServerPurchaseConversions({
         metadata: md,
-        eventId: (session.payment_intent as string) ?? session.id,
+        eventId: paymentIntentId ?? input.fallbackEventId,
         valueCents: amount,
         brand,
-        email: session.customer_details?.email ?? session.customer_email ?? null,
+        email: input.customerEmail,
         ga4Items: [
           { id: sessionDbId, name: itemLabel, category: itemCategory, priceCents: amount },
         ],

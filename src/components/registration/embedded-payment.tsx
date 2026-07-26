@@ -160,9 +160,13 @@ function PaymentForm({
 
     // status "processing" | "requires_action" — Stripe redirects for
     // redirect-required flows via return_url; for processing, hand off to the
-    // return page to poll status.
+    // return page to poll status. Append via URL so a returnUrl that already
+    // carries a query string (e.g. ?booking=success, ?mode=team) doesn't get
+    // a second "?".
     if (paymentIntent) {
-      window.location.href = `${returnUrl}?payment_intent=${paymentIntent.id}`;
+      const target = new URL(returnUrl, window.location.origin);
+      target.searchParams.set("payment_intent", paymentIntent.id);
+      window.location.href = target.toString();
     }
   };
 

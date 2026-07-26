@@ -10,9 +10,13 @@ const bookingParam = Astro.url.searchParams.get('booking');
 const bannerKind: 'success' | 'cancelled' | null =
   bookingParam === 'success' ? 'success' :
   bookingParam === 'cancelled' ? 'cancelled' : null;
-// Stripe carries the checkout session id back on success so the booking can be
-// resolved for guests who returned anonymous (see /api/dropin/sessions/[id]).
+// Legacy hosted Checkout carries the checkout session id back on success so
+// the booking can be resolved for guests who returned anonymous (see
+// /api/dropin/sessions/[id]).
 const checkoutSessionId = Astro.url.searchParams.get('checkout_session_id');
+// Inline-payment success (or a Stripe 3DS return) carries the PaymentIntent
+// id instead — same guest booking-resolution role.
+const paymentIntentId = Astro.url.searchParams.get('payment_intent');
 ---
 
 <BaseLayout title="Drop In Session — Aspire Sports">
@@ -23,6 +27,8 @@ const checkoutSessionId = Astro.url.searchParams.get('checkout_session_id');
       isAuthenticated={isAuthenticated}
       bannerKind={bannerKind}
       checkoutSessionId={checkoutSessionId}
+      paymentIntentId={paymentIntentId}
+      stripePublishableKey={import.meta.env.STRIPE_PUBLISHABLE_KEY ?? ''}
     />
   </main>
 </BaseLayout>

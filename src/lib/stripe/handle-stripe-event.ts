@@ -7,6 +7,7 @@ import { handleFieldRentalCheckoutComplete } from "./handle-field-rental-checkou
 import { handleDropInWalkUpPayment } from "./handle-dropin-walkup-payment";
 import { handleDropinWalkinPayment } from "./handle-dropin-walkin-payment";
 import { handleDropInClaimPayment } from "./handle-dropin-claim-payment";
+import { handleDropInBookingPayment } from "./handle-dropin-booking-payment";
 import { handleFieldRentalWalkUpPayment } from "./handle-field-rental-walkup-payment";
 import { handlePaymentFailed } from "./handle-payment-failed";
 import { handleRegistrationPaymentSucceeded } from "./handle-registration-payment-succeeded";
@@ -85,9 +86,12 @@ async function releaseStripeEvent(eventId: string): Promise<void> {
  *      metadata.type "registration_payment" → handleRegistrationPaymentSucceeded.
  *      Supports bank (ACH) and card.
  *
- *   2. Drop-in bookings + field rentals — Stripe Checkout Sessions
- *      (hosted). Finalized by `checkout.session.completed` with
- *      metadata.type "dropin_booking" / "field_rental". Card only.
+ *   2. Drop-in bookings — inline Payment Element (PaymentIntents), finalized
+ *      by `payment_intent.succeeded` with metadata.type
+ *      "dropin_booking_embedded". The legacy hosted-Checkout path
+ *      (`checkout.session.completed`, metadata.type "dropin_booking") stays
+ *      routed for in-flight sessions. Field rentals remain hosted Checkout
+ *      (metadata.type "field_rental"). Card only.
  *
  * Walk-up / kiosk flows add more `payment_intent.succeeded` variants
  * (dropin_walkin, dropin_booking_walk_up, field_rental_walk_up).
@@ -213,7 +217,16 @@ async function dispatch(event: Stripe.Event): Promise<void> {
 
     case "payment_intent.succeeded": {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      if (paymentIntent.metadata?.type === "dropin_walkin") {
+      if (paymentIntent.metadata?.type === "dropin_booking_embedded") {
+        // Inline Payment Element drop-in booking — inserts the booking row
+        // via the same shared fulfillment core as the legacy hosted
+        // Checkout flow (see handle-dropin-booking-payment.ts).
+        const result = await handleDropInBookingPayment(paymentIntent);
+        console.log(
+          `[stripe webhook] payment_intent.succeeded (dropin embedded booking) → ${result.status}`,
+          result,
+        );
+      } else if (paymentIntent.metadata?.type === "dropin_walkin") {
         const result = await handleDropinWalkinPayment(paymentIntent);
         console.log(
           `[stripe webhook] payment_intent.succeeded (dropin walkin) → ${result.status}`,

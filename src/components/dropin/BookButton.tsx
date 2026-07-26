@@ -13,6 +13,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import {
+  EmbeddedPayment,
+  type CreateIntentResult,
+} from "@/components/registration/embedded-payment";
+import { computeSurchargeCents } from "@/lib/payments/surcharge";
 
 interface BookButtonProps {
   sessionId: string;
@@ -26,6 +31,14 @@ interface BookButtonProps {
   /** Existing booking status, if any. */
   alreadyBookedStatus: string | null;
   isAuthenticated: boolean;
+  /** Server-threaded STRIPE_PUBLISHABLE_KEY — mounts the inline deferred
+   *  Payment Element for paid bookings. Empty string degrades the paid path
+   *  to the legacy hosted-Checkout redirect. */
+  stripePublishableKey: string;
+  /** Session labels — analytics purchase item for the inline payment. */
+  sportOrClassLabel: string;
+  formatLabel: string | null;
+  venueName: string | null;
 }
 
 const WAIVER_TEXT =
@@ -37,11 +50,18 @@ export function BookButton({
   isFull,
   alreadyBookedStatus,
   isAuthenticated,
+  stripePublishableKey,
+  sportOrClassLabel,
+  formatLabel,
+  venueName,
 }: BookButtonProps) {
   const [busy, setBusy] = useState(false);
   const [showWaiver, setShowWaiver] = useState(false);
   const [waiverAccepted, setWaiverAccepted] = useState(false);
   const [waiverName, setWaiverName] = useState("");
+  // Paid sessions: after the waiver dialog, the inline deferred card form
+  // renders in place of the Book button (no redirect to Stripe).
+  const [showPayment, setShowPayment] = useState(false);
 
   // Guest-mode contact fields — drop-ins are impulse purchases, so
   // anonymous visitors book with name + email instead of bouncing to
@@ -53,8 +73,8 @@ export function BookButton({
 
   // Referral attribution (?src=host-share, etc.) — captured once on mount so
   // it survives whatever the waiver dialog does to the URL/history. Threaded
-  // into the booking POST body for both the free path and the paid-Checkout
-  // kick-off; sanitizeReferralSource is the actual allow-list, applied
+  // into the booking POST body for both the free path and the paid intent
+  // creation; sanitizeReferralSource is the actual allow-list, applied
   // server-side before it ever reaches the booking row.
   const [referralSrc] = useState<string | null>(() =>
     typeof window !== "undefined"
@@ -116,33 +136,83 @@ export function BookButton({
     );
   }
 
+  // Inline payment applies to a bookable (not full) paid session, and needs
+  // both a mountable amount and the publishable key. Anything else keeps the
+  // legacy submit path (free booking, waitlist join, or — if the key is ever
+  // missing — the hosted-Checkout redirect fallback).
+  const paidInline =
+    !isFull &&
+    resolvedAmountCents !== null &&
+    resolvedAmountCents > 0 &&
+    stripePublishableKey.length > 0;
+
+  // Drop-in payments are card-only, so the card surcharge always applies —
+  // same computation the server runs (computeSurchargeCents is shared), so
+  // the mounted Elements amount always equals the created intent's amount.
+  const chargeCents =
+    resolvedAmountCents !== null && resolvedAmountCents > 0
+      ? resolvedAmountCents + computeSurchargeCents(resolvedAmountCents, "card")
+      : 0;
+
+  const buildPayload = (): Record<string, unknown> =>
+    isAuthenticated
+      ? {
+          sessionId,
+          waiverAccepted: true,
+          waiverName: waiverName.trim(),
+          ...(referralSrc ? { src: referralSrc } : {}),
+        }
+      : {
+          sessionId,
+          firstName: guestFirstName.trim(),
+          lastName: guestLastName.trim(),
+          email: guestEmail.trim(),
+          waiverAccepted: true,
+          waiverName: waiverName.trim(),
+          ...(referralSrc ? { src: referralSrc } : {}),
+        };
+
+  const endpoint = isAuthenticated
+    ? "/api/dropin/bookings"
+    : "/api/dropin/guest-checkout";
+
+  /** Post-booking navigation, mirroring the server's success_url behavior:
+   *  the session page's ?booking=success banner, carrying the PaymentIntent
+   *  id so guests without a login session can still resolve their booking
+   *  (see /api/dropin/sessions/[id]). */
+  const goToBookedSession = (paymentIntentId: string | null) => {
+    const url = new URL(`/dropin/${sessionId}`, window.location.origin);
+    url.searchParams.set("booking", "success");
+    if (paymentIntentId) url.searchParams.set("payment_intent", paymentIntentId);
+    window.location.href = url.toString();
+  };
+
+  /** Free-booking navigation (unchanged from the pre-inline flow). */
+  const goAfterFreeBooking = (wasNewUser: boolean) => {
+    if (isAuthenticated || wasNewUser) {
+      // New guest users get a session cookie from the endpoint, so the
+      // dashboard works for them too.
+      window.location.href = "/dashboard/bookings?booking=success";
+    } else {
+      // Existing account booked as guest — no session cookie was set
+      // (account-takeover prevention). Point them at sign-in.
+      window.location.href = `/dropin/${sessionId}?booking=success`;
+    }
+  };
+
+  /**
+   * Legacy submit path: free bookings, waitlist joins, and the hosted
+   * Checkout redirect fallback. Paid inline bookings never come through
+   * here — they go dialog → inline card form → createIntent.
+   */
   const submitBooking = async () => {
     setBusy(true);
     setShowWaiver(false);
     try {
-      const endpoint = isAuthenticated
-        ? "/api/dropin/bookings"
-        : "/api/dropin/guest-checkout";
-      const payload = isAuthenticated
-        ? {
-            sessionId,
-            waiverAccepted: true,
-            waiverName: waiverName.trim(),
-            ...(referralSrc ? { src: referralSrc } : {}),
-          }
-        : {
-            sessionId,
-            firstName: guestFirstName.trim(),
-            lastName: guestLastName.trim(),
-            email: guestEmail.trim(),
-            waiverAccepted: true,
-            waiverName: waiverName.trim(),
-            ...(referralSrc ? { src: referralSrc } : {}),
-          };
       const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(buildPayload()),
       });
       const json = await res.json();
       if (!res.ok) {
@@ -162,15 +232,7 @@ export function BookButton({
           ? `Booked — Team ${json.teamAssignment}`
           : "Booked",
       );
-      if (isAuthenticated || json.wasNewUser) {
-        // New guest users get a session cookie from the endpoint, so the
-        // dashboard works for them too.
-        window.location.href = "/dashboard/bookings?booking=success";
-      } else {
-        // Existing account booked as guest — no session cookie was set
-        // (account-takeover prevention). Point them at sign-in.
-        window.location.href = `/dropin/${sessionId}?booking=success`;
-      }
+      goAfterFreeBooking(json.wasNewUser === true);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Network error");
     } finally {
@@ -178,10 +240,70 @@ export function BookButton({
     }
   };
 
+  /**
+   * Deferred create-on-Pay: mint the booking PaymentIntent when the customer
+   * clicks Pay in the inline card form. Nothing is created for visitors who
+   * open the form but never pay. The booking row itself is inserted by the
+   * payment_intent.succeeded webhook, exactly like the hosted flow.
+   */
+  const createIntent = async (): Promise<CreateIntentResult> => {
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...buildPayload(),
+          paymentFlow: "embedded",
+          // Fresh per Pay click — scopes the server's Stripe idempotency key
+          // to this attempt (a retry after a decline mints a new intent).
+          attemptId:
+            typeof crypto !== "undefined" && "randomUUID" in crypto
+              ? crypto.randomUUID()
+              : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        return {
+          error:
+            typeof json.error === "string"
+              ? json.error
+              : json.error?.message || "Booking failed",
+        };
+      }
+      if (json.paymentRequired === false) {
+        // The server re-resolved the rate to $0 (e.g. a membership benefit
+        // kicked in since page load) and booked immediately — no payment to
+        // collect. Navigate to success; the pending promise is abandoned by
+        // the page unload.
+        goAfterFreeBooking(json.wasNewUser === true);
+        return new Promise<CreateIntentResult>(() => {});
+      }
+      if (typeof json.clientSecret !== "string") {
+        return { error: "Payment could not be started. Please try again." };
+      }
+      return { clientSecret: json.clientSecret };
+    } catch (err) {
+      return {
+        error: err instanceof Error ? err.message : "Network error",
+      };
+    }
+  };
+
   const openWaiver = () => {
     setWaiverAccepted(false);
     setWaiverName("");
     setShowWaiver(true);
+  };
+
+  const confirmWaiver = () => {
+    if (paidInline) {
+      // Waiver + contact details are captured; reveal the inline card form.
+      setShowWaiver(false);
+      setShowPayment(true);
+      return;
+    }
+    void submitBooking();
   };
 
   const guestFieldsValid =
@@ -200,6 +322,37 @@ export function BookButton({
       : resolvedAmountCents == null
         ? "Book"
         : `Book — $${(resolvedAmountCents / 100).toFixed(2)}`;
+
+  if (showPayment && paidInline) {
+    return (
+      <div className="rounded-lg border border-cream-3 bg-paper p-4 space-y-4">
+        <div className="flex items-baseline justify-between gap-3">
+          <p className="font-medium text-ink">Pay to book your spot</p>
+          <p className="text-sm text-ink-muted">
+            ${(chargeCents / 100).toFixed(2)}
+          </p>
+        </div>
+        <EmbeddedPayment
+          createIntent={createIntent}
+          publishableKey={stripePublishableKey}
+          seasonItem={{
+            id: sessionId,
+            name: formatLabel
+              ? `${sportOrClassLabel} ${formatLabel}`
+              : sportOrClassLabel,
+            category: sportOrClassLabel,
+            category2: venueName ?? "Drop-in",
+            priceCents: chargeCents,
+          }}
+          valueCents={chargeCents}
+          paymentType="full"
+          returnUrl={`${typeof window !== "undefined" ? window.location.origin : ""}/dropin/${sessionId}?booking=success`}
+          onSuccess={(paymentIntentId) => goToBookedSession(paymentIntentId)}
+          onCancel={() => setShowPayment(false)}
+        />
+      </div>
+    );
+  }
 
   return (
     <>
@@ -305,11 +458,12 @@ export function BookButton({
             >
               Cancel
             </Button>
-            <Button
-              onClick={submitBooking}
-              disabled={!canConfirm || busy}
-            >
-              {busy ? "Working…" : "Confirm & book"}
+            <Button onClick={confirmWaiver} disabled={!canConfirm || busy}>
+              {busy
+                ? "Working…"
+                : paidInline
+                  ? "Continue to payment"
+                  : "Confirm & book"}
             </Button>
           </DialogFooter>
         </DialogContent>
