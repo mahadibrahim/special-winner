@@ -9,7 +9,8 @@ import { upsertGuestUser } from "@/lib/registrations/upsert-guest-user";
 import { isPrintfulConfigured, calculateShipping, PrintfulApiError } from "@/lib/printful/client";
 import { toPrintfulRecipient, pickCheapestRate, shippingRateToCents } from "@/lib/printful/order-mappers";
 import { assembleQuote } from "@/lib/merch/quote";
-import { repriceStoreCartItems } from "@/lib/merch/reprice";
+import { repriceStoreCartItems, type RepricedLine } from "@/lib/merch/reprice";
+import { explodeBundles } from "@/lib/merch/bundle-checkout";
 import { buildMerchLineItems } from "@/lib/merch/checkout-line-items";
 import { partitionByFulfillment, lineNeedsShipping } from "@/lib/merch/checkout-store";
 import { getStoreById, isStoreShoppable } from "@/lib/merch/stores";
@@ -40,7 +41,15 @@ const schema = z.object({
     variantId: z.string().uuid(),
     quantity: z.number().int().min(1).max(50),
     personalization: personalizationSchema,
-  })).min(1),
+  })).default([]),
+  bundles: z.array(z.object({
+    bundleId: z.string().uuid(),
+    selections: z.array(z.object({
+      slotId: z.string().uuid(),
+      variantId: z.string().uuid(),
+    })).min(1),
+    quantity: z.number().int().min(1).max(50),
+  })).optional(),
 });
 
 const json = (body: unknown, status = 200) =>
@@ -65,19 +74,38 @@ export const POST: APIRoute = async (context) => {
   }
 
   const db = getDb();
-  const repriced = await repriceStoreCartItems(store.id, parsed.data.items);
-  if (!repriced.ok) return json({ error: "Some items are unavailable" }, 422);
-  const priced = repriced.lines;
-  const { printful, selfShipped } = partitionByFulfillment(priced);
-  const needsShipping = priced.some(lineNeedsShipping);
+  let productLines: RepricedLine[] = [];
+  if (parsed.data.items.length > 0) {
+    const repriced = await repriceStoreCartItems(store.id, parsed.data.items);
+    if (!repriced.ok) return json({ error: "Some items are unavailable" }, 422);
+    productLines = repriced.lines;
+  }
 
   // required personalization present? (relies on repriceStoreCartItems preserving request order)
-  for (let i = 0; i < priced.length; i++) {
-    const cfg = priced[i].personalizationConfig;
+  for (let i = 0; i < productLines.length; i++) {
+    const cfg = productLines[i].personalizationConfig;
     const val = parsed.data.items[i]?.personalization ?? null;
     if (cfg?.name && !val?.name) return json({ error: "Name required for a personalized item" }, 422);
     if (cfg?.number && !val?.number) return json({ error: "Number required for a personalized item" }, 422);
   }
+
+  // server-authoritative bundle explosion (merch Phase 3d) — concatenated with the
+  // free-standing product lines before shipping/Stripe/order-item persistence.
+  const exploded = await explodeBundles(store.id, parsed.data.bundles ?? []);
+  if (!exploded.ok) return json({ error: exploded.error }, exploded.status);
+
+  // per-line personalization, aligned 1:1 with `priced` below: product lines carry
+  // whatever the client sent for that index, bundle lines never take personalization.
+  const personalizationByLine: (typeof parsed.data.items[number]["personalization"])[] = [
+    ...parsed.data.items.map((it) => it.personalization ?? null),
+    ...exploded.lines.map(() => null),
+  ];
+
+  const priced = [...productLines, ...exploded.lines];
+  if (priced.length === 0) return json({ error: "Your cart is empty" }, 400);
+
+  const { printful, selfShipped } = partitionByFulfillment(priced);
+  const needsShipping = priced.some(lineNeedsShipping);
 
   try {
     // ---- shipping (printful/self-shipped lines only; a store could in theory mix
@@ -156,9 +184,11 @@ export const POST: APIRoute = async (context) => {
       size: p.size,
       color: p.color,
       printfulSyncVariantId: p.printfulSyncVariantId,
-      personalization: parsed.data.items[i]?.personalization ?? null,
+      personalization: personalizationByLine[i] ?? null,
       unitPriceCents: p.unitPriceCents,
       quantity: p.quantity,
+      bundleId: p.bundleId ?? null,
+      bundleName: p.bundleName ?? null,
     })));
 
     // Stripe customer — address drives Stripe Tax. Shipping order: buyer address.

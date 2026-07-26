@@ -57,6 +57,19 @@ export async function getBundleById(
   return row ?? null;
 }
 
+/** One bundle by store + id (store-scoped, for quote/checkout). Active-agnostic — caller gates on active. */
+export async function getBundleByStoreAndId(
+  storeId: string,
+  id: string,
+): Promise<MerchBundle | null> {
+  const [row] = await getDb()
+    .select()
+    .from(merchBundles)
+    .where(and(eq(merchBundles.id, id), eq(merchBundles.storeId, storeId)))
+    .limit(1);
+  return row ?? null;
+}
+
 /** Active bundles for a store, deterministic order. */
 export async function listBundles(storeId: string): Promise<MerchBundle[]> {
   return getDb()
