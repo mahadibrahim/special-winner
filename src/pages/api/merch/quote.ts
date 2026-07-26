@@ -5,8 +5,9 @@ import { isPrintfulConfigured, calculateShipping, PrintfulApiError } from "@/lib
 import { toPrintfulRecipient, pickCheapestRate, shippingRateToCents } from "@/lib/printful/order-mappers";
 import { assembleQuote } from "@/lib/merch/quote";
 import { repriceStoreCartItems } from "@/lib/merch/reprice";
-import { partitionByFulfillment, lineNeedsShipping } from "@/lib/merch/checkout-store";
+import { partitionByFulfillment } from "@/lib/merch/checkout-store";
 import { getStoreById, isStoreShoppable } from "@/lib/merch/stores";
+import { resolveSelfShippedRate } from "@/lib/merch/self-shipped-shipping";
 
 const schema = z.object({
   storeId: z.string().uuid(),
@@ -48,8 +49,7 @@ export const POST: APIRoute = async (context) => {
   const repriced = await repriceStoreCartItems(store.id, parsed.data.items);
   if (!repriced.ok) return json({ error: "Some items are unavailable" }, 422);
   const priced = repriced.lines;
-  const { printful } = partitionByFulfillment(priced);
-  const needsShipping = priced.some(lineNeedsShipping);
+  const { printful, selfShipped } = partitionByFulfillment(priced);
 
   // required personalization present? (relies on repriceStoreCartItems preserving request order)
   // mirrors checkout.ts so a quote and the subsequent checkout never disagree
@@ -61,8 +61,10 @@ export const POST: APIRoute = async (context) => {
   }
 
   try {
+    // sum across fulfillment types (a store could mix printful + self-shipped lines
+    // in one cart) so quote and checkout always agree on total shipping cost.
     let shippingCents = 0;
-    if (needsShipping) {
+    if (printful.length) {
       if (!isPrintfulConfigured()) return json({ error: "Shop unavailable" }, 503);
       if (!parsed.data.address) return json({ error: "Shipping address required" }, 422);
       const rates = await calculateShipping(
@@ -73,7 +75,13 @@ export const POST: APIRoute = async (context) => {
       );
       const cheapest = pickCheapestRate(rates);
       if (!cheapest) return json({ error: "We can't ship to that address" }, 422);
-      shippingCents = shippingRateToCents(cheapest.rate);
+      shippingCents += shippingRateToCents(cheapest.rate);
+    }
+    if (selfShipped.length) {
+      if (!parsed.data.address) return json({ error: "Shipping address required" }, 422);
+      const r = await resolveSelfShippedRate(org.id, parsed.data.address, selfShipped);
+      if (!r.ok) return json({ error: r.error }, r.status);
+      shippingCents += r.shippingCents;
     }
 
     const quote = assembleQuote(
