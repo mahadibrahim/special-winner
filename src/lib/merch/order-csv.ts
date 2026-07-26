@@ -15,12 +15,15 @@ export interface CsvRow {
   carrier?: string | null;
   service?: string | null;
   trackingNumber?: string | null;
+  // Bundle name this line was part of at checkout (Task 4.2) — blank for
+  // non-bundle lines. Snapshotted on the order item, so it survives bundle edits/deletes.
+  bundle?: string | null;
 }
 
 const esc = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
 
 export function buildOrdersCsv(rows: CsvRow[]): string {
-  const header = "email,product,size,name,number,quantity,status,carrier,service,tracking";
+  const header = "email,product,size,name,number,quantity,status,carrier,service,tracking,bundle";
   const body = rows
     .map((r) =>
       [
@@ -34,6 +37,7 @@ export function buildOrdersCsv(rows: CsvRow[]): string {
         r.carrier ?? "",
         r.service ?? "",
         r.trackingNumber ?? "",
+        r.bundle ?? "",
       ]
         .map(esc)
         .join(","),

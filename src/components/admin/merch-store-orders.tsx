@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import { ArrowLeft, Download, Loader2, PackageCheck, Truck } from "lucide-react"
+import { ArrowLeft, Download, Loader2, Package, PackageCheck, Truck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -18,6 +18,26 @@ interface OrderItem {
   personalization: { name?: string; number?: string } | null
   quantity: number
   fulfillmentType: string
+  // Snapshotted bundle name this line was sold under (Task 4.2), null for
+  // items sold individually. See merch_order_items.bundle_name.
+  bundleName: string | null
+}
+
+/** Groups an order's items by `bundleName`, preserving first-occurrence
+ * order of each group (and of ungrouped items among the groups) so the
+ * rendered list still reads top-to-bottom the way the buyer checked out. */
+function groupOrderItems(items: OrderItem[]): { bundleName: string | null; items: OrderItem[] }[] {
+  const order: (string | null)[] = []
+  const byKey = new Map<string | null, OrderItem[]>()
+  for (const item of items) {
+    const key = item.bundleName ?? null
+    if (!byKey.has(key)) {
+      byKey.set(key, [])
+      order.push(key)
+    }
+    byKey.get(key)!.push(item)
+  }
+  return order.map((key) => ({ bundleName: key, items: byKey.get(key)! }))
 }
 
 interface Order {
@@ -111,6 +131,7 @@ export function MerchStoreOrders({ storeId }: { storeId: string }) {
         carrier: order.shippingCarrier,
         service: order.shippingService,
         trackingNumber: order.trackingNumber,
+        bundle: item.bundleName,
       })),
     )
     const csv = buildOrdersCsv(rows)
@@ -307,18 +328,30 @@ export function MerchStoreOrders({ storeId }: { storeId: string }) {
                 )}
               </CardHeader>
               <CardContent className="pt-0">
-                <ul className="text-sm space-y-1">
-                  {order.items.map((item) => (
-                    <li key={item.id} className="flex justify-between">
-                      <span>
-                        {item.quantity}× {item.productName}
-                        {item.size ? ` (${item.size})` : ""}
-                        {item.personalization?.name ? ` — ${item.personalization.name}` : ""}
-                        {item.personalization?.number ? ` #${item.personalization.number}` : ""}
-                      </span>
-                    </li>
+                <div className="text-sm space-y-2">
+                  {groupOrderItems(order.items).map((group, groupIndex) => (
+                    <div key={group.bundleName ?? `ungrouped-${groupIndex}`}>
+                      {group.bundleName && (
+                        <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+                          <Package className="h-3 w-3" />
+                          Bundle: {group.bundleName}
+                        </p>
+                      )}
+                      <ul className={group.bundleName ? "space-y-1 pl-4 border-l-2 border-muted" : "space-y-1"}>
+                        {group.items.map((item) => (
+                          <li key={item.id} className="flex justify-between">
+                            <span>
+                              {item.quantity}× {item.productName}
+                              {item.size ? ` (${item.size})` : ""}
+                              {item.personalization?.name ? ` — ${item.personalization.name}` : ""}
+                              {item.personalization?.number ? ` #${item.personalization.number}` : ""}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   ))}
-                </ul>
+                </div>
                 <p className="text-sm text-muted-foreground mt-2">Total: {money(order.totalCents)}</p>
                 {order.status === "shipped" && order.trackingNumber && (
                   <p className="text-sm text-muted-foreground">
