@@ -27,6 +27,7 @@ import {
 import { toast } from "sonner"
 import { useConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
+import { LULU_FORMATS, type LuluFormat } from "@/lib/lulu/formats"
 
 const CATEGORIES = [
   "jersey",
@@ -54,12 +55,13 @@ const CATEGORY_LABELS: Record<Category, string> = {
   other: "Other",
 }
 
-type FulfillmentType = "pickup" | "self_shipped" | "digital"
+type FulfillmentType = "pickup" | "self_shipped" | "digital" | "lulu_pod"
 
 const FULFILLMENT_LABELS: Record<FulfillmentType, string> = {
   pickup: "Pickup (org hands it out on-site)",
   self_shipped: "Self-shipped (org packs + ships; admin enters tracking)",
   digital: "Digital (buyer downloads a file — no shipping)",
+  lulu_pod: "Book — printed & shipped by Lulu",
 }
 
 interface MerchVariant {
@@ -83,6 +85,10 @@ interface MerchStoreProduct {
   fulfillmentType: FulfillmentType
   digitalAssetKey: string | null
   digitalAssetName: string | null
+  luluPodPackageId: string | null
+  luluPageCount: number | null
+  luluInteriorAssetKey: string | null
+  luluCoverAssetKey: string | null
   variants: MerchVariant[]
 }
 
@@ -122,6 +128,14 @@ interface ProductFormState {
   // the file finishes uploading to R2 via /api/admin/merch/digital-asset-url.
   digitalAssetKey: string | null
   digitalAssetName: string | null
+  // Only relevant (and required) when fulfillmentType is lulu_pod — the
+  // curated print format, page count, and both uploaded interior/cover PDFs.
+  luluFormat: LuluFormat
+  luluPageCount: string
+  luluInteriorAssetKey: string | null
+  luluInteriorAssetName: string | null
+  luluCoverAssetKey: string | null
+  luluCoverAssetName: string | null
 }
 
 const EMPTY_FORM: ProductFormState = {
@@ -139,9 +153,19 @@ const EMPTY_FORM: ProductFormState = {
   variantWeights: {},
   digitalAssetKey: null,
   digitalAssetName: null,
+  luluFormat: "6x9_bw",
+  luluPageCount: "",
+  luluInteriorAssetKey: null,
+  luluInteriorAssetName: null,
+  luluCoverAssetKey: null,
+  luluCoverAssetName: null,
 }
 
 const money = (c: number) => `$${(c / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })}`
+
+/** The schema stores R2 keys only (no display filename) for Lulu assets —
+ * derive a reasonable filename from the key's basename for edit-hydration. */
+const keyBasename = (key: string) => key.split("/").pop() ?? key
 
 export function MerchStoreEditor({ storeId }: { storeId: string }) {
   useHydrationBeacon()
@@ -158,6 +182,11 @@ export function MerchStoreEditor({ storeId }: { storeId: string }) {
   const [formData, setFormData] = useState<ProductFormState>(EMPTY_FORM)
   const [isUploadingAsset, setIsUploadingAsset] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const luluInteriorInputRef = useRef<HTMLInputElement>(null)
+  const luluCoverInputRef = useRef<HTMLInputElement>(null)
+  const [isCheckingLuluCost, setIsCheckingLuluCost] = useState(false)
+  const [luluCostPreview, setLuluCostPreview] = useState<{ printCents: number; mailShippingCents: number } | null>(null)
+  const [luluCostError, setLuluCostError] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setIsLoading(true)
@@ -190,6 +219,8 @@ export function MerchStoreEditor({ storeId }: { storeId: string }) {
     setEditingProduct(null)
     setFormData(EMPTY_FORM)
     setError(null)
+    setLuluCostPreview(null)
+    setLuluCostError(null)
     setIsDialogOpen(true)
   }
 
@@ -221,8 +252,16 @@ export function MerchStoreEditor({ storeId }: { storeId: string }) {
       variantWeights,
       digitalAssetKey: product.digitalAssetKey ?? null,
       digitalAssetName: product.digitalAssetName ?? null,
+      luluFormat: product.luluPodPackageId === "0600X0900FCSTDPB060UW444MXX" ? "6x9_color" : "6x9_bw",
+      luluPageCount: product.luluPageCount != null ? String(product.luluPageCount) : "",
+      luluInteriorAssetKey: product.luluInteriorAssetKey ?? null,
+      luluInteriorAssetName: product.luluInteriorAssetKey ? keyBasename(product.luluInteriorAssetKey) : null,
+      luluCoverAssetKey: product.luluCoverAssetKey ?? null,
+      luluCoverAssetName: product.luluCoverAssetKey ? keyBasename(product.luluCoverAssetKey) : null,
     })
     setError(null)
+    setLuluCostPreview(null)
+    setLuluCostError(null)
     setIsDialogOpen(true)
   }
 
@@ -268,33 +307,39 @@ export function MerchStoreEditor({ storeId }: { storeId: string }) {
     }
   }
 
+  /** Presigns + uploads a file to R2 via /api/admin/merch/digital-asset-url,
+   * shared by the digital-download field and the two Lulu PDF fields (interior,
+   * cover) — `kind` routes storage into merch-digital/ vs merch-books/ and
+   * (for "book") restricts the presign to application/pdf server-side. */
+  async function uploadAsset(file: File, kind: "digital" | "book"): Promise<{ key: string; name: string }> {
+    const presignRes = await fetch("/api/admin/merch/digital-asset-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        filename: file.name,
+        contentType: file.type || "application/octet-stream",
+        kind,
+      }),
+    })
+    const presignData = await presignRes.json()
+    if (!presignRes.ok) throw new Error(presignData.error || "Failed to get an upload URL")
+
+    const putRes = await fetch(presignData.uploadUrl, {
+      method: "PUT",
+      headers: { "Content-Type": file.type || "application/octet-stream" },
+      body: file,
+    })
+    if (!putRes.ok) throw new Error("File upload failed")
+
+    return { key: presignData.key, name: file.name }
+  }
+
   async function handleDigitalFileSelect(file: File) {
     setIsUploadingAsset(true)
     setError(null)
     try {
-      const presignRes = await fetch("/api/admin/merch/digital-asset-url", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          filename: file.name,
-          contentType: file.type || "application/octet-stream",
-        }),
-      })
-      const presignData = await presignRes.json()
-      if (!presignRes.ok) throw new Error(presignData.error || "Failed to get an upload URL")
-
-      const putRes = await fetch(presignData.uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": file.type || "application/octet-stream" },
-        body: file,
-      })
-      if (!putRes.ok) throw new Error("File upload failed")
-
-      setFormData((prev) => ({
-        ...prev,
-        digitalAssetKey: presignData.key,
-        digitalAssetName: file.name,
-      }))
+      const { key, name } = await uploadAsset(file, "digital")
+      setFormData((prev) => ({ ...prev, digitalAssetKey: key, digitalAssetName: name }))
       toast.success("File uploaded")
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "File upload failed")
@@ -303,18 +348,70 @@ export function MerchStoreEditor({ storeId }: { storeId: string }) {
     }
   }
 
+  async function handleLuluAssetSelect(file: File, slot: "interior" | "cover") {
+    setIsUploadingAsset(true)
+    setError(null)
+    try {
+      const { key, name } = await uploadAsset(file, "book")
+      setFormData((prev) =>
+        slot === "interior"
+          ? { ...prev, luluInteriorAssetKey: key, luluInteriorAssetName: name }
+          : { ...prev, luluCoverAssetKey: key, luluCoverAssetName: name },
+      )
+      toast.success("File uploaded")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "File upload failed")
+    } finally {
+      setIsUploadingAsset(false)
+    }
+  }
+
+  async function checkLuluPrintCost() {
+    setIsCheckingLuluCost(true)
+    setLuluCostError(null)
+    setLuluCostPreview(null)
+    try {
+      const res = await fetch("/api/admin/merch/lulu-cost-preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          luluFormat: formData.luluFormat,
+          pageCount: parseInt(formData.luluPageCount, 10),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to check print cost")
+      setLuluCostPreview({ printCents: data.printCents, mailShippingCents: data.mailShippingCents })
+    } catch (err) {
+      setLuluCostError(err instanceof Error ? err.message : "Failed to check print cost")
+    } finally {
+      setIsCheckingLuluCost(false)
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
 
     const isDigital = formData.fulfillmentType === "digital"
+    const isLuluPod = formData.fulfillmentType === "lulu_pod"
 
-    if (!isDigital && formData.sizes.length === 0) {
+    if (!isDigital && !isLuluPod && formData.sizes.length === 0) {
       setError("Add at least one size")
       return
     }
     if (isDigital && !formData.digitalAssetKey) {
       setError("Upload a file for this digital product")
+      return
+    }
+    if (
+      isLuluPod &&
+      (!formData.luluFormat ||
+        !formData.luluPageCount ||
+        !formData.luluInteriorAssetKey ||
+        !formData.luluCoverAssetKey)
+    ) {
+      setError("A book needs a format, page count, and both PDFs.")
       return
     }
     const priceCents = Math.round(parseFloat(formData.priceDollars) * 100)
@@ -354,10 +451,18 @@ export function MerchStoreEditor({ storeId }: { storeId: string }) {
         imageUrl: formData.imageUrl || null,
         priceCents,
         fulfillmentType: formData.fulfillmentType,
-        sizes: isDigital ? [] : formData.sizes,
+        sizes: isDigital || isLuluPod ? [] : formData.sizes,
         ...(variantWeights ? { variantWeights } : {}),
         ...(isDigital
           ? { digitalAssetKey: formData.digitalAssetKey, digitalAssetName: formData.digitalAssetName }
+          : {}),
+        ...(isLuluPod
+          ? {
+              luluFormat: formData.luluFormat,
+              luluPageCount: parseInt(formData.luluPageCount, 10),
+              luluInteriorAssetKey: formData.luluInteriorAssetKey,
+              luluCoverAssetKey: formData.luluCoverAssetKey,
+            }
           : {}),
         personalization:
           formData.personalizeName || formData.personalizeNumber
@@ -651,7 +756,181 @@ export function MerchStoreEditor({ storeId }: { storeId: string }) {
                 </Select>
               </div>
 
-              {formData.fulfillmentType === "digital" ? (
+              {formData.fulfillmentType === "lulu_pod" ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Format</Label>
+                      <Select
+                        value={formData.luluFormat}
+                        onValueChange={(value) =>
+                          setFormData((prev) => ({ ...prev, luluFormat: value as LuluFormat }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(Object.keys(LULU_FORMATS) as LuluFormat[]).map((f) => (
+                            <SelectItem key={f} value={f}>
+                              {LULU_FORMATS[f].label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="luluPageCount">Page count</Label>
+                      <Input
+                        id="luluPageCount"
+                        type="number"
+                        min={2}
+                        max={800}
+                        value={formData.luluPageCount}
+                        onChange={(e) =>
+                          setFormData((prev) => ({ ...prev, luluPageCount: e.target.value }))
+                        }
+                        placeholder="200"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={checkLuluPrintCost}
+                      disabled={
+                        isCheckingLuluCost || !formData.luluFormat || !formData.luluPageCount
+                      }
+                    >
+                      {isCheckingLuluCost ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Checking...
+                        </>
+                      ) : (
+                        "Check print cost"
+                      )}
+                    </Button>
+                    {luluCostPreview && (
+                      <span className="text-sm text-muted-foreground">
+                        Print cost: {money(luluCostPreview.printCents)} · Mail shipping:{" "}
+                        {money(luluCostPreview.mailShippingCents)}
+                      </span>
+                    )}
+                    {luluCostError && (
+                      <span className="text-sm text-destructive">{luluCostError}</span>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Interior PDF</Label>
+                    <input
+                      ref={luluInteriorInputRef}
+                      type="file"
+                      accept="application/pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) handleLuluAssetSelect(file, "interior")
+                        e.target.value = ""
+                      }}
+                    />
+                    {formData.luluInteriorAssetName ? (
+                      <div className="flex items-center justify-between gap-2 rounded-md border p-2 text-sm">
+                        <span className="truncate">{formData.luluInteriorAssetName}</span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => luluInteriorInputRef.current?.click()}
+                          disabled={isUploadingAsset}
+                        >
+                          {isUploadingAsset ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            "Replace file"
+                          )}
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => luluInteriorInputRef.current?.click()}
+                        disabled={isUploadingAsset}
+                      >
+                        {isUploadingAsset ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Uploading...
+                          </>
+                        ) : (
+                          "Upload interior PDF"
+                        )}
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Cover PDF</Label>
+                    <input
+                      ref={luluCoverInputRef}
+                      type="file"
+                      accept="application/pdf"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) handleLuluAssetSelect(file, "cover")
+                        e.target.value = ""
+                      }}
+                    />
+                    {formData.luluCoverAssetName ? (
+                      <div className="flex items-center justify-between gap-2 rounded-md border p-2 text-sm">
+                        <span className="truncate">{formData.luluCoverAssetName}</span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => luluCoverInputRef.current?.click()}
+                          disabled={isUploadingAsset}
+                        >
+                          {isUploadingAsset ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            "Replace file"
+                          )}
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => luluCoverInputRef.current?.click()}
+                        disabled={isUploadingAsset}
+                      >
+                        {isUploadingAsset ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Uploading...
+                          </>
+                        ) : (
+                          "Upload cover PDF"
+                        )}
+                      </Button>
+                    )}
+                  </div>
+
+                  <p className="text-xs text-muted-foreground">
+                    Buyers get a printed, perfect-bound book shipped by Lulu — no inventory to
+                    stock.
+                  </p>
+                </div>
+              ) : formData.fulfillmentType === "digital" ? (
                 <div className="space-y-2">
                   <Label>File</Label>
                   <input
@@ -844,7 +1123,9 @@ export function MerchStoreEditor({ storeId }: { storeId: string }) {
                 disabled={
                   isSubmitting ||
                   isUploadingAsset ||
-                  (formData.fulfillmentType === "digital" && !formData.digitalAssetKey)
+                  (formData.fulfillmentType === "digital" && !formData.digitalAssetKey) ||
+                  (formData.fulfillmentType === "lulu_pod" &&
+                    (!formData.luluInteriorAssetKey || !formData.luluCoverAssetKey))
                 }
               >
                 {isSubmitting ? (
