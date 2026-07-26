@@ -216,6 +216,91 @@ describe("/api/admin/merch/store-products — self-shipped fulfillment + weight"
   });
 });
 
+describe("/api/admin/merch/store-products — digital fulfillment", () => {
+  it("creates a digital product with an uploaded asset → persists fulfillment_type + asset cols + one variant", async () => {
+    const res = await apiFetch("/api/admin/merch/store-products", {
+      method: "POST",
+      cookie: adminCookie,
+      body: JSON.stringify({
+        storeId,
+        name: testSlug("Digital Playbook"),
+        category: "other",
+        priceCents: 999,
+        fulfillmentType: "digital",
+        digitalAssetKey: "merch-digital/test-org/fixture-playbook.pdf",
+        digitalAssetName: "playbook.pdf",
+        active: true,
+      }),
+    });
+    const json = await expectJson(res, 201);
+    expect(json.productId).toBeTruthy();
+    createdProductIds.push(json.productId);
+
+    const [product] = await getDb().select().from(merchProducts).where(eq(merchProducts.id, json.productId));
+    expect(product.fulfillmentType).toBe("digital");
+    expect(product.digitalAssetKey).toBe("merch-digital/test-org/fixture-playbook.pdf");
+    expect(product.digitalAssetName).toBe("playbook.pdf");
+
+    const variants = await getDb().select().from(merchVariants).where(eq(merchVariants.productId, json.productId));
+    expect(variants).toHaveLength(1);
+    expect(variants[0].size).toBeNull();
+    expect(variants[0].retailPriceCents).toBe(999);
+    expect(variants[0].weightOz).toBeNull();
+  });
+
+  it("rejects a digital product with no uploaded asset → 422", async () => {
+    const res = await apiFetch("/api/admin/merch/store-products", {
+      method: "POST",
+      cookie: adminCookie,
+      body: JSON.stringify({
+        storeId,
+        name: testSlug("Digital Missing Asset"),
+        priceCents: 500,
+        fulfillmentType: "digital",
+        active: true,
+      }),
+    });
+    expect(res.status).toBe(422);
+  });
+
+  it("PUT can convert an existing product to digital, replacing its sized variants with one", async () => {
+    const createRes = await apiFetch("/api/admin/merch/store-products", {
+      method: "POST",
+      cookie: adminCookie,
+      body: JSON.stringify({
+        storeId,
+        name: testSlug("Convert To Digital"),
+        priceCents: 1000,
+        sizes: ["M"],
+        active: true,
+      }),
+    });
+    const created = await expectJson(createRes, 201);
+    createdProductIds.push(created.productId);
+
+    const putRes = await apiFetch("/api/admin/merch/store-products", {
+      method: "PUT",
+      cookie: adminCookie,
+      body: JSON.stringify({
+        id: created.productId,
+        storeId,
+        name: "Convert To Digital",
+        priceCents: 1500,
+        fulfillmentType: "digital",
+        digitalAssetKey: "merch-digital/test-org/converted.pdf",
+        digitalAssetName: "converted.pdf",
+        active: true,
+      }),
+    });
+    await expectJson(putRes, 200);
+
+    const variants = await getDb().select().from(merchVariants).where(eq(merchVariants.productId, created.productId));
+    expect(variants).toHaveLength(1);
+    expect(variants[0].size).toBeNull();
+    expect(variants[0].retailPriceCents).toBe(1500);
+  });
+});
+
 describe("/api/admin/merch/store-products — update replaces variants", () => {
   let productId: string;
 

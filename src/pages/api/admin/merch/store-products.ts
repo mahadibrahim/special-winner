@@ -25,11 +25,22 @@ const productSchema = z.object({
   category: z.enum(["jersey","shorts","socks","hoodie","t_shirt","hat","bag","accessory","other"]).default("jersey"),
   imageUrl: z.string().url().optional().nullable(),
   priceCents: z.number().int().min(0),
-  fulfillmentType: z.enum(["pickup", "self_shipped"]).default("pickup"),
-  sizes: z.array(z.string().min(1).max(40)).min(1),
+  fulfillmentType: z.enum(["pickup", "self_shipped", "digital"]).default("pickup"),
+  // Digital products have no sizes — exactly one variant is created at
+  // priceCents. Sizes are required for pickup/self_shipped (enforced below,
+  // not via .min(1) here, since that would also reject digital submissions).
+  sizes: z.array(z.string().min(1).max(40)).default([]),
   variantWeights: z.array(variantWeightSchema).optional(),
+  // Required (checked below, 422) when fulfillmentType is "digital" — the
+  // storage key + buyer-facing filename for the uploaded download.
+  digitalAssetKey: z.string().min(1).max(500).optional(),
+  digitalAssetName: z.string().min(1).max(255).optional(),
   personalization: z.object({ name: z.boolean().optional(), number: z.boolean().optional() }).optional().nullable(),
   active: z.boolean().default(true),
+}).superRefine((d, ctx) => {
+  if (d.fulfillmentType !== "digital" && d.sizes.length === 0) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Add at least one size", path: ["sizes"] });
+  }
 });
 
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { "Content-Type": "application/json" } });
@@ -48,7 +59,7 @@ function getDbErrorCode(error: any): string | undefined {
  * exempt since they never enter the shipping-rate path.
  */
 function missingSelfShippedWeights(
-  fulfillmentType: "pickup" | "self_shipped",
+  fulfillmentType: "pickup" | "self_shipped" | "digital",
   sizes: string[],
   variantWeights?: z.infer<typeof variantWeightSchema>[],
 ): string[] {
@@ -57,6 +68,67 @@ function missingSelfShippedWeights(
   return sizes.filter((size) => {
     const w = weightBySize.get(size);
     return w == null || w <= 0;
+  });
+}
+
+/** Digital products must have an uploaded asset — checked separately from
+ * the zod schema so the failure mode matches missingSelfShippedWeights (422,
+ * not a generic 400 schema-validation error). */
+function missingDigitalAsset(
+  fulfillmentType: "pickup" | "self_shipped" | "digital",
+  digitalAssetKey?: string,
+  digitalAssetName?: string,
+): boolean {
+  return fulfillmentType === "digital" && (!digitalAssetKey || !digitalAssetName);
+}
+
+/**
+ * Build the variant rows to insert for a product. Digital products get
+ * exactly one variant at the product price (no size, no weight/dims —
+ * there's nothing to ship). Pickup/self_shipped get one variant per size,
+ * optionally carrying per-size shipping weight/dims for self_shipped.
+ */
+function buildVariantRows(
+  d: z.infer<typeof productSchema>,
+  productId: string,
+  weightBySize: Map<string, z.infer<typeof variantWeightSchema>>,
+) {
+  if (d.fulfillmentType === "digital") {
+    return [
+      {
+        productId,
+        printfulSyncVariantId: null,
+        printfulVariantId: null,
+        name: d.name,
+        size: null,
+        color: null,
+        sku: null,
+        retailPriceCents: d.priceCents,
+        weightOz: null,
+        lengthIn: null,
+        widthIn: null,
+        heightIn: null,
+        sortOrder: 0,
+      },
+    ];
+  }
+  return d.sizes.map((size, i) => {
+    const dims = d.fulfillmentType === "self_shipped" ? weightBySize.get(size) : undefined;
+    return {
+      productId,
+      printfulSyncVariantId: null,
+      printfulVariantId: null,
+      name: `${d.name} / ${size}`,
+      size,
+      color: null,
+      sku: null,
+      retailPriceCents: d.priceCents,
+      weightOz: dims?.weightOz ?? null,
+      lengthIn: dims?.lengthIn ?? null,
+      widthIn: dims?.widthIn ?? null,
+      heightIn: dims?.heightIn ?? null,
+      sortOrder: i,
+    };
   });
 }
 
@@ -94,6 +166,9 @@ export const POST: APIRoute = async (context) => {
     if (missingWeights.length) {
       return json({ error: `weightOz is required for self-shipped variants: ${missingWeights.join(", ")}` }, 422);
     }
+    if (missingDigitalAsset(d.fulfillmentType, d.digitalAssetKey, d.digitalAssetName)) {
+      return json({ error: "a digital product needs an uploaded file" }, 422);
+    }
     const db = getDb();
     const weightBySize = new Map((d.variantWeights ?? []).map((vw) => [vw.size, vw]));
     // slug unique per store — suffix the store id fragment for cross-store safety
@@ -110,27 +185,12 @@ export const POST: APIRoute = async (context) => {
         description: d.description ?? null,
         category: d.category,
         images: d.imageUrl ? [{ url: d.imageUrl }] : null,
+        digitalAssetKey: d.fulfillmentType === "digital" ? d.digitalAssetKey ?? null : null,
+        digitalAssetName: d.fulfillmentType === "digital" ? d.digitalAssetName ?? null : null,
         personalization: d.personalization ?? null,
         active: d.active,
       }).returning({ id: merchProducts.id });
-      await tx.insert(merchVariants).values(d.sizes.map((size, i) => {
-        const dims = d.fulfillmentType === "self_shipped" ? weightBySize.get(size) : undefined;
-        return {
-          productId: prod.id,
-          printfulSyncVariantId: null,
-          printfulVariantId: null,
-          name: `${d.name} / ${size}`,
-          size,
-          color: null,
-          sku: null,
-          retailPriceCents: d.priceCents,
-          weightOz: dims?.weightOz ?? null,
-          lengthIn: dims?.lengthIn ?? null,
-          widthIn: dims?.widthIn ?? null,
-          heightIn: dims?.heightIn ?? null,
-          sortOrder: i,
-        };
-      }));
+      await tx.insert(merchVariants).values(buildVariantRows(d, prod.id, weightBySize));
       return [prod];
     });
     return json({ productId: product.id }, 201);
@@ -153,6 +213,9 @@ export const PUT: APIRoute = async (context) => {
     const missingWeights = missingSelfShippedWeights(d.fulfillmentType, d.sizes, d.variantWeights);
     if (missingWeights.length) {
       return json({ error: `weightOz is required for self-shipped variants: ${missingWeights.join(", ")}` }, 422);
+    }
+    if (missingDigitalAsset(d.fulfillmentType, d.digitalAssetKey, d.digitalAssetName)) {
+      return json({ error: "a digital product needs an uploaded file" }, 422);
     }
     const weightBySize = new Map((d.variantWeights ?? []).map((vw) => [vw.size, vw]));
 
@@ -180,30 +243,15 @@ export const PUT: APIRoute = async (context) => {
         category: d.category,
         fulfillmentType: d.fulfillmentType,
         images: d.imageUrl ? [{ url: d.imageUrl }] : null,
+        digitalAssetKey: d.fulfillmentType === "digital" ? d.digitalAssetKey ?? null : null,
+        digitalAssetName: d.fulfillmentType === "digital" ? d.digitalAssetName ?? null : null,
         personalization: d.personalization ?? null,
         active: d.active,
         updatedAt: new Date(),
       }).where(eq(merchProducts.id, id));
 
       await tx.delete(merchVariants).where(eq(merchVariants.productId, id));
-      await tx.insert(merchVariants).values(d.sizes.map((size, i) => {
-        const dims = d.fulfillmentType === "self_shipped" ? weightBySize.get(size) : undefined;
-        return {
-          productId: id,
-          printfulSyncVariantId: null,
-          printfulVariantId: null,
-          name: `${d.name} / ${size}`,
-          size,
-          color: null,
-          sku: null,
-          retailPriceCents: d.priceCents,
-          weightOz: dims?.weightOz ?? null,
-          lengthIn: dims?.lengthIn ?? null,
-          widthIn: dims?.widthIn ?? null,
-          heightIn: dims?.heightIn ?? null,
-          sortOrder: i,
-        };
-      }));
+      await tx.insert(merchVariants).values(buildVariantRows(d, id, weightBySize));
     });
 
     return json({ productId: id });
