@@ -46,6 +46,10 @@ describe("bundleDiscountedCents", () => {
     expect(bundleDiscountedCents(3000, "fixed", 3000)).toBe(0);
   });
 
+  it("clamps a negative fixed value to 0 off (no-op, never inflates above full)", () => {
+    expect(bundleDiscountedCents(300, "fixed", -150)).toBe(300);
+  });
+
   it("percent 0 leaves the full price unchanged", () => {
     expect(bundleDiscountedCents(9500, "percent", 0)).toBe(9500);
   });
@@ -69,6 +73,24 @@ describe("distributeBundleDiscount", () => {
     expect(distributeBundleDiscount([C(0), C(0), C(0)], 0)).toEqual([0, 0, 0]);
   });
 
+  it("returns an empty array for an empty component list", () => {
+    expect(distributeBundleDiscount([], 0)).toEqual([]);
+  });
+
+  it("sums exactly through the real (non-shortcut) algorithm when some components are zero-price/zero-quantity", () => {
+    // full > 0 overall, so this exercises the proportional/largest-remainder
+    // path (not the full===0 shortcut) even though two components contribute 0
+    // extended cents (a zero unit price, and a zero quantity of a priced item).
+    const comps = [C(0, 5), C(2500, 0), C(1699, 2), C(1299, 3)];
+    const full = bundleFullCents(comps);
+    expect(full).toBe(7295); // only components 3 and 4 contribute (3398 + 3897)
+    const discounted = bundleDiscountedCents(full, "percent", 13);
+    const parts = distributeBundleDiscount(comps, discounted);
+    expect(parts[0]).toBe(0);
+    expect(parts[1]).toBe(0);
+    expect(parts.reduce((a, b) => a + b, 0)).toBe(discounted);
+  });
+
   it("matches a hand-checked 3-component uneven split", () => {
     // full = 4500 + 2500*2 + 1299*3 = 4500 + 5000 + 3897 = 13397
     // 13% off -> discounted = round(13397 * 87 / 100) = round(11655.39) = 11655
@@ -86,15 +108,6 @@ describe("distributeBundleDiscount", () => {
     const parts = distributeBundleDiscount(comps, discounted);
     expect(parts).toEqual([3915, 4350, 3390]);
     expect(parts.reduce((a, b) => a + b, 0)).toBe(discounted);
-  });
-
-  it("sums exactly to the discounted total for the brief's fixed 3-component case across repeated calls", () => {
-    for (let t = 0; t < 500; t++) {
-      const comps2 = [C(4500), C(2500, 2), C(1299, 3)];
-      const disc = bundleDiscountedCents(bundleFullCents(comps2), "percent", 13);
-      const parts = distributeBundleDiscount(comps2, disc);
-      expect(parts.reduce((a, b) => a + b, 0)).toBe(disc);
-    }
   });
 
   it("sums EXACTLY to the discounted total across 500 randomized component sets and discounts", () => {

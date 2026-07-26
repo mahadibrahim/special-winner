@@ -25,7 +25,9 @@ function clampPercent(value: number): number {
 /**
  * Apply a bundle-level discount to the full price.
  * - percent: value is clamped to [0, 100]; discount reduces the total by that percent.
- * - fixed: value is a flat cents-off amount; result is clamped at 0 (never negative).
+ * - fixed: value is a flat cents-off amount, clamped to >= 0 (a negative value is a
+ *   no-op rather than inflating the price above `full`); result is clamped at 0
+ *   (never negative).
  */
 export function bundleDiscountedCents(
   full: number,
@@ -36,7 +38,7 @@ export function bundleDiscountedCents(
     const pct = clampPercent(value);
     return Math.round((full * (100 - pct)) / 100);
   }
-  return Math.max(0, full - value);
+  return Math.max(0, full - Math.max(0, value));
 }
 
 /**
@@ -46,6 +48,13 @@ export function bundleDiscountedCents(
  * `discounted` — never a cent more or less.
  *
  * Returns one integer-cents value per component, in the same order as the input.
+ *
+ * Precondition: when `full === 0` (every component free or the list is empty),
+ * this returns all zeros regardless of `discounted` — a nonzero `discounted`
+ * with a zero `full` has no meaningful proportional split and would be a caller
+ * bug. Callers must only pass a `discounted` produced by `bundleDiscountedCents`
+ * for the same components: `bundleDiscountedCents(0, ...)` always returns 0,
+ * so the normal full -> discounted -> distribute pipeline is safe by construction.
  */
 export function distributeBundleDiscount(
   components: BundleComponent[],
