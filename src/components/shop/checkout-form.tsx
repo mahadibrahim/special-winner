@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import { useCart } from "./cart-store";
-import { cartSubtotalCents, cartStoreId } from "@/lib/merch/cart";
+import { cartLineKey, cartSubtotalCents, cartStoreId, isBundleLine } from "@/lib/merch/cart";
 import { ErrorBanner } from "@/components/ui/error-banner";
 
 const money = (c: number) => `$${(c / 100).toFixed(2)}`;
@@ -73,10 +73,19 @@ export default function CheckoutForm() {
   });
 
   const buildItems = () =>
-    cart.items.map((i) => ({
-      variantId: i.variantId,
+    cart.items
+      .filter((i) => !isBundleLine(i))
+      .map((i) => ({
+        variantId: i.variantId,
+        quantity: i.quantity,
+        personalization: i.personalization ?? null,
+      }));
+
+  const buildBundles = () =>
+    cart.items.filter(isBundleLine).map((i) => ({
+      bundleId: i.bundleId,
+      selections: i.selections.map((s) => ({ slotId: s.slotId, variantId: s.variantId })),
       quantity: i.quantity,
-      personalization: i.personalization ?? null,
     }));
 
   async function fetchQuote(address: ReturnType<typeof buildAddress> | null) {
@@ -91,6 +100,7 @@ export default function CheckoutForm() {
           storeId,
           address,
           items: buildItems(),
+          bundles: buildBundles(),
         }),
       });
       const json = await res.json();
@@ -145,6 +155,7 @@ export default function CheckoutForm() {
           ...(pickupOnly ? { name: name.trim() } : {}),
           address: pickupOnly ? null : buildAddress(),
           items: buildItems(),
+          bundles: buildBundles(),
         }),
       });
       const json = await res.json();
@@ -179,13 +190,21 @@ export default function CheckoutForm() {
         <h2 className="font-display text-lg text-ink mb-4">Order summary</h2>
         <ul className="list-none p-0 m-0 divide-y divide-ink/10">
           {cart.items.map((i) => {
-            const lineKey = i.lineId ?? i.variantId;
+            const lineKey = cartLineKey(i);
             return (
               <li key={lineKey} className="py-3 flex justify-between text-sm text-ink">
                 <span>
-                  {i.name} {[i.color, i.size].filter(Boolean).join(" · ")}
-                  {i.personalization && (i.personalization.name || i.personalization.number) && (
-                    <> ({[i.personalization.name, i.personalization.number].filter(Boolean).join(" #")})</>
+                  {isBundleLine(i) ? (
+                    <>
+                      {i.name} ({i.selections.map((s) => (s.size ? `${s.label}: ${s.size}` : s.label)).join(", ")})
+                    </>
+                  ) : (
+                    <>
+                      {i.name} {[i.color, i.size].filter(Boolean).join(" · ")}
+                      {i.personalization && (i.personalization.name || i.personalization.number) && (
+                        <> ({[i.personalization.name, i.personalization.number].filter(Boolean).join(" #")})</>
+                      )}
+                    </>
                   )}{" "}
                   × {i.quantity}
                 </span>

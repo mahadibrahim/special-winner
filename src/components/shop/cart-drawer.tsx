@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import { useCart } from "./cart-store";
-import { cartSubtotalCents } from "@/lib/merch/cart";
+import { cartLineKey, cartSubtotalCents, isBundleLine } from "@/lib/merch/cart";
 
 const money = (c: number) => `$${(c / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })}`;
 
@@ -28,16 +28,24 @@ export default function CartDrawer() {
               <>
                 <ul className="space-y-4 list-none p-0 m-0">
                   {cart.items.map((i) => {
-                    const lineKey = i.lineId ?? i.variantId;
+                    const lineKey = cartLineKey(i);
                     return (
                       <li key={lineKey} className="flex gap-3 items-center">
                         <div className="flex-1">
                           <p className="text-sm text-ink">{i.name}</p>
-                          <p className="text-xs text-ink-muted">{[i.color, i.size].filter(Boolean).join(" · ")}</p>
-                          {i.personalization && (i.personalization.name || i.personalization.number) && (
+                          {isBundleLine(i) ? (
                             <p className="text-xs text-ink-muted">
-                              {[i.personalization.name, i.personalization.number].filter(Boolean).join(" #")}
+                              {i.selections.map((s) => (s.size ? `${s.label}: ${s.size}` : s.label)).join(", ")}
                             </p>
+                          ) : (
+                            <>
+                              <p className="text-xs text-ink-muted">{[i.color, i.size].filter(Boolean).join(" · ")}</p>
+                              {i.personalization && (i.personalization.name || i.personalization.number) && (
+                                <p className="text-xs text-ink-muted">
+                                  {[i.personalization.name, i.personalization.number].filter(Boolean).join(" #")}
+                                </p>
+                              )}
+                            </>
                           )}
                           <p className="text-xs text-ink-muted">{money(i.unitPriceCents)} × {i.quantity}</p>
                         </div>
