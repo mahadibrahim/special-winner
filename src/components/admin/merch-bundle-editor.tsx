@@ -31,11 +31,13 @@ import { useConfirmDialog } from "@/components/ui/confirm-dialog"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 
 type DiscountType = "percent" | "fixed"
-type FulfillmentType = "pickup" | "self_shipped"
+type FulfillmentType = "pickup" | "self_shipped" | "printful_pod" | "digital"
 
 const FULFILLMENT_LABELS: Record<FulfillmentType, string> = {
   pickup: "Pickup",
   self_shipped: "Self-shipped",
+  printful_pod: "Printful",
+  digital: "Digital",
 }
 
 interface BundleProductOption {

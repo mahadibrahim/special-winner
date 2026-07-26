@@ -41,15 +41,15 @@ const schema = z.object({
     variantId: z.string().uuid(),
     quantity: z.number().int().min(1).max(50),
     personalization: personalizationSchema,
-  })).default([]),
+  })).max(50).default([]),
   bundles: z.array(z.object({
     bundleId: z.string().uuid(),
     selections: z.array(z.object({
       slotId: z.string().uuid(),
       variantId: z.string().uuid(),
-    })).min(1),
+    })).min(1).max(20),
     quantity: z.number().int().min(1).max(50),
-  })).optional(),
+  })).max(20).optional(),
 });
 
 const json = (body: unknown, status = 200) =>
