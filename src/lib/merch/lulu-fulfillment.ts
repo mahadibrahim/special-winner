@@ -10,9 +10,13 @@ import { getSignedGetUrl } from "@/lib/storage/r2";
 const BOOK_ASSET_URL_TTL_SECONDS = 72 * 60 * 60;
 
 /** Under LULU_MOCK the print job never leaves the process, so don't require
- * live R2 creds just to mint a URL nobody will fetch. */
+ * live R2 creds just to mint a URL nobody will fetch. R2_MOCK alone does NOT
+ * gate this: R2_MOCK=1 with Lulu live would mean a real, billable print job
+ * submitted with a fake https://mock-r2.local/... asset URL Lulu can't
+ * fetch. Only LULU_MOCK short-circuits the actual submission, so only
+ * LULU_MOCK may short-circuit the URL it's submitted with. */
 async function signBookAssetUrl(key: string): Promise<string> {
-  if (process.env.LULU_MOCK === "1" || process.env.R2_MOCK === "1") {
+  if (process.env.LULU_MOCK === "1") {
     return `https://mock-r2.local/get/${key}`;
   }
   return getSignedGetUrl(key, { expiresInSeconds: BOOK_ASSET_URL_TTL_SECONDS });
