@@ -105,6 +105,21 @@ export const PATCH: APIRoute = async (context) => {
       return json({ error: `Cannot mark shipped from status '${order.status}'` }, 409);
     }
 
+    // A `paid` order isn't proof it's self-shipped — a Printful order whose
+    // fulfillMerchOrder submission failed is intentionally left `paid` for
+    // retry (see fulfillMerchOrder in src/lib/merch/fulfillment.ts), and a
+    // mixed pickup+self_shipped order routes through the printful catch-all
+    // too. Marking either of those "shipped" here would fire a fabricated
+    // tracking email and silently drop the order out of the stuck-paid
+    // retry pool. Only an order where every line is self_shipped qualifies.
+    const items = await db
+      .select({ fulfillmentType: merchOrderItems.fulfillmentType })
+      .from(merchOrderItems)
+      .where(eq(merchOrderItems.orderId, orderId));
+    if (items.length === 0 || items.some((i) => i.fulfillmentType !== "self_shipped")) {
+      return json({ error: "Only self-shipped orders can be marked shipped." }, 409);
+    }
+
     const [updated] = await db
       .update(merchOrders)
       .set({

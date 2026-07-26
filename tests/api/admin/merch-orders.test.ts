@@ -230,6 +230,16 @@ describe("/api/admin/merch/orders — PATCH mark-collected", () => {
 describe("/api/admin/merch/orders — PATCH mark-shipped", () => {
   it("transitions a paid (self-shipped) order to shipped with tracking persisted", async () => {
     const order = await insertOrder("paid");
+    await getDb().insert(merchOrderItems).values({
+      orderId: order.id,
+      merchVariantId: fixtureVariantId,
+      fulfillmentType: "self_shipped",
+      productName: "Self-Shipped Fixture Product",
+      variantName: "Self-Shipped Fixture Product / M",
+      size: "M",
+      unitPriceCents: 1000,
+      quantity: 1,
+    });
     const res = await apiFetch("/api/admin/merch/orders", {
       method: "PATCH",
       cookie: adminCookie,
@@ -292,6 +302,29 @@ describe("/api/admin/merch/orders — PATCH mark-shipped", () => {
 
   it("rejects an illegal source status (already shipped → shipped) with 409", async () => {
     const order = await insertOrder("shipped");
+    const res = await apiFetch("/api/admin/merch/orders", {
+      method: "PATCH",
+      cookie: adminCookie,
+      body: JSON.stringify({ orderId: order.id, status: "shipped", trackingNumber: "1Z999AA10123456784" }),
+    });
+    expect(res.status).toBe(409);
+  });
+
+  it("rejects a paid order whose items are not all self_shipped (stuck-printful/pickup) with 409", async () => {
+    const order = await insertOrder("paid");
+    // Simulates a Printful order left 'paid' after a failed fulfillMerchOrder
+    // submission (see src/lib/merch/fulfillment.ts) — 'paid' alone must not
+    // be treated as proof of self-shipped-ness.
+    await getDb().insert(merchOrderItems).values({
+      orderId: order.id,
+      merchVariantId: fixtureVariantId,
+      fulfillmentType: "printful_pod",
+      productName: "Stuck Printful Fixture Product",
+      variantName: "Stuck Printful Fixture Product / M",
+      size: "M",
+      unitPriceCents: 1000,
+      quantity: 1,
+    });
     const res = await apiFetch("/api/admin/merch/orders", {
       method: "PATCH",
       cookie: adminCookie,
