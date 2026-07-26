@@ -5,6 +5,7 @@ import { getDb } from "@/lib/db";
 import { merchProducts, merchVariants } from "@/lib/db/schema";
 import { requireOrgAdminAccess } from "@/lib/auth";
 import { getStoreById } from "@/lib/merch/stores";
+import { podPackageIdForFormat } from "@/lib/lulu/formats";
 
 // Per-size shipping dims, keyed by `size` (matched against the `sizes` array
 // below). Kept as a separate, optional array — rather than turning `sizes`
@@ -25,20 +26,29 @@ const productSchema = z.object({
   category: z.enum(["jersey","shorts","socks","hoodie","t_shirt","hat","bag","accessory","other"]).default("jersey"),
   imageUrl: z.string().url().optional().nullable(),
   priceCents: z.number().int().min(0),
-  fulfillmentType: z.enum(["pickup", "self_shipped", "digital"]).default("pickup"),
-  // Digital products have no sizes — exactly one variant is created at
-  // priceCents. Sizes are required for pickup/self_shipped (enforced below,
-  // not via .min(1) here, since that would also reject digital submissions).
+  fulfillmentType: z.enum(["pickup", "self_shipped", "digital", "lulu_pod"]).default("pickup"),
+  // Digital and lulu_pod (print-on-demand book) products have no sizes —
+  // exactly one variant is created at priceCents. Sizes are required for
+  // pickup/self_shipped (enforced below, not via .min(1) here, since that
+  // would also reject digital/lulu_pod submissions).
   sizes: z.array(z.string().min(1).max(40)).default([]),
   variantWeights: z.array(variantWeightSchema).optional(),
   // Required (checked below, 422) when fulfillmentType is "digital" — the
   // storage key + buyer-facing filename for the uploaded download.
   digitalAssetKey: z.string().min(1).max(500).optional(),
   digitalAssetName: z.string().min(1).max(255).optional(),
+  // Required (checked below, 422) when fulfillmentType is "lulu_pod" — the
+  // curated print format, page count, and both uploaded interior/cover PDFs.
+  // luluPodPackageId is never accepted from the client — it's derived
+  // server-side from luluFormat below.
+  luluFormat: z.enum(["6x9_bw", "6x9_color"]).optional(),
+  luluPageCount: z.number().int().min(2).max(800).optional(),
+  luluInteriorAssetKey: z.string().min(1).max(500).optional(),
+  luluCoverAssetKey: z.string().min(1).max(500).optional(),
   personalization: z.object({ name: z.boolean().optional(), number: z.boolean().optional() }).optional().nullable(),
   active: z.boolean().default(true),
 }).superRefine((d, ctx) => {
-  if (d.fulfillmentType !== "digital" && d.sizes.length === 0) {
+  if (d.fulfillmentType !== "digital" && d.fulfillmentType !== "lulu_pod" && d.sizes.length === 0) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Add at least one size", path: ["sizes"] });
   }
 });
@@ -59,7 +69,7 @@ function getDbErrorCode(error: any): string | undefined {
  * exempt since they never enter the shipping-rate path.
  */
 function missingSelfShippedWeights(
-  fulfillmentType: "pickup" | "self_shipped" | "digital",
+  fulfillmentType: "pickup" | "self_shipped" | "digital" | "lulu_pod",
   sizes: string[],
   variantWeights?: z.infer<typeof variantWeightSchema>[],
 ): string[] {
@@ -75,11 +85,26 @@ function missingSelfShippedWeights(
  * the zod schema so the failure mode matches missingSelfShippedWeights (422,
  * not a generic 400 schema-validation error). */
 function missingDigitalAsset(
-  fulfillmentType: "pickup" | "self_shipped" | "digital",
+  fulfillmentType: "pickup" | "self_shipped" | "digital" | "lulu_pod",
   digitalAssetKey?: string,
   digitalAssetName?: string,
 ): boolean {
   return fulfillmentType === "digital" && (!digitalAssetKey || !digitalAssetName);
+}
+
+/** A lulu_pod product needs its full print spec — format, page count, and
+ * both uploaded PDFs. 422 (not 400) to match the other business-rule checks. */
+function missingLuluFields(d: { fulfillmentType: string; luluFormat?: string; luluPageCount?: number; luluInteriorAssetKey?: string; luluCoverAssetKey?: string }): boolean {
+  return d.fulfillmentType === "lulu_pod" &&
+    !(d.luluFormat && d.luluPageCount && d.luluInteriorAssetKey && d.luluCoverAssetKey);
+}
+
+/** Same cross-org R2-key leak guard as digitalAssetKeyOutsideOrg, for the
+ * merch-books/ namespace (both interior and cover). */
+function luluAssetKeyOutsideOrg(d: { fulfillmentType: string; luluInteriorAssetKey?: string; luluCoverAssetKey?: string }, organizationId: string): boolean {
+  if (d.fulfillmentType !== "lulu_pod") return false;
+  const prefix = `merch-books/${organizationId}/`;
+  return [d.luluInteriorAssetKey, d.luluCoverAssetKey].some((k) => k != null && !k.startsWith(prefix));
 }
 
 /**
@@ -92,7 +117,7 @@ function missingDigitalAsset(
  * present — missingDigitalAsset covers the absent case.
  */
 function digitalAssetKeyOutsideOrg(
-  fulfillmentType: "pickup" | "self_shipped" | "digital",
+  fulfillmentType: "pickup" | "self_shipped" | "digital" | "lulu_pod",
   digitalAssetKey: string | undefined,
   organizationId: string,
 ): boolean {
@@ -101,17 +126,19 @@ function digitalAssetKeyOutsideOrg(
 }
 
 /**
- * Build the variant rows to insert for a product. Digital products get
- * exactly one variant at the product price (no size, no weight/dims —
- * there's nothing to ship). Pickup/self_shipped get one variant per size,
- * optionally carrying per-size shipping weight/dims for self_shipped.
+ * Build the variant rows to insert for a product. Digital and lulu_pod
+ * (print-on-demand book) products get exactly one variant at the product
+ * price (no size, no weight/dims — there's nothing to ship, or shipping is
+ * computed live from the Lulu package/page count instead of a stocked
+ * weight). Pickup/self_shipped get one variant per size, optionally carrying
+ * per-size shipping weight/dims for self_shipped.
  */
 function buildVariantRows(
   d: z.infer<typeof productSchema>,
   productId: string,
   weightBySize: Map<string, z.infer<typeof variantWeightSchema>>,
 ) {
-  if (d.fulfillmentType === "digital") {
+  if (d.fulfillmentType === "digital" || d.fulfillmentType === "lulu_pod") {
     return [
       {
         productId,
@@ -190,6 +217,12 @@ export const POST: APIRoute = async (context) => {
     if (digitalAssetKeyOutsideOrg(d.fulfillmentType, d.digitalAssetKey, auth.organizationId)) {
       return json({ error: "Invalid digital asset." }, 422);
     }
+    if (missingLuluFields(d)) {
+      return json({ error: "a book needs a format, page count, and both PDFs (interior + cover)" }, 422);
+    }
+    if (luluAssetKeyOutsideOrg(d, auth.organizationId)) {
+      return json({ error: "Invalid book file." }, 422);
+    }
     const db = getDb();
     const weightBySize = new Map((d.variantWeights ?? []).map((vw) => [vw.size, vw]));
     // slug unique per store — suffix the store id fragment for cross-store safety
@@ -208,6 +241,10 @@ export const POST: APIRoute = async (context) => {
         images: d.imageUrl ? [{ url: d.imageUrl }] : null,
         digitalAssetKey: d.fulfillmentType === "digital" ? d.digitalAssetKey ?? null : null,
         digitalAssetName: d.fulfillmentType === "digital" ? d.digitalAssetName ?? null : null,
+        luluPodPackageId: d.fulfillmentType === "lulu_pod" && d.luluFormat ? podPackageIdForFormat(d.luluFormat) : null,
+        luluPageCount: d.fulfillmentType === "lulu_pod" ? d.luluPageCount ?? null : null,
+        luluInteriorAssetKey: d.fulfillmentType === "lulu_pod" ? d.luluInteriorAssetKey ?? null : null,
+        luluCoverAssetKey: d.fulfillmentType === "lulu_pod" ? d.luluCoverAssetKey ?? null : null,
         personalization: d.personalization ?? null,
         active: d.active,
       }).returning({ id: merchProducts.id });
@@ -241,6 +278,12 @@ export const PUT: APIRoute = async (context) => {
     if (digitalAssetKeyOutsideOrg(d.fulfillmentType, d.digitalAssetKey, auth.organizationId)) {
       return json({ error: "Invalid digital asset." }, 422);
     }
+    if (missingLuluFields(d)) {
+      return json({ error: "a book needs a format, page count, and both PDFs (interior + cover)" }, 422);
+    }
+    if (luluAssetKeyOutsideOrg(d, auth.organizationId)) {
+      return json({ error: "Invalid book file." }, 422);
+    }
     const weightBySize = new Map((d.variantWeights ?? []).map((vw) => [vw.size, vw]));
 
     const db = getDb();
@@ -269,6 +312,10 @@ export const PUT: APIRoute = async (context) => {
         images: d.imageUrl ? [{ url: d.imageUrl }] : null,
         digitalAssetKey: d.fulfillmentType === "digital" ? d.digitalAssetKey ?? null : null,
         digitalAssetName: d.fulfillmentType === "digital" ? d.digitalAssetName ?? null : null,
+        luluPodPackageId: d.fulfillmentType === "lulu_pod" && d.luluFormat ? podPackageIdForFormat(d.luluFormat) : null,
+        luluPageCount: d.fulfillmentType === "lulu_pod" ? d.luluPageCount ?? null : null,
+        luluInteriorAssetKey: d.fulfillmentType === "lulu_pod" ? d.luluInteriorAssetKey ?? null : null,
+        luluCoverAssetKey: d.fulfillmentType === "lulu_pod" ? d.luluCoverAssetKey ?? null : null,
         personalization: d.personalization ?? null,
         active: d.active,
         updatedAt: new Date(),

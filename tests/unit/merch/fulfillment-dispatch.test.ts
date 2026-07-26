@@ -19,4 +19,11 @@ describe("orderFulfillmentPlan", () => {
       orderFulfillmentPlan([{ fulfillmentType: "self_shipped" }, { fulfillmentType: "printful_pod" }]),
     ).toBe("printful");
   });
+  it("lulu when all physical items are lulu_pod", () => {
+    expect(orderFulfillmentPlan([{ fulfillmentType: "lulu_pod" }])).toBe("lulu");
+    expect(orderFulfillmentPlan([{ fulfillmentType: "lulu_pod" }, { fulfillmentType: "digital" }])).toBe("lulu");
+  });
+  it("printful catch-all when lulu is (impossibly) mixed with another physical type", () => {
+    expect(orderFulfillmentPlan([{ fulfillmentType: "lulu_pod" }, { fulfillmentType: "printful_pod" }])).toBe("printful");
+  });
 });

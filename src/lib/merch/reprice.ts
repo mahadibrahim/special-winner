@@ -2,7 +2,7 @@ import { getDb } from "@/lib/db";
 import { and, eq, inArray } from "drizzle-orm";
 import { merchVariants, merchProducts, type ProductPersonalization } from "@/lib/db/schema";
 
-export type MerchFulfillmentType = "printful_pod" | "self_shipped" | "pickup" | "digital";
+export type MerchFulfillmentType = "printful_pod" | "self_shipped" | "pickup" | "digital" | "lulu_pod";
 
 export interface RepricedLine {
   variantId: string;
@@ -20,6 +20,9 @@ export interface RepricedLine {
   lengthIn: number | null;
   widthIn: number | null;
   heightIn: number | null;
+  // Lulu POD book metadata (null for non-book lines) — feeds the Lulu cost calc.
+  luluPodPackageId: string | null;
+  luluPageCount: number | null;
   // Bundle attribution (merch Phase 3d). Optional: product lines omit these.
   bundleId?: string | null;
   bundleName?: string | null;
@@ -40,6 +43,9 @@ export interface VariantPriceRow {
   lengthIn: number | null;
   widthIn: number | null;
   heightIn: number | null;
+  // Lulu POD book metadata (null for non-book lines) — feeds the Lulu cost calc.
+  luluPodPackageId: string | null;
+  luluPageCount: number | null;
 }
 
 /** Pure: match requested (variantId, quantity) items to fetched rows. Dedup-safe. */
@@ -68,6 +74,8 @@ export function matchRequestedToRows(
       lengthIn: r.lengthIn,
       widthIn: r.widthIn,
       heightIn: r.heightIn,
+      luluPodPackageId: r.luluPodPackageId,
+      luluPageCount: r.luluPageCount,
     });
   }
   return { ok: true, lines };
@@ -97,6 +105,8 @@ export async function repriceStoreCartItems(
       lengthIn: merchVariants.lengthIn,
       widthIn: merchVariants.widthIn,
       heightIn: merchVariants.heightIn,
+      luluPodPackageId: merchProducts.luluPodPackageId,
+      luluPageCount: merchProducts.luluPageCount,
     })
     .from(merchVariants)
     .innerJoin(merchProducts, eq(merchVariants.productId, merchProducts.id))

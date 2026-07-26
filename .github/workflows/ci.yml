@@ -49,6 +49,7 @@ concurrency:
 env:
   CI: 'true'
   R2_MOCK: '1'
+  LULU_MOCK: '1'
   # Dispatch-layer test mode (src/lib/messaging/mock.ts) — SMS/email sends
   # are recorded in-memory instead of hitting Twilio/Resend, so cron/API
   # tests can assert on channel + recipient + body without firing real

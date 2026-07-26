@@ -2,7 +2,7 @@ import type { OrderItemPersonalization } from "@/lib/db/schema";
 
 // Local union (Slice 2 predates a shared export in Slice 3). Keep in sync
 // with merchFulfillmentTypeEnum.
-export type CartFulfillmentType = "printful_pod" | "self_shipped" | "pickup" | "digital";
+export type CartFulfillmentType = "printful_pod" | "self_shipped" | "pickup" | "digital" | "lulu_pod";
 
 export interface CartItem {
   kind?: "product";

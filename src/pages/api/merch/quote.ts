@@ -6,9 +6,10 @@ import { toPrintfulRecipient, pickCheapestRate, shippingRateToCents } from "@/li
 import { assembleQuote } from "@/lib/merch/quote";
 import { repriceStoreCartItems, type RepricedLine } from "@/lib/merch/reprice";
 import { explodeBundles } from "@/lib/merch/bundle-checkout";
-import { partitionByFulfillment } from "@/lib/merch/checkout-store";
+import { partitionByFulfillment, cartMixesLuluWithOtherPhysical } from "@/lib/merch/checkout-store";
 import { getStoreById, isStoreShoppable } from "@/lib/merch/stores";
 import { resolveSelfShippedRate } from "@/lib/merch/self-shipped-shipping";
+import { resolveLuluShippingOptions, pickLuluOption, type LuluShippingOption } from "@/lib/merch/lulu-shipping";
 
 const schema = z.object({
   storeId: z.string().uuid(),
@@ -32,6 +33,7 @@ const schema = z.object({
     })).min(1).max(20),
     quantity: z.number().int().min(1).max(50),
   })).max(20).optional(),
+  luluShippingLevel: z.enum(["MAIL", "PRIORITY_MAIL", "GROUND", "EXPEDITED", "EXPRESS"]).optional().nullable(),
 });
 
 const json = (body: unknown, status = 200) =>
@@ -79,7 +81,11 @@ export const POST: APIRoute = async (context) => {
   const priced = [...productLines, ...exploded.lines];
   if (priced.length === 0) return json({ error: "Your cart is empty" }, 400);
 
-  const { printful, selfShipped } = partitionByFulfillment(priced);
+  if (cartMixesLuluWithOtherPhysical(priced)) {
+    return json({ error: "Printed books ship separately — please order them on their own." }, 422);
+  }
+
+  const { printful, selfShipped, lulu } = partitionByFulfillment(priced);
 
   try {
     // sum across fulfillment types (a store could mix printful + self-shipped lines
@@ -104,6 +110,18 @@ export const POST: APIRoute = async (context) => {
       if (!r.ok) return json({ error: r.error }, r.status);
       shippingCents += r.shippingCents;
     }
+    let luluShippingOptions: LuluShippingOption[] | null = null;
+    let luluSelectedLevel: string | null = null;
+    if (lulu.length) {
+      if (!parsed.data.address) return json({ error: "Shipping address required" }, 422);
+      const r = await resolveLuluShippingOptions(parsed.data.address, lulu);
+      if (!r.ok) return json({ error: r.error }, r.status);
+      const selected = pickLuluOption(r.options, parsed.data.luluShippingLevel);
+      if (!selected) return json({ error: "That shipping option isn't available for your address" }, 422);
+      luluShippingOptions = r.options;
+      luluSelectedLevel = selected.level;
+      shippingCents += selected.amountCents;
+    }
 
     const quote = assembleQuote(
       priced.map((p) => ({ unitPriceCents: p.unitPriceCents, quantity: p.quantity })),
@@ -112,6 +130,7 @@ export const POST: APIRoute = async (context) => {
     return json({
       ...quote,
       currency: "usd",
+      ...(luluShippingOptions ? { luluShippingOptions, luluShippingLevel: luluSelectedLevel } : {}),
       store: {
         id: store.id,
         name: store.name,

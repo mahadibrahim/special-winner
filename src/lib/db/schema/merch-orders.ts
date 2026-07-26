@@ -12,6 +12,7 @@ export const merchFulfillmentTypeEnum = pgEnum("merch_fulfillment_type", [
   "self_shipped",
   "pickup",
   "digital",
+  "lulu_pod",
 ]);
 
 export const merchOrderStatusEnum = pgEnum("merch_order_status", [
@@ -50,6 +51,11 @@ export const merchOrders = pgTable(
     stripeCheckoutSessionId: varchar("stripe_checkout_session_id", { length: 255 }),
     stripePaymentIntentId: varchar("stripe_payment_intent_id", { length: 255 }),
     printfulOrderId: varchar("printful_order_id", { length: 64 }),
+    // Lulu POD (merch Lulu phase). luluPrintJobId doubles as the submission
+    // idempotency guard and the status-poll key; luluShippingLevel is the
+    // buyer-picked level, needed at print-job submission time.
+    luluPrintJobId: varchar("lulu_print_job_id", { length: 64 }),
+    luluShippingLevel: varchar("lulu_shipping_level", { length: 20 }),
     shippingAddress: jsonb("shipping_address").$type<MerchShippingAddress>().notNull(),
     subtotalCents: integer("subtotal_cents").notNull(),
     shippingCents: integer("shipping_cents").notNull(),
