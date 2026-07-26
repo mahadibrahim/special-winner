@@ -16,6 +16,10 @@ export interface RepricedLine {
   unitPriceCents: number;
   personalizationConfig: ProductPersonalization | null;
   quantity: number;
+  weightOz: number | null;
+  lengthIn: number | null;
+  widthIn: number | null;
+  heightIn: number | null;
 }
 
 export interface VariantPriceRow {
@@ -29,6 +33,10 @@ export interface VariantPriceRow {
   productName: string;
   fulfillmentType: MerchFulfillmentType;
   personalizationConfig: ProductPersonalization | null;
+  weightOz: number | null;
+  lengthIn: number | null;
+  widthIn: number | null;
+  heightIn: number | null;
 }
 
 /** Pure: match requested (variantId, quantity) items to fetched rows. Dedup-safe. */
@@ -53,6 +61,10 @@ export function matchRequestedToRows(
       unitPriceCents: r.retailPriceCents,
       personalizationConfig: r.personalizationConfig,
       quantity: it.quantity,
+      weightOz: r.weightOz,
+      lengthIn: r.lengthIn,
+      widthIn: r.widthIn,
+      heightIn: r.heightIn,
     });
   }
   return { ok: true, lines };
@@ -78,6 +90,10 @@ export async function repriceStoreCartItems(
       productName: merchProducts.name,
       fulfillmentType: merchProducts.fulfillmentType,
       personalizationConfig: merchProducts.personalization,
+      weightOz: merchVariants.weightOz,
+      lengthIn: merchVariants.lengthIn,
+      widthIn: merchVariants.widthIn,
+      heightIn: merchVariants.heightIn,
     })
     .from(merchVariants)
     .innerJoin(merchProducts, eq(merchVariants.productId, merchProducts.id))
