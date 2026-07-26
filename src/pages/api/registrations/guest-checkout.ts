@@ -401,7 +401,7 @@ export const POST: APIRoute = async (context) => {
           posthog.alias({ distinctId: phClientId, alias: userRow.id });
         }
         posthog.identify({ distinctId: userRow.id, properties: { email: userRow.email, firstName: userRow.firstName, lastName: userRow.lastName } });
-        posthog.capture({ distinctId: phClientId || userRow.id, event: "payment_form_reached", properties: { $session_id: phSessionId, season_id: seasonId, registration_id: regResult.registration.id, was_new_user: wasNewUser, discount_code: discountCode, paid_zero: checkout.kind === "paid_zero", brand, user_id: userRow.id } });
+        posthog.capture({ distinctId: phClientId || userRow.id, event: "payment_form_reached", properties: { $session_id: phSessionId, season_id: seasonId, registration_id: regResult.registration.id, was_new_user: wasNewUser, discount_code: discountCode, paid_zero: checkout.kind === "paid_zero", brand, user_id: userRow.id, audience: personKind === "self" ? "adult" : "youth" } });
         // Deliver before returning — Netlify freezes the instance after the
         // response, which can drop in-flight capture requests.
         await flushPostHog();
@@ -447,7 +447,7 @@ export const POST: APIRoute = async (context) => {
     // -------------------------------------------------------------------------
     if ("registrant" in data) {
       const r = data.registrant;
-      posthog.capture({ distinctId: phClientId || r.email.toLowerCase().trim(), event: "guest_checkout_started", properties: { $session_id: phSessionId, season_id: data.seasonId, registration_type: data.registrationType, brand, email: r.email.toLowerCase().trim() } });
+      posthog.capture({ distinctId: phClientId || r.email.toLowerCase().trim(), event: "guest_checkout_started", properties: { $session_id: phSessionId, season_id: data.seasonId, registration_type: data.registrationType, brand, email: r.email.toLowerCase().trim(), audience: "adult" } });
 
       const { userRow, wasNewUser } = await upsertGuestUser(db, {
         email: r.email,
@@ -493,7 +493,10 @@ export const POST: APIRoute = async (context) => {
     // -------------------------------------------------------------------------
     // PARENT + CHILD PATH (original behavior — preserved unchanged)
     // -------------------------------------------------------------------------
-    posthog.capture({ distinctId: phClientId || data.parent.email.toLowerCase().trim(), event: "guest_checkout_started", properties: { $session_id: phSessionId, season_id: data.seasonId, registration_type: data.registrationType, brand, email: data.parent.email.toLowerCase().trim() } });
+    // audience: "youth" — the purchaser is the parent, the player is the
+    // dependent. Segments youth funnels from adult ones without a
+    // season-id lookup table.
+    posthog.capture({ distinctId: phClientId || data.parent.email.toLowerCase().trim(), event: "guest_checkout_started", properties: { $session_id: phSessionId, season_id: data.seasonId, registration_type: data.registrationType, brand, email: data.parent.email.toLowerCase().trim(), audience: "youth" } });
 
     const { userRow, wasNewUser } = await upsertGuestUser(db, {
       email: data.parent.email,

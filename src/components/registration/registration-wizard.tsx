@@ -32,6 +32,7 @@ import {
   type RegVariant,
   type RegFlow,
 } from "@/lib/analytics/events"
+import { phSessionHeader } from "@/lib/analytics/track"
 import type { CreateIntentResult } from "./embedded-payment"
 
 interface Season {
@@ -1113,7 +1114,7 @@ export default function RegistrationWizard({
 
       const res = await fetch("/api/registrations/guest-checkout", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...phSessionHeader() },
         body: JSON.stringify(payload),
       })
       const data = await res.json()
@@ -1275,7 +1276,7 @@ export default function RegistrationWizard({
       // Step 1: Create registration
       const regResponse = await fetch("/api/registrations", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...phSessionHeader() },
         body: JSON.stringify(registrationBody),
       })
 
@@ -1312,7 +1313,7 @@ export default function RegistrationWizard({
         // Step 2: Create Stripe checkout session
         const checkoutResponse = await fetch("/api/payments/create-checkout", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...phSessionHeader() },
           body: JSON.stringify({
             registrationId: regData.registration.id,
             discountCode: discountCode || undefined,

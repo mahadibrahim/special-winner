@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react"
 import { ErrorBanner } from "@/components/ui/error-banner"
 import { EmbeddedPayment } from "@/components/registration/embedded-payment"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
+import { phSessionHeader } from "@/lib/analytics/track"
 
 interface RegistrationSummary {
   id: string
@@ -62,7 +63,7 @@ export default function PayBalanceForm({ registrationId }: PayBalanceFormProps) 
 
         const checkoutRes = await fetch("/api/payments/create-checkout", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", ...phSessionHeader() },
           body: JSON.stringify({ registrationId }),
         })
         const checkoutData = await checkoutRes.json()
