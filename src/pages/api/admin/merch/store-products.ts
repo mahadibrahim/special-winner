@@ -83,6 +83,24 @@ function missingDigitalAsset(
 }
 
 /**
+ * A digital product's asset key must live under the caller's own org
+ * namespace (as minted by /api/admin/merch/digital-asset-url:
+ * `merch-digital/<orgId>/...`). Without this check, an org admin could
+ * submit ANOTHER org's real R2 key and have /shop/download/[token] sign a
+ * GET for it, leaking that org's file to their own buyers. Only meaningful
+ * (and only invoked) when fulfillmentType is "digital" and the key is
+ * present — missingDigitalAsset covers the absent case.
+ */
+function digitalAssetKeyOutsideOrg(
+  fulfillmentType: "pickup" | "self_shipped" | "digital",
+  digitalAssetKey: string | undefined,
+  organizationId: string,
+): boolean {
+  if (fulfillmentType !== "digital" || !digitalAssetKey) return false;
+  return !digitalAssetKey.startsWith(`merch-digital/${organizationId}/`);
+}
+
+/**
  * Build the variant rows to insert for a product. Digital products get
  * exactly one variant at the product price (no size, no weight/dims —
  * there's nothing to ship). Pickup/self_shipped get one variant per size,
@@ -169,6 +187,9 @@ export const POST: APIRoute = async (context) => {
     if (missingDigitalAsset(d.fulfillmentType, d.digitalAssetKey, d.digitalAssetName)) {
       return json({ error: "a digital product needs an uploaded file" }, 422);
     }
+    if (digitalAssetKeyOutsideOrg(d.fulfillmentType, d.digitalAssetKey, auth.organizationId)) {
+      return json({ error: "Invalid digital asset." }, 422);
+    }
     const db = getDb();
     const weightBySize = new Map((d.variantWeights ?? []).map((vw) => [vw.size, vw]));
     // slug unique per store — suffix the store id fragment for cross-store safety
@@ -216,6 +237,9 @@ export const PUT: APIRoute = async (context) => {
     }
     if (missingDigitalAsset(d.fulfillmentType, d.digitalAssetKey, d.digitalAssetName)) {
       return json({ error: "a digital product needs an uploaded file" }, 422);
+    }
+    if (digitalAssetKeyOutsideOrg(d.fulfillmentType, d.digitalAssetKey, auth.organizationId)) {
+      return json({ error: "Invalid digital asset." }, 422);
     }
     const weightBySize = new Map((d.variantWeights ?? []).map((vw) => [vw.size, vw]));
 

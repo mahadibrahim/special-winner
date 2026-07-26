@@ -15,6 +15,7 @@ import { apiFetch, getAdminCookie, expectJson, testSlug } from "../setup/test-he
 import { getDb } from "@/lib/db";
 import { merchStores, merchProducts, merchVariants } from "@/lib/db/schema";
 import { eq, inArray } from "drizzle-orm";
+import { E2E_ORG_ID } from "@/lib/db/seeds/seed-e2e-tests";
 
 const BASE = process.env.TEST_BASE_URL ?? "http://localhost:4321";
 
@@ -227,7 +228,7 @@ describe("/api/admin/merch/store-products — digital fulfillment", () => {
         category: "other",
         priceCents: 999,
         fulfillmentType: "digital",
-        digitalAssetKey: "merch-digital/test-org/fixture-playbook.pdf",
+        digitalAssetKey: `merch-digital/${E2E_ORG_ID}/fixture-playbook.pdf`,
         digitalAssetName: "playbook.pdf",
         active: true,
       }),
@@ -238,7 +239,7 @@ describe("/api/admin/merch/store-products — digital fulfillment", () => {
 
     const [product] = await getDb().select().from(merchProducts).where(eq(merchProducts.id, json.productId));
     expect(product.fulfillmentType).toBe("digital");
-    expect(product.digitalAssetKey).toBe("merch-digital/test-org/fixture-playbook.pdf");
+    expect(product.digitalAssetKey).toBe(`merch-digital/${E2E_ORG_ID}/fixture-playbook.pdf`);
     expect(product.digitalAssetName).toBe("playbook.pdf");
 
     const variants = await getDb().select().from(merchVariants).where(eq(merchVariants.productId, json.productId));
@@ -261,6 +262,34 @@ describe("/api/admin/merch/store-products — digital fulfillment", () => {
       }),
     });
     expect(res.status).toBe(422);
+  });
+
+  it("rejects a digital product whose asset key is under a DIFFERENT org's prefix → 422", async () => {
+    // The key looks well-formed (matches the merch-digital/<uuid>/... shape
+    // digital-asset-url.ts mints) but the uuid isn't this caller's org —
+    // must not be persisted even though it "looks" valid.
+    const res = await apiFetch("/api/admin/merch/store-products", {
+      method: "POST",
+      cookie: adminCookie,
+      body: JSON.stringify({
+        storeId,
+        name: testSlug("Digital Cross Org Asset"),
+        priceCents: 750,
+        fulfillmentType: "digital",
+        digitalAssetKey: "merch-digital/00000000-0000-4000-8000-000000000000/x.pdf",
+        digitalAssetName: "x.pdf",
+        active: true,
+      }),
+    });
+    expect(res.status).toBe(422);
+
+    const list = await expectJson(
+      await apiFetch(`/api/admin/merch/store-products?storeId=${storeId}`, { cookie: adminCookie }),
+      200,
+    );
+    expect(
+      list.products.some((p: { name: string }) => p.name.startsWith("Digital Cross Org Asset")),
+    ).toBe(false);
   });
 
   it("PUT can convert an existing product to digital, replacing its sized variants with one", async () => {
@@ -287,7 +316,7 @@ describe("/api/admin/merch/store-products — digital fulfillment", () => {
         name: "Convert To Digital",
         priceCents: 1500,
         fulfillmentType: "digital",
-        digitalAssetKey: "merch-digital/test-org/converted.pdf",
+        digitalAssetKey: `merch-digital/${E2E_ORG_ID}/converted.pdf`,
         digitalAssetName: "converted.pdf",
         active: true,
       }),
