@@ -67,7 +67,11 @@ beforeAll(async () => {
     .insert(merchStores)
     .values({
       organizationId: E2E_ORG_ID,
-      scope: "general",
+      // team-scoped (not general): the e2e org already has its one general
+      // store (uq_merch_stores_one_general enforces one-general-per-org), and
+      // this fixture just needs any valid store to hang the digital
+      // product/order off — scope is irrelevant to the public download path.
+      scope: "team",
       name: testSlug("Digital Download Fixture Store"),
       slug: testSlug("digital-download-fixture-store"),
       visibility: "public",
@@ -134,7 +138,8 @@ beforeAll(async () => {
 
 afterAll(async () => {
   const db = getDb();
-  await db.delete(merchDownloadGrants).where(eq(merchDownloadGrants.orderItemId, orderItemId));
+  if (orderItemId)
+    await db.delete(merchDownloadGrants).where(eq(merchDownloadGrants.orderItemId, orderItemId));
   if (orderId) await db.delete(merchOrderItems).where(eq(merchOrderItems.orderId, orderId));
   if (orderId) await db.delete(merchOrders).where(eq(merchOrders.id, orderId));
   if (variantId) await db.delete(merchVariants).where(eq(merchVariants.id, variantId));
