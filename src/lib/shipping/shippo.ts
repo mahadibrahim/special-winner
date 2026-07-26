@@ -38,6 +38,27 @@ interface ShippoRate {
 
 interface ShippoShipmentResponse {
   rates?: ShippoRate[];
+  detail?: string;
+  error?: string;
+}
+
+/**
+ * Maps raw Shippo rate objects to ShippingRate, and drops any rate whose
+ * amountCents isn't a finite positive number. Shippo is the money trust
+ * boundary here — a malformed/missing `amount` must never survive as a
+ * 0-cost rate, or pickCheapestRate's `<` comparison will always pick it
+ * as "free shipping".
+ */
+export function mapShippoRates(rawRates: unknown[]): ShippingRate[] {
+  return (rawRates as ShippoRate[])
+    .map((r) => ({
+      carrier: r?.provider ?? "unknown",
+      service: r?.servicelevel?.name ?? "unknown",
+      amountCents: Math.round(parseFloat(r?.amount ?? "") * 100),
+      estDays: r?.estimated_days ?? null,
+      providerRateId: r?.object_id ?? null,
+    }))
+    .filter((r) => Number.isFinite(r.amountCents) && r.amountCents > 0);
 }
 
 export class ShippoRateProvider implements ShippingRateProvider {
@@ -85,18 +106,12 @@ export class ShippoRateProvider implements ShippingRateProvider {
 
     const json = (await res.json().catch(() => null)) as ShippoShipmentResponse | null;
     if (!res.ok || !json) {
+      const detail = json?.detail ?? json?.error;
       throw new ShippingProviderError(
-        `Shippo shipments request failed with status ${res.status}`,
+        `Shippo shipments request failed with status ${res.status}${detail ? `: ${detail}` : ""}`,
       );
     }
 
-    const rates = json.rates ?? [];
-    return rates.map((r) => ({
-      carrier: r.provider ?? "unknown",
-      service: r.servicelevel?.name ?? "unknown",
-      amountCents: Math.round(parseFloat(r.amount ?? "0") * 100),
-      estDays: r.estimated_days ?? null,
-      providerRateId: r.object_id ?? null,
-    }));
+    return mapShippoRates(json.rates ?? []);
   }
 }
