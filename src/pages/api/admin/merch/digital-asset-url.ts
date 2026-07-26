@@ -22,6 +22,9 @@ const ALLOWED_CONTENT_TYPES = new Set([
 const bodySchema = z.object({
   filename: z.string().min(1).max(255),
   contentType: z.string().min(1).max(100),
+  // "book" is a Lulu POD interior/cover PDF — keyed under merch-books/ instead
+  // of merch-digital/, and restricted to application/pdf below.
+  kind: z.enum(["digital", "book"]).default("digital"),
 });
 
 /** Strip any path separators and unsafe characters, keeping a safe basename. */
@@ -50,8 +53,12 @@ export const POST: APIRoute = async (context) => {
   if (!ALLOWED_CONTENT_TYPES.has(contentType)) {
     return json({ error: `Unsupported file type: ${contentType}` }, 400);
   }
+  if (parsed.data.kind === "book" && contentType !== "application/pdf") {
+    return json({ error: "Book files must be PDFs" }, 400);
+  }
 
-  const key = `merch-digital/${auth.organizationId}/${crypto.randomUUID()}-${sanitizeFilename(filename)}`;
+  const prefix = parsed.data.kind === "book" ? "merch-books" : "merch-digital";
+  const key = `${prefix}/${auth.organizationId}/${crypto.randomUUID()}-${sanitizeFilename(filename)}`;
 
   try {
     const uploadUrl = await getSignedPutUrl(key, contentType, { expiresInSeconds: 900 });
