@@ -68,21 +68,27 @@ export async function resolveLuluShippingOptions(
   }
 
   const luluAddress = toLuluAddress(address);
-  const options: LuluShippingOption[] = [];
-  for (const level of LULU_SHIPPING_LEVELS) {
+  // One cost-calc call per level, fired concurrently rather than awaited
+  // serially — a buyer's quote shouldn't pay for 5 round-trips back-to-back.
+  // Each element resolves to an option or null (never offered for this
+  // destination); a thrown non-LuluApiError still rejects the whole
+  // Promise.all, same as it would have aborted the old sequential loop.
+  const settled = await Promise.all(LULU_SHIPPING_LEVELS.map(async (level): Promise<LuluShippingOption | null> => {
     try {
       const { shippingCents } = await calculatePrintJobCost({ lineItems: cost.items, address: luluAddress, level });
       // A non-positive shippingCents means Lulu's response was missing/malformed
       // shipping_cost data (a 200 with no real quote) — treat it the same as a
       // level Lulu rejects outright, never charge the buyer $0 shipping.
-      if (shippingCents <= 0) continue;
-      options.push({ level, label: LULU_LEVEL_LABELS[level], amountCents: shippingCents });
+      if (shippingCents <= 0) return null;
+      return { level, label: LULU_LEVEL_LABELS[level], amountCents: shippingCents };
     } catch (e) {
       // Per-level failure = that level isn't offered for this destination.
       // A non-Lulu error is a real bug — rethrow it.
       if (!(e instanceof LuluApiError)) throw e;
+      return null;
     }
-  }
+  }));
+  const options = settled.filter((o): o is LuluShippingOption => o !== null);
   if (options.length === 0) return { ok: false, status: 422, error: "We can't ship to that address" };
   options.sort((a, b) => a.amountCents - b.amountCents);
   return { ok: true, options };
