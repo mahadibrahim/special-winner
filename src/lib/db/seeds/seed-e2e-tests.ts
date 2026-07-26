@@ -275,6 +275,16 @@ export const E2E_MERCH_UNLISTED_STORE_TOKEN = "e2eunlistedstoretoken000000000000
 export const E2E_MERCH_BUNDLE_SLUG = "e2e-team-kit";
 
 /**
+ * Merch Lulu POD books phase (Task 11) — a team-scoped, public book store
+ * with one Lulu print-on-demand product, for tests/e2e/merch-book-checkout.spec.ts.
+ * Team-scoped (not general) because uq_merch_stores_one_general enforces one
+ * general-scope store per org and the org already has one; public (not
+ * unlisted) since this fixture doesn't need a share-token gate. Fixed slug so
+ * the spec can navigate to /shop/<slug> directly.
+ */
+export const E2E_MERCH_BOOK_STORE_SLUG = "e2e-book-store";
+
+/**
  * Phase 2 training-walkthrough fixture accounts. Kept fully separate from
  * TEST_USERS so re-running `npm run training:videos` (which writes through
  * some of these) never touches the shared coach@/admin@ accounts other
@@ -1276,6 +1286,94 @@ async function seedMerchUnlistedStoreFixture(db: Database, orgId: string, teamId
     });
   }
   console.log(`   ✓ Manual pickup product + variant under ${store.slug}`);
+}
+
+/**
+ * Merch Lulu POD books phase (Task 11) — a team-scoped, public book store +
+ * one Lulu print-on-demand product, for tests/e2e/merch-book-checkout.spec.ts.
+ * Modeled line-for-line on seedMerchUnlistedStoreFixture above, but public
+ * visibility (no shareToken) and scope: "team" rather than "general" — the
+ * org already has a general store and uq_merch_stores_one_general enforces
+ * one general-scope store per org. Idempotent: looked up by slug (store) and
+ * by slug (product/variant), same rationale as the unlisted fixture.
+ */
+async function seedMerchBookFixture(db: Database, orgId: string, teamId: string) {
+  let [store] = await db
+    .select()
+    .from(merchStores)
+    .where(and(eq(merchStores.organizationId, orgId), eq(merchStores.slug, E2E_MERCH_BOOK_STORE_SLUG)))
+    .limit(1);
+
+  if (!store) {
+    [store] = await db
+      .insert(merchStores)
+      .values({
+        organizationId: orgId,
+        scope: "team",
+        teamId,
+        name: "E2E Book Store",
+        slug: E2E_MERCH_BOOK_STORE_SLUG,
+        visibility: "public",
+        active: true,
+      })
+      .returning();
+  } else if (store.visibility !== "public" || !store.active) {
+    // Keep the fixture stable across re-seeds even if a prior manual edit drifted it.
+    [store] = await db
+      .update(merchStores)
+      .set({ visibility: "public", active: true, updatedAt: new Date() })
+      .where(eq(merchStores.id, store.id))
+      .returning();
+  }
+  console.log(`   ✓ Book store: /shop/${store.slug}`);
+
+  const productSlug = "e2e-book-store-guide";
+  let [product] = await db
+    .select()
+    .from(merchProducts)
+    .where(and(eq(merchProducts.storeId, store.id), eq(merchProducts.slug, productSlug)))
+    .limit(1);
+
+  if (!product) {
+    [product] = await db
+      .insert(merchProducts)
+      .values({
+        organizationId: orgId,
+        storeId: store.id,
+        source: "manual",
+        fulfillmentType: "lulu_pod",
+        name: "E2E Print Guide",
+        slug: productSlug,
+        category: "other",
+        luluPodPackageId: "0600X0900BWSTDPB060UW444MXX",
+        luluPageCount: 40,
+        luluInteriorAssetKey: `merch-books/${orgId}/e2e-interior.pdf`,
+        luluCoverAssetKey: `merch-books/${orgId}/e2e-cover.pdf`,
+        active: true,
+      })
+      .returning();
+  }
+
+  const [existingVariant] = await db
+    .select()
+    .from(merchVariants)
+    .where(eq(merchVariants.productId, product.id))
+    .limit(1);
+
+  if (!existingVariant) {
+    await db.insert(merchVariants).values({
+      productId: product.id,
+      printfulSyncVariantId: null,
+      printfulVariantId: null,
+      name: "E2E Print Guide",
+      size: null,
+      color: null,
+      sku: null,
+      retailPriceCents: 1500,
+      sortOrder: 0,
+    });
+  }
+  console.log(`   ✓ Lulu POD book product + variant under ${store.slug}`);
 }
 
 /**
@@ -4209,6 +4307,10 @@ async function seedE2ETests() {
   // stage 19, which seeds the store + jersey component this bundle uses.
   console.log("\n20. Setting up merch bundle fixture...");
   await seedMerchBundleFixture(db, org.id);
+
+  // Stage 21 — Merch Lulu POD book store fixture (Lulu books phase Task 11).
+  console.log("\n21. Setting up merch book store fixture...");
+  await seedMerchBookFixture(db, org.id, team.id);
 
   console.log("\n✅ E2E test data seeded successfully!");
   console.log("\n📋 Test Credentials:");

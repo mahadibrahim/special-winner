@@ -16,12 +16,15 @@ interface QuoteStoreInfo {
   orderClosesAt: string | null;
 }
 
+interface LuluShippingOption { level: string; label: string; amountCents: number }
 interface QuoteResult {
   subtotalCents: number;
   shippingCents: number;
   totalBeforeTaxCents: number;
   currency: string;
   store?: QuoteStoreInfo | null;
+  luluShippingOptions?: LuluShippingOption[] | null;
+  luluShippingLevel?: string | null;
 }
 
 export default function CheckoutForm() {
@@ -38,6 +41,7 @@ export default function CheckoutForm() {
 
   const [quote, setQuote] = useState<QuoteResult | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
+  const [luluLevel, setLuluLevel] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -88,7 +92,10 @@ export default function CheckoutForm() {
       quantity: i.quantity,
     }));
 
-  async function fetchQuote(address: ReturnType<typeof buildAddress> | null) {
+  async function fetchQuote(
+    address: ReturnType<typeof buildAddress> | null,
+    overrideLevel?: string | null,
+  ) {
     if (!storeId) return;
     setError(null);
     setQuoteLoading(true);
@@ -101,6 +108,7 @@ export default function CheckoutForm() {
           address,
           items: buildItems(),
           bundles: buildBundles(),
+          luluShippingLevel: overrideLevel ?? luluLevel,
         }),
       });
       const json = await res.json();
@@ -110,6 +118,7 @@ export default function CheckoutForm() {
         return;
       }
       setQuote(json);
+      if (json.luluShippingLevel) setLuluLevel(json.luluShippingLevel);
     } catch {
       setError("Could not get a shipping total. Check your connection and try again.");
       setQuote(null);
@@ -156,6 +165,7 @@ export default function CheckoutForm() {
           address: pickupOnly ? null : buildAddress(),
           items: buildItems(),
           bundles: buildBundles(),
+          luluShippingLevel: luluLevel,
         }),
       });
       const json = await res.json();
@@ -361,6 +371,32 @@ export default function CheckoutForm() {
           >
             {quoteLoading ? "Getting shipping total…" : "Get shipping total"}
           </button>
+        </section>
+      )}
+
+      {quote?.luluShippingOptions && quote.luluShippingOptions.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="font-display text-lg text-ink">Shipping speed</h2>
+          <div role="radiogroup" aria-label="Shipping speed" className="space-y-1">
+            {quote.luluShippingOptions.map((o) => (
+              <label key={o.level} className="flex items-center justify-between gap-3 border border-ink/20 px-3 py-2 text-sm text-ink cursor-pointer">
+                <span className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="lulu-shipping-level"
+                    value={o.level}
+                    checked={(luluLevel ?? quote.luluShippingLevel) === o.level}
+                    onChange={() => {
+                      setLuluLevel(o.level);
+                      void fetchQuote(buildAddress(), o.level);
+                    }}
+                  />
+                  {o.label}
+                </span>
+                <span>{money(o.amountCents)}</span>
+              </label>
+            ))}
+          </div>
         </section>
       )}
 
