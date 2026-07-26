@@ -11,8 +11,8 @@ import { toPrintfulRecipient, pickCheapestRate, shippingRateToCents } from "@/li
 import { assembleQuote } from "@/lib/merch/quote";
 import { repriceStoreCartItems, type RepricedLine } from "@/lib/merch/reprice";
 import { explodeBundles } from "@/lib/merch/bundle-checkout";
-import { buildMerchLineItems } from "@/lib/merch/checkout-line-items";
-import { partitionByFulfillment, lineNeedsShipping } from "@/lib/merch/checkout-store";
+import { buildMerchLineItems, DIGITAL_TAX_CODE, MERCH_TAX_CODE } from "@/lib/merch/checkout-line-items";
+import { partitionByFulfillment, cartNeedsAddress } from "@/lib/merch/checkout-store";
 import { getStoreById, isStoreShoppable } from "@/lib/merch/stores";
 import { getOrgOriginAddress } from "@/lib/merch/org-origin";
 import { resolveSelfShippedRate } from "@/lib/merch/self-shipped-shipping";
@@ -105,7 +105,7 @@ export const POST: APIRoute = async (context) => {
   if (priced.length === 0) return json({ error: "Your cart is empty" }, 400);
 
   const { printful, selfShipped } = partitionByFulfillment(priced);
-  const needsShipping = priced.some(lineNeedsShipping);
+  const needsShipping = cartNeedsAddress(priced);
 
   try {
     // ---- shipping (printful/self-shipped lines only; a store could in theory mix
@@ -221,6 +221,7 @@ export const POST: APIRoute = async (context) => {
         variantLabel: [p.color, p.size].filter(Boolean).join(" · "),
         unitPriceCents: p.unitPriceCents,
         quantity: p.quantity,
+        taxCode: p.fulfillmentType === "digital" ? DIGITAL_TAX_CODE : MERCH_TAX_CODE,
       })), "usd"),
       ...(needsShipping
         ? {
