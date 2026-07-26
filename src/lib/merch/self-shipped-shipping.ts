@@ -38,6 +38,15 @@ export async function resolveSelfShippedRate(
   }
 
   const origin = await getOrgOriginAddress(orgId);
+  const originStreet = origin.line1?.trim() ?? "";
+  if (!originStreet || originStreet === "—") {
+    return {
+      ok: false,
+      status: 422,
+      error: "This store's shipping origin isn't set up yet. Contact the organizer.",
+    };
+  }
+
   const from = {
     street1: origin.line1,
     city: origin.city,

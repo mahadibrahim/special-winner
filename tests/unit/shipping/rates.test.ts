@@ -3,7 +3,7 @@ import { pickCheapestRate, parcelForLines } from "@/lib/shipping/rates";
 import { mapShippoRates } from "@/lib/shipping/shippo";
 describe("pickCheapestRate", () => {
   it("returns the min-cost rate", () => {
-    expect(pickCheapestRate([{carrier:"UPS",service:"G",amountCents:1200},{carrier:"USPS",service:"GA",amountCents:800}])?.amountCents).toBe(800);
+    expect(pickCheapestRate([{carrier:"UPS",service:"G",amountCents:1200,currency:"USD"},{carrier:"USPS",service:"GA",amountCents:800,currency:"USD"}])?.amountCents).toBe(800);
   });
   it("null on empty", () => expect(pickCheapestRate([])).toBeNull());
 });
@@ -21,13 +21,21 @@ describe("parcelForLines", () => {
 describe("mapShippoRates", () => {
   it("drops malformed rates and keeps only the valid one", () => {
     const result = mapShippoRates([
-      { amount: "8.50", provider: "USPS", servicelevel: { name: "Ground Advantage" }, object_id: "x" },
+      { amount: "8.50", currency: "USD", provider: "USPS", servicelevel: { name: "Ground Advantage" }, object_id: "x" },
       { provider: "UPS" },
     ]);
     expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({ amountCents: 850, carrier: "USPS", service: "Ground Advantage", providerRateId: "x" });
+    expect(result[0]).toMatchObject({ amountCents: 850, currency: "USD", carrier: "USPS", service: "Ground Advantage", providerRateId: "x" });
   });
   it("returns [] when every rate is malformed", () => {
     expect(mapShippoRates([{ provider: "UPS" }, { amount: "not-a-number" }])).toEqual([]);
+  });
+  it("drops non-USD rates and keeps only the USD one", () => {
+    const result = mapShippoRates([
+      { amount: "8.50", currency: "USD", provider: "USPS", servicelevel: { name: "Ground Advantage" }, object_id: "x" },
+      { amount: "5.00", currency: "CAD", provider: "UPS", servicelevel: { name: "Standard" }, object_id: "y" },
+    ]);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ amountCents: 850, currency: "USD", carrier: "USPS" });
   });
 });

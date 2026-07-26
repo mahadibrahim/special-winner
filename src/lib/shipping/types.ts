@@ -19,6 +19,7 @@ export interface ShippingRate {
   carrier: string;
   service: string;
   amountCents: number;
+  currency: string;
   estDays?: number | null;
   providerRateId?: string | null;
 }

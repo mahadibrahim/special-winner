@@ -104,8 +104,8 @@ export const POST: APIRoute = async (context) => {
       const r = await resolveSelfShippedRate(org.id, parsed.data.address, selfShipped);
       if (!r.ok) return json({ error: r.error }, r.status);
       shippingCents += r.shippingCents;
-      shipCarrier = r.carrier;
-      shipService = r.service;
+      shipCarrier = r.carrier?.slice(0, 60) ?? null;
+      shipService = r.service?.slice(0, 120) ?? null;
     }
 
     const quote = assembleQuote(

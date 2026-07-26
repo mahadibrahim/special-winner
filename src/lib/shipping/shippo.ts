@@ -30,6 +30,7 @@ function toShippoAddress(addr: ShipAddress) {
 
 interface ShippoRate {
   amount?: string;
+  currency?: string;
   provider?: string;
   servicelevel?: { name?: string };
   estimated_days?: number | null;
@@ -44,10 +45,11 @@ interface ShippoShipmentResponse {
 
 /**
  * Maps raw Shippo rate objects to ShippingRate, and drops any rate whose
- * amountCents isn't a finite positive number. Shippo is the money trust
- * boundary here — a malformed/missing `amount` must never survive as a
- * 0-cost rate, or pickCheapestRate's `<` comparison will always pick it
- * as "free shipping".
+ * amountCents isn't a finite positive number, or whose currency isn't USD.
+ * Shippo is the money trust boundary here — a malformed/missing `amount`
+ * must never survive as a 0-cost rate, or pickCheapestRate's `<` comparison
+ * will always pick it as "free shipping". Likewise a non-USD rate's `amount`
+ * must never be treated as USD cents.
  */
 export function mapShippoRates(rawRates: unknown[]): ShippingRate[] {
   return (rawRates as ShippoRate[])
@@ -55,10 +57,16 @@ export function mapShippoRates(rawRates: unknown[]): ShippingRate[] {
       carrier: r?.provider ?? "unknown",
       service: r?.servicelevel?.name ?? "unknown",
       amountCents: Math.round(parseFloat(r?.amount ?? "") * 100),
+      currency: r?.currency ?? "",
       estDays: r?.estimated_days ?? null,
       providerRateId: r?.object_id ?? null,
     }))
-    .filter((r) => Number.isFinite(r.amountCents) && r.amountCents > 0);
+    .filter(
+      (r) =>
+        Number.isFinite(r.amountCents) &&
+        r.amountCents > 0 &&
+        String(r.currency ?? "").toUpperCase() === "USD",
+    );
 }
 
 export class ShippoRateProvider implements ShippingRateProvider {
