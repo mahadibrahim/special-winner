@@ -35,6 +35,11 @@ const productSchema = z.object({
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { "Content-Type": "application/json" } });
 const slugify = (n: string) => n.toLowerCase().trim().replace(/[^a-z0-9\s-]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
 
+/** Extract the PG error code from a Drizzle-wrapped or raw pg error. */
+function getDbErrorCode(error: any): string | undefined {
+  return error?.code ?? error?.cause?.code;
+}
+
 /**
  * For self-shipped products, every size in `sizes` must have a positive
  * `weightOz` entry in `variantWeights` — Printful/Shippo rate lookups need a
@@ -230,6 +235,11 @@ export const DELETE: APIRoute = async (context) => {
     return json({ success: true });
   } catch (error) {
     console.error("Error deleting store product:", error);
+    // merch_bundle_items.product_id is onDelete: "restrict" — a product used
+    // as a bundle component can't be hard-deleted while the bundle exists.
+    if (getDbErrorCode(error) === "23503") {
+      return json({ error: "Cannot delete a product that is used in a bundle. Remove it from the bundle first." }, 409);
+    }
     return json({ error: "Something went wrong" }, 500);
   }
 };

@@ -3,6 +3,7 @@ import BaseLayout from '../../../../layouts/BaseLayout.astro';
 import { AdminLayout } from '../../../../components/admin/admin-layout';
 import { getPrimaryRoleName } from "@/lib/auth";
 import { MerchStoreEditor } from '../../../../components/admin/merch-store-editor';
+import { MerchBundleEditor } from '../../../../components/admin/merch-bundle-editor';
 
 // Middleware guarantees user is an admin for /admin routes.
 const user = Astro.locals.user!;
@@ -18,5 +19,8 @@ const id = Astro.params.id!;
     user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
   >
     <MerchStoreEditor storeId={id} client:load />
+    <div class="max-w-4xl mt-10 pt-10 border-t">
+      <MerchBundleEditor storeId={id} client:load />
+    </div>
   </AdminLayout>
 </BaseLayout>

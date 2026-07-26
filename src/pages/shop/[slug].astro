@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/ui/empty-state";
 import CartDrawer from "@/components/shop/cart-drawer";
 import { getStoreBySlug, storeWindowState, getGeneralStore } from "@/lib/merch/stores";
 import { listActiveMerchProducts, getMerchProductBySlug } from "@/lib/merch/catalog";
+import { listStoreBundlesForGrid } from "@/lib/merch/bundles";
 
 const { slug } = Astro.params;
 const org = Astro.locals.organization;
@@ -33,6 +34,7 @@ if (store.visibility === "unlisted" && (!store.shareToken || store.shareToken !=
 }
 
 const products = store.active ? await listActiveMerchProducts(store.id) : [];
+const bundles = store.active ? await listStoreBundlesForGrid(store.id) : [];
 const windowState = storeWindowState(store, new Date());
 const noindex = store.visibility === "unlisted";
 const tokenQS = store.visibility === "unlisted" ? `?k=${store.shareToken}` : "";
@@ -69,6 +71,29 @@ const money = (c: number) => `$${(c / 100).toLocaleString("en-US", { minimumFrac
           </li>
         ))}
       </ul>
+    )}
+
+    {bundles.length > 0 && (
+      <section class="mt-16">
+        <h2 class="font-display text-2xl text-ink mb-6">Bundles</h2>
+        <ul class="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-10 list-none p-0 m-0">
+          {bundles.map((b) => (
+            <li>
+              <a href={`/shop/${store.slug}/bundle/${b.slug}${tokenQS}`} class="group block">
+                <div class="aspect-square bg-cream-dark overflow-hidden mb-3 relative">
+                  <span class="absolute top-2 left-2 z-10 text-xs font-medium uppercase tracking-wide bg-ink text-cream px-2 py-1">Bundle</span>
+                  {b.imageUrl ? (
+                    <img src={b.imageUrl} alt={b.name} loading="lazy" class="w-full h-full object-cover group-hover:scale-[1.03] transition-transform" />
+                  ) : (
+                    <div class="w-full h-full grid place-items-center text-ink-muted text-sm">No image</div>
+                  )}
+                </div>
+                <h3 class="text-sm font-medium text-ink">{b.name}</h3>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
     )}
   </main>
 </BaseLayout>

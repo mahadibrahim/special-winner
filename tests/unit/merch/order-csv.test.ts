@@ -7,7 +7,7 @@ describe("buildOrdersCsv", () => {
       { email: "a@x.com", productName: "Jersey", size: "M", personalization: { name: "Lee", number: "10" }, quantity: 1, status: "awaiting_pickup" },
     ]);
     const lines = csv.trim().split("\n");
-    expect(lines[0]).toBe("email,product,size,name,number,quantity,status,carrier,service,tracking");
+    expect(lines[0]).toBe("email,product,size,name,number,quantity,status,carrier,service,tracking,bundle");
     expect(lines[1]).toContain("a@x.com");
     expect(lines[1]).toContain("Lee");
     expect(lines[1]).toContain("10");
@@ -34,5 +34,16 @@ describe("buildOrdersCsv", () => {
     expect(lines[1]).toContain("USPS");
     expect(lines[1]).toContain("Priority");
     expect(lines[1]).toContain("9400111899223344556677");
+  });
+  it("populates the bundle column for bundle lines and leaves it blank otherwise", () => {
+    const csv = buildOrdersCsv([
+      { email: "d@x.com", productName: "Jersey", size: "M", personalization: null, quantity: 1, status: "paid", bundle: "Full Uniform Kit" },
+      { email: "d@x.com", productName: "Water bottle", size: null, personalization: null, quantity: 1, status: "paid" },
+    ]);
+    const lines = csv.trim().split("\n");
+    expect(lines[0].split(",")).toContain("bundle");
+    expect(lines[1]).toContain("Full Uniform Kit");
+    // Non-bundle line: bundle column present but empty (trailing comma before newline).
+    expect(lines[2].endsWith(",")).toBe(true);
   });
 });

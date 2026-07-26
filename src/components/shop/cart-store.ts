@@ -1,18 +1,18 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
-import { type CartItem, mergeCartItem } from "@/lib/merch/cart";
+import { type CartLine, addLineToCart, cartLineCount, cartLineKey } from "@/lib/merch/cart";
 
 const KEY = "aspire_merch_cart_v1";
 
-function read(): CartItem[] {
+function read(): CartLine[] {
   if (typeof localStorage === "undefined") return [];
   try { return JSON.parse(localStorage.getItem(KEY) ?? "[]"); } catch { return []; }
 }
 
 export function useCart() {
-  const [items, setItems] = useState<CartItem[]>([]);
+  const [items, setItems] = useState<CartLine[]>([]);
   useEffect(() => { setItems(read()); }, []);
-  const persist = useCallback((next: CartItem[]) => {
+  const persist = useCallback((next: CartLine[]) => {
     setItems(next);
     localStorage.setItem(KEY, JSON.stringify(next));
     window.dispatchEvent(new Event("merch-cart-changed"));
@@ -26,20 +26,15 @@ export function useCart() {
 
   return {
     items,
-    count: items.reduce((n, i) => n + i.quantity, 0),
-    add: (item: CartItem) => {
-      const current = read();
-      // Carts are single-store: adding an item from a different store than
-      // the current cart replaces it rather than mixing stores.
-      const sameStore = current.length === 0 || current[0].storeId === item.storeId;
-      persist(sameStore ? mergeCartItem(current, item) : [item]);
-    },
-    // `key` identifies a single cart line: `lineId` for personalized lines
-    // (which can repeat a variantId across distinct personalizations), else
-    // `variantId`. See cart-drawer.tsx for the matching key it passes in.
+    count: cartLineCount(items),
+    add: (line: CartLine) => persist(addLineToCart(read(), line)),
+    // `key` identifies a single cart line: `lineId` for personalized/bundle
+    // lines (which can repeat a variantId/bundleId across distinct
+    // selections), else `variantId`. See cart-drawer.tsx for the matching
+    // key it passes in (via `cartLineKey`).
     setQty: (key: string, qty: number) =>
-      persist(read().map((i) => ((i.lineId ?? i.variantId) === key ? { ...i, quantity: qty } : i)).filter((i) => i.quantity > 0)),
-    remove: (key: string) => persist(read().filter((i) => (i.lineId ?? i.variantId) !== key)),
+      persist(read().map((i) => (cartLineKey(i) === key ? { ...i, quantity: qty } : i)).filter((i) => i.quantity > 0)),
+    remove: (key: string) => persist(read().filter((i) => cartLineKey(i) !== key)),
     clear: () => persist([]),
   };
 }

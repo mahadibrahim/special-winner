@@ -4,7 +4,8 @@ import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 import { isPrintfulConfigured, calculateShipping, PrintfulApiError } from "@/lib/printful/client";
 import { toPrintfulRecipient, pickCheapestRate, shippingRateToCents } from "@/lib/printful/order-mappers";
 import { assembleQuote } from "@/lib/merch/quote";
-import { repriceStoreCartItems } from "@/lib/merch/reprice";
+import { repriceStoreCartItems, type RepricedLine } from "@/lib/merch/reprice";
+import { explodeBundles } from "@/lib/merch/bundle-checkout";
 import { partitionByFulfillment } from "@/lib/merch/checkout-store";
 import { getStoreById, isStoreShoppable } from "@/lib/merch/stores";
 import { resolveSelfShippedRate } from "@/lib/merch/self-shipped-shipping";
@@ -22,7 +23,15 @@ const schema = z.object({
       name: z.string().max(40).optional(),
       number: z.string().max(10).optional(),
     }).optional().nullable(),
-  })).min(1),
+  })).max(50).default([]),
+  bundles: z.array(z.object({
+    bundleId: z.string().uuid(),
+    selections: z.array(z.object({
+      slotId: z.string().uuid(),
+      variantId: z.string().uuid(),
+    })).min(1).max(20),
+    quantity: z.number().int().min(1).max(50),
+  })).max(20).optional(),
 });
 
 const json = (body: unknown, status = 200) =>
@@ -46,19 +55,31 @@ export const POST: APIRoute = async (context) => {
   }
 
   // server-authoritative re-price: only active variants of active products in this store
-  const repriced = await repriceStoreCartItems(store.id, parsed.data.items);
-  if (!repriced.ok) return json({ error: "Some items are unavailable" }, 422);
-  const priced = repriced.lines;
-  const { printful, selfShipped } = partitionByFulfillment(priced);
+  let productLines: RepricedLine[] = [];
+  if (parsed.data.items.length > 0) {
+    const repriced = await repriceStoreCartItems(store.id, parsed.data.items);
+    if (!repriced.ok) return json({ error: "Some items are unavailable" }, 422);
+    productLines = repriced.lines;
+  }
 
   // required personalization present? (relies on repriceStoreCartItems preserving request order)
   // mirrors checkout.ts so a quote and the subsequent checkout never disagree
-  for (let i = 0; i < priced.length; i++) {
-    const cfg = priced[i].personalizationConfig;
+  for (let i = 0; i < productLines.length; i++) {
+    const cfg = productLines[i].personalizationConfig;
     const val = parsed.data.items[i]?.personalization ?? null;
     if (cfg?.name && !val?.name) return json({ error: "Name required for a personalized item" }, 422);
     if (cfg?.number && !val?.number) return json({ error: "Number required for a personalized item" }, 422);
   }
+
+  // server-authoritative bundle explosion (merch Phase 3d) — priced independently
+  // of the free-standing product lines above, then concatenated before shipping/quote math.
+  const exploded = await explodeBundles(store.id, parsed.data.bundles ?? []);
+  if (!exploded.ok) return json({ error: exploded.error }, exploded.status);
+
+  const priced = [...productLines, ...exploded.lines];
+  if (priced.length === 0) return json({ error: "Your cart is empty" }, 400);
+
+  const { printful, selfShipped } = partitionByFulfillment(priced);
 
   try {
     // sum across fulfillment types (a store could mix printful + self-shipped lines
@@ -98,7 +119,13 @@ export const POST: APIRoute = async (context) => {
         orderOpensAt: store.orderOpensAt,
         orderClosesAt: store.orderClosesAt,
       },
-      items: priced.map((p) => ({ variantId: p.variantId, unitPriceCents: p.unitPriceCents, quantity: p.quantity })),
+      items: priced.map((p) => ({
+        variantId: p.variantId,
+        unitPriceCents: p.unitPriceCents,
+        quantity: p.quantity,
+        bundleId: p.bundleId ?? null,
+        bundleName: p.bundleName ?? null,
+      })),
     }, 200);
   } catch (e) {
     if (e instanceof PrintfulApiError) return json({ error: "Shipping quote failed" }, 502);
