@@ -148,6 +148,11 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
   let resolvedAmountCents: number | null = null;
   let resolvedPaymentMethod: string | null = null;
   let alreadyBookedStatus: string | null = null;
+  // The resolved booking's id + waiver state — powers the post-payment
+  // "sign the waiver" card on the session page (waiver is captured AFTER
+  // payment; see /api/dropin/bookings/[id]/waiver).
+  let bookingId: string | null = null;
+  let bookingWaiverSigned: boolean | null = null;
   if (rateCard) {
     const membership = locals.user
       ? await getActiveMembershipForUser(
@@ -163,7 +168,11 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
     // Active booking lookup so the UI can switch the CTA from "Book" to
     // "View / Cancel".
     const [existing] = await db
-      .select({ status: dropInBookings.status })
+      .select({
+        id: dropInBookings.id,
+        status: dropInBookings.status,
+        waiverSigned: dropInBookings.waiverSigned,
+      })
       .from(dropInBookings)
       .where(
         and(
@@ -175,6 +184,8 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
       .limit(1);
     if (existing && ACTIVE_BOOKING_STATUSES.includes(existing.status)) {
       alreadyBookedStatus = existing.status;
+      bookingId = existing.id;
+      bookingWaiverSigned = existing.waiverSigned;
     }
   }
 
@@ -189,7 +200,11 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
   const paymentIntentParam = url.searchParams.get("payment_intent");
   if (alreadyBookedStatus === null && paymentIntentParam) {
     const [booked] = await db
-      .select({ status: dropInBookings.status })
+      .select({
+        id: dropInBookings.id,
+        status: dropInBookings.status,
+        waiverSigned: dropInBookings.waiverSigned,
+      })
       .from(dropInBookings)
       .where(
         and(
@@ -200,6 +215,8 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
       .limit(1);
     if (booked && ACTIVE_BOOKING_STATUSES.includes(booked.status)) {
       alreadyBookedStatus = booked.status;
+      bookingId = booked.id;
+      bookingWaiverSigned = booked.waiverSigned;
     }
   }
 
@@ -217,7 +234,11 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
           : (cs.payment_intent?.id ?? null);
       if (paymentIntentId) {
         const [booked] = await db
-          .select({ status: dropInBookings.status })
+          .select({
+            id: dropInBookings.id,
+            status: dropInBookings.status,
+            waiverSigned: dropInBookings.waiverSigned,
+          })
           .from(dropInBookings)
           .where(
             and(
@@ -228,6 +249,8 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
           .limit(1);
         if (booked && ACTIVE_BOOKING_STATUSES.includes(booked.status)) {
           alreadyBookedStatus = booked.status;
+          bookingId = booked.id;
+          bookingWaiverSigned = booked.waiverSigned;
         }
       }
     } catch {
@@ -246,6 +269,8 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
       resolvedAmountCents,
       resolvedPaymentMethod,
       alreadyBookedStatus,
+      bookingId,
+      bookingWaiverSigned,
       host,
     },
     200,

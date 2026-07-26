@@ -27,6 +27,8 @@ interface Booking {
   amountPaidCents: number;
   teamAssignment: string | null;
   checkedInAt: string | null;
+  /** False = post-payment waiver still unsigned (sign-before-you-play). */
+  waiverSigned?: boolean;
   createdAt: string;
   session: {
     sportOrClassLabel: string;
@@ -216,6 +218,13 @@ export default function MyDropInBookings() {
                 <Button asChild variant="outline" size="sm">
                   <a href={`/dropin/${b.sessionId}`}>Details</a>
                 </Button>
+                {/* Sign-before-you-play backstop: waiver is captured after
+                    payment on the session page. SOFT — never blocks check-in. */}
+                {b.status === "confirmed" && b.waiverSigned === false && (
+                  <Button asChild size="sm">
+                    <a href={`/dropin/${b.sessionId}`}>Sign waiver</a>
+                  </Button>
+                )}
                 {b.checkedInAt ? (
                   <Badge
                     variant="outline"

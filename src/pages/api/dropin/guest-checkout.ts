@@ -59,8 +59,12 @@ const bodySchema = z.object({
   firstName: z.string().trim().min(1).max(100),
   lastName: z.string().trim().min(1).max(100),
   email: z.string().trim().toLowerCase().email().max(320),
-  waiverAccepted: z.literal(true),
-  waiverName: z.string().trim().min(1).max(200),
+  // OPTIONAL since the sign-before-you-PLAY change — the current UI collects
+  // only email + name pre-pay and captures the waiver on the confirmation
+  // surface. When a caller does accept, a typed name must come with it
+  // (enforced below, after parsing).
+  waiverAccepted: z.literal(true).optional(),
+  waiverName: z.string().trim().min(1).max(200).optional(),
   /** `?src=` from the share link the guest booked from (e.g. host-share). */
   src: z.string().optional(),
   /** "embedded" → deferred PaymentIntent for the inline Payment Element
@@ -106,6 +110,12 @@ export const POST: APIRoute = async (context) => {
     );
   }
   const data = parsed.data;
+
+  // A signature only counts when both halves arrive together.
+  const waiverProvided = data.waiverAccepted === true && Boolean(data.waiverName);
+  if (data.waiverAccepted === true && !waiverProvided) {
+    return json({ error: "waiverName is required when accepting the waiver" }, 400);
+  }
 
   const db = getDb();
   const [session] = await db
@@ -207,7 +217,7 @@ export const POST: APIRoute = async (context) => {
   }
 
   const rate = resolveRate(session, userRow, membership, rateCard);
-  const waiverSignedAt = new Date();
+  const waiverSignedAt = waiverProvided ? new Date() : null;
 
   // Free path → create immediately.
   if (rate.amountCents === 0) {
@@ -215,9 +225,9 @@ export const POST: APIRoute = async (context) => {
       sessionId: data.sessionId,
       userId: userRow.id,
       source: "online_booking",
-      waiverSigned: true,
-      waiverSignedAt,
-      waiverSignedBy: data.waiverName,
+      waiverSigned: waiverProvided,
+      waiverSignedAt: waiverSignedAt ?? undefined,
+      waiverSignedBy: waiverProvided ? data.waiverName : undefined,
       brand: brandFromHost(request.headers.get("host") ?? ""),
       referralSource: data.src,
     });
@@ -256,7 +266,7 @@ export const POST: APIRoute = async (context) => {
       user: { id: userRow.id, email: userRow.email },
       rate,
       waiverSignedAt,
-      waiverName: data.waiverName,
+      waiverName: waiverProvided ? data.waiverName : null,
       referralSource: data.src,
       extraMetadata: {
         via_guest_checkout: "true",
@@ -292,7 +302,7 @@ export const POST: APIRoute = async (context) => {
     user: { id: userRow.id, email: userRow.email },
     rate,
     waiverSignedAt,
-    waiverName: data.waiverName,
+    waiverName: waiverProvided ? data.waiverName : null,
     referralSource: data.src,
     extraMetadata: {
       via_guest_checkout: "true",

@@ -47,8 +47,14 @@ export async function renderBookingConfirmation(
   const brand = normalizeBrand(ctx.brand);
   const brandLabel = brand === "soccerone" ? "SoccerOne" : "Aspire";
 
+  // Sign-before-you-play backstop — present only while the waiver is
+  // unsigned (see BookingConfirmationContext.signWaiverUrl).
+  const waiverLine = ctx.signWaiverUrl
+    ? ` One more step before you play — sign the waiver: ${ctx.signWaiverUrl}`
+    : "";
+
   const smsBody =
-    `[${brandLabel}] You're in for ${sportLabel} at ${ctx.venue.name} on ${startStr}.${teamLine} ${amountStr} Details: ${link}`;
+    `[${brandLabel}] You're in for ${sportLabel} at ${ctx.venue.name} on ${startStr}.${teamLine} ${amountStr}${waiverLine} Details: ${link}`;
 
   const { html, text } = await renderEmail(
     DropInBookingConfirmationEmail({
@@ -59,6 +65,7 @@ export async function renderBookingConfirmation(
       teamAssignment: ctx.booking.teamAssignment,
       amountLabel,
       sessionUrl: link,
+      signWaiverUrl: ctx.signWaiverUrl ?? null,
       brand,
     }),
   );
@@ -70,6 +77,9 @@ export async function renderBookingConfirmation(
       ? `Team: ${escapeHtml(ctx.booking.teamAssignment)}\n`
       : "") +
     `${escapeHtml(amountStr)}\n` +
+    (ctx.signWaiverUrl
+      ? `<a href="${ctx.signWaiverUrl}">Sign the waiver before you play →</a>\n`
+      : "") +
     `<a href="${link}">View session →</a>`;
 
   return {

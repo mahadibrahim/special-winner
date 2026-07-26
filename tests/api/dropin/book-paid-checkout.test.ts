@@ -44,13 +44,31 @@ describe("POST /api/dropin/bookings", () => {
     expect(json.error).toBeDefined();
   });
 
-  it("returns 422 when waiver fields are missing (authenticated parent)", async () => {
+  // Waiver is OPTIONAL at booking time since the sign-before-you-play change
+  // — omitting it must NOT 422; the request proceeds to normal resolution
+  // (here: 404, the session doesn't exist).
+  it("accepts a body without waiver fields (waiver deferred to post-payment)", async () => {
     const { getParentCookie } = await import("../setup/test-helpers");
     const cookie = await getParentCookie();
     const res = await apiFetch(ENDPOINT, {
       method: "POST",
       cookie,
       body: JSON.stringify({ sessionId: "00000000-0000-0000-0000-000000000000" }),
+    });
+    const json = await expectJson(res, 404);
+    expect(json.error).toBeDefined();
+  });
+
+  it("still 422s a malformed signature: waiverAccepted without a name", async () => {
+    const { getParentCookie } = await import("../setup/test-helpers");
+    const cookie = await getParentCookie();
+    const res = await apiFetch(ENDPOINT, {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({
+        sessionId: "00000000-0000-0000-0000-000000000000",
+        waiverAccepted: true,
+      }),
     });
     const json = await expectJson(res, 422);
     expect(json.error).toBeDefined();

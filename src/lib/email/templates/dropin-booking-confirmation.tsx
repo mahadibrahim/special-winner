@@ -27,6 +27,12 @@ interface DropInBookingConfirmationEmailProps {
   amountLabel: string;
   /** Absolute URL to the session detail page. */
   sessionUrl: string;
+  /**
+   * Sign-the-waiver link — set only while the booking's waiver is unsigned
+   * (the online flows capture it AFTER payment: "sign before you play").
+   * Renders the waiver CTA section; omit/null when already signed.
+   */
+  signWaiverUrl?: string | null;
   brand?: BrandId;
 }
 
@@ -43,6 +49,7 @@ export function DropInBookingConfirmationEmail({
   teamAssignment,
   amountLabel,
   sessionUrl,
+  signWaiverUrl,
   brand,
 }: DropInBookingConfirmationEmailProps) {
   const t = emailThemeFor(brand);
@@ -70,6 +77,17 @@ export function DropInBookingConfirmationEmail({
           <Hr style={{ borderColor: t.tokens.border, margin: "12px 0" }} />
           <Detail label="Payment">{amountLabel}</Detail>
         </DetailPanel>
+
+        {signWaiverUrl ? (
+          <>
+            <H2>One more step before you play</H2>
+            <P>
+              Sign the participation waiver — it takes ten seconds and means
+              you're straight onto the field at check-in.
+            </P>
+            <Button href={signWaiverUrl}>Sign the waiver →</Button>
+          </>
+        ) : null}
 
         <Button href={sessionUrl}>View session details →</Button>
 

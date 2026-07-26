@@ -9,7 +9,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
@@ -41,8 +40,12 @@ interface BookButtonProps {
   venueName: string | null;
 }
 
-const WAIVER_TEXT =
-  "I understand that participating in drop-in sports sessions involves physical activity and inherent risk of injury. I voluntarily assume all risks associated with participation and release Aspire Sports, its partners, and staff from liability for any injury, loss, or damage arising from my participation. I confirm that I am physically fit to participate and have no medical conditions that would prevent safe participation.";
+// NOTE — no waiver here by design ("sign before you PLAY, not before you
+// pay"): first-week ads data showed the pre-payment waiver dialog cost
+// pickup conversions. The waiver is captured AFTER payment on the booking
+// confirmation surface (see SessionDetail's waiver card), with email,
+// dashboard, and host-roster backstops. Guests provide only the contact
+// details the charge/receipt/account require.
 
 export function BookButton({
   sessionId,
@@ -56,11 +59,11 @@ export function BookButton({
   venueName,
 }: BookButtonProps) {
   const [busy, setBusy] = useState(false);
-  const [showWaiver, setShowWaiver] = useState(false);
-  const [waiverAccepted, setWaiverAccepted] = useState(false);
-  const [waiverName, setWaiverName] = useState("");
-  // Paid sessions: after the waiver dialog, the inline deferred card form
-  // renders in place of the Book button (no redirect to Stripe).
+  // Guest-only minimal step: email + first/last name (needed for the
+  // charge/receipt/account). Signed-in players skip straight past it.
+  const [showGuestDetails, setShowGuestDetails] = useState(false);
+  // Paid sessions: the inline deferred card form renders in place of the
+  // Book button (no redirect to Stripe).
   const [showPayment, setShowPayment] = useState(false);
 
   // Guest-mode contact fields — drop-ins are impulse purchases, so
@@ -72,7 +75,7 @@ export function BookButton({
   const [guestEmail, setGuestEmail] = useState("");
 
   // Referral attribution (?src=host-share, etc.) — captured once on mount so
-  // it survives whatever the waiver dialog does to the URL/history. Threaded
+  // it survives whatever the dialog does to the URL/history. Threaded
   // into the booking POST body for both the free path and the paid intent
   // creation; sanitizeReferralSource is the actual allow-list, applied
   // server-side before it ever reaches the booking row.
@@ -158,8 +161,6 @@ export function BookButton({
     isAuthenticated
       ? {
           sessionId,
-          waiverAccepted: true,
-          waiverName: waiverName.trim(),
           ...(referralSrc ? { src: referralSrc } : {}),
         }
       : {
@@ -167,8 +168,6 @@ export function BookButton({
           firstName: guestFirstName.trim(),
           lastName: guestLastName.trim(),
           email: guestEmail.trim(),
-          waiverAccepted: true,
-          waiverName: waiverName.trim(),
           ...(referralSrc ? { src: referralSrc } : {}),
         };
 
@@ -187,27 +186,21 @@ export function BookButton({
     window.location.href = url.toString();
   };
 
-  /** Free-booking navigation (unchanged from the pre-inline flow). */
-  const goAfterFreeBooking = (wasNewUser: boolean) => {
-    if (isAuthenticated || wasNewUser) {
-      // New guest users get a session cookie from the endpoint, so the
-      // dashboard works for them too.
-      window.location.href = "/dashboard/bookings?booking=success";
-    } else {
-      // Existing account booked as guest — no session cookie was set
-      // (account-takeover prevention). Point them at sign-in.
-      window.location.href = `/dropin/${sessionId}?booking=success`;
-    }
+  /** Free-booking navigation. Free bookings now land back on the session
+   *  page's confirmed surface (not the dashboard) so the post-payment
+   *  waiver card is the very next thing the player sees. */
+  const goAfterFreeBooking = () => {
+    window.location.href = `/dropin/${sessionId}?booking=success`;
   };
 
   /**
    * Legacy submit path: free bookings, waitlist joins, and the hosted
    * Checkout redirect fallback. Paid inline bookings never come through
-   * here — they go dialog → inline card form → createIntent.
+   * here — they go straight to the inline card form → createIntent.
    */
   const submitBooking = async () => {
     setBusy(true);
-    setShowWaiver(false);
+    setShowGuestDetails(false);
     try {
       const res = await fetch(endpoint, {
         method: "POST",
@@ -232,7 +225,7 @@ export function BookButton({
           ? `Booked — Team ${json.teamAssignment}`
           : "Booked",
       );
-      goAfterFreeBooking(json.wasNewUser === true);
+      goAfterFreeBooking();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Network error");
     } finally {
@@ -276,7 +269,7 @@ export function BookButton({
         // kicked in since page load) and booked immediately — no payment to
         // collect. Navigate to success; the pending promise is abandoned by
         // the page unload.
-        goAfterFreeBooking(json.wasNewUser === true);
+        goAfterFreeBooking();
         return new Promise<CreateIntentResult>(() => {});
       }
       if (typeof json.clientSecret !== "string") {
@@ -290,16 +283,24 @@ export function BookButton({
     }
   };
 
-  const openWaiver = () => {
-    setWaiverAccepted(false);
-    setWaiverName("");
-    setShowWaiver(true);
+  /** Book click. Signed-in players go straight to the inline card form (or
+   *  straight to booking for free/legacy paths) — no dialog at all. Guests
+   *  get the one minimal contact step first. */
+  const handleBookClick = () => {
+    if (!isAuthenticated) {
+      setShowGuestDetails(true);
+      return;
+    }
+    if (paidInline) {
+      setShowPayment(true);
+      return;
+    }
+    void submitBooking();
   };
 
-  const confirmWaiver = () => {
+  const confirmGuestDetails = () => {
     if (paidInline) {
-      // Waiver + contact details are captured; reveal the inline card form.
-      setShowWaiver(false);
+      setShowGuestDetails(false);
       setShowPayment(true);
       return;
     }
@@ -307,13 +308,9 @@ export function BookButton({
   };
 
   const guestFieldsValid =
-    isAuthenticated ||
-    (guestFirstName.trim().length > 0 &&
-      guestLastName.trim().length > 0 &&
-      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestEmail.trim()));
-
-  const canConfirm =
-    waiverAccepted && waiverName.trim().length > 0 && guestFieldsValid;
+    guestFirstName.trim().length > 0 &&
+    guestLastName.trim().length > 0 &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestEmail.trim());
 
   const label = isFull
     ? "Join waitlist"
@@ -356,109 +353,86 @@ export function BookButton({
 
   return (
     <>
-      <Button onClick={openWaiver} disabled={busy} size="lg" className="w-full">
+      <Button
+        onClick={handleBookClick}
+        disabled={busy}
+        size="lg"
+        className="w-full"
+      >
         {busy ? "Working…" : label}
       </Button>
 
-      <Dialog open={showWaiver} onOpenChange={setShowWaiver}>
+      <Dialog open={showGuestDetails} onOpenChange={setShowGuestDetails}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Waiver &amp; Assumption of Risk</DialogTitle>
+            <DialogTitle>Almost in — who's playing?</DialogTitle>
           </DialogHeader>
 
-          {!isAuthenticated && (
-            <div className="space-y-3 pb-2">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="guest-first-name" className="text-sm">
-                    First name
-                  </Label>
-                  <Input
-                    id="guest-first-name"
-                    value={guestFirstName}
-                    onChange={(e) => setGuestFirstName(e.target.value)}
-                    autoComplete="given-name"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="guest-last-name" className="text-sm">
-                    Last name
-                  </Label>
-                  <Input
-                    id="guest-last-name"
-                    value={guestLastName}
-                    onChange={(e) => setGuestLastName(e.target.value)}
-                    autoComplete="family-name"
-                  />
-                </div>
-              </div>
+          <div className="space-y-3 pb-2">
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="guest-email" className="text-sm">
-                  Email
+                <Label htmlFor="guest-first-name" className="text-sm">
+                  First name
                 </Label>
                 <Input
-                  id="guest-email"
-                  type="email"
-                  value={guestEmail}
-                  onChange={(e) => setGuestEmail(e.target.value)}
-                  autoComplete="email"
-                  placeholder="you@email.com"
+                  id="guest-first-name"
+                  value={guestFirstName}
+                  onChange={(e) => setGuestFirstName(e.target.value)}
+                  autoComplete="given-name"
                 />
               </div>
-              <p className="text-xs text-ink-faint">
-                Already have an account?{" "}
-                <a
-                  href={`/signin?redirect=/dropin/${sessionId}`}
-                  className="underline hover:text-ink-2"
-                >
-                  Sign in
-                </a>{" "}
-                to use your saved details and member pricing.
-              </p>
+              <div className="space-y-1.5">
+                <Label htmlFor="guest-last-name" className="text-sm">
+                  Last name
+                </Label>
+                <Input
+                  id="guest-last-name"
+                  value={guestLastName}
+                  onChange={(e) => setGuestLastName(e.target.value)}
+                  autoComplete="family-name"
+                />
+              </div>
             </div>
-          )}
-
-          <p className="text-sm text-ink-2 leading-relaxed">{WAIVER_TEXT}</p>
-
-          <div className="space-y-4 pt-2">
-            <div className="flex items-start gap-3">
-              <Checkbox
-                id="waiver-accept"
-                checked={waiverAccepted}
-                onCheckedChange={(checked) =>
-                  setWaiverAccepted(checked === true)
-                }
-              />
-              <Label
-                htmlFor="waiver-accept"
-                className="text-sm leading-snug cursor-pointer"
-              >
-                I accept the waiver above
-              </Label>
-            </div>
-
             <div className="space-y-1.5">
-              <Label htmlFor="waiver-name" className="text-sm">
-                Full name (typed signature)
+              <Label htmlFor="guest-email" className="text-sm">
+                Email
               </Label>
               <Input
-                id="waiver-name"
-                value={waiverName}
-                onChange={(e) => setWaiverName(e.target.value)}
-                placeholder="Your full name"
+                id="guest-email"
+                type="email"
+                value={guestEmail}
+                onChange={(e) => setGuestEmail(e.target.value)}
+                autoComplete="email"
+                placeholder="you@email.com"
               />
+              <p className="text-xs text-ink-faint">
+                For your receipt and booking details.
+              </p>
             </div>
+            <p className="text-xs text-ink-faint">
+              Already have an account?{" "}
+              <a
+                href={`/signin?redirect=/dropin/${sessionId}`}
+                className="underline hover:text-ink-2"
+              >
+                Sign in
+              </a>{" "}
+              to use your saved details and member pricing.
+            </p>
           </div>
 
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setShowWaiver(false)}
+              onClick={() => setShowGuestDetails(false)}
               disabled={busy}
             >
               Cancel
             </Button>
-            <Button onClick={confirmWaiver} disabled={!canConfirm || busy}>
+            <Button
+              onClick={confirmGuestDetails}
+              disabled={!guestFieldsValid || busy}
+            >
               {busy
                 ? "Working…"
                 : paidInline

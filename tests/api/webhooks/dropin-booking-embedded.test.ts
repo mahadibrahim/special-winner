@@ -19,7 +19,12 @@ function makeEmbeddedBookingIntent(o: {
   dropInSessionId: string;
   userId: string;
   amountCents: number;
+  /** Omit the waiver metadata (empty-string wire encoding) — the current
+   *  sign-before-you-play producers, which defer the waiver to after
+   *  payment. Default true = legacy producer shape with a signature. */
+  withWaiver?: boolean;
 }): Stripe.PaymentIntent {
+  const withWaiver = o.withWaiver ?? true;
   return {
     id: o.paymentIntentId,
     object: "payment_intent",
@@ -35,8 +40,8 @@ function makeEmbeddedBookingIntent(o: {
       payment_method: "card_online",
       membership_id: "",
       organization_id: "00000000-0000-0000-0000-000000000000",
-      waiver_signed_at: new Date().toISOString(),
-      waiver_name: "Embedded Booker",
+      waiver_signed_at: withWaiver ? new Date().toISOString() : "",
+      waiver_name: withWaiver ? "Embedded Booker" : "",
       referral_source: "",
       brand: "aspire",
     },
@@ -83,6 +88,34 @@ describe("handleDropInBookingPayment (dropin_booking_embedded)", () => {
     expect(rows[0].paymentMethod).toBe("card_online");
     expect(rows[0].waiverSigned).toBe(true);
     expect(rows[0].waiverSignedBy).toBe("Embedded Booker");
+  });
+
+  it("creates an UNSIGNED confirmed booking when waiver metadata is absent (sign-before-you-play)", async () => {
+    const ctx = await createTestDropInSession({ capacity: 14 });
+    const user = await insertTestUser();
+
+    const result = await handleDropInBookingPayment(
+      makeEmbeddedBookingIntent({
+        paymentIntentId: `pi_test_${Math.random().toString(36).slice(2)}`,
+        dropInSessionId: ctx.sessionId,
+        userId: user.id,
+        amountCents: 1500,
+        withWaiver: false,
+      }),
+    );
+
+    expect(result.status).toBe("processed");
+
+    const rows = await getDb()
+      .select()
+      .from(dropInBookings)
+      .where(eq(dropInBookings.sessionId, ctx.sessionId));
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].status).toBe("confirmed");
+    expect(rows[0].waiverSigned).toBe(false);
+    expect(rows[0].waiverSignedAt).toBeNull();
+    expect(rows[0].waiverSignedBy).toBeNull();
   });
 
   it("is idempotent on double delivery — one booking row, second delivery skipped", async () => {

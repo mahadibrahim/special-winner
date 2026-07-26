@@ -3,11 +3,16 @@
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
+import { toast } from "sonner";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import { useBrandId } from "@/lib/hooks/use-brand-id";
 import { deriveDropInSuccessPhase } from "@/lib/dropin/success-phase";
+import { DROPIN_WAIVER_TEXT } from "@/lib/dropin/waiver-text";
 import { BookButton } from "./BookButton";
 
 interface DetailResponse {
@@ -41,6 +46,10 @@ interface DetailResponse {
   resolvedAmountCents: number | null;
   resolvedPaymentMethod: string | null;
   alreadyBookedStatus: string | null;
+  /** The resolved booking's id + waiver state — null when no booking was
+   *  resolved. Powers the post-payment "sign the waiver" card. */
+  bookingId: string | null;
+  bookingWaiverSigned: boolean | null;
   host: { firstName: string; photoUrl: string | null; bio: string | null } | null;
 }
 
@@ -58,6 +67,104 @@ interface SessionDetailProps {
   paymentIntentId?: string | null;
   /** Server-threaded STRIPE_PUBLISHABLE_KEY for the inline payment form. */
   stripePublishableKey: string;
+}
+
+/**
+ * Post-payment waiver capture — "sign before you PLAY, not before you pay".
+ * Shown on the session page whenever the visitor's resolved booking hasn't
+ * signed yet (fresh booking-confirmed surface, a return visit, the email's
+ * sign-the-waiver link, or the dashboard's Sign waiver CTA). SOFT block:
+ * nothing anywhere refuses a booking or check-in over an unsigned waiver.
+ */
+function WaiverCard({
+  bookingId,
+  paymentIntentId,
+  onSigned,
+}: {
+  bookingId: string;
+  /** Guest capability token — lets a buyer with no login session sign. */
+  paymentIntentId: string | null;
+  onSigned: () => void;
+}) {
+  const [accepted, setAccepted] = useState(false);
+  const [name, setName] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const submit = async () => {
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/dropin/bookings/${bookingId}/waiver`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          waiverName: name.trim(),
+          ...(paymentIntentId ? { paymentIntentId } : {}),
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(
+          typeof json.error === "string" ? json.error : "Could not save waiver",
+        );
+        return;
+      }
+      onSigned();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Network error");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-5 space-y-4">
+      <div>
+        <h2 className="font-semibold text-ink">
+          One more step before you play: sign the waiver
+        </h2>
+        <p className="mt-1 text-sm text-ink-2">
+          Takes ten seconds — do it now and you're straight onto the field at
+          check-in.
+        </p>
+      </div>
+
+      <p className="text-sm text-ink-2 leading-relaxed">{DROPIN_WAIVER_TEXT}</p>
+
+      <div className="flex items-start gap-3">
+        <Checkbox
+          id="waiver-accept"
+          checked={accepted}
+          onCheckedChange={(checked) => setAccepted(checked === true)}
+        />
+        <Label
+          htmlFor="waiver-accept"
+          className="text-sm leading-snug cursor-pointer"
+        >
+          I accept the waiver above
+        </Label>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label htmlFor="waiver-name" className="text-sm">
+          Full name (typed signature)
+        </Label>
+        <Input
+          id="waiver-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Your full name"
+        />
+      </div>
+
+      <Button
+        onClick={() => void submit()}
+        disabled={!accepted || name.trim().length === 0 || submitting}
+        className="w-full sm:w-auto"
+      >
+        {submitting ? "Saving…" : "Sign waiver"}
+      </Button>
+    </div>
+  );
 }
 
 function fmtDate(iso: string): string {
@@ -92,6 +199,9 @@ export default function SessionDetail({
   // auto-advanced — the dashboard is auth-gated, so it'd dump them on /signin.
   const [redirectIn, setRedirectIn] = useState<number | null>(null);
   const [stayHere, setStayHere] = useState(false);
+  // Waiver just captured on this page view — flips the card to its signed
+  // confirmation state without refetching.
+  const [waiverJustSigned, setWaiverJustSigned] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -153,6 +263,10 @@ export default function SessionDetail({
     if (!data || stayHere || bannerKind !== "success" || !isAuthenticated) {
       return;
     }
+    // Never glide away from an unsigned waiver — the sign-the-waiver card is
+    // the whole point of this surface now. (Signing it here doesn't restart
+    // the countdown; the player already chose to engage with this page.)
+    if (data.bookingWaiverSigned === false) return;
     const phase = deriveDropInSuccessPhase({
       bannerKind,
       bookingStatus: data.alreadyBookedStatus,
@@ -190,6 +304,14 @@ export default function SessionDetail({
   });
   const finalizing =
     successPhase === "finalizing" || successPhase === "finalizing-timed-out";
+
+  // Post-payment waiver capture: shown for any resolved, confirmed booking
+  // that hasn't signed yet — fresh success surface, a return visit, or the
+  // email backstop link (which carries ?payment_intent for guests).
+  const waiverPending =
+    data.bookingId !== null &&
+    data.bookingWaiverSigned === false &&
+    data.alreadyBookedStatus === "confirmed";
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -229,6 +351,22 @@ export default function SessionDetail({
       {bannerKind === "cancelled" && (
         <div className="rounded-lg border border-cream-3 bg-cream-2 px-4 py-3 text-ink-2">
           Checkout was cancelled. Your spot was not reserved.
+        </div>
+      )}
+
+      {waiverPending && !waiverJustSigned && (
+        <WaiverCard
+          bookingId={data.bookingId!}
+          paymentIntentId={paymentIntentId ?? null}
+          onSigned={() => setWaiverJustSigned(true)}
+        />
+      )}
+      {waiverPending && waiverJustSigned && (
+        <div
+          className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-900"
+          data-waiver-signed
+        >
+          <p className="font-medium">Waiver signed ✓ — see you out there.</p>
         </div>
       )}
 

@@ -38,7 +38,7 @@ test.describe("Drop-in inline payment (test-mode card)", () => {
     }
   });
 
-  test("guest pays inline with 4242 and sees Booking confirmed — no redirect to Stripe", async ({
+  test("guest pays inline with 4242, sees Booking confirmed, then signs the waiver post-pay", async ({
     page,
   }) => {
     test.skip(!sessionId, "no paid bookable drop-in session fixture found");
@@ -46,21 +46,21 @@ test.describe("Drop-in inline payment (test-mode card)", () => {
     await page.goto(`/dropin/${sessionId}`, { waitUntil: "domcontentloaded" });
     await waitForHydration(page);
 
-    // Book — opens the waiver dialog (guest variant collects email + name).
+    // Book — opens the minimal guest details dialog (email + name ONLY; the
+    // waiver moved AFTER payment — "sign before you PLAY, not before you pay").
     await page.getByRole("button", { name: /^book — \$/i }).click();
 
     const unique = `dropin-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    // Anonymous booker: the dialog collects email + waiver + typed name. Wait
-    // for the dialog to mount fully before filling (a short visibility probe
-    // here raced the dialog animation and silently skipped the email, leaving
-    // Continue disabled forever).
+    // Wait for the dialog to mount fully before filling (a short visibility
+    // probe here raced the dialog animation and silently skipped the email,
+    // leaving Continue disabled forever).
     const emailInput = page.getByPlaceholder("you@email.com");
     await emailInput.waitFor({ state: "visible", timeout: 10_000 });
     await emailInput.fill(`${unique}@test.example`);
     await page.locator("#guest-first-name").fill("Dropin");
     await page.locator("#guest-last-name").fill("Verifier");
-    await page.locator("#waiver-accept").click();
-    await page.locator("#waiver-name").fill("Dropin Verifier");
+    // No waiver checkbox/signature pre-pay — the dialog is contact-only.
+    await expect(page.locator("#waiver-accept")).toHaveCount(0);
     const continueBtn = page.getByRole("button", { name: /continue to payment/i });
     await expect(continueBtn).toBeEnabled({ timeout: 10_000 });
     await continueBtn.click();
@@ -110,5 +110,22 @@ test.describe("Drop-in inline payment (test-mode card)", () => {
     // both the confirmed and finalizing banners are honest success surfaces).
     await expect(confirmedBanner).toBeVisible({ timeout: 60_000 });
     expect(page.url()).toContain("booking=success");
+
+    // Post-payment waiver capture — the confirmed surface shows the
+    // sign-the-waiver card once the webhook-inserted booking resolves
+    // (the page polls; the card can trail the banner by a beat).
+    const waiverAccept = page.locator("#waiver-accept");
+    await waiverAccept.waitFor({ state: "visible", timeout: 60_000 });
+    await waiverAccept.click();
+    await page.locator("#waiver-name").fill("Dropin Verifier");
+    const signBtn = page.getByRole("button", { name: /^sign waiver$/i });
+    await expect(signBtn).toBeEnabled({ timeout: 10_000 });
+    await signBtn.click();
+
+    // Signed confirmation state replaces the card.
+    await expect(page.locator("[data-waiver-signed]")).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.getByText(/Waiver signed/i)).toBeVisible();
   });
 });
