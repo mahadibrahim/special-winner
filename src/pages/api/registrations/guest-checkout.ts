@@ -276,6 +276,13 @@ export const POST: APIRoute = async (context) => {
               }
             }
           }
+          // Failure telemetry — the guest path had none, which let a checkout-
+          // blocking bug (StripeIdempotencyError on resumed retries) lose two
+          // real customers invisibly in launch week while the authed path's
+          // checkout_create_failed made the same bug visible. Mirrors that
+          // event's role; `stage` + `code` say where and why.
+          posthog.capture({ distinctId: phClientId || userRow.id, event: "guest_checkout_failed", properties: { $session_id: phSessionId, stage: "registration", code: err.code, status: err.status, message: err.message, season_id: seasonId, brand, user_id: userRow.id } });
+          await flushPostHog();
           return new Response(
             JSON.stringify(
               err.code
@@ -433,6 +440,11 @@ export const POST: APIRoute = async (context) => {
         );
       } catch (err) {
         if (err instanceof CheckoutError) {
+          // See the registration-stage capture above — same visibility rule
+          // for Stripe-checkout-stage failures (this is the branch the
+          // idempotency-drift 500s surfaced through).
+          posthog.capture({ distinctId: phClientId || userRow.id, event: "guest_checkout_failed", properties: { $session_id: phSessionId, stage: "stripe_checkout", status: err.status, message: err.message, season_id: seasonId, registration_id: regResult.registration.id, brand, user_id: userRow.id } });
+          await flushPostHog();
           return new Response(JSON.stringify({ error: err.message }), {
             status: err.status,
             headers: { "Content-Type": "application/json" },
@@ -539,6 +551,21 @@ export const POST: APIRoute = async (context) => {
     });
   } catch (error) {
     console.error("Error in guest-checkout:", error);
+    try {
+      // Unhandled-stage failure telemetry (fail-soft; never mask the 500).
+      posthog.capture({
+        distinctId: phClientId || "guest-checkout-server",
+        event: "guest_checkout_failed",
+        properties: {
+          $session_id: phSessionId,
+          stage: "unhandled",
+          message: error instanceof Error ? error.message : String(error),
+        },
+      });
+      await flushPostHog();
+    } catch {
+      // telemetry must never change the response
+    }
     return new Response(JSON.stringify({ error: "Internal server error" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
