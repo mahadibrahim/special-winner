@@ -60,6 +60,7 @@ import { hostProfiles, hostGameReports } from "../schema/hosts";
 import { membershipTiers, memberships } from "../schema/memberships";
 import { merchStores } from "../schema/merch-stores";
 import { merchProducts, merchVariants } from "../schema/merch";
+import { merchBundles, merchBundleItems } from "../schema/merch-bundles";
 import { phoneOptIns } from "../schema/phone-verifications";
 import {
   skillDomains,
@@ -265,6 +266,13 @@ export const E2E_HOST_WRAPUP_SESSION_ID = "cc5be8dc-c19c-40ec-bf09-f4ff4dcca0de"
  */
 export const E2E_MERCH_UNLISTED_STORE_SLUG = "e2e-unlisted-team-store";
 export const E2E_MERCH_UNLISTED_STORE_TOKEN = "e2eunlistedstoretoken000000000000";
+
+/**
+ * Merch Phase 3d (Task 3.3) — a 2-component bundle in the same unlisted team
+ * store above, for tests/e2e/merch-bundles.spec.ts. Fixed slug so the spec
+ * can navigate to /shop/<store>/bundle/<slug> directly.
+ */
+export const E2E_MERCH_BUNDLE_SLUG = "e2e-team-kit";
 
 /**
  * Phase 2 training-walkthrough fixture accounts. Kept fully separate from
@@ -1268,6 +1276,135 @@ async function seedMerchUnlistedStoreFixture(db: Database, orgId: string, teamId
     });
   }
   console.log(`   ✓ Manual pickup product + variant under ${store.slug}`);
+}
+
+/**
+ * Merch Phase 3d (Task 3.3) — a 2-component bundle in the unlisted team
+ * store above (see E2E_MERCH_BUNDLE_SLUG), for tests/e2e/merch-bundles.spec.ts.
+ * Reuses the jersey product/variant seeded by seedMerchUnlistedStoreFixture
+ * as slot 1 and adds a second small manual pickup product ("shorts") as slot
+ * 2, so both components share the bundle's own "pickup" fulfillmentType.
+ * Idempotent: bundle looked up by (storeId, slug); bundle items checked by
+ * (bundleId, productId) and only inserted if missing, same pattern as the
+ * product/variant checks above. Must run after seedMerchUnlistedStoreFixture.
+ */
+async function seedMerchBundleFixture(db: Database, orgId: string) {
+  const [store] = await db
+    .select()
+    .from(merchStores)
+    .where(and(eq(merchStores.organizationId, orgId), eq(merchStores.slug, E2E_MERCH_UNLISTED_STORE_SLUG)))
+    .limit(1);
+  if (!store) {
+    console.log("   ⚠ Skipping merch bundle fixture — unlisted store fixture not found");
+    return;
+  }
+
+  const jerseySlug = "e2e-unlisted-store-jersey";
+  const [jersey] = await db
+    .select()
+    .from(merchProducts)
+    .where(and(eq(merchProducts.storeId, store.id), eq(merchProducts.slug, jerseySlug)))
+    .limit(1);
+  if (!jersey) {
+    console.log("   ⚠ Skipping merch bundle fixture — jersey component product not found");
+    return;
+  }
+
+  const shortsSlug = "e2e-unlisted-store-shorts";
+  let [shorts] = await db
+    .select()
+    .from(merchProducts)
+    .where(and(eq(merchProducts.storeId, store.id), eq(merchProducts.slug, shortsSlug)))
+    .limit(1);
+
+  if (!shorts) {
+    [shorts] = await db
+      .insert(merchProducts)
+      .values({
+        organizationId: orgId,
+        storeId: store.id,
+        source: "manual",
+        fulfillmentType: "pickup",
+        name: "E2E Unlisted Store Shorts",
+        slug: shortsSlug,
+        category: "shorts",
+        active: true,
+      })
+      .returning();
+  }
+
+  const [existingShortsVariant] = await db
+    .select()
+    .from(merchVariants)
+    .where(eq(merchVariants.productId, shorts.id))
+    .limit(1);
+
+  if (!existingShortsVariant) {
+    await db.insert(merchVariants).values({
+      productId: shorts.id,
+      name: "E2E Unlisted Store Shorts / M",
+      size: "M",
+      color: null,
+      retailPriceCents: 1500,
+      sortOrder: 0,
+    });
+  }
+
+  let [bundle] = await db
+    .select()
+    .from(merchBundles)
+    .where(and(eq(merchBundles.storeId, store.id), eq(merchBundles.slug, E2E_MERCH_BUNDLE_SLUG)))
+    .limit(1);
+
+  if (!bundle) {
+    [bundle] = await db
+      .insert(merchBundles)
+      .values({
+        organizationId: orgId,
+        storeId: store.id,
+        name: "E2E Team Kit Bundle",
+        slug: E2E_MERCH_BUNDLE_SLUG,
+        discountType: "percent",
+        discountValue: 10,
+        fulfillmentType: "pickup",
+        active: true,
+      })
+      .returning();
+  } else if (!bundle.active || bundle.fulfillmentType !== "pickup") {
+    // Keep the fixture stable across re-seeds even if a prior manual edit drifted it.
+    [bundle] = await db
+      .update(merchBundles)
+      .set({ active: true, fulfillmentType: "pickup", updatedAt: new Date() })
+      .where(eq(merchBundles.id, bundle.id))
+      .returning();
+  }
+
+  const existingItems = await db
+    .select({ productId: merchBundleItems.productId })
+    .from(merchBundleItems)
+    .where(eq(merchBundleItems.bundleId, bundle.id));
+  const existingProductIds = new Set(existingItems.map((i) => i.productId));
+
+  const desiredItems = [
+    { productId: jersey.id, label: "Jersey", sortOrder: 0 },
+    { productId: shorts.id, label: "Shorts", sortOrder: 1 },
+  ];
+  const itemsToInsert = desiredItems.filter((i) => !existingProductIds.has(i.productId));
+  if (itemsToInsert.length > 0) {
+    await db.insert(merchBundleItems).values(
+      itemsToInsert.map((i) => ({
+        bundleId: bundle.id,
+        productId: i.productId,
+        label: i.label,
+        quantity: 1,
+        sortOrder: i.sortOrder,
+      })),
+    );
+  }
+
+  console.log(
+    `   ✓ Bundle fixture: /shop/${store.slug}/bundle/${bundle.slug}?k=${store.shareToken}`,
+  );
 }
 
 async function seedE2ETests() {
@@ -4067,6 +4204,11 @@ async function seedE2ETests() {
   // Stage 19 — Merch unlisted-store fixture (Phase 3b fast-follow 2.4).
   console.log("\n19. Setting up merch unlisted-store fixture...");
   await seedMerchUnlistedStoreFixture(db, org.id, team.id);
+
+  // Stage 20 — Merch bundle fixture (Phase 3d Task 3.3). Must run after
+  // stage 19, which seeds the store + jersey component this bundle uses.
+  console.log("\n20. Setting up merch bundle fixture...");
+  await seedMerchBundleFixture(db, org.id);
 
   console.log("\n✅ E2E test data seeded successfully!");
   console.log("\n📋 Test Credentials:");
