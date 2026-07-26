@@ -2,8 +2,8 @@
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { stripe } from "@/lib/stripe/client";
 import { getDb } from "@/lib/db";
-import { and, eq } from "drizzle-orm";
-import { merchOrders, merchOrderItems } from "@/lib/db/schema";
+import { and, eq, inArray } from "drizzle-orm";
+import { merchOrders, merchOrderItems, merchDownloadGrants } from "@/lib/db/schema";
 
 const sessionId = Astro.url.searchParams.get("session_id");
 const org = Astro.locals.organization;
@@ -14,6 +14,20 @@ if (sessionId && org && stripe) {
   if (row) { order = row; items = await getDb().select().from(merchOrderItems).where(eq(merchOrderItems.orderId, row.id)); }
 }
 if (!order) return new Response("Not found", { status: 404 });
+
+// Digital downloads (merch Phase 3e): grants are keyed by order_item_id, so
+// only load them for this order's digital lines. Empty on physical-only
+// orders — the section below is skipped entirely.
+const digitalItemIds = items.filter((i) => i.fulfillmentType === "digital").map((i) => i.id);
+const grants = digitalItemIds.length
+  ? await getDb().select().from(merchDownloadGrants).where(inArray(merchDownloadGrants.orderItemId, digitalItemIds))
+  : [];
+const downloads = digitalItemIds.length
+  ? items
+      .filter((i) => i.fulfillmentType === "digital")
+      .map((i) => ({ item: i, grant: grants.find((g) => g.orderItemId === i.id) }))
+      .filter((d) => d.grant)
+  : [];
 
 let session = null;
 try { session = await stripe!.checkout.sessions.retrieve(sessionId!); } catch { /* fall back to order row */ }
@@ -40,6 +54,25 @@ const money = (c: number) => `$${(c / 100).toFixed(2)}`;
       <p class="flex justify-between"><span>Tax</span><span>{money(taxCents)}</span></p>
       <p class="flex justify-between font-medium"><span>Total</span><span>{money(totalCents)}</span></p>
     </div>
+    {downloads.length > 0 && (
+      <div class="mt-8 pt-6 border-t border-ink/10">
+        <h2 class="font-display text-lg text-ink mb-3">Your downloads</h2>
+        <ul class="list-none p-0 m-0 space-y-2">
+          {downloads.map(({ item, grant }) => (
+            <li class="flex justify-between items-center text-sm">
+              <span>{item.productName}</span>
+              <a
+                href={`/shop/download/${grant!.token}`}
+                class="text-sm font-medium text-ink underline hover:no-underline"
+              >
+                Download
+              </a>
+            </li>
+          ))}
+        </ul>
+        <p class="text-xs text-ink-muted mt-2">Download links are valid for 6 months from purchase.</p>
+      </div>
+    )}
     <a href="/shop" class="mt-8 inline-block text-sm text-ink-muted hover:text-ink">← Back to shop</a>
   </main>
 </BaseLayout>

@@ -116,11 +116,20 @@ export async function abortMultipartUpload(
 
 export async function getSignedGetUrl(
   key: string,
-  expiresInSeconds = 3600
+  opts: number | { expiresInSeconds?: number; responseContentDisposition?: string } = 3600
 ): Promise<string> {
+  // Back-compat: existing callers pass a plain number for the TTL.
+  const { expiresInSeconds = 3600, responseContentDisposition } =
+    typeof opts === "number" ? { expiresInSeconds: opts } : opts;
   return getSignedUrl(
     client(),
-    new GetObjectCommand({ Bucket: bucket(), Key: key }),
+    new GetObjectCommand({
+      Bucket: bucket(),
+      Key: key,
+      ...(responseContentDisposition
+        ? { ResponseContentDisposition: responseContentDisposition }
+        : {}),
+    }),
     { expiresIn: expiresInSeconds }
   );
 }
