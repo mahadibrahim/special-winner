@@ -1,22 +1,35 @@
 import { getDb } from "@/lib/db";
-import { eq } from "drizzle-orm";
-import { merchOrders, merchOrderItems } from "@/lib/db/schema";
+import { and, eq } from "drizzle-orm";
+import { merchOrders, merchOrderItems, merchVariants, merchProducts, merchDownloadGrants } from "@/lib/db/schema";
 import { createOrder } from "@/lib/printful/client";
 import { toPrintfulRecipient, buildPrintfulOrderItems, toPrintfulExternalId } from "@/lib/printful/order-mappers";
-import { sendMerchOrderConfirmation, sendMerchPickupConfirmation } from "./order-confirmation-email";
+import { sendMerchOrderConfirmation, sendMerchPickupConfirmation, sendMerchDigitalDelivery } from "./order-confirmation-email";
+import { generateDownloadToken, grantExpiryFrom } from "./digital-delivery";
 
 export class UnsupportedFulfillmentError extends Error {
   constructor(type: string) { super(`Unsupported fulfillment type: ${type}`); this.name = "UnsupportedFulfillmentError"; }
 }
 
 /** Phase 2 fulfills printful_pod; Phase 3 adds pickup (handled entirely
- * in-house — no Printful order is ever created for it) and self_shipped
+ * in-house — no Printful order is ever created for it), self_shipped
  * (handled entirely in-house by the org — no Printful order, no automatic
- * carrier submission; the admin ships it manually and marks it shipped).
- * Any other type (digital) is a future line that must not have reached
- * checkout yet — fail loudly rather than silently drop. */
+ * carrier submission; the admin ships it manually and marks it shipped),
+ * and digital (handled entirely in-house via download grants — no Printful
+ * order, see handleMerchOrderCompleted). Any other type is a future line
+ * that must not have reached checkout yet — fail loudly rather than
+ * silently drop. */
 export function assertSupportedFulfillment(types: string[]): void {
-  for (const t of types) if (t !== "printful_pod" && t !== "pickup" && t !== "self_shipped") throw new UnsupportedFulfillmentError(t);
+  for (const t of types) if (t !== "printful_pod" && t !== "pickup" && t !== "self_shipped" && t !== "digital") throw new UnsupportedFulfillmentError(t);
+}
+
+/** True if any line in the order is digital-fulfilled. */
+export function orderHasDigital(items: { fulfillmentType: string }[]): boolean {
+  return items.some((i) => i.fulfillmentType === "digital");
+}
+
+/** True if the order is non-empty AND every line is digital-fulfilled. */
+export function orderIsAllDigital(items: { fulfillmentType: string }[]): boolean {
+  return items.length > 0 && items.every((i) => i.fulfillmentType === "digital");
 }
 
 /** Pure dispatch: an order is a "pickup" order only if every line is
@@ -74,6 +87,44 @@ export async function fulfillMerchOrder(orderId: string): Promise<{ printfulOrde
   return { printfulOrderId };
 }
 
+/** Create a download grant for each digital order-item that doesn't already
+ * have one. Idempotent per order-item (belt-and-suspenders — the caller's
+ * top-level `status !== "pending"` guard already prevents a re-fired
+ * webhook from reaching this at all). Skips an item whose product has no
+ * digitalAssetKey configured — that shouldn't happen if the admin validated
+ * the product, but must not throw and abort the rest of fulfillment. */
+async function grantDigitalDownloads(db: ReturnType<typeof getDb>, orderId: string): Promise<void> {
+  const digitalItems = await db
+    .select({
+      id: merchOrderItems.id,
+      digitalAssetKey: merchProducts.digitalAssetKey,
+      digitalAssetName: merchProducts.digitalAssetName,
+    })
+    .from(merchOrderItems)
+    .innerJoin(merchVariants, eq(merchOrderItems.merchVariantId, merchVariants.id))
+    .innerJoin(merchProducts, eq(merchVariants.productId, merchProducts.id))
+    .where(and(eq(merchOrderItems.orderId, orderId), eq(merchOrderItems.fulfillmentType, "digital")));
+
+  for (const item of digitalItems) {
+    if (!item.digitalAssetKey || !item.digitalAssetName) {
+      console.warn(`[merch] digital order item ${item.id} (order ${orderId}) has no digital asset configured — skipping grant`);
+      continue;
+    }
+    const [existing] = await db.select({ id: merchDownloadGrants.id })
+      .from(merchDownloadGrants).where(eq(merchDownloadGrants.orderItemId, item.id)).limit(1);
+    if (existing) continue; // idempotent: grant already issued for this line
+
+    await db.insert(merchDownloadGrants).values({
+      orderItemId: item.id,
+      token: generateDownloadToken(),
+      assetKey: item.digitalAssetKey,
+      assetName: item.digitalAssetName,
+      expiresAt: grantExpiryFrom(new Date()),
+      downloadCount: 0,
+    });
+  }
+}
+
 /** Called from the Stripe webhook on checkout.session.completed / merch_order. */
 export async function handleMerchOrderCompleted(session: {
   id: string; metadata?: Record<string, string> | null;
@@ -97,9 +148,26 @@ export async function handleMerchOrderCompleted(session: {
     updatedAt: new Date(),
   }).where(eq(merchOrders.id, orderId));
 
-  // 2) dispatch on fulfillment plan — a pickup order never touches Printful
   const itemsForPlan = await db.select({ fulfillmentType: merchOrderItems.fulfillmentType })
     .from(merchOrderItems).where(eq(merchOrderItems.orderId, orderId));
+
+  // 2) digital fulfillment: generate download grants + send the delivery
+  // email BEFORE the physical dispatch below, so a mixed digital+physical
+  // order gets both (grants/email here, then the physical plan runs and
+  // sets the physical status). An all-digital order is fully handled here
+  // and returns early — it never touches the pickup/self_shipped/printful path.
+  if (orderHasDigital(itemsForPlan)) {
+    await grantDigitalDownloads(db, orderId);
+    try { await sendMerchDigitalDelivery(orderId); } catch (e) { console.error(`[merch] digital delivery email failed for ${orderId}:`, e); }
+
+    if (orderIsAllDigital(itemsForPlan)) {
+      await db.update(merchOrders).set({ status: "delivered", updatedAt: new Date() }).where(eq(merchOrders.id, orderId));
+      return { status: "processed-digital" };
+    }
+  }
+
+  // 3) dispatch on fulfillment plan for the remaining (physical) lines — a
+  // pickup order never touches Printful
   const plan = orderFulfillmentPlan(itemsForPlan);
 
   if (plan === "pickup") {
