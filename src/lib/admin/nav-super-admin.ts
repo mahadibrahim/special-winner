@@ -25,7 +25,6 @@ import {
   Tag,
   ShoppingBag,
   Store,
-  Shirt,
   Camera,
   UserCog,
   Tags,
@@ -110,7 +109,7 @@ export const SUPER_ADMIN_NAV: NavGroup[] = [
       { name: "Discount codes", href: "/admin/discount-codes", icon: Tag },
       { name: "Gear", href: "/admin/gear", icon: ShoppingBag },
       { name: "Shop", href: "/admin/merch", icon: Store },
-      { name: "Team kits", href: "/admin/merch/kits", icon: Shirt },
+      { name: "Stores", href: "/admin/merch/stores", icon: Store },
     ],
   },
   {

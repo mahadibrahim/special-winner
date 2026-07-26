@@ -3,13 +3,17 @@ import { requireOrgAdminAccess } from "@/lib/auth";
 import { isPrintfulConfigured, PrintfulApiError } from "@/lib/printful/client";
 import { syncMerchCatalog } from "@/lib/merch/sync";
 import { listActiveMerchProducts } from "@/lib/merch/catalog";
+import { getGeneralStore } from "@/lib/merch/stores";
 
 /** GET — current synced catalog + whether Printful is configured (for the admin panel). */
 export const GET: APIRoute = async (context) => {
   const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
-  const products = await listActiveMerchProducts(auth.organizationId);
+  // Printful sync always targets the org's general store (Slice 1 migration
+  // backfilled all pre-existing synced products onto it).
+  const generalStore = await getGeneralStore(auth.organizationId);
+  const products = generalStore ? await listActiveMerchProducts(generalStore.id) : [];
   return new Response(
     JSON.stringify({ configured: isPrintfulConfigured(), products }),
     { status: 200, headers: { "Content-Type": "application/json" } },
@@ -29,7 +33,8 @@ export const POST: APIRoute = async (context) => {
   }
 
   try {
-    const result = await syncMerchCatalog(auth.organizationId);
+    const orgName = context.locals.organization?.name ?? "Aspire Sports";
+    const result = await syncMerchCatalog(auth.organizationId, orgName);
     return new Response(JSON.stringify(result), {
       status: 200,
       headers: { "Content-Type": "application/json" },

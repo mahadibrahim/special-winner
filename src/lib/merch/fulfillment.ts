@@ -3,16 +3,26 @@ import { eq } from "drizzle-orm";
 import { merchOrders, merchOrderItems } from "@/lib/db/schema";
 import { createOrder } from "@/lib/printful/client";
 import { toPrintfulRecipient, buildPrintfulOrderItems, toPrintfulExternalId } from "@/lib/printful/order-mappers";
-import { sendMerchOrderConfirmation } from "./order-confirmation-email";
+import { sendMerchOrderConfirmation, sendMerchPickupConfirmation } from "./order-confirmation-email";
 
 export class UnsupportedFulfillmentError extends Error {
   constructor(type: string) { super(`Unsupported fulfillment type: ${type}`); this.name = "UnsupportedFulfillmentError"; }
 }
 
-/** Phase 2 only fulfills printful_pod. Any other type is a Phase-3 line that
- * must not have reached checkout yet — fail loudly rather than silently drop. */
+/** Phase 2 fulfills printful_pod; Phase 3 adds pickup (handled entirely
+ * in-house — no Printful order is ever created for it). Any other type
+ * (self_shipped, digital) is a future line that must not have reached
+ * checkout yet — fail loudly rather than silently drop. */
 export function assertSupportedFulfillment(types: string[]): void {
-  for (const t of types) if (t !== "printful_pod") throw new UnsupportedFulfillmentError(t);
+  for (const t of types) if (t !== "printful_pod" && t !== "pickup") throw new UnsupportedFulfillmentError(t);
+}
+
+/** Pure dispatch: an order is a "pickup" order only if every line in it is
+ * pickup-fulfilled. Mixed or all-printful orders go through the existing
+ * Printful path. Empty items defaults to "printful" (the pre-existing
+ * behavior — fulfillMerchOrder already throws on empty items). */
+export function orderFulfillmentPlan(items: { fulfillmentType: string }[]): "pickup" | "printful" {
+  return items.length > 0 && items.every((i) => i.fulfillmentType === "pickup") ? "pickup" : "printful";
 }
 
 export async function fulfillMerchOrder(orderId: string): Promise<{ printfulOrderId: string }> {
@@ -31,9 +41,16 @@ export async function fulfillMerchOrder(orderId: string): Promise<{ printfulOrde
   if (items.length === 0) throw new Error(`merch order ${orderId} has no items to fulfill`);
   assertSupportedFulfillment(items.map((i) => i.fulfillmentType));
 
+  // A mixed order (some printful_pod, some pickup) only submits the
+  // printful-fulfilled lines to Printful — pickup lines never have a
+  // printfulSyncVariantId and are handled entirely in-house.
+  const printfulItems = items.filter(
+    (i): i is typeof i & { printfulSyncVariantId: string } => i.printfulSyncVariantId !== null,
+  );
+
   const result = await createOrder({
     recipient: toPrintfulRecipient(order.shippingAddress),
-    items: buildPrintfulOrderItems(items.map((i) => ({ printfulSyncVariantId: i.printfulSyncVariantId, quantity: i.quantity }))),
+    items: buildPrintfulOrderItems(printfulItems.map((i) => ({ printfulSyncVariantId: i.printfulSyncVariantId, quantity: i.quantity }))),
     external_id: toPrintfulExternalId(order.id),
   }, { confirm: true });
 
@@ -65,7 +82,18 @@ export async function handleMerchOrderCompleted(session: {
     updatedAt: new Date(),
   }).where(eq(merchOrders.id, orderId));
 
-  // 2) fulfill — money-safe: a failure leaves the order 'paid' for retry, never lost
+  // 2) dispatch on fulfillment plan — a pickup order never touches Printful
+  const itemsForPlan = await db.select({ fulfillmentType: merchOrderItems.fulfillmentType })
+    .from(merchOrderItems).where(eq(merchOrderItems.orderId, orderId));
+  const plan = orderFulfillmentPlan(itemsForPlan);
+
+  if (plan === "pickup") {
+    await db.update(merchOrders).set({ status: "awaiting_pickup", updatedAt: new Date() }).where(eq(merchOrders.id, orderId));
+    try { await sendMerchPickupConfirmation(orderId); } catch (e) { console.error(`[merch] pickup email failed for ${orderId}:`, e); }
+    return { status: "processed-pickup" };
+  }
+
+  // printful path — money-safe: a failure leaves the order 'paid' for retry, never lost
   try {
     await fulfillMerchOrder(orderId);
   } catch (e) {
@@ -73,7 +101,7 @@ export async function handleMerchOrderCompleted(session: {
     // intentionally do not rethrow: payment is captured; the order is recorded.
   }
 
-  // 3) confirmation email (sendEmail respects the messaging mock/gate)
+  // confirmation email (sendEmail respects the messaging mock/gate)
   try { await sendMerchOrderConfirmation(orderId); } catch (e) { console.error(`[merch] confirmation email failed for ${orderId}:`, e); }
 
   return { status: "processed" };

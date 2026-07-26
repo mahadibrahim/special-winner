@@ -1,13 +1,13 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { merchProducts, merchVariants } from "@/lib/db/schema";
 import { requireOrgAdminAccess } from "@/lib/auth";
-import { getKitById } from "@/lib/merch/kits";
+import { getStoreById } from "@/lib/merch/stores";
 
 const productSchema = z.object({
-  kitId: z.string().uuid(),
+  storeId: z.string().uuid(),
   name: z.string().min(1).max(255),
   description: z.string().max(4000).optional().nullable(),
   category: z.enum(["jersey","shorts","socks","hoodie","t_shirt","hat","bag","accessory","other"]).default("jersey"),
@@ -25,17 +25,19 @@ export const GET: APIRoute = async (context) => {
   const auth = await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth.response;
   try {
-    const kitId = new URL(context.request.url).searchParams.get("kitId");
-    if (!kitId || !z.string().uuid().safeParse(kitId).success) return json({ error: "Valid kitId required" }, 400);
-    if (!(await getKitById(auth.organizationId, kitId))) return json({ error: "Not found" }, 404);
-    const products = await getDb().select().from(merchProducts).where(eq(merchProducts.kitId, kitId));
+    const storeId = new URL(context.request.url).searchParams.get("storeId");
+    if (!storeId || !z.string().uuid().safeParse(storeId).success) return json({ error: "Valid storeId required" }, 400);
+    if (!(await getStoreById(auth.organizationId, storeId))) return json({ error: "Not found" }, 404);
+    // manual-only: Printful-synced products are managed via the sync flow, not this editor
+    const products = await getDb().select().from(merchProducts)
+      .where(and(eq(merchProducts.storeId, storeId), eq(merchProducts.source, "manual")));
     const withVariants = await Promise.all(products.map(async (p) => ({
       ...p,
       variants: await getDb().select().from(merchVariants).where(eq(merchVariants.productId, p.id)),
     })));
     return json({ products: withVariants });
   } catch (error) {
-    console.error("Error fetching kit products:", error);
+    console.error("Error fetching store products:", error);
     return json({ error: "Something went wrong" }, 500);
   }
 };
@@ -46,19 +48,19 @@ export const POST: APIRoute = async (context) => {
   try {
     const parsed = productSchema.safeParse(await context.request.json().catch(() => null));
     if (!parsed.success) return json({ error: "Invalid", details: parsed.error.flatten() }, 400);
-    const kit = await getKitById(auth.organizationId, parsed.data.kitId);
-    if (!kit) return json({ error: "Kit not found" }, 404);
+    const store = await getStoreById(auth.organizationId, parsed.data.storeId);
+    if (!store) return json({ error: "Store not found" }, 404);
     const db = getDb();
     const d = parsed.data;
-    // slug unique per org — suffix the kit id fragment to avoid collisions across kits
-    const slug = `${slugify(d.name)}-${parsed.data.kitId.slice(0, 8)}`;
+    // slug unique per store — suffix the store id fragment for cross-store safety
+    const slug = `${slugify(d.name)}-${parsed.data.storeId.slice(0, 8)}`;
     const [product] = await db.transaction(async (tx) => {
       const [prod] = await tx.insert(merchProducts).values({
         organizationId: auth.organizationId,
         printfulSyncProductId: null,
         source: "manual",
         fulfillmentType: "pickup",
-        kitId: d.kitId,
+        storeId: d.storeId,
         name: d.name,
         slug,
         description: d.description ?? null,
@@ -82,7 +84,7 @@ export const POST: APIRoute = async (context) => {
     });
     return json({ productId: product.id }, 201);
   } catch (error) {
-    console.error("Error creating kit product:", error);
+    console.error("Error creating store product:", error);
     return json({ error: "Something went wrong" }, 500);
   }
 };
@@ -100,18 +102,22 @@ export const PUT: APIRoute = async (context) => {
 
     const db = getDb();
     const [existing] = await db.select().from(merchProducts).where(eq(merchProducts.id, id)).limit(1);
-    if (!existing || !existing.kitId) return json({ error: "Not found" }, 404);
-    // tenant isolation: the product's current kit must resolve inside the caller's org
-    if (!(await getKitById(auth.organizationId, existing.kitId))) return json({ error: "Not found" }, 404);
-    // if the request moves the product to a different kit, that target kit must also be in-org
-    const targetKit = await getKitById(auth.organizationId, d.kitId);
-    if (!targetKit) return json({ error: "Kit not found" }, 404);
+    if (!existing || !existing.storeId) return json({ error: "Not found" }, 404);
+    // tenant isolation: the product's current store must resolve inside the caller's org
+    if (!(await getStoreById(auth.organizationId, existing.storeId))) return json({ error: "Not found" }, 404);
+    // manual-only: never let this endpoint touch Printful-synced products
+    if (existing.source !== "manual") {
+      return json({ error: "Only manually-created products can be edited here." }, 400);
+    }
+    // if the request moves the product to a different store, that target store must also be in-org
+    const targetStore = await getStoreById(auth.organizationId, d.storeId);
+    if (!targetStore) return json({ error: "Store not found" }, 404);
 
-    const slug = d.name === existing.name ? existing.slug : `${slugify(d.name)}-${d.kitId.slice(0, 8)}`;
+    const slug = d.name === existing.name ? existing.slug : `${slugify(d.name)}-${d.storeId.slice(0, 8)}`;
 
     await db.transaction(async (tx) => {
       await tx.update(merchProducts).set({
-        kitId: d.kitId,
+        storeId: d.storeId,
         name: d.name,
         slug,
         description: d.description ?? null,
@@ -138,7 +144,7 @@ export const PUT: APIRoute = async (context) => {
 
     return json({ productId: id });
   } catch (error) {
-    console.error("Error updating kit product:", error);
+    console.error("Error updating store product:", error);
     return json({ error: "Something went wrong" }, 500);
   }
 };
@@ -152,15 +158,19 @@ export const DELETE: APIRoute = async (context) => {
 
     const db = getDb();
     const [existing] = await db.select().from(merchProducts).where(eq(merchProducts.id, id)).limit(1);
-    if (!existing || !existing.kitId) return json({ error: "Not found" }, 404);
-    // tenant isolation: the product's kit must resolve inside the caller's org
-    if (!(await getKitById(auth.organizationId, existing.kitId))) return json({ error: "Not found" }, 404);
+    if (!existing || !existing.storeId) return json({ error: "Not found" }, 404);
+    // tenant isolation: the product's store must resolve inside the caller's org
+    if (!(await getStoreById(auth.organizationId, existing.storeId))) return json({ error: "Not found" }, 404);
+    // manual-only: never let this endpoint touch Printful-synced products
+    if (existing.source !== "manual") {
+      return json({ error: "Only manually-created products can be edited here." }, 400);
+    }
 
     // cascades to merch_variants via the FK's onDelete: "cascade"
     await db.delete(merchProducts).where(eq(merchProducts.id, id));
     return json({ success: true });
   } catch (error) {
-    console.error("Error deleting kit product:", error);
+    console.error("Error deleting store product:", error);
     return json({ error: "Something went wrong" }, 500);
   }
 };

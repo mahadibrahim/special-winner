@@ -32,6 +32,8 @@ interface Props {
   bodyClass?: string;
   navigation?: boolean;
   footer?: boolean;
+  /** Set for pages that must not be indexed (e.g. unlisted merch stores). */
+  noindex?: boolean;
 }
 
 const {
@@ -44,6 +46,7 @@ const {
   bodyClass = "min-h-screen flex flex-col bg-cream text-ink antialiased",
   navigation = true,
   footer = true,
+  noindex = false,
 } = Astro.props;
 
 // Link-preview (og:*/twitter:*) tags need ABSOLUTE URLs or iMessage/WhatsApp
@@ -110,6 +113,7 @@ const navUser = resolveNavUser({
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content={description} />
+    {noindex && <meta name="robots" content="noindex" />}
     <meta property="og:title" content={brandedTitle} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />

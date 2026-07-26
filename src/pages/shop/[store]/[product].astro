@@ -1,0 +1,53 @@
+---
+// Per-store merch product detail — SSR by org + store slug + product slug.
+// Unlisted stores require ?k=<shareToken>, else 404; sets noindex.
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import ProductDetail from "@/components/shop/product-detail";
+import CartDrawer from "@/components/shop/cart-drawer";
+import { getStoreBySlug, storeWindowState } from "@/lib/merch/stores";
+import { getMerchProductBySlug } from "@/lib/merch/catalog";
+
+const { store: storeSlug, product: productSlug } = Astro.params;
+const org = Astro.locals.organization;
+if (!org || !storeSlug || !productSlug) return new Response("Not found", { status: 404 });
+
+const store = await getStoreBySlug(org.id, storeSlug);
+if (!store) return new Response("Not found", { status: 404 });
+
+const token = Astro.url.searchParams.get("k");
+if (store.visibility === "unlisted" && (!store.shareToken || store.shareToken !== token)) return new Response("Not found", { status: 404 });
+
+const data = await getMerchProductBySlug(store.id, productSlug);
+if (!data) return new Response("Not found", { status: 404 });
+
+const { product, variants } = data;
+const shoppable = store.active && storeWindowState(store, new Date()) === "open";
+const noindex = store.visibility === "unlisted";
+const tokenQS = store.visibility === "unlisted" ? `?k=${store.shareToken}` : "";
+const detailVariants = variants.map((v) => ({
+  id: v.id, size: v.size, color: v.color, retailPriceCents: v.retailPriceCents,
+  printfulSyncVariantId: v.printfulSyncVariantId,
+}));
+---
+<BaseLayout title={`${product.name} — ${store.name}`} description={product.description ?? `${product.name}.`} noindex={noindex}>
+  <main id="main-content" class="flex-1 max-w-[1080px] mx-auto w-full px-6 py-14">
+    <header class="flex items-center justify-between mb-8">
+      <a href={`/shop/${store.slug}${tokenQS}`} class="text-sm text-ink-muted hover:text-ink inline-block">← Back to {store.name}</a>
+      <CartDrawer client:load />
+    </header>
+    <ProductDetail
+      client:load
+      name={product.name}
+      description={product.description}
+      images={product.images ?? []}
+      variants={detailVariants}
+      slug={product.slug}
+      storeId={store.id}
+      storeSlug={store.slug}
+      shoppable={shoppable}
+      fulfillmentType={product.fulfillmentType}
+      personalization={product.personalization ?? null}
+      shareToken={store.visibility === "unlisted" ? store.shareToken : null}
+    />
+  </main>
+</BaseLayout>

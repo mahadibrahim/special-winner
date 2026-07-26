@@ -1,13 +1,14 @@
 "use client"
 
 import { useEffect, useState, useCallback, type KeyboardEvent } from "react"
-import { Plus, Pencil, Trash2, Loader2, X, ArrowLeft, Shirt } from "lucide-react"
+import { Plus, Pencil, Trash2, Loader2, X, ArrowLeft, Shirt, Copy, ClipboardList } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
   SelectContent,
@@ -59,9 +60,10 @@ interface MerchVariant {
   retailPriceCents: number
 }
 
-interface MerchKitProduct {
+interface MerchStoreProduct {
   id: string
   name: string
+  description: string | null
   category: Category
   images: { url: string; alt?: string }[] | null
   personalization: { name?: boolean; number?: boolean } | null
@@ -69,8 +71,17 @@ interface MerchKitProduct {
   variants: MerchVariant[]
 }
 
+interface StoreSummary {
+  id: string
+  name: string
+  slug: string
+  visibility: "public" | "unlisted"
+  shareToken: string | null
+}
+
 interface ProductFormState {
   name: string
+  description: string
   category: Category
   imageUrl: string
   priceDollars: string
@@ -83,6 +94,7 @@ interface ProductFormState {
 
 const EMPTY_FORM: ProductFormState = {
   name: "",
+  description: "",
   category: "jersey",
   imageUrl: "",
   priceDollars: "",
@@ -95,33 +107,42 @@ const EMPTY_FORM: ProductFormState = {
 
 const money = (c: number) => `$${(c / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })}`
 
-export function MerchKitEditor({ kitId }: { kitId: string }) {
+export function MerchStoreEditor({ storeId }: { storeId: string }) {
   useHydrationBeacon()
 
   const { confirm, dialog: confirmDialog } = useConfirmDialog()
 
-  const [products, setProducts] = useState<MerchKitProduct[]>([])
+  const [store, setStore] = useState<StoreSummary | null>(null)
+  const [products, setProducts] = useState<MerchStoreProduct[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [editingProduct, setEditingProduct] = useState<MerchKitProduct | null>(null)
+  const [editingProduct, setEditingProduct] = useState<MerchStoreProduct | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [formData, setFormData] = useState<ProductFormState>(EMPTY_FORM)
 
   const load = useCallback(async () => {
     setIsLoading(true)
     try {
-      const res = await fetch(`/api/admin/merch/kit-products?kitId=${kitId}`)
-      if (!res.ok) throw new Error("Failed to fetch products")
-      const data = await res.json()
-      setProducts(data.products ?? [])
+      const [storesRes, productsRes] = await Promise.all([
+        fetch("/api/admin/merch/stores"),
+        fetch(`/api/admin/merch/store-products?storeId=${storeId}`),
+      ])
+      if (storesRes.ok) {
+        const storesData = await storesRes.json()
+        const match = (storesData.stores ?? []).find((s: StoreSummary) => s.id === storeId)
+        setStore(match ?? null)
+      }
+      if (!productsRes.ok) throw new Error("Failed to fetch products")
+      const productsData = await productsRes.json()
+      setProducts(productsData.products ?? [])
     } catch (err) {
       console.error(err)
-      toast.error("Failed to load kit products")
+      toast.error("Failed to load store products")
     } finally {
       setIsLoading(false)
     }
-  }, [kitId])
+  }, [storeId])
 
   useEffect(() => {
     load()
@@ -134,11 +155,12 @@ export function MerchKitEditor({ kitId }: { kitId: string }) {
     setIsDialogOpen(true)
   }
 
-  function openEditDialog(product: MerchKitProduct) {
+  function openEditDialog(product: MerchStoreProduct) {
     setEditingProduct(product)
     const priceCents = product.variants[0]?.retailPriceCents ?? 0
     setFormData({
       name: product.name,
+      description: product.description ?? "",
       category: product.category,
       imageUrl: product.images?.[0]?.url ?? "",
       priceDollars: priceCents ? (priceCents / 100).toFixed(2) : "",
@@ -193,12 +215,13 @@ export function MerchKitEditor({ kitId }: { kitId: string }) {
 
     setIsSubmitting(true)
     try {
-      const url = "/api/admin/merch/kit-products"
+      const url = "/api/admin/merch/store-products"
       const method = editingProduct ? "PUT" : "POST"
       const body = {
         ...(editingProduct ? { id: editingProduct.id } : {}),
-        kitId,
+        storeId,
         name: formData.name,
+        description: formData.description || null,
         category: formData.category,
         imageUrl: formData.imageUrl || null,
         priceCents,
@@ -229,12 +252,12 @@ export function MerchKitEditor({ kitId }: { kitId: string }) {
     }
   }
 
-  async function handleDelete(product: MerchKitProduct) {
+  async function handleDelete(product: MerchStoreProduct) {
     const ok = await confirm({
       title: "Delete product?",
       description: (
         <>
-          Delete <strong>{product.name}</strong> from this kit? This cannot be undone.
+          Delete <strong>{product.name}</strong> from this store? This cannot be undone.
         </>
       ),
       confirmLabel: "Delete",
@@ -243,7 +266,7 @@ export function MerchKitEditor({ kitId }: { kitId: string }) {
     if (!ok) return
 
     try {
-      const response = await fetch(`/api/admin/merch/kit-products?id=${product.id}`, {
+      const response = await fetch(`/api/admin/merch/store-products?id=${product.id}`, {
         method: "DELETE",
       })
       const data = await response.json()
@@ -253,6 +276,14 @@ export function MerchKitEditor({ kitId }: { kitId: string }) {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to delete product")
     }
+  }
+
+  function copyShareLink() {
+    if (!store) return
+    const qs = store.visibility === "unlisted" && store.shareToken ? `?k=${store.shareToken}` : ""
+    const url = `${window.location.origin}/shop/${store.slug}${qs}`
+    navigator.clipboard.writeText(url)
+    toast.success("Share link copied")
   }
 
   if (isLoading) {
@@ -268,25 +299,41 @@ export function MerchKitEditor({ kitId }: { kitId: string }) {
       {confirmDialog}
       <div>
         <a
-          href="/admin/merch/kits"
+          href="/admin/merch/stores"
           className="text-sm text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
         >
-          <ArrowLeft className="h-3.5 w-3.5" /> Back to kits
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to stores
         </a>
       </div>
 
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Kit products</h1>
+          <h1 className="text-3xl font-bold text-gray-900">
+            {store ? `${store.name} — products` : "Store products"}
+          </h1>
           <p className="text-gray-600 mt-1">
-            Manual products (jerseys, hoodies, etc.) for this kit — sized, priced, and picked up
+            Manual products (jerseys, hoodies, etc.) for this store — sized, priced, and picked up
             on-site.
           </p>
         </div>
-        <Button onClick={openCreateDialog}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add product
-        </Button>
+        <div className="flex items-center gap-2">
+          {store && (
+            <Button variant="outline" onClick={copyShareLink}>
+              <Copy className="h-4 w-4 mr-2" />
+              Copy link
+            </Button>
+          )}
+          <Button variant="outline" asChild>
+            <a href={`/admin/merch/stores/${storeId}/orders`}>
+              <ClipboardList className="h-4 w-4 mr-2" />
+              Orders
+            </a>
+          </Button>
+          <Button onClick={openCreateDialog}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add product
+          </Button>
+        </div>
       </div>
 
       {products.length === 0 ? (
@@ -364,7 +411,7 @@ export function MerchKitEditor({ kitId }: { kitId: string }) {
           <DialogHeader>
             <DialogTitle>{editingProduct ? "Edit product" : "Add product"}</DialogTitle>
             <DialogDescription>
-              {editingProduct ? "Update this kit product" : "Add a manual product to this kit"}
+              {editingProduct ? "Update this store product" : "Add a manual product to this store"}
             </DialogDescription>
           </DialogHeader>
 
@@ -424,6 +471,19 @@ export function MerchKitEditor({ kitId }: { kitId: string }) {
                     required
                   />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="product-description">Description (optional)</Label>
+                <Textarea
+                  id="product-description"
+                  value={formData.description}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, description: e.target.value }))
+                  }
+                  placeholder="Home jersey, moisture-wicking fabric"
+                  rows={2}
+                />
               </div>
 
               <div className="space-y-2">
@@ -510,7 +570,7 @@ export function MerchKitEditor({ kitId }: { kitId: string }) {
                   }
                 />
                 <Label htmlFor="product-active" className="font-normal">
-                  Active (visible on the kit order page)
+                  Active (visible on the store order page)
                 </Label>
               </div>
             </div>

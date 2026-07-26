@@ -14,7 +14,7 @@ import { relations } from "drizzle-orm";
 import { organizations } from "./organizations";
 import { productCategoryEnum } from "./products";
 import { merchFulfillmentTypeEnum } from "./merch-orders";
-import { merchProductSourceEnum, merchTeamKits, type ProductPersonalization } from "./merch-team-kits";
+import { merchProductSourceEnum, merchStores, type ProductPersonalization } from "./merch-stores";
 
 export interface MerchImage {
   url: string;
@@ -39,7 +39,7 @@ export const merchProducts = pgTable(
     fulfillmentType: merchFulfillmentTypeEnum("fulfillment_type")
       .notNull()
       .default("printful_pod"),
-    kitId: uuid("kit_id").references(() => merchTeamKits.id, { onDelete: "cascade" }),
+    storeId: uuid("store_id").notNull().references(() => merchStores.id, { onDelete: "cascade" }),
     personalization: jsonb("personalization").$type<ProductPersonalization>(),
     name: varchar("name", { length: 255 }).notNull(),
     slug: varchar("slug", { length: 140 }).notNull(),
@@ -58,8 +58,8 @@ export const merchProducts = pgTable(
       t.organizationId,
       t.printfulSyncProductId,
     ),
-    uniqSlug: unique("uq_merch_products_org_slug").on(t.organizationId, t.slug),
-    orgActiveIdx: index("idx_merch_products_org_active").on(t.organizationId, t.active),
+    uniqSlug: unique("uq_merch_products_store_slug").on(t.storeId, t.slug),
+    storeActiveIdx: index("idx_merch_products_store_active").on(t.storeId, t.active),
   }),
 );
 
@@ -96,9 +96,9 @@ export const merchProductsRelations = relations(merchProducts, ({ one, many }) =
     references: [organizations.id],
   }),
   variants: many(merchVariants),
-  kit: one(merchTeamKits, {
-    fields: [merchProducts.kitId],
-    references: [merchTeamKits.id],
+  store: one(merchStores, {
+    fields: [merchProducts.storeId],
+    references: [merchStores.id],
   }),
 }));
 

@@ -5,6 +5,7 @@ import { relations } from "drizzle-orm";
 import { organizations } from "./organizations";
 import { users } from "./users";
 import { merchVariants } from "./merch";
+import { merchStores, type OrderItemPersonalization } from "./merch-stores";
 
 export const merchFulfillmentTypeEnum = pgEnum("merch_fulfillment_type", [
   "printful_pod",
@@ -20,6 +21,8 @@ export const merchOrderStatusEnum = pgEnum("merch_order_status", [
   "shipped",
   "cancelled",
   "failed",
+  "awaiting_pickup",
+  "collected",
 ]);
 
 export interface MerchShippingAddress {
@@ -39,6 +42,7 @@ export const merchOrders = pgTable(
     organizationId: uuid("organization_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
+    storeId: uuid("store_id").notNull().references(() => merchStores.id, { onDelete: "restrict" }),
     userId: uuid("user_id").notNull().references(() => users.id),
     email: varchar("email", { length: 255 }).notNull(),
     status: merchOrderStatusEnum("status").notNull().default("pending"),
@@ -79,7 +83,8 @@ export const merchOrderItems = pgTable(
     variantName: varchar("variant_name", { length: 255 }).notNull(),
     size: varchar("size", { length: 40 }),
     color: varchar("color", { length: 60 }),
-    printfulSyncVariantId: varchar("printful_sync_variant_id", { length: 64 }).notNull(),
+    printfulSyncVariantId: varchar("printful_sync_variant_id", { length: 64 }), // nullable: manual/pickup lines have none
+    personalization: jsonb("personalization").$type<OrderItemPersonalization>(),
     unitPriceCents: integer("unit_price_cents").notNull(),
     quantity: integer("quantity").notNull(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -93,6 +98,10 @@ export const merchOrdersRelations = relations(merchOrders, ({ one, many }) => ({
   organization: one(organizations, {
     fields: [merchOrders.organizationId],
     references: [organizations.id],
+  }),
+  store: one(merchStores, {
+    fields: [merchOrders.storeId],
+    references: [merchStores.id],
   }),
   items: many(merchOrderItems),
 }));

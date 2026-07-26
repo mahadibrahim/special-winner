@@ -33,15 +33,15 @@ export function primaryImageUrl(images: MerchImage[] | null): string | null {
   return images && images.length > 0 ? images[0].url : null;
 }
 
-/** Active products for an org, with a cover image + "from" price. */
+/** Active products for a store, with a cover image + "from" price. */
 export async function listActiveMerchProducts(
-  orgId: string,
+  storeId: string,
 ): Promise<MerchListItem[]> {
   const db = getDb();
   const products = await db
     .select()
     .from(merchProducts)
-    .where(and(eq(merchProducts.organizationId, orgId), eq(merchProducts.active, true)))
+    .where(and(eq(merchProducts.storeId, storeId), eq(merchProducts.active, true)))
     .orderBy(asc(merchProducts.sortOrder), asc(merchProducts.name));
 
   const items: MerchListItem[] = [];
@@ -62,9 +62,9 @@ export async function listActiveMerchProducts(
   return items;
 }
 
-/** One product (by org + slug) with its active variants; null if missing. */
+/** One product (by store + slug) with its active variants; null if missing. */
 export async function getMerchProductBySlug(
-  orgId: string,
+  storeId: string,
   slug: string,
 ): Promise<{ product: MerchProduct; variants: MerchVariant[] } | null> {
   const db = getDb();
@@ -73,7 +73,7 @@ export async function getMerchProductBySlug(
     .from(merchProducts)
     .where(
       and(
-        eq(merchProducts.organizationId, orgId),
+        eq(merchProducts.storeId, storeId),
         eq(merchProducts.slug, slug),
         eq(merchProducts.active, true),
       ),

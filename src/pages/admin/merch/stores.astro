@@ -2,20 +2,20 @@
 import BaseLayout from '../../../layouts/BaseLayout.astro';
 import { AdminLayout } from '../../../components/admin/admin-layout';
 import { getPrimaryRoleName } from "@/lib/auth";
-import { MerchKitsList } from '../../../components/admin/merch-kits-list';
+import { MerchStoresList } from '../../../components/admin/merch-stores-list';
 
 // Middleware guarantees user is an admin for /admin routes.
 const user = Astro.locals.user!;
 const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
 ---
 
-<BaseLayout title="Team kits — Admin — Aspire Sports" navigation={false} footer={false}>
+<BaseLayout title="Stores — Admin — Aspire Sports" navigation={false} footer={false}>
   <AdminLayout
     client:load
     role={primaryRole}
-    currentPath="/admin/merch/kits"
+    currentPath="/admin/merch/stores"
     user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
   >
-    <MerchKitsList client:load />
+    <MerchStoresList client:load />
   </AdminLayout>
 </BaseLayout>

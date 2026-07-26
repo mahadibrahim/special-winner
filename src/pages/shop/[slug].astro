@@ -1,41 +1,74 @@
 ---
-// Merch product detail — SSR by org + slug. 404s on unknown/inactive slug.
+// Store-or-legacy resolver.
+// - If :slug matches a merch_stores.slug -> render that store's product grid
+//   (unlisted stores require ?k=<shareToken>, else 404; sets noindex).
+// - Else, if :slug matches a legacy general-store product slug -> 301 to the
+//   canonical /shop/general/<slug> product-detail route.
+// - Else 404.
 import BaseLayout from "@/layouts/BaseLayout.astro";
-import ProductDetail from "@/components/shop/product-detail";
+import { EmptyState } from "@/components/ui/empty-state";
 import CartDrawer from "@/components/shop/cart-drawer";
-import { getMerchProductBySlug } from "@/lib/merch/catalog";
+import { getStoreBySlug, storeWindowState, getGeneralStore } from "@/lib/merch/stores";
+import { listActiveMerchProducts, getMerchProductBySlug } from "@/lib/merch/catalog";
 
 const { slug } = Astro.params;
 const org = Astro.locals.organization;
-const data = org && slug ? await getMerchProductBySlug(org.id, slug) : null;
+if (!org || !slug) return new Response("Not found", { status: 404 });
 
-if (!data) {
+const store = await getStoreBySlug(org.id, slug);
+
+// (a) legacy general-product slug -> canonical store-scoped URL
+if (!store) {
+  const general = await getGeneralStore(org.id);
+  if (general && (await getMerchProductBySlug(general.id, slug))) {
+    return Astro.redirect(`/shop/${general.slug}/${slug}`, 301);
+  }
   return new Response("Not found", { status: 404 });
 }
 
-const { product, variants } = data;
-const detailVariants = variants.map((v) => ({
-  id: v.id,
-  size: v.size,
-  color: v.color,
-  retailPriceCents: v.retailPriceCents,
-  printfulSyncVariantId: v.printfulSyncVariantId,
-}));
----
+// (b) unlisted gate
+const token = Astro.url.searchParams.get("k");
+if (store.visibility === "unlisted" && (!store.shareToken || store.shareToken !== token)) {
+  return new Response("Not found", { status: 404 });
+}
 
-<BaseLayout title={`${product.name} — Aspire Sports Shop`} description={product.description ?? `${product.name} — Aspire Sports gear.`}>
+const products = store.active ? await listActiveMerchProducts(store.id) : [];
+const windowState = storeWindowState(store, new Date());
+const noindex = store.visibility === "unlisted";
+const tokenQS = store.visibility === "unlisted" ? `?k=${store.shareToken}` : "";
+const money = (c: number) => `$${(c / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })}`;
+---
+<BaseLayout title={`${store.name} — Aspire Sports`} description={store.description ?? `${store.name} store.`} noindex={noindex}>
   <main id="main-content" class="flex-1 max-w-[1080px] mx-auto w-full px-6 py-14">
-    <header class="flex items-center justify-between mb-8">
-      <a href="/shop" class="text-sm text-ink-muted hover:text-ink inline-block">← Back to shop</a>
+    <header class="mb-10 flex items-start justify-between gap-6">
+      <div>
+        <h1 class="font-display text-4xl text-ink mb-3">{store.name}</h1>
+        {store.description && <p class="text-ink-muted">{store.description}</p>}
+        {windowState === "not_open" && <p class="text-ink-muted mt-2">Ordering hasn't opened yet.</p>}
+        {windowState === "closed" && <p class="text-ink-muted mt-2">Ordering has closed.</p>}
+        {store.scope === "team" && store.pickupLocation && (
+          <p class="text-ink-muted mt-2 text-sm">Pickup: {store.pickupLocation}</p>
+        )}
+      </div>
       <CartDrawer client:load />
     </header>
-    <ProductDetail
-      client:load
-      name={product.name}
-      description={product.description}
-      images={product.images ?? []}
-      variants={detailVariants}
-      slug={slug}
-    />
+    {products.length === 0 ? (
+      <EmptyState title="No items yet" description="Check back soon." />
+    ) : (
+      <ul class="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-10 list-none p-0 m-0">
+        {products.map((p) => (
+          <li>
+            <a href={`/shop/${store.slug}/${p.slug}${tokenQS}`} class="group block">
+              <div class="aspect-square bg-cream-dark overflow-hidden mb-3">
+                {p.imageUrl ? <img src={p.imageUrl} alt={p.name} loading="lazy" class="w-full h-full object-cover group-hover:scale-[1.03] transition-transform" />
+                  : <div class="w-full h-full grid place-items-center text-ink-muted text-sm">No image</div>}
+              </div>
+              <h2 class="text-sm font-medium text-ink">{p.name}</h2>
+              {p.fromCents !== null && <p class="text-sm text-ink-muted">from {money(p.fromCents)}</p>}
+            </a>
+          </li>
+        ))}
+      </ul>
+    )}
   </main>
 </BaseLayout>

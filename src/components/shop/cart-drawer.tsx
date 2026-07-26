@@ -27,19 +27,27 @@ export default function CartDrawer() {
             ) : (
               <>
                 <ul className="space-y-4 list-none p-0 m-0">
-                  {cart.items.map((i) => (
-                    <li key={i.variantId} className="flex gap-3 items-center">
-                      <div className="flex-1">
-                        <p className="text-sm text-ink">{i.name}</p>
-                        <p className="text-xs text-ink-muted">{[i.color, i.size].filter(Boolean).join(" · ")}</p>
-                        <p className="text-xs text-ink-muted">{money(i.unitPriceCents)} × {i.quantity}</p>
-                      </div>
-                      <input type="number" min={0} value={i.quantity}
-                        onChange={(e) => cart.setQty(i.variantId, Number(e.target.value))}
-                        className="w-14 border border-ink/30 px-2 py-1 text-sm" aria-label={`Quantity for ${i.name}`} />
-                      <button type="button" onClick={() => cart.remove(i.variantId)} className="text-xs text-ink-muted" aria-label={`Remove ${i.name}`}>✕</button>
-                    </li>
-                  ))}
+                  {cart.items.map((i) => {
+                    const lineKey = i.lineId ?? i.variantId;
+                    return (
+                      <li key={lineKey} className="flex gap-3 items-center">
+                        <div className="flex-1">
+                          <p className="text-sm text-ink">{i.name}</p>
+                          <p className="text-xs text-ink-muted">{[i.color, i.size].filter(Boolean).join(" · ")}</p>
+                          {i.personalization && (i.personalization.name || i.personalization.number) && (
+                            <p className="text-xs text-ink-muted">
+                              {[i.personalization.name, i.personalization.number].filter(Boolean).join(" #")}
+                            </p>
+                          )}
+                          <p className="text-xs text-ink-muted">{money(i.unitPriceCents)} × {i.quantity}</p>
+                        </div>
+                        <input type="number" min={0} value={i.quantity}
+                          onChange={(e) => cart.setQty(lineKey, Number(e.target.value))}
+                          className="w-14 border border-ink/30 px-2 py-1 text-sm" aria-label={`Quantity for ${i.name}`} />
+                        <button type="button" onClick={() => cart.remove(lineKey)} className="text-xs text-ink-muted" aria-label={`Remove ${i.name}`}>✕</button>
+                      </li>
+                    );
+                  })}
                 </ul>
                 <div className="mt-6 border-t border-ink/10 pt-4">
                   <p className="flex justify-between text-sm text-ink"><span>Subtotal</span><span>{money(subtotal)}</span></p>
