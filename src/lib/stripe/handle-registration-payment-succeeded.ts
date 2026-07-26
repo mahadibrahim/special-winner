@@ -364,6 +364,7 @@ export async function handleRegistrationPaymentSucceeded(
   capturePaymentCompleted({
     distinctId: registration.registeredByUserId,
     clientDistinctId: paymentIntent.metadata?.ph_distinct_id,
+    sessionId: paymentIntent.metadata?.ph_session_id,
     kind: "registration",
     amountCents: amountPaid,
     brand: normalizeBrand(paymentIntent.metadata?.brand),
