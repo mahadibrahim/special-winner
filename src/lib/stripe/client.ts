@@ -5,7 +5,10 @@
  * retries (and double-fired client requests) don't double-charge.
  *
  * Key conventions used across the codebase:
- *   - registration payment intent: `${registrationId}:pi:${category}:${amountCents}:v2`
+ *   - registration payment intent: `${registrationId}:pi:${category}:${amountCents}:v3:${paramsHash}`
+ *     (params fingerprint in the key: identical double-submits dedupe, but
+ *     attribution-metadata drift between attempts gets a fresh key instead
+ *     of a StripeIdempotencyError — see createPaymentIntent)
  *   - connect registration PI:     `${registrationId}:connect-pi:${category}:${amountCents}:v2`
  *   - refund:                      `${registrationId}:refund:${amountCents}`
  *   - connect account create:      `${organizationId}:connect-account`
@@ -19,6 +22,7 @@
  * cache when the parameter shape changes across deploys.
  */
 import Stripe from "stripe";
+import { createHash } from "node:crypto";
 import {
   computeSurchargeCents,
   type PaymentMethodCategory,
@@ -119,14 +123,23 @@ export async function createCheckoutSession({
       : { automatic_payment_methods: { enabled: true } }),
   };
 
+  // Fingerprint the FULL params into the key. Stripe rejects a reused key
+  // whose params differ (StripeIdempotencyError), and the metadata carries
+  // per-request attribution riders that legitimately drift between attempts
+  // — fbclid is in the URL when the visitor lands from an ad but gone when
+  // they retry from ?payment=cancelled, and ph_session_id rotates on idle.
+  // That exact drift 502'd a real customer 11 times on 2026-07-25 before
+  // they got through. Hashing the params keeps true double-submits deduped
+  // (identical params → identical key) while any param change gets a fresh
+  // key — a duplicate unpaid PI is harmless, a blocked checkout is not.
+  const paramsFingerprint = createHash("sha256")
+    .update(JSON.stringify(params))
+    .digest("hex")
+    .slice(0, 12);
+
   try {
     const paymentIntent = await stripe.paymentIntents.create(params, {
-      // Idempotency key includes the method category and the
-      // surcharge-inclusive total so flipping bank↔card creates a fresh
-      // intent rather than colliding with a previous one. The :v2 suffix
-      // is a manual salt — bump when the request body shape changes
-      // across deploys for the same registration+category+total.
-      idempotencyKey: `${registrationId}:pi:${paymentMethodCategory ?? "auto"}:${totalCents}:v2`,
+      idempotencyKey: `${registrationId}:pi:${paymentMethodCategory ?? "auto"}:${totalCents}:v3:${paramsFingerprint}`,
     });
 
     if (!paymentIntent.client_secret) {
