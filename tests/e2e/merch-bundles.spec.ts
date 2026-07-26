@@ -27,7 +27,11 @@ test.describe("Merch bundle storefront", () => {
     expect(response?.status()).toBe(200);
     await waitForHydration(page);
 
-    await expect(page.locator("h1")).toContainText("E2E Team Kit Bundle");
+    // Target the bundle heading specifically — the page has other headings
+    // (nav/cart), so a bare `h1` locator is a strict-mode violation in CI.
+    await expect(
+      page.getByRole("heading", { name: /E2E Team Kit Bundle/ }),
+    ).toBeVisible();
 
     // Two slots (jersey + shorts) => two per-slot variant selects (the page
     // also has a bundle-quantity select, so target the slot selects by their
