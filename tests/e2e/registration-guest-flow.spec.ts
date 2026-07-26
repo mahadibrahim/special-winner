@@ -107,30 +107,13 @@ test.describe("Anonymous registration (guest checkout)", { tag: "@critical" }, (
 
     await page.getByRole("button", { name: /continue/i }).click();
 
-    // Step 3 — Payment: keep "Pay in Full", then commit to the free "Bank
-    // transfer" method. Selecting a method is the action that creates the
-    // registration + Stripe session and mounts the inline payment form — there
-    // is no separate "continue to payment" button anymore.
-    await page.getByRole("button", { name: /bank transfer/i }).click();
-
-    // Outcome: with embedded checkout, the contract is "Stripe Elements iframe mounted
-    // inline" instead of "navigated to checkout.stripe.com". Other valid outcomes:
-    // - Navigation to /dashboard (zero-amount discount path)
-    // - Error banner (Stripe not configured in this env)
-    //
-    // Strategy: wait up to 30s for any of the concrete outcome signals to appear.
-    // We first wait for the submit button to go into "Processing..." state so
-    // we know the click registered, then wait for resolution.
-    const startingLocator = page.getByText(/starting secure payment/i);
+    // Step 3 — Payment: card-only checkout renders the Stripe card form INLINE
+    // immediately — there is NO method-picker click. The registration row +
+    // PaymentIntent are created only on Pay (deferred), so simply reaching this
+    // step must mount the embedded Stripe Elements iframe. Wallets (Apple /
+    // Google Pay) ride on the same element; Link / ACH / Klarna are disabled
+    // account-wide.
     const errorBannerLocator = page.locator("[class*='destructive']");
-
-    // Wait for the "Starting secure payment…" state to appear (confirms the
-    // method click registered). It can resolve straight to the iframe, so this
-    // is best-effort.
-    await startingLocator.waitFor({ state: "visible", timeout: 10_000 }).catch(() => {
-      // Proceed anyway — might have already mounted the form or navigated.
-    });
-
     const stripeIframeLocator = page.locator('iframe[name^="__privateStripeFrame"]').first();
 
     await Promise.race([

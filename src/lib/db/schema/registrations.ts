@@ -31,6 +31,7 @@ export const paymentStatusEnum = pgEnum("payment_status", [
   "unpaid",
   "deposit_paid",
   "paid",
+  "failed",
   "partial_refund",
   "refunded",
 ]);

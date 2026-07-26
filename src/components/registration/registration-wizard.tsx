@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import {
   User,
   FileCheck,
@@ -29,10 +29,10 @@ import { recordConfirmedPayment } from "@/lib/registrations/payment-confirmation
 import { readGuestDraft, clearGuestDraft, stashGuestDraft } from "@/lib/registrations/guest-draft"
 import {
   trackRegistrationStepViewed,
-  trackRegistrationPaymentMethodSelected,
   type RegVariant,
   type RegFlow,
 } from "@/lib/analytics/events"
+import type { CreateIntentResult } from "./embedded-payment"
 
 interface Season {
   id: string
@@ -139,6 +139,10 @@ interface RegistrationWizardProps {
   /** Team name resolved alongside inviteeShareCents. Not yet consumed by
    *  wizard behavior (Task 5). */
   teamName?: string | null
+  /** Stripe publishable key, threaded from the Astro page's server env. The
+   *  deferred payment Element needs it at mount (the key is server-only
+   *  otherwise). */
+  stripePublishableKey: string
   /** Reports the live (step, stepCount) up to RegisterExperience so the
    *  context rail's progress bar tracks the wizard. */
   onStepChange?: (step: number, stepCount: number) => void
@@ -209,6 +213,7 @@ export default function RegistrationWizard({
   teamToken,
   inviteeShareCents,
   teamName,
+  stripePublishableKey,
   onStepChange,
 }: RegistrationWizardProps) {
   const isGuest = user === null
@@ -364,31 +369,31 @@ export default function RegistrationWizard({
   // needs it to record the client-confirmed payment signal (webhook-lag
   // bridge; see payment-confirmation-signal.ts).
   const [activeRegistrationId, setActiveRegistrationId] = useState<string | null>(null)
+  // Ref mirror of activeRegistrationId. In the deferred flow the id is set
+  // INSIDE createIntent, during the same Pay handler that then confirms and
+  // calls onSuccess — so handlePaymentSuccess's closure would still read the
+  // stale (null) state value. The ref is current immediately.
+  const activeRegistrationIdRef = useRef<string | null>(null)
+  const rememberActiveRegistration = (id: string | null) => {
+    activeRegistrationIdRef.current = id
+    setActiveRegistrationId(id)
+  }
 
   // ── Draft-restore state (authed only) ────────────────────────────────────
   // A saved draft surfaced on return; the user explicitly resumes or starts
   // over rather than having state silently reappear.
   const [restorable, setRestorable] = useState<WizardDraft | null>(null)
 
-  // Once the user commits to a payment method we create the registration with
-  // its chosen type, so the full/deposit option locks for the rest of the
-  // wizard (the row's amount is fixed; changing it would need a new flow).
-  const [paymentStarted, setPaymentStarted] = useState(false)
-
   // localStorage key for this user's in-progress draft of this season.
   const draftKey = user ? `aspire:reg:${seasonId}:${user.id}` : null
 
   // ── Embedded payment state ───────────────────────────────────────────────
-  const [paymentClientSecret, setPaymentClientSecret] = useState<string | null>(null)
-  const [paymentPublishableKey, setPaymentPublishableKey] = useState<string | null>(null)
+  // Card-only, deferred: the payment Element mounts immediately on the payment
+  // step and the registration row + PaymentIntent are created only on Pay (see
+  // createIntent below). paymentValueCents mirrors the server-resolved charge
+  // once created — the live amount the deferred form mounts with is computed in
+  // PaymentStep from the current option/discount/credit.
   const [paymentValueCents, setPaymentValueCents] = useState(0)
-  // Customer's choice of payment-method group. Drives both the displayed
-  // surcharge and the Stripe Checkout Session's payment_method_types.
-  // Defaults to "card" — the fastest path (Apple Pay / Google Pay / any
-  // card); the bank option stays one tap away for the fee-averse.
-  const [selectedPaymentCategory, setSelectedPaymentCategory] = useState<
-    "bank" | "card"
-  >("card")
   const [appliedSurchargeCents, setAppliedSurchargeCents] = useState(0)
   // The server's amountDueCents from the most recent submit (guest or authed
   // path) — stashed purely for the invite-share mismatch check below; never
@@ -990,109 +995,45 @@ export default function RegistrationWizard({
     // Bridge the webhook-lag window: the dashboard + nav read this signal to
     // present the (still pending/unpaid) registration as "Payment received —
     // confirming" instead of nagging for payment the customer just made.
-    if (activeRegistrationId) {
-      recordConfirmedPayment(activeRegistrationId, "succeeded")
+    const confirmedRegistrationId =
+      activeRegistrationIdRef.current ?? activeRegistrationId
+    if (confirmedRegistrationId) {
+      recordConfirmedPayment(confirmedRegistrationId, "succeeded")
     }
     clearDraft()
     setRegistrationComplete(true)
-    setPaymentClientSecret(null)
     setCurrentStep(stepNumberOf("confirm"))
   }
 
   const handlePaymentCancel = () => {
-    // Discard the in-flight Stripe session — the next Continue-to-Payment
-    // creates a fresh one. Orphaned sessions self-expire on Stripe's side.
-    setPaymentClientSecret(null)
-    setPaymentPublishableKey(null)
-    setPaymentValueCents(0)
-    setAppliedSurchargeCents(0)
-    setAppliedCreditCents(0)
+    // "Back" from the inline payment form returns to the previous wizard step.
+    // Nothing was created (deferred) unless the customer already clicked Pay,
+    // in which case any orphaned PaymentIntent self-expires on Stripe's side.
+    setCurrentStep((s) => Math.max(1, s - 1))
   }
 
-  const handleResumePayment = async () => {
+  const handleResumePayment = () => {
+    // The registration row already exists (a prior Pay-abandoned or failed
+    // attempt left it pending+unpaid). Finishing payment for an EXISTING
+    // registration lives on the dedicated pay-balance page — its card form
+    // mounts against that registration — so send the signed-in customer there
+    // rather than re-mounting a form in the wizard.
     if (!resumableRegistrationId) return
     setIsResumingPayment(true)
-    setError(null)
-    try {
-      const res = await fetch("/api/payments/create-checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          registrationId: resumableRegistrationId,
-          paymentMethodCategory: selectedPaymentCategory,
-          teamToken: teamToken ?? undefined,
-          // Captain-credit checkouts keep the math to one credit source —
-          // the deposit — so the displayed due can't drift from the charge.
-          applyAccountCredit: effectiveCaptainCredit ? false : applyAccountCredit,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        throw new Error(
-          parseApiError(data, "Failed to create checkout session"),
-        )
-      }
-      if (data.clientSecret) {
-        // Team-token branch precedes the deposit branch: a stale localStorage
-        // draft (paymentOption:"deposit" from an earlier solo browse of this
-        // season) must not force the deposit display on a team-invite resume
-        // — the server-resolved amount always wins once we have it.
-        const valueCents = effectiveCaptainCredit
-          ? effectiveCaptainCredit.dueCents
-          : teamToken != null && resumableAmountDueCents != null
-            ? resumableAmountDueCents
-            : paymentOption === "deposit" && depositValid(season!)
-              ? season!.depositCents!
-              : fullPriceCents(season!)
-        const baseAfterDiscount = appliedDiscount
-          ? valueCents - appliedDiscount.discountAmountCents
-          : valueCents
-        const creditCents = data.creditAppliedCents ?? 0
-        const baseAfterCredit = Math.max(0, baseAfterDiscount - creditCents)
-        const surchargeCents = data.surchargeCents ?? 0
-        const finalValueCents = baseAfterCredit + surchargeCents
-
-        setActiveRegistrationId(resumableRegistrationId)
-        setAppliedSurchargeCents(surchargeCents)
-        setAppliedCreditCents(creditCents)
-        setPaymentValueCents(finalValueCents)
-        setPaymentTypeForTracking(paymentOption === "deposit" && depositValid(season!) ? "deposit" : "full")
-        setPaymentPublishableKey(data.publishableKey)
-        setPaymentClientSecret(data.clientSecret)
-
-        const { trackBeginCheckout } = await import("@/lib/analytics/datalayer")
-        trackBeginCheckout(
-          {
-            id: season!.id,
-            name: `${season!.program.name} - ${season!.name}`,
-            category: season!.sport.name,
-            category2: season!.location.name,
-            priceCents: fullPriceCents(season!),
-          },
-          finalValueCents,
-          appliedDiscount?.code,
-        )
-        return
-      }
-      // No clientSecret + ok → discount zeroed the bill; treat as complete.
-      clearDraft()
-      setRegistrationComplete(true)
-      setCurrentStep(stepNumberOf("confirm"))
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to start payment")
-    } finally {
-      setIsResumingPayment(false)
-    }
+    window.location.href = `/dashboard/registrations/${resumableRegistrationId}/pay-balance`
   }
 
-  const handleSubmitGuestCheckout = async (categoryOverride?: "bank" | "card") => {
+  // Deferred create-on-Pay: called from the inline card form's Pay button
+  // (via createIntent). Creates the guest registration row + PaymentIntent and
+  // returns the new client secret, or an error string the form surfaces.
+  // Card-only (ACH is gone).
+  const handleSubmitGuestCheckout = async (): Promise<CreateIntentResult> => {
     // v2 (adult-locked) defers the waiver to the post-payment completion step,
     // so the signed-waiver guard only applies to v1.
-    if (!season) return
-    if (flowVariant === "v1" && (!waiverAccepted || !waiverSignature)) return
-    // The selected method is passed in directly because setState hasn't
-    // flushed yet when the method button fires this.
-    const category = categoryOverride ?? selectedPaymentCategory
+    if (!season) return { error: "This season is still loading — try again." }
+    if (flowVariant === "v1" && (!waiverAccepted || !waiverSignature))
+      return { error: "Please review and sign the waiver before paying." }
+    const category = "card" as const
     setIsSubmitting(true)
     setError(null)
     try {
@@ -1176,8 +1117,10 @@ export default function RegistrationWizard({
           // Friendly state instead of the generic error banner — see
           // `guestAlreadyRegistered` render branch below. Never paid: this
           // 409 fires before guest-checkout creates any Stripe PaymentIntent.
+          // The benign error string just stops the caller; the UI already
+          // switched to the friendly state.
           setGuestAlreadyRegistered(true)
-          return
+          return { error: "already_registered" }
         }
         throw new Error(parseApiError(data, "Failed to complete registration"))
       }
@@ -1200,12 +1143,10 @@ export default function RegistrationWizard({
         const surchargeCents = data.surchargeCents ?? 0
         const finalValueCents = baseAfterDiscount + surchargeCents
 
-        setActiveRegistrationId(data.registrationId ?? null)
+        rememberActiveRegistration(data.registrationId ?? null)
         setAppliedSurchargeCents(surchargeCents)
         setPaymentValueCents(finalValueCents)
         setPaymentTypeForTracking(paymentOption === "deposit" && depositValid(season!) ? "deposit" : "full")
-        setPaymentPublishableKey(data.publishableKey)
-        setPaymentClientSecret(data.clientSecret)
 
         const { trackBeginCheckout } = await import("@/lib/analytics/datalayer")
         trackBeginCheckout(
@@ -1219,19 +1160,24 @@ export default function RegistrationWizard({
           finalValueCents,
           appliedDiscount?.code,
         )
-        return
+        return { clientSecret: data.clientSecret }
       }
       if (data.paid) {
         window.location.href = `/dashboard?registered=${data.registrationId}`
-        return
+        return { error: "redirecting" }
       }
       if (data.waitlisted) {
         window.location.href = `/dashboard?waitlisted=${data.registrationId}`
-        return
+        return { error: "redirecting" }
       }
-      setError("Unexpected response — please try again.")
+      const unexpected = "Unexpected response — please try again."
+      setError(unexpected)
+      return { error: unexpected }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to complete registration")
+      const message =
+        err instanceof Error ? err.message : "Failed to complete registration"
+      setError(message)
+      return { error: message }
     } finally {
       setIsSubmitting(false)
     }
@@ -1268,14 +1214,19 @@ export default function RegistrationWizard({
     })
   }
 
-  const handleSubmitRegistration = async (categoryOverride?: "bank" | "card") => {
-    if (!selectedKey) return
+  // Deferred create-on-Pay: called from the inline card form's Pay button
+  // (via createIntent) for signed-in registrants, and directly for the
+  // $0-due captain/discount finalize path. Creates the registration row +
+  // PaymentIntent and returns the new client secret, or an error string.
+  // Card-only (ACH is gone).
+  const handleSubmitRegistration = async (): Promise<CreateIntentResult> => {
+    if (!selectedKey) return { error: "Select who you're registering first." }
     // v2 (adult-locked) has no pre-payment agreements step, so the waiver is
     // signed after payment — only v1 requires the signed waiver here.
-    if (flowVariant === "v1" && (!waiverAccepted || !waiverSignature)) return
+    if (flowVariant === "v1" && (!waiverAccepted || !waiverSignature))
+      return { error: "Please review and sign the waiver before paying." }
 
-    // Passed in directly from the method button (setState hasn't flushed).
-    const category = categoryOverride ?? selectedPaymentCategory
+    const category = "card" as const
     setIsSubmitting(true)
     setError(null)
 
@@ -1337,7 +1288,7 @@ export default function RegistrationWizard({
                 : `${selectedDisplayName || "This player"} is already registered for this season.`,
             )
           }
-          return
+          return { error: "already_registered" }
         }
         throw new Error(parseApiError(data, "Failed to complete registration"))
       }
@@ -1396,13 +1347,11 @@ export default function RegistrationWizard({
           const surchargeCents = checkoutData.surchargeCents ?? 0
           const finalValueCents = baseAfterCredit + surchargeCents
 
-          setActiveRegistrationId(regData.registration.id)
+          rememberActiveRegistration(regData.registration.id)
           setAppliedSurchargeCents(surchargeCents)
           setAppliedCreditCents(creditCents)
           setPaymentValueCents(finalValueCents)
           setPaymentTypeForTracking(paymentOption === "deposit" && depositValid(season!) ? "deposit" : "full")
-          setPaymentPublishableKey(checkoutData.publishableKey)
-          setPaymentClientSecret(checkoutData.clientSecret)
 
           const { trackBeginCheckout } = await import("@/lib/analytics/datalayer")
           trackBeginCheckout(
@@ -1416,7 +1365,7 @@ export default function RegistrationWizard({
             finalValueCents,
             appliedDiscount?.code,
           )
-          return
+          return { clientSecret: checkoutData.clientSecret }
         }
       }
 
@@ -1425,29 +1374,29 @@ export default function RegistrationWizard({
       // CompletionForm (v2's post-payment waiver capture) gates on
       // `registrationId` being present, and zero-due registrations never
       // pass through the clientSecret branch above that normally sets it.
-      setActiveRegistrationId(regData.registration.id)
+      rememberActiveRegistration(regData.registration.id)
       clearDraft()
       setRegistrationComplete(true)
       setCurrentStep(stepNumberOf("confirm"))
+      // No payment was required (zero-due / waitlist); the wizard already
+      // advanced to the confirmation step. The benign error just stops the
+      // deferred caller — there's no client secret to confirm against.
+      return { error: "completed" }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to complete registration")
+      const message =
+        err instanceof Error ? err.message : "Failed to complete registration"
+      setError(message)
+      return { error: message }
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  // Selecting a payment method is the single commit action: lock the option,
-  // remember the choice, and create the registration + Stripe session for it.
-  const handleMethodSelected = (category: "bank" | "card") => {
-    trackRegistrationPaymentMethodSelected({ method: category })
-    setSelectedPaymentCategory(category)
-    setPaymentStarted(true)
-    if (isGuest) {
-      handleSubmitGuestCheckout(category)
-    } else {
-      handleSubmitRegistration(category)
-    }
-  }
+  // Deferred create-on-Pay callback handed to the inline card form: the
+  // registration row + PaymentIntent are created only when the customer clicks
+  // Pay, then confirmed against the returned client secret.
+  const createIntent = (): Promise<CreateIntentResult> =>
+    isGuest ? handleSubmitGuestCheckout() : handleSubmitRegistration()
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -2021,20 +1970,17 @@ export default function RegistrationWizard({
             seasonDepositCents={season.depositCents}
             allowDeposit={season.allowDeposit}
             paymentOption={paymentOption}
-            paymentMethodCategory={selectedPaymentCategory}
-            onMethodSelected={handleMethodSelected}
             captainCredit={effectiveCaptainCredit}
             teamShareCents={!effectiveCaptainCredit && teamToken ? inviteeShareCents ?? null : null}
             shareMismatch={shareMismatch}
             onCompleteZeroDue={() => {
-              // Zero-due captain registration: no method, no Stripe intent —
-              // the server finalizes the row as paid via the deposit credit.
-              setPaymentStarted(true)
-              handleSubmitRegistration()
+              // Zero-due (captain deposit credit or a discount that zeroes the
+              // bill): no card form, no Stripe intent — the server finalizes
+              // the row as paid. Fire-and-forget; the submit fns drive the
+              // redirect / confirmation-step transition themselves.
+              void (isGuest ? handleSubmitGuestCheckout() : handleSubmitRegistration())
             }}
             isCreatingSession={isSubmitting}
-            optionLocked={paymentStarted}
-            appliedSurchargeCents={appliedSurchargeCents}
             registrantName={
               isGuest
                 ? guestMode === "adult"
@@ -2056,9 +2002,8 @@ export default function RegistrationWizard({
             creditBalanceCents={creditBalanceCents}
             applyAccountCredit={applyAccountCredit}
             onApplyAccountCreditChange={setApplyAccountCredit}
-            appliedCreditCents={appliedCreditCents}
-            clientSecret={paymentClientSecret}
-            publishableKey={paymentPublishableKey}
+            createIntent={createIntent}
+            publishableKey={stripePublishableKey}
             seasonItem={
               season
                 ? {
@@ -2070,7 +2015,6 @@ export default function RegistrationWizard({
                   }
                 : null
             }
-            paymentValueCents={paymentValueCents}
             checkoutPaymentType={paymentTypeForTracking}
             paymentReturnUrl={`${window.location.origin}/payment/return`}
             onPaymentSuccess={handlePaymentSuccess}
@@ -2109,10 +2053,11 @@ export default function RegistrationWizard({
         )}
       </div>
 
-      {/* Navigation — on the payment step there's no forward button; selecting
-          a payment method is what advances the flow. Hidden entirely for the
-          already-registered friendly state, which has its own action. */}
-      {!guestAlreadyRegistered && stepName !== "confirm" && !paymentClientSecret && (
+      {/* Navigation — the payment step owns its own Back (the inline card form,
+          or the zero-due block), so the wizard-level nav is hidden there.
+          Hidden entirely for the already-registered friendly state, which has
+          its own action. */}
+      {!guestAlreadyRegistered && stepName !== "confirm" && stepName !== "payment" && (
         <div className="mt-6 flex items-center justify-between">
           <Button
             variant="ghost"

@@ -1,18 +1,20 @@
 /**
  * Card-payment surcharge calculation.
  *
- * Customers can pay by bank (ACH, no surcharge) or card-family
- * (card / wallet / BNPL, surcharge applied). The rate matches Stripe's
- * standard card processing fee so we recover the merchant cost rather
- * than profit on the fee.
+ * The surcharge is the single source of truth for the card processing fee
+ * passed through to customers. It feeds every paid flow — registration,
+ * drop-in, kiosk walk-in, and self-serve pay links — via
+ * `computeSurchargeCents`, and the frontend previews it in the order summary
+ * while the backend stays authoritative on the charged amount.
  *
- * Constants exported so the frontend can preview the surcharge in the
- * order summary while the backend is the source of truth on the
- * Checkout Session amount.
+ * 2026-07-25: surcharge ZEROED — we are absorbing card processing fees this
+ * round and revisiting pricing next round. Restore the rate + flat below to
+ * re-enable pass-through; the display rows are all guarded on `> 0`, so they
+ * reappear automatically.
  */
 
-export const CARD_SURCHARGE_RATE = 0.029; // 2.9%
-export const CARD_SURCHARGE_FLAT_CENTS = 30; // $0.30
+export const CARD_SURCHARGE_RATE = 0; // was 0.029 (2.9%)
+export const CARD_SURCHARGE_FLAT_CENTS = 0; // was 30 ($0.30)
 
 export type PaymentMethodCategory = "bank" | "card";
 

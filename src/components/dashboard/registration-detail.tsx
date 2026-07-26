@@ -231,6 +231,9 @@ export default function RegistrationDetail({ registrationId }: { registrationId:
     registration.paymentStatus === "unpaid" &&
     registration.amountDueCents > 0
 
+  const showPaymentFailed =
+    registration.paymentStatus === "failed" && registration.amountDueCents > 0
+
   const address = formatAddress(registration.location)
   const directionsQuery = encodeURIComponent(
     [
@@ -443,6 +446,18 @@ export default function RegistrationDetail({ registrationId }: { registrationId:
                   "Complete payment"
                 )}
               </Button>
+            )}
+
+            {showPaymentFailed && (
+              <div className="mt-5 p-4 rounded-xl border border-destructive/30 bg-destructive/5 text-destructive text-sm flex items-center justify-between gap-3">
+                <span>Your payment didn't go through. Your spot isn't confirmed yet.</span>
+                <a
+                  href={`/dashboard/registrations/${registrationId}/pay-balance`}
+                  className="shrink-0 rounded-md bg-primary px-3 py-1.5 text-primary-foreground"
+                >
+                  Complete payment
+                </a>
+              </div>
             )}
 
             <div className="mt-4 pt-4 border-t border-border">

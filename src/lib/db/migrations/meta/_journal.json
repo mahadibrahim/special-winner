@@ -775,15 +775,8 @@
     {
       "idx": 110,
       "version": "7",
-      "when": 1785009561811,
-      "tag": "0110_merch_stores",
-      "breakpoints": true
-    },
-    {
-      "idx": 111,
-      "version": "7",
-      "when": 1785016967793,
-      "tag": "0111_drop_merch_team_kits",
+      "when": 1785011140173,
+      "tag": "0110_oval_viper",
       "breakpoints": true
     }
   ]

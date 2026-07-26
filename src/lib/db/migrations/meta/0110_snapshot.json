@@ -1,5 +1,5 @@
 {
-  "id": "875643c7-31ff-4f1f-abba-43b8526facbf",
+  "id": "0745271a-06de-477b-9d8b-0166342f388a",
   "prevId": "8a81f02b-8a64-4fa3-9fa8-e89bad67f327",
   "version": "7",
   "dialect": "postgresql",
@@ -10956,140 +10956,6 @@
       },
       "isRLSEnabled": false
     },
-    "public.merch_team_kits": {
-      "name": "merch_team_kits",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "organization_id": {
-          "name": "organization_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "team_id": {
-          "name": "team_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "share_token": {
-          "name": "share_token",
-          "type": "varchar(40)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "order_opens_at": {
-          "name": "order_opens_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "order_closes_at": {
-          "name": "order_closes_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "pickup_location": {
-          "name": "pickup_location",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "active": {
-          "name": "active",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "idx_merch_team_kits_org": {
-          "name": "idx_merch_team_kits_org",
-          "columns": [
-            {
-              "expression": "organization_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "merch_team_kits_organization_id_organizations_id_fk": {
-          "name": "merch_team_kits_organization_id_organizations_id_fk",
-          "tableFrom": "merch_team_kits",
-          "tableTo": "organizations",
-          "columnsFrom": [
-            "organization_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "merch_team_kits_team_id_teams_id_fk": {
-          "name": "merch_team_kits_team_id_teams_id_fk",
-          "tableFrom": "merch_team_kits",
-          "tableTo": "teams",
-          "columnsFrom": [
-            "team_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "uq_merch_team_kits_token": {
-          "name": "uq_merch_team_kits_token",
-          "nullsNotDistinct": false,
-          "columns": [
-            "share_token"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
     "public.email_verification_tokens": {
       "name": "email_verification_tokens",
       "schema": "",
@@ -18089,12 +17955,6 @@
           "notNull": true,
           "default": "'printful_pod'"
         },
-        "store_id": {
-          "name": "store_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
         "kit_id": {
           "name": "kit_id",
           "type": "uuid",
@@ -18176,11 +18036,11 @@
         }
       },
       "indexes": {
-        "idx_merch_products_store_active": {
-          "name": "idx_merch_products_store_active",
+        "idx_merch_products_org_active": {
+          "name": "idx_merch_products_org_active",
           "columns": [
             {
-              "expression": "store_id",
+              "expression": "organization_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -18212,19 +18072,6 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "merch_products_store_id_merch_stores_id_fk": {
-          "name": "merch_products_store_id_merch_stores_id_fk",
-          "tableFrom": "merch_products",
-          "tableTo": "merch_stores",
-          "columnsFrom": [
-            "store_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
         "merch_products_kit_id_merch_team_kits_id_fk": {
           "name": "merch_products_kit_id_merch_team_kits_id_fk",
           "tableFrom": "merch_products",
@@ -18249,11 +18096,11 @@
             "printful_sync_product_id"
           ]
         },
-        "uq_merch_products_store_slug": {
-          "name": "uq_merch_products_store_slug",
+        "uq_merch_products_org_slug": {
+          "name": "uq_merch_products_org_slug",
           "nullsNotDistinct": false,
           "columns": [
-            "store_id",
+            "organization_id",
             "slug"
           ]
         }
@@ -18461,13 +18308,7 @@
           "name": "printful_sync_variant_id",
           "type": "varchar(64)",
           "primaryKey": false,
-          "notNull": false
-        },
-        "personalization": {
-          "name": "personalization",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "unit_price_cents": {
           "name": "unit_price_cents",
@@ -18553,12 +18394,6 @@
         },
         "organization_id": {
           "name": "organization_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "store_id": {
-          "name": "store_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
@@ -18691,19 +18526,6 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "merch_orders_store_id_merch_stores_id_fk": {
-          "name": "merch_orders_store_id_merch_stores_id_fk",
-          "tableFrom": "merch_orders",
-          "tableTo": "merch_stores",
-          "columnsFrom": [
-            "store_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "restrict",
-          "onUpdate": "no action"
-        },
         "merch_orders_user_id_users_id_fk": {
           "name": "merch_orders_user_id_users_id_fk",
           "tableFrom": "merch_orders",
@@ -18739,8 +18561,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.merch_stores": {
-      "name": "merch_stores",
+    "public.merch_team_kits": {
+      "name": "merch_team_kits",
       "schema": "",
       "columns": {
         "id": {
@@ -18756,18 +18578,11 @@
           "primaryKey": false,
           "notNull": true
         },
-        "scope": {
-          "name": "scope",
-          "type": "merch_store_scope",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
         "team_id": {
           "name": "team_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "name": {
           "name": "name",
@@ -18775,31 +18590,11 @@
           "primaryKey": false,
           "notNull": true
         },
-        "slug": {
-          "name": "slug",
-          "type": "varchar(140)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "visibility": {
-          "name": "visibility",
-          "type": "merch_store_visibility",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'public'"
-        },
         "share_token": {
           "name": "share_token",
           "type": "varchar(40)",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "order_opens_at": {
           "name": "order_opens_at",
@@ -18826,13 +18621,6 @@
           "notNull": true,
           "default": true
         },
-        "sort_order": {
-          "name": "sort_order",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -18849,17 +18637,11 @@
         }
       },
       "indexes": {
-        "idx_merch_stores_org_scope": {
-          "name": "idx_merch_stores_org_scope",
+        "idx_merch_team_kits_org": {
+          "name": "idx_merch_team_kits_org",
           "columns": [
             {
               "expression": "organization_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "scope",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -18872,9 +18654,9 @@
         }
       },
       "foreignKeys": {
-        "merch_stores_organization_id_organizations_id_fk": {
-          "name": "merch_stores_organization_id_organizations_id_fk",
-          "tableFrom": "merch_stores",
+        "merch_team_kits_organization_id_organizations_id_fk": {
+          "name": "merch_team_kits_organization_id_organizations_id_fk",
+          "tableFrom": "merch_team_kits",
           "tableTo": "organizations",
           "columnsFrom": [
             "organization_id"
@@ -18885,9 +18667,9 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "merch_stores_team_id_teams_id_fk": {
-          "name": "merch_stores_team_id_teams_id_fk",
-          "tableFrom": "merch_stores",
+        "merch_team_kits_team_id_teams_id_fk": {
+          "name": "merch_team_kits_team_id_teams_id_fk",
+          "tableFrom": "merch_team_kits",
           "tableTo": "teams",
           "columnsFrom": [
             "team_id"
@@ -18901,16 +18683,8 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "uq_merch_stores_org_slug": {
-          "name": "uq_merch_stores_org_slug",
-          "nullsNotDistinct": false,
-          "columns": [
-            "organization_id",
-            "slug"
-          ]
-        },
-        "uq_merch_stores_token": {
-          "name": "uq_merch_stores_token",
+        "uq_merch_team_kits_token": {
+          "name": "uq_merch_team_kits_token",
           "nullsNotDistinct": false,
           "columns": [
             "share_token"
@@ -24326,6 +24100,7 @@
         "unpaid",
         "deposit_paid",
         "paid",
+        "failed",
         "partial_refund",
         "refunded"
       ]
@@ -24554,9 +24329,7 @@
         "submitted",
         "shipped",
         "cancelled",
-        "failed",
-        "awaiting_pickup",
-        "collected"
+        "failed"
       ]
     },
     "public.merch_product_source": {
@@ -24565,23 +24338,6 @@
       "values": [
         "printful",
         "manual"
-      ]
-    },
-    "public.merch_store_scope": {
-      "name": "merch_store_scope",
-      "schema": "public",
-      "values": [
-        "general",
-        "league",
-        "team"
-      ]
-    },
-    "public.merch_store_visibility": {
-      "name": "merch_store_visibility",
-      "schema": "public",
-      "values": [
-        "public",
-        "unlisted"
       ]
     },
     "public.media_asset_status": {

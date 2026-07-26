@@ -18,6 +18,7 @@ export default function RegisterExperience({
   wasCancelled,
   teamToken,
   modeHint,
+  stripePublishableKey,
 }: {
   seasonId: string;
   user: AuthedUser;
@@ -27,6 +28,10 @@ export default function RegisterExperience({
   /** ?mode= from catalog cards ("individual" | "team") — skips ChooseMode
       when the visitor already picked on the card they clicked. */
   modeHint?: string | null;
+  /** Stripe publishable key, threaded from the Astro page's server env so the
+      deferred payment Element can mount on the client (the key is server-only
+      otherwise). */
+  stripePublishableKey: string;
 }) {
   useHydrationBeacon();
   const [season, setSeason] = useState<
@@ -200,6 +205,7 @@ export default function RegisterExperience({
         teamToken={teamToken}
         inviteeShareCents={viewerShareCents}
         teamName={teamName}
+        stripePublishableKey={stripePublishableKey}
         onStepChange={handleSoloStep}
       />
     </LeagueContextRail>
