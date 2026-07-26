@@ -1012,78 +1012,15 @@ export default function RegistrationWizard({
     setCurrentStep((s) => Math.max(1, s - 1))
   }
 
-  const handleResumePayment = async () => {
+  const handleResumePayment = () => {
+    // The registration row already exists (a prior Pay-abandoned or failed
+    // attempt left it pending+unpaid). Finishing payment for an EXISTING
+    // registration lives on the dedicated pay-balance page — its card form
+    // mounts against that registration — so send the signed-in customer there
+    // rather than re-mounting a form in the wizard.
     if (!resumableRegistrationId) return
     setIsResumingPayment(true)
-    setError(null)
-    try {
-      const res = await fetch("/api/payments/create-checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          registrationId: resumableRegistrationId,
-          paymentMethodCategory: "card",
-          teamToken: teamToken ?? undefined,
-          // Captain-credit checkouts keep the math to one credit source —
-          // the deposit — so the displayed due can't drift from the charge.
-          applyAccountCredit: effectiveCaptainCredit ? false : applyAccountCredit,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        throw new Error(
-          parseApiError(data, "Failed to create checkout session"),
-        )
-      }
-      if (data.clientSecret) {
-        // Team-token branch precedes the deposit branch: a stale localStorage
-        // draft (paymentOption:"deposit" from an earlier solo browse of this
-        // season) must not force the deposit display on a team-invite resume
-        // — the server-resolved amount always wins once we have it.
-        const valueCents = effectiveCaptainCredit
-          ? effectiveCaptainCredit.dueCents
-          : teamToken != null && resumableAmountDueCents != null
-            ? resumableAmountDueCents
-            : paymentOption === "deposit" && depositValid(season!)
-              ? season!.depositCents!
-              : fullPriceCents(season!)
-        const baseAfterDiscount = appliedDiscount
-          ? valueCents - appliedDiscount.discountAmountCents
-          : valueCents
-        const creditCents = data.creditAppliedCents ?? 0
-        const baseAfterCredit = Math.max(0, baseAfterDiscount - creditCents)
-        const surchargeCents = data.surchargeCents ?? 0
-        const finalValueCents = baseAfterCredit + surchargeCents
-
-        rememberActiveRegistration(resumableRegistrationId)
-        setAppliedSurchargeCents(surchargeCents)
-        setAppliedCreditCents(creditCents)
-        setPaymentValueCents(finalValueCents)
-        setPaymentTypeForTracking(paymentOption === "deposit" && depositValid(season!) ? "deposit" : "full")
-
-        const { trackBeginCheckout } = await import("@/lib/analytics/datalayer")
-        trackBeginCheckout(
-          {
-            id: season!.id,
-            name: `${season!.program.name} - ${season!.name}`,
-            category: season!.sport.name,
-            category2: season!.location.name,
-            priceCents: fullPriceCents(season!),
-          },
-          finalValueCents,
-          appliedDiscount?.code,
-        )
-        return
-      }
-      // No clientSecret + ok → discount zeroed the bill; treat as complete.
-      clearDraft()
-      setRegistrationComplete(true)
-      setCurrentStep(stepNumberOf("confirm"))
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to start payment")
-    } finally {
-      setIsResumingPayment(false)
-    }
+    window.location.href = `/dashboard/registrations/${resumableRegistrationId}/pay-balance`
   }
 
   // Deferred create-on-Pay: called from the inline card form's Pay button
