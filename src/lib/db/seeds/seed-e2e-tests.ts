@@ -1374,6 +1374,63 @@ async function seedMerchBookFixture(db: Database, orgId: string, teamId: string)
     });
   }
   console.log(`   ✓ Lulu POD book product + variant under ${store.slug}`);
+
+  // "One book listing, two formats" (merch Lulu phase, Task 12) — a digital
+  // sibling for the print guide above, linked via digitalCompanionId, for
+  // tests/e2e/merch-book-format-picker.spec.ts. Same idempotency rationale as
+  // the print product: looked up by slug (product) and by productId (variant).
+  const digitalProductSlug = "e2e-book-store-guide-digital";
+  let [digitalProduct] = await db
+    .select()
+    .from(merchProducts)
+    .where(and(eq(merchProducts.storeId, store.id), eq(merchProducts.slug, digitalProductSlug)))
+    .limit(1);
+
+  if (!digitalProduct) {
+    [digitalProduct] = await db
+      .insert(merchProducts)
+      .values({
+        organizationId: orgId,
+        storeId: store.id,
+        source: "manual",
+        fulfillmentType: "digital",
+        name: "E2E Print Guide (Digital)",
+        slug: digitalProductSlug,
+        category: "other",
+        digitalAssetKey: `merch-digital/${orgId}/e2e-guide.pdf`,
+        digitalAssetName: "e2e-guide.pdf",
+        active: true,
+      })
+      .returning();
+  }
+
+  const [existingDigitalVariant] = await db
+    .select()
+    .from(merchVariants)
+    .where(eq(merchVariants.productId, digitalProduct.id))
+    .limit(1);
+
+  if (!existingDigitalVariant) {
+    await db.insert(merchVariants).values({
+      productId: digitalProduct.id,
+      printfulSyncVariantId: null,
+      printfulVariantId: null,
+      name: "E2E Print Guide (Digital)",
+      size: null,
+      color: null,
+      sku: null,
+      retailPriceCents: 900,
+      sortOrder: 0,
+    });
+  }
+
+  if (product.digitalCompanionId !== digitalProduct.id) {
+    await db
+      .update(merchProducts)
+      .set({ digitalCompanionId: digitalProduct.id, updatedAt: new Date() })
+      .where(eq(merchProducts.id, product.id));
+  }
+  console.log(`   ✓ Digital companion product + variant, linked to the print guide`);
 }
 
 /**

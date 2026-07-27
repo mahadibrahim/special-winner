@@ -205,37 +205,27 @@ export default function ProductDetail({
         {companion && (
           <fieldset className="mt-6 mb-6 border-0 p-0 m-0">
             <legend className="text-sm font-medium text-ink mb-2">Format</legend>
-            <div role="radiogroup" aria-label="Format" className="flex gap-2 flex-wrap">
-              <label
-                className={`flex items-center gap-2 px-3 py-2 text-sm border cursor-pointer ${
+            <div className="flex gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setFormat("paperback")}
+                aria-pressed={format === "paperback"}
+                className={`px-3 py-2 text-sm border ${
                   format === "paperback" ? "border-ink bg-ink text-cream" : "border-ink/30 text-ink"
                 }`}
               >
-                <input
-                  type="radio"
-                  name="book-format"
-                  value="paperback"
-                  checked={format === "paperback"}
-                  onChange={() => setFormat("paperback")}
-                  className="sr-only"
-                />
                 Paperback{selected ? ` — ${money(selected.retailPriceCents)}` : ""}
-              </label>
-              <label
-                className={`flex items-center gap-2 px-3 py-2 text-sm border cursor-pointer ${
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormat("digital")}
+                aria-pressed={format === "digital"}
+                className={`px-3 py-2 text-sm border ${
                   format === "digital" ? "border-ink bg-ink text-cream" : "border-ink/30 text-ink"
                 }`}
               >
-                <input
-                  type="radio"
-                  name="book-format"
-                  value="digital"
-                  checked={format === "digital"}
-                  onChange={() => setFormat("digital")}
-                  className="sr-only"
-                />
                 Digital PDF — {money(companion.priceCents)}
-              </label>
+              </button>
             </div>
           </fieldset>
         )}
