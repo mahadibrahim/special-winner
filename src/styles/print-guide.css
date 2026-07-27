@@ -3,8 +3,68 @@
  * Aspire Sports Brand - Editorial aesthetic optimized for PDF generation
  */
 
-/* Typography imports - Geist for brand consistency, plus print-friendly serifs */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;0,8..60,700;1,8..60,400&display=swap');
+/* Typography — vendored STATIC (non-variable) fonts, not the Google Fonts
+ * css2 endpoint. Google's css2 serves Inter / Source Serif 4 as variable
+ * fonts, and Chromium's print-to-PDF pipeline embeds variable fonts as
+ * Type 3 glyph programs instead of proper TrueType/CID TrueType — a print
+ * quality risk and a Lulu file-normalizer warning risk. See the OFL.txt
+ * license file alongside each vendored family under public/fonts/print. */
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/print/inter/Inter-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/print/inter/Inter-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/print/inter/Inter-SemiBold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/print/inter/Inter-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/print/inter/Inter-ExtraBold.ttf') format('truetype');
+  font-weight: 800;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/print/inter/Inter-Italic.ttf') format('truetype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/print/inter/Inter-MediumItalic.ttf') format('truetype');
+  font-weight: 500;
+  font-style: italic;
+  font-display: block;
+}
+@font-face {
+  font-family: 'Source Serif 4';
+  src: url('/fonts/print/source-serif-4/SourceSerif4-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+}
 
 /* CSS Variables for print guides */
 :root {

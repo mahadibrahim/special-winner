@@ -53,19 +53,53 @@ for the rendered PDF**, falling back to the formula only when the API is unreach
 aren't configured. Both numbers are always printed, plus a match/mismatch note (0.01in tolerance) —
 so a formula-vs-API drift is visible on every run, not just this one.
 
-## Template content decisions
+## Template content decisions — "pitch geometry" (approved concept C)
 
-- **Front cover**: full-bleed sport-color background (`--{sport}-primary` / `--{sport}-dark` gradient,
-  same variables as `src/styles/print-guide.css`'s `.guide-{sport}` classes — hardcoded here as a
-  small hex map since this script runs outside the Astro/CSS pipeline; source cited in code comment),
-  book title + subtitle (from the same `book.meta` object the `.astro` page reads), and the Aspire
-  logo inside a white rounded chip (so the logo never clashes with a sport color that matches its own
-  ink, e.g. hockey's blue background against the logo's blue mark).
-- **Back cover**: white background, a short generic on-brand blurb (not book-specific — these are a
-  series), the Aspire logo (dark variant, no chip needed on white), and `aspiresportsohio.com`.
-- **Spine**: sport color only, no text, whenever `pages < 80` (Lulu's own guidance that spine text
-  is unreliable/illegible below that page count for 6×9 trade paperbacks). Above 80 pages this script
-  still renders color-only for now — spine text is a follow-up, not in scope for this pass.
+The first pass shipped a placeholder template (flat sport-color gradient, white back). Four cover
+concepts were then comped at 6×9in/300dpi (`pdfs/covers/concepts/concept-{a,b,c,d}.html`, rendered by
+`concepts/render.mjs`); the owner chose **concept C, "pitch geometry"**, and that comp is now the
+production template. Concepts B and D are cut/shelved.
+
+All art and type is authored in "design px" — 300dpi on the 6×9in **trim** canvas (1800×2700), the
+same coordinate space `concept-c.html` was drawn in, so the approved comp ports over 1:1 — and
+emitted as CSS inches, so the PDF stays vector. Safe area is 0.5in (150 design px) inside trim on
+every panel edge, including the spine seam.
+
+- **Front cover**: near-black sport-tinted ground (radial glow in the sport's primary over a
+  three-stop vertical ramp), Aspire logo top-left, sport/skill kicker top-right, accent-color
+  eyebrow (`EVIDENCE-BASED YOUTH DEVELOPMENT`), the title set as stacked lines each auto-fitted
+  flush to the 5in measure, subtitle, **author line (`MAHAD IBRAHIM`, letterspaced small caps
+  behind a short accent rule — deliberately subordinate to the subtitle)**, a measured ruler band,
+  and the tactical surface diagram: a top-down playing surface carrying a glowing numbered 5-node
+  chain (01→05 → `RELEASE`) into the goal, with dashed unchosen support options and a
+  `PASS LANE` / `SUPPORT OPTION` legend footer opposite `aspiresportsohio.com`.
+- **Title auto-fit**: every line is fitted to the same measure (the comp's signature move — line
+  length alone sets the size), then one shared per-line cap is solved by bisection against the
+  block's vertical budget. Long lines still hit the measure exactly; only lines that *want* to be
+  huge (a 4-letter word like `BALL`) get held back, so a 3-line title (`THE PATH TO / BETTER /
+  PASSING`) and a 4-line one (`… / BALL / HANDLING`) both land inside the same band.
+- **Sport parameterization** (all 15 minibooks from one template, keyed off `book.meta`): the sport
+  swaps the ground tint, the bright companion accent (soccer's acid green `#d4ff3f` is the comp's;
+  basketball amber, hockey cyan, baseball orange), the flat spine color, **and the playing-surface
+  geometry** — pitch / full court / rink / diamond, each drawn once in a canonical box and re-fitted
+  by a single SVG transform so the same markup serves the big front diagram and the quiet back echo.
+  Brand primary/dark still come 1:1 from `src/styles/print-guide.css`'s `--{sport}-primary` /
+  `--{sport}-dark` (hardcoded as a small hex map since this script runs outside the Astro/CSS
+  pipeline).
+- **Back cover**: coordinated dark ground with a full-bleed dot field, a **quieter echo of the same
+  diagram** (surface + chain at low opacity, no glow, no labels, no support lines), the top kicker
+  pair, the book title, an accent rule, the generic series blurb (not book-specific — these are a
+  series), then author line + Aspire logo + `aspiresportsohio.com` bottom-left.
+- **Barcode/ISBN reserve**: a 2.0×1.2in zone at the bottom-right of the back cover, inside the safe
+  margins, is kept completely free of art and text (no placeholder box is drawn — the composition
+  simply keeps clear of it). `COVER_GUIDES=1` overlays trim / safe / barcode guides for proofing.
+- **Spine**: flat dark sport color, no text, whenever `pages < 80` (Lulu's own guidance that spine
+  text is unreliable/illegible below that page count for 6×9 trade paperbacks). At ≥80 pages the
+  title is set rotated in white. Lulu's extra ~0.069in hinge allowance (see above) is absorbed into
+  the spine band, which keeps both 6.125in panels exactly on trim.
+- **Previews**: each run rasterizes the finished PDF back to
+  `pdfs/covers/previews/<slug>-cover-full.png` and `-front.png` (via `pdftoppm`, warn-only if
+  poppler is missing) so what gets proofed is the real PDF, not a screenshot of the DOM.
 
 ## CLI contract
 
