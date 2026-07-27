@@ -50,6 +50,46 @@ async function fillTestCard(
   }
 }
 
+/** Guest solo walk to the payment step: step-1 minimal form → Continue →
+ *  wait for the Stripe iframe. Returns false when the iframe never mounts
+ *  (no Stripe in this environment) so callers can self-skip. */
+async function walkGuestToPaymentStep(
+  page: import("@playwright/test").Page,
+  seasonId: string,
+  uniquePrefix: string,
+): Promise<boolean> {
+  await page.goto(`/register/${seasonId}?audience=adult`, {
+    waitUntil: "domcontentloaded",
+  });
+  await waitForHydration(page);
+
+  const joinSolo = page.getByText(/Join solo/i);
+  if (await joinSolo.isVisible({ timeout: 8_000 }).catch(() => false))
+    await joinSolo.click();
+
+  // ── Step 1 (v2 minimal): name + email, one Continue. Labels have no
+  // htmlFor — locate inputs via their label container (same pattern as
+  // registration-adult-guest.spec.ts). ──
+  const unique = `${uniquePrefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const fieldInput = (label: string) =>
+    page
+      .locator("div.space-y-2")
+      .filter({ has: page.locator("label", { hasText: label }) })
+      .first()
+      .locator("input");
+  await fieldInput("First name *").fill("Pay");
+  await fieldInput("Last name *").fill("Confirmation");
+  await fieldInput("Email *").fill(`${unique}@test.example`);
+  await page.getByRole("button", { name: /continue/i }).click();
+
+  // ── Step 2: the deferred card form must mount INLINE, no picker click ──
+  const stripeFrameEl = page.locator('iframe[name^="__privateStripeFrame"]').first();
+  return stripeFrameEl
+    .waitFor({ state: "visible", timeout: 25_000 })
+    .then(() => true)
+    .catch(() => false);
+}
+
 test.describe("Payment confirmation (test-mode card)", () => {
   test.setTimeout(180_000);
 
@@ -89,37 +129,11 @@ test.describe("Payment confirmation (test-mode card)", () => {
   test("guest pays with 4242 and lands on the confirmation step, not the dashboard", async ({
     page,
   }) => {
-    await page.goto(`/register/${seasonId}?audience=adult`, {
-      waitUntil: "domcontentloaded",
-    });
-    await waitForHydration(page);
-
-    const joinSolo = page.getByText(/Join solo/i);
-    if (await joinSolo.isVisible({ timeout: 8_000 }).catch(() => false))
-      await joinSolo.click();
-
-    // ── Step 1 (v2 minimal): name + email, one Continue. Labels have no
-    // htmlFor — locate inputs via their label container (same pattern as
-    // registration-adult-guest.spec.ts). ──
-    const unique = `pay-conf-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const fieldInput = (label: string) =>
-      page
-        .locator("div.space-y-2")
-        .filter({ has: page.locator("label", { hasText: label }) })
-        .first()
-        .locator("input");
-    await fieldInput("First name *").fill("Pay");
-    await fieldInput("Last name *").fill("Confirmation");
-    await fieldInput("Email *").fill(`${unique}@test.example`);
-    await page.getByRole("button", { name: /continue/i }).click();
-
-    // ── Step 2: the deferred card form must mount INLINE, no picker click ──
-    const stripeFrameEl = page.locator('iframe[name^="__privateStripeFrame"]').first();
-    const mounted = await stripeFrameEl
-      .waitFor({ state: "visible", timeout: 25_000 })
-      .then(() => true)
-      .catch(() => false);
+    const mounted = await walkGuestToPaymentStep(page, seasonId, "pay-conf");
     test.skip(!mounted, "Stripe not configured in this environment (no payment iframe)");
+
+    // Webview-only UI must not leak into real browsers.
+    await expect(page.getByTestId("inapp-escape-prompt")).toHaveCount(0);
 
     // Card-only drift guard: the checkout posture is card + Apple/Google Pay
     // ONLY (Link/Klarna/ACH/BNPL are disabled on the Stripe account — live by
@@ -217,5 +231,74 @@ test.describe("Payment confirmation (test-mode card)", () => {
       page.url(),
       "deposit success must land on the team invite step, not bounce elsewhere",
     ).toContain(`/register/${teamSeason.id}`);
+  });
+});
+
+// ── Webview-aware payment step (2026-07-27): inside Meta's in-app browser the
+// wallet buttons are suppressed (they can't open a payment sheet there — the
+// 07-26 rage-click session), the card form is the only payment UI, an inline
+// "open in browser" prompt sits above it, and a test card still pays
+// end-to-end. Real-browser behavior is guarded by the no-prompt assertion in
+// the desktop test above.
+test.describe("Payment step in Meta webview (Instagram UA)", () => {
+  test.use({
+    userAgent:
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Instagram 300.0.0.0.0",
+    viewport: { width: 390, height: 844 },
+  });
+  test.setTimeout(180_000);
+
+  let seasonId: string;
+
+  test.beforeAll(async ({ request }) => {
+    const res = await request.get("/api/public/seasons?status=open");
+    expect(res.ok()).toBe(true);
+    let match = ((await res.json()).seasons ?? []).find(
+      (s: { slug: string }) => s.slug === ADULT_OPEN_SEASON_SLUG,
+    );
+    if (!match) {
+      const allRes = await request.get("/api/public/seasons");
+      match = ((await allRes.json()).seasons ?? []).find(
+        (s: { slug: string }) => s.slug === ADULT_OPEN_SEASON_SLUG,
+      );
+    }
+    expect(
+      match,
+      `Adult open soccer season not found (slug: ${ADULT_OPEN_SEASON_SLUG}) — run npm run db:seed:e2e`,
+    ).toBeTruthy();
+    seasonId = match!.id;
+    await request
+      .post("/api/test/season-capacity", {
+        data: { slug: ADULT_OPEN_SEASON_SLUG, maxParticipants: 100000 },
+      })
+      .catch(() => {});
+  });
+
+  test("card fields render, inline prompt visible, test card completes", async ({
+    page,
+  }) => {
+    const mounted = await walkGuestToPaymentStep(page, seasonId, "webview-pay");
+    test.skip(!mounted, "Stripe not configured in this environment (no payment iframe)");
+
+    // Inline escape prompt sits with the card form (webview-only UI). On an
+    // iPhone UA it names Apple Pay specifically.
+    const prompt = page.getByTestId("inapp-escape-prompt");
+    await expect(prompt).toBeVisible();
+    await expect(prompt.getByText(/apple pay/i)).toBeVisible();
+
+    // The passive top-of-wizard banner keeps working alongside the inline one.
+    await expect(page.getByTestId("inapp-escape-banner")).toBeVisible();
+
+    // Card-first: the card form is payable end-to-end inside the webview.
+    const frame = page.frameLocator('iframe[name^="__privateStripeFrame"]').first();
+    await fillTestCard(frame);
+    await page.getByRole("button", { name: /^pay \$/i }).click();
+    await expect(
+      page.getByText(/You're in — one step left|Your spot is locked/i),
+    ).toBeVisible({ timeout: 60_000 });
+    expect(
+      page.url(),
+      "webview payment success must land on the confirmation step",
+    ).toContain(`/register/${seasonId}`);
   });
 });

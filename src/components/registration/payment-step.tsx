@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { OrderSummary } from "./order-summary"
 import { EmbeddedPayment, type CreateIntentResult } from "./embedded-payment"
+import { InAppEscapePrompt } from "./in-app-escape-prompt"
 import { computeSurchargeCents } from "@/lib/payments/surcharge"
 import type { SeasonItem, CheckoutPaymentType } from "@/lib/analytics/datalayer"
 
@@ -439,6 +440,7 @@ export function PaymentStep({
               Secure checkout — powered by Stripe
             </span>
           </div>
+          <InAppEscapePrompt seasonId={seasonItem.id} />
           <EmbeddedPayment
             createIntent={createIntent}
             publishableKey={publishableKey}

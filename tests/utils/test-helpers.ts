@@ -252,6 +252,25 @@ export async function waitForHydration(
   await page.waitForSelector("html[data-hydrated='true']", {
     timeout: options?.timeout ?? 15_000,
   });
+  await suppressPosthogSurveys(page);
+}
+
+/**
+ * Hide PostHog survey popovers for the rest of this page's lifetime.
+ *
+ * Live PostHog surveys target real visitors, and the e2e browser looks like
+ * one — the survey host `<div class="PostHogSurvey-…">` overlays the page and
+ * intercepts pointer events, which broke every click-driven payment spec the
+ * day a survey was launched (2026-07-27). The stylesheet also hides hosts
+ * that appear later, since CSS matches future elements. Re-call after any
+ * full navigation (waitForHydration does this for you).
+ */
+export async function suppressPosthogSurveys(page: Page): Promise<void> {
+  await page
+    .addStyleTag({
+      content: 'div[class^="PostHogSurvey"] { display: none !important; }',
+    })
+    .catch(() => {});
 }
 
 /**
