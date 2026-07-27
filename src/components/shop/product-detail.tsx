@@ -5,6 +5,7 @@ import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import { useCart } from "./cart-store";
 import type { CartFulfillmentType } from "@/lib/merch/cart";
 import type { ProductPersonalization } from "@/lib/db/schema";
+import type { CompanionSummary } from "@/lib/merch/catalog";
 
 export interface ProductDetailVariant {
   id: string;
@@ -28,6 +29,10 @@ export interface ProductDetailProps {
   personalization: ProductPersonalization | null;
   /** Unlisted store's share token, appended to links generated from this page. */
   shareToken: string | null;
+  /** "One book listing, two formats": for a lulu_pod product with a linked
+   *  digital sibling, renders a Paperback/Digital PDF format picker above the
+   *  add-to-cart control. Null for every other product. */
+  companion?: CompanionSummary | null;
 }
 
 const money = (cents: number) =>
@@ -45,6 +50,7 @@ export default function ProductDetail({
   fulfillmentType,
   personalization,
   shareToken,
+  companion = null,
 }: ProductDetailProps) {
   useHydrationBeacon();
 
@@ -54,6 +60,9 @@ export default function ProductDetail({
   const [selectedId, setSelectedId] = useState<string | null>(
     variants[0]?.id ?? null,
   );
+  // "One book listing, two formats": paperback preselected; only meaningful
+  // when `companion` is set (a lulu_pod product with a linked digital sibling).
+  const [format, setFormat] = useState<"paperback" | "digital">("paperback");
   const [personalName, setPersonalName] = useState("");
   const [personalNumber, setPersonalNumber] = useState("");
   const [personalizationError, setPersonalizationError] = useState<string | null>(null);
@@ -62,6 +71,8 @@ export default function ProductDetail({
     () => variants.find((v) => v.id === selectedId) ?? null,
     [variants, selectedId],
   );
+  const wantsDigital = Boolean(companion) && format === "digital";
+  const displayPriceCents = wantsDigital ? companion!.priceCents : selected?.retailPriceCents ?? null;
 
   const wantsPersonalization = Boolean(personalization?.name || personalization?.number);
   const missingRequiredPersonalization =
@@ -109,8 +120,8 @@ export default function ProductDetail({
 
       <div>
         <h1 className="font-display text-3xl text-ink mb-2">{name}</h1>
-        {selected && (
-          <p className="text-lg text-ink mb-6">{money(selected.retailPriceCents)}</p>
+        {displayPriceCents !== null && (
+          <p className="text-lg text-ink mb-6">{money(displayPriceCents)}</p>
         )}
 
         {variants.length > 0 && (
@@ -191,11 +202,69 @@ export default function ProductDetail({
           <p className="text-sm text-ink-muted mt-6">Not available for ordering right now.</p>
         )}
 
+        {companion && (
+          <fieldset className="mt-6 mb-6 border-0 p-0 m-0">
+            <legend className="text-sm font-medium text-ink mb-2">Format</legend>
+            <div role="radiogroup" aria-label="Format" className="flex gap-2 flex-wrap">
+              <label
+                className={`flex items-center gap-2 px-3 py-2 text-sm border cursor-pointer ${
+                  format === "paperback" ? "border-ink bg-ink text-cream" : "border-ink/30 text-ink"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="book-format"
+                  value="paperback"
+                  checked={format === "paperback"}
+                  onChange={() => setFormat("paperback")}
+                  className="sr-only"
+                />
+                Paperback{selected ? ` — ${money(selected.retailPriceCents)}` : ""}
+              </label>
+              <label
+                className={`flex items-center gap-2 px-3 py-2 text-sm border cursor-pointer ${
+                  format === "digital" ? "border-ink bg-ink text-cream" : "border-ink/30 text-ink"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="book-format"
+                  value="digital"
+                  checked={format === "digital"}
+                  onChange={() => setFormat("digital")}
+                  className="sr-only"
+                />
+                Digital PDF — {money(companion.priceCents)}
+              </label>
+            </div>
+          </fieldset>
+        )}
+
         <button
           type="button"
-          disabled={!selected || !shoppable || missingRequiredPersonalization}
+          disabled={wantsDigital ? !shoppable : !selected || !shoppable || missingRequiredPersonalization}
           onClick={() => {
-            if (!selected || !shoppable) return;
+            if (!shoppable) return;
+            if (wantsDigital) {
+              cart.add({
+                variantId: companion!.variantId,
+                productSlug: companion!.slug,
+                name: companion!.name,
+                size: null,
+                color: null,
+                unitPriceCents: companion!.priceCents,
+                imageUrl: images[0]?.url ?? null,
+                printfulSyncVariantId: null,
+                storeId,
+                storeSlug,
+                fulfillmentType: "digital",
+                quantity: 1,
+              });
+              setAdded(true);
+              setTimeout(() => setAdded(false), 1500);
+              return;
+            }
+            if (!selected) return;
             if (missingRequiredPersonalization) {
               setPersonalizationError(
                 personalization?.name && personalName.trim() === ""

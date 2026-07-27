@@ -17,11 +17,15 @@ export interface MerchListItem {
 }
 
 /** A lulu_pod product's linked digital companion ("one book listing, two
- *  formats"), as the storefront format picker needs it. */
+ *  formats"), as the storefront format picker needs it. `variantId` is the
+ *  companion's own (single) variant — choosing "Digital PDF" on the format
+ *  picker adds THIS variant to the cart instead of the print product's. */
 export interface CompanionSummary {
   id: string;
+  slug: string;
   name: string;
   priceCents: number;
+  variantId: string;
 }
 
 /**
@@ -141,12 +145,18 @@ async function resolveCompanion(
   if (!companionProduct) return null;
 
   const [variant] = await db
-    .select({ retailPriceCents: merchVariants.retailPriceCents })
+    .select({ id: merchVariants.id, retailPriceCents: merchVariants.retailPriceCents })
     .from(merchVariants)
     .where(and(eq(merchVariants.productId, companionProduct.id), eq(merchVariants.active, true)))
     .orderBy(asc(merchVariants.sortOrder), asc(merchVariants.retailPriceCents))
     .limit(1);
   if (!variant) return null;
 
-  return { id: companionProduct.id, name: companionProduct.name, priceCents: variant.retailPriceCents };
+  return {
+    id: companionProduct.id,
+    slug: companionProduct.slug,
+    name: companionProduct.name,
+    priceCents: variant.retailPriceCents,
+    variantId: variant.id,
+  };
 }

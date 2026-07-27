@@ -48,6 +48,7 @@ const detailVariants = variants.map((v) => ({
       fulfillmentType={product.fulfillmentType}
       personalization={product.personalization ?? null}
       shareToken={store.visibility === "unlisted" ? store.shareToken : null}
+      companion={data.companion}
     />
   </main>
 </BaseLayout>
