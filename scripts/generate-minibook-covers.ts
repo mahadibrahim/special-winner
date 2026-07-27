@@ -467,6 +467,52 @@ async function svgDataUri(filename: string): Promise<string> {
   return `data:${mime};base64,${buf.toString("base64")}`;
 }
 
+/**
+ * Vendored STATIC (non-variable) fonts, embedded as base64 data URIs (this
+ * script builds standalone HTML via page.setContent, not a page the dev
+ * server serves, so there's no /fonts/print/... path for the browser to
+ * fetch — same reasoning as `svgDataUri` above for the logo).
+ *
+ * NOT the Google Fonts css2 endpoint: Google serves Inter / Inter Tight as
+ * variable fonts, and Chromium's print-to-PDF pipeline embeds variable
+ * fonts as Type 3 glyph programs instead of proper TrueType — a print
+ * quality risk and a Lulu file-normalizer warning risk. See the OFL.txt
+ * license file alongside each vendored family under public/fonts/print/.
+ */
+interface FontFaceSpec {
+  family: string;
+  file: string;
+  weight: number;
+  style?: "normal" | "italic";
+}
+
+const COVER_FONTS: FontFaceSpec[] = [
+  { family: "Inter", file: "inter/Inter-Regular.ttf", weight: 400 },
+  { family: "Inter", file: "inter/Inter-SemiBold.ttf", weight: 600 },
+  { family: "Inter", file: "inter/Inter-Bold.ttf", weight: 700 },
+  { family: "Inter", file: "inter/Inter-ExtraBold.ttf", weight: 800 },
+  { family: "Inter Tight", file: "inter-tight/InterTight-Bold.ttf", weight: 700 },
+  { family: "Inter Tight", file: "inter-tight/InterTight-Black.ttf", weight: 900 },
+];
+
+async function fontFaceCss(specs: FontFaceSpec[]): Promise<string> {
+  const rules = await Promise.all(
+    specs.map(async (spec) => {
+      const path = resolve(process.cwd(), "public/fonts/print", spec.file);
+      const buf = await readFile(path);
+      const uri = `data:font/ttf;base64,${buf.toString("base64")}`;
+      return `@font-face {
+    font-family: '${spec.family}';
+    src: url('${uri}') format('truetype');
+    font-weight: ${spec.weight};
+    font-style: ${spec.style ?? "normal"};
+    font-display: block;
+  }`;
+    }),
+  );
+  return rules.join("\n  ");
+}
+
 interface Dims {
   widthIn: number;
   heightIn: number;
@@ -589,6 +635,7 @@ interface BuildOpts {
   author: string;
   showSpineText: boolean;
   logo: string;
+  fonts: string;
   guides: boolean;
 }
 
@@ -631,8 +678,8 @@ function buildHtml(o: BuildOpts): string {
 <head>
 <meta charset="utf-8" />
 <title>${escapeHtml(o.title)} — cover</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Inter+Tight:wght@600;700;800;900&display=swap" rel="stylesheet">
 <style>
+  ${o.fonts}
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body {
     width: ${o.widthIn}in; height: ${o.heightIn}in; background: #000;
@@ -969,6 +1016,7 @@ async function main() {
   const spineIn = final.widthIn - 2 * PANEL_W_IN;
 
   const logo = await svgDataUri("logo.svg"); // light wordmark — both panels are dark grounds
+  const fonts = await fontFaceCss(COVER_FONTS);
 
   const skill = titleCase(meta.skill ?? meta.title.replace(/^.*\bbetter\s+/i, ""));
   const html = buildHtml({
@@ -982,6 +1030,7 @@ async function main() {
     author: "Mahad Ibrahim",
     showSpineText: pages >= SPINE_TEXT_MIN_PAGES,
     logo,
+    fonts,
     guides: process.env.COVER_GUIDES === "1",
   });
 
