@@ -21,6 +21,7 @@ import {
 import { WaiverStep } from "./waiver-step"
 import { MediaAuthStep, type MediaAuthScope } from "./media-auth-step"
 import { PaymentStep } from "./payment-step"
+import { ExitReasonChips } from "./exit-reason-chips"
 import { ConfirmationStep } from "./confirmation-step"
 import { AddDependentForm } from "./add-dependent-form"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
@@ -255,6 +256,12 @@ export default function RegistrationWizard({
   // ── Submission state ─────────────────────────────────────────────────────
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [registrationComplete, setRegistrationComplete] = useState(false)
+
+  // Exit-reason chips: offered once per wizard session, right after the first
+  // Back out of the payment step. Parent-controlled so navigation is never
+  // gated on the ask.
+  const [showExitChips, setShowExitChips] = useState(false)
+  const exitChipsOfferedRef = useRef(false)
 
   // ── Selection / waiver / payment state ──────────────────────────────────
   // selectedKey: "self" | <dependentId> | null
@@ -1015,6 +1022,12 @@ export default function RegistrationWizard({
     // "Back" from the inline payment form returns to the previous wizard step.
     // Nothing was created (deferred) unless the customer already clicked Pay,
     // in which case any orphaned PaymentIntent self-expires on Stripe's side.
+    // First back-out also offers the optional exit-reason chips (never blocks
+    // the navigation itself).
+    if (!exitChipsOfferedRef.current) {
+      exitChipsOfferedRef.current = true
+      setShowExitChips(true)
+    }
     setCurrentStep((s) => Math.max(1, s - 1))
   }
 
@@ -1833,6 +1846,15 @@ export default function RegistrationWizard({
           </div>
         ) : (
         <>
+        {/* Optional exit-reason ask, shown once after backing out of payment. */}
+        {showExitChips && stepName !== "payment" && !registrationComplete && season && (
+          <ExitReasonChips
+            seasonId={season.id}
+            flow={regFlow}
+            variant={flowVariant}
+            onClose={() => setShowExitChips(false)}
+          />
+        )}
         {/* Step 1: Who are you registering? (authenticated path) */}
         {stepName === "player" && !isGuest && !showAddMember && (
           <WhoStep

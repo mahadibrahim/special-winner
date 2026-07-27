@@ -14,6 +14,7 @@ export const LEAGUE_EVENTS = {
   registrationStepViewed: "registration_step_viewed",
   expressCheckoutConfirmed: "express_checkout_confirmed",
   paymentStepWalletsResolved: "payment_step_wallets_resolved",
+  checkoutAbandonReason: "checkout_abandon_reason",
   inappBannerShown: "inapp_banner_shown",
   inappBannerClicked: "inapp_banner_clicked",
   inappRecaptureRequested: "inapp_recapture_requested",
@@ -110,6 +111,28 @@ export const trackInappRecaptureRequested = (p: {
   track(LEAGUE_EVENTS.inappRecaptureRequested, {
     season_id: p.seasonId,
     channel: p.channel,
+    in_app_browser: isInAppBrowser(),
+  });
+
+/** One-tap exit-reason chips shown after backing out of the payment step. */
+export type AbandonReason =
+  | "just_browsing"
+  | "checking_with_team"
+  | "price"
+  | "had_questions"
+  | "something_broke";
+
+export const trackCheckoutAbandonReason = (p: {
+  reason: AbandonReason;
+  seasonId: string;
+  flow: RegFlow;
+  variant: RegVariant;
+}) =>
+  track(LEAGUE_EVENTS.checkoutAbandonReason, {
+    reason: p.reason,
+    season_id: p.seasonId,
+    flow: p.flow,
+    variant: p.variant,
     in_app_browser: isInAppBrowser(),
   });
 

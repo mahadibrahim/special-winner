@@ -163,6 +163,20 @@ test.describe("Payment confirmation (test-mode card)", () => {
     ).toContain(`/register/${seasonId}`);
   });
 
+  test("backing out of payment offers exit-reason chips; tapping one thanks and hides", async ({
+    page,
+  }) => {
+    const mounted = await walkGuestToPaymentStep(page, seasonId, "exit-chips");
+    test.skip(!mounted, "Stripe not configured in this environment (no payment iframe)");
+
+    await page.getByRole("button", { name: /^back$/i }).click();
+    const chips = page.getByTestId("exit-reason-chips");
+    await expect(chips).toBeVisible();
+    await chips.getByRole("button", { name: "Price" }).click();
+    await expect(chips.getByText(/thanks — noted/i)).toBeVisible();
+    await expect(chips).toBeHidden({ timeout: 5_000 });
+  });
+
   test("captain pays the $200 deposit inline and lands on the roster invite step", async ({
     page,
     request,
