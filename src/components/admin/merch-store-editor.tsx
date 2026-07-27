@@ -89,6 +89,7 @@ interface MerchStoreProduct {
   luluPageCount: number | null
   luluInteriorAssetKey: string | null
   luluCoverAssetKey: string | null
+  digitalCompanionId: string | null
   variants: MerchVariant[]
 }
 
@@ -136,6 +137,10 @@ interface ProductFormState {
   luluInteriorAssetName: string | null
   luluCoverAssetKey: string | null
   luluCoverAssetName: string | null
+  // Only relevant for lulu_pod — "one book listing, two formats": links this
+  // print book to a digital product in the same store, sold as an alternate
+  // format. Null (rendered "None") when there's no digital sibling.
+  digitalCompanionId: string | null
 }
 
 const EMPTY_FORM: ProductFormState = {
@@ -159,6 +164,7 @@ const EMPTY_FORM: ProductFormState = {
   luluInteriorAssetName: null,
   luluCoverAssetKey: null,
   luluCoverAssetName: null,
+  digitalCompanionId: null,
 }
 
 const money = (c: number) => `$${(c / 100).toLocaleString("en-US", { minimumFractionDigits: 2 })}`
@@ -258,6 +264,7 @@ export function MerchStoreEditor({ storeId }: { storeId: string }) {
       luluInteriorAssetName: product.luluInteriorAssetKey ? keyBasename(product.luluInteriorAssetKey) : null,
       luluCoverAssetKey: product.luluCoverAssetKey ?? null,
       luluCoverAssetName: product.luluCoverAssetKey ? keyBasename(product.luluCoverAssetKey) : null,
+      digitalCompanionId: product.digitalCompanionId ?? null,
     })
     setError(null)
     setLuluCostPreview(null)
@@ -466,6 +473,7 @@ export function MerchStoreEditor({ storeId }: { storeId: string }) {
               luluPageCount: parseInt(formData.luluPageCount, 10),
               luluInteriorAssetKey: formData.luluInteriorAssetKey,
               luluCoverAssetKey: formData.luluCoverAssetKey,
+              digitalCompanionId: formData.digitalCompanionId,
             }
           : {}),
         personalization:
@@ -928,6 +936,43 @@ export function MerchStoreEditor({ storeId }: { storeId: string }) {
                         )}
                       </Button>
                     )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Digital companion (optional)</Label>
+                    <Select
+                      value={formData.digitalCompanionId ?? "none"}
+                      onValueChange={(value) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          digitalCompanionId: value === "none" ? null : value,
+                        }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        {products
+                          .filter(
+                            (p) =>
+                              p.fulfillmentType === "digital" &&
+                              p.active &&
+                              p.id !== editingProduct?.id,
+                          )
+                          .map((p) => (
+                            <SelectItem key={p.id} value={p.id}>
+                              {p.name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Pairs this book with a digital product sold as an alternate format ("one
+                      book listing, two formats") — buyers can pick Paperback or Digital PDF on
+                      the storefront.
+                    </p>
                   </div>
 
                   <p className="text-xs text-muted-foreground">

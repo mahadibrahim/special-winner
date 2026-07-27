@@ -21,6 +21,10 @@ import { apiFetch, getAdminCookie, expectJson, testSlug } from "../setup/test-he
 
 let adminCookie: string;
 let storeId: string;
+let otherStoreId: string;
+let digitalCompanionId: string;
+let pickupProductId: string;
+let otherStoreDigitalProductId: string;
 
 const bookBody = (storeId: string, over: Record<string, unknown> = {}) => ({
   storeId, name: testSlug("Print Guide"), category: "other", priceCents: 1500,
@@ -33,18 +37,60 @@ const bookBody = (storeId: string, over: Record<string, unknown> = {}) => ({
 
 beforeAll(async () => {
   adminCookie = await getAdminCookie();
+  const db = getDb();
 
-  const [store] = await getDb().insert(merchStores).values({
+  const [store] = await db.insert(merchStores).values({
     // team (not general): the shared E2E DB enforces one general store per
     // org (uq_merch_stores_one_general) — see lulu-quote.test.ts.
     organizationId: E2E_ORG_ID, scope: "team", name: testSlug("Lulu Products Fixture Store"),
     slug: testSlug("lulu-products-fixture-store"), visibility: "public", active: true,
   }).returning();
   storeId = store.id;
+
+  const [otherStore] = await db.insert(merchStores).values({
+    organizationId: E2E_ORG_ID, scope: "team", name: testSlug("Lulu Products Other Store"),
+    slug: testSlug("lulu-products-other-store"), visibility: "public", active: true,
+  }).returning();
+  otherStoreId = otherStore.id;
+
+  // A "digital" product in the SAME store — the valid companion target.
+  const [digital] = await db.insert(merchProducts).values({
+    organizationId: E2E_ORG_ID, storeId, source: "manual", fulfillmentType: "digital",
+    name: testSlug("Digital Companion"), slug: testSlug("digital-companion"), category: "other",
+    digitalAssetKey: `merch-digital/${E2E_ORG_ID}/companion.pdf`, digitalAssetName: "companion.pdf",
+    active: true,
+  }).returning();
+  digitalCompanionId = digital.id;
+  await db.insert(merchVariants).values({
+    productId: digital.id, name: testSlug("Digital Companion"), retailPriceCents: 999, active: true,
+  });
+
+  // A non-digital product in the SAME store — the "wrong type" target.
+  const [pickup] = await db.insert(merchProducts).values({
+    organizationId: E2E_ORG_ID, storeId, source: "manual", fulfillmentType: "pickup",
+    name: testSlug("Not Digital"), slug: testSlug("not-digital"), category: "other", active: true,
+  }).returning();
+  pickupProductId = pickup.id;
+  await db.insert(merchVariants).values({
+    productId: pickup.id, name: testSlug("Not Digital"), size: "OS", retailPriceCents: 500, active: true,
+  });
+
+  // A "digital" product in a DIFFERENT store — the "cross-store" target.
+  const [otherDigital] = await db.insert(merchProducts).values({
+    organizationId: E2E_ORG_ID, storeId: otherStoreId, source: "manual", fulfillmentType: "digital",
+    name: testSlug("Other Store Digital"), slug: testSlug("other-store-digital"), category: "other",
+    digitalAssetKey: `merch-digital/${E2E_ORG_ID}/other.pdf`, digitalAssetName: "other.pdf",
+    active: true,
+  }).returning();
+  otherStoreDigitalProductId = otherDigital.id;
+  await db.insert(merchVariants).values({
+    productId: otherDigital.id, name: testSlug("Other Store Digital"), retailPriceCents: 799, active: true,
+  });
 });
 
 afterAll(async () => {
   await getDb().delete(merchStores).where(eq(merchStores.id, storeId)); // cascades products/variants
+  await getDb().delete(merchStores).where(eq(merchStores.id, otherStoreId));
 });
 
 describe("admin lulu_pod products", () => {
@@ -103,5 +149,63 @@ describe("admin lulu_pod products", () => {
     expect(json.printCents).toBe(700);
     expect(json.mailShippingCents).toBe(399);
     expect(json.fulfillmentCents).toBe(81);
+  });
+});
+
+describe("admin lulu_pod digital companion link ('one book listing, two formats')", () => {
+  it("accepts a digital companion from the same store and persists it", async () => {
+    const res = await apiFetch("/api/admin/merch/store-products", {
+      method: "POST", cookie: adminCookie,
+      body: JSON.stringify(bookBody(storeId, { digitalCompanionId })),
+    });
+    const { productId } = await expectJson(res, 201);
+    const [p] = await getDb().select().from(merchProducts).where(eq(merchProducts.id, productId));
+    expect(p.digitalCompanionId).toBe(digitalCompanionId);
+  });
+
+  it("422s a companion target that isn't a digital product", async () => {
+    const res = await apiFetch("/api/admin/merch/store-products", {
+      method: "POST", cookie: adminCookie,
+      body: JSON.stringify(bookBody(storeId, { digitalCompanionId: pickupProductId })),
+    });
+    await expectJson(res, 422);
+  });
+
+  it("422s a companion target from a different store", async () => {
+    const res = await apiFetch("/api/admin/merch/store-products", {
+      method: "POST", cookie: adminCookie,
+      body: JSON.stringify(bookBody(storeId, { digitalCompanionId: otherStoreDigitalProductId })),
+    });
+    await expectJson(res, 422);
+  });
+
+  it("422s a digitalCompanionId set on a non-lulu_pod product", async () => {
+    const res = await apiFetch("/api/admin/merch/store-products", {
+      method: "POST", cookie: adminCookie,
+      body: JSON.stringify({
+        storeId, name: testSlug("Not A Book"), category: "other", priceCents: 900,
+        fulfillmentType: "pickup", sizes: ["OS"], digitalCompanionId,
+      }),
+    });
+    await expectJson(res, 422);
+  });
+
+  it("clears digitalCompanionId when a product is edited away from lulu_pod", async () => {
+    const createRes = await apiFetch("/api/admin/merch/store-products", {
+      method: "POST", cookie: adminCookie,
+      body: JSON.stringify(bookBody(storeId, { digitalCompanionId })),
+    });
+    const { productId } = await expectJson(createRes, 201);
+
+    const updateRes = await apiFetch("/api/admin/merch/store-products", {
+      method: "PUT", cookie: adminCookie,
+      body: JSON.stringify({
+        id: productId, storeId, name: testSlug("Converted Away"), category: "other",
+        priceCents: 900, fulfillmentType: "pickup", sizes: ["OS"],
+      }),
+    });
+    await expectJson(updateRes, 200);
+    const [p] = await getDb().select().from(merchProducts).where(eq(merchProducts.id, productId));
+    expect(p.digitalCompanionId).toBeNull();
   });
 });

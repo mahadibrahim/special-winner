@@ -813,6 +813,13 @@
       "when": 1785072812875,
       "tag": "0115_merch_lulu_pod",
       "breakpoints": true
+    },
+    {
+      "idx": 116,
+      "version": "7",
+      "when": 1785151100283,
+      "tag": "0116_merch_digital_companion",
+      "breakpoints": true
     }
   ]
 }
