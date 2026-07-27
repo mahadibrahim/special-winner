@@ -9,6 +9,7 @@ import {
   jsonb,
   index,
   unique,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { organizations } from "./organizations";
@@ -59,6 +60,17 @@ export const merchProducts = pgTable(
     luluPageCount: integer("lulu_page_count"),
     luluInteriorAssetKey: varchar("lulu_interior_asset_key", { length: 500 }),
     luluCoverAssetKey: varchar("lulu_cover_asset_key", { length: 500 }),
+    // "One book listing, two formats": links a lulu_pod (print) product to
+    // the digital product it's sold alongside, so the storefront can offer a
+    // format picker instead of two separate listings. Nullable: only set for
+    // fulfillmentType "lulu_pod"; the referenced product must be
+    // fulfillmentType "digital" in the same store (enforced in the admin API,
+    // not here). ON DELETE SET NULL: deleting the digital companion shouldn't
+    // take the print book down with it.
+    digitalCompanionId: uuid("digital_companion_id").references(
+      (): AnyPgColumn => merchProducts.id,
+      { onDelete: "set null" },
+    ),
     active: boolean("active").notNull().default(true),
     sortOrder: integer("sort_order").notNull().default(0),
     syncedAt: timestamp("synced_at").notNull().defaultNow(),
