@@ -80,3 +80,22 @@ export function formatDaySchedule(
   const window = formatTimeWindow(start, end);
   return window ? `${label} · ${window}` : label;
 }
+
+/**
+ * Calendar date ("YYYY-MM-DD") for an instant in an IANA timezone.
+ *
+ * Use this instead of `new Date().toISOString().slice(0, 10)` whenever
+ * "today" means the facility's day, not UTC's: after 8pm Eastern the UTC
+ * date has already rolled over, so a UTC "today" as a date-picker min/default
+ * blocks booking the current evening. Deterministic for a given instant on
+ * server and client alike, so it's safe in hydrated first renders.
+ */
+export function dateInTimeZone(timeZone: string, date: Date = new Date()): string {
+  // en-CA formats as YYYY-MM-DD.
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
