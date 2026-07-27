@@ -45,6 +45,11 @@ const productSchema = z.object({
   luluPageCount: z.number().int().min(2).max(800).optional(),
   luluInteriorAssetKey: z.string().min(1).max(500).optional(),
   luluCoverAssetKey: z.string().min(1).max(500).optional(),
+  // "One book listing, two formats": optionally pairs a lulu_pod book with
+  // the digital product it's sold alongside (checked below, 422 — only
+  // lulu_pod products may set this, and the target must be a "digital"
+  // product in the same store).
+  digitalCompanionId: z.string().uuid().optional().nullable(),
   personalization: z.object({ name: z.boolean().optional(), number: z.boolean().optional() }).optional().nullable(),
   active: z.boolean().default(true),
 }).superRefine((d, ctx) => {
@@ -123,6 +128,34 @@ function digitalAssetKeyOutsideOrg(
 ): boolean {
   if (fulfillmentType !== "digital" || !digitalAssetKey) return false;
   return !digitalAssetKey.startsWith(`merch-digital/${organizationId}/`);
+}
+
+/**
+ * A digitalCompanionId (the "one book listing, two formats" link) may only
+ * be set on a lulu_pod product, and must point at a real "digital" product
+ * in the SAME store as the caller's product. Same store also guarantees
+ * same org here, since getStoreById above already scoped `storeId` (and
+ * therefore the target store) to the caller's org — but the target
+ * product's own organizationId is checked directly too, for defense in
+ * depth. 422 (not 400) to match the other business-rule checks.
+ */
+async function invalidDigitalCompanion(
+  d: { fulfillmentType: string; digitalCompanionId?: string | null; storeId: string },
+  organizationId: string,
+): Promise<boolean> {
+  if (!d.digitalCompanionId) return false;
+  if (d.fulfillmentType !== "lulu_pod") return true;
+  const db = getDb();
+  const [companion] = await db
+    .select()
+    .from(merchProducts)
+    .where(eq(merchProducts.id, d.digitalCompanionId))
+    .limit(1);
+  if (!companion) return true;
+  if (companion.organizationId !== organizationId) return true;
+  if (companion.storeId !== d.storeId) return true;
+  if (companion.fulfillmentType !== "digital") return true;
+  return false;
 }
 
 /**
@@ -223,6 +256,9 @@ export const POST: APIRoute = async (context) => {
     if (luluAssetKeyOutsideOrg(d, auth.organizationId)) {
       return json({ error: "Invalid book file." }, 422);
     }
+    if (await invalidDigitalCompanion(d, auth.organizationId)) {
+      return json({ error: "Invalid digital companion product." }, 422);
+    }
     const db = getDb();
     const weightBySize = new Map((d.variantWeights ?? []).map((vw) => [vw.size, vw]));
     // slug unique per store — suffix the store id fragment for cross-store safety
@@ -245,6 +281,7 @@ export const POST: APIRoute = async (context) => {
         luluPageCount: d.fulfillmentType === "lulu_pod" ? d.luluPageCount ?? null : null,
         luluInteriorAssetKey: d.fulfillmentType === "lulu_pod" ? d.luluInteriorAssetKey ?? null : null,
         luluCoverAssetKey: d.fulfillmentType === "lulu_pod" ? d.luluCoverAssetKey ?? null : null,
+        digitalCompanionId: d.fulfillmentType === "lulu_pod" ? d.digitalCompanionId ?? null : null,
         personalization: d.personalization ?? null,
         active: d.active,
       }).returning({ id: merchProducts.id });
@@ -284,6 +321,9 @@ export const PUT: APIRoute = async (context) => {
     if (luluAssetKeyOutsideOrg(d, auth.organizationId)) {
       return json({ error: "Invalid book file." }, 422);
     }
+    if (await invalidDigitalCompanion(d, auth.organizationId)) {
+      return json({ error: "Invalid digital companion product." }, 422);
+    }
     const weightBySize = new Map((d.variantWeights ?? []).map((vw) => [vw.size, vw]));
 
     const db = getDb();
@@ -316,6 +356,7 @@ export const PUT: APIRoute = async (context) => {
         luluPageCount: d.fulfillmentType === "lulu_pod" ? d.luluPageCount ?? null : null,
         luluInteriorAssetKey: d.fulfillmentType === "lulu_pod" ? d.luluInteriorAssetKey ?? null : null,
         luluCoverAssetKey: d.fulfillmentType === "lulu_pod" ? d.luluCoverAssetKey ?? null : null,
+        digitalCompanionId: d.fulfillmentType === "lulu_pod" ? d.digitalCompanionId ?? null : null,
         personalization: d.personalization ?? null,
         active: d.active,
         updatedAt: new Date(),
