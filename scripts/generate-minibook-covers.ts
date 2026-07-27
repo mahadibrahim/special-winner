@@ -32,10 +32,11 @@
  */
 import { chromium } from "@playwright/test";
 import { execFile } from "node:child_process";
-import { mkdir, readFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
+import { PDFDocument } from "pdf-lib";
 import { spineWidthInches } from "./pdf-profiles";
 
 const execFileAsync = promisify(execFile);
@@ -943,6 +944,51 @@ function buildHtml(o: BuildOpts): string {
 }
 
 /* ------------------------------------------------------------------ *
+ * Front-cover-only PDF (for the digital edition — no bleed, trim only)
+ * ------------------------------------------------------------------ */
+
+const PT_PER_IN = 72;
+
+/**
+ * Crop the front panel's TRIM box (no bleed) out of the already-rendered
+ * wraparound cover PDF and save it as its own single-page, 6x9in PDF. Reuses
+ * the exact same rendering as the wraparound's front panel — no separate
+ * HTML/Chromium pass — via pdf-lib's embedPage + a bounding box, same
+ * technique as clipping any PDF page down to a sub-region.
+ */
+async function writeFrontCoverOnly(
+  wraparoundPdfPath: string,
+  slug: string,
+  dims: Dims,
+  spineIn: number,
+): Promise<string> {
+  const bytes = await readFile(wraparoundPdfPath);
+  const srcDoc = await PDFDocument.load(bytes);
+  const [srcPage] = srcDoc.getPages();
+
+  // Front trim's left edge IS the spine seam (.panel-front .trim { left: 0 }
+  // relative to the front panel); the panel itself starts at
+  // PANEL_W_IN + spineIn from the page's left edge.
+  const frontLeftIn = PANEL_W_IN + spineIn;
+  const left = frontLeftIn * PT_PER_IN;
+  const right = left + TRIM_W_IN * PT_PER_IN;
+  // .trim { top: BLEED_IN } in CSS (top-down) coordinates; PDF y is
+  // bottom-up, so the trim's bottom edge is dims.heightIn - (BLEED_IN + TRIM_H_IN)
+  // from the page bottom.
+  const bottom = (dims.heightIn - BLEED_IN - TRIM_H_IN) * PT_PER_IN;
+  const top = bottom + TRIM_H_IN * PT_PER_IN;
+
+  const outDoc = await PDFDocument.create();
+  const embedded = await outDoc.embedPage(srcPage, { left, bottom, right, top });
+  const page = outDoc.addPage([TRIM_W_IN * PT_PER_IN, TRIM_H_IN * PT_PER_IN]);
+  page.drawPage(embedded, { x: 0, y: 0, width: TRIM_W_IN * PT_PER_IN, height: TRIM_H_IN * PT_PER_IN });
+
+  const out = resolve(OUT_DIR, `${slug}-cover-front.pdf`);
+  await writeFile(out, await outDoc.save());
+  return out;
+}
+
+/* ------------------------------------------------------------------ *
  * Preview rasterization (proofing aid — reads the real PDF back)
  * ------------------------------------------------------------------ */
 async function writePreviews(
@@ -1056,6 +1102,9 @@ async function main() {
       `(budget bottom ${FRONT.titleBottomMax} design px)`,
   );
   console.log(`done → ${out}`);
+
+  const frontOut = await writeFrontCoverOnly(out, slug, final, spineIn);
+  console.log(`front-cover-only (6x9in trim, no bleed, for the digital edition) → ${frontOut}`);
 
   const previews = await writePreviews(out, slug, final, spineIn);
   previews.forEach((p) => console.log(`preview → ${p}`));
