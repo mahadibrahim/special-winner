@@ -13,6 +13,7 @@ export const LEAGUE_EVENTS = {
   catalogSportTileClicked: "catalog_sport_tile_clicked",
   registrationStepViewed: "registration_step_viewed",
   expressCheckoutConfirmed: "express_checkout_confirmed",
+  paymentStepWalletsResolved: "payment_step_wallets_resolved",
   inappBannerShown: "inapp_banner_shown",
   inappBannerClicked: "inapp_banner_clicked",
   inappRecaptureRequested: "inapp_recapture_requested",
@@ -65,12 +66,41 @@ export const trackExpressCheckoutConfirmed = (p: { expressPaymentType: string })
     express_payment_type: p.expressPaymentType,
     in_app_browser: isInAppBrowser(),
   });
-export const trackInappBannerShown = (p: { seasonId: string }) =>
-  track(LEAGUE_EVENTS.inappBannerShown, { season_id: p.seasonId, in_app_browser: isInAppBrowser() });
-export const trackInappBannerClicked = (p: { seasonId: string; kind: "ios" | "android" }) =>
+/** Which placement of the in-app escape UI fired the event — the passive
+ *  top-of-wizard banner or the inline prompt on the payment step. */
+export type InappBannerVariant = "passive" | "payment_step_inline";
+
+export const trackInappBannerShown = (p: { seasonId: string; variant?: InappBannerVariant }) =>
+  track(LEAGUE_EVENTS.inappBannerShown, {
+    season_id: p.seasonId,
+    variant: p.variant ?? "passive",
+    in_app_browser: isInAppBrowser(),
+  });
+export const trackInappBannerClicked = (p: {
+  seasonId: string;
+  kind: "ios" | "android";
+  variant?: InappBannerVariant;
+}) =>
   track(LEAGUE_EVENTS.inappBannerClicked, {
     season_id: p.seasonId,
     kind: p.kind,
+    variant: p.variant ?? "passive",
+    in_app_browser: isInAppBrowser(),
+  });
+
+/** Fired once per mounted payment form when wallet availability settles.
+ *  express_wallets_available = what Stripe reports possible in this browser
+ *  (canMakePayment probe); wallets_enabled = whether we let the Payment
+ *  Element offer them (false in in-app webviews, where they render broken). */
+export const trackPaymentStepWalletsResolved = (p: {
+  seasonId: string;
+  expressWalletsAvailable: string[];
+  walletsEnabled: boolean;
+}) =>
+  track(LEAGUE_EVENTS.paymentStepWalletsResolved, {
+    season_id: p.seasonId,
+    express_wallets_available: p.expressWalletsAvailable,
+    wallets_enabled: p.walletsEnabled,
     in_app_browser: isInAppBrowser(),
   });
 export const trackInappRecaptureRequested = (p: {

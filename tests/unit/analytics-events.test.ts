@@ -6,6 +6,7 @@ import {
   trackTeamCreateViewed, trackTeamCreateSubmitted, trackTeamDepositViewed, trackTeamHqViewed,
   trackExpressCheckoutConfirmed,
   trackInappBannerShown, trackInappBannerClicked, trackInappRecaptureRequested,
+  trackPaymentStepWalletsResolved,
   TEAM_EVENTS, SERVER_EVENTS,
 } from "@/lib/analytics/events";
 
@@ -87,23 +88,58 @@ describe("analytics events", () => {
     expect(LEAGUE_EVENTS.expressCheckoutConfirmed).toBe("express_checkout_confirmed");
   });
 
-  it("inapp_banner_shown passes season_id + in_app_browser, no PII", () => {
+  it("inapp_banner_shown passes season_id + in_app_browser and defaults variant to passive, no PII", () => {
     trackInappBannerShown({ seasonId: "s1" });
     expect(spy).toHaveBeenCalledWith(LEAGUE_EVENTS.inappBannerShown, {
       season_id: "s1",
+      variant: "passive",
       in_app_browser: expect.any(Boolean),
     });
     const props = spy.mock.calls[0][1] ?? {};
     for (const k of Object.keys(props)) expect(/email|name|phone/i.test(k)).toBe(false);
   });
 
-  it("inapp_banner_clicked passes season_id + kind + in_app_browser", () => {
+  it("inapp_banner_clicked passes season_id + kind + in_app_browser and defaults variant to passive", () => {
     trackInappBannerClicked({ seasonId: "s1", kind: "ios" });
     expect(spy).toHaveBeenCalledWith(LEAGUE_EVENTS.inappBannerClicked, {
       season_id: "s1",
       kind: "ios",
+      variant: "passive",
       in_app_browser: expect.any(Boolean),
     });
+  });
+
+  it("inapp_banner_shown/clicked carry the payment_step_inline variant", () => {
+    trackInappBannerShown({ seasonId: "s1", variant: "payment_step_inline" });
+    expect(spy).toHaveBeenCalledWith(LEAGUE_EVENTS.inappBannerShown, {
+      season_id: "s1",
+      variant: "payment_step_inline",
+      in_app_browser: expect.any(Boolean),
+    });
+    trackInappBannerClicked({ seasonId: "s1", kind: "ios", variant: "payment_step_inline" });
+    expect(spy).toHaveBeenCalledWith(LEAGUE_EVENTS.inappBannerClicked, {
+      season_id: "s1",
+      kind: "ios",
+      variant: "payment_step_inline",
+      in_app_browser: expect.any(Boolean),
+    });
+  });
+
+  it("payment_step_wallets_resolved carries availability + enabled + in_app_browser, no PII", () => {
+    trackPaymentStepWalletsResolved({
+      seasonId: "s9",
+      expressWalletsAvailable: ["apple_pay"],
+      walletsEnabled: false,
+    });
+    expect(spy).toHaveBeenCalledWith("payment_step_wallets_resolved", {
+      season_id: "s9",
+      express_wallets_available: ["apple_pay"],
+      wallets_enabled: false,
+      in_app_browser: expect.any(Boolean),
+    });
+    expect(LEAGUE_EVENTS.paymentStepWalletsResolved).toBe("payment_step_wallets_resolved");
+    const props = spy.mock.calls[0][1] ?? {};
+    for (const k of Object.keys(props)) expect(/email|name|phone/i.test(k)).toBe(false);
   });
 
   it("exposes the inapp banner event names", () => {
