@@ -8,6 +8,7 @@ import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import { AvailabilityGrid, type FieldAvailability } from "./AvailabilityGrid";
 import { fetchRentalAvailability } from "@/lib/rentals/fetch-availability";
+import { dateInTimeZone } from "@/lib/time/format-date";
 
 interface AvailabilityResponse {
   venueName: string;
@@ -31,9 +32,12 @@ interface Props {
    * endpoint accepts either way.
    */
   signedIn?: boolean;
+  /**
+   * IANA timezone the facility's calendar day is anchored to. Defaults to
+   * the org home timezone.
+   */
+  timeZone?: string;
 }
-
-const TODAY = new Date().toISOString().slice(0, 10);
 
 function fmtTime(date: Date): string {
   return date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
@@ -43,17 +47,29 @@ function addMinutes(d: Date, mins: number): Date {
   return new Date(d.getTime() + mins * 60_000);
 }
 
-export default function RentalBooking({ venues, bookingWindowDays = 7, signedIn = false }: Props) {
+export default function RentalBooking({
+  venues,
+  bookingWindowDays = 7,
+  signedIn = false,
+  timeZone = "America/New_York",
+}: Props) {
   useHydrationBeacon();
 
+  // Computed per render, in the facility's timezone. Module scope would
+  // freeze "today" at the SSR lambda's cold start (serving a days-old date
+  // from warm functions, and a hydration mismatch against the client's
+  // fresh value); UTC would roll to tomorrow at 8pm Eastern and block
+  // same-evening bookings.
+  const today = dateInTimeZone(timeZone);
   // Mirrors the server's advance-booking window so the picker can't offer
   // dates the API would reject; the API remains the authority.
-  const maxDate = new Date(Date.now() + bookingWindowDays * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .slice(0, 10);
+  const maxDate = dateInTimeZone(
+    timeZone,
+    new Date(Date.now() + bookingWindowDays * 24 * 60 * 60 * 1000),
+  );
 
   const [selectedVenueId, setSelectedVenueId] = useState(venues[0]?.id ?? "");
-  const [date, setDate] = useState(TODAY);
+  const [date, setDate] = useState(today);
   const [availability, setAvailability] = useState<AvailabilityResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -214,7 +230,7 @@ export default function RentalBooking({ venues, bookingWindowDays = 7, signedIn 
               id="date-input"
               type="date"
               value={date}
-              min={TODAY}
+              min={today}
               max={maxDate}
               onChange={(e) => setDate(e.target.value)}
               className="w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-500"

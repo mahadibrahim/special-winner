@@ -10,6 +10,7 @@ import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import { zonedHourToUtc } from "@/lib/activity-tracking/tz-day";
 import { fieldInfoForName, fieldColorForName } from "@/lib/soccerone/field-info";
 import { fetchRentalAvailability } from "@/lib/rentals/fetch-availability";
+import { dateInTimeZone } from "@/lib/time/format-date";
 
 // --- Live availability types ---
 
@@ -226,21 +227,25 @@ export function FieldCalendar({
   // Top-level client:load island on /rent; set the hydration beacon so e2e
   // waitForHydration() resolves (per CLAUDE.md Playwright conventions).
   useHydrationBeacon();
-  const today = new Date().toISOString().slice(0, 10);
+  // Facility-timezone calendar days — a UTC "today" rolls over at 8pm
+  // Eastern, shifting the whole picker window a day forward every evening.
+  const today = dateInTimeZone(timeZone);
   // Last selectable date — mirrors the server's advance-booking window so the
   // picker can't offer dates the API would 422. UI-local date math is fine
   // here; the API remains the authority.
-  const maxDate = new Date(Date.now() + bookingWindowDays * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .slice(0, 10);
+  const maxDate = dateInTimeZone(
+    timeZone,
+    new Date(Date.now() + bookingWindowDays * 24 * 60 * 60 * 1000),
+  );
   // Default to the first bookable day rather than "today" — with the
   // minLeadTimeHours guard, every slot on "today" shows the 48h-notice
   // reason and nothing is actually requestable on load. Clamp within the
   // booking window in case minLeadTimeHours somehow exceeds it.
   let firstBookableDate = (() => {
-    const d = new Date(Date.now() + minLeadTimeHours * 60 * 60 * 1000)
-      .toISOString()
-      .slice(0, 10);
+    const d = dateInTimeZone(
+      timeZone,
+      new Date(Date.now() + minLeadTimeHours * 60 * 60 * 1000),
+    );
     return d > maxDate ? maxDate : d;
   })();
   // Guarantee the default day's earliest slot clears the lead-time window, not

@@ -83,6 +83,33 @@ const phUser = (!Astro.isPrerendered && !edgeCached && Astro.locals.user)
       },
       // Error tracking: capture unhandled errors + promise rejections.
       capture_exceptions: true,
+      // Drop exceptions thrown by scripts Meta's in-app browser (Instagram/
+      // Facebook webview) injects into our pages — sendDataToNative /
+      // sendPageHideMessage calling window.webkit.messageHandlers (iOS) or a
+      // torn-down postMessage bridge (Android, "Java object is gone"). They
+      // are not our code, fire as the visitor leaves the page, and were the
+      // top "errors" in the project by user count. Everything else passes
+      // through untouched.
+      before_send: function (event) {
+        if (!event || event.event !== '$exception') return event;
+        try {
+          var list = (event.properties && event.properties.$exception_list) || [];
+          for (var i = 0; i < list.length; i++) {
+            var msg = String((list[i] && list[i].value) || '');
+            var frames = ((list[i] && list[i].stacktrace) || {}).frames || [];
+            var fns = '';
+            for (var j = 0; j < frames.length; j++) fns += ' ' + ((frames[j] && frames[j].function) || '');
+            if (
+              msg.indexOf('window.webkit.messageHandlers') !== -1 ||
+              msg.indexOf('Java object is gone') !== -1 ||
+              /sendDataToNative|sendPageHideMessage/.test(fns)
+            ) {
+              return null;
+            }
+          }
+        } catch (_) { /* never block capture on filter errors */ }
+        return event;
+      },
       // Don't send `$ip` or `$set` enrichments by default (privacy).
       ip: false,
       property_denylist: ['$ip'],

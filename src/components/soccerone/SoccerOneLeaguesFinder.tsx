@@ -1,5 +1,5 @@
 "use client"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { useFinderFilter } from "@/lib/hooks/use-finder-filter"
 import { formatDateOnly, formatDaySchedule } from "@/lib/time/format-date"
@@ -19,15 +19,20 @@ const ALL: FinderFilters = { location: "all", division: "all", night: "all", lev
 
 export default function SoccerOneLeaguesFinder({ seasons }: { seasons: FinderSeason[] }) {
   useHydrationBeacon()
-  const [filters, setFilters] = useState<FinderFilters>(() => {
-    if (typeof window === "undefined") return ALL
+  const [filters, setFilters] = useState<FinderFilters>(ALL)
+  const [arrivedFrom, setArrivedFrom] = useState<string | null>(null)
+
+  // ?location= deep-link. Applied after mount, NOT in the useState
+  // initializers: the server renders the unfiltered list (it has no query
+  // context in the island), so a first client render that filters would
+  // diverge from the SSR HTML and throw a React hydration error (#418).
+  useEffect(() => {
     const loc = new URLSearchParams(window.location.search).get("location")
-    return loc ? { ...ALL, location: loc } : ALL
-  })
-  const [arrivedFrom, setArrivedFrom] = useState<string | null>(() => {
-    if (typeof window === "undefined") return null
-    return new URLSearchParams(window.location.search).get("location")
-  })
+    if (loc) {
+      setFilters((f) => ({ ...f, location: loc }))
+      setArrivedFrom(loc)
+    }
+  }, [])
 
   // Hero deep-link: a launchpad quick-link dispatches { key, sectionId, location }.
   // Only react when this section is the target; pre-fill the location chip.
