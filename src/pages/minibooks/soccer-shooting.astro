@@ -427,13 +427,13 @@ const getCoachWisdom = (placement: string) =>
           {section.parentCoachBehaviors && (
             <div class="behaviors-grid">
               <div class="behaviors-do">
-                <h4>✓ What Helps</h4>
+                <h4><span class="glyph-yes">✓</span>What Helps</h4>
                 <ul>
                   {section.parentCoachBehaviors.helpful.map(item => <li>{item}</li>)}
                 </ul>
               </div>
               <div class="behaviors-avoid">
-                <h4>✗ What Hurts</h4>
+                <h4><span class="glyph-no">✗</span>What Hurts</h4>
                 <ul>
                   {section.parentCoachBehaviors.harmful.map(item => <li>{item}</li>)}
                 </ul>
@@ -674,7 +674,7 @@ const getCoachWisdom = (placement: string) =>
                 <p class="activity-description">{activity.description}</p>
                 <div class="activity-details">
                   <div class="activity-focus"><strong>Focus:</strong> {activity.focus}</div>
-                  <div class="activity-cue"><strong>External Cue:</strong> "{activity.externalCue}"</div>
+                  {activity.externalCue && <div class="activity-cue"><strong>External Cue:</strong> "{activity.externalCue}"</div>}
                   {activity.variation && <div class="activity-variation"><strong>Variation:</strong> {activity.variation}</div>}
                   {activity.coachingNote && <div class="activity-note"><strong>Note:</strong> {activity.coachingNote}</div>}
                 </div>
@@ -791,7 +791,7 @@ const getCoachWisdom = (placement: string) =>
             <div class="do-list">
               {section.items.map(item => (
                 <div class="do-item">
-                  <h4>✓ {item.action}</h4>
+                  <h4><span class="glyph-yes">✓</span>{item.action}</h4>
                   <p><strong>Why:</strong> {item.why}</p>
                   <p><strong>How:</strong> {item.how}</p>
                 </div>
@@ -803,7 +803,7 @@ const getCoachWisdom = (placement: string) =>
             <div class="avoid-list">
               {section.items.map(item => (
                 <div class="avoid-item">
-                  <h4>✗ {item.behavior}</h4>
+                  <h4><span class="glyph-no">✗</span>{item.behavior}</h4>
                   <p><strong>Why it hurts:</strong> {item.why}</p>
                   <p><strong>Instead:</strong> {item.alternative}</p>
                 </div>
