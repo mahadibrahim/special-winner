@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   loadStripe,
   type Stripe as StripeJs,
@@ -21,6 +21,9 @@ import {
   type SeasonItem,
   type CheckoutPaymentType,
 } from "@/lib/analytics/datalayer";
+import { isInAppBrowser } from "@/lib/analytics/in-app-browser";
+import { walletNamesFromCanMakePayment } from "@/lib/payments/express-wallets";
+import { trackPaymentStepWalletsResolved } from "@/lib/analytics/events";
 
 /** Deferred-mode callback result: the new PaymentIntent's client secret, or a
  *  user-facing error string if the registration/intent couldn't be created. */
@@ -143,6 +146,40 @@ function PaymentForm({
   const [error, setError] = useState<string | null>(null);
   const [hasFiredAddPaymentInfo, setHasFiredAddPaymentInfo] = useState(false);
 
+  // Meta's in-app webviews (FB/IG) render wallet buttons that can't actually
+  // open a payment sheet — Apple Pay probes as available but the sheet is
+  // blocked, which produced rage-clicks on the 07-26 paid session. Card-only
+  // there; real browsers keep Stripe's own "auto" availability logic.
+  const [inAppBrowser] = useState(() => isInAppBrowser());
+
+  // Probe what Stripe could offer in this browser and report it once —
+  // express_wallets_available is the measurement half of the webview fix
+  // (did hiding dead buttons match real availability?). The probe is
+  // display-less; the Payment Element independently decides what to render.
+  const walletsReported = useRef(false);
+  useEffect(() => {
+    if (!stripe || walletsReported.current) return;
+    walletsReported.current = true;
+    stripe
+      .paymentRequest({
+        country: "US",
+        currency: "usd",
+        total: { label: "Registration", amount: valueCents },
+      })
+      .canMakePayment()
+      .then((result) => {
+        trackPaymentStepWalletsResolved({
+          seasonId: seasonItem.id,
+          expressWalletsAvailable: walletNamesFromCanMakePayment(result),
+          walletsEnabled: !inAppBrowser,
+        });
+      })
+      .catch(() => {
+        /* probe failure is not worth breaking checkout over */
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stripe]);
+
   const settleConfirmResult = (result: PaymentIntentResult) => {
     const { error: confirmError, paymentIntent } = result;
 
@@ -216,7 +253,9 @@ function PaymentForm({
       <PaymentElement
         options={{
           layout: "accordion",
-          wallets: { applePay: "auto", googlePay: "auto" },
+          wallets: inAppBrowser
+            ? { applePay: "never" as const, googlePay: "never" as const }
+            : { applePay: "auto" as const, googlePay: "auto" as const },
         }}
         onReady={() => setIsReady(true)}
         onChange={(e) => {
