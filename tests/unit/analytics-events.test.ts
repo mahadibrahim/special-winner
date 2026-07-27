@@ -6,7 +6,7 @@ import {
   trackTeamCreateViewed, trackTeamCreateSubmitted, trackTeamDepositViewed, trackTeamHqViewed,
   trackExpressCheckoutConfirmed,
   trackInappBannerShown, trackInappBannerClicked, trackInappRecaptureRequested,
-  trackPaymentStepWalletsResolved,
+  trackPaymentStepWalletsResolved, trackCheckoutAbandonReason,
   TEAM_EVENTS, SERVER_EVENTS,
 } from "@/lib/analytics/events";
 
@@ -123,6 +123,20 @@ describe("analytics events", () => {
       variant: "payment_step_inline",
       in_app_browser: expect.any(Boolean),
     });
+  });
+
+  it("checkout_abandon_reason carries reason + funnel context, no PII", () => {
+    trackCheckoutAbandonReason({ reason: "price", seasonId: "s9", flow: "solo", variant: "v2" });
+    expect(spy).toHaveBeenCalledWith("checkout_abandon_reason", {
+      reason: "price",
+      season_id: "s9",
+      flow: "solo",
+      variant: "v2",
+      in_app_browser: expect.any(Boolean),
+    });
+    expect(LEAGUE_EVENTS.checkoutAbandonReason).toBe("checkout_abandon_reason");
+    const props = spy.mock.calls[0][1] ?? {};
+    for (const k of Object.keys(props)) expect(/email|name|phone/i.test(k)).toBe(false);
   });
 
   it("payment_step_wallets_resolved carries availability + enabled + in_app_browser, no PII", () => {
