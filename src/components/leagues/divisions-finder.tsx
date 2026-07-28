@@ -135,7 +135,8 @@ function DivisionRow({ d, term, showLevels }: { d: Division; term: string; showL
       primary ? "text-cream bg-primary" : "text-primary border border-primary");
   return (
     <>
-      <div className="flex flex-col gap-1.5 sm:grid sm:grid-cols-[30px_1.6fr_1.2fr_0.9fr_0.8fr_auto] sm:items-center sm:gap-3.5 py-3 px-2 border-b border-cream-2 hover:bg-paper">
+      <div className={cn("flex flex-col gap-1.5 sm:grid sm:items-center sm:gap-3.5 py-3 px-2 border-b border-cream-2 hover:bg-paper",
+        showLevels ? "sm:grid-cols-[30px_1.6fr_1.2fr_0.9fr_0.8fr_auto]" : "sm:grid-cols-[1.6fr_1.2fr_0.9fr_0.8fr_auto]")}>
         {showLevels && <Bars filled={BARS_FOR[d.level]} flat={d.level === "open"} className={TIER_TEXT[d.level]} />}
         <div>
           <div className="font-display font-semibold text-base">{d.name}</div>
