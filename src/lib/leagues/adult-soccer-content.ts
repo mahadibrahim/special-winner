@@ -2,6 +2,10 @@
 // Evergreen copy for the Adult Soccer league pages.
 // Source of truth: docs/sports/adult-soccer-leagues.md (the published League Guide).
 
+import type { ValueProp, RuleSection, FaqEntry } from "@/lib/leagues/landing-content";
+
+export type { ValueProp, RuleSection, FaqEntry };
+
 export type SkillLevel = {
   key: "a" | "b" | "c" | "d";
   label: string;
@@ -36,8 +40,6 @@ export const HERO_FACTS: { title: string; sub: string }[] = [
   { title: "Most points wins", sub: "league table" },
 ];
 
-export type RuleSection = { title: string; items: string[] };
-
 export const RULE_SECTIONS: RuleSection[] = [
   { title: "The game", items: [
     "7v7 including goalkeeper · two 24-min running-clock halves",
@@ -65,16 +67,12 @@ export const RULE_SECTIONS: RuleSection[] = [
   ]},
 ];
 
-export type FaqEntry = { q: string; a: string };
-
 export const FAQ: FaqEntry[] = [
   { q: "Don't have a team?", a: "Register solo in any D or Open division — we place free agents on balanced teams by skill and schedule." },
   { q: "How do I pay?", a: "Solo players pay $120 at registration — that's it, no deposit. Teams pay $1,000 early-bird ($1,050 after), or reserve with a $200 deposit and pay the balance before game 1." },
   { q: "Indoor vs outdoor?", a: "Indoor walled 7v7 — faster, no offside, and the wall keeps the ball in play. Games run rain or shine." },
   { q: "Roster size?", a: "Up to 14 on a roster, 7 on the field. Free substitution on the fly; the roster locks after game 3." },
 ];
-
-export type ValueProp = { icon: string; tint: "orange" | "sage" | "ochre"; title: string; copy: string };
 
 export const WHY_INDOOR: ValueProp[] = [
   { icon: "⚡", tint: "orange", title: "Faster, more goals", copy: "Walled arena, no offside — more touches, more shots, more action than outdoor 11v11." },
