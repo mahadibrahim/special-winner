@@ -137,7 +137,7 @@ function DivisionRow({ d, term, showLevels }: { d: Division; term: string; showL
           <div className="font-display font-semibold text-base">{d.name}</div>
           <div className="font-mono text-[10.5px] tracking-wide uppercase text-ink-muted mt-0.5">
             {d.gender === "mens" ? "Men's" : d.gender === "womens" ? "Women's" : "Coed"}
-            {showLevels && <> · Level {d.level.toUpperCase()}</>}
+            {showLevels && <> · {d.level === "open" ? "All levels" : `Level ${d.level.toUpperCase()}`}</>}
             {/* Solo price up front — paid-traffic replays showed price-hunters
                 tapping Register just to learn the cost, then bouncing. */}
             {d.price != null && d.status !== "completed" && (
