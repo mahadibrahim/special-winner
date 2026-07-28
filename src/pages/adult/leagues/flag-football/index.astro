@@ -2,7 +2,7 @@
 export const prerender = false;
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { LandingTabs } from "@/components/leagues/landing-tabs";
-import { FORMAT_FACTS, WHY_INDOOR, RULE_SECTIONS, FAQ } from "@/lib/leagues/adult-soccer-content";
+import { FORMAT_FACTS, RULE_SECTIONS, FAQ, WHY_4V4, DIVISION_CALLOUTS } from "@/lib/leagues/adult-flag-football-content";
 import { partitionTerms, type TermSeason } from "@/lib/leagues/terms";
 import { breadcrumbJsonLd } from "@/lib/seo/breadcrumbs";
 
@@ -12,8 +12,8 @@ async function fetchSeasons(qs: string) {
   const r = await fetch(`${origin}/api/public/seasons?${qs}`, { headers: { cookie } });
   return r.ok ? ((await r.json()).seasons ?? []) : [];
 }
-const live = await fetchSeasons("sport=soccer&audience=adult");
-const done = await fetchSeasons("sport=soccer&audience=adult&status=completed");
+const live = await fetchSeasons("sport=flag-football&audience=adult");
+const done = await fetchSeasons("sport=flag-football&audience=adult&status=completed");
 const all: any[] = [...live, ...done];
 
 const termSeasons: TermSeason[] = all.filter((s) => s.termSlug)
@@ -32,7 +32,7 @@ const currentProp = current ? { slug: current.slug, label: current.label, meta: 
 const upcomingProps = upcoming.map((t) => ({ slug: t.slug, label: t.label, meta: fmtRange(t.slug), opensLabel: "registration opens soon" }));
 const pastProps = past.map((t) => ({ slug: t.slug, label: t.label, meta: "" }));
 
-const heroPhoto = "https://images.unsplash.com/photo-1543326727-cf6c39e8f84c?auto=format&fit=crop&w=1600&q=60";
+const heroPhoto = "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=1600&q=60";
 
 // JSON-LD: FAQPage from the content module's FAQ, SportsActivityLocation for
 // the sport itself, and BreadcrumbList — same three-schema approach as
@@ -50,9 +50,9 @@ const faqSchema = {
 const sportSchema = {
   "@context": "https://schema.org",
   "@type": "SportsActivityLocation",
-  name: "Aspire Sports Adult Soccer — Columbus, Ohio",
-  sport: "Soccer",
-  url: "https://aspiresportsohio.com/adult/leagues/soccer",
+  name: "Aspire Sports Flag Football — Columbus, Ohio",
+  sport: "Flag Football",
+  url: "https://aspiresportsohio.com/adult/leagues/flag-football",
   areaServed: { "@type": "City", name: "Columbus", containedInPlace: { "@type": "State", name: "Ohio" } },
   parentOrganization: {
     "@type": "SportsOrganization",
@@ -66,11 +66,11 @@ const breadcrumbSchema = breadcrumbJsonLd([
   { name: "Home", url: `${ORIGIN}/` },
   { name: "Adult", url: `${ORIGIN}/adult` },
   { name: "Adult Leagues", url: `${ORIGIN}/adult/leagues` },
-  { name: "Soccer", url: `${ORIGIN}/adult/leagues/soccer` },
+  { name: "Flag Football", url: `${ORIGIN}/adult/leagues/flag-football` },
 ]);
 ---
-<BaseLayout title="Adult Soccer Leagues — Aspire Sports"
-  description="Coed, men's and women's indoor 7v7 soccer leagues in central Ohio. Rec to competitive, all skill levels.">
+<BaseLayout title="Adult Flag Football Leagues — Indoor 4v4 in Columbus | Aspire Sports"
+  description={`Men's and coed indoor 4v4 flag football leagues at Worthington, Columbus. ${FORMAT_FACTS.slice(0, 3).join(" · ")}. Team and free-agent signup.`}>
   <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
   <script type="application/ld+json" set:html={JSON.stringify(sportSchema)} />
   <script type="application/ld+json" set:html={JSON.stringify(breadcrumbSchema)} />
@@ -80,29 +80,29 @@ const breadcrumbSchema = breadcrumbJsonLd([
       style={`background-image:linear-gradient(180deg,oklch(0.18 0.07 262/0.8),oklch(0.18 0.07 262/0.94)),url('${heroPhoto}')`}>
       <div class="max-w-[1080px] mx-auto pb-8">
         {currentProp && (
-          <a href={`/adult/leagues/soccer/${currentProp.slug}`} class="flex items-center justify-between gap-3 bg-primary text-cream rounded-lg px-4 py-3 mb-5" data-testid="now-registering" data-hero-banner-cta data-term={currentProp.slug}>
+          <a href={`/adult/leagues/flag-football/${currentProp.slug}`} class="flex items-center justify-between gap-3 bg-primary text-cream rounded-lg px-4 py-3 mb-5" data-testid="now-registering" data-hero-banner-cta data-term={currentProp.slug}>
             <span><span class="font-mono text-[10px] tracking-widest uppercase opacity-85">● Now Registering</span><br/><span class="font-display font-semibold text-lg">{currentProp.label} · registration open</span></span>
             <span class="font-mono text-[11px] tracking-wider uppercase bg-cream text-primary px-3 py-2 rounded">See divisions →</span>
           </a>
         )}
-        <h1 class="font-display font-semibold text-5xl md:text-6xl tracking-tight mb-2">Adult soccer<br/>at Aspire.</h1>
-        <p class="text-cream/85 max-w-md mb-2">Coed, men's &amp; women's 7v7 — rec to competitive, indoor, across central-Ohio venues.</p>
+        <h1 class="font-display font-semibold text-5xl md:text-6xl tracking-tight mb-2">Adult flag football<br/>at Aspire.</h1>
+        <p class="text-cream/85 max-w-md mb-2">Men's &amp; coed indoor 4v4 — every player runs a route, every single play. Wednesday nights at Worthington.</p>
         <p class="font-mono text-[12px] text-cream/70 pb-1">{FORMAT_FACTS.slice(0, 4).join(" · ")}</p>
       </div>
     </section>
     <LandingTabs client:load
-      sport="soccer"
-      basePath="/adult/leagues/soccer"
+      sport="flag-football"
+      basePath="/adult/leagues/flag-football"
       overview={{
-        kicker: "Why indoor soccer",
-        headline: { before: "Real games, ", em: "every week", after: " — rain, snow, or shine." },
-        intro: "A faster, higher-scoring game on walled turf, leagues sorted by skill so every match is competitive, and a crew waiting whether or not you bring one.",
-        why: WHY_INDOOR,
-        midLabel: "Find your level",
-        midSlot: { kind: "ladder" },
+        kicker: "Why 4v4 flag football",
+        headline: { before: "Every player, ", em: "every play", after: " — nobody blocks, everybody catches." },
+        intro: "Four a side on boarded indoor turf sized beyond the official NFL Blitz indoor spec — a faster, everyone-touches-it game you can play all winter.",
+        why: WHY_4V4,
+        midLabel: "The divisions",
+        midSlot: { kind: "divisions", items: DIVISION_CALLOUTS },
       }}
       ruleSections={RULE_SECTIONS}
-      pastEmptyCopy="No completed seasons yet — Fall 2026 is the first. Results & champions will appear here."
+      pastEmptyCopy="No completed seasons yet — Winter 1 2026-27 is the first. Results & champions will appear here."
       current={currentProp} upcoming={upcomingProps} past={pastProps} />
   </main>
 </BaseLayout>
@@ -110,9 +110,8 @@ const breadcrumbSchema = breadcrumbJsonLd([
 <script>
   import { trackLandingCtaClicked } from "@/lib/analytics/events";
 
-  // The hero "Now Registering" banner fired nothing while its Overview-tab
-  // twin (landing-tabs.tsx) tracked — tier 4→5 conversion was
-  // undercounted with no way to see the hero/tab split.
+  // Same pattern as soccer: the hero "Now Registering" banner needs its own
+  // click tracking since it's outside the LandingTabs island.
   document.querySelectorAll<HTMLAnchorElement>("[data-hero-banner-cta]").forEach((el) => {
     el.addEventListener("click", () => trackLandingCtaClicked({ term: el.dataset.term ?? "" }));
   });

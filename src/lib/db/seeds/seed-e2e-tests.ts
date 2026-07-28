@@ -1562,6 +1562,229 @@ async function seedMerchBundleFixture(db: Database, orgId: string) {
   );
 }
 
+/**
+ * Flag football landing fixtures (SDD task-4, 2026-07-28-flag-football-landing).
+ * Seeds the adult 4v4 flag football catalog (sport/program/age-group/seasons)
+ * so `/api/public/seasons?sport=flag-football&audience=adult` has real data
+ * for the landing pages built in Tasks 5-6. Idempotent, get-or-create by
+ * slug throughout — mirrors the SoccerOne Worthington fall/winter fixtures
+ * above (same location-scoped-by-slug pattern, same forming-season pattern
+ * for an upcoming term).
+ *
+ * Location: a new "Worthington" location fixture under the main e2e org
+ * (org.id) — the shared staging DB has no "worthington" location for this
+ * org yet (the real 2026-27 catalog script, scripts/seed-2026-27-catalog.ts,
+ * targets prod, not staging), so this creates it rather than reusing one.
+ *
+ * Money unit: matches soccer — seasons.priceCents/teamPriceCents/depositCents
+ * are all integer CENTS (see e.g. the adult-team-soccer fixture's
+ * teamPriceCents: 100000 = $1000, and the SoccerOne Worthington fall
+ * fixtures' teamPriceCents: 105000 = $1050). Brief's teamPrice 79500 / price
+ * 10500 / deposit 20000 are therefore cents ($795 / $105 / $200).
+ */
+async function seedFlagFootballFixture(db: Database, orgId: string) {
+  // Location: "Worthington" — get-or-create by (organizationId, slug).
+  let [worthington] = await db
+    .select()
+    .from(locations)
+    .where(and(eq(locations.organizationId, orgId), eq(locations.slug, "worthington")))
+    .limit(1);
+
+  if (!worthington) {
+    [worthington] = await db
+      .insert(locations)
+      .values({
+        organizationId: orgId,
+        name: "Worthington",
+        slug: "worthington",
+        city: "Worthington",
+        state: "OH",
+        country: "US",
+        timezone: "America/New_York",
+      })
+      .returning();
+    console.log(`   ✓ Created Worthington location: ${worthington.id}`);
+  }
+
+  // Sport: Flag Football — get-or-create by (organizationId, slug), same
+  // upsert-name-on-drift pattern as the Soccer sport fixture above.
+  let [flagFootball] = await db
+    .select()
+    .from(sports)
+    .where(and(eq(sports.organizationId, orgId), eq(sports.slug, "flag-football")))
+    .limit(1);
+
+  if (!flagFootball) {
+    [flagFootball] = await db
+      .insert(sports)
+      .values({
+        organizationId: orgId,
+        name: "Flag Football",
+        slug: "flag-football",
+        icon: "🏈",
+        color: "#f59e0b",
+      })
+      .returning();
+  } else if (flagFootball.name !== "Flag Football") {
+    [flagFootball] = await db
+      .update(sports)
+      .set({ name: "Flag Football" })
+      .where(eq(sports.id, flagFootball.id))
+      .returning();
+  }
+
+  // Age group: reuse the existing "Adult 18+" (18-99) fixture if present,
+  // otherwise create it — same shape as the adult-soccer age group above.
+  let [adultAgeGroup] = await db
+    .select()
+    .from(ageGroups)
+    .where(and(eq(ageGroups.organizationId, orgId), eq(ageGroups.name, "Adult 18+")))
+    .limit(1);
+
+  if (!adultAgeGroup) {
+    [adultAgeGroup] = await db
+      .insert(ageGroups)
+      .values({
+        organizationId: orgId,
+        name: "Adult 18+",
+        minAge: 18,
+        maxAge: 99,
+        description: "Ages 18 and up",
+      })
+      .returning();
+  }
+
+  // Program: Adult 4v4 Flag Football League.
+  let [flagProgram] = await db
+    .select()
+    .from(programs)
+    .where(eq(programs.slug, "adult-4v4-flag-football"))
+    .limit(1);
+
+  if (!flagProgram) {
+    [flagProgram] = await db
+      .insert(programs)
+      .values({
+        locationId: worthington.id,
+        sportId: flagFootball.id,
+        name: "Adult 4v4 Flag Football League",
+        slug: "adult-4v4-flag-football",
+        description: "Adult 4v4 flag football league for E2E testing",
+        programType: "league",
+        audienceType: "adults",
+        active: true,
+        isTest: false,
+      })
+      .returning();
+  } else if (flagProgram.audienceType !== "adults" || flagProgram.isTest) {
+    [flagProgram] = await db
+      .update(programs)
+      .set({ audienceType: "adults", isTest: false })
+      .where(eq(programs.id, flagProgram.id))
+      .returning();
+  }
+  console.log(`   ✓ Flag football program: ${flagProgram.name}`);
+
+  // Seasons: Winter 1 2026-27 (open, registerable) and Winter 2 2027
+  // (forming, upcoming term) — each split into Men's and Co-Ed divisions.
+  // Shared field values per the task brief; only slug/name/status/dates/
+  // registrationCloses/divisionGender vary per row.
+  const flagSeasonFixtures = [
+    {
+      slug: "winter-1-2627-flag-mens",
+      name: "Men's — Winter 1 2026-27",
+      status: "open" as const,
+      startDate: "2026-11-09",
+      endDate: "2027-01-17",
+      registrationCloses: new Date("2026-10-29T12:00:00Z"),
+      termSlug: "winter-1-2627",
+      termLabel: "Winter 1 2026-27",
+      divisionGender: "mens",
+    },
+    {
+      slug: "winter-1-2627-flag-coed",
+      name: "Co-Ed — Winter 1 2026-27",
+      status: "open" as const,
+      startDate: "2026-11-09",
+      endDate: "2027-01-17",
+      registrationCloses: new Date("2026-10-29T12:00:00Z"),
+      termSlug: "winter-1-2627",
+      termLabel: "Winter 1 2026-27",
+      divisionGender: "coed",
+    },
+    {
+      slug: "winter-2-2027-flag-mens",
+      name: "Men's — Winter 2 2027",
+      status: "forming" as const,
+      startDate: "2027-01-18",
+      endDate: "2027-03-20",
+      registrationCloses: null,
+      termSlug: "winter-2-2027",
+      termLabel: "Winter 2 2027",
+      divisionGender: "mens",
+    },
+    {
+      slug: "winter-2-2027-flag-coed",
+      name: "Co-Ed — Winter 2 2027",
+      status: "forming" as const,
+      startDate: "2027-01-18",
+      endDate: "2027-03-20",
+      registrationCloses: null,
+      termSlug: "winter-2-2027",
+      termLabel: "Winter 2 2027",
+      divisionGender: "coed",
+    },
+  ] as const;
+
+  for (const fixture of flagSeasonFixtures) {
+    let [flagSeason] = await db
+      .select()
+      .from(seasons)
+      .where(eq(seasons.slug, fixture.slug))
+      .limit(1);
+
+    const sharedFields = {
+      programId: flagProgram.id,
+      ageGroupId: adultAgeGroup.id,
+      name: fixture.name,
+      startDate: fixture.startDate,
+      endDate: fixture.endDate,
+      registrationCloses: fixture.registrationCloses,
+      status: fixture.status,
+      priceCents: 10500,
+      teamPriceCents: 79500,
+      depositCents: 20000,
+      allowDeposit: true,
+      signupModes: ["team", "individual"],
+      maxParticipants: 100000,
+      termSlug: fixture.termSlug,
+      termLabel: fixture.termLabel,
+      divisionGender: fixture.divisionGender,
+      skillLevel: null,
+      dayOfWeek: "wed",
+      startTime: "18:00",
+      endTime: "23:00",
+      isTest: false,
+    };
+
+    if (!flagSeason) {
+      [flagSeason] = await db
+        .insert(seasons)
+        .values({ slug: fixture.slug, ...sharedFields })
+        .returning();
+    } else {
+      // Re-sync every field on re-seed so the shared staging DB never drifts
+      // status/dates/pricing away from the brief's fixture values.
+      [flagSeason] = await db
+        .update(seasons)
+        .set(sharedFields)
+        .where(eq(seasons.id, flagSeason.id))
+        .returning();
+    }
+    console.log(`   ✓ Flag football season: ${flagSeason.name} (status=${flagSeason.status}, term=${flagSeason.termSlug})`);
+  }
+}
+
 async function seedE2ETests() {
   assertNotProduction();
   console.log("🧪 Seeding E2E test data...\n");
@@ -4368,6 +4591,12 @@ async function seedE2ETests() {
   // Stage 21 — Merch Lulu POD book store fixture (Lulu books phase Task 11).
   console.log("\n21. Setting up merch book store fixture...");
   await seedMerchBookFixture(db, org.id, team.id);
+
+  // Stage 22 — Flag football landing fixtures (SDD task-4,
+  // 2026-07-28-flag-football-landing). Seeds the adult 4v4 flag football
+  // catalog so Tasks 5-6's landing pages have real data to render.
+  console.log("\n22. Setting up flag football fixtures...");
+  await seedFlagFootballFixture(db, org.id);
 
   console.log("\n✅ E2E test data seeded successfully!");
   console.log("\n📋 Test Credentials:");

@@ -1,11 +1,11 @@
 ---
-// Per-term Adult Soccer season page. SSR: reads live seasons + per-host brand.
+// Per-term Adult Flag Football season page. SSR: reads live seasons + per-host brand.
 export const prerender = false;
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { SeasonTabs } from "@/components/leagues/season-tabs";
 import { getVenueFacts } from "@/lib/locations/venue-facts";
 import type { Division } from "@/lib/leagues/division-filters";
-import { FORMAT_FACTS, HERO_FACTS, RULE_SECTIONS, FAQ } from "@/lib/leagues/adult-soccer-content";
+import { FORMAT_FACTS, RULE_SECTIONS, FAQ } from "@/lib/leagues/adult-flag-football-content";
 import { CAPTAIN_DEPOSIT_DOLLARS } from "@/lib/registrations/team-deposit";
 
 const { term } = Astro.params;
@@ -15,15 +15,15 @@ const cookie = Astro.request.headers.get("cookie") ?? "";
 // zero rows and redirects away — killing an indexed URL that should become
 // the final-standings archive (mirror of the SoccerOne term-page fix).
 const [liveRes, doneRes] = await Promise.all([
-  fetch(`${origin}/api/public/seasons?sport=soccer&audience=adult&term=${term}`, { headers: { cookie } }),
-  fetch(`${origin}/api/public/seasons?sport=soccer&audience=adult&term=${term}&status=completed`, { headers: { cookie } }),
+  fetch(`${origin}/api/public/seasons?sport=flag-football&audience=adult&term=${term}`, { headers: { cookie } }),
+  fetch(`${origin}/api/public/seasons?sport=flag-football&audience=adult&term=${term}&status=completed`, { headers: { cookie } }),
 ]);
 const live: any[] = liveRes.ok ? ((await liveRes.json()).seasons ?? []) : [];
 const done: any[] = doneRes.ok ? ((await doneRes.json()).seasons ?? []) : [];
 const seasons: any[] = [...live, ...done];
 
 if (seasons.length === 0) {
-  return Astro.redirect("/adult/leagues/soccer");
+  return Astro.redirect("/adult/leagues/flag-football");
 }
 
 const termLabel = seasons[0].termLabel ?? "This season";
@@ -133,14 +133,13 @@ const todayLabel = new Date(now).toLocaleDateString("en-US", { month: "short", d
 // location name rather than rendering "null, null".
 const primaryLoc = seasons[0].location;
 const cityState = [primaryLoc.city, primaryLoc.state].filter(Boolean).join(", ");
-const subPlace = venues.length === 1 ? cityState || primaryLoc.name : `${venues.length} venues`;
 const venueLine =
   venues.length === 1
     ? [primaryLoc.address, cityState].filter(Boolean).join(", ") || primaryLoc.name
     : venues.map((v) => v.label).join(" · ");
 
 const STATUS_LABEL: Record<string, string> = { open: "Registration Open", active: "In Progress", forming: "Forming", completed: "Complete" };
-const heroPhoto = "https://images.unsplash.com/photo-1543326727-cf6c39e8f84c?auto=format&fit=crop&w=1600&q=60";
+const heroPhoto = "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=1600&q=60";
 
 // FAQPage rich-result schema — the FAQ tab renders inside a React island, so
 // this JSON-LD is the reliable crawlable copy of its answers. Hand-rolled to
@@ -150,8 +149,8 @@ const ORIGIN = import.meta.env.PUBLIC_APP_URL || "https://aspiresportsohio.com";
 const breadcrumbSchema = breadcrumbJsonLd([
   { name: "Home", url: `${ORIGIN}/` },
   { name: "Adult Leagues", url: `${ORIGIN}/adult/leagues` },
-  { name: "Soccer", url: `${ORIGIN}/adult/leagues/soccer` },
-  { name: termLabel, url: `${ORIGIN}/adult/leagues/soccer/${term}` },
+  { name: "Flag Football", url: `${ORIGIN}/adult/leagues/flag-football` },
+  { name: termLabel, url: `${ORIGIN}/adult/leagues/flag-football/${term}` },
 ]);
 const faqSchema = {
   "@context": "https://schema.org",
@@ -165,8 +164,8 @@ const faqSchema = {
 ---
 
 <BaseLayout
-  title={`${termLabel} Adult Soccer Leagues — Aspire Sports`}
-  description={`Register for ${termLabel} adult indoor 7v7 soccer leagues. ${FORMAT_FACTS.slice(0,3).join(" · ")}.`}
+  title={`${termLabel} Adult Flag Football — Indoor 4v4 | Aspire Sports`}
+  description={`Register for ${termLabel} adult indoor 4v4 flag football at Worthington. ${FORMAT_FACTS.slice(0,3).join(" · ")}.`}
 >
   <Fragment slot="head">
     <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbSchema)} />
@@ -179,9 +178,9 @@ const faqSchema = {
     >
       <div class="max-w-[1080px] mx-auto pb-7 lg:grid lg:grid-cols-[1.35fr_1fr] lg:gap-10 lg:items-end">
         <div>
-          <h1 class="font-display font-semibold text-[42px] leading-[1.05] sm:text-5xl md:text-6xl tracking-tight mb-1.5">{termLabel} · Adult Soccer</h1>
+          <h1 class="font-display font-semibold text-[42px] leading-[1.05] sm:text-5xl md:text-6xl tracking-tight mb-1.5">{termLabel} · Flag Football</h1>
           <p class="text-sm text-cream/85">
-            <b class="font-semibold text-cream">{fmtShort(startDate)} – {fmtShort(endDate)}</b> · {subPlace}
+            <b class="font-semibold text-cream">Indoor 4v4 · {fmtShort(startDate)} – {fmtShort(endDate)}</b> · 8-game season, no playoffs · {divisions.length} divisions
             {!anyOpen && (
               <span class="ml-2 inline-flex items-center font-mono text-[10px] tracking-widest uppercase border border-cream/40 rounded-full px-2.5 py-0.5 align-middle">
                 {STATUS_LABEL[heroStatus] ?? heroStatus}
@@ -214,15 +213,6 @@ const faqSchema = {
             </div>
           )}
 
-          {/* Format facts a first-time visitor must get at a glance. */}
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-cream/15 border border-cream/15 rounded-xl overflow-hidden mt-5">
-            {HERO_FACTS.map((f) => (
-              <div class="bg-navy-deep/70 px-3 py-2.5">
-                <b class="block text-[13.5px] font-semibold">{f.title}</b>
-                <span class="text-[11px] text-cream/70">{f.sub}</span>
-              </div>
-            ))}
-          </div>
           {venueLine && (
             <p class="flex items-center gap-2 mt-3 text-[12.5px] text-cream/90">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
@@ -269,19 +259,20 @@ const faqSchema = {
     <div id="divisions">
       <SeasonTabs
         client:load
-        sport="soccer"
+        sport="flag-football"
         divisions={divisions}
         venues={venues}
         weekStart={startDate}
-        scheduleNote="One game per week per team. Exact slots assigned after rosters lock."
+        scheduleNote="One game per week per team, Wednesday nights. Exact slots assigned after rosters lock."
         term={term ?? ""}
         ruleSections={RULE_SECTIONS}
         faq={FAQ}
-        arenaNote={{ title: "Walled-arena 7v7.", body: "All Aspire fields have boards — no offside, the wall is in play." }}
-        findHeading={"Find your level & register"}
-        findSubcopy="Pick your level, then narrow by format, night, or venue. Open divisions register on the spot."
-        playLine="One game a week, 7 games, indoor — rain or shine."
-        footnote="Age divisions · 30+ and 40+ also available at Worthington"
+        arenaNote={{ title: "Boarded-turf 4v4.", body: "Fully boarded indoor turf, bigger than the NFL Blitz indoor spec — the ball stays in, the game stays fast." }}
+        showLevels={false}
+        findHeading="Find your division & register"
+        findSubcopy="Pick your division, then narrow by night. Open divisions register on the spot."
+        playLine="One game a week, 8 games, indoor — rain or shine."
+        footnote={null}
         initialTab={allCompleted ? "standings" : "divisions"}
       />
     </div>

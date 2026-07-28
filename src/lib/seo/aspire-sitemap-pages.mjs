@@ -12,6 +12,7 @@ export const ASPIRE_SSR_PUBLIC_PAGES = [
   "/adult",
   "/adult/leagues",
   "/adult/leagues/soccer",
+  "/adult/leagues/flag-football",
   "/adult/pickup",
   "/adult/tournaments",
   "/locations",
