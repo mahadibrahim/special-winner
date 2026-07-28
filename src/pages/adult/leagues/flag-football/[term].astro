@@ -133,7 +133,6 @@ const todayLabel = new Date(now).toLocaleDateString("en-US", { month: "short", d
 // location name rather than rendering "null, null".
 const primaryLoc = seasons[0].location;
 const cityState = [primaryLoc.city, primaryLoc.state].filter(Boolean).join(", ");
-const subPlace = venues.length === 1 ? cityState || primaryLoc.name : `${venues.length} venues`;
 const venueLine =
   venues.length === 1
     ? [primaryLoc.address, cityState].filter(Boolean).join(", ") || primaryLoc.name
@@ -270,6 +269,10 @@ const faqSchema = {
         faq={FAQ}
         arenaNote={{ title: "Boarded-turf 4v4.", body: "Fully boarded indoor turf, bigger than the NFL Blitz indoor spec — the ball stays in, the game stays fast." }}
         showLevels={false}
+        findHeading="Find your division & register"
+        findSubcopy="Pick your division, then narrow by night. Open divisions register on the spot."
+        playLine="One game a week, 8 games, indoor — rain or shine."
+        footnote={null}
         initialTab={allCompleted ? "standings" : "divisions"}
       />
     </div>

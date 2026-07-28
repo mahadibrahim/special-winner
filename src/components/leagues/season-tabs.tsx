@@ -26,6 +26,10 @@ export function SeasonTabs({
   faq,
   arenaNote,
   showLevels,
+  findHeading,
+  findSubcopy,
+  playLine,
+  footnote,
   initialTab = "divisions",
 }: {
   sport: string;
@@ -38,6 +42,14 @@ export function SeasonTabs({
   faq: FaqEntry[];
   arenaNote: { title: string; body: string } | null;
   showLevels?: boolean;
+  /** Divisions-tab heading, e.g. "Find your level & register". */
+  findHeading: string;
+  /** Divisions-tab sub-copy under the heading. */
+  findSubcopy: string;
+  /** Third "What to expect" step's play-line, e.g. "One game a week, 7 games, indoor — rain or shine." */
+  playLine: string;
+  /** Optional footnote passed through to DivisionsFinder; null renders nothing. */
+  footnote?: string | null;
   /** A fully-completed term opens on Standings — the archive is the content. */
   initialTab?: Tab;
 }) {
@@ -64,14 +76,14 @@ export function SeasonTabs({
         <div className="max-w-[1080px] mx-auto">
           <div hidden={tab !== "divisions"}>
             <>
-              <h2 className="font-display font-semibold text-2xl">Find your level &amp; register</h2>
-              <p className="text-ink-muted text-[13px] mt-0.5 mb-1.5">Pick your level, then narrow by format, night, or venue. Open divisions register on the spot.</p>
+              <h2 className="font-display font-semibold text-2xl">{findHeading}</h2>
+              <p className="text-ink-muted text-[13px] mt-0.5 mb-1.5">{findSubcopy}</p>
               {/* Pre-answer the two exits replays showed: "do I need an
                   account?" and "how long will this take?" */}
               <p className="font-mono text-[10.5px] tracking-wide uppercase text-sage mb-4">
                 No account needed · registering takes about 3 minutes
               </p>
-              <DivisionsFinder divisions={divisions} venues={venues} term={term} showLevels={showLevels ?? true} />
+              <DivisionsFinder divisions={divisions} venues={venues} term={term} showLevels={showLevels ?? true} footnote={footnote ?? null} />
 
               {/* What to expect + the questions replays showed people leaving
                   the flow to answer. Inline so info-seeking doesn't mean
@@ -83,7 +95,7 @@ export function SeasonTabs({
                     {[
                       ["Register", "Solo or with your team — about 3 minutes, pay online."],
                       ["Get your schedule", "Divisions lock, then your team & game times land in your inbox."],
-                      ["Play", "One game a week, 7 games, indoor — rain or shine."],
+                      ["Play", playLine],
                     ].map(([t, d], i) => (
                       <li key={t} className="flex gap-3 text-[13px]">
                         <span className="font-display font-semibold text-primary">{i + 1}</span>

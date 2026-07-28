@@ -40,11 +40,13 @@ export function registerHref(d: Division, mode: "individual" | "team" = "individ
   return `/register/${d.seasonId}?mode=${mode}`;
 }
 
-export function DivisionsFinder({ divisions, venues, term, showLevels = true }: {
+export function DivisionsFinder({ divisions, venues, term, showLevels = true, footnote = null }: {
   divisions: Division[];
   venues: { slug: string; label: string }[];
   term: string;
   showLevels?: boolean;
+  /** Footer note under the results, e.g. age-division cross-sell. Null renders nothing. */
+  footnote?: string | null;
 }) {
   const [f, setF] = useState<DivisionFilters>({ level: null, gender: null, day: null, venue: null });
   const results = filterDivisions(divisions, f);
@@ -113,9 +115,11 @@ export function DivisionsFinder({ divisions, venues, term, showLevels = true }: 
           ))}
         </div>
       )}
-      <p className="font-mono text-[10px] tracking-wide uppercase text-ink-muted mt-3.5">
-        Age divisions · 30+ and 40+ also available at Worthington
-      </p>
+      {footnote && (
+        <p className="font-mono text-[10px] tracking-wide uppercase text-ink-muted mt-3.5">
+          {footnote}
+        </p>
+      )}
     </div>
   );
 }

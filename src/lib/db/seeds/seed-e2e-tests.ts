@@ -1753,7 +1753,6 @@ async function seedFlagFootballFixture(db: Database, orgId: string) {
       status: fixture.status,
       priceCents: 10500,
       teamPriceCents: 79500,
-      pricingMode: "per_team",
       depositCents: 20000,
       allowDeposit: true,
       signupModes: ["team", "individual"],

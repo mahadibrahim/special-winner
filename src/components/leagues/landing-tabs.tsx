@@ -36,7 +36,7 @@ export function LandingTabs({ sport, basePath, overview, ruleSections, pastEmpty
   const [tab, setTab] = useState<Tab>("overview");
   useEffect(() => {
     trackLandingTabViewed({ sport, tab });
-  }, [tab]);
+  }, [sport, tab]);
   const tabs: { key: Tab; label: string; badge?: string }[] = [
     { key: "overview", label: "Overview" },
     { key: "this", label: "This Season" },
