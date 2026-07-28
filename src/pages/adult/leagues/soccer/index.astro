@@ -1,8 +1,8 @@
 ---
 export const prerender = false;
 import BaseLayout from "@/layouts/BaseLayout.astro";
-import { SoccerLandingTabs } from "@/components/leagues/soccer-landing-tabs";
-import { FORMAT_FACTS } from "@/lib/leagues/adult-soccer-content";
+import { LandingTabs } from "@/components/leagues/landing-tabs";
+import { FORMAT_FACTS, WHY_INDOOR, RULE_SECTIONS } from "@/lib/leagues/adult-soccer-content";
 import { partitionTerms, type TermSeason } from "@/lib/leagues/terms";
 
 const origin = Astro.url.origin;
@@ -50,7 +50,20 @@ const heroPhoto = "https://images.unsplash.com/photo-1543326727-cf6c39e8f84c?aut
         <p class="font-mono text-[12px] text-cream/70 pb-1">{FORMAT_FACTS.slice(0, 4).join(" · ")}</p>
       </div>
     </section>
-    <SoccerLandingTabs client:load current={currentProp} upcoming={upcomingProps} past={pastProps} />
+    <LandingTabs client:load
+      sport="soccer"
+      basePath="/adult/leagues/soccer"
+      overview={{
+        kicker: "Why indoor soccer",
+        headline: { before: "Real games, ", em: "every week", after: " — rain, snow, or shine." },
+        intro: "A faster, higher-scoring game on walled turf, leagues sorted by skill so every match is competitive, and a crew waiting whether or not you bring one.",
+        why: WHY_INDOOR,
+        midLabel: "Find your level",
+        midSlot: { kind: "ladder" },
+      }}
+      ruleSections={RULE_SECTIONS}
+      pastEmptyCopy="No completed seasons yet — Fall 2026 is the first. Results & champions will appear here."
+      current={currentProp} upcoming={upcomingProps} past={pastProps} />
   </main>
 </BaseLayout>
 
@@ -58,7 +71,7 @@ const heroPhoto = "https://images.unsplash.com/photo-1543326727-cf6c39e8f84c?aut
   import { trackLandingCtaClicked } from "@/lib/analytics/events";
 
   // The hero "Now Registering" banner fired nothing while its Overview-tab
-  // twin (soccer-landing-tabs.tsx) tracked — tier 4→5 conversion was
+  // twin (landing-tabs.tsx) tracked — tier 4→5 conversion was
   // undercounted with no way to see the hero/tab split.
   document.querySelectorAll<HTMLAnchorElement>("[data-hero-banner-cta]").forEach((el) => {
     el.addEventListener("click", () => trackLandingCtaClicked({ term: el.dataset.term ?? "" }));
