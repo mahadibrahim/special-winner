@@ -145,7 +145,13 @@ const heroPhoto = "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?
 // this JSON-LD is the reliable crawlable copy of its answers. Hand-rolled to
 // match sports/[slug].astro; migrate to faq-block.astro when Phase A lands.
 import { breadcrumbJsonLd } from "@/lib/seo/breadcrumbs";
+import { seasonsToLeagueEvents } from "@/lib/seo/events";
 const ORIGIN = import.meta.env.PUBLIC_APP_URL || "https://aspiresportsohio.com";
+
+// Per-division Event rich results — street-level venue address, request-time
+// (early-bird-aware) offers pulled from the API rows, never hardcoded.
+const eventSchema = seasonsToLeagueEvents(seasons, ORIGIN);
+
 const breadcrumbSchema = breadcrumbJsonLd([
   { name: "Home", url: `${ORIGIN}/` },
   { name: "Adult Leagues", url: `${ORIGIN}/adult/leagues` },
@@ -170,6 +176,9 @@ const faqSchema = {
   <Fragment slot="head">
     <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbSchema)} />
     <script type="application/ld+json" is:inline set:html={JSON.stringify(faqSchema)} />
+    {eventSchema.length > 0 && (
+      <script type="application/ld+json" is:inline set:html={JSON.stringify(eventSchema)} />
+    )}
   </Fragment>
   <main id="main-content">
     <section

@@ -28,6 +28,23 @@ const ageBand =
     ? (rawAge as (typeof VALID_AGE_BANDS)[number])
     : null;
 
+// Server-fetch the catalog so crawlers get real league content in the
+// initial HTML instead of the island's loading state. The island receives
+// the rows as a prop and keeps filtering as progressive enhancement.
+const cookie = Astro.request.headers.get("cookie") ?? "";
+let initialSeasons: any[] = [];
+try {
+  const res = await fetch(`${Astro.url.origin}/api/public/seasons`, { headers: { cookie } });
+  if (res.ok) {
+    const seasons: any[] = (await res.json()).seasons ?? [];
+    // Same slice the island advertises: `open` (register) + `forming`
+    // (interest list); `active` in-season rows stay out of the catalog.
+    initialSeasons = seasons.filter((s) => s.status === "open" || s.status === "forming");
+  }
+} catch {
+  // Island falls back to its own client-side fetch when the prop is empty.
+}
+
 const canonicalUrl = audience
   ? `${Astro.url.origin}/programs?audience=${audience}`
   : `${Astro.url.origin}/programs`;
@@ -72,7 +89,7 @@ const pageDescription = audience === "adult"
         </p>
       </header>
 
-      <ProgramsCatalog client:load initialAudience={audience} initialType={programType} initialAgeBand={ageBand} />
+      <ProgramsCatalog client:load initialAudience={audience} initialType={programType} initialAgeBand={ageBand} initialSeasons={initialSeasons} />
     </div>
   </main>
 </BaseLayout>

@@ -44,6 +44,12 @@ interface Props {
   initialAudience?: Audience | null
   initialType?: string | null
   initialAgeBand?: string | null
+  /**
+   * Server-fetched catalog rows (already filtered to open/forming). When
+   * present, the SSR pass renders real league content — crawlers see the
+   * catalog instead of the loading spinner — and the client fetch is skipped.
+   */
+  initialSeasons?: ApiSeason[] | null
 }
 
 const SEGMENT_LABELS: Record<Audience, { icon: string; label: string; sub: string }> = {
@@ -52,9 +58,10 @@ const SEGMENT_LABELS: Record<Audience, { icon: string; label: string; sub: strin
   team: { icon: "🏆", label: "A team", sub: "Captain registration" },
 }
 
-export default function ProgramsCatalog({ initialAudience, initialType, initialAgeBand }: Props) {
-  const [seasons, setSeasons] = useState<ApiSeason[]>([])
-  const [loading, setLoading] = useState(true)
+export default function ProgramsCatalog({ initialAudience, initialType, initialAgeBand, initialSeasons }: Props) {
+  const hasServerData = initialSeasons != null && initialSeasons.length > 0
+  const [seasons, setSeasons] = useState<ApiSeason[]>(initialSeasons ?? [])
+  const [loading, setLoading] = useState(!hasServerData)
   const [error, setError] = useState<string | null>(null)
 
   const [audience, setAudience] = useState<Audience>(
@@ -90,6 +97,9 @@ export default function ProgramsCatalog({ initialAudience, initialType, initialA
   }, [audience, activeSport, activeLocation, activeAgeBand, activeSkill, activeDay, activeType, sort])
 
   useEffect(() => {
+    // Server already fetched the same slice this request; refetching on mount
+    // would only flash a re-render off the 5-minute-cached endpoint.
+    if (hasServerData) return
     let cancelled = false
     setLoading(true)
     setError(null)
@@ -117,7 +127,7 @@ export default function ProgramsCatalog({ initialAudience, initialType, initialA
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [hasServerData])
 
   // Step 1: filter by audience segment. Team segment includes both
   // team-only and dual-mode adult leagues (anything that accepts a team).

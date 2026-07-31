@@ -23,7 +23,7 @@ export const SKILL_LEVELS: SkillLevel[] = [
 export const FORMAT_FACTS: string[] = [
   "7v7 on the field",
   "7-game season, no playoffs",
-  "50 min per game, two halves",
+  "Two 24-minute halves",
   "Roster up to 14 (7 to play)",
   "Certified referees every match",
   "Walled-arena rules (no offside, the wall is in play)",
@@ -80,5 +80,5 @@ export const WHY_INDOOR: ValueProp[] = [
   { icon: "🤝", tint: "orange", title: "No team? No problem", copy: "Sign up solo and the Free Agent Pool places you on a balanced squad by skill & schedule." },
   { icon: "🥅", tint: "ochre", title: "Actual competition", copy: "Certified refs every match, live standings, and four skill tiers so you're matched, not mismatched." },
   { icon: "🍻", tint: "ochre", title: "Stick around after", copy: "Half of league night happens off the field — food, drinks, and the people you'll keep playing with." },
-  { icon: "📍", tint: "sage", title: "Built around your week", copy: "Weeknight games, 50 minutes, at Worthington & Downtown / OSU. In and out, no all-day commitment." },
+  { icon: "📍", tint: "sage", title: "Built around your week", copy: "One game a week — two 24-minute halves at Worthington & Downtown / OSU. In and out, no all-day commitment." },
 ];

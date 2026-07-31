@@ -9,6 +9,7 @@ import {
   summarizeOpenLeagues,
   summarizeUpcomingTerms,
 } from "@/lib/locations/season-summary";
+import { divisionSlugMap, divisionNaming } from "@/lib/leagues/division-slug";
 import VenueMap from "@/components/locations/VenueMap.astro";
 import StayInLoop from "@/components/locations/StayInLoop.astro";
 
@@ -182,14 +183,86 @@ const breadcrumbSchema = breadcrumbJsonLd([
   { name: "Locations", url: `${ORIGIN}/locations` },
   { name: displayLocationName, url: `${ORIGIN}/locations/${slug}` },
 ]);
+
+// ---- Venue-led adult-league SEO section ------------------------------------
+// City-generic search intent, venue-angled ("adult soccer league worthington").
+// Division links are term-scoped (never open+forming aggregates) and reuse the
+// same slug builder as the division pages, so URLs can't drift.
+const adultSoccerRows = venueSeasons.filter(
+  (s) =>
+    s.sport?.slug === "soccer" &&
+    (s.ageGroup == null || (s.ageGroup.minAge ?? 18) >= 18) &&
+    leagueSummary?.termSlug != null &&
+    s.termSlug === leagueSummary.termSlug,
+);
+const venueDivisionLinks = [...divisionSlugMap(adultSoccerRows).entries()].map(([dSlug, s]) => ({
+  href: `/adult/leagues/soccer/${s.termSlug}/${dSlug}`,
+  ...divisionNaming(s, "Soccer", s.termLabel ?? ""),
+  day: s.dayOfWeek as string | null,
+}));
+const DAY_LONG: Record<string, string> = {
+  mon: "Monday", tue: "Tuesday", wed: "Wednesday", thu: "Thursday",
+  fri: "Friday", sat: "Saturday", sun: "Sunday",
+};
+const nightGroups = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+  .filter((d) => venueDivisionLinks.some((l) => l.day === d))
+  .map((d) => ({ label: `${DAY_LONG[d]}s`, items: venueDivisionLinks.filter((l) => l.day === d) }));
+
+const ageRows = adultSoccerRows.filter((s) => s.minAge != null && s.minAge >= 30);
+const ageDays = [...new Set(ageRows.map((s) => (s.dayOfWeek ? DAY_LONG[s.dayOfWeek] : null)).filter(Boolean))];
+
+// FAQ — the four questions people actually type (live search-terms report)
+// plus the venue Q&A this page already answered; one FAQPage schema over all.
+const priceAnswer =
+  leagueSummary?.soloPrice != null && leagueSummary?.teamPrice != null
+    ? `At ${displayLocationName}, solo players pay $${leagueSummary.soloPrice.toLocaleString()} for the season — no deposit. Team registration is $${leagueSummary.teamPrice.toLocaleString()} total, and a deposit holds a team's spot with the balance due before game 1. Exact per-division pricing is on each season page.`
+    : "Each season page lists solo and team pricing before you register — nothing is hidden behind a signup form.";
+const goodToKnow = [
+  {
+    q: "What ages do you serve?",
+    a: facts?.offerings.youth
+      ? "Youth programs from U6 through U18, plus adult leagues 18 and up."
+      : "Adult programming — 18 and up.",
+  },
+  {
+    q: "Can I come alone?",
+    a: "Yes — register solo and we place you on a team, or drop into pickup where offered.",
+  },
+  { q: "Do you run year-round?", a: "Yes — fully indoor. No weather cancellations, no seasonal gaps." },
+  {
+    q: "Where can adults play soccer near Columbus?",
+    a: `Adult indoor soccer leagues run here at ${displayLocationName}${fullAddress ? ` (${fullAddress})` : ""} and at our ${slug === "worthington" ? "Downtown / OSU venue in Milo-Grogan" : "Worthington venue off I-270"}. Games are in evening slots between 6 and 11 pm, and every league is 7 games in 7 weeks with two 24-minute halves.`,
+  },
+  {
+    q: "Can I join a soccer team as an individual?",
+    a: "Yes — that's the Sign Up Solo path. Register as an individual and we place you on a balanced team by skill level and schedule. No team required.",
+  },
+  { q: "What does an adult soccer league cost?", a: priceAnswer },
+  {
+    q: "Are there over-30 leagues?",
+    a: ageRows.length
+      ? `Yes — this season ${displayLocationName} has ${ageRows.length} age-qualified division${ageRows.length === 1 ? "" : "s"} (30+ and 40+ where marked)${ageDays.length ? ` playing ${ageDays.join(" and ")}` : ""}.`
+      : "Age-qualified 30+ divisions run in most seasons — check the current season page for what's scheduled right now.",
+  },
+];
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: goodToKnow.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
 ---
 
 <BaseLayout
   title={`Soccer at ${displayLocationName} — Aspire Sports, Columbus`}
-  description={`Aspire Sports youth and adult soccer programs at ${displayLocationName}${cityState ? ` (${cityState})` : ""}. ${openSeasonCount > 0 ? `${openSeasonCount} program${openSeasonCount === 1 ? "" : "s"} open for registration.` : "Year-round indoor, captain-first operations."}`}
+  description={`Aspire Sports youth and adult soccer programs at ${displayLocationName}${cityState ? ` (${cityState})` : ""}. ${openSeasonCount > 0 ? `${openSeasonCount} program${openSeasonCount === 1 ? "" : "s"} open for registration.` : "Year-round indoor leagues and programs."}`}
 >
   <script type="application/ld+json" set:html={JSON.stringify(venueSchema)} />
   <script type="application/ld+json" set:html={JSON.stringify(breadcrumbSchema)} />
+  <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
 
   <main id="main-content">
     {/* 1 · Hero — photo background + ink wash, like the [term].astro hero pattern */}
@@ -379,27 +452,54 @@ const breadcrumbSchema = breadcrumbJsonLd([
       </section>
     )}
 
-    {/* 6 · Good to know — rewritten; stale answers deleted */}
+    {/* 5b · Adult leagues by night — venue-led city-search section. Renders
+        only when the featured term actually has adult soccer divisions here;
+        every link lands on that division's own indexable guide page. */}
+    {nightGroups.length > 0 && (
+      <section class="py-16 px-6" aria-label="Adult soccer leagues by night">
+        <div class="max-w-[1080px] mx-auto">
+          <h2 class="font-display text-3xl text-ink mb-1">
+            Adult soccer leagues in {location.city ?? displayLocationName}, Ohio
+          </h2>
+          <p class="text-ink-muted text-sm mb-8">
+            Skill-matched divisions at {displayLocationName} — pick a night, see prices and dates, register solo or bring a team.
+          </p>
+          <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-6">
+            {nightGroups.map((g) => (
+              <div>
+                <h3 class="font-mono text-[11px] tracking-widest uppercase text-ink-muted mb-2">{g.label}</h3>
+                <ul class="space-y-1.5 text-[14.5px]">
+                  {g.items.map((l) => (
+                    <li>
+                      <a href={l.href} class="text-ink-2 hover:text-primary">{l.label}</a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+          <p class="text-[13px] text-ink-muted mt-8">
+            Full Columbus league guide — both venues, all divisions:{" "}
+            <a href="https://aspiresportsohio.com/adult-soccer-leagues-columbus" class="underline hover:text-primary">
+              aspiresportsohio.com/adult-soccer-leagues-columbus
+            </a>
+          </p>
+        </div>
+      </section>
+    )}
+
+    {/* 6 · Good to know — venue Q&A + the city-search questions people
+        actually type; FAQPage JSON-LD in the head mirrors this list. */}
     <section class="py-16 px-6" aria-label="Good to know">
       <div class="max-w-[1080px] mx-auto">
         <h2 class="font-display text-3xl text-ink mb-8">Good to know</h2>
         <div class="grid sm:grid-cols-2 gap-x-12 gap-y-7 max-w-3xl">
-          <div>
-            <h3 class="font-display italic text-lg text-ink mb-1.5">What ages do you serve?</h3>
-            <p class="text-sm text-ink-2">
-              {facts?.offerings.youth
-                ? "Youth programs from U6 through U18, plus adult leagues 18 and up."
-                : "Adult programming — 18 and up."}
-            </p>
-          </div>
-          <div>
-            <h3 class="font-display italic text-lg text-ink mb-1.5">Can I come alone?</h3>
-            <p class="text-sm text-ink-2">Yes — register solo and we place you on a team, or drop into pickup where offered.</p>
-          </div>
-          <div>
-            <h3 class="font-display italic text-lg text-ink mb-1.5">Do you run year-round?</h3>
-            <p class="text-sm text-ink-2">Yes — fully indoor. No weather cancellations, no seasonal gaps.</p>
-          </div>
+          {goodToKnow.map((item) => (
+            <div>
+              <h3 class="font-display italic text-lg text-ink mb-1.5">{item.q}</h3>
+              <p class="text-sm text-ink-2">{item.a}</p>
+            </div>
+          ))}
         </div>
       </div>
     </section>

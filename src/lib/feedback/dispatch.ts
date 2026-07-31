@@ -1,4 +1,4 @@
-import { and, eq, gte, lte, lt, isNull, isNotNull, inArray, sql, desc, max, notExists } from "drizzle-orm";
+import { and, eq, ne, gte, lte, lt, isNull, isNotNull, inArray, sql, desc, max, notExists } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   feedbackRequests,
@@ -14,9 +14,11 @@ import {
   games,
   gameOfficials,
   rosters,
+  emailLogs,
   type FeedbackRequestKind,
   type FeedbackRequestMetadata,
   type OrganizationFeatures,
+  type OrganizationSettings,
 } from "@/lib/db/schema";
 import {
   NPS_EXPIRY_DAYS,
@@ -28,7 +30,12 @@ import {
   REFEREE_DAILY_CAP_HOURS,
 } from "./constants";
 import { generateFeedbackToken, hashFeedbackToken, buildFeedbackUrl } from "./tokens";
-import { sendNpsSurveyEmail, sendRefereeRatingEmail } from "@/lib/email/send";
+import { resolveGoogleReviewUrl } from "./review-url";
+import {
+  sendNpsSurveyEmail,
+  sendRefereeRatingEmail,
+  sendFirstGameRecapEmail,
+} from "@/lib/email/send";
 import { isEmailConfigured } from "@/lib/email";
 import { originForBrand } from "@/lib/organization/soccerone-routing";
 import { env } from "@/lib/env";
@@ -444,6 +451,186 @@ async function scanRefereeRatings(now: Date, enabledOrgs: Set<string>): Promise<
   );
 }
 
+/**
+ * Candidate for the "how was your first game?" review-ask email. Not a
+ * `Candidate`: there is no feedback_requests row or tokenized survey here —
+ * the email deep-links straight to the org's Google review listing, and
+ * idempotency is email_logs-based (one send per recipient per season).
+ */
+interface FirstGameRecapCandidate {
+  organizationId: string;
+  brand: string;
+  seasonId: string;
+  /** The recipient's registration on the triggering team — associates the email_logs row. */
+  registrationId: string;
+  recipientUserId: string;
+  programName: string;
+  venueId: string | null;
+}
+
+/**
+ * Scan 5: teams that just played their FIRST completed game of a season →
+ * adults on the roster get a "how was your first game? leave us a review"
+ * email. Modeled on Scan 4's batched shape:
+ * 1. recently-completed games (lookback window), joined for org + program
+ * 2. ALL completed games in the affected seasons — to decide which recent
+ *    game is a team's first (a team whose first completed game predates the
+ *    lookback window never triggers, by design)
+ * 3. roster recipients for the triggered teams, via inArray
+ * 4. an email_logs anti-join (emailType + registration→season) so each
+ *    recipient gets at most one ask per season; failed rows are excluded so
+ *    a transient send failure retries on the next hourly run
+ */
+async function scanFirstGameRecaps(
+  now: Date,
+  enabledOrgs: Set<string>,
+): Promise<FirstGameRecapCandidate[]> {
+  if (enabledOrgs.size === 0) return [];
+  const db = getDb();
+  const updatedAfter = new Date(now.getTime() - DISPATCH_LOOKBACK_DAYS * DAY_MS);
+
+  const recentGames = await db
+    .select({
+      gameId: games.id,
+      seasonId: games.seasonId,
+      homeTeamId: games.homeTeamId,
+      awayTeamId: games.awayTeamId,
+      gameVenueId: games.venueId,
+      seasonVenueId: seasons.venueId,
+      organizationId: locations.organizationId,
+      programName: programs.name,
+    })
+    .from(games)
+    .innerJoin(seasons, eq(games.seasonId, seasons.id))
+    .innerJoin(programs, eq(seasons.programId, programs.id))
+    .innerJoin(locations, eq(programs.locationId, locations.id))
+    .where(and(eq(games.status, "completed"), gte(games.updatedAt, updatedAfter)));
+
+  const eligibleGames = recentGames.filter(
+    (g) =>
+      enabledOrgs.has(g.organizationId) &&
+      (g.homeTeamId !== null || g.awayTeamId !== null),
+  );
+  if (eligibleGames.length === 0) return [];
+
+  const seasonIds = [...new Set(eligibleGames.map((g) => g.seasonId))];
+
+  const allCompleted = await db
+    .select({
+      id: games.id,
+      seasonId: games.seasonId,
+      homeTeamId: games.homeTeamId,
+      awayTeamId: games.awayTeamId,
+      scheduledAt: games.scheduledAt,
+    })
+    .from(games)
+    .where(and(eq(games.status, "completed"), inArray(games.seasonId, seasonIds)));
+
+  // Earliest completed game per (season, team) — tiebreak on game id so two
+  // games sharing a scheduledAt still yield one deterministic "first".
+  const firstByTeam = new Map<string, { id: string; scheduledAt: Date }>();
+  for (const g of allCompleted) {
+    for (const teamId of [g.homeTeamId, g.awayTeamId]) {
+      if (!teamId) continue;
+      const key = `${g.seasonId}:${teamId}`;
+      const cur = firstByTeam.get(key);
+      if (
+        !cur ||
+        g.scheduledAt < cur.scheduledAt ||
+        (g.scheduledAt.getTime() === cur.scheduledAt.getTime() && g.id < cur.id)
+      ) {
+        firstByTeam.set(key, { id: g.id, scheduledAt: g.scheduledAt });
+      }
+    }
+  }
+
+  // Teams whose first completed game is one of the recently-completed games.
+  const triggered: Array<{ teamId: string; game: (typeof eligibleGames)[number] }> = [];
+  for (const g of eligibleGames) {
+    for (const teamId of [g.homeTeamId, g.awayTeamId]) {
+      if (!teamId) continue;
+      if (firstByTeam.get(`${g.seasonId}:${teamId}`)?.id === g.gameId) {
+        triggered.push({ teamId, game: g });
+      }
+    }
+  }
+  if (triggered.length === 0) return [];
+
+  const triggeredTeamIds = [...new Set(triggered.map((t) => t.teamId))];
+
+  // Adults tied to the triggered rosters: parents of youth players AND adult
+  // self-registrants — both are registrations.registeredByUserId (same
+  // recipient definition as Scan 4).
+  const rosterRows = await db
+    .select({
+      teamId: rosters.teamId,
+      userId: registrations.registeredByUserId,
+      brand: registrations.brand,
+      registrationId: registrations.id,
+      seasonId: registrations.seasonId,
+    })
+    .from(rosters)
+    .innerJoin(registrations, eq(rosters.registrationId, registrations.id))
+    .where(
+      and(
+        inArray(rosters.teamId, triggeredTeamIds),
+        eq(rosters.status, "active"),
+        eq(registrations.status, "confirmed"),
+      ),
+    );
+
+  const rosterByTeam = new Map<string, typeof rosterRows>();
+  for (const r of rosterRows) {
+    const arr = rosterByTeam.get(r.teamId);
+    if (arr) arr.push(r);
+    else rosterByTeam.set(r.teamId, [r]);
+  }
+
+  // One candidate per (recipient, season) — a recipient with players on both
+  // teams of the same first game (or on two teams that debuted this window)
+  // still gets a single email.
+  const seen = new Set<string>();
+  const candidates: FirstGameRecapCandidate[] = [];
+  for (const t of triggered) {
+    for (const r of rosterByTeam.get(t.teamId) ?? []) {
+      if (r.seasonId !== t.game.seasonId) continue; // stale cross-season roster row — never a valid ask
+      const key = `${r.userId}:${r.seasonId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      candidates.push({
+        organizationId: t.game.organizationId,
+        brand: r.brand,
+        seasonId: r.seasonId,
+        registrationId: r.registrationId,
+        recipientUserId: r.userId,
+        programName: t.game.programName,
+        venueId: t.game.gameVenueId ?? t.game.seasonVenueId ?? null,
+      });
+    }
+  }
+  if (candidates.length === 0) return [];
+
+  // Anti-join: at most one first_game_recap per recipient per season. The
+  // email_logs row carries the recipient's registrationId, so the season
+  // comes via the registrations join. `failed` rows are excluded on purpose
+  // (retry next run); `sent`/`skipped` rows dedupe.
+  const logRows = await db
+    .select({ userId: emailLogs.userId, seasonId: registrations.seasonId })
+    .from(emailLogs)
+    .innerJoin(registrations, eq(emailLogs.registrationId, registrations.id))
+    .where(
+      and(
+        eq(emailLogs.emailType, "first_game_recap"),
+        inArray(emailLogs.userId, [...new Set(candidates.map((c) => c.recipientUserId))]),
+        inArray(registrations.seasonId, [...new Set(candidates.map((c) => c.seasonId))]),
+        ne(emailLogs.status, "failed"),
+      ),
+    );
+  const alreadyAsked = new Set(logRows.map((r) => `${r.userId}:${r.seasonId}`));
+
+  return candidates.filter((c) => !alreadyAsked.has(`${c.recipientUserId}:${c.seasonId}`));
+}
+
 /** Cooldown/cap cutoff for a kind: 24h for referee ratings, NPS_COOLDOWN_DAYS for NPS kinds. */
 function cutoffFor(kind: FeedbackRequestKind, now: Date): Date {
   return kind === "referee_rating"
@@ -521,6 +708,18 @@ async function batchOrgFeatures(
     .from(organizations)
     .where(inArray(organizations.id, orgIds));
   return new Map(rows.map((r) => [r.id, r.features as OrganizationFeatures | null]));
+}
+
+/** Batched org-settings fetch (for review-URL resolution), mirrors batchOrgFeatures. */
+async function batchOrgSettings(
+  orgIds: string[],
+): Promise<Map<string, OrganizationSettings | null>> {
+  if (orgIds.length === 0) return new Map();
+  const rows = await getDb()
+    .select({ id: organizations.id, settings: organizations.settings })
+    .from(organizations)
+    .where(inArray(organizations.id, orgIds));
+  return new Map(rows.map((r) => [r.id, r.settings as OrganizationSettings | null]));
 }
 
 /**
@@ -861,6 +1060,66 @@ export async function dispatchFeedbackRequests(now: Date = new Date()): Promise<
     } catch (err) {
       console.error(
         `[feedback] candidate dispatch threw (kind=${candidate.kind} target=${candidate.targetId}):`,
+        err,
+      );
+      result.errors += 1;
+    }
+  }
+
+  // First-game review asks (Scan 5): after a team's first completed game of
+  // a season, nudge each adult on the roster toward the org's Google review
+  // listing. Parked behind the enableFirstGameReviewAsk org feature flag
+  // (absent = off), and skipped entirely when no review URL resolves for the
+  // candidate's brand/venue. No feedback_requests row — idempotency is the
+  // email_logs anti-join inside scanFirstGameRecaps.
+  const recapOrgs = await orgsWithFeature("enableFirstGameReviewAsk");
+  const recapCandidates = await scanFirstGameRecaps(now, recapOrgs);
+
+  const recapRecipientIds = [...new Set(recapCandidates.map((c) => c.recipientUserId))];
+  const recapOrgIds = [...new Set(recapCandidates.map((c) => c.organizationId))];
+  const [recapRecipients, recapOrgSettings] = await Promise.all([
+    batchRecipients(recapRecipientIds),
+    batchOrgSettings(recapOrgIds),
+  ]);
+
+  for (const candidate of recapCandidates) {
+    try {
+      const recipient = recapRecipients.get(candidate.recipientUserId);
+      if (!recipient?.email) continue;
+      const brand = (candidate.brand === "soccerone" ? "soccerone" : "aspire") as BrandId;
+      // No review destination configured for this brand/venue → the email
+      // has no point; skip without logging so the ask can still go out on a
+      // later run once the org configures a URL (subject to the lookback).
+      const reviewUrl = resolveGoogleReviewUrl(
+        recapOrgSettings.get(candidate.organizationId),
+        brand,
+        candidate.venueId,
+      );
+      if (!reviewUrl) continue;
+
+      const sendResult = await sendFirstGameRecapEmail({
+        to: recipient.email,
+        userId: candidate.recipientUserId,
+        organizationId: candidate.organizationId,
+        registrationId: candidate.registrationId,
+        brand,
+        recipientName: recipient.firstName ?? "there",
+        programName: candidate.programName,
+        venueId: candidate.venueId,
+      });
+      if (sendResult.success) {
+        result.sent += 1;
+      } else if (!sendResult.skipped) {
+        // A real send failure — the email_logs row is `failed`, which the
+        // anti-join excludes, so the next hourly run retries it.
+        console.error(
+          `[feedback] first-game recap send failed (season=${candidate.seasonId} recipient=${candidate.recipientUserId}): ${sendResult.error ?? "unknown error"}`,
+        );
+        result.errors += 1;
+      }
+    } catch (err) {
+      console.error(
+        `[feedback] first-game recap dispatch threw (season=${candidate.seasonId} recipient=${candidate.recipientUserId}):`,
         err,
       );
       result.errors += 1;

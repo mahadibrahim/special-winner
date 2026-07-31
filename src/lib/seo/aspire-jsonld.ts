@@ -10,6 +10,8 @@
 // omitted rather than fabricated. Do not invent NAP data — pull it from GBP.
 //
 // Policy: NO AggregateRating/Review markup.
+import { VENUE_ADDRESSES } from "./venue-address";
+
 export const ASPIRE_ORG_JSONLD = {
   "@context": "https://schema.org",
   "@type": "SportsOrganization",
@@ -36,28 +38,14 @@ export const ASPIRE_ORG_JSONLD = {
       "@type": "Place",
       name: "Aspire Sports — Worthington",
       telephone: "+1-614-749-9782",
-      address: {
-        "@type": "PostalAddress",
-        streetAddress: "535 Lakeview Plaza Blvd",
-        addressLocality: "Worthington",
-        addressRegion: "OH",
-        postalCode: "43085",
-        addressCountry: "US",
-      },
-      geo: { "@type": "GeoCoordinates", latitude: 40.1130348, longitude: -83.0021613 },
+      address: VENUE_ADDRESSES.worthington.address,
+      geo: VENUE_ADDRESSES.worthington.geo,
     },
     {
       "@type": "Place",
       name: "Aspire Sports — Downtown / OSU",
-      address: {
-        "@type": "PostalAddress",
-        streetAddress: "980 E Starr Ave",
-        addressLocality: "Columbus",
-        addressRegion: "OH",
-        postalCode: "43201",
-        addressCountry: "US",
-      },
-      geo: { "@type": "GeoCoordinates", latitude: 39.9827248, longitude: -82.9781289 },
+      address: VENUE_ADDRESSES.downtown.address,
+      geo: VENUE_ADDRESSES.downtown.geo,
     },
   ],
 };
