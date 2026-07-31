@@ -522,6 +522,11 @@ export interface OrganizationFeatures {
   enableCustomDomain?: boolean;
   enableNpsSurveys?: boolean;
   enableRefereeRatings?: boolean;
+  /**
+   * "How was your first game? Leave us a review" email after a team's first
+   * completed game of a season. Ships dark — absent means off.
+   */
+  enableFirstGameReviewAsk?: boolean;
   maxLocations?: number;
   maxUsersPerLocation?: number;
 }

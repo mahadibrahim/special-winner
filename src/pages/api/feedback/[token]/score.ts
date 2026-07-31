@@ -12,6 +12,7 @@ import {
 import type { OrganizationSettings } from "@/lib/db/schema";
 import { hashFeedbackToken } from "@/lib/feedback/tokens";
 import { npsCategory } from "@/lib/feedback/constants";
+import { resolveGoogleReviewUrl } from "@/lib/feedback/review-url";
 import { getFeedbackRequestByToken } from "@/lib/feedback/lookup";
 import { sendDetractorAlertEmail } from "@/lib/email/send";
 import type { BrandId } from "@/lib/branding/themes";
@@ -117,16 +118,11 @@ export const POST: APIRoute = async ({ params, request }) => {
   const brand = (claimed.brand === "soccerone" ? "soccerone" : "aspire") as BrandId;
 
   const category = npsCategory(score);
-  // Venue-specific listing wins (each facility's Google profile collects its
-  // own reviews); per-brand URL is the fallback for requests without a venue
-  // or venues without an override.
-  const venueId = claimed.metadata?.venueId;
-  const venueReviewUrl = venueId
-    ? (settings.feedback?.googleReviewUrlByVenue?.[venueId] ?? null)
-    : null;
+  // Venue→brand precedence lives in resolveGoogleReviewUrl (shared with the
+  // first-game recap email); only promoters get funneled to the listing.
   const reviewUrl =
     category === "promoter"
-      ? (venueReviewUrl ?? settings.feedback?.googleReviewUrl?.[brand] ?? null)
+      ? resolveGoogleReviewUrl(settings, brand, claimed.metadata?.venueId)
       : null;
 
   if (category === "detractor") {

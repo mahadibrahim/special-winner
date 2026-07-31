@@ -27,6 +27,8 @@ import { InappRecaptureEmail } from "./templates/inapp-recapture";
 import { FeedbackNpsEmail } from "./templates/feedback-nps";
 import { FeedbackDetractorAlertEmail } from "./templates/feedback-detractor-alert";
 import { FeedbackRefereeRatingEmail } from "./templates/feedback-referee-rating";
+import { FirstGameRecapEmail } from "./templates/first-game-recap";
+import { resolveGoogleReviewUrl } from "@/lib/feedback/review-url";
 import {
   CAPTURE_INCENTIVE,
   formatIncentiveAmount,
@@ -36,7 +38,7 @@ import {
   getUnsubscribeSecret,
 } from "@/lib/marketing/unsubscribe-token";
 import { getDb } from "@/lib/db";
-import { emailLogs } from "@/lib/db/schema";
+import { emailLogs, organizations, type OrganizationSettings } from "@/lib/db/schema";
 import { sendToParent } from "@/lib/messaging/gateway";
 import { env } from "@/lib/env";
 import { WAITLIST_PROMOTION_HOURS } from "@/lib/waitlist/processor";
@@ -1661,5 +1663,87 @@ export async function sendRefereeRatingEmail(params: SendRefereeRatingEmailParam
           body: `How did the ref do at ${clip(params.eventLabel, 50)}? 20-second rating: ${params.surveyUrl}`,
         }
       : undefined,
+  });
+}
+
+export interface SendFirstGameRecapEmailParams {
+  to: string;
+  userId: string;
+  organizationId: string;
+  /**
+   * The recipient's registration for the season — associates the email_logs
+   * row so the dispatch scan's per-season idempotency anti-join (email_logs
+   * joined to registrations.seasonId) can see this send.
+   */
+  registrationId: string;
+  brand: BrandId;
+  recipientName: string;
+  programName: string;
+  /** Venue the game was played at; a venue-specific review listing wins over the brand fallback. */
+  venueId?: string | null;
+}
+
+/**
+ * "How was your first game?" review ask, sent after a team's first completed
+ * game of a season. Resolves the Google review deep-link from org settings
+ * (venue-specific listing wins over the per-brand fallback — same precedence
+ * as the NPS promoter funnel). The review CTA is the entire point of this
+ * email, so when no URL resolves we skip the send altogether — without
+ * logging, so the ask goes out on a later run once the org configures a URL.
+ */
+export async function sendFirstGameRecapEmail(
+  params: SendFirstGameRecapEmailParams,
+): Promise<{ success: boolean; messageId?: string; error?: string; skipped?: boolean }> {
+  const [org] = await getDb()
+    .select({ settings: organizations.settings })
+    .from(organizations)
+    .where(eq(organizations.id, params.organizationId))
+    .limit(1);
+  const reviewUrl = resolveGoogleReviewUrl(
+    (org?.settings ?? {}) as OrganizationSettings,
+    params.brand,
+    params.venueId,
+  );
+  if (!reviewUrl) {
+    return { success: false, skipped: true, error: "No Google review URL configured" };
+  }
+
+  const subject = "How was your first game?";
+
+  if (!isEmailConfigured()) {
+    console.warn("Email not configured, skipping first-game recap email");
+    // Record the attempt as skipped so the dispatch scan's email_logs
+    // anti-join holds (same convention as the capture-incentive dedupe —
+    // an intentionally inert channel must not retry hourly forever).
+    await logEmail({
+      userId: params.userId,
+      registrationId: params.registrationId,
+      emailType: "first_game_recap",
+      recipientEmail: params.to,
+      subject,
+      status: "skipped",
+    });
+    return { success: false, skipped: true, error: "Email not configured" };
+  }
+
+  const { html, text } = await renderEmail(
+    FirstGameRecapEmail({
+      recipientName: params.recipientName,
+      programName: params.programName,
+      reviewUrl,
+      appUrl: originForBrand(params.brand) ?? env.PUBLIC_APP_URL,
+      brand: params.brand,
+    }),
+  );
+
+  return sendTransactionalEmail({
+    userId: params.userId,
+    registrationId: params.registrationId,
+    emailType: "first_game_recap",
+    to: params.to,
+    subject,
+    html,
+    text,
+    from: fromForBrand(params.brand),
   });
 }

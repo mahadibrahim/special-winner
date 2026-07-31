@@ -1,0 +1,285 @@
+---
+// Per-division league page — one stable, crawlable URL per division (e.g.
+// /adult/leagues/soccer/fall-2026/co-ed-b-wednesday-worthington). SSR: the
+// division IS a seasons row; everything rendered here (night, venue, price,
+// dates, status) comes from the live catalog API, never hardcoded copy.
+export const prerender = false;
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { getVenueFacts } from "@/lib/locations/venue-facts";
+import { SKILL_LEVELS, FORMAT_FACTS } from "@/lib/leagues/adult-soccer-content";
+import { divisionSlugMap, divisionNaming } from "@/lib/leagues/division-slug";
+import { breadcrumbJsonLd } from "@/lib/seo/breadcrumbs";
+import { seasonsToLeagueEvents } from "@/lib/seo/events";
+import { venueAddress } from "@/lib/seo/venue-address";
+import { CAPTAIN_DEPOSIT_DOLLARS } from "@/lib/registrations/team-deposit";
+
+const { term, division } = Astro.params;
+const origin = Astro.url.origin;
+const cookie = Astro.request.headers.get("cookie") ?? "";
+const [liveRes, doneRes] = await Promise.all([
+  fetch(`${origin}/api/public/seasons?sport=soccer&audience=adult&term=${term}`, { headers: { cookie } }),
+  fetch(`${origin}/api/public/seasons?sport=soccer&audience=adult&term=${term}&status=completed`, { headers: { cookie } }),
+]);
+const live: any[] = liveRes.ok ? ((await liveRes.json()).seasons ?? []) : [];
+const done: any[] = doneRes.ok ? ((await doneRes.json()).seasons ?? []) : [];
+const seasons: any[] = [...live, ...done];
+
+const slugMap = divisionSlugMap(seasons);
+const season = division ? slugMap.get(division) : undefined;
+if (!season) {
+  // Unknown/renamed division → the term page carries the full finder.
+  return Astro.redirect(`/adult/leagues/soccer/${term}`);
+}
+
+const sportName = season.sport?.name ?? "Soccer";
+const termLabel = season.termLabel ?? "This season";
+const naming = divisionNaming(season, sportName, termLabel);
+const venue = venueAddress(season.location.slug);
+const vf = getVenueFacts(season.location.slug);
+
+const DAY_LONG: Record<string, string> = {
+  mon: "Monday", tue: "Tuesday", wed: "Wednesday", thu: "Thursday",
+  fri: "Friday", sat: "Saturday", sun: "Sunday",
+};
+const dayName = season.dayOfWeek ? DAY_LONG[season.dayOfWeek] ?? null : null;
+
+function fmtTime(t: string | null) {
+  if (!t) return null;
+  const [h] = t.split(":").map(Number);
+  const ampm = h >= 12 ? "PM" : "AM";
+  const hr = h % 12 === 0 ? 12 : h % 12;
+  return `${hr} ${ampm}`;
+}
+const timeWindow = season.startTime && season.endTime
+  ? `${fmtTime(season.startTime)}–${fmtTime(season.endTime)}`
+  : null;
+
+const TZ = Astro.locals.organization?.timezone ?? "America/New_York";
+const fmtShort = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+const fmtDeadline = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: TZ });
+
+const modes: string[] = season.signupModes ?? ["individual"];
+const isOpen = season.status === "open";
+const isForming = season.status === "forming";
+const isCompleted = season.status === "completed";
+
+const soloPrice = modes.includes("individual") ? (season.effectivePrice ?? season.price ?? null) : null;
+const teamList = modes.includes("team") ? (season.teamPrice ?? null) : null;
+const teamNow = modes.includes("team") ? (season.effectiveTeamPrice ?? season.teamPrice ?? null) : null;
+const teamEarlyBird =
+  teamNow != null && teamList != null && teamNow < teamList && !!season.teamEarlyBirdActive;
+
+const skill = SKILL_LEVELS.find((l) => l.key === season.skillLevel) ?? null;
+const isAgeDivision = season.minAge != null && season.minAge >= 30;
+
+const cityState = [season.location.city, season.location.state].filter(Boolean).join(", ");
+const addressLine = venue
+  ? `${venue.address.streetAddress}, ${venue.address.addressLocality}, ${venue.address.addressRegion} ${venue.address.postalCode}`
+  : cityState || season.location.name;
+
+// Sibling divisions in this term — server-rendered links so every division
+// page is reachable from every other (crawl mesh for the whole catalog).
+const siblings = [...slugMap.entries()]
+  .filter(([, s]) => s.id !== season.id)
+  .map(([slug, s]) => ({ slug, ...divisionNaming(s, sportName, termLabel), venueName: s.location.name }));
+
+const descriptionBits = [
+  `${naming.label} adult indoor ${sportName.toLowerCase()}${dayName ? ` on ${dayName}s` : ""} at ${season.location.name}`,
+  `${termLabel}: ${fmtShort(season.startDate)}–${fmtShort(season.endDate)}`,
+  "7 games in 7 weeks, two 24-minute halves, no playoffs",
+  soloPrice != null ? `Sign up solo ($${soloPrice}) or bring a team` : "Bring a team",
+];
+const pageDescription = `${descriptionBits.join(". ")}.`;
+
+const ORIGIN = import.meta.env.PUBLIC_APP_URL || "https://aspiresportsohio.com";
+const pageUrl = `${ORIGIN}/adult/leagues/soccer/${term}/${division}`;
+const breadcrumbSchema = breadcrumbJsonLd([
+  { name: "Home", url: `${ORIGIN}/` },
+  { name: "Adult Leagues", url: `${ORIGIN}/adult/leagues` },
+  { name: "Soccer", url: `${ORIGIN}/adult/leagues/soccer` },
+  { name: termLabel, url: `${ORIGIN}/adult/leagues/soccer/${term}` },
+  { name: naming.headline, url: pageUrl },
+]);
+const eventSchema = seasonsToLeagueEvents([season], ORIGIN);
+
+const facts: { label: string; value: string }[] = [
+  dayName ? { label: "Night", value: timeWindow ? `${dayName}s · ${timeWindow}` : `${dayName}s` } : null,
+  { label: "Venue", value: season.location.name },
+  { label: "Season", value: `${fmtShort(season.startDate)} – ${fmtShort(season.endDate)}` },
+  { label: "Format", value: "Indoor 7v7 · two 24-min halves" },
+  { label: "Games", value: "7 games in 7 weeks · no playoffs" },
+  isAgeDivision
+    ? { label: "Eligibility", value: `Ages ${season.minAge}+` }
+    : skill
+      ? { label: "Level", value: `${naming.label.split(" ").pop()} · ${skill.label}` }
+      : null,
+].filter((f): f is { label: string; value: string } => f !== null);
+---
+
+<BaseLayout title={naming.title} description={pageDescription}>
+  <Fragment slot="head">
+    <link rel="canonical" href={pageUrl} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbSchema)} />
+    {eventSchema.length > 0 && (
+      <script type="application/ld+json" is:inline set:html={JSON.stringify(eventSchema)} />
+    )}
+  </Fragment>
+
+  <main id="main-content" class="pt-24 pb-16">
+    <div class="max-w-[860px] mx-auto px-5 sm:px-8">
+      <nav class="text-[12px] text-ink-muted mb-6" aria-label="Breadcrumb">
+        <a href="/adult/leagues" class="hover:text-primary">Adult Leagues</a>
+        <span aria-hidden="true"> / </span>
+        <a href="/adult/leagues/soccer" class="hover:text-primary">Soccer</a>
+        <span aria-hidden="true"> / </span>
+        <a href={`/adult/leagues/soccer/${term}`} class="hover:text-primary">{termLabel}</a>
+        <span aria-hidden="true"> / </span>
+        <span class="text-ink">{naming.headline}</span>
+      </nav>
+
+      <header class="mb-8">
+        <h1
+          class="font-display text-ink mb-3"
+          style="font-size: clamp(1.9rem, 4.5vw, 3rem); line-height: 1.08; letter-spacing: -0.02em;"
+        >
+          {naming.headline} Adult {sportName} League
+        </h1>
+        <p class="text-lg text-ink-2 max-w-2xl">
+          {termLabel} at {season.location.name}{cityState ? ` — ${cityState}` : ""}.
+          {isCompleted
+            ? " This season has wrapped — final standings live on the season page."
+            : isForming
+              ? " This division is forming — join the interest list and we'll email you when registration opens."
+              : ""}
+        </p>
+        {skill && !isAgeDivision && (
+          <p class="text-[14px] text-ink-muted mt-2 max-w-2xl">{skill.description}</p>
+        )}
+        {isAgeDivision && (
+          <p class="text-[14px] text-ink-muted mt-2 max-w-2xl">
+            An age-qualified division — every player is {season.minAge}+ so the pace and the parity match.
+          </p>
+        )}
+      </header>
+
+      <dl class="grid grid-cols-2 sm:grid-cols-3 gap-px bg-border border border-border rounded-xl overflow-hidden mb-8">
+        {facts.map((f) => (
+          <div class="bg-paper px-4 py-3">
+            <dt class="font-mono text-[10px] tracking-widest uppercase text-ink-muted">{f.label}</dt>
+            <dd class="text-[14px] font-semibold text-ink mt-0.5">{f.value}</dd>
+          </div>
+        ))}
+      </dl>
+
+      {isOpen && (soloPrice != null || teamNow != null) && (
+        <section class="mb-8" aria-label="Pricing and registration">
+          <div class="grid sm:grid-cols-2 gap-3">
+            {soloPrice != null && (
+              <div class="border border-border rounded-xl bg-paper p-5 flex flex-col">
+                <div class="font-mono text-[10px] tracking-widest uppercase text-ink-muted">Sign up solo</div>
+                <div class="text-3xl font-semibold text-ink mt-1">${soloPrice.toLocaleString()}</div>
+                <p class="text-[13px] text-ink-2 mt-1.5 flex-1">
+                  No team? We place you — free agents go onto balanced squads by skill and schedule.
+                </p>
+                <a
+                  href={`/register/${season.id}?mode=individual`}
+                  class="mt-4 inline-flex items-center justify-center px-5 py-3 bg-ink text-cream text-sm font-semibold rounded-lg hover:bg-primary transition-colors"
+                >
+                  Sign Up Solo
+                </a>
+              </div>
+            )}
+            {teamNow != null && (
+              <div class="border border-border rounded-xl bg-paper p-5 flex flex-col">
+                <div class="font-mono text-[10px] tracking-widest uppercase text-ink-muted">Per team</div>
+                <div class="text-3xl font-semibold text-ink mt-1">
+                  ${teamNow.toLocaleString()}
+                  {teamEarlyBird && <small class="text-[12px] font-normal text-ink-muted"> early bird</small>}
+                </div>
+                <p class="text-[13px] text-ink-2 mt-1.5 flex-1">
+                  {teamEarlyBird && season.earlyBirdDeadline && teamList != null
+                    ? `$${teamList.toLocaleString()} after ${fmtDeadline(season.earlyBirdDeadline)} · `
+                    : ""}
+                  ${CAPTAIN_DEPOSIT_DOLLARS} down holds your team's spot — get a team together and pay the rest before game 1.
+                </p>
+                <a
+                  href={`/register/${season.id}?mode=team`}
+                  class="mt-4 inline-flex items-center justify-center px-5 py-3 bg-primary text-cream text-sm font-semibold rounded-lg hover:bg-ink transition-colors"
+                >
+                  Bring a Team
+                </a>
+              </div>
+            )}
+          </div>
+          {season.registrationCloses && (
+            <p class="text-[12.5px] text-ink-muted mt-2.5">
+              Registration closes {fmtDeadline(season.registrationCloses)}.
+            </p>
+          )}
+        </section>
+      )}
+
+      {isForming && (
+        <section class="mb-8 border border-border rounded-xl bg-paper p-5">
+          <p class="text-[14px] text-ink-2">
+            Registration for this division hasn't opened yet.
+            <a href={`/adult/leagues/soccer/${term}#divisions`} class="text-primary font-semibold hover:underline">
+              Join the interest list on the season page →
+            </a>
+          </p>
+        </section>
+      )}
+
+      {isCompleted && (
+        <section class="mb-8 border border-border rounded-xl bg-paper p-5">
+          <p class="text-[14px] text-ink-2">
+            This season is complete.
+            <a href={`/adult/leagues/soccer/${term}#divisions`} class="text-primary font-semibold hover:underline">
+              See final standings →
+            </a>
+          </p>
+        </section>
+      )}
+
+      <section class="mb-8">
+        <h2 class="font-display text-2xl text-ink mb-3">How the league works</h2>
+        <ul class="space-y-1.5 text-[14px] text-ink-2 list-disc pl-5">
+          {FORMAT_FACTS.map((f) => <li>{f}</li>)}
+        </ul>
+      </section>
+
+      <section class="mb-8">
+        <h2 class="font-display text-2xl text-ink mb-3">Where you'll play</h2>
+        <div class="border border-border rounded-xl bg-paper p-5">
+          <div class="font-semibold text-ink">{season.location.name}</div>
+          <p class="text-[13.5px] text-ink-2 mt-0.5">{addressLine}</p>
+          {vf && <p class="text-[13.5px] text-ink-muted mt-1.5">{vf.tagline}</p>}
+          <a href={`/locations/${season.location.slug}`} class="inline-block text-[13px] font-semibold text-primary mt-2.5 hover:underline">
+            Venue details &amp; directions →
+          </a>
+        </div>
+      </section>
+
+      {siblings.length > 0 && (
+        <section class="border-t border-border pt-8">
+          <h2 class="font-display text-xl text-ink mb-1.5">Other {termLabel} divisions</h2>
+          <p class="text-[13px] text-ink-muted mb-4">
+            Different night, level, or side of town?
+            <a href={`/adult/leagues/soccer/${term}`} class="text-primary font-semibold hover:underline">Compare them all →</a>
+          </p>
+          <ul class="grid sm:grid-cols-2 gap-x-6 gap-y-1.5 text-[14px]">
+            {siblings.map((sib) => (
+              <li>
+                <a href={`/adult/leagues/soccer/${term}/${sib.slug}`} class="text-ink-2 hover:text-primary">
+                  {sib.headline} · {sib.venueName}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </div>
+  </main>
+</BaseLayout>

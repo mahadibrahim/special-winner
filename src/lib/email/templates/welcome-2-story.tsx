@@ -22,14 +22,14 @@ const COPY = {
   aspire: {
     preview: "What makes an Aspire league different",
     intro:
-      "Most leagues drop you on a field with strangers and send you home. We built Aspire the other way around — neighborhood-anchored, so you play near where you live, and captain-first, so every team has someone who actually knows the people on it.",
+      "Most leagues drop you on a field with strangers and send you home. We built Aspire the other way around — neighborhood-anchored, so you play near where you live, and built around real teams, so every squad has someone who actually knows the people on it.",
     body: "The league itself is run tight: fair refs, reliable communication, and a real post-game scene. The founding cohort sets the tone — and right now, that's you.",
     brandName: "Aspire Sports",
   },
   soccerone: {
     preview: "What makes a SoccerOne league different",
     intro:
-      "Most leagues drop you on a field with strangers and send you home. We built SoccerOne the other way around — captain-first, so every team has someone who actually knows the people on it, and run tight on the details: certified refs, turf, 50-minute games, reliable communication.",
+      "Most leagues drop you on a field with strangers and send you home. We built SoccerOne the other way around — around real teams, so every squad has someone who actually knows the people on it, and run tight on the details: certified refs, turf, two 24-minute halves, reliable communication.",
     body: "The post-game scene is part of the format, not an afterthought. The founding cohort sets the tone — and right now, that's you.",
     brandName: "SoccerOne",
   },
