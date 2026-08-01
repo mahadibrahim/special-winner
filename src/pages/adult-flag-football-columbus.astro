@@ -1,25 +1,23 @@
 ---
-// City-generic landing page: "adult soccer leagues columbus ohio" and the
-// near-me cluster around it. League-led (covers both venues) — the SoccerOne
-// equivalent is venue-led on /locations/worthington. Everything factual
-// (nights, prices, divisions, dates) is pulled from the live catalog at
-// request time; evergreen copy follows the brand fact-guards.
+// City-generic landing page: "flag football league columbus" and the adult
+// flag-football cluster. Mirrors /adult-soccer-leagues-columbus — everything
+// factual (nights, prices, divisions, dates) is pulled from the live catalog
+// at request time; evergreen copy follows the brand fact-guards.
 export const prerender = false;
 import BaseLayout from "@/layouts/BaseLayout.astro";
-import { SKILL_LEVELS } from "@/lib/leagues/adult-soccer-content";
+import { WHY_4V4 } from "@/lib/leagues/adult-flag-football-content";
 import { resolveCurrentTerm } from "@/lib/leagues/terms";
 import { divisionSlugMap, divisionNaming } from "@/lib/leagues/division-slug";
 import { breadcrumbJsonLd } from "@/lib/seo/breadcrumbs";
 import { venueAddress } from "@/lib/seo/venue-address";
 import { getVenueFacts } from "@/lib/locations/venue-facts";
 import { CAPTAIN_DEPOSIT_DOLLARS } from "@/lib/registrations/team-deposit";
-import { SUBURB_PAGES } from "@/lib/seo/suburb-pages";
 
 const origin = Astro.url.origin;
 const cookie = Astro.request.headers.get("cookie") ?? "";
 let allSeasons: any[] = [];
 try {
-  const res = await fetch(`${origin}/api/public/seasons?sport=soccer&audience=adult`, { headers: { cookie } });
+  const res = await fetch(`${origin}/api/public/seasons?sport=flag-football&audience=adult`, { headers: { cookie } });
   if (res.ok) allSeasons = (await res.json()).seasons ?? [];
 } catch {
   // Sections degrade to evergreen copy + links when the catalog is unreachable.
@@ -29,10 +27,8 @@ const currentTerm = resolveCurrentTerm(allSeasons);
 const termSeasons: any[] = currentTerm?.seasons ?? [];
 const termSlug = currentTerm?.slug ?? null;
 const termLabel = currentTerm?.label ?? null;
-const termHref = termSlug ? `/adult/leagues/soccer/${termSlug}` : "/adult/leagues/soccer";
+const termHref = termSlug ? `/adult/leagues/flag-football/${termSlug}` : "/adult/leagues/flag-football";
 
-// Division links grouped by night — the by-night intent cluster, and the
-// internal-link mesh into every division page.
 const DAY_ORDER = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 const DAY_LONG: Record<string, string> = {
   mon: "Monday", tue: "Tuesday", wed: "Wednesday", thu: "Thursday",
@@ -41,23 +37,22 @@ const DAY_LONG: Record<string, string> = {
 const slugMap = divisionSlugMap(termSeasons);
 const divisionLinks = [...slugMap.entries()].map(([slug, s]) => ({
   slug,
-  ...divisionNaming(s, "Soccer", termLabel ?? ""),
+  ...divisionNaming(s, "Flag Football", termLabel ?? ""),
   day: s.dayOfWeek as string | null,
   venueName: s.location.name as string,
   venueSlug: s.location.slug as string,
 }));
 const nights = [
   ...DAY_ORDER.filter((d) => divisionLinks.some((l) => l.day === d)).map((d) => ({
-    day: d,
     label: `${DAY_LONG[d]}s`,
     items: divisionLinks.filter((l) => l.day === d),
   })),
   ...(divisionLinks.some((l) => !l.day)
-    ? [{ day: null, label: "Night TBD", items: divisionLinks.filter((l) => !l.day) }]
+    ? [{ label: "Night TBD", items: divisionLinks.filter((l) => !l.day) }]
     : []),
 ];
 
-// Pricing — request-time effective prices (early-bird aware), never hardcoded.
+// Pricing — request-time effective prices, never hardcoded.
 const openSeasons = termSeasons.filter((s) => s.status === "open");
 const soloPrices = openSeasons
   .filter((s) => (s.signupModes ?? []).includes("individual"))
@@ -70,65 +65,59 @@ const teamNow = teamSeasons.length
   ? Math.min(...teamSeasons.map((s) => s.effectiveTeamPrice ?? s.teamPrice))
   : null;
 const teamEarlyBird = teamNow != null && teamList != null && teamNow < teamList;
-const ebDeadlines = openSeasons
-  .filter((s) => s.teamEarlyBirdActive && s.earlyBirdDeadline)
-  .map((s) => new Date(s.earlyBirdDeadline).getTime());
+
 const TZ = Astro.locals.organization?.timezone ?? "America/New_York";
-const ebEndsLabel = ebDeadlines.length
-  ? new Date(Math.min(...ebDeadlines)).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: TZ })
-  : null;
+const fmtShort = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 
-// Venues actually carrying divisions this term (falls back to both flagships).
+// Venues actually carrying divisions this term (Worthington today; data-driven
+// so a second venue appears on its own).
 const venueSlugs = [...new Set(divisionLinks.map((l) => l.venueSlug))];
-const venueBlocks = (venueSlugs.length ? venueSlugs : ["worthington", "downtown"])
-  .map((slug) => {
-    const s = termSeasons.find((x) => x.location.slug === slug);
-    const addr = venueAddress(slug);
-    return {
-      slug,
-      name: (s?.location.name as string | undefined) ?? (slug === "worthington" ? "Worthington" : "Downtown / OSU"),
-      addressLine: addr
-        ? `${addr.address.streetAddress}, ${addr.address.addressLocality}, ${addr.address.addressRegion} ${addr.address.postalCode}`
-        : null,
-      tagline: getVenueFacts(slug)?.tagline ?? null,
-      count: divisionLinks.filter((l) => l.venueSlug === slug).length,
-    };
-  });
-
-// 30+/40+ presence, derived — never claim an age division that isn't scheduled.
-const ageDivisions = divisionLinks.filter((l) => {
-  const s = slugMap.get(l.slug);
-  return s?.minAge != null && s.minAge >= 30;
+const venueBlocks = (venueSlugs.length ? venueSlugs : ["worthington"]).map((slug) => {
+  const s = termSeasons.find((x) => x.location.slug === slug);
+  const addr = venueAddress(slug);
+  return {
+    slug,
+    name: (s?.location.name as string | undefined) ?? "Worthington",
+    addressLine: addr
+      ? `${addr.address.streetAddress}, ${addr.address.addressLocality}, ${addr.address.addressRegion} ${addr.address.postalCode}`
+      : null,
+    tagline: getVenueFacts(slug)?.tagline ?? null,
+    count: divisionLinks.filter((l) => l.venueSlug === slug).length,
+  };
 });
-const ageDays = [...new Set(ageDivisions.map((l) => (l.day ? DAY_LONG[l.day] : null)).filter(Boolean))];
-const ageVenues = [...new Set(ageDivisions.map((l) => l.venueName))];
 
-// FAQ — the questions people actually type (live search-terms report).
+const seasonWindow =
+  termSeasons.length > 0
+    ? `${fmtShort(termSeasons.map((s) => s.startDate).sort()[0])} – ${fmtShort(termSeasons.map((s) => s.endDate).sort().at(-1))}`
+    : null;
+
 const priceAnswer =
   soloPrice != null && teamNow != null
-    ? `Solo players pay $${soloPrice.toLocaleString()} for the season — that's the whole cost, no deposit. Teams pay $${teamNow.toLocaleString()} total${teamEarlyBird && ebEndsLabel ? ` at the current early-bird rate (through ${ebEndsLabel}; $${teamList!.toLocaleString()} after)` : ""}, and a $${CAPTAIN_DEPOSIT_DOLLARS} deposit holds a team's spot with the balance due before game 1.`
+    ? `Solo players pay $${soloPrice.toLocaleString()} for the season — that's the whole cost, no deposit. Teams pay $${teamNow.toLocaleString()} total${teamEarlyBird && teamList != null ? ` (early-bird rate; $${teamList.toLocaleString()} after)` : ""}, and a $${CAPTAIN_DEPOSIT_DOLLARS} deposit holds a team's spot with the balance due before game 1.`
     : `Each season page lists solo and team pricing before you register — no fees are hidden behind a signup form.`;
-const overThirtyAnswer = ageDivisions.length
-  ? `Yes. ${termLabel} has ${ageDivisions.length === 1 ? "an age-qualified division" : "age-qualified divisions"} (${ageDivisions.map((l) => l.label).join(", ")}) playing ${ageDays.join(" and ")} at ${ageVenues.join(" and ")} — every player is 30 or older (40+ where marked).`
-  : `Age-qualified 30+ divisions run in most seasons. Check the current season page for what's scheduled right now.`;
+const whenAnswer =
+  termLabel && seasonWindow
+    ? `${termLabel} runs ${seasonWindow}${nights.length ? `, with games on ${nights.map((n) => n.label).join(" and ")}` : ""} in evening slots. Registration details are on the season page.`
+    : `Seasons run back-to-back through the year — the current schedule is on the flag football league page.`;
 const FAQ = [
   {
-    q: "Where can adults play soccer near Columbus?",
-    a: "Aspire Sports runs adult indoor soccer leagues at two Columbus-area venues: Worthington (535 Lakeview Plaza Blvd, off I-270) and the Downtown / OSU venue at 980 E Starr Ave in Milo-Grogan. Both are fully indoor with games in evening slots between 6 and 11 pm.",
+    q: "Where can adults play flag football in Columbus?",
+    a: "Aspire Sports runs adult indoor 4v4 flag football at its Worthington facility, 535 Lakeview Plaza Blvd — just off I-270 on the north side of Columbus. Fully indoor on boarded turf, so games run all winter.",
   },
   {
-    q: "Can I join a soccer team as an individual?",
-    a: "Yes — that's the Sign Up Solo path. Register as an individual and we place you on a balanced team by skill level and schedule. No team, no problem: free agents are how most new players start.",
+    q: "Can I join without a team?",
+    a: "Yes — register solo and we place free agents on balanced teams by schedule. It's the most common way new players start.",
   },
-  { q: "What does an adult soccer league cost?", a: priceAnswer },
-  { q: "Are there over-30 leagues?", a: overThirtyAnswer },
+  { q: "What does an adult flag football league cost?", a: priceAnswer },
+  { q: "When does the season run?", a: whenAnswer },
 ];
 
 const ORIGIN = import.meta.env.PUBLIC_APP_URL || "https://aspiresportsohio.com";
-const pageUrl = `${ORIGIN}/adult-soccer-leagues-columbus`;
+const pageUrl = `${ORIGIN}/adult-flag-football-columbus`;
 const breadcrumbSchema = breadcrumbJsonLd([
   { name: "Home", url: `${ORIGIN}/` },
-  { name: "Adult Soccer Leagues in Columbus", url: pageUrl },
+  { name: "Adult Flag Football in Columbus", url: pageUrl },
 ]);
 const faqSchema = {
   "@context": "https://schema.org",
@@ -142,8 +131,8 @@ const faqSchema = {
 ---
 
 <BaseLayout
-  title="Adult Soccer Leagues in Columbus, Ohio — Indoor 7v7 | Aspire Sports"
-  description="Adult soccer leagues in Columbus, Ohio: indoor 7v7 at Worthington and Downtown / OSU. Sign up solo or bring a team — 7 games in 7 weeks, two 24-minute halves, certified referees, skill-matched divisions."
+  title="Adult Flag Football League in Columbus, Ohio — Indoor 4v4 | Aspire Sports"
+  description="Adult flag football league in Columbus, Ohio: indoor 4v4 on boarded turf in Worthington. Sign up solo or bring a team — 8-game season, two 20-minute halves, no contact, every player runs routes."
 >
   <Fragment slot="head">
     <link rel="canonical" href={pageUrl} />
@@ -158,12 +147,12 @@ const faqSchema = {
           class="font-display text-ink mb-4"
           style="font-size: clamp(2rem, 5vw, 3.4rem); line-height: 1.06; letter-spacing: -0.02em;"
         >
-          Adult Soccer Leagues in Columbus, Ohio
+          Adult Flag Football League in Columbus, Ohio
         </h1>
         <p class="text-lg text-ink-2 max-w-2xl">
-          Indoor 7v7 at two Columbus-area venues — skill-matched divisions, certified referees,
-          and a 7-game season with no playoffs. Play one game a week, two 24-minute halves,
-          in evening slots between 6 and 11 pm.
+          Indoor 4v4 flag on boarded turf — no contact, a 7-second pass clock, and every
+          player running routes on every snap. An 8-game season with no playoffs, fully
+          indoor so winter can't cancel a game.
         </p>
         {currentTerm && (
           <a
@@ -188,7 +177,7 @@ const faqSchema = {
                 <ul class="grid sm:grid-cols-2 gap-x-6 gap-y-1.5 text-[14.5px]">
                   {n.items.map((l) => (
                     <li>
-                      <a href={`/adult/leagues/soccer/${termSlug}/${l.slug}`} class="text-ink-2 hover:text-primary">
+                      <a href={`/adult/leagues/flag-football/${termSlug}/${l.slug}`} class="text-ink-2 hover:text-primary">
                         {l.label} · {l.venueName}
                       </a>
                     </li>
@@ -200,18 +189,13 @@ const faqSchema = {
         </section>
       )}
 
-      <section class="mb-10" aria-label="Skill levels">
-        <h2 class="font-display text-2xl text-ink mb-2">Skill levels — matched, not mismatched</h2>
-        <p class="text-[14px] text-ink-2 mb-4 max-w-2xl">
-          {ageDivisions.length
-            ? "Divisions run in lettered tiers so games stay competitive for the level you actually play at, plus age-qualified 30+ and 40+ divisions."
-            : "Divisions run in lettered tiers so games stay competitive for the level you actually play at."}
-        </p>
+      <section class="mb-10" aria-label="Why 4v4">
+        <h2 class="font-display text-2xl text-ink mb-4">Why 4v4 flag</h2>
         <dl class="grid sm:grid-cols-2 gap-3">
-          {SKILL_LEVELS.map((l) => (
+          {WHY_4V4.slice(0, 4).map((v) => (
             <div class="border border-border rounded-xl bg-paper px-4 py-3">
-              <dt class="font-semibold text-ink text-[14.5px]">{l.key.toUpperCase()} · {l.label}</dt>
-              <dd class="text-[13px] text-ink-2 mt-0.5">{l.description}</dd>
+              <dt class="font-semibold text-ink text-[14.5px]">{v.title}</dt>
+              <dd class="text-[13px] text-ink-2 mt-0.5">{v.copy}</dd>
             </div>
           ))}
         </dl>
@@ -220,9 +204,9 @@ const faqSchema = {
       <section class="mb-10" aria-label="Sign up solo">
         <h2 class="font-display text-2xl text-ink mb-2">No team? Sign up solo.</h2>
         <p class="text-[14px] text-ink-2 max-w-2xl">
-          Register as an individual and we place you — free agents go onto balanced teams by skill
-          and schedule, so you land with players at your level on a night that works. It's the most
-          common way new players join, and it's how most long-running teams got started.
+          Register as an individual and we place you — free agents go onto balanced teams
+          by schedule. Rosters are small (4 on the field), so every player is in the play
+          from the first snap.
         </p>
       </section>
 
@@ -236,8 +220,8 @@ const faqSchema = {
         )}
       </section>
 
-      <section class="mb-10" aria-label="Venues">
-        <h2 class="font-display text-2xl text-ink mb-4">Two venues, both fully indoor</h2>
+      <section class="mb-10" aria-label="Venue">
+        <h2 class="font-display text-2xl text-ink mb-4">Where you play</h2>
         <div class="grid sm:grid-cols-2 gap-3">
           {venueBlocks.map((v) => (
             <div class="border border-border rounded-xl bg-paper p-5">
@@ -252,33 +236,9 @@ const faqSchema = {
               <a href={`/locations/${v.slug}`} class="inline-block text-[13px] font-semibold text-primary mt-2.5 hover:underline">
                 Venue details &amp; directions →
               </a>
-              {v.slug === "worthington" && (
-                <p class="text-[12px] text-ink-muted mt-2">
-                  Facility info also at{" "}
-                  <a href="https://www.gosoccerone.com/locations/worthington" class="underline hover:text-primary">
-                    gosoccerone.com
-                  </a>
-                </p>
-              )}
             </div>
           ))}
         </div>
-      </section>
-
-      <section class="mb-10" aria-label="By suburb">
-        <h2 class="font-display text-2xl text-ink mb-2">Coming from the suburbs?</h2>
-        <p class="text-[14px] text-ink-2 mb-3 max-w-2xl">
-          Guides for the areas our players drive from, with the closest venue and route:
-        </p>
-        <ul class="flex flex-wrap gap-x-6 gap-y-1.5 text-[14.5px]">
-          {SUBURB_PAGES.map((s) => (
-            <li>
-              <a href={`/adult-soccer-leagues-${s.slug}`} class="text-ink-2 hover:text-primary underline underline-offset-2 decoration-border">
-                Near {s.name} →
-              </a>
-            </li>
-          ))}
-        </ul>
       </section>
 
       <section class="border-t border-border pt-8" aria-label="Frequently asked questions">
@@ -295,7 +255,7 @@ const faqSchema = {
           href={termHref}
           class="mt-8 inline-flex items-center gap-2 px-6 py-3.5 bg-ink text-cream text-sm font-semibold rounded-lg hover:bg-primary transition-colors"
         >
-          {currentTerm ? `Find your ${termLabel} division →` : "See adult soccer leagues →"}
+          {currentTerm ? `Find your ${termLabel} division →` : "See flag football leagues →"}
         </a>
       </section>
     </div>

@@ -1,0 +1,36 @@
+---
+// Per-division flag-football league page — one stable, crawlable URL per
+// division (e.g. /adult/leagues/flag-football/winter-1-2627/co-ed-wednesday-worthington).
+// Data loading + render are shared with the soccer route; only the
+// sport-specific copy lives here. Flag football has no lettered skill tiers,
+// so the level explainer is omitted.
+export const prerender = false;
+import DivisionPageLayout from "@/components/leagues/DivisionPageLayout.astro";
+import { loadDivisionPage } from "@/lib/leagues/division-page-data";
+import { FORMAT_FACTS } from "@/lib/leagues/adult-flag-football-content";
+
+const { term, division } = Astro.params;
+const data = await loadDivisionPage({
+  origin: Astro.url.origin,
+  cookie: Astro.request.headers.get("cookie") ?? "",
+  sportSlug: "flag-football",
+  fallbackSportName: "Flag Football",
+  term,
+  division,
+});
+if (!data) {
+  return Astro.redirect(`/adult/leagues/flag-football/${term}`);
+}
+---
+
+<DivisionPageLayout
+  data={data}
+  basePath="/adult/leagues/flag-football"
+  sportCrumb="Flag Football"
+  term={term ?? ""}
+  division={division ?? ""}
+  formatValue="Indoor 4v4 flag · two 20-min halves"
+  gamesValue="8-game season · no playoffs"
+  formatFacts={FORMAT_FACTS}
+  descriptionFormatLine="8-game season, two 20-minute halves, no contact, no playoffs"
+/>

@@ -1,0 +1,168 @@
+---
+// Suburb landing pages: "adult soccer league <suburb> ohio". Small, honest
+// pages — nearest venue's divisions from the live catalog, a real route
+// line, and links up to the city page + venue page so Google reads them as
+// one topic cluster. Config (which suburbs, route facts): suburb-pages.ts.
+export const prerender = false;
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { suburbBySlug } from "@/lib/seo/suburb-pages";
+import { resolveCurrentTerm } from "@/lib/leagues/terms";
+import { divisionSlugMap, divisionNaming } from "@/lib/leagues/division-slug";
+import { breadcrumbJsonLd } from "@/lib/seo/breadcrumbs";
+import { venueAddress } from "@/lib/seo/venue-address";
+
+const suburb = suburbBySlug(Astro.params.suburb);
+if (!suburb) {
+  // Unknown suburb → 404, not a redirect (dead URLs must fall out of the index).
+  return Astro.rewrite("/404");
+}
+
+const origin = Astro.url.origin;
+const cookie = Astro.request.headers.get("cookie") ?? "";
+let allSeasons: any[] = [];
+try {
+  const res = await fetch(`${origin}/api/public/seasons?sport=soccer&audience=adult`, { headers: { cookie } });
+  if (res.ok) allSeasons = (await res.json()).seasons ?? [];
+} catch {
+  // Page degrades to evergreen copy + links when the catalog is unreachable.
+}
+
+const currentTerm = resolveCurrentTerm(allSeasons);
+const termSeasons: any[] = currentTerm?.seasons ?? [];
+const termSlug = currentTerm?.slug ?? null;
+const termLabel = currentTerm?.label ?? null;
+const termHref = termSlug ? `/adult/leagues/soccer/${termSlug}` : "/adult/leagues/soccer";
+
+const DAY_LONG: Record<string, string> = {
+  mon: "Monday", tue: "Tuesday", wed: "Wednesday", thu: "Thursday",
+  fri: "Friday", sat: "Saturday", sun: "Sunday",
+};
+const relevantVenues = [suburb.primaryVenue, suburb.secondaryVenue].filter(Boolean) as string[];
+const slugMap = divisionSlugMap(termSeasons);
+const divisionLinks = [...slugMap.entries()]
+  .filter(([, s]) => relevantVenues.includes(s.location.slug))
+  .map(([slug, s]) => ({
+    slug,
+    ...divisionNaming(s, "Soccer", termLabel ?? ""),
+    day: s.dayOfWeek ? DAY_LONG[s.dayOfWeek] ?? null : null,
+    venueName: s.location.name as string,
+  }));
+
+const primaryAddr = venueAddress(suburb.primaryVenue);
+const primarySeason = termSeasons.find((s) => s.location.slug === suburb.primaryVenue);
+const primaryVenueName =
+  (primarySeason?.location.name as string | undefined) ??
+  (suburb.primaryVenue === "worthington" ? "Worthington" : "Downtown / OSU");
+
+const ORIGIN = import.meta.env.PUBLIC_APP_URL || "https://aspiresportsohio.com";
+const pageUrl = `${ORIGIN}/adult-soccer-leagues-${suburb.slug}`;
+const mapsHref = primaryAddr
+  ? `https://www.google.com/maps/dir/${encodeURIComponent(`${suburb.name}, OH`)}/${encodeURIComponent(
+      `${primaryAddr.address.streetAddress}, ${primaryAddr.address.addressLocality}, ${primaryAddr.address.addressRegion} ${primaryAddr.address.postalCode}`,
+    )}`
+  : null;
+
+const breadcrumbSchema = breadcrumbJsonLd([
+  { name: "Home", url: `${ORIGIN}/` },
+  { name: "Adult Soccer Leagues in Columbus", url: `${ORIGIN}/adult-soccer-leagues-columbus` },
+  { name: `Near ${suburb.name}`, url: pageUrl },
+]);
+---
+
+<BaseLayout
+  title={`Adult Soccer Leagues near ${suburb.name}, Ohio — Indoor 7v7 | Aspire Sports`}
+  description={`Adult soccer leagues near ${suburb.name}, Ohio: indoor 7v7 at the ${primaryVenueName} venue. Sign up solo or bring a team — 7 games in 7 weeks, two 24-minute halves, skill-matched divisions.`}
+>
+  <Fragment slot="head">
+    <link rel="canonical" href={pageUrl} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbSchema)} />
+  </Fragment>
+
+  <main id="main-content" class="pt-24 pb-16">
+    <div class="max-w-[860px] mx-auto px-5 sm:px-8">
+      <nav class="text-[12px] text-ink-muted mb-6" aria-label="Breadcrumb">
+        <a href="/adult-soccer-leagues-columbus" class="hover:text-primary">Adult Soccer Leagues in Columbus</a>
+        <span aria-hidden="true"> / </span>
+        <span class="text-ink">Near {suburb.name}</span>
+      </nav>
+
+      <header class="mb-8">
+        <h1
+          class="font-display text-ink mb-4"
+          style="font-size: clamp(1.9rem, 4.5vw, 3rem); line-height: 1.08; letter-spacing: -0.02em;"
+        >
+          Adult Soccer Leagues near {suburb.name}, Ohio
+        </h1>
+        <p class="text-lg text-ink-2 max-w-2xl">
+          Indoor 7v7 with skill-matched divisions, certified referees, and a 7-game season
+          with no playoffs — two 24-minute halves, one game a week, fully indoor.
+        </p>
+      </header>
+
+      <section class="mb-8" aria-label="Getting there">
+        <div class="border border-border rounded-xl bg-paper p-5">
+          <div class="font-mono text-[10px] tracking-widest uppercase text-ink-muted mb-1">
+            From {suburb.name}
+          </div>
+          <p class="text-[14px] text-ink-2">{suburb.routeLine}</p>
+          {primaryAddr && (
+            <p class="text-[13px] text-ink-muted mt-1.5">
+              {primaryVenueName}: {primaryAddr.address.streetAddress}, {primaryAddr.address.addressLocality}, {primaryAddr.address.addressRegion} {primaryAddr.address.postalCode}
+            </p>
+          )}
+          <div class="flex flex-wrap gap-4 mt-2.5">
+            {mapsHref && (
+              <a href={mapsHref} target="_blank" rel="noopener" class="text-[13px] font-semibold text-primary hover:underline">
+                Directions from {suburb.name} →
+              </a>
+            )}
+            <a href={`/locations/${suburb.primaryVenue}`} class="text-[13px] font-semibold text-primary hover:underline">
+              Venue details →
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {divisionLinks.length > 0 && (
+        <section class="mb-8" aria-label="Divisions">
+          <h2 class="font-display text-2xl text-ink mb-2">{termLabel} divisions nearby</h2>
+          <p class="text-[14px] text-ink-muted mb-4">
+            Every division links to its own guide with prices, dates, and signup.
+          </p>
+          <ul class="grid sm:grid-cols-2 gap-x-6 gap-y-1.5 text-[14.5px]">
+            {divisionLinks.map((l) => (
+              <li>
+                <a href={`/adult/leagues/soccer/${termSlug}/${l.slug}`} class="text-ink-2 hover:text-primary">
+                  {l.headline} · {l.venueName}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <section class="mb-8" aria-label="Sign up solo">
+        <h2 class="font-display text-2xl text-ink mb-2">No team? Sign up solo.</h2>
+        <p class="text-[14px] text-ink-2 max-w-2xl">
+          Register as an individual and we place you on a balanced team by skill level and
+          schedule — the most common way new players from {suburb.name} start.
+        </p>
+        <a
+          href={termHref}
+          class="mt-4 inline-flex items-center gap-2 px-6 py-3.5 bg-primary text-cream text-sm font-semibold rounded-lg hover:bg-ink transition-colors"
+        >
+          {currentTerm ? `See ${termLabel} divisions & register →` : "See adult soccer leagues →"}
+        </a>
+      </section>
+
+      <section class="border-t border-border pt-6" aria-label="More">
+        <p class="text-[13.5px] text-ink-muted">
+          Looking city-wide? The full guide covers both venues and every division:{" "}
+          <a href="/adult-soccer-leagues-columbus" class="text-primary font-semibold hover:underline">
+            Adult Soccer Leagues in Columbus, Ohio →
+          </a>
+        </p>
+      </section>
+    </div>
+  </main>
+</BaseLayout>
