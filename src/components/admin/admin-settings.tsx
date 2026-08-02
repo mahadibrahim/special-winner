@@ -23,6 +23,7 @@ import {
   type ExternalStoreValue,
 } from "./external-store-settings";
 import { FeedbackSettingsCard } from "./feedback-settings-card";
+import { ApiTokensCard } from "./api-tokens-card";
 import { OpsPingsCard } from "./ops-pings-card";
 
 type SiteAnnouncementValue = {
@@ -399,6 +400,8 @@ export function AdminSettings({ organizationName }: AdminSettingsProps = {}) {
             <FeedbackSettingsCard />
 
             <OpsPingsCard />
+
+            <ApiTokensCard />
           </div>
         </TabsContent>
 
