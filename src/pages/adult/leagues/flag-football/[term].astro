@@ -146,11 +146,20 @@ const heroPhoto = "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?
 // match sports/[slug].astro; migrate to faq-block.astro when Phase A lands.
 import { breadcrumbJsonLd } from "@/lib/seo/breadcrumbs";
 import { seasonsToLeagueEvents } from "@/lib/seo/events";
+import { divisionSlugMap, divisionNaming } from "@/lib/leagues/division-slug";
 const ORIGIN = import.meta.env.PUBLIC_APP_URL || "https://aspiresportsohio.com";
 
 // Per-division Event rich results — street-level venue address, request-time
 // (early-bird-aware) offers pulled from the API rows, never hardcoded.
 const eventSchema = seasonsToLeagueEvents(seasons, ORIGIN);
+
+// Per-division pages — server-rendered links so crawlers can reach every
+// division URL from the term page (the division rows live in a React island).
+const divisionLinks = [...divisionSlugMap(seasons).entries()].map(([slug, s]) => ({
+  slug,
+  ...divisionNaming(s, s.sport?.name ?? "Flag Football", termLabel),
+  venueName: s.location.name,
+}));
 
 const breadcrumbSchema = breadcrumbJsonLd([
   { name: "Home", url: `${ORIGIN}/` },
@@ -285,6 +294,26 @@ const faqSchema = {
         initialTab={allCompleted ? "standings" : "divisions"}
       />
     </div>
+
+    {/* Per-division guide links — crawlable mesh into the division URLs.
+        Kept below the finder so it aids discovery without competing with the
+        register flow. */}
+    {divisionLinks.length > 0 && (
+      <section class="bg-cream py-10 px-6" aria-label="Division guides">
+        <div class="max-w-[1080px] mx-auto">
+          <h2 class="font-display text-2xl text-ink mb-4">Division guides</h2>
+          <ul class="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2 text-[14px]">
+            {divisionLinks.map((d) => (
+              <li>
+                <a href={`/adult/leagues/flag-football/${term}/${d.slug}`} class="text-ink-2 hover:text-primary">
+                  {d.headline} · {d.venueName}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    )}
 
     {/* Where you'll play — replays showed people leaving the funnel to
         research venues and not coming back. Answer it in place. */}
