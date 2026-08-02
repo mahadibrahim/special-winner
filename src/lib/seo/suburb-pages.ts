@@ -63,6 +63,29 @@ export const SUBURB_PAGES: SuburbPage[] = [
     routeLine:
       "Clintonville sits between both venues — up High Street or OH-315 to Worthington, or south to the Downtown venue at 980 E Starr Ave in Milo-Grogan.",
   },
+  {
+    slug: "upper-arlington",
+    name: "Upper Arlington",
+    primaryVenue: "worthington",
+    secondaryVenue: "downtown",
+    routeLine:
+      "Straight north on OH-315 from Upper Arlington to I-270, then one exit east to US-23/Worthington — the venue is just off the exit in Lakeview Plaza.",
+  },
+  {
+    slug: "new-albany",
+    name: "New Albany",
+    primaryVenue: "worthington",
+    routeLine:
+      "West on OH-161 from New Albany to US-23, then north into Worthington — Lakeview Plaza is just up the road.",
+  },
+  {
+    slug: "downtown-columbus",
+    name: "Downtown Columbus",
+    primaryVenue: "downtown",
+    secondaryVenue: "worthington",
+    routeLine:
+      "The Downtown venue sits just northeast of the city core in Milo-Grogan — 980 E Starr Ave, off Cleveland Ave by I-670. Worthington is a straight run north on US-23 or I-71 to I-270.",
+  },
 ];
 
 export function suburbBySlug(slug: string | undefined): SuburbPage | null {
