@@ -4,6 +4,7 @@ import { sports } from "@/lib/db/schema";
 import { eq, and, asc } from "drizzle-orm";
 import { z } from "zod";
 import { requireOrgWideAdminAccess } from "@/lib/auth";
+import { requireAdminScopedAccess } from "@/lib/auth/admin-api-token";
 import {
   requireSameOrgSport,
   ownershipDeniedResponse,
@@ -25,7 +26,7 @@ const sportSchema = z.object({
 
 // GET - List all sports
 export const GET: APIRoute = async (context) => {
-  const auth = await requireOrgWideAdminAccess(context);
+  const auth = await requireAdminScopedAccess(context, "catalog:read");
   if (!auth.authorized) return auth.response;
 
   try {

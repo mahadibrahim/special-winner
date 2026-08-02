@@ -820,6 +820,13 @@
       "when": 1785151100283,
       "tag": "0116_merch_digital_companion",
       "breakpoints": true
+    },
+    {
+      "idx": 117,
+      "version": "7",
+      "when": 1785698193787,
+      "tag": "0117_fantastic_shen",
+      "breakpoints": true
     }
   ]
 }

@@ -147,3 +147,6 @@ export * from "./session-lifecycle";
 
 // Spectator liability waivers (facility entry, not a booking)
 export * from "./spectators";
+
+// Scoped machine tokens for the admin MCP — session-less, org-pinned, allowlisted
+export * from "./admin-api-tokens";
