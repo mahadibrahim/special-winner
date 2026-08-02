@@ -4,6 +4,7 @@ import { locations } from "@/lib/db/schema";
 import { and, eq, asc } from "drizzle-orm";
 import { z } from "zod";
 import { requireOrgWideAdminAccess } from "@/lib/auth";
+import { requireAdminScopedAccess } from "@/lib/auth/admin-api-token";
 
 const externalStoreSchema = z.object({
   url: z.string().url(),
@@ -32,7 +33,7 @@ const locationSchema = z.object({
 });
 
 export const GET: APIRoute = async (context) => {
-  const auth = await requireOrgWideAdminAccess(context);
+  const auth = await requireAdminScopedAccess(context, "catalog:read", { sessionGuard: "org-wide" });
   if (!auth.authorized) return auth.response;
 
   try {

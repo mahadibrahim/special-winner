@@ -3,6 +3,7 @@ import { getDb } from "@/lib/db";
 import { programs, seasons } from "@/lib/db/schema";
 import { z } from "zod";
 import { requireOrgAdminAccess } from "@/lib/auth";
+import { requireAdminScopedAccess } from "@/lib/auth/admin-api-token";
 import {
   requireSameOrgLocation,
   requireSameOrgSport,
@@ -37,7 +38,7 @@ class OfferingError extends Error {
 }
 
 export const POST: APIRoute = async (context) => {
-  const auth = await requireOrgAdminAccess(context);
+  const auth = await requireAdminScopedAccess(context, "catalog:write");
   if (!auth.authorized) return auth.response;
 
   try {
