@@ -33,7 +33,7 @@ const locationSchema = z.object({
 });
 
 export const GET: APIRoute = async (context) => {
-  const auth = await requireAdminScopedAccess(context, "catalog:read");
+  const auth = await requireAdminScopedAccess(context, "catalog:read", { sessionGuard: "org-wide" });
   if (!auth.authorized) return auth.response;
 
   try {

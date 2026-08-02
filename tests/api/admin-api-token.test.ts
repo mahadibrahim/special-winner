@@ -14,7 +14,7 @@
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { randomBytes, randomUUID } from "node:crypto";
-import { asc, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { adminApiTokens } from "@/lib/db/schema";
 import { organizations } from "@/lib/db/schema/organizations";
@@ -33,11 +33,29 @@ function rawToken() {
 
 beforeAll(async () => {
   const db = getDb();
-  const [org] = await db
+  // Mirror the domain resolver's localhost fallback EXACTLY (oldest ACTIVE
+  // headquarters org, else oldest active org) — the token's org must match
+  // the org the dev server resolves for the request, and shared CI DBs
+  // carry archived orgs that are older than the active default.
+  const [hq] = await db
     .select({ id: organizations.id })
     .from(organizations)
+    .where(
+      and(
+        eq(organizations.organizationType, "headquarters"),
+        eq(organizations.status, "active"),
+      ),
+    )
     .orderBy(asc(organizations.createdAt))
     .limit(1);
+  const [org] = hq
+    ? [hq]
+    : await db
+        .select({ id: organizations.id })
+        .from(organizations)
+        .where(eq(organizations.status, "active"))
+        .orderBy(asc(organizations.createdAt))
+        .limit(1);
   const [user] = await db.select({ id: users.id }).from(users).orderBy(asc(users.createdAt)).limit(1);
   if (!org || !user) throw new Error("No org/user in test DB");
 

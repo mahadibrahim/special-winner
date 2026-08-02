@@ -15,7 +15,7 @@ import type { APIContext } from "astro";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { adminApiTokens } from "@/lib/db/schema";
-import { requireOrgAdminAccess } from "./roles";
+import { requireOrgAdminAccess, requireOrgWideAdminAccess } from "./roles";
 
 export const ADMIN_TOKEN_SCOPES = ["catalog:read", "catalog:write", "ops:read"] as const;
 export type AdminTokenScope = (typeof ADMIN_TOKEN_SCOPES)[number];
@@ -79,6 +79,15 @@ export type AdminScopedAuth =
 export async function requireAdminScopedAccess(
   context: APIContext,
   scope: AdminTokenScope,
+  opts?: {
+    /**
+     * Guard applied to SESSION callers. Endpoints that were org-wide-admin
+     * gated before token wiring (locations/sports GET) must stay that way —
+     * "org" would silently open them to location-scoped admins. Tokens are
+     * org-pinned and act org-wide either way.
+     */
+    sessionGuard?: "org" | "org-wide";
+  },
 ): Promise<AdminScopedAuth> {
   const raw = context.request.headers.get("x-admin-token");
 
@@ -134,7 +143,10 @@ export async function requireAdminScopedAccess(
     };
   }
 
-  const auth = await requireOrgAdminAccess(context);
+  const auth =
+    opts?.sessionGuard === "org-wide"
+      ? await requireOrgWideAdminAccess(context)
+      : await requireOrgAdminAccess(context);
   if (!auth.authorized) return auth;
   return {
     authorized: true,
