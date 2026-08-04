@@ -249,6 +249,15 @@ export async function createCheckoutForRegistration(
   //    path that 100%-off discount codes already use. (Discount/credit
   //    usage was already recorded in their respective transactions above.)
   if (amountDue <= 0) {
+    // Zero-due via discount is legitimate (100%-off comps) but rare enough
+    // to always leave a trail — the 2026-08-04 WFF incident ($25 code stored
+    // as $2,500) produced exactly this shape and was only found by walking
+    // discount_usages after a "paid but no receipt" report.
+    if (discountAmountCents > 0) {
+      console.warn(
+        `[checkout] discount zeroed registration ${registrationId}: code=${input.discountCode ?? "?"} discounted=${discountAmountCents}c originalDue=${registration.amountDueCents}c credit=${creditAppliedCents}c`,
+      );
+    }
     await db
       .update(registrations)
       .set({
