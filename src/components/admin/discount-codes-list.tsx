@@ -201,7 +201,11 @@ export function DiscountCodesList() {
     if (code.discountType === "percentage") {
       return `${code.discountValue}% off`
     }
-    return `$${(code.discountValue / 100).toFixed(2)} off`
+    // The API already decodes storage cents → dollars (decodeDiscountValue);
+    // dividing again here showed $25 codes as "$0.25 off" — and while the
+    // WFF codes were broken at 100× ($2,500), the double-divide displayed
+    // them as the intended "$25.00", hiding the incident. Display verbatim.
+    return `$${code.discountValue.toFixed(2)} off`
   }
 
   function formatDate(dateStr: string) {

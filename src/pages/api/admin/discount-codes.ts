@@ -1,6 +1,6 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
-import { discountCodes, seasons, programs } from "@/lib/db/schema";
+import { discountCodes, seasons, programs, locations } from "@/lib/db/schema";
 import { eq, asc, desc, and, or, isNull, gte, lte } from "drizzle-orm";
 import { z } from "zod";
 import { requireOrgAdminAccess } from "@/lib/auth";
@@ -52,6 +52,35 @@ function encodeDiscountValue(
   return type === "percentage"
     ? Math.round(human * 100) // 100 → 10000 basis points
     : Math.round(human * 100); // 120 → 12000 cents
+}
+
+/**
+ * Sanity guardrail: a fixed-amount discount larger than the org's most
+ * expensive current offering is almost certainly a unit mistake, not a real
+ * promotion — the 2026-08-04 incident stored "$25 off" as $2,500 (a cents
+ * value passed where dollars were expected) and silently zeroed a paid
+ * registration. Compares ENCODED cents against max(price, teamPrice) across
+ * the org's non-test seasons; returns null when acceptable, else a
+ * human-readable rejection. Orgs with no seasons skip the check.
+ */
+async function fixedDiscountTooLarge(
+  organizationId: string,
+  discountType: "percentage" | "fixed_amount",
+  encodedCents: number,
+): Promise<string | null> {
+  if (discountType !== "fixed_amount") return null;
+  const rows = await getDb()
+    .select({ price: seasons.priceCents, teamPrice: seasons.teamPriceCents })
+    .from(seasons)
+    .innerJoin(programs, eq(seasons.programId, programs.id))
+    .innerJoin(locations, eq(programs.locationId, locations.id))
+    .where(and(eq(locations.organizationId, organizationId), eq(seasons.isTest, false)));
+  if (rows.length === 0) return null;
+  const maxOfferCents = Math.max(...rows.map((r) => Math.max(r.price ?? 0, r.teamPrice ?? 0)));
+  if (maxOfferCents > 0 && encodedCents > maxOfferCents) {
+    return `A $${(encodedCents / 100).toLocaleString()} discount exceeds your most expensive offering ($${(maxOfferCents / 100).toLocaleString()}). Enter the discount in dollars — e.g. 25 for $25 off.`;
+  }
+  return null;
 }
 
 /** Convert storage units → human input (percentage / dollars). */
@@ -149,6 +178,15 @@ export const POST: APIRoute = async (context) => {
       result.data.discountValue,
     );
 
+    const tooLarge = await fixedDiscountTooLarge(
+      auth.organizationId,
+      result.data.discountType,
+      encodedValue,
+    );
+    if (tooLarge) {
+      return new Response(JSON.stringify({ error: tooLarge }), { status: 400 });
+    }
+
     const [newCode] = await getDb()
       .insert(discountCodes)
       .values({
@@ -212,6 +250,15 @@ export const PUT: APIRoute = async (context) => {
       result.data.discountType,
       result.data.discountValue,
     );
+
+    const tooLarge = await fixedDiscountTooLarge(
+      auth.organizationId,
+      result.data.discountType,
+      encodedValue,
+    );
+    if (tooLarge) {
+      return new Response(JSON.stringify({ error: tooLarge }), { status: 400 });
+    }
 
     // Verify discount code belongs to this organization
     const [updatedCode] = await getDb()
