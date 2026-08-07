@@ -6,7 +6,7 @@
 // Run: ./scripts/with-bws.sh npx tsx scripts/seed-demo-day.ts
 import "dotenv/config";
 import crypto from "node:crypto";
-import { and, asc, eq, inArray, like } from "drizzle-orm";
+import { and, asc, eq, ilike, inArray, like, or, sql } from "drizzle-orm";
 import { getDb } from "../src/lib/db";
 import { hashPassword } from "../src/lib/auth/password";
 import {
@@ -26,6 +26,7 @@ import { resolvePerson } from "../src/lib/registrations/resolve-person";
 import { DOMAINS, STAGES } from "../src/lib/curriculum/content/reference";
 import { recomputePlayerSnapshots } from "../src/lib/curriculum/snapshots";
 import { generateFeedbackToken, hashFeedbackToken } from "../src/lib/feedback/tokens";
+import { createMagicLink, type CreateMagicLinkInput } from "../src/lib/auth/magic-link";
 
 type Ctx = {
   db: ReturnType<typeof getDb>;
@@ -392,12 +393,14 @@ async function seedFlagDivisionGames(ctx: Ctx, opts: {
 }) {
   const { db, venue } = ctx;
   const teamIds: string[] = [];
+  const teamIdByName: Record<string, string> = {};
   for (const name of opts.teamNames) {
     let [t] = await db.select().from(teams)
       .where(and(eq(teams.seasonId, opts.seasonId), eq(teams.name, name)))
       .orderBy(asc(teams.createdAt)).limit(1);
     if (!t) [t] = await db.insert(teams).values({ seasonId: opts.seasonId, name }).returning();
     teamIds.push(t.id);
+    teamIdByName[name] = t.id;
   }
   await resetSeasonGames(ctx, opts.seasonId);
   const officiated: Array<{ gameId: string; gameOfficialId: string }> = [];
@@ -426,7 +429,7 @@ async function seedFlagDivisionGames(ctx: Ctx, opts: {
       gi += 1;
     }
   }
-  return officiated;
+  return { officiated, teamIdByName };
 }
 
 async function seedGames(ctx: Ctx, youth: { ys: Record<string, string> }, flag: { fs: Record<string, string> },
@@ -436,17 +439,22 @@ async function seedGames(ctx: Ctx, youth: { ys: Record<string, string> }, flag: 
   const C = ["Backyard Ballers", "The Replacements", "Flag Em Down", "Monday Quarterbacks", "Shortside", "Late Flags"];
 
   // Past term: fully played (5/5 rounds), Wednesdays. demo.ref officiated division B, all paid.
-  const springOff = await seedFlagDivisionGames(ctx, { seasonId: flag.fs.springB, teamNames: B,
+  const spring = await seedFlagDivisionGames(ctx, { seasonId: flag.fs.springB, teamNames: B,
     firstMatchday: lastDow(3, 19), playedRounds: 5, refUserId: demo.ref.id, refPaid: true });
   await seedFlagDivisionGames(ctx, { seasonId: flag.fs.springC, teamNames: C,
     firstMatchday: lastDow(3, 19), playedRounds: 5 });
   // Current term: 4 of 5 rounds played, Wednesdays, demo.ref officiating, current fees unpaid.
-  const summerOff = await seedFlagDivisionGames(ctx, { seasonId: flag.fs.summerB, teamNames: B,
+  const summer = await seedFlagDivisionGames(ctx, { seasonId: flag.fs.summerB, teamNames: B,
     firstMatchday: lastDow(3, 3), playedRounds: 4, refUserId: demo.ref.id, refPaid: false });
+  const springOff = spring.officiated;
+  const summerOff = summer.officiated;
 
   // Tonight's showcase assignment for the ref app: scheduled a few hours from now.
+  // Named teams (not null) so the referee app shows "Gridiron Gurus vs Blitz Mode"
+  // instead of "TBD vs TBD" — pulled from the summer-B division teams just seeded above.
   const [tonight] = await db.insert(games).values({
     seasonId: flag.fs.summerB, scheduledAt: new Date(ctx.now.getTime() + 3 * 3600_000),
+    homeTeamId: summer.teamIdByName["Gridiron Gurus"], awayTeamId: summer.teamIdByName["Blitz Mode"],
     venueId: venue.id, fieldNumber: "1", durationMinutes: 50, status: "scheduled",
   }).returning();
   await db.insert(gameOfficials).values({
@@ -692,6 +700,57 @@ async function seedCoachHistory(ctx: Ctx, youth: { ys: Record<string, string>; s
   console.log("✓ coach history: sessions, attendance, time entries, assessments, notes");
 }
 
+// Surgical, idempotent tidy of residue left behind by manual staging poking
+// and the e2e seed's own fixtures — none of this touches demo.* data, and
+// every delete is scoped narrowly enough to be safe to re-run every seed pass.
+async function seedStagingTidy(ctx: Ctx) {
+  const { db, org } = ctx;
+
+  // (a) Referee payroll CSV: gameOfficials rows tied to @test.aspiresports.com
+  // accounts show up as $0 "Test Coach"/"Training Referee" rows ahead of
+  // Jordan Avery. The e2e seed recreates its own officials if it ever
+  // re-runs, so deleting them here is safe.
+  const testUsers = await db.select({ id: users.id }).from(users)
+    .where(like(users.email, "%@test.aspiresports.com"));
+  if (testUsers.length) {
+    const deleted = await db.delete(gameOfficials)
+      .where(inArray(gameOfficials.userId, testUsers.map((u) => u.id)))
+      .returning({ id: gameOfficials.id });
+    if (deleted.length) console.log(`  tidy: removed ${deleted.length} test-account gameOfficials rows`);
+  }
+
+  // (b) Payroll hours CSV: ~30 zero-hour rows from shifts-coach-N@example.com
+  // fixtures. Scoped to this org so we never touch another org's data.
+  const shiftUsers = await db.select({ id: users.id }).from(users)
+    .where(like(users.email, "shifts-coach-%@example.com"));
+  if (shiftUsers.length) {
+    const deleted = await db.delete(timeEntries)
+      .where(and(eq(timeEntries.organizationId, org.id), inArray(timeEntries.userId, shiftUsers.map((u) => u.id))))
+      .returning({ id: timeEntries.id });
+    if (deleted.length) console.log(`  tidy: removed ${deleted.length} shifts-coach timeEntries rows`);
+  }
+
+  // (c) NPS report feed: "Pickup Soccer — test" rows from test/e2e feedback
+  // requests. Only the response rows are deleted — the underlying
+  // feedback_requests rows stay intact for the e2e seed to reuse.
+  const junkRequests = await db.select({ id: feedbackRequests.id }).from(feedbackRequests)
+    .where(and(
+      eq(feedbackRequests.organizationId, org.id),
+      or(
+        ilike(sql`${feedbackRequests.metadata}->>'eventLabel'`, "%test%"),
+        ilike(sql`${feedbackRequests.metadata}->>'eventLabel'`, "%e2e%"),
+      ),
+    ));
+  if (junkRequests.length) {
+    const deleted = await db.delete(npsResponses)
+      .where(inArray(npsResponses.requestId, junkRequests.map((r) => r.id)))
+      .returning({ id: npsResponses.id });
+    if (deleted.length) console.log(`  tidy: removed ${deleted.length} test/e2e npsResponses rows`);
+  }
+
+  console.log("✓ staging residue tidy");
+}
+
 async function seedFeedback(ctx: Ctx,
   people: { rostersByKid: Record<string, { regId: string; parentUserId: string }> },
   gameData: { ratedGameOfficials: Array<{ gameId: string; gameOfficialId: string }> }) {
@@ -826,9 +885,30 @@ async function main() {
   const people = await seedYouthPeople(ctx, youth);
   const gameData = await seedGames(ctx, youth, flag, people);
   await seedCoachHistory(ctx, youth, people);
+  await seedStagingTidy(ctx);
   await seedFeedback(ctx, people, gameData);
   console.log("✓ demo seed complete", { youth, flag, thunderTeamId: people.thunderTeamId,
     ratedGameOfficialsCount: gameData.ratedGameOfficials.length });
+
+  // Magic sign-in links: the sign-in UI is magic-link-only and staging sends
+  // no email, so mint one-tap links here. Single-use — re-running the seed
+  // (e.g. the morning of the demo) mints fresh ones.
+  const APP_ORIGIN = "https://aspire-sports-staging.netlify.app";
+  const linkRows: Array<{ role: string; email: string; url: string }> = [];
+  for (const [role, user] of Object.entries(demo)) {
+    const link = await createMagicLink({
+      userId: user.id, purpose: "login", expiresInSeconds: 60 * 60 * 24,
+      // deliveredChannel's TS union ("sms"|"email"|"telegram"|"web") is narrower
+      // than the underlying varchar(20) column — "demo-runbook" fits the column
+      // but not the literal type. Cast rather than widen the union in src/,
+      // which this task keeps out of scope.
+      deliveredChannel: "demo-runbook" as unknown as CreateMagicLinkInput["deliveredChannel"],
+      deliveredTo: user.email,
+    } satisfies CreateMagicLinkInput);
+    linkRows.push({ role, email: user.email, url: `${APP_ORIGIN}/m/${link.token}` });
+  }
+  console.log("\n✓ one-tap sign-in links (single-use, expire in 24h):");
+  console.table(linkRows);
 }
 
 main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
