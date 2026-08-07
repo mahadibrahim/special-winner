@@ -185,6 +185,142 @@ async function seedFlagCatalog(ctx: Ctx) {
     fs: { springB: springB.id, springC: springC.id, summerB: summerB.id, fallB: fallB.id, fallC: fallC.id } };
 }
 
+const FAMILIES = [
+  // Maya belongs to demo.parent (Sarah Mitchell) — parentEmail null means "use ctx.demo.parent".
+  { kid: "Maya",   kidLast: "Mitchell",  dob: "2018-04-12", parentEmail: null,                          pFirst: "Sarah",  pLast: "Mitchell" },
+  { kid: "Leo",    kidLast: "Tran",      dob: "2018-07-03", parentEmail: "minh.tran@example.com",       pFirst: "Minh",   pLast: "Tran" },
+  { kid: "Ava",    kidLast: "Rossi",     dob: "2018-01-22", parentEmail: "elena.rossi@example.com",     pFirst: "Elena",  pLast: "Rossi" },
+  { kid: "Noah",   kidLast: "Whitfield", dob: "2017-11-09", parentEmail: "james.whitfield@example.com", pFirst: "James",  pLast: "Whitfield" },
+  { kid: "Zoe",    kidLast: "Okonkwo",   dob: "2018-03-30", parentEmail: "ada.okonkwo@example.com",     pFirst: "Ada",    pLast: "Okonkwo" },
+  { kid: "Eli",    kidLast: "Garcia",    dob: "2018-09-15", parentEmail: "rosa.garcia@example.com",     pFirst: "Rosa",   pLast: "Garcia" },
+  { kid: "Ruby",   kidLast: "Chen",      dob: "2018-06-08", parentEmail: "wei.chen@example.com",        pFirst: "Wei",    pLast: "Chen" },
+  { kid: "Owen",   kidLast: "Novak",     dob: "2017-12-27", parentEmail: "petra.novak@example.com",     pFirst: "Petra",  pLast: "Novak" },
+  { kid: "Isla",   kidLast: "Haddad",    dob: "2018-02-14", parentEmail: "sami.haddad@example.com",     pFirst: "Sami",   pLast: "Haddad" },
+  { kid: "Jonas",  kidLast: "Berg",      dob: "2018-08-19", parentEmail: "anna.berg@example.com",       pFirst: "Anna",   pLast: "Berg" },
+];
+
+async function ensureRegistration(db: Ctx["db"], opts: {
+  seasonId: string; familyMemberId: string; registeredByUserId: string;
+  status: "confirmed" | "pending"; paid: boolean; amountCents: number; createdAt: Date;
+}) {
+  let [reg] = await db.select().from(registrations)
+    .where(and(eq(registrations.familyMemberId, opts.familyMemberId), eq(registrations.seasonId, opts.seasonId)))
+    .orderBy(asc(registrations.createdAt)).limit(1);
+  if (!reg) {
+    [reg] = await db.insert(registrations).values({
+      seasonId: opts.seasonId, familyMemberId: opts.familyMemberId,
+      registeredByUserId: opts.registeredByUserId, status: opts.status,
+      paymentStatus: opts.paid ? "paid" : "unpaid", registrationType: "full",
+      amountDueCents: opts.amountCents, amountPaidCents: opts.paid ? opts.amountCents : 0,
+      waiverSigned: true, createdAt: opts.createdAt,
+    }).returning();
+  }
+  if (opts.paid) {
+    const [existingPay] = await db.select({ id: payments.id }).from(payments)
+      .where(and(eq(payments.registrationId, reg.id), eq(payments.paymentType, "full")))
+      .orderBy(asc(payments.createdAt)).limit(1);
+    if (!existingPay) {
+      await db.insert(payments).values({
+        userId: opts.registeredByUserId, registrationId: reg.id,
+        amountCents: opts.amountCents, paymentType: "full", status: "succeeded",
+        createdAt: new Date(opts.createdAt.getTime() + 2 * 60_000),
+      });
+    }
+  }
+  return reg;
+}
+
+async function seedYouthPeople(ctx: Ctx, youth: { ys: { fall25: string; spring26: string; summer26: string; fall26: string } }) {
+  const { db, org, demo } = ctx;
+  const rostersByKid: Record<string, { rosterId: string; familyMemberId: string; parentUserId: string; regId: string }> = {};
+
+  // Opponent teams for the current season (no rosters needed — games/standings only).
+  const YOUTH_TEAMS = ["Thunder", "Comets", "Red Dragons", "Wolves", "Falcons", "Tigers"];
+  const teamIds: Record<string, string> = {};
+  for (const name of YOUTH_TEAMS) {
+    let [t] = await db.select().from(teams)
+      .where(and(eq(teams.seasonId, youth.ys.summer26), eq(teams.name, name)))
+      .orderBy(asc(teams.createdAt)).limit(1);
+    if (!t) [t] = await db.insert(teams).values({
+      seasonId: youth.ys.summer26, name, division: "U8",
+      coachUserId: name === "Thunder" ? demo.coach.id : null,
+    }).returning();
+    else if (name === "Thunder" && t.coachUserId !== demo.coach.id) {
+      await db.update(teams).set({ coachUserId: demo.coach.id }).where(eq(teams.id, t.id));
+    }
+    teamIds[name] = t.id;
+  }
+  // Past-season Thunder so the coach has multi-season history.
+  let [pastThunder] = await db.select().from(teams)
+    .where(and(eq(teams.seasonId, youth.ys.spring26), eq(teams.name, "Thunder")))
+    .orderBy(asc(teams.createdAt)).limit(1);
+  if (!pastThunder) [pastThunder] = await db.insert(teams).values({
+    seasonId: youth.ys.spring26, name: "Thunder", division: "U8", coachUserId: demo.coach.id,
+  }).returning();
+
+  let jersey = 2;
+  for (const fam of FAMILIES) {
+    const parent = fam.parentEmail
+      ? await ensureUser(db, { email: fam.parentEmail, firstName: fam.pFirst, lastName: fam.pLast }) // no password — cannot log in
+      : demo.parent;
+    const kid = await resolvePerson(db, {
+      kind: "dependent", parentUserId: parent.id,
+      firstName: fam.kid, lastName: fam.kidLast, birthDate: fam.dob,
+    });
+    // Current season: everyone confirmed + paid, createdAt staggered 55..46 days ago.
+    const idx = FAMILIES.indexOf(fam);
+    const reg = await ensureRegistration(db, {
+      seasonId: youth.ys.summer26, familyMemberId: kid.id, registeredByUserId: parent.id,
+      status: "confirmed", paid: true, amountCents: 19500, createdAt: daysAgo(55 - idx),
+    });
+    // Upcoming season: first 6 kids re-registered in the last 10 days (4 paid, 2 pending).
+    if (idx < 6) {
+      await ensureRegistration(db, {
+        seasonId: youth.ys.fall26, familyMemberId: kid.id, registeredByUserId: parent.id,
+        status: idx < 4 ? "confirmed" : "pending", paid: idx < 4, amountCents: 19500,
+        createdAt: daysAgo(10 - idx),
+      });
+    }
+    // History: first 4 kids played the two past seasons too.
+    if (idx < 4) {
+      const s26 = await ensureRegistration(db, {
+        seasonId: youth.ys.spring26, familyMemberId: kid.id, registeredByUserId: parent.id,
+        status: "confirmed", paid: true, amountCents: 19500, createdAt: daysAgo(170 - idx),
+      });
+      await ensureRegistration(db, {
+        seasonId: youth.ys.fall25, familyMemberId: kid.id, registeredByUserId: parent.id,
+        status: "confirmed", paid: true, amountCents: 19500, createdAt: daysAgo(350 - idx),
+      });
+      // Past-season roster for coach history.
+      await db.insert(rosters).values({ teamId: pastThunder.id, registrationId: s26.id, status: "active" })
+        .onConflictDoNothing();
+    }
+    // Current roster on Thunder.
+    let [rosterRow] = await db.select().from(rosters)
+      .where(and(eq(rosters.teamId, teamIds.Thunder), eq(rosters.registrationId, reg.id)))
+      .orderBy(asc(rosters.createdAt)).limit(1);
+    if (!rosterRow) [rosterRow] = await db.insert(rosters).values({
+      teamId: teamIds.Thunder, registrationId: reg.id, jerseyNumber: String(jersey), status: "active",
+    }).returning();
+    jersey += 1;
+    rostersByKid[fam.kid] = { rosterId: rosterRow.id, familyMemberId: kid.id, parentUserId: parent.id, regId: reg.id };
+  }
+  // One refund for realism in the revenue report.
+  const zoe = rostersByKid["Zoe"];
+  const [refundExists] = await db.select({ id: payments.id }).from(payments)
+    .where(and(eq(payments.registrationId, zoe.regId), eq(payments.paymentType, "refund")))
+    .orderBy(asc(payments.createdAt)).limit(1);
+  if (!refundExists) {
+    await db.insert(payments).values({
+      userId: zoe.parentUserId, registrationId: zoe.regId, amountCents: 5000,
+      paymentType: "refund", status: "succeeded", refundReason: "Missed two weeks — goodwill credit",
+      createdAt: daysAgo(12),
+    });
+  }
+  console.log("✓ youth families, registrations, payments, rosters");
+  return { thunderTeamId: teamIds.Thunder, youthTeamIds: teamIds, rostersByKid };
+}
+
 async function main() {
   const db = getDb();
 
@@ -234,7 +370,8 @@ async function main() {
   const ctx = { db, now: NOW, org, location, venue, roleMap, demo };
   const youth = await seedYouthCatalog(ctx);
   const flag = await seedFlagCatalog(ctx);
-  console.log("✓ demo seed complete", { youth, flag });
+  const people = await seedYouthPeople(ctx, youth);
+  console.log("✓ demo seed complete", { youth, flag, thunderTeamId: people.thunderTeamId });
 }
 
 main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
