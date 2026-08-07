@@ -23,6 +23,16 @@ import { sessionPlans } from "../src/lib/db/schema/practice-planning";
 import { playerAssessments } from "../src/lib/db/schema/assessments";
 import { resolvePerson } from "../src/lib/registrations/resolve-person";
 
+type Ctx = {
+  db: ReturnType<typeof getDb>;
+  now: Date;
+  org: any;
+  location: any;
+  venue: any;
+  roleMap: Record<string, any>;
+  demo: any;
+};
+
 const STAGING_HOST = "switchyard.proxy.rlwy.net:31999"; // pinned staging Railway proxy host:port
 const url = process.env.DATABASE_URL ?? "";
 let host = "";
@@ -64,6 +74,62 @@ async function ensureRole(db: ReturnType<typeof getDb>, userId: string, roleId: 
     await tx.delete(userRoles).where(eq(userRoles.userId, userId)); // e2e idiom: single-role demo users
     await tx.insert(userRoles).values({ userId, roleId, ...scope });
   });
+}
+
+async function upsertSeason(db: Ctx["db"], programId: string, slug: string, fields: Record<string, unknown>) {
+  // e2e idiom :1739-1783 — select by (programId, slug), insert else full re-sync update.
+  let [s] = await db.select().from(seasons)
+    .where(and(eq(seasons.programId, programId), eq(seasons.slug, slug)))
+    .orderBy(asc(seasons.createdAt)).limit(1);
+  if (!s) [s] = await db.insert(seasons).values({ programId, slug, ...fields } as any).returning();
+  else [s] = await db.update(seasons).set(fields as any).where(eq(seasons.id, s.id)).returning();
+  return s;
+}
+
+async function seedYouthCatalog(ctx: Ctx) {
+  const { db, org, location } = ctx;
+  let [sport] = await db.select().from(sports)
+    .where(and(eq(sports.organizationId, org.id), eq(sports.slug, "soccer")))
+    .orderBy(asc(sports.createdAt)).limit(1);
+  if (!sport) [sport] = await db.insert(sports).values({ organizationId: org.id, name: "Soccer", slug: "soccer" }).returning();
+
+  let [u8] = await db.select().from(ageGroups)
+    .where(and(eq(ageGroups.organizationId, org.id), eq(ageGroups.name, "U8")))
+    .orderBy(asc(ageGroups.createdAt)).limit(1);
+  if (!u8) [u8] = await db.insert(ageGroups).values({ organizationId: org.id, name: "U8", minAge: 6, maxAge: 8 }).returning();
+
+  let [program] = await db.select().from(programs)
+    .where(and(eq(programs.locationId, location.id), eq(programs.slug, "youth-soccer")))
+    .orderBy(asc(programs.createdAt)).limit(1);
+  const programFields = {
+    sportId: sport.id, name: "Youth Soccer League",
+    description: "Recreational youth soccer with a development-first curriculum. Weekly practice plus Saturday games.",
+    programType: "league" as const, audienceType: "parents", active: true, isTest: false,
+  };
+  if (!program) [program] = await db.insert(programs).values({ locationId: location.id, slug: "youth-soccer", ...programFields }).returning();
+  else [program] = await db.update(programs).set(programFields).where(eq(programs.id, program.id)).returning();
+
+  const shared = { ageGroupId: u8.id, priceCents: 19500, signupModes: ["individual"], isTest: false };
+  const fall25 = await upsertSeason(db, program.id, "fall-2025", { ...shared,
+    name: "Fall 2025", startDate: dstr(daysAgo(330)), endDate: dstr(daysAgo(260)), status: "completed" });
+  const spring26 = await upsertSeason(db, program.id, "spring-2026", { ...shared,
+    name: "Spring 2026", startDate: dstr(daysAgo(150)), endDate: dstr(daysAgo(80)), status: "completed" });
+  const summer26 = await upsertSeason(db, program.id, "summer-2026", { ...shared,
+    name: "Summer 2026", startDate: dstr(daysAgo(35)), endDate: dstr(daysFromNow(25)), status: "active",
+    registrationOpens: daysAgo(90), registrationCloses: daysAgo(40),
+    scheduleNotes: "Practice Tue 5:30pm · Games Sat mornings" });
+  const fall26 = await upsertSeason(db, program.id, "fall-2026", { ...shared,
+    name: "Fall 2026", startDate: dstr(daysFromNow(33)), endDate: dstr(daysFromNow(100)), status: "open",
+    registrationOpens: daysAgo(20), registrationCloses: daysFromNow(26),
+    scheduleNotes: "Practice Tue 5:30pm · Games Sat mornings" });
+
+  // Junk tidy: hide e2e fixtures from every public surface (isTest is filtered everywhere).
+  await db.update(seasons).set({ isTest: true }).where(like(seasons.slug, "e2e-%"));
+  await db.update(programs).set({ isTest: true }).where(like(programs.slug, "e2e-%"));
+
+  console.log("✓ youth catalog", { program: program.slug });
+  return { sportId: sport.id, programId: program.id, ageGroupU8Id: u8.id,
+    ys: { fall25: fall25.id, spring26: spring26.id, summer26: summer26.id, fall26: fall26.id } };
 }
 
 async function main() {
@@ -113,7 +179,8 @@ async function main() {
   console.log("✓ context + demo accounts", Object.fromEntries(Object.entries(demo).map(([k, v]) => [k, v.email])));
 
   const ctx = { db, now: NOW, org, location, venue, roleMap, demo };
-  // Later tasks append section calls here, threading ctx and returned ids.
+  const youth = await seedYouthCatalog(ctx);
+  console.log("✓ demo seed complete", { youth });
 }
 
 main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
