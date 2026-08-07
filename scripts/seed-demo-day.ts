@@ -36,7 +36,7 @@ export const DEMO_PASSWORD = "AspireDemo2026!";
 const NOW = new Date();
 const daysAgo = (n: number) => new Date(NOW.getTime() - n * 86400_000);
 const daysFromNow = (n: number) => new Date(NOW.getTime() + n * 86400_000);
-const dstr = (d: Date) => d.toISOString().slice(0, 10);
+const dstr = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const at = (d: Date, hour: number, minute = 0) => {
   const c = new Date(d); c.setHours(hour, minute, 0, 0); return c;
 };
@@ -60,8 +60,10 @@ async function ensureUser(db: ReturnType<typeof getDb>, opts: {
 
 async function ensureRole(db: ReturnType<typeof getDb>, userId: string, roleId: string,
   scope: { scopeType: "global" } | { scopeType: "organization"; scopeId: string }) {
-  await db.delete(userRoles).where(eq(userRoles.userId, userId)); // e2e idiom: single-role demo users
-  await db.insert(userRoles).values({ userId, roleId, ...scope });
+  await db.transaction(async (tx) => {
+    await tx.delete(userRoles).where(eq(userRoles.userId, userId)); // e2e idiom: single-role demo users
+    await tx.insert(userRoles).values({ userId, roleId, ...scope });
+  });
 }
 
 async function main() {
