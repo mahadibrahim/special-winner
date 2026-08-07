@@ -180,9 +180,9 @@ async function seedFlagCatalog(ctx: Ctx) {
     startDate: dstr(daysFromNow(35)), endDate: dstr(daysFromNow(85)), status: "forming",
     registrationOpens: daysAgo(10), registrationCloses: daysFromNow(28) });
 
-  console.log("✓ flag catalog");
-  return { sportId: sport.id, programId: program.id,
-    fs: { springB: springB.id, springC: springC.id, summerB: summerB.id, fallB: fallB.id, fallC: fallC.id } };
+  const fs = { springB: springB.id, springC: springC.id, summerB: summerB.id, fallB: fallB.id, fallC: fallC.id };
+  console.log("✓ flag catalog", { seasonIds: fs });
+  return { sportId: sport.id, programId: program.id, fs };
 }
 
 const FAMILIES = [
@@ -335,6 +335,130 @@ async function seedYouthPeople(ctx: Ctx, youth: { ys: { fall25: string; spring26
   return { thunderTeamId: teamIds.Thunder, youthTeamIds: teamIds, rostersByKid };
 }
 
+// Deterministic score pair; never a draw (flag rules disallow draws).
+const flagScore = (i: number): [number, number] => {
+  const a = 12 + ((i * 7) % 15); const b = 6 + ((i * 5) % 13);
+  return a === b ? [a + 6, b] : [a, b];
+};
+// Round-robin: 6 teams -> 5 rounds x 3 games. Standard circle method.
+function roundRobin(ids: string[]): Array<Array<[string, string]>> {
+  const n = ids.length; const arr = [...ids]; const rounds: Array<Array<[string, string]>> = [];
+  for (let r = 0; r < n - 1; r++) {
+    const round: Array<[string, string]> = [];
+    for (let i = 0; i < n / 2; i++) round.push([arr[i], arr[n - 1 - i]]);
+    rounds.push(round);
+    arr.splice(1, 0, arr.pop() as string);
+  }
+  return rounds;
+}
+
+async function resetSeasonGames(ctx: Ctx, seasonId: string) {
+  const { db } = ctx;
+  const old = await db.select({ id: games.id }).from(games).where(eq(games.seasonId, seasonId));
+  if (old.length) {
+    const ids = old.map((g) => g.id);
+    await db.delete(feedbackRequests).where(and(
+      eq(feedbackRequests.kind, "referee_rating"), inArray(feedbackRequests.targetId, ids)));
+    await db.delete(games).where(inArray(games.id, ids)); // cascades officials/ratings/incidents
+  }
+}
+
+async function seedFlagDivisionGames(ctx: Ctx, opts: {
+  seasonId: string; teamNames: string[]; firstMatchday: Date; playedRounds: number;
+  refUserId?: string; refPaid?: boolean;
+}) {
+  const { db, venue } = ctx;
+  const teamIds: string[] = [];
+  for (const name of opts.teamNames) {
+    let [t] = await db.select().from(teams)
+      .where(and(eq(teams.seasonId, opts.seasonId), eq(teams.name, name)))
+      .orderBy(asc(teams.createdAt)).limit(1);
+    if (!t) [t] = await db.insert(teams).values({ seasonId: opts.seasonId, name }).returning();
+    teamIds.push(t.id);
+  }
+  await resetSeasonGames(ctx, opts.seasonId);
+  const officiated: Array<{ gameId: string; gameOfficialId: string }> = [];
+  const rounds = roundRobin(teamIds);
+  let gi = 0;
+  for (let r = 0; r < rounds.length; r++) {
+    const matchday = new Date(opts.firstMatchday.getTime() + r * 7 * 86400_000);
+    for (let m = 0; m < rounds[r].length; m++) {
+      const [home, away] = rounds[r][m];
+      const played = r < opts.playedRounds;
+      const [hs, as] = flagScore(gi);
+      const [g] = await db.insert(games).values({
+        seasonId: opts.seasonId, homeTeamId: home, awayTeamId: away,
+        scheduledAt: at(matchday, 18 + m, 30), venueId: venue.id, fieldNumber: String(m + 1),
+        durationMinutes: 50,
+        status: played ? "completed" : "scheduled",
+        homeScore: played ? hs : null, awayScore: played ? as : null,
+      }).returning();
+      if (opts.refUserId) {
+        const [go] = await db.insert(gameOfficials).values({
+          gameId: g.id, userId: opts.refUserId, position: "referee",
+          feeCents: 3500, paymentStatus: opts.refPaid && played ? "paid" : "unpaid",
+        }).returning();
+        if (played) officiated.push({ gameId: g.id, gameOfficialId: go.id });
+      }
+      gi += 1;
+    }
+  }
+  return officiated;
+}
+
+async function seedGames(ctx: Ctx, youth: { ys: Record<string, string> }, flag: { fs: Record<string, string> },
+  people: { youthTeamIds: Record<string, string>; thunderTeamId: string }) {
+  const { db, demo, venue } = ctx;
+  const B = ["Gridiron Gurus", "Blitz Mode", "Sunday Scaries", "Turf Burners", "Hail Marys", "Zone Six"];
+  const C = ["Backyard Ballers", "The Replacements", "Flag Em Down", "Monday Quarterbacks", "Shortside", "Late Flags"];
+
+  // Past term: fully played (5/5 rounds). demo.ref officiated division B, all paid.
+  const springOff = await seedFlagDivisionGames(ctx, { seasonId: flag.fs.springB, teamNames: B,
+    firstMatchday: daysAgo(135), playedRounds: 5, refUserId: demo.ref.id, refPaid: true });
+  await seedFlagDivisionGames(ctx, { seasonId: flag.fs.springC, teamNames: C,
+    firstMatchday: daysAgo(135), playedRounds: 5 });
+  // Current term: 4 of 5 rounds played, demo.ref officiating, current fees unpaid.
+  const summerOff = await seedFlagDivisionGames(ctx, { seasonId: flag.fs.summerB, teamNames: B,
+    firstMatchday: daysAgo(28), playedRounds: 4, refUserId: demo.ref.id, refPaid: false });
+
+  // Tonight's showcase assignment for the ref app: scheduled a few hours from now.
+  const [tonight] = await db.insert(games).values({
+    seasonId: flag.fs.summerB, scheduledAt: new Date(ctx.now.getTime() + 3 * 3600_000),
+    venueId: venue.id, fieldNumber: "1", durationMinutes: 50, status: "scheduled",
+  }).returning();
+  await db.insert(gameOfficials).values({
+    gameId: tonight.id, userId: demo.ref.id, position: "referee", feeCents: 3500,
+  }).onConflictDoNothing();
+
+  // Youth current season: Saturday games, 4 played (soccer — one draw is fine), 2 upcoming.
+  await resetSeasonGames(ctx, youth.ys.summer26);
+  const yt = people.youthTeamIds;
+  const youthFixtures: Array<[string, string, number, number | null, number | null]> = [
+    // [home, away, weeksAgoSat, homeScore, awayScore]
+    ["Thunder", "Comets", 4, 3, 1], ["Red Dragons", "Wolves", 4, 2, 2],
+    ["Thunder", "Falcons", 3, 2, 0], ["Tigers", "Comets", 3, 1, 4],
+    ["Wolves", "Thunder", 2, 1, 2], ["Falcons", "Red Dragons", 2, 0, 3],
+    ["Thunder", "Tigers", 1, 4, 2], ["Comets", "Wolves", 1, 2, 1],
+  ];
+  for (const [h, a, w, hs, as] of youthFixtures) {
+    await db.insert(games).values({
+      seasonId: youth.ys.summer26, homeTeamId: yt[h], awayTeamId: yt[a],
+      scheduledAt: at(daysAgo(w * 7), 9, 30), venueId: venue.id, durationMinutes: 60,
+      status: "completed", homeScore: hs, awayScore: as,
+    });
+  }
+  // Upcoming Saturday games (Thunder plays — shows on coach schedule).
+  await db.insert(games).values([
+    { seasonId: youth.ys.summer26, homeTeamId: yt.Thunder, awayTeamId: yt["Red Dragons"],
+      scheduledAt: at(daysFromNow(2), 9, 30), venueId: venue.id, durationMinutes: 60, status: "scheduled" },
+    { seasonId: youth.ys.summer26, homeTeamId: yt.Falcons, awayTeamId: yt.Comets,
+      scheduledAt: at(daysFromNow(2), 10, 45), venueId: venue.id, durationMinutes: 60, status: "scheduled" },
+  ]);
+
+  console.log(`✓ games: flag spring B/C + summer B (+tonight), youth summer (ref history: ${springOff.length + summerOff.length} games)`);
+  return { ratedGameOfficials: [...springOff, ...summerOff] };
+}
+
 async function main() {
   const db = getDb();
 
@@ -385,7 +509,9 @@ async function main() {
   const youth = await seedYouthCatalog(ctx);
   const flag = await seedFlagCatalog(ctx);
   const people = await seedYouthPeople(ctx, youth);
-  console.log("✓ demo seed complete", { youth, flag, thunderTeamId: people.thunderTeamId });
+  const gameData = await seedGames(ctx, youth, flag, people);
+  console.log("✓ demo seed complete", { youth, flag, thunderTeamId: people.thunderTeamId,
+    ratedGameOfficialsCount: gameData.ratedGameOfficials.length });
 }
 
 main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
