@@ -25,6 +25,7 @@ import { playerAssessments } from "../src/lib/db/schema/assessments";
 import { resolvePerson } from "../src/lib/registrations/resolve-person";
 import { DOMAINS, STAGES } from "../src/lib/curriculum/content/reference";
 import { recomputePlayerSnapshots } from "../src/lib/curriculum/snapshots";
+import { generateFeedbackToken, hashFeedbackToken } from "../src/lib/feedback/tokens";
 
 type Ctx = {
   db: ReturnType<typeof getDb>;
@@ -683,6 +684,65 @@ async function seedCoachHistory(ctx: Ctx, youth: { ys: Record<string, string>; s
   console.log("✓ coach history: sessions, attendance, time entries, assessments, notes");
 }
 
+async function seedFeedback(ctx: Ctx,
+  people: { rostersByKid: Record<string, { regId: string; parentUserId: string }> },
+  gameData: { ratedGameOfficials: Array<{ gameId: string; gameOfficialId: string }> }) {
+  const { db, org, demo } = ctx;
+
+  // --- NPS (kind nps_season): dedupe unique (kind, targetId, recipientUserId) ---
+  const npsScores: Array<[string, number, string | null]> = [
+    ["Maya", 10, "Coach Marcus is phenomenal — Maya begs to go to practice."],
+    ["Leo", 9, null], ["Ava", 10, "So organized. Sign-up took two minutes."],
+    ["Noah", 8, null], ["Zoe", 9, null], ["Eli", 7, null],
+    ["Ruby", 10, "Ruby scored her first goal and got a shout-out. Made her month."],
+    ["Owen", 6, "Wish there were more field-side shade for parents."],
+  ];
+  for (let i = 0; i < npsScores.length; i++) {
+    const [kidName, score, comment] = npsScores[i];
+    const kid = people.rostersByKid[kidName];
+    const respondedAt = daysAgo(3 + i * 5);
+    await db.insert(feedbackRequests).values({
+      organizationId: org.id, kind: "nps_season", targetId: kid.regId,
+      recipientUserId: kid.parentUserId, tokenHash: hashFeedbackToken(generateFeedbackToken()),
+      expiresAt: daysFromNow(14), status: "responded",
+      sentAt: new Date(respondedAt.getTime() - 86400_000), respondedAt,
+      metadata: { eventLabel: "Youth Soccer — Summer 2026" },
+    }).onConflictDoNothing();
+    const [req] = await db.select({ id: feedbackRequests.id }).from(feedbackRequests)
+      .where(and(eq(feedbackRequests.kind, "nps_season"), eq(feedbackRequests.targetId, kid.regId),
+        eq(feedbackRequests.recipientUserId, kid.parentUserId)))
+      .orderBy(asc(feedbackRequests.createdAt)).limit(1);
+    await db.insert(npsResponses).values({ requestId: req.id, score, comment })
+      .onConflictDoNothing();
+  }
+
+  // --- Referee ratings on demo.ref's completed games (games recreated each run,
+  //     so these are inserted fresh each run too — resetSeasonGames cleared the old ones).
+  const raters = Object.values(people.rostersByKid).map((k) => k.parentUserId);
+  const dims = (i: number) => 4 + ((i * 3) % 2); // 4s and 5s
+  const comments = [null, "Fair and communicative all night.", null,
+    "Kept the chippy game under control.", null, "Best ref in the league.", null, null];
+  const toRate = gameData.ratedGameOfficials.slice(0, 12);
+  for (let i = 0; i < toRate.length; i++) {
+    const { gameId, gameOfficialId } = toRate[i];
+    const respondedAt = daysAgo(2 + i * 9);
+    const [req] = await db.insert(feedbackRequests).values({
+      organizationId: org.id, kind: "referee_rating", targetId: gameId,
+      gameOfficialId, recipientUserId: raters[i % raters.length],
+      tokenHash: hashFeedbackToken(generateFeedbackToken()),
+      expiresAt: daysFromNow(7), status: "responded",
+      sentAt: new Date(respondedAt.getTime() - 86400_000), respondedAt,
+      metadata: { eventLabel: "Flag Football — league night", gameType: "league", refereeName: "Jordan Avery" },
+    }).returning();
+    await db.insert(refereeRatings).values({
+      requestId: req.id, gameId, refereeUserId: demo.ref.id,
+      overall: dims(i), gameControl: dims(i + 1), communication: dims(i), fairness: 5,
+      comment: comments[i % comments.length], createdAt: respondedAt,
+    }).onConflictDoNothing();
+  }
+  console.log("✓ feedback: NPS + referee ratings");
+}
+
 async function main() {
   const db = getDb();
 
@@ -735,6 +795,7 @@ async function main() {
   const people = await seedYouthPeople(ctx, youth);
   const gameData = await seedGames(ctx, youth, flag, people);
   await seedCoachHistory(ctx, youth, people);
+  await seedFeedback(ctx, people, gameData);
   console.log("✓ demo seed complete", { youth, flag, thunderTeamId: people.thunderTeamId,
     ratedGameOfficialsCount: gameData.ratedGameOfficials.length });
 }
