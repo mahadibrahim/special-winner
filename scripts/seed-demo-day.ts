@@ -18,10 +18,13 @@ import {
   payments,
   feedbackRequests, npsResponses, refereeRatings,
   timeEntries,
+  skills as curriculumSkills, skillDomains, developmentStages,
 } from "../src/lib/db/schema";
 import { sessionPlans } from "../src/lib/db/schema/practice-planning";
 import { playerAssessments } from "../src/lib/db/schema/assessments";
 import { resolvePerson } from "../src/lib/registrations/resolve-person";
+import { DOMAINS, STAGES } from "../src/lib/curriculum/content/reference";
+import { recomputePlayerSnapshots } from "../src/lib/curriculum/snapshots";
 
 type Ctx = {
   db: ReturnType<typeof getDb>;
@@ -470,6 +473,197 @@ async function seedGames(ctx: Ctx, youth: { ys: Record<string, string> }, flag: 
   return { ratedGameOfficials: [...springOff, ...summerOff] };
 }
 
+// Reuse existing curriculum skills for the soccer sport when real content is
+// already present (staging mirrors prod migrations and prod curriculum is
+// live); otherwise create four realistic skills, one per domain, copying the
+// e2e idiom at seed-e2e-tests.ts:492-655. Never reuse skills whose slug
+// starts with "e2e-" — their names look like test junk on the parent-facing
+// development radar.
+async function resolveDemoSkills(ctx: Ctx, sportId: string): Promise<string[]> {
+  const { db, org } = ctx;
+  const existing = await db.select({ id: curriculumSkills.id, slug: curriculumSkills.slug, domainId: curriculumSkills.domainId })
+    .from(curriculumSkills)
+    .innerJoin(skillDomains, eq(curriculumSkills.domainId, skillDomains.id))
+    .where(eq(curriculumSkills.sportId, sportId))
+    .orderBy(asc(curriculumSkills.createdAt));
+  const distinctDomains = new Set(existing.map((s) => s.domainId));
+  const hasE2eSlug = existing.some((s) => s.slug.startsWith("e2e-"));
+  if (existing.length >= 4 && distinctDomains.size >= 3 && !hasE2eSlug) {
+    return existing.slice(0, 4).map((s) => s.id);
+  }
+
+  // Domains + development stage are global reference data (no orgId column)
+  // — ensure existence without overwriting other content.
+  for (const d of DOMAINS) {
+    await db.insert(skillDomains).values({
+      name: d.name, displayName: d.displayName, description: d.description,
+      color: d.color, icon: d.icon, assessmentFrequency: d.assessmentFrequency,
+      weightInOverall: d.weightInOverall, sortOrder: d.sortOrder,
+    }).onConflictDoNothing();
+  }
+  const fundamentalsStage = STAGES.find((s) => s.slug === "fundamentals");
+  if (!fundamentalsStage) throw new Error("seed-demo-day: 'fundamentals' stage missing from curriculum reference content");
+  await db.insert(developmentStages).values({
+    slug: fundamentalsStage.slug, name: fundamentalsStage.name,
+    ageMin: fundamentalsStage.ageMin, ageMax: fundamentalsStage.ageMax,
+    description: fundamentalsStage.description, philosophy: fundamentalsStage.philosophy,
+    practiceToGameRatio: fundamentalsStage.practiceToGameRatio, maxHoursPerWeek: fundamentalsStage.maxHoursPerWeek,
+    keyPrinciples: fundamentalsStage.keyPrinciples, coachRole: fundamentalsStage.coachRole,
+    sortOrder: fundamentalsStage.sortOrder,
+  }).onConflictDoNothing();
+
+  const domainRows = await db.select().from(skillDomains);
+  const domainIdByName = new Map(domainRows.map((d) => [d.name, d.id]));
+  const [stage] = await db.select().from(developmentStages)
+    .where(eq(developmentStages.slug, "fundamentals")).limit(1);
+  if (!stage) throw new Error("seed-demo-day: failed to load 'fundamentals' stage after upsert");
+
+  const REALISTIC_SKILLS: Array<{ slug: string; name: string; domain: "technical" | "tactical" | "physical" | "psychological" }> = [
+    { slug: "first-touch", name: "First Touch", domain: "technical" },
+    { slug: "spatial-awareness", name: "Spatial Awareness", domain: "tactical" },
+    { slug: "agility-balance", name: "Agility & Balance", domain: "physical" },
+    { slug: "confidence-focus", name: "Confidence & Focus", domain: "psychological" },
+  ];
+  const skillIds: string[] = [];
+  for (const s of REALISTIC_SKILLS) {
+    const domainId = domainIdByName.get(s.domain);
+    if (!domainId) throw new Error(`seed-demo-day: domain "${s.domain}" missing after upsert`);
+    const skillSet = {
+      organizationId: org.id, domainId, stageId: stage.id, name: s.name,
+      description: `${s.name} — assessed for U8 recreational players.`,
+      isCore: true, updatedAt: new Date(),
+    };
+    const [row] = await db.insert(curriculumSkills).values({ sportId, slug: s.slug, ...skillSet })
+      .onConflictDoUpdate({ target: [curriculumSkills.sportId, curriculumSkills.slug], set: skillSet })
+      .returning({ id: curriculumSkills.id });
+    skillIds.push(row.id);
+  }
+  return skillIds;
+}
+
+async function seedCoachHistory(ctx: Ctx, youth: { ys: Record<string, string>; sportId: string },
+  people: { thunderTeamId: string; rostersByKid: Record<string, { rosterId: string; familyMemberId: string; parentUserId: string; regId: string }> }) {
+  const { db, org, demo, venue } = ctx;
+  const teamId = people.thunderTeamId;
+  const kids = Object.entries(people.rostersByKid);
+
+  // --- Practice sessions: 5 completed Tuesdays + today + next week -----------
+  async function ensureSession(title: string, scheduledDate: Date, status: "completed" | "planned",
+    reflections?: { whatWorkedWell: string; whatToImprove: string }) {
+    let [s] = await db.select().from(sessionPlans)
+      .where(and(eq(sessionPlans.teamId, teamId), eq(sessionPlans.title, title)))
+      .orderBy(asc(sessionPlans.createdAt)).limit(1);
+    const fields = {
+      coachUserId: demo.coach.id, scheduledDate, durationMinutes: 60, status,
+      completedAt: status === "completed" ? new Date(scheduledDate.getTime() + 60 * 60_000) : null,
+      objectives: ["Ball mastery", "Small-sided play"],
+      ...(reflections ?? {}),
+    };
+    if (!s) [s] = await db.insert(sessionPlans).values({ teamId, title, ...fields }).returning();
+    else [s] = await db.update(sessionPlans).set(fields).where(eq(sessionPlans.id, s.id)).returning();
+    return s;
+  }
+  const pastSessions = [];
+  const themes = ["Dribbling & 1v1s", "First Touch Circuit", "Passing & Possession", "Finishing Fun", "Defending Shape"];
+  for (let w = 5; w >= 1; w--) {
+    pastSessions.push(await ensureSession(
+      `Practice — ${themes[5 - w]}`, at(lastDow(2, w), 17, 30), "completed",
+      { whatWorkedWell: "High energy in the small-sided games; everyone touched the ball a lot.",
+        whatToImprove: "Transitions between stations were slow — tighter whistle next time." }));
+  }
+  await ensureSession("Practice — Game Prep & Set Pieces", new Date(ctx.now.getTime() + 3 * 3600_000), "planned");
+  await ensureSession("Practice — Shielding & Support Play", at(nextDow(2), 17, 30), "planned");
+
+  // --- Attendance for the completed sessions (unique (rosterId, sessionPlanId)) ---
+  for (const s of pastSessions) {
+    for (let k = 0; k < kids.length; k++) {
+      const [, kid] = kids[k];
+      const status = (k * 31 + pastSessions.indexOf(s) * 7) % 11 === 0 ? "absent"
+        : (k * 13 + pastSessions.indexOf(s) * 3) % 9 === 0 ? "late" : "present";
+      await db.insert(attendance).values({
+        teamId, rosterId: kid.rosterId, sessionPlanId: s.id, eventType: "practice",
+        eventDate: s.scheduledDate, status, recordedByUserId: demo.coach.id,
+      }).onConflictDoNothing();
+    }
+  }
+
+  // --- Coach time entries (payroll hours). CHECK: coach entries must have gameId null. ---
+  for (const s of pastSessions) {
+    const clockInAt = new Date(s.scheduledDate.getTime() - 15 * 60_000);
+    const [existing] = await db.select({ id: timeEntries.id }).from(timeEntries)
+      .where(and(eq(timeEntries.userId, demo.coach.id), eq(timeEntries.clockInAt, clockInAt)))
+      .orderBy(asc(timeEntries.createdAt)).limit(1);
+    if (!existing) {
+      await db.insert(timeEntries).values({
+        organizationId: org.id, userId: demo.coach.id, venueId: venue.id, role: "coach",
+        clockInAt, clockOutAt: new Date(s.scheduledDate.getTime() + 75 * 60_000),
+      });
+    }
+  }
+
+  // --- Assessments: two waves for Maya, Leo, Ava; skills resolved per Interfaces note ---
+  const skillIds = await resolveDemoSkills(ctx, youth.sportId); // returns 4 skill ids (see note)
+  const waves: Array<{ kid: string; early: number[]; recent: number[] }> = [
+    { kid: "Maya", early: [2, 2, 3, 2], recent: [3, 3, 3, 3] },
+    { kid: "Leo",  early: [3, 2, 2, 2], recent: [4, 3, 3, 3] },
+    { kid: "Ava",  early: [2, 3, 2, 3], recent: [3, 3, 3, 4] },
+  ];
+  for (const w of waves) {
+    const kid = people.rostersByKid[w.kid];
+    for (let i = 0; i < skillIds.length; i++) {
+      // select-then-heal, e2e idiom :622-652 — one row per (kid, skill, season, assessedAt-wave).
+      // assessedAt must be day-anchored (via `at`, which zeroes time-of-day), not a raw
+      // daysAgo() timestamp — daysAgo() bakes in the exact process-start instant, so two
+      // separate runs on the same calendar day would each produce a distinct assessedAt
+      // and the select-then-heal WHERE clause would never match, duplicating rows.
+      for (const [level, prev, when] of [[w.early[i], null, at(daysAgo(30), 9, 0)], [w.recent[i], w.early[i], at(daysAgo(4), 9, 0)]] as const) {
+        const [existing] = await db.select({ id: playerAssessments.id }).from(playerAssessments)
+          .where(and(eq(playerAssessments.familyMemberId, kid.familyMemberId),
+            eq(playerAssessments.skillId, skillIds[i]),
+            eq(playerAssessments.assessedAt, when)))
+          .orderBy(asc(playerAssessments.createdAt)).limit(1);
+        if (!existing) {
+          await db.insert(playerAssessments).values({
+            familyMemberId: kid.familyMemberId, skillId: skillIds[i], coachUserId: demo.coach.id,
+            seasonId: youth.ys.summer26, teamId, level, previousLevel: prev,
+            observationContext: "practice", assessedAt: when,
+          });
+        }
+      }
+    }
+    await recomputePlayerSnapshots(db, kid.familyMemberId, youth.ys.summer26);
+  }
+
+  // --- Parent-visible coach notes (glows & grows voice) ---
+  const NOTES: Array<{ kid: string; category: "achievement" | "focus" | "encouragement";
+    title: string; content: string; when: Date }> = [
+    { kid: "Maya", category: "achievement", title: "First touch is really coming along",
+      content: "Maya controlled high balls cleanly three times in the scrimmage — a big step from last month.", when: daysAgo(4) },
+    { kid: "Maya", category: "focus", title: "Using the weaker foot",
+      content: "Next few weeks we'll work on left-foot passing so Maya has options on both sides.", when: daysAgo(11) },
+    { kid: "Maya", category: "encouragement", title: "Great teammate moment",
+      content: "Maya cheered loudest when Ruby scored her first goal. Love the energy she brings.", when: daysAgo(18) },
+    { kid: "Leo", category: "achievement", title: "Hat trick in small-sided play",
+      content: "Leo finished three composed goals in the 3v3 games tonight.", when: daysAgo(4) },
+    { kid: "Ava", category: "focus", title: "Looking up before passing",
+      content: "Working with Ava on scanning the field before receiving — already improving.", when: daysAgo(11) },
+  ];
+  for (const n of NOTES) {
+    const kid = people.rostersByKid[n.kid];
+    const [existing] = await db.select({ id: coachNotes.id }).from(coachNotes)
+      .where(and(eq(coachNotes.familyMemberId, kid.familyMemberId), eq(coachNotes.title, n.title)))
+      .orderBy(asc(coachNotes.createdAt)).limit(1);
+    if (!existing) {
+      await db.insert(coachNotes).values({
+        familyMemberId: kid.familyMemberId, teamId, coachUserId: demo.coach.id,
+        title: n.title, content: n.content, category: n.category,
+        visibleToParent: true, createdAt: n.when,
+      });
+    }
+  }
+  console.log("✓ coach history: sessions, attendance, time entries, assessments, notes");
+}
+
 async function main() {
   const db = getDb();
 
@@ -521,6 +715,7 @@ async function main() {
   const flag = await seedFlagCatalog(ctx);
   const people = await seedYouthPeople(ctx, youth);
   const gameData = await seedGames(ctx, youth, flag, people);
+  await seedCoachHistory(ctx, youth, people);
   console.log("✓ demo seed complete", { youth, flag, thunderTeamId: people.thunderTeamId,
     ratedGameOfficialsCount: gameData.ratedGameOfficials.length });
 }
