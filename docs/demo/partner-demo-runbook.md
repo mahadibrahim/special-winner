@@ -25,7 +25,7 @@
 2. **Parent** (laptop) — Maya's dashboard: coach notes, development radar, upcoming Fall 2026, payment history.
 3. **Coach** (phone) — /coach: Thunder roster (10 kids), today's "Practice — Game Prep & Set Pieces" at now+3h (Tuesday practice; Saturday game upcoming), attendance history, assessments showing level progression.
 4. **Referee** (phone) — /referee: tonight's assignment at now+3h, 27 completed games history (15 paid Spring + 12 unpaid Summer) with scores, /referee/pay showing unpaid Summer fees at $35/game.
-5. **Admin** (laptop) — registrations (multi-season trend), revenue (with $50 partial refund on Zoe Okonkwo registration — talking point), NPS (score 50, 8 responses), referee ratings (Jordan Avery: 12 ratings, 4.5 avg), payroll export (referee CSV = unpaid Summer fees; hours CSV = coach practice hours). Optional: live registration on Fall 2026 flag-football with test card 4242 4242 4242 4242 (any future expiry, any CVC).
+5. **Admin** (laptop) — registrations (multi-season trend), revenue (with $50 partial refund on Zoe Okonkwo registration — talking point), NPS (score 50, 8 responses), referee ratings (Jordan Avery: 12 ratings, 4.5 avg), payroll export (referee CSV = unpaid Summer fees; hours CSV = coach practice hours). Optional: live registration on Youth Soccer Fall 2026 via /programs (registration open) — or a late-join into flag Summer 2026 — with test card 4242 4242 4242 4242 (any future expiry, any CVC).
 6. **Scale story** — open https://gosoccerone.com (prod) in a tab: same platform, second brand, own domain.
 
 ## If something looks wrong
