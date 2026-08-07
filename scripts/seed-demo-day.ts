@@ -489,7 +489,26 @@ async function resolveDemoSkills(ctx: Ctx, sportId: string): Promise<string[]> {
   const distinctDomains = new Set(existing.map((s) => s.domainId));
   const hasE2eSlug = existing.some((s) => s.slug.startsWith("e2e-"));
   if (existing.length >= 4 && distinctDomains.size >= 3 && !hasE2eSlug) {
-    return existing.slice(0, 4).map((s) => s.id);
+    // Spread across domains (oldest-first within each) so the radar isn't
+    // starved of axes — plain slice(0, 4) could cluster in 1-2 domains if
+    // those happen to be the oldest rows. Top up with next-oldest unused
+    // skills if fewer than 4 distinct domains are available.
+    const seenDomains = new Set<string>();
+    const picked: typeof existing = [];
+    for (const s of existing) {
+      if (!seenDomains.has(s.domainId)) {
+        seenDomains.add(s.domainId);
+        picked.push(s);
+        if (picked.length === 4) break;
+      }
+    }
+    if (picked.length < 4) {
+      for (const s of existing) {
+        if (picked.length === 4) break;
+        if (!picked.includes(s)) picked.push(s);
+      }
+    }
+    return picked.map((s) => s.id);
   }
 
   // Domains + development stage are global reference data (no orgId column)
