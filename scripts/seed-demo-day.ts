@@ -172,7 +172,7 @@ async function seedFlagCatalog(ctx: Ctx) {
     .where(and(eq(programs.locationId, location.id), eq(programs.slug, "adult-flag-football")))
     .orderBy(asc(programs.createdAt)).limit(1);
   const pf = { sportId: sport.id, name: "Adult Flag Football",
-    description: "4v4 co-ed flag football. Weeknight games, 7-game seasons.",
+    description: "4v4 co-ed flag football. Weeknight games under the lights.",
     programType: "league" as const, audienceType: "adults", active: true, isTest: false };
   if (!program) [program] = await db.insert(programs).values({ locationId: location.id, slug: "adult-flag-football", ...pf }).returning();
   else [program] = await db.update(programs).set(pf).where(eq(programs.id, program.id)).returning();
@@ -648,11 +648,12 @@ async function seedCoachHistory(ctx: Ctx, youth: { ys: Record<string, string>; s
     const kid = people.rostersByKid[w.kid];
     for (let i = 0; i < skillIds.length; i++) {
       // select-then-heal, e2e idiom :622-652 — one row per (kid, skill, season, assessedAt-wave).
-      // assessedAt must be day-anchored (via `at`, which zeroes time-of-day), not a raw
-      // daysAgo() timestamp — daysAgo() bakes in the exact process-start instant, so two
-      // separate runs on the same calendar day would each produce a distinct assessedAt
-      // and the select-then-heal WHERE clause would never match, duplicating rows.
-      for (const [level, prev, when] of [[w.early[i], null, at(daysAgo(30), 9, 0)], [w.recent[i], w.early[i], at(daysAgo(4), 9, 0)]] as const) {
+      // assessedAt must be weekday-stable (via lastDow, anchored to Tuesday practice days),
+      // not daysAgo()-based — daysAgo() counts back from "now", so a run tonight and the
+      // mandated morning re-seed the next calendar day each compute a different assessedAt
+      // for the "same" wave, the select-then-heal WHERE clause never matches, and every
+      // re-seed pass silently piles on 8 more duplicate rows per kid.
+      for (const [level, prev, when] of [[w.early[i], null, at(lastDow(2, 4), 9, 0)], [w.recent[i], w.early[i], at(lastDow(2, 1), 9, 0)]] as const) {
         const [existing] = await db.select({ id: playerAssessments.id }).from(playerAssessments)
           .where(and(eq(playerAssessments.familyMemberId, kid.familyMemberId),
             eq(playerAssessments.skillId, skillIds[i]),
