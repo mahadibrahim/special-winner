@@ -132,6 +132,59 @@ async function seedYouthCatalog(ctx: Ctx) {
     ys: { fall25: fall25.id, spring26: spring26.id, summer26: summer26.id, fall26: fall26.id } };
 }
 
+async function seedFlagCatalog(ctx: Ctx) {
+  const { db, org, location } = ctx;
+  let [sport] = await db.select().from(sports)
+    .where(and(eq(sports.organizationId, org.id), eq(sports.slug, "flag-football")))
+    .orderBy(asc(sports.createdAt)).limit(1);
+  if (!sport) [sport] = await db.insert(sports).values({ organizationId: org.id, name: "Flag Football", slug: "flag-football" }).returning();
+
+  let [adult] = await db.select().from(ageGroups)
+    .where(and(eq(ageGroups.organizationId, org.id), eq(ageGroups.name, "Adult 18+")))
+    .orderBy(asc(ageGroups.createdAt)).limit(1);
+  if (!adult) [adult] = await db.insert(ageGroups).values({ organizationId: org.id, name: "Adult 18+", minAge: 18, maxAge: 99 }).returning();
+
+  let [program] = await db.select().from(programs)
+    .where(and(eq(programs.locationId, location.id), eq(programs.slug, "adult-flag-football")))
+    .orderBy(asc(programs.createdAt)).limit(1);
+  const pf = { sportId: sport.id, name: "Adult Flag Football",
+    description: "4v4 co-ed flag football. Weeknight games, 7-game seasons.",
+    programType: "league" as const, audienceType: "adults", active: true, isTest: false };
+  if (!program) [program] = await db.insert(programs).values({ locationId: location.id, slug: "adult-flag-football", ...pf }).returning();
+  else [program] = await db.update(programs).set(pf).where(eq(programs.id, program.id)).returning();
+
+  const div = (skill: "b" | "c") => ({
+    ageGroupId: adult.id, priceCents: 10500, teamPriceCents: 79500,
+    signupModes: ["team", "individual"], divisionGender: "coed", skillLevel: skill,
+    dayOfWeek: "wed", startTime: "18:30", endTime: "22:00", isTest: false,
+  });
+  // Past term — fully played (archive + standings history).
+  const springB = await upsertSeason(db, program.id, "flag-spring-2026-coed-b", { ...div("b"),
+    name: "Spring 2026 — Coed B", termSlug: "spring-2026", termLabel: "Spring 2026",
+    startDate: dstr(daysAgo(140)), endDate: dstr(daysAgo(90)), status: "completed" });
+  const springC = await upsertSeason(db, program.id, "flag-spring-2026-coed-c", { ...div("c"),
+    name: "Spring 2026 — Coed C", termSlug: "spring-2026", termLabel: "Spring 2026",
+    startDate: dstr(daysAgo(140)), endDate: dstr(daysAgo(90)), status: "completed" });
+  // Current term — mid-season (live standings).
+  const summerB = await upsertSeason(db, program.id, "flag-summer-2026-coed-b", { ...div("b"),
+    name: "Summer 2026 — Coed B", termSlug: "summer-2026", termLabel: "Summer 2026",
+    startDate: dstr(daysAgo(28)), endDate: dstr(daysFromNow(21)), status: "active",
+    registrationCloses: daysAgo(30) });
+  // Upcoming term — registration open (the funnel is live).
+  const fallB = await upsertSeason(db, program.id, "flag-fall-2026-coed-b", { ...div("b"),
+    name: "Fall 2026 — Coed B", termSlug: "fall-2026", termLabel: "Fall 2026",
+    startDate: dstr(daysFromNow(35)), endDate: dstr(daysFromNow(85)), status: "open",
+    registrationOpens: daysAgo(10), registrationCloses: daysFromNow(28) });
+  const fallC = await upsertSeason(db, program.id, "flag-fall-2026-coed-c", { ...div("c"),
+    name: "Fall 2026 — Coed C", termSlug: "fall-2026", termLabel: "Fall 2026",
+    startDate: dstr(daysFromNow(35)), endDate: dstr(daysFromNow(85)), status: "open",
+    registrationOpens: daysAgo(10), registrationCloses: daysFromNow(28) });
+
+  console.log("✓ flag catalog");
+  return { sportId: sport.id, programId: program.id,
+    fs: { springB: springB.id, springC: springC.id, summerB: summerB.id, fallB: fallB.id, fallC: fallC.id } };
+}
+
 async function main() {
   const db = getDb();
 
@@ -180,7 +233,8 @@ async function main() {
 
   const ctx = { db, now: NOW, org, location, venue, roleMap, demo };
   const youth = await seedYouthCatalog(ctx);
-  console.log("✓ demo seed complete", { youth });
+  const flag = await seedFlagCatalog(ctx);
+  console.log("✓ demo seed complete", { youth, flag });
 }
 
 main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
