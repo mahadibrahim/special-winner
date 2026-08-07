@@ -96,11 +96,12 @@ are deleted after use). Modeled on `src/lib/db/seeds/seed-e2e-tests.ts` patterns
    page reads).
 7. **Junk tidy**: close the `e2e-*` seasons (registration closed / not publicly
    browsable) so the public catalog shows only the realistic seasons.
-8. **Accounts**: `demo.admin@demo.aspiresports.com`, `demo.coach@…`,
-   `demo.parent@…`, `demo.ref@…` (the `demo.` subdomain keeps them visually distinct
-   from real users and from `@test.aspiresports.com` e2e fixtures; staging sends no
-   real mail so deliverability is irrelevant), one shared memorable password.
-   Documented in the runbook.
+8. **Accounts**: `demo.admin@aspiresportsohio.com`, `demo.coach@…`,
+   `demo.parent@…`, `demo.ref@…` — on the real brand domain so they look right on a
+   projector; the `demo.` local-part prefix keeps them distinct from real users and
+   from the `@test.aspiresports.com` e2e fixtures. Staging sends no real mail, so
+   nothing can actually be delivered to these addresses. One shared memorable
+   password, documented in the runbook.
 
 **Payments note:** seeded "paid" registrations are DB rows only (no real Stripe
 objects) — fine for reports and dashboards. The one *live* payment in the demo (if
