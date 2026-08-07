@@ -103,6 +103,14 @@ async function upsertSeason(db: Ctx["db"], programId: string, slug: string, fiel
 
 async function seedYouthCatalog(ctx: Ctx) {
   const { db, org, location } = ctx;
+
+  // Junk tidy: rename test-named location for public surfaces (idempotent update).
+  await db.update(locations).set({
+    name: "Worthington Fieldhouse",
+    city: location.city ? location.city : "Worthington",
+    state: location.state ? location.state : "OH",
+  }).where(eq(locations.id, location.id));
+
   let [sport] = await db.select().from(sports)
     .where(and(eq(sports.organizationId, org.id), eq(sports.slug, "soccer")))
     .orderBy(asc(sports.createdAt)).limit(1);
