@@ -740,6 +740,29 @@ async function seedFeedback(ctx: Ctx,
       comment: comments[i % comments.length], createdAt: respondedAt,
     }).onConflictDoNothing();
   }
+
+  // --- Junk tidy: purge referee ratings left behind by manual e2e testing.
+  //     The e2e seed (seed-e2e-tests.ts) never inserts referee_ratings rows —
+  //     it leaves feedback_requests at status 'sent' — so any rating row tied
+  //     to a @test.aspiresports.com user is manual residue, and it pollutes
+  //     the referee-ratings admin report (a demo-facing surface) with a
+  //     second, non-Jordan-Avery referee. Only the rating row is deleted
+  //     (surgical, scoped by org via the request join + test-user email) so
+  //     the underlying e2e feedback_requests row stays intact for the e2e
+  //     seed to reuse if it ever re-runs. Never touches demo.* users.
+  const testUsers = await db.select({ id: users.id }).from(users)
+    .where(like(users.email, "%@test.aspiresports.com"));
+  if (testUsers.length) {
+    const testUserIds = testUsers.map((u) => u.id);
+    const orgRefRequests = await db.select({ id: feedbackRequests.id }).from(feedbackRequests)
+      .where(and(eq(feedbackRequests.organizationId, org.id), eq(feedbackRequests.kind, "referee_rating")));
+    if (orgRefRequests.length) {
+      await db.delete(refereeRatings).where(and(
+        inArray(refereeRatings.refereeUserId, testUserIds),
+        inArray(refereeRatings.requestId, orgRefRequests.map((r) => r.id)),
+      ));
+    }
+  }
   console.log("✓ feedback: NPS + referee ratings");
 }
 
