@@ -307,16 +307,30 @@ async function seedYouthPeople(ctx: Ctx, youth: { ys: { fall25: string; spring26
   }
   // One refund for realism in the revenue report.
   const zoe = rostersByKid["Zoe"];
+  const REFUND_AMOUNT_CENTS = 5000;
+  const refundCreatedAt = daysAgo(12);
   const [refundExists] = await db.select({ id: payments.id }).from(payments)
     .where(and(eq(payments.registrationId, zoe.regId), eq(payments.paymentType, "refund")))
     .orderBy(asc(payments.createdAt)).limit(1);
   if (!refundExists) {
     await db.insert(payments).values({
-      userId: zoe.parentUserId, registrationId: zoe.regId, amountCents: 5000,
+      userId: zoe.parentUserId, registrationId: zoe.regId, amountCents: REFUND_AMOUNT_CENTS,
       paymentType: "refund", status: "succeeded", refundReason: "Missed two weeks — goodwill credit",
-      createdAt: daysAgo(12),
+      createdAt: refundCreatedAt,
     });
   }
+  // Reflect the refund on the registration itself (absolute values — safe to
+  // re-run every seed pass regardless of whether the payment row above was
+  // just inserted or already existed).
+  const [zoeReg] = await db.select().from(registrations)
+    .where(eq(registrations.id, zoe.regId)).limit(1);
+  await db.update(registrations).set({
+    paymentStatus: "partial_refund",
+    refundStatus: "processed",
+    amountPaidCents: zoeReg.amountDueCents - REFUND_AMOUNT_CENTS,
+    refundAmountCents: REFUND_AMOUNT_CENTS,
+    refundProcessedAt: refundCreatedAt,
+  }).where(eq(registrations.id, zoe.regId));
   console.log("✓ youth families, registrations, payments, rosters");
   return { thunderTeamId: teamIds.Thunder, youthTeamIds: teamIds, rostersByKid };
 }
