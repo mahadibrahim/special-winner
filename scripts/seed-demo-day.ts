@@ -46,6 +46,17 @@ export const DEMO_PASSWORD = "AspireDemo2026!";
 const NOW = new Date();
 const daysAgo = (n: number) => new Date(NOW.getTime() - n * 86400_000);
 const daysFromNow = (n: number) => new Date(NOW.getTime() + n * 86400_000);
+// Most recent occurrence of weekday `dow` strictly before-or-equal today, minus `weeksAgo` extra weeks.
+const lastDow = (dow: number, weeksAgo = 0) => {
+  const d = new Date(NOW);
+  d.setDate(d.getDate() - ((d.getDay() - dow + 7) % 7) - weeksAgo * 7);
+  return d;
+};
+const nextDow = (dow: number) => {
+  const d = new Date(NOW);
+  d.setDate(d.getDate() + (((dow - d.getDay()) % 7 + 7) % 7 || 7));
+  return d;
+};
 const dstr = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const at = (d: Date, hour: number, minute = 0) => {
   const c = new Date(d); c.setHours(hour, minute, 0, 0); return c;
@@ -393,12 +404,12 @@ async function seedFlagDivisionGames(ctx: Ctx, opts: {
         status: played ? "completed" : "scheduled",
         homeScore: played ? hs : null, awayScore: played ? as : null,
       }).returning();
-      if (opts.refUserId) {
+      if (opts.refUserId && played) {
         const [go] = await db.insert(gameOfficials).values({
           gameId: g.id, userId: opts.refUserId, position: "referee",
-          feeCents: 3500, paymentStatus: opts.refPaid && played ? "paid" : "unpaid",
+          feeCents: 3500, paymentStatus: opts.refPaid ? "paid" : "unpaid",
         }).returning();
-        if (played) officiated.push({ gameId: g.id, gameOfficialId: go.id });
+        officiated.push({ gameId: g.id, gameOfficialId: go.id });
       }
       gi += 1;
     }
@@ -412,14 +423,14 @@ async function seedGames(ctx: Ctx, youth: { ys: Record<string, string> }, flag: 
   const B = ["Gridiron Gurus", "Blitz Mode", "Sunday Scaries", "Turf Burners", "Hail Marys", "Zone Six"];
   const C = ["Backyard Ballers", "The Replacements", "Flag Em Down", "Monday Quarterbacks", "Shortside", "Late Flags"];
 
-  // Past term: fully played (5/5 rounds). demo.ref officiated division B, all paid.
+  // Past term: fully played (5/5 rounds), Wednesdays. demo.ref officiated division B, all paid.
   const springOff = await seedFlagDivisionGames(ctx, { seasonId: flag.fs.springB, teamNames: B,
-    firstMatchday: daysAgo(135), playedRounds: 5, refUserId: demo.ref.id, refPaid: true });
+    firstMatchday: lastDow(3, 19), playedRounds: 5, refUserId: demo.ref.id, refPaid: true });
   await seedFlagDivisionGames(ctx, { seasonId: flag.fs.springC, teamNames: C,
-    firstMatchday: daysAgo(135), playedRounds: 5 });
-  // Current term: 4 of 5 rounds played, demo.ref officiating, current fees unpaid.
+    firstMatchday: lastDow(3, 19), playedRounds: 5 });
+  // Current term: 4 of 5 rounds played, Wednesdays, demo.ref officiating, current fees unpaid.
   const summerOff = await seedFlagDivisionGames(ctx, { seasonId: flag.fs.summerB, teamNames: B,
-    firstMatchday: daysAgo(28), playedRounds: 4, refUserId: demo.ref.id, refPaid: false });
+    firstMatchday: lastDow(3, 3), playedRounds: 4, refUserId: demo.ref.id, refPaid: false });
 
   // Tonight's showcase assignment for the ref app: scheduled a few hours from now.
   const [tonight] = await db.insert(games).values({
@@ -430,7 +441,7 @@ async function seedGames(ctx: Ctx, youth: { ys: Record<string, string> }, flag: 
     gameId: tonight.id, userId: demo.ref.id, position: "referee", feeCents: 3500,
   }).onConflictDoNothing();
 
-  // Youth current season: Saturday games, 4 played (soccer — one draw is fine), 2 upcoming.
+  // Youth current season: Saturday games, 8 played (soccer — one draw is fine), 2 upcoming.
   await resetSeasonGames(ctx, youth.ys.summer26);
   const yt = people.youthTeamIds;
   const youthFixtures: Array<[string, string, number, number | null, number | null]> = [
@@ -443,16 +454,16 @@ async function seedGames(ctx: Ctx, youth: { ys: Record<string, string> }, flag: 
   for (const [h, a, w, hs, as] of youthFixtures) {
     await db.insert(games).values({
       seasonId: youth.ys.summer26, homeTeamId: yt[h], awayTeamId: yt[a],
-      scheduledAt: at(daysAgo(w * 7), 9, 30), venueId: venue.id, durationMinutes: 60,
+      scheduledAt: at(lastDow(6, w - 1), 9, 30), venueId: venue.id, durationMinutes: 60,
       status: "completed", homeScore: hs, awayScore: as,
     });
   }
   // Upcoming Saturday games (Thunder plays — shows on coach schedule).
   await db.insert(games).values([
     { seasonId: youth.ys.summer26, homeTeamId: yt.Thunder, awayTeamId: yt["Red Dragons"],
-      scheduledAt: at(daysFromNow(2), 9, 30), venueId: venue.id, durationMinutes: 60, status: "scheduled" },
+      scheduledAt: at(nextDow(6), 9, 30), venueId: venue.id, durationMinutes: 60, status: "scheduled" },
     { seasonId: youth.ys.summer26, homeTeamId: yt.Falcons, awayTeamId: yt.Comets,
-      scheduledAt: at(daysFromNow(2), 10, 45), venueId: venue.id, durationMinutes: 60, status: "scheduled" },
+      scheduledAt: at(nextDow(6), 10, 45), venueId: venue.id, durationMinutes: 60, status: "scheduled" },
   ]);
 
   console.log(`✓ games: flag spring B/C + summer B (+tonight), youth summer (ref history: ${springOff.length + summerOff.length} games)`);
