@@ -165,19 +165,19 @@ async function seedFlagCatalog(ctx: Ctx) {
   const springC = await upsertSeason(db, program.id, "flag-spring-2026-coed-c", { ...div("c"),
     name: "Spring 2026 — Coed C", termSlug: "spring-2026", termLabel: "Spring 2026",
     startDate: dstr(daysAgo(140)), endDate: dstr(daysAgo(90)), status: "completed" });
-  // Current term — mid-season (live standings).
+  // Current term — mid-season (late-join window open).
   const summerB = await upsertSeason(db, program.id, "flag-summer-2026-coed-b", { ...div("b"),
     name: "Summer 2026 — Coed B", termSlug: "summer-2026", termLabel: "Summer 2026",
-    startDate: dstr(daysAgo(28)), endDate: dstr(daysFromNow(21)), status: "active",
-    registrationCloses: daysAgo(30) });
-  // Upcoming term — registration open (the funnel is live).
+    startDate: dstr(daysAgo(28)), endDate: dstr(daysFromNow(21)), status: "open",
+    registrationOpens: daysAgo(30), registrationCloses: daysFromNow(2) });
+  // Upcoming term — forming (interest phase).
   const fallB = await upsertSeason(db, program.id, "flag-fall-2026-coed-b", { ...div("b"),
     name: "Fall 2026 — Coed B", termSlug: "fall-2026", termLabel: "Fall 2026",
-    startDate: dstr(daysFromNow(35)), endDate: dstr(daysFromNow(85)), status: "open",
+    startDate: dstr(daysFromNow(35)), endDate: dstr(daysFromNow(85)), status: "forming",
     registrationOpens: daysAgo(10), registrationCloses: daysFromNow(28) });
   const fallC = await upsertSeason(db, program.id, "flag-fall-2026-coed-c", { ...div("c"),
     name: "Fall 2026 — Coed C", termSlug: "fall-2026", termLabel: "Fall 2026",
-    startDate: dstr(daysFromNow(35)), endDate: dstr(daysFromNow(85)), status: "open",
+    startDate: dstr(daysFromNow(35)), endDate: dstr(daysFromNow(85)), status: "forming",
     registrationOpens: daysAgo(10), registrationCloses: daysFromNow(28) });
 
   console.log("✓ flag catalog");
