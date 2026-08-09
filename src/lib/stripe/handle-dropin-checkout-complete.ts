@@ -423,8 +423,9 @@ export async function fulfillDropInBookingPayment(
       { bookingId: result.bookingId, brand },
     );
 
-    const hasAttribution = md.ga_client_id || md.fbclid || md._fbc || md._fbp;
-    if (hasAttribution) {
+    const hasConversionSignal =
+      md.ga_client_id || md.fbclid || md._fbc || md._fbp || input.customerEmail;
+    if (hasConversionSignal) {
       const amount = input.amountTotalCents;
       fireServerPurchaseConversions({
         metadata: md,
@@ -432,6 +433,7 @@ export async function fulfillDropInBookingPayment(
         valueCents: amount,
         brand,
         email: input.customerEmail,
+        userId,
         ga4Items: [
           { id: sessionDbId, name: itemLabel, category: itemCategory, priceCents: amount },
         ],

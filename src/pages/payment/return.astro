@@ -172,27 +172,40 @@ const dashboardHref = registrationId
       }}
     >
       try {
-        window.dataLayer = window.dataLayer || [];
-        window.dataLayer.push({ ecommerce: null });
-        window.dataLayer.push({
-          event: "purchase",
-          ecommerce: {
-            transaction_id: transactionId,
-            currency: "USD",
-            value: valueCents / 100,
-            payment_type: paymentType,
-            items: [
-              {
-                item_id: seasonItem.id,
-                item_name: seasonItem.name,
-                item_category: seasonItem.category,
-                item_category2: seasonItem.category2,
-                price: seasonItem.priceCents / 100,
-                quantity: 1,
-              },
-            ],
-          },
-        });
+        // Once-per-transaction guard: this page refires on refresh/revisit of
+        // the SCA-redirect URL. Key shape must stay in sync with
+        // markPurchaseTracked() in src/lib/analytics/datalayer.ts. Storage
+        // failures (private mode) fall through to firing rather than dropping.
+        let alreadyTracked = false;
+        try {
+          const guardKey = "aspire:purchase-tracked:" + transactionId;
+          alreadyTracked = !!window.localStorage.getItem(guardKey);
+          if (!alreadyTracked) window.localStorage.setItem(guardKey, String(Date.now()));
+        } catch (e) {}
+        if (!alreadyTracked) {
+          window.dataLayer = window.dataLayer || [];
+          window.dataLayer.push({ ecommerce: null });
+          window.dataLayer.push({
+            event: "purchase",
+            ecommerce: {
+              transaction_id: transactionId,
+              event_id: transactionId,
+              currency: "USD",
+              value: valueCents / 100,
+              payment_type: paymentType,
+              items: [
+                {
+                  item_id: seasonItem.id,
+                  item_name: seasonItem.name,
+                  item_category: seasonItem.category,
+                  item_category2: seasonItem.category2,
+                  price: seasonItem.priceCents / 100,
+                  quantity: 1,
+                },
+              ],
+            },
+          });
+        }
       } catch (e) {
         // soft-fail
       }

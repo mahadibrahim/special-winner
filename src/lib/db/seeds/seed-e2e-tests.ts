@@ -2354,13 +2354,17 @@ async function seedE2ETests() {
         active: true,
       })
       .returning();
-  } else if (adultProgram.audienceType !== "adults") {
+  } else if (adultProgram.audienceType !== "adults" || adultProgram.isTest) {
     // Backfill for rows created before this field was added to the insert —
     // without this, re-seeding a DB that already has the row leaves it stuck
     // on the "parents" default and the catalog keeps saying "per kid".
+    // isTest heal mirrors the flag-football program block above: the public
+    // seasons API hides seasons whose PROGRAM is flagged is_test, and staging
+    // drifted to is_test=true once (2026-08-08), failing every suite that
+    // finds e2e-adult-* seasons through the public catalog.
     [adultProgram] = await db
       .update(programs)
-      .set({ audienceType: "adults" })
+      .set({ audienceType: "adults", isTest: false })
       .where(eq(programs.id, adultProgram.id))
       .returning();
   }
@@ -2484,10 +2488,14 @@ async function seedE2ETests() {
   } else {
     // Reset status/capacity and keep team capability + division metadata in
     // sync on re-seed (mirrors the solo sibling's update branch).
+    // registrationOpens included: staging drifted to a FUTURE open date once
+    // (2026-08-08), which hides the season from the public seasons API and
+    // fails every team-registrations API suite — the seed must heal it.
     [adultTeamSeason] = await db
       .update(seasons)
       .set({
         status: "open",
+        registrationOpens: new Date(),
         maxParticipants: 30,
         teamPriceCents: 100000,
         earlyBirdTeamPriceCents: 90000,
