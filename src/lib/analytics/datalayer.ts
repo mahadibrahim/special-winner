@@ -90,6 +90,29 @@ export function trackAddPaymentInfo(
   });
 }
 
+/**
+ * Once-per-transaction guard for the browser `purchase` event. The event can
+ * be reached twice for one payment (synchronous confirm in EmbeddedPayment,
+ * then /payment/return on refresh/revisit of the SCA-redirect URL) — without
+ * the guard every confirmation-page reload refired the Meta/GA4 purchase
+ * tags and inflated ad conversions ~6x.
+ *
+ * Storage key is shared with the inline script in
+ * src/pages/payment/return.astro (inline scripts can't import this module —
+ * keep them in sync).
+ */
+export function markPurchaseTracked(transactionId: string): boolean {
+  try {
+    const key = `aspire:purchase-tracked:${transactionId}`;
+    if (window.localStorage.getItem(key)) return false;
+    window.localStorage.setItem(key, String(Date.now()));
+    return true;
+  } catch {
+    // Storage unavailable (private mode etc.) — fire rather than drop.
+    return true;
+  }
+}
+
 export function trackPurchase(
   transactionId: string,
   item: SeasonItem,
@@ -97,8 +120,12 @@ export function trackPurchase(
   paymentType: CheckoutPaymentType,
   coupon?: string,
 ): void {
+  if (!markPurchaseTracked(transactionId)) return;
   pushEvent("purchase", {
     transaction_id: transactionId,
+    // Shared dedup key with the server-side CAPI fire — GTM's Meta Purchase
+    // tag must map this into the pixel's eventID so Meta dedupes the pair.
+    event_id: transactionId,
     currency: "USD",
     value: valueCents / 100,
     payment_type: paymentType,

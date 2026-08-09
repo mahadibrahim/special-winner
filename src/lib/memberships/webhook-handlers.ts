@@ -101,15 +101,21 @@ export async function handleCheckoutSessionCompleted(
 
   // Online membership signup is an ad-attributable path. Subscription-mode
   // sessions have no PaymentIntent, so the Checkout Session id is the dedup
-  // key shared with the browser pixel fire on the success page.
-  const hasAttribution = md.ga_client_id || md.fbclid || md._fbc || md._fbp;
-  if (hasAttribution) {
+  // key shared with the browser pixel fire on the success page. Hashed email
+  // alone is a sufficient Meta match key, so fire even without ad-click ids.
+  const customerEmail =
+    session.customer_details?.email ?? session.customer_email ?? null;
+  const hasConversionSignal =
+    md.ga_client_id || md.fbclid || md._fbc || md._fbp || customerEmail;
+  if (hasConversionSignal) {
     fireServerPurchaseConversions({
       metadata: md,
       eventId: session.id,
       valueCents: amountCents,
       brand,
-      email: session.customer_details?.email ?? session.customer_email ?? null,
+      email: customerEmail,
+      phone: session.customer_details?.phone ?? null,
+      userId,
       ga4Items: [
         { id: tierId, name: tierName, category: "Membership", priceCents: amountCents },
       ],

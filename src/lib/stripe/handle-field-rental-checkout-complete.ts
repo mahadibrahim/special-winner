@@ -217,8 +217,11 @@ export async function handleFieldRentalCheckoutComplete(
       });
     }
 
-    const hasAttribution = md.ga_client_id || md.fbclid || md._fbc || md._fbp;
-    if (hasAttribution) {
+    const rentalCustomerEmail =
+      session.customer_details?.email ?? session.customer_email ?? null;
+    const hasConversionSignal =
+      md.ga_client_id || md.fbclid || md._fbc || md._fbp || rentalCustomerEmail;
+    if (hasConversionSignal) {
       const itemName = md.venue_name
         ? `Field rental — ${md.venue_name}`
         : "Field rental";
@@ -227,7 +230,8 @@ export async function handleFieldRentalCheckoutComplete(
         eventId: paymentIntentId ?? session.id,
         valueCents: paidCents,
         brand,
-        email: session.customer_details?.email ?? session.customer_email ?? null,
+        email: rentalCustomerEmail,
+        phone: session.customer_details?.phone ?? null,
         ga4Items: [
           {
             id: result.rentalId,

@@ -24,6 +24,7 @@ import {
   hasActiveConsent,
 } from "@/lib/consents/record";
 import { collectAdAttribution, parsePhDistinctId } from "@/lib/analytics/parse-cookies";
+import { fireRegistrationCreatedConversion } from "@/lib/analytics/server-conversions";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 import { recordPhoneOptIn } from "@/lib/sms/opt-in";
 import { sendMagicLinkLoginEmail } from "@/lib/email/send";
@@ -296,6 +297,22 @@ export const POST: APIRoute = async (context) => {
           );
         }
         throw err;
+      }
+
+      // Meta CompleteRegistration — once per new registration row (resumed
+      // drafts excluded), event_id = registration id.
+      if (regResult.kind !== "resumed") {
+        fireRegistrationCreatedConversion({
+          request,
+          registrationId: regResult.registration.id,
+          brand,
+          email: userRow.email,
+          phone: phone ?? userRow.phone,
+          firstName: userRow.firstName,
+          lastName: userRow.lastName,
+          userId: userRow.id,
+          seasonId,
+        });
       }
 
       // Record SMS opt-in state for a supplied phone: opted_in only when the
