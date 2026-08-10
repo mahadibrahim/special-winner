@@ -86,10 +86,13 @@ const phUser = (!Astro.isPrerendered && !edgeCached && Astro.locals.user)
       // Drop exceptions thrown by scripts Meta's in-app browser (Instagram/
       // Facebook webview) injects into our pages — sendDataToNative /
       // sendPageHideMessage calling window.webkit.messageHandlers (iOS) or a
-      // torn-down postMessage bridge (Android, "Java object is gone"). They
-      // are not our code, fire as the visitor leaves the page, and were the
-      // top "errors" in the project by user count. Everything else passes
-      // through untouched.
+      // torn-down postMessage bridge (Android, "Java object is gone"), and
+      // _AutofillCallbackHandler — Meta's autofill bridge, referenced by an
+      // injected script but never defined outside the native shell ("Can't
+      // find variable" on iOS, "is not defined" on Android). They are not our
+      // code, fire as the visitor leaves the page, and were the top "errors"
+      // in the project by user count. Everything else passes through
+      // untouched.
       before_send: function (event) {
         if (!event || event.event !== '$exception') return event;
         try {
@@ -102,6 +105,7 @@ const phUser = (!Astro.isPrerendered && !edgeCached && Astro.locals.user)
             if (
               msg.indexOf('window.webkit.messageHandlers') !== -1 ||
               msg.indexOf('Java object is gone') !== -1 ||
+              msg.indexOf('_AutofillCallbackHandler') !== -1 ||
               /sendDataToNative|sendPageHideMessage/.test(fns)
             ) {
               return null;
