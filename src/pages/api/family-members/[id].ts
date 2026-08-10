@@ -10,6 +10,7 @@ import {
 import { eq, and, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { canAccessFamilyMember } from "@/lib/auth/family-access";
+import { teamFundedRegistrations } from "@/lib/registrations/team-funding";
 
 const updateFamilyMemberSchema = z.object({
   firstName: z.string().min(1).max(100).optional(),
@@ -210,6 +211,21 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
           JSON.stringify({
             error:
               "This child has paid registrations on file. Please contact us at hello@aspiresportsohio.com to request a refund and full record deletion.",
+          }),
+          { status: 409, headers: { "Content-Type": "application/json" } },
+        );
+      }
+
+      // #529: a spot funded by a team's deposit/backstop has no
+      // registration-linked payment row, but it IS paid for — deleting the
+      // player silently drops a paid roster spot. Same staff-mediated 409 as
+      // directly-paid registrations.
+      const teamFunded = await teamFundedRegistrations(db, registrationIds);
+      if (teamFunded.size > 0) {
+        return new Response(
+          JSON.stringify({
+            error:
+              "This player is on a team registration whose spot has been paid for. Please contact us at hello@aspiresportsohio.com to sort out the team payment and record deletion.",
           }),
           { status: 409, headers: { "Content-Type": "application/json" } },
         );
