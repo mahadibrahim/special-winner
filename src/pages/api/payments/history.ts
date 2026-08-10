@@ -1,7 +1,15 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
-import { payments, registrations, familyMembers, seasons, programs, sports } from "@/lib/db/schema";
-import { eq, desc } from "drizzle-orm";
+import {
+  payments,
+  registrations,
+  familyMembers,
+  seasons,
+  programs,
+  sports,
+  teamRegistrations,
+} from "@/lib/db/schema";
+import { eq, desc, sql } from "drizzle-orm";
 
 export const GET: APIRoute = async ({ locals }) => {
   try {
@@ -23,11 +31,22 @@ export const GET: APIRoute = async ({ locals }) => {
         season: seasons,
         program: programs,
         sport: sports,
+        team: teamRegistrations,
       })
       .from(payments)
-      .innerJoin(registrations, eq(payments.registrationId, registrations.id))
-      .innerJoin(familyMembers, eq(registrations.familyMemberId, familyMembers.id))
-      .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+      // A payment is tied to a solo registration OR a team registration
+      // (captain deposit / backstop balance — #525). Both resolve a season
+      // via COALESCE; the inner seasons join keeps orphaned rows out.
+      .leftJoin(registrations, eq(payments.registrationId, registrations.id))
+      .leftJoin(
+        teamRegistrations,
+        eq(payments.teamRegistrationId, teamRegistrations.id),
+      )
+      .leftJoin(familyMembers, eq(registrations.familyMemberId, familyMembers.id))
+      .innerJoin(
+        seasons,
+        sql`${seasons.id} = COALESCE(${registrations.seasonId}, ${teamRegistrations.seasonId})`,
+      )
       .innerJoin(programs, eq(seasons.programId, programs.id))
       .innerJoin(sports, eq(programs.sportId, sports.id))
       .where(eq(payments.userId, user.id))
@@ -41,10 +60,13 @@ export const GET: APIRoute = async ({ locals }) => {
       status: p.payment.status,
       createdAt: p.payment.createdAt,
       stripePaymentIntentId: p.payment.stripePaymentIntentId,
-      familyMember: {
-        firstName: p.familyMember.firstName,
-        lastName: p.familyMember.lastName,
-      },
+      familyMember: p.familyMember
+        ? {
+            firstName: p.familyMember.firstName,
+            lastName: p.familyMember.lastName,
+          }
+        : null,
+      team: p.team ? { name: p.team.teamName } : null,
       season: {
         name: p.season.name,
       },

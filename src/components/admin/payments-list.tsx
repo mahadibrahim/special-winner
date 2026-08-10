@@ -29,15 +29,21 @@ interface Payment {
   status: string
   stripePaymentIntentId: string | null
   createdAt: string
+  // Solo payments carry registration + familyMember; team-level payments
+  // (captain deposit, backstop balance, their refunds) carry team instead.
   registration: {
     id: string
     status: string
-  }
+  } | null
+  team: {
+    id: string
+    name: string
+  } | null
   familyMember: {
     id: string
     firstName: string
     lastName: string
-  }
+  } | null
   season: {
     id: string
     name: string
@@ -120,20 +126,29 @@ export function PaymentsList() {
     }
   }
 
-  function getTypeBadge(type: string) {
-    switch (type) {
+  function getTypeBadge(payment: Payment) {
+    const isTeam = payment.team != null
+    switch (payment.paymentType) {
       case "full":
         return <Badge variant="outline">Full Payment</Badge>
       case "deposit":
-        return <Badge variant="outline">Deposit</Badge>
+        return isTeam ? (
+          <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">Team deposit</Badge>
+        ) : (
+          <Badge variant="outline">Deposit</Badge>
+        )
       case "balance":
-        return <Badge variant="outline">Balance</Badge>
+        return isTeam ? (
+          <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100">Team balance</Badge>
+        ) : (
+          <Badge variant="outline">Balance</Badge>
+        )
       case "refund":
         return <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100">Refund</Badge>
       case "installment":
         return <Badge variant="outline">Installment</Badge>
       default:
-        return <Badge variant="outline">{type}</Badge>
+        return <Badge variant="outline">{payment.paymentType}</Badge>
     }
   }
 
@@ -257,13 +272,18 @@ export function PaymentsList() {
                       </div>
                       <div>
                         <p className="font-medium">
-                          {payment.familyMember.firstName} {payment.familyMember.lastName}
+                          {payment.familyMember
+                            ? `${payment.familyMember.firstName} ${payment.familyMember.lastName}`
+                            : payment.team
+                              ? `Team: ${payment.team.name}`
+                              : "—"}
                         </p>
                         <p className="text-sm text-muted-foreground">
                           {payment.program.name} - {payment.season.name}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {payment.user.email} - {formatDate(payment.createdAt)}
+                          {payment.team ? `Paid by ${payment.user.email}` : payment.user.email} -{" "}
+                          {formatDate(payment.createdAt)}
                         </p>
                       </div>
                     </div>
@@ -275,7 +295,7 @@ export function PaymentsList() {
                       </div>
                       <div className="flex flex-col gap-1 items-end">
                         {getStatusBadge(payment.status)}
-                        {getTypeBadge(payment.paymentType)}
+                        {getTypeBadge(payment)}
                       </div>
                       {payment.stripePaymentIntentId && (
                         <a

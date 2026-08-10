@@ -26,7 +26,9 @@ import {
   payments,
   programs,
   seasons,
+  teamRegistrations,
 } from "@/lib/db/schema";
+import { getTableColumns } from "drizzle-orm";
 import { userOrganizationAccess } from "@/lib/db/schema/organizations";
 import { consents } from "@/lib/db/schema/consents";
 import { memberships, membershipTiers } from "@/lib/db/schema/memberships";
@@ -410,14 +412,34 @@ async function buildUserProfile(
   );
   const allIds = uniqueRegs.map((r) => r.id);
 
-  const paymentRows =
+  // Registration-linked payments plus the account's team-level payments
+  // (captain deposit / backstop balance — registration_id NULL, #525).
+  // Team payments are scoped to THIS org via team_registrations, so a
+  // captain's teams in another org never leak into this admin view.
+  const [regPaymentRows, teamPaymentRows] = await Promise.all([
     allIds.length > 0
-      ? await db
+      ? db
           .select()
           .from(payments)
           .where(inArray(payments.registrationId, allIds))
           .orderBy(desc(payments.createdAt))
-      : [];
+      : Promise.resolve([]),
+    db
+      .select(getTableColumns(payments))
+      .from(payments)
+      .innerJoin(
+        teamRegistrations,
+        eq(payments.teamRegistrationId, teamRegistrations.id),
+      )
+      .where(
+        and(
+          eq(payments.userId, id),
+          eq(teamRegistrations.organizationId, orgId),
+        ),
+      )
+      .orderBy(desc(payments.createdAt)),
+  ]);
+  const paymentRows = [...regPaymentRows, ...teamPaymentRows];
 
   let paymentSummary = summarizePayments(
     paymentRows.map((p) => ({
