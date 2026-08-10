@@ -7,91 +7,11 @@ import {
   programs,
   sports,
   users,
-  teamRegistrations,
-  teamRegistrationMembers,
-  teamInvitees,
 } from "@/lib/db/schema";
 import { locations } from "@/lib/db/schema/organizations";
-import { eq, and, desc, or, ilike, sql, inArray } from "drizzle-orm";
+import { eq, and, desc, or, ilike, sql } from "drizzle-orm";
 import { requireSuperAdminAccess, requireOrganizationContext } from "@/lib/auth";
-import { teamCollectedCents } from "@/lib/registrations/captain-credit";
-
-/**
- * Team financial context for registrations that belong to a team
- * registration. A team member's own row is $0/$0 when the captain's deposit
- * covers it, which reads as a free registration in admin (#525) — so the
- * list attaches the team's money state (fee, deposit, collected so far)
- * to every member row.
- */
-async function teamBlocksByRegistrationId(
-  registrationIds: string[],
-): Promise<
-  Map<
-    string,
-    {
-      id: string;
-      teamName: string;
-      teamFeeCents: number | null;
-      depositCents: number;
-      collectedCents: number;
-    }
-  >
-> {
-  const result = new Map();
-  if (registrationIds.length === 0) return result;
-
-  const memberships = await getDb()
-    .select({
-      registrationId: teamRegistrationMembers.registrationId,
-      team: teamRegistrations,
-    })
-    .from(teamRegistrationMembers)
-    .innerJoin(
-      teamRegistrations,
-      eq(teamRegistrationMembers.teamRegistrationId, teamRegistrations.id),
-    )
-    .where(inArray(teamRegistrationMembers.registrationId, registrationIds));
-  if (memberships.length === 0) return result;
-
-  const teamIds = [...new Set(memberships.map((m) => m.team.id))];
-  const invitees = await getDb()
-    .select({
-      teamRegistrationId: teamInvitees.teamRegistrationId,
-      email: teamInvitees.email,
-      assignedShareCents: teamInvitees.assignedShareCents,
-      status: teamInvitees.status,
-    })
-    .from(teamInvitees)
-    .where(inArray(teamInvitees.teamRegistrationId, teamIds));
-
-  const inviteesByTeam = new Map<string, typeof invitees>();
-  for (const inv of invitees) {
-    const list = inviteesByTeam.get(inv.teamRegistrationId) ?? [];
-    list.push(inv);
-    inviteesByTeam.set(inv.teamRegistrationId, list);
-  }
-
-  for (const { registrationId, team } of memberships) {
-    const depositCents = team.depositCents ?? 0;
-    const captainEmailLower = team.captainEmail.toLowerCase();
-    const collectedCents = teamCollectedCents({
-      depositCents,
-      invitees: (inviteesByTeam.get(team.id) ?? []).map((i) => ({
-        assignedShareCents: i.assignedShareCents,
-        status: i.status,
-        isCaptain: i.email.toLowerCase() === captainEmailLower,
-      })),
-    });
-    result.set(registrationId, {
-      id: team.id,
-      teamName: team.teamName,
-      teamFeeCents: team.teamFeeCents ?? null,
-      depositCents,
-      collectedCents,
-    });
-  }
-  return result;
-}
+import { teamBlocksByRegistrationId } from "@/lib/registrations/team-funding";
 
 // GET - List all registrations with filters
 export const GET: APIRoute = async (context) => {
@@ -215,6 +135,7 @@ export const GET: APIRoute = async (context) => {
     ]);
 
     const teamBlocks = await teamBlocksByRegistrationId(
+      getDb(),
       registrationData.map((r) => r.id),
     );
     const registrationsWithTeam = registrationData.map((r) => ({

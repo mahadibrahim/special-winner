@@ -272,11 +272,18 @@ export function PaymentsList() {
                       </div>
                       <div>
                         <p className="font-medium">
-                          {payment.familyMember
-                            ? `${payment.familyMember.firstName} ${payment.familyMember.lastName}`
-                            : payment.team
-                              ? `Team: ${payment.team.name}`
-                              : "—"}
+                          {payment.familyMember ? (
+                            `${payment.familyMember.firstName} ${payment.familyMember.lastName}`
+                          ) : payment.team ? (
+                            <a
+                              href={`/admin/teams/registrations/${payment.team.id}`}
+                              className="hover:underline"
+                            >
+                              Team: {payment.team.name}
+                            </a>
+                          ) : (
+                            "—"
+                          )}
                         </p>
                         <p className="text-sm text-muted-foreground">
                           {payment.program.name} - {payment.season.name}

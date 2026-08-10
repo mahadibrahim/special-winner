@@ -1,6 +1,15 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
-import { registrations, familyMembers, seasons, programs, sports, users } from "@/lib/db/schema";
+import {
+  registrations,
+  familyMembers,
+  seasons,
+  programs,
+  sports,
+  users,
+  teamRegistrations,
+  teamRegistrationMembers,
+} from "@/lib/db/schema";
 import { locations } from "@/lib/db/schema/organizations";
 import { eq, and, gte, lte, sql, desc, count } from "drizzle-orm";
 import { requireSuperAdminAccess, requireOrganizationContext } from "@/lib/auth";
@@ -141,10 +150,22 @@ export const GET: APIRoute = async (context) => {
         .orderBy(desc(sql`COUNT(*)`))
         .limit(10),
 
-      // Payment status breakdown
+      // Payment status breakdown. Team-funded registrations (member of a
+      // team registration whose deposit is paid — same condition as
+      // teamFundedRegistrations in team-funding.ts) get their own bucket:
+      // their money lives on the team's deposit/backstop rows, never in
+      // registrations.amountPaidCents, so folding them into "paid" showed a
+      // misleading "paid with $0 collected" pile (#531).
       getDb()
         .select({
-          paymentStatus: registrations.paymentStatus,
+          paymentStatus: sql<string>`
+            CASE
+              WHEN ${teamRegistrations.id} IS NOT NULL
+               AND (${teamRegistrations.backstopStatus} <> 'none'
+                    OR ${teamRegistrations.depositPaymentId} IS NOT NULL)
+              THEN 'team_funded'
+              ELSE ${registrations.paymentStatus}::text
+            END`.as("payment_status_bucket"),
           count: sql<number>`COUNT(*)`,
           totalAmountDue: sql<number>`COALESCE(SUM(${registrations.amountDueCents}), 0)`,
           totalAmountPaid: sql<number>`COALESCE(SUM(${registrations.amountPaidCents}), 0)`,
@@ -153,6 +174,14 @@ export const GET: APIRoute = async (context) => {
         .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
         .innerJoin(programs, eq(seasons.programId, programs.id))
         .innerJoin(locations, eq(programs.locationId, locations.id))
+        .leftJoin(
+          teamRegistrationMembers,
+          eq(teamRegistrationMembers.registrationId, registrations.id),
+        )
+        .leftJoin(
+          teamRegistrations,
+          eq(teamRegistrationMembers.teamRegistrationId, teamRegistrations.id),
+        )
         .where(
           and(
             orgScope,
@@ -160,7 +189,7 @@ export const GET: APIRoute = async (context) => {
             lte(registrations.createdAt, end)
           )
         )
-        .groupBy(registrations.paymentStatus),
+        .groupBy(sql`payment_status_bucket`),
 
       // Recent registrations
       getDb()

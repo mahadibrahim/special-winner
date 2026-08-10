@@ -13,7 +13,10 @@ import {
 } from "@/lib/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { requireSuperAdminAccess, requireOrganizationContext } from "@/lib/auth";
-import { teamFundedRegistrations } from "@/lib/registrations/team-funding";
+import {
+  teamFundedRegistrations,
+  teamBlocksByRegistrationId,
+} from "@/lib/registrations/team-funding";
 
 /**
  * Admin detail view for a single registration. Returns the registration with
@@ -88,6 +91,22 @@ export const GET: APIRoute = async (context) => {
       });
     }
 
+    // Team financial context (#530): a team member's own row is $0/$0 when
+    // the captain's deposit covers it, so the detail carries the team's
+    // money state plus the team-level payment rows for context.
+    const teamBlocks = await teamBlocksByRegistrationId(getDb(), [id]);
+    const teamBlock = teamBlocks.get(id) ?? null;
+    const team = teamBlock
+      ? {
+          ...teamBlock,
+          payments: await getDb()
+            .select()
+            .from(payments)
+            .where(eq(payments.teamRegistrationId, teamBlock.id))
+            .orderBy(desc(payments.createdAt)),
+        }
+      : null;
+
     return new Response(
       JSON.stringify({
         registration: row.registration,
@@ -120,6 +139,7 @@ export const GET: APIRoute = async (context) => {
         },
         parent: row.parent,
         paymentHistory,
+        team,
       }),
       { status: 200, headers: { "Content-Type": "application/json" } },
     );

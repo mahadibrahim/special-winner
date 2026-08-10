@@ -371,7 +371,14 @@ export function RegistrationsList() {
                                     ` / ${formatCurrency(registration.team.teamFeeCents)} total`}
                                 </p>
                                 <p className="text-muted-foreground text-xs">
-                                  {registration.team.teamName} — remainder splits across roster
+                                  <a
+                                    href={`/admin/teams/registrations/${registration.team.id}`}
+                                    className="hover:underline"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    {registration.team.teamName}
+                                  </a>{" "}
+                                  — remainder splits across roster
                                 </p>
                               </>
                             ) : (
