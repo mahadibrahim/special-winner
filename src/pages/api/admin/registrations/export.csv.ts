@@ -8,6 +8,8 @@ import {
   programs,
   sports,
   users,
+  teamRegistrations,
+  teamRegistrationMembers,
 } from "@/lib/db/schema";
 import { locations } from "@/lib/db/schema/organizations";
 import {
@@ -45,6 +47,12 @@ const HEADER = [
   "waiver_signed",
   "created_at",
   "cancelled_at",
+  // Team-registration context — a team member's own amounts are $0/$0 when
+  // the captain's deposit covers them (#525), so the team's money state
+  // rides along for reconciliation.
+  "team_name",
+  "team_fee_cents",
+  "team_deposit_cents",
 ];
 
 export const GET: APIRoute = async (context) => {
@@ -90,6 +98,9 @@ export const GET: APIRoute = async (context) => {
       waiverSigned: registrations.waiverSigned,
       createdAt: registrations.createdAt,
       cancelledAt: registrations.cancelledAt,
+      teamName: teamRegistrations.teamName,
+      teamFeeCents: teamRegistrations.teamFeeCents,
+      teamDepositCents: teamRegistrations.depositCents,
     })
     .from(registrations)
     .innerJoin(
@@ -101,6 +112,14 @@ export const GET: APIRoute = async (context) => {
     .innerJoin(locations, eq(programs.locationId, locations.id))
     .innerJoin(sports, eq(programs.sportId, sports.id))
     .innerJoin(users, eq(registrations.registeredByUserId, users.id))
+    .leftJoin(
+      teamRegistrationMembers,
+      eq(teamRegistrationMembers.registrationId, registrations.id),
+    )
+    .leftJoin(
+      teamRegistrations,
+      eq(teamRegistrationMembers.teamRegistrationId, teamRegistrations.id),
+    )
     .where(and(...conditions))
     .orderBy(desc(registrations.createdAt));
 
@@ -124,6 +143,9 @@ export const GET: APIRoute = async (context) => {
         r.waiverSigned ? "yes" : "no",
         r.createdAt,
         r.cancelledAt,
+        r.teamName,
+        r.teamFeeCents,
+        r.teamDepositCents,
       ]),
     ),
   ];

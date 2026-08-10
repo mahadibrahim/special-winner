@@ -61,6 +61,18 @@ interface Registration {
     firstName: string | null
     lastName: string | null
   }
+  /**
+   * Present when this registration belongs to a team registration. The
+   * member's own amounts are usually $0/$0 (the captain's deposit covers
+   * them), so the team's money state is what the admin needs to see.
+   */
+  team: {
+    id: string
+    teamName: string
+    teamFeeCents: number | null
+    depositCents: number
+    collectedCents: number
+  } | null
 }
 
 interface Summary {
@@ -351,9 +363,22 @@ export function RegistrationsList() {
                           </div>
                           <div>
                             <p className="text-muted-foreground">Amount</p>
-                            <p className="font-medium">
-                              {formatCurrency(registration.amountPaidCents)} / {formatCurrency(registration.amountDueCents)}
-                            </p>
+                            {registration.team ? (
+                              <>
+                                <p className="font-medium">
+                                  Team: {formatCurrency(registration.team.collectedCents)} paid
+                                  {registration.team.teamFeeCents != null &&
+                                    ` / ${formatCurrency(registration.team.teamFeeCents)} total`}
+                                </p>
+                                <p className="text-muted-foreground text-xs">
+                                  {registration.team.teamName} — remainder splits across roster
+                                </p>
+                              </>
+                            ) : (
+                              <p className="font-medium">
+                                {formatCurrency(registration.amountPaidCents)} / {formatCurrency(registration.amountDueCents)}
+                              </p>
+                            )}
                           </div>
                           <div>
                             <p className="text-muted-foreground">Registered</p>

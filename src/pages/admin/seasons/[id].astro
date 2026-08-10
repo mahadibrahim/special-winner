@@ -16,7 +16,7 @@ import { locations } from "@/lib/db/schema/organizations";
 import { BUSINESS_TIMEZONE } from "@/lib/time/business-timezone";
 import { registrations, familyMembers } from "@/lib/db/schema/registrations";
 import { teams, games, rosters } from "@/lib/db/schema/teams";
-import { payments } from "@/lib/db/schema/payments";
+import { seasonRevenueCents } from "@/lib/admin/season-revenue";
 import { and, eq, sql, ne, desc, asc } from "drizzle-orm";
 
 export const prerender = false;
@@ -57,7 +57,7 @@ if (!row) {
 }
 
 // Aggregate counts for the key-facts strip.
-const [[regCount], [teamCount], [gameCount], [waitCount], [refundCount], [revRow]] =
+const [[regCount], [teamCount], [gameCount], [waitCount], [refundCount], revenueCents] =
   await Promise.all([
     getDb()
       .select({ n: sql<number>`count(*)::int` })
@@ -94,18 +94,8 @@ const [[regCount], [teamCount], [gameCount], [waitCount], [refundCount], [revRow
           eq(registrations.refundStatus, "pending_approval"),
         ),
       ),
-    getDb()
-      .select({
-        total: sql<number>`COALESCE(SUM(${payments.amountCents}), 0)::int`,
-      })
-      .from(payments)
-      .innerJoin(registrations, eq(payments.registrationId, registrations.id))
-      .where(
-        and(
-          eq(registrations.seasonId, seasonId),
-          eq(payments.status, "succeeded"),
-        ),
-      ),
+    // Solo + team-level payments for this season (#525).
+    seasonRevenueCents(getDb(), seasonId),
   ]);
 
 const header: SeasonHeader = {
@@ -122,7 +112,7 @@ const header: SeasonHeader = {
 const stats: SeasonStats = {
   capacityCurrent: regCount?.n ?? 0,
   capacityMax: row.maxParticipants ?? null,
-  revenueCents: revRow?.total ?? 0,
+  revenueCents,
   teams: teamCount?.n ?? 0,
   games: gameCount?.n ?? 0,
   waitlistCount: waitCount?.n ?? 0,

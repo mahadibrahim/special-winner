@@ -13,10 +13,15 @@ interface Payment {
   status: string
   createdAt: string
   stripePaymentIntentId: string | null
+  // Null for team-level payments (captain deposit / backstop balance),
+  // which carry `team` instead.
   familyMember: {
     firstName: string
     lastName: string
-  }
+  } | null
+  team: {
+    name: string
+  } | null
   season: {
     name: string
   }
@@ -219,7 +224,11 @@ export default function PaymentHistory() {
                         </Badge>
                       </div>
                       <p className="text-sm text-ink-muted">
-                        {payment.familyMember.firstName} {payment.familyMember.lastName}
+                        {payment.familyMember
+                          ? `${payment.familyMember.firstName} ${payment.familyMember.lastName}`
+                          : payment.team
+                            ? `Team: ${payment.team.name}`
+                            : "—"}
                       </p>
                       <p className="text-xs text-ink-faint mt-1">{formatDate(payment.createdAt)}</p>
                     </div>

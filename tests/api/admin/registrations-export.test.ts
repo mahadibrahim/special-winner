@@ -7,7 +7,7 @@ import {
 
 const ENDPOINT = "/api/admin/registrations/export.csv";
 const HEADER_ROW =
-  "registration_id,status,payment_status,amount_paid_cents,amount_due_cents,player_first_name,player_last_name,parent_email,parent_first_name,parent_last_name,season_name,program_name,sport_name,waiver_signed,created_at,cancelled_at";
+  "registration_id,status,payment_status,amount_paid_cents,amount_due_cents,player_first_name,player_last_name,parent_email,parent_first_name,parent_last_name,season_name,program_name,sport_name,waiver_signed,created_at,cancelled_at,team_name,team_fee_cents,team_deposit_cents";
 
 describe("GET /api/admin/registrations/export.csv", () => {
   let adminCookie: string;

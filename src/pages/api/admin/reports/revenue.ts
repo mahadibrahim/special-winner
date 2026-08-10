@@ -1,10 +1,23 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
-import { payments, registrations, seasons, programs, sports } from "@/lib/db/schema";
+import {
+  payments,
+  registrations,
+  seasons,
+  programs,
+  sports,
+  teamRegistrations,
+} from "@/lib/db/schema";
 import { locations } from "@/lib/db/schema/organizations";
 import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
 import { requireSuperAdminAccess, requireOrganizationContext } from "@/lib/auth";
 import { periodBucket } from "@/lib/admin/report-period";
+
+// Every query below resolves a payment's season either through its solo
+// registration or through its team registration (captain deposit, backstop
+// balance) — see #525. Orphaned rows (both ids NULL) stay excluded by the
+// inner seasons join, matching the old behavior.
+const paymentSeasonId = sql`COALESCE(${registrations.seasonId}, ${teamRegistrations.seasonId})`;
 
 // GET - Get revenue reports
 export const GET: APIRoute = async (context) => {
@@ -57,8 +70,9 @@ export const GET: APIRoute = async (context) => {
           count: sql<number>`COUNT(*)`,
         })
         .from(payments)
-        .innerJoin(registrations, eq(payments.registrationId, registrations.id))
-        .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+        .leftJoin(registrations, eq(payments.registrationId, registrations.id))
+        .leftJoin(teamRegistrations, eq(payments.teamRegistrationId, teamRegistrations.id))
+        .innerJoin(seasons, sql`${seasons.id} = ${paymentSeasonId}`)
         .innerJoin(programs, eq(seasons.programId, programs.id))
         .innerJoin(locations, eq(programs.locationId, locations.id))
         .where(
@@ -77,8 +91,9 @@ export const GET: APIRoute = async (context) => {
           transactionCount: sql<number>`COUNT(*)`,
         })
         .from(payments)
-        .innerJoin(registrations, eq(payments.registrationId, registrations.id))
-        .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+        .leftJoin(registrations, eq(payments.registrationId, registrations.id))
+        .leftJoin(teamRegistrations, eq(payments.teamRegistrationId, teamRegistrations.id))
+        .innerJoin(seasons, sql`${seasons.id} = ${paymentSeasonId}`)
         .innerJoin(programs, eq(seasons.programId, programs.id))
         .innerJoin(locations, eq(programs.locationId, locations.id))
         .where(
@@ -100,8 +115,9 @@ export const GET: APIRoute = async (context) => {
           count: sql<number>`COUNT(*)`,
         })
         .from(payments)
-        .innerJoin(registrations, eq(payments.registrationId, registrations.id))
-        .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+        .leftJoin(registrations, eq(payments.registrationId, registrations.id))
+        .leftJoin(teamRegistrations, eq(payments.teamRegistrationId, teamRegistrations.id))
+        .innerJoin(seasons, sql`${seasons.id} = ${paymentSeasonId}`)
         .innerJoin(programs, eq(seasons.programId, programs.id))
         .innerJoin(locations, eq(programs.locationId, locations.id))
         .where(
@@ -123,8 +139,9 @@ export const GET: APIRoute = async (context) => {
           registrations: sql<number>`COUNT(DISTINCT ${registrations.id})`,
         })
         .from(payments)
-        .innerJoin(registrations, eq(payments.registrationId, registrations.id))
-        .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+        .leftJoin(registrations, eq(payments.registrationId, registrations.id))
+        .leftJoin(teamRegistrations, eq(payments.teamRegistrationId, teamRegistrations.id))
+        .innerJoin(seasons, sql`${seasons.id} = ${paymentSeasonId}`)
         .innerJoin(programs, eq(seasons.programId, programs.id))
         .innerJoin(locations, eq(programs.locationId, locations.id))
         .innerJoin(sports, eq(programs.sportId, sports.id))
@@ -149,8 +166,9 @@ export const GET: APIRoute = async (context) => {
           createdAt: payments.createdAt,
         })
         .from(payments)
-        .innerJoin(registrations, eq(payments.registrationId, registrations.id))
-        .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+        .leftJoin(registrations, eq(payments.registrationId, registrations.id))
+        .leftJoin(teamRegistrations, eq(payments.teamRegistrationId, teamRegistrations.id))
+        .innerJoin(seasons, sql`${seasons.id} = ${paymentSeasonId}`)
         .innerJoin(programs, eq(seasons.programId, programs.id))
         .innerJoin(locations, eq(programs.locationId, locations.id))
         .where(
@@ -170,8 +188,9 @@ export const GET: APIRoute = async (context) => {
           total: sql<number>`COALESCE(SUM(${payments.amountCents}), 0)`,
         })
         .from(payments)
-        .innerJoin(registrations, eq(payments.registrationId, registrations.id))
-        .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+        .leftJoin(registrations, eq(payments.registrationId, registrations.id))
+        .leftJoin(teamRegistrations, eq(payments.teamRegistrationId, teamRegistrations.id))
+        .innerJoin(seasons, sql`${seasons.id} = ${paymentSeasonId}`)
         .innerJoin(programs, eq(seasons.programId, programs.id))
         .innerJoin(locations, eq(programs.locationId, locations.id))
         .where(
@@ -190,8 +209,9 @@ export const GET: APIRoute = async (context) => {
           count: sql<number>`COUNT(*)`,
         })
         .from(payments)
-        .innerJoin(registrations, eq(payments.registrationId, registrations.id))
-        .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+        .leftJoin(registrations, eq(payments.registrationId, registrations.id))
+        .leftJoin(teamRegistrations, eq(payments.teamRegistrationId, teamRegistrations.id))
+        .innerJoin(seasons, sql`${seasons.id} = ${paymentSeasonId}`)
         .innerJoin(programs, eq(seasons.programId, programs.id))
         .innerJoin(locations, eq(programs.locationId, locations.id))
         .where(

@@ -7,7 +7,7 @@ import {
 
 const ENDPOINT = "/api/admin/payments/export.csv";
 const HEADER_ROW =
-  "payment_id,amount_cents,payment_type,status,stripe_payment_intent_id,player_first_name,player_last_name,payer_email,payer_first_name,payer_last_name,season_name,program_name,registration_id,created_at";
+  "payment_id,amount_cents,payment_type,status,stripe_payment_intent_id,player_first_name,player_last_name,payer_email,payer_first_name,payer_last_name,season_name,program_name,registration_id,created_at,team_registration_id,team_name";
 
 describe("GET /api/admin/payments/export.csv", () => {
   let adminCookie: string;

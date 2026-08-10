@@ -27,10 +27,11 @@ import { captureServerException } from "@/lib/observability/server-error";
  *     the still-unpaid invitees 'charged_to_captain'. On failure set
  *     backstopStatus='failed' and capture an exception for manual follow-up.
  *
- * No payments row is written for the backstop charge — payments.registrationId
- * is NOT NULL and a backstop spans multiple registrations. The outcome is
- * persisted via backstopStatus + invitee status + the PaymentIntent metadata
- * (kind=captain_backstop, team_registration_id).
+ * The backstop charge is recorded in the payments ledger as a team-level row
+ * (registrationId NULL, teamRegistrationId set, paymentType "balance") — a
+ * backstop spans multiple registrations so it can't attach to any single one.
+ * The outcome is also persisted via backstopStatus + invitee status + the
+ * PaymentIntent metadata (kind=captain_backstop, team_registration_id).
  *
  * Authentication: requires `x-cron-secret` header matching CRON_SECRET env
  * (same convention as the sibling cron endpoints in this directory).
