@@ -54,6 +54,7 @@ import {
   suspensions,
 } from "../schema";
 import { fieldRentalRateCard } from "../schema/field-rentals";
+import { payments } from "../schema/payments";
 import { teamRegistrations, teamInvitees } from "../schema/team-registrations";
 import { dropInSessions, dropInBookings } from "../schema/drop-in";
 import { hostProfiles, hostGameReports } from "../schema/hosts";
@@ -3656,6 +3657,25 @@ async function seedE2ETests() {
         status: sql`excluded.status`,
       },
     });
+  // The deposit ledger row a real team always has (teams are only created
+  // when the deposit PaymentIntent succeeds). Collected is money-based
+  // (teamMoneyReceivedCents), so without this the hub shows $0 collected.
+  await db
+    .insert(payments)
+    .values({
+      registrationId: null,
+      teamRegistrationId: hubTeamReg.id,
+      userId: captainUser.id,
+      amountCents: 20000,
+      paymentType: "deposit",
+      status: "succeeded",
+      stripePaymentIntentId: "pi_e2e_team_hub_deposit",
+    })
+    .onConflictDoNothing({
+      target: payments.stripePaymentIntentId,
+      where: sql`stripe_payment_intent_id IS NOT NULL`,
+    });
+
   console.log(`   ✓ Hub TeamReg: ${hubTeamReg.teamName} (captain: ${captainUser.email})`);
 
   // --- both account: one dependent row + one self row → hasFamily=true, hasPlay=true ---

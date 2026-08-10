@@ -15,7 +15,7 @@ import {
   locations,
 } from "@/lib/db/schema";
 import { requireSuperAdminAccess, requireOrganizationContext } from "@/lib/auth";
-import { teamCollectedCents } from "@/lib/registrations/captain-credit";
+import { teamMoneyReceivedCents } from "@/lib/registrations/team-funding";
 
 /**
  * GET /api/admin/team-registrations/[id] — admin drill-down for one team
@@ -130,15 +130,9 @@ export const GET: APIRoute = async (context) => {
     ]);
 
     const depositCents = team.depositCents ?? 0;
-    const captainEmailLower = team.captainEmail.toLowerCase();
-    const collectedCents = teamCollectedCents({
-      depositCents,
-      invitees: inviteeRows.map((i) => ({
-        assignedShareCents: i.assignedShareCents,
-        status: i.status,
-        isCaptain: i.email.toLowerCase() === captainEmailLower,
-      })),
-    });
+    // Money-based: settled team-level payments + linked member payments —
+    // uninvited joiners count too (see teamMoneyReceivedCents).
+    const collectedCents = (await teamMoneyReceivedCents(getDb(), id)).totalCents;
 
     return new Response(
       JSON.stringify({

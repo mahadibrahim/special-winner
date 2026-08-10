@@ -41,7 +41,14 @@ export const DEPOSIT_CENTS = 20000; // $200
 export const BALANCE_CENTS = 63750; // $637.50 backstop remainder
 export const REFUND_CENTS = 5000; // $50
 export const PAID_SHARE_CENTS = 21250; // $212.50 — one paid roster share
-export const COLLECTED_CENTS = DEPOSIT_CENTS + PAID_SHARE_CENTS;
+/**
+ * Money-based collected (the team-money model): settled team-level payments
+ * (deposit + backstop balance − refunds) plus linked member registrations'
+ * amountPaidCents ($0 in this fixture — the solo registration is NOT linked
+ * to the team). The paid invitee share is bookkeeping, not settled money,
+ * so it no longer counts.
+ */
+export const COLLECTED_CENTS = DEPOSIT_CENTS + BALANCE_CENTS - REFUND_CENTS;
 
 export const CAPTAIN_PASSWORD = "TeamCap123!";
 
