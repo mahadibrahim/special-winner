@@ -136,6 +136,9 @@ export function RegistrationReport() {
       paid: "Paid",
       partial_refund: "Partial Refund",
       refunded: "Refunded",
+      // Spot covered by a team registration's deposit/backstop — the money
+      // lives on team-level payment rows, not in per-player amounts (#531).
+      team_funded: "Team Funded",
     }
     return labels[status] || status
   }

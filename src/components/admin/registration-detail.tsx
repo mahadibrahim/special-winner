@@ -59,6 +59,28 @@ interface RegistrationDetail {
   location: { id: string; name: string };
   parent: { id: string; email: string; firstName: string | null; lastName: string | null };
   paymentHistory: PaymentRow[];
+  /**
+   * Present when this registration belongs to a team registration — the
+   * member's own amounts are usually $0/$0 (covered by the captain's
+   * deposit), so the team's money state and team-level payment rows are
+   * what the admin needs to see (#530).
+   */
+  team: {
+    id: string;
+    teamName: string;
+    teamFeeCents: number | null;
+    depositCents: number;
+    collectedCents: number;
+    role: string;
+    payments: Array<{
+      id: string;
+      amountCents: number;
+      paymentType: string;
+      status: string;
+      stripePaymentIntentId: string | null;
+      createdAt: string;
+    }>;
+  } | null;
 }
 
 function formatCurrency(cents: number) {
@@ -153,7 +175,7 @@ export function RegistrationDetail({ id }: { id: string }) {
 
   if (!data) return null;
 
-  const { registration, familyMember, season, program, sport, location, parent, paymentHistory } = data;
+  const { registration, familyMember, season, program, sport, location, parent, paymentHistory, team } = data;
   const isCancelled = registration.status === "cancelled" || registration.status === "refunded";
 
   return (
@@ -204,10 +226,23 @@ export function RegistrationDetail({ id }: { id: string }) {
           </div>
           <div>
             <p className="text-muted-foreground">Amount</p>
-            <p className="font-medium">
-              {formatCurrency(registration.amountPaidCents)} paid ·{" "}
-              {formatCurrency(registration.amountDueCents)} due
-            </p>
+            {team ? (
+              <>
+                <p className="font-medium">
+                  Team: {formatCurrency(team.collectedCents)} paid
+                  {team.teamFeeCents != null &&
+                    ` / ${formatCurrency(team.teamFeeCents)} total`}
+                </p>
+                <p className="text-muted-foreground text-xs">
+                  {team.teamName} — remainder splits across roster
+                </p>
+              </>
+            ) : (
+              <p className="font-medium">
+                {formatCurrency(registration.amountPaidCents)} paid ·{" "}
+                {formatCurrency(registration.amountDueCents)} due
+              </p>
+            )}
           </div>
           <div>
             <p className="text-muted-foreground">Waiver</p>
@@ -267,6 +302,62 @@ export function RegistrationDetail({ id }: { id: string }) {
           )}
         </CardContent>
       </Card>
+
+      {team && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Team payments</CardTitle>
+            <CardDescription>
+              Team-level money for{" "}
+              <a
+                href={`/admin/teams/registrations/${team.id}`}
+                className="text-primary hover:underline font-medium"
+              >
+                {team.teamName}
+              </a>{" "}
+              — this player's spot is covered by the team fee, not a
+              per-player charge. Refunds of this money happen at the team
+              level.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {team.payments.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No team payments recorded.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-muted-foreground border-b">
+                      <th className="py-2 pr-4">Date</th>
+                      <th className="py-2 pr-4">Amount</th>
+                      <th className="py-2 pr-4">Type</th>
+                      <th className="py-2 pr-4">Status</th>
+                      <th className="py-2 pr-4">Stripe PI</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {team.payments.map((p) => (
+                      <tr key={p.id} className="border-b last:border-0">
+                        <td className="py-2 pr-4">{formatDate(p.createdAt)}</td>
+                        <td className="py-2 pr-4 font-medium">
+                          {formatCurrency(p.amountCents)}
+                        </td>
+                        <td className="py-2 pr-4">{p.paymentType}</td>
+                        <td className="py-2 pr-4">{p.status}</td>
+                        <td className="py-2 pr-4 font-mono text-xs text-muted-foreground">
+                          {p.stripePaymentIntentId ?? "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
