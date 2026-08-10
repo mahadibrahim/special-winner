@@ -12,6 +12,7 @@ import { stripe, isStripeConfigured } from "@/lib/stripe/client";
 import { sendRefundNotificationEmail } from "@/lib/email/send";
 import { normalizeBrand } from "@/lib/organization/soccerone-routing";
 import { issueAccountCredit } from "@/lib/payments/account-credit";
+import { teamFundedRegistrations } from "@/lib/registrations/team-funding";
 
 export type AdminRefundResult =
   | {
@@ -79,6 +80,41 @@ export async function adminRefund(input: AdminRefundInput): Promise<AdminRefundR
 
   if (refundAmountCents < 0) {
     return { ok: false, status: 400, error: "refundAmountCents must be non-negative" };
+  }
+
+  // Look up the registration's own payment row up front (also used on the
+  // Stripe-refund path below). Ordered so a payment-plan registration
+  // (multiple rows) deterministically returns the first payment rather than
+  // an arbitrary one.
+  const [payment] = await getDb()
+    .select()
+    .from(payments)
+    .where(eq(payments.registrationId, registration.id))
+    .orderBy(asc(payments.createdAt))
+    .limit(1);
+  const stripePaymentIntentId = payment?.stripePaymentIntentId ?? null;
+
+  // #528: a TEAM-FUNDED registration (spot covered by the captain's team
+  // deposit/backstop) has no per-player Stripe charge to refund — the money
+  // sits on the team-level payment rows. Without this guard the flow either
+  // 400'd with a confusing "exceeds paid 0¢" or, when amountPaidCents was
+  // stale-positive, "succeeded" without moving any money. Hard-fail with
+  // direction instead. Zero-amount cancels and the account-credit branch are
+  // unaffected.
+  if (!asCredit && refundAmountCents > 0 && !stripePaymentIntentId) {
+    const funded = await teamFundedRegistrations(getDb(), [registration.id]);
+    const team = funded.get(registration.id);
+    if (team) {
+      return {
+        ok: false,
+        status: 409,
+        error:
+          `This registration is team-funded — its spot was paid by team ` +
+          `"${team.teamName}"'s deposit/backstop charge, so there is no ` +
+          `per-player payment to refund. Refund the team's charge from the ` +
+          `Stripe dashboard, or issue an account credit instead.`,
+      };
+    }
   }
 
   const previousAmountPaid = registration.amountPaidCents ?? 0;
@@ -151,18 +187,6 @@ export async function adminRefund(input: AdminRefundInput): Promise<AdminRefundR
 
     return { ok: true, registration: updated, stripeRefundId: null, isPartial };
   }
-
-  // Look up payment record for the Stripe payment intent.
-  // Ordered so a payment-plan registration (multiple rows) deterministically
-  // returns the first payment rather than an arbitrary one.
-  const [payment] = await getDb()
-    .select()
-    .from(payments)
-    .where(eq(payments.registrationId, registration.id))
-    .orderBy(asc(payments.createdAt))
-    .limit(1);
-
-  const stripePaymentIntentId = payment?.stripePaymentIntentId ?? null;
 
   // Call Stripe only when there's something to refund and a payment intent to refund against.
   let stripeRefundId: string | null = null;
