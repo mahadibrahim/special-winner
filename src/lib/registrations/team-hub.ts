@@ -38,9 +38,12 @@ import {
 import {
   captainDepositCreditCents,
   captainShareDueCents,
-  teamCollectedCents,
   teamDepositPaid,
 } from "@/lib/registrations/captain-credit";
+import {
+  teamMoneyReceivedCents,
+  teamMoneyReceivedByTeamIds,
+} from "@/lib/registrations/team-funding";
 import { registrationAmountDueCents } from "@/lib/registrations/amount-due";
 import {
   computeStandings,
@@ -96,15 +99,20 @@ export async function listCaptainTeams(
   if (teamRows.length === 0) return [];
 
   const teamIds = teamRows.map((r) => r.team.id);
-  const allInvitees = await db
-    .select({
-      teamRegistrationId: teamInvitees.teamRegistrationId,
-      email: teamInvitees.email,
-      assignedShareCents: teamInvitees.assignedShareCents,
-      status: teamInvitees.status,
-    })
-    .from(teamInvitees)
-    .where(inArray(teamInvitees.teamRegistrationId, teamIds));
+  // Invitees drive the unpaid count; collected is money-based
+  // (teamMoneyReceivedByTeamIds) — settled payments, not share bookkeeping.
+  const [allInvitees, receivedByTeam] = await Promise.all([
+    db
+      .select({
+        teamRegistrationId: teamInvitees.teamRegistrationId,
+        email: teamInvitees.email,
+        assignedShareCents: teamInvitees.assignedShareCents,
+        status: teamInvitees.status,
+      })
+      .from(teamInvitees)
+      .where(inArray(teamInvitees.teamRegistrationId, teamIds)),
+    teamMoneyReceivedByTeamIds(db, teamIds),
+  ]);
 
   const inviteesByTeam = new Map<string, typeof allInvitees>();
   for (const inv of allInvitees) {
@@ -118,14 +126,7 @@ export async function listCaptainTeams(
     const invitees = inviteesByTeam.get(team.id) ?? [];
     const captainEmailLower = team.captainEmail.toLowerCase();
     const depositCents = team.depositCents ?? 0;
-    const collectedCents = teamCollectedCents({
-      depositCents,
-      invitees: invitees.map((i) => ({
-        assignedShareCents: i.assignedShareCents,
-        status: i.status,
-        isCaptain: i.email.toLowerCase() === captainEmailLower,
-      })),
-    });
+    const collectedCents = receivedByTeam.get(team.id)?.totalCents ?? 0;
     const unpaidCount = invitees.filter(
       (i) => i.status === "pending" && i.email.toLowerCase() !== captainEmailLower,
     ).length;
@@ -189,6 +190,7 @@ export interface TeamHubDetail {
   };
   payment: {
     teamFeeCents: number | null;
+    joinShareCents: number | null;
     depositCents: number;
     collectedCents: number;
     paymentDeadline: string | null;
@@ -282,14 +284,9 @@ export async function buildTeamHubDetail(
 
   const depositCents = team.depositCents ?? 0;
   const captainEmailLower = team.captainEmail.toLowerCase();
-  const collectedCents = teamCollectedCents({
-    depositCents,
-    invitees: invitees.map((i) => ({
-      assignedShareCents: i.assignedShareCents,
-      status: i.status,
-      isCaptain: i.email.toLowerCase() === captainEmailLower,
-    })),
-  });
+  // Money-based: settled team-level payments + linked member payments —
+  // uninvited joiners count too (see teamMoneyReceivedCents).
+  const collectedCents = (await teamMoneyReceivedCents(db, team.id)).totalCents;
 
   // Captain's own-registration credit preview (display-only; createRegistration
   // recomputes server-side). Only when the deposit is verifiably paid and the
@@ -346,6 +343,7 @@ export async function buildTeamHubDetail(
     },
     payment: {
       teamFeeCents: team.teamFeeCents ?? null,
+      joinShareCents: team.joinShareCents ?? null,
       depositCents,
       collectedCents,
       paymentDeadline: team.paymentDeadline

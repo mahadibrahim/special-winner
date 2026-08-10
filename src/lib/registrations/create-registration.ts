@@ -266,6 +266,11 @@ async function resolveTeamPricing(opts: {
   if (resolved.invitee && resolved.invitee.status !== "paid") {
     matchedTeamInvitee = resolved.invitee;
     amountDueOverride = resolved.invitee.assignedShareCents;
+  } else if (!resolved.invitee && resolved.teamRegistration.joinShareCents != null) {
+    // Open-link join with a captain-set join price: uninvited joiners pay
+    // the captain's price instead of the season's individual price. An
+    // explicit invitee share (above) always wins over this.
+    amountDueOverride = resolved.teamRegistration.joinShareCents;
   }
   // If found-but-already-paid, treat as normal (don't re-charge a share).
 
@@ -281,10 +286,12 @@ async function resolveTeamPricing(opts: {
         : teamReg.captainEmail.toLowerCase() === user.email.toLowerCase();
     if (isCaptain && teamDepositPaid(teamReg)) {
       // Share: the captain-assigned invitee share when one exists, else the
-      // season's individual effective price (early-bird aware).
-      const shareCents = matchedTeamInvitee
-        ? matchedTeamInvitee.assignedShareCents
-        : registrationAmountDueCents(season, "full");
+      // captain-set join price, else the season's individual effective price
+      // (early-bird aware).
+      const shareCents =
+        matchedTeamInvitee?.assignedShareCents ??
+        teamReg.joinShareCents ??
+        registrationAmountDueCents(season, "full");
       amountDueOverride = captainShareDueCents(
         shareCents,
         teamReg.depositCents ?? 0,
@@ -654,6 +661,30 @@ export async function createRegistration(
           .where(eq(teamInvitees.id, matchedTeamInvitee.id));
       } catch (err) {
         console.error("Error linking team invitee to registration:", err);
+      }
+    } else if (resolvedTeamReg && !captainCreditApplied) {
+      // Auto-share on join: an open-link joiner with no captain-assigned
+      // share gets an invitee row recording what they owe, keyed to their
+      // registration so payment success flips it to "paid" through the same
+      // webhook path as invited members. Keeps roster views and share
+      // reminders coherent without requiring captain bookkeeping; the money
+      // itself is counted by teamMoneyReceivedCents regardless. Skipped for
+      // the deposit-credited captain (the deposit already represents them).
+      // Best-effort: a failure here must never break the registration.
+      try {
+        await db
+          .insert(teamInvitees)
+          .values({
+            teamRegistrationId: resolvedTeamReg.id,
+            email: user.email.toLowerCase(),
+            assignedShareCents: amountDue,
+            status: amountDue === 0 ? "paid" : "pending",
+            registrationId: created.id,
+            ...(amountDue === 0 ? { paidAt: new Date() } : {}),
+          })
+          .onConflictDoNothing();
+      } catch (err) {
+        console.error("Error creating auto-share invitee for joiner:", err);
       }
     }
   }

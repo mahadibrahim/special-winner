@@ -55,8 +55,10 @@ describe("GET /api/dashboard/teams", () => {
     };
     const hub = teams.find((t) => t.teamName === HUB_TEAM_NAME)!;
     expect(hub.teamFeeCents).toBe(60000);
-    // deposit (20000) + one PAID invitee share (20000); pending adds nothing.
-    expect(hub.collectedCents).toBe(40000);
+    // Money-based collected: the seeded deposit payment row (20000). The
+    // "paid" invitee is bookkeeping with no settled payment behind it, so it
+    // no longer counts (one price, every payment counts — and only payments).
+    expect(hub.collectedCents).toBe(20000);
     expect(hub.unpaidCount).toBeGreaterThanOrEqual(1);
   });
 
@@ -75,7 +77,7 @@ describe("GET /api/dashboard/teams/[id]", () => {
     const body = await res.json();
     expect(body.team.teamName).toBe(HUB_TEAM_NAME);
     expect(body.team.invitees.length).toBeGreaterThanOrEqual(2);
-    expect(body.payment.collectedCents).toBe(40000);
+    expect(body.payment.collectedCents).toBe(20000);
     // No roster/season set up for a forming team → empty season module.
     expect(body.seasonModule.rosterTeamId).toBeNull();
     expect(body.seasonModule.schedule).toEqual([]);

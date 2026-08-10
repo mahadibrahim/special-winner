@@ -4,9 +4,10 @@ import { getDb } from "@/lib/db";
 import { teamRegistrations, teamInvitees, payments } from "@/lib/db/schema";
 import { sendTeamShareReminderEmail, sendTeamBackstopWarningEmail } from "@/lib/email/send";
 import {
-  sumUnpaidSharesCents,
+  teamBackstopDueCents,
   chargeTeamBackstop,
 } from "@/lib/payments/team-captain-charge";
+import { teamMoneyReceivedCents } from "@/lib/registrations/team-funding";
 import { env } from "@/lib/env";
 import { captureServerException } from "@/lib/observability/server-error";
 
@@ -79,6 +80,7 @@ export const POST: APIRoute = async ({ request }) => {
         seasonId: teamRegistrations.seasonId,
         inviteToken: teamRegistrations.inviteToken,
         teamName: teamRegistrations.teamName,
+        teamFeeCents: teamRegistrations.teamFeeCents,
         captainName: teamRegistrations.captainName,
         captainEmail: teamRegistrations.captainEmail,
         paymentDeadline: teamRegistrations.paymentDeadline,
@@ -116,7 +118,19 @@ export const POST: APIRoute = async ({ request }) => {
             ),
           );
 
-        if (unpaid.length === 0) continue;
+        // What will actually land on the captain's card — the money-based
+        // shortfall (same math as the charge phase below). A team with no
+        // invitee rows but an uncovered fee still gets warned; a team whose
+        // fee is already covered by member payments gets no warning even if
+        // its share bookkeeping looks unpaid.
+        const received = await teamMoneyReceivedCents(db, team.id);
+        const unpaidTotalCents = teamBackstopDueCents({
+          teamFeeCents: team.teamFeeCents ?? null,
+          receivedCents: received.totalCents,
+          invitees: unpaid,
+        });
+
+        if (unpaidTotalCents <= 0) continue;
 
         const joinUrl = `${base}/register/${team.seasonId}?team=${team.inviteToken}`;
         const deadline = team.paymentDeadline ?? undefined;
@@ -128,10 +142,6 @@ export const POST: APIRoute = async ({ request }) => {
         // try/catch so a captain-send failure can't skip the teammate loop
         // below.
         try {
-          const unpaidTotalCents = unpaid.reduce(
-            (sum, inv) => sum + inv.assignedShareCents,
-            0,
-          );
           await sendTeamBackstopWarningEmail({
             to: team.captainEmail,
             captainName: team.captainName,
@@ -191,6 +201,7 @@ export const POST: APIRoute = async ({ request }) => {
     const dueTeams = await db
       .select({
         id: teamRegistrations.id,
+        teamFeeCents: teamRegistrations.teamFeeCents,
         captainUserId: teamRegistrations.captainUserId,
         captainStripeCustomerId: teamRegistrations.captainStripeCustomerId,
         captainPaymentMethodId: teamRegistrations.captainPaymentMethodId,
@@ -214,10 +225,20 @@ export const POST: APIRoute = async ({ request }) => {
           .from(teamInvitees)
           .where(eq(teamInvitees.teamRegistrationId, team.id));
 
-        const unpaid = sumUnpaidSharesCents(invitees);
+        // Money model: the charge is the shortfall between the team fee and
+        // settled money received (team-level payments + linked member
+        // payments) — an uninvited-but-paid member reduces it, and an empty
+        // invitee list no longer reads as "nothing owed". Invitee-share sum
+        // remains only as the legacy fallback for pre-fee teams.
+        const received = await teamMoneyReceivedCents(db, team.id);
+        const unpaid = teamBackstopDueCents({
+          teamFeeCents: team.teamFeeCents ?? null,
+          receivedCents: received.totalCents,
+          invitees,
+        });
 
         if (unpaid <= 0) {
-          // Everyone paid — close out the backstop, nothing to charge.
+          // Fee fully covered — close out the backstop, nothing to charge.
           await db
             .update(teamRegistrations)
             .set({ backstopStatus: "charged", updatedAt: new Date() })

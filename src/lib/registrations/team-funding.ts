@@ -1,11 +1,105 @@
-import { and, eq, inArray, isNotNull, ne, or } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, ne, or, sql } from "drizzle-orm";
 import type { getDb } from "@/lib/db";
 import {
-  teamInvitees,
+  payments,
+  registrations,
   teamRegistrationMembers,
   teamRegistrations,
 } from "@/lib/db/schema";
-import { teamCollectedCents } from "@/lib/registrations/captain-credit";
+
+export interface TeamMoneyReceived {
+  /** Settled team-level payments: deposit + backstop balance, refunds subtract. */
+  teamLevelCents: number;
+  /** Sum of linked member registrations' amountPaidCents (already refund-adjusted). */
+  memberCents: number;
+  totalCents: number;
+}
+
+/**
+ * Settled money toward a team's fee — the single source of truth for
+ * "collected" and for the backstop shortfall ("one price, every payment
+ * counts"). Two components, no double counting:
+ *
+ *  - team-level payment rows (registration_id NULL, team_registration_id
+ *    set): the captain deposit and any backstop balance; refund-typed rows
+ *    subtract.
+ *  - linked member registrations' amountPaidCents: every player who paid
+ *    through the team link (invited or not — the Casey case), already
+ *    refund-adjusted by the refund flows.
+ *
+ * Invitee share rows are deliberately NOT an input — they are bookkeeping
+ * for reminders and roster display, and captains skip them.
+ */
+export async function teamMoneyReceivedByTeamIds(
+  db: ReturnType<typeof getDb>,
+  teamRegistrationIds: string[],
+): Promise<Map<string, TeamMoneyReceived>> {
+  const result = new Map<string, TeamMoneyReceived>();
+  if (teamRegistrationIds.length === 0) return result;
+  for (const id of teamRegistrationIds) {
+    result.set(id, { teamLevelCents: 0, memberCents: 0, totalCents: 0 });
+  }
+
+  const [teamLevelRows, memberRows] = await Promise.all([
+    db
+      .select({
+        teamRegistrationId: payments.teamRegistrationId,
+        cents: sql<number>`COALESCE(SUM(
+          CASE WHEN ${payments.paymentType} = 'refund'
+               THEN -${payments.amountCents}
+               ELSE ${payments.amountCents} END), 0)::int`,
+      })
+      .from(payments)
+      .where(
+        and(
+          inArray(payments.teamRegistrationId, teamRegistrationIds),
+          eq(payments.status, "succeeded"),
+        ),
+      )
+      .groupBy(payments.teamRegistrationId),
+    db
+      .select({
+        teamRegistrationId: teamRegistrationMembers.teamRegistrationId,
+        cents: sql<number>`COALESCE(SUM(${registrations.amountPaidCents}), 0)::int`,
+      })
+      .from(teamRegistrationMembers)
+      .innerJoin(
+        registrations,
+        eq(teamRegistrationMembers.registrationId, registrations.id),
+      )
+      .where(inArray(teamRegistrationMembers.teamRegistrationId, teamRegistrationIds))
+      .groupBy(teamRegistrationMembers.teamRegistrationId),
+  ]);
+
+  for (const row of teamLevelRows) {
+    if (!row.teamRegistrationId) continue;
+    const entry = result.get(row.teamRegistrationId)!;
+    entry.teamLevelCents = row.cents;
+  }
+  for (const row of memberRows) {
+    const entry = result.get(row.teamRegistrationId)!;
+    entry.memberCents = row.cents;
+  }
+  for (const entry of result.values()) {
+    entry.totalCents = entry.teamLevelCents + entry.memberCents;
+  }
+  return result;
+}
+
+/** Single-team convenience wrapper over teamMoneyReceivedByTeamIds. */
+export async function teamMoneyReceivedCents(
+  db: ReturnType<typeof getDb>,
+  teamRegistrationId: string,
+): Promise<TeamMoneyReceived> {
+  const map = await teamMoneyReceivedByTeamIds(db, [teamRegistrationId]);
+  return (
+    map.get(teamRegistrationId) ?? {
+      teamLevelCents: 0,
+      memberCents: 0,
+      totalCents: 0,
+    }
+  );
+}
 
 export interface TeamFundingInfo {
   teamRegistrationId: string;
@@ -73,8 +167,9 @@ export interface TeamBlock {
  * Team financial context for registrations that belong to a team
  * registration. A team member's own row is $0/$0 when the captain's deposit
  * covers it, which reads as a free registration in admin (#525) — so admin
- * surfaces attach the team's money state (fee, deposit, collected so far,
- * via the canonical `teamCollectedCents`) to every member row.
+ * surfaces attach the team's money state (fee, deposit, collected so far)
+ * to every member row. Collected is money-based (`teamMoneyReceivedCents`):
+ * every settled payment toward the team counts, invited or not.
  */
 export async function teamBlocksByRegistrationId(
   db: ReturnType<typeof getDb>,
@@ -98,40 +193,15 @@ export async function teamBlocksByRegistrationId(
   if (memberships.length === 0) return result;
 
   const teamIds = [...new Set(memberships.map((m) => m.team.id))];
-  const invitees = await db
-    .select({
-      teamRegistrationId: teamInvitees.teamRegistrationId,
-      email: teamInvitees.email,
-      assignedShareCents: teamInvitees.assignedShareCents,
-      status: teamInvitees.status,
-    })
-    .from(teamInvitees)
-    .where(inArray(teamInvitees.teamRegistrationId, teamIds));
-
-  const inviteesByTeam = new Map<string, typeof invitees>();
-  for (const inv of invitees) {
-    const list = inviteesByTeam.get(inv.teamRegistrationId) ?? [];
-    list.push(inv);
-    inviteesByTeam.set(inv.teamRegistrationId, list);
-  }
+  const received = await teamMoneyReceivedByTeamIds(db, teamIds);
 
   for (const { registrationId, role, team } of memberships) {
-    const depositCents = team.depositCents ?? 0;
-    const captainEmailLower = team.captainEmail.toLowerCase();
-    const collectedCents = teamCollectedCents({
-      depositCents,
-      invitees: (inviteesByTeam.get(team.id) ?? []).map((i) => ({
-        assignedShareCents: i.assignedShareCents,
-        status: i.status,
-        isCaptain: i.email.toLowerCase() === captainEmailLower,
-      })),
-    });
     result.set(registrationId, {
       id: team.id,
       teamName: team.teamName,
       teamFeeCents: team.teamFeeCents ?? null,
-      depositCents,
-      collectedCents,
+      depositCents: team.depositCents ?? 0,
+      collectedCents: received.get(team.id)?.totalCents ?? 0,
       role,
     });
   }
