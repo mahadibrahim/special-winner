@@ -14,6 +14,7 @@ import {
   type BalanceReminderType,
 } from "./templates/payment-balance-reminder";
 import { WaiverReminderEmail } from "./templates/waiver-reminder";
+import { AbandonedCheckoutEmail } from "./templates/abandoned-checkout";
 import type { WaiverReminderWindowType } from "@/lib/registrations/waiver-reminder-windows";
 import { SignInLinkEmail } from "./templates/sign-in-link";
 import { CoachInviteEmail } from "./templates/coach-invite";
@@ -621,6 +622,63 @@ export async function sendBalanceReminderEmail(
     text,
     from: fromForBrand(params.brand),
     smsNudge: { organizationId: params.organizationId, body: smsBody },
+  });
+}
+
+// Abandoned-checkout reminder — fired by
+// /api/cron/send-abandoned-checkout-reminders for registrations that were
+// started but never paid. Two touches ("nudge" ~1 day, "last_call" ~4 days);
+// the emailType carries the touch so email_logs dedupes each exactly once.
+export interface SendAbandonedCheckoutParams {
+  userId: string;
+  organizationId?: string;
+  registrationId: string;
+  parentEmail: string;
+  parentName: string;
+  playerName: string;
+  programName: string;
+  seasonName: string;
+  amountDueCents: number;
+  resumeUrl: string;
+  touch: import("./templates/abandoned-checkout").AbandonedCheckoutTouch;
+  brand?: BrandId;
+}
+
+export async function sendAbandonedCheckoutReminderEmail(
+  params: SendAbandonedCheckoutParams,
+) {
+  if (!isEmailConfigured()) {
+    console.warn("Email not configured, skipping abandoned-checkout email");
+    return { success: false, error: "Email not configured" };
+  }
+
+  const { html, text } = await renderEmail(
+    AbandonedCheckoutEmail({
+      parentName: params.parentName,
+      playerName: params.playerName,
+      programName: params.programName,
+      seasonName: params.seasonName,
+      amountDue: formatCurrency(params.amountDueCents),
+      resumeUrl: params.resumeUrl,
+      touch: params.touch,
+      brand: params.brand,
+    }),
+  );
+
+  const subject =
+    params.touch === "nudge"
+      ? `Your spot in ${params.seasonName} is one step away`
+      : `Last call — ${params.seasonName} is filling up`;
+
+  return sendTransactionalEmail({
+    userId: params.userId,
+    registrationId: params.registrationId,
+    emailType: `abandoned_checkout_${params.touch}`,
+    to: params.parentEmail,
+    subject,
+    html,
+    text,
+    from: fromForBrand(params.brand),
   });
 }
 
