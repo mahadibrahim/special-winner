@@ -15,7 +15,7 @@ import { schedule } from "@netlify/functions";
 
 const ROUTE = "/api/cron/send-ops-digest";
 
-export const handler = schedule("0 12 * * *", async () => {
+export const handler = schedule("21 12 * * *", async () => {
   // `URL` is injected by Netlify (the site's primary URL); PUBLIC_APP_URL
   // is the fallback for any environment that doesn't set it. Trailing
   // slash stripped so it reads as a clean origin for the Origin header.

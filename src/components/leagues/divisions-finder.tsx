@@ -146,12 +146,12 @@ function DivisionRow({ d, term, showLevels }: { d: Division; term: string; showL
             {/* Solo price up front — paid-traffic replays showed price-hunters
                 tapping Register just to learn the cost, then bouncing. */}
             {d.price != null && d.status !== "completed" && (
-              <> · <span className="text-ink font-semibold">${d.price.toLocaleString()}/player</span></>
+              <> · <span className="text-ink font-semibold">${d.price.toLocaleString("en-US")}/player</span></>
             )}
           </div>
           {d.teamTotal != null && d.status !== "completed" && (
             <div className="font-mono text-[10.5px] tracking-wide text-ink-muted mt-0.5">
-              or reserve a team — ${CAPTAIN_DEPOSIT_DOLLARS} down, ${d.teamTotal.toLocaleString()} total
+              or reserve a team — ${CAPTAIN_DEPOSIT_DOLLARS} down, ${d.teamTotal.toLocaleString("en-US")} total
             </div>
           )}
         </div>

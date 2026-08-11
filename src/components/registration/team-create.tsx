@@ -324,7 +324,7 @@ export default function TeamCreate({
       const cents: number = json.calculatedDiscount?.discountAmountCents ?? 0;
       if (cents > maxOffCents) {
         setDiscountError(
-          `A $${CAPTAIN_DEPOSIT_DOLLARS} deposit is always due today, so a code can take at most $${(maxOffCents / 100).toLocaleString()} off this team. This one's larger than that.`,
+          `A $${CAPTAIN_DEPOSIT_DOLLARS} deposit is always due today, so a code can take at most $${(maxOffCents / 100).toLocaleString("en-US")} off this team. This one's larger than that.`,
         );
         return;
       }
@@ -826,19 +826,19 @@ export default function TeamCreate({
             </td>
             <td className="py-0.5 text-right tabular-nums">
               {story?.baseTotal && <span className="mr-1.5 text-ink-muted line-through">{story.baseTotal}</span>}
-              {story ? story.total : baseFeeDollars != null ? `$${baseFeeDollars.toLocaleString()}` : "—"}
+              {story ? story.total : baseFeeDollars != null ? `$${baseFeeDollars.toLocaleString("en-US")}` : "—"}
             </td>
           </tr>
           {discount && (
             <tr className="text-sage">
               <td className="py-0.5">Discount · {discount.code}</td>
-              <td className="py-0.5 text-right tabular-nums">−${(discount.cents / 100).toLocaleString()}</td>
+              <td className="py-0.5 text-right tabular-nums">−${(discount.cents / 100).toLocaleString("en-US")}</td>
             </tr>
           )}
           {discount && feeTotalDollars != null && (
             <tr className="border-t border-ink/10">
               <td className="pt-2 text-ink-2">Team total</td>
-              <td className="pt-2 text-right tabular-nums">${feeTotalDollars.toLocaleString()}</td>
+              <td className="pt-2 text-right tabular-nums">${feeTotalDollars.toLocaleString("en-US")}</td>
             </tr>
           )}
           <tr className={discount ? "" : "border-t border-ink/10"}>
@@ -850,7 +850,7 @@ export default function TeamCreate({
           {rosterRemainderDollars != null && (
             <tr>
               <td className="text-ink-muted text-xs">Your roster pays · split among teammates</td>
-              <td className="text-right text-ink-muted text-xs tabular-nums">${rosterRemainderDollars.toLocaleString()}</td>
+              <td className="text-right text-ink-muted text-xs tabular-nums">${rosterRemainderDollars.toLocaleString("en-US")}</td>
             </tr>
           )}
         </tbody>
@@ -862,7 +862,7 @@ export default function TeamCreate({
     <div className="flex items-center gap-2 rounded-xl border border-sage/40 bg-sage/10 px-4 py-3 text-sm">
       <span>
         Code <span className="font-mono font-semibold text-sage">{discount.code}</span> applied —
-        team total −${(discount.cents / 100).toLocaleString()}
+        team total −${(discount.cents / 100).toLocaleString("en-US")}
       </span>
       <button type="button" onClick={removeDiscount} className="ml-auto text-xs text-ink-muted underline">Remove</button>
     </div>

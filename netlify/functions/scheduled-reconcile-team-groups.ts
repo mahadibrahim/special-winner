@@ -14,7 +14,7 @@ import { schedule } from "@netlify/functions";
 
 const ROUTE = "/api/cron/reconcile-team-groups";
 
-export const handler = schedule("0 */6 * * *", async () => {
+export const handler = schedule("37 */6 * * *", async () => {
   const base = (process.env.URL ?? process.env.PUBLIC_APP_URL)?.replace(
     /\/$/,
     "",

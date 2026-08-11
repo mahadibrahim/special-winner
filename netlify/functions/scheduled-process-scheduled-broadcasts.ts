@@ -15,7 +15,7 @@ import { schedule } from "@netlify/functions";
 
 const ROUTE = "/api/cron/process-scheduled-broadcasts";
 
-export const handler = schedule("0 * * * *", async () => {
+export const handler = schedule("11 * * * *", async () => {
   const base = (process.env.URL ?? process.env.PUBLIC_APP_URL)?.replace(
     /\/$/,
     "",

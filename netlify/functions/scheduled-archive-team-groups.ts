@@ -12,7 +12,7 @@ import { schedule } from "@netlify/functions";
 
 const ROUTE = "/api/cron/archive-team-groups";
 
-export const handler = schedule("0 3 * * *", async () => {
+export const handler = schedule("16 3 * * *", async () => {
   const base = (process.env.URL ?? process.env.PUBLIC_APP_URL)?.replace(
     /\/$/,
     "",

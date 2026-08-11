@@ -13,7 +13,7 @@ import { schedule } from "@netlify/functions";
 
 const ROUTE = "/api/cron/create-scheduled-team-groups";
 
-export const handler = schedule("0 4 * * *", async () => {
+export const handler = schedule("19 4 * * *", async () => {
   const base = (process.env.URL ?? process.env.PUBLIC_APP_URL)?.replace(
     /\/$/,
     "",

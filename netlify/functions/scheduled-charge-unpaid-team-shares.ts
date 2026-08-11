@@ -12,7 +12,7 @@ const ROUTE = "/api/cron/charge-unpaid-team-shares";
 
 // 13:00 UTC ≈ 8-9am US Eastern. The route only charges teams whose deadline
 // has already passed, so "morning after close" falls out naturally.
-export const handler = schedule("0 13 * * *", async () => {
+export const handler = schedule("6 13 * * *", async () => {
   const base = (process.env.URL ?? process.env.PUBLIC_APP_URL)?.replace(
     /\/$/,
     "",
