@@ -11,7 +11,7 @@ import { schedule } from "@netlify/functions";
 const ROUTE = "/api/cron/send-balance-reminders";
 
 // 13:00 UTC ≈ 8-9am US Eastern — well before any season's first session.
-export const handler = schedule("0 13 * * *", async () => {
+export const handler = schedule("21 13 * * *", async () => {
   const base = (process.env.URL ?? process.env.PUBLIC_APP_URL)?.replace(
     /\/$/,
     "",

@@ -64,11 +64,11 @@ function adultFactsLine(open: ApiSeason[]): string | null {
   const price = minIndividualPrice(open)
   const teamTotal = minTeamTotal(open)
   const priceParts = [
-    price != null ? `$${price.toLocaleString()} solo` : null,
+    price != null ? `$${price.toLocaleString("en-US")} solo` : null,
     // $200 is the flat captain deposit (authoritative constant — the
     // team-create flow charges exactly this); only advertised when at least
     // one open season actually accepts a team.
-    teamTotal != null ? `$${CAPTAIN_DEPOSIT_DOLLARS.toLocaleString()} reserves a team` : null,
+    teamTotal != null ? `$${CAPTAIN_DEPOSIT_DOLLARS.toLocaleString("en-US")} reserves a team` : null,
   ].filter((p): p is string => p != null)
   return joinFacts([
     primaryTermLabel(open),
@@ -84,7 +84,7 @@ function youthFactsLine(open: ApiSeason[]): string | null {
   return joinFacts([
     primaryTermLabel(open),
     ages != null ? `ages ${ages.min}–${ages.max}` : null,
-    deposit != null ? `$${deposit.toLocaleString()} holds a spot` : null,
+    deposit != null ? `$${deposit.toLocaleString("en-US")} holds a spot` : null,
     closesLabel(earliestRegistrationCloses(open)),
   ])
 }

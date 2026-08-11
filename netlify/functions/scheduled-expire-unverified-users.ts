@@ -18,7 +18,7 @@ const ROUTE = "/api/cron/expire-unverified-users";
 
 // Stagger off the midnight self-service-tokens cleanup so concurrent
 // large deletes don't pile up on the same Railway connection.
-export const handler = schedule("30 3 * * *", async () => {
+export const handler = schedule("33 3 * * *", async () => {
   const base = (process.env.URL ?? process.env.PUBLIC_APP_URL)?.replace(
     /\/$/,
     "",

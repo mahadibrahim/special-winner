@@ -13,7 +13,7 @@ const ROUTE = "/api/cron/send-abandoned-checkout-reminders";
 // 15:00 UTC ≈ 10-11am US Eastern — mid-morning, when a "finish signing up"
 // nudge is most likely to be acted on (observed buyers convert on evening
 // and mid-morning sessions).
-export const handler = schedule("0 15 * * *", async () => {
+export const handler = schedule("12 15 * * *", async () => {
   const base = (process.env.URL ?? process.env.PUBLIC_APP_URL)?.replace(
     /\/$/,
     "",

@@ -17,7 +17,7 @@ import { schedule } from "@netlify/functions";
 const ROUTE = "/api/cron/referee-closeout-reminders";
 
 // 12:00 UTC = 8am ET, so both the T+2h and next-morning windows get swept.
-export const handler = schedule("0 12 * * *", async () => {
+export const handler = schedule("6 12 * * *", async () => {
   const base = (process.env.URL ?? process.env.PUBLIC_APP_URL)?.replace(
     /\/$/,
     "",

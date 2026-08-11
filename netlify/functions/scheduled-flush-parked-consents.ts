@@ -12,7 +12,7 @@ import { schedule } from "@netlify/functions";
 
 const ROUTE = "/api/cron/flush-parked-consents";
 
-export const handler = schedule("*/30 * * * *", async () => {
+export const handler = schedule("8-38/30 * * * *", async () => {
   const base = (process.env.URL ?? process.env.PUBLIC_APP_URL)?.replace(
     /\/$/,
     "",
