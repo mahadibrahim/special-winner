@@ -1,5 +1,8 @@
 export type OpsPingEvent =
   | { kind: "registration_paid"; brand: string; eventId: string; label: string; amountCents: number }
+  | { kind: "team_reserved"; brand: string; eventId: string; label: string; amountCents: number }
+  | { kind: "team_backstop_charged"; brand: string; eventId: string; label: string; amountCents: number }
+  | { kind: "team_backstop_failed"; brand: string; eventId: string; label: string }
   | { kind: "dropin_booked"; brand: string; eventId: string; label: string; amountCents: number }
   | { kind: "rental_confirmed"; brand: string; eventId: string; label: string; amountCents: number }
   | { kind: "membership_started"; brand: string; eventId: string; label: string; amountCents: number }
@@ -15,6 +18,9 @@ export const OPS_PING_RATE_LIMIT_PER_HOUR = 10;
 /** Kinds that ping immediately. user_signup is digest-only by design. */
 export const INSTANT_KINDS: ReadonlySet<string> = new Set([
   "registration_paid",
+  "team_reserved",
+  "team_backstop_charged",
+  "team_backstop_failed",
   "dropin_booked",
   "rental_confirmed",
   "membership_started",
@@ -26,6 +32,9 @@ export const INSTANT_KINDS: ReadonlySet<string> = new Set([
 
 export const OPS_PING_KIND_LABELS: Record<OpsPingEvent["kind"], string> = {
   registration_paid: "Registration",
+  team_reserved: "Team reserved",
+  team_backstop_charged: "Team backstop charged",
+  team_backstop_failed: "Team backstop FAILED",
   dropin_booked: "Drop-in",
   rental_confirmed: "Rental",
   membership_started: "Membership",
@@ -38,6 +47,9 @@ export const OPS_PING_KIND_LABELS: Record<OpsPingEvent["kind"], string> = {
 
 const KIND_EMOJI: Record<OpsPingEvent["kind"], string> = {
   registration_paid: "💰",
+  team_reserved: "🏆",
+  team_backstop_charged: "💰",
+  team_backstop_failed: "🚨",
   dropin_booked: "💰",
   rental_confirmed: "💰",
   membership_started: "💰",

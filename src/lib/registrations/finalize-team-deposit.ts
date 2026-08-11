@@ -11,6 +11,7 @@ import { getPostHogServer } from "@/lib/posthog-server";
 import { SERVER_EVENTS } from "@/lib/analytics/events";
 import { capturePaymentCompleted } from "@/lib/observability/payment-telemetry";
 import { normalizeBrand } from "@/lib/organization/soccerone-routing";
+import { sendOpsPing } from "@/lib/ops/ping";
 import { sendTeamDepositReceiptEmail } from "@/lib/email/send";
 import type { BrandId } from "@/lib/branding/themes";
 
@@ -168,7 +169,7 @@ export async function finalizeTeamDeposit(pi: Stripe.PaymentIntent): Promise<Fin
   // Payment deadline = season.registrationCloses at finalize time (mirrors the
   // eager path's snapshot).
   const [season] = await db
-    .select({ registrationCloses: seasons.registrationCloses })
+    .select({ registrationCloses: seasons.registrationCloses, name: seasons.name })
     .from(seasons)
     .where(eq(seasons.id, seasonId))
     .limit(1);
@@ -343,6 +344,19 @@ export async function finalizeTeamDeposit(pi: Stripe.PaymentIntent): Promise<Fin
     seasonId,
     inviteToken: team.inviteToken,
     brand: m.brand,
+  });
+
+  // Principal ping — a reserved team is exactly the kind of money event the
+  // ops channel exists for. eventId = team id, so the finalize path and the
+  // eager-flow webhook can both fire without double-pinging.
+  await sendOpsPing(organizationId, {
+    kind: "team_reserved",
+    brand: normalizeBrand(m.brand),
+    eventId: team.id,
+    label:
+      `${teamName || "My team"} · ${season?.name ?? seasonId}` +
+      (teamFeeCents != null ? ` · fee $${(teamFeeCents / 100).toFixed(2)}` : ""),
+    amountCents: CAPTAIN_DEPOSIT_CENTS,
   });
 
   return { teamRegistrationId: team.id, inviteToken: team.inviteToken, captainUserId, created: true, wasNewUser };
