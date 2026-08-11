@@ -8,6 +8,7 @@ import {
   chargeTeamBackstop,
 } from "@/lib/payments/team-captain-charge";
 import { teamMoneyReceivedCents } from "@/lib/registrations/team-funding";
+import { sendOpsPing } from "@/lib/ops/ping";
 import { env } from "@/lib/env";
 import { captureServerException } from "@/lib/observability/server-error";
 
@@ -201,6 +202,9 @@ export const POST: APIRoute = async ({ request }) => {
     const dueTeams = await db
       .select({
         id: teamRegistrations.id,
+        organizationId: teamRegistrations.organizationId,
+        teamName: teamRegistrations.teamName,
+        brand: teamRegistrations.brand,
         teamFeeCents: teamRegistrations.teamFeeCents,
         captainUserId: teamRegistrations.captainUserId,
         captainStripeCustomerId: teamRegistrations.captainStripeCustomerId,
@@ -299,12 +303,29 @@ export const POST: APIRoute = async ({ request }) => {
             }
           }
 
+          // Principal ping — captain's card was just charged the shortfall.
+          await sendOpsPing(team.organizationId, {
+            kind: "team_backstop_charged",
+            brand: team.brand ?? "aspire",
+            eventId: team.id,
+            label: `${team.teamName} · captain card charged for the shortfall`,
+            amountCents: unpaid,
+          });
+
           charged += 1;
         } else {
           await db
             .update(teamRegistrations)
             .set({ backstopStatus: "failed", updatedAt: new Date() })
             .where(eq(teamRegistrations.id, team.id));
+
+          // Principal ping — a failed backstop needs a human TODAY.
+          await sendOpsPing(team.organizationId, {
+            kind: "team_backstop_failed",
+            brand: team.brand ?? "aspire",
+            eventId: team.id,
+            label: `${team.teamName} · $${(unpaid / 100).toFixed(2)} uncollected (${result.reason ?? result.status ?? "charge failed"})`,
+          });
 
           void captureServerException(
             new Error(

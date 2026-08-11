@@ -23,6 +23,7 @@ import { normalizeBrand, originForBrand } from "@/lib/organization/soccerone-rou
 import { fireServerPurchaseConversions } from "@/lib/analytics/server-conversions";
 import { capturePaymentCompleted } from "@/lib/observability/payment-telemetry";
 import { sendOpsPing } from "@/lib/ops/ping";
+import { teamRegistrationMembers, teamRegistrations } from "@/lib/db/schema";
 import { env } from "@/lib/env";
 
 // Handles `payment_intent.succeeded` for registration payments. Mirrors
@@ -166,6 +167,25 @@ export async function handleRegistrationPaymentSucceeded(
 
     if (row) {
       // These four sends are mutually independent (two emails, an ops ping,
+      // Team context for the ops ping: a member paying through a team link is
+      // a team event — name the team so the principals see the roster grow.
+      // Best-effort; an empty suffix on failure is fine.
+      let teamJoinSuffix = "";
+      try {
+        const [membership] = await db
+          .select({ teamName: teamRegistrations.teamName })
+          .from(teamRegistrationMembers)
+          .innerJoin(
+            teamRegistrations,
+            eq(teamRegistrationMembers.teamRegistrationId, teamRegistrations.id),
+          )
+          .where(eq(teamRegistrationMembers.registrationId, registrationId))
+          .limit(1);
+        if (membership) teamJoinSuffix = ` · joined ${membership.teamName}`;
+      } catch {
+        // non-fatal
+      }
+
       // and — only for guest checkout — a magic-link mint + email) and were
       // previously awaited serially, roughly quadrupling this section's
       // contribution to webhook ACK latency. awaitEmailSend/awaitDispatch and
@@ -253,7 +273,7 @@ export async function handleRegistrationPaymentSucceeded(
           // each one is a distinct payment event — keying on registration.id
           // would dedupe every payment after the first against the initial ping.
           eventId: paymentIntent.id,
-          label: `${row.familyMember.firstName} ${row.familyMember.lastName} · ${row.program.name} ${row.season.name}`,
+          label: `${row.familyMember.firstName} ${row.familyMember.lastName} · ${row.program.name} ${row.season.name}${teamJoinSuffix}`,
           amountCents: amountPaid,
         }),
       ];

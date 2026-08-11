@@ -28,6 +28,33 @@ describe("formatOpsPingMessage", () => {
     ).toBe("💰 [SoccerOne] Drop-in — Sam K. · Pickup, Blue Field 9pm, $15.74");
   });
 
+  it("formats team lifecycle events and pings them instantly", () => {
+    expect(
+      formatOpsPingMessage({
+        kind: "team_reserved",
+        brand: "aspire",
+        eventId: "t1",
+        label: "Sweed Tubz · Fall 2026 — Men's C · fee $975.00",
+        amountCents: 20000,
+      }),
+    ).toBe(
+      "🏆 [Aspire] Team reserved — Sweed Tubz · Fall 2026 — Men's C · fee $975.00, $200.00",
+    );
+    expect(
+      formatOpsPingMessage({
+        kind: "team_backstop_failed",
+        brand: "aspire",
+        eventId: "t2",
+        label: "Sweed Tubz · $655.00 uncollected (no_saved_card)",
+      }),
+    ).toBe(
+      "🚨 [Aspire] Team backstop FAILED — Sweed Tubz · $655.00 uncollected (no_saved_card)",
+    );
+    expect(INSTANT_KINDS.has("team_reserved")).toBe(true);
+    expect(INSTANT_KINDS.has("team_backstop_charged")).toBe(true);
+    expect(INSTANT_KINDS.has("team_backstop_failed")).toBe(true);
+  });
+
   it("formats job applications without a dollar amount and pings instantly", () => {
     expect(
       formatOpsPingMessage({
