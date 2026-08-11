@@ -106,7 +106,7 @@ export const ASPIRE_EMAIL_THEME: EmailTheme = {
     width: 140,
     height: 34,
   },
-  footerAddress: "3989 Presidential Pkwy \u00A0\u00B7\u00A0 Powell, OH 43065",
+  footerAddress: "535 Lakeview Plaza Blvd, Suite B \u00A0\u00B7\u00A0 Worthington, OH 43085",
 };
 
 export const SOCCERONE_EMAIL_THEME: EmailTheme = {
