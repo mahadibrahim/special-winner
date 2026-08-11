@@ -630,15 +630,22 @@ export async function sendBalanceReminderEmail(
 // started but never paid. Two touches ("nudge" ~1 day, "last_call" ~4 days);
 // the emailType carries the touch so email_logs dedupes each exactly once.
 export interface SendAbandonedCheckoutParams {
-  userId: string;
+  /** Solo carts have a user + registration; team carts (reservation
+   *  attempts) have neither — the email logs by recipient only. */
+  userId?: string;
   organizationId?: string;
-  registrationId: string;
+  registrationId?: string;
+  variant: import("./templates/abandoned-checkout").AbandonedCartVariant;
   parentEmail: string;
   parentName: string;
-  playerName: string;
+  /** Solo: player name. Team: team name. */
+  subjectName: string;
   programName: string;
   seasonName: string;
   amountDueCents: number;
+  /** Pre-formatted deadline (e.g. "Sunday, Sep 3") for the deadline-anchored
+   *  touches. */
+  deadlineLabel?: string;
   resumeUrl: string;
   touch: import("./templates/abandoned-checkout").AbandonedCheckoutTouch;
   brand?: BrandId;
@@ -654,28 +661,43 @@ export async function sendAbandonedCheckoutReminderEmail(
 
   const { html, text } = await renderEmail(
     AbandonedCheckoutEmail({
+      variant: params.variant,
       parentName: params.parentName,
-      playerName: params.playerName,
+      subjectName: params.subjectName,
       programName: params.programName,
       seasonName: params.seasonName,
       amountDue: formatCurrency(params.amountDueCents),
+      deadlineLabel: params.deadlineLabel,
       resumeUrl: params.resumeUrl,
       touch: params.touch,
       brand: params.brand,
     }),
   );
 
-  const subject =
-    params.touch === "nudge"
-      ? `Your spot in ${params.seasonName} is one step away`
-      : `Last call — ${params.seasonName} is filling up`;
+  const subjectByTouch: Record<typeof params.touch, string> =
+    params.variant === "team"
+      ? {
+          attempt: `${params.subjectName}'s spot is one step away`,
+          nudge: `Still building ${params.subjectName}?`,
+          closing_soon: `Team registration closes ${params.deadlineLabel ?? "soon"} — ${params.seasonName}`,
+          last_day: `Last day to reserve ${params.subjectName}'s spot`,
+        }
+      : {
+          attempt: `Your spot in ${params.seasonName} is one step away`,
+          nudge: `Still thinking it over? Your ${params.seasonName} spot is saved`,
+          closing_soon: `Registration closes ${params.deadlineLabel ?? "soon"} — ${params.seasonName}`,
+          last_day: `Today is the last day to register for ${params.seasonName}`,
+        };
+
+  const emailTypePrefix =
+    params.variant === "team" ? "team_abandoned" : "abandoned_checkout";
 
   return sendTransactionalEmail({
     userId: params.userId,
     registrationId: params.registrationId,
-    emailType: `abandoned_checkout_${params.touch}`,
+    emailType: `${emailTypePrefix}_${params.touch}`,
     to: params.parentEmail,
-    subject,
+    subject: subjectByTouch[params.touch],
     html,
     text,
     from: fromForBrand(params.brand),
