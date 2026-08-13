@@ -12,6 +12,7 @@ import { breadcrumbJsonLd } from "@/lib/seo/breadcrumbs";
 import { venueAddress } from "@/lib/seo/venue-address";
 import { getVenueFacts } from "@/lib/locations/venue-facts";
 import { CAPTAIN_DEPOSIT_DOLLARS } from "@/lib/registrations/team-deposit";
+import { ASPIRE_CANONICAL_ORIGIN } from "@/lib/seo/canonical";
 
 const origin = Astro.url.origin;
 const cookie = Astro.request.headers.get("cookie") ?? "";
@@ -113,7 +114,7 @@ const FAQ = [
   { q: "When does the season run?", a: whenAnswer },
 ];
 
-const ORIGIN = import.meta.env.PUBLIC_APP_URL || "https://aspiresportsohio.com";
+const ORIGIN = ASPIRE_CANONICAL_ORIGIN;
 const pageUrl = `${ORIGIN}/adult-flag-football-columbus`;
 const breadcrumbSchema = breadcrumbJsonLd([
   { name: "Home", url: `${ORIGIN}/` },
@@ -135,7 +136,6 @@ const faqSchema = {
   description="Adult flag football league in Columbus, Ohio: indoor 4v4 on boarded turf in Worthington. Sign up solo or bring a team — 8-game season, two 20-minute halves, no contact, every player runs routes."
 >
   <Fragment slot="head">
-    <link rel="canonical" href={pageUrl} />
     <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbSchema)} />
     <script type="application/ld+json" is:inline set:html={JSON.stringify(faqSchema)} />
   </Fragment>

@@ -37,7 +37,7 @@ const totalCents = session?.amount_total ?? order.totalCents;
 
 const money = (c: number) => `$${(c / 100).toFixed(2)}`;
 ---
-<BaseLayout title="Order confirmed — Aspire Sports" description="Your order is confirmed.">
+<BaseLayout title="Order confirmed — Aspire Sports" description="Your order is confirmed." noindex>
   <main id="main-content" class="flex-1 max-w-[640px] mx-auto w-full px-6 py-14">
     <h1 class="font-display text-3xl text-ink mb-3">Thank you!</h1>
     <p class="text-ink-muted mb-8">Your order is confirmed. A receipt is on its way to {order.email}.</p>

@@ -16,7 +16,13 @@ import { SOCCERONE_MARKETING_REWRITES } from "@/lib/organization/soccerone-routi
 // Plain .mjs module shared with astro.config.mjs (single source of truth).
 import { ASPIRE_SSR_PUBLIC_PAGES } from "@/lib/seo/aspire-sitemap-pages.mjs";
 
-/** Path prefixes crawlers should skip on every brand (auth/portal/API). */
+/**
+ * Path prefixes crawlers should skip on every brand (auth/portal/API).
+ * Keep in sync with PRIVATE_PREFIXES in astro.config.mjs — that list controls
+ * what enters the sitemap, this one controls what crawlers fetch. A route
+ * missing from either leaks: /portal, /staff and /referee were in the sitemap
+ * and crawlable while 302-ing straight to /signin.
+ */
 const DISALLOW = [
   "/admin/",
   "/coach/",
@@ -33,7 +39,26 @@ const DISALLOW = [
   "/verify-email",
   "/m/",
   "/auth/",
+  "/portal",
+  "/staff/",
+  "/host/",
+  "/referee/",
+  "/drop-league/dashboard",
+  "/register/",
+  "/team/",
+  "/feedback/",
+  "/email-link-signin",
+  "/dropin/claim/",
+  "/rentals/claim/",
 ] as const;
+
+// Deliberately NOT disallowed here: /shop/checkout, /shop/order and
+// /consent/confirmed. Those are reachable from order and email links, and a
+// robots.txt block would stop Google fetching them — which means it never
+// sees their `noindex` and can still list a bare URL with no snippet. They
+// carry <meta name="robots" content="noindex"> instead (BaseLayout `noindex`),
+// which is the stronger signal, and they stay out of the sitemap via
+// PRIVATE_PREFIXES in astro.config.mjs.
 
 export function robotsTxt(origin: string): string {
   const lines = [

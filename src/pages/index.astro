@@ -15,7 +15,7 @@ import CTABanner from '../components/cta-banner';
 import CaptureBand from '../components/marketing/capture-band';
 import { getActiveSiteAnnouncement } from '@/lib/marketing/site-announcement';
 import { setMarketingEdgeCache } from '@/lib/http/edge-cache';
-import { ASPIRE_ORG_JSONLD } from '@/lib/seo/aspire-jsonld';
+import { ASPIRE_ORG_JSONLD, ASPIRE_WEBSITE_JSONLD } from '@/lib/seo/aspire-jsonld';
 const announcement = getActiveSiteAnnouncement(Astro.locals.organization, "home");
 setMarketingEdgeCache(Astro);
 ---
@@ -26,6 +26,7 @@ setMarketingEdgeCache(Astro);
 >
   <Fragment slot="head">
     <script type="application/ld+json" is:inline set:html={JSON.stringify(ASPIRE_ORG_JSONLD)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(ASPIRE_WEBSITE_JSONLD)} />
   </Fragment>
 
   <main id="main-content">

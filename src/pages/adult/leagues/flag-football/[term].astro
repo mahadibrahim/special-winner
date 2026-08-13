@@ -147,7 +147,8 @@ const heroPhoto = "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?
 import { breadcrumbJsonLd } from "@/lib/seo/breadcrumbs";
 import { seasonsToLeagueEvents } from "@/lib/seo/events";
 import { divisionSlugMap, divisionNaming } from "@/lib/leagues/division-slug";
-const ORIGIN = import.meta.env.PUBLIC_APP_URL || "https://aspiresportsohio.com";
+import { ASPIRE_CANONICAL_ORIGIN } from "@/lib/seo/canonical";
+const ORIGIN = ASPIRE_CANONICAL_ORIGIN;
 
 // Per-division Event rich results — street-level venue address, request-time
 // (early-bird-aware) offers pulled from the API rows, never hardcoded.

@@ -5,6 +5,7 @@ import { LandingTabs } from "@/components/leagues/landing-tabs";
 import { FORMAT_FACTS, RULE_SECTIONS, FAQ, WHY_4V4, DIVISION_CALLOUTS } from "@/lib/leagues/adult-flag-football-content";
 import { partitionTerms, type TermSeason } from "@/lib/leagues/terms";
 import { breadcrumbJsonLd } from "@/lib/seo/breadcrumbs";
+import { ASPIRE_CANONICAL_ORIGIN } from "@/lib/seo/canonical";
 
 const origin = Astro.url.origin;
 const cookie = Astro.request.headers.get("cookie") ?? "";
@@ -61,7 +62,7 @@ const sportSchema = {
   },
 };
 
-const ORIGIN = import.meta.env.PUBLIC_APP_URL || "https://aspiresportsohio.com";
+const ORIGIN = ASPIRE_CANONICAL_ORIGIN;
 const breadcrumbSchema = breadcrumbJsonLd([
   { name: "Home", url: `${ORIGIN}/` },
   { name: "Adult", url: `${ORIGIN}/adult` },
