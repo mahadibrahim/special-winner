@@ -2,14 +2,16 @@
 // PostHog client snippet — analytics + session replay + error tracking.
 //
 // PII posture for Aspire Sports:
-//   - Replays record page text and form inputs as-is. Passwords are masked;
-//     card details are unreachable (Stripe Elements are cross-origin iframes);
-//     avatar/media images are blocked.
-//   - Everything else is captured, INCLUDING child PII (names, DOBs, coach and
-//     medical notes) on the dashboard, rosters, tagger, and admin pages. Treat
-//     PostHog project access as access to that data.
-//   - To withhold a specific surface: `ph-no-capture` class or
-//     `data-ph-no-capture` attr blocks the element from replays entirely.
+//   - Replays record page text and form inputs as-is by default. Passwords
+//     are masked; card details are unreachable (Stripe Elements are
+//     cross-origin iframes); avatar/media images are blocked.
+//   - Child PII (names, DOBs, coach/medical notes) on the parent dashboard,
+//     coach portal, registration wizard, and admin people/team pages is
+//     masked at the element level via the `ph-mask` class (maskTextClass
+//     below) rather than a global mask — this keeps heatmaps/replay of the
+//     rest of the UI useful while withholding kids' data specifically.
+//   - To withhold a specific surface entirely: `ph-no-capture` class or
+//     `data-ph-no-capture` attr blocks the element from replays.
 
 // Authed account holder for client-side identify-on-load. On SSR pages the
 // middleware already validated the session, so we can identify immediately
@@ -59,22 +61,25 @@ const phUser = (!Astro.isPrerendered && !edgeCached && Astro.locals.user)
       // Heatmaps (pointer/rage-click/scroll depth) — independent of autocapture
       // and of replay masking.
       capture_heatmaps: true,
-      // Session replay — text and inputs are recorded as-is. Only the things
-      // that are genuinely unsafe to keep are withheld:
+      // Session replay — text and inputs are recorded as-is EXCEPT:
       //   - password inputs (masked below; never useful in a replay)
       //   - card details: Stripe Elements are cross-origin iframes, so the
       //     recorder cannot see inside them at all. The blockSelector entry is
       //     belt-and-suspenders, not the actual mechanism.
       //   - uploaded photos (avatar/media URLs) stay blocked.
-      // Anything else — including kids' names, DOBs, and coach/medical notes on
-      // the dashboard, rosters, and admin pages — WILL appear in replays. That
-      // is a deliberate call; if it needs to change, add `ph-mask` to those
-      // elements and set maskTextClass rather than reinstating a global mask.
+      //   - elements carrying `ph-mask` (maskTextClass below) — used on child
+      //     names, DOBs, and coach/medical notes across the dashboard, coach
+      //     portal, registration wizard, and admin people/team pages.
       session_recording: {
         maskAllInputs: false,
         maskInputOptions: {
           password: true,
         },
+        // Child PII (names, DOBs, coach/medical notes) is masked at the
+        // element level rather than globally — add `ph-mask` to any element
+        // that renders it. See the surfaces listed in `ph-mask` usages
+        // under src/components/{dashboard,coach,registration,admin}.
+        maskTextClass: 'ph-mask',
         // CSS selectors below are blocked from recording entirely. Add
         // `data-ph-no-capture` to any element that should never appear in
         // replays.

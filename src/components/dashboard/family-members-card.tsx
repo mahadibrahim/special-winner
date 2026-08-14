@@ -162,7 +162,7 @@ export default function FamilyMembersCard() {
       title: "Delete this child's record?",
       description: member ? (
         <>
-          Permanently delete <strong>{member.firstName} {member.lastName}</strong> and all associated data — registrations, photos, roster entries, and assessments. This cannot be undone.
+          Permanently delete <strong className="ph-mask">{member.firstName} {member.lastName}</strong> and all associated data — registrations, photos, roster entries, and assessments. This cannot be undone.
         </>
       ) : (
         "Permanently delete this child's record and all associated data? This cannot be undone."
@@ -361,7 +361,7 @@ export default function FamilyMembersCard() {
                         value={firstName}
                         onChange={(e) => setFirstName(e.target.value)}
                         required
-                        className="bg-cream-2 border-border text-ink"
+                        className="bg-cream-2 border-border text-ink ph-mask"
                       />
                     </div>
                     <div className="space-y-2">
@@ -371,7 +371,7 @@ export default function FamilyMembersCard() {
                         value={lastName}
                         onChange={(e) => setLastName(e.target.value)}
                         required
-                        className="bg-cream-2 border-border text-ink"
+                        className="bg-cream-2 border-border text-ink ph-mask"
                       />
                     </div>
                   </div>
@@ -384,7 +384,7 @@ export default function FamilyMembersCard() {
                         value={birthDate}
                         onChange={(e) => setBirthDate(e.target.value)}
                         required
-                        className="bg-cream-2 border-border text-ink"
+                        className="bg-cream-2 border-border text-ink ph-mask"
                       />
                     </div>
                     <div className="space-y-2">
@@ -446,7 +446,7 @@ export default function FamilyMembersCard() {
                           required
                         />
                         <span>
-                          I am the parent or legal guardian of <strong>{firstName || "this child"}{lastName ? ` ${lastName}` : ""}</strong> and I consent to Aspire Sports collecting and storing the information above for the purpose of sports program registration, safety, and communication.
+                          I am the parent or legal guardian of <strong className="ph-mask">{firstName || "this child"}{lastName ? ` ${lastName}` : ""}</strong> and I consent to Aspire Sports collecting and storing the information above for the purpose of sports program registration, safety, and communication.
                         </span>
                       </label>
                       <p id="parental-consent-help" className="text-xs text-ink-faint pl-7">
@@ -537,7 +537,7 @@ export default function FamilyMembersCard() {
                           className="w-10 h-10 rounded-full object-cover"
                         />
                       ) : (
-                        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold">
+                        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-semibold ph-mask">
                           {member.firstName[0]}{member.lastName[0]}
                         </div>
                       )}
@@ -550,14 +550,14 @@ export default function FamilyMembersCard() {
                     </div>
                     <div>
                       <p className="font-medium text-ink flex items-center gap-2">
-                        {member.firstName} {member.lastName}
+                        <span className="ph-mask">{member.firstName} {member.lastName}</span>
                         {member.kind === "self" && (
                           <span className="text-xs px-2 py-0.5 rounded bg-primary/10 text-primary font-medium">
                             You
                           </span>
                         )}
                       </p>
-                      <div className="flex items-center gap-2 text-sm text-ink-muted">
+                      <div className="flex items-center gap-2 text-sm text-ink-muted ph-mask">
                         <Calendar className="w-3 h-3" />
                         {calculateAge(member.birthDate) != null
                           ? `Age ${calculateAge(member.birthDate)}`
@@ -598,10 +598,10 @@ export default function FamilyMembersCard() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Camera className="w-5 h-5 text-primary" />
-              {photoUploadMember?.firstName}'s Photo
+              <span className="ph-mask">{photoUploadMember?.firstName}'s Photo</span>
             </DialogTitle>
             <DialogDescription className="text-ink-muted">
-              Upload a profile photo for {photoUploadMember?.firstName}. This will be visible to coaches and staff.
+              Upload a profile photo for <span className="ph-mask">{photoUploadMember?.firstName}</span>. This will be visible to coaches and staff.
             </DialogDescription>
           </DialogHeader>
 
@@ -666,7 +666,7 @@ export default function FamilyMembersCard() {
                     required
                   />
                   <span>
-                    I have the right to share this photo of <strong>{photoUploadMember?.firstName}</strong> and I consent to it being displayed in rosters and shared with coaches and staff.
+                    I have the right to share this photo of <strong className="ph-mask">{photoUploadMember?.firstName}</strong> and I consent to it being displayed in rosters and shared with coaches and staff.
                   </span>
                 </label>
                 <p id="photo-consent-help" className="text-xs text-ink-faint pl-7">
