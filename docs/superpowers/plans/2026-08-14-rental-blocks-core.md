@@ -973,13 +973,22 @@ describe("quote markers", () => {
   });
 
   it("ignores expired markers", async () => {
+    // Isolated slot: earlier cases leave LIVE markers on `slot`, so asserting
+    // zero against that slot would fail on their rows, not on expiry.
+    const lonely = {
+      ...slot,
+      startsAt: new Date(Date.UTC(2039, 5, 1, 1)),
+      endsAt: new Date(Date.UTC(2039, 5, 1, 2)),
+    };
     const id = await makeBlock("Marker Expired");
-    await replaceQuoteMarkers(id, [slot], 14);
+    await replaceQuoteMarkers(id, [lonely], 14);
+    expect((await findCompetingQuotes([lonely])).size).toBe(1);
+
     await getDb()
       .update(fieldRentalBlockQuoteSlots)
       .set({ expiresAt: new Date(Date.now() - 1000) })
       .where(eq(fieldRentalBlockQuoteSlots.blockId, id));
-    expect((await findCompetingQuotes([slot])).size).toBe(0);
+    expect((await findCompetingQuotes([lonely])).size).toBe(0);
   });
 
   it("clears markers for a block", async () => {
@@ -1394,7 +1403,7 @@ Expected: FAIL — cannot resolve `@/lib/rentals/blocks/create`.
 
 Create `src/lib/rentals/blocks/create.ts`. Key requirements, in order:
 
-1. `resolveSessionList(input)` — pure: `generateBlockSessions(input.pattern)`, filter out `excludedKeys`, apply `sessionOverrides` (recomputing `startsAt`/`endsAt` via `localMinuteToUtc` when `startMinute`/`durationMinutes`/`venueId` change), concat `extraSessions`, sort by `startsAt`. Throw if the result is empty.
+1. `resolveSessionList(input)` — pure: `generateBlockSessions(input.pattern)`, filter out `excludedKeys`, apply `sessionOverrides` (recomputing `startsAt`/`endsAt` via `localMinuteToUtc` when `startMinute`/`durationMinutes`/`venueId` change), concat `extraSessions`, sort by `startsAt`. It does **not** throw on an empty result — it returns `[]`. `createRentalBlock` is the one that rejects: an empty list returns `{ ok: false, error: "A block needs at least one session", conflicts: [] }`, never a thrown error, because the endpoint in Task 6 maps results rather than catching.
 2. `resolveVenueFieldNumbers(venueIds)` — one query against `venueResources` for top-level rows (`parentResourceId IS NULL`), returning `venueId → fieldNumber` (default `1` when a venue has no resource rows, matching the availability fallback).
 3. `quoteBlock(sessions, input.pricingContext, { discount, depositPct })` for the money.
 4. `mode === "draft"`: insert the block with `status: "draft"`, `pattern` stored as jsonb (pattern + `excludedKeys` + `sessionOverrides` + `extraSessions`), the quote totals, **no sessions**; then `replaceQuoteMarkers(blockId, slots, rateCard.quoteMarkerTtlDays)`. Return.
