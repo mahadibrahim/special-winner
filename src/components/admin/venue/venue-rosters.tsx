@@ -108,7 +108,7 @@ export function VenueRosters() {
                   <TableBody>
                     {team.players.map((player, i) => (
                       <TableRow key={i}>
-                        <TableCell>{player.playerName}</TableCell>
+                        <TableCell className="ph-mask">{player.playerName}</TableCell>
                         <TableCell className="text-muted-foreground">
                           {player.jerseyNumber ?? <span className="text-muted-foreground/50">—</span>}
                         </TableCell>

@@ -216,7 +216,7 @@ export function PersonHeader({ profile, personAs, onPhotoUploaded }: PersonHeade
         </div>
 
         <div className="min-w-0">
-          <div className="text-[21px] font-[700] leading-[1.1] text-[#1c1a17]">
+          <div className="text-[21px] font-[700] leading-[1.1] text-[#1c1a17] ph-mask">
             {profile.name}
           </div>
           {/* Type badge */}
@@ -228,7 +228,7 @@ export function PersonHeader({ profile, personAs, onPhotoUploaded }: PersonHeade
           </span>
           {/* Meta: birth date — suppress sentinel/null DOBs */}
           {isKnownDob(profile.birthDate) && (
-            <div className="text-[12px] text-[#4b463e] mt-1">
+            <div className="text-[12px] text-[#4b463e] mt-1 ph-mask">
               born {fmtDate(profile.birthDate)}
             </div>
           )}

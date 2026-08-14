@@ -347,7 +347,7 @@ export function RosterManager({ teamId }: RosterManagerProps) {
                         placeholder="--"
                       />
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="ph-mask">
                       {roster.registration.familyMember.firstName}{" "}
                       {roster.registration.familyMember.lastName}
                     </TableCell>
@@ -416,7 +416,7 @@ export function RosterManager({ teamId }: RosterManagerProps) {
                   </SelectTrigger>
                   <SelectContent>
                     {availablePlayers.map((player) => (
-                      <SelectItem key={player.id} value={player.id}>
+                      <SelectItem key={player.id} value={player.id} className="ph-mask">
                         {player.familyMember.firstName} {player.familyMember.lastName}
                       </SelectItem>
                     ))}
