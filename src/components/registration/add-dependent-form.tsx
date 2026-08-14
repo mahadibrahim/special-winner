@@ -52,7 +52,7 @@ export function AddDependentForm({
             id="dependent-first"
             value={firstName}
             onChange={(e) => onFirstNameChange(e.target.value)}
-            className="bg-cream-2 border-border text-ink focus:border-primary placeholder:text-ink-faint"
+            className="bg-cream-2 border-border text-ink focus:border-primary placeholder:text-ink-faint ph-mask"
           />
         </div>
         <div className="space-y-2">
@@ -61,7 +61,7 @@ export function AddDependentForm({
             id="dependent-last"
             value={lastName}
             onChange={(e) => onLastNameChange(e.target.value)}
-            className="bg-cream-2 border-border text-ink focus:border-primary placeholder:text-ink-faint"
+            className="bg-cream-2 border-border text-ink focus:border-primary placeholder:text-ink-faint ph-mask"
           />
         </div>
       </div>
@@ -73,7 +73,7 @@ export function AddDependentForm({
             type="date"
             value={birthDate}
             onChange={(e) => onBirthDateChange(e.target.value)}
-            className="bg-cream-2 border-border text-ink focus:border-primary"
+            className="bg-cream-2 border-border text-ink focus:border-primary ph-mask"
           />
         </div>
         <div className="space-y-2">

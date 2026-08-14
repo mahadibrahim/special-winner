@@ -371,14 +371,14 @@ export default function PlayerAssessmentDetail({
               className="w-full h-full rounded-2xl object-cover"
             />
           ) : (
-            <span className="text-2xl font-semibold text-primary">{initials}</span>
+            <span className="text-2xl font-semibold text-primary ph-mask">{initials}</span>
           )}
         </div>
 
         {/* Info */}
         <div className="flex-1">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mb-2">
-            <h1 className="text-2xl sm:text-3xl font-bold text-ink">
+            <h1 className="text-2xl sm:text-3xl font-bold text-ink ph-mask">
               {player.firstName} {player.lastName}
             </h1>
             {age && (
@@ -518,7 +518,7 @@ export default function PlayerAssessmentDetail({
               <Target className="w-12 h-12 text-ink-faint mx-auto mb-3" />
               <h3 className="text-lg font-medium text-ink mb-2">No Skills Assessed Yet</h3>
               <p className="text-sm text-ink-muted max-w-sm mx-auto mb-4">
-                Start assessing {player.firstName}'s skills to track their development progress.
+                Start assessing <span className="ph-mask">{player.firstName}</span>'s skills to track their development progress.
               </p>
               <Button onClick={() => setAssessmentModalOpen(true)} className="gap-2">
                 <Plus className="w-4 h-4" />

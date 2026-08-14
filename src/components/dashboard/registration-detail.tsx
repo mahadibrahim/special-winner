@@ -290,7 +290,7 @@ export default function RegistrationDetail({ registrationId }: { registrationId:
               <p className="text-base text-ink-muted mt-1">{registration.season.name}</p>
               <p className="text-sm text-ink-muted mt-1">
                 Registered for{" "}
-                <span className="text-ink font-medium">
+                <span className="text-ink font-medium ph-mask">
                   {registration.familyMember.firstName} {registration.familyMember.lastName}
                 </span>
               </p>
@@ -472,7 +472,7 @@ export default function RegistrationDetail({ registrationId }: { registrationId:
               <Users className="w-4 h-4 text-primary" />
               Athlete
             </h2>
-            <p className="text-ink font-medium">
+            <p className="text-ink font-medium ph-mask">
               {registration.familyMember.firstName} {registration.familyMember.lastName}
             </p>
             <Button asChild variant="outline" size="sm" className="mt-4 border-border text-ink-2 hover:bg-cream-2">

@@ -390,7 +390,7 @@ export function WhoStep({
             } ${!d.ageEligible || d.registered ? "opacity-50 cursor-not-allowed" : ""}`}
           >
             <div className="font-semibold flex items-center gap-2">
-              <span>{d.firstName} {d.lastName}</span>
+              <span className="ph-mask">{d.firstName} {d.lastName}</span>
               {d.registered && (
                 <span className="text-xs font-medium text-emerald-700 bg-emerald-500/10 px-2 py-0.5 rounded-full">
                   Registered ✓
