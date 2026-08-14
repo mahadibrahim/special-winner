@@ -300,8 +300,22 @@ surfaces those reserves as conflicts with their label.
 
 Drafts hold nothing firm, but they are not invisible.
 
-Saving a draft writes expiring **quote markers** to the ledger
-(`quote_marker_ttl_days`, default 14). Markers never block anyone — they surface
+Saving a draft writes expiring **quote markers** to their own small table,
+`field_rental_block_quote_slots` (`quote_marker_ttl_days`, default 14).
+
+They deliberately do **not** go in the field-time ledger: `assertNoBlockConflict`
+treats every unexpired `resource_blocks` row as a hard conflict, so a marker
+written there would block competing quotes — the exact opposite of the intent.
+Markers live outside the conflict path and are read for display only.
+
+```
+field_rental_block_quote_slots
+  id, block_id → field_rental_blocks (cascade)
+  venue_id, field_number, starts_at, ends_at, expires_at
+  index (venue_id, starts_at)
+```
+
+Markers never block anyone — they surface
 in the builder and the calendar as "also quoted to *X* · Nov 1", so whoever
 builds the next block sees the contention. Sending a deposit link upgrades the
 block's slots to a **firm hold** for `block_hold_hours`; paying the deposit
@@ -496,9 +510,10 @@ ships on its own (the 55P04 lesson from `0097`/`0098`):
 1. `NNNN_rental_block_status_enum.sql` — `field_rental_block_status` only,
    written idempotently (`DO $$ BEGIN CREATE TYPE … EXCEPTION WHEN
    duplicate_object THEN null; END $$;`).
-2. `NNNN_rental_blocks.sql` — `field_rental_blocks` table,
-   `field_rentals.block_id` + index, the four `field_rental_rate_card` columns,
-   all with `IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS`.
+2. `NNNN_rental_blocks.sql` — `field_rental_blocks` and
+   `field_rental_block_quote_slots` tables, `field_rentals.block_id` + index,
+   the four `field_rental_rate_card` columns, all with `IF NOT EXISTS` /
+   `ADD COLUMN IF NOT EXISTS`.
 
 Generated via `npm run db:generate` and committed. Nothing destructive; all
 forward-compatible.
