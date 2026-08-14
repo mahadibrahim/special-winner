@@ -177,7 +177,7 @@ export default function WrapUp({
                       status === "present" ? "" : "bg-cream-2 opacity-60"
                     }`}
                   >
-                    <span>
+                    <span className="ph-mask">
                       {r.firstName} {r.lastName}
                     </span>
                     <span className="text-sm">{status}</span>
@@ -211,8 +211,8 @@ export default function WrapUp({
               const decision = decisions[c.clientId];
               return (
                 <li key={c.clientId} className="rounded-xl border border-border bg-paper p-3">
-                  <p className="font-medium text-ink">{player?.firstName ?? "Player"}</p>
-                  <p className="text-sm text-ink-muted">{c.note ?? c.kind}</p>
+                  <p className="font-medium text-ink ph-mask">{player?.firstName ?? "Player"}</p>
+                  <p className="text-sm text-ink-muted ph-mask">{c.note ?? c.kind}</p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {(
                       [
@@ -252,7 +252,7 @@ export default function WrapUp({
               value={worked}
               onChange={(e) => setWorked(e.target.value)}
               rows={3}
-              className="w-full rounded-lg border border-border bg-paper p-3 text-ink"
+              className="w-full rounded-lg border border-border bg-paper p-3 text-ink ph-mask"
             />
           </div>
           <div>
@@ -265,7 +265,7 @@ export default function WrapUp({
               value={improve}
               onChange={(e) => setImprove(e.target.value)}
               rows={3}
-              className="w-full rounded-lg border border-border bg-paper p-3 text-ink"
+              className="w-full rounded-lg border border-border bg-paper p-3 text-ink ph-mask"
             />
           </div>
         </section>

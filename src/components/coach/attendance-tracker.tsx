@@ -334,7 +334,7 @@ export function AttendanceTracker({ teamId }: AttendanceTrackerProps) {
                           {player.jerseyNumber || "-"}
                         </TableCell>
                         <TableCell>
-                          <div className="font-medium">
+                          <div className="font-medium ph-mask">
                             {player.familyMember.firstName} {player.familyMember.lastName}
                           </div>
                           {player.position && (
@@ -436,7 +436,7 @@ export function AttendanceTracker({ teamId }: AttendanceTrackerProps) {
                   if (!playerStats) return null
                   return (
                     <TableRow key={player.id}>
-                      <TableCell className="font-medium">
+                      <TableCell className="font-medium ph-mask">
                         {player.familyMember.firstName} {player.familyMember.lastName}
                       </TableCell>
                       <TableCell className="text-center">
