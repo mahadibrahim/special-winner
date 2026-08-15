@@ -199,24 +199,28 @@ export async function handleTeamDepositSucceeded(
 
     // Deposit receipt — the captain's durable copy of the join link + next
     // steps. Same exactly-once gate as the capture above (ledgerRowInserted).
-    // The season-name lookup lives inside this try/catch too: a transient DB
-    // blip here must never throw out of the handler — depositPaymentId is
-    // already committed by this point, so a thrown error would 500 the
-    // webhook, Stripe would retry, and the retry would short-circuit at the
-    // dedupe gate above, permanently losing this email (the capture above has
-    // already fired by then, so it's safe either way). Awaited so the
-    // serverless function doesn't freeze mid-send; any failure here logs and
-    // never fails the webhook.
+    // Awaited so the serverless function doesn't freeze mid-send; any failure
+    // here logs and never fails the webhook.
+    //
+    // The season-name lookup carries its own try/catch for the same reason: a
+    // transient DB blip must never throw out of the handler, because
+    // depositPaymentId is already committed by this point, so a thrown error
+    // would 500 the webhook, Stripe would retry, and the retry would
+    // short-circuit at the dedupe gate above, permanently losing this email
+    // (the capture above has already fired by then, so it's safe either way).
+    // It sits OUTSIDE the receipt's try/catch because the ops ping below needs
+    // the same name, and a raw uuid in the ops channel is unreadable.
+    let seasonRow: { name: string } | undefined;
     try {
-      let seasonRow: { name: string } | undefined;
-      try {
-        [seasonRow] = await db
-          .select({ name: seasons.name })
-          .from(seasons)
-          .where(eq(seasons.id, team.seasonId));
-      } catch (err) {
-        console.error("[team-deposit] season name lookup failed:", err);
-      }
+      [seasonRow] = await db
+        .select({ name: seasons.name })
+        .from(seasons)
+        .where(eq(seasons.id, team.seasonId));
+    } catch (err) {
+      console.error("[team-deposit] season name lookup failed:", err);
+    }
+
+    try {
       await sendTeamDepositReceiptEmail({
         to: team.captainEmail,
         captainName: team.captainName,
@@ -241,7 +245,7 @@ export async function handleTeamDepositSucceeded(
       brand: normalizeBrand(md.brand ?? team.brand),
       eventId: team.id,
       label:
-        `${team.teamName} · ${team.seasonId}` +
+        `${team.teamName} · ${seasonRow?.name ?? team.seasonId}` +
         (team.teamFeeCents != null ? ` · fee $${(team.teamFeeCents / 100).toFixed(2)}` : ""),
       amountCents: team.depositCents ?? CAPTAIN_DEPOSIT_CENTS,
     });
