@@ -29,6 +29,7 @@ import {
 } from "@/lib/scheduling/blocks";
 import { resolveTopLevelResourceId, syncRentalBlock } from "@/lib/scheduling/sync";
 import {
+  findInBatchOverlaps,
   generateBlockSessions,
   localMinuteToUtc,
   type BlockPattern,
@@ -189,6 +190,20 @@ export async function createRentalBlock(
   }
 
   const fieldNumbers = await resolveVenueFieldNumbers(sessions.map((s) => s.venueId));
+
+  // The per-session checks below only ever compare a session against rows
+  // already in the database, so a batch that collides with ITSELF (a duplicate
+  // venue in the pattern, an override landing on a sibling's field and time)
+  // would commit two rows on one slot and charge for both. Refuse before any
+  // insert, and name the sessions at fault.
+  const overlaps = findInBatchOverlaps(sessions, fieldNumbers);
+  if (overlaps.length > 0) {
+    return {
+      ok: false,
+      error: `${overlaps.length} session${overlaps.length === 1 ? "" : "s"} overlap other sessions in this block`,
+      conflicts: overlaps,
+    };
+  }
 
   // A reserve is inventory being fenced, not sold: it never gets priced and
   // never becomes a block row.

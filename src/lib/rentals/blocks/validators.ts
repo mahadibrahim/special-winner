@@ -106,7 +106,10 @@ function validatePattern(raw: unknown): { ok: true; value: BlockPattern } | { ok
       weekday: weekday as number,
       startMinute: startMinute as number,
       durationMinutes: durationMinutes as number,
-      venueIds: venueIds as string[],
+      // Deduped: the generator emits one session per venue per matching date,
+      // so a venue listed twice would produce two identical sessions (same key,
+      // same slot) and the renter would be charged twice for one field.
+      venueIds: [...new Set(venueIds as string[])],
     });
   }
 

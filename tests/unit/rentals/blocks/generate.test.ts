@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { generateBlockSessions, localMinuteToUtc } from "@/lib/rentals/blocks/generate";
+import {
+  findInBatchOverlaps,
+  generateBlockSessions,
+  localMinuteToUtc,
+} from "@/lib/rentals/blocks/generate";
 
 const TZ = "America/New_York";
 const V1 = "11111111-1111-1111-1111-111111111111";
@@ -116,5 +120,83 @@ describe("generateBlockSessions", () => {
 describe("localMinuteToUtc", () => {
   it("rolls minutes past midnight onto the following date", () => {
     expect(localMinuteToUtc("2026-01-06", 1470, TZ).toISOString()).toBe("2026-01-07T05:30:00.000Z");
+  });
+});
+
+describe("findInBatchOverlaps", () => {
+  const slot = (key: string, venueId: string, startsAt: string, endsAt: string) => ({
+    key,
+    venueId,
+    startsAt: new Date(startsAt),
+    endsAt: new Date(endsAt),
+  });
+
+  it("passes a clean batch", () => {
+    expect(
+      findInBatchOverlaps([
+        slot("a", V1, "2026-01-06T01:00:00Z", "2026-01-06T02:00:00Z"),
+        slot("b", V1, "2026-01-13T01:00:00Z", "2026-01-13T02:00:00Z"),
+        slot("c", V2, "2026-01-06T01:00:00Z", "2026-01-06T02:00:00Z"),
+      ]),
+    ).toEqual([]);
+  });
+
+  it("treats back-to-back sessions on one field as clean", () => {
+    expect(
+      findInBatchOverlaps([
+        slot("a", V1, "2026-01-06T01:00:00Z", "2026-01-06T02:00:00Z"),
+        slot("b", V1, "2026-01-06T02:00:00Z", "2026-01-06T03:00:00Z"),
+      ]),
+    ).toEqual([]);
+  });
+
+  it("catches a venue listed twice: identical keys on one slot", () => {
+    const dup = slot("2026-01-06|" + V1 + "|1200", V1, "2026-01-06T01:00:00Z", "2026-01-06T02:00:00Z");
+    const found = findInBatchOverlaps([dup, { ...dup }]);
+    expect(found).toHaveLength(1);
+    expect(found[0].key).toBe(dup.key);
+    expect(found[0].reason).toContain("twice");
+  });
+
+  it("catches an override landing on another session's venue and time", () => {
+    const found = findInBatchOverlaps([
+      slot("tue", V1, "2026-01-06T01:00:00Z", "2026-01-06T02:00:00Z"),
+      slot("thu-moved", V1, "2026-01-06T01:30:00Z", "2026-01-06T02:30:00Z"),
+    ]);
+    expect(found).toEqual([
+      {
+        key: "thu-moved",
+        reason: "overlaps another session in this block (tue) on the same field",
+      },
+    ]);
+  });
+
+  it("names the earlier session even when it swallows several later ones", () => {
+    const found = findInBatchOverlaps([
+      slot("long", V1, "2026-01-06T01:00:00Z", "2026-01-06T05:00:00Z"),
+      slot("short-1", V1, "2026-01-06T02:00:00Z", "2026-01-06T03:00:00Z"),
+      slot("short-2", V1, "2026-01-06T03:00:00Z", "2026-01-06T04:00:00Z"),
+    ]);
+    expect(found.map((f) => f.key)).toEqual(["short-1", "short-2"]);
+    expect(found.every((f) => f.reason.includes("long"))).toBe(true);
+  });
+
+  it("separates fields: the same venue on two field numbers does not collide", () => {
+    const found = findInBatchOverlaps(
+      [
+        slot("a", V1, "2026-01-06T01:00:00Z", "2026-01-06T02:00:00Z"),
+        slot("b", V2, "2026-01-06T01:00:00Z", "2026-01-06T02:00:00Z"),
+      ],
+      { [V1]: 1, [V2]: 2 },
+    );
+    expect(found).toEqual([]);
+  });
+
+  it("catches overlaps generated from a duplicated venue in the pattern", () => {
+    const sessions = generateBlockSessions({
+      ...tuesdays8pm,
+      days: [{ weekday: 2, startMinute: 1200, durationMinutes: 60, venueIds: [V1, V1] }],
+    });
+    expect(findInBatchOverlaps(sessions)).toHaveLength(sessions.length / 2);
   });
 });

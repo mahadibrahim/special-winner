@@ -45,6 +45,62 @@ export interface GeneratedSession {
   endsAt: Date;
 }
 
+export interface SessionOverlap {
+  key: string;
+  reason: string;
+}
+
+/**
+ * Does this batch collide with ITSELF? The conflict checks in the commit path
+ * all compare a session against rows already in the database, so nothing there
+ * notices two sessions of the SAME new block sitting on one field at one time.
+ * Two ways that happens: a duplicate venue id in `pattern.days[].venueIds`
+ * (which generates two rows with an identical key), and a `sessionOverride`
+ * that moves a session onto a sibling's venue and time. Either way the renter
+ * is charged twice for one slot, so the commit has to refuse.
+ *
+ * Overlap is half-open, [startsAt, endsAt): a session ending at 9:00 and one
+ * starting at 9:00 on the same field are back-to-back, not a collision. The
+ * LATER session of each pair is reported, naming the one it runs into.
+ */
+export function findInBatchOverlaps(
+  sessions: Array<Pick<GeneratedSession, "key" | "venueId" | "startsAt" | "endsAt">>,
+  fieldNumbers: Record<string, number> = {},
+): SessionOverlap[] {
+  const byField = new Map<string, typeof sessions>();
+  for (const s of sessions) {
+    const field = `${s.venueId}|${fieldNumbers[s.venueId] ?? 1}`;
+    const bucket = byField.get(field);
+    if (bucket) bucket.push(s);
+    else byField.set(field, [s]);
+  }
+
+  const out: SessionOverlap[] = [];
+  for (const bucket of byField.values()) {
+    const ordered = [...bucket].sort(
+      (a, b) => a.startsAt.getTime() - b.startsAt.getTime() || a.key.localeCompare(b.key),
+    );
+    for (let i = 1; i < ordered.length; i += 1) {
+      // Compare against every earlier session, not just the previous one: a
+      // long session can swallow several short ones after it.
+      for (let j = 0; j < i; j += 1) {
+        const earlier = ordered[j];
+        const later = ordered[i];
+        if (earlier.endsAt <= later.startsAt) continue;
+        out.push({
+          key: later.key,
+          reason:
+            earlier.key === later.key
+              ? "this session appears twice in the block (the same field is listed more than once)"
+              : `overlaps another session in this block (${earlier.key}) on the same field`,
+        });
+        break;
+      }
+    }
+  }
+  return out;
+}
+
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** `zonedMinuteToUtc` is capped at 1440; roll past-midnight minutes to the next date. */
