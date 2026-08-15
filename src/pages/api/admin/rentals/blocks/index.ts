@@ -189,5 +189,10 @@ export const POST: APIRoute = async (context) => {
     return json({ error: result.error, conflicts: [] }, 400);
   }
 
+  // A reserve writes ledger holds only, so it has no block to link to.
+  if (body.mode === "internal_reserve") {
+    return json({ reserved: true, reservedCount: result.reservedCount ?? 0 }, 200);
+  }
+
   return json({ blockId: result.blockId, sessionIds: result.sessionIds }, 200);
 };

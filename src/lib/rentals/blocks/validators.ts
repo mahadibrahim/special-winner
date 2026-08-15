@@ -15,7 +15,7 @@ import type { BlockCommitMode } from "./create";
 const UUID_RX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DATE_RX = /^\d{4}-\d{2}-\d{2}$/;
 const BRANDS = ["soccerone", "aspire"] as const;
-const MODES = ["draft", "send_deposit", "paid_offline"] as const;
+const MODES = ["draft", "send_deposit", "paid_offline", "internal_reserve"] as const;
 const OFFLINE_METHODS = ["cash", "comp"] as const;
 
 export interface CreateBlockBody {
@@ -232,6 +232,13 @@ export function validateCreateBlockBody(body: unknown): ValidateResult {
 
   const { locationId, brand, label, renterName, partySize, depositPct, mode } = body;
 
+  const resolvedMode = mode === undefined ? "draft" : mode;
+  if (!MODES.includes(resolvedMode as BlockCommitMode)) {
+    return fail("mode must be 'draft', 'send_deposit', 'paid_offline' or 'internal_reserve'");
+  }
+  // A reserve fences inventory rather than selling it: no renter, no money.
+  const isReserve = resolvedMode === "internal_reserve";
+
   if (typeof locationId !== "string" || !UUID_RX.test(locationId)) {
     return fail("locationId must be a uuid");
   }
@@ -242,9 +249,13 @@ export function validateCreateBlockBody(body: unknown): ValidateResult {
   if (typeof label !== "string" || label.trim().length === 0 || label.trim().length > 200) {
     return fail("label must be 1-200 characters");
   }
-  if (typeof renterName !== "string" || renterName.trim().length === 0) {
+  if (!isReserve && (typeof renterName !== "string" || renterName.trim().length === 0)) {
     return fail("renterName is required");
   }
+  const resolvedRenterName =
+    typeof renterName === "string" && renterName.trim().length > 0
+      ? renterName.trim()
+      : label.trim();
   const renterEmail = optionalString(body.renterEmail);
   if (renterEmail !== null && !renterEmail.includes("@")) {
     return fail("renterEmail must be an email address");
@@ -281,7 +292,7 @@ export function validateCreateBlockBody(body: unknown): ValidateResult {
   }
 
   let discount: BlockDiscount = null;
-  if (body.discount !== undefined && body.discount !== null) {
+  if (!isReserve && body.discount !== undefined && body.discount !== null) {
     if (!isPlainObject(body.discount)) return fail("discount must be an object or null");
     const { kind, value } = body.discount;
     if (kind !== "percent" && kind !== "amount") {
@@ -299,18 +310,13 @@ export function validateCreateBlockBody(body: unknown): ValidateResult {
     discount = { kind, value: value as number };
   }
 
-  const resolvedDepositPct = depositPct === undefined ? 25 : depositPct;
+  const resolvedDepositPct = isReserve ? 0 : depositPct === undefined ? 25 : depositPct;
   if (
     !Number.isInteger(resolvedDepositPct) ||
     (resolvedDepositPct as number) < 0 ||
     (resolvedDepositPct as number) > 100
   ) {
     return fail("depositPct must be an integer 0-100");
-  }
-
-  const resolvedMode = mode === undefined ? "draft" : mode;
-  if (!MODES.includes(resolvedMode as BlockCommitMode)) {
-    return fail("mode must be 'draft', 'send_deposit' or 'paid_offline'");
   }
 
   let offlinePaymentMethod: "cash" | "comp" | null = null;
@@ -329,7 +335,7 @@ export function validateCreateBlockBody(body: unknown): ValidateResult {
       brand: resolvedBrand as "soccerone" | "aspire",
       label: label.trim(),
       renterUserId: (body.renterUserId as string | undefined) ?? null,
-      renterName: renterName.trim(),
+      renterName: resolvedRenterName,
       renterEmail,
       renterPhone: optionalString(body.renterPhone),
       partySize: resolvedPartySize as number,

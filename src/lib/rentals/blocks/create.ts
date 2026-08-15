@@ -21,7 +21,12 @@ import { fieldRentals } from "@/lib/db/schema/field-rentals";
 import { fieldRentalBlocks } from "@/lib/db/schema/field-rental-blocks";
 import { venueResources } from "@/lib/db/schema/scheduling";
 import { assertNoRentalConflict } from "@/lib/rentals/conflicts";
-import { assertNoBlockConflict, BlockConflictError } from "@/lib/scheduling/blocks";
+import {
+  assertNoBlockConflict,
+  createManualBlock,
+  deleteManualBlock,
+  BlockConflictError,
+} from "@/lib/scheduling/blocks";
 import { resolveTopLevelResourceId, syncRentalBlock } from "@/lib/scheduling/sync";
 import {
   generateBlockSessions,
@@ -37,7 +42,11 @@ import {
 } from "./pricing";
 import { replaceQuoteMarkers, clearQuoteMarkers, type MarkerSlot } from "./quote-markers";
 
-export type BlockCommitMode = "draft" | "send_deposit" | "paid_offline";
+export type BlockCommitMode =
+  | "draft"
+  | "send_deposit"
+  | "paid_offline"
+  | "internal_reserve";
 
 export interface CreateBlockInput {
   organizationId: string;
@@ -72,7 +81,13 @@ export interface CreateBlockInput {
 }
 
 export type CreateBlockResult =
-  | { ok: true; blockId: string; sessionIds: string[] }
+  | {
+      ok: true;
+      blockId: string;
+      sessionIds: string[];
+      /** Set only by internal_reserve, which writes ledger holds and no rows. */
+      reservedCount?: number;
+    }
   | { ok: false; error: string; conflicts: Array<{ key: string; reason: string }> };
 
 /** Thrown only to roll the commit transaction back; never escapes this module. */
@@ -174,6 +189,13 @@ export async function createRentalBlock(
   }
 
   const fieldNumbers = await resolveVenueFieldNumbers(sessions.map((s) => s.venueId));
+
+  // A reserve is inventory being fenced, not sold: it never gets priced and
+  // never becomes a block row.
+  if (input.mode === "internal_reserve") {
+    return reserveInternalSessions(input, sessions, fieldNumbers);
+  }
+
   const quote = quoteBlock(sessions, input.pricingContext, {
     discount: input.discount,
     depositPct: input.depositPct,
@@ -412,6 +434,69 @@ export async function createRentalBlock(
   // Committing supersedes any soft hold this block was carrying as a draft.
   await clearQuoteMarkers(committed.blockId);
   return { ok: true, blockId: committed.blockId, sessionIds: committed.sessionIds };
+}
+
+/**
+ * Internal reserve: one manual ledger hold per generated session, so prime
+ * slots are fenced for facility-hosted programming and every later quote sees
+ * them as conflicts carrying this label.
+ *
+ * All-or-nothing like the rental path, but composed rather than transactional:
+ * createManualBlock opens its own transaction to take the family-root advisory
+ * lock, so a conflict on any session unwinds the holds already written.
+ */
+async function reserveInternalSessions(
+  input: CreateBlockInput,
+  sessions: GeneratedSession[],
+  fieldNumbers: Record<string, number>,
+): Promise<CreateBlockResult> {
+  // Same deterministic order as the rental commit: venue, field, then start.
+  const ordered = [...sessions].sort((a, b) => {
+    if (a.venueId !== b.venueId) return a.venueId < b.venueId ? -1 : 1;
+    const fa = fieldNumbers[a.venueId] ?? 1;
+    const fb = fieldNumbers[b.venueId] ?? 1;
+    if (fa !== fb) return fa - fb;
+    return a.startsAt.getTime() - b.startsAt.getTime();
+  });
+
+  const created: string[] = [];
+  const conflicts: Array<{ key: string; reason: string }> = [];
+
+  for (const s of ordered) {
+    const fieldNumber = fieldNumbers[s.venueId] ?? 1;
+    const resourceId = await resolveTopLevelResourceId(s.venueId, fieldNumber);
+    // Not inventory-tracked: there is nothing in the ledger to fence.
+    if (!resourceId) continue;
+    try {
+      const held = await createManualBlock({
+        resourceId,
+        startsAt: s.startsAt,
+        endsAt: s.endsAt,
+        sourceType: "maintenance",
+        label: input.label,
+        notes: input.notes,
+        createdByUserId: input.createdByUserId,
+      });
+      created.push(held.id);
+    } catch (err) {
+      if (err instanceof BlockConflictError) {
+        conflicts.push({ key: s.key, reason: err.message });
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  if (conflicts.length > 0) {
+    for (const id of created) await deleteManualBlock(id);
+    return {
+      ok: false,
+      error: `${conflicts.length} session${conflicts.length === 1 ? "" : "s"} conflict with existing bookings`,
+      conflicts,
+    };
+  }
+
+  return { ok: true, blockId: "", sessionIds: [], reservedCount: created.length };
 }
 
 /** Compensation for a ledger conflict discovered after the commit. */
