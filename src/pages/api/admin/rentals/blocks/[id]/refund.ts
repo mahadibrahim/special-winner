@@ -9,14 +9,32 @@
  * Body: { amountCents: number }: a multiple of 100, never more than the block
  * has actually been paid.
  *
- * Mirrors the structure of `@/lib/rentals/refund.ts`: the block is read
- * `FOR UPDATE` so two admins cannot each refund the same dollars, and a block
- * settled offline (cash/comp) is recorded without a Stripe call. Whatever
- * Stripe accepted is always written back, even when the second leg fails:
- * rolling that away would lose the record of money that genuinely left.
+ * Sequencing (this is the whole point of the three phases below, and mirrors
+ * `handle-field-rental-checkout-complete.ts`):
+ *
+ *  1. A SHORT transaction takes `FOR UPDATE` on the block, validates the ask,
+ *     splits it across the deposit and balance legs, and DEDUCTS the planned
+ *     amounts before anything is sent to Stripe. Deducting first is deliberate:
+ *     if the request dies mid-flight the block reads as less refundable than it
+ *     is, which is the safe direction. Rolling the deduction back after a
+ *     successful refund would be the unsafe one: the same dollars could be
+ *     refunded for real a second time.
+ *  2. `stripe.refunds.create` runs with NO row lock held. `lifecycle.ts` states
+ *     the invariant plainly: a Stripe call takes seconds, and webhooks and cron
+ *     sweeps must never queue behind one. The idempotency key is block id +
+ *     leg + the attempt timestamp persisted in phase 1: it deliberately does
+ *     NOT embed `depositDueCents`/`balanceDueCents`, which this endpoint
+ *     mutates, so a retry can never collide with a different refund's key.
+ *  3. A second SHORT transaction restores whatever Stripe REJECTED, using
+ *     relative SQL arithmetic so a concurrent writer's change is preserved.
+ *     Whatever Stripe accepted stays deducted, even when the other leg failed:
+ *     rolling that away would lose the record of money that genuinely left.
+ *
+ * A block settled offline (cash/comp) never touched Stripe, so its refund is
+ * pure bookkeeping and phase 2 is a no-op.
  */
 import type { APIRoute } from "astro";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { fieldRentalBlocks } from "@/lib/db/schema/field-rental-blocks";
 import { requireOrgAdminAccess } from "@/lib/auth/roles";
@@ -37,6 +55,12 @@ interface RefundLeg {
   amountCents: number;
   refundId: string | null;
   error: string | null;
+}
+
+interface PlannedLeg {
+  leg: "deposit" | "balance";
+  amountCents: number;
+  paymentIntentId: string | null;
 }
 
 export const POST: APIRoute = async (context) => {
@@ -65,7 +89,8 @@ export const POST: APIRoute = async (context) => {
 
   const db = getDb();
 
-  const outcome = await db.transaction(async (tx) => {
+  // --- phase 1: validate, plan, and deduct under the row lock ---
+  const planned = await db.transaction(async (tx) => {
     const [block] = await tx
       .select()
       .from(fieldRentalBlocks)
@@ -86,81 +111,108 @@ export const POST: APIRoute = async (context) => {
     const fromDeposit = Math.min(amountCents, depositHeld);
     const fromBalance = amountCents - fromDeposit;
 
-    // Cash and comp blocks never touched Stripe, so there is nothing to call:
-    // the refund is a bookkeeping entry the admin settles by hand.
-    const offline = block.offlinePaymentMethod !== null;
-    const legs: RefundLeg[] = [];
-
+    const legs: PlannedLeg[] = [];
     if (fromDeposit > 0) {
-      const result = offline
-        ? { refundId: null, error: null }
-        : await refundBlockPayment(
-            block.stripeDepositPiId,
-            fromDeposit,
-            `${block.id}:refund:deposit:${block.depositDueCents}:${fromDeposit}`,
-          );
-      legs.push({ leg: "deposit", amountCents: fromDeposit, ...result });
+      legs.push({
+        leg: "deposit",
+        amountCents: fromDeposit,
+        paymentIntentId: block.stripeDepositPiId,
+      });
     }
     if (fromBalance > 0) {
-      const result = offline
-        ? { refundId: null, error: null }
-        : await refundBlockPayment(
-            block.stripeBalancePiId,
-            fromBalance,
-            `${block.id}:refund:balance:${block.balanceDueCents}:${fromBalance}`,
-          );
-      legs.push({ leg: "balance", amountCents: fromBalance, ...result });
+      legs.push({
+        leg: "balance",
+        amountCents: fromBalance,
+        paymentIntentId: block.stripeBalancePiId,
+      });
     }
 
-    const settled = legs.filter((l) => offline || l.refundId !== null);
-    const failed = legs.filter((l) => !offline && l.refundId === null);
-    const refundedCents = settled.reduce((a, l) => a + l.amountCents, 0);
-
-    // The block row is the payment truth, so the refund comes off the figures
-    // `blockPaidCents` reads, which is what caps a second refund.
-    if (refundedCents > 0) {
-      const depositRefunded = settled.find((l) => l.leg === "deposit")?.amountCents ?? 0;
-      const balanceRefunded = settled.find((l) => l.leg === "balance")?.amountCents ?? 0;
-      await tx
-        .update(fieldRentalBlocks)
-        .set({
-          depositDueCents: block.depositDueCents - depositRefunded,
-          balanceDueCents: block.balanceDueCents - balanceRefunded,
-          updatedAt: new Date(),
-        })
-        .where(eq(fieldRentalBlocks.id, blockId));
-    }
+    // The block row is the payment truth, so the deduction comes off the
+    // figures `blockPaidCents` reads, which is what caps a second refund.
+    // Committed BEFORE the Stripe call; phase 3 restores any leg Stripe
+    // rejects.
+    const attemptAt = new Date();
+    await tx
+      .update(fieldRentalBlocks)
+      .set({
+        depositDueCents: block.depositDueCents - fromDeposit,
+        balanceDueCents: block.balanceDueCents - fromBalance,
+        updatedAt: attemptAt,
+      })
+      .where(eq(fieldRentalBlocks.id, blockId));
 
     return {
-      kind: "done" as const,
-      offline,
+      kind: "planned" as const,
+      // Cash and comp blocks never touched Stripe, so there is nothing to call:
+      // the refund is a bookkeeping entry the admin settles by hand.
+      offline: block.offlinePaymentMethod !== null,
       legs,
-      failed,
-      refundedCents,
-      remainingPaidCents: paid - refundedCents,
+      paidCents: paid,
+      attemptAt,
     };
   });
 
-  if (outcome.kind === "denied") return ownershipDeniedResponse();
-  if (outcome.kind === "unpaid") {
+  if (planned.kind === "denied") return ownershipDeniedResponse();
+  if (planned.kind === "unpaid") {
     return json({ error: "This block has no payment to refund" }, 422);
   }
-  if (outcome.kind === "over") {
+  if (planned.kind === "over") {
     return json(
       {
-        error: `This block has only been paid $${Math.round(outcome.paidCents / 100).toLocaleString("en-US")}`,
-        paidCents: outcome.paidCents,
+        error: `This block has only been paid $${Math.round(planned.paidCents / 100).toLocaleString("en-US")}`,
+        paidCents: planned.paidCents,
       },
       422,
     );
   }
 
-  if (outcome.failed.length > 0) {
+  // --- phase 2: Stripe, with no lock held ---
+  const { offline, legs: plan, attemptAt } = planned;
+  // Stable per attempt and free of any mutable amount: the deduction in phase 1
+  // is what makes two genuine refunds distinct, not the figure being refunded.
+  const nonce = attemptAt.getTime();
+  const legs: RefundLeg[] = [];
+  for (const leg of plan) {
+    if (offline) {
+      legs.push({ ...leg, refundId: null, error: null });
+      continue;
+    }
+    const result = await refundBlockPayment(
+      leg.paymentIntentId,
+      leg.amountCents,
+      `${blockId}:refund:${leg.leg}:${nonce}`,
+    );
+    legs.push({ leg: leg.leg, amountCents: leg.amountCents, ...result });
+  }
+
+  const settled = legs.filter((l) => offline || l.refundId !== null);
+  const failed = legs.filter((l) => !offline && l.refundId === null);
+  const refundedCents = settled.reduce((a, l) => a + l.amountCents, 0);
+
+  // --- phase 3: give back what Stripe would not take ---
+  if (failed.length > 0) {
+    const depositBack = failed.find((l) => l.leg === "deposit")?.amountCents ?? 0;
+    const balanceBack = failed.find((l) => l.leg === "balance")?.amountCents ?? 0;
+    // Relative arithmetic, not the values read in phase 1: a webhook or a
+    // second admin may have moved these columns while Stripe was answering.
+    await db
+      .update(fieldRentalBlocks)
+      .set({
+        ...(depositBack > 0
+          ? { depositDueCents: sql`${fieldRentalBlocks.depositDueCents} + ${depositBack}` }
+          : {}),
+        ...(balanceBack > 0
+          ? { balanceDueCents: sql`${fieldRentalBlocks.balanceDueCents} + ${balanceBack}` }
+          : {}),
+        updatedAt: new Date(),
+      })
+      .where(eq(fieldRentalBlocks.id, blockId));
+
     await logAlert("rental_block_refund_failed", {
       blockId,
       requestedCents: amountCents,
-      refundedCents: outcome.refundedCents,
-      failed: outcome.failed.map((l) => ({
+      refundedCents,
+      failed: failed.map((l) => ({
         leg: l.leg,
         amountCents: l.amountCents,
         error: l.error,
@@ -169,12 +221,12 @@ export const POST: APIRoute = async (context) => {
     return json(
       {
         error:
-          outcome.refundedCents > 0
+          refundedCents > 0
             ? "Part of the refund did not go through; refund the rest in Stripe by hand"
             : "The refund did not go through",
-        refundedCents: outcome.refundedCents,
-        remainingPaidCents: outcome.remainingPaidCents,
-        refunds: outcome.legs,
+        refundedCents,
+        remainingPaidCents: planned.paidCents - refundedCents,
+        refunds: legs,
       },
       502,
     );
@@ -182,10 +234,10 @@ export const POST: APIRoute = async (context) => {
 
   return json(
     {
-      refundedCents: outcome.refundedCents,
-      remainingPaidCents: outcome.remainingPaidCents,
-      offline: outcome.offline,
-      refunds: outcome.legs,
+      refundedCents,
+      remainingPaidCents: planned.paidCents - refundedCents,
+      offline,
+      refunds: legs,
     },
     200,
   );
