@@ -110,9 +110,13 @@ export const GET: APIRoute = async (context) => {
           paidCents: Number(r.paidCents ?? 0),
           balanceDueCents: r.balanceDueCents,
           balanceDueAt: balanceDueAt?.toISOString() ?? null,
+          // `balanceDueCents > 0` is belt to applyDepositPaid's braces: a block
+          // settled in full by its deposit has nothing outstanding, and must
+          // never be flagged for money it does not owe.
           overdue:
             r.status === "active" &&
             r.balancePaidAt === null &&
+            r.balanceDueCents > 0 &&
             balanceDueAt !== null &&
             balanceDueAt.getTime() < now,
         };

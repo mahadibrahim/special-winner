@@ -398,6 +398,12 @@ export async function applyDepositPaid(
         throw new RaceLost([]);
       }
 
+      // A deposit that covers the whole price leaves nothing to collect, so
+      // this payment settles the block outright. Read off the re-locked row:
+      // sessions cancelled since the link went out may have taken the balance
+      // to zero (see applyCancellationToBlockMoney).
+      const fullySettled = reLocked.balanceDueCents === 0;
+
       // Re-check every session inside the write transaction. The same slot may
       // have been sold between the Checkout Session being minted and the money
       // landing, and confirming a booking on top of someone else's is never
@@ -413,17 +419,30 @@ export async function applyDepositPaid(
           stripeDepositPiId: paymentIntentId,
           depositExpiresAt: null,
           balanceDueAt,
+          // A 100% deposit (or a block discounted to the deposit figure) leaves
+          // nothing to collect, and there is no second payment coming to stamp
+          // this. Without it the sessions never flip to paid,
+          // completeFinishedBlocks never fires, and the list flags a
+          // fully-settled block as overdue forever.
+          ...(fullySettled ? { balancePaidAt: now } : {}),
           updatedAt: now,
         })
         .where(eq(fieldRentalBlocks.id, blockId));
 
-      // Sessions become confirmed but stay UNPAID: the block row is the
-      // payment truth until the balance settles.
+      // Sessions become confirmed. They stay UNPAID while a balance is
+      // outstanding (the block row is the payment truth until it settles); a
+      // block settled in full by its deposit carries its allocated amounts now.
       await tx
         .update(fieldRentals)
         .set({
           status: "confirmed",
           paymentExpiresAt: null,
+          ...(fullySettled
+            ? {
+                paymentStatus: "paid" as const,
+                amountPaidCents: sql`${fieldRentals.amountDueCents}`,
+              }
+            : {}),
           updatedAt: now,
         })
         .where(
