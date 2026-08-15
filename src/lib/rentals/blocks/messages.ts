@@ -295,6 +295,40 @@ export async function dispatchBlockConfirmation(
 }
 
 /**
+ * The deposit hold lapsed and the sweep cancelled the block with all of its
+ * sessions. Admin-only on purpose: the renter was already told when the hold
+ * expires, and the person who needs to act is the one who can call them back
+ * and rebuild the block while the dates are still free.
+ */
+export async function dispatchBlockExpiredAdminNotice(
+  blockId: string,
+): Promise<BlockDispatchResult> {
+  const row = await loadBlockForMessage(blockId);
+  if (!row) return { ok: false, reason: "block_not_found" };
+  const { block } = row;
+
+  const adminTo = await getAdminNotifyEmail(block.organizationId);
+  if (!adminTo) return { ok: false, reason: "no_admin_notify_email" };
+  if (!isEmailConfigured()) return { ok: false, reason: "email_not_configured" };
+
+  const reviewUrl = `${APP_URL}/admin/rentals/blocks/${block.id}`;
+  const amount = blockDollars(block.depositDueCents);
+  const contact = block.renterEmail ?? block.renterPhone ?? "no contact on file";
+
+  const result = await sendEmail({
+    to: adminTo,
+    subject: `Deposit hold expired - ${block.label}`,
+    html: `<p>The ${amount} deposit for <strong>${escapeHtml(block.label)}</strong> (${escapeHtml(block.renterName)}, ${escapeHtml(contact)}) was not paid before the hold expired, so the block and all of its sessions were cancelled and the dates released.</p><p><a href="${reviewUrl}">Open the block</a></p>`,
+    text: `The ${amount} deposit for ${block.label} (${block.renterName}, ${contact}) was not paid before the hold expired. The block and all of its sessions are cancelled and the dates are released. ${reviewUrl}`,
+    from: fromForBrand(normalizeBrand(block.brand)),
+  });
+
+  return result.success
+    ? { ok: true, channel: "email" }
+    : { ok: false, reason: "email_failed", error: result.error };
+}
+
+/**
  * A block lost its slots between the payment link going out and the money
  * landing. The deposit is refunded by the webhook; this tells the two people
  * who need to know. Plain HTML rather than a template: it is an apology and a

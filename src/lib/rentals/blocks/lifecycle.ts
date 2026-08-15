@@ -14,12 +14,26 @@
  * transition expects, so a duplicate delivery is a no-op rather than a second
  * confirmation email.
  *
- * Expiry, reminders and completion sweeps are deliberately NOT here yet - they
- * arrive with the block-aware expiry work, together with the
- * `expirePendingRentals` fix that stops the per-session sweep eating a block's
- * sessions one at a time.
+ * The three cron sweeps live at the bottom of this file: an unpaid block is
+ * expired as a UNIT (never session by session - `expirePendingRentals` skips
+ * block rows for exactly that reason), a deposit-paid block is reminded about
+ * its balance and never auto-cancelled, and a fully-paid block whose last
+ * session has ended is marked complete.
  */
-import { and, asc, eq, ne, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  eq,
+  exists,
+  gt,
+  isNotNull,
+  isNull,
+  lt,
+  lte,
+  ne,
+  notExists,
+  sql,
+} from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { fieldRentals, fieldRentalRateCard } from "@/lib/db/schema/field-rentals";
 import { fieldRentalBlocks } from "@/lib/db/schema/field-rental-blocks";
@@ -36,7 +50,12 @@ import { resolveTopLevelResourceId, syncRentalBlock } from "@/lib/scheduling/syn
 import { awaitDispatch } from "@/lib/notifications/await-dispatch";
 import { balanceDueAt as deriveBalanceDueAt } from "./pricing";
 import { clearQuoteMarkers } from "./quote-markers";
-import { dispatchBlockConfirmation, dispatchBlockRaceLost } from "./messages";
+import {
+  dispatchBlockConfirmation,
+  dispatchBlockExpiredAdminNotice,
+  dispatchBlockQuote,
+  dispatchBlockRaceLost,
+} from "./messages";
 
 export interface LifecycleResult {
   ok: boolean;
@@ -185,18 +204,40 @@ async function loadBalanceLeadDays(organizationId: string): Promise<number> {
   return row?.days ?? DEFAULT_BALANCE_LEAD_DAYS;
 }
 
-/** Best-effort refund; returns the refund id, or null with the failure reason. */
-async function refundBlockPayment(
+/**
+ * Best-effort refund of one payment intent; returns the refund id, or null with
+ * the failure reason. Omit `amountCents` to refund the intent in full (the
+ * lost-race path); pass it for the admin's partial block refund, where the
+ * caller has already split the ask across the deposit and balance intents.
+ */
+export async function refundBlockPayment(
   paymentIntentId: string | null,
+  amountCents?: number,
 ): Promise<{ refundId: string | null; error: string | null }> {
   if (!paymentIntentId) return { refundId: null, error: "no-payment-intent" };
   if (!stripe) return { refundId: null, error: "stripe-not-configured" };
   try {
-    const refund = await stripe.refunds.create({ payment_intent: paymentIntentId });
+    const refund = await stripe.refunds.create({
+      payment_intent: paymentIntentId,
+      ...(amountCents === undefined ? {} : { amount: amountCents }),
+    });
     return { refundId: refund.id, error: null };
   } catch (err) {
     return { refundId: null, error: err instanceof Error ? err.message : String(err) };
   }
+}
+
+/**
+ * What the renter has actually paid and not had back - the refund ceiling.
+ * The block row is the payment truth, so this is the deposit and balance
+ * figures gated on their paid-at timestamps; a refund writes the reduced
+ * figure back, which is what keeps repeat refunds capped.
+ */
+export function blockPaidCents(block: BlockRow): number {
+  return (
+    (block.depositPaidAt ? block.depositDueCents : 0) +
+    (block.balancePaidAt ? block.balanceDueCents : 0)
+  );
 }
 
 /**
@@ -495,4 +536,227 @@ export async function applyBalancePaid(
     );
   }
   return { ok: true };
+}
+
+/* ------------------------------------------------------------------ *
+ * Cron sweeps
+ * ------------------------------------------------------------------ */
+
+/**
+ * Cancel every `awaiting_deposit` block whose hold has lapsed, TOGETHER with
+ * all of its sessions, and free the ledger.
+ *
+ * This is the block-level counterpart to `expirePendingRentals`, which now
+ * skips `block_id IS NOT NULL` rows: a block's sessions all carry the same
+ * `payment_expires_at`, so the per-session sweep would have cancelled them one
+ * at a time while the deposit link stayed live, leaving the renter looking at a
+ * payment page for a schedule that no longer existed.
+ *
+ * The block is re-read `FOR UPDATE` inside the transaction so a deposit landing
+ * mid-sweep wins: whoever gets the lock first decides, and the webhook's own
+ * status guard makes the loser a no-op.
+ */
+export async function expireUnpaidRentalBlocks(): Promise<{ expired: number }> {
+  const db = getDb();
+  const now = new Date();
+
+  const due = await db
+    .select({ id: fieldRentalBlocks.id })
+    .from(fieldRentalBlocks)
+    .where(
+      and(
+        eq(fieldRentalBlocks.status, "awaiting_deposit"),
+        isNull(fieldRentalBlocks.depositPaidAt),
+        isNotNull(fieldRentalBlocks.depositExpiresAt),
+        lt(fieldRentalBlocks.depositExpiresAt, now),
+      ),
+    )
+    .orderBy(asc(fieldRentalBlocks.createdAt));
+
+  let expired = 0;
+  for (const { id } of due) {
+    const cancelled = await db.transaction(async (tx) => {
+      const [block] = await tx
+        .select()
+        .from(fieldRentalBlocks)
+        .where(eq(fieldRentalBlocks.id, id))
+        .for("update");
+      // Deposit landed (or an admin moved the block) between the scan and the
+      // lock - leave it alone.
+      if (!block || block.status !== "awaiting_deposit" || block.depositPaidAt) {
+        return null;
+      }
+
+      const rows = await tx
+        .update(fieldRentals)
+        .set({
+          status: "cancelled",
+          cancelledAt: now,
+          cancellationReason: "user_request",
+          paymentExpiresAt: null,
+          updatedAt: now,
+        })
+        .where(and(eq(fieldRentals.blockId, id), ne(fieldRentals.status, "cancelled")))
+        .returning({ id: fieldRentals.id });
+
+      await tx
+        .update(fieldRentalBlocks)
+        .set({
+          status: "cancelled",
+          cancelledAt: now,
+          depositExpiresAt: null,
+          updatedAt: now,
+        })
+        .where(eq(fieldRentalBlocks.id, id));
+
+      return rows;
+    });
+
+    if (!cancelled) continue;
+    expired += 1;
+
+    // Ledger writes open their own transaction, so they run after the commit.
+    for (const row of cancelled) await removeSourceBlock("rental", row.id);
+    await clearQuoteMarkers(id);
+
+    await awaitDispatch(
+      "rental block deposit-hold expired notice",
+      () => dispatchBlockExpiredAdminNotice(id),
+      { blockId: id },
+    );
+  }
+
+  return { expired };
+}
+
+/** Reminder ladder, earliest first. A block only ever moves forward through it. */
+const REMINDER_STAGES = ["t14", "t3", "overdue"] as const;
+export type BlockReminderStage = (typeof REMINDER_STAGES)[number];
+
+const DAY_MS = 86_400_000;
+
+/**
+ * Which reminder a block is owed right now: T-14, T-3, then a single overdue
+ * nudge at T+1. Returns null before the ladder opens.
+ */
+export function balanceReminderStage(
+  balanceDueAt: Date,
+  now: Date,
+): BlockReminderStage | null {
+  const daysUntilDue = (balanceDueAt.getTime() - now.getTime()) / DAY_MS;
+  if (daysUntilDue <= -1) return "overdue";
+  if (daysUntilDue <= 3) return "t3";
+  if (daysUntilDue <= 14) return "t14";
+  return null;
+}
+
+const stageRank = (stage: string | null): number =>
+  stage === null ? -1 : REMINDER_STAGES.indexOf(stage as BlockReminderStage);
+
+/**
+ * Ask for the balance at T-14 and T-3, then once more at T+1 when it is
+ * overdue. Sends through `dispatchBlockQuote(id, "balance")`, which mints the
+ * same idempotent token the admin's "Send balance link now" button uses, so a
+ * renter never juggles two URLs.
+ *
+ * It NEVER cancels. Auto-cancelling a winter block whose deposit is already
+ * paid is never the right default; an unpaid balance is a phone call, and the
+ * admin list flags it as overdue on the same derived condition.
+ */
+export async function sendBlockBalanceReminders(): Promise<{ sent: number }> {
+  const db = getDb();
+  const now = new Date();
+
+  const candidates = await db
+    .select({
+      id: fieldRentalBlocks.id,
+      balanceDueAt: fieldRentalBlocks.balanceDueAt,
+      reminderStage: fieldRentalBlocks.reminderStage,
+    })
+    .from(fieldRentalBlocks)
+    .where(
+      and(
+        eq(fieldRentalBlocks.status, "active"),
+        isNull(fieldRentalBlocks.balancePaidAt),
+        gt(fieldRentalBlocks.balanceDueCents, 0),
+        isNotNull(fieldRentalBlocks.balanceDueAt),
+        lt(fieldRentalBlocks.balanceDueAt, new Date(now.getTime() + 14 * DAY_MS)),
+      ),
+    )
+    .orderBy(asc(fieldRentalBlocks.balanceDueAt));
+
+  let sent = 0;
+  for (const row of candidates) {
+    if (!row.balanceDueAt) continue;
+    const stage = balanceReminderStage(row.balanceDueAt, now);
+    if (!stage) continue;
+    // Only ever forward: a block that already had its T-3 nudge does not get
+    // another one, and a re-run of the sweep is a no-op.
+    if (stageRank(stage) <= stageRank(row.reminderStage)) continue;
+
+    // Stamp first, send second. A send that throws must not queue the renter
+    // up for the same reminder on the next tick.
+    await db
+      .update(fieldRentalBlocks)
+      .set({ reminderStage: stage, lastReminderAt: now, updatedAt: now })
+      .where(eq(fieldRentalBlocks.id, row.id));
+
+    await awaitDispatch(
+      `rental block balance reminder (${stage})`,
+      () => dispatchBlockQuote(row.id, "balance"),
+      { blockId: row.id, stage },
+    );
+    sent += 1;
+  }
+
+  return { sent };
+}
+
+/**
+ * A block is done when its balance is settled and its last live session has
+ * ended. Purely a bookkeeping move so finished winter blocks fall out of the
+ * active list; nothing about the money or the ledger changes.
+ */
+export async function completeFinishedBlocks(): Promise<{ completed: number }> {
+  const db = getDb();
+  const now = new Date();
+
+  const rows = await db
+    .update(fieldRentalBlocks)
+    .set({ status: "completed", updatedAt: now })
+    .where(
+      and(
+        eq(fieldRentalBlocks.status, "active"),
+        isNotNull(fieldRentalBlocks.balancePaidAt),
+        // At least one session has actually been played...
+        exists(
+          db
+            .select({ one: sql`1` })
+            .from(fieldRentals)
+            .where(
+              and(
+                eq(fieldRentals.blockId, fieldRentalBlocks.id),
+                ne(fieldRentals.status, "cancelled"),
+                lte(fieldRentals.endsAt, now),
+              ),
+            ),
+        ),
+        // ...and none is still ahead of us.
+        notExists(
+          db
+            .select({ one: sql`1` })
+            .from(fieldRentals)
+            .where(
+              and(
+                eq(fieldRentals.blockId, fieldRentalBlocks.id),
+                ne(fieldRentals.status, "cancelled"),
+                gt(fieldRentals.endsAt, now),
+              ),
+            ),
+        ),
+      ),
+    )
+    .returning({ id: fieldRentalBlocks.id });
+
+  return { completed: rows.length };
 }
