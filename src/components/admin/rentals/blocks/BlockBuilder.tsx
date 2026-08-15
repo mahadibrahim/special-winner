@@ -284,6 +284,17 @@ export function BlockBuilder({
       setError("Select at least one session.");
       return;
     }
+    // The server rejects this too. Catching it here keeps the admin off a
+    // round trip and points at the two fields that fix it: a $0 deposit link
+    // is unpayable, so the block would just sit there until the hold lapsed.
+    if (mode === "send_deposit" && quote.depositDueCents === 0) {
+      setError(
+        quote.totalCents === 0
+          ? "This block totals $0, so there is no deposit to collect. Use Mark paid offline (comp) instead."
+          : "A deposit link needs a deposit above $0. Raise the deposit percent, or use Mark paid offline.",
+      );
+      return;
+    }
     setSaving(true);
     setError(null);
     try {

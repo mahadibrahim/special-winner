@@ -216,6 +216,21 @@ export async function createRentalBlock(
     depositPct: input.depositPct,
   });
 
+  // A deposit link for $0 is a dead end: Stripe has nothing to charge, so the
+  // block sits in `awaiting_deposit` until the hold lapses and the sweep
+  // cancels it, silently. Reachable two ways: depositPct 0, or a 100% discount
+  // taking totalCents to 0.
+  if (input.mode === "send_deposit" && quote.depositDueCents === 0) {
+    return {
+      ok: false,
+      error:
+        quote.totalCents === 0
+          ? "This block totals $0, so there is no deposit to collect. Use Mark paid offline (comp) instead."
+          : "A deposit link needs a deposit above $0. Raise the deposit percent, or use Mark paid offline.",
+      conflicts: [],
+    };
+  }
+
   const markerSlots: MarkerSlot[] = quote.sessions.map((s) => ({
     venueId: s.venueId,
     fieldNumber: fieldNumbers[s.venueId] ?? 1,
