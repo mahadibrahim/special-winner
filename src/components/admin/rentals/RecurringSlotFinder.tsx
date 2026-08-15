@@ -330,7 +330,7 @@ export function RecurringSlotFinder({ locations, timeZone }: RecurringSlotFinder
                             <span
                               key={cell.date}
                               className={GLYPH_CLASS[cell.state]}
-                              title={`${cell.date} — ${SLOT_WORD[cell.state]}${
+                              title={`${cell.date} · ${SLOT_WORD[cell.state]}${
                                 cell.label ? `: ${cell.label}` : ""
                               }`}
                               aria-label={`${cell.date} ${SLOT_WORD[cell.state]}${
