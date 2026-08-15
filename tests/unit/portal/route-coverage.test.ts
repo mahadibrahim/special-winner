@@ -25,6 +25,7 @@ const CONTEXTUAL_ROUTES = new Set<string>([
   "/admin/dropin/sessions",
   "/admin/rentals/rate-card",
   "/admin/rentals/new",
+  "/admin/rentals/blocks/new", // reached from the Blocks tab (block builder)
   "/admin/memberships/new",
   "/admin/gear/products",
   "/admin/curriculum/activities",
