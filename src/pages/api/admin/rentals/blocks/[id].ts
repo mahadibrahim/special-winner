@@ -8,12 +8,19 @@
  *   { cancelRemainingFrom: ISO8601 }   — cancel sessions at/after that instant
  *   { cancel: true }                   — cancel the block and every session
  *
- * Cancellation only SUGGESTS a refund: issuing it against the deposit and
- * balance payment intents is POST /api/admin/rentals/blocks/:id/refund's job,
- * and it caps the amount on the same `blockPaidCents` figure used here.
+ * `cancelRemainingFrom` also takes the cancelled sessions' money off the block:
+ * the unpaid balance drops by their allocated dollars (see
+ * `applyCancellationToBlockMoney`), because the balance link, the reminder
+ * ladder and the pay endpoint all read those figures live and would otherwise
+ * keep charging for dates that no longer exist.
+ *
+ * Money already COLLECTED is a different question, and cancellation only
+ * SUGGESTS a figure for it: issuing it against the deposit and balance payment
+ * intents is POST /api/admin/rentals/blocks/:id/refund's job, and it caps the
+ * amount on the same `blockPaidCents` figure used here.
  */
 import type { APIRoute } from "astro";
-import { and, asc, eq, gte, ne } from "drizzle-orm";
+import { and, asc, eq, gte, ne, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { fieldRentals } from "@/lib/db/schema/field-rentals";
 import { fieldRentalBlocks } from "@/lib/db/schema/field-rental-blocks";
@@ -23,6 +30,7 @@ import { ownershipDeniedResponse } from "@/lib/auth/require-resource-ownership";
 import { removeSourceBlock } from "@/lib/scheduling/blocks";
 import { clearQuoteMarkers } from "@/lib/rentals/blocks/quote-markers";
 import { blockPaidCents } from "@/lib/rentals/blocks/lifecycle";
+import { applyCancellationToBlockMoney } from "@/lib/rentals/blocks/pricing";
 
 export const prerender = false;
 
@@ -154,8 +162,19 @@ export const PATCH: APIRoute = async (context) => {
       return json({ error: "cancelRemainingFrom must be an ISO 8601 instant" }, 400);
     }
 
-    const cancelled = await db.transaction(async (tx) => {
-      return tx
+    // Sessions and the block's money move together, under the block's row
+    // lock: leaving totalCents/balanceDueCents alone would keep the live
+    // balance link, the reminder ladder and the pay endpoint charging for
+    // dates that no longer exist.
+    const outcome = await db.transaction(async (tx) => {
+      const [locked] = await tx
+        .select()
+        .from(fieldRentalBlocks)
+        .where(eq(fieldRentalBlocks.id, blockId))
+        .for("update");
+      if (!locked) return null;
+
+      const cancelled = await tx
         .update(fieldRentals)
         .set({
           status: "cancelled",
@@ -172,16 +191,65 @@ export const PATCH: APIRoute = async (context) => {
           ),
         )
         .returning({ id: fieldRentals.id, amountDueCents: fieldRentals.amountDueCents });
+
+      const money = applyCancellationToBlockMoney({
+        totalCents: locked.totalCents,
+        balanceDueCents: locked.balanceDueCents,
+        cancelledAllocatedCents: cancelled.reduce((a, r) => a + r.amountDueCents, 0),
+        depositPaid: locked.depositPaidAt !== null,
+        balancePaid: locked.balancePaidAt !== null,
+      });
+
+      if (money.reductionCents > 0 || money.settled) {
+        await tx
+          .update(fieldRentalBlocks)
+          .set({
+            totalCents: money.totalCents,
+            balanceDueCents: money.balanceDueCents,
+            // Nothing left to collect and the deposit is in: stamping the
+            // balance is what lets completeFinishedBlocks pick the block up and
+            // stops the list flagging it overdue.
+            ...(money.settled ? { balancePaidAt: now } : {}),
+            updatedAt: now,
+          })
+          .where(eq(fieldRentalBlocks.id, blockId));
+      }
+
+      if (money.settled) {
+        await tx
+          .update(fieldRentals)
+          .set({
+            paymentStatus: "paid",
+            amountPaidCents: sql`${fieldRentals.amountDueCents}`,
+            updatedAt: now,
+          })
+          .where(
+            and(eq(fieldRentals.blockId, blockId), ne(fieldRentals.status, "cancelled")),
+          );
+      }
+
+      return { cancelled, money, paidCents: blockPaidCents(locked) };
     });
 
+    if (!outcome) return ownershipDeniedResponse();
+    const { cancelled, money } = outcome;
+
+    // Ledger writes open their own transaction, so they run after the commit.
     for (const row of cancelled) await removeSourceBlock("rental", row.id);
 
     const suggestedRefundCents = Math.min(
       toWholeDollars(cancelled.reduce((a, r) => a + r.amountDueCents, 0)),
-      blockPaidCents(block),
+      outcome.paidCents,
     );
     return json(
-      { cancelledSessionIds: cancelled.map((r) => r.id), suggestedRefundCents },
+      {
+        cancelledSessionIds: cancelled.map((r) => r.id),
+        suggestedRefundCents,
+        reducedTotalByCents: money.reductionCents,
+        totalCents: money.totalCents,
+        balanceDueCents: money.balanceDueCents,
+        balanceSettled: money.settled,
+      },
       200,
     );
   }

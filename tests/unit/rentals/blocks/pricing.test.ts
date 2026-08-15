@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { generateBlockSessions } from "@/lib/rentals/blocks/generate";
-import { quoteBlock, priceSession, balanceDueAt } from "@/lib/rentals/blocks/pricing";
+import {
+  quoteBlock,
+  priceSession,
+  balanceDueAt,
+  applyCancellationToBlockMoney,
+} from "@/lib/rentals/blocks/pricing";
 
 const TZ = "America/New_York";
 const V1 = "11111111-1111-1111-1111-111111111111";
@@ -133,5 +138,109 @@ describe("balanceDueAt", () => {
     expect(balanceDueAt(new Date("2026-01-07T01:00:00.000Z"), 30).toISOString()).toBe(
       "2025-12-08T01:00:00.000Z",
     );
+  });
+});
+
+describe("applyCancellationToBlockMoney", () => {
+  // A 12-week block at $260/session: $3,120 total, 25% deposit paid, $2,340
+  // balance still to collect.
+  const depositPaidBlock = {
+    totalCents: 312_000,
+    balanceDueCents: 234_000,
+    depositPaid: true,
+    balancePaid: false,
+  };
+
+  it("takes the cancelled sessions off the total and the unpaid balance", () => {
+    const r = applyCancellationToBlockMoney({
+      ...depositPaidBlock,
+      cancelledAllocatedCents: 78_000, // three sessions
+    });
+    expect(r.reductionCents).toBe(78_000);
+    expect(r.totalCents).toBe(234_000);
+    expect(r.balanceDueCents).toBe(156_000);
+    expect(r.settled).toBe(false);
+  });
+
+  it("keeps every figure a whole number of dollars", () => {
+    const r = applyCancellationToBlockMoney({
+      ...depositPaidBlock,
+      cancelledAllocatedCents: 78_049,
+    });
+    expect(multipleOf100(r.reductionCents)).toBe(true);
+    expect(multipleOf100(r.totalCents)).toBe(true);
+    expect(multipleOf100(r.balanceDueCents)).toBe(true);
+  });
+
+  it("never drops the total below what has been paid", () => {
+    // Cancelling everything still leaves the $780 deposit already collected.
+    const r = applyCancellationToBlockMoney({
+      ...depositPaidBlock,
+      cancelledAllocatedCents: 312_000,
+    });
+    expect(r.reductionCents).toBe(234_000);
+    expect(r.totalCents).toBe(78_000);
+    expect(r.balanceDueCents).toBe(0);
+  });
+
+  it("settles the balance when nothing is left to collect", () => {
+    const r = applyCancellationToBlockMoney({
+      ...depositPaidBlock,
+      cancelledAllocatedCents: 999_000,
+    });
+    expect(r.balanceDueCents).toBe(0);
+    expect(r.settled).toBe(true);
+  });
+
+  it("does not settle a block whose deposit is still outstanding", () => {
+    const r = applyCancellationToBlockMoney({
+      totalCents: 312_000,
+      balanceDueCents: 234_000,
+      cancelledAllocatedCents: 999_000,
+      depositPaid: false,
+      balancePaid: false,
+    });
+    expect(r.balanceDueCents).toBe(0);
+    expect(r.totalCents).toBe(78_000);
+    expect(r.settled).toBe(false);
+  });
+
+  it("leaves a fully paid block alone: collected money is the refund flow", () => {
+    const r = applyCancellationToBlockMoney({
+      totalCents: 312_000,
+      balanceDueCents: 234_000,
+      cancelledAllocatedCents: 78_000,
+      depositPaid: true,
+      balancePaid: true,
+    });
+    expect(r.reductionCents).toBe(0);
+    expect(r.totalCents).toBe(312_000);
+    expect(r.balanceDueCents).toBe(234_000);
+    expect(r.settled).toBe(false);
+  });
+
+  it("settles a deposit-paid block that already owed nothing", () => {
+    const r = applyCancellationToBlockMoney({
+      totalCents: 312_000,
+      balanceDueCents: 0,
+      cancelledAllocatedCents: 26_000,
+      depositPaid: true,
+      balancePaid: false,
+    });
+    expect(r.reductionCents).toBe(0);
+    expect(r.totalCents).toBe(312_000);
+    expect(r.settled).toBe(true);
+  });
+
+  it("preserves total = deposit + balance", () => {
+    const depositCents = depositPaidBlock.totalCents - depositPaidBlock.balanceDueCents;
+    for (const cancelled of [0, 26_000, 130_000, 234_000, 500_000]) {
+      const r = applyCancellationToBlockMoney({
+        ...depositPaidBlock,
+        cancelledAllocatedCents: cancelled,
+      });
+      expect(r.totalCents).toBe(depositCents + r.balanceDueCents);
+      expect(r.balanceDueCents).toBeGreaterThanOrEqual(0);
+    }
   });
 });

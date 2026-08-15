@@ -107,3 +107,56 @@ export function quoteBlock(
 export function balanceDueAt(firstSessionStartsAt: Date, leadDays: number): Date {
   return new Date(firstSessionStartsAt.getTime() - leadDays * 24 * 3_600_000);
 }
+
+export interface CancellationMoneyInput {
+  /** The block's current totalCents. */
+  totalCents: number;
+  /** The block's current balanceDueCents. */
+  balanceDueCents: number;
+  /** Sum of the cancelled sessions' allocatedCents (`amount_due_cents`). */
+  cancelledAllocatedCents: number;
+  depositPaid: boolean;
+  balancePaid: boolean;
+}
+
+export interface CancellationMoneyResult {
+  /** How much came off the block. Always a multiple of 100, never negative. */
+  reductionCents: number;
+  totalCents: number;
+  balanceDueCents: number;
+  /**
+   * Nothing is left to collect and the deposit is in: the caller stamps
+   * `balancePaidAt` and flips the surviving sessions to `paid`, so the block
+   * can reach `completed` instead of sitting there looking overdue.
+   */
+  settled: boolean;
+}
+
+/**
+ * Cancelling sessions has to take their money off the block, or the live
+ * balance link, the reminder ladder and the pay endpoint all keep charging for
+ * dates that no longer exist.
+ *
+ * Only the UNPAID balance is reducible. Money already collected is the refund
+ * endpoint's business (the PATCH still returns `suggestedRefundCents` for it),
+ * and the deposit figure is left alone because a deposit link quoting it may
+ * already be in the renter's inbox. Reducing exactly the balance keeps the
+ * `total = deposit + balance` invariant, keeps every figure a whole number of
+ * dollars, and is what floors `totalCents` at `blockPaidCents`: what is left
+ * after the reduction is always at least the deposit that was paid.
+ */
+export function applyCancellationToBlockMoney(
+  input: CancellationMoneyInput,
+): CancellationMoneyResult {
+  const reducible = input.balancePaid ? 0 : Math.max(0, input.balanceDueCents);
+  const asked = Math.max(0, toWholeDollars(input.cancelledAllocatedCents));
+  const reductionCents = Math.min(asked, reducible);
+
+  const balanceDueCents = input.balanceDueCents - reductionCents;
+  return {
+    reductionCents,
+    totalCents: input.totalCents - reductionCents,
+    balanceDueCents,
+    settled: !input.balancePaid && input.depositPaid && balanceDueCents === 0,
+  };
+}

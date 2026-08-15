@@ -311,6 +311,24 @@ export const PATCH: APIRoute = async (context) => {
   if (body.notes !== undefined) updates.notes = body.notes;
   if (body.purpose !== undefined) updates.purpose = body.purpose;
   if (body.cancel === true) {
+    // Block sessions are cancelled from the block, never from here. The spec
+    // routes single-session changes through this endpoint and notes that
+    // RESCHEDULING inside a block does not change block money; cancelling is
+    // not a reschedule. The block row is the payment truth, so a cancel that
+    // skips the block's ledger cleanup and money recompute leaves the renter
+    // charged for a date that no longer exists, and the deleted session's
+    // dollars still riding on the live balance link. Send the admin to the
+    // block detail page, where PATCH /blocks/:id?cancelRemainingFrom does both.
+    if (rental.blockId !== null) {
+      return json(
+        {
+          error:
+            "This session belongs to a recurring block. Cancel it from the block detail page so the block total and balance are recomputed.",
+          blockId: rental.blockId,
+        },
+        422,
+      );
+    }
     if (rental.paymentStatus === "paid" && rental.amountPaidCents > 0) {
       return json(
         { error: "Paid rental — use POST /api/admin/rentals/:id/refund" },
