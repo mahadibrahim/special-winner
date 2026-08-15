@@ -128,6 +128,9 @@ export function BlockDetail({ blockId, timeZone }: BlockDetailProps) {
   // browser dialogs block automation and can't be driven by the e2e suite.
   const [cancelConfirm, setCancelConfirm] = useState("");
   const [recheck, setRecheck] = useState<{ total: number; conflicts: string[] } | null>(null);
+  // Whole dollars only: the endpoint rejects anything that is not a multiple
+  // of 100 cents, so the field never offers cents to type into.
+  const [refundDollars, setRefundDollars] = useState("");
 
   const reload = async () => {
     try {
@@ -246,6 +249,39 @@ export function BlockDetail({ blockId, timeZone }: BlockDetailProps) {
   };
 
   /**
+   * Refund against the block's payment intents. The endpoint caps the amount
+   * at what the block has actually been paid and writes the reduced figure
+   * back, so a second refund is capped at the remainder.
+   */
+  const issueRefund = async () => {
+    const cents = Math.round(Number(refundDollars) * 100);
+    if (!Number.isFinite(cents) || cents <= 0) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/rentals/blocks/${blockId}/refund`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amountCents: cents }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error ?? "Refund failed");
+        await reload();
+        return;
+      }
+      toast.success(
+        `${formatDollars(json.refundedCents)} refunded${
+          json.offline ? " (recorded only - this block was settled offline)" : ""
+        }`,
+      );
+      setRefundDollars("");
+      await reload();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /**
    * A draft holds nothing firm, so what it was priced against can be gone by
    * the time someone reopens it. Re-run the same preview the builder uses and
    * report what the ledger has taken since.
@@ -308,6 +344,12 @@ export function BlockDetail({ blockId, timeZone }: BlockDetailProps) {
   const canSendDeposit = block.status === "awaiting_deposit";
   const canSendBalance =
     block.status === "active" && !block.balancePaidAt && block.balanceDueCents > 0;
+  const refundCents = Math.round(Number(refundDollars) * 100);
+  const refundAmountValid =
+    refundDollars.trim() !== "" &&
+    Number.isFinite(refundCents) &&
+    refundCents > 0 &&
+    refundCents <= paidCents;
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -600,10 +642,41 @@ export function BlockDetail({ blockId, timeZone }: BlockDetailProps) {
             </Button>
           </div>
 
-          <p className="text-xs text-ink-muted border-t border-border pt-4">
-            Marking an existing block paid offline and issuing refunds arrive with the
-            refund wave.
+        </section>
+      )}
+
+      {/* Refund — offered after cancellation too, which is when it is usually needed. */}
+      {paidCents > 0 && (
+        <section className="rounded-xl border border-border bg-cream-2 p-5 space-y-3">
+          <h2 className="font-semibold text-ink">Refund</h2>
+          <p className="text-xs text-ink-muted">
+            Goes back against the deposit first, then the balance. Whole dollars only,
+            up to the {formatDollars(paidCents)} paid.
           </p>
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="refund-amount">Amount ($)</Label>
+              <Input
+                id="refund-amount"
+                type="number"
+                min={1}
+                step={1}
+                value={refundDollars}
+                onChange={(e) => setRefundDollars(e.target.value)}
+                placeholder={String(Math.round(paidCents / 100))}
+                className="w-32"
+              />
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy || !refundAmountValid}
+              onClick={issueRefund}
+              className="text-rose-700 border-rose-200 hover:bg-rose-50"
+            >
+              Issue refund
+            </Button>
+          </div>
         </section>
       )}
 

@@ -9,7 +9,8 @@
  *   { cancel: true }                   — cancel the block and every session
  *
  * Cancellation only SUGGESTS a refund: issuing it against the deposit and
- * balance payment intents is the refund endpoint's job.
+ * balance payment intents is POST /api/admin/rentals/blocks/:id/refund's job,
+ * and it caps the amount on the same `blockPaidCents` figure used here.
  */
 import type { APIRoute } from "astro";
 import { and, asc, eq, gte, ne } from "drizzle-orm";
@@ -21,6 +22,7 @@ import { requireOrgAdminAccess } from "@/lib/auth/roles";
 import { ownershipDeniedResponse } from "@/lib/auth/require-resource-ownership";
 import { removeSourceBlock } from "@/lib/scheduling/blocks";
 import { clearQuoteMarkers } from "@/lib/rentals/blocks/quote-markers";
+import { blockPaidCents } from "@/lib/rentals/blocks/lifecycle";
 
 export const prerender = false;
 
@@ -32,14 +34,6 @@ const json = (body: unknown, status: number) =>
 
 /** Whole dollars, per the block money invariant. */
 const toWholeDollars = (cents: number) => Math.round(cents / 100) * 100;
-
-/** What the renter has actually paid so far — the refund ceiling. */
-function paidCents(block: typeof fieldRentalBlocks.$inferSelect): number {
-  return (
-    (block.depositPaidAt ? block.depositDueCents : 0) +
-    (block.balancePaidAt ? block.balanceDueCents : 0)
-  );
-}
 
 async function loadBlock(blockId: string, orgId: string) {
   const [block] = await getDb()
@@ -136,7 +130,7 @@ export const PATCH: APIRoute = async (context) => {
 
     const suggestedRefundCents = Math.min(
       toWholeDollars(cancelled.reduce((a, r) => a + r.amountDueCents, 0)),
-      paidCents(block),
+      blockPaidCents(block),
     );
     const [updated] = await db
       .select()
@@ -184,7 +178,7 @@ export const PATCH: APIRoute = async (context) => {
 
     const suggestedRefundCents = Math.min(
       toWholeDollars(cancelled.reduce((a, r) => a + r.amountDueCents, 0)),
-      paidCents(block),
+      blockPaidCents(block),
     );
     return json(
       { cancelledSessionIds: cancelled.map((r) => r.id), suggestedRefundCents },

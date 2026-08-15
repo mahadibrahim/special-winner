@@ -213,14 +213,18 @@ async function loadBalanceLeadDays(organizationId: string): Promise<number> {
 export async function refundBlockPayment(
   paymentIntentId: string | null,
   amountCents?: number,
+  idempotencyKey?: string,
 ): Promise<{ refundId: string | null; error: string | null }> {
   if (!paymentIntentId) return { refundId: null, error: "no-payment-intent" };
   if (!stripe) return { refundId: null, error: "stripe-not-configured" };
   try {
-    const refund = await stripe.refunds.create({
-      payment_intent: paymentIntentId,
-      ...(amountCents === undefined ? {} : { amount: amountCents }),
-    });
+    const refund = await stripe.refunds.create(
+      {
+        payment_intent: paymentIntentId,
+        ...(amountCents === undefined ? {} : { amount: amountCents }),
+      },
+      idempotencyKey ? { idempotencyKey } : undefined,
+    );
     return { refundId: refund.id, error: null };
   } catch (err) {
     return { refundId: null, error: err instanceof Error ? err.message : String(err) };
