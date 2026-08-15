@@ -2,12 +2,12 @@
  * POST /api/rentals/blocks/:token/pay
  *
  * Mints a fresh Stripe Checkout Session for whatever the block owes right now
- * — deposit first, then the balance. Minting on demand (rather than at
+ * - deposit first, then the balance. Minting on demand (rather than at
  * send-link time) is the same pattern as /api/rentals/bookings/:id/pay: a
  * stale email link can never outlive its Stripe session, because the email
  * links to this page and the session is created at the click.
  *
- * The token is the only credential. NO session required — block renters
+ * The token is the only credential. NO session required - block renters
  * arrive from a text message and never sign up.
  *
  * Conflicts are re-checked HERE as well as inside the webhook transaction. A
@@ -33,7 +33,7 @@ const json = (body: unknown, status: number) =>
   });
 
 export const POST: APIRoute = async ({ params, url, clientAddress }) => {
-  // Unauthenticated endpoint that talks to Stripe — per-IP burst limit first.
+  // Unauthenticated endpoint that talks to Stripe - per-IP burst limit first.
   const ip = clientAddress || "unknown";
   const rl = rateLimit(`rental-block-pay:ip:${ip}`, 10, 60_000);
   if (!rl.allowed) return rateLimitedResponse(rl.retryAfter ?? 60);
@@ -93,7 +93,7 @@ export const POST: APIRoute = async ({ params, url, clientAddress }) => {
     }
   }
 
-  // Connect split follows the first session's venue — a block spans one
+  // Connect split follows the first session's venue - a block spans one
   // location, and SoccerOne's partner venues share a single payout account.
   const first = sessions[0];
   const partnerStripeAccountId = first.partnerStripeAccountId ?? null;
@@ -116,7 +116,7 @@ export const POST: APIRoute = async ({ params, url, clientAddress }) => {
             price_data: {
               currency: "usd",
               product_data: {
-                name: `Field rental block — ${block.label}`,
+                name: `Field rental block - ${block.label}`,
                 description:
                   owed.kind === "deposit"
                     ? `Deposit for ${sessions.length} session${sessions.length === 1 ? "" : "s"}`

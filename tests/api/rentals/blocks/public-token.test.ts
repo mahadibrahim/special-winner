@@ -1,5 +1,5 @@
 /**
- * Integration: GET /api/rentals/blocks/:token — the public, no-account read
+ * Integration: GET /api/rentals/blocks/:token - the public, no-account read
  * behind the renter-facing quote page.
  *
  * The token is the only credential, so this suite also pins the payload's

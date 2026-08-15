@@ -4,7 +4,7 @@
  * Stripe is not configured on CI, so the Checkout-minting cases are gated
  * behind the repo's `itWithStripe` pattern (see tests/api/rentals/pay.test.ts)
  * and the state transitions are exercised by calling `applyDepositPaid` /
- * `applyBalancePaid` directly — which is also what the webhook handlers do,
+ * `applyBalancePaid` directly - which is also what the webhook handlers do,
  * so this covers the webhook behaviour without a Stripe round trip.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
@@ -142,7 +142,7 @@ describe("applyDepositPaid", () => {
     expect(block.balanceDueAt!.getTime()).toBe(first - 30 * 24 * 3_600_000);
   });
 
-  it("leaves the sessions UNPAID after the deposit — the block is the payment truth", async () => {
+  it("leaves the sessions UNPAID after the deposit - the block is the payment truth", async () => {
     const blockId = await commit();
     await applyDepositPaid(blockId, "pi_deposit_test_2", 70_200);
 
@@ -166,7 +166,7 @@ describe("applyDepositPaid", () => {
     expect(after.status).toBe("active");
   });
 
-  it("mutates nothing on a cancelled block — that is the refund path", async () => {
+  it("mutates nothing on a cancelled block - that is the refund path", async () => {
     const blockId = await commit();
     await getDb()
       .update(fieldRentalBlocks)

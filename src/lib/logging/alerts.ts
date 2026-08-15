@@ -105,18 +105,18 @@
  *                                      refund needed via the Stripe dashboard
  *                                      using the `stripePaymentIntentId` in
  *                                      the log line.
- *   - `rental_block_payment_refunded` — A rental block's deposit (or balance)
+ *   - `rental_block_payment_refunded` - A rental block's deposit (or balance)
  *                                      settled for a block we could not
  *                                      honour: it lost one or more of its
  *                                      slots between the payment link going
  *                                      out and the money landing, or it had
  *                                      already been cancelled. The charge was
  *                                      auto-refunded in full and the block +
- *                                      every session cancelled — no manual
+ *                                      every session cancelled - no manual
  *                                      action needed, but money moved and a
  *                                      human should call the renter back with
  *                                      replacement dates.
- *   - `rental_block_refund_failed`    — Same lost-block case, but the
+ *   - `rental_block_refund_failed`    - Same lost-block case, but the
  *                                      auto-refund threw (or Stripe wasn't
  *                                      configured). The renter was CHARGED for
  *                                      a block that does not exist. Manual

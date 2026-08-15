@@ -216,7 +216,7 @@ export function BlockQuotePage({ token, brand, contactPhone }: BlockQuotePagePro
             <h2 className={`font-semibold ${p.heading}`}>You're all set</h2>
             <p className={`mt-1 text-sm ${p.good}`}>
               {block.balancePaidAt
-                ? `Paid in full — ${formatDollars(block.totalCents)}.`
+                ? `Paid in full - ${formatDollars(block.totalCents)}.`
                 : "Nothing is due right now."}
             </p>
           </div>

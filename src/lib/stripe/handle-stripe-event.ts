@@ -145,7 +145,7 @@ async function dispatch(event: Stripe.Event): Promise<void> {
       } else if (session.metadata?.type === "rental_block_deposit") {
         // Recurring rental block, deposit leg: flips the block to active and
         // every session pending_payment → confirmed. The sessions stay UNPAID
-        // — the block row is the payment source of truth until the balance
+        // - the block row is the payment source of truth until the balance
         // settles (see handle-rental-block-balance-complete.ts).
         const result = await handleRentalBlockDepositComplete(session);
         console.log(

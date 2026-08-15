@@ -14,7 +14,7 @@
  * transition expects, so a duplicate delivery is a no-op rather than a second
  * confirmation email.
  *
- * Expiry, reminders and completion sweeps are deliberately NOT here yet — they
+ * Expiry, reminders and completion sweeps are deliberately NOT here yet - they
  * arrive with the block-aware expiry work, together with the
  * `expirePendingRentals` fix that stops the per-session sweep eating a block's
  * sessions one at a time.
@@ -99,7 +99,7 @@ function inLockOrder(sessions: SessionSlot[]): SessionSlot[] {
 
 /**
  * Resolve each session's top-level ledger resource. Goes through the pool, so
- * it MUST run before any transaction opens — the pool is pinned to a single
+ * it MUST run before any transaction opens - the pool is pinned to a single
  * connection and a pool query issued mid-transaction deadlocks.
  */
 async function resolveSessionResources(
@@ -117,9 +117,9 @@ async function resolveSessionResources(
 
 /**
  * Has anything taken these slots out from under the block? Runs both checks
- * the create path runs — `assertNoRentalConflict` (the same one the public
+ * the create path runs - `assertNoRentalConflict` (the same one the public
  * booking path uses) and `assertNoBlockConflict` (the ledger check, which
- * respects the field-resource hierarchy and internal reserves) — each
+ * respects the field-resource hierarchy and internal reserves) - each
  * excluding the session's own row so a session never conflicts with itself.
  *
  * Must be called inside a transaction: both checks take transaction-scoped
@@ -200,7 +200,7 @@ async function refundBlockPayment(
 }
 
 /**
- * The money landed on a block we cannot honour — either it lost its slots
+ * The money landed on a block we cannot honour - either it lost its slots
  * between the link going out and the payment settling, or it had already been
  * cancelled. Refund immediately, cancel the block and every session, free the
  * ledger, and tell both the admin and the renter. Confirming a booking on top
@@ -388,7 +388,7 @@ export async function applyDepositPaid(
   } catch (err) {
     if (err instanceof RaceLost) {
       if (err.conflicts.length === 0) {
-        // The block moved under us between the two passes — not a lost race,
+        // The block moved under us between the two passes - not a lost race,
         // so no refund: whoever moved it owns the money decision.
         return { ok: false, reason: `block ${blockId} status changed during processing` };
       }
@@ -468,7 +468,7 @@ export async function applyBalancePaid(
       })
       .where(eq(fieldRentalBlocks.id, blockId));
 
-    // Fully settled — the sessions can finally carry their allocated amounts.
+    // Fully settled - the sessions can finally carry their allocated amounts.
     await tx
       .update(fieldRentals)
       .set({

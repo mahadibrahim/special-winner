@@ -2,7 +2,7 @@
  * POST /api/admin/rentals/blocks/:id/balance-link
  *
  * Send the balance ask now, rather than waiting for the reminder schedule.
- * Same token and same page as the deposit link — it just serves the second
+ * Same token and same page as the deposit link - it just serves the second
  * leg once the deposit has landed.
  */
 import type { APIRoute } from "astro";

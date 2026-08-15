@@ -3,7 +3,7 @@
  *
  * Send (or resend) the renter the deposit ask. The token is minted
  * idempotently, so every copy of this email points at the same page, and the
- * Checkout Session itself is minted on demand when the renter clicks — a
+ * Checkout Session itself is minted on demand when the renter clicks - a
  * resent link can never carry a stale Stripe session.
  */
 import type { APIRoute } from "astro";

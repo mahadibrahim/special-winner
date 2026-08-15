@@ -1,8 +1,8 @@
 /**
  * The block payment path is two `checkout.session.completed` variants that
- * differ only by `metadata.type`. Getting that routing wrong is silent — the
+ * differ only by `metadata.type`. Getting that routing wrong is silent - the
  * money lands, the dispatcher logs "unrecognized metadata.type", and the block
- * never confirms — so pin it here, where it runs without a DB or Stripe.
+ * never confirms - so pin it here, where it runs without a DB or Stripe.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
@@ -41,7 +41,7 @@ vi.mock("@/lib/stripe/handle-rental-block-balance-complete", () => ({
 }));
 
 // The field-rental handler shares the same event type and must NOT be reached
-// by block metadata — it would confirm one session and ignore the block.
+// by block metadata - it would confirm one session and ignore the block.
 vi.mock("@/lib/stripe/handle-field-rental-checkout-complete", () => ({
   handleFieldRentalCheckoutComplete: vi.fn(async () => ({
     status: "skipped",
@@ -54,12 +54,12 @@ import { handleRentalBlockDepositComplete } from "@/lib/stripe/handle-rental-blo
 import { handleRentalBlockBalanceComplete } from "@/lib/stripe/handle-rental-block-balance-complete";
 import { handleFieldRentalCheckoutComplete } from "@/lib/stripe/handle-field-rental-checkout-complete";
 
-/** Minimal Stripe.Event shape — only the fields dispatch reads. */
+/** Minimal Stripe.Event shape - only the fields dispatch reads. */
 function evt(type: string, object: unknown, id = `e_${Math.random().toString(36).slice(2)}`) {
   return { id, type, data: { object } } as never;
 }
 
-describe("handleStripeEvent — rental block payments", () => {
+describe("handleStripeEvent - rental block payments", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("routes rental_block_deposit to the deposit handler", async () => {

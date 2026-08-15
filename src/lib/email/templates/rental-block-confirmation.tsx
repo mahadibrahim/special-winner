@@ -49,7 +49,7 @@ export function RentalBlockConfirmationEmail({
   const hidden = scheduleLines.length - shown.length;
 
   return (
-    <EmailLayout preview={`Your dates are confirmed — ${blockLabel}`} brand={brand}>
+    <EmailLayout preview={`Your dates are confirmed - ${blockLabel}`} brand={brand}>
       <StatusBanner mood="success">Block confirmed</StatusBanner>
       <Content>
         <H1>Your dates are locked in</H1>
@@ -76,7 +76,7 @@ export function RentalBlockConfirmationEmail({
         ))}
         {hidden > 0 ? (
           <PMuted>
-            + {hidden} more session{hidden === 1 ? "" : "s"} — see the full schedule on
+            + {hidden} more session{hidden === 1 ? "" : "s"} - see the full schedule on
             your booking page.
           </PMuted>
         ) : null}

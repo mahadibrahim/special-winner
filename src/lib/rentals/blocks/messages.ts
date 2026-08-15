@@ -1,7 +1,7 @@
 /**
  * Renter-facing notifications for a recurring rental block.
  *
- * Mirrors `@/lib/rentals/messages/dispatch` — blocks carry their own contact
+ * Mirrors `@/lib/rentals/messages/dispatch` - blocks carry their own contact
  * fields and may belong to a guest with no account, so we send straight to
  * `renter_email` / `renter_phone`: email-preferred, SMS fallback (so a renter
  * who gave both isn't double-notified). `sendEmail` / `sendSms` own the
@@ -9,7 +9,7 @@
  * bypass it.
  *
  * Brand comes from the BLOCK's own `brand` column, which the Storefront select
- * set at build time — never from `locals.brandId`, because an admin builds a
+ * set at build time - never from `locals.brandId`, because an admin builds a
  * SoccerOne block from the Aspire admin host.
  */
 import { asc, eq } from "drizzle-orm";
@@ -130,7 +130,7 @@ async function loadBlockForMessage(blockId: string): Promise<BlockMessageRow | n
   };
 }
 
-/** The renter's one link — brand-canonical origin so a SoccerOne renter stays on gosoccerone. */
+/** The renter's one link - brand-canonical origin so a SoccerOne renter stays on gosoccerone. */
 async function blockUrl(block: typeof fieldRentalBlocks.$inferSelect): Promise<string> {
   const token = await mintBlockToken(block);
   const origin = originForBrand(block.brand) ?? APP_URL;
@@ -227,8 +227,8 @@ export async function dispatchBlockQuote(
 
   const subject =
     kind === "deposit"
-      ? `${amountLabel} deposit holds your dates — ${block.label}`
-      : `${amountLabel} balance due — ${block.label}`;
+      ? `${amountLabel} deposit holds your dates - ${block.label}`
+      : `${amountLabel} balance due - ${block.label}`;
 
   const { html, text } = await renderEmail(
     RentalBlockQuoteEmail({
@@ -287,7 +287,7 @@ export async function dispatchBlockConfirmation(
   } Schedule: ${manageUrl}`;
 
   return deliver(row, {
-    subject: `Confirmed — ${block.label}`,
+    subject: `Confirmed - ${block.label}`,
     html,
     text,
     sms,
@@ -319,16 +319,16 @@ export async function dispatchBlockRaceLost(
     const reviewUrl = `${APP_URL}/admin/rentals/blocks/${block.id}`;
     await sendEmail({
       to: adminTo,
-      subject: `Rental block lost its slots after payment — ${block.label}`,
-      html: `<p>${escapeHtml(block.label)} (${escapeHtml(block.renterName)}) was paid for, but one or more sessions had been taken by the time the payment landed. The block is cancelled and the deposit was ${refunded ? "refunded" : "NOT refunded — refund by hand"}.</p><p><a href="${reviewUrl}">Open the block</a></p>`,
-      text: `${block.label} (${block.renterName}) lost its slots after payment. Block cancelled; deposit ${refunded ? "refunded" : "NOT refunded — refund by hand"}. ${reviewUrl}`,
+      subject: `Rental block lost its slots after payment - ${block.label}`,
+      html: `<p>${escapeHtml(block.label)} (${escapeHtml(block.renterName)}) was paid for, but one or more sessions had been taken by the time the payment landed. The block is cancelled and the deposit was ${refunded ? "refunded" : "NOT refunded - refund by hand"}.</p><p><a href="${reviewUrl}">Open the block</a></p>`,
+      text: `${block.label} (${block.renterName}) lost its slots after payment. Block cancelled; deposit ${refunded ? "refunded" : "NOT refunded - refund by hand"}. ${reviewUrl}`,
       from: fromForBrand(brand),
     });
   }
 
-  const html = `<p>Hi ${escapeHtml(block.renterName)},</p><p>We're sorry — one or more of the dates in <strong>${escapeHtml(block.label)}</strong> was booked by someone else in the moments before your payment reached us, so we couldn't confirm the block.</p><p>${refundLine}</p><p>We'll call you to find dates that work. You can also reach us any time.</p>`;
+  const html = `<p>Hi ${escapeHtml(block.renterName)},</p><p>We're sorry - one or more of the dates in <strong>${escapeHtml(block.label)}</strong> was booked by someone else in the moments before your payment reached us, so we couldn't confirm the block.</p><p>${refundLine}</p><p>We'll call you to find dates that work. You can also reach us any time.</p>`;
   const text = `Hi ${block.renterName}, one or more dates in ${block.label} was booked by someone else just before your payment landed, so we couldn't confirm the block. ${refundLine} We'll call you to find replacement dates.`;
-  const sms = `We're sorry — the dates for ${block.label} were taken just before your payment landed, so the block wasn't confirmed. ${refundLine}`;
+  const sms = `We're sorry - the dates for ${block.label} were taken just before your payment landed, so the block wasn't confirmed. ${refundLine}`;
 
   return deliver(row, {
     subject: `We couldn't confirm ${block.label}`,

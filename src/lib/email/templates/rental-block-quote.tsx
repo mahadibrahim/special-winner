@@ -16,7 +16,7 @@ import type { BrandId } from "@/lib/branding/themes";
 
 interface RentalBlockQuoteEmailProps {
   recipientName: string;
-  /** e.g. "Ohio Elite 03B — Winter Tuesdays". */
+  /** e.g. "Ohio Elite 03B - Winter Tuesdays". */
   blockLabel: string;
   /** Deposit ask (holds the dates) vs balance ask (already holding them). */
   kind: "deposit" | "balance";
@@ -36,7 +36,7 @@ interface RentalBlockQuoteEmailProps {
 const MAX_LINES = 12;
 
 /**
- * The renter-facing ask for a recurring rental block — deposit first, then the
+ * The renter-facing ask for a recurring rental block - deposit first, then the
  * balance. One template covers both because the shape is identical (amount,
  * deadline, schedule, pay button) and only the framing changes.
  */
@@ -60,8 +60,8 @@ export function RentalBlockQuoteEmail({
     <EmailLayout
       preview={
         isDeposit
-          ? `${amountLabel} deposit holds your dates — ${blockLabel}`
-          : `${amountLabel} balance due — ${blockLabel}`
+          ? `${amountLabel} deposit holds your dates - ${blockLabel}`
+          : `${amountLabel} balance due - ${blockLabel}`
       }
       brand={brand}
     >
@@ -73,7 +73,7 @@ export function RentalBlockQuoteEmail({
         <P>Hi {recipientName},</P>
         <P>
           {isDeposit
-            ? `Here's the quote for ${blockLabel}. Paying the deposit confirms every session below — until then the dates are not held.`
+            ? `Here's the quote for ${blockLabel}. Paying the deposit confirms every session below - until then the dates are not held.`
             : `Your deposit for ${blockLabel} is in and your sessions are confirmed. The remaining balance is due now.`}
         </P>
 
@@ -95,7 +95,7 @@ export function RentalBlockQuoteEmail({
         ))}
         {hidden > 0 ? (
           <PMuted>
-            + {hidden} more session{hidden === 1 ? "" : "s"} — see the full schedule on
+            + {hidden} more session{hidden === 1 ? "" : "s"} - see the full schedule on
             your booking page.
           </PMuted>
         ) : null}

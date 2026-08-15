@@ -1,7 +1,7 @@
 ---
 // Public, tokenized quote → deposit → balance → receipt page for a recurring
 // rental block. SSR (route param + request-time token/DB work) and NO account
-// required — block renters arrive from a text message, not a signup.
+// required - block renters arrive from a text message, not a signup.
 //
 // Branding comes from the BLOCK's own `brand` column, never the request host:
 // an admin builds a SoccerOne block from the Aspire admin host, and the renter
@@ -31,8 +31,8 @@ const errorMessage = resolved.ok
 
 const isSoccerOne = brand === 'soccerone';
 const title = label
-  ? `${label} — ${isSoccerOne ? 'SoccerOne' : 'Aspire Sports'}`
-  : `Your field rental — ${isSoccerOne ? 'SoccerOne' : 'Aspire Sports'}`;
+  ? `${label} - ${isSoccerOne ? 'SoccerOne' : 'Aspire Sports'}`
+  : `Your field rental - ${isSoccerOne ? 'SoccerOne' : 'Aspire Sports'}`;
 ---
 
 <BaseLayout

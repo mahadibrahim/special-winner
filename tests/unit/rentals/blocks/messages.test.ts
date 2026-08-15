@@ -3,7 +3,7 @@
  *
  * The DST case is the load-bearing one: a winter block crosses the November
  * fallback, and "Tue 8:00 PM" must print as 8:00 PM on both sides of it. Only
- * formatting each instant in the org zone gets that right — offset arithmetic
+ * formatting each instant in the org zone gets that right - offset arithmetic
  * silently shifts half the block by an hour.
  */
 import { describe, it, expect } from "vitest";
@@ -43,7 +43,7 @@ describe("formatBlockScheduleLines", () => {
   });
 
   it("prints 8:00 PM on both sides of the November fallback", () => {
-    // Tue Oct 27 2043 (EDT) and Tue Nov 10 2043 (EST) — same local wall clock,
+    // Tue Oct 27 2043 (EDT) and Tue Nov 10 2043 (EST) - same local wall clock,
     // one hour apart in UTC.
     const lines = formatBlockScheduleLines(
       [

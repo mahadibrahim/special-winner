@@ -6,7 +6,7 @@
  * `metadata.type === "rental_block_balance"`.
  *
  * Paying the balance settles the block, which is the moment every session
- * finally flips to `payment_status = 'paid'` — until then the block row alone
+ * finally flips to `payment_status = 'paid'` - until then the block row alone
  * carries the payment truth. All of that lives in `applyBalancePaid`.
  */
 import type Stripe from "stripe";
