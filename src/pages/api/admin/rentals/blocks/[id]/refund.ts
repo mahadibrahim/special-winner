@@ -6,13 +6,13 @@
  * PATCH on the block); the admin confirms the figure here, so this endpoint is
  * the only place block money moves back.
  *
- * Body: { amountCents: number } — a multiple of 100, never more than the block
+ * Body: { amountCents: number }: a multiple of 100, never more than the block
  * has actually been paid.
  *
  * Mirrors the structure of `@/lib/rentals/refund.ts`: the block is read
  * `FOR UPDATE` so two admins cannot each refund the same dollars, and a block
  * settled offline (cash/comp) is recorded without a Stripe call. Whatever
- * Stripe accepted is always written back, even when the second leg fails —
+ * Stripe accepted is always written back, even when the second leg fails:
  * rolling that away would lose the record of money that genuinely left.
  */
 import type { APIRoute } from "astro";
@@ -117,7 +117,7 @@ export const POST: APIRoute = async (context) => {
     const refundedCents = settled.reduce((a, l) => a + l.amountCents, 0);
 
     // The block row is the payment truth, so the refund comes off the figures
-    // `blockPaidCents` reads — that is what caps a second refund.
+    // `blockPaidCents` reads, which is what caps a second refund.
     if (refundedCents > 0) {
       const depositRefunded = settled.find((l) => l.leg === "deposit")?.amountCents ?? 0;
       const balanceRefunded = settled.find((l) => l.leg === "balance")?.amountCents ?? 0;

@@ -140,7 +140,7 @@ afterAll(async () => {
 
 describe("expirePendingRentals", () => {
   it("expirePendingRentals leaves block sessions alone", async () => {
-    // A block session past its payment expiry must NOT be cancelled piecemeal —
+    // A block session past its payment expiry must NOT be cancelled piecemeal:
     // the block-level sweep cancels the whole block together, otherwise a live
     // deposit link points at a half-destroyed schedule.
     const blockId = await commit();

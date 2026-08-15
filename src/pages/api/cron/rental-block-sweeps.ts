@@ -48,7 +48,7 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   try {
-    // Warm the DB connection (with retry) before any work — rides out the
+    // Warm the DB connection (with retry) before any work: rides out the
     // transient Railway CONNECT_TIMEOUT blips that otherwise fail the run.
     await warmDbConnection();
     const startedAt = Date.now();

@@ -645,7 +645,7 @@ export function BlockDetail({ blockId, timeZone }: BlockDetailProps) {
         </section>
       )}
 
-      {/* Refund — offered after cancellation too, which is when it is usually needed. */}
+      {/* Refund: offered after cancellation too, which is when it is usually needed. */}
       {paidCents > 0 && (
         <section className="rounded-xl border border-border bg-cream-2 p-5 space-y-3">
           <h2 className="font-semibold text-ink">Refund</h2>
