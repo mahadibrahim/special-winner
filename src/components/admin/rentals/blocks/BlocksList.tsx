@@ -52,7 +52,7 @@ function statusColor(s: BlockRow["status"]): string {
 /** "Tue 8:00 PM · 12 sessions · Jan 6 – Mar 24" */
 function patternSummary(row: BlockRow, timeZone: string): string {
   if (!row.firstSessionAt) {
-    return row.status === "draft" ? "Draft — no sessions committed" : "No sessions";
+    return row.status === "draft" ? "Draft (no sessions committed)" : "No sessions";
   }
   const first = new Date(row.firstSessionAt);
   const weekday = first.toLocaleDateString("en-US", { timeZone, weekday: "short" });
@@ -74,7 +74,7 @@ function patternSummary(row: BlockRow, timeZone: string): string {
 }
 
 interface BlocksListProps {
-  /** Org IANA timezone — block times are displayed in it. */
+  /** Org IANA timezone: block times are displayed in it. */
   timeZone: string;
 }
 
@@ -187,7 +187,7 @@ export function BlocksList({ timeZone }: BlocksListProps) {
                     {formatDollars(r.paidCents)} / {formatDollars(r.totalCents)}
                   </td>
                   <td className="px-4 py-3 align-top text-ink-muted">
-                    {r.balanceDueCents > 0 ? formatDollars(r.balanceDueCents) : "—"}
+                    {r.balanceDueCents > 0 ? formatDollars(r.balanceDueCents) : "–"}
                     {r.balanceDueAt && (
                       <div className="text-xs">
                         {new Date(r.balanceDueAt).toLocaleDateString("en-US", {

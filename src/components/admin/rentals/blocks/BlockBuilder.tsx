@@ -276,7 +276,7 @@ export function BlockBuilder({
 
   const commit = async (mode: CommitMode) => {
     if (!label.trim()) {
-      setError("A label is required — it is how staff recognise the block.");
+      setError("A label is required: it is how staff recognise the block.");
       return;
     }
     if (!internal && !renterName.trim()) {
@@ -378,7 +378,7 @@ export function BlockBuilder({
               id="block-label"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
-              placeholder={internal ? "Winter league — Tue/Thu prime" : "Ohio Elite 03B — Winter Tuesdays"}
+              placeholder={internal ? "Winter league (Tue/Thu prime)" : "Ohio Elite 03B, Winter Tuesdays"}
             />
           </div>
           {!internal && (

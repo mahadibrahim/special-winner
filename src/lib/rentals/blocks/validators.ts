@@ -1,6 +1,6 @@
 /**
  * Pure-function validation for the rental-block endpoints. No DB access, no
- * zod — mirrors `src/lib/rentals/validators.ts`, returning a discriminated
+ * zod. Mirrors `src/lib/rentals/validators.ts`, returning a discriminated
  * result the endpoint turns into a 400.
  *
  * Money never arrives here: the block total is always derived server-side from

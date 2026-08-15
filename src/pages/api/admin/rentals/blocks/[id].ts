@@ -4,9 +4,9 @@
  *        sessions from a date forward, or cancel the whole block.
  *
  * Body is one of:
- *   { label?, notes? }                 — metadata edit
- *   { cancelRemainingFrom: ISO8601 }   — cancel sessions at/after that instant
- *   { cancel: true }                   — cancel the block and every session
+ *   { label?, notes? }                 : metadata edit
+ *   { cancelRemainingFrom: ISO8601 }   : cancel sessions at/after that instant
+ *   { cancel: true }                   : cancel the block and every session
  *
  * `cancelRemainingFrom` also takes the cancelled sessions' money off the block:
  * the unpaid balance drops by their allocated dollars (see

@@ -1,5 +1,5 @@
 /**
- * Integration: admin block endpoints — preview, list, create, tenancy.
+ * Integration: admin block endpoints: preview, list, create, tenancy.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { inArray } from "drizzle-orm";

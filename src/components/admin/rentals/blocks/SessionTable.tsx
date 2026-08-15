@@ -161,7 +161,7 @@ export function SessionTable({
                     </td>
                     {showMoney && (
                       <td className="px-3 py-2 align-middle text-ink whitespace-nowrap">
-                        {included ? formatDollars(s.allocatedCents) : "—"}
+                        {included ? formatDollars(s.allocatedCents) : "–"}
                       </td>
                     )}
                     <td className="px-3 py-2 align-middle text-xs">

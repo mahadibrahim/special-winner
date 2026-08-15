@@ -273,7 +273,7 @@ export function RentalsList() {
                         {r.blockLabel ?? "Block"}
                       </a>
                     ) : (
-                      <span className="text-ink-muted">—</span>
+                      <span className="text-ink-muted">–</span>
                     )}
                   </td>
                   <td className="px-4 py-3 align-top text-ink-muted">
@@ -293,14 +293,14 @@ export function RentalsList() {
                     {r.waiverSigned ? (
                       <span className="text-emerald-700 font-medium">&#10003;</span>
                     ) : (
-                      <span className="text-ink-muted">—</span>
+                      <span className="text-ink-muted">–</span>
                     )}
                   </td>
                   <td className="px-4 py-3 align-top text-center">
                     {r.checkedInAt ? (
                       <span className="text-emerald-700 font-medium">&#10003;</span>
                     ) : (
-                      <span className="text-ink-muted">—</span>
+                      <span className="text-ink-muted">–</span>
                     )}
                   </td>
                   <td className="px-4 py-3 align-top text-right">

@@ -1,9 +1,9 @@
 /**
- * Netlify Scheduled Function — triggers the recurring-rental-block sweeps
+ * Netlify Scheduled Function: triggers the recurring-rental-block sweeps
  * hourly by POSTing to the /api/cron/rental-block-sweeps route.
  *
  * It deliberately does NOT import the app lib directly. The lib tree reads
- * `import.meta.env` (a Vite-only construct) — which is `undefined` in the
+ * `import.meta.env` (a Vite-only construct), which is `undefined` in the
  * Netlify function bundle (esbuild/zisi, not Vite), crashing the module at
  * load. The HTTP route runs the same work inside the Astro SSR runtime
  * where env access works; this function is just the scheduler.
@@ -39,7 +39,7 @@ export const handler = schedule("31 * * * *", async () => {
       headers: {
         "x-cron-secret": process.env.CRON_SECRET ?? "",
         // Astro's checkOrigin CSRF guard 403s any non-GET request whose
-        // `origin` header doesn't match the site origin — including a
+        // `origin` header doesn't match the site origin, including a
         // header-less server-to-server fetch. This request genuinely is
         // same-origin (function + route ship in one deployment), so say so.
         Origin: base,

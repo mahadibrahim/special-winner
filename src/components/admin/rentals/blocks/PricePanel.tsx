@@ -86,7 +86,7 @@ export function PricePanel({
             </select>
           </dt>
           <dd className="text-ink">
-            {quote.discountCents > 0 ? `−${formatDollars(quote.discountCents)}` : "—"}
+            {quote.discountCents > 0 ? `−${formatDollars(quote.discountCents)}` : "–"}
           </dd>
         </div>
 

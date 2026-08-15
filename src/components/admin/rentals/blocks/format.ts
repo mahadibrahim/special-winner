@@ -3,7 +3,7 @@
  *
  * Block money is whole dollars everywhere: $2,808, never $2,808.00. Cents
  * exist only because Stripe and the schema store minor units, so a value that
- * is not a multiple of 100 reaching the UI is a bug upstream — flagged in dev
+ * is not a multiple of 100 reaching the UI is a bug upstream, flagged in dev
  * rather than silently rounded away on screen.
  */
 

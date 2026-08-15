@@ -34,7 +34,7 @@ export interface BlockPattern {
 }
 
 export interface GeneratedSession {
-  /** `${date}|${venueId}|${startMinute}` — stable across regeneration. */
+  /** `${date}|${venueId}|${startMinute}`, stable across regeneration. */
   key: string;
   /** YYYY-MM-DD, local. */
   date: string;

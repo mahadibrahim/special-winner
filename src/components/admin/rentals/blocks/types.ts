@@ -79,7 +79,7 @@ export interface PreviewQuote {
 export interface PreviewResponse extends PreviewQuote {
   sessions: PreviewSession[];
   /**
-   * Absent when the pattern generated nothing — the endpoint short-circuits an
+   * Absent when the pattern generated nothing: the endpoint short-circuits an
    * empty list before it has a rate card to report.
    */
   rateCard?: {

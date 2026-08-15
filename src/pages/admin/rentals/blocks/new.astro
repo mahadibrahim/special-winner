@@ -20,7 +20,7 @@ const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
 const orgId = Astro.locals.organization?.id ?? "";
 const timeZone = Astro.locals.organization?.timezone ?? "America/New_York";
 
-// ?internal=1 builds manual ledger holds instead of rentals — same generator,
+// ?internal=1 builds manual ledger holds instead of rentals: same generator,
 // no money panels.
 const internal = Astro.url.searchParams.get("internal") === "1";
 
@@ -136,7 +136,7 @@ if (draftId && orgId) {
 ---
 
 <BaseLayout
-  title={`${internal ? "Reserve Inventory" : "New Rental Block"} — Admin — Aspire Sports`}
+  title={`${internal ? "Reserve Inventory" : "New Rental Block"} – Admin – Aspire Sports`}
   navigation={false}
   footer={false}
 >
@@ -160,7 +160,7 @@ if (draftId && orgId) {
         <p class="text-sm text-ink-muted mt-1">
           {
             internal
-              ? "Fence prime slots for facility-hosted programming. No renter, no money — the builder surfaces these as conflicts."
+              ? "Fence prime slots for facility-hosted programming. No renter, no money: the builder surfaces these as conflicts."
               : "Build a recurring multi-month rental in one pass, then take a deposit that holds every session."
           }
         </p>

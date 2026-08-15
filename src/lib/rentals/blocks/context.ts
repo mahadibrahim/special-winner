@@ -4,7 +4,7 @@
  * anchored to, and the pricing context.
  *
  * The preview endpoint and the create endpoint both need exactly this, and
- * both must derive it the same way — a preview that priced against a
+ * both must derive it the same way: a preview that priced against a
  * different rate card than the commit would quote a number the block never
  * charges.
  */
@@ -27,7 +27,7 @@ export interface RentalVenueSummary {
 export interface BlockBuildContext {
   rateCard: FieldRentalRateCard;
   venues: RentalVenueSummary[];
-  /** Org/location IANA timezone — every local-minute computation anchors here. */
+  /** Org/location IANA timezone: every local-minute computation anchors here. */
   timeZone: string;
   pricingContext: BlockPricingContext;
 }

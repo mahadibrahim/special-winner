@@ -102,7 +102,7 @@ class BlockCommitAbort extends Error {
 /**
  * Pure: pattern → the session list the admin actually asked for. Generate,
  * drop the unchecked rows, apply per-row edits, append one-offs, re-sort.
- * Returns [] rather than throwing on an empty result — createRentalBlock is
+ * Returns [] rather than throwing on an empty result: createRentalBlock is
  * the one that rejects, so the endpoint can map results instead of catching.
  */
 export type SessionListInput = Pick<
@@ -312,7 +312,7 @@ export async function createRentalBlock(
 
   // Resource ids are resolved BEFORE the transaction. assertNoBlockConflict
   // runs on the caller's tx, but resolveTopLevelResourceId goes through the
-  // pool — issuing pool queries while holding a transaction is what the
+  // pool, and issuing pool queries while holding a transaction is what the
   // ledger module warns against.
   const resourceIds = new Map<string, string | null>();
   for (const s of ordered) {

@@ -87,7 +87,7 @@ interface Session {
 
 interface BlockDetailProps {
   blockId: string;
-  /** Org IANA timezone — session times are displayed in it. */
+  /** Org IANA timezone: session times are displayed in it. */
   timeZone: string;
 }
 
@@ -107,7 +107,7 @@ function statusColor(s: Block["status"]): string {
 }
 
 function discountLabel(block: Block): string {
-  if (!block.discountKind || block.discountValue === null) return "—";
+  if (!block.discountKind || block.discountValue === null) return "–";
   return block.discountKind === "percent"
     ? `${block.discountValue}%`
     : formatDollars(block.discountValue);
@@ -323,7 +323,7 @@ export function BlockDetail({ blockId, timeZone }: BlockDetailProps) {
         total: json.sessions.length,
         conflicts: json.sessions
           .filter((s) => s.conflict)
-          .map((s) => `${fmtSessionDate(s.startsAt, timeZone)} — ${s.conflict!.reason}`),
+          .map((s) => `${fmtSessionDate(s.startsAt, timeZone)}: ${s.conflict!.reason}`),
       });
     } finally {
       setBusy(false);
@@ -421,11 +421,11 @@ export function BlockDetail({ blockId, timeZone }: BlockDetailProps) {
           </div>
           <div>
             <div className="text-xs uppercase tracking-wider text-ink-muted">Email</div>
-            <div className="text-ink">{block.renterEmail ?? "—"}</div>
+            <div className="text-ink">{block.renterEmail ?? "–"}</div>
           </div>
           <div>
             <div className="text-xs uppercase tracking-wider text-ink-muted">Phone</div>
-            <div className="text-ink">{block.renterPhone ?? "—"}</div>
+            <div className="text-ink">{block.renterPhone ?? "–"}</div>
           </div>
           <div>
             <div className="text-xs uppercase tracking-wider text-ink-muted">Party size</div>
@@ -433,7 +433,7 @@ export function BlockDetail({ blockId, timeZone }: BlockDetailProps) {
           </div>
           <div className="sm:col-span-2">
             <div className="text-xs uppercase tracking-wider text-ink-muted">Purpose</div>
-            <div className="text-ink">{block.purpose ?? "—"}</div>
+            <div className="text-ink">{block.purpose ?? "–"}</div>
           </div>
         </div>
       </section>
@@ -498,7 +498,7 @@ export function BlockDetail({ blockId, timeZone }: BlockDetailProps) {
         </div>
         {sessions.length === 0 ? (
           <p className="text-sm text-ink-muted">
-            No session rows yet — a draft holds its slots as soft quote markers only.
+            No session rows yet: a draft holds its slots as soft quote markers only.
           </p>
         ) : (
           <div className="rounded-lg border border-border bg-cream overflow-x-auto">
@@ -535,14 +535,14 @@ export function BlockDetail({ blockId, timeZone }: BlockDetailProps) {
                       {s.waiverSigned ? (
                         <span className="text-emerald-700 font-medium">&#10003;</span>
                       ) : (
-                        <span className="text-ink-muted">—</span>
+                        <span className="text-ink-muted">–</span>
                       )}
                     </td>
                     <td className="px-3 py-2 text-center">
                       {s.checkedInAt ? (
                         <span className="text-emerald-700 font-medium">&#10003;</span>
                       ) : (
-                        <span className="text-ink-muted">—</span>
+                        <span className="text-ink-muted">–</span>
                       )}
                     </td>
                     <td className="px-3 py-2 text-right">

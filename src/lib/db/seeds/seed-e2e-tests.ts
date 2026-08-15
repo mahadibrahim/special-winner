@@ -259,7 +259,7 @@ export async function resolveE2ELocationId(): Promise<string> {
     .limit(1);
   if (!row) {
     throw new Error(
-      "E2E rental venue is not seeded — run `npm run db:seed:e2e` before the API suite",
+      "E2E rental venue is not seeded. Run `npm run db:seed:e2e` before the API suite",
     );
   }
   return row.locationId;
@@ -273,7 +273,7 @@ export async function resolveE2EAdminUserId(): Promise<string> {
     .limit(1);
   if (!row) {
     throw new Error(
-      "E2E admin user is not seeded — run `npm run db:seed:e2e` before the API suite",
+      "E2E admin user is not seeded. Run `npm run db:seed:e2e` before the API suite",
     );
   }
   return row.id;
