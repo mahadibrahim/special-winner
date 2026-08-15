@@ -8,7 +8,10 @@ import { locations } from "@/lib/db/schema/organizations";
 import { venues } from "@/lib/db/schema/teams";
 import { fieldRentalBlocks } from "@/lib/db/schema/field-rental-blocks";
 import { and, asc, eq } from "drizzle-orm";
-import type { BuilderDraft } from "@/components/admin/rentals/blocks/types";
+import type {
+  BuilderDraft,
+  PatternPrefill,
+} from "@/components/admin/rentals/blocks/types";
 
 export const prerender = false;
 
@@ -37,6 +40,52 @@ const venueRows = orgId
       .where(and(eq(locations.organizationId, orgId), eq(venues.rentalEnabled, true)))
       .orderBy(asc(venues.name))
   : [];
+
+// Arriving from the recurring-slot finder: the pattern travels in the query
+// string so the builder opens on the slot the admin was just looking at. Every
+// value is re-validated here; a malformed link yields an empty builder rather
+// than a broken one.
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const intParam = (name: string): number | null => {
+  const raw = Astro.url.searchParams.get(name);
+  if (raw === null || raw.trim() === "") return null;
+  const n = Number(raw);
+  return Number.isInteger(n) ? n : null;
+};
+
+let prefill: PatternPrefill | null = null;
+{
+  const prefillLocationId = Astro.url.searchParams.get("locationId") ?? "";
+  const weekday = intParam("weekday");
+  const startMinute = intParam("startMinute");
+  const durationMinutes = intParam("durationMinutes");
+  const first = Astro.url.searchParams.get("firstDate") ?? "";
+  const last = Astro.url.searchParams.get("lastDate") ?? "";
+  if (
+    locationRows.some((l) => l.id === prefillLocationId) &&
+    weekday !== null &&
+    weekday >= 0 &&
+    weekday <= 6 &&
+    startMinute !== null &&
+    startMinute >= 0 &&
+    startMinute < 1440 &&
+    durationMinutes !== null &&
+    durationMinutes > 0 &&
+    durationMinutes <= 1440 &&
+    DATE_RE.test(first) &&
+    DATE_RE.test(last) &&
+    last >= first
+  ) {
+    prefill = {
+      locationId: prefillLocationId,
+      weekday,
+      startMinute,
+      durationMinutes,
+      firstDate: first,
+      lastDate: last,
+    };
+  }
+}
 
 /** The jsonb a draft carries: generator input plus the admin's per-row edits. */
 interface StoredDraftPattern {
@@ -123,6 +172,7 @@ if (draftId && orgId) {
         timeZone={timeZone}
         internal={internal}
         draft={draft}
+        prefill={prefill}
       />
     </div>
   </AdminLayout>

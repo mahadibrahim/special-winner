@@ -36,6 +36,21 @@ export interface PatternFormState {
   lastDate: string;
 }
 
+/**
+ * A pattern handed to the builder by the recurring-slot finder. Only the
+ * generator input travels: no renter, no money, no session edits - the admin
+ * still fills those in. Every field is already validated by the page that
+ * parses the query string.
+ */
+export interface PatternPrefill {
+  locationId: string;
+  weekday: number;
+  startMinute: number;
+  durationMinutes: number;
+  firstDate: string;
+  lastDate: string;
+}
+
 export interface PreviewSession {
   key: string;
   date: string;

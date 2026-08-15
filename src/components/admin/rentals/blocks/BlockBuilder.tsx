@@ -17,6 +17,7 @@ import type {
   ExtraSession,
   LocationOption,
   PatternFormState,
+  PatternPrefill,
   PreviewQuote,
   PreviewResponse,
   SessionOverride,
@@ -61,6 +62,11 @@ interface BlockBuilderProps {
   internal?: boolean;
   /** A draft reopened for re-pricing; committing retires it. */
   draft?: BuilderDraft | null;
+  /**
+   * A pattern carried in from the recurring-slot finder. Ignored when a draft
+   * is present: a reopened draft's own pattern always wins.
+   */
+  prefill?: PatternPrefill | null;
 }
 
 export function BlockBuilder({
@@ -69,6 +75,7 @@ export function BlockBuilder({
   timeZone,
   internal = false,
   draft = null,
+  prefill = null,
 }: BlockBuilderProps) {
   useHydrationBeacon();
 
@@ -94,7 +101,24 @@ export function BlockBuilder({
           firstDate: draft.firstDate,
           lastDate: draft.lastDate,
         }
-      : emptyPatternState(),
+      : prefill
+        ? {
+            ...emptyPatternState(),
+            locationId: prefill.locationId,
+            firstDate: prefill.firstDate,
+            lastDate: prefill.lastDate,
+            days: [
+              {
+                weekday: prefill.weekday,
+                startTime: minuteToTimeInput(prefill.startMinute),
+                durationMinutes: prefill.durationMinutes,
+                // The finder searches every field at once; which one this block
+                // takes is the admin's call, so it stays unpicked.
+                venueIds: [],
+              },
+            ],
+          }
+        : emptyPatternState(),
   );
   const [rows, setRows] = useState<SessionRow[]>([]);
   const [excludedKeys, setExcludedKeys] = useState<string[]>(draft?.excludedKeys ?? []);
