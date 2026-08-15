@@ -1,9 +1,17 @@
 import type { APIRoute } from "astro";
 import { getDb } from "@/lib/db";
-import { registrations, familyMembers, seasons, programs, sports, users } from "@/lib/db/schema";
+import {
+  registrations,
+  familyMembers,
+  seasons,
+  programs,
+  sports,
+  users,
+} from "@/lib/db/schema";
 import { locations } from "@/lib/db/schema/organizations";
 import { eq, and, desc, or, ilike, sql } from "drizzle-orm";
 import { requireSuperAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import { teamBlocksByRegistrationId } from "@/lib/registrations/team-funding";
 
 // GET - List all registrations with filters
 export const GET: APIRoute = async (context) => {
@@ -126,9 +134,18 @@ export const GET: APIRoute = async (context) => {
         .where(eq(locations.organizationId, orgContext.organizationId)),
     ]);
 
+    const teamBlocks = await teamBlocksByRegistrationId(
+      getDb(),
+      registrationData.map((r) => r.id),
+    );
+    const registrationsWithTeam = registrationData.map((r) => ({
+      ...r,
+      team: teamBlocks.get(r.id) ?? null,
+    }));
+
     return new Response(
       JSON.stringify({
-        registrations: registrationData,
+        registrations: registrationsWithTeam,
         summary: summaryResult[0],
         pagination: {
           limit,

@@ -12,7 +12,7 @@ import { schedule } from "@netlify/functions";
 
 const ROUTE = "/api/cron/media-unconfirmed-reminders";
 
-export const handler = schedule("30 4 * * *", async () => {
+export const handler = schedule("38 4 * * *", async () => {
   const base = (process.env.URL ?? process.env.PUBLIC_APP_URL)?.replace(
     /\/$/,
     "",

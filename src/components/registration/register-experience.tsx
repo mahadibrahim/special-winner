@@ -88,7 +88,12 @@ export default function RegisterExperience({
       .then(async (r) => {
         if (!r.ok) throw new Error("not_found");
         const body = await r.json();
-        setViewerShareCents(body.viewerShare?.shareCents ?? null);
+        // An explicit invitee share wins; otherwise the captain-set join
+        // price (if any) is what this visitor will actually be charged —
+        // mirror of resolveTeamPricing in create-registration.ts.
+        setViewerShareCents(
+          body.viewerShare?.shareCents ?? body.payment?.joinShareCents ?? null,
+        );
         setTeamName(body.team?.teamName ?? null);
       })
       .catch(() => {

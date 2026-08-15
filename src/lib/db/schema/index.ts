@@ -90,6 +90,7 @@ export * from "./sponsor-bars";
 
 // Team registrations (TeamPayer v1 — captain-led adult team signups)
 export * from "./team-registrations";
+export * from "./team-reservation-attempts";
 
 // Activity tracking engine (game-day operational completions)
 export * from "./activity-tracking";
@@ -147,3 +148,6 @@ export * from "./session-lifecycle";
 
 // Spectator liability waivers (facility entry, not a booking)
 export * from "./spectators";
+
+// Scoped machine tokens for the admin MCP — session-less, org-pinned, allowlisted
+export * from "./admin-api-tokens";

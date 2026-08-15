@@ -4,7 +4,7 @@ import { DivisionsFinder } from "@/components/leagues/divisions-finder";
 import { StandingsPanel } from "@/components/leagues/standings-panel";
 import type { Division } from "@/lib/leagues/division-filters";
 import { groupDivisionsByDay } from "@/lib/leagues/division-filters";
-import { RULE_SECTIONS, FAQ } from "@/lib/leagues/adult-soccer-content";
+import type { RuleSection, FaqEntry } from "@/lib/leagues/landing-content";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import { trackSeasonViewed } from "@/lib/analytics/events";
 import { cn } from "@/lib/utils";
@@ -15,20 +15,49 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "standings", label: "Standings" }, { key: "rules", label: "Rules" }, { key: "faq", label: "FAQ" },
 ];
 
-export function SeasonTabs({ divisions, venues, weekStart, scheduleNote, term, initialTab = "divisions" }: {
+export function SeasonTabs({
+  sport,
+  divisions,
+  venues,
+  weekStart,
+  scheduleNote,
+  term,
+  ruleSections,
+  faq,
+  arenaNote,
+  showLevels,
+  findHeading,
+  findSubcopy,
+  playLine,
+  footnote,
+  initialTab = "divisions",
+}: {
+  sport: string;
   divisions: Division[];
   venues: { slug: string; label: string }[];
   weekStart: string;
   scheduleNote: string;
   term: string;
+  ruleSections: RuleSection[];
+  faq: FaqEntry[];
+  arenaNote: { title: string; body: string } | null;
+  showLevels?: boolean;
+  /** Divisions-tab heading, e.g. "Find your level & register". */
+  findHeading: string;
+  /** Divisions-tab sub-copy under the heading. */
+  findSubcopy: string;
+  /** Third "What to expect" step's play-line, e.g. "One game a week, 7 games, indoor — rain or shine." */
+  playLine: string;
+  /** Optional footnote passed through to DivisionsFinder; null renders nothing. */
+  footnote?: string | null;
   /** A fully-completed term opens on Standings — the archive is the content. */
   initialTab?: Tab;
 }) {
   useHydrationBeacon();
   const [tab, setTab] = useState<Tab>(initialTab);
   useEffect(() => {
-    trackSeasonViewed({ sport: "soccer", term });
-  }, [term]);
+    trackSeasonViewed({ sport, term });
+  }, [sport, term]);
   return (
     <div>
       <div className="bg-navy-deep px-9">
@@ -47,14 +76,14 @@ export function SeasonTabs({ divisions, venues, weekStart, scheduleNote, term, i
         <div className="max-w-[1080px] mx-auto">
           <div hidden={tab !== "divisions"}>
             <>
-              <h2 className="font-display font-semibold text-2xl">Find your level &amp; register</h2>
-              <p className="text-ink-muted text-[13px] mt-0.5 mb-1.5">Pick your level, then narrow by format, night, or venue. Open divisions register on the spot.</p>
+              <h2 className="font-display font-semibold text-2xl">{findHeading}</h2>
+              <p className="text-ink-muted text-[13px] mt-0.5 mb-1.5">{findSubcopy}</p>
               {/* Pre-answer the two exits replays showed: "do I need an
                   account?" and "how long will this take?" */}
               <p className="font-mono text-[10.5px] tracking-wide uppercase text-sage mb-4">
                 No account needed · registering takes about 3 minutes
               </p>
-              <DivisionsFinder divisions={divisions} venues={venues} term={term} />
+              <DivisionsFinder divisions={divisions} venues={venues} term={term} showLevels={showLevels ?? true} footnote={footnote ?? null} />
 
               {/* What to expect + the questions replays showed people leaving
                   the flow to answer. Inline so info-seeking doesn't mean
@@ -66,7 +95,7 @@ export function SeasonTabs({ divisions, venues, weekStart, scheduleNote, term, i
                     {[
                       ["Register", "Solo or with your team — about 3 minutes, pay online."],
                       ["Get your schedule", "Divisions lock, then your team & game times land in your inbox."],
-                      ["Play", "One game a week, 7 games, indoor — rain or shine."],
+                      ["Play", playLine],
                     ].map(([t, d], i) => (
                       <li key={t} className="flex gap-3 text-[13px]">
                         <span className="font-display font-semibold text-primary">{i + 1}</span>
@@ -78,7 +107,7 @@ export function SeasonTabs({ divisions, venues, weekStart, scheduleNote, term, i
                 <div>
                   <h3 className="font-mono text-[11px] tracking-widest uppercase text-primary mb-3">Quick answers</h3>
                   <div className="divide-y divide-cream-3 border-y border-cream-3">
-                    {FAQ.slice(0, 4).map((f) => (
+                    {faq.slice(0, 4).map((f) => (
                       <details key={f.q} className="group py-2.5">
                         <summary className="cursor-pointer list-none flex items-baseline justify-between gap-3 text-[13px] font-semibold text-ink">
                           {f.q}
@@ -105,11 +134,13 @@ export function SeasonTabs({ divisions, venues, weekStart, scheduleNote, term, i
           <div hidden={tab !== "rules"}>
             <>
               <h2 className="font-display font-semibold text-2xl">Rules &amp; regulations</h2>
-              <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 text-xs text-ink-2 my-4">
-                <strong>Walled-arena 7v7.</strong> All Aspire fields have boards — no offside, the wall is in play.
-              </div>
+              {arenaNote && (
+                <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 text-xs text-ink-2 my-4">
+                  <strong>{arenaNote.title}</strong> {arenaNote.body}
+                </div>
+              )}
               <div className="grid md:grid-cols-2 gap-x-7 gap-y-3.5">
-                {RULE_SECTIONS.map((s) => (
+                {ruleSections.map((s) => (
                   <div key={s.title}>
                     <h3 className="font-mono text-[13px] tracking-wider uppercase text-primary mb-2 pb-1.5 border-b border-cream-3">{s.title}</h3>
                     <ul className="space-y-1">
@@ -124,7 +155,7 @@ export function SeasonTabs({ divisions, venues, weekStart, scheduleNote, term, i
             <>
               <h2 className="font-display font-semibold text-2xl">Common questions</h2>
               <div className="grid md:grid-cols-2 gap-x-7 gap-y-3.5 mt-4">
-                {FAQ.map((e) => (
+                {faq.map((e) => (
                   <div key={e.q}>
                     <h3 className="font-mono text-[13px] tracking-wider uppercase text-primary mb-2 pb-1.5 border-b border-cream-3">{e.q}</h3>
                     <p className="text-[12.5px] text-ink-2 leading-snug">{e.a}</p>

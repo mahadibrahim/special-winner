@@ -7,6 +7,7 @@ import { createRegistration, RegistrationError } from "@/lib/registrations/creat
 import { resolvePerson } from "@/lib/registrations/resolve-person";
 import { getPostHogServer } from "@/lib/posthog-server";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
+import { fireRegistrationCreatedConversion } from "@/lib/analytics/server-conversions";
 import { recordConsent, recordDefaultMediaAuth } from "@/lib/consents/record";
 
 // waiverSignedBy is only required when the client actually claims the
@@ -208,6 +209,7 @@ export const POST: APIRoute = async ({ request, clientAddress, locals }) => {
     }
 
     try {
+      const brand = brandFromHost(request.headers.get("host") ?? "");
       const result = await createRegistration({
         db,
         user: { id: user.id, email: user.email, firstName: user.firstName },
@@ -219,7 +221,7 @@ export const POST: APIRoute = async ({ request, clientAddress, locals }) => {
         notes: data.notes,
         lookingForTeam: data.registerSelf ? (data.lookingForTeam ?? false) : false,
         teamToken: data.teamToken ?? null,
-        brand: brandFromHost(request.headers.get("host") ?? ""),
+        brand,
       });
 
       if (result.kind !== "resumed" && data.waiverSigned) {
@@ -255,6 +257,22 @@ export const POST: APIRoute = async ({ request, clientAddress, locals }) => {
         posthog.capture({ distinctId: user.id, event: "registration_waitlisted", properties: { $session_id: phSessionId, season_id: data.seasonId, registration_type: data.registrationType } });
       } else if (result.kind !== "resumed") {
         posthog.capture({ distinctId: user.id, event: "registration_created", properties: { $session_id: phSessionId, season_id: data.seasonId, registration_type: data.registrationType, requires_payment: result.requiresPayment, amount_due_cents: result.amountDueCents } });
+      }
+
+      // Meta CompleteRegistration — once per new registration row (resumed
+      // drafts excluded), event_id = registration id.
+      if (result.kind !== "resumed") {
+        fireRegistrationCreatedConversion({
+          request,
+          registrationId: result.registration.id,
+          brand,
+          email: user.email,
+          phone: user.phone,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          userId: user.id,
+          seasonId: data.seasonId,
+        });
       }
 
       const status = result.kind === "resumed" ? 200 : 201;

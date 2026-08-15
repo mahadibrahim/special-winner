@@ -4,9 +4,11 @@ import { getDb } from "@/lib/db";
 import { teamRegistrations, teamInvitees, payments } from "@/lib/db/schema";
 import { sendTeamShareReminderEmail, sendTeamBackstopWarningEmail } from "@/lib/email/send";
 import {
-  sumUnpaidSharesCents,
+  teamBackstopDueCents,
   chargeTeamBackstop,
 } from "@/lib/payments/team-captain-charge";
+import { teamMoneyReceivedCents } from "@/lib/registrations/team-funding";
+import { sendOpsPing } from "@/lib/ops/ping";
 import { env } from "@/lib/env";
 import { captureServerException } from "@/lib/observability/server-error";
 
@@ -27,10 +29,11 @@ import { captureServerException } from "@/lib/observability/server-error";
  *     the still-unpaid invitees 'charged_to_captain'. On failure set
  *     backstopStatus='failed' and capture an exception for manual follow-up.
  *
- * No payments row is written for the backstop charge — payments.registrationId
- * is NOT NULL and a backstop spans multiple registrations. The outcome is
- * persisted via backstopStatus + invitee status + the PaymentIntent metadata
- * (kind=captain_backstop, team_registration_id).
+ * The backstop charge is recorded in the payments ledger as a team-level row
+ * (registrationId NULL, teamRegistrationId set, paymentType "balance") — a
+ * backstop spans multiple registrations so it can't attach to any single one.
+ * The outcome is also persisted via backstopStatus + invitee status + the
+ * PaymentIntent metadata (kind=captain_backstop, team_registration_id).
  *
  * Authentication: requires `x-cron-secret` header matching CRON_SECRET env
  * (same convention as the sibling cron endpoints in this directory).
@@ -78,6 +81,7 @@ export const POST: APIRoute = async ({ request }) => {
         seasonId: teamRegistrations.seasonId,
         inviteToken: teamRegistrations.inviteToken,
         teamName: teamRegistrations.teamName,
+        teamFeeCents: teamRegistrations.teamFeeCents,
         captainName: teamRegistrations.captainName,
         captainEmail: teamRegistrations.captainEmail,
         paymentDeadline: teamRegistrations.paymentDeadline,
@@ -115,7 +119,19 @@ export const POST: APIRoute = async ({ request }) => {
             ),
           );
 
-        if (unpaid.length === 0) continue;
+        // What will actually land on the captain's card — the money-based
+        // shortfall (same math as the charge phase below). A team with no
+        // invitee rows but an uncovered fee still gets warned; a team whose
+        // fee is already covered by member payments gets no warning even if
+        // its share bookkeeping looks unpaid.
+        const received = await teamMoneyReceivedCents(db, team.id);
+        const unpaidTotalCents = teamBackstopDueCents({
+          teamFeeCents: team.teamFeeCents ?? null,
+          receivedCents: received.totalCents,
+          invitees: unpaid,
+        });
+
+        if (unpaidTotalCents <= 0) continue;
 
         const joinUrl = `${base}/register/${team.seasonId}?team=${team.inviteToken}`;
         const deadline = team.paymentDeadline ?? undefined;
@@ -127,10 +143,6 @@ export const POST: APIRoute = async ({ request }) => {
         // try/catch so a captain-send failure can't skip the teammate loop
         // below.
         try {
-          const unpaidTotalCents = unpaid.reduce(
-            (sum, inv) => sum + inv.assignedShareCents,
-            0,
-          );
           await sendTeamBackstopWarningEmail({
             to: team.captainEmail,
             captainName: team.captainName,
@@ -190,6 +202,10 @@ export const POST: APIRoute = async ({ request }) => {
     const dueTeams = await db
       .select({
         id: teamRegistrations.id,
+        organizationId: teamRegistrations.organizationId,
+        teamName: teamRegistrations.teamName,
+        brand: teamRegistrations.brand,
+        teamFeeCents: teamRegistrations.teamFeeCents,
         captainUserId: teamRegistrations.captainUserId,
         captainStripeCustomerId: teamRegistrations.captainStripeCustomerId,
         captainPaymentMethodId: teamRegistrations.captainPaymentMethodId,
@@ -213,10 +229,20 @@ export const POST: APIRoute = async ({ request }) => {
           .from(teamInvitees)
           .where(eq(teamInvitees.teamRegistrationId, team.id));
 
-        const unpaid = sumUnpaidSharesCents(invitees);
+        // Money model: the charge is the shortfall between the team fee and
+        // settled money received (team-level payments + linked member
+        // payments) — an uninvited-but-paid member reduces it, and an empty
+        // invitee list no longer reads as "nothing owed". Invitee-share sum
+        // remains only as the legacy fallback for pre-fee teams.
+        const received = await teamMoneyReceivedCents(db, team.id);
+        const unpaid = teamBackstopDueCents({
+          teamFeeCents: team.teamFeeCents ?? null,
+          receivedCents: received.totalCents,
+          invitees,
+        });
 
         if (unpaid <= 0) {
-          // Everyone paid — close out the backstop, nothing to charge.
+          // Fee fully covered — close out the backstop, nothing to charge.
           await db
             .update(teamRegistrations)
             .set({ backstopStatus: "charged", updatedAt: new Date() })
@@ -277,12 +303,29 @@ export const POST: APIRoute = async ({ request }) => {
             }
           }
 
+          // Principal ping — captain's card was just charged the shortfall.
+          await sendOpsPing(team.organizationId, {
+            kind: "team_backstop_charged",
+            brand: team.brand ?? "aspire",
+            eventId: team.id,
+            label: `${team.teamName} · captain card charged for the shortfall`,
+            amountCents: unpaid,
+          });
+
           charged += 1;
         } else {
           await db
             .update(teamRegistrations)
             .set({ backstopStatus: "failed", updatedAt: new Date() })
             .where(eq(teamRegistrations.id, team.id));
+
+          // Principal ping — a failed backstop needs a human TODAY.
+          await sendOpsPing(team.organizationId, {
+            kind: "team_backstop_failed",
+            brand: team.brand ?? "aspire",
+            eventId: team.id,
+            label: `${team.teamName} · $${(unpaid / 100).toFixed(2)} uncollected (${result.reason ?? result.status ?? "charge failed"})`,
+          });
 
           void captureServerException(
             new Error(

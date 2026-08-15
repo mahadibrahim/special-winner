@@ -12,7 +12,7 @@ import { schedule } from "@netlify/functions";
 
 const ROUTE = "/api/cron/day-before-reminders";
 
-export const handler = schedule("0 22 * * *", async () => {
+export const handler = schedule("14 22 * * *", async () => {
   const base = (process.env.URL ?? process.env.PUBLIC_APP_URL)?.replace(
     /\/$/,
     "",

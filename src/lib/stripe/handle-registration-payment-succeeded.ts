@@ -23,6 +23,7 @@ import { normalizeBrand, originForBrand } from "@/lib/organization/soccerone-rou
 import { fireServerPurchaseConversions } from "@/lib/analytics/server-conversions";
 import { capturePaymentCompleted } from "@/lib/observability/payment-telemetry";
 import { sendOpsPing } from "@/lib/ops/ping";
+import { teamRegistrationMembers, teamRegistrations } from "@/lib/db/schema";
 import { env } from "@/lib/env";
 
 // Handles `payment_intent.succeeded` for registration payments. Mirrors
@@ -166,6 +167,25 @@ export async function handleRegistrationPaymentSucceeded(
 
     if (row) {
       // These four sends are mutually independent (two emails, an ops ping,
+      // Team context for the ops ping: a member paying through a team link is
+      // a team event — name the team so the principals see the roster grow.
+      // Best-effort; an empty suffix on failure is fine.
+      let teamJoinSuffix = "";
+      try {
+        const [membership] = await db
+          .select({ teamName: teamRegistrations.teamName })
+          .from(teamRegistrationMembers)
+          .innerJoin(
+            teamRegistrations,
+            eq(teamRegistrationMembers.teamRegistrationId, teamRegistrations.id),
+          )
+          .where(eq(teamRegistrationMembers.registrationId, registrationId))
+          .limit(1);
+        if (membership) teamJoinSuffix = ` · joined ${membership.teamName}`;
+      } catch {
+        // non-fatal
+      }
+
       // and — only for guest checkout — a magic-link mint + email) and were
       // previously awaited serially, roughly quadrupling this section's
       // contribution to webhook ACK latency. awaitEmailSend/awaitDispatch and
@@ -253,7 +273,7 @@ export async function handleRegistrationPaymentSucceeded(
           // each one is a distinct payment event — keying on registration.id
           // would dedupe every payment after the first against the initial ping.
           eventId: paymentIntent.id,
-          label: `${row.familyMember.firstName} ${row.familyMember.lastName} · ${row.program.name} ${row.season.name}`,
+          label: `${row.familyMember.firstName} ${row.familyMember.lastName} · ${row.program.name} ${row.season.name}${teamJoinSuffix}`,
           amountCents: amountPaid,
         }),
       ];
@@ -301,14 +321,21 @@ export async function handleRegistrationPaymentSucceeded(
   }
 
   // Server-side ad conversions (GA4 Measurement Protocol + Meta CAPI) — the
-  // ad-blocker / iOS-ATP-resistant twins of the browser pixel fire on
-  // /payment/return, deduped against it by the PaymentIntent id. Item context
-  // needs a JOIN, so this runs after the fulfillment transaction. Skip the
-  // work entirely when the charge carries no ad attribution.
+  // source of truth for Purchase counts; the browser pixel fire on
+  // /payment/return is the attribution-signal twin, deduped against this one
+  // by the shared PaymentIntent id. Fires for every online sale (hashed
+  // email/phone/name are sufficient match keys — ad-click ids improve
+  // attribution but aren't required), so it also covers payment methods the
+  // browser pixel misses entirely. Item context needs a JOIN, so this runs
+  // after the fulfillment transaction.
   const md = paymentIntent.metadata ?? {};
-  const hasAttribution =
-    md.ga_client_id || md.fbclid || md._fbc || md._fbp;
-  if (hasAttribution) {
+  const hasConversionSignal =
+    md.ga_client_id ||
+    md.fbclid ||
+    md._fbc ||
+    md._fbp ||
+    paymentIntent.receipt_email;
+  if (hasConversionSignal) {
     try {
       const [itemRow] = await db
         .select({
@@ -317,11 +344,19 @@ export async function handleRegistrationPaymentSucceeded(
           programName: programs.name,
           sportName: sports.name,
           seasonPriceCents: seasons.priceCents,
+          buyer: {
+            id: users.id,
+            email: users.email,
+            phone: users.phone,
+            firstName: users.firstName,
+            lastName: users.lastName,
+          },
         })
         .from(registrations)
         .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
         .innerJoin(programs, eq(seasons.programId, programs.id))
         .innerJoin(sports, eq(programs.sportId, sports.id))
+        .innerJoin(users, eq(registrations.registeredByUserId, users.id))
         .where(eq(registrations.id, registrationId));
 
       if (itemRow) {
@@ -340,7 +375,11 @@ export async function handleRegistrationPaymentSucceeded(
           eventId: paymentIntent.id,
           valueCents: amountPaid,
           brand: normalizeBrand(paymentIntent.metadata?.brand),
-          email: paymentIntent.receipt_email,
+          email: paymentIntent.receipt_email ?? itemRow.buyer.email,
+          phone: itemRow.buyer.phone,
+          firstName: itemRow.buyer.firstName,
+          lastName: itemRow.buyer.lastName,
+          userId: itemRow.buyer.id,
           ga4Items: [
             {
               id: itemRow.seasonId,

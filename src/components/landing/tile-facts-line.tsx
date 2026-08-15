@@ -80,8 +80,8 @@ export default function TileFactsLine({
     ages != null ? `ages ${ages.min}–${ages.max}` : null,
     price != null
       ? audience === "youth"
-        ? `from $${price.toLocaleString()}`
-        : `$${price.toLocaleString()} solo`
+        ? `from $${price.toLocaleString("en-US")}`
+        : `$${price.toLocaleString("en-US")} solo`
       : null,
     closes != null
       ? `closes ${closes.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}`

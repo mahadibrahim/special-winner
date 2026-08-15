@@ -33,7 +33,7 @@ const COPY = {
     preview: "Welcome to SoccerOne — here's what happens next",
     h1: "You're in. Welcome to SoccerOne.",
     intro:
-      "Thanks for signing up — glad you're in. SoccerOne runs co-ed 7v7 in Columbus: 50-minute games, certified refs, turf, and a real post-game scene at Worthington and downtown.",
+      "Thanks for signing up — glad you're in. SoccerOne runs co-ed 7v7 in Columbus: two 24-minute halves, certified refs, turf, and a real post-game scene at Worthington and downtown.",
     brandName: "SoccerOne",
   },
 } as const;

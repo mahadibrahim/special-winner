@@ -52,6 +52,10 @@ export const teamRegistrations = pgTable("team_registrations", {
   // step. discountCents records how much was taken off (original fee =
   // teamFeeCents + discountCents), so the breakdown survives a reload.
   teamFeeCents: integer("team_fee_cents"),                 // effective team total (early-bird − discount)
+  // Captain-set price for anyone joining through the open share link who has
+  // no captain-assigned invitee share. NULL ⇒ the season's individual price
+  // (what Casey paid). An explicit invitee share always wins over this.
+  joinShareCents: integer("join_share_cents"),
   discountCodeId: uuid("discount_code_id"),                // soft ref to discount_codes.id (applied on reserve)
   discountCents: integer("discount_cents"),                // amount taken off the team fee, if any
   depositCents: integer("deposit_cents").default(20000),   // $200 (locked decision)

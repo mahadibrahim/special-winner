@@ -8,7 +8,9 @@ import {
   seasons,
   programs,
   users,
+  teamRegistrations,
 } from "@/lib/db/schema";
+import { sql } from "drizzle-orm";
 import { locations } from "@/lib/db/schema/organizations";
 import {
   requireSuperAdminAccess,
@@ -44,6 +46,8 @@ const HEADER = [
   "program_name",
   "registration_id",
   "created_at",
+  "team_registration_id",
+  "team_name",
 ];
 
 export const GET: APIRoute = async (context) => {
@@ -91,14 +95,26 @@ export const GET: APIRoute = async (context) => {
       programName: programs.name,
       registrationId: registrations.id,
       createdAt: payments.createdAt,
+      teamRegistrationId: teamRegistrations.id,
+      teamName: teamRegistrations.teamName,
     })
     .from(payments)
-    .innerJoin(registrations, eq(payments.registrationId, registrations.id))
-    .innerJoin(
+    // Solo payments resolve via registrations, team-level payments (captain
+    // deposit / backstop balance / their refunds) via team_registrations —
+    // the seasons join on COALESCE covers both (see payments.ts).
+    .leftJoin(registrations, eq(payments.registrationId, registrations.id))
+    .leftJoin(
+      teamRegistrations,
+      eq(payments.teamRegistrationId, teamRegistrations.id),
+    )
+    .leftJoin(
       familyMembers,
       eq(registrations.familyMemberId, familyMembers.id),
     )
-    .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+    .innerJoin(
+      seasons,
+      sql`${seasons.id} = COALESCE(${registrations.seasonId}, ${teamRegistrations.seasonId})`,
+    )
     .innerJoin(programs, eq(seasons.programId, programs.id))
     .innerJoin(locations, eq(programs.locationId, locations.id))
     .innerJoin(users, eq(payments.userId, users.id))
@@ -123,6 +139,8 @@ export const GET: APIRoute = async (context) => {
         r.programName,
         r.registrationId,
         r.createdAt,
+        r.teamRegistrationId,
+        r.teamName,
       ]),
     ),
   ];

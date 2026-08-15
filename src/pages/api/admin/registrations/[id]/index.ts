@@ -13,6 +13,10 @@ import {
 } from "@/lib/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { requireSuperAdminAccess, requireOrganizationContext } from "@/lib/auth";
+import {
+  teamFundedRegistrations,
+  teamBlocksByRegistrationId,
+} from "@/lib/registrations/team-funding";
 
 /**
  * Admin detail view for a single registration. Returns the registration with
@@ -87,6 +91,22 @@ export const GET: APIRoute = async (context) => {
       });
     }
 
+    // Team financial context (#530): a team member's own row is $0/$0 when
+    // the captain's deposit covers it, so the detail carries the team's
+    // money state plus the team-level payment rows for context.
+    const teamBlocks = await teamBlocksByRegistrationId(getDb(), [id]);
+    const teamBlock = teamBlocks.get(id) ?? null;
+    const team = teamBlock
+      ? {
+          ...teamBlock,
+          payments: await getDb()
+            .select()
+            .from(payments)
+            .where(eq(payments.teamRegistrationId, teamBlock.id))
+            .orderBy(desc(payments.createdAt)),
+        }
+      : null;
+
     return new Response(
       JSON.stringify({
         registration: row.registration,
@@ -119,6 +139,7 @@ export const GET: APIRoute = async (context) => {
         },
         parent: row.parent,
         paymentHistory,
+        team,
       }),
       { status: 200, headers: { "Content-Type": "application/json" } },
     );
@@ -199,6 +220,27 @@ export const DELETE: APIRoute = async (context) => {
         }),
         { status: 409, headers: { "Content-Type": "application/json" } },
       );
+    }
+
+    // #529: a team-funded registration carries no per-registration money
+    // (amountPaidCents 0) but its spot IS paid for by the team's
+    // deposit/backstop — deleting it silently drops a paid roster spot.
+    // Same 409-unless-forced contract as directly-paid registrations.
+    if (!force) {
+      const funded = await teamFundedRegistrations(getDb(), [id]);
+      const team = funded.get(id);
+      if (team) {
+        return new Response(
+          JSON.stringify({
+            error:
+              `This registration is team-funded (team "${team.teamName}" ` +
+              `paid its deposit). Resolve the team's money first, or pass ` +
+              `force=true`,
+            teamRegistrationId: team.teamRegistrationId,
+          }),
+          { status: 409, headers: { "Content-Type": "application/json" } },
+        );
+      }
     }
 
     await getDb().transaction(async (tx) => {

@@ -275,7 +275,7 @@ export function LocationsList() {
                     id="name"
                     value={formData.name}
                     onChange={(e) => handleNameChange(e.target.value)}
-                    placeholder="Powell"
+                    placeholder="Worthington"
                     required
                   />
                 </div>
@@ -318,7 +318,7 @@ export function LocationsList() {
                     id="city"
                     value={formData.city}
                     onChange={(e) => setFormData((prev) => ({ ...prev, city: e.target.value }))}
-                    placeholder="Powell"
+                    placeholder="Worthington"
                   />
                 </div>
                 <div className="space-y-2">
@@ -336,7 +336,7 @@ export function LocationsList() {
                     id="postalCode"
                     value={formData.postalCode}
                     onChange={(e) => setFormData((prev) => ({ ...prev, postalCode: e.target.value }))}
-                    placeholder="43065"
+                    placeholder="43085"
                   />
                 </div>
               </div>

@@ -4,6 +4,7 @@ import { programs, sports, locations, venues } from "@/lib/db/schema";
 import { eq, asc, and } from "drizzle-orm";
 import { z } from "zod";
 import { requireOrgAdminAccess } from "@/lib/auth";
+import { requireAdminScopedAccess } from "@/lib/auth/admin-api-token";
 import {
   requireSameOrgLocation,
   requireSameOrgSport,
@@ -22,10 +23,15 @@ const programSchema = z.object({
   description: z.string().optional(),
   programType: z.enum(["league", "camp", "clinic", "tournament", "training"]).default("league"),
   active: z.boolean().default(true),
+  // Same shape the offerings API accepts. Optional + conditionally applied on
+  // write: omitting it leaves the stored value untouched (the legacy admin
+  // form doesn't send it), while the offerings flow and the admin MCP can
+  // finally set it — closing the "Programs form can't set audienceType" gap.
+  audienceType: z.string().max(20).optional(),
 });
 
 export const GET: APIRoute = async (context) => {
-  const auth = await requireOrgAdminAccess(context);
+  const auth = await requireAdminScopedAccess(context, "catalog:read");
   if (!auth.authorized) return auth.response;
 
   try {
@@ -36,6 +42,7 @@ export const GET: APIRoute = async (context) => {
         slug: programs.slug,
         description: programs.description,
         programType: programs.programType,
+        audienceType: programs.audienceType,
         active: programs.active,
         venueId: programs.venueId,
         createdAt: programs.createdAt,
@@ -124,6 +131,7 @@ export const POST: APIRoute = async (context) => {
         description: result.data.description || null,
         programType: result.data.programType,
         active: result.data.active,
+        ...(result.data.audienceType ? { audienceType: result.data.audienceType } : {}),
       })
       .returning();
 
@@ -139,7 +147,7 @@ export const POST: APIRoute = async (context) => {
 };
 
 export const PUT: APIRoute = async (context) => {
-  const auth = await requireOrgAdminAccess(context);
+  const auth = await requireAdminScopedAccess(context, "catalog:write");
   if (!auth.authorized) return auth.response;
 
   try {
@@ -189,6 +197,7 @@ export const PUT: APIRoute = async (context) => {
         description: result.data.description || null,
         programType: result.data.programType,
         active: result.data.active,
+        ...(result.data.audienceType ? { audienceType: result.data.audienceType } : {}),
         updatedAt: new Date(),
       })
       .where(eq(programs.id, id))

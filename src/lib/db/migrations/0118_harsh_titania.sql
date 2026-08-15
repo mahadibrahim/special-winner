@@ -1,0 +1,1 @@
+ALTER TABLE "team_registrations" ADD COLUMN "join_share_cents" integer;

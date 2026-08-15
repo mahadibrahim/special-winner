@@ -40,10 +40,13 @@ export function registerHref(d: Division, mode: "individual" | "team" = "individ
   return `/register/${d.seasonId}?mode=${mode}`;
 }
 
-export function DivisionsFinder({ divisions, venues, term }: {
+export function DivisionsFinder({ divisions, venues, term, showLevels = true, footnote = null }: {
   divisions: Division[];
   venues: { slug: string; label: string }[];
   term: string;
+  showLevels?: boolean;
+  /** Footer note under the results, e.g. age-division cross-sell. Null renders nothing. */
+  footnote?: string | null;
 }) {
   const [f, setF] = useState<DivisionFilters>({ level: null, gender: null, day: null, venue: null });
   const results = filterDivisions(divisions, f);
@@ -59,9 +62,11 @@ export function DivisionsFinder({ divisions, venues, term }: {
 
   return (
     <div>
-      <div className="mb-4">
-        <LevelLadder selected={f.level} onSelect={(k) => toggle("level", k as DivisionFilters["level"])} />
-      </div>
+      {showLevels && (
+        <div className="mb-4">
+          <LevelLadder selected={f.level} onSelect={(k) => toggle("level", k as DivisionFilters["level"])} />
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-4 items-center p-3 bg-cream-2 rounded-xl">
         <FilterGroup label="Format">
@@ -105,19 +110,21 @@ export function DivisionsFinder({ divisions, venues, term }: {
               <h3 className="font-mono text-[11px] tracking-widest uppercase text-primary pt-4 pb-1.5 border-b border-cream-3">
                 {g.label} <span className="text-ink-muted">· {g.items.length}</span>
               </h3>
-              {g.items.map((d) => <DivisionRow key={d.id} d={d} term={term} />)}
+              {g.items.map((d) => <DivisionRow key={d.id} d={d} term={term} showLevels={showLevels} />)}
             </div>
           ))}
         </div>
       )}
-      <p className="font-mono text-[10px] tracking-wide uppercase text-ink-muted mt-3.5">
-        Age divisions · 30+ and 40+ also available at Worthington
-      </p>
+      {footnote && (
+        <p className="font-mono text-[10px] tracking-wide uppercase text-ink-muted mt-3.5">
+          {footnote}
+        </p>
+      )}
     </div>
   );
 }
 
-function DivisionRow({ d, term }: { d: Division; term: string }) {
+function DivisionRow({ d, term, showLevels }: { d: Division; term: string; showLevels: boolean }) {
   const [capturing, setCapturing] = useState(false);
   const track = (mode: "team" | "individual" | "interest") =>
     trackDivisionRegisterClicked({ seasonId: d.seasonId, level: d.level, gender: d.gender, venue: d.venueSlug, mode, term });
@@ -128,22 +135,23 @@ function DivisionRow({ d, term }: { d: Division; term: string }) {
       primary ? "text-cream bg-primary" : "text-primary border border-primary");
   return (
     <>
-      <div className="flex flex-col gap-1.5 sm:grid sm:grid-cols-[30px_1.6fr_1.2fr_0.9fr_0.8fr_auto] sm:items-center sm:gap-3.5 py-3 px-2 border-b border-cream-2 hover:bg-paper">
-        <Bars filled={BARS_FOR[d.level]} flat={d.level === "open"} className={TIER_TEXT[d.level]} />
+      <div className={cn("flex flex-col gap-1.5 sm:grid sm:items-center sm:gap-3.5 py-3 px-2 border-b border-cream-2 hover:bg-paper",
+        showLevels ? "sm:grid-cols-[30px_1.6fr_1.2fr_0.9fr_0.8fr_auto]" : "sm:grid-cols-[1.6fr_1.2fr_0.9fr_0.8fr_auto]")}>
+        {showLevels && <Bars filled={BARS_FOR[d.level]} flat={d.level === "open"} className={TIER_TEXT[d.level]} />}
         <div>
           <div className="font-display font-semibold text-base">{d.name}</div>
           <div className="font-mono text-[10.5px] tracking-wide uppercase text-ink-muted mt-0.5">
-            {d.gender === "mens" ? "Men's" : d.gender === "womens" ? "Women's" : "Coed"} ·{" "}
-            {d.level === "open" ? "All levels" : `Level ${d.level.toUpperCase()}`}
+            {d.gender === "mens" ? "Men's" : d.gender === "womens" ? "Women's" : "Coed"}
+            {showLevels && <> · {d.level === "open" ? "All levels" : `Level ${d.level.toUpperCase()}`}</>}
             {/* Solo price up front — paid-traffic replays showed price-hunters
                 tapping Register just to learn the cost, then bouncing. */}
             {d.price != null && d.status !== "completed" && (
-              <> · <span className="text-ink font-semibold">${d.price.toLocaleString()}/player</span></>
+              <> · <span className="text-ink font-semibold">${d.price.toLocaleString("en-US")}/player</span></>
             )}
           </div>
           {d.teamTotal != null && d.status !== "completed" && (
             <div className="font-mono text-[10.5px] tracking-wide text-ink-muted mt-0.5">
-              or reserve a team — ${CAPTAIN_DEPOSIT_DOLLARS} down, ${d.teamTotal.toLocaleString()} total
+              or reserve a team — ${CAPTAIN_DEPOSIT_DOLLARS} down, ${d.teamTotal.toLocaleString("en-US")} total
             </div>
           )}
         </div>

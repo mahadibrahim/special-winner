@@ -15,9 +15,9 @@ import { eq, asc } from "drizzle-orm";
 import {
   captainDepositCreditCents,
   captainShareDueCents,
-  teamCollectedCents,
   teamDepositPaid,
 } from "@/lib/registrations/captain-credit";
+import { teamMoneyReceivedCents } from "@/lib/registrations/team-funding";
 import { registrationAmountDueCents } from "@/lib/registrations/amount-due";
 
 /**
@@ -119,22 +119,14 @@ export const GET: APIRoute = async ({ params, locals, request }) => {
         .orderBy(asc(teamInvitees.invitedAt)),
     ]);
 
-    // Live payment summary for the captain tracker: deposit + sum of paid
-    // teammate shares, against the full team fee. Computed server-side so the
-    // client never has to trust/replay status logic. The captain's own paid
-    // share is capped by the deposit (teamCollectedCents) — the deposit
-    // already covers the first $deposit of it, so counting both would
-    // double-count (see captain-credit.ts).
+    // Live payment summary for the captain tracker, computed server-side.
+    // Money-based ("one price, every payment counts"): settled team-level
+    // payments plus linked member payments — an uninvited joiner's money
+    // counts the moment it settles, with no captain bookkeeping.
     const depositCents = t.team.depositCents ?? 0;
     const captainEmailLower = t.team.captainEmail.toLowerCase();
-    const collectedCents = teamCollectedCents({
-      depositCents,
-      invitees: invitees.map((i) => ({
-        assignedShareCents: i.assignedShareCents,
-        status: i.status,
-        isCaptain: i.email.toLowerCase() === captainEmailLower,
-      })),
-    });
+    const received = await teamMoneyReceivedCents(db, t.team.id);
+    const collectedCents = received.totalCents;
 
     // Captain-credit preview for the authed viewer: when the signed-in user
     // is this team's captain and the deposit is verifiably paid, tell the
@@ -228,6 +220,7 @@ export const GET: APIRoute = async ({ params, locals, request }) => {
           teamFeeCents: t.team.teamFeeCents ?? null,
           depositCents,
           collectedCents,
+          joinShareCents: t.team.joinShareCents ?? null,
           invitees: isCaptain
             ? invitees.map((i) => ({
                 email: i.email,
@@ -268,5 +261,119 @@ export const GET: APIRoute = async ({ params, locals, request }) => {
       JSON.stringify({ error: "Could not load team" }),
       { status: 500, headers: { "Content-Type": "application/json" } },
     );
+  }
+};
+
+/**
+ * PATCH /api/public/team-registrations/[token] — captain-only settings.
+ *
+ * Currently one setting: `joinShareCents` — the price anyone joining through
+ * the open share link pays when they have no captain-assigned invitee share.
+ * `null` clears it (joiners pay the season's individual price again). An
+ * explicit invitee share always wins over this at registration time
+ * (see resolveTeamPricing in create-registration.ts).
+ */
+export const PATCH: APIRoute = async ({ params, locals, request }) => {
+  const token = params.token;
+  if (!token) {
+    return new Response(JSON.stringify({ error: "Missing token" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  if (!db) {
+    return new Response(JSON.stringify({ error: "Database unavailable" }), {
+      status: 503,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const viewer = locals.user;
+  if (!viewer) {
+    return new Response(JSON.stringify({ error: "Sign in required" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  let body: { joinShareCents?: unknown };
+  try {
+    body = await request.json();
+  } catch {
+    return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  if (!("joinShareCents" in body)) {
+    return new Response(
+      JSON.stringify({ error: "joinShareCents is required (number of cents, or null to clear)" }),
+      { status: 400, headers: { "Content-Type": "application/json" } },
+    );
+  }
+  const raw = body.joinShareCents;
+  // Sanity ceiling: $10,000 per player. Catches dollars-vs-cents mixups.
+  const joinShareCents =
+    raw === null
+      ? null
+      : typeof raw === "number" && Number.isInteger(raw) && raw >= 0 && raw <= 1_000_000
+        ? raw
+        : undefined;
+  if (joinShareCents === undefined) {
+    return new Response(
+      JSON.stringify({ error: "joinShareCents must be a whole number of cents between 0 and 1000000, or null" }),
+      { status: 400, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
+  try {
+    const [team] = await db
+      .select()
+      .from(teamRegistrations)
+      .where(eq(teamRegistrations.inviteToken, token))
+      .limit(1);
+    if (!team) {
+      return new Response(JSON.stringify({ error: "Team not found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    // Cross-tenant guard: 404 (not 403) — hides existence of cross-tenant rows.
+    const organization = locals.organization;
+    if (!organization || team.organizationId !== organization.id) {
+      return new Response(JSON.stringify({ error: "Not found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const isCaptain =
+      team.captainUserId != null
+        ? team.captainUserId === viewer.id
+        : team.captainEmail.toLowerCase() === viewer.email.toLowerCase();
+    if (!isCaptain) {
+      return new Response(
+        JSON.stringify({ error: "Only the team captain can change team settings" }),
+        { status: 403, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
+    await db
+      .update(teamRegistrations)
+      .set({ joinShareCents, updatedAt: new Date() })
+      .where(eq(teamRegistrations.id, team.id));
+
+    return new Response(JSON.stringify({ ok: true, joinShareCents }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (err) {
+    console.error("[team-registrations/[token]] settings update failed", err);
+    return new Response(JSON.stringify({ error: "Could not update team settings" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 };

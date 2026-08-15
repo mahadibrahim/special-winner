@@ -5,7 +5,7 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import { SeasonTabs } from "@/components/leagues/season-tabs";
 import { getVenueFacts } from "@/lib/locations/venue-facts";
 import type { Division } from "@/lib/leagues/division-filters";
-import { FORMAT_FACTS, HERO_FACTS } from "@/lib/leagues/adult-soccer-content";
+import { FORMAT_FACTS, HERO_FACTS, RULE_SECTIONS, FAQ } from "@/lib/leagues/adult-soccer-content";
 import { CAPTAIN_DEPOSIT_DOLLARS } from "@/lib/registrations/team-deposit";
 
 const { term } = Astro.params;
@@ -145,9 +145,23 @@ const heroPhoto = "https://images.unsplash.com/photo-1543326727-cf6c39e8f84c?aut
 // FAQPage rich-result schema — the FAQ tab renders inside a React island, so
 // this JSON-LD is the reliable crawlable copy of its answers. Hand-rolled to
 // match sports/[slug].astro; migrate to faq-block.astro when Phase A lands.
-import { FAQ } from "@/lib/leagues/adult-soccer-content";
 import { breadcrumbJsonLd } from "@/lib/seo/breadcrumbs";
+import { seasonsToLeagueEvents } from "@/lib/seo/events";
+import { divisionSlugMap, divisionNaming } from "@/lib/leagues/division-slug";
 const ORIGIN = import.meta.env.PUBLIC_APP_URL || "https://aspiresportsohio.com";
+
+// Per-division Event rich results — one SportsEvent per open division, with
+// street-level venue address and request-time (early-bird-aware) offers.
+const eventSchema = seasonsToLeagueEvents(seasons, ORIGIN);
+
+// Per-division pages — server-rendered links so crawlers can reach every
+// division URL from the term page (the division rows live in a React island).
+const divisionLinks = [...divisionSlugMap(seasons).entries()].map(([slug, s]) => ({
+  slug,
+  ...divisionNaming(s, s.sport?.name ?? "Soccer", termLabel),
+  venueName: s.location.name,
+  status: s.status,
+}));
 const breadcrumbSchema = breadcrumbJsonLd([
   { name: "Home", url: `${ORIGIN}/` },
   { name: "Adult Leagues", url: `${ORIGIN}/adult/leagues` },
@@ -172,6 +186,9 @@ const faqSchema = {
   <Fragment slot="head">
     <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbSchema)} />
     <script type="application/ld+json" is:inline set:html={JSON.stringify(faqSchema)} />
+    {eventSchema.length > 0 && (
+      <script type="application/ld+json" is:inline set:html={JSON.stringify(eventSchema)} />
+    )}
   </Fragment>
   <main id="main-content">
     <section
@@ -270,14 +287,42 @@ const faqSchema = {
     <div id="divisions">
       <SeasonTabs
         client:load
+        sport="soccer"
         divisions={divisions}
         venues={venues}
         weekStart={startDate}
         scheduleNote="One game per week per team. Exact slots assigned after rosters lock."
         term={term ?? ""}
+        ruleSections={RULE_SECTIONS}
+        faq={FAQ}
+        arenaNote={{ title: "Walled-arena 7v7.", body: "All Aspire fields have boards — no offside, the wall is in play." }}
+        findHeading={"Find your level & register"}
+        findSubcopy="Pick your level, then narrow by format, night, or venue. Open divisions register on the spot."
+        playLine="One game a week, 7 games, indoor — rain or shine."
+        footnote="Age divisions · 30+ and 40+ also available at Worthington"
         initialTab={allCompleted ? "standings" : "divisions"}
       />
     </div>
+
+    {/* Per-division guide links — crawlable mesh into the 13 division URLs.
+        Kept below the finder so it aids discovery without competing with the
+        register flow. */}
+    {divisionLinks.length > 0 && (
+      <section class="bg-cream py-10 px-6" aria-label="Division guides">
+        <div class="max-w-[1080px] mx-auto">
+          <h2 class="font-display text-2xl text-ink mb-4">Division guides</h2>
+          <ul class="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2 text-[14px]">
+            {divisionLinks.map((d) => (
+              <li>
+                <a href={`/adult/leagues/soccer/${term}/${d.slug}`} class="text-ink-2 hover:text-primary">
+                  {d.headline} · {d.venueName}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    )}
 
     {/* Where you'll play — replays showed people leaving the funnel to
         research venues and not coming back. Answer it in place. */}

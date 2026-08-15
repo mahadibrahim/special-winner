@@ -93,7 +93,7 @@ const getCoachWisdom = (placement: string) =>
 
           <div class="copyright-details">
             <p><strong>Published by</strong> Aspire Sports</p>
-            <p><strong>Website</strong> aspiresports.com</p>
+            <p><strong>Website</strong> aspiresportsohio.com</p>
           </div>
 
           <div class="copyright-edition">
@@ -647,7 +647,7 @@ const getCoachWisdom = (placement: string) =>
                 <p class="activity-description">{activity.description}</p>
                 <div class="activity-details">
                   <div class="activity-focus"><strong>Focus:</strong> {activity.focus}</div>
-                  <div class="activity-cue"><strong>External Cue:</strong> "{activity.externalCue}"</div>
+                  {activity.externalCue && <div class="activity-cue"><strong>External Cue:</strong> "{activity.externalCue}"</div>}
                   {activity.variation && <div class="activity-variation"><strong>Variation:</strong> {activity.variation}</div>}
                   {activity.coachingNote && <div class="activity-note"><strong>Note:</strong> {activity.coachingNote}</div>}
                 </div>
@@ -753,7 +753,7 @@ const getCoachWisdom = (placement: string) =>
             <div class="do-list">
               {section.items.map(item => (
                 <div class="do-item">
-                  <h4>✓ {item.action}</h4>
+                  <h4><span class="glyph-yes">✓</span>{item.action}</h4>
                   <p><strong>Why:</strong> {item.why}</p>
                   <p><strong>How:</strong> {item.how}</p>
                 </div>
@@ -765,7 +765,7 @@ const getCoachWisdom = (placement: string) =>
             <div class="avoid-list">
               {section.items.map(item => (
                 <div class="avoid-item">
-                  <h4>✗ {item.behavior}</h4>
+                  <h4><span class="glyph-no">✗</span>{item.behavior}</h4>
                   <p><strong>Why it hurts:</strong> {item.why}</p>
                   <p><strong>Instead:</strong> {item.alternative}</p>
                 </div>
@@ -842,7 +842,7 @@ const getCoachWisdom = (placement: string) =>
         </div>
 
         <div class="about-contact">
-          <p><strong>Learn more at</strong> aspiresports.com</p>
+          <p><strong>Learn more at</strong> aspiresportsohio.com</p>
         </div>
       </section>
 
@@ -887,7 +887,7 @@ const getCoachWisdom = (placement: string) =>
         </div>
 
         <div class="series-cta">
-          <p>Find all titles at <strong>aspiresports.com/guides</strong></p>
+          <p>Find all titles at <strong>aspiresportsohio.com/guides</strong></p>
         </div>
       </section>
 
@@ -897,7 +897,7 @@ const getCoachWisdom = (placement: string) =>
         <p class="minibook-back-tagline">"The ball moves faster than any player can run. Great passers understand this."</p>
         <div class="minibook-back-info">
           <p>Part of the <strong>Aspire Sports Evidence-Based Development Series</strong></p>
-          <p class="minibook-back-url">aspiresports.com</p>
+          <p class="minibook-back-url">aspiresportsohio.com</p>
         </div>
       </section>
     </div>

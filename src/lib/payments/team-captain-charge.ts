@@ -18,6 +18,27 @@ export function sumUnpaidSharesCents(invitees: ShareLike[]): number {
     .reduce((sum, i) => sum + i.assignedShareCents, 0);
 }
 
+/**
+ * What the Sep-deadline backstop should charge the captain.
+ *
+ * Money model ("one price, every payment counts"): when the team has a
+ * recorded fee, the charge is the shortfall between that fee and settled
+ * money received — computed from payments, never from invitee bookkeeping,
+ * so an uninvited-but-paid member (the Casey case) reduces it and an empty
+ * invitee list can no longer read as "nothing owed". Legacy teams with no
+ * fee recorded fall back to the old unpaid-share sum.
+ */
+export function teamBackstopDueCents(opts: {
+  teamFeeCents: number | null;
+  receivedCents: number;
+  invitees: ShareLike[];
+}): number {
+  if (opts.teamFeeCents != null) {
+    return Math.max(0, opts.teamFeeCents - opts.receivedCents);
+  }
+  return sumUnpaidSharesCents(opts.invitees);
+}
+
 /** Split a total evenly across N emails; earlier shares absorb the remainder. */
 export function assignEvenShares(totalCents: number, emails: string[]): number[] {
   const n = emails.length;

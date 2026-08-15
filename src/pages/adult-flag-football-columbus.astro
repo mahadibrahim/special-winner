@@ -1,0 +1,263 @@
+---
+// City-generic landing page: "flag football league columbus" and the adult
+// flag-football cluster. Mirrors /adult-soccer-leagues-columbus — everything
+// factual (nights, prices, divisions, dates) is pulled from the live catalog
+// at request time; evergreen copy follows the brand fact-guards.
+export const prerender = false;
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { WHY_4V4 } from "@/lib/leagues/adult-flag-football-content";
+import { resolveCurrentTerm } from "@/lib/leagues/terms";
+import { divisionSlugMap, divisionNaming } from "@/lib/leagues/division-slug";
+import { breadcrumbJsonLd } from "@/lib/seo/breadcrumbs";
+import { venueAddress } from "@/lib/seo/venue-address";
+import { getVenueFacts } from "@/lib/locations/venue-facts";
+import { CAPTAIN_DEPOSIT_DOLLARS } from "@/lib/registrations/team-deposit";
+
+const origin = Astro.url.origin;
+const cookie = Astro.request.headers.get("cookie") ?? "";
+let allSeasons: any[] = [];
+try {
+  const res = await fetch(`${origin}/api/public/seasons?sport=flag-football&audience=adult`, { headers: { cookie } });
+  if (res.ok) allSeasons = (await res.json()).seasons ?? [];
+} catch {
+  // Sections degrade to evergreen copy + links when the catalog is unreachable.
+}
+
+const currentTerm = resolveCurrentTerm(allSeasons);
+const termSeasons: any[] = currentTerm?.seasons ?? [];
+const termSlug = currentTerm?.slug ?? null;
+const termLabel = currentTerm?.label ?? null;
+const termHref = termSlug ? `/adult/leagues/flag-football/${termSlug}` : "/adult/leagues/flag-football";
+
+const DAY_ORDER = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+const DAY_LONG: Record<string, string> = {
+  mon: "Monday", tue: "Tuesday", wed: "Wednesday", thu: "Thursday",
+  fri: "Friday", sat: "Saturday", sun: "Sunday",
+};
+const slugMap = divisionSlugMap(termSeasons);
+const divisionLinks = [...slugMap.entries()].map(([slug, s]) => ({
+  slug,
+  ...divisionNaming(s, "Flag Football", termLabel ?? ""),
+  day: s.dayOfWeek as string | null,
+  venueName: s.location.name as string,
+  venueSlug: s.location.slug as string,
+}));
+const nights = [
+  ...DAY_ORDER.filter((d) => divisionLinks.some((l) => l.day === d)).map((d) => ({
+    label: `${DAY_LONG[d]}s`,
+    items: divisionLinks.filter((l) => l.day === d),
+  })),
+  ...(divisionLinks.some((l) => !l.day)
+    ? [{ label: "Night TBD", items: divisionLinks.filter((l) => !l.day) }]
+    : []),
+];
+
+// Pricing — request-time effective prices, never hardcoded.
+const openSeasons = termSeasons.filter((s) => s.status === "open");
+const soloPrices = openSeasons
+  .filter((s) => (s.signupModes ?? []).includes("individual"))
+  .map((s) => s.effectivePrice ?? s.price)
+  .filter((v: number | null) => v != null);
+const soloPrice = soloPrices.length ? Math.min(...soloPrices) : null;
+const teamSeasons = openSeasons.filter((s) => (s.signupModes ?? []).includes("team") && s.teamPrice != null);
+const teamList = teamSeasons.length ? Math.min(...teamSeasons.map((s) => s.teamPrice)) : null;
+const teamNow = teamSeasons.length
+  ? Math.min(...teamSeasons.map((s) => s.effectiveTeamPrice ?? s.teamPrice))
+  : null;
+const teamEarlyBird = teamNow != null && teamList != null && teamNow < teamList;
+
+const TZ = Astro.locals.organization?.timezone ?? "America/New_York";
+const fmtShort = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+
+// Venues actually carrying divisions this term (Worthington today; data-driven
+// so a second venue appears on its own).
+const venueSlugs = [...new Set(divisionLinks.map((l) => l.venueSlug))];
+const venueBlocks = (venueSlugs.length ? venueSlugs : ["worthington"]).map((slug) => {
+  const s = termSeasons.find((x) => x.location.slug === slug);
+  const addr = venueAddress(slug);
+  return {
+    slug,
+    name: (s?.location.name as string | undefined) ?? "Worthington",
+    addressLine: addr
+      ? `${addr.address.streetAddress}, ${addr.address.addressLocality}, ${addr.address.addressRegion} ${addr.address.postalCode}`
+      : null,
+    tagline: getVenueFacts(slug)?.tagline ?? null,
+    count: divisionLinks.filter((l) => l.venueSlug === slug).length,
+  };
+});
+
+const seasonWindow =
+  termSeasons.length > 0
+    ? `${fmtShort(termSeasons.map((s) => s.startDate).sort()[0])} – ${fmtShort(termSeasons.map((s) => s.endDate).sort().at(-1))}`
+    : null;
+
+const priceAnswer =
+  soloPrice != null && teamNow != null
+    ? `Solo players pay $${soloPrice.toLocaleString()} for the season — that's the whole cost, no deposit. Teams pay $${teamNow.toLocaleString()} total${teamEarlyBird && teamList != null ? ` (early-bird rate; $${teamList.toLocaleString()} after)` : ""}, and a $${CAPTAIN_DEPOSIT_DOLLARS} deposit holds a team's spot with the balance due before game 1.`
+    : `Each season page lists solo and team pricing before you register — no fees are hidden behind a signup form.`;
+const whenAnswer =
+  termLabel && seasonWindow
+    ? `${termLabel} runs ${seasonWindow}${nights.length ? `, with games on ${nights.map((n) => n.label).join(" and ")}` : ""} in evening slots. Registration details are on the season page.`
+    : `Seasons run back-to-back through the year — the current schedule is on the flag football league page.`;
+const FAQ = [
+  {
+    q: "Where can adults play flag football in Columbus?",
+    a: "Aspire Sports runs adult indoor 4v4 flag football at its Worthington facility, 535 Lakeview Plaza Blvd — just off I-270 on the north side of Columbus. Fully indoor on boarded turf, so games run all winter.",
+  },
+  {
+    q: "Can I join without a team?",
+    a: "Yes — register solo and we place free agents on balanced teams by schedule. It's the most common way new players start.",
+  },
+  { q: "What does an adult flag football league cost?", a: priceAnswer },
+  { q: "When does the season run?", a: whenAnswer },
+];
+
+const ORIGIN = import.meta.env.PUBLIC_APP_URL || "https://aspiresportsohio.com";
+const pageUrl = `${ORIGIN}/adult-flag-football-columbus`;
+const breadcrumbSchema = breadcrumbJsonLd([
+  { name: "Home", url: `${ORIGIN}/` },
+  { name: "Adult Flag Football in Columbus", url: pageUrl },
+]);
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: FAQ.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
+};
+---
+
+<BaseLayout
+  title="Adult Flag Football League in Columbus, Ohio — Indoor 4v4 | Aspire Sports"
+  description="Adult flag football league in Columbus, Ohio: indoor 4v4 on boarded turf in Worthington. Sign up solo or bring a team — 8-game season, two 20-minute halves, no contact, every player runs routes."
+>
+  <Fragment slot="head">
+    <link rel="canonical" href={pageUrl} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbSchema)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(faqSchema)} />
+  </Fragment>
+
+  <main id="main-content" class="pt-24 pb-16">
+    <div class="max-w-[900px] mx-auto px-5 sm:px-8">
+      <header class="mb-10">
+        <h1
+          class="font-display text-ink mb-4"
+          style="font-size: clamp(2rem, 5vw, 3.4rem); line-height: 1.06; letter-spacing: -0.02em;"
+        >
+          Adult Flag Football League in Columbus, Ohio
+        </h1>
+        <p class="text-lg text-ink-2 max-w-2xl">
+          Indoor 4v4 flag on boarded turf — no contact, a 7-second pass clock, and every
+          player running routes on every snap. An 8-game season with no playoffs, fully
+          indoor so winter can't cancel a game.
+        </p>
+        {currentTerm && (
+          <a
+            href={termHref}
+            class="mt-5 inline-flex items-center gap-2 px-6 py-3.5 bg-primary text-cream text-sm font-semibold rounded-lg hover:bg-ink transition-colors"
+          >
+            See {termLabel} divisions &amp; register →
+          </a>
+        )}
+      </header>
+
+      {nights.length > 0 && (
+        <section class="mb-10" aria-label="Divisions by night">
+          <h2 class="font-display text-2xl text-ink mb-2">Divisions by night</h2>
+          <p class="text-[14px] text-ink-muted mb-5">
+            {termLabel} — every division links to its own guide with prices, dates, and signup.
+          </p>
+          <div class="space-y-5">
+            {nights.map((n) => (
+              <div>
+                <h3 class="font-mono text-[11px] tracking-widest uppercase text-ink-muted mb-1.5">{n.label}</h3>
+                <ul class="grid sm:grid-cols-2 gap-x-6 gap-y-1.5 text-[14.5px]">
+                  {n.items.map((l) => (
+                    <li>
+                      <a href={`/adult/leagues/flag-football/${termSlug}/${l.slug}`} class="text-ink-2 hover:text-primary">
+                        {l.label} · {l.venueName}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section class="mb-10" aria-label="Why 4v4">
+        <h2 class="font-display text-2xl text-ink mb-4">Why 4v4 flag</h2>
+        <dl class="grid sm:grid-cols-2 gap-3">
+          {WHY_4V4.slice(0, 4).map((v) => (
+            <div class="border border-border rounded-xl bg-paper px-4 py-3">
+              <dt class="font-semibold text-ink text-[14.5px]">{v.title}</dt>
+              <dd class="text-[13px] text-ink-2 mt-0.5">{v.copy}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+
+      <section class="mb-10" aria-label="Sign up solo">
+        <h2 class="font-display text-2xl text-ink mb-2">No team? Sign up solo.</h2>
+        <p class="text-[14px] text-ink-2 max-w-2xl">
+          Register as an individual and we place you — free agents go onto balanced teams
+          by schedule. Rosters are small (4 on the field), so every player is in the play
+          from the first snap.
+        </p>
+      </section>
+
+      <section class="mb-10" aria-label="Pricing">
+        <h2 class="font-display text-2xl text-ink mb-2">What it costs</h2>
+        <p class="text-[14px] text-ink-2 max-w-2xl">{priceAnswer}</p>
+        {currentTerm && (
+          <a href={termHref} class="inline-block text-[13.5px] font-semibold text-primary mt-2.5 hover:underline">
+            Full pricing on the {termLabel} page →
+          </a>
+        )}
+      </section>
+
+      <section class="mb-10" aria-label="Venue">
+        <h2 class="font-display text-2xl text-ink mb-4">Where you play</h2>
+        <div class="grid sm:grid-cols-2 gap-3">
+          {venueBlocks.map((v) => (
+            <div class="border border-border rounded-xl bg-paper p-5">
+              <div class="font-display text-xl text-ink">{v.name}</div>
+              {v.addressLine && <p class="text-[13px] text-ink-2 mt-0.5">{v.addressLine}</p>}
+              {v.tagline && <p class="text-[13px] text-ink-muted mt-1.5">{v.tagline}</p>}
+              {v.count > 0 && (
+                <p class="text-[12.5px] text-ink-muted mt-1.5">
+                  {v.count} {termLabel} division{v.count === 1 ? "" : "s"}
+                </p>
+              )}
+              <a href={`/locations/${v.slug}`} class="inline-block text-[13px] font-semibold text-primary mt-2.5 hover:underline">
+                Venue details &amp; directions →
+              </a>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section class="border-t border-border pt-8" aria-label="Frequently asked questions">
+        <h2 class="font-display text-2xl text-ink mb-5">Questions people ask</h2>
+        <div class="space-y-5 max-w-2xl">
+          {FAQ.map((item) => (
+            <div>
+              <h3 class="font-display italic text-lg text-ink mb-1">{item.q}</h3>
+              <p class="text-[14px] text-ink-2">{item.a}</p>
+            </div>
+          ))}
+        </div>
+        <a
+          href={termHref}
+          class="mt-8 inline-flex items-center gap-2 px-6 py-3.5 bg-ink text-cream text-sm font-semibold rounded-lg hover:bg-primary transition-colors"
+        >
+          {currentTerm ? `Find your ${termLabel} division →` : "See flag football leagues →"}
+        </a>
+      </section>
+    </div>
+  </main>
+</BaseLayout>

@@ -13,7 +13,7 @@ import { schedule } from "@netlify/functions";
 
 const ROUTE = "/api/cron/recompute-media-bursts";
 
-export const handler = schedule("15 * * * *", async () => {
+export const handler = schedule("27 * * * *", async () => {
   const base = (process.env.URL ?? process.env.PUBLIC_APP_URL)?.replace(
     /\/$/,
     "",

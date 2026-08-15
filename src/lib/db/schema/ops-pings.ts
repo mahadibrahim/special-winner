@@ -12,6 +12,9 @@ import { organizations } from "./organizations";
 
 export const opsPingKindEnum = pgEnum("ops_ping_kind", [
   "registration_paid",
+  "team_reserved",
+  "team_backstop_charged",
+  "team_backstop_failed",
   "dropin_booked",
   "rental_confirmed",
   "membership_started",

@@ -1,0 +1,39 @@
+---
+// Per-division soccer league page — one stable, crawlable URL per division
+// (e.g. /adult/leagues/soccer/fall-2026/co-ed-b-wednesday-worthington).
+// Data loading + render are shared with the flag-football route; only the
+// sport-specific copy lives here.
+export const prerender = false;
+import DivisionPageLayout from "@/components/leagues/DivisionPageLayout.astro";
+import { loadDivisionPage } from "@/lib/leagues/division-page-data";
+import { SKILL_LEVELS, FORMAT_FACTS } from "@/lib/leagues/adult-soccer-content";
+
+const { term, division } = Astro.params;
+const data = await loadDivisionPage({
+  origin: Astro.url.origin,
+  cookie: Astro.request.headers.get("cookie") ?? "",
+  sportSlug: "soccer",
+  fallbackSportName: "Soccer",
+  term,
+  division,
+});
+if (!data) {
+  // Unknown/renamed division → the term page carries the full finder.
+  return Astro.redirect(`/adult/leagues/soccer/${term}`);
+}
+
+const skill = SKILL_LEVELS.find((l) => l.key === data.season.skillLevel) ?? null;
+---
+
+<DivisionPageLayout
+  data={data}
+  basePath="/adult/leagues/soccer"
+  sportCrumb="Soccer"
+  term={term ?? ""}
+  division={division ?? ""}
+  formatValue="Indoor 7v7 · two 24-min halves"
+  gamesValue="7 games in 7 weeks · no playoffs"
+  formatFacts={FORMAT_FACTS}
+  levelDescription={skill ? `${skill.label}: ${skill.description}` : null}
+  descriptionFormatLine="7 games in 7 weeks, two 24-minute halves, no playoffs"
+/>

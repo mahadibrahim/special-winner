@@ -5,6 +5,7 @@ import { sequenceAttachments } from "@/lib/db/schema/blueprint";
 import { eq, and, asc, sql, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { requireOrgAdminAccess } from "@/lib/auth";
+import { requireAdminScopedAccess } from "@/lib/auth/admin-api-token";
 import {
   requireSameOrgProgram,
   requireSameOrgSeason,
@@ -115,7 +116,7 @@ export const seasonSchema = z.object({
 );
 
 export const GET: APIRoute = async (context) => {
-  const auth = await requireOrgAdminAccess(context);
+  const auth = await requireAdminScopedAccess(context, "catalog:read");
   if (!auth.authorized) return auth.response;
 
   // Hide test/E2E fixtures by default (e.g. walk-up registration season picker).
@@ -144,6 +145,14 @@ export const GET: APIRoute = async (context) => {
           maxParticipants: seasons.maxParticipants,
           priceCents: seasons.priceCents,
           teamPriceCents: seasons.teamPriceCents,
+          // Full editable surface — consumers that build a PUT payload by
+          // merging onto this row (admin MCP update_season) must see every
+          // seasonSchema field, or an update would silently null the gaps.
+          halfDayPriceCents: seasons.halfDayPriceCents,
+          ageGroupId: seasons.ageGroupId,
+          venueId: seasons.venueId,
+          minAge: seasons.minAge,
+          maxAge: seasons.maxAge,
           earlyBirdDeadline: seasons.earlyBirdDeadline,
           earlyBirdPriceCents: seasons.earlyBirdPriceCents,
           earlyBirdTeamPriceCents: seasons.earlyBirdTeamPriceCents,
@@ -223,7 +232,7 @@ export const GET: APIRoute = async (context) => {
 };
 
 export const POST: APIRoute = async (context) => {
-  const auth = await requireOrgAdminAccess(context);
+  const auth = await requireAdminScopedAccess(context, "catalog:write");
   if (!auth.authorized) return auth.response;
 
   try {
@@ -389,7 +398,7 @@ export const POST: APIRoute = async (context) => {
 };
 
 export const PUT: APIRoute = async (context) => {
-  const auth = await requireOrgAdminAccess(context);
+  const auth = await requireAdminScopedAccess(context, "catalog:write");
   if (!auth.authorized) return auth.response;
 
   try {

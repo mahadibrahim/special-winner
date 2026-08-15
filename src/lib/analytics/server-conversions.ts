@@ -23,7 +23,12 @@ import {
   sendPurchaseEvent,
   type GA4PurchaseItem,
 } from "@/lib/analytics/ga4-measurement-protocol";
-import { sendMetaPurchaseEvent } from "@/lib/analytics/meta-capi";
+import {
+  sendMetaPurchaseEvent,
+  sendMetaConversionEvent,
+} from "@/lib/analytics/meta-capi";
+import { shouldSendConversion } from "@/lib/analytics/conversion-exclusions";
+import { collectAdAttribution } from "@/lib/analytics/parse-cookies";
 
 export interface ServerPurchaseInput {
   /** The charge's Stripe metadata — source of the attribution ids. */
@@ -34,6 +39,12 @@ export interface ServerPurchaseInput {
   brand: "aspire" | "soccerone";
   /** Customer email — hashed by the CAPI layer for match quality. */
   email?: string | null;
+  /** Additional Meta match keys — hashed by the CAPI layer. */
+  phone?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  /** Our user id (Meta external_id) — hashed by the CAPI layer. */
+  userId?: string | null;
   /** GA4 ecommerce item context. Omit (or empty) to skip the GA4 fire. */
   ga4Items?: GA4PurchaseItem[];
   ga4PaymentType?: "deposit" | "balance" | "full";
@@ -46,6 +57,15 @@ export interface ServerPurchaseInput {
 }
 
 export function fireServerPurchaseConversions(input: ServerPurchaseInput): void {
+  // Central gate: tester accounts and non-production environments never
+  // produce ad conversions (GA4 or Meta). See conversion-exclusions.ts.
+  if (!shouldSendConversion(input.email)) {
+    console.log(
+      `[server-conversions] skipped purchase ${input.eventId}: excluded (env or tester email)`,
+    );
+    return;
+  }
+
   const md = input.metadata ?? {};
   const gaClientId = md.ga_client_id ?? undefined;
 
@@ -72,10 +92,77 @@ export function fireServerPurchaseConversions(input: ServerPurchaseInput): void 
     fbclid: md.fbclid ?? null,
     fbp: md._fbp ?? null,
     email: input.email ?? null,
+    phone: input.phone ?? null,
+    firstName: input.firstName ?? null,
+    lastName: input.lastName ?? null,
+    externalId: input.userId ?? null,
     contentIds: input.contentIds,
     contentName: input.contentName,
     contentCategory: input.contentCategory,
   }).catch((err) =>
     console.error("[server-conversions] Meta CAPI send failed:", err),
+  );
+}
+
+export interface RegistrationCreatedConversionInput {
+  /** The incoming request that created the registration — source of the ad
+   *  attribution cookies (_fbc/_fbp/fbclid) and the referring page URL. */
+  request: Request;
+  /** Our registration id — the event_id, so retries/dupes collapse at Meta. */
+  registrationId: string;
+  brand: "aspire" | "soccerone";
+  email?: string | null;
+  phone?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  /** Our user id (Meta external_id). */
+  userId?: string | null;
+  seasonId?: string;
+  seasonName?: string;
+}
+
+/**
+ * Server-side Meta `CompleteRegistration` — fired once per *created*
+ * registration row (callers must skip resumed drafts). Replaces the GTM
+ * browser tag that fired on a junk trigger (~671/mo vs ~50 real
+ * registrations); event_id = registration id keeps it idempotent even if an
+ * endpoint double-fires. Fire-and-forget: never blocks or throws into the
+ * creation flow.
+ */
+export function fireRegistrationCreatedConversion(
+  input: RegistrationCreatedConversionInput,
+): void {
+  if (!shouldSendConversion(input.email)) {
+    return;
+  }
+  let attribution: Record<string, string> = {};
+  let referer: string | null = null;
+  try {
+    attribution = collectAdAttribution(
+      new URL(input.request.url),
+      input.request.headers.get("cookie"),
+    );
+    referer = input.request.headers.get("referer");
+  } catch {
+    // Malformed URL/headers — send with whatever we have.
+  }
+  sendMetaConversionEvent({
+    eventName: "CompleteRegistration",
+    eventId: input.registrationId,
+    brand: input.brand,
+    eventSourceUrl: referer,
+    fbc: attribution._fbc ?? null,
+    fbclid: attribution.fbclid ?? null,
+    fbp: attribution._fbp ?? null,
+    email: input.email ?? null,
+    phone: input.phone ?? null,
+    firstName: input.firstName ?? null,
+    lastName: input.lastName ?? null,
+    externalId: input.userId ?? null,
+    contentIds: input.seasonId ? [input.seasonId] : undefined,
+    contentName: input.seasonName,
+    contentCategory: "registration",
+  }).catch((err) =>
+    console.error("[server-conversions] Meta CompleteRegistration failed:", err),
   );
 }

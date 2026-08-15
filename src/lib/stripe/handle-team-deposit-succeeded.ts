@@ -8,6 +8,7 @@ import { sendTeamDepositReceiptEmail } from "@/lib/email/send";
 import type { BrandId } from "@/lib/branding/themes";
 import { CAPTAIN_DEPOSIT_CENTS } from "@/lib/registrations/team-deposit";
 import { capturePaymentCompleted } from "@/lib/observability/payment-telemetry";
+import { sendOpsPing } from "@/lib/ops/ping";
 import { normalizeBrand } from "@/lib/organization/soccerone-routing";
 
 /**
@@ -45,6 +46,7 @@ export async function handleTeamDepositSucceeded(
   const [team] = await db
     .select({
       id: teamRegistrations.id,
+      organizationId: teamRegistrations.organizationId,
       seasonId: teamRegistrations.seasonId,
       backstopStatus: teamRegistrations.backstopStatus,
       captainUserId: teamRegistrations.captainUserId,
@@ -231,6 +233,18 @@ export async function handleTeamDepositSucceeded(
     } catch (err) {
       console.error("[team-deposit] receipt email failed:", err);
     }
+
+    // Principal ping — same eventId as the finalize path, so whichever of
+    // the two creates the team pings exactly once.
+    await sendOpsPing(team.organizationId, {
+      kind: "team_reserved",
+      brand: normalizeBrand(md.brand ?? team.brand),
+      eventId: team.id,
+      label:
+        `${team.teamName} · ${team.seasonId}` +
+        (team.teamFeeCents != null ? ` · fee $${(team.teamFeeCents / 100).toFixed(2)}` : ""),
+      amountCents: team.depositCents ?? CAPTAIN_DEPOSIT_CENTS,
+    });
   }
 
   return { status: "processed", teamRegistrationId };

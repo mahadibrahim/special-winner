@@ -16,7 +16,7 @@ import { schedule } from "@netlify/functions";
 
 const ROUTE = "/api/cron/dispatch-feedback-requests";
 
-export const handler = schedule("0 * * * *", async () => {
+export const handler = schedule("7 * * * *", async () => {
   // `URL` is injected by Netlify (the site's primary URL); PUBLIC_APP_URL
   // is the fallback for any environment that doesn't set it. Trailing
   // slash stripped so it reads as a clean origin for the Origin header.

@@ -37,6 +37,20 @@ setMarketingEdgeCache(Astro);
     <Testimonials client:visible />
     <PartnersSection client:visible />
     <FAQSection client:visible />
+    {/* Server-rendered league-guide links — passes homepage authority to the
+        city landing pages (the SEO cluster hubs) and gives crawlers a path
+        that doesn't depend on hydration. */}
+    <section class="bg-cream-2 border-y border-ink/10 py-8 px-6" aria-label="League guides">
+      <div class="max-w-[1080px] mx-auto flex flex-wrap items-baseline gap-x-8 gap-y-2">
+        <span class="font-mono text-[11px] tracking-widest uppercase text-ink-muted">Columbus league guides</span>
+        <a href="/adult-soccer-leagues-columbus" class="text-[14px] font-semibold text-ink-2 hover:text-primary">
+          Adult Soccer Leagues in Columbus →
+        </a>
+        <a href="/adult-flag-football-columbus" class="text-[14px] font-semibold text-ink-2 hover:text-primary">
+          Adult Flag Football in Columbus →
+        </a>
+      </div>
+    </section>
     <CaptureBand client:visible />
     <CTABanner client:visible />
   </main>

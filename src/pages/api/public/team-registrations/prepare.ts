@@ -1,7 +1,7 @@
 import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
-import { seasons } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { seasons, teamReservationAttempts } from "@/lib/db/schema";
+import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { stripe } from "@/lib/stripe/client";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
@@ -118,6 +118,37 @@ export const POST: APIRoute = async (context) => {
   }
 
   const teamFeeCents = effectiveFeeCents - discountCents;
+
+  // Record the reservation attempt BEFORE touching Stripe. The deferred flow
+  // creates no user/team until the deposit succeeds, so this row is the only
+  // trace an abandoning captain leaves — it feeds the abandoned-cart
+  // reminders. One row per (season, email); retries refresh it. Best-effort:
+  // a failure here must never block the payment path.
+  try {
+    await db
+      .insert(teamReservationAttempts)
+      .values({
+        organizationId: org.id,
+        seasonId,
+        captainEmail,
+        captainName,
+        teamName,
+        brand: brandFromHost(request.headers.get("host") ?? ""),
+      })
+      .onConflictDoUpdate({
+        target: [
+          teamReservationAttempts.seasonId,
+          teamReservationAttempts.captainEmail,
+        ],
+        set: {
+          captainName,
+          teamName,
+          updatedAt: sql`now()`,
+        },
+      });
+  } catch (err) {
+    console.error("[team-prepare] attempt record failed (non-fatal):", err);
+  }
 
   // Everything validated — now we actually need Stripe to mint the deposit.
   if (!stripe) return json({ error: "Payments are temporarily unavailable" }, 503);

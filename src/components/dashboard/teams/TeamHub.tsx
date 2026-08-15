@@ -78,6 +78,7 @@ interface HubDetail {
   }
   payment: {
     teamFeeCents: number | null
+    joinShareCents: number | null
     depositCents: number
     collectedCents: number
     paymentDeadline: string | null
@@ -262,7 +263,12 @@ function TeamTab({ detail, reload }: { detail: HubDetail; reload: () => Promise<
     <div className="space-y-6">
       <FeeProgress payment={payment} captainCredit={captainCredit} />
 
-      <JoinLink joinUrl={joinUrl} />
+      <JoinLink
+        joinUrl={joinUrl}
+        inviteToken={team.inviteToken}
+        joinShareCents={payment.joinShareCents}
+        reload={reload}
+      />
 
       <Roster
         team={team}
@@ -336,8 +342,24 @@ function FeeProgress({
   )
 }
 
-function JoinLink({ joinUrl }: { joinUrl: string }) {
+function JoinLink({
+  joinUrl,
+  inviteToken,
+  joinShareCents,
+  reload,
+}: {
+  joinUrl: string
+  inviteToken: string
+  joinShareCents: number | null
+  reload: () => Promise<void>
+}) {
   const [copied, setCopied] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [priceInput, setPriceInput] = useState(
+    joinShareCents != null ? (joinShareCents / 100).toFixed(2) : "",
+  )
+  const [saving, setSaving] = useState(false)
+
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(joinUrl)
@@ -347,6 +369,43 @@ function JoinLink({ joinUrl }: { joinUrl: string }) {
       toast.error("Couldn't copy — select and copy the link manually.")
     }
   }
+
+  const savePrice = async (cents: number | null) => {
+    setSaving(true)
+    try {
+      const res = await fetch(
+        `/api/public/team-registrations/${encodeURIComponent(inviteToken)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ joinShareCents: cents }),
+        },
+      )
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? "Could not update the join price")
+      toast.success(
+        cents != null
+          ? `Joiners now pay ${fmtCents(cents)}.`
+          : "Joiners now pay the standard individual price.",
+      )
+      setEditing(false)
+      await reload()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not update the join price")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const submitPrice = () => {
+    const dollars = parseFloat(priceInput)
+    if (Number.isNaN(dollars) || dollars < 0) {
+      toast.error("Enter a price of $0.00 or more.")
+      return
+    }
+    void savePrice(Math.round(dollars * 100))
+  }
+
   return (
     <div className="p-4 rounded-2xl bg-paper border border-border">
       <p className="text-sm font-medium text-ink mb-2">Team join link</p>
@@ -363,8 +422,65 @@ function JoinLink({ joinUrl }: { joinUrl: string }) {
         </Button>
       </div>
       <p className="text-xs text-ink-muted mt-2">
-        Anyone who opens this link registers and pays their share, then joins your roster.
+        Anyone who opens this link registers and pays their share, then joins your
+        roster. Every payment counts toward your team fee.
       </p>
+
+      <div className="mt-3 pt-3 border-t border-border">
+        {!editing ? (
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs text-ink-muted">
+              Joiners pay:{" "}
+              <span className="font-medium text-ink">
+                {joinShareCents != null
+                  ? fmtCents(joinShareCents)
+                  : "standard individual price"}
+              </span>
+              {/* A teammate you invited with a specific share always pays that share. */}
+            </p>
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="text-xs font-medium text-primary hover:underline shrink-0"
+            >
+              Set price
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-ink-muted">Joiners pay $</span>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              value={priceInput}
+              onChange={(e) => setPriceInput(e.target.value)}
+              className="w-24 px-2 py-1.5 rounded-lg bg-cream border border-border text-sm text-ink-2"
+            />
+            <Button size="sm" onClick={submitPrice} disabled={saving}>
+              Save
+            </Button>
+            {joinShareCents != null && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => void savePrice(null)}
+                disabled={saving}
+                className="border-border"
+              >
+                Use standard price
+              </Button>
+            )}
+            <button
+              type="button"
+              onClick={() => setEditing(false)}
+              className="text-xs text-ink-muted hover:underline"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

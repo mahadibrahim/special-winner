@@ -40,7 +40,13 @@ describe("aspireSitemapXml", () => {
   it("serves the shared Aspire SSR page list and excludes private paths", async () => {
     const { aspireSitemapXml } = await import("@/lib/seo/tenant-seo");
     const xml = aspireSitemapXml("https://aspiresportsohio.com");
-    for (const loc of ["https://aspiresportsohio.com/", "https://aspiresportsohio.com/youth", "https://aspiresportsohio.com/adult/leagues"]) {
+    for (const loc of [
+      "https://aspiresportsohio.com/",
+      "https://aspiresportsohio.com/youth",
+      "https://aspiresportsohio.com/adult/leagues",
+      "https://aspiresportsohio.com/adult/leagues/soccer",
+      "https://aspiresportsohio.com/adult/leagues/flag-football",
+    ]) {
       expect(xml).toContain(`<loc>${loc}</loc>`);
     }
     expect(xml).not.toContain("/partners/planner");

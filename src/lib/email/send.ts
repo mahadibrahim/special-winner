@@ -14,6 +14,7 @@ import {
   type BalanceReminderType,
 } from "./templates/payment-balance-reminder";
 import { WaiverReminderEmail } from "./templates/waiver-reminder";
+import { AbandonedCheckoutEmail } from "./templates/abandoned-checkout";
 import type { WaiverReminderWindowType } from "@/lib/registrations/waiver-reminder-windows";
 import { SignInLinkEmail } from "./templates/sign-in-link";
 import { CoachInviteEmail } from "./templates/coach-invite";
@@ -27,6 +28,8 @@ import { InappRecaptureEmail } from "./templates/inapp-recapture";
 import { FeedbackNpsEmail } from "./templates/feedback-nps";
 import { FeedbackDetractorAlertEmail } from "./templates/feedback-detractor-alert";
 import { FeedbackRefereeRatingEmail } from "./templates/feedback-referee-rating";
+import { FirstGameRecapEmail } from "./templates/first-game-recap";
+import { resolveGoogleReviewUrl } from "@/lib/feedback/review-url";
 import {
   CAPTURE_INCENTIVE,
   formatIncentiveAmount,
@@ -36,7 +39,7 @@ import {
   getUnsubscribeSecret,
 } from "@/lib/marketing/unsubscribe-token";
 import { getDb } from "@/lib/db";
-import { emailLogs } from "@/lib/db/schema";
+import { emailLogs, organizations, type OrganizationSettings } from "@/lib/db/schema";
 import { sendToParent } from "@/lib/messaging/gateway";
 import { env } from "@/lib/env";
 import { WAITLIST_PROMOTION_HOURS } from "@/lib/waitlist/processor";
@@ -619,6 +622,85 @@ export async function sendBalanceReminderEmail(
     text,
     from: fromForBrand(params.brand),
     smsNudge: { organizationId: params.organizationId, body: smsBody },
+  });
+}
+
+// Abandoned-checkout reminder — fired by
+// /api/cron/send-abandoned-checkout-reminders for registrations that were
+// started but never paid. Two touches ("nudge" ~1 day, "last_call" ~4 days);
+// the emailType carries the touch so email_logs dedupes each exactly once.
+export interface SendAbandonedCheckoutParams {
+  /** Solo carts have a user + registration; team carts (reservation
+   *  attempts) have neither — the email logs by recipient only. */
+  userId?: string;
+  organizationId?: string;
+  registrationId?: string;
+  variant: import("./templates/abandoned-checkout").AbandonedCartVariant;
+  parentEmail: string;
+  parentName: string;
+  /** Solo: player name. Team: team name. */
+  subjectName: string;
+  programName: string;
+  seasonName: string;
+  amountDueCents: number;
+  /** Pre-formatted deadline (e.g. "Sunday, Sep 3") for the deadline-anchored
+   *  touches. */
+  deadlineLabel?: string;
+  resumeUrl: string;
+  touch: import("./templates/abandoned-checkout").AbandonedCheckoutTouch;
+  brand?: BrandId;
+}
+
+export async function sendAbandonedCheckoutReminderEmail(
+  params: SendAbandonedCheckoutParams,
+) {
+  if (!isEmailConfigured()) {
+    console.warn("Email not configured, skipping abandoned-checkout email");
+    return { success: false, error: "Email not configured" };
+  }
+
+  const { html, text } = await renderEmail(
+    AbandonedCheckoutEmail({
+      variant: params.variant,
+      parentName: params.parentName,
+      subjectName: params.subjectName,
+      programName: params.programName,
+      seasonName: params.seasonName,
+      amountDue: formatCurrency(params.amountDueCents),
+      deadlineLabel: params.deadlineLabel,
+      resumeUrl: params.resumeUrl,
+      touch: params.touch,
+      brand: params.brand,
+    }),
+  );
+
+  const subjectByTouch: Record<typeof params.touch, string> =
+    params.variant === "team"
+      ? {
+          attempt: `${params.subjectName}'s spot is one step away`,
+          nudge: `Still building ${params.subjectName}?`,
+          closing_soon: `Team registration closes ${params.deadlineLabel ?? "soon"} — ${params.seasonName}`,
+          last_day: `Last day to reserve ${params.subjectName}'s spot`,
+        }
+      : {
+          attempt: `Your spot in ${params.seasonName} is one step away`,
+          nudge: `Still thinking it over? Your ${params.seasonName} spot is saved`,
+          closing_soon: `Registration closes ${params.deadlineLabel ?? "soon"} — ${params.seasonName}`,
+          last_day: `Today is the last day to register for ${params.seasonName}`,
+        };
+
+  const emailTypePrefix =
+    params.variant === "team" ? "team_abandoned" : "abandoned_checkout";
+
+  return sendTransactionalEmail({
+    userId: params.userId,
+    registrationId: params.registrationId,
+    emailType: `${emailTypePrefix}_${params.touch}`,
+    to: params.parentEmail,
+    subject: subjectByTouch[params.touch],
+    html,
+    text,
+    from: fromForBrand(params.brand),
   });
 }
 
@@ -1661,5 +1743,87 @@ export async function sendRefereeRatingEmail(params: SendRefereeRatingEmailParam
           body: `How did the ref do at ${clip(params.eventLabel, 50)}? 20-second rating: ${params.surveyUrl}`,
         }
       : undefined,
+  });
+}
+
+export interface SendFirstGameRecapEmailParams {
+  to: string;
+  userId: string;
+  organizationId: string;
+  /**
+   * The recipient's registration for the season — associates the email_logs
+   * row so the dispatch scan's per-season idempotency anti-join (email_logs
+   * joined to registrations.seasonId) can see this send.
+   */
+  registrationId: string;
+  brand: BrandId;
+  recipientName: string;
+  programName: string;
+  /** Venue the game was played at; a venue-specific review listing wins over the brand fallback. */
+  venueId?: string | null;
+}
+
+/**
+ * "How was your first game?" review ask, sent after a team's first completed
+ * game of a season. Resolves the Google review deep-link from org settings
+ * (venue-specific listing wins over the per-brand fallback — same precedence
+ * as the NPS promoter funnel). The review CTA is the entire point of this
+ * email, so when no URL resolves we skip the send altogether — without
+ * logging, so the ask goes out on a later run once the org configures a URL.
+ */
+export async function sendFirstGameRecapEmail(
+  params: SendFirstGameRecapEmailParams,
+): Promise<{ success: boolean; messageId?: string; error?: string; skipped?: boolean }> {
+  const [org] = await getDb()
+    .select({ settings: organizations.settings })
+    .from(organizations)
+    .where(eq(organizations.id, params.organizationId))
+    .limit(1);
+  const reviewUrl = resolveGoogleReviewUrl(
+    (org?.settings ?? {}) as OrganizationSettings,
+    params.brand,
+    params.venueId,
+  );
+  if (!reviewUrl) {
+    return { success: false, skipped: true, error: "No Google review URL configured" };
+  }
+
+  const subject = "How was your first game?";
+
+  if (!isEmailConfigured()) {
+    console.warn("Email not configured, skipping first-game recap email");
+    // Record the attempt as skipped so the dispatch scan's email_logs
+    // anti-join holds (same convention as the capture-incentive dedupe —
+    // an intentionally inert channel must not retry hourly forever).
+    await logEmail({
+      userId: params.userId,
+      registrationId: params.registrationId,
+      emailType: "first_game_recap",
+      recipientEmail: params.to,
+      subject,
+      status: "skipped",
+    });
+    return { success: false, skipped: true, error: "Email not configured" };
+  }
+
+  const { html, text } = await renderEmail(
+    FirstGameRecapEmail({
+      recipientName: params.recipientName,
+      programName: params.programName,
+      reviewUrl,
+      appUrl: originForBrand(params.brand) ?? env.PUBLIC_APP_URL,
+      brand: params.brand,
+    }),
+  );
+
+  return sendTransactionalEmail({
+    userId: params.userId,
+    registrationId: params.registrationId,
+    emailType: "first_game_recap",
+    to: params.to,
+    subject,
+    html,
+    text,
+    from: fromForBrand(params.brand),
   });
 }
