@@ -96,6 +96,37 @@ export interface ExtraSession {
 }
 
 /**
+ * A draft reopened in the builder. Drafts store the generator input plus the
+ * admin's per-row edits rather than session rows, so this is exactly what was
+ * written at save time, with the stored ISO instants left as strings.
+ */
+export interface BuilderDraft {
+  blockId: string;
+  label: string;
+  renterName: string;
+  renterEmail: string | null;
+  renterPhone: string | null;
+  partySize: number;
+  purpose: string | null;
+  notes: string | null;
+  brand: Storefront;
+  locationId: string;
+  firstDate: string;
+  lastDate: string;
+  days: Array<{
+    weekday: number;
+    startMinute: number;
+    durationMinutes: number;
+    venueIds: string[];
+  }>;
+  excludedKeys: string[];
+  sessionOverrides: Record<string, SessionOverride>;
+  extraSessions: ExtraSession[];
+  discount: BlockDiscount;
+  depositPct: number;
+}
+
+/**
  * A row in the builder's session list: the last priced view of a session plus
  * whether it is selected. Unselected rows are not sent for pricing, so they
  * keep their previous descriptor and show no amount.

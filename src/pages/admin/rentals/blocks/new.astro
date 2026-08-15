@@ -6,7 +6,9 @@ import { BlockBuilder } from "@/components/admin/rentals/blocks/BlockBuilder";
 import { getDb } from "@/lib/db";
 import { locations } from "@/lib/db/schema/organizations";
 import { venues } from "@/lib/db/schema/teams";
+import { fieldRentalBlocks } from "@/lib/db/schema/field-rental-blocks";
 import { and, asc, eq } from "drizzle-orm";
+import type { BuilderDraft } from "@/components/admin/rentals/blocks/types";
 
 export const prerender = false;
 
@@ -35,6 +37,53 @@ const venueRows = orgId
       .where(and(eq(locations.organizationId, orgId), eq(venues.rentalEnabled, true)))
       .orderBy(asc(venues.name))
   : [];
+
+/** The jsonb a draft carries: generator input plus the admin's per-row edits. */
+interface StoredDraftPattern {
+  pattern?: { firstDate?: string; lastDate?: string; days?: BuilderDraft["days"] };
+  excludedKeys?: string[];
+  sessionOverrides?: BuilderDraft["sessionOverrides"];
+  extraSessions?: BuilderDraft["extraSessions"];
+}
+
+// Reopening a draft: it stored the generator input plus the admin's per-row
+// edits instead of session rows, so the builder can re-price it against
+// current availability. Committing from here retires the draft.
+const draftId = Astro.url.searchParams.get("draft");
+let draft: BuilderDraft | null = null;
+if (draftId && orgId) {
+  const [row] = await getDb()
+    .select()
+    .from(fieldRentalBlocks)
+    .where(eq(fieldRentalBlocks.id, draftId))
+    .limit(1);
+  const stored = row?.pattern as StoredDraftPattern | null;
+  if (row && row.organizationId === orgId && stored?.pattern) {
+    draft = {
+      blockId: row.id,
+      label: row.label,
+      renterName: row.renterName,
+      renterEmail: row.renterEmail,
+      renterPhone: row.renterPhone,
+      partySize: row.partySize,
+      purpose: row.purpose,
+      notes: row.notes,
+      brand: row.brand === "aspire" ? "aspire" : "soccerone",
+      locationId: row.locationId,
+      firstDate: stored.pattern.firstDate ?? "",
+      lastDate: stored.pattern.lastDate ?? "",
+      days: stored.pattern.days ?? [],
+      excludedKeys: stored.excludedKeys ?? [],
+      sessionOverrides: stored.sessionOverrides ?? {},
+      extraSessions: stored.extraSessions ?? [],
+      discount:
+        row.discountKind === "percent" || row.discountKind === "amount"
+          ? { kind: row.discountKind, value: row.discountValue ?? 0 }
+          : null,
+      depositPct: row.depositPctSnapshot ?? 25,
+    };
+  }
+}
 ---
 
 <BaseLayout
@@ -73,6 +122,7 @@ const venueRows = orgId
         venues={venueRows}
         timeZone={timeZone}
         internal={internal}
+        draft={draft}
       />
     </div>
   </AdminLayout>

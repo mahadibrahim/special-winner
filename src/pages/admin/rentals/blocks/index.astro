@@ -1,0 +1,54 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { AdminLayout } from "@/components/admin/admin-layout";
+import { getPrimaryRoleName } from "@/lib/auth";
+import { BlocksList } from "@/components/admin/rentals/blocks/BlocksList";
+
+export const prerender = false;
+
+const user = Astro.locals.user!;
+const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
+const timeZone = Astro.locals.organization?.timezone ?? "America/New_York";
+---
+
+<BaseLayout title="Rental Blocks — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    role={primaryRole}
+    currentPath="/admin/rentals"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <div class="space-y-4">
+      <div class="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <a
+            href="/admin/rentals"
+            class="text-xs uppercase tracking-wider text-ink-muted hover:text-ink"
+          >
+            ← All rentals
+          </a>
+          <h1 class="mt-2 font-display text-3xl font-semibold text-ink">Rental blocks</h1>
+          <p class="text-sm text-ink-muted mt-1">
+            Recurring multi-month rentals: one deposit holds every session.
+          </p>
+        </div>
+        <div class="flex gap-2">
+          <a
+            href="/admin/rentals/blocks/new?internal=1"
+            class="rounded-lg border border-border px-4 py-2 text-sm font-medium text-ink hover:bg-cream-2 transition-colors min-h-[44px] inline-flex items-center"
+          >
+            Reserve inventory
+          </a>
+          <a
+            href="/admin/rentals/blocks/new"
+            class="rounded-lg bg-ink text-cream px-4 py-2 text-sm font-medium hover:bg-ink/90 transition-colors min-h-[44px] inline-flex items-center"
+          >
+            + New block
+          </a>
+        </div>
+      </div>
+
+      <BlocksList client:load timeZone={timeZone} />
+    </div>
+  </AdminLayout>
+</BaseLayout>

@@ -36,12 +36,20 @@ const TABS: { id: Tab; label: string }[] = [
           </p>
         </div>
         {tab === "bookings" && (
-          <a
-            href="/admin/rentals/new"
-            class="rounded-lg bg-ink text-cream px-4 py-2 text-sm font-medium hover:bg-ink/90 transition-colors min-h-[44px] inline-flex items-center"
-          >
-            + New rental
-          </a>
+          <div class="flex gap-2">
+            <a
+              href="/admin/rentals/blocks"
+              class="rounded-lg border border-border px-4 py-2 text-sm font-medium text-ink hover:bg-cream-2 transition-colors min-h-[44px] inline-flex items-center"
+            >
+              Blocks
+            </a>
+            <a
+              href="/admin/rentals/new"
+              class="rounded-lg bg-ink text-cream px-4 py-2 text-sm font-medium hover:bg-ink/90 transition-colors min-h-[44px] inline-flex items-center"
+            >
+              + New rental
+            </a>
+          </div>
         )}
       </div>
 

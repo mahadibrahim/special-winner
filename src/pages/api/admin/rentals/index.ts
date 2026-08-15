@@ -12,6 +12,7 @@ import type { APIRoute } from "astro";
 import { and, eq, gte, lte, desc } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { fieldRentals, fieldRentalRateCard } from "@/lib/db/schema/field-rentals";
+import { fieldRentalBlocks } from "@/lib/db/schema/field-rental-blocks";
 import { venues } from "@/lib/db/schema/teams";
 import { requireOrgAdminAccess } from "@/lib/auth/roles";
 import {
@@ -84,9 +85,14 @@ export const GET: APIRoute = async (context) => {
       amountPaidCents: fieldRentals.amountPaidCents,
       waiverSigned: fieldRentals.waiverSigned,
       checkedInAt: fieldRentals.checkedInAt,
+      // Block sessions are ordinary rentals; the list links back up to the
+      // parent so staff can see what a row belongs to.
+      blockId: fieldRentals.blockId,
+      blockLabel: fieldRentalBlocks.label,
     })
     .from(fieldRentals)
     .leftJoin(venues, eq(venues.id, fieldRentals.venueId))
+    .leftJoin(fieldRentalBlocks, eq(fieldRentalBlocks.id, fieldRentals.blockId))
     .where(and(...conditions))
     .orderBy(desc(fieldRentals.startsAt));
 

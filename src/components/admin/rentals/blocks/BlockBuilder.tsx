@@ -10,9 +10,10 @@ import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import { PatternPanel, emptyPatternState, toApiPattern } from "./PatternPanel";
 import { SessionTable } from "./SessionTable";
 import { PricePanel } from "./PricePanel";
-import { fmtDay, fmtSessionDate } from "./format";
+import { fmtDay, fmtSessionDate, minuteToTimeInput } from "./format";
 import type {
   BlockDiscount,
+  BuilderDraft,
   ExtraSession,
   LocationOption,
   PatternFormState,
@@ -58,6 +59,8 @@ interface BlockBuilderProps {
   timeZone: string;
   /** Reserve mode fences inventory for facility programming: no money at all. */
   internal?: boolean;
+  /** A draft reopened for re-pricing; committing retires it. */
+  draft?: BuilderDraft | null;
 }
 
 export function BlockBuilder({
@@ -65,25 +68,43 @@ export function BlockBuilder({
   venues,
   timeZone,
   internal = false,
+  draft = null,
 }: BlockBuilderProps) {
   useHydrationBeacon();
 
-  const [label, setLabel] = useState("");
-  const [renterName, setRenterName] = useState("");
-  const [renterEmail, setRenterEmail] = useState("");
-  const [renterPhone, setRenterPhone] = useState("");
-  const [partySize, setPartySize] = useState(1);
-  const [purpose, setPurpose] = useState("");
-  const [notes, setNotes] = useState("");
+  const [label, setLabel] = useState(draft?.label ?? "");
+  const [renterName, setRenterName] = useState(draft?.renterName ?? "");
+  const [renterEmail, setRenterEmail] = useState(draft?.renterEmail ?? "");
+  const [renterPhone, setRenterPhone] = useState(draft?.renterPhone ?? "");
+  const [partySize, setPartySize] = useState(draft?.partySize ?? 1);
+  const [purpose, setPurpose] = useState(draft?.purpose ?? "");
+  const [notes, setNotes] = useState(draft?.notes ?? "");
 
-  const [pattern, setPattern] = useState<PatternFormState>(emptyPatternState);
+  const [pattern, setPattern] = useState<PatternFormState>(() =>
+    draft
+      ? {
+          brand: draft.brand,
+          locationId: draft.locationId,
+          days: draft.days.map((d) => ({
+            weekday: d.weekday,
+            startTime: minuteToTimeInput(d.startMinute),
+            durationMinutes: d.durationMinutes,
+            venueIds: d.venueIds,
+          })),
+          firstDate: draft.firstDate,
+          lastDate: draft.lastDate,
+        }
+      : emptyPatternState(),
+  );
   const [rows, setRows] = useState<SessionRow[]>([]);
-  const [excludedKeys, setExcludedKeys] = useState<string[]>([]);
-  const [overrides, setOverrides] = useState<Record<string, SessionOverride>>({});
-  const [extras, setExtras] = useState<ExtraSession[]>([]);
+  const [excludedKeys, setExcludedKeys] = useState<string[]>(draft?.excludedKeys ?? []);
+  const [overrides, setOverrides] = useState<Record<string, SessionOverride>>(
+    draft?.sessionOverrides ?? {},
+  );
+  const [extras, setExtras] = useState<ExtraSession[]>(draft?.extraSessions ?? []);
 
-  const [discount, setDiscount] = useState<BlockDiscount>(null);
-  const [depositPct, setDepositPct] = useState(DEFAULT_RATE_CARD.depositPct);
+  const [discount, setDiscount] = useState<BlockDiscount>(draft?.discount ?? null);
+  const [depositPct, setDepositPct] = useState(draft?.depositPct ?? DEFAULT_RATE_CARD.depositPct);
   const [offlineMethod, setOfflineMethod] = useState<"cash" | "comp">("cash");
 
   const [quote, setQuote] = useState<PreviewQuote>(EMPTY_QUOTE);
@@ -164,9 +185,16 @@ export function BlockBuilder({
       if (json.rateCard) setRateCard(json.rateCard);
 
       if (fresh) {
-        setRows(json.sessions.map((s) => ({ ...s, included: s.conflict === null })));
-        setExcludedKeys(json.sessions.filter((s) => s.conflict).map((s) => s.key));
+        // Keys address the ROW, so the admin's skip-dates survive a
+        // regenerate; whatever the ledger now claims joins them, unchecked.
+        const kept = new Set(
+          excludedKeys.filter((k) => json.sessions.some((s) => s.key === k)),
+        );
+        for (const s of json.sessions) if (s.conflict) kept.add(s.key);
+        setRows(json.sessions.map((s) => ({ ...s, included: !kept.has(s.key) })));
+        setExcludedKeys([...kept]);
         setHasGenerated(true);
+        if (kept.size > 0) bump();
         return;
       }
 
@@ -271,6 +299,16 @@ export function BlockBuilder({
       if (!res.ok) {
         toast.error(json.error ?? `Save failed (HTTP ${res.status})`);
         return;
+      }
+
+      // The reopened draft is superseded by what just committed; cancelling it
+      // drops its quote markers so the slot stops reading as double-quoted.
+      if (draft) {
+        await fetch(`/api/admin/rentals/blocks/${draft.blockId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cancel: true }),
+        });
       }
 
       if (mode === "internal_reserve") {
