@@ -102,11 +102,18 @@ export const fieldRentals = pgTable(
     // Storefront brand the rental was booked through. Default covers
     // pre-cutover rows and at-facility bookings (no host signal).
     brand: varchar("brand", { length: 20 }).default("aspire").notNull(),
+    // Parent block when this session belongs to a recurring rental block.
+    // Nullable: standalone rentals have none. The payment-hold sweep skips
+    // rows with a block, because the block-level sweep cancels those together.
+    // The FK is declared in SQL rather than via .references() to avoid a
+    // circular import between field-rentals.ts and field-rental-blocks.ts.
+    blockId: uuid("block_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index("field_rentals_venue_starts_at_idx").on(table.venueId, table.startsAt),
+    index("field_rentals_block_starts_at_idx").on(table.blockId, table.startsAt),
     index("field_rentals_org_starts_at_idx").on(table.organizationId, table.startsAt),
     index("field_rentals_renter_starts_at_idx").on(table.renterUserId, table.startsAt),
     index("field_rentals_active_field_idx")
@@ -166,6 +173,14 @@ export const fieldRentalRateCard = pgTable("field_rental_rate_card", {
   // Minimum hours in advance a slot may be requested online. Sooner than this
   // → "contact the venue". Gives runway for approve + 24h pay window.
   minLeadTimeHours: integer("min_lead_time_hours").notNull().default(48),
+  // Recurring rental blocks. Deposit as a percent of the block total; balance
+  // due this many days before the first session; how long an unpaid
+  // awaiting_deposit block holds its slots; how long a draft's soft-hold
+  // quote markers stay visible.
+  depositPct: integer("deposit_pct").notNull().default(25),
+  balanceDueLeadDays: integer("balance_due_lead_days").notNull().default(30),
+  blockHoldHours: integer("block_hold_hours").notNull().default(72),
+  quoteMarkerTtlDays: integer("quote_marker_ttl_days").notNull().default(14),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   updatedByUserId: uuid("updated_by_user_id").references(() => users.id, {
     onDelete: "set null",

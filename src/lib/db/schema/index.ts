@@ -107,6 +107,9 @@ export * from "./hosts";
 // Field rentals (book a field/venue time-block + payment)
 export * from "./field-rentals";
 
+// Recurring multi-month rental blocks + non-blocking quote markers
+export * from "./field-rental-blocks";
+
 // Futsal "Coming September" interest capture (rent.astro)
 export * from "./futsal-interest";
 
