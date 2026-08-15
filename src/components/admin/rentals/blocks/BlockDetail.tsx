@@ -219,6 +219,33 @@ export function BlockDetail({ blockId, timeZone }: BlockDetailProps) {
   };
 
   /**
+   * Send (or resend) a payment link. The token behind it is minted
+   * idempotently and the Stripe Checkout Session is created when the renter
+   * clicks, so resending never strands the renter on a stale session.
+   */
+  const sendLink = async (kind: "deposit" | "balance") => {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admin/rentals/blocks/${blockId}/${kind}-link`, {
+        method: "POST",
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        toast.error(json.error ?? `Could not send the ${kind} link`);
+        return;
+      }
+      toast.success(
+        `${kind === "deposit" ? "Deposit" : "Balance"} link sent${
+          json.channel ? ` by ${json.channel}` : ""
+        }`,
+      );
+      await reload();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /**
    * A draft holds nothing firm, so what it was priced against can be gone by
    * the time someone reopens it. Re-run the same preview the builder uses and
    * report what the ledger has taken since.
@@ -276,6 +303,11 @@ export function BlockDetail({ blockId, timeZone }: BlockDetailProps) {
   const paidCents =
     (block.depositPaidAt ? block.depositDueCents : 0) +
     (block.balancePaidAt ? block.balanceDueCents : 0);
+  // Mirrors the guards on the two link endpoints, so a disabled-looking action
+  // is never offered and then rejected.
+  const canSendDeposit = block.status === "awaiting_deposit";
+  const canSendBalance =
+    block.status === "active" && !block.balancePaidAt && block.balanceDueCents > 0;
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -504,6 +536,24 @@ export function BlockDetail({ blockId, timeZone }: BlockDetailProps) {
         <section className="rounded-xl border border-border bg-cream-2 p-5 space-y-4">
           <h2 className="font-semibold text-ink">Actions</h2>
 
+          {(canSendDeposit || canSendBalance) && (
+            <div className="flex flex-wrap items-center gap-3">
+              {canSendDeposit && (
+                <Button size="sm" disabled={busy} onClick={() => sendLink("deposit")}>
+                  {block.depositExpiresAt ? "Resend deposit link" : "Send deposit link"}
+                </Button>
+              )}
+              {canSendBalance && (
+                <Button size="sm" disabled={busy} onClick={() => sendLink("balance")}>
+                  Send balance link
+                </Button>
+              )}
+              <span className="text-xs text-ink-muted">
+                Emails the renter their payment page. Nothing is charged here.
+              </span>
+            </div>
+          )}
+
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex flex-col gap-1">
               <Label htmlFor="cancel-from">Cancel remaining from</Label>
@@ -551,8 +601,8 @@ export function BlockDetail({ blockId, timeZone }: BlockDetailProps) {
           </div>
 
           <p className="text-xs text-ink-muted border-t border-border pt-4">
-            Sending the deposit and balance links, marking an existing block paid offline, and
-            issuing refunds arrive with the payment wave.
+            Marking an existing block paid offline and issuing refunds arrive with the
+            refund wave.
           </p>
         </section>
       )}

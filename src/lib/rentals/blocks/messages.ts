@@ -310,7 +310,7 @@ export async function dispatchBlockRaceLost(
   const brand = normalizeBrand(block.brand);
 
   const refundLine = refunded
-    ? "Your deposit has been refunded in full — it should be back on your card within a few business days."
+    ? "Your payment has been refunded in full and should be back on your card within a few business days."
     : "We're processing your refund now and will confirm as soon as it clears.";
 
   // Admin first: a lost race needs a human to call the renter back.
