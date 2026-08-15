@@ -40,6 +40,12 @@ export interface CreateBlockBody {
   depositPct: number;
   mode: BlockCommitMode;
   offlinePaymentMethod: "cash" | "comp" | null;
+  /**
+   * The draft this build reopened, if any. Only the preview reads it, to skip
+   * the draft's OWN quote markers when looking for competing quotes; the
+   * create path ignores it (committing clears those markers anyway).
+   */
+  draftBlockId: string | null;
 }
 
 export type ValidateResult =
@@ -322,6 +328,12 @@ export function validateCreateBlockBody(body: unknown): ValidateResult {
     return fail("depositPct must be an integer 0-100");
   }
 
+  if (body.draftBlockId !== undefined && body.draftBlockId !== null) {
+    if (typeof body.draftBlockId !== "string" || !UUID_RX.test(body.draftBlockId)) {
+      return fail("draftBlockId must be a uuid");
+    }
+  }
+
   let offlinePaymentMethod: "cash" | "comp" | null = null;
   if (resolvedMode === "paid_offline") {
     const m = body.offlinePaymentMethod;
@@ -352,6 +364,7 @@ export function validateCreateBlockBody(body: unknown): ValidateResult {
       depositPct: resolvedDepositPct as number,
       mode: resolvedMode as BlockCommitMode,
       offlinePaymentMethod,
+      draftBlockId: (body.draftBlockId as string | undefined) ?? null,
     },
   };
 }

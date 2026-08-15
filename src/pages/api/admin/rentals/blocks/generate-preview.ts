@@ -103,7 +103,10 @@ export const POST: APIRoute = async (context) => {
       endsAt: s.endsAt,
     })),
   );
-  const competing = await findCompetingQuotes(slots);
+  // A reopened draft still holds quote markers on its own slots. Without this
+  // exclusion every re-preview reports the draft as competing with itself,
+  // which reads as "someone else has quoted this" on every single row.
+  const competing = await findCompetingQuotes(slots, body.draftBlockId ?? undefined);
 
   const venueNames = new Map(ctx.venues.map((v) => [v.id, v.name]));
 

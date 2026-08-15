@@ -175,6 +175,9 @@ export function BlockBuilder({
     depositPct,
     mode,
     offlinePaymentMethod: mode === "paid_offline" ? offlineMethod : null,
+    // Reopened draft: the preview skips this block's own quote markers, which
+    // would otherwise come back as a competing quote on every row.
+    draftBlockId: draft?.blockId ?? null,
   });
 
   /**
