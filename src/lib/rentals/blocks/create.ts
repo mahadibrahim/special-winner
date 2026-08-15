@@ -89,7 +89,12 @@ class BlockCommitAbort extends Error {
  * Returns [] rather than throwing on an empty result — createRentalBlock is
  * the one that rejects, so the endpoint can map results instead of catching.
  */
-export function resolveSessionList(input: CreateBlockInput): GeneratedSession[] {
+export type SessionListInput = Pick<
+  CreateBlockInput,
+  "pattern" | "excludedKeys" | "sessionOverrides" | "extraSessions"
+>;
+
+export function resolveSessionList(input: SessionListInput): GeneratedSession[] {
   const excluded = new Set(input.excludedKeys ?? []);
   const overrides = input.sessionOverrides ?? {};
 
