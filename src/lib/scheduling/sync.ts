@@ -21,7 +21,7 @@ import { alias } from "drizzle-orm/pg-core";
 import { removeSourceBlock, upsertSourceBlock } from "./blocks";
 
 /** Resolve (venueId, fieldNumber) → top-level resource id, or null. */
-async function topLevelResource(
+export async function resolveTopLevelResourceId(
   venueId: string,
   fieldNumber: number,
 ): Promise<string | null> {
@@ -71,7 +71,7 @@ export async function syncGameBlock(gameId: string): Promise<void> {
     g.fieldNumber && /^[0-9]+$/.test(g.fieldNumber) ? Number(g.fieldNumber) : null;
   const resourceId =
     g.venueId && fieldNum !== null
-      ? await topLevelResource(g.venueId, fieldNum)
+      ? await resolveTopLevelResourceId(g.venueId, fieldNum)
       : null;
   if (!resourceId) {
     // Unattributable (no venue/field) — not inventory-tracked.
@@ -116,7 +116,7 @@ export async function syncRentalBlock(rentalId: string): Promise<void> {
     return;
   }
 
-  const resourceId = await topLevelResource(r.venueId, r.fieldNumber);
+  const resourceId = await resolveTopLevelResourceId(r.venueId, r.fieldNumber);
   if (!resourceId) {
     await removeSourceBlock("rental", rentalId);
     return;
