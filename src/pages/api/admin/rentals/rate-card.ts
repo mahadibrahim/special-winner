@@ -71,6 +71,10 @@ export const PUT: APIRoute = async (context) => {
     "bookingIncrementMinutes",
     "minDurationMinutes",
     "maxDurationMinutes",
+    "depositPct",
+    "balanceDueLeadDays",
+    "blockHoldHours",
+    "quoteMarkerTtlDays",
   ] as const) {
     if (body[key] !== undefined) updates[key] = body[key];
   }
