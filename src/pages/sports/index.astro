@@ -4,6 +4,14 @@
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { getPublicSports } from "@/lib/programs/public-filters";
 import { setMarketingEdgeCache } from "@/lib/http/edge-cache";
+import { breadcrumbJsonLd } from "@/lib/seo/breadcrumbs";
+import { ASPIRE_CANONICAL_ORIGIN } from "@/lib/seo/canonical";
+
+const ORIGIN = ASPIRE_CANONICAL_ORIGIN;
+const breadcrumbSchema = breadcrumbJsonLd([
+  { name: "Aspire Sports", url: `${ORIGIN}/` },
+  { name: "Sports", url: `${ORIGIN}/sports` },
+]);
 
 const orgId = Astro.locals.organization?.id ?? null;
 const sports = orgId ? await getPublicSports(orgId) : [];
@@ -11,11 +19,11 @@ setMarketingEdgeCache(Astro);
 ---
 
 <BaseLayout
-  title="Sports — Aspire Sports"
-  description="Every sport Aspire Sports runs in central Ohio — leagues, classes, camps, clinics and tournaments."
+  title="Sports We Run in Columbus, Ohio — Soccer, Flag Football & More | Aspire Sports"
+  description="Every sport Aspire Sports runs in central Ohio: adult indoor 7v7 soccer, 4v4 flag football, youth leagues, camps and clinics. See what's open at each venue."
 >
   <Fragment slot="head">
-    <link rel="canonical" href={`${Astro.url.origin}/sports`} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbSchema)} />
   </Fragment>
 
   <main id="main-content" class="flex-1 pt-28 pb-16">

@@ -148,7 +148,8 @@ const heroPhoto = "https://images.unsplash.com/photo-1543326727-cf6c39e8f84c?aut
 import { breadcrumbJsonLd } from "@/lib/seo/breadcrumbs";
 import { seasonsToLeagueEvents } from "@/lib/seo/events";
 import { divisionSlugMap, divisionNaming } from "@/lib/leagues/division-slug";
-const ORIGIN = import.meta.env.PUBLIC_APP_URL || "https://aspiresportsohio.com";
+import { ASPIRE_CANONICAL_ORIGIN } from "@/lib/seo/canonical";
+const ORIGIN = ASPIRE_CANONICAL_ORIGIN;
 
 // Per-division Event rich results — one SportsEvent per open division, with
 // street-level venue address and request-time (early-bird-aware) offers.
