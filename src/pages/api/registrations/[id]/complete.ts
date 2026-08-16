@@ -17,6 +17,8 @@ import {
   hasActiveConsent,
 } from "@/lib/consents/record";
 import { recordPhoneOptIn } from "@/lib/sms/opt-in";
+import { recordMarketingConsent } from "@/lib/consents/marketing";
+import { CONSENT_COPY } from "@/lib/consents/marketing-channels";
 import { getPostHogServer } from "@/lib/posthog-server";
 import { SERVER_EVENTS } from "@/lib/analytics/events";
 
@@ -26,6 +28,10 @@ const bodySchema = z.object({
   birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   phone: z.string().optional(),
   smsConsent: z.boolean().optional(),
+  // Marketing consent for WhatsApp. Distinct from smsConsent — that one is
+  // operational messaging under 10DLC, this is Meta-policy marketing. Never
+  // default one from the other.
+  whatsappConsent: z.boolean().optional(),
   mediaAuthOptOuts: z.array(z.enum(["internal", "promotional", "public"])).optional(),
 });
 
@@ -240,6 +246,34 @@ export const POST: APIRoute = async ({ request, params, locals, clientAddress, u
         });
       } catch (err) {
         console.error("Failed to record phone opt-in:", err);
+      }
+
+      // WhatsApp marketing consent — its own phone_opt_ins row (channel
+      // 'whatsapp'), written only on an affirmative tick. Unlike the SMS call
+      // above there is no "record the absence" case: recordMarketingConsent is
+      // documented as never-call-for-an-unticked-channel, and leaving the box
+      // unchecked is not an opt-out of a consent given earlier.
+      //
+      // status defaults to "opted_in" because this endpoint is authenticated
+      // (locals.user is required above), so the account being changed is
+      // provably the customer's — no OTP promotion step needed.
+      if (data.whatsappConsent) {
+        try {
+          await recordMarketingConsent({
+            db,
+            organizationId,
+            userId: user.id,
+            channel: "whatsapp",
+            phone: data.phone,
+            source: "registration_completion",
+            // The literal sentence rendered by WhatsAppConsentCheckbox. Both
+            // sides read this constant so the stored evidence and the live
+            // form can never drift apart.
+            textShown: CONSENT_COPY.whatsapp,
+          });
+        } catch (err) {
+          console.error("Failed to record WhatsApp marketing consent:", err);
+        }
       }
     }
 

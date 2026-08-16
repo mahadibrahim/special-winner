@@ -2,6 +2,8 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { apiFetch, getAuthCookie } from "./setup/test-helpers";
 import { getDb } from "@/lib/db";
 import { seasons } from "@/lib/db/schema";
+import { phoneOptIns } from "@/lib/db/schema/phone-verifications";
+import { CONSENT_COPY } from "@/lib/consents/marketing-channels";
 import { eq } from "drizzle-orm";
 
 // Same slug convention as registrations-self.test.ts / registrations-
@@ -206,6 +208,77 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
     expect(repeat.status).toBe(200);
     const repeatBody = await repeat.json();
     expect(repeatBody.alreadySigned).toBe(true);
+  });
+
+  it("records WhatsApp marketing consent as its own opted_in row, with the shown text", async () => {
+    // Compliance-critical: a reviewer compares the live form against
+    // consentTextShown, so the stored sentence must be exactly the constant
+    // WhatsAppConsentCheckbox renders. This endpoint is authenticated, so the
+    // row is opted_in outright with no OTP promotion step.
+    const { registrationId, cookie } = await mintOwnedRegistration("1990-05-15");
+    const phone = `+1614555${String(Date.now()).slice(-4)}`;
+
+    const res = await apiFetch(`/api/registrations/${registrationId}/complete`, {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({
+        waiverAccepted: true,
+        waiverSignature: "Consent Flow",
+        phone,
+        smsConsent: false,
+        whatsappConsent: true,
+      }),
+    });
+    expect(res.status).toBe(200);
+
+    const db = getDb();
+    const rows = await db
+      .select({
+        channel: phoneOptIns.channel,
+        status: phoneOptIns.status,
+        source: phoneOptIns.optInSource,
+        textShown: phoneOptIns.consentTextShown,
+        optedInAt: phoneOptIns.optedInAt,
+      })
+      .from(phoneOptIns)
+      .where(eq(phoneOptIns.phone, phone));
+
+    const whatsapp = rows.find((r) => r.channel === "whatsapp");
+    expect(whatsapp, "expected a channel='whatsapp' opt-in row").toBeTruthy();
+    expect(whatsapp!.status).toBe("opted_in");
+    expect(whatsapp!.optedInAt).toBeTruthy();
+    expect(whatsapp!.source).toBe("registration_completion");
+    expect(whatsapp!.textShown).toBe(CONSENT_COPY.whatsapp);
+
+    // The SMS box was left unchecked. It must NOT have been opted in off the
+    // back of the WhatsApp tick — the two are separate legal consents.
+    const sms = rows.find((r) => r.channel === "sms");
+    expect(sms?.status ?? "pending").not.toBe("opted_in");
+  });
+
+  it("does not write a WhatsApp row when the box is left unchecked", async () => {
+    const { registrationId, cookie } = await mintOwnedRegistration("1990-05-15");
+    const phone = `+1614556${String(Date.now()).slice(-4)}`;
+
+    const res = await apiFetch(`/api/registrations/${registrationId}/complete`, {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({
+        waiverAccepted: true,
+        waiverSignature: "No Consent Flow",
+        phone,
+        smsConsent: false,
+        whatsappConsent: false,
+      }),
+    });
+    expect(res.status).toBe(200);
+
+    const db = getDb();
+    const rows = await db
+      .select({ channel: phoneOptIns.channel })
+      .from(phoneOptIns)
+      .where(eq(phoneOptIns.phone, phone));
+    expect(rows.some((r) => r.channel === "whatsapp")).toBe(false);
   });
 
   it("flags age review for a DOB outside the season's age group without blocking the sign", async () => {
