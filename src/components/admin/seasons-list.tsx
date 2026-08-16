@@ -55,7 +55,11 @@ interface Season {
   termSlug?: string | null
   termLabel?: string | null
   divisionGender?: DivisionGender | null
-  skillLevel?: "a" | "b" | "c" | "d" | "open" | null
+  // Widened from the adult-only "a"|"b"|"c"|"d"|"open" union: this column
+  // also holds youth values (competitive_a, developmental, ...) — see
+  // division-filters.ts. Inert today (no youth-specific rendering here yet),
+  // but the type shouldn't contradict what the DB column actually stores.
+  skillLevel?: string | null
   dayOfWeek?: "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun" | null
   startTime?: string | null
   endTime?: string | null

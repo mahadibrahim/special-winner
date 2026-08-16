@@ -12,7 +12,11 @@ export interface OfferingDraft {
   fullDayPrice: string; halfDayPrice: string; individualPrice: string; teamPrice: string;
   minAge: string; maxAge: string; capacity: string; deposit: string;
   divisionGender: string; skillLevel: string;
-  audience: Audience;
+  // Null until the admin actively picks one on step 1 (TypeStep) — no
+  // pre-selection, so an admin who doesn't notice the toggle can't silently
+  // mislabel an adult league as youth. OfferingWizard gates its "Next"
+  // button on this being non-null before DetailsStep ever renders.
+  audience: Audience | null;
 }
 
 export function DetailsStep({
@@ -24,8 +28,18 @@ export function DetailsStep({
   value: OfferingDraft;
   onChange: (d: OfferingDraft) => void;
 }) {
-  const set = (k: keyof OfferingDraft, v: string) => onChange({ ...value, [k]: v });
+  // Excludes "audience" — it's not a free-text field and has no business
+  // going through this string setter (see finding H: `set("audience", "boys")`
+  // used to compile). Audience is chosen exclusively via TypeStep's buttons.
+  const set = (k: Exclude<keyof OfferingDraft, "audience">, v: string) => onChange({ ...value, [k]: v });
   const show = (key: Parameters<typeof offeringFieldShown>[1]) => offeringFieldShown(type, key);
+
+  // Unreachable in practice: OfferingWizard only renders DetailsStep once
+  // step 1's Next button has been enabled, which requires draft.audience to
+  // be chosen. Guarding here instead of threading `Audience | null` through
+  // genderOptionsFor/levelOptionsFor below keeps this component's own logic
+  // simple and gives TypeScript a real narrowing point.
+  if (!value.audience) return null;
 
   return (
     <div className="space-y-4">

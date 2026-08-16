@@ -72,4 +72,12 @@ describe("audience", () => {
     const p = draftToOfferingPayload("league", d, ctx) as any;
     expect(p.audienceType).not.toBe("adults");
   });
+
+  it("throws rather than silently defaulting when audience is still null", () => {
+    // The wizard gates its "Next" button on audience being chosen, so this
+    // path shouldn't be reachable — if it ever is, fail loudly instead of
+    // falling through to the server's "league => adults" default.
+    const d = { ...campDraft, name: "Unset Audience", audience: null };
+    expect(() => draftToOfferingPayload("league", d as any, ctx)).toThrow();
+  });
 });

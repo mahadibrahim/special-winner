@@ -4,7 +4,18 @@ import {
   DIVISION_GENDERS,
   DIVISION_GENDER_LABEL,
   divisionGenderLabel,
+  ADULT_GENDERS,
+  ADULT_LEVELS,
+  YOUTH_GENDERS,
+  YOUTH_LEVELS,
+  DIVISION_LEVELS,
+  genderOptionsFor,
+  levelOptionsFor,
+  skillLevelBadge,
+  skillLevelShort,
+  railTierBadge,
 } from "@/lib/leagues/division-filters";
+import { audienceForProgram } from "@/lib/programs/derive";
 
 const base = {
   programId: "00000000-0000-0000-0000-000000000000",
@@ -65,18 +76,6 @@ describe("divisionGenderLabel", () => {
   });
 });
 
-import {
-  ADULT_GENDERS,
-  ADULT_LEVELS,
-  YOUTH_GENDERS,
-  YOUTH_LEVELS,
-  DIVISION_LEVELS,
-  genderOptionsFor,
-  levelOptionsFor,
-  skillLevelBadge,
-} from "@/lib/leagues/division-filters";
-import { audienceForProgram } from "@/lib/programs/derive";
-
 describe("audienceForProgram", () => {
   it("treats both adult spellings as adult", () => {
     expect(audienceForProgram("adults")).toBe("adult");
@@ -110,6 +109,17 @@ describe("vocabulary lists", () => {
   it("has no bare competitive value", () => {
     expect(DIVISION_LEVELS).not.toContain("competitive");
   });
+
+  // Pins the vocabulary literally so an accidental edit to ADULT_LEVELS /
+  // YOUTH_LEVELS (reorder, typo, dropped value) fails a test instead of
+  // silently propagating into every consumer (schema validation, dropdowns,
+  // badges, filters).
+  it("pins the full DIVISION_LEVELS vocabulary", () => {
+    expect(DIVISION_LEVELS).toEqual([
+      "a", "b", "c", "d", "open",
+      "competitive_a", "competitive_b", "developmental", "recreational",
+    ]);
+  });
 });
 
 describe("levelOptionsFor", () => {
@@ -140,9 +150,9 @@ describe("levelOptionsFor", () => {
     expect(levelOptionsFor("youth", null)).toHaveLength(4);
   });
 
-  it("preserves an unrecognised stored value rather than dropping it", () => {
+  it("marks a value in neither vocabulary as Stored, not as the other audience", () => {
     const opts = levelOptionsFor("youth", "legacy_tier");
-    expect(opts.find((o) => o.value === "legacy_tier")?.label).toBe("Adult tier: legacy_tier");
+    expect(opts.find((o) => o.value === "legacy_tier")?.label).toBe("Stored: legacy_tier");
   });
 });
 
@@ -155,9 +165,14 @@ describe("genderOptionsFor", () => {
     expect(genderOptionsFor("adult").map((o) => o.value)).toEqual(["coed", "mens", "womens"]);
   });
 
-  it("marks a stored adult gender on a youth season", () => {
+  it("marks a stored adult gender on a youth season as a division, not a tier", () => {
     expect(genderOptionsFor("youth", "mens").find((o) => o.value === "mens")?.label)
-      .toBe("Adult tier: Men's");
+      .toBe("Adult division: Men's");
+  });
+
+  it("marks a value in neither vocabulary as Stored, not as the other audience", () => {
+    const opts = genderOptionsFor("youth", "mixed");
+    expect(opts.find((o) => o.value === "mixed")?.label).toBe("Stored: mixed");
   });
 
   it("does not mark coed, which belongs to both", () => {
@@ -185,6 +200,62 @@ describe("skillLevelBadge", () => {
 
   it("echoes an unrecognised value instead of guessing", () => {
     expect(skillLevelBadge("legacy_tier")).toBe("legacy_tier");
+  });
+
+  it("is case-insensitive, matching its sibling tierColorClass", () => {
+    expect(skillLevelBadge("B")).toBe("Tier B");
+    expect(skillLevelBadge("DEVELOPMENTAL")).toBe("Developmental");
+  });
+});
+
+describe("skillLevelShort", () => {
+  it("renders an adult value as the bare uppercase letter", () => {
+    expect(skillLevelShort("b")).toBe("B");
+    expect(skillLevelShort("B")).toBe("B");
+  });
+
+  it('renders "open" as "Open", not "OPEN"', () => {
+    expect(skillLevelShort("open")).toBe("Open");
+  });
+
+  it("renders a youth value as its plain label", () => {
+    expect(skillLevelShort("developmental")).toBe("Developmental");
+    expect(skillLevelShort("competitive_a")).toBe("Competitive A");
+  });
+
+  it("renders nothing for null/empty", () => {
+    expect(skillLevelShort(null)).toBe("");
+    expect(skillLevelShort(undefined)).toBe("");
+    expect(skillLevelShort("")).toBe("");
+  });
+
+  it("echoes an unrecognised value instead of guessing", () => {
+    expect(skillLevelShort("legacy_tier")).toBe("legacy_tier");
+  });
+});
+
+// The regression this locks in: skillLevelBadge alone produced "Tier B" for
+// adult, and the rail's mobile chip used to reuse that same string — losing
+// the pre-vocabulary "just the letter, all caps" mobile rendering. This test
+// pins both call sites' exact output so a future edit to railTierBadge (or a
+// future swap back to skillLevelBadge in the component) fails loudly instead
+// of silently shipping a customer-facing regression again.
+describe("railTierBadge (registration rail desktop + mobile badge)", () => {
+  it("adult: desktop is ALL CAPS with the Tier prefix, mobile is the bare letter", () => {
+    expect(railTierBadge("b")).toEqual({ desktop: "TIER B", mobile: "B" });
+    expect(railTierBadge("B")).toEqual({ desktop: "TIER B", mobile: "B" });
+    expect(railTierBadge("open")).toEqual({ desktop: "TIER OPEN", mobile: "OPEN" });
+  });
+
+  it("youth: desktop and mobile both render the plain label, no Tier prefix, no shouting", () => {
+    expect(railTierBadge("developmental")).toEqual({ desktop: "Developmental", mobile: "Developmental" });
+    expect(railTierBadge("competitive_a")).toEqual({ desktop: "Competitive A", mobile: "Competitive A" });
+  });
+
+  it("renders nothing for an unset level", () => {
+    expect(railTierBadge(null)).toEqual({ desktop: "", mobile: "" });
+    expect(railTierBadge(undefined)).toEqual({ desktop: "", mobile: "" });
+    expect(railTierBadge("")).toEqual({ desktop: "", mobile: "" });
   });
 });
 

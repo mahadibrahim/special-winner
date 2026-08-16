@@ -16,7 +16,8 @@ export function TypeStep({
   onAudience,
 }: {
   value: OfferingType | null;
-  audience: Audience;
+  // Null until the admin actively picks one — see OfferingDraft.audience.
+  audience: Audience | null;
   onSelect: (t: OfferingType) => void;
   onAudience: (a: Audience) => void;
 }) {

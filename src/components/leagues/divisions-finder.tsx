@@ -1,6 +1,6 @@
 "use client";
 import { useState, type ReactNode } from "react";
-import { filterDivisions, groupDivisionsByDay, divisionGenderLabel, DIVISION_GENDER_LABEL, type Division, type DivisionFilters, type DayKey, type DivisionGender } from "@/lib/leagues/division-filters";
+import { filterDivisions, groupDivisionsByDay, divisionGenderLabel, skillLevelShort, DIVISION_GENDER_LABEL, type Division, type DivisionFilters, type DayKey, type DivisionGender } from "@/lib/leagues/division-filters";
 import { LevelLadder, Bars } from "@/components/leagues/level-ladder";
 import type { SkillLevel } from "@/lib/leagues/adult-soccer-content";
 import { InterestCapture } from "@/components/leagues/interest-capture";
@@ -144,7 +144,7 @@ function DivisionRow({ d, term, showLevels }: { d: Division; term: string; showL
           <div className="font-display font-semibold text-base">{d.name}</div>
           <div className="font-mono text-[10.5px] tracking-wide uppercase text-ink-muted mt-0.5">
             {divisionGenderLabel(d.gender)}
-            {showLevels && <> · {d.level === "open" ? "All levels" : `Level ${d.level.toUpperCase()}`}</>}
+            {showLevels && <> · {d.level === "open" ? "All levels" : `Level ${skillLevelShort(d.level)}`}</>}
             {/* Solo price up front — paid-traffic replays showed price-hunters
                 tapping Register just to learn the cost, then bouncing. */}
             {d.price != null && d.status !== "completed" && (

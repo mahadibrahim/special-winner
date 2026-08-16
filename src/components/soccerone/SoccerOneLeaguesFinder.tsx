@@ -11,7 +11,7 @@ import {
   deriveLocationChips, deriveDivisionChips, deriveNightChips, deriveLevelChips, deriveAgesChips, filterSeasons,
   NIGHT_LABELS, type FinderSeason, type FinderFilters,
 } from "@/lib/soccerone/leagues-finder"
-import { WEEK_ORDER } from "@/lib/leagues/division-filters"
+import { WEEK_ORDER, skillLevelShort } from "@/lib/leagues/division-filters"
 import { CAPTAIN_DEPOSIT_DOLLARS } from "@/lib/registrations/team-deposit"
 
 const SECTION_ID = "leagues-finder"
@@ -337,7 +337,7 @@ function LeagueCard({ season }: { season: LeagueCardSeason }) {
       <div className="lc-meta-row">
         {season.program?.audienceType === "parents" && <SoBadge kind="outline">Youth</SoBadge>}
         {season.skillLevel && (
-          <SoBadge kind="outline">{season.skillLevel === "open" ? "Open" : String(season.skillLevel).toUpperCase()}</SoBadge>
+          <SoBadge kind="outline">{skillLevelShort(season.skillLevel)}</SoBadge>
         )}
         <SoStatusPill tone={statusKey}>{String(season.status).toUpperCase()}</SoStatusPill>
       </div>
