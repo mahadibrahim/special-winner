@@ -12,8 +12,13 @@ import type { BrandId } from "@/lib/branding/themes";
 /** One WhatsApp group link shared by both brands (decision 2026-06-16). */
 export const JOIN_WHATSAPP_URL = "https://chat.whatsapp.com/REPLACE_ME";
 
-/** Shared subcopy — intentionally identical across brands for now. */
-const DEFAULT_JOIN_SUBCOPY = "Pick one — or all three — and stay in the loop.";
+/**
+ * Shared subcopy — intentionally identical across brands for now.
+ * Deliberately count-agnostic: channels render conditionally (an unset
+ * WhatsApp group or an uncreated YouTube channel is simply not shown), so
+ * copy that names a number goes stale the moment one is added or removed.
+ */
+const DEFAULT_JOIN_SUBCOPY = "Pick one — or all of them — and stay in the loop.";
 
 export interface JoinSocialLinks {
   instagram?: string;
@@ -30,25 +35,39 @@ export interface JoinBrandContent {
 
 const JOIN_CONTENT: Record<BrandId, JoinBrandContent> = {
   aspire: {
-    headline: "Three ways to join Aspire Sports",
+    headline: "Join Aspire Sports",
     subcopy: DEFAULT_JOIN_SUBCOPY,
     socials: {
-      instagram: "https://instagram.com/REPLACE_ME",
-      facebook: "https://facebook.com/REPLACE_ME",
-      youtube: "https://youtube.com/@REPLACE_ME",
-      tiktok: "https://tiktok.com/@REPLACE_ME",
+      // Confirmed live 2026-08-16. TikTok is omitted because no account
+      // exists; YouTube because the channel is not created yet. Add a key
+      // only when its profile is real — every key here renders a button.
+      instagram: "https://www.instagram.com/aspiresportsohio",
+      facebook: "https://www.facebook.com/aspiresportsohio",
     },
   },
   soccerone: {
-    headline: "Three ways to join SoccerOne",
+    headline: "Join SoccerOne",
     subcopy: DEFAULT_JOIN_SUBCOPY,
-    socials: {
-      instagram: "https://instagram.com/REPLACE_ME",
-      facebook: "https://facebook.com/REPLACE_ME",
-    },
+    // SoccerOne's accounts are not confirmed — neither gosoccerone.com nor
+    // this repo references one. Left empty rather than stubbed: a key here
+    // renders a button, and placeholders are what put five dead links on
+    // Aspire's /join. Add real URLs when the handles are known.
+    socials: {},
   },
 };
 
 export function joinContentFor(brand: BrandId): JoinBrandContent {
   return JOIN_CONTENT[brand];
+}
+
+/**
+ * True only when a link points at a real account.
+ *
+ * Placeholder URLs are syntactically valid, so a plain truthiness check
+ * happily renders them — which is exactly how /join shipped five live
+ * buttons to instagram.com/REPLACE_ME. Every surface that renders one of
+ * these links must gate on this, not on `Boolean(url)`.
+ */
+export function isConfiguredLink(url: string | undefined | null): url is string {
+  return typeof url === "string" && url.length > 0 && !url.includes("REPLACE_ME");
 }
