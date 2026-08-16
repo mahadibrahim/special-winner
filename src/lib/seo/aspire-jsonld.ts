@@ -27,9 +27,14 @@ const ORG_ID = `${ASPIRE_ORIGIN}/#organization`;
  * on 2026-08-16; the Instagram bio and the address it lists (535 Lakeview
  * Plaza Blvd) match the GBP data in venue-address.ts.
  *
+ * YouTube is stored as the /channel/UC… URL rather than the
+ * @AspireSportsOhio handle: handles are editable from YouTube Studio and
+ * that channel is still to be customized, so a handle URL can 404 without
+ * warning. The channel ID is permanent and is the canonical og:url YouTube
+ * itself reports.
+ *
  * Absent on purpose:
  *   • TikTok — no account exists (owner, 2026-08-14).
- *   • YouTube — channel not created yet; add the @handle URL once it is.
  *   • Google Business Profile — add the `maps.google.com/?cid=…` link when
  *     the CID is to hand. SoccerOne anchors its entity that way
  *     (soccerone-jsonld.ts:78,103) and it is the strongest signal available.
@@ -41,6 +46,7 @@ const ORG_ID = `${ASPIRE_ORIGIN}/#organization`;
 export const ASPIRE_SAME_AS: string[] = [
   "https://www.facebook.com/aspiresportsohio",
   "https://www.instagram.com/aspiresportsohio",
+  "https://www.youtube.com/channel/UC7EHJoPzl1YDRoElIH2FoLw",
 ];
 
 export const ASPIRE_ORG_JSONLD = {
