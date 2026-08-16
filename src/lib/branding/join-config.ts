@@ -38,11 +38,16 @@ const JOIN_CONTENT: Record<BrandId, JoinBrandContent> = {
     headline: "Join Aspire Sports",
     subcopy: DEFAULT_JOIN_SUBCOPY,
     socials: {
-      // Confirmed live 2026-08-16. TikTok is omitted because no account
-      // exists; YouTube because the channel is not created yet. Add a key
-      // only when its profile is real — every key here renders a button.
+      // Confirmed live. TikTok is omitted because no account exists — add a
+      // key only when its profile is real, since every key here renders a
+      // button.
       instagram: "https://www.instagram.com/aspiresportsohio",
       facebook: "https://www.facebook.com/aspiresportsohio",
+      // Channel-ID form, not the @AspireSportsOhio handle, deliberately:
+      // handles are editable and this channel is still to be customized, so
+      // a handle URL can break without warning. The channel ID is permanent
+      // and is what YouTube itself reports as the canonical og:url.
+      youtube: "https://www.youtube.com/channel/UC7EHJoPzl1YDRoElIH2FoLw",
     },
   },
   soccerone: {

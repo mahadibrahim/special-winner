@@ -39,10 +39,17 @@ describe("join social config", () => {
     const { socials } = joinContentFor("aspire");
     expect(socials.instagram).toBe("https://www.instagram.com/aspiresportsohio");
     expect(socials.facebook).toBe("https://www.facebook.com/aspiresportsohio");
-    // No TikTok account exists and the YouTube channel is not created yet —
-    // absent rather than stubbed, so no dead button renders.
+    // No TikTok account exists — absent rather than stubbed, so no dead
+    // button renders.
     expect(socials.tiktok).toBeUndefined();
-    expect(socials.youtube).toBeUndefined();
+  });
+
+  it("pins YouTube to the immutable channel ID, not the editable handle", () => {
+    // The @AspireSportsOhio handle can be changed from YouTube Studio at any
+    // time, which would silently 404 this link; the channel ID cannot.
+    const { youtube } = joinContentFor("aspire").socials;
+    expect(youtube).toBe("https://www.youtube.com/channel/UC7EHJoPzl1YDRoElIH2FoLw");
+    expect(youtube).not.toContain("@");
   });
 
   it("keeps the WhatsApp group link gated while it is a placeholder", () => {
