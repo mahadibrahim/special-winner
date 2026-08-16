@@ -18,7 +18,21 @@ Three specific defects the owner named:
 1. Youth has no page that explains the product — only inventory.
 2. "Leagues & Classes" is one navigation item covering two different products.
 3. Age-group leveling is never explained, and the club structure we are matching
-   uses birth-year registration, which parents routinely get wrong.
+   uses birth-date registration, which parents routinely get wrong.
+
+Two market facts shape the emphasis:
+
+- **Nobody locally covers the youngest kids.** That is the wedge, not the
+  on-ramp — copy and structure should not treat U6–U9 as a waiting room for
+  real soccer.
+- **Capacity favours going young.** Three boarded 110×60 turf fields (2 at
+  Worthington, 1 at Downtown/OSU) across roughly 24 hours of weekend prime
+  time. Small-sided pitches subdivide a 110×60 several times over and young
+  games run shorter, so a field-hour sold to the youngest bands carries several
+  times the teams of one sold to U14+.
+
+Games are nevertheless offered at **every** age group; scheduling and capacity
+get solved operationally rather than by narrowing the ladder.
 
 ## The gap, concretely
 
@@ -70,17 +84,26 @@ organization has.
 
 ### 3. The ladder is static reference, not live inventory
 
-The age ladder renders as server-side HTML carrying **group name and birth year
-only**. It never reads live season data, so it cannot go stale, needs no island,
-and is fully crawlable.
+The age ladder renders as server-side HTML carrying **group name and birth-date
+range only**. It never reads live season data, so it cannot go stale, needs no
+island, and is fully crawlable.
 
 Tapping a band filters the divisions list below it. When a band has nothing
 open, that list renders the notify form instead of divisions — capture is
 preserved without coupling authored content to inventory.
 
-The ladder covers the **full club structure from the youngest band up**,
-including bands with no inventory. Empty bands are the point: they show the
-program is a pathway, not a one-off.
+The ladder covers **all fourteen groups, U6 through U19**, including bands with
+no current inventory.
+
+**Progressive-enhancement lookup.** A small "when was your kid born?" control
+(month + year) sits above the table and highlights the matching row. This is
+pure client-side date arithmetic against authored constants — it reads no
+inventory, so it carries none of the staleness risk that ruled out a live
+ladder. The static table renders and works with the control absent or JS off.
+
+The lookup is justified by the 2026–27 rule change below: a birth *year* no
+longer identifies a group, so a table alone asks every parent to do date
+comparison in their head.
 
 ### 4. No format claims in v1
 
@@ -161,6 +184,52 @@ them. This page exists specifically for the long-lead buyer.
 
 Adult's `[term].astro` is the highest-converting surface in that tree. Youth
 gets the same tier rather than deferring it.
+
+## Age groups — authoritative for 2026–27
+
+**The system changed this season.** US Soccer mandated calendar-year grouping
+from 2017 through 2025–26; that mandate was lifted in late 2024, and US Youth
+Soccer, US Club Soccer and AYSO all moved to an **Aug 1 – Jul 31** seasonal-year
+window beginning with 2026–27, to realign groups with school grade. We are
+launching into the first season under the new rules.
+
+| Group | Born between |
+|---|---|
+| U6 | Aug 1, 2020 – Jul 31, 2021 |
+| U7 | Aug 1, 2019 – Jul 31, 2020 |
+| U8 | Aug 1, 2018 – Jul 31, 2019 |
+| U9 | Aug 1, 2017 – Jul 31, 2018 |
+| U10 | Aug 1, 2016 – Jul 31, 2017 |
+| U11 | Aug 1, 2015 – Jul 31, 2016 |
+| U12 | Aug 1, 2014 – Jul 31, 2015 |
+| U13 | Aug 1, 2013 – Jul 31, 2014 |
+| U14 | Aug 1, 2012 – Jul 31, 2013 |
+| U15 | Aug 1, 2011 – Jul 31, 2012 |
+| U16 | Aug 1, 2010 – Jul 31, 2011 |
+| U17 | Aug 1, 2009 – Jul 31, 2010 |
+| U18 | Aug 1, 2008 – Jul 31, 2009 |
+| U19 | Aug 1, 2007 – Jul 31, 2008 |
+
+Verified against [US Club Soccer](https://usclubsoccer.org/registration-player-age-groups/)
+and the [US Youth Soccer decision notice](https://www.usyouthsoccer.org/news/2025/06/10/updated-decision-on-age-group-formation/).
+
+Two consequences for implementation:
+
+1. **A birth year does not identify a group.** A player born in 2017 is U9 if
+   born Aug–Dec and U10 if born Jan–Jul. Any lookup keyed on year alone is
+   wrong half the time; the control takes month + year.
+2. **These are authored constants, not derived.** Store them in
+   `youth-soccer-content.ts` as explicit date ranges and roll them forward each
+   seasonal year. Do not compute from `age_groups.minAge` / `maxAge`, which
+   cannot express an Aug–Jul window. `age_groups.birthDateCutoff` can hold the
+   Aug 1 boundary for any server-side validation that needs it.
+
+**Framing opportunity.** Because the rule changed this season, many kids have
+moved groups relative to last year — Aug–Dec births generally drop one, Jan–Jul
+generally move up. The ladder should lead with that, not bury it. "The age
+groups changed for 2026–27 — here's where your kid lands now" is a high-intent
+question every local soccer parent has right now, and it is the same module
+either way.
 
 ## Sitemap
 
@@ -246,17 +315,16 @@ filters by age band rather than skill tier.
 
 ## Open items
 
-Both are content inputs, not design questions. Neither blocks planning; both
-block build.
+One remaining, and it gates Phase 2 only.
 
-1. **The pathway stage names.** Working placeholders are "First touch / The game
-   opens up / The real thing." The Director of Coaching's name sits on this
-   section — if he already uses language with parents, his words should win.
-2. **The actual age bands and seasonal-year cutoff.** Design work assumed U6–U19
-   against a 2027 seasonal year (group = 2027 − birth year), which is the club
-   standard. Confirm the bands actually being run and the cutoff date. The
-   ladder is static content, so wrong bands are worse than no bands.
-   `age_groups` already has a `birthDateCutoff` column to hold this.
+**The pathway stage names.** Working placeholders were "First touch / The game
+opens up / The real thing." **Do not ship the last one.** If the youngest bands
+are the wedge, a stage called "the real thing" tells the best customer their
+kid is not yet playing real soccer. The Director of Coaching's name sits on this
+section — if he already uses language with parents, his words should win, and
+the naming should avoid implying the young end is preparatory.
+
+Age bands are no longer open: see [Age groups](#age-groups--authoritative-for-202627).
 
 ## Phasing
 
