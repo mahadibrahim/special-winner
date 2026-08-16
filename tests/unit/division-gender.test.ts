@@ -187,3 +187,21 @@ describe("skillLevelBadge", () => {
     expect(skillLevelBadge("legacy_tier")).toBe("legacy_tier");
   });
 });
+
+describe("seasonSchema skillLevel", () => {
+  for (const level of DIVISION_LEVELS) {
+    it(`accepts "${level}"`, () => {
+      expect(seasonSchema.safeParse({ ...base, skillLevel: level }).success).toBe(true);
+    });
+  }
+
+  it("rejects an unknown level", () => {
+    expect(seasonSchema.safeParse({ ...base, skillLevel: "elite" }).success).toBe(false);
+  });
+
+  it("does not reject an adult level on a season (no audience cross-check)", () => {
+    // A youth season holding a preserved adult tier must stay saveable —
+    // otherwise opening it to edit the price 400s on an unrelated field.
+    expect(seasonSchema.safeParse({ ...base, skillLevel: "b" }).success).toBe(true);
+  });
+});
