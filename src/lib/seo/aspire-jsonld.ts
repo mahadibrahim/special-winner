@@ -33,11 +33,14 @@ const ORG_ID = `${ASPIRE_ORIGIN}/#organization`;
  * warning. The channel ID is permanent and is the canonical og:url YouTube
  * itself reports.
  *
+ * The Google Business Profile entry is the strongest of these — it ties the
+ * site to the listing that already carries the NAP and reviews. Same CID
+ * form SoccerOne uses (soccerone-jsonld.ts:78,103). Resolved from the
+ * owner's share link, whose kgmid is /g/11nqdqtvbv, and confirmed to return
+ * "Aspire Sports Ohio - Google Maps" at 535 Lakeview Plaza Blvd, 43085.
+ *
  * Absent on purpose:
  *   • TikTok — no account exists (owner, 2026-08-14).
- *   • Google Business Profile — add the `maps.google.com/?cid=…` link when
- *     the CID is to hand. SoccerOne anchors its entity that way
- *     (soccerone-jsonld.ts:78,103) and it is the strongest signal available.
  *
  * For full weight these profiles should link back to aspiresportsohio.com in
  * their website/bio field: Google treats sameAs as a two-way confirmation and
@@ -47,7 +50,16 @@ export const ASPIRE_SAME_AS: string[] = [
   "https://www.facebook.com/aspiresportsohio",
   "https://www.instagram.com/aspiresportsohio",
   "https://www.youtube.com/channel/UC7EHJoPzl1YDRoElIH2FoLw",
+  "https://maps.google.com/?cid=15317658895845935462",
 ];
+
+/**
+ * Google Maps link for the Worthington venue — the address the GBP listing
+ * is registered to. Only Worthington gets one: the Downtown venue shares
+ * 980 E Starr Ave with SoccerOne Downtown and has no separate Aspire
+ * listing, so inventing a map link for it would be fabricated NAP.
+ */
+const WORTHINGTON_MAP = "https://maps.google.com/?cid=15317658895845935462";
 
 export const ASPIRE_ORG_JSONLD = {
   "@context": "https://schema.org",
@@ -95,6 +107,7 @@ export const ASPIRE_ORG_JSONLD = {
       "@type": "Place",
       name: "Aspire Sports — Worthington",
       telephone: "+1-614-749-9782",
+      hasMap: WORTHINGTON_MAP,
       address: VENUE_ADDRESSES.worthington.address,
       geo: VENUE_ADDRESSES.worthington.geo,
     },
