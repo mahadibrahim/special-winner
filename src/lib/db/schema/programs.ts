@@ -140,7 +140,12 @@ export const seasons = pgTable(
     // DIVISION_GENDERS in lib/leagues/division-filters.ts is the source of
     // truth: 'coed' | 'boys' | 'girls' (youth) | 'mens' | 'womens' (adult).
     divisionGender: varchar("division_gender", { length: 10 }),
-    skillLevel: varchar("skill_level", { length: 8 }), // 'a' | 'b' | 'c' | 'd' | 'open'
+    // DIVISION_LEVELS in lib/leagues/division-filters.ts is the source of
+    // truth: 'a'|'b'|'c'|'d'|'open' (adult) plus 'competitive_a'|
+    // 'competitive_b'|'developmental'|'recreational' (youth). 16 fits the
+    // longest (competitive_a, 13) with headroom; it was varchar(8), which
+    // every youth value overflowed.
+    skillLevel: varchar("skill_level", { length: 16 }),
     dayOfWeek: varchar("day_of_week", { length: 3 }), // 'mon'..'sun'
     startTime: time("start_time"), // 18:00
     endTime: time("end_time"),     // 20:00

@@ -862,6 +862,13 @@
       "when": 1786767911724,
       "tag": "0122_rental_blocks",
       "breakpoints": true
+    },
+    {
+      "idx": 123,
+      "version": "7",
+      "when": 1786891016228,
+      "tag": "0123_last_tag",
+      "breakpoints": true
     }
   ]
 }
