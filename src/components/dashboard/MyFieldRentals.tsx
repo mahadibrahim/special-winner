@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import { DashboardCard } from "@/components/dashboard/shell/DashboardCard";
 import { directionsUrl } from "@/lib/dashboard/maps";
+import { formatDollars } from "@/components/admin/rentals/blocks/format";
 import type { StatusTone } from "@/lib/dashboard/dashboard-ui";
 
 interface FieldRental {
@@ -28,6 +29,30 @@ interface FieldRental {
   checkedInAt: string | null;
   paymentExpiresAt: string | null;
   venueName: string;
+  blockId: string | null;
+  blockLabel: string | null;
+}
+
+/**
+ * A recurring block: one commitment covering many sessions. The block row is
+ * the payment truth - sessions stay unpaid until the block settles - so all
+ * the money on this card comes from the block, never from summing sessions.
+ */
+interface FieldRentalBlockSummary {
+  id: string;
+  label: string;
+  status: "draft" | "awaiting_deposit" | "active" | "completed" | "cancelled";
+  sessionCount: number;
+  firstSessionAt: string | null;
+  lastSessionAt: string | null;
+  totalCents: number;
+  paidCents: number;
+  depositDueCents: number;
+  balanceDueCents: number;
+  balanceDueAt: string | null;
+  owed: { kind: "deposit" | "balance" | "none"; cents: number; dueAt: string | null };
+  /** The tokenized public page; null when nothing is owed. */
+  payUrl: string | null;
 }
 
 function fmtDateTimeRange(startsAt: string, endsAt: string): string {
@@ -93,6 +118,7 @@ export default function MyFieldRentals() {
   useHydrationBeacon();
 
   const [rentals, setRentals] = useState<FieldRental[]>([]);
+  const [blocks, setBlocks] = useState<FieldRentalBlockSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [successBanner, setSuccessBanner] = useState(false);
@@ -107,6 +133,7 @@ export default function MyFieldRentals() {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       setRentals(json.rentals ?? []);
+      setBlocks(json.blocks ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load");
     } finally {
@@ -189,10 +216,14 @@ export default function MyFieldRentals() {
   };
 
   const now = Date.now();
-  const upcoming = rentals.filter(
+  // Block sessions are shown under their block card, so they come out of the
+  // flat lists. Standalone rentals keep their existing rendering exactly.
+  const blockIds = new Set(blocks.map((b) => b.id));
+  const standalone = rentals.filter((r) => !r.blockId || !blockIds.has(r.blockId));
+  const upcoming = standalone.filter(
     (r) => r.status !== "cancelled" && new Date(r.startsAt).getTime() > now,
   );
-  const pastOrCancelled = rentals.filter(
+  const pastOrCancelled = standalone.filter(
     (r) => r.status === "cancelled" || new Date(r.startsAt).getTime() <= now,
   );
 
@@ -219,13 +250,26 @@ export default function MyFieldRentals() {
         </div>
       )}
 
-      {rentals.length === 0 ? (
+      {rentals.length === 0 && blocks.length === 0 ? (
         <EmptyState
           title="No field rentals yet"
           description="Book a field from the Rentals page."
         />
       ) : (
         <>
+          {blocks.length > 0 && (
+            <section className="space-y-2">
+              <p className={SUB_HEADER_CLS}>Recurring blocks</p>
+              {blocks.map((block) => (
+                <BlockCard
+                  key={block.id}
+                  block={block}
+                  sessions={rentals.filter((r) => r.blockId === block.id)}
+                />
+              ))}
+            </section>
+          )}
+
           <section className="space-y-2">
             {pastOrCancelled.length > 0 && <p className={SUB_HEADER_CLS}>Upcoming</p>}
             {upcoming.length === 0 ? (
@@ -329,5 +373,120 @@ export default function MyFieldRentals() {
         </>
       )}
     </div>
+  );
+}
+
+function blockStatusTone(status: FieldRentalBlockSummary["status"]): StatusTone {
+  switch (status) {
+    case "active":
+    case "completed":
+      return "confirmed";
+    case "awaiting_deposit":
+      return "action";
+    case "draft":
+    case "cancelled":
+      return "pending";
+  }
+}
+
+function blockStatusLabel(status: FieldRentalBlockSummary["status"]): string {
+  switch (status) {
+    case "draft":
+      return "Quoted";
+    case "awaiting_deposit":
+      return "Deposit due";
+    case "active":
+      return "Confirmed";
+    case "completed":
+      return "Completed";
+    case "cancelled":
+      return "Cancelled";
+  }
+}
+
+/** "Jan 6 – Mar 24", or a single date when the block has one session. */
+function fmtBlockRange(firstAt: string | null, lastAt: string | null): string {
+  if (!firstAt) return "No sessions";
+  const opts = { month: "short", day: "numeric" } as const;
+  const first = new Date(firstAt).toLocaleDateString(undefined, opts);
+  if (!lastAt || lastAt === firstAt) return first;
+  return `${first} – ${new Date(lastAt).toLocaleDateString(undefined, opts)}`;
+}
+
+/**
+ * One card per block: what it covers, what is owed, and the single link that
+ * settles it. The link points at the tokenized public page - the same URL every
+ * quote and reminder email carries, so a renter never juggles two of them.
+ */
+function BlockCard({
+  block,
+  sessions,
+}: {
+  block: FieldRentalBlockSummary;
+  sessions: FieldRental[];
+}) {
+  const owes = block.owed.kind !== "none" && block.owed.cents > 0;
+  const upcoming = [...sessions]
+    .filter((s) => s.status !== "cancelled")
+    .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime());
+
+  return (
+    <DashboardCard
+      type="field_rental"
+      title={block.label}
+      meta={`${block.sessionCount} session${block.sessionCount === 1 ? "" : "s"} · ${fmtBlockRange(
+        block.firstSessionAt,
+        block.lastSessionAt,
+      )}`}
+      status={{
+        label: blockStatusLabel(block.status),
+        tone: blockStatusTone(block.status),
+      }}
+      action={
+        owes && block.payUrl ? (
+          <Button size="sm" asChild>
+            <a href={block.payUrl}>
+              {block.owed.kind === "deposit" ? "Pay deposit" : "Pay balance"}
+            </a>
+          </Button>
+        ) : undefined
+      }
+    >
+      <div className="mt-1 space-y-2">
+        <div className="flex items-center gap-2 flex-wrap text-[11px] text-ink-2">
+          <span>
+            {formatDollars(block.paidCents)} paid of {formatDollars(block.totalCents)}
+          </span>
+          {owes && (
+            <span className="text-ink-muted">
+              · {formatDollars(block.owed.cents)}{" "}
+              {block.owed.kind === "deposit" ? "deposit" : "balance"} due
+              {block.owed.dueAt
+                ? ` by ${new Date(block.owed.dueAt).toLocaleDateString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                  })}`
+                : ""}
+            </span>
+          )}
+        </div>
+
+        {upcoming.length > 0 && (
+          <details className="text-[11px] text-ink-2">
+            <summary className="cursor-pointer text-ink-muted">
+              Sessions ({upcoming.length})
+            </summary>
+            <ul className="mt-1 space-y-0.5">
+              {upcoming.map((s) => (
+                <li key={s.id}>
+                  {fmtDateTimeRange(s.startsAt, s.endsAt)} · {s.venueName} · Field{" "}
+                  {s.fieldNumber}
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
+      </div>
+    </DashboardCard>
   );
 }

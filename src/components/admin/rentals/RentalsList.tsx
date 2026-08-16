@@ -25,6 +25,8 @@ interface RentalRow {
   amountPaidCents: number;
   waiverSigned: boolean;
   checkedInAt: string | null;
+  blockId: string | null;
+  blockLabel: string | null;
 }
 
 const STATUS_OPTIONS = [
@@ -229,6 +231,7 @@ export function RentalsList() {
                 <th className="px-4 py-2 font-medium text-ink-muted">Space / Field</th>
                 <th className="px-4 py-2 font-medium text-ink-muted">When</th>
                 <th className="px-4 py-2 font-medium text-ink-muted">Renter</th>
+                <th className="px-4 py-2 font-medium text-ink-muted">Block</th>
                 <th className="px-4 py-2 font-medium text-ink-muted">Party</th>
                 <th className="px-4 py-2 font-medium text-ink-muted">Status</th>
                 <th className="px-4 py-2 font-medium text-ink-muted">Payment</th>
@@ -261,6 +264,18 @@ export function RentalsList() {
                       <div className="text-xs text-ink-muted">{r.renterPhone}</div>
                     )}
                   </td>
+                  <td className="px-4 py-3 align-top">
+                    {r.blockId ? (
+                      <a
+                        href={`/admin/rentals/blocks/${r.blockId}`}
+                        className="text-xs text-ink underline"
+                      >
+                        {r.blockLabel ?? "Block"}
+                      </a>
+                    ) : (
+                      <span className="text-ink-muted">–</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 align-top text-ink-muted">
                     {r.partySize}
                   </td>
@@ -278,14 +293,14 @@ export function RentalsList() {
                     {r.waiverSigned ? (
                       <span className="text-emerald-700 font-medium">&#10003;</span>
                     ) : (
-                      <span className="text-ink-muted">—</span>
+                      <span className="text-ink-muted">–</span>
                     )}
                   </td>
                   <td className="px-4 py-3 align-top text-center">
                     {r.checkedInAt ? (
                       <span className="text-emerald-700 font-medium">&#10003;</span>
                     ) : (
-                      <span className="text-ink-muted">—</span>
+                      <span className="text-ink-muted">–</span>
                     )}
                   </td>
                   <td className="px-4 py-3 align-top text-right">

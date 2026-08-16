@@ -8,12 +8,15 @@
  * Mirrors src/pages/api/dropin/bookings/index.ts.
  */
 import type { APIRoute } from "astro";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   fieldRentals,
   fieldRentalRateCard,
 } from "@/lib/db/schema/field-rentals";
+import { fieldRentalBlocks } from "@/lib/db/schema/field-rental-blocks";
+import { blockPaidCents } from "@/lib/rentals/blocks/lifecycle";
+import { computeBlockOwed, mintBlockToken } from "@/lib/rentals/blocks/tokens";
 import { venues } from "@/lib/db/schema/teams";
 import {
   resolveRentalHourlyRateCents,
@@ -62,6 +65,9 @@ export const GET: APIRoute = async ({ locals }) => {
       // Surfaced so the dashboard can render a hold-expiry countdown for
       // rentals still in `pending_payment`.
       paymentExpiresAt: fieldRentals.paymentExpiresAt,
+      // Sessions that belong to a recurring block are grouped under it on the
+      // dashboard: twelve winter Tuesdays are one commitment, not twelve.
+      blockId: fieldRentals.blockId,
       venueName: venues.name,
     })
     .from(fieldRentals)
@@ -69,7 +75,69 @@ export const GET: APIRoute = async ({ locals }) => {
     .where(eq(fieldRentals.renterUserId, locals.user.id))
     .orderBy(desc(fieldRentals.startsAt));
 
-  return json({ rentals: rows }, 200);
+  const blockIds = [...new Set(rows.map((r) => r.blockId).filter((id): id is string => !!id))];
+
+  // Scoped to the caller both ways: the sessions are already theirs, and the
+  // block rows are re-filtered on renterUserId so a session mis-stamped with
+  // someone else's block can never leak that block's money or its pay link.
+  const blockRows =
+    blockIds.length > 0
+      ? await db
+          .select()
+          .from(fieldRentalBlocks)
+          .where(
+            and(
+              inArray(fieldRentalBlocks.id, blockIds),
+              eq(fieldRentalBlocks.renterUserId, locals.user.id),
+            ),
+          )
+      : [];
+
+  const blocks = [];
+  for (const block of blockRows) {
+    const sessions = rows.filter((r) => r.blockId === block.id);
+    const live = sessions.filter((s) => s.status !== "cancelled");
+    const starts = live.map((s) => s.startsAt.getTime()).sort((a, b) => a - b);
+    const owed = computeBlockOwed(block);
+    // mintToken hands back the live token when one exists, so this is
+    // idempotent - a dashboard refresh does not proliferate links. Only blocks
+    // that actually owe money get one.
+    const token = owed.kind === "none" ? null : await mintBlockToken(block);
+
+    blocks.push({
+      id: block.id,
+      label: block.label,
+      status: block.status,
+      sessionCount: live.length,
+      firstSessionAt: starts.length > 0 ? new Date(starts[0]).toISOString() : null,
+      lastSessionAt:
+        starts.length > 0 ? new Date(starts[starts.length - 1]).toISOString() : null,
+      totalCents: block.totalCents,
+      paidCents: blockPaidCents(block),
+      depositDueCents: block.depositDueCents,
+      balanceDueCents: block.balanceDueCents,
+      balanceDueAt: block.balanceDueAt?.toISOString() ?? null,
+      owed: {
+        kind: owed.kind,
+        cents: owed.cents,
+        dueAt: owed.dueAt?.toISOString() ?? null,
+      },
+      payUrl: token ? `/rentals/blocks/${token}` : null,
+    });
+  }
+
+  const blockLabels = new Map(blocks.map((b) => [b.id, b.label]));
+
+  return json(
+    {
+      rentals: rows.map((r) => ({
+        ...r,
+        blockLabel: r.blockId ? (blockLabels.get(r.blockId) ?? null) : null,
+      })),
+      blocks,
+    },
+    200,
+  );
 };
 
 export const POST: APIRoute = async ({ request, locals, clientAddress }) => {

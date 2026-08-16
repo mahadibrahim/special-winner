@@ -245,6 +245,41 @@ export const E2E_TEAM_HUB_INVITEE_PAID = "teamhub-mate2@aspiresportsohio.com";
 export const E2E_RENTAL_VENUE_ID = "4b237a78-868d-4e64-8487-f3dce687b603";
 
 /**
+ * The rental venue's location and the seeded admin user are get-or-created by
+ * lookup (slug / email), not pinned to fixed UUIDs the way the venue is, so
+ * they are resolved at call time instead of exported as constants. Rental-block
+ * tests need both: a block is scoped to a location, and createRentalBlock
+ * records the admin who built it.
+ */
+export async function resolveE2ELocationId(): Promise<string> {
+  const [row] = await getDb()
+    .select({ locationId: venues.locationId })
+    .from(venues)
+    .where(eq(venues.id, E2E_RENTAL_VENUE_ID))
+    .limit(1);
+  if (!row) {
+    throw new Error(
+      "E2E rental venue is not seeded. Run `npm run db:seed:e2e` before the API suite",
+    );
+  }
+  return row.locationId;
+}
+
+export async function resolveE2EAdminUserId(): Promise<string> {
+  const [row] = await getDb()
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.email, TEST_USERS.admin.email))
+    .limit(1);
+  if (!row) {
+    throw new Error(
+      "E2E admin user is not seeded. Run `npm run db:seed:e2e` before the API suite",
+    );
+  }
+  return row.id;
+}
+
+/**
  * Fixed UUIDs for the host portal fixtures (Task 15 —
  * tests/e2e/host-portal.spec.ts). Fixed IDs so the spec can act on these
  * sessions directly (claim by ID, navigate straight to /host/games/:id)

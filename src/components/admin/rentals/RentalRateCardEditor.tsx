@@ -16,6 +16,10 @@ interface RateCard {
   bookingIncrementMinutes: number;
   minDurationMinutes: number;
   maxDurationMinutes: number;
+  depositPct: number;
+  balanceDueLeadDays: number;
+  blockHoldHours: number;
+  quoteMarkerTtlDays: number;
   updatedAt: string;
   updatedByUserId: string | null;
 }
@@ -60,6 +64,10 @@ export function RentalRateCardEditor() {
           bookingIncrementMinutes: card.bookingIncrementMinutes,
           minDurationMinutes: card.minDurationMinutes,
           maxDurationMinutes: card.maxDurationMinutes,
+          depositPct: card.depositPct,
+          balanceDueLeadDays: card.balanceDueLeadDays,
+          blockHoldHours: card.blockHoldHours,
+          quoteMarkerTtlDays: card.quoteMarkerTtlDays,
         }),
       });
       const json = await res.json();
@@ -220,6 +228,90 @@ export function RentalRateCardEditor() {
               />
             </div>
           </div>
+
+          <fieldset className="rounded-lg border border-border p-4 space-y-4">
+            <legend className="px-1 text-sm font-semibold text-ink">Recurring blocks</legend>
+            <p className="text-xs text-ink-muted">
+              Defaults for multi-month rental blocks. They apply when a block is built;
+              changing them never re-prices a block that already exists.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="deposit-pct">Deposit percent</Label>
+                <Input
+                  id="deposit-pct"
+                  type="number"
+                  step="1"
+                  min={0}
+                  max={100}
+                  value={card.depositPct}
+                  onChange={(e) => setCard({ ...card, depositPct: Number(e.target.value) })}
+                />
+                <p className="mt-1 text-xs text-ink-muted">
+                  What a renter pays to hold a whole block. The builder can override this
+                  per deal.
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="balance-lead">Balance due lead (days)</Label>
+                <Input
+                  id="balance-lead"
+                  type="number"
+                  step="1"
+                  min={0}
+                  max={180}
+                  value={card.balanceDueLeadDays}
+                  onChange={(e) =>
+                    setCard({ ...card, balanceDueLeadDays: Number(e.target.value) })
+                  }
+                />
+                <p className="mt-1 text-xs text-ink-muted">
+                  How far before the first session the balance is due. Reminders go out at
+                  T-14, T-3, and once when overdue.
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="block-hold">Deposit hold (hours)</Label>
+                <Input
+                  id="block-hold"
+                  type="number"
+                  step="1"
+                  min={1}
+                  max={336}
+                  value={card.blockHoldHours}
+                  onChange={(e) =>
+                    setCard({ ...card, blockHoldHours: Number(e.target.value) })
+                  }
+                />
+                <p className="mt-1 text-xs text-ink-muted">
+                  How long every session in a block stays held while the deposit is unpaid.
+                  The block expires as a unit when it lapses.
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="quote-ttl">Quote marker TTL (days)</Label>
+                <Input
+                  id="quote-ttl"
+                  type="number"
+                  step="1"
+                  min={1}
+                  max={90}
+                  value={card.quoteMarkerTtlDays}
+                  onChange={(e) =>
+                    setCard({ ...card, quoteMarkerTtlDays: Number(e.target.value) })
+                  }
+                />
+                <p className="mt-1 text-xs text-ink-muted">
+                  How long a draft quote shows as &ldquo;also quoted&rdquo; on the calendar.
+                  Markers never block a booking, they only make contention visible.
+                </p>
+              </div>
+            </div>
+          </fieldset>
 
           <div className="text-xs text-ink-muted">
             Last updated {new Date(card.updatedAt).toLocaleString()}

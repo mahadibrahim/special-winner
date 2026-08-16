@@ -105,6 +105,24 @@
  *                                      refund needed via the Stripe dashboard
  *                                      using the `stripePaymentIntentId` in
  *                                      the log line.
+ *   - `rental_block_payment_refunded` - A rental block's deposit (or balance)
+ *                                      settled for a block we could not
+ *                                      honour: it lost one or more of its
+ *                                      slots between the payment link going
+ *                                      out and the money landing, or it had
+ *                                      already been cancelled. The charge was
+ *                                      auto-refunded in full and the block +
+ *                                      every session cancelled - no manual
+ *                                      action needed, but money moved and a
+ *                                      human should call the renter back with
+ *                                      replacement dates.
+ *   - `rental_block_refund_failed`    - Same lost-block case, but the
+ *                                      auto-refund threw (or Stripe wasn't
+ *                                      configured). The renter was CHARGED for
+ *                                      a block that does not exist. Manual
+ *                                      refund needed via the Stripe dashboard
+ *                                      using the `stripePaymentIntentId` in
+ *                                      the log line.
  */
 
 export type AlertTag =
@@ -118,7 +136,9 @@ export type AlertTag =
   | "dropin_claim_unexpected_status"
   | "dropin_duplicate_refunded"
   | "dropin_duplicate_refund_failed"
-  | "rental_late_refund_failed";
+  | "rental_late_refund_failed"
+  | "rental_block_payment_refunded"
+  | "rental_block_refund_failed";
 
 export type AlertContext = Record<string, unknown>;
 

@@ -3,7 +3,7 @@
  * passed and mark them cancelled, freeing the field. Mirrors the drop-in
  * `expireOverduePromotions` sweep.
  */
-import { and, eq, lt, isNotNull } from "drizzle-orm";
+import { and, eq, lt, isNotNull, isNull } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { fieldRentals } from "@/lib/db/schema/field-rentals";
 import { removeSourceBlock } from "@/lib/scheduling/blocks";
@@ -21,6 +21,12 @@ export async function expirePendingRentals(): Promise<{ expired: number }> {
     .where(
       and(
         eq(fieldRentals.status, "pending_payment"),
+        // A block's sessions all carry the block's deposit expiry, so this
+        // sweep would cancel them one at a time while the deposit link stayed
+        // live, pointing the renter at a half-destroyed schedule. Blocks are
+        // swept as a unit by expireUnpaidRentalBlocks in
+        // @/lib/rentals/blocks/lifecycle instead.
+        isNull(fieldRentals.blockId),
         isNotNull(fieldRentals.paymentExpiresAt),
         lt(fieldRentals.paymentExpiresAt, now),
       ),

@@ -1,0 +1,179 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { AdminLayout } from "@/components/admin/admin-layout";
+import { getPrimaryRoleName } from "@/lib/auth";
+import { BlockBuilder } from "@/components/admin/rentals/blocks/BlockBuilder";
+import { getDb } from "@/lib/db";
+import { locations } from "@/lib/db/schema/organizations";
+import { venues } from "@/lib/db/schema/teams";
+import { fieldRentalBlocks } from "@/lib/db/schema/field-rental-blocks";
+import { and, asc, eq } from "drizzle-orm";
+import type {
+  BuilderDraft,
+  PatternPrefill,
+} from "@/components/admin/rentals/blocks/types";
+
+export const prerender = false;
+
+const user = Astro.locals.user!;
+const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
+const orgId = Astro.locals.organization?.id ?? "";
+const timeZone = Astro.locals.organization?.timezone ?? "America/New_York";
+
+// ?internal=1 builds manual ledger holds instead of rentals: same generator,
+// no money panels.
+const internal = Astro.url.searchParams.get("internal") === "1";
+
+const locationRows = orgId
+  ? await getDb()
+      .select({ id: locations.id, name: locations.name })
+      .from(locations)
+      .where(eq(locations.organizationId, orgId))
+      .orderBy(asc(locations.name))
+  : [];
+
+const venueRows = orgId
+  ? await getDb()
+      .select({ id: venues.id, name: venues.name, locationId: venues.locationId })
+      .from(venues)
+      .innerJoin(locations, eq(locations.id, venues.locationId))
+      .where(and(eq(locations.organizationId, orgId), eq(venues.rentalEnabled, true)))
+      .orderBy(asc(venues.name))
+  : [];
+
+// Arriving from the recurring-slot finder: the pattern travels in the query
+// string so the builder opens on the slot the admin was just looking at. Every
+// value is re-validated here; a malformed link yields an empty builder rather
+// than a broken one.
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const intParam = (name: string): number | null => {
+  const raw = Astro.url.searchParams.get(name);
+  if (raw === null || raw.trim() === "") return null;
+  const n = Number(raw);
+  return Number.isInteger(n) ? n : null;
+};
+
+let prefill: PatternPrefill | null = null;
+{
+  const prefillLocationId = Astro.url.searchParams.get("locationId") ?? "";
+  const weekday = intParam("weekday");
+  const startMinute = intParam("startMinute");
+  const durationMinutes = intParam("durationMinutes");
+  const first = Astro.url.searchParams.get("firstDate") ?? "";
+  const last = Astro.url.searchParams.get("lastDate") ?? "";
+  if (
+    locationRows.some((l) => l.id === prefillLocationId) &&
+    weekday !== null &&
+    weekday >= 0 &&
+    weekday <= 6 &&
+    startMinute !== null &&
+    startMinute >= 0 &&
+    startMinute < 1440 &&
+    durationMinutes !== null &&
+    durationMinutes > 0 &&
+    durationMinutes <= 1440 &&
+    DATE_RE.test(first) &&
+    DATE_RE.test(last) &&
+    last >= first
+  ) {
+    prefill = {
+      locationId: prefillLocationId,
+      weekday,
+      startMinute,
+      durationMinutes,
+      firstDate: first,
+      lastDate: last,
+    };
+  }
+}
+
+/** The jsonb a draft carries: generator input plus the admin's per-row edits. */
+interface StoredDraftPattern {
+  pattern?: { firstDate?: string; lastDate?: string; days?: BuilderDraft["days"] };
+  excludedKeys?: string[];
+  sessionOverrides?: BuilderDraft["sessionOverrides"];
+  extraSessions?: BuilderDraft["extraSessions"];
+}
+
+// Reopening a draft: it stored the generator input plus the admin's per-row
+// edits instead of session rows, so the builder can re-price it against
+// current availability. Committing from here retires the draft.
+const draftId = Astro.url.searchParams.get("draft");
+let draft: BuilderDraft | null = null;
+if (draftId && orgId) {
+  const [row] = await getDb()
+    .select()
+    .from(fieldRentalBlocks)
+    .where(eq(fieldRentalBlocks.id, draftId))
+    .limit(1);
+  const stored = row?.pattern as StoredDraftPattern | null;
+  if (row && row.organizationId === orgId && stored?.pattern) {
+    draft = {
+      blockId: row.id,
+      label: row.label,
+      renterName: row.renterName,
+      renterEmail: row.renterEmail,
+      renterPhone: row.renterPhone,
+      partySize: row.partySize,
+      purpose: row.purpose,
+      notes: row.notes,
+      brand: row.brand === "aspire" ? "aspire" : "soccerone",
+      locationId: row.locationId,
+      firstDate: stored.pattern.firstDate ?? "",
+      lastDate: stored.pattern.lastDate ?? "",
+      days: stored.pattern.days ?? [],
+      excludedKeys: stored.excludedKeys ?? [],
+      sessionOverrides: stored.sessionOverrides ?? {},
+      extraSessions: stored.extraSessions ?? [],
+      discount:
+        row.discountKind === "percent" || row.discountKind === "amount"
+          ? { kind: row.discountKind, value: row.discountValue ?? 0 }
+          : null,
+      depositPct: row.depositPctSnapshot ?? 25,
+    };
+  }
+}
+---
+
+<BaseLayout
+  title={`${internal ? "Reserve Inventory" : "New Rental Block"} – Admin – Aspire Sports`}
+  navigation={false}
+  footer={false}
+>
+  <AdminLayout
+    client:load
+    role={primaryRole}
+    currentPath="/admin/rentals"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <div class="space-y-4">
+      <div>
+        <a
+          href="/admin/rentals/blocks"
+          class="text-xs uppercase tracking-wider text-ink-muted hover:text-ink"
+        >
+          ← All blocks
+        </a>
+        <h1 class="mt-2 text-2xl font-bold text-ink">
+          {internal ? "Reserve inventory" : "New rental block"}
+        </h1>
+        <p class="text-sm text-ink-muted mt-1">
+          {
+            internal
+              ? "Fence prime slots for facility-hosted programming. No renter, no money: the builder surfaces these as conflicts."
+              : "Build a recurring multi-month rental in one pass, then take a deposit that holds every session."
+          }
+        </p>
+      </div>
+      <BlockBuilder
+        client:load
+        locations={locationRows}
+        venues={venueRows}
+        timeZone={timeZone}
+        internal={internal}
+        draft={draft}
+        prefill={prefill}
+      />
+    </div>
+  </AdminLayout>
+</BaseLayout>

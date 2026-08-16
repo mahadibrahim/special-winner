@@ -41,6 +41,21 @@ export const POST: APIRoute = async ({ params, locals, url, request }) => {
   if (rental.renterUserId !== locals.user.id) {
     return json({ error: "Not your rental" }, 403);
   }
+  // A block session is never sold on its own. The block row is the payment
+  // truth (deposit intent, then balance intent), so paying one session here
+  // would either double-charge the renter alongside the block's own payment
+  // link, or leave money on a session the block sweep later cancels with no
+  // refund attached. Point them at the block payment page instead.
+  if (rental.blockId !== null) {
+    return json(
+      {
+        error:
+          "This session is part of a recurring block. Use the payment link in your block quote or balance email to pay for the whole block.",
+        blockId: rental.blockId,
+      },
+      409,
+    );
+  }
   if (rental.status !== "pending_payment") {
     return json({ error: "Rental is not awaiting payment" }, 422);
   }

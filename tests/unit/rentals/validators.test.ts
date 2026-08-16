@@ -34,6 +34,51 @@ describe("validateRentalRateCardPut", () => {
       /maxDurationMinutes/,
     );
   });
+
+  it("accepts the four block settings inside their bounds", () => {
+    expect(
+      validateRentalRateCardPut({
+        depositPct: 30,
+        balanceDueLeadDays: 21,
+        blockHoldHours: 48,
+        quoteMarkerTtlDays: 10,
+      }),
+    ).toBeNull();
+  });
+  it("accepts a zero deposit percent and a zero balance lead", () => {
+    expect(
+      validateRentalRateCardPut({ depositPct: 0, balanceDueLeadDays: 0 }),
+    ).toBeNull();
+  });
+  it("rejects a deposit percent above 100", () => {
+    expect(validateRentalRateCardPut({ depositPct: 130 })).toMatch(/depositPct/);
+  });
+  it("rejects a negative deposit percent", () => {
+    expect(validateRentalRateCardPut({ depositPct: -1 })).toMatch(/depositPct/);
+  });
+  it("rejects a non-integer hold window", () => {
+    expect(validateRentalRateCardPut({ blockHoldHours: 12.5 })).toMatch(
+      /blockHoldHours/,
+    );
+  });
+  it("rejects a hold window of zero hours", () => {
+    expect(validateRentalRateCardPut({ blockHoldHours: 0 })).toMatch(/blockHoldHours/);
+  });
+  it("rejects a balance lead beyond half a year", () => {
+    expect(validateRentalRateCardPut({ balanceDueLeadDays: 400 })).toMatch(
+      /balanceDueLeadDays/,
+    );
+  });
+  it("rejects a quote marker TTL of zero days", () => {
+    expect(validateRentalRateCardPut({ quoteMarkerTtlDays: 0 })).toMatch(
+      /quoteMarkerTtlDays/,
+    );
+  });
+  it("rejects a quote marker TTL beyond 90 days", () => {
+    expect(validateRentalRateCardPut({ quoteMarkerTtlDays: 120 })).toMatch(
+      /quoteMarkerTtlDays/,
+    );
+  });
 });
 
 describe("validateRentalBookingRequest", () => {

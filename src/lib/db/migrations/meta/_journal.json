@@ -848,6 +848,20 @@
       "when": 1786456328009,
       "tag": "0120_confused_masque",
       "breakpoints": true
+    },
+    {
+      "idx": 121,
+      "version": "7",
+      "when": 1786767911723,
+      "tag": "0121_rental_block_status_enum",
+      "breakpoints": true
+    },
+    {
+      "idx": 122,
+      "version": "7",
+      "when": 1786767911724,
+      "tag": "0122_rental_blocks",
+      "breakpoints": true
     }
   ]
 }

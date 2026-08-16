@@ -10,7 +10,26 @@ export interface RentalRateCardPutBody {
   bookingIncrementMinutes?: number;
   minDurationMinutes?: number;
   maxDurationMinutes?: number;
+  // Recurring-block settings. They live on the same rate card because they are
+  // org policy, not per-deal terms; the block builder can still override the
+  // deposit percent for a single block.
+  depositPct?: number;
+  balanceDueLeadDays?: number;
+  blockHoldHours?: number;
+  quoteMarkerTtlDays?: number;
 }
+
+/**
+ * Inclusive bounds for the block settings. Each is a policy dial with an
+ * obviously-wrong side: a 130% deposit, a balance due two years out, a hold
+ * that never lapses, or a quote marker that squats on inventory for a season.
+ */
+const BLOCK_FIELD_BOUNDS = {
+  depositPct: { min: 0, max: 100 },
+  balanceDueLeadDays: { min: 0, max: 180 },
+  blockHoldHours: { min: 1, max: 336 },
+  quoteMarkerTtlDays: { min: 1, max: 90 },
+} as const;
 
 export function validateRentalRateCardPut(
   body: RentalRateCardPutBody,
@@ -47,6 +66,20 @@ export function validateRentalRateCardPut(
     body.minDurationMinutes > body.maxDurationMinutes
   ) {
     return "minDurationMinutes cannot exceed maxDurationMinutes";
+  }
+  for (const key of [
+    "depositPct",
+    "balanceDueLeadDays",
+    "blockHoldHours",
+    "quoteMarkerTtlDays",
+  ] as const) {
+    const v = body[key];
+    if (v === undefined) continue;
+    const { min, max } = BLOCK_FIELD_BOUNDS[key];
+    if (typeof v !== "number" || !Number.isFinite(v) || !Number.isInteger(v)) {
+      return `${key} must be an integer`;
+    }
+    if (v < min || v > max) return `${key} must be between ${min} and ${max}`;
   }
   return null;
 }

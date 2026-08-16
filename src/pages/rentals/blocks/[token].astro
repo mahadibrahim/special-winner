@@ -1,0 +1,75 @@
+---
+// Public, tokenized quote → deposit → balance → receipt page for a recurring
+// rental block. SSR (route param + request-time token/DB work) and NO account
+// required - block renters arrive from a text message, not a signup.
+//
+// Branding comes from the BLOCK's own `brand` column, never the request host:
+// an admin builds a SoccerOne block from the Aspire admin host, and the renter
+// may open the link on either domain.
+export const prerender = false;
+
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import SoccerOneHeader from '@/components/soccerone/SoccerOneHeader.astro';
+import SoccerOneFooter from '@/components/soccerone/SoccerOneFooter.astro';
+import { BlockQuotePage } from '@/components/rentals/BlockQuotePage';
+import { resolveBlockTokenResult } from '@/lib/rentals/blocks/tokens';
+import { normalizeBrand } from '@/lib/organization/soccerone-routing';
+import { SOCCERONE_CONTACT_PHONE } from '@/lib/soccerone/contact';
+
+const token = Astro.params.token;
+if (!token) return Astro.redirect('/');
+
+const resolved = await resolveBlockTokenResult(token);
+const brand = resolved.ok ? normalizeBrand(resolved.block.brand) : 'aspire';
+const label = resolved.ok ? resolved.block.label : null;
+
+const errorMessage = resolved.ok
+  ? null
+  : resolved.reason === 'expired'
+    ? `This link has expired. Call or text us at ${SOCCERONE_CONTACT_PHONE} and we'll send a fresh one.`
+    : `We couldn't find this booking. Call or text us at ${SOCCERONE_CONTACT_PHONE}.`;
+
+const isSoccerOne = brand === 'soccerone';
+const title = label
+  ? `${label} - ${isSoccerOne ? 'SoccerOne' : 'Aspire Sports'}`
+  : `Your field rental - ${isSoccerOne ? 'SoccerOne' : 'Aspire Sports'}`;
+---
+
+<BaseLayout
+  title={title}
+  description="Review your rental schedule, pay your deposit, and settle the balance."
+  favicon={isSoccerOne ? '/soccerone-favicon.svg' : undefined}
+  navigation={!isSoccerOne}
+  footer={!isSoccerOne}
+  noindex={true}
+  bodyClass={isSoccerOne
+    ? 'min-h-screen flex flex-col bg-[#0a0a0d] text-white antialiased'
+    : 'min-h-screen flex flex-col bg-cream text-ink antialiased'}
+>
+  {isSoccerOne && <SoccerOneHeader />}
+  <main id="main-content" class:list={['flex-1 px-4 pb-16', isSoccerOne ? 'pt-28' : 'pt-24']}>
+    <div class="mx-auto max-w-2xl">
+      {errorMessage ? (
+        <div
+          class:list={[
+            'rounded-xl border p-6 text-center',
+            isSoccerOne ? 'border-white/10 bg-white/5' : 'border-border bg-paper',
+          ]}
+        >
+          <h1 class="text-lg font-semibold mb-2">Link unavailable</h1>
+          <p class:list={['text-sm', isSoccerOne ? 'text-white/60' : 'text-muted-foreground']}>
+            {errorMessage}
+          </p>
+        </div>
+      ) : (
+        <BlockQuotePage
+          client:load
+          token={token}
+          brand={brand}
+          contactPhone={SOCCERONE_CONTACT_PHONE}
+        />
+      )}
+    </div>
+  </main>
+  {isSoccerOne && <SoccerOneFooter />}
+</BaseLayout>

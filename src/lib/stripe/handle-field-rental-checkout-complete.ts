@@ -61,6 +61,26 @@ export async function handleFieldRentalCheckoutComplete(
         result: { status: "skipped" as const, reason: `rental ${rentalId} not found` },
       };
     }
+    if (rental.blockId !== null) {
+      // Defence in depth. Block sessions settle through the block's own
+      // deposit/balance handlers, and /api/rentals/bookings/:id/pay refuses to
+      // mint a single-session checkout for them. If one arrives anyway, do
+      // NOT confirm the row: the block would then be paid twice, or the block
+      // sweep would cancel an individually-paid session with no refund.
+      console.warn(
+        "[rentals] field_rental checkout for a block session ignored",
+        rentalId,
+        rental.blockId,
+        paymentIntentId,
+      );
+      return {
+        kind: "skip" as const,
+        result: {
+          status: "skipped" as const,
+          reason: `rental ${rentalId} belongs to block ${rental.blockId}; block payments settle through the block handlers`,
+        },
+      };
+    }
     if (rental.status === "cancelled") {
       // Late webhook — the hold expired and the field has been released.
       // Refund happens after this tx commits (see below).

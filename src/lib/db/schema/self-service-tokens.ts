@@ -19,6 +19,9 @@ export const selfServiceTokenKindEnum = pgEnum("self_service_token_kind", [
   "field_rental",
   "rental_player",
   "rental_claim",
+  // Public quote/deposit/balance page for a recurring rental block.
+  // targetId = field_rental_blocks.id.
+  "rental_block",
   "roster_entry",
   "walkin_session",
   // Email double opt-in. targetId = the users.id the consent hangs off; the

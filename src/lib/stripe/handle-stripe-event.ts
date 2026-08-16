@@ -4,6 +4,8 @@ import { getDb } from "@/lib/db";
 import { stripeEvents } from "@/lib/db/schema/stripe-events";
 import { handleDropInCheckoutComplete } from "./handle-dropin-checkout-complete";
 import { handleFieldRentalCheckoutComplete } from "./handle-field-rental-checkout-complete";
+import { handleRentalBlockDepositComplete } from "./handle-rental-block-deposit-complete";
+import { handleRentalBlockBalanceComplete } from "./handle-rental-block-balance-complete";
 import { handleDropInWalkUpPayment } from "./handle-dropin-walkup-payment";
 import { handleDropinWalkinPayment } from "./handle-dropin-walkin-payment";
 import { handleDropInClaimPayment } from "./handle-dropin-claim-payment";
@@ -138,6 +140,22 @@ async function dispatch(event: Stripe.Event): Promise<void> {
         const result = await handleFieldRentalCheckoutComplete(session);
         console.log(
           `[stripe webhook] checkout.session.completed (field_rental) → ${result.status}`,
+          result,
+        );
+      } else if (session.metadata?.type === "rental_block_deposit") {
+        // Recurring rental block, deposit leg: flips the block to active and
+        // every session pending_payment → confirmed. The sessions stay UNPAID
+        // - the block row is the payment source of truth until the balance
+        // settles (see handle-rental-block-balance-complete.ts).
+        const result = await handleRentalBlockDepositComplete(session);
+        console.log(
+          `[stripe webhook] checkout.session.completed (rental_block_deposit) → ${result.status}`,
+          result,
+        );
+      } else if (session.metadata?.type === "rental_block_balance") {
+        const result = await handleRentalBlockBalanceComplete(session);
+        console.log(
+          `[stripe webhook] checkout.session.completed (rental_block_balance) → ${result.status}`,
           result,
         );
       } else if (session.metadata?.type === "membership_subscription") {
