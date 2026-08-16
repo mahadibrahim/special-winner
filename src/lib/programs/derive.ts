@@ -172,6 +172,23 @@ export function deriveAudience(s: SeasonForDerive): "youth" | "adult" {
     : "youth";
 }
 
+export type Audience = "youth" | "adult";
+
+/**
+ * Audience of a program, from its stored audienceType alone.
+ *
+ * Deliberately NOT deriveAudience(): that one puts the season's age range
+ * first, and the age fields are editable in the same admin form — typing into
+ * "youngest age" would flip the form's vocabulary mid-edit. This resolver is
+ * stable because a program's audience only changes when the program changes.
+ *
+ * audience_type is a free-text varchar(20) with no enum constraint; "adults"
+ * is canonical (migration 0022) but "adult" exists in older fixtures.
+ */
+export function audienceForProgram(audienceType: string | null | undefined): Audience {
+  return audienceType === "adults" || audienceType === "adult" ? "adult" : "youth";
+}
+
 /** Format a deadline for display with a near-deadline urgency flag.
  *  `urgent` is true when the deadline is 7 or fewer days away. */
 export function deriveDeadline(

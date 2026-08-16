@@ -2,6 +2,7 @@
 import { useState, type ReactNode } from "react";
 import { filterDivisions, groupDivisionsByDay, divisionGenderLabel, DIVISION_GENDER_LABEL, type Division, type DivisionFilters, type DayKey, type DivisionGender } from "@/lib/leagues/division-filters";
 import { LevelLadder, Bars } from "@/components/leagues/level-ladder";
+import type { SkillLevel } from "@/lib/leagues/adult-soccer-content";
 import { InterestCapture } from "@/components/leagues/interest-capture";
 import { trackDivisionFilterApplied, trackDivisionRegisterClicked } from "@/lib/analytics/events";
 import { cn } from "@/lib/utils";
@@ -65,7 +66,7 @@ export function DivisionsFinder({ divisions, venues, term, showLevels = true, fo
     <div>
       {showLevels && (
         <div className="mb-4">
-          <LevelLadder selected={f.level} onSelect={(k) => toggle("level", k as DivisionFilters["level"])} />
+          <LevelLadder selected={f.level as SkillLevel["key"] | null} onSelect={(k) => toggle("level", k)} />
         </div>
       )}
 

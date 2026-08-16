@@ -1,25 +1,48 @@
-export const DIVISION_LEVELS = ["a", "b", "c", "d", "open"] as const;
+import type { Audience } from "@/lib/programs/derive";
+
+/**
+ * Division vocabularies for `seasons.skill_level` and `seasons.division_gender`.
+ *
+ * Youth and adult programs answer the same two questions with different words.
+ * The level lists are fully disjoint on purpose: a stored level identifies its
+ * own audience, so no consumer needs to join to programs.audience_type to read
+ * it. Genders share only "coed".
+ *
+ * Width limits: levels must fit varchar(16), genders varchar(10). See
+ * schema/programs.ts.
+ */
+export const ADULT_LEVELS = ["a", "b", "c", "d", "open"] as const;
+
+/** Competitive youth leagues run A and B divisions; the other two don't split. */
+export const YOUTH_LEVELS = [
+  "competitive_a",
+  "competitive_b",
+  "developmental",
+  "recreational",
+] as const;
+
+export const DIVISION_LEVELS = [...ADULT_LEVELS, ...YOUTH_LEVELS] as const;
 
 export type DivisionLevel = (typeof DIVISION_LEVELS)[number];
 
+/** Admin dropdown labels. For the customer-facing badge use skillLevelBadge. */
 export const DIVISION_LEVEL_LABEL: Record<DivisionLevel, string> = {
   a: "A · Elite",
   b: "B · Competitive",
   c: "C · Rec+",
   d: "D · Beginner",
   open: "Open",
+  // Plain space, not the "·" the adult labels use: "Competitive · B" and the
+  // adult "B · Competitive" are near-identical at a glance in one dropdown.
+  competitive_a: "Competitive A",
+  competitive_b: "Competitive B",
+  developmental: "Developmental",
+  recreational: "Recreational",
 };
 
-export type DayKey = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+export const ADULT_GENDERS = ["coed", "mens", "womens"] as const;
+export const YOUTH_GENDERS = ["coed", "boys", "girls"] as const;
 
-/**
- * The single source of truth for `seasons.division_gender`. Youth programs use
- * boys/girls, adult leagues use mens/womens, and coed spans both — a season is
- * one audience or the other, so all five live in one list rather than being
- * split by audienceType (the season dialog has no audienceType to gate on).
- *
- * Every value must fit the varchar(10) column in schema/programs.ts.
- */
 export const DIVISION_GENDERS = ["coed", "boys", "girls", "mens", "womens"] as const;
 
 export type DivisionGender = (typeof DIVISION_GENDERS)[number];
@@ -32,9 +55,65 @@ export const DIVISION_GENDER_LABEL: Record<DivisionGender, string> = {
   womens: "Women's",
 };
 
-/** Label a stored value, echoing anything unrecognised instead of guessing. */
+export type DayKey = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+
+/** Label a stored gender, echoing anything unrecognised instead of guessing. */
 export function divisionGenderLabel(value: string): string {
   return DIVISION_GENDER_LABEL[value as DivisionGender] ?? value;
+}
+
+/**
+ * The customer-facing level badge (registration rail).
+ *
+ * Adult keeps the established "Tier B" shouting. Youth gets the plain word a
+ * parent understands — "Tier DEVELOPMENTAL" in a one-character badge is not a
+ * thing anyone wants to read at checkout.
+ */
+export function skillLevelBadge(value: string | null | undefined): string {
+  if (!value) return "";
+  if ((ADULT_LEVELS as readonly string[]).includes(value)) return `Tier ${value.toUpperCase()}`;
+  return DIVISION_LEVEL_LABEL[value as DivisionLevel] ?? value;
+}
+
+export interface VocabOption {
+  value: string;
+  label: string;
+}
+
+/**
+ * Build dropdown options for one audience, keeping any stored value that
+ * belongs to the other vocabulary.
+ *
+ * Until this shipped, both dropdowns offered the adult values on every season
+ * regardless of audience, so youth seasons may already hold an adult value.
+ * Dropping it would mean an admin who opens a season to change the price
+ * silently erases a level someone set. The marker leads with the audience —
+ * "Adult tier: B · Competitive" — because trailing it reads too much like the
+ * youth "Competitive B" sitting two rows above.
+ */
+function optionsFor(
+  own: readonly string[],
+  labels: Record<string, string>,
+  otherLabel: string,
+  stored?: string | null,
+): VocabOption[] {
+  const options: VocabOption[] = own.map((value) => ({ value, label: labels[value] ?? value }));
+  if (stored && !own.includes(stored)) {
+    options.push({ value: stored, label: `${otherLabel}: ${labels[stored] ?? stored}` });
+  }
+  return options;
+}
+
+export function genderOptionsFor(audience: Audience, stored?: string | null): VocabOption[] {
+  const own = audience === "adult" ? ADULT_GENDERS : YOUTH_GENDERS;
+  const otherLabel = audience === "adult" ? "Youth tier" : "Adult tier";
+  return optionsFor(own, DIVISION_GENDER_LABEL, otherLabel, stored);
+}
+
+export function levelOptionsFor(audience: Audience, stored?: string | null): VocabOption[] {
+  const own = audience === "adult" ? ADULT_LEVELS : YOUTH_LEVELS;
+  const otherLabel = audience === "adult" ? "Youth tier" : "Adult tier";
+  return optionsFor(own, DIVISION_LEVEL_LABEL, otherLabel, stored);
 }
 
 export type Division = {
