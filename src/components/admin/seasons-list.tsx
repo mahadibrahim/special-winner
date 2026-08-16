@@ -27,6 +27,13 @@ import { toTimeInputValue } from "@/lib/time/time-of-day"
 import { useConfirmDialog } from "@/components/ui/confirm-dialog"
 import { formatDateOnly, formatTimeWindow } from "@/lib/time/format-date"
 import { DAY_KEYS, DAY_LABELS, type DayKey } from "@/lib/programs/derive"
+import {
+  DIVISION_GENDERS,
+  DIVISION_GENDER_LABEL,
+  DIVISION_LEVELS,
+  DIVISION_LEVEL_LABEL,
+  type DivisionGender,
+} from "@/lib/leagues/division-filters"
 
 interface Season {
   id: string
@@ -48,7 +55,7 @@ interface Season {
   scheduleNotes: string | null
   termSlug?: string | null
   termLabel?: string | null
-  divisionGender?: "coed" | "mens" | "womens" | null
+  divisionGender?: DivisionGender | null
   skillLevel?: "a" | "b" | "c" | "d" | "open" | null
   dayOfWeek?: "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun" | null
   startTime?: string | null
@@ -1371,9 +1378,9 @@ export function SeasonsList() {
                       <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">—</SelectItem>
-                        <SelectItem value="coed">Coed</SelectItem>
-                        <SelectItem value="mens">Men's</SelectItem>
-                        <SelectItem value="womens">Women's</SelectItem>
+                        {DIVISION_GENDERS.map((g) => (
+                          <SelectItem key={g} value={g}>{DIVISION_GENDER_LABEL[g]}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -1384,11 +1391,9 @@ export function SeasonsList() {
                       <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">—</SelectItem>
-                        <SelectItem value="a">A · Elite</SelectItem>
-                        <SelectItem value="b">B · Competitive</SelectItem>
-                        <SelectItem value="c">C · Rec+</SelectItem>
-                        <SelectItem value="d">D · Beginner</SelectItem>
-                        <SelectItem value="open">Open</SelectItem>
+                        {DIVISION_LEVELS.map((l) => (
+                          <SelectItem key={l} value={l}>{DIVISION_LEVEL_LABEL[l]}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>

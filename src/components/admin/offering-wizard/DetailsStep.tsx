@@ -2,6 +2,13 @@
 import { offeringFieldShown, type OfferingType } from "@/lib/admin/offering-types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  DIVISION_GENDERS,
+  DIVISION_GENDER_LABEL,
+  DIVISION_LEVELS,
+  DIVISION_LEVEL_LABEL,
+} from "@/lib/leagues/division-filters";
 
 export interface OfferingDraft {
   name: string; slug: string; startDate: string; endDate: string;
@@ -97,11 +104,32 @@ export function DetailsStep({
 
       {show("divisions") && (
         <div className="grid grid-cols-2 gap-4">
+          {/* Both of these were free-text boxes. The season schema validates
+              them as enums, so any typo'd value came back as an opaque 400 on
+              the final step — pick from the list instead. */}
           <Field id="divisionGender" label="Division (gender)">
-            <Input id="divisionGender" value={value.divisionGender} onChange={(e) => set("divisionGender", e.target.value)} placeholder="coed / mens / womens" />
+            <Select value={value.divisionGender || "none"}
+              onValueChange={(v) => set("divisionGender", v === "none" ? "" : v)}>
+              <SelectTrigger id="divisionGender"><SelectValue placeholder="—" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">—</SelectItem>
+                {DIVISION_GENDERS.map((g) => (
+                  <SelectItem key={g} value={g}>{DIVISION_GENDER_LABEL[g]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </Field>
           <Field id="skillLevel" label="Skill level">
-            <Input id="skillLevel" value={value.skillLevel} onChange={(e) => set("skillLevel", e.target.value)} placeholder="a / b / c / d / open" />
+            <Select value={value.skillLevel || "none"}
+              onValueChange={(v) => set("skillLevel", v === "none" ? "" : v)}>
+              <SelectTrigger id="skillLevel"><SelectValue placeholder="—" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">—</SelectItem>
+                {DIVISION_LEVELS.map((l) => (
+                  <SelectItem key={l} value={l}>{DIVISION_LEVEL_LABEL[l]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </Field>
         </div>
       )}

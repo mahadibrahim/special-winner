@@ -14,6 +14,7 @@ import {
 } from "@/lib/auth/require-resource-ownership";
 import { bulkCreateTeams, cloneSeasonTeams } from "@/lib/seasons/scaffold";
 import { TIME_OF_DAY_PATTERN } from "@/lib/time/time-of-day";
+import { DIVISION_GENDERS } from "@/lib/leagues/division-filters";
 import { evaluateAttachSafetyForBand } from "@/lib/curriculum/distribution-safety";
 import type { TemplateForBuild } from "@/lib/curriculum/sequence-instantiation";
 
@@ -64,7 +65,7 @@ export const seasonSchema = z.object({
   scheduleNotes: z.string().optional().nullable(),
   termSlug: z.string().max(64).optional().nullable(),
   termLabel: z.string().max(64).optional().nullable(),
-  divisionGender: z.enum(["coed", "mens", "womens"]).optional().nullable(),
+  divisionGender: z.enum(DIVISION_GENDERS).optional().nullable(),
   skillLevel: z.enum(["a", "b", "c", "d", "open"]).optional().nullable(),
   dayOfWeek: z.enum(["mon", "tue", "wed", "thu", "fri", "sat", "sun"]).optional().nullable(),
   startTime: z.string().regex(TIME_OF_DAY_PATTERN, "Use HH:MM").optional().nullable(),

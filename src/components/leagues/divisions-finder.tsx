@@ -1,6 +1,6 @@
 "use client";
 import { useState, type ReactNode } from "react";
-import { filterDivisions, groupDivisionsByDay, type Division, type DivisionFilters, type DayKey, type DivisionGender } from "@/lib/leagues/division-filters";
+import { filterDivisions, groupDivisionsByDay, divisionGenderLabel, DIVISION_GENDER_LABEL, type Division, type DivisionFilters, type DayKey, type DivisionGender } from "@/lib/leagues/division-filters";
 import { LevelLadder, Bars } from "@/components/leagues/level-ladder";
 import { InterestCapture } from "@/components/leagues/interest-capture";
 import { trackDivisionFilterApplied, trackDivisionRegisterClicked } from "@/lib/analytics/events";
@@ -20,9 +20,10 @@ const DAYS: { key: DayKey; label: string }[] = [
   { key: "mon", label: "Mon" }, { key: "tue", label: "Tue" }, { key: "wed", label: "Wed" },
   { key: "thu", label: "Thu" }, { key: "fri", label: "Fri" }, { key: "sun", label: "Sun" },
 ];
-const GENDERS: { key: DivisionGender; label: string }[] = [
-  { key: "coed", label: "Coed" }, { key: "mens", label: "Men's" }, { key: "womens", label: "Women's" },
-];
+// Filter chips for the ADULT soccer browse page — deliberately not the full
+// DIVISION_GENDERS list, which also carries the youth boys/girls values.
+const GENDERS: { key: DivisionGender; label: string }[] = (["coed", "mens", "womens"] as const)
+  .map((key) => ({ key, label: DIVISION_GENDER_LABEL[key] }));
 const BARS_FOR: Record<string, number> = { a: 4, b: 3, c: 2, d: 1, open: 4 };
 const TIER_TEXT: Record<string, string> = { a: "text-ink", b: "text-primary", c: "text-ochre", d: "text-sage", open: "text-navy" };
 
@@ -141,7 +142,7 @@ function DivisionRow({ d, term, showLevels }: { d: Division; term: string; showL
         <div>
           <div className="font-display font-semibold text-base">{d.name}</div>
           <div className="font-mono text-[10.5px] tracking-wide uppercase text-ink-muted mt-0.5">
-            {d.gender === "mens" ? "Men's" : d.gender === "womens" ? "Women's" : "Coed"}
+            {divisionGenderLabel(d.gender)}
             {showLevels && <> · {d.level === "open" ? "All levels" : `Level ${d.level.toUpperCase()}`}</>}
             {/* Solo price up front — paid-traffic replays showed price-hunters
                 tapping Register just to learn the cost, then bouncing. */}

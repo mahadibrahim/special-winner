@@ -1,6 +1,41 @@
-export type DivisionLevel = "a" | "b" | "c" | "d" | "open";
-export type DivisionGender = "coed" | "mens" | "womens";
+export const DIVISION_LEVELS = ["a", "b", "c", "d", "open"] as const;
+
+export type DivisionLevel = (typeof DIVISION_LEVELS)[number];
+
+export const DIVISION_LEVEL_LABEL: Record<DivisionLevel, string> = {
+  a: "A · Elite",
+  b: "B · Competitive",
+  c: "C · Rec+",
+  d: "D · Beginner",
+  open: "Open",
+};
+
 export type DayKey = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+
+/**
+ * The single source of truth for `seasons.division_gender`. Youth programs use
+ * boys/girls, adult leagues use mens/womens, and coed spans both — a season is
+ * one audience or the other, so all five live in one list rather than being
+ * split by audienceType (the season dialog has no audienceType to gate on).
+ *
+ * Every value must fit the varchar(10) column in schema/programs.ts.
+ */
+export const DIVISION_GENDERS = ["coed", "boys", "girls", "mens", "womens"] as const;
+
+export type DivisionGender = (typeof DIVISION_GENDERS)[number];
+
+export const DIVISION_GENDER_LABEL: Record<DivisionGender, string> = {
+  coed: "Coed",
+  boys: "Boys",
+  girls: "Girls",
+  mens: "Men's",
+  womens: "Women's",
+};
+
+/** Label a stored value, echoing anything unrecognised instead of guessing. */
+export function divisionGenderLabel(value: string): string {
+  return DIVISION_GENDER_LABEL[value as DivisionGender] ?? value;
+}
 
 export type Division = {
   id: string;
