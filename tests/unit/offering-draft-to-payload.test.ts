@@ -7,6 +7,7 @@ const campDraft = {
   dailyStartTime: "09:00", dailyEndTime: "16:00",
   fullDayPrice: "375", halfDayPrice: "200", individualPrice: "", teamPrice: "",
   minAge: "5", maxAge: "12", capacity: "50", deposit: "100", divisionGender: "", skillLevel: "",
+  audience: "youth" as const,
 };
 
 describe("draftToOfferingPayload", () => {
@@ -50,5 +51,25 @@ describe("draftToOfferingPayload", () => {
     const p = draftToOfferingPayload("league", leagueDraft, ctx) as any;
     expect(p.season.signupModes).toEqual(["individual", "team"]);
     expect(p.season.teamPriceCents).toBe(50000);
+  });
+});
+
+describe("audience", () => {
+  it("sends parents for a youth offering", () => {
+    const d = { ...campDraft, name: "U10 Flag Football", audience: "youth" as const };
+    const p = draftToOfferingPayload("league", d, ctx) as any;
+    expect(p.audienceType).toBe("parents");
+  });
+
+  it("sends adults for an adult offering", () => {
+    const d = { ...campDraft, name: "Thursday Coed", audience: "adult" as const };
+    const p = draftToOfferingPayload("league", d, ctx) as any;
+    expect(p.audienceType).toBe("adults");
+  });
+
+  it("does not let a youth league fall through to the server's adults default", () => {
+    const d = { ...campDraft, name: "U10 League", audience: "youth" as const };
+    const p = draftToOfferingPayload("league", d, ctx) as any;
+    expect(p.audienceType).not.toBe("adults");
   });
 });

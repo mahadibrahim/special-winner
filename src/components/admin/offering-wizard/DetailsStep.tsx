@@ -3,12 +3,8 @@ import { offeringFieldShown, type OfferingType } from "@/lib/admin/offering-type
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  DIVISION_GENDERS,
-  DIVISION_GENDER_LABEL,
-  DIVISION_LEVELS,
-  DIVISION_LEVEL_LABEL,
-} from "@/lib/leagues/division-filters";
+import { genderOptionsFor, levelOptionsFor } from "@/lib/leagues/division-filters";
+import type { Audience } from "@/lib/programs/derive";
 
 export interface OfferingDraft {
   name: string; slug: string; startDate: string; endDate: string;
@@ -16,6 +12,7 @@ export interface OfferingDraft {
   fullDayPrice: string; halfDayPrice: string; individualPrice: string; teamPrice: string;
   minAge: string; maxAge: string; capacity: string; deposit: string;
   divisionGender: string; skillLevel: string;
+  audience: Audience;
 }
 
 export function DetailsStep({
@@ -113,8 +110,8 @@ export function DetailsStep({
               <SelectTrigger id="divisionGender"><SelectValue placeholder="—" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">—</SelectItem>
-                {DIVISION_GENDERS.map((g) => (
-                  <SelectItem key={g} value={g}>{DIVISION_GENDER_LABEL[g]}</SelectItem>
+                {genderOptionsFor(value.audience, value.divisionGender).map((o) => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -125,8 +122,8 @@ export function DetailsStep({
               <SelectTrigger id="skillLevel"><SelectValue placeholder="—" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">—</SelectItem>
-                {DIVISION_LEVELS.map((l) => (
-                  <SelectItem key={l} value={l}>{DIVISION_LEVEL_LABEL[l]}</SelectItem>
+                {levelOptionsFor(value.audience, value.skillLevel).map((o) => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>

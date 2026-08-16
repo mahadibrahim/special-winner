@@ -33,6 +33,10 @@ export function draftToOfferingPayload(
     sportId: ctx.sportId,
     name: d.name,
     slug,
+    // Explicit, so a youth league is not caught by the offerings API's
+    // "league => adults" fallback (offerings.ts:100). That fallback is what
+    // made youth leagues render "per player" instead of "per kid".
+    audienceType: d.audience === "adult" ? "adults" : "parents",
     season: {
       name: d.name,
       slug,

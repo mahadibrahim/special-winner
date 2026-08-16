@@ -11,6 +11,7 @@ const EMPTY: OfferingDraft = {
   name: "", slug: "", startDate: "", endDate: "", dailyStartTime: "", dailyEndTime: "",
   fullDayPrice: "", halfDayPrice: "", individualPrice: "", teamPrice: "",
   minAge: "", maxAge: "", capacity: "", deposit: "", divisionGender: "", skillLevel: "",
+  audience: "youth",
 };
 
 export function OfferingWizard({
@@ -58,7 +59,12 @@ export function OfferingWizard({
       {step === 1 && (
         <>
           <h2 className="font-display text-2xl">What are you creating?</h2>
-          <TypeStep value={type} onSelect={setType} />
+          <TypeStep
+            value={type}
+            audience={draft.audience}
+            onSelect={setType}
+            onAudience={(a) => setDraft((d) => ({ ...d, audience: a }))}
+          />
           <Button disabled={!type} onClick={() => setStep(2)}>Next</Button>
         </>
       )}
