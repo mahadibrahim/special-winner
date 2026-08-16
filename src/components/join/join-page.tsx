@@ -4,7 +4,11 @@ import { useEffect } from "react";
 import type { BrandId } from "@/lib/branding/themes";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import { track } from "@/lib/analytics/track";
-import { joinContentFor, JOIN_WHATSAPP_URL } from "@/lib/branding/join-config";
+import {
+  joinContentFor,
+  JOIN_WHATSAPP_URL,
+  isConfiguredLink,
+} from "@/lib/branding/join-config";
 import { JoinEmailCard } from "@/components/join/join-email-card";
 
 interface JoinPageProps {
@@ -28,9 +32,11 @@ export function JoinPage({ brand, src }: JoinPageProps) {
     track("join_page_viewed", { brand, src });
   }, [brand, src]);
 
-  const socialEntries = Object.entries(content.socials).filter(
-    ([, url]) => Boolean(url),
+  const socialEntries = Object.entries(content.socials).filter(([, url]) =>
+    isConfiguredLink(url),
   ) as [string, string][];
+
+  const whatsappReady = isConfiguredLink(JOIN_WHATSAPP_URL);
 
   return (
     <main
@@ -44,18 +50,20 @@ export function JoinPage({ brand, src }: JoinPageProps) {
 
       <JoinEmailCard brand={brand} src={src} />
 
-      <a
-        href={JOIN_WHATSAPP_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={() => track("join_whatsapp_click", { brand, src })}
-        className="rounded-2xl border border-ink/10 bg-paper p-5 shadow-sm transition-colors hover:bg-cream"
-      >
-        <h2 className="font-display text-lg text-ink">💬 WhatsApp</h2>
-        <p className="mt-1 text-sm text-ink-muted">
-          Quick updates &amp; reminders — tap to join the group.
-        </p>
-      </a>
+      {whatsappReady && (
+        <a
+          href={JOIN_WHATSAPP_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={() => track("join_whatsapp_click", { brand, src })}
+          className="rounded-2xl border border-ink/10 bg-paper p-5 shadow-sm transition-colors hover:bg-cream"
+        >
+          <h2 className="font-display text-lg text-ink">💬 WhatsApp</h2>
+          <p className="mt-1 text-sm text-ink-muted">
+            Quick updates &amp; reminders — tap to join the group.
+          </p>
+        </a>
+      )}
 
       <div className="rounded-2xl border border-ink/10 bg-paper p-5 shadow-sm">
         <h2 className="font-display text-lg text-ink">📸 Follow us</h2>
