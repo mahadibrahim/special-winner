@@ -1,5 +1,6 @@
 "use client";
 import { tierColorClass, priceLabel, teamRailBreakdown, formatDayTime, type RailMode } from "@/lib/leagues/rail-content";
+import { skillLevelBadge } from "@/lib/leagues/division-filters";
 import { formatDateOnly } from "@/lib/time/format-date";
 
 export interface RailSeason {
@@ -59,7 +60,10 @@ const NO_SHARE_FALLBACK =
   "Your captain set your share — you'll see the exact amount before payment.";
 
 export default function LeagueContextRail({ season, mode, step, stepCount, steps, discountCents, variant = "active", shareCents, children }: Props) {
-  const tier = (season.skillLevel ?? "").toUpperCase();
+  // Adult renders "Tier B"; youth renders "Developmental". The old
+  // .toUpperCase() assumed a single letter and would have shouted
+  // "TIER DEVELOPMENTAL" into a one-character badge.
+  const tier = skillLevelBadge(season.skillLevel);
   const isTeam = mode === "team";
   const { amount, unit } = priceLabel(mode, season, { shareCents });
   const teamBreak = isTeam ? teamRailBreakdown(season, { discountCents }) : null;
@@ -150,8 +154,8 @@ export default function LeagueContextRail({ season, mode, step, stepCount, steps
       {/* Desktop rail */}
       <aside className={`hidden lg:block self-start sticky top-24 rounded-2xl p-6 ${railBg}`}>
         {tier && (
-          <span className={`inline-block rounded px-2 py-1 text-[10px] font-bold uppercase tracking-wider bg-cream ${tierColorClass(season.skillLevel)}`}>
-            Tier {tier}{success ? " · Registered" : ""}
+          <span className={`inline-block rounded px-2 py-1 text-[10px] font-bold tracking-wider bg-cream ${tierColorClass(season.skillLevel)}`}>
+            {tier}{success ? " · Registered" : ""}
           </span>
         )}
         <h2 className="font-display text-2xl mt-3 mb-1">{season.name}</h2>
@@ -180,7 +184,7 @@ export default function LeagueContextRail({ season, mode, step, stepCount, steps
       <div className={`lg:hidden sticky top-16 z-10 -mx-4 px-4 py-3 ${railBg}`}>
         <div className="flex items-center gap-2">
           {tier && (
-            <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-cream ${tierColorClass(season.skillLevel)}`}>{tier}</span>
+            <span className={`rounded px-1.5 py-0.5 text-[9px] font-bold tracking-wider bg-cream ${tierColorClass(season.skillLevel)}`}>{tier}</span>
           )}
           <span className="font-display text-lg">{season.name}</span>
           {!success && noShareYet && (
