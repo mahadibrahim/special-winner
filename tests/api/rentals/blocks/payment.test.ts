@@ -35,11 +35,18 @@ let adminUserId: string;
 let admin: string;
 let parent: string;
 
-// A distinct far-future year per run so concurrent CI runs never collide on
-// the same field/time slot (mirrors create.test.ts).
-const RUN_YEAR = 2045 + Math.floor(Math.random() * 40);
+// Every block needs its OWN slot. These specs all book the same weekday and
+// hour on the one seeded rental venue, so a per-FILE year made the second
+// commit() in the file collide with the first — deterministically, which is
+// what broke CI. The cursor gives each block its own year; the random base
+// keeps concurrent runs apart on a database that accumulates rows across runs;
+// and the 2200-2599 window keeps this spec clear of sweeps.test.ts.
+const RUN_BASE_YEAR = 2200 + Math.floor(Math.random() * 400);
+let yearCursor = 0;
+const nextYear = () => RUN_BASE_YEAR + yearCursor++;
 
 function input(overrides: Partial<CreateBlockInput> = {}): CreateBlockInput {
+  const year = nextYear();
   return {
     organizationId: E2E_ORG_ID,
     locationId,
@@ -54,8 +61,8 @@ function input(overrides: Partial<CreateBlockInput> = {}): CreateBlockInput {
     notes: null,
     pattern: {
       timeZone: TZ,
-      firstDate: `${RUN_YEAR}-01-06`,
-      lastDate: `${RUN_YEAR}-02-28`,
+      firstDate: `${year}-01-06`,
+      lastDate: `${year}-02-28`,
       days: [
         {
           weekday: 2,

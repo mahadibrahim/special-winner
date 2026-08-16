@@ -34,7 +34,11 @@ let admin: string;
 let parent: string;
 
 // A distinct far-future year per run so concurrent CI runs never collide.
-const RUN_YEAR = 2125 + Math.floor(Math.random() * 40);
+// Within a run, the cases below stay apart by using distinct month ranges.
+// The wide random window is what keeps CONCURRENT runs — and rows left behind
+// by an earlier run on the shared CI database — from landing on the same slot.
+// 3200-3599 is disjoint from payment.test.ts (2200-2599) and sweeps (2700-3099).
+const RUN_YEAR = 3200 + Math.floor(Math.random() * 400);
 
 function input(overrides: Partial<CreateBlockInput> = {}): CreateBlockInput {
   return {

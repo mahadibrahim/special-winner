@@ -41,11 +41,16 @@ const blockIds: string[] = [];
 let locationId: string;
 let adminUserId: string;
 
-// A distinct far-future year per run so concurrent CI runs never collide on
-// the same field/time slot (mirrors payment.test.ts).
-const RUN_YEAR = 2085 + Math.floor(Math.random() * 40);
+// Every block needs its OWN slot — see the same note in payment.test.ts. The
+// three cases below that supply their own pattern also draw from this cursor,
+// so a distinct month range is no longer the only thing keeping them apart.
+// The 2700-3099 window keeps this spec clear of payment.test.ts.
+const RUN_BASE_YEAR = 2700 + Math.floor(Math.random() * 400);
+let yearCursor = 0;
+const nextYear = () => RUN_BASE_YEAR + yearCursor++;
 
 function input(overrides: Partial<CreateBlockInput> = {}): CreateBlockInput {
+  const year = nextYear();
   return {
     organizationId: E2E_ORG_ID,
     locationId,
@@ -60,8 +65,8 @@ function input(overrides: Partial<CreateBlockInput> = {}): CreateBlockInput {
     notes: null,
     pattern: {
       timeZone: TZ,
-      firstDate: `${RUN_YEAR}-01-06`,
-      lastDate: `${RUN_YEAR}-02-28`,
+      firstDate: `${year}-01-06`,
+      lastDate: `${year}-02-28`,
       days: [
         {
           weekday: 2,
@@ -182,11 +187,12 @@ describe("expireUnpaidRentalBlocks", () => {
   });
 
   it("ignores a block whose deposit has been paid", async () => {
+    const year = nextYear();
     const blockId = await commit({
       pattern: {
         timeZone: TZ,
-        firstDate: `${RUN_YEAR}-03-03`,
-        lastDate: `${RUN_YEAR}-04-28`,
+        firstDate: `${year}-03-03`,
+        lastDate: `${year}-04-28`,
         days: [
           {
             weekday: 2,
@@ -227,11 +233,12 @@ describe("balanceReminderStage", () => {
 
 describe("sendBlockBalanceReminders", () => {
   it("walks a block through t14, t3 and overdue without ever cancelling it", async () => {
+    const year = nextYear();
     const blockId = await commit({
       pattern: {
         timeZone: TZ,
-        firstDate: `${RUN_YEAR}-05-05`,
-        lastDate: `${RUN_YEAR}-06-30`,
+        firstDate: `${year}-05-05`,
+        lastDate: `${year}-06-30`,
         days: [
           {
             weekday: 2,
@@ -283,11 +290,12 @@ describe("sendBlockBalanceReminders", () => {
 
 describe("completeFinishedBlocks", () => {
   it("marks a fully-paid block whose sessions have all ended completed", async () => {
+    const year = nextYear();
     const blockId = await commit({
       pattern: {
         timeZone: TZ,
-        firstDate: `${RUN_YEAR}-07-07`,
-        lastDate: `${RUN_YEAR}-08-25`,
+        firstDate: `${year}-07-07`,
+        lastDate: `${year}-08-25`,
         days: [
           {
             weekday: 2,
