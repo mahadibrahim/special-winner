@@ -28,12 +28,11 @@ import { useConfirmDialog } from "@/components/ui/confirm-dialog"
 import { formatDateOnly, formatTimeWindow } from "@/lib/time/format-date"
 import { DAY_KEYS, DAY_LABELS, type DayKey } from "@/lib/programs/derive"
 import {
-  DIVISION_GENDERS,
-  DIVISION_GENDER_LABEL,
-  DIVISION_LEVELS,
-  DIVISION_LEVEL_LABEL,
+  genderOptionsFor,
+  levelOptionsFor,
   type DivisionGender,
 } from "@/lib/leagues/division-filters"
+import { audienceForProgram } from "@/lib/programs/derive"
 
 interface Season {
   id: string
@@ -78,6 +77,7 @@ interface Season {
 interface Program {
   id: string
   name: string
+  audienceType: string
   sport: { id: string; name: string; icon: string | null }
   location: { id: string; name: string }
 }
@@ -285,6 +285,14 @@ export function SeasonsList() {
     startTime: "",
     endTime: "",
   })
+
+  // Vocabulary follows the program the season belongs to. Reading it from the
+  // picker (not from the season row) means switching programs mid-dialog swaps
+  // both dropdowns immediately, and it works on the create path where there is
+  // no season row yet.
+  const formAudience = audienceForProgram(
+    programs.find((p) => p.id === formData.programId)?.audienceType,
+  )
 
   useEffect(() => {
     fetchData()
@@ -1378,8 +1386,8 @@ export function SeasonsList() {
                       <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">—</SelectItem>
-                        {DIVISION_GENDERS.map((g) => (
-                          <SelectItem key={g} value={g}>{DIVISION_GENDER_LABEL[g]}</SelectItem>
+                        {genderOptionsFor(formAudience, formData.divisionGender).map((o) => (
+                          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -1391,8 +1399,8 @@ export function SeasonsList() {
                       <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">—</SelectItem>
-                        {DIVISION_LEVELS.map((l) => (
-                          <SelectItem key={l} value={l}>{DIVISION_LEVEL_LABEL[l]}</SelectItem>
+                        {levelOptionsFor(formAudience, formData.skillLevel).map((o) => (
+                          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
