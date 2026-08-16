@@ -15,6 +15,11 @@ test("create and publish a camp via the wizard, then see it in the seasons list"
   // Step 1: select the Camp type card (aria-pressed button)
   await page.getByRole("button", { name: /camp/i, pressed: false }).first().click();
 
+  // ...and the audience. There is no default — "Next" stays disabled until the
+  // admin picks one, so an unselected audience can't silently mislabel the
+  // offering. Skipping this click makes the Next click below time out.
+  await page.getByRole("button", { name: /youth/i }).click();
+
   // Advance to step 2 (Details)
   await page.getByRole("button", { name: /^next$/i }).click();
 
