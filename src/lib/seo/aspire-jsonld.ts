@@ -21,14 +21,27 @@ const ORG_ID = `${ASPIRE_ORIGIN}/#organization`;
  * Public social profiles, emitted as `sameAs`. Google uses these to tie the
  * site to the brand entity (the Knowledge Panel / brand box in results).
  *
- * DELIBERATELY EMPTY: src/lib/branding/join-config.ts still ships
- * REPLACE_ME placeholders for every handle, and a sameAs pointing at a
- * non-existent profile is worse than none — it breaks entity resolution.
- * Add the real profile URLs here (Instagram, Facebook, YouTube, TikTok, the
- * Google Business listing) once the accounts are confirmed; `sameAs` is
- * omitted from the emitted JSON-LD entirely while this is empty.
+ * Every URL here MUST resolve to a live profile — a sameAs pointing at a
+ * dead account is worse than none, because it breaks the entity
+ * reconciliation it exists to establish. Both entries were confirmed live
+ * on 2026-08-16; the Instagram bio and the address it lists (535 Lakeview
+ * Plaza Blvd) match the GBP data in venue-address.ts.
+ *
+ * Absent on purpose:
+ *   • TikTok — no account exists (owner, 2026-08-14).
+ *   • YouTube — channel not created yet; add the @handle URL once it is.
+ *   • Google Business Profile — add the `maps.google.com/?cid=…` link when
+ *     the CID is to hand. SoccerOne anchors its entity that way
+ *     (soccerone-jsonld.ts:78,103) and it is the strongest signal available.
+ *
+ * For full weight these profiles should link back to aspiresportsohio.com in
+ * their website/bio field: Google treats sameAs as a two-way confirmation and
+ * discounts a one-way claim.
  */
-export const ASPIRE_SAME_AS: string[] = [];
+export const ASPIRE_SAME_AS: string[] = [
+  "https://www.facebook.com/aspiresportsohio",
+  "https://www.instagram.com/aspiresportsohio",
+];
 
 export const ASPIRE_ORG_JSONLD = {
   "@context": "https://schema.org",
