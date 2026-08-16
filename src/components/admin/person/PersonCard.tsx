@@ -234,7 +234,7 @@ export function PersonCard({ target, onClose, onWalkIn, onOpenPerson }: Props) {
         className="w-[430px] max-w-[94vw] p-0 flex flex-col bg-[#fffdf8] border-l border-[#e4ddcf] overflow-hidden gap-0"
       >
         {/* Accessible title (visually hidden — the name in the header is visible) */}
-        <SheetTitle className="sr-only">
+        <SheetTitle className="sr-only ph-mask">
           {profile?.name ?? "Person profile"}
         </SheetTitle>
 

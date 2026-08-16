@@ -14,8 +14,6 @@ export interface DomainRadarProps {
   max?: number
   /** SVG viewBox size in user units; scales to its container via CSS. */
   size?: number
-  /** First name of the athlete, used in the pre-three-domains empty state copy. */
-  childName?: string
   className?: string
 }
 
@@ -33,7 +31,7 @@ function pointsToPath(points: [number, number][]): string {
  * Pure SVG, no charting library. Geometry lives in
  * `src/lib/curriculum/radar-geometry.ts` (unit tested independently).
  */
-export default function DomainRadar({ axes, max = 5, size = 240, childName, className }: DomainRadarProps) {
+export default function DomainRadar({ axes, max = 5, size = 240, className }: DomainRadarProps) {
   // Sanitize all axis values early: non-finite → 0, out-of-range → clamp
   const sanitizedAxes = axes.map((a) => ({
     ...a,
@@ -47,7 +45,7 @@ export default function DomainRadar({ axes, max = 5, size = 240, childName, clas
     return (
       <EmptyState
         title="Radar unlocks at three areas"
-        description={`The skills radar appears once ${childName || "your athlete"} has been assessed in at least three areas.`}
+        description="The skills radar appears once your athlete has been assessed in at least three areas."
         icon={<Target className="w-10 h-10" />}
         className={className}
       />

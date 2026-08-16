@@ -309,7 +309,7 @@ export default function PlayerAssessmentForm({
             </div>
             <div>
               <h2 className="text-xl font-semibold text-ink">Skill Assessment</h2>
-              <p className="text-sm text-ink-muted">{playerName}</p>
+              <p className="text-sm text-ink-muted ph-mask">{playerName}</p>
             </div>
           </div>
           <button
@@ -464,7 +464,7 @@ export default function PlayerAssessmentForm({
                       {strengths.map((s, i) => (
                         <span
                           key={i}
-                          className="inline-flex items-center gap-1 px-2 py-1 bg-green-500/10 text-green-400 rounded-lg text-sm"
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-green-500/10 text-green-400 rounded-lg text-sm ph-mask"
                         >
                           <TrendingUp className="h-3 w-3" />
                           {s}
@@ -502,7 +502,7 @@ export default function PlayerAssessmentForm({
                       {areasForImprovement.map((a, i) => (
                         <span
                           key={i}
-                          className="inline-flex items-center gap-1 px-2 py-1 bg-orange-500/10 text-orange-400 rounded-lg text-sm"
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-orange-500/10 text-orange-400 rounded-lg text-sm ph-mask"
                         >
                           <Target className="h-3 w-3" />
                           {a}
@@ -531,7 +531,7 @@ export default function PlayerAssessmentForm({
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Any additional observations or context..."
                     rows={3}
-                    className="w-full px-3 py-2 bg-cream-2 border border-border rounded-lg text-ink placeholder:text-ink-muted text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 resize-none"
+                    className="w-full px-3 py-2 bg-cream-2 border border-border rounded-lg text-ink placeholder:text-ink-muted text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 resize-none ph-mask"
                   />
                   <p className="text-xs text-ink-faint mt-1">
                     Families see this on their development page — keep it warm and specific.

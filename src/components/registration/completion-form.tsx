@@ -210,7 +210,7 @@ export function CompletionForm({
               maxLength={2}
               value={dobMonth}
               onChange={(e) => setDobMonth(digitsOnly(e.target.value, 2))}
-              className="bg-cream-2 border-border text-ink focus:border-primary placeholder:text-ink-faint text-center"
+              className="bg-cream-2 border-border text-ink focus:border-primary placeholder:text-ink-faint text-center ph-mask"
             />
             <Input
               type="text"
@@ -221,7 +221,7 @@ export function CompletionForm({
               maxLength={2}
               value={dobDay}
               onChange={(e) => setDobDay(digitsOnly(e.target.value, 2))}
-              className="bg-cream-2 border-border text-ink focus:border-primary placeholder:text-ink-faint text-center"
+              className="bg-cream-2 border-border text-ink focus:border-primary placeholder:text-ink-faint text-center ph-mask"
             />
             <Input
               type="text"
@@ -232,7 +232,7 @@ export function CompletionForm({
               maxLength={4}
               value={dobYear}
               onChange={(e) => setDobYear(digitsOnly(e.target.value, 4))}
-              className="bg-cream-2 border-border text-ink focus:border-primary placeholder:text-ink-faint text-center"
+              className="bg-cream-2 border-border text-ink focus:border-primary placeholder:text-ink-faint text-center ph-mask"
             />
           </div>
         </div>

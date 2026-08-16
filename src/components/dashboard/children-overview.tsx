@@ -94,7 +94,7 @@ function ChildCard({ child }: { child: Child }) {
         <div className="flex items-start gap-4 mb-4">
           {/* Avatar */}
           <div className="relative w-14 h-14 rounded-xl bg-primary flex items-center justify-center text-white font-bold text-lg">
-            {child.firstName[0]}{child.lastName[0]}
+            <span className="ph-mask">{child.firstName[0]}{child.lastName[0]}</span>
             {child.coachRating && child.coachRating >= 4.5 && (
               <div className="absolute -top-1 -right-1 w-5 h-5 bg-ochre rounded-full flex items-center justify-center">
                 <Star className="w-3 h-3 text-white fill-white" />
@@ -105,7 +105,7 @@ function ChildCard({ child }: { child: Child }) {
           {/* Name & Info */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-ink text-lg">
+              <h3 className="font-semibold text-ink text-lg ph-mask">
                 {child.firstName}
               </h3>
               <span className="text-sm text-ink-muted">

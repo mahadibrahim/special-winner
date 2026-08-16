@@ -65,7 +65,7 @@ export default function RecentGlows({ familyMemberId, className }: RecentGlowsPr
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-600 text-sm"
         >
           <Sparkles className="w-3.5 h-3.5 shrink-0" />
-          <span className="line-clamp-1">{glow.title || glow.content}</span>
+          <span className="line-clamp-1 ph-mask">{glow.title || glow.content}</span>
         </span>
       ))}
     </div>

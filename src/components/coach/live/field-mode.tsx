@@ -122,7 +122,7 @@ export default function FieldMode({
                   : ""
               }`}
             >
-              {r.firstName}
+              <span className="ph-mask">{r.firstName}</span>
             </button>
           ))}
         </div>
@@ -192,7 +192,7 @@ function CaptureSheet({
         className="w-full rounded-t-2xl bg-paper p-4 pb-8"
         onClick={(e) => e.stopPropagation()}
       >
-        <p className="mb-3 text-lg font-semibold text-ink">{player.firstName}</p>
+        <p className="mb-3 text-lg font-semibold text-ink ph-mask">{player.firstName}</p>
         <div className="mb-4 flex flex-wrap gap-2">
           {glowChips.slice(0, 6).map((chip) => (
             <button
@@ -211,7 +211,7 @@ function CaptureSheet({
           aria-label="Quick note"
           placeholder="Or a quick note…"
           maxLength={280}
-          className="mb-3 min-h-11 w-full rounded-lg border border-border bg-paper px-3 text-ink"
+          className="mb-3 min-h-11 w-full rounded-lg border border-border bg-paper px-3 text-ink ph-mask"
         />
         <button
           data-testid="capture-save"
@@ -257,7 +257,7 @@ function AttendanceSheet({
                   status === "present" ? "" : "bg-cream-2 opacity-60"
                 }`}
               >
-                <span>
+                <span className="ph-mask">
                   {r.firstName} {r.lastName}
                 </span>
                 <span className="text-sm">{status}</span>

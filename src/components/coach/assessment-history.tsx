@@ -324,7 +324,7 @@ function AssessmentCard({ assessment, expanded, onToggle }: {
                       <Badge
                         key={i}
                         variant="outline"
-                        className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                        className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 ph-mask"
                       >
                         {strength}
                       </Badge>
@@ -345,7 +345,7 @@ function AssessmentCard({ assessment, expanded, onToggle }: {
                       <Badge
                         key={i}
                         variant="outline"
-                        className="bg-amber-500/10 text-amber-400 border-amber-500/20"
+                        className="bg-amber-500/10 text-amber-400 border-amber-500/20 ph-mask"
                       >
                         {area}
                       </Badge>
@@ -361,7 +361,7 @@ function AssessmentCard({ assessment, expanded, onToggle }: {
                     <FileText className="w-3 h-3" />
                     Coach Notes
                   </p>
-                  <p className="text-sm text-ink-2 bg-paper rounded-lg p-3 border border-border">
+                  <p className="text-sm text-ink-2 bg-paper rounded-lg p-3 border border-border ph-mask">
                     {assessment.notes}
                   </p>
                 </div>

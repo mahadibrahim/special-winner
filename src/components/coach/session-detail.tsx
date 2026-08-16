@@ -439,7 +439,7 @@ export default function SessionDetail({ sessionId }: SessionDetailProps) {
                 {reflection.postSessionReflection && (
                   <div>
                     <h3 className="text-sm font-medium text-ink-muted mb-2">Overall Reflection</h3>
-                    <p className="text-ink-2">{reflection.postSessionReflection}</p>
+                    <p className="text-ink-2 ph-mask">{reflection.postSessionReflection}</p>
                   </div>
                 )}
 
@@ -450,7 +450,7 @@ export default function SessionDetail({ sessionId }: SessionDetailProps) {
                         <Star className="w-4 h-4" />
                         What Worked Well
                       </h3>
-                      <p className="text-sm text-ink-2">{reflection.whatWorkedWell}</p>
+                      <p className="text-sm text-ink-2 ph-mask">{reflection.whatWorkedWell}</p>
                     </div>
                   )}
 
@@ -460,7 +460,7 @@ export default function SessionDetail({ sessionId }: SessionDetailProps) {
                         <TrendingUp className="w-4 h-4" />
                         What to Improve
                       </h3>
-                      <p className="text-sm text-ink-2">{reflection.whatToImprove}</p>
+                      <p className="text-sm text-ink-2 ph-mask">{reflection.whatToImprove}</p>
                     </div>
                   )}
                 </div>
@@ -471,7 +471,7 @@ export default function SessionDetail({ sessionId }: SessionDetailProps) {
                       <Lightbulb className="w-4 h-4" />
                       Player Observations
                     </h3>
-                    <p className="text-ink-2">{reflection.playerObservations}</p>
+                    <p className="text-ink-2 ph-mask">{reflection.playerObservations}</p>
                   </div>
                 )}
               </div>
@@ -485,7 +485,7 @@ export default function SessionDetail({ sessionId }: SessionDetailProps) {
           {session.preSessionNotes && (
             <div className="p-4 rounded-xl bg-paper border border-border">
               <h3 className="text-sm font-medium text-ink-muted mb-2">Pre-Session Notes</h3>
-              <p className="text-sm text-ink-2">{session.preSessionNotes}</p>
+              <p className="text-sm text-ink-2 ph-mask">{session.preSessionNotes}</p>
             </div>
           )}
 
@@ -572,7 +572,7 @@ export default function SessionDetail({ sessionId }: SessionDetailProps) {
                 value={reflection.postSessionReflection}
                 onChange={(e) => setReflection({ ...reflection, postSessionReflection: e.target.value })}
                 placeholder="How did the session go overall?"
-                className="min-h-[80px] bg-paper border-border"
+                className="min-h-[80px] bg-paper border-border ph-mask"
               />
             </div>
 
@@ -583,7 +583,7 @@ export default function SessionDetail({ sessionId }: SessionDetailProps) {
                   value={reflection.whatWorkedWell}
                   onChange={(e) => setReflection({ ...reflection, whatWorkedWell: e.target.value })}
                   placeholder="Activities, approaches that were effective..."
-                  className="min-h-[100px] bg-paper border-border"
+                  className="min-h-[100px] bg-paper border-border ph-mask"
                 />
               </div>
               <div>
@@ -592,7 +592,7 @@ export default function SessionDetail({ sessionId }: SessionDetailProps) {
                   value={reflection.whatToImprove}
                   onChange={(e) => setReflection({ ...reflection, whatToImprove: e.target.value })}
                   placeholder="Areas to focus on next time..."
-                  className="min-h-[100px] bg-paper border-border"
+                  className="min-h-[100px] bg-paper border-border ph-mask"
                 />
               </div>
             </div>
@@ -603,7 +603,7 @@ export default function SessionDetail({ sessionId }: SessionDetailProps) {
                 value={reflection.playerObservations}
                 onChange={(e) => setReflection({ ...reflection, playerObservations: e.target.value })}
                 placeholder="Notable player progress, challenges, or observations..."
-                className="min-h-[80px] bg-paper border-border"
+                className="min-h-[80px] bg-paper border-border ph-mask"
               />
             </div>
 

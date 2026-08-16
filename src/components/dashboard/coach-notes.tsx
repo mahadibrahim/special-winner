@@ -79,7 +79,7 @@ function NoteCard({ note }: { note: CoachNote }) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             {note.playerFirstName && (
-              <Badge variant="outline" className="border-border text-ink-muted text-[10px] px-1.5 py-0">
+              <Badge variant="outline" className="border-border text-ink-muted text-[10px] px-1.5 py-0 ph-mask">
                 {note.playerFirstName}
               </Badge>
             )}
@@ -92,7 +92,7 @@ function NoteCard({ note }: { note: CoachNote }) {
               {formatTimeAgo(note.createdAt)}
             </span>
           </div>
-          <p className="text-sm text-ink mt-1.5 leading-relaxed whitespace-pre-line">{note.content}</p>
+          <p className="text-sm text-ink mt-1.5 leading-relaxed whitespace-pre-line ph-mask">{note.content}</p>
           <p className="text-xs text-ink-muted mt-2">— {note.coachName}</p>
         </div>
       </div>

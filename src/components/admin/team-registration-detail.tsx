@@ -310,7 +310,7 @@ export function TeamRegistrationDetail({ id }: { id: string }) {
                   className="flex items-center justify-between border rounded-lg p-3"
                 >
                   <div>
-                    <p className="font-medium">
+                    <p className="font-medium ph-mask">
                       {m.firstName} {m.lastName}
                       {m.role === "captain" && (
                         <Badge variant="outline" className="ml-2">

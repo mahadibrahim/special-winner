@@ -316,11 +316,11 @@ export default function GlowsGrowsFlow({ sessionId }: { sessionId: string }) {
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                      <span className="text-xs font-semibold text-primary">
+                      <span className="text-xs font-semibold text-primary ph-mask">
                         {initials(player.firstName, player.lastName)}
                       </span>
                     </div>
-                    <p className="font-medium text-ink">
+                    <p className="font-medium text-ink ph-mask">
                       {player.firstName} {player.lastName}
                     </p>
                   </div>
@@ -328,7 +328,7 @@ export default function GlowsGrowsFlow({ sessionId }: { sessionId: string }) {
                     {glowParsed?.chips.map((chip) => (
                       <span
                         key={chip}
-                        className="px-2.5 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary"
+                        className="px-2.5 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary ph-mask"
                       >
                         {chip}
                       </span>
@@ -336,13 +336,13 @@ export default function GlowsGrowsFlow({ sessionId }: { sessionId: string }) {
                     {growParsed?.chips.map((chip) => (
                       <span
                         key={chip}
-                        className="px-2.5 py-1 rounded-full text-xs font-medium bg-ochre/20 text-ochre"
+                        className="px-2.5 py-1 rounded-full text-xs font-medium bg-ochre/20 text-ochre ph-mask"
                       >
                         {chip}
                       </span>
                     ))}
                   </div>
-                  {freeNote && <p className="text-sm text-ink-2 pl-12">"{freeNote}"</p>}
+                  {freeNote && <p className="text-sm text-ink-2 pl-12 ph-mask">"{freeNote}"</p>}
                 </div>
               )
             })}
@@ -419,11 +419,11 @@ export default function GlowsGrowsFlow({ sessionId }: { sessionId: string }) {
           {/* Player identity */}
           <div className="text-center space-y-3">
             <div className="w-20 h-20 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
-              <span className="text-2xl font-semibold text-primary">
+              <span className="text-2xl font-semibold text-primary ph-mask">
                 {initials(player.firstName, player.lastName)}
               </span>
             </div>
-            <h1 className="text-2xl font-bold text-ink">
+            <h1 className="text-2xl font-bold text-ink ph-mask">
               {player.firstName} {player.lastName}
             </h1>
           </div>
@@ -508,7 +508,7 @@ export default function GlowsGrowsFlow({ sessionId }: { sessionId: string }) {
                   maxLength={MAX_NOTE_LENGTH}
                   onChange={(e) => updateEntry(player.familyMemberId, { note: e.target.value })}
                   placeholder="Add a note for the family (optional)"
-                  className="w-full min-h-11 px-3 py-2 bg-cream-2 border border-border rounded-lg text-ink placeholder:text-ink-muted text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  className="w-full min-h-11 px-3 py-2 bg-cream-2 border border-border rounded-lg text-ink placeholder:text-ink-muted text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 ph-mask"
                 />
               </div>
             </div>
@@ -574,7 +574,7 @@ export default function GlowsGrowsFlow({ sessionId }: { sessionId: string }) {
                 onClick={() => editPlayer(player.familyMemberId)}
                 className="w-full min-h-11 p-3 rounded-xl bg-paper border border-border flex items-start justify-between gap-3 text-left hover:bg-cream-2 transition-colors"
               >
-                <p className="font-medium text-ink shrink-0">
+                <p className="font-medium text-ink shrink-0 ph-mask">
                   {player.firstName} {player.lastName}
                 </p>
                 {entry.skipped || (entry.glows.length === 0 && !entry.grow) ? (
@@ -586,13 +586,13 @@ export default function GlowsGrowsFlow({ sessionId }: { sessionId: string }) {
                     {entry.glows.map((chip) => (
                       <span
                         key={chip}
-                        className="px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary"
+                        className="px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary ph-mask"
                       >
                         {chip}
                       </span>
                     ))}
                     {entry.grow && (
-                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-ochre/20 text-ochre">
+                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-ochre/20 text-ochre ph-mask">
                         {entry.grow}
                       </span>
                     )}

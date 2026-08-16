@@ -184,7 +184,7 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <span className="text-3xl sm:text-4xl font-bold text-ink">
+                    <span className="text-3xl sm:text-4xl font-bold text-ink ph-mask">
                       {child.firstName[0]}
                       {child.lastName[0]}
                     </span>
@@ -195,13 +195,13 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
 
             {/* Info */}
             <div className="flex-1">
-              <h1 className="text-2xl sm:text-3xl font-bold text-ink mb-1">
+              <h1 className="text-2xl sm:text-3xl font-bold text-ink mb-1 ph-mask">
                 {child.firstName} {child.lastName}
               </h1>
               <div className="flex flex-wrap items-center gap-3 text-sm text-ink-muted mb-4">
                 <span>{child.age != null ? `Age ${child.age}` : "Age —"}</span>
                 <span className="text-ink-faint">•</span>
-                <span>
+                <span className="ph-mask">
                   {child.dateOfBirth
                     ? `Born ${child.dateOfBirth.toLocaleDateString("en-US", {
                         month: "long",
@@ -263,7 +263,7 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
               {child.programs.length === 0 ? (
                 <div className="text-center py-10 px-6 rounded-xl bg-paper border border-border">
                   <p className="text-sm text-ink-muted mb-4">
-                    {child.firstName} isn't registered for any programs yet.
+                    <span className="ph-mask">{child.firstName}</span> isn't registered for any programs yet.
                   </p>
                   <Button asChild size="sm">
                     <a href="/programs">Browse programs</a>
@@ -342,7 +342,7 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
                 <div className="text-center py-10 px-6 rounded-xl bg-paper border border-border">
                   <Calendar className="w-10 h-10 text-ink-faint mx-auto mb-3" />
                   <p className="text-sm text-ink-muted">
-                    No upcoming sessions yet. New seasons appear here once {child.firstName} is registered.
+                    No upcoming sessions yet. New seasons appear here once <span className="ph-mask">{child.firstName}</span> is registered.
                   </p>
                 </div>
               ) : (

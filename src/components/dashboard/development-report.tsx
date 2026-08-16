@@ -326,7 +326,7 @@ export default function DevelopmentReport({
           Domain Overview
         </h2>
         <div className="p-6 rounded-2xl bg-paper border border-border">
-          <DomainRadar axes={radarAxes} childName={data.familyMember.firstName} />
+          <DomainRadar axes={radarAxes} />
         </div>
       </section>
 

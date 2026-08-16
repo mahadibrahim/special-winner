@@ -85,7 +85,7 @@ function PlayerCard({
           {/* Avatar */}
           <div className="relative">
             <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-              <span className="text-lg font-bold text-ink">
+              <span className="text-lg font-bold text-ink ph-mask">
                 {player.player.firstName[0]}{player.player.lastName[0]}
               </span>
             </div>
@@ -99,7 +99,7 @@ function PlayerCard({
           {/* Player Info */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <h3 className="font-semibold text-ink">
+              <h3 className="font-semibold text-ink ph-mask">
                 {player.player.firstName} {player.player.lastName}
               </h3>
               <Badge className={cn("text-[10px]", status.bgColor, status.color)}>
@@ -115,7 +115,7 @@ function PlayerCard({
             {player.player.medicalNotes && (
               <div className="flex items-center gap-2 mt-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
                 <Heart className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
-                <span className="text-xs text-amber-400">{player.player.medicalNotes}</span>
+                <span className="text-xs text-amber-400 ph-mask">{player.player.medicalNotes}</span>
               </div>
             )}
           </div>
@@ -192,7 +192,7 @@ function PlayerCard({
           {player.notes && (
             <div className="mt-4 p-3 rounded-xl bg-cream-2 border border-border">
               <p className="text-xs font-medium text-ink-muted uppercase tracking-wider mb-1">Coach Notes</p>
-              <p className="text-sm text-ink-2">{player.notes}</p>
+              <p className="text-sm text-ink-2 ph-mask">{player.notes}</p>
             </div>
           )}
         </div>
