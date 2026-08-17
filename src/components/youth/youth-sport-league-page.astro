@@ -26,6 +26,7 @@ import { setMarketingEdgeCache } from "@/lib/http/edge-cache"
 import {
   YOUTH_LEAGUE_FAQS, YOUTH_CALENDAR_TERMS, VENUE_DISPLAY_NAMES,
 } from "@/lib/leagues/youth-league-content"
+import { LEAGUE_KINDS } from "@/lib/youth/landing-content"
 
 interface Props {
   /** Sport slug as stored on `sports.slug` — scopes every catalog read. */
@@ -56,16 +57,24 @@ const basePath = `/youth/leagues/${sportSlug}`
 const origin = Astro.url.origin
 const cookie = Astro.request.headers.get("cookie") ?? ""
 let currentTerm: { slug: string; label: string } | null = null
+// Upcoming (forming) and completed terms get server-rendered links below —
+// the crawlable function of the adult page's season tabs without the tab
+// chrome. Without them a forming term and the standings archives are
+// reachable only by typing the URL (the banner covers current only).
+let upcomingTerms: { slug: string; label: string }[] = []
+let pastTerms: { slug: string; label: string }[] = []
 let catalogOk = false
 try {
-  const res = await fetch(`${origin}/api/public/seasons?sport=${sportSlug}&audience=youth`, {
-    headers: { cookie },
-  })
-  // Only live statuses are needed: partitionTerms calls a term "current" solely
-  // when it has an open/active season, which the default response covers.
-  catalogOk = res.ok
-  const rows: any[] = res.ok ? ((await res.json()).seasons ?? []) : []
-  const termSeasons: TermSeason[] = filterYouthSeasons(rows)
+  // Live + completed, mirroring the term page: completed terms are the
+  // permanent standings archive and deserve inbound links.
+  const [liveRes, doneRes] = await Promise.all([
+    fetch(`${origin}/api/public/seasons?sport=${sportSlug}&audience=youth`, { headers: { cookie } }),
+    fetch(`${origin}/api/public/seasons?sport=${sportSlug}&audience=youth&status=completed`, { headers: { cookie } }),
+  ])
+  catalogOk = liveRes.ok
+  const liveRows: any[] = liveRes.ok ? ((await liveRes.json()).seasons ?? []) : []
+  const doneRows: any[] = doneRes.ok ? ((await doneRes.json()).seasons ?? []) : []
+  const termSeasons: TermSeason[] = filterYouthSeasons([...liveRows, ...doneRows])
     .filter((s) => s.termSlug)
     .map((s) => ({
       id: s.id,
@@ -74,14 +83,21 @@ try {
       status: s.status,
       startDate: s.startDate,
     }))
-  const { current } = partitionTerms(termSeasons)
+  const { current, upcoming, past } = partitionTerms(termSeasons)
   // No open/active term -> render nothing. A banner with no destination is
   // worse than no banner, and for a newly-launched sport it is the normal state.
   if (current) currentTerm = { slug: current.slug, label: current.label }
+  upcomingTerms = upcoming.map((t) => ({ slug: t.slug, label: t.label }))
+  pastTerms = past.map((t) => ({ slug: t.slug, label: t.label }))
 } catch {
   // A catalog blip must not 500 the page — the ladder, FAQs and venue cards
   // are static and still worth serving. Falls through with no banner.
 }
+
+// Brand-graded hero. Marketing photography never appears raw — the emerald
+// grade is the youth variant (docs/design-system.md "Graded imagery"). A
+// different image from the hub's so the two pages don't read as one repeated.
+const HERO_IMAGE = "/images/stock/five-aside-turf.jpg"
 
 // Which venues render is derived from `offerings.youth`, never a hardcoded
 // list, so this stays correct when a venue's youth status changes.
@@ -94,8 +110,11 @@ if (catalogOk) setMarketingEdgeCache(Astro)
 ---
 
 <main id="main-content" class="flex-1">
-  <section class="relative text-cream pt-16 px-9 pb-10 bg-navy-deep">
-    <div class="max-w-[1080px] mx-auto">
+  <section class="relative text-cream pt-16 px-9 pb-10 bg-navy-deep overflow-hidden">
+    <div class="graded graded--emerald graded--fill z-0" aria-hidden="true">
+      <img src={HERO_IMAGE} alt="" />
+    </div>
+    <div class="relative z-10 max-w-[1080px] mx-auto">
       {currentTerm && (
         <a
           href={`${basePath}/${currentTerm.slug}`}
@@ -129,6 +148,73 @@ if (catalogOk) setMarketingEdgeCache(Astro)
     descriptor="Pick an age group above to filter, or browse everything open."
     sectionId={FINDER_ID}
   />
+
+  {/* Two kinds of season — the winter/developmental split, shared verbatim
+      with the hub so the two never drift. Winter is club teams keeping their
+      season going; the rest of the year is developmental: touches and
+      guidance over the scoreline. */}
+  <section class="px-6 sm:px-9 py-12 border-t border-border" aria-labelledby={`youth-${sportSlug}-kinds`}>
+    <div class="max-w-[1080px] mx-auto">
+      <h2 id={`youth-${sportSlug}-kinds`} class="font-display text-3xl text-ink tracking-tight">
+        Two kinds of <em class="italic">season.</em>
+      </h2>
+      <p class="text-[13.5px] text-ink-2 leading-relaxed mt-2 max-w-[520px]">
+        Depending on the time of year and what your player needs.
+      </p>
+      <div class="grid md:grid-cols-2 gap-3 mt-6">
+        {LEAGUE_KINDS.map((k) => (
+          <div class="rounded-xl border border-border bg-paper p-5">
+            <p class="font-mono text-[10px] tracking-widest uppercase text-ink-2">{k.when}</p>
+            <h3 class="font-display text-xl text-ink mt-1.5">{k.name}</h3>
+            <p class="text-[13px] text-ink-2 leading-relaxed mt-2">{k.body}</p>
+            <dl class="flex gap-6 mt-4 pt-3 border-t border-cream-2 text-[12px]">
+              {k.facts.map((f) => (
+                <div>
+                  <dt class="text-ink-2">{f.label}</dt>
+                  <dd class="text-ink font-semibold mt-0.5">{f.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  {/* Server-rendered term links — the crawlable function of the adult page's
+      season tabs. The hero banner covers the current term only; forming terms
+      and completed standings archives need inbound links too, or they exist
+      only for visitors who type the URL. */}
+  {(upcomingTerms.length > 0 || pastTerms.length > 0 || currentTerm) && (
+    <section class="px-6 sm:px-9 py-10 border-t border-border" aria-labelledby={`youth-${sportSlug}-seasons`}>
+      <div class="max-w-[1080px] mx-auto">
+        <h2 id={`youth-${sportSlug}-seasons`} class="font-display text-2xl text-ink tracking-tight mb-4">All seasons</h2>
+        <ul class="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2 text-[14px]">
+          {currentTerm && (
+            <li>
+              <a href={`${basePath}/${currentTerm.slug}`} class="text-ink hover:text-primary font-semibold">
+                {currentTerm.label} <span class="font-mono text-[9.5px] tracking-widest uppercase text-primary ml-1">Open now</span>
+              </a>
+            </li>
+          )}
+          {upcomingTerms.map((t) => (
+            <li>
+              <a href={`${basePath}/${t.slug}`} class="text-ink-2 hover:text-primary">
+                {t.label} <span class="font-mono text-[9.5px] tracking-widest uppercase text-ink-2 ml-1">Coming up</span>
+              </a>
+            </li>
+          ))}
+          {pastTerms.map((t) => (
+            <li>
+              <a href={`${basePath}/${t.slug}`} class="text-ink-2 hover:text-primary">
+                {t.label} <span class="font-mono text-[9.5px] tracking-widest uppercase text-ink-2 ml-1">Final standings</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  )}
 
   <SeasonCalendarBand
     client:visible
