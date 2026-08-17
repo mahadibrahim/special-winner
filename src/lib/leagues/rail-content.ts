@@ -1,16 +1,18 @@
 // Pure helpers for the league-context rail. No React, no DOM — unit-testable.
 import { CAPTAIN_DEPOSIT_DOLLARS } from "@/lib/registrations/team-deposit";
 
-type Tier = "a" | "b" | "c" | "d";
 export type RailMode = "solo" | "team" | "share";
 
-const TIER_TEXT: Record<Tier, string> = {
+// Youth tiers reuse the adult ramp so the rail reads consistently across both
+// audiences: most competitive → ink, down to sage.
+const TIER_TEXT: Record<string, string> = {
   a: "text-ink", b: "text-primary", c: "text-ochre", d: "text-sage",
+  competitive_a: "text-ink", competitive_b: "text-primary",
+  developmental: "text-ochre", recreational: "text-sage",
 };
 
 export function tierColorClass(skillLevel: string | null | undefined): string {
-  const k = (skillLevel ?? "").toLowerCase() as Tier;
-  return TIER_TEXT[k] ?? "text-ink";
+  return TIER_TEXT[(skillLevel ?? "").toLowerCase()] ?? "text-ink";
 }
 
 function usd(n: number): string {

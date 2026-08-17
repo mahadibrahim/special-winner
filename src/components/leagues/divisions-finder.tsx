@@ -1,7 +1,8 @@
 "use client";
 import { useState, type ReactNode } from "react";
-import { filterDivisions, groupDivisionsByDay, type Division, type DivisionFilters, type DayKey, type DivisionGender } from "@/lib/leagues/division-filters";
+import { filterDivisions, groupDivisionsByDay, divisionGenderLabel, skillLevelShort, DIVISION_GENDER_LABEL, ADULT_GENDERS, YOUTH_GENDERS, type Division, type DivisionFilters, type DayKey, type DivisionGender } from "@/lib/leagues/division-filters";
 import { LevelLadder, Bars } from "@/components/leagues/level-ladder";
+import type { SkillLevel } from "@/lib/leagues/adult-soccer-content";
 import { InterestCapture } from "@/components/leagues/interest-capture";
 import { trackDivisionFilterApplied, trackDivisionRegisterClicked } from "@/lib/analytics/events";
 import { cn } from "@/lib/utils";
@@ -21,25 +22,15 @@ const DAYS: { key: DayKey; label: string }[] = [
   { key: "mon", label: "Mon" }, { key: "tue", label: "Tue" }, { key: "wed", label: "Wed" },
   { key: "thu", label: "Thu" }, { key: "fri", label: "Fri" }, { key: "sun", label: "Sun" },
 ];
-// Single source of truth for the gender label shown on every division row —
-// the old inline ternary only covered mens/womens and silently fell through
-// to "Coed" for boys/girls rows, which then disappeared when the visitor
-// clicked the (mislabeled) Coed chip. Exported so it can carry unit coverage
-// without a full component render.
-export const GENDER_LABEL: Record<DivisionGender, string> = {
-  coed: "Coed", mens: "Men's", womens: "Women's", boys: "Boys", girls: "Girls",
-};
-
-// Format chip set is audience-gated: adult divisions only ever carry
-// coed/mens/womens, so adult pages keep the exact chip list they've always
-// had. Youth divisions carry coed/boys/girls — offering Men's/Women's chips
-// there would just be dead buttons that never match a row.
-const ADULT_GENDER_CHIPS: { key: DivisionGender; label: string }[] = [
-  { key: "coed", label: "Coed" }, { key: "mens", label: "Men's" }, { key: "womens", label: "Women's" },
-];
-const YOUTH_GENDER_CHIPS: { key: DivisionGender; label: string }[] = [
-  { key: "coed", label: "Coed" }, { key: "boys", label: "Boys" }, { key: "girls", label: "Girls" },
-];
+// Format chips are audience-gated off the shared vocabularies: adult divisions
+// only ever carry coed/mens/womens and youth only coed/boys/girls, so offering
+// the full DIVISION_GENDERS list on either page would just be dead buttons that
+// never match a row. Both lists derive from division-filters.ts so a vocabulary
+// change lands here automatically.
+const ADULT_GENDER_CHIPS: { key: DivisionGender; label: string }[] = ADULT_GENDERS
+  .map((key) => ({ key, label: DIVISION_GENDER_LABEL[key] }));
+const YOUTH_GENDER_CHIPS: { key: DivisionGender; label: string }[] = YOUTH_GENDERS
+  .map((key) => ({ key, label: DIVISION_GENDER_LABEL[key] }));
 const BARS_FOR: Record<string, number> = { a: 4, b: 3, c: 2, d: 1, open: 4 };
 const TIER_TEXT: Record<string, string> = { a: "text-ink", b: "text-primary", c: "text-ochre", d: "text-sage", open: "text-navy" };
 
@@ -84,7 +75,7 @@ export function DivisionsFinder({ divisions, venues, term, showLevels = true, fo
     <div>
       {showLevels && (
         <div className="mb-4">
-          <LevelLadder selected={f.level} onSelect={(k) => toggle("level", k as DivisionFilters["level"])} />
+          <LevelLadder selected={f.level as SkillLevel["key"] | null} onSelect={(k) => toggle("level", k)} />
         </div>
       )}
 
@@ -161,8 +152,8 @@ function DivisionRow({ d, term, showLevels }: { d: Division; term: string; showL
         <div>
           <div className="font-display font-semibold text-base">{d.name}</div>
           <div className="font-mono text-[10.5px] tracking-wide uppercase text-ink-muted mt-0.5">
-            {GENDER_LABEL[d.gender]}
-            {showLevels && <> · {d.level === "open" ? "All levels" : `Level ${d.level.toUpperCase()}`}</>}
+            {divisionGenderLabel(d.gender)}
+            {showLevels && <> · {d.level === "open" ? "All levels" : `Level ${skillLevelShort(d.level)}`}</>}
             {/* Solo price up front — paid-traffic replays showed price-hunters
                 tapping Register just to learn the cost, then bouncing. */}
             {d.price != null && d.status !== "completed" && (

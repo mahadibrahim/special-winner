@@ -10,6 +10,7 @@ import { resolveCurrentTerm } from "@/lib/leagues/terms";
 import { divisionSlugMap, divisionNaming } from "@/lib/leagues/division-slug";
 import { breadcrumbJsonLd } from "@/lib/seo/breadcrumbs";
 import { venueAddress } from "@/lib/seo/venue-address";
+import { ASPIRE_CANONICAL_ORIGIN } from "@/lib/seo/canonical";
 
 const suburb = suburbBySlug(Astro.params.suburb);
 if (!suburb) {
@@ -54,7 +55,7 @@ const primaryVenueName =
   (primarySeason?.location.name as string | undefined) ??
   (suburb.primaryVenue === "worthington" ? "Worthington" : "Downtown / OSU");
 
-const ORIGIN = import.meta.env.PUBLIC_APP_URL || "https://aspiresportsohio.com";
+const ORIGIN = ASPIRE_CANONICAL_ORIGIN;
 const pageUrl = `${ORIGIN}/adult-soccer-leagues-${suburb.slug}`;
 const mapsHref = primaryAddr
   ? `https://www.google.com/maps/dir/${encodeURIComponent(`${suburb.name}, OH`)}/${encodeURIComponent(
@@ -74,7 +75,6 @@ const breadcrumbSchema = breadcrumbJsonLd([
   description={`Adult soccer leagues near ${suburb.name}, Ohio: indoor 7v7 at the ${primaryVenueName} venue. Sign up solo or bring a team — 7 games in 7 weeks, two 24-minute halves, skill-matched divisions.`}
 >
   <Fragment slot="head">
-    <link rel="canonical" href={pageUrl} />
     <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbSchema)} />
   </Fragment>
 

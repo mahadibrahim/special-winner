@@ -5,6 +5,14 @@ import { setMarketingEdgeCache } from "@/lib/http/edge-cache";
 import { getVenueFacts } from "@/lib/locations/venue-facts";
 import { summarizeOpenLeagues } from "@/lib/locations/season-summary";
 import StayInLoop from "@/components/locations/StayInLoop.astro";
+import { breadcrumbJsonLd } from "@/lib/seo/breadcrumbs";
+import { ASPIRE_CANONICAL_ORIGIN } from "@/lib/seo/canonical";
+
+const ORIGIN = ASPIRE_CANONICAL_ORIGIN;
+const breadcrumbSchema = breadcrumbJsonLd([
+  { name: "Aspire Sports", url: `${ORIGIN}/` },
+  { name: "Locations", url: `${ORIGIN}/locations` },
+]);
 
 const orgId = Astro.locals.organization?.id ?? null;
 const locations = orgId ? await getPublicLocations(orgId) : [];
@@ -39,11 +47,11 @@ setMarketingEdgeCache(Astro);
 ---
 
 <BaseLayout
-  title="Locations — Aspire Sports"
-  description="Aspire Sports venues across central Ohio. Find programs near you."
+  title="Locations — Indoor Soccer & Flag Football Venues in Columbus, Ohio | Aspire Sports"
+  description="Aspire Sports venues in central Ohio: indoor turf in Worthington and Downtown / OSU. Addresses, parking, what's on at each venue, and the leagues running there now."
 >
   <Fragment slot="head">
-    <link rel="canonical" href={`${Astro.url.origin}/locations`} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbSchema)} />
   </Fragment>
 
   <main id="main-content" class="flex-1 pt-28 pb-16">

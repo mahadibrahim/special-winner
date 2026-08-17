@@ -4,10 +4,10 @@
 // configured (join-config still ships a REPLACE_ME placeholder until the
 // group exists — never render a dead invite link). Vanilla inline script;
 // no React island needed for one form.
-import { JOIN_WHATSAPP_URL } from "@/lib/branding/join-config";
+import { JOIN_WHATSAPP_URL, isConfiguredLink } from "@/lib/branding/join-config";
 
 const { locationSlug } = Astro.props as { locationSlug?: string };
-const whatsappReady = !JOIN_WHATSAPP_URL.includes("REPLACE_ME");
+const whatsappReady = isConfiguredLink(JOIN_WHATSAPP_URL);
 const formId = `loop-form-${locationSlug ?? "index"}`;
 ---
 

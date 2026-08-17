@@ -133,12 +133,19 @@ export const seasons = pgTable(
     status: seasonStatusEnum("status").default("draft").notNull(),
     scheduleNotes: text("schedule_notes"), // 'Saturdays 9-10am'
     // Division & term metadata for the sport-specific league pages.
-    // All nullable / additive — legacy seasons (youth catalog, etc.) leave
-    // these null and are unaffected. Populated for adult-league seasons.
+    // All nullable / additive — seasons that don't divide by gender or skill
+    // leave these null and are unaffected.
     termSlug: varchar("term_slug", { length: 64 }),   // 'fall-2026'
     termLabel: varchar("term_label", { length: 64 }), // 'Fall 2026'
-    divisionGender: varchar("division_gender", { length: 10 }), // 'coed' | 'mens' | 'womens'
-    skillLevel: varchar("skill_level", { length: 8 }), // 'a' | 'b' | 'c' | 'd' | 'open'
+    // DIVISION_GENDERS in lib/leagues/division-filters.ts is the source of
+    // truth: 'coed' | 'boys' | 'girls' (youth) | 'mens' | 'womens' (adult).
+    divisionGender: varchar("division_gender", { length: 10 }),
+    // DIVISION_LEVELS in lib/leagues/division-filters.ts is the source of
+    // truth: 'a'|'b'|'c'|'d'|'open' (adult) plus 'competitive_a'|
+    // 'competitive_b'|'developmental'|'recreational' (youth). 16 fits the
+    // longest (competitive_a, 13) with headroom; it was varchar(8), which
+    // every youth value overflowed.
+    skillLevel: varchar("skill_level", { length: 16 }),
     dayOfWeek: varchar("day_of_week", { length: 3 }), // 'mon'..'sun'
     startTime: time("start_time"), // 18:00
     endTime: time("end_time"),     // 20:00

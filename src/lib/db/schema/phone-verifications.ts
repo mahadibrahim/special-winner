@@ -131,4 +131,9 @@ export const PHONE_OPT_IN_SOURCE = [
   // a marketing opt-in — the row is written `pending` for evidence only and
   // is never promoted to `opted_in` by this surface.
   "recapture_request",
+  // The post-payment registration completion form. AUTHENTICATED (the endpoint
+  // requires locals.user), so rows it writes are `opted_in` directly with no
+  // OTP promotion. Currently the WhatsApp marketing opt-in; the SMS box on the
+  // same form still writes `registration_form` via recordPhoneOptIn.
+  "registration_completion",
 ] as const;

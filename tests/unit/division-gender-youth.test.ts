@@ -8,8 +8,14 @@
 // coed|mens|womens union). This file locks in: the label is correct, the
 // filter's own chip matches the row, and a mismatched chip does not.
 import { describe, it, expect } from "vitest";
-import { filterDivisions, toDivisionGender, type Division, type DivisionFilters } from "@/lib/leagues/division-filters";
-import { GENDER_LABEL } from "@/components/leagues/divisions-finder";
+import {
+  filterDivisions,
+  toDivisionGender,
+  divisionGenderLabel,
+  DIVISION_GENDER_LABEL,
+  type Division,
+  type DivisionFilters,
+} from "@/lib/leagues/division-filters";
 
 const D = (over: Partial<Division>): Division => ({
   id: "x", name: "U10 Girls", level: "open", gender: "girls", day: "sat",
@@ -32,12 +38,14 @@ describe("youth division gender — label + filter alignment", () => {
     expect(toDivisionGender("garbage")).toBe("coed");
   });
 
-  it("GENDER_LABEL renders a girls division as 'Girls', not 'Coed'", () => {
-    expect(GENDER_LABEL.girls).toBe("Girls");
-    expect(GENDER_LABEL.boys).toBe("Boys");
+  it("labels a girls division as 'Girls', not 'Coed'", () => {
+    expect(divisionGenderLabel("girls")).toBe("Girls");
+    expect(divisionGenderLabel("boys")).toBe("Boys");
     // Full coverage — every DivisionGender key must map to a label so a
     // future added gender value can't silently fall through again.
-    expect(GENDER_LABEL).toEqual({ coed: "Coed", mens: "Men's", womens: "Women's", boys: "Boys", girls: "Girls" });
+    expect(DIVISION_GENDER_LABEL).toEqual({
+      coed: "Coed", mens: "Men's", womens: "Women's", boys: "Boys", girls: "Girls",
+    });
   });
 
   it("a girls division is matched (not hidden) by its own filter chip", () => {

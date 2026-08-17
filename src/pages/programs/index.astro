@@ -3,6 +3,7 @@
 // without leaking one tenant's catalog to all.
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import ProgramsCatalog from '@/components/programs/programs-catalog';
+import { resolveCanonicalUrl } from '@/lib/seo/canonical';
 
 // Audience preselect from query param: ?audience=youth | adult | team
 const rawAudience = Astro.url.searchParams.get("audience");
@@ -45,9 +46,16 @@ try {
   // Island falls back to its own client-side fetch when the prop is empty.
 }
 
-const canonicalUrl = audience
-  ? `${Astro.url.origin}/programs?audience=${audience}`
-  : `${Astro.url.origin}/programs`;
+// Pin to the brand's canonical host, not the request origin — a request-origin
+// canonical self-references whatever host served it (www, a preview deploy),
+// which is how a page ends up indexed twice. The ?audience= variants stay
+// distinct because they render materially different catalogs.
+const canonicalBase = resolveCanonicalUrl(
+  Astro.locals.brandId,
+  "/programs",
+  import.meta.env.PUBLIC_APP_URL || "https://aspiresportsohio.com",
+);
+const canonicalUrl = audience ? `${canonicalBase}?audience=${audience}` : canonicalBase;
 
 const pageTitle = audience === "adult"
   ? "Adult Programs — Aspire Sports"
@@ -66,10 +74,7 @@ const pageDescription = audience === "adult"
   : "Sports programs for kids and adults in central Ohio. Aspire Sports — built on real frameworks, taught by coaches who played the game.";
 ---
 
-<BaseLayout title={pageTitle} description={pageDescription}>
-  <Fragment slot="head">
-    <link rel="canonical" href={canonicalUrl} />
-  </Fragment>
+<BaseLayout title={pageTitle} description={pageDescription} canonical={canonicalUrl}>
 
   <main id="main-content" class="flex-1 pt-24 pb-16">
     <div class="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">

@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ErrorBanner } from "@/components/ui/error-banner"
 import { SmsConsentCheckbox } from "@/components/sms/sms-consent-checkbox"
+import { WhatsAppConsentCheckbox } from "@/components/consents/whatsapp-consent-checkbox"
 import { WaiverText } from "./waiver-text"
 import { MediaAuthStep, type MediaAuthScope } from "./media-auth-step"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
@@ -100,6 +101,9 @@ export function CompletionForm({
   const [dobYear, setDobYear] = useState("")
   const [phone, setPhone] = useState("")
   const [smsConsent, setSmsConsent] = useState(false)
+  // Separate state, not derived from smsConsent — the two are distinct
+  // consents and one must never imply the other. Both start unchecked.
+  const [whatsappConsent, setWhatsappConsent] = useState(false)
   // Opt-out media consent: empty set = all 3 scopes granted by default,
   // matching v1's default. Opt-outs are never pre-checked.
   const [mediaAuthOptOuts, setMediaAuthOptOuts] = useState<ReadonlySet<MediaAuthScope>>(
@@ -156,6 +160,10 @@ export function CompletionForm({
             birthDate,
             phone: trimmedPhone || undefined,
             smsConsent: trimmedPhone ? smsConsent : undefined,
+            // Marketing consent for WhatsApp — a separate legal consent from
+            // smsConsent above, never inferred from it. Only meaningful when a
+            // number was actually provided.
+            whatsappConsent: trimmedPhone ? whatsappConsent : undefined,
             mediaAuthOptOuts: Array.from(mediaAuthOptOuts),
           }),
         },
@@ -291,6 +299,15 @@ export function CompletionForm({
           checked={smsConsent}
           onCheckedChange={setSmsConsent}
           id="completion-sms-consent"
+        />
+        {/* pt-2 on top of the container's space-y-2: two dense fine-print
+            blocks 8px apart read as one consent, and these are two separate
+            ones the customer must be able to accept independently. */}
+        <WhatsAppConsentCheckbox
+          checked={whatsappConsent}
+          onCheckedChange={setWhatsappConsent}
+          id="completion-whatsapp-consent"
+          className="pt-2"
         />
       </div>
 
