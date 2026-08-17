@@ -40,6 +40,32 @@ export interface DivisionPageData {
 }
 
 /**
+ * Build the same collision-safe division slug map loadDivisionPage resolves
+ * `division` params against. Term pages need this too, to emit links that
+ * are guaranteed to resolve to the division loadDivisionPage will actually
+ * serve — building it separately (e.g. via divisionSlugMap, which takes one
+ * shared ageGroupName for every row) would drift for youth, where the age
+ * group differs per row. Audience gates whether ageGroupName is read per row
+ * (youth) or forced null (adult); see the loadDivisionPage comment above for
+ * why adult must stay null (adult seasons carry a real but irrelevant
+ * ageGroup row too).
+ */
+export function divisionSlugMapForAudience(
+  seasons: any[],
+  audience: DivisionAudience,
+): Map<string, any> {
+  const ageGroupNameFor = (s: any): string | null =>
+    audience === "youth" ? (s.ageGroup?.name ?? null) : null;
+  const map = new Map<string, any>();
+  for (const s of seasons) {
+    let slug = divisionSlug(s, { ageGroupName: ageGroupNameFor(s) });
+    if (map.has(slug)) slug = `${s.slug ?? s.id}-${s.location.slug}`;
+    if (!map.has(slug)) map.set(slug, s);
+  }
+  return map;
+}
+
+/**
  * Load and shape one division's page data. Returns null when the term has no
  * rows or the slug doesn't resolve — callers redirect to the term page.
  */
@@ -66,10 +92,10 @@ export async function loadDivisionPage(opts: {
   const seasons: any[] = [...live, ...done];
 
   // Youth slugs/titles lead with the age group, which differs per row, so
-  // divisionSlugMap's single shared-options signature doesn't fit here —
-  // build the map inline with per-row options. Collision-disambiguation
-  // (fall back to seasons.slug-or-id + venue slug) is copied verbatim from
-  // divisionSlugMap so two divisions never resolve to the same URL.
+  // divisionSlugMap's single shared-options signature doesn't fit here — use
+  // divisionSlugMapForAudience instead, which resolves ageGroupName per row.
+  // Term pages call the same function to emit division links, so a link
+  // this loader will resolve can never diverge from what it points at.
   //
   // Guarded on audience === "youth": adult seasons carry a real ageGroup row
   // too (name "Adult 18+", seeded for every adult division), so this must
@@ -78,12 +104,7 @@ export async function loadDivisionPage(opts: {
   // divisionSlug and divisionNaming byte-identical to pre-audience behavior.
   const ageGroupNameFor = (s: any): string | null =>
     audience === "youth" ? (s.ageGroup?.name ?? null) : null;
-  const slugMap = new Map<string, any>();
-  for (const s of seasons) {
-    let slug = divisionSlug(s, { ageGroupName: ageGroupNameFor(s) });
-    if (slugMap.has(slug)) slug = `${s.slug ?? s.id}-${s.location.slug}`;
-    if (!slugMap.has(slug)) slugMap.set(slug, s);
-  }
+  const slugMap = divisionSlugMapForAudience(seasons, audience);
   const season = slugMap.get(division);
   if (!season) return null;
 

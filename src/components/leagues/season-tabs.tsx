@@ -54,6 +54,14 @@ export function SeasonTabs({
   initialTab?: Tab;
 }) {
   useHydrationBeacon();
+  // Rules and FAQ tabs are only meaningful with content — Phase 1 youth pages
+  // pass both as [] (no authored rules/FAQ copy in scope yet), and TABS is a
+  // fixed list, so without this filter those buttons would sit in the bar
+  // permanently pointing at an empty pane. Hide the button instead of
+  // authoring placeholder copy.
+  const hasRules = ruleSections.length > 0;
+  const hasFaq = faq.length > 0;
+  const visibleTabs = TABS.filter((t) => (t.key === "rules" ? hasRules : t.key === "faq" ? hasFaq : true));
   const [tab, setTab] = useState<Tab>(initialTab);
   useEffect(() => {
     trackSeasonViewed({ sport, term });
@@ -62,7 +70,7 @@ export function SeasonTabs({
     <div>
       <div className="bg-navy-deep px-9">
         <div className="max-w-[1080px] mx-auto flex gap-0.5">
-          {TABS.map((t) => (
+          {visibleTabs.map((t) => (
             <button key={t.key} onClick={() => setTab(t.key)}
               aria-selected={tab === t.key}
               className={cn("font-mono text-xs tracking-wider uppercase px-4 py-3.5 cursor-pointer relative top-px",
@@ -88,7 +96,7 @@ export function SeasonTabs({
               {/* What to expect + the questions replays showed people leaving
                   the flow to answer. Inline so info-seeking doesn't mean
                   losing the page (most who left never came back). */}
-              <div className="mt-10 grid md:grid-cols-2 gap-8">
+              <div className={cn("mt-10 grid gap-8", hasFaq ? "md:grid-cols-2" : "md:grid-cols-1")}>
                 <div>
                   <h3 className="font-mono text-[11px] tracking-widest uppercase text-primary mb-3">What to expect</h3>
                   <ol className="space-y-2.5">
@@ -104,20 +112,22 @@ export function SeasonTabs({
                     ))}
                   </ol>
                 </div>
-                <div>
-                  <h3 className="font-mono text-[11px] tracking-widest uppercase text-primary mb-3">Quick answers</h3>
-                  <div className="divide-y divide-cream-3 border-y border-cream-3">
-                    {faq.slice(0, 4).map((f) => (
-                      <details key={f.q} className="group py-2.5">
-                        <summary className="cursor-pointer list-none flex items-baseline justify-between gap-3 text-[13px] font-semibold text-ink">
-                          {f.q}
-                          <span className="text-ink-faint group-open:rotate-45 transition-transform">+</span>
-                        </summary>
-                        <p className="text-[13px] text-ink-2 mt-1.5">{f.a}</p>
-                      </details>
-                    ))}
+                {hasFaq && (
+                  <div>
+                    <h3 className="font-mono text-[11px] tracking-widest uppercase text-primary mb-3">Quick answers</h3>
+                    <div className="divide-y divide-cream-3 border-y border-cream-3">
+                      {faq.slice(0, 4).map((f) => (
+                        <details key={f.q} className="group py-2.5">
+                          <summary className="cursor-pointer list-none flex items-baseline justify-between gap-3 text-[13px] font-semibold text-ink">
+                            {f.q}
+                            <span className="text-ink-faint group-open:rotate-45 transition-transform">+</span>
+                          </summary>
+                          <p className="text-[13px] text-ink-2 mt-1.5">{f.a}</p>
+                        </details>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </>
           </div>
