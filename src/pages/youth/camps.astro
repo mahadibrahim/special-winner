@@ -1,53 +1,69 @@
 ---
-// src/pages/youth/camps.astro
-// SSR — the island fetches host-scoped public endpoints client-side.
+// Youth camps. Like classes, this is a coaching surface — the owner's split
+// puts the Director of Coaching prominent here, never on league pages. The
+// lede names the actual reason people buy camps: there's no school and they
+// still have work.
+//
+// Copy rules (owner-directed): no eyebrow text, no format claims, no
+// oppositional language, facility not a selling point. No authored age
+// ranges or day structures here — those were flagged unverified, so the
+// finder cards carry each camp's real ages and dates instead.
 import BaseLayout from "@/layouts/BaseLayout.astro"
-import CategoryHero from "@/components/landing/category-hero.astro"
 import CategoryFinder from "@/components/landing/category-finder.tsx"
+import YouthCoachSection from "@/components/youth/youth-coach-section.astro"
 import CTABanner from "@/components/cta-banner"
-import type { HeroTile } from "@/lib/landing/hero-tiles"
+import { CAMPS } from "@/lib/youth/landing-content"
 import { setMarketingEdgeCache } from "@/lib/http/edge-cache"
 
-const tiles: HeroTile[] = [
-  { label: "Soccer", key: "soccer", state: "live", statusLabel: "● Booking now", meta: "School-break & summer", color: "oklch(0.66 0.21 35)" },
-  { label: "Multi-sport", key: "multi-sport", state: "coming_soon", statusLabel: "Coming soon", meta: "Interested? Notify me" },
-  { label: "Basketball", key: "basketball", state: "coming_soon", statusLabel: "Coming soon", meta: "Interested? Notify me" },
-]
-
-// "Youth leagues & classes" was accurate before the nav split. /youth/leagues
-// is league-only now (programTypes={["league"]}) and classes/clinics moved to
-// /youth/classes — so the old label promised a page section that no longer
-// exists. Same wording as the twin crosslink on classes.astro.
-const crosslink = {
-  prompt: "Looking for a season instead?",
-  href: "/youth/leagues",
-  label: "Youth leagues →",
-}
-setMarketingEdgeCache(Astro);
+// youth-training.jpg is also the hub hero — acceptable reuse; the alternative
+// stock shots (night stadium, adult pickup) read wrong for daytime kids camps.
+const HERO_IMAGE = "/images/stock/youth-training.jpg"
+setMarketingEdgeCache(Astro)
 ---
 
 <BaseLayout
   title="Youth Camps — Aspire Sports"
-  description="Youth sports camps in Columbus and central Ohio — school-break and summer day camps, coached properly, organized tightly."
+  description="Youth sports camps in Worthington and central Ohio — school-break and summer day camps, coached rather than supervised."
 >
   <Fragment slot="head">
     <link rel="canonical" href={`${Astro.url.origin}/youth/camps`} />
   </Fragment>
 
   <main id="main-content" class="flex-1">
-    <CategoryHero
-      title="Youth camps."
-      subhead="Full days of play for school breaks and summer — real coaching, tight drop-off and pick-up logistics, zero chaos."
-      videoSources={[
-        "https://videos.pexels.com/video-files/6077723/6077723-hd_1920_1080_25fps.mp4",
-        "https://videos.pexels.com/video-files/6077723/6077723-sd_640_360_25fps.mp4",
-      ]}
-      poster="https://images.unsplash.com/photo-1543326727-cf6c39e8f84c?auto=format&fit=crop&w=1600&q=60"
-      tiles={tiles}
-      finderId="youth-camps"
-      crosslink={crosslink}
-    />
+    <section class="relative text-cream px-6 sm:px-9 py-20 overflow-hidden bg-navy-deep">
+      <div class="graded graded--emerald graded--fill z-0" aria-hidden="true">
+        <img src={HERO_IMAGE} alt="" />
+      </div>
+      <div class="relative z-10 max-w-[1080px] mx-auto">
+        <h1 class="font-display font-semibold tracking-tight" style="font-size:clamp(2.4rem,6vw,3.6rem);line-height:1">
+          School&rsquo;s out.<br />They&rsquo;re covered.
+        </h1>
+        <p class="mt-4 text-base text-cream/90 max-w-[480px] leading-relaxed">{CAMPS.lede}</p>
+        <p class="mt-5 text-sm text-cream/75">
+          Looking for a season instead?
+          <a href="/youth/leagues" class="underline underline-offset-2 hover:text-cream transition-colors">Youth leagues →</a>
+        </p>
+      </div>
+    </section>
 
+    {/* ---------- Why an Aspire camp --------------------------------------- */}
+    <section class="px-6 sm:px-9 py-12 border-b border-border" aria-labelledby="camps-why-h">
+      <div class="max-w-[1080px] mx-auto">
+        <h2 id="camps-why-h" class="font-display text-3xl text-ink tracking-tight">
+          Coached, not <em class="italic">supervised.</em>
+        </h2>
+        <p class="text-[13.5px] text-ink-2 leading-relaxed mt-2 max-w-[560px]">
+          A camp day here is run by the same coaches, on the same curriculum,
+          as the rest of the year — so a school-break week moves your kid
+          forward instead of just filling the time. Drop-off and pick-up run
+          on time, because we know the day doesn&rsquo;t end when yours does.
+        </p>
+      </div>
+    </section>
+
+    <YouthCoachSection headingId="camps-coach-h" />
+
+    {/* ---------- What's open ---------------------------------------------- */}
     <CategoryFinder
       client:load
       audience="youth"

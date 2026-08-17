@@ -147,6 +147,52 @@ export const CAMPS = {
     "Somewhere for them to be when there is no school and you still have work. Full days indoors, coached rather than supervised, with the same people they see the rest of the year.",
 };
 
+export interface PathwayStep {
+  /** Locked name — see docs/superpowers/specs/2026-08-17-youth-pathway-naming-decision.md. */
+  name: string;
+  /** Age line, shown mono. Select carries its invited-track reading here. */
+  ages: string;
+  blurb: string;
+}
+
+/**
+ * The training pathway (classes + camps). Names are OWNER-LOCKED; do not
+ * rename without the naming decision doc changing first. Deliberately no
+ * session lengths, roster sizes or other format claims in the blurbs.
+ *
+ * Select is an invited track spanning the older ages, not a fifth age band —
+ * four rungs describe an age, Select describes an invitation, and rendering
+ * it as an age band would tell a parent whose kid isn't picked that nothing
+ * exists for their age.
+ */
+export const PATHWAY: PathwayStep[] = [
+  {
+    name: "Aspire Micros",
+    ages: "18 months – 3",
+    blurb: "You're on the floor with them. Movement, balance, first contact with a ball.",
+  },
+  {
+    name: "Aspire Minis",
+    ages: "3 – 5",
+    blurb: "Their first time without you. Listening to a coach, taking turns, and a lot of touches.",
+  },
+  {
+    name: "Aspire Juniors",
+    ages: "5 – 8",
+    blurb: "First real skills. Control of the ball, and the start of wanting it.",
+  },
+  {
+    name: "Aspire Academy",
+    ages: "8 – 12",
+    blurb: "Training gets serious. Decisions under pressure, not just technique.",
+  },
+  {
+    name: "Aspire Select",
+    ages: "8 – 19 · by invitation",
+    blurb: "Small groups our Director of Coaching takes himself.",
+  },
+];
+
 /**
  * ⚠️ Career facts below are from public record and were verified. His title
  * here is owner-provided. The page must not imply that any club he has played

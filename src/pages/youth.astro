@@ -15,11 +15,12 @@ import BaseLayout from "@/layouts/BaseLayout.astro";
 import NextUpCard from "@/components/marketing/next-up-card.astro";
 import CategoryCard from "@/components/landing/category-card.astro";
 import BenefitTrio from "@/components/marketing/benefit-trio";
+import YouthCoachSection from "@/components/youth/youth-coach-section.astro";
 import { getActiveSiteAnnouncement } from "@/lib/marketing/site-announcement";
 import { setMarketingEdgeCache } from "@/lib/http/edge-cache";
 import {
   AGE_SPAN, SPORTS, HERO, WAYS_IN, BENEFITS, LEAGUE_KINDS, CLASSES, CAMPS,
-  COACH, TESTIMONIALS, PRICING,
+  TESTIMONIALS, PRICING,
 } from "@/lib/youth/landing-content";
 
 const announcement = getActiveSiteAnnouncement(Astro.locals.organization, "youth");
@@ -170,33 +171,7 @@ const HERO_IMAGE = "/images/stock/youth-training.jpg";
     </section>
 
     {/* ---------- 4. How we coach — the why, after the what ---------------- */}
-    <section class="bg-cream-2 px-6 sm:px-9 py-12 border-b border-border" aria-labelledby="youth-coach-h">
-      <div class="max-w-[1080px] mx-auto">
-        <h2 id="youth-coach-h" class="font-display text-3xl text-ink tracking-tight">How we coach</h2>
-        <div class="mt-5 grid sm:grid-cols-[104px_1fr] gap-5 items-start max-w-[720px]">
-          <div class="w-[104px] h-[126px] rounded-lg bg-navy-deep" aria-hidden="true"></div>
-          <div>
-            <p class="text-[13.5px] text-ink-2 leading-relaxed">
-              <b class="text-ink font-semibold">{COACH.name}</b>, {COACH.role}{
-                SPORTS.length > 1 ? ` — ${COACH.sport}` : ""
-              }. {COACH.bio}
-            </p>
-            <dl class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border border border-border rounded-lg overflow-hidden mt-4">
-              {COACH.credits.map((c) => (
-                <div class="bg-paper px-3 py-2.5">
-                  <dt class="sr-only">{c.label}</dt>
-                  <dd>
-                    <span class="block font-display text-[15px] text-ink leading-tight">{c.value}</span>
-                    <span class="block text-[10.5px] text-ink-2 mt-1 leading-snug">{c.label}</span>
-                  </dd>
-                </div>
-              ))}
-            </dl>
-            <p class="text-[13.5px] text-ink-2 leading-relaxed mt-4">{COACH.method}</p>
-          </div>
-        </div>
-      </div>
-    </section>
+    <YouthCoachSection />
 
     {/* ---------- 5. Testimonials — renders only when we have real ones ---- */}
     {TESTIMONIALS.length > 0 && (
