@@ -31,14 +31,27 @@ export function inAgeBand(s: ApiSeason, min: number, max: number): boolean {
   return s.ageGroup.minAge <= max && s.ageGroup.maxAge >= min
 }
 
-/** Audience + program-type scope for one category page. */
+/** Audience + program-type + optional sport scope for one category page.
+ *
+ *  `sportSlug` is optional and defaults to unscoped, because the category
+ *  pages (/youth/leagues, /adult/leagues, /youth/camps …) deliberately span
+ *  every sport. Only the per-sport pages pass it.
+ *
+ *  It exists because they previously could not: /youth/leagues/soccer rendered
+ *  every youth league, so production showed futsal on a page titled Youth
+ *  Soccer. An unknown sport returns nothing rather than falling back to
+ *  everything — a silent fallback is what the original bug looked like. */
 export function scopeSeasons(
   seasons: ApiSeason[],
   audience: CategoryAudience,
   programTypes: string[],
+  sportSlug?: string | null,
 ): ApiSeason[] {
   return seasons.filter(
-    (s) => deriveAudience(s) === audience && programTypes.includes(s.program.programType),
+    (s) =>
+      deriveAudience(s) === audience &&
+      programTypes.includes(s.program.programType) &&
+      (!sportSlug || s.sport?.slug === sportSlug),
   )
 }
 
