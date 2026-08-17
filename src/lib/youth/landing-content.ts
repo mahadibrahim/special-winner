@@ -25,6 +25,13 @@ export interface WayIn {
   href: string;
   /** One line under the name in the hero. Keep to two short clauses. */
   meta: string;
+  /** CategoryCard aurora palette. Three doors need three palettes so no
+   *  colour repeats — see category-card.astro. */
+  palette: "youth-a" | "youth-b" | "youth-c";
+  /** Analytics id passed to CategoryCard. */
+  cta: string;
+  statusLabel: string;
+  ctaLabel: string;
 }
 
 export interface LeagueKind {
@@ -62,9 +69,44 @@ export const HERO = {
 };
 
 export const WAYS_IN: WayIn[] = [
-  { label: "Leagues", href: "/youth/leagues", meta: "Games at the weekend, by age group" },
-  { label: "Classes", href: "/youth/classes", meta: "Weeknight training, five steps" },
-  { label: "Camps", href: "/youth/camps", meta: "School breaks and summer" },
+  {
+    label: "Leagues", href: "/youth/leagues", palette: "youth-a", cta: "youth-hub-leagues",
+    meta: "Games at the weekend, by age group",
+    statusLabel: "Now enrolling", ctaLabel: "See the leagues",
+  },
+  {
+    label: "Classes", href: "/youth/classes", palette: "youth-b", cta: "youth-hub-classes",
+    meta: "Weeknight training, five steps",
+    statusLabel: "Now enrolling", ctaLabel: "See the pathway",
+  },
+  {
+    label: "Camps", href: "/youth/camps", palette: "youth-c", cta: "youth-hub-camps",
+    meta: "School breaks and summer",
+    statusLabel: "Booking soon", ctaLabel: "See camp dates",
+  },
+];
+
+/**
+ * Youth benefit trio. All three columns take the emerald accent because the
+ * design system assigns emerald to youth — mixing accents here would borrow
+ * adult's orange onto a youth surface.
+ */
+export const BENEFITS = [
+  {
+    accent: "border-t-emerald-600",
+    title: "More touches",
+    body: "Small groups and small-sided games, so nobody spends the session waiting for a turn.",
+  },
+  {
+    accent: "border-t-emerald-600",
+    title: "Coaching that explains",
+    body: "Coaches talk players through the game while it is happening, not only at half time.",
+  },
+  {
+    accent: "border-t-emerald-600",
+    title: "Somewhere to keep going",
+    body: "One path from eighteen months to nineteen years, so nobody has to start over.",
+  },
 ];
 
 export const LEAGUE_KINDS: LeagueKind[] = [

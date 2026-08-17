@@ -12,6 +12,7 @@ import {
   type SeasonForDerive,
 } from "@/lib/programs/derive"
 import { formatDaySchedule, formatTimeWindow, formatDateOnly } from "@/lib/time/format-date"
+import { sportColor } from "@/lib/design/sport-colors"
 import { CAPTAIN_DEPOSIT_DOLLARS } from "@/lib/registrations/team-deposit"
 import { SeasonInterestForm } from "./season-interest-form"
 import { CardShell, STRETCHED_LINK_CLASSES } from "./card-shell"
@@ -49,16 +50,6 @@ function isGenericSeasonName(name: string): boolean {
   // Only a bare "Season YYYY" (no division/detail suffix) needs the program name
   // prepended. "Fall 2026 — Men's D" is self-describing — render it as-is.
   return /^(Spring|Summer|Fall|Winter)\s+\d{4}$/i.test(name.trim())
-}
-
-// Branded fallback colors for the media slot when a sport has no color set
-// and no photo exists. Pre-launch every card renders this fallback.
-const SPORT_FALLBACK_COLORS: Record<string, string> = {
-  soccer: "#16a34a",
-  basketball: "#f97316",
-  baseball: "#dc2626",
-  football: "#a16207",
-  hockey: "#0ea5e9",
 }
 
 const STATUS_PILL_STYLES: Record<string, string> = {
@@ -129,8 +120,7 @@ export default function ProgramCardV2({
     formatDaySchedule(season.dayOfWeek, season.startTime, season.endTime) ||
     formatTimeWindow(season.startTime, season.endTime)
   const startsLabel = `starts ${formatDateOnly(season.startDate, { month: "short", day: "numeric" })}`
-  const sportColor =
-    season.sport.color ?? SPORT_FALLBACK_COLORS[season.sport.slug] ?? "#52525b"
+  const cardSportColor = sportColor(season.sport)
 
   // One format badge, hard cap. Priority: dual > team-only > non-league type.
   let formatBadge: string | null = null
@@ -216,7 +206,7 @@ export default function ProgramCardV2({
 
   return (
     <CardShell
-      sportColor={sportColor}
+      sportColor={cardSportColor}
       mediaBottomLeft={
         <span className="absolute bottom-2 left-3 text-[10px] font-bold uppercase tracking-wide text-white/90">
           {season.sport.icon ? `${season.sport.icon} ` : ""}
