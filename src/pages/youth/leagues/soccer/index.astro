@@ -1,0 +1,248 @@
+---
+// Youth soccer sport landing page. SSR — the islands fetch host-scoped public
+// endpoints client-side.
+//
+// The ladder is the only permanent content here: the offers underneath rotate
+// by term (club-entry in winter, developmental the rest of the year), so this
+// page is *about* the age structure, not about any one season.
+//
+// No Director of Coaching and no developmental pathway on this page — those
+// live on classes/camps, where coaching is the product being bought.
+// See docs/superpowers/specs/2026-08-16-youth-leagues-redesign-design.md
+import BaseLayout from "@/layouts/BaseLayout.astro"
+import AgeGroupLadder from "@/components/youth/age-group-ladder.astro"
+import CategoryFinder from "@/components/landing/category-finder.tsx"
+import SeasonCalendarBand, { type CalendarTermConfig } from "@/components/landing/season-calendar-band.tsx"
+import LandingFaq, { type LandingFaqItem } from "@/components/landing/landing-faq.tsx"
+import CTABanner from "@/components/cta-banner"
+import { getVenueFacts, VENUE_SLUGS } from "@/lib/locations/venue-facts"
+import { breadcrumbJsonLd } from "@/lib/seo/breadcrumbs"
+import { partitionTerms, type TermSeason } from "@/lib/leagues/terms"
+import { filterYouthSeasons } from "@/lib/leagues/youth-seasons"
+import { setMarketingEdgeCache } from "@/lib/http/edge-cache"
+
+const FINDER_ID = "youth-soccer-divisions"
+
+// ---- Current term -> the only crawlable entry to /youth/leagues/soccer/<term>
+// The finder cards below link straight to /register/<id>, and the calendar band
+// only anchors in-page, so without this banner the term page, every division
+// page under it, their Event JSON-LD and the completed-term archive are
+// reachable only by typing the URL. Same server-rendered <a> the adult twin
+// uses (src/pages/adult/leagues/soccer/index.astro), so crawlers follow it with
+// no JS. Islands can't do this job: they render nothing into the HTML.
+const origin = Astro.url.origin
+const cookie = Astro.request.headers.get("cookie") ?? ""
+let currentTerm: { slug: string; label: string } | null = null
+let catalogOk = false
+try {
+  const res = await fetch(`${origin}/api/public/seasons?sport=soccer&audience=youth`, {
+    headers: { cookie },
+  })
+  // Only the live statuses are needed: partitionTerms calls a term "current"
+  // solely when it has an open/active season, which the default (no `status`)
+  // response already covers. Completed terms surface from the term page itself.
+  catalogOk = res.ok
+  const rows: any[] = res.ok ? ((await res.json()).seasons ?? []) : []
+  const termSeasons: TermSeason[] = filterYouthSeasons(rows)
+    .filter((s) => s.termSlug)
+    .map((s) => ({
+      id: s.id,
+      termSlug: s.termSlug,
+      termLabel: s.termLabel,
+      status: s.status,
+      startDate: s.startDate,
+    }))
+  const { current } = partitionTerms(termSeasons)
+  // No open/active youth term -> render nothing. A banner with no destination
+  // is worse than no banner, and this is the live state today (staging has zero
+  // youth seasons), so it is the path that must not throw or render an empty
+  // shell.
+  if (current) currentTerm = { slug: current.slug, label: current.label }
+} catch {
+  // A catalog blip must not 500 the sport landing page — the ladder, FAQs and
+  // venue cards below are static and still worth serving. Falls through with
+  // currentTerm null, i.e. no banner.
+}
+
+const calendarTerms: CalendarTermConfig[] = [
+  { name: "Winter I", months: "Dec–Feb", match: "winter-i" },
+  { name: "Winter II", months: "Feb–Apr", match: "winter-ii" },
+  { name: "Spring", months: "Apr–Jun", match: "spring" },
+  { name: "Fall", months: "Sep–Nov", match: "fall" },
+]
+
+const faqs: LandingFaqItem[] = [
+  {
+    question: "The age groups changed this year — where does my kid land now?",
+    answer:
+      "For the 2026–27 season, groups run August 1 to July 31 instead of by calendar year, matching the change US Youth Soccer, US Club Soccer and AYSO all made together. Kids born August through December generally moved down a group; kids born January through July generally moved up. Use the birthday lookup above and it will tell you exactly.",
+  },
+  {
+    question: "What ages can play?",
+    answer:
+      "Every group from U6 through U19. We run games at every age group — the ladder above lists all fourteen with the birth dates that belong to each.",
+  },
+  {
+    question: "What if my kid doesn't know anyone on the team?",
+    answer:
+      "Most kids arrive not knowing anyone. Registration is per player — we build the teams and introduce coaches before week 1, so nobody has to bring a group of friends to sign up.",
+  },
+  {
+    question: "Can siblings play at the same time?",
+    answer:
+      "Siblings usually land in different age groups, and we schedule sibling divisions close together wherever the schedule allows. Tell us at registration and we'll do our best.",
+  },
+  {
+    question: "When are games?",
+    answer:
+      "Games are on weekends. Your exact slot comes with the schedule before week 1.",
+  },
+  {
+    question: "What's the refund policy?",
+    answer:
+      "Cancel 14 or more days before the season starts for a full refund. Inside 14 days, we review case by case — the default is a prorated credit toward a future season.",
+    linkHref: "/refund-policy",
+    linkLabel: "Read the full refund policy",
+  },
+]
+
+const ORIGIN = import.meta.env.PUBLIC_APP_URL || "https://aspiresportsohio.com"
+const breadcrumbSchema = breadcrumbJsonLd([
+  { name: "Home", url: `${ORIGIN}/` },
+  { name: "Youth", url: `${ORIGIN}/youth` },
+  { name: "Youth Leagues", url: `${ORIGIN}/youth/leagues` },
+  { name: "Soccer", url: `${ORIGIN}/youth/leagues/soccer` },
+])
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqs.map((item) => ({
+    "@type": "Question",
+    name: item.question,
+    acceptedAnswer: { "@type": "Answer", text: item.answer },
+  })),
+}
+
+// VenueFacts (src/lib/locations/venue-facts.ts) carries facility facts —
+// tagline, specs, photos — but no display name; the name lives on the DB
+// location row instead. This section is a static list (no live fetch), so
+// rather than pull in getPublicLocations for two rows, the display names
+// below are the same strings used consistently on every other
+// customer-facing page that names these venues (see
+// adult-soccer-leagues-columbus.astro, sports/[slug].astro).
+//
+// Which venues render here is derived from `offerings.youth`, not a
+// hardcoded slug list — Downtown is drop-in-pickup-only (offerings.youth is
+// false, confirmed by locations/[slug].astro and sports/[slug].astro, which
+// both say youth soccer runs at Worthington only). Filtering on the flag
+// means this section stays correct automatically if a venue's youth status
+// changes or a new venue is added to VENUE_SLUGS.
+const VENUE_NAMES: Record<string, string> = { worthington: "Worthington", downtown: "Downtown / OSU" }
+const venueSlugs = VENUE_SLUGS.filter((slug) => getVenueFacts(slug)?.offerings.youth)
+
+// Last statement in the frontmatter, per setMarketingEdgeCache's contract:
+// only opt into edge caching once the request-time catalog fetch above
+// actually succeeded, so a transient catalog failure (which suppresses the
+// banner) is never the response that gets cached and served stale.
+if (catalogOk) setMarketingEdgeCache(Astro)
+---
+
+<BaseLayout
+  title="Youth Soccer Leagues — Aspire Sports"
+  description="Youth soccer leagues in Columbus and central Ohio, U6 through U19. Find your kid's age group for the 2026–27 season and register."
+>
+  <Fragment slot="head">
+    <link rel="canonical" href={`${Astro.url.origin}/youth/leagues/soccer`} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbSchema)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(faqSchema)} />
+  </Fragment>
+
+  <main id="main-content" class="flex-1">
+    <section class="relative text-cream pt-16 px-9 pb-10 bg-navy-deep">
+      <div class="max-w-[1080px] mx-auto">
+        {currentTerm && (
+          <a
+            href={`/youth/leagues/soccer/${currentTerm.slug}`}
+            class="flex items-center justify-between gap-3 bg-primary text-cream rounded-lg px-4 py-3 mb-5"
+            data-testid="now-registering"
+            data-hero-banner-cta
+            data-term={currentTerm.slug}
+          >
+            <span>
+              <span class="font-mono text-[10px] tracking-widest uppercase opacity-85">● Now Registering</span><br />
+              <span class="font-display font-semibold text-lg">{currentTerm.label} &middot; registration open</span>
+            </span>
+            <span class="font-mono text-[11px] tracking-wider uppercase bg-cream text-primary px-3 py-2 rounded">See divisions &rarr;</span>
+          </a>
+        )}
+        <h1 class="font-display font-semibold tracking-tight" style="font-size:clamp(2.5rem,6vw,4rem);line-height:.95">
+          Youth soccer<br />at Aspire.
+        </h1>
+        <p class="mt-3 text-base text-cream/90 max-w-[520px]">
+          Every age group from U6 to U19, on boarded turf in central Ohio.
+          Find your kid&rsquo;s group and see what&rsquo;s open.
+        </p>
+      </div>
+    </section>
+
+    <AgeGroupLadder finderId={FINDER_ID} sportKey="soccer" />
+
+    <CategoryFinder
+      client:load
+      audience="youth"
+      programTypes={["league"]}
+      title="Open now"
+      descriptor="Pick an age group above to filter, or browse everything open."
+      sectionId={FINDER_ID}
+    />
+
+    <SeasonCalendarBand
+      client:visible
+      audience="youth"
+      programTypes={["league"]}
+      pageKey="youth-soccer"
+      cardsSectionId={FINDER_ID}
+      heading="The season calendar."
+      descriptor="Seasons run back-to-back all year — leave your email and you'll hear the moment the next one opens."
+      futureTerms={calendarTerms}
+    />
+
+    <section class="bg-cream-2 border-t border-ink/10 py-14 px-6" aria-label="Where you'll play">
+      <div class="max-w-[1080px] mx-auto">
+        <h2 class="font-display text-3xl text-ink mb-6">Where you'll play</h2>
+        <div class="grid gap-5 md:grid-cols-2">
+          {venueSlugs.map((slug) => {
+            const vf = getVenueFacts(slug)
+            return vf ? (
+              <a href={`/locations/${slug}`} class="group rounded-2xl border border-border bg-paper overflow-hidden flex flex-col sm:flex-row">
+                {vf.photos[0] && (
+                  <img src={vf.photos[0].src} alt={vf.photos[0].alt} loading="lazy" class="sm:w-44 h-32 sm:h-auto object-cover" />
+                )}
+                <div class="p-5">
+                  <div class="font-display text-xl text-ink group-hover:text-primary">{VENUE_NAMES[slug] ?? slug}</div>
+                  <p class="text-[13px] text-ink-2 mt-1 max-w-sm">{vf.tagline}</p>
+                  <span class="inline-block text-xs font-semibold text-primary mt-2.5">Venue details &amp; directions →</span>
+                </div>
+              </a>
+            ) : null
+          })}
+        </div>
+      </div>
+    </section>
+
+    <LandingFaq client:visible id="faq" heading="Parent FAQs" items={faqs} />
+
+    <CTABanner client:visible />
+  </main>
+</BaseLayout>
+
+<script>
+  import { trackLandingCtaClicked } from "@/lib/analytics/events"
+
+  // Mirrors the adult sport landing page: without this the hero "Now
+  // Registering" banner is the page's only route into the term funnel and
+  // fires nothing, so tier 4 -> 5 conversion is invisible.
+  document.querySelectorAll<HTMLAnchorElement>("[data-hero-banner-cta]").forEach((el) => {
+    el.addEventListener("click", () => trackLandingCtaClicked({ term: el.dataset.term ?? "" }))
+  })
+</script>

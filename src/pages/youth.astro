@@ -11,15 +11,18 @@ import { setMarketingEdgeCache } from "@/lib/http/edge-cache";
 const announcement = getActiveSiteAnnouncement(Astro.locals.organization, "youth");
 
 const doors = [
-  // factsAudience opts the Leagues & Classes tile into a live mono facts line
+  // factsAudience opts the Leagues tile into a live mono facts line
   // ("Winter I · ages 4–12 · from $130 · closes Oct 29") — term, ages, price
   // and deadline all computed client-side from open youth league seasons (the
   // page is edge-cached, so no server fetch).
   { href: "/youth/leagues", cta: "youth-hub-leagues", palette: "youth-a" as const,
-    title: "Leagues & Classes", blurb: "Season leagues and skill-building classes, filtered by your kid's age.",
-    statusLabel: "Now enrolling", live: true, ctaLabel: "Browse leagues & classes",
+    title: "Leagues", blurb: "Season leagues for every age group, U6 through U19.",
+    statusLabel: "Now enrolling", live: true, ctaLabel: "Browse leagues",
     factsAudience: "youth" as const },
-  { href: "/youth/camps", cta: "youth-hub-camps", palette: "youth-b" as const,
+  { href: "/youth/classes", cta: "youth-hub-classes", palette: "youth-b" as const,
+    title: "Classes", blurb: "Skill-building classes and clinics — no season commitment.",
+    statusLabel: "Now enrolling", live: true, ctaLabel: "Browse classes" },
+  { href: "/youth/camps", cta: "youth-hub-camps", palette: "youth-a" as const,
     title: "Camps", blurb: "School-break and summer day camps — real coaching, tight logistics.",
     statusLabel: "Booking now", live: true, ctaLabel: "Browse camps" },
 ];
@@ -48,7 +51,7 @@ setMarketingEdgeCache(Astro);
       </div>
     )}
 
-    <section class="max-w-[1080px] mx-auto px-9 pt-7 pb-16 grid grid-cols-1 md:grid-cols-2 gap-4">
+    <section class="max-w-[1080px] mx-auto px-9 pt-7 pb-16 grid grid-cols-1 md:grid-cols-3 gap-4">
       {doors.map((d) => <CategoryCard {...d} />)}
     </section>
   </main>

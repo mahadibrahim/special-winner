@@ -92,3 +92,8 @@ const FACTS: Record<string, VenueFacts> = {
 export function getVenueFacts(slug: string): VenueFacts | null {
   return FACTS[slug] ?? null;
 }
+
+/** All venue slugs known to this facts file, for pages that need to derive
+ * "which venues offer X" from `offerings` rather than hardcoding a slug
+ * list (see the youth soccer landing page's "Where you'll play" section). */
+export const VENUE_SLUGS = Object.keys(FACTS);

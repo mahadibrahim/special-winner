@@ -6,6 +6,7 @@ import {
   AGE_BAND_CHIPS,
   byRegistrationCloses,
   inAgeBand,
+  matchesAgeGroup,
   scopeSeasons,
   type CategoryAudience,
 } from "@/lib/programs/category-pages"
@@ -13,6 +14,7 @@ import { SeasonsFinderSection } from "./seasons-finder-section"
 import { FilterChips, type ChipOption } from "./filter-chips"
 import type { ApiSeason } from "@/lib/programs/api-season"
 import { fetchPublicCatalogSeasons } from "@/lib/programs/public-seasons-client"
+import { onFinderFilter } from "@/lib/landing/finder-filter"
 
 /**
  * The island behind an audience-scoped category page (/adult/leagues,
@@ -52,6 +54,17 @@ export default function CategoryFinder({
   const [seasons, setSeasons] = useState<ApiSeason[]>([])
   const [loading, setLoading] = useState(true)
   const [activeBand, setActiveBand] = useState<string | null>(null)
+  const [activeAgeGroup, setActiveAgeGroup] = useState<string | null>(null)
+
+  useEffect(() => {
+    return onFinderFilter((detail) => {
+      if (detail.sectionId !== sectionId) return
+      // Only overwrite when the dispatcher actually set ageGroup (the age
+      // ladder). A sport-tile hero's dispatch omits the field entirely, and
+      // must not clear a selection the ladder made on the same page.
+      if ("ageGroup" in detail) setActiveAgeGroup(detail.ageGroup ?? null)
+    })
+  }, [sectionId])
 
   useEffect(() => {
     let cancelled = false
@@ -96,11 +109,13 @@ export default function CategoryFinder({
   )
 
   const visible = useMemo(() => {
-    if (!ageChips || !activeBand) return scoped
-    const band = AGE_BAND_CHIPS.find((b) => b.value === activeBand)
-    if (!band) return scoped
-    return scoped.filter((s) => inAgeBand(s, band.min, band.max))
-  }, [scoped, ageChips, activeBand])
+    let result = scoped
+    if (ageChips && activeBand) {
+      const band = AGE_BAND_CHIPS.find((b) => b.value === activeBand)
+      if (band) result = result.filter((s) => inAgeBand(s, band.min, band.max))
+    }
+    return result.filter((s) => matchesAgeGroup(s, activeAgeGroup))
+  }, [scoped, ageChips, activeBand, activeAgeGroup])
 
   return (
     <div>

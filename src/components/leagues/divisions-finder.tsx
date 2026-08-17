@@ -1,12 +1,13 @@
 "use client";
 import { useState, type ReactNode } from "react";
-import { filterDivisions, groupDivisionsByDay, divisionGenderLabel, skillLevelShort, DIVISION_GENDER_LABEL, type Division, type DivisionFilters, type DayKey, type DivisionGender } from "@/lib/leagues/division-filters";
+import { filterDivisions, groupDivisionsByDay, divisionGenderLabel, skillLevelShort, DIVISION_GENDER_LABEL, ADULT_GENDERS, YOUTH_GENDERS, type Division, type DivisionFilters, type DayKey, type DivisionGender } from "@/lib/leagues/division-filters";
 import { LevelLadder, Bars } from "@/components/leagues/level-ladder";
 import type { SkillLevel } from "@/lib/leagues/adult-soccer-content";
 import { InterestCapture } from "@/components/leagues/interest-capture";
 import { trackDivisionFilterApplied, trackDivisionRegisterClicked } from "@/lib/analytics/events";
 import { cn } from "@/lib/utils";
 import { CAPTAIN_DEPOSIT_DOLLARS } from "@/lib/registrations/team-deposit";
+import type { DivisionAudience } from "@/lib/leagues/division-slug";
 
 // Map internal filter keys to spec facet names.
 const FACET_FOR: Record<keyof DivisionFilters, "level" | "format" | "day" | "venue"> = {
@@ -21,9 +22,14 @@ const DAYS: { key: DayKey; label: string }[] = [
   { key: "mon", label: "Mon" }, { key: "tue", label: "Tue" }, { key: "wed", label: "Wed" },
   { key: "thu", label: "Thu" }, { key: "fri", label: "Fri" }, { key: "sun", label: "Sun" },
 ];
-// Filter chips for the ADULT soccer browse page — deliberately not the full
-// DIVISION_GENDERS list, which also carries the youth boys/girls values.
-const GENDERS: { key: DivisionGender; label: string }[] = (["coed", "mens", "womens"] as const)
+// Format chips are audience-gated off the shared vocabularies: adult divisions
+// only ever carry coed/mens/womens and youth only coed/boys/girls, so offering
+// the full DIVISION_GENDERS list on either page would just be dead buttons that
+// never match a row. Both lists derive from division-filters.ts so a vocabulary
+// change lands here automatically.
+const ADULT_GENDER_CHIPS: { key: DivisionGender; label: string }[] = ADULT_GENDERS
+  .map((key) => ({ key, label: DIVISION_GENDER_LABEL[key] }));
+const YOUTH_GENDER_CHIPS: { key: DivisionGender; label: string }[] = YOUTH_GENDERS
   .map((key) => ({ key, label: DIVISION_GENDER_LABEL[key] }));
 const BARS_FOR: Record<string, number> = { a: 4, b: 3, c: 2, d: 1, open: 4 };
 const TIER_TEXT: Record<string, string> = { a: "text-ink", b: "text-primary", c: "text-ochre", d: "text-sage", open: "text-navy" };
@@ -42,14 +48,17 @@ export function registerHref(d: Division, mode: "individual" | "team" = "individ
   return `/register/${d.seasonId}?mode=${mode}`;
 }
 
-export function DivisionsFinder({ divisions, venues, term, showLevels = true, footnote = null }: {
+export function DivisionsFinder({ divisions, venues, term, showLevels = true, footnote = null, audience = "adult" }: {
   divisions: Division[];
   venues: { slug: string; label: string }[];
   term: string;
   showLevels?: boolean;
   /** Footer note under the results, e.g. age-division cross-sell. Null renders nothing. */
   footnote?: string | null;
+  /** Gates the Format chip set: adult keeps Coed/Men's/Women's, youth swaps in Coed/Boys/Girls. Defaults to "adult" so existing callers are unchanged. */
+  audience?: DivisionAudience;
 }) {
+  const genderChips = audience === "youth" ? YOUTH_GENDER_CHIPS : ADULT_GENDER_CHIPS;
   const [f, setF] = useState<DivisionFilters>({ level: null, gender: null, day: null, venue: null });
   const results = filterDivisions(divisions, f);
   const toggle = <K extends keyof DivisionFilters>(k: K, v: DivisionFilters[K]) => {
@@ -72,7 +81,7 @@ export function DivisionsFinder({ divisions, venues, term, showLevels = true, fo
 
       <div className="flex flex-wrap gap-4 items-center p-3 bg-cream-2 rounded-xl">
         <FilterGroup label="Format">
-          {GENDERS.map((g) => (
+          {genderChips.map((g) => (
             <button key={g.key} className={chip(f.gender === g.key)} onClick={() => toggle("gender", g.key)}>{g.label}</button>
           ))}
         </FilterGroup>

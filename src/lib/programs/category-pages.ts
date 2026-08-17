@@ -55,3 +55,15 @@ export function byRegistrationCloses(a: ApiSeason, b: ApiSeason): number {
   if (aT !== bT) return aT - bT
   return Date.parse(a.startDate) - Date.parse(b.startDate)
 }
+
+/** Match a season against a U-group filter (e.g. "U10").
+ *
+ *  Compares against age_groups.name rather than deriving from minAge/maxAge:
+ *  the 2026-27 Aug-Jul windows can't be expressed as integer age ranges.
+ *  A season with no age group applies to any age — never hidden, mirroring
+ *  inAgeBand above. */
+export function matchesAgeGroup(s: ApiSeason, groupLabel: string | null): boolean {
+  if (!groupLabel) return true
+  if (!s.ageGroup) return true
+  return s.ageGroup.name.toLowerCase() === groupLabel.toLowerCase()
+}

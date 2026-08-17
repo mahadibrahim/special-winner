@@ -17,8 +17,12 @@ export interface SeasonForDivisionSlug {
   location: { slug: string; name?: string | null; state?: string | null };
 }
 
-const GENDER_SLUG: Record<string, string> = { coed: "co-ed", mens: "mens", womens: "womens" };
-const GENDER_LABEL: Record<string, string> = { coed: "Co-Ed", mens: "Men's", womens: "Women's" };
+const GENDER_SLUG: Record<string, string> = {
+  coed: "co-ed", mens: "mens", womens: "womens", boys: "boys", girls: "girls",
+};
+const GENDER_LABEL: Record<string, string> = {
+  coed: "Co-Ed", mens: "Men's", womens: "Women's", boys: "Boys", girls: "Girls",
+};
 
 const DAY_SLUG: Record<string, string> = {
   mon: "monday", tue: "tuesday", wed: "wednesday", thu: "thursday",
@@ -41,8 +45,17 @@ function tierPart(s: SeasonForDivisionSlug): string | null {
   return null;
 }
 
-export function divisionSlug(s: SeasonForDivisionSlug): string {
+export interface DivisionSlugOptions {
+  /** Youth age group name, e.g. "U10". Omitted for adult. */
+  ageGroupName?: string | null;
+}
+
+export function divisionSlug(
+  s: SeasonForDivisionSlug,
+  opts: DivisionSlugOptions = {},
+): string {
   const parts = [
+    opts.ageGroupName ? opts.ageGroupName.toLowerCase() : null,
     GENDER_SLUG[s.divisionGender ?? ""] ?? null,
     tierPart(s),
     s.dayOfWeek ? DAY_SLUG[s.dayOfWeek] ?? null : null,
@@ -59,10 +72,13 @@ export function divisionSlug(s: SeasonForDivisionSlug): string {
  * with identical gender/tier/day/venue) keep the first and disambiguate the
  * rest with seasons.slug, so no URL ever serves two divisions.
  */
-export function divisionSlugMap<T extends SeasonForDivisionSlug>(seasonRows: T[]): Map<string, T> {
+export function divisionSlugMap<T extends SeasonForDivisionSlug>(
+  seasonRows: T[],
+  opts: DivisionSlugOptions = {},
+): Map<string, T> {
   const map = new Map<string, T>();
   for (const s of seasonRows) {
-    let slug = divisionSlug(s);
+    let slug = divisionSlug(s, opts);
     if (map.has(slug)) slug = `${s.slug ?? s.id}-${s.location.slug}`;
     if (!map.has(slug)) map.set(slug, s);
   }
@@ -70,26 +86,38 @@ export function divisionSlugMap<T extends SeasonForDivisionSlug>(seasonRows: T[]
 }
 
 export interface DivisionNaming {
-  /** "Co-Ed B" / "Co-Ed 30+" / "Men's" — tier-qualified division label. */
+  /** "Co-Ed B" / "Co-Ed 30+" / "Men's" — tier-qualified division label. Never carries the age group. */
   label: string;
-  /** "Co-Ed B Wednesday" — label + night, for headings. */
+  /** "Co-Ed B Wednesday" (adult) / "U10 Girls Saturday" (youth) — age group (youth only) + label + night, for headings, titles, and breadcrumbs. */
   headline: string;
   /** SEO title, e.g. "Co-Ed B Wednesday Adult Soccer League — Worthington, OH | Fall 2026" */
   title: string;
 }
 
+export type DivisionAudience = "adult" | "youth";
+
 export function divisionNaming(
   s: SeasonForDivisionSlug,
   sportName: string,
   termLabel: string,
+  audience: DivisionAudience = "adult",
+  /**
+   * Youth age group, e.g. "U10" — leads the headline/title so two divisions
+   * that differ only by age group (same gender/day/venue, different URL via
+   * divisionSlug) don't collide on an identical indexed title. Omit for
+   * adult; callers must not pass a season's adult age-group name here (e.g.
+   * "Adult 18+") or it will leak into the title.
+   */
+  ageGroupName?: string | null,
 ): DivisionNaming {
   const gender = GENDER_LABEL[s.divisionGender ?? ""] ?? "";
   const age = ageQualifier(s.minAge);
   const tier = age ?? (s.skillLevel && s.skillLevel !== "open" ? s.skillLevel.toUpperCase() : "");
   const label = [gender, tier].filter(Boolean).join(" ") || "Open";
   const day = s.dayOfWeek ? DAY_LABEL[s.dayOfWeek] ?? "" : "";
-  const headline = [label, day].filter(Boolean).join(" ");
+  const headline = [ageGroupName || null, label, day].filter(Boolean).join(" ");
   const place = [s.location.name ?? s.location.slug, s.location.state ?? "OH"].filter(Boolean).join(", ");
-  const title = `${headline} Adult ${sportName} League — ${place} | ${termLabel}`;
+  const audienceWord = audience === "youth" ? "Youth" : "Adult";
+  const title = `${headline} ${audienceWord} ${sportName} League — ${place} | ${termLabel}`;
   return { label, headline, title };
 }

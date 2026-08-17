@@ -3,7 +3,8 @@
 // (live + completed, mirroring the term pages), resolves the division slug,
 // and precomputes everything the layout renders — so the soccer and
 // flag-football routes stay thin and can't drift from each other.
-import { divisionSlugMap, divisionNaming, type DivisionNaming } from "./division-slug";
+import { divisionSlug, divisionNaming, type DivisionNaming, type DivisionAudience } from "./division-slug";
+import { filterYouthSeasons } from "./youth-seasons";
 import { venueAddress } from "@/lib/seo/venue-address";
 
 const DAY_LONG: Record<string, string> = {
@@ -40,6 +41,32 @@ export interface DivisionPageData {
 }
 
 /**
+ * Build the same collision-safe division slug map loadDivisionPage resolves
+ * `division` params against. Term pages need this too, to emit links that
+ * are guaranteed to resolve to the division loadDivisionPage will actually
+ * serve — building it separately (e.g. via divisionSlugMap, which takes one
+ * shared ageGroupName for every row) would drift for youth, where the age
+ * group differs per row. Audience gates whether ageGroupName is read per row
+ * (youth) or forced null (adult); see the loadDivisionPage comment above for
+ * why adult must stay null (adult seasons carry a real but irrelevant
+ * ageGroup row too).
+ */
+export function divisionSlugMapForAudience(
+  seasons: any[],
+  audience: DivisionAudience,
+): Map<string, any> {
+  const ageGroupNameFor = (s: any): string | null =>
+    audience === "youth" ? (s.ageGroup?.name ?? null) : null;
+  const map = new Map<string, any>();
+  for (const s of seasons) {
+    let slug = divisionSlug(s, { ageGroupName: ageGroupNameFor(s) });
+    if (map.has(slug)) slug = `${s.slug ?? s.id}-${s.location.slug}`;
+    if (!map.has(slug)) map.set(slug, s);
+  }
+  return map;
+}
+
+/**
  * Load and shape one division's page data. Returns null when the term has no
  * rows or the slug doesn't resolve — callers redirect to the term page.
  */
@@ -50,25 +77,46 @@ export async function loadDivisionPage(opts: {
   fallbackSportName: string;
   term: string | undefined;
   division: string | undefined;
+  /** Defaults to "adult" so existing adult routes are unchanged. */
+  audience?: DivisionAudience;
 }): Promise<DivisionPageData | null> {
   const { origin, cookie, sportSlug, fallbackSportName, term, division } = opts;
+  const audience = opts.audience ?? "adult";
   if (!term || !division) return null;
 
   const [liveRes, doneRes] = await Promise.all([
-    fetch(`${origin}/api/public/seasons?sport=${sportSlug}&audience=adult&term=${term}`, { headers: { cookie } }),
-    fetch(`${origin}/api/public/seasons?sport=${sportSlug}&audience=adult&term=${term}&status=completed`, { headers: { cookie } }),
+    fetch(`${origin}/api/public/seasons?sport=${sportSlug}&audience=${audience}&term=${term}`, { headers: { cookie } }),
+    fetch(`${origin}/api/public/seasons?sport=${sportSlug}&audience=${audience}&term=${term}&status=completed`, { headers: { cookie } }),
   ]);
   const live: any[] = liveRes.ok ? ((await liveRes.json()).seasons ?? []) : [];
   const done: any[] = doneRes.ok ? ((await doneRes.json()).seasons ?? []) : [];
-  const seasons: any[] = [...live, ...done];
+  const fetched: any[] = [...live, ...done];
+  // `?audience=youth` also returns age-group-less rows (see youth-seasons.ts) —
+  // one adult season saved without an age group would otherwise get a
+  // /youth/leagues/.../<division> page under youth branding. Youth only; the
+  // adult path keeps the raw fetched list, unchanged.
+  const seasons: any[] = audience === "youth" ? filterYouthSeasons(fetched) : fetched;
 
-  const slugMap = divisionSlugMap(seasons);
+  // Youth slugs/titles lead with the age group, which differs per row, so
+  // divisionSlugMap's single shared-options signature doesn't fit here — use
+  // divisionSlugMapForAudience instead, which resolves ageGroupName per row.
+  // Term pages call the same function to emit division links, so a link
+  // this loader will resolve can never diverge from what it points at.
+  //
+  // Guarded on audience === "youth": adult seasons carry a real ageGroup row
+  // too (name "Adult 18+", seeded for every adult division), so this must
+  // NOT fall through to `s.ageGroup?.name` unconditionally — that would leak
+  // "Adult 18+" into every adult slug/title. Null for adult keeps both
+  // divisionSlug and divisionNaming byte-identical to pre-audience behavior.
+  const ageGroupNameFor = (s: any): string | null =>
+    audience === "youth" ? (s.ageGroup?.name ?? null) : null;
+  const slugMap = divisionSlugMapForAudience(seasons, audience);
   const season = slugMap.get(division);
   if (!season) return null;
 
   const sportName = season.sport?.name ?? fallbackSportName;
   const termLabel = season.termLabel ?? "This season";
-  const naming = divisionNaming(season, sportName, termLabel);
+  const naming = divisionNaming(season, sportName, termLabel, audience, ageGroupNameFor(season));
   const venue = venueAddress(season.location.slug);
 
   const modes: string[] = season.signupModes ?? ["individual"];
@@ -103,6 +151,6 @@ export async function loadDivisionPage(opts: {
       : cityState || season.location.name,
     siblings: [...slugMap.entries()]
       .filter(([, s]) => s.id !== season.id)
-      .map(([slug, s]) => ({ slug, ...divisionNaming(s, sportName, termLabel), venueName: s.location.name })),
+      .map(([slug, s]) => ({ slug, ...divisionNaming(s, sportName, termLabel, audience, ageGroupNameFor(s)), venueName: s.location.name })),
   };
 }

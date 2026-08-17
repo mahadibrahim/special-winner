@@ -199,6 +199,20 @@ export type Division = {
   teamTotal?: number | null;
 };
 
+const KNOWN_GENDERS: readonly string[] = DIVISION_GENDERS;
+
+/**
+ * Narrow a raw DB string (seasons.division_gender is an unconstrained
+ * varchar, not a real Postgres enum) to a known DivisionGender, falling back
+ * to "coed" for anything unrecognized. Prefer this over `as Division["gender"]`
+ * at call sites — a force-cast asserts the value is safe without checking,
+ * which is exactly how a "girls" row silently rendering as "Coed" (and being
+ * hidden by its own filter chip) went unnoticed.
+ */
+export function toDivisionGender(raw: string | null | undefined): DivisionGender {
+  return KNOWN_GENDERS.includes(raw ?? "") ? (raw as DivisionGender) : "coed";
+}
+
 export type DivisionFilters = {
   level: Exclude<DivisionLevel, "open"> | null;
   gender: DivisionGender | null;

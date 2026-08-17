@@ -1,0 +1,241 @@
+---
+// Per-term youth soccer season page.
+//
+// Youth runs two products that rotate by term: club team entry (winter,
+// signupModes ['team']) and developmental (spring/fall, ['individual']).
+// The framing below is DERIVED from signupModes — never author which term is
+// which, or the page lies the first time a term changes shape.
+export const prerender = false;
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { SeasonTabs } from "@/components/leagues/season-tabs";
+import { getVenueFacts } from "@/lib/locations/venue-facts";
+import { toDivisionGender, type Division } from "@/lib/leagues/division-filters";
+import { divisionNaming } from "@/lib/leagues/division-slug";
+import { divisionSlugMapForAudience } from "@/lib/leagues/division-page-data";
+import { filterYouthSeasons } from "@/lib/leagues/youth-seasons";
+import { breadcrumbJsonLd } from "@/lib/seo/breadcrumbs";
+import { seasonsToLeagueEvents } from "@/lib/seo/events";
+
+const { term } = Astro.params;
+const origin = Astro.url.origin;
+const cookie = Astro.request.headers.get("cookie") ?? "";
+// Live AND completed: without the completed fetch a wrapped term returns zero
+// rows and redirects away, killing an indexed URL that should become the
+// final-standings archive.
+const [liveRes, doneRes] = await Promise.all([
+  fetch(`${origin}/api/public/seasons?sport=soccer&audience=youth&term=${term}`, { headers: { cookie } }),
+  fetch(`${origin}/api/public/seasons?sport=soccer&audience=youth&term=${term}&status=completed`, { headers: { cookie } }),
+]);
+const live: any[] = liveRes.ok ? ((await liveRes.json()).seasons ?? []) : [];
+const done: any[] = doneRes.ok ? ((await doneRes.json()).seasons ?? []) : [];
+// `?audience=youth` also returns seasons with NO age group at all — the
+// endpoint treats `ageGroupId IS NULL` as "open to all" and includes those rows
+// in both audience views, while /api/admin/seasons lets an admin create one.
+// Without this guard a single adult season saved without an age group would
+// render here under youth branding (youth Coed/Boys/Girls chips leave a Men's
+// row unfilterable) and mint duplicate youth division URLs. Filtering to real
+// youth age groups drops it, and the empty-check below redirects to the sport
+// landing page exactly as it does for an unknown term.
+const seasons: any[] = filterYouthSeasons([...live, ...done]);
+
+if (seasons.length === 0) {
+  return Astro.redirect("/youth/leagues/soccer");
+}
+
+const termLabel = seasons[0].termLabel ?? "This season";
+const anyOpen = seasons.some((s) => s.status === "open");
+const allCompleted = seasons.every((s) => s.status === "completed");
+
+// ---- Product framing, derived ---------------------------------------------
+// A term is club entry when every open division accepts teams and none accepts
+// individuals. Anything else reads as developmental, which is the safer
+// default: it never tells a parent they can't register their kid.
+const openSeasons = seasons.filter((s) => s.status === "open");
+const framingRows = openSeasons.length > 0 ? openSeasons : seasons;
+const isClubEntry =
+  framingRows.length > 0 &&
+  framingRows.every((s) => {
+    const modes: string[] = s.signupModes ?? ["individual"];
+    return modes.includes("team") && !modes.includes("individual");
+  });
+
+const intro = isClubEntry
+  ? "Indoor league play for club teams. Enter your roster, get a schedule, play competitive matches on boarded turf."
+  : "We build the teams and coach them. Register your player and we'll place them, then send the schedule and coach introduction before week 1.";
+const findHeading = isClubEntry ? "Divisions & levels" : "Find your kid's group & register";
+const findSubcopy = isClubEntry
+  ? "Pick the division that matches your team's level. Open divisions accept entries on the spot."
+  : "Pick your kid's age group. Open divisions register on the spot.";
+// "What to expect" step 3 on the Divisions tab — same framing switch, no
+// format claims (no roster/ball/field/game-length specifics).
+const playLine = isClubEntry
+  ? "Weekly games on your assigned schedule, straight through the season."
+  : "Weekly games with your assigned coach and team, straight through the season.";
+
+const startDate = seasons.map((s) => s.startDate).sort()[0];
+const endDate = seasons.map((s) => s.endDate).sort().at(-1);
+
+const venuesMap = new Map<string, string>();
+for (const s of seasons) venuesMap.set(s.location.slug, s.location.name);
+const venues = [...venuesMap].map(([slug, label]) => ({ slug, label }));
+
+function fmtTime(t: string | null) {
+  if (!t) return null;
+  const [h] = t.split(":").map(Number);
+  const ampm = h >= 12 ? "PM" : "AM";
+  const hr = h % 12 === 0 ? 12 : h % 12;
+  return `${hr} ${ampm}`;
+}
+
+const divisions: Division[] = seasons.map((s) => ({
+  id: s.id,
+  seasonId: s.id,
+  name: s.name,
+  level: (s.skillLevel ?? "open") as Division["level"],
+  // toDivisionGender narrows the raw DB string (an unconstrained varchar)
+  // instead of force-casting it — youth rows carry boys/girls in addition to
+  // coed, and a lying `as Division["gender"]` cast is what let a girls row
+  // render mislabeled as "Coed" and then vanish under its own filter chip.
+  gender: toDivisionGender(s.divisionGender),
+  day: s.dayOfWeek ?? null,
+  time: s.startTime && s.endTime ? `${fmtTime(s.startTime)}–${fmtTime(s.endTime)}` : null,
+  venueSlug: s.location.slug,
+  venueName: s.location.name,
+  status: s.status,
+  spotsLabel: s.status === "completed" ? "final" : s.status === "forming" ? "forming" : s.spotsLeft != null ? `${s.spotsLeft} left` : "open",
+  signupModes: s.signupModes ?? ["individual"],
+  price: (s.signupModes ?? ["individual"]).includes("individual") ? (s.effectivePrice ?? s.price ?? null) : null,
+  teamTotal: (s.signupModes ?? []).includes("team") ? (s.effectiveTeamPrice ?? s.teamPrice ?? null) : null,
+}));
+
+const ORIGIN = import.meta.env.PUBLIC_APP_URL || "https://aspiresportsohio.com";
+const eventSchema = seasonsToLeagueEvents(seasons, ORIGIN);
+
+// Per-division links — the division rows live in a React island, so these
+// server-rendered anchors are how a crawler reaches every division URL, and
+// how a JS-off visitor gets there. Built via divisionSlugMapForAudience (the
+// same collision-safe map loadDivisionPage resolves `division` params
+// against) rather than raw divisionSlug per row — two youth divisions that
+// differ only by, say, gender/day but share age group + venue would collide
+// on a plain divisionSlug call, silently linking both to the first row's
+// URL. Sharing the loader's own map-building function keeps that impossible
+// by construction instead of by convention.
+const divisionLinks = [...divisionSlugMapForAudience(seasons, "youth").entries()].map(([slug, s]) => ({
+  slug,
+  ...divisionNaming(s, s.sport?.name ?? "Soccer", termLabel, "youth", s.ageGroup?.name ?? null),
+  venueName: s.location.name,
+}));
+
+const breadcrumbSchema = breadcrumbJsonLd([
+  { name: "Home", url: `${ORIGIN}/` },
+  { name: "Youth Leagues", url: `${ORIGIN}/youth/leagues` },
+  { name: "Soccer", url: `${ORIGIN}/youth/leagues/soccer` },
+  { name: termLabel, url: `${ORIGIN}/youth/leagues/soccer/${term}` },
+]);
+
+const fmtShort = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+---
+
+<BaseLayout
+  title={`${termLabel} Youth Soccer Leagues — Aspire Sports`}
+  description={`Register for ${termLabel} youth soccer at Aspire Sports in central Ohio.`}
+>
+  <Fragment slot="head">
+    <link rel="canonical" href={`${Astro.url.origin}/youth/leagues/soccer/${term}`} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbSchema)} />
+    {eventSchema.length > 0 && (
+      <script type="application/ld+json" is:inline set:html={JSON.stringify(eventSchema)} />
+    )}
+  </Fragment>
+
+  <main id="main-content">
+    <section class="text-cream pt-12 px-6 sm:px-9 pb-8 bg-navy-deep">
+      <div class="max-w-[1080px] mx-auto">
+        <h1 class="font-display font-semibold text-[42px] leading-[1.05] sm:text-5xl tracking-tight mb-2">
+          {termLabel} · Youth Soccer
+        </h1>
+        <p class="text-sm text-cream/85 mb-3">
+          <b class="font-semibold text-cream">{fmtShort(startDate)} – {fmtShort(endDate)}</b>
+          {venues.length === 1 ? ` · ${venues[0].label}` : ` · ${venues.length} venues`}
+        </p>
+        <p class="text-[15px] text-cream/90 max-w-[560px]">{intro}</p>
+        {anyOpen && (
+          <a href="#divisions" class="inline-flex items-center gap-2 font-sans font-semibold text-[15px] bg-primary text-cream px-4 py-3 rounded-xl mt-5" data-testid="hero-register">
+            {isClubEntry ? "See divisions & enter" : "Find your kid's group"} <span aria-hidden="true">↓</span>
+          </a>
+        )}
+      </div>
+    </section>
+
+    <div id="divisions">
+      {/* showLevels={false}: youth rows carry skillLevel "open", not the
+          adult A/B/C/D skill ladder — the level bars/chips are adult-only
+          content (LevelLadder is imported straight from
+          adult-soccer-content.ts) and would land every kid in the empty
+          state. audience="youth" swaps the Format chip set to Coed/Boys/Girls
+          (matching real divisionGender values) instead of adult's
+          Coed/Men's/Women's — see divisions-finder.tsx. */}
+      <SeasonTabs
+        client:load
+        sport="soccer"
+        divisions={divisions}
+        venues={venues}
+        weekStart={startDate}
+        scheduleNote="One game per week per team. Exact slots assigned after rosters lock."
+        term={term ?? ""}
+        ruleSections={[]}
+        faq={[]}
+        arenaNote={null}
+        playLine={playLine}
+        findHeading={findHeading}
+        findSubcopy={findSubcopy}
+        initialTab={allCompleted ? "standings" : "divisions"}
+        showLevels={false}
+        audience="youth"
+      />
+    </div>
+
+    {divisionLinks.length > 0 && (
+      <section class="bg-cream py-10 px-6" aria-label="Division guides">
+        <div class="max-w-[1080px] mx-auto">
+          <h2 class="font-display text-2xl text-ink mb-4">Division guides</h2>
+          <ul class="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2 text-[14px]">
+            {divisionLinks.map((d) => (
+              <li>
+                <a href={`/youth/leagues/soccer/${term}/${d.slug}`} class="text-ink-2 hover:text-primary">
+                  {d.headline} · {d.venueName}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+    )}
+
+    {venues.length > 0 && (
+      <section class="bg-cream-2 border-t border-ink/10 py-14 px-6" aria-label="Where you'll play">
+        <div class="max-w-[1080px] mx-auto">
+          <h2 class="font-display text-3xl text-ink mb-6">Where you'll play</h2>
+          <div class="grid gap-5 md:grid-cols-2">
+            {venues.map(({ slug, label }) => {
+              const vf = getVenueFacts(slug);
+              return (
+                <a href={`/locations/${slug}`} class="group rounded-2xl border border-border bg-paper overflow-hidden flex flex-col sm:flex-row">
+                  {vf?.photos[0] && (
+                    <img src={vf.photos[0].src} alt={vf.photos[0].alt} loading="lazy" class="sm:w-44 h-32 sm:h-auto object-cover" />
+                  )}
+                  <div class="p-5">
+                    <div class="font-display text-xl text-ink group-hover:text-primary">{label}</div>
+                    {vf && <p class="text-[13px] text-ink-2 mt-1 max-w-sm">{vf.tagline}</p>}
+                    <span class="inline-block text-xs font-semibold text-primary mt-2.5">Venue details &amp; directions →</span>
+                  </div>
+                </a>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+    )}
+  </main>
+</BaseLayout>
