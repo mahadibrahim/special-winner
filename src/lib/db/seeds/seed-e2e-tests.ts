@@ -2307,6 +2307,18 @@ async function seedE2ETests() {
         active: true,
       })
       .returning();
+  } else if (program.isTest) {
+    // isTest heal, same pattern as the adultProgram block below: the public
+    // seasons API hides any season whose PROGRAM is flagged is_test, and this
+    // fixture drifted to is_test=true on staging (migration 0009's backfill),
+    // which silently failed registration-guest-flow.spec.ts and
+    // category-pages.spec.ts's /youth/leagues catalog assertion — both find
+    // this season by slug through /api/public/seasons.
+    [program] = await db
+      .update(programs)
+      .set({ isTest: false })
+      .where(eq(programs.id, program.id))
+      .returning();
   }
   console.log(`   ✓ Program: ${program.name}`);
 
@@ -2345,6 +2357,15 @@ async function seedE2ETests() {
         allowDeposit: true,
         maxParticipants: 20,
       })
+      .returning();
+  } else if (season.isTest) {
+    // isTest heal — same reasoning as the program block above, but the
+    // SEASON row also carries its own is_test flag that the public seasons
+    // API checks independently of the program's.
+    [season] = await db
+      .update(seasons)
+      .set({ isTest: false })
+      .where(eq(seasons.id, season.id))
       .returning();
   }
   console.log(`   ✓ Season: ${season.name} (registration open)`);
