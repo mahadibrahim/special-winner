@@ -1,5 +1,9 @@
 ---
-// Per-term youth soccer season page.
+// Per-term youth season page, for every sport in the registry
+// (/youth/leagues/[sport]/[term]). Generalised from the soccer-only original —
+// the sport contributed nothing but its slug and display name, and futsal
+// shipping a landing page whose "Now Registering" banner pointed at a term
+// route that didn't exist is what forced the collapse.
 //
 // Youth runs two products that rotate by term: club team entry (winter,
 // signupModes ['team']) and developmental (spring/fall, ['individual']).
@@ -13,18 +17,25 @@ import { toDivisionGender, type Division } from "@/lib/leagues/division-filters"
 import { divisionNaming } from "@/lib/leagues/division-slug";
 import { divisionSlugMapForAudience } from "@/lib/leagues/division-page-data";
 import { filterYouthSeasons } from "@/lib/leagues/youth-seasons";
+import { getYouthLeagueSport } from "@/lib/leagues/youth-sports";
 import { breadcrumbJsonLd } from "@/lib/seo/breadcrumbs";
 import { seasonsToLeagueEvents } from "@/lib/seo/events";
 
+const sport = getYouthLeagueSport(Astro.params.sport);
+if (!sport) {
+  return Astro.redirect("/youth/leagues");
+}
 const { term } = Astro.params;
+const basePath = `/youth/leagues/${sport.slug}`;
+
 const origin = Astro.url.origin;
 const cookie = Astro.request.headers.get("cookie") ?? "";
 // Live AND completed: without the completed fetch a wrapped term returns zero
 // rows and redirects away, killing an indexed URL that should become the
 // final-standings archive.
 const [liveRes, doneRes] = await Promise.all([
-  fetch(`${origin}/api/public/seasons?sport=soccer&audience=youth&term=${term}`, { headers: { cookie } }),
-  fetch(`${origin}/api/public/seasons?sport=soccer&audience=youth&term=${term}&status=completed`, { headers: { cookie } }),
+  fetch(`${origin}/api/public/seasons?sport=${sport.slug}&audience=youth&term=${term}`, { headers: { cookie } }),
+  fetch(`${origin}/api/public/seasons?sport=${sport.slug}&audience=youth&term=${term}&status=completed`, { headers: { cookie } }),
 ]);
 const live: any[] = liveRes.ok ? ((await liveRes.json()).seasons ?? []) : [];
 const done: any[] = doneRes.ok ? ((await doneRes.json()).seasons ?? []) : [];
@@ -39,7 +50,7 @@ const done: any[] = doneRes.ok ? ((await doneRes.json()).seasons ?? []) : [];
 const seasons: any[] = filterYouthSeasons([...live, ...done]);
 
 if (seasons.length === 0) {
-  return Astro.redirect("/youth/leagues/soccer");
+  return Astro.redirect(basePath);
 }
 
 const termLabel = seasons[0].termLabel ?? "This season";
@@ -122,15 +133,15 @@ const eventSchema = seasonsToLeagueEvents(seasons, ORIGIN);
 // by construction instead of by convention.
 const divisionLinks = [...divisionSlugMapForAudience(seasons, "youth").entries()].map(([slug, s]) => ({
   slug,
-  ...divisionNaming(s, s.sport?.name ?? "Soccer", termLabel, "youth", s.ageGroup?.name ?? null),
+  ...divisionNaming(s, s.sport?.name ?? sport.name, termLabel, "youth", s.ageGroup?.name ?? null),
   venueName: s.location.name,
 }));
 
 const breadcrumbSchema = breadcrumbJsonLd([
   { name: "Home", url: `${ORIGIN}/` },
   { name: "Youth Leagues", url: `${ORIGIN}/youth/leagues` },
-  { name: "Soccer", url: `${ORIGIN}/youth/leagues/soccer` },
-  { name: termLabel, url: `${ORIGIN}/youth/leagues/soccer/${term}` },
+  { name: sport.name, url: `${ORIGIN}${basePath}` },
+  { name: termLabel, url: `${ORIGIN}${basePath}/${term}` },
 ]);
 
 const fmtShort = (iso: string) =>
@@ -138,11 +149,11 @@ const fmtShort = (iso: string) =>
 ---
 
 <BaseLayout
-  title={`${termLabel} Youth Soccer Leagues — Aspire Sports`}
-  description={`Register for ${termLabel} youth soccer at Aspire Sports in central Ohio.`}
+  title={`${termLabel} Youth ${sport.name} Leagues — Aspire Sports`}
+  description={`Register for ${termLabel} youth ${sport.name.toLowerCase()} at Aspire Sports in central Ohio.`}
 >
   <Fragment slot="head">
-    <link rel="canonical" href={`${Astro.url.origin}/youth/leagues/soccer/${term}`} />
+    <link rel="canonical" href={`${Astro.url.origin}${basePath}/${term}`} />
     <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbSchema)} />
     {eventSchema.length > 0 && (
       <script type="application/ld+json" is:inline set:html={JSON.stringify(eventSchema)} />
@@ -153,7 +164,7 @@ const fmtShort = (iso: string) =>
     <section class="text-cream pt-12 px-6 sm:px-9 pb-8 bg-navy-deep">
       <div class="max-w-[1080px] mx-auto">
         <h1 class="font-display font-semibold text-[42px] leading-[1.05] sm:text-5xl tracking-tight mb-2">
-          {termLabel} · Youth Soccer
+          {termLabel} · Youth {sport.name}
         </h1>
         <p class="text-sm text-cream/85 mb-3">
           <b class="font-semibold text-cream">{fmtShort(startDate)} – {fmtShort(endDate)}</b>
@@ -178,7 +189,7 @@ const fmtShort = (iso: string) =>
           Coed/Men's/Women's — see divisions-finder.tsx. */}
       <SeasonTabs
         client:load
-        sport="soccer"
+        sport={sport.slug}
         divisions={divisions}
         venues={venues}
         weekStart={startDate}
@@ -203,7 +214,7 @@ const fmtShort = (iso: string) =>
           <ul class="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2 text-[14px]">
             {divisionLinks.map((d) => (
               <li>
-                <a href={`/youth/leagues/soccer/${term}/${d.slug}`} class="text-ink-2 hover:text-primary">
+                <a href={`${basePath}/${term}/${d.slug}`} class="text-ink-2 hover:text-primary">
                   {d.headline} · {d.venueName}
                 </a>
               </li>

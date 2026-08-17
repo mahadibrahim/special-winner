@@ -146,6 +146,31 @@ test.describe("youth soccer landing", () => {
   })
 })
 
+test.describe("youth sport routes — one dynamic route serves every sport", () => {
+  // /youth/leagues/[sport] replaced per-sport static copies. These pin the two
+  // properties that matter: a registry sport renders the full page, and a
+  // non-registry slug degrades to the picker instead of rendering an empty
+  // page under invented branding. All independent of live inventory.
+  test("futsal renders the same static ladder as soccer", async ({ page }) => {
+    await page.goto("/youth/leagues/futsal", { waitUntil: "domcontentloaded" })
+    const bands = page.locator("[data-age-band]")
+    await expect(bands).toHaveCount(14)
+    await expect(page.locator("h1")).toContainText("Youth futsal")
+  })
+
+  test("an unknown sport lands on the sport picker", async ({ page }) => {
+    await page.goto("/youth/leagues/hockey", { waitUntil: "domcontentloaded" })
+    await expect(page).toHaveURL(/\/youth\/leagues\/?$/)
+  })
+
+  test("an unknown futsal term lands on the futsal page, not a 404", async ({ page }) => {
+    // The exact gap that blocked merging: the futsal landing page's banner
+    // pointed at a term route that did not exist.
+    await page.goto("/youth/leagues/futsal/no-such-term", { waitUntil: "domcontentloaded" })
+    await expect(page).toHaveURL(/\/youth\/leagues\/futsal\/?$/)
+  })
+})
+
 test.describe("youth navigation", () => {
   test("exposes Leagues, Classes and Camps", async ({ page }) => {
     // No waitForHydration here: /youth is a static hub whose door cards are

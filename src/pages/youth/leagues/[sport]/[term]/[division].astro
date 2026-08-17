@@ -1,0 +1,45 @@
+---
+// Per-division youth page for every registry sport — one stable, crawlable
+// URL per division (e.g. /youth/leagues/soccer/winter-i/u10-girls-saturday-
+// worthington). Deliberately passes no format copy: youth divisions vary by
+// venue and season, so format claims belong on the division row from real
+// data, not authored here. See the spec's "No format claims in v1".
+export const prerender = false;
+import DivisionPageLayout from "@/components/leagues/DivisionPageLayout.astro";
+import { loadDivisionPage } from "@/lib/leagues/division-page-data";
+import { getYouthLeagueSport } from "@/lib/leagues/youth-sports";
+
+const sport = getYouthLeagueSport(Astro.params.sport);
+if (!sport) {
+  return Astro.redirect("/youth/leagues");
+}
+const { term, division } = Astro.params;
+const basePath = `/youth/leagues/${sport.slug}`;
+
+const data = await loadDivisionPage({
+  origin: Astro.url.origin,
+  cookie: Astro.request.headers.get("cookie") ?? "",
+  sportSlug: sport.slug,
+  fallbackSportName: sport.name,
+  term,
+  division,
+  audience: "youth",
+});
+if (!data) {
+  return Astro.redirect(`${basePath}/${term}`);
+}
+---
+
+<DivisionPageLayout
+  data={data}
+  basePath={basePath}
+  sportCrumb={sport.name}
+  term={term ?? ""}
+  division={division ?? ""}
+  formatValue={null}
+  gamesValue={null}
+  formatFacts={[]}
+  levelDescription={data.season.ageGroup?.name ?? null}
+  descriptionFormatLine=""
+  audience="youth"
+/>

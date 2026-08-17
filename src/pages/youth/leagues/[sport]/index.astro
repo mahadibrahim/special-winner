@@ -1,0 +1,56 @@
+---
+// Youth sport league landing page — one dynamic route for every sport in the
+// registry (/youth/leagues/soccer, /youth/leagues/futsal, …). The former
+// static soccer/ and futsal/ copies differed only in slug, hero copy and SEO
+// metadata, all of which now come from YOUTH_LEAGUE_SPORTS; everything
+// structural lives in YouthSportLeaguePage.
+//
+// Unknown sport → the sport picker, completing the degradation chain the
+// deeper routes already follow: unknown division → term page, empty term →
+// sport page, unknown sport → picker. Every step lands on a real page.
+export const prerender = false;
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import YouthSportLeaguePage from "@/components/youth/youth-sport-league-page.astro";
+import { breadcrumbJsonLd } from "@/lib/seo/breadcrumbs";
+import { getYouthLeagueSport } from "@/lib/leagues/youth-sports";
+import { YOUTH_LEAGUE_FAQS } from "@/lib/leagues/youth-league-content";
+
+const sport = getYouthLeagueSport(Astro.params.sport);
+if (!sport) {
+  return Astro.redirect("/youth/leagues");
+}
+
+const ORIGIN = import.meta.env.PUBLIC_APP_URL || "https://aspiresportsohio.com";
+const breadcrumbSchema = breadcrumbJsonLd([
+  { name: "Home", url: `${ORIGIN}/` },
+  { name: "Youth", url: `${ORIGIN}/youth` },
+  { name: "Youth Leagues", url: `${ORIGIN}/youth/leagues` },
+  { name: sport.name, url: `${ORIGIN}/youth/leagues/${sport.slug}` },
+]);
+const faqSchema = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: YOUTH_LEAGUE_FAQS.map((item) => ({
+    "@type": "Question",
+    name: item.question,
+    acceptedAnswer: { "@type": "Answer", text: item.answer },
+  })),
+};
+---
+
+<BaseLayout
+  title={`Youth ${sport.name} Leagues — Aspire Sports`}
+  description={sport.metaDescription}
+>
+  <Fragment slot="head">
+    <link rel="canonical" href={`${Astro.url.origin}/youth/leagues/${sport.slug}`} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbSchema)} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(faqSchema)} />
+  </Fragment>
+
+  <YouthSportLeaguePage
+    sportSlug={sport.slug}
+    heroTitle={sport.heroTitle}
+    heroSubhead={sport.heroSubhead}
+  />
+</BaseLayout>
