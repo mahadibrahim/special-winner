@@ -59,7 +59,10 @@ export default function CategoryFinder({
   useEffect(() => {
     return onFinderFilter((detail) => {
       if (detail.sectionId !== sectionId) return
-      setActiveAgeGroup(detail.ageGroup ?? null)
+      // Only overwrite when the dispatcher actually set ageGroup (the age
+      // ladder). A sport-tile hero's dispatch omits the field entirely, and
+      // must not clear a selection the ladder made on the same page.
+      if ("ageGroup" in detail) setActiveAgeGroup(detail.ageGroup ?? null)
     })
   }, [sectionId])
 
