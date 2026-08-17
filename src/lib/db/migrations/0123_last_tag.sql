@@ -1,0 +1,1 @@
+ALTER TABLE "seasons" ALTER COLUMN "skill_level" SET DATA TYPE varchar(16);

@@ -7,6 +7,12 @@ describe("rail-content", () => {
     expect(tierColorClass("d")).toBe("text-sage");
     expect(tierColorClass(null)).toBe("text-ink"); // default
   });
+  it("colors the youth tiers too, rather than falling through to the default", () => {
+    expect(tierColorClass("competitive_a")).toBe("text-ink");
+    expect(tierColorClass("competitive_b")).toBe("text-primary");
+    expect(tierColorClass("developmental")).toBe("text-ochre");
+    expect(tierColorClass("recreational")).toBe("text-sage");
+  });
   it("priceLabel per mode", () => {
     const s = { price: 120, teamPrice: 1000, deposit: 200 } as any;
     expect(priceLabel("solo", s)).toEqual({ amount: "$120", unit: "solo" });

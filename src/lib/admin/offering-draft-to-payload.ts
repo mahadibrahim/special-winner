@@ -11,6 +11,16 @@ export function draftToOfferingPayload(
   d: OfferingDraft,
   ctx: { locationId: string; sportId: string; publish: boolean },
 ) {
+  // TypeStep/OfferingWizard gate the "Next" button on an explicit audience
+  // choice (see DetailsStep's OfferingDraft.audience: Audience | null), so a
+  // null audience here means that gate broke — fail loudly instead of
+  // silently falling back to the offerings API's "league => adults" default,
+  // which is exactly the youth-mislabelled-as-adult bug this field guards
+  // against (see the audienceType comment below).
+  if (d.audience == null) {
+    throw new Error("draftToOfferingPayload: audience must be chosen before submitting");
+  }
+
   const slug = d.slug.trim() !== "" ? d.slug.trim() : slugify(d.name);
 
   const signupModes: ("individual" | "team")[] =
@@ -33,6 +43,10 @@ export function draftToOfferingPayload(
     sportId: ctx.sportId,
     name: d.name,
     slug,
+    // Explicit, so a youth league is not caught by the offerings API's
+    // "league => adults" fallback (offerings.ts:100). That fallback is what
+    // made youth leagues render "per player" instead of "per kid".
+    audienceType: d.audience === "adult" ? "adults" : "parents",
     season: {
       name: d.name,
       slug,

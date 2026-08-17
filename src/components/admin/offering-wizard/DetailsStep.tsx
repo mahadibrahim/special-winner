@@ -2,6 +2,9 @@
 import { offeringFieldShown, type OfferingType } from "@/lib/admin/offering-types";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { genderOptionsFor, levelOptionsFor } from "@/lib/leagues/division-filters";
+import type { Audience } from "@/lib/programs/derive";
 
 export interface OfferingDraft {
   name: string; slug: string; startDate: string; endDate: string;
@@ -9,6 +12,11 @@ export interface OfferingDraft {
   fullDayPrice: string; halfDayPrice: string; individualPrice: string; teamPrice: string;
   minAge: string; maxAge: string; capacity: string; deposit: string;
   divisionGender: string; skillLevel: string;
+  // Null until the admin actively picks one on step 1 (TypeStep) — no
+  // pre-selection, so an admin who doesn't notice the toggle can't silently
+  // mislabel an adult league as youth. OfferingWizard gates its "Next"
+  // button on this being non-null before DetailsStep ever renders.
+  audience: Audience | null;
 }
 
 export function DetailsStep({
@@ -20,8 +28,18 @@ export function DetailsStep({
   value: OfferingDraft;
   onChange: (d: OfferingDraft) => void;
 }) {
-  const set = (k: keyof OfferingDraft, v: string) => onChange({ ...value, [k]: v });
+  // Excludes "audience" — it's not a free-text field and has no business
+  // going through this string setter (see finding H: `set("audience", "boys")`
+  // used to compile). Audience is chosen exclusively via TypeStep's buttons.
+  const set = (k: Exclude<keyof OfferingDraft, "audience">, v: string) => onChange({ ...value, [k]: v });
   const show = (key: Parameters<typeof offeringFieldShown>[1]) => offeringFieldShown(type, key);
+
+  // Unreachable in practice: OfferingWizard only renders DetailsStep once
+  // step 1's Next button has been enabled, which requires draft.audience to
+  // be chosen. Guarding here instead of threading `Audience | null` through
+  // genderOptionsFor/levelOptionsFor below keeps this component's own logic
+  // simple and gives TypeScript a real narrowing point.
+  if (!value.audience) return null;
 
   return (
     <div className="space-y-4">
@@ -97,11 +115,32 @@ export function DetailsStep({
 
       {show("divisions") && (
         <div className="grid grid-cols-2 gap-4">
+          {/* Both of these were free-text boxes. The season schema validates
+              them as enums, so any typo'd value came back as an opaque 400 on
+              the final step — pick from the list instead. */}
           <Field id="divisionGender" label="Division (gender)">
-            <Input id="divisionGender" value={value.divisionGender} onChange={(e) => set("divisionGender", e.target.value)} placeholder="coed / mens / womens" />
+            <Select value={value.divisionGender || "none"}
+              onValueChange={(v) => set("divisionGender", v === "none" ? "" : v)}>
+              <SelectTrigger id="divisionGender"><SelectValue placeholder="—" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">—</SelectItem>
+                {genderOptionsFor(value.audience, value.divisionGender).map((o) => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </Field>
           <Field id="skillLevel" label="Skill level">
-            <Input id="skillLevel" value={value.skillLevel} onChange={(e) => set("skillLevel", e.target.value)} placeholder="a / b / c / d / open" />
+            <Select value={value.skillLevel || "none"}
+              onValueChange={(v) => set("skillLevel", v === "none" ? "" : v)}>
+              <SelectTrigger id="skillLevel"><SelectValue placeholder="—" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">—</SelectItem>
+                {levelOptionsFor(value.audience, value.skillLevel).map((o) => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </Field>
         </div>
       )}

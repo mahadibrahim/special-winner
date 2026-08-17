@@ -1,6 +1,8 @@
+import { DIVISION_GENDER_LABEL } from "@/lib/leagues/division-filters"
+
 export interface FinderSeason {
   id: string
-  divisionGender: string | null   // 'coed' | 'mens' | 'womens'
+  divisionGender: string | null   // DivisionGender; see lib/leagues/division-filters
   dayOfWeek: string | null         // 'mon'..'sun'
   location: { slug: string; name: string }
   skillLevel: string | null        // 'a' | 'b' | 'c' | 'd' | 'open' | null
@@ -27,9 +29,7 @@ export interface FinderFilters {
 
 export interface Chip { value: string; label: string }
 
-const DIVISION_LABELS: Record<string, string> = {
-  coed: "Coed", mens: "Men's", womens: "Women's",
-}
+const DIVISION_LABELS = DIVISION_GENDER_LABEL as Record<string, string>
 
 export const NIGHT_LABELS: Record<string, string> = {
   mon: "Mon", tue: "Tue", wed: "Wed", thu: "Thu", fri: "Fri", sat: "Sat", sun: "Sun",

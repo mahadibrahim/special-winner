@@ -27,6 +27,12 @@ import { toTimeInputValue } from "@/lib/time/time-of-day"
 import { useConfirmDialog } from "@/components/ui/confirm-dialog"
 import { formatDateOnly, formatTimeWindow } from "@/lib/time/format-date"
 import { DAY_KEYS, DAY_LABELS, type DayKey } from "@/lib/programs/derive"
+import {
+  genderOptionsFor,
+  levelOptionsFor,
+  type DivisionGender,
+} from "@/lib/leagues/division-filters"
+import { audienceForProgram } from "@/lib/programs/derive"
 
 interface Season {
   id: string
@@ -48,8 +54,12 @@ interface Season {
   scheduleNotes: string | null
   termSlug?: string | null
   termLabel?: string | null
-  divisionGender?: "coed" | "mens" | "womens" | null
-  skillLevel?: "a" | "b" | "c" | "d" | "open" | null
+  divisionGender?: DivisionGender | null
+  // Widened from the adult-only "a"|"b"|"c"|"d"|"open" union: this column
+  // also holds youth values (competitive_a, developmental, ...) — see
+  // division-filters.ts. Inert today (no youth-specific rendering here yet),
+  // but the type shouldn't contradict what the DB column actually stores.
+  skillLevel?: string | null
   dayOfWeek?: "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun" | null
   startTime?: string | null
   endTime?: string | null
@@ -71,6 +81,7 @@ interface Season {
 interface Program {
   id: string
   name: string
+  audienceType: string
   sport: { id: string; name: string; icon: string | null }
   location: { id: string; name: string }
 }
@@ -278,6 +289,14 @@ export function SeasonsList() {
     startTime: "",
     endTime: "",
   })
+
+  // Vocabulary follows the program the season belongs to. Reading it from the
+  // picker (not from the season row) means switching programs mid-dialog swaps
+  // both dropdowns immediately, and it works on the create path where there is
+  // no season row yet.
+  const formAudience = audienceForProgram(
+    programs.find((p) => p.id === formData.programId)?.audienceType,
+  )
 
   useEffect(() => {
     fetchData()
@@ -1371,9 +1390,9 @@ export function SeasonsList() {
                       <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">—</SelectItem>
-                        <SelectItem value="coed">Coed</SelectItem>
-                        <SelectItem value="mens">Men's</SelectItem>
-                        <SelectItem value="womens">Women's</SelectItem>
+                        {genderOptionsFor(formAudience, formData.divisionGender).map((o) => (
+                          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -1384,11 +1403,9 @@ export function SeasonsList() {
                       <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">—</SelectItem>
-                        <SelectItem value="a">A · Elite</SelectItem>
-                        <SelectItem value="b">B · Competitive</SelectItem>
-                        <SelectItem value="c">C · Rec+</SelectItem>
-                        <SelectItem value="d">D · Beginner</SelectItem>
-                        <SelectItem value="open">Open</SelectItem>
+                        {levelOptionsFor(formAudience, formData.skillLevel).map((o) => (
+                          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>

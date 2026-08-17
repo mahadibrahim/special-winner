@@ -11,6 +11,10 @@ const EMPTY: OfferingDraft = {
   name: "", slug: "", startDate: "", endDate: "", dailyStartTime: "", dailyEndTime: "",
   fullDayPrice: "", halfDayPrice: "", individualPrice: "", teamPrice: "",
   minAge: "", maxAge: "", capacity: "", deposit: "", divisionGender: "", skillLevel: "",
+  // No pre-selection — the admin must actively choose. Defaulting to "youth"
+  // silently mislabelled adult leagues created by an admin who didn't notice
+  // the toggle.
+  audience: null,
 };
 
 export function OfferingWizard({
@@ -58,8 +62,13 @@ export function OfferingWizard({
       {step === 1 && (
         <>
           <h2 className="font-display text-2xl">What are you creating?</h2>
-          <TypeStep value={type} onSelect={setType} />
-          <Button disabled={!type} onClick={() => setStep(2)}>Next</Button>
+          <TypeStep
+            value={type}
+            audience={draft.audience}
+            onSelect={setType}
+            onAudience={(a) => setDraft((d) => ({ ...d, audience: a }))}
+          />
+          <Button disabled={!type || !draft.audience} onClick={() => setStep(2)}>Next</Button>
         </>
       )}
 
