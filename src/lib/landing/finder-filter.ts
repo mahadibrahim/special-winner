@@ -9,6 +9,9 @@ export interface FinderFilterDetail {
   /** Optional location slug (e.g. "worthington" | "downtown"). SoccerOne hero
    *  launchpad sets this; finders that don't filter by location ignore it. */
   location?: string
+  /** Optional youth age-group label (e.g. "U10"), set by the age ladder.
+   *  Finders that don't filter by age group ignore it. */
+  ageGroup?: string
 }
 
 let pending: FinderFilterDetail | null = null
