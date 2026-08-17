@@ -10,15 +10,19 @@ import SeasonCalendarBand, { type CalendarTermConfig } from "@/components/landin
 import LandingFaq, { type LandingFaqItem } from "@/components/landing/landing-faq.tsx"
 import CTABanner from "@/components/cta-banner"
 import type { HeroTile } from "@/lib/landing/hero-tiles"
+import { sportColor } from "@/lib/design/sport-colors"
 import { setMarketingEdgeCache } from "@/lib/http/edge-cache"
 
+// This page is the SPORT PICKER for youth leagues — each live tile is a link
+// to that sport's own page, mirroring how adult splits soccer and flag
+// football. Tile colours come from the shared sport palette rather than inline
+// literals, so a sport is the same colour on its tile and on its cards.
 const tiles: HeroTile[] = [
-  // fallbackHref: when the finder has no seasons the Soccer tile navigates to
-  // the full catalog instead of scroll-filtering an empty grid (also the
-  // no-JS path). With inventory present it scroll-filters as before.
-  { label: "Soccer", key: "soccer", state: "live", statusLabel: "● Now enrolling", meta: "Season leagues", color: "oklch(0.66 0.21 35)", href: "/youth/leagues/soccer", fallbackHref: "/youth/leagues/soccer" },
+  { label: "Soccer", key: "soccer", state: "live", statusLabel: "● Now enrolling", meta: "Season leagues",
+    color: sportColor({ slug: "soccer" }), href: "/youth/leagues/soccer", fallbackHref: "/youth/leagues/soccer" },
+  { label: "Futsal", key: "futsal", state: "live", statusLabel: "● Now enrolling", meta: "Indoor, small-sided",
+    color: sportColor({ slug: "futsal" }), href: "/youth/leagues/futsal", fallbackHref: "/youth/leagues/futsal" },
   { label: "Basketball", key: "basketball", state: "coming_soon", statusLabel: "Coming soon", meta: "Interested? Notify me" },
-  { label: "Multi-sport", key: "multi-sport", state: "coming_soon", statusLabel: "Coming soon", meta: "Interested? Notify me" },
 ]
 setMarketingEdgeCache(Astro);
 

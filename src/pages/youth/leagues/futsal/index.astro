@@ -1,6 +1,14 @@
 ---
-// Youth soccer league landing page. Everything structural lives in
-// YouthSportLeaguePage — this file is the sport's identity and nothing else.
+// Youth futsal league landing page.
+//
+// Futsal was previously mixed into the soccer page's inventory — production
+// showed "Soccer 20 / Futsal 3" on a page titled Youth Soccer. It is its own
+// sport with its own slug, so it gets its own page; the shared
+// YouthSportLeaguePage supplies everything structural.
+//
+// Deliberately makes no claims about how futsal differs from soccer (court
+// size, ball, roster). Those are per-season facts we do not model, and the
+// project's standing rule is no format claims — see the youth leagues spec.
 import BaseLayout from "@/layouts/BaseLayout.astro"
 import YouthSportLeaguePage from "@/components/youth/youth-sport-league-page.astro"
 import { breadcrumbJsonLd } from "@/lib/seo/breadcrumbs"
@@ -11,7 +19,7 @@ const breadcrumbSchema = breadcrumbJsonLd([
   { name: "Home", url: `${ORIGIN}/` },
   { name: "Youth", url: `${ORIGIN}/youth` },
   { name: "Youth Leagues", url: `${ORIGIN}/youth/leagues` },
-  { name: "Soccer", url: `${ORIGIN}/youth/leagues/soccer` },
+  { name: "Futsal", url: `${ORIGIN}/youth/leagues/futsal` },
 ])
 const faqSchema = {
   "@context": "https://schema.org",
@@ -25,18 +33,18 @@ const faqSchema = {
 ---
 
 <BaseLayout
-  title="Youth Soccer Leagues — Aspire Sports"
-  description="Youth soccer leagues in Columbus and central Ohio, U6 through U19. Find your kid's age group for the 2026–27 season and register."
+  title="Youth Futsal Leagues — Aspire Sports"
+  description="Youth futsal leagues in Columbus and central Ohio. Find your kid's age group for the 2026–27 season and register."
 >
   <Fragment slot="head">
-    <link rel="canonical" href={`${Astro.url.origin}/youth/leagues/soccer`} />
+    <link rel="canonical" href={`${Astro.url.origin}/youth/leagues/futsal`} />
     <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbSchema)} />
     <script type="application/ld+json" is:inline set:html={JSON.stringify(faqSchema)} />
   </Fragment>
 
   <YouthSportLeaguePage
-    sportSlug="soccer"
-    heroTitle="Youth soccer"
-    heroSubhead="Every age group from U6 to U19, on boarded turf in central Ohio. Find your kid's group and see what's open."
+    sportSlug="futsal"
+    heroTitle="Youth futsal"
+    heroSubhead="Indoor futsal by age group, on boarded turf in central Ohio. Find your kid's group and see what's open."
   />
 </BaseLayout>
