@@ -6,20 +6,24 @@ Grouped by when it has to be dealt with.
 
 ## Opened by the merge with `main` (#550, season audience vocabulary)
 
-**0. Youth leagues now have a level vocabulary this branch does not surface.**
-`#550` added `YOUTH_LEVELS = ["competitive_a", "competitive_b", "developmental",
-"recreational"]` to `division-filters.ts`, with `skillLevelShort`/`skillLevelBadge`
-rendering them. This branch's youth term page passes `showLevels={false}`
-(`youth/leagues/soccer/[term].astro`) — correct at the time, because `LevelLadder`
-renders the *adult* A/B/C/D tiers from `adult-soccer-content.ts` and showing those to
-a parent was the defect being fixed. But it now means youth level information is
-hidden entirely even though a real youth vocabulary exists.
+**0. Youth level ladder — DONE.** `#550` added `YOUTH_LEVELS = ["competitive_a",
+"competitive_b", "developmental", "recreational"]`, which this branch initially did
+not surface (the youth term page passed `showLevels={false}`, correct at the time
+because `LevelLadder` rendered adult A/B/C/D tiers to parents). Now shipped:
+`src/lib/leagues/youth-soccer-content.ts` adds parent-facing descriptions on top of
+the shared vocabulary, `LevelLadder` takes an `audience` prop, and the youth term
+page turns levels back on.
 
-The proper fix is a youth `LevelLadder` variant driven by `YOUTH_LEVELS`, then
-turning `showLevels` back on for youth. Until then a parent cannot tell a
-Competitive A division from a Recreational one on the term page. **This is the
-highest-value follow-up in this document** — it is the other half of the leveling
-explanation the whole redesign was commissioned to fix.
+Deliberately **not** a ranked ladder: Competitive A/B are a pair, Developmental and
+Recreational are alternative tracks, so youth renders flat bars and a label-led card
+rather than the adult 4→1 rating. Ranking them would tell a Recreational parent
+their kid is rated 1 of 4. `tests/unit/youth-soccer-levels.test.ts` pins that —
+including a guard that fails if a `bars` field ever reappears on a youth level.
+
+**The four descriptions are authored, not owner-approved.** They make no format,
+price or season-length claim (a test enforces that), but the Director of Coaching
+should confirm the wording before the first youth season publishes — same gate as
+the pathway stage names below.
 
 Merge resolution note: this branch's duplicate gender vocabulary (`GENDER_LABEL`,
 `ADULT_GENDER_CHIPS`/`YOUTH_GENDER_CHIPS` built by hand) was collapsed onto `#550`'s
