@@ -1,0 +1,47 @@
+---
+// "How we coach" — Saad Abdul-Salaam and the method. One component because the
+// owner wants the coaching story prominent on the hub, classes AND camps, and
+// three inline copies of a bio with verified career facts would drift.
+//
+// Copy discipline (owner-directed): the philosophy is the subject and he is
+// the evidence — no oppositional language about other clubs, and his club
+// history is stated as biography only, never implying any club endorses
+// Aspire. Content lives in landing-content.ts.
+import { COACH, SPORTS } from "@/lib/youth/landing-content"
+
+interface Props {
+  /** Section id for aria-labelledby uniqueness per page. */
+  headingId?: string
+}
+const { headingId = "youth-coach-h" } = Astro.props
+---
+
+<section class="bg-cream-2 px-6 sm:px-9 py-12 border-b border-border" aria-labelledby={headingId}>
+  <div class="max-w-[1080px] mx-auto">
+    <h2 id={headingId} class="font-display text-3xl text-ink tracking-tight">How we coach</h2>
+    <div class="mt-5 grid sm:grid-cols-[104px_1fr] gap-5 items-start max-w-[720px]">
+      {/* Placeholder block until a real photograph of Saad exists — the trust
+          slot needs one more than anything else on these pages. */}
+      <div class="w-[104px] h-[126px] rounded-lg bg-navy-deep" aria-hidden="true"></div>
+      <div>
+        <p class="text-[13.5px] text-ink-2 leading-relaxed">
+          <b class="text-ink font-semibold">{COACH.name}</b>, {COACH.role}{
+            SPORTS.length > 1 ? ` — ${COACH.sport}` : ""
+          }. {COACH.bio}
+        </p>
+        <dl class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border border border-border rounded-lg overflow-hidden mt-4">
+          {COACH.credits.map((c) => (
+            <div class="bg-paper px-3 py-2.5">
+              <dt class="sr-only">{c.label}</dt>
+              <dd>
+                <span class="block font-display text-[15px] text-ink leading-tight">{c.value}</span>
+                <span class="block text-[10.5px] text-ink-2 mt-1 leading-snug">{c.label}</span>
+              </dd>
+            </div>
+          ))}
+        </dl>
+        <p class="text-[13.5px] text-ink-2 leading-relaxed mt-4">{COACH.method}</p>
+      </div>
+    </div>
+  </div>
+</section>

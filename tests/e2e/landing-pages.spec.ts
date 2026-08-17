@@ -17,8 +17,10 @@ test.describe("Landing-page finders", () => {
   test("/youth — hub: hero + three category doors", async ({ page }) => {
     await page.goto("/youth", { waitUntil: "domcontentloaded" });
 
+    // Hero headline from the youth redesign (HERO.title in
+    // src/lib/youth/landing-content.ts) — update together.
     await expect(
-      page.getByRole("heading", { name: /look forward to/i }),
+      page.getByRole("heading", { name: /more time on the ball/i }),
     ).toBeVisible();
     for (const cta of ["youth-hub-leagues", "youth-hub-classes", "youth-hub-camps"]) {
       await expect(page.locator(`[data-landing-cta="${cta}"]`)).toBeVisible();

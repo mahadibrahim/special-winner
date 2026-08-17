@@ -31,6 +31,10 @@ import { onFinderFilter } from "@/lib/landing/finder-filter"
 interface CategoryFinderProps {
   audience: CategoryAudience
   programTypes: string[]
+  /** Restrict to one sport, by slug. Omit on category pages, which span every
+   *  sport; pass it on per-sport pages (/youth/leagues/soccer, …) or they show
+   *  every sport's inventory. */
+  sport?: string
   /** Section heading, e.g. "Open now". */
   title: string
   descriptor: string
@@ -44,6 +48,7 @@ interface CategoryFinderProps {
 export default function CategoryFinder({
   audience,
   programTypes,
+  sport,
   title,
   descriptor,
   ageChips = false,
@@ -92,8 +97,8 @@ export default function CategoryFinder({
 
   const scoped = useMemo(
     // scopeSeasons returns a fresh array (.filter), so in-place sort is safe.
-    () => scopeSeasons(seasons, audience, programTypes).sort(byRegistrationCloses),
-    [seasons, audience, programTypes],
+    () => scopeSeasons(seasons, audience, programTypes, sport).sort(byRegistrationCloses),
+    [seasons, audience, programTypes, sport],
   )
 
   const bandOptions: ChipOption[] = useMemo(

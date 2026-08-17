@@ -1,44 +1,86 @@
 ---
-// Youth classes — training and clinics, split out of /youth/leagues so each
-// nav item maps to one product. The Director of Coaching and the
-// developmental pathway land here in Phase 2.
+// Youth classes — the home of the training pathway. Where the league pages
+// are facts pages (which group, what's open, when, where), this page sells
+// coaching, because in a class the coaching IS the product. That split is an
+// explicit owner decision: the Director of Coaching is prominent here and on
+// camps, never on league surfaces.
+//
+// Copy rules (owner-directed): no eyebrow text, no format claims, no
+// oppositional language, facility not a selling point, pricing indicative
+// only. Pathway names are locked — see
+// docs/superpowers/specs/2026-08-17-youth-pathway-naming-decision.md.
 import BaseLayout from "@/layouts/BaseLayout.astro"
-import CategoryHero from "@/components/landing/category-hero.astro"
 import CategoryFinder from "@/components/landing/category-finder.tsx"
+import YouthCoachSection from "@/components/youth/youth-coach-section.astro"
 import CTABanner from "@/components/cta-banner"
-import type { HeroTile } from "@/lib/landing/hero-tiles"
+import { PATHWAY, AGE_SPAN } from "@/lib/youth/landing-content"
 import { setMarketingEdgeCache } from "@/lib/http/edge-cache"
 
-const tiles: HeroTile[] = [
-  { label: "Soccer", key: "soccer", state: "live", statusLabel: "● Now enrolling", meta: "Skills & clinics", color: "oklch(0.66 0.21 35)", fallbackHref: "/programs?audience=youth" },
-  { label: "Basketball", key: "basketball", state: "coming_soon", statusLabel: "Coming soon", meta: "Interested? Notify me" },
-  { label: "Multi-sport", key: "multi-sport", state: "coming_soon", statusLabel: "Coming soon", meta: "Interested? Notify me" },
-]
+const HERO_IMAGE = "/images/stock/team-huddle.jpg"
 setMarketingEdgeCache(Astro)
 ---
 
 <BaseLayout
-  title="Youth Classes & Clinics — Aspire Sports"
-  description="Youth soccer skills classes and clinics in Columbus and central Ohio. Skill-building without a season commitment."
+  title="Youth Classes — Aspire Sports"
+  description={`Youth training classes in Worthington and central Ohio, for ${AGE_SPAN}. Five steps, small groups, real coaching.`}
 >
   <Fragment slot="head">
     <link rel="canonical" href={`${Astro.url.origin}/youth/classes`} />
   </Fragment>
 
   <main id="main-content" class="flex-1">
-    <CategoryHero
-      title="Youth classes & clinics."
-      subhead="Skill-building without a season commitment. Filter by your kid's age and go."
-      videoSources={[
-        "https://videos.pexels.com/video-files/6077723/6077723-hd_1920_1080_25fps.mp4",
-        "https://videos.pexels.com/video-files/6077723/6077723-sd_640_360_25fps.mp4",
-      ]}
-      poster="https://images.unsplash.com/photo-1543326727-cf6c39e8f84c?auto=format&fit=crop&w=1600&q=60"
-      tiles={tiles}
-      finderId="youth-classes"
-      crosslink={{ prompt: "Looking for a season instead?", href: "/youth/leagues", label: "Youth leagues →" }}
-    />
+    <section class="relative text-cream px-6 sm:px-9 py-20 overflow-hidden bg-navy-deep">
+      <div class="graded graded--emerald graded--fill z-0" aria-hidden="true">
+        <img src={HERO_IMAGE} alt="" />
+      </div>
+      <div class="relative z-10 max-w-[1080px] mx-auto">
+        <h1 class="font-display font-semibold tracking-tight" style="font-size:clamp(2.4rem,6vw,3.6rem);line-height:1">
+          Training, one<br />step at a time.
+        </h1>
+        <p class="mt-4 text-base text-cream/90 max-w-[480px] leading-relaxed">
+          Weeknight classes in small groups, from {AGE_SPAN}. Every kid enters
+          where they are and moves up when they&rsquo;re ready — on their
+          coach&rsquo;s word, not a tryout&rsquo;s.
+        </p>
+        <p class="mt-5 text-sm text-cream/75">
+          Looking for a season instead?
+          <a href="/youth/leagues" class="underline underline-offset-2 hover:text-cream transition-colors">Youth leagues →</a>
+        </p>
+      </div>
+    </section>
 
+    {/* ---------- The pathway — five locked steps -------------------------- */}
+    <section class="px-6 sm:px-9 py-12 border-b border-border" aria-labelledby="youth-pathway-h">
+      <div class="max-w-[1080px] mx-auto">
+        <h2 id="youth-pathway-h" class="font-display text-3xl text-ink tracking-tight">
+          The <em class="italic">pathway.</em>
+        </h2>
+        <p class="text-[13.5px] text-ink-2 leading-relaxed mt-2 max-w-[520px]">
+          Five steps. The first four are age groups; the fifth is an invitation.
+        </p>
+        <ol class="mt-6 grid gap-2.5" role="list">
+          {PATHWAY.map((step, i) => (
+            <li
+              class={`rounded-xl border p-5 sm:grid sm:grid-cols-[220px_1fr] sm:gap-6 sm:items-baseline ${
+                i === PATHWAY.length - 1
+                  ? "border-emerald-700 bg-cream-2"
+                  : "border-border bg-paper"
+              }`}
+            >
+              <div>
+                <h3 class="font-display text-xl text-ink">{step.name}</h3>
+                <p class="font-mono text-[10.5px] tracking-widest uppercase text-ink-2 mt-1">{step.ages}</p>
+              </div>
+              <p class="text-[13px] text-ink-2 leading-relaxed mt-2 sm:mt-0">{step.blurb}</p>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </section>
+
+    <YouthCoachSection headingId="classes-coach-h" />
+
+    {/* ---------- What's open ---------------------------------------------- */}
     <CategoryFinder
       client:load
       audience="youth"

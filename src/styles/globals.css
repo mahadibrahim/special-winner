@@ -427,6 +427,21 @@
   position: relative;
   overflow: hidden;
 }
+/* Fill variant — use the grade as a background layer behind hero content:
+     <section class="relative">
+       <div class="graded graded--emerald graded--fill"><img …></div>
+       <div class="relative z-10">…content…</div>
+     </section>
+   This modifier exists because `.graded` is unlayered CSS and therefore beats
+   Tailwind's `.absolute` utility (Tailwind v4 emits utilities inside a cascade
+   layer, and unlayered rules always win). Without it, adding `absolute inset-0`
+   in the class list silently does nothing, the container keeps `position:
+   relative` with auto height, and `.graded > img { height: 100% }` resolves to
+   zero — the image renders at 0px with no error. */
+.graded--fill {
+  position: absolute;
+  inset: 0;
+}
 .graded > img {
   width: 100%;
   height: 100%;

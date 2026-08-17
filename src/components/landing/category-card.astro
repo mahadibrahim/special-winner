@@ -12,7 +12,7 @@ import TileFactsLine from "@/components/landing/tile-facts-line"
 interface Props {
   href: string
   cta: string                 // analytics id, e.g. "adult-hub-leagues"
-  palette: "leagues" | "pickup" | "tournaments" | "youth-a" | "youth-b"
+  palette: "leagues" | "pickup" | "tournaments" | "youth-a" | "youth-b" | "youth-c"
   title: string
   blurb: string
   statusLabel: string
@@ -71,6 +71,13 @@ const { href, cta, palette, title, blurb, statusLabel, live = false, ctaLabel, f
     radial-gradient(60% 60% at 25% 20%, oklch(0.82 0.17 85), transparent 60%),
     radial-gradient(70% 70% at 78% 80%, oklch(0.7 0.19 55), transparent 60%),
     linear-gradient(135deg, oklch(0.76 0.18 70), oklch(0.58 0.16 45)); }
+  /* Third youth palette — the hub runs three doors (leagues, classes, camps)
+     and two palettes meant one colour repeated. Teal sits between youth-a's
+     emerald and the navy ground so the three read as one family. */
+  .door-youth-c .aurora { background:
+    radial-gradient(60% 60% at 24% 22%, oklch(0.76 0.14 195), transparent 60%),
+    radial-gradient(70% 70% at 80% 78%, oklch(0.58 0.15 215), transparent 60%),
+    linear-gradient(135deg, oklch(0.66 0.14 200), oklch(0.46 0.13 220)); }
 
   @keyframes drift {
     0% { transform: translate(0,0) scale(1.05); }

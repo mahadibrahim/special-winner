@@ -294,3 +294,55 @@ surfaces; marketing pages may run all three accents.
 | pickup-game.jpg | photo-1551958219-acbc608c6377 |
 | youth-training.jpg | photo-1606925797300-0b35e9d1794e |
 | team-huddle.jpg | photo-1529900748604-07564a03e7a6 |
+
+## Sport color & youth surfaces (2026-08-17 — youth redesign)
+
+### Sport palette
+
+Sport tint answers "which game"; the accent roles above answer "who it's for".
+They are different axes and a surface may carry both. One source:
+
+- `sportColor(sport)` from `src/lib/design/sport-colors.ts` — resolves
+  `sports.color` (admin-set hex, wins) → `SPORT_FALLBACK_COLORS[slug]` →
+  neutral grey. Used by `CardShell` media bands (via `ProgramCardV2`) and the
+  league sport-picker hero tiles.
+- Never inline a sport's color as an `oklch()`/hex literal in a page. That is
+  how the same sport ended up different colors on a card and the tile above it.
+- Futsal deliberately sits adjacent to soccer in hue — sibling sports should
+  read as related.
+
+### Youth marketing surfaces — rules applied
+
+- Every accent is **emerald** (the youth role). Adult's orange belongs only on
+  adult surfaces.
+- Heroes use the graded photo treatment (`.graded--emerald`), never raw photos
+  and never flat navy voids.
+- `CategoryCard` has three youth aurora palettes (`youth-a` emerald, `youth-b`
+  amber, `youth-c` teal) so the hub's three doors never repeat a color.
+- Copy rules (owner-directed, enforced by an E2E spec on format claims): no
+  eyebrow/kicker text above headlines, no format claims (roster sizes, ball
+  sizes, field dimensions, game lengths), no oppositional language about other
+  clubs, the facility is not a selling point, pricing indicative on hub pages
+  with exact figures on programme pages.
+
+### `.graded--fill`
+
+`.graded` is unlayered CSS, and Tailwind v4 emits utilities inside a cascade
+layer — so unlayered rules always beat utilities. `position: relative` on
+`.graded` therefore silently defeats `class="absolute inset-0"`, the container
+keeps auto height, and `.graded > img { height: 100% }` resolves to **zero**:
+the image renders at 0px with no error. Use the `graded--fill` modifier to
+deploy the grade as a hero background layer:
+
+```html
+<section class="relative bg-navy-deep overflow-hidden">
+  <div class="graded graded--emerald graded--fill z-0" aria-hidden="true">
+    <img src="..." alt="" />
+  </div>
+  <div class="relative z-10">…content…</div>
+</section>
+```
+
+The `bg-navy-deep` on the section is the fallback ground so cream text never
+lands on cream if the photo is missing. General lesson: if a Tailwind utility
+appears to do nothing, check for a bare class rule in `globals.css`.

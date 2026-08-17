@@ -1,0 +1,266 @@
+---
+// Shared body for every youth sport league landing page (/youth/leagues/<sport>).
+//
+// Soccer and futsal differ only in slug, display name and hero copy — the age
+// ladder, finder, calendar, venues and FAQs are identical, because they are
+// about the age-group system and Aspire's policies rather than about a sport.
+// Adding a sport should be a thin page that passes props, not another 250-line
+// copy that drifts.
+//
+// The ladder is the only permanent content: the offers underneath rotate by
+// term (club-entry in winter, developmental the rest of the year), so these
+// pages are *about* the age structure, not about any one season.
+//
+// No Director of Coaching and no developmental pathway here — those live on
+// classes/camps, where coaching is the product being bought.
+// See docs/superpowers/specs/2026-08-16-youth-leagues-redesign-design.md
+import AgeGroupLadder from "@/components/youth/age-group-ladder.astro"
+import CategoryFinder from "@/components/landing/category-finder.tsx"
+import SeasonCalendarBand, { type CalendarTermConfig } from "@/components/landing/season-calendar-band.tsx"
+import LandingFaq, { type LandingFaqItem } from "@/components/landing/landing-faq.tsx"
+import CTABanner from "@/components/cta-banner"
+import { getVenueFacts, VENUE_SLUGS } from "@/lib/locations/venue-facts"
+import { partitionTerms, type TermSeason } from "@/lib/leagues/terms"
+import { filterYouthSeasons } from "@/lib/leagues/youth-seasons"
+import { setMarketingEdgeCache } from "@/lib/http/edge-cache"
+import {
+  YOUTH_LEAGUE_FAQS, YOUTH_CALENDAR_TERMS, VENUE_DISPLAY_NAMES,
+} from "@/lib/leagues/youth-league-content"
+import { LEAGUE_KINDS } from "@/lib/youth/landing-content"
+
+interface Props {
+  /** Sport slug as stored on `sports.slug` — scopes every catalog read. */
+  sportSlug: string
+  /** First line of the hero, e.g. "Youth soccer". */
+  heroTitle: string
+  heroSubhead: string
+  faqs?: LandingFaqItem[]
+  calendarTerms?: CalendarTermConfig[]
+}
+const {
+  sportSlug,
+  heroTitle,
+  heroSubhead,
+  faqs = YOUTH_LEAGUE_FAQS,
+  calendarTerms = YOUTH_CALENDAR_TERMS,
+} = Astro.props
+
+const FINDER_ID = `youth-${sportSlug}-divisions`
+const basePath = `/youth/leagues/${sportSlug}`
+
+// ---- Current term -> the only crawlable entry to <basePath>/<term>
+// The finder cards below link straight to /register/<id>, and the calendar
+// band only anchors in-page, so without this banner the term page, every
+// division page under it, their Event JSON-LD and the completed-term archive
+// are reachable only by typing the URL. Same server-rendered <a> the adult
+// twin uses. Islands can't do this job: they render nothing into the HTML.
+const origin = Astro.url.origin
+const cookie = Astro.request.headers.get("cookie") ?? ""
+let currentTerm: { slug: string; label: string } | null = null
+// Upcoming (forming) and completed terms get server-rendered links below —
+// the crawlable function of the adult page's season tabs without the tab
+// chrome. Without them a forming term and the standings archives are
+// reachable only by typing the URL (the banner covers current only).
+let upcomingTerms: { slug: string; label: string }[] = []
+let pastTerms: { slug: string; label: string }[] = []
+let catalogOk = false
+try {
+  // Live + completed, mirroring the term page: completed terms are the
+  // permanent standings archive and deserve inbound links.
+  const [liveRes, doneRes] = await Promise.all([
+    fetch(`${origin}/api/public/seasons?sport=${sportSlug}&audience=youth`, { headers: { cookie } }),
+    fetch(`${origin}/api/public/seasons?sport=${sportSlug}&audience=youth&status=completed`, { headers: { cookie } }),
+  ])
+  catalogOk = liveRes.ok
+  const liveRows: any[] = liveRes.ok ? ((await liveRes.json()).seasons ?? []) : []
+  const doneRows: any[] = doneRes.ok ? ((await doneRes.json()).seasons ?? []) : []
+  const termSeasons: TermSeason[] = filterYouthSeasons([...liveRows, ...doneRows])
+    .filter((s) => s.termSlug)
+    .map((s) => ({
+      id: s.id,
+      termSlug: s.termSlug,
+      termLabel: s.termLabel,
+      status: s.status,
+      startDate: s.startDate,
+    }))
+  const { current, upcoming, past } = partitionTerms(termSeasons)
+  // No open/active term -> render nothing. A banner with no destination is
+  // worse than no banner, and for a newly-launched sport it is the normal state.
+  if (current) currentTerm = { slug: current.slug, label: current.label }
+  upcomingTerms = upcoming.map((t) => ({ slug: t.slug, label: t.label }))
+  pastTerms = past.map((t) => ({ slug: t.slug, label: t.label }))
+} catch {
+  // A catalog blip must not 500 the page — the ladder, FAQs and venue cards
+  // are static and still worth serving. Falls through with no banner.
+}
+
+// Brand-graded hero. Marketing photography never appears raw — the emerald
+// grade is the youth variant (docs/design-system.md "Graded imagery"). A
+// different image from the hub's so the two pages don't read as one repeated.
+const HERO_IMAGE = "/images/stock/five-aside-turf.jpg"
+
+// Which venues render is derived from `offerings.youth`, never a hardcoded
+// list, so this stays correct when a venue's youth status changes.
+const venueSlugs = VENUE_SLUGS.filter((slug) => getVenueFacts(slug)?.offerings.youth)
+
+// Last statement, per setMarketingEdgeCache's contract: only opt into edge
+// caching once the catalog fetch succeeded, so a transient failure (which
+// suppresses the banner) is never the response that gets cached and served.
+if (catalogOk) setMarketingEdgeCache(Astro)
+---
+
+<main id="main-content" class="flex-1">
+  <section class="relative text-cream pt-16 px-9 pb-10 bg-navy-deep overflow-hidden">
+    <div class="graded graded--emerald graded--fill z-0" aria-hidden="true">
+      <img src={HERO_IMAGE} alt="" />
+    </div>
+    <div class="relative z-10 max-w-[1080px] mx-auto">
+      {currentTerm && (
+        <a
+          href={`${basePath}/${currentTerm.slug}`}
+          class="flex items-center justify-between gap-3 bg-primary text-cream rounded-lg px-4 py-3 mb-5"
+          data-testid="now-registering"
+          data-hero-banner-cta
+          data-term={currentTerm.slug}
+        >
+          <span>
+            <span class="font-mono text-[10px] tracking-widest uppercase opacity-85">● Now Registering</span><br />
+            <span class="font-display font-semibold text-lg">{currentTerm.label} &middot; registration open</span>
+          </span>
+          <span class="font-mono text-[11px] tracking-wider uppercase bg-cream text-primary px-3 py-2 rounded">See divisions &rarr;</span>
+        </a>
+      )}
+      <h1 class="font-display font-semibold tracking-tight" style="font-size:clamp(2.5rem,6vw,4rem);line-height:.95">
+        {heroTitle}<br />at Aspire.
+      </h1>
+      <p class="mt-3 text-base text-cream/90 max-w-[520px]">{heroSubhead}</p>
+    </div>
+  </section>
+
+  <AgeGroupLadder finderId={FINDER_ID} sportKey={sportSlug} />
+
+  <CategoryFinder
+    client:load
+    audience="youth"
+    programTypes={["league"]}
+    sport={sportSlug}
+    title="Open now"
+    descriptor="Pick an age group above to filter, or browse everything open."
+    sectionId={FINDER_ID}
+  />
+
+  {/* Two kinds of season — the winter/developmental split, shared verbatim
+      with the hub so the two never drift. Winter is club teams keeping their
+      season going; the rest of the year is developmental: touches and
+      guidance over the scoreline. */}
+  <section class="px-6 sm:px-9 py-12 border-t border-border" aria-labelledby={`youth-${sportSlug}-kinds`}>
+    <div class="max-w-[1080px] mx-auto">
+      <h2 id={`youth-${sportSlug}-kinds`} class="font-display text-3xl text-ink tracking-tight">
+        Two kinds of <em class="italic">season.</em>
+      </h2>
+      <p class="text-[13.5px] text-ink-2 leading-relaxed mt-2 max-w-[520px]">
+        Depending on the time of year and what your player needs.
+      </p>
+      <div class="grid md:grid-cols-2 gap-3 mt-6">
+        {LEAGUE_KINDS.map((k) => (
+          <div class="rounded-xl border border-border bg-paper p-5">
+            <p class="font-mono text-[10px] tracking-widest uppercase text-ink-2">{k.when}</p>
+            <h3 class="font-display text-xl text-ink mt-1.5">{k.name}</h3>
+            <p class="text-[13px] text-ink-2 leading-relaxed mt-2">{k.body}</p>
+            <dl class="flex gap-6 mt-4 pt-3 border-t border-cream-2 text-[12px]">
+              {k.facts.map((f) => (
+                <div>
+                  <dt class="text-ink-2">{f.label}</dt>
+                  <dd class="text-ink font-semibold mt-0.5">{f.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  {/* Server-rendered term links — the crawlable function of the adult page's
+      season tabs. The hero banner covers the current term only; forming terms
+      and completed standings archives need inbound links too, or they exist
+      only for visitors who type the URL. */}
+  {(upcomingTerms.length > 0 || pastTerms.length > 0 || currentTerm) && (
+    <section class="px-6 sm:px-9 py-10 border-t border-border" aria-labelledby={`youth-${sportSlug}-seasons`}>
+      <div class="max-w-[1080px] mx-auto">
+        <h2 id={`youth-${sportSlug}-seasons`} class="font-display text-2xl text-ink tracking-tight mb-4">All seasons</h2>
+        <ul class="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2 text-[14px]">
+          {currentTerm && (
+            <li>
+              <a href={`${basePath}/${currentTerm.slug}`} class="text-ink hover:text-primary font-semibold">
+                {currentTerm.label} <span class="font-mono text-[9.5px] tracking-widest uppercase text-primary ml-1">Open now</span>
+              </a>
+            </li>
+          )}
+          {upcomingTerms.map((t) => (
+            <li>
+              <a href={`${basePath}/${t.slug}`} class="text-ink-2 hover:text-primary">
+                {t.label} <span class="font-mono text-[9.5px] tracking-widest uppercase text-ink-2 ml-1">Coming up</span>
+              </a>
+            </li>
+          ))}
+          {pastTerms.map((t) => (
+            <li>
+              <a href={`${basePath}/${t.slug}`} class="text-ink-2 hover:text-primary">
+                {t.label} <span class="font-mono text-[9.5px] tracking-widest uppercase text-ink-2 ml-1">Final standings</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  )}
+
+  <SeasonCalendarBand
+    client:visible
+    audience="youth"
+    programTypes={["league"]}
+    pageKey={`youth-${sportSlug}`}
+    cardsSectionId={FINDER_ID}
+    heading="The season calendar."
+    descriptor="Seasons run back-to-back all year — leave your email and you'll hear the moment the next one opens."
+    futureTerms={calendarTerms}
+  />
+
+  <section class="bg-cream-2 border-t border-ink/10 py-14 px-6" aria-label="Where you'll play">
+    <div class="max-w-[1080px] mx-auto">
+      <h2 class="font-display text-3xl text-ink mb-6">Where you'll play</h2>
+      <div class="grid gap-5 md:grid-cols-2">
+        {venueSlugs.map((slug) => {
+          const vf = getVenueFacts(slug)
+          return vf ? (
+            <a href={`/locations/${slug}`} class="group rounded-2xl border border-border bg-paper overflow-hidden flex flex-col sm:flex-row">
+              {vf.photos[0] && (
+                <img src={vf.photos[0].src} alt={vf.photos[0].alt} loading="lazy" class="sm:w-44 h-32 sm:h-auto object-cover" />
+              )}
+              <div class="p-5">
+                <div class="font-display text-xl text-ink group-hover:text-primary">{VENUE_DISPLAY_NAMES[slug] ?? slug}</div>
+                <p class="text-[13px] text-ink-2 mt-1 max-w-sm">{vf.tagline}</p>
+                <span class="inline-block text-xs font-semibold text-primary mt-2.5">Venue details &amp; directions →</span>
+              </div>
+            </a>
+          ) : null
+        })}
+      </div>
+    </div>
+  </section>
+
+  <LandingFaq client:visible id="faq" heading="Parent FAQs" items={faqs} />
+
+  <CTABanner client:visible />
+</main>
+
+<script>
+  import { trackLandingCtaClicked } from "@/lib/analytics/events"
+
+  // Without this the hero "Now Registering" banner — the page's only route
+  // into the term funnel — fires nothing, so tier 4 -> 5 conversion is invisible.
+  document.querySelectorAll<HTMLAnchorElement>("[data-hero-banner-cta]").forEach((el) => {
+    el.addEventListener("click", () => trackLandingCtaClicked({ term: el.dataset.term ?? "" }))
+  })
+</script>
