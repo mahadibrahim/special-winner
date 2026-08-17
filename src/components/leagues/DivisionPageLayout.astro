@@ -9,6 +9,7 @@ import { breadcrumbJsonLd } from "@/lib/seo/breadcrumbs";
 import { seasonsToLeagueEvents } from "@/lib/seo/events";
 import { CAPTAIN_DEPOSIT_DOLLARS } from "@/lib/registrations/team-deposit";
 import type { DivisionPageData } from "@/lib/leagues/division-page-data";
+import type { DivisionAudience } from "@/lib/leagues/division-slug";
 
 interface Props {
   data: DivisionPageData;
@@ -18,21 +19,33 @@ interface Props {
   sportCrumb: string;
   term: string;
   division: string;
-  /** Sport-specific "Format" fact value, e.g. "Indoor 7v7 · two 24-min halves". */
-  formatValue: string;
-  /** Sport-specific "Games" fact value, e.g. "7 games in 7 weeks · no playoffs". */
-  gamesValue: string;
-  /** "How the league works" bullet list (the sport's FORMAT_FACTS). */
+  /**
+   * Sport-specific "Format" fact value, e.g. "Indoor 7v7 · two 24-min halves".
+   * Null omits the "Format" fact entirely — no roster/ball/field claims to make.
+   */
+  formatValue: string | null;
+  /**
+   * Sport-specific "Games" fact value, e.g. "7 games in 7 weeks · no playoffs".
+   * Null omits the "Games" fact entirely.
+   */
+  gamesValue: string | null;
+  /** "How the league works" bullet list (the sport's FORMAT_FACTS). Empty renders no bullets. */
   formatFacts: string[];
   /** Skill-tier explainer for lettered divisions; null for sports without tiers. */
   levelDescription?: string | null;
-  /** One line of the meta description carrying the sport's format facts. */
+  /** One line of the meta description carrying the sport's format facts. Empty string omits it. */
   descriptionFormatLine: string;
+  /** Defaults to "adult" so the existing indexed adult pages render byte-identically. */
+  audience?: DivisionAudience;
 }
 const {
   data, basePath, sportCrumb, term, division,
   formatValue, gamesValue, formatFacts, levelDescription = null, descriptionFormatLine,
+  audience = "adult",
 } = Astro.props;
+const audienceWord = audience === "youth" ? "Youth" : "Adult";
+const leaguesLabel = `${audienceWord} Leagues`;
+const leaguesHref = audience === "youth" ? "/youth/leagues" : "/adult/leagues";
 const {
   season, naming, termLabel, sportName, dayName, timeWindow,
   isOpen, isForming, isCompleted, soloPrice, teamList, teamNow, teamEarlyBird,
@@ -48,18 +61,18 @@ const fmtDeadline = (iso: string) =>
   new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: TZ });
 
 const descriptionBits = [
-  `${naming.label} adult indoor ${sportName.toLowerCase()}${dayName ? ` on ${dayName}s` : ""} at ${season.location.name}`,
+  `${naming.label} ${audience === "youth" ? "youth" : "adult indoor"} ${sportName.toLowerCase()}${dayName ? ` on ${dayName}s` : ""} at ${season.location.name}`,
   `${termLabel}: ${fmtShort(season.startDate)}–${fmtShort(season.endDate)}`,
   descriptionFormatLine,
   soloPrice != null ? `Sign up solo ($${soloPrice}) or bring a team` : "Bring a team",
-];
+].filter((bit) => bit);
 const pageDescription = `${descriptionBits.join(". ")}.`;
 
 const ORIGIN = import.meta.env.PUBLIC_APP_URL || "https://aspiresportsohio.com";
 const pageUrl = `${ORIGIN}${basePath}/${term}/${division}`;
 const breadcrumbSchema = breadcrumbJsonLd([
   { name: "Home", url: `${ORIGIN}/` },
-  { name: "Adult Leagues", url: `${ORIGIN}/adult/leagues` },
+  { name: leaguesLabel, url: `${ORIGIN}${leaguesHref}` },
   { name: sportCrumb, url: `${ORIGIN}${basePath}` },
   { name: termLabel, url: `${ORIGIN}${basePath}/${term}` },
   { name: naming.headline, url: pageUrl },
@@ -70,8 +83,8 @@ const facts: { label: string; value: string }[] = [
   dayName ? { label: "Night", value: timeWindow ? `${dayName}s · ${timeWindow}` : `${dayName}s` } : null,
   { label: "Venue", value: season.location.name },
   { label: "Season", value: `${fmtShort(season.startDate)} – ${fmtShort(season.endDate)}` },
-  { label: "Format", value: formatValue },
-  { label: "Games", value: gamesValue },
+  formatValue ? { label: "Format", value: formatValue } : null,
+  gamesValue ? { label: "Games", value: gamesValue } : null,
   isAgeDivision
     ? { label: "Eligibility", value: `Ages ${season.minAge}+` }
     : levelDescription
@@ -92,7 +105,7 @@ const facts: { label: string; value: string }[] = [
   <main id="main-content" class="pt-24 pb-16">
     <div class="max-w-[860px] mx-auto px-5 sm:px-8">
       <nav class="text-[12px] text-ink-muted mb-6" aria-label="Breadcrumb">
-        <a href="/adult/leagues" class="hover:text-primary">Adult Leagues</a>
+        <a href={leaguesHref} class="hover:text-primary">{leaguesLabel}</a>
         <span aria-hidden="true"> / </span>
         <a href={basePath} class="hover:text-primary">{sportCrumb}</a>
         <span aria-hidden="true"> / </span>
@@ -106,7 +119,7 @@ const facts: { label: string; value: string }[] = [
           class="font-display text-ink mb-3"
           style="font-size: clamp(1.9rem, 4.5vw, 3rem); line-height: 1.08; letter-spacing: -0.02em;"
         >
-          {naming.headline} Adult {sportName} League
+          {naming.headline} {audienceWord} {sportName} League
         </h1>
         <p class="text-lg text-ink-2 max-w-2xl">
           {termLabel} at {season.location.name}{cityState ? ` — ${cityState}` : ""}.
@@ -205,12 +218,14 @@ const facts: { label: string; value: string }[] = [
         </section>
       )}
 
-      <section class="mb-8">
-        <h2 class="font-display text-2xl text-ink mb-3">How the league works</h2>
-        <ul class="space-y-1.5 text-[14px] text-ink-2 list-disc pl-5">
-          {formatFacts.map((f) => <li>{f}</li>)}
-        </ul>
-      </section>
+      {formatFacts.length > 0 && (
+        <section class="mb-8">
+          <h2 class="font-display text-2xl text-ink mb-3">How the league works</h2>
+          <ul class="space-y-1.5 text-[14px] text-ink-2 list-disc pl-5">
+            {formatFacts.map((f) => <li>{f}</li>)}
+          </ul>
+        </section>
+      )}
 
       <section class="mb-8">
         <h2 class="font-display text-2xl text-ink mb-3">Where you'll play</h2>

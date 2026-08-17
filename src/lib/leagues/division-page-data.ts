@@ -3,7 +3,7 @@
 // (live + completed, mirroring the term pages), resolves the division slug,
 // and precomputes everything the layout renders — so the soccer and
 // flag-football routes stay thin and can't drift from each other.
-import { divisionSlugMap, divisionNaming, type DivisionNaming } from "./division-slug";
+import { divisionSlug, divisionNaming, type DivisionNaming, type DivisionAudience } from "./division-slug";
 import { venueAddress } from "@/lib/seo/venue-address";
 
 const DAY_LONG: Record<string, string> = {
@@ -50,25 +50,40 @@ export async function loadDivisionPage(opts: {
   fallbackSportName: string;
   term: string | undefined;
   division: string | undefined;
+  /** Defaults to "adult" so existing adult routes are unchanged. */
+  audience?: DivisionAudience;
 }): Promise<DivisionPageData | null> {
   const { origin, cookie, sportSlug, fallbackSportName, term, division } = opts;
+  const audience = opts.audience ?? "adult";
   if (!term || !division) return null;
 
   const [liveRes, doneRes] = await Promise.all([
-    fetch(`${origin}/api/public/seasons?sport=${sportSlug}&audience=adult&term=${term}`, { headers: { cookie } }),
-    fetch(`${origin}/api/public/seasons?sport=${sportSlug}&audience=adult&term=${term}&status=completed`, { headers: { cookie } }),
+    fetch(`${origin}/api/public/seasons?sport=${sportSlug}&audience=${audience}&term=${term}`, { headers: { cookie } }),
+    fetch(`${origin}/api/public/seasons?sport=${sportSlug}&audience=${audience}&term=${term}&status=completed`, { headers: { cookie } }),
   ]);
   const live: any[] = liveRes.ok ? ((await liveRes.json()).seasons ?? []) : [];
   const done: any[] = doneRes.ok ? ((await doneRes.json()).seasons ?? []) : [];
   const seasons: any[] = [...live, ...done];
 
-  const slugMap = divisionSlugMap(seasons);
+  // Youth slugs lead with the age group, which differs per row, so
+  // divisionSlugMap's single shared-options signature doesn't fit here —
+  // build the map inline with per-row options. Collision-disambiguation
+  // (fall back to seasons.slug-or-id + venue slug) is copied verbatim from
+  // divisionSlugMap so two divisions never resolve to the same URL.
+  const slugOptsFor = (s: any) =>
+    audience === "youth" ? { ageGroupName: s.ageGroup?.name ?? null } : {};
+  const slugMap = new Map<string, any>();
+  for (const s of seasons) {
+    let slug = divisionSlug(s, slugOptsFor(s));
+    if (slugMap.has(slug)) slug = `${s.slug ?? s.id}-${s.location.slug}`;
+    if (!slugMap.has(slug)) slugMap.set(slug, s);
+  }
   const season = slugMap.get(division);
   if (!season) return null;
 
   const sportName = season.sport?.name ?? fallbackSportName;
   const termLabel = season.termLabel ?? "This season";
-  const naming = divisionNaming(season, sportName, termLabel);
+  const naming = divisionNaming(season, sportName, termLabel, audience);
   const venue = venueAddress(season.location.slug);
 
   const modes: string[] = season.signupModes ?? ["individual"];
@@ -103,6 +118,6 @@ export async function loadDivisionPage(opts: {
       : cityState || season.location.name,
     siblings: [...slugMap.entries()]
       .filter(([, s]) => s.id !== season.id)
-      .map(([slug, s]) => ({ slug, ...divisionNaming(s, sportName, termLabel), venueName: s.location.name })),
+      .map(([slug, s]) => ({ slug, ...divisionNaming(s, sportName, termLabel, audience), venueName: s.location.name })),
   };
 }
