@@ -8,6 +8,7 @@ import type { RuleSection, FaqEntry } from "@/lib/leagues/landing-content";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import { trackSeasonViewed } from "@/lib/analytics/events";
 import { cn } from "@/lib/utils";
+import type { DivisionAudience } from "@/lib/leagues/division-slug";
 
 type Tab = "divisions" | "schedule" | "standings" | "rules" | "faq";
 const TABS: { key: Tab; label: string }[] = [
@@ -31,6 +32,7 @@ export function SeasonTabs({
   playLine,
   footnote,
   initialTab = "divisions",
+  audience,
 }: {
   sport: string;
   divisions: Division[];
@@ -52,6 +54,8 @@ export function SeasonTabs({
   footnote?: string | null;
   /** A fully-completed term opens on Standings — the archive is the content. */
   initialTab?: Tab;
+  /** Forwarded to DivisionsFinder's Format chip set (adult keeps Coed/Men's/Women's; youth swaps in Coed/Boys/Girls). Defaults to "adult" so existing callers are unchanged. */
+  audience?: DivisionAudience;
 }) {
   useHydrationBeacon();
   // Rules and FAQ tabs are only meaningful with content — Phase 1 youth pages
@@ -91,7 +95,7 @@ export function SeasonTabs({
               <p className="font-mono text-[10.5px] tracking-wide uppercase text-sage mb-4">
                 No account needed · registering takes about 3 minutes
               </p>
-              <DivisionsFinder divisions={divisions} venues={venues} term={term} showLevels={showLevels ?? true} footnote={footnote ?? null} />
+              <DivisionsFinder divisions={divisions} venues={venues} term={term} showLevels={showLevels ?? true} footnote={footnote ?? null} audience={audience ?? "adult"} />
 
               {/* What to expect + the questions replays showed people leaving
                   the flow to answer. Inline so info-seeking doesn't mean

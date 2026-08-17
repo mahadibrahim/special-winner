@@ -6,6 +6,7 @@ import { InterestCapture } from "@/components/leagues/interest-capture";
 import { trackDivisionFilterApplied, trackDivisionRegisterClicked } from "@/lib/analytics/events";
 import { cn } from "@/lib/utils";
 import { CAPTAIN_DEPOSIT_DOLLARS } from "@/lib/registrations/team-deposit";
+import type { DivisionAudience } from "@/lib/leagues/division-slug";
 
 // Map internal filter keys to spec facet names.
 const FACET_FOR: Record<keyof DivisionFilters, "level" | "format" | "day" | "venue"> = {
@@ -20,8 +21,24 @@ const DAYS: { key: DayKey; label: string }[] = [
   { key: "mon", label: "Mon" }, { key: "tue", label: "Tue" }, { key: "wed", label: "Wed" },
   { key: "thu", label: "Thu" }, { key: "fri", label: "Fri" }, { key: "sun", label: "Sun" },
 ];
-const GENDERS: { key: DivisionGender; label: string }[] = [
+// Single source of truth for the gender label shown on every division row —
+// the old inline ternary only covered mens/womens and silently fell through
+// to "Coed" for boys/girls rows, which then disappeared when the visitor
+// clicked the (mislabeled) Coed chip. Exported so it can carry unit coverage
+// without a full component render.
+export const GENDER_LABEL: Record<DivisionGender, string> = {
+  coed: "Coed", mens: "Men's", womens: "Women's", boys: "Boys", girls: "Girls",
+};
+
+// Format chip set is audience-gated: adult divisions only ever carry
+// coed/mens/womens, so adult pages keep the exact chip list they've always
+// had. Youth divisions carry coed/boys/girls — offering Men's/Women's chips
+// there would just be dead buttons that never match a row.
+const ADULT_GENDER_CHIPS: { key: DivisionGender; label: string }[] = [
   { key: "coed", label: "Coed" }, { key: "mens", label: "Men's" }, { key: "womens", label: "Women's" },
+];
+const YOUTH_GENDER_CHIPS: { key: DivisionGender; label: string }[] = [
+  { key: "coed", label: "Coed" }, { key: "boys", label: "Boys" }, { key: "girls", label: "Girls" },
 ];
 const BARS_FOR: Record<string, number> = { a: 4, b: 3, c: 2, d: 1, open: 4 };
 const TIER_TEXT: Record<string, string> = { a: "text-ink", b: "text-primary", c: "text-ochre", d: "text-sage", open: "text-navy" };
@@ -40,14 +57,17 @@ export function registerHref(d: Division, mode: "individual" | "team" = "individ
   return `/register/${d.seasonId}?mode=${mode}`;
 }
 
-export function DivisionsFinder({ divisions, venues, term, showLevels = true, footnote = null }: {
+export function DivisionsFinder({ divisions, venues, term, showLevels = true, footnote = null, audience = "adult" }: {
   divisions: Division[];
   venues: { slug: string; label: string }[];
   term: string;
   showLevels?: boolean;
   /** Footer note under the results, e.g. age-division cross-sell. Null renders nothing. */
   footnote?: string | null;
+  /** Gates the Format chip set: adult keeps Coed/Men's/Women's, youth swaps in Coed/Boys/Girls. Defaults to "adult" so existing callers are unchanged. */
+  audience?: DivisionAudience;
 }) {
+  const genderChips = audience === "youth" ? YOUTH_GENDER_CHIPS : ADULT_GENDER_CHIPS;
   const [f, setF] = useState<DivisionFilters>({ level: null, gender: null, day: null, venue: null });
   const results = filterDivisions(divisions, f);
   const toggle = <K extends keyof DivisionFilters>(k: K, v: DivisionFilters[K]) => {
@@ -70,7 +90,7 @@ export function DivisionsFinder({ divisions, venues, term, showLevels = true, fo
 
       <div className="flex flex-wrap gap-4 items-center p-3 bg-cream-2 rounded-xl">
         <FilterGroup label="Format">
-          {GENDERS.map((g) => (
+          {genderChips.map((g) => (
             <button key={g.key} className={chip(f.gender === g.key)} onClick={() => toggle("gender", g.key)}>{g.label}</button>
           ))}
         </FilterGroup>
@@ -141,7 +161,7 @@ function DivisionRow({ d, term, showLevels }: { d: Division; term: string; showL
         <div>
           <div className="font-display font-semibold text-base">{d.name}</div>
           <div className="font-mono text-[10.5px] tracking-wide uppercase text-ink-muted mt-0.5">
-            {d.gender === "mens" ? "Men's" : d.gender === "womens" ? "Women's" : "Coed"}
+            {GENDER_LABEL[d.gender]}
             {showLevels && <> · {d.level === "open" ? "All levels" : `Level ${d.level.toUpperCase()}`}</>}
             {/* Solo price up front — paid-traffic replays showed price-hunters
                 tapping Register just to learn the cost, then bouncing. */}

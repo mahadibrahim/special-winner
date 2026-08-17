@@ -1,5 +1,10 @@
 export type DivisionLevel = "a" | "b" | "c" | "d" | "open";
-export type DivisionGender = "coed" | "mens" | "womens";
+// "boys"/"girls" cover youth divisionGender values (Task 6, division-slug.ts
+// GENDER_SLUG/GENDER_LABEL already accounted for them). Adult divisions only
+// ever produce coed/mens/womens; the union is shared because Division rows
+// from both audiences flow through the same filterDivisions/DivisionsFinder
+// pipeline.
+export type DivisionGender = "coed" | "mens" | "womens" | "boys" | "girls";
 export type DayKey = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
 
 export type Division = {
@@ -22,6 +27,20 @@ export type Division = {
    *  team signup. Rendered as the "$200 down, $X total" row line. */
   teamTotal?: number | null;
 };
+
+const KNOWN_GENDERS: readonly string[] = ["coed", "mens", "womens", "boys", "girls"];
+
+/**
+ * Narrow a raw DB string (seasons.division_gender is an unconstrained
+ * varchar, not a real Postgres enum) to a known DivisionGender, falling back
+ * to "coed" for anything unrecognized. Prefer this over `as Division["gender"]`
+ * at call sites — a force-cast asserts the value is safe without checking,
+ * which is exactly how a "girls" row silently rendering as "Coed" (and being
+ * hidden by its own filter chip) went unnoticed.
+ */
+export function toDivisionGender(raw: string | null | undefined): DivisionGender {
+  return KNOWN_GENDERS.includes(raw ?? "") ? (raw as DivisionGender) : "coed";
+}
 
 export type DivisionFilters = {
   level: Exclude<DivisionLevel, "open"> | null;

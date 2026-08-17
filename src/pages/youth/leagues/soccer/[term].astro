@@ -9,7 +9,7 @@ export const prerender = false;
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import { SeasonTabs } from "@/components/leagues/season-tabs";
 import { getVenueFacts } from "@/lib/locations/venue-facts";
-import type { Division } from "@/lib/leagues/division-filters";
+import { toDivisionGender, type Division } from "@/lib/leagues/division-filters";
 import { divisionNaming } from "@/lib/leagues/division-slug";
 import { divisionSlugMapForAudience } from "@/lib/leagues/division-page-data";
 import { breadcrumbJsonLd } from "@/lib/seo/breadcrumbs";
@@ -83,7 +83,11 @@ const divisions: Division[] = seasons.map((s) => ({
   seasonId: s.id,
   name: s.name,
   level: (s.skillLevel ?? "open") as Division["level"],
-  gender: (s.divisionGender ?? "coed") as Division["gender"],
+  // toDivisionGender narrows the raw DB string (an unconstrained varchar)
+  // instead of force-casting it — youth rows carry boys/girls in addition to
+  // coed, and a lying `as Division["gender"]` cast is what let a girls row
+  // render mislabeled as "Coed" and then vanish under its own filter chip.
+  gender: toDivisionGender(s.divisionGender),
   day: s.dayOfWeek ?? null,
   time: s.startTime && s.endTime ? `${fmtTime(s.startTime)}–${fmtTime(s.endTime)}` : null,
   venueSlug: s.location.slug,
@@ -156,6 +160,13 @@ const fmtShort = (iso: string) =>
     </section>
 
     <div id="divisions">
+      {/* showLevels={false}: youth rows carry skillLevel "open", not the
+          adult A/B/C/D skill ladder — the level bars/chips are adult-only
+          content (LevelLadder is imported straight from
+          adult-soccer-content.ts) and would land every kid in the empty
+          state. audience="youth" swaps the Format chip set to Coed/Boys/Girls
+          (matching real divisionGender values) instead of adult's
+          Coed/Men's/Women's — see divisions-finder.tsx. */}
       <SeasonTabs
         client:load
         sport="soccer"
@@ -171,6 +182,8 @@ const fmtShort = (iso: string) =>
         findHeading={findHeading}
         findSubcopy={findSubcopy}
         initialTab={allCompleted ? "standings" : "divisions"}
+        showLevels={false}
+        audience="youth"
       />
     </div>
 
