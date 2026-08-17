@@ -1112,9 +1112,7 @@ if (!data) {
   formatValue={null}
   gamesValue={null}
   formatFacts={[]}
-  levelDescription={data.season.ageGroup?.name
-    ? `${data.season.ageGroup.name} — born ${data.season.ageGroup.name === null ? "" : ""}`.trim()
-    : null}
+  levelDescription={data.season.ageGroup?.name ?? null}
   descriptionFormatLine=""
 />
 ```
@@ -1124,14 +1122,8 @@ if (!data) {
 Run: `grep -n "formatValue\|gamesValue\|formatFacts\|levelDescription\|descriptionFormatLine" src/components/leagues/DivisionPageLayout.astro`
 Expected: each prop is read. If any is typed non-nullable or rendered without a
 guard, widen its type to allow `null` and wrap its render in a truthiness check.
-Do not fabricate youth format copy to satisfy a non-null type.
-
-Then simplify the `levelDescription` expression above to the age-group label
-alone — the placeholder ternary in Step 2 exists only to show the prop position:
-
-```astro
-  levelDescription={data.season.ageGroup?.name ?? null}
-```
+Do not fabricate youth format copy to satisfy a non-null type — an age-group
+label like "U10" is the only level copy this page carries.
 
 - [ ] **Step 4: Verify adult routes are unchanged**
 
