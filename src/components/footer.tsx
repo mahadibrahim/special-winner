@@ -10,8 +10,13 @@ const youthLinks = [
   { label: "Youth programs", href: "/youth" },
   { label: "Leagues", href: "/youth/leagues" },
   { label: "Camps", href: "/youth/camps" },
-  { label: "Classes", href: "/programs?audience=youth&type=training" },
-  { label: "Clinics", href: "/programs?audience=youth&type=clinic" },
+  // One entry, not two: /youth/classes is the single page for both program
+  // types (programTypes={["training", "clinic"]}), and it now owns the copy,
+  // hero and finder these two raw /programs?type= query links used to
+  // substitute for. Two footer links to the same URL would just split the
+  // internal-link signal — /youth/classes is otherwise linked only from the
+  // nav dropdown and the /youth hub.
+  { label: "Classes & clinics", href: "/youth/classes" },
   { label: "Coaching guides", href: "/guides" },
 ]
 
