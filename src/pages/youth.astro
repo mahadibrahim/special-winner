@@ -1,58 +1,205 @@
 ---
-// One-screen hub: video hero + colored animated category doors. Inventory
-// lives on the category pages. Bold-catalog redesign — see
-// docs/superpowers/specs/2026-06-18-adult-youth-sitemap-redesign-design.md
+// Youth hub. SSR + edge-cached; carries no live inventory by design — see the
+// header comment in landing-content.ts for the copy rules this page follows.
+//
+// Structure is "what before why": the three ways in sit inside the hero, the
+// three offerings are the first three sections, and the coaching story comes
+// after them. That ordering matches how Lil' Kickers, Soccer Shots and TOCA
+// all build their landing pages, and it is what the owner asked for.
 import BaseLayout from "@/layouts/BaseLayout.astro";
-import HubHero from "@/components/landing/hub-hero.astro";
-import CategoryCard from "@/components/landing/category-card.astro";
 import NextUpCard from "@/components/marketing/next-up-card.astro";
 import { getActiveSiteAnnouncement } from "@/lib/marketing/site-announcement";
 import { setMarketingEdgeCache } from "@/lib/http/edge-cache";
-const announcement = getActiveSiteAnnouncement(Astro.locals.organization, "youth");
+import {
+  AGE_SPAN, SPORTS, HERO, WAYS_IN, LEAGUE_KINDS, CLASSES, CAMPS, COACH,
+  TESTIMONIALS, PRICING,
+} from "@/lib/youth/landing-content";
 
-const doors = [
-  // factsAudience opts the Leagues tile into a live mono facts line
-  // ("Winter I · ages 4–12 · from $130 · closes Oct 29") — term, ages, price
-  // and deadline all computed client-side from open youth league seasons (the
-  // page is edge-cached, so no server fetch).
-  { href: "/youth/leagues", cta: "youth-hub-leagues", palette: "youth-a" as const,
-    title: "Leagues", blurb: "Season leagues for every age group, U6 through U19.",
-    statusLabel: "Now enrolling", live: true, ctaLabel: "Browse leagues",
-    factsAudience: "youth" as const },
-  { href: "/youth/classes", cta: "youth-hub-classes", palette: "youth-b" as const,
-    title: "Classes", blurb: "Skill-building classes and clinics — no season commitment.",
-    statusLabel: "Now enrolling", live: true, ctaLabel: "Browse classes" },
-  { href: "/youth/camps", cta: "youth-hub-camps", palette: "youth-a" as const,
-    title: "Camps", blurb: "School-break and summer day camps — real coaching, tight logistics.",
-    statusLabel: "Booking now", live: true, ctaLabel: "Browse camps" },
-];
+const announcement = getActiveSiteAnnouncement(Astro.locals.organization, "youth");
 setMarketingEdgeCache(Astro);
+
+// Accent per offering section. Kept here rather than in the content module so
+// copy edits never require touching colour.
+const ACCENTS = ["var(--color-primary)", "var(--color-ochre)", "var(--color-primary-orange)"];
 ---
 
 <BaseLayout
-  title="Youth Sports Programs — Aspire Sports"
-  description="Leagues, classes, camps, clinics and tournaments for kids in central Ohio. Find the right program for your kid's age — Aspire Sports."
+  title="Youth Programs — Aspire Sports"
+  description={`Youth leagues, classes and camps in Worthington and central Ohio, for ${AGE_SPAN}. Small groups, real coaching, and a lot of touches.`}
 >
   <Fragment slot="head">
     <link rel="canonical" href={`${Astro.url.origin}/youth`} />
   </Fragment>
 
   <main id="main-content" class="flex-1">
-    <HubHero
-      title="Sports your kid will actually look forward to."
-      subhead="Real coaches, real development — built on the Double-Goal Coach and ELM frameworks. Find what fits your kid by age, format, sport, and venue."
-      videoSources={["https://videos.pexels.com/video-files/3196586/3196586-uhd_2560_1440_25fps.mp4"]}
-      poster="https://images.unsplash.com/photo-1517466787929-bc90951d0974?auto=format&fit=crop&w=1600&q=60"
-    />
+    {/* ---------- Hero: what it is, who it's for, and the three ways in ---- */}
+    <section class="bg-navy-deep text-cream px-6 sm:px-9 pt-14 pb-10">
+      <div class="max-w-[1080px] mx-auto">
+        <h1
+          class="font-display font-semibold tracking-tight"
+          style="font-size:clamp(2.4rem,6vw,3.6rem);line-height:1"
+        >
+          {HERO.title}
+        </h1>
+        <p class="mt-4 text-base text-cream/85 max-w-[480px] leading-relaxed">
+          {HERO.subhead}
+        </p>
+
+        <ul class="grid sm:grid-cols-3 gap-2.5 mt-8" role="list">
+          {WAYS_IN.map((w) => (
+            <li>
+              <a
+                href={w.href}
+                data-youth-way={w.label.toLowerCase()}
+                class="block h-full rounded-xl border border-cream/25 bg-cream/[0.07] px-4 py-3.5 transition hover:bg-cream/[0.13] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cream"
+              >
+                <span class="block font-display text-xl">{w.label}</span>
+                <span class="block text-[12.5px] text-cream/70 mt-1 leading-snug">{w.meta}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+
+        {SPORTS.length > 0 && (
+          <p class="mt-5 font-mono text-[11px] tracking-wide text-cream/60">
+            {SPORTS.join(" · ")}
+          </p>
+        )}
+      </div>
+    </section>
 
     {announcement && (
-      <div class="max-w-[1080px] mx-auto px-9 pt-6">
+      <div class="max-w-[1080px] mx-auto px-6 sm:px-9 pt-6">
         <NextUpCard announcement={announcement} />
       </div>
     )}
 
-    <section class="max-w-[1080px] mx-auto px-9 pt-7 pb-16 grid grid-cols-1 md:grid-cols-3 gap-4">
-      {doors.map((d) => <CategoryCard {...d} />)}
+    {/* ---------- 1. Leagues — two kinds ---------------------------------- */}
+    <section class="px-6 sm:px-9 py-12 border-b border-border" aria-labelledby="youth-leagues-h">
+      <div class="max-w-[1080px] mx-auto">
+        <div class="h-[3px] w-11 rounded-sm mb-4" style={`background:${ACCENTS[0]}`}></div>
+        <h2 id="youth-leagues-h" class="font-display text-3xl text-ink tracking-tight">Leagues</h2>
+        <p class="text-[13.5px] text-ink-2 leading-relaxed mt-2 max-w-[520px]">
+          Two kinds, depending on the time of year and what your player needs.
+        </p>
+
+        <div class="grid md:grid-cols-2 gap-3 mt-6">
+          {LEAGUE_KINDS.map((k) => (
+            <div class="rounded-xl border border-border bg-paper p-5">
+              <p class="font-mono text-[10px] tracking-widest uppercase text-ink-2">{k.when}</p>
+              <h3 class="font-display text-xl text-ink mt-1.5">{k.name}</h3>
+              <p class="text-[13px] text-ink-2 leading-relaxed mt-2">{k.body}</p>
+              <dl class="flex gap-6 mt-4 pt-3 border-t border-cream-2 text-[12px]">
+                {k.facts.map((f) => (
+                  <div>
+                    <dt class="text-ink-2">{f.label}</dt>
+                    <dd class="text-ink font-semibold mt-0.5">{f.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          ))}
+        </div>
+
+        <a
+          href="/youth/leagues"
+          data-youth-cta="leagues"
+          class="inline-block mt-6 font-sans font-semibold text-[13px] bg-navy-deep text-cream px-4 py-2.5 rounded-lg"
+        >
+          See the leagues →
+        </a>
+      </div>
+    </section>
+
+    {/* ---------- 2. Classes ---------------------------------------------- */}
+    <section class="px-6 sm:px-9 py-12 border-b border-border" aria-labelledby="youth-classes-h">
+      <div class="max-w-[1080px] mx-auto">
+        <div class="h-[3px] w-11 rounded-sm mb-4" style={`background:${ACCENTS[1]}`}></div>
+        <h2 id="youth-classes-h" class="font-display text-3xl text-ink tracking-tight">Classes</h2>
+        <p class="text-[13.5px] text-ink-2 leading-relaxed mt-2 max-w-[520px]">{CLASSES.lede}</p>
+        <ul class="mt-4 space-y-1.5 text-[13px] text-ink-2 list-disc pl-5 max-w-[520px]">
+          {CLASSES.points.map((p) => <li>{p}</li>)}
+        </ul>
+        <a
+          href="/youth/classes"
+          data-youth-cta="classes"
+          class="inline-block mt-6 font-sans font-semibold text-[13px] bg-navy-deep text-cream px-4 py-2.5 rounded-lg"
+        >
+          See the pathway →
+        </a>
+      </div>
+    </section>
+
+    {/* ---------- 3. Camps ------------------------------------------------ */}
+    <section class="px-6 sm:px-9 py-12 border-b border-border" aria-labelledby="youth-camps-h">
+      <div class="max-w-[1080px] mx-auto">
+        <div class="h-[3px] w-11 rounded-sm mb-4" style={`background:${ACCENTS[2]}`}></div>
+        <h2 id="youth-camps-h" class="font-display text-3xl text-ink tracking-tight">Camps</h2>
+        <p class="text-[13.5px] text-ink-2 leading-relaxed mt-2 max-w-[520px]">{CAMPS.lede}</p>
+        <a
+          href="/youth/camps"
+          data-youth-cta="camps"
+          class="inline-block mt-6 font-sans font-semibold text-[13px] bg-navy-deep text-cream px-4 py-2.5 rounded-lg"
+        >
+          See camp dates →
+        </a>
+      </div>
+    </section>
+
+    {/* ---------- 4. How we coach — the why, after the what ---------------- */}
+    <section class="bg-cream-2 px-6 sm:px-9 py-12 border-b border-border" aria-labelledby="youth-coach-h">
+      <div class="max-w-[1080px] mx-auto">
+        <h2 id="youth-coach-h" class="font-display text-3xl text-ink tracking-tight">How we coach</h2>
+        <div class="mt-5 grid sm:grid-cols-[104px_1fr] gap-5 items-start max-w-[720px]">
+          <div class="w-[104px] h-[126px] rounded-lg bg-navy-deep" aria-hidden="true"></div>
+          <div>
+            <p class="text-[13.5px] text-ink-2 leading-relaxed">
+              <b class="text-ink font-semibold">{COACH.name}</b>, {COACH.role}{
+                SPORTS.length > 1 ? ` — ${COACH.sport}` : ""
+              }. {COACH.bio}
+            </p>
+            <dl class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border border border-border rounded-lg overflow-hidden mt-4">
+              {COACH.credits.map((c) => (
+                <div class="bg-paper px-3 py-2.5">
+                  <dt class="sr-only">{c.label}</dt>
+                  <dd>
+                    <span class="block font-display text-[15px] text-ink leading-tight">{c.value}</span>
+                    <span class="block text-[10.5px] text-ink-2 mt-1 leading-snug">{c.label}</span>
+                  </dd>
+                </div>
+              ))}
+            </dl>
+            <p class="text-[13.5px] text-ink-2 leading-relaxed mt-4">{COACH.method}</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {/* ---------- 5. Testimonials — renders only when we have real ones ---- */}
+    {TESTIMONIALS.length > 0 && (
+      <section class="px-6 sm:px-9 py-12 border-b border-border" aria-labelledby="youth-parents-h">
+        <div class="max-w-[1080px] mx-auto">
+          <h2 id="youth-parents-h" class="font-display text-3xl text-ink tracking-tight">What parents say</h2>
+          <div class="grid md:grid-cols-3 gap-3 mt-6">
+            {TESTIMONIALS.map((t) => (
+              <figure class="rounded-xl border border-border bg-paper p-5 m-0">
+                <blockquote class="text-[13px] text-ink-2 leading-relaxed">{t.quote}</blockquote>
+                <figcaption class="font-mono text-[10.5px] tracking-wide uppercase text-ink-2 mt-3">
+                  {t.attribution}
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+        </div>
+      </section>
+    )}
+
+    {/* ---------- 6. Pricing — indicative only ----------------------------- */}
+    <section class="px-6 sm:px-9 py-12" aria-labelledby="youth-cost-h">
+      <div class="max-w-[1080px] mx-auto">
+        <h2 id="youth-cost-h" class="font-display text-3xl text-ink tracking-tight">{PRICING.heading}</h2>
+        <p class="text-[13.5px] text-ink-2 leading-relaxed mt-2 max-w-[560px]">{PRICING.body}</p>
+      </div>
     </section>
   </main>
 </BaseLayout>
@@ -69,9 +216,17 @@ setMarketingEdgeCache(Astro);
   const hash = location.hash.slice(1);
   if (Object.hasOwn(anchorMap, hash)) location.replace(anchorMap[hash]);
 
-  document.querySelectorAll<HTMLAnchorElement>("[data-landing-cta]").forEach((el) => {
-    el.addEventListener("click", () => {
-      track("landing_hero_cta_click", { cta: el.dataset.landingCta });
-    });
+  // Hero doors and section CTAs are tracked separately: the hero measures
+  // "which offering did they pick before reading anything", the section CTAs
+  // measure "which section actually convinced them".
+  document.querySelectorAll<HTMLAnchorElement>("[data-youth-way]").forEach((el) => {
+    el.addEventListener("click", () =>
+      track("youth_hub_way_clicked", { way: el.dataset.youthWay ?? "" }),
+    );
+  });
+  document.querySelectorAll<HTMLAnchorElement>("[data-youth-cta]").forEach((el) => {
+    el.addEventListener("click", () =>
+      track("youth_hub_section_cta_clicked", { section: el.dataset.youthCta ?? "" }),
+    );
   });
 </script>
