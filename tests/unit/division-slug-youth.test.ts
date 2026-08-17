@@ -56,4 +56,47 @@ describe("divisionNaming audience", () => {
     const n = divisionNaming({ ...base, divisionGender: "coed" }, "Soccer", "Fall 2026")
     expect(n.title).toContain("Adult Soccer League")
   })
+
+  it("leads the headline and title with the age group when passed", () => {
+    const n = divisionNaming(
+      { ...base, divisionGender: "girls" },
+      "Soccer",
+      "Winter I",
+      "youth",
+      "U10",
+    )
+    expect(n.headline).toBe("U10 Girls Saturday")
+    expect(n.title).toContain("U10 Girls Saturday Youth Soccer League")
+  })
+
+  it("produces distinct headline/title for divisions differing ONLY by age group", () => {
+    // Same gender/day/venue, different age group — divisionSlug already gives
+    // these distinct URLs (u8-... vs u10-...); this is the regression test
+    // for the title/H1/breadcrumb duplication bug that shipped alongside it.
+    const u8 = divisionNaming({ ...base, divisionGender: "girls" }, "Soccer", "Winter I", "youth", "U8")
+    const u10 = divisionNaming({ ...base, divisionGender: "girls" }, "Soccer", "Winter I", "youth", "U10")
+    expect(u8.headline).not.toBe(u10.headline)
+    expect(u8.title).not.toBe(u10.title)
+    expect(u8.headline).toBe("U8 Girls Saturday")
+    expect(u10.headline).toBe("U10 Girls Saturday")
+  })
+
+  it("omits the age group and stays byte-identical for adult when ageGroupName is not passed", () => {
+    const withoutAgeGroup = divisionNaming(
+      { ...base, slug: "co-ed-b", divisionGender: "coed", skillLevel: "b", dayOfWeek: "wed" },
+      "Soccer",
+      "Fall 2026",
+    )
+    const explicitAdultDefault = divisionNaming(
+      { ...base, slug: "co-ed-b", divisionGender: "coed", skillLevel: "b", dayOfWeek: "wed" },
+      "Soccer",
+      "Fall 2026",
+      "adult",
+    )
+    expect(withoutAgeGroup).toEqual(explicitAdultDefault)
+    expect(withoutAgeGroup.headline).toBe("Co-Ed B Wednesday")
+    expect(withoutAgeGroup.title).toBe(
+      "Co-Ed B Wednesday Adult Soccer League — Worthington, OH | Fall 2026",
+    )
+  })
 })

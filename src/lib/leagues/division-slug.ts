@@ -86,9 +86,9 @@ export function divisionSlugMap<T extends SeasonForDivisionSlug>(
 }
 
 export interface DivisionNaming {
-  /** "Co-Ed B" / "Co-Ed 30+" / "Men's" — tier-qualified division label. */
+  /** "Co-Ed B" / "Co-Ed 30+" / "Men's" — tier-qualified division label. Never carries the age group. */
   label: string;
-  /** "Co-Ed B Wednesday" — label + night, for headings. */
+  /** "Co-Ed B Wednesday" (adult) / "U10 Girls Saturday" (youth) — age group (youth only) + label + night, for headings, titles, and breadcrumbs. */
   headline: string;
   /** SEO title, e.g. "Co-Ed B Wednesday Adult Soccer League — Worthington, OH | Fall 2026" */
   title: string;
@@ -101,13 +101,21 @@ export function divisionNaming(
   sportName: string,
   termLabel: string,
   audience: DivisionAudience = "adult",
+  /**
+   * Youth age group, e.g. "U10" — leads the headline/title so two divisions
+   * that differ only by age group (same gender/day/venue, different URL via
+   * divisionSlug) don't collide on an identical indexed title. Omit for
+   * adult; callers must not pass a season's adult age-group name here (e.g.
+   * "Adult 18+") or it will leak into the title.
+   */
+  ageGroupName?: string | null,
 ): DivisionNaming {
   const gender = GENDER_LABEL[s.divisionGender ?? ""] ?? "";
   const age = ageQualifier(s.minAge);
   const tier = age ?? (s.skillLevel && s.skillLevel !== "open" ? s.skillLevel.toUpperCase() : "");
   const label = [gender, tier].filter(Boolean).join(" ") || "Open";
   const day = s.dayOfWeek ? DAY_LABEL[s.dayOfWeek] ?? "" : "";
-  const headline = [label, day].filter(Boolean).join(" ");
+  const headline = [ageGroupName || null, label, day].filter(Boolean).join(" ");
   const place = [s.location.name ?? s.location.slug, s.location.state ?? "OH"].filter(Boolean).join(", ");
   const audienceWord = audience === "youth" ? "Youth" : "Adult";
   const title = `${headline} ${audienceWord} ${sportName} League — ${place} | ${termLabel}`;

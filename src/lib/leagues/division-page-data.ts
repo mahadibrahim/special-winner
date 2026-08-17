@@ -65,16 +65,22 @@ export async function loadDivisionPage(opts: {
   const done: any[] = doneRes.ok ? ((await doneRes.json()).seasons ?? []) : [];
   const seasons: any[] = [...live, ...done];
 
-  // Youth slugs lead with the age group, which differs per row, so
+  // Youth slugs/titles lead with the age group, which differs per row, so
   // divisionSlugMap's single shared-options signature doesn't fit here —
   // build the map inline with per-row options. Collision-disambiguation
   // (fall back to seasons.slug-or-id + venue slug) is copied verbatim from
   // divisionSlugMap so two divisions never resolve to the same URL.
-  const slugOptsFor = (s: any) =>
-    audience === "youth" ? { ageGroupName: s.ageGroup?.name ?? null } : {};
+  //
+  // Guarded on audience === "youth": adult seasons carry a real ageGroup row
+  // too (name "Adult 18+", seeded for every adult division), so this must
+  // NOT fall through to `s.ageGroup?.name` unconditionally — that would leak
+  // "Adult 18+" into every adult slug/title. Null for adult keeps both
+  // divisionSlug and divisionNaming byte-identical to pre-audience behavior.
+  const ageGroupNameFor = (s: any): string | null =>
+    audience === "youth" ? (s.ageGroup?.name ?? null) : null;
   const slugMap = new Map<string, any>();
   for (const s of seasons) {
-    let slug = divisionSlug(s, slugOptsFor(s));
+    let slug = divisionSlug(s, { ageGroupName: ageGroupNameFor(s) });
     if (slugMap.has(slug)) slug = `${s.slug ?? s.id}-${s.location.slug}`;
     if (!slugMap.has(slug)) slugMap.set(slug, s);
   }
@@ -83,7 +89,7 @@ export async function loadDivisionPage(opts: {
 
   const sportName = season.sport?.name ?? fallbackSportName;
   const termLabel = season.termLabel ?? "This season";
-  const naming = divisionNaming(season, sportName, termLabel, audience);
+  const naming = divisionNaming(season, sportName, termLabel, audience, ageGroupNameFor(season));
   const venue = venueAddress(season.location.slug);
 
   const modes: string[] = season.signupModes ?? ["individual"];
@@ -118,6 +124,6 @@ export async function loadDivisionPage(opts: {
       : cityState || season.location.name,
     siblings: [...slugMap.entries()]
       .filter(([, s]) => s.id !== season.id)
-      .map(([slug, s]) => ({ slug, ...divisionNaming(s, sportName, termLabel, audience), venueName: s.location.name })),
+      .map(([slug, s]) => ({ slug, ...divisionNaming(s, sportName, termLabel, audience, ageGroupNameFor(s)), venueName: s.location.name })),
   };
 }

@@ -88,7 +88,9 @@ const facts: { label: string; value: string }[] = [
   isAgeDivision
     ? { label: "Eligibility", value: `Ages ${season.minAge}+` }
     : levelDescription
-      ? { label: "Level", value: naming.label }
+      ? audience === "youth"
+        ? { label: "Age group", value: levelDescription }
+        : { label: "Level", value: naming.label }
       : null,
 ].filter((f): f is { label: string; value: string } => f !== null);
 ---
@@ -129,7 +131,7 @@ const facts: { label: string; value: string }[] = [
               ? " This division is forming — join the interest list and we'll email you when registration opens."
               : ""}
         </p>
-        {levelDescription && !isAgeDivision && (
+        {levelDescription && !isAgeDivision && audience !== "youth" && (
           <p class="text-[14px] text-ink-muted mt-2 max-w-2xl">{levelDescription}</p>
         )}
         {isAgeDivision && (
