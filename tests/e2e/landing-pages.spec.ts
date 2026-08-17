@@ -14,13 +14,13 @@ import { waitForHydration } from "../utils/test-helpers";
  */
 
 test.describe("Landing-page finders", () => {
-  test("/youth — hub: hero + two category doors", async ({ page }) => {
+  test("/youth — hub: hero + three category doors", async ({ page }) => {
     await page.goto("/youth", { waitUntil: "domcontentloaded" });
 
     await expect(
       page.getByRole("heading", { name: /look forward to/i }),
     ).toBeVisible();
-    for (const cta of ["youth-hub-leagues", "youth-hub-camps"]) {
+    for (const cta of ["youth-hub-leagues", "youth-hub-classes", "youth-hub-camps"]) {
       await expect(page.locator(`[data-landing-cta="${cta}"]`)).toBeVisible();
     }
 

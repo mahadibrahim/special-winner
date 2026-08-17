@@ -116,7 +116,8 @@ export default function Navigation({ initialUser }: NavigationProps) {
       href: "/youth",
       label: "Youth",
       children: [
-        { href: "/youth/leagues", label: "Leagues & Classes" },
+        { href: "/youth/leagues", label: "Leagues" },
+        { href: "/youth/classes", label: "Classes" },
         { href: "/youth/camps", label: "Camps" },
       ],
     },

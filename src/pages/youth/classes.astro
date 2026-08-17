@@ -1,0 +1,54 @@
+---
+// Youth classes — training and clinics, split out of /youth/leagues so each
+// nav item maps to one product. The Director of Coaching and the
+// developmental pathway land here in Phase 2.
+import BaseLayout from "@/layouts/BaseLayout.astro"
+import CategoryHero from "@/components/landing/category-hero.astro"
+import CategoryFinder from "@/components/landing/category-finder.tsx"
+import CTABanner from "@/components/cta-banner"
+import type { HeroTile } from "@/lib/landing/hero-tiles"
+import { setMarketingEdgeCache } from "@/lib/http/edge-cache"
+
+const tiles: HeroTile[] = [
+  { label: "Soccer", key: "soccer", state: "live", statusLabel: "● Now enrolling", meta: "Skills & clinics", color: "oklch(0.66 0.21 35)", fallbackHref: "/programs?audience=youth" },
+  { label: "Basketball", key: "basketball", state: "coming_soon", statusLabel: "Coming soon", meta: "Interested? Notify me" },
+  { label: "Multi-sport", key: "multi-sport", state: "coming_soon", statusLabel: "Coming soon", meta: "Interested? Notify me" },
+]
+setMarketingEdgeCache(Astro)
+---
+
+<BaseLayout
+  title="Youth Classes & Clinics — Aspire Sports"
+  description="Youth soccer skills classes and clinics in Columbus and central Ohio. Skill-building without a season commitment."
+>
+  <Fragment slot="head">
+    <link rel="canonical" href={`${Astro.url.origin}/youth/classes`} />
+  </Fragment>
+
+  <main id="main-content" class="flex-1">
+    <CategoryHero
+      title="Youth classes & clinics."
+      subhead="Skill-building without a season commitment. Filter by your kid's age and go."
+      videoSources={[
+        "https://videos.pexels.com/video-files/6077723/6077723-hd_1920_1080_25fps.mp4",
+        "https://videos.pexels.com/video-files/6077723/6077723-sd_640_360_25fps.mp4",
+      ]}
+      poster="https://images.unsplash.com/photo-1543326727-cf6c39e8f84c?auto=format&fit=crop&w=1600&q=60"
+      tiles={tiles}
+      finderId="youth-classes"
+      crosslink={{ prompt: "Looking for a season instead?", href: "/youth/leagues", label: "Youth leagues →" }}
+    />
+
+    <CategoryFinder
+      client:load
+      audience="youth"
+      programTypes={["training", "clinic"]}
+      title="Open now"
+      descriptor="Filter by age and venue — every class shows its dates on the card."
+      ageChips
+      sectionId="youth-classes"
+    />
+
+    <CTABanner client:visible />
+  </main>
+</BaseLayout>

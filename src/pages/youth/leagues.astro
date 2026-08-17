@@ -16,7 +16,7 @@ const tiles: HeroTile[] = [
   // fallbackHref: when the finder has no seasons the Soccer tile navigates to
   // the full catalog instead of scroll-filtering an empty grid (also the
   // no-JS path). With inventory present it scroll-filters as before.
-  { label: "Soccer", key: "soccer", state: "live", statusLabel: "● Now enrolling", meta: "Leagues & classes", color: "oklch(0.66 0.21 35)", fallbackHref: "/programs?audience=youth" },
+  { label: "Soccer", key: "soccer", state: "live", statusLabel: "● Now enrolling", meta: "Season leagues", color: "oklch(0.66 0.21 35)", href: "/youth/leagues/soccer", fallbackHref: "/youth/leagues/soccer" },
   { label: "Basketball", key: "basketball", state: "coming_soon", statusLabel: "Coming soon", meta: "Interested? Notify me" },
   { label: "Multi-sport", key: "multi-sport", state: "coming_soon", statusLabel: "Coming soon", meta: "Interested? Notify me" },
 ]
@@ -79,8 +79,8 @@ const faqs: LandingFaqItem[] = [
 ---
 
 <BaseLayout
-  title="Youth Leagues & Classes — Aspire Sports"
-  description="Youth sports leagues and skill-building classes in Columbus and central Ohio. Vetted coaches, organized seasons, sorted by your kid's age."
+  title="Youth Leagues — Aspire Sports"
+  description="Youth sports leagues in Columbus and central Ohio. Vetted coaches, organized seasons, sorted by your kid's age."
 >
   <Fragment slot="head">
     <link rel="canonical" href={`${Astro.url.origin}/youth/leagues`} />
@@ -88,8 +88,8 @@ const faqs: LandingFaqItem[] = [
 
   <main id="main-content" class="flex-1">
     <CategoryHero
-      title="Youth leagues & classes."
-      subhead="Season leagues and skill-building classes with vetted coaches and tight logistics. Filter by your kid's age and go."
+      title="Youth leagues."
+      subhead="Season leagues with vetted coaches and tight logistics. Filter by your kid's age and go."
       videoSources={[
         "https://videos.pexels.com/video-files/6077723/6077723-hd_1920_1080_25fps.mp4",
         "https://videos.pexels.com/video-files/6077723/6077723-sd_640_360_25fps.mp4",
@@ -115,9 +115,9 @@ const faqs: LandingFaqItem[] = [
     <CategoryFinder
       client:load
       audience="youth"
-      programTypes={["league", "training", "clinic"]}
+      programTypes={["league"]}
       title="Open now"
-      descriptor="Use the age filter — every program shows its age range on the card."
+      descriptor="Season leagues, sorted by age group."
       ageChips
       sectionId="youth-leagues"
     />
