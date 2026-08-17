@@ -17,10 +17,52 @@ import LandingFaq, { type LandingFaqItem } from "@/components/landing/landing-fa
 import CTABanner from "@/components/cta-banner"
 import { getVenueFacts, VENUE_SLUGS } from "@/lib/locations/venue-facts"
 import { breadcrumbJsonLd } from "@/lib/seo/breadcrumbs"
+import { partitionTerms, type TermSeason } from "@/lib/leagues/terms"
+import { filterYouthSeasons } from "@/lib/leagues/youth-seasons"
 import { setMarketingEdgeCache } from "@/lib/http/edge-cache"
 
 const FINDER_ID = "youth-soccer-divisions"
-setMarketingEdgeCache(Astro)
+
+// ---- Current term -> the only crawlable entry to /youth/leagues/soccer/<term>
+// The finder cards below link straight to /register/<id>, and the calendar band
+// only anchors in-page, so without this banner the term page, every division
+// page under it, their Event JSON-LD and the completed-term archive are
+// reachable only by typing the URL. Same server-rendered <a> the adult twin
+// uses (src/pages/adult/leagues/soccer/index.astro), so crawlers follow it with
+// no JS. Islands can't do this job: they render nothing into the HTML.
+const origin = Astro.url.origin
+const cookie = Astro.request.headers.get("cookie") ?? ""
+let currentTerm: { slug: string; label: string } | null = null
+let catalogOk = false
+try {
+  const res = await fetch(`${origin}/api/public/seasons?sport=soccer&audience=youth`, {
+    headers: { cookie },
+  })
+  // Only the live statuses are needed: partitionTerms calls a term "current"
+  // solely when it has an open/active season, which the default (no `status`)
+  // response already covers. Completed terms surface from the term page itself.
+  catalogOk = res.ok
+  const rows: any[] = res.ok ? ((await res.json()).seasons ?? []) : []
+  const termSeasons: TermSeason[] = filterYouthSeasons(rows)
+    .filter((s) => s.termSlug)
+    .map((s) => ({
+      id: s.id,
+      termSlug: s.termSlug,
+      termLabel: s.termLabel,
+      status: s.status,
+      startDate: s.startDate,
+    }))
+  const { current } = partitionTerms(termSeasons)
+  // No open/active youth term -> render nothing. A banner with no destination
+  // is worse than no banner, and this is the live state today (staging has zero
+  // youth seasons), so it is the path that must not throw or render an empty
+  // shell.
+  if (current) currentTerm = { slug: current.slug, label: current.label }
+} catch {
+  // A catalog blip must not 500 the sport landing page — the ladder, FAQs and
+  // venue cards below are static and still worth serving. Falls through with
+  // currentTerm null, i.e. no banner.
+}
 
 const calendarTerms: CalendarTermConfig[] = [
   { name: "Winter I", months: "Dec–Feb", match: "winter-i" },
@@ -97,6 +139,12 @@ const faqSchema = {
 // changes or a new venue is added to VENUE_SLUGS.
 const VENUE_NAMES: Record<string, string> = { worthington: "Worthington", downtown: "Downtown / OSU" }
 const venueSlugs = VENUE_SLUGS.filter((slug) => getVenueFacts(slug)?.offerings.youth)
+
+// Last statement in the frontmatter, per setMarketingEdgeCache's contract:
+// only opt into edge caching once the request-time catalog fetch above
+// actually succeeded, so a transient catalog failure (which suppresses the
+// banner) is never the response that gets cached and served stale.
+if (catalogOk) setMarketingEdgeCache(Astro)
 ---
 
 <BaseLayout
@@ -112,6 +160,21 @@ const venueSlugs = VENUE_SLUGS.filter((slug) => getVenueFacts(slug)?.offerings.y
   <main id="main-content" class="flex-1">
     <section class="relative text-cream pt-16 px-9 pb-10 bg-navy-deep">
       <div class="max-w-[1080px] mx-auto">
+        {currentTerm && (
+          <a
+            href={`/youth/leagues/soccer/${currentTerm.slug}`}
+            class="flex items-center justify-between gap-3 bg-primary text-cream rounded-lg px-4 py-3 mb-5"
+            data-testid="now-registering"
+            data-hero-banner-cta
+            data-term={currentTerm.slug}
+          >
+            <span>
+              <span class="font-mono text-[10px] tracking-widest uppercase opacity-85">● Now Registering</span><br />
+              <span class="font-display font-semibold text-lg">{currentTerm.label} &middot; registration open</span>
+            </span>
+            <span class="font-mono text-[11px] tracking-wider uppercase bg-cream text-primary px-3 py-2 rounded">See divisions &rarr;</span>
+          </a>
+        )}
         <h1 class="font-display font-semibold tracking-tight" style="font-size:clamp(2.5rem,6vw,4rem);line-height:.95">
           Youth soccer<br />at Aspire.
         </h1>
@@ -172,3 +235,14 @@ const venueSlugs = VENUE_SLUGS.filter((slug) => getVenueFacts(slug)?.offerings.y
     <CTABanner client:visible />
   </main>
 </BaseLayout>
+
+<script>
+  import { trackLandingCtaClicked } from "@/lib/analytics/events"
+
+  // Mirrors the adult sport landing page: without this the hero "Now
+  // Registering" banner is the page's only route into the term funnel and
+  // fires nothing, so tier 4 -> 5 conversion is invisible.
+  document.querySelectorAll<HTMLAnchorElement>("[data-hero-banner-cta]").forEach((el) => {
+    el.addEventListener("click", () => trackLandingCtaClicked({ term: el.dataset.term ?? "" }))
+  })
+</script>
