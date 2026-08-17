@@ -4,6 +4,30 @@ Captured from the nine per-task reviews and the final whole-branch review of
 `youth-leagues-redesign`. Everything here was deliberately deferred, not missed.
 Grouped by when it has to be dealt with.
 
+## Opened by the merge with `main` (#550, season audience vocabulary)
+
+**0. Youth leagues now have a level vocabulary this branch does not surface.**
+`#550` added `YOUTH_LEVELS = ["competitive_a", "competitive_b", "developmental",
+"recreational"]` to `division-filters.ts`, with `skillLevelShort`/`skillLevelBadge`
+rendering them. This branch's youth term page passes `showLevels={false}`
+(`youth/leagues/soccer/[term].astro`) — correct at the time, because `LevelLadder`
+renders the *adult* A/B/C/D tiers from `adult-soccer-content.ts` and showing those to
+a parent was the defect being fixed. But it now means youth level information is
+hidden entirely even though a real youth vocabulary exists.
+
+The proper fix is a youth `LevelLadder` variant driven by `YOUTH_LEVELS`, then
+turning `showLevels` back on for youth. Until then a parent cannot tell a
+Competitive A division from a Recreational one on the term page. **This is the
+highest-value follow-up in this document** — it is the other half of the leveling
+explanation the whole redesign was commissioned to fix.
+
+Merge resolution note: this branch's duplicate gender vocabulary (`GENDER_LABEL`,
+`ADULT_GENDER_CHIPS`/`YOUTH_GENDER_CHIPS` built by hand) was collapsed onto `#550`'s
+`DIVISION_GENDER_LABEL` / `ADULT_GENDERS` / `YOUTH_GENDERS`, and `KNOWN_GENDERS` now
+derives from `DIVISION_GENDERS`. `division-slug.ts` keeps its own `GENDER_LABEL`
+deliberately — it spells "Co-Ed" where the shared map spells "Coed", and those
+strings are baked into indexed adult SEO titles.
+
 ## Gated — must land before the first youth season is published
 
 These are dormant only because there is no youth league inventory yet. The day a
