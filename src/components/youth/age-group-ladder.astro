@@ -90,9 +90,32 @@ const YEAR_OPTIONS = [...new Set(YEARS)].sort((a, b) => b - a)
       }
     }
 
-    function filterTo(groupLabel: string) {
+    // `ageGroup: undefined` is deliberate, not an omission: category-finder
+    // gates on `"ageGroup" in detail`, so the key must be PRESENT with an
+    // undefined value for the finder to clear. Omitting it entirely reads as
+    // "this dispatcher doesn't do age groups" and leaves the filter stuck.
+    function applyFilter(groupLabel: string | null, opts: { scroll?: boolean } = {}) {
       highlight(groupLabel)
-      dispatchFinderFilter({ key: sportKey, sectionId: finderId, ageGroup: groupLabel })
+      dispatchFinderFilter(
+        { key: sportKey, sectionId: finderId, ageGroup: groupLabel ?? undefined },
+        opts,
+      )
+    }
+
+    // Toggle, not set-only. The finder's empty branch for "this age group has
+    // nothing open" is the whole-catalog empty state (notify form), which has
+    // no "Clear filters" affordance — so a band that could only ever be turned
+    // ON was a dead end that only a page reload escaped. With zero youth
+    // inventory that is every tap.
+    function filterTo(groupLabel: string) {
+      const alreadyActive =
+        bands.some((b) => b.dataset.group === groupLabel && b.getAttribute("aria-pressed") === "true")
+      if (alreadyActive) {
+        applyFilter(null)
+        track("youth_age_group_cleared", { group: groupLabel })
+        return
+      }
+      applyFilter(groupLabel)
       track("youth_age_group_selected", { group: groupLabel })
     }
 
@@ -111,15 +134,20 @@ const YEAR_OPTIONS = [...new Set(YEARS)].sort((a, b) => b - a)
       if (!month || !year) return
       const group = resolveAgeGroup(month, year)
       answerEl.classList.remove("hidden")
+      // The lookup drives the SAME filter the bands do. It used to call
+      // highlight() alone, so a band rendered aria-pressed="true" while the
+      // finder below stayed unfiltered — the pressed state was a lie, and
+      // clicking that band to "turn it off" would have turned it on. scroll:
+      // false because the answer renders right here and the user has to read it.
       if (!group) {
         answerEl.textContent =
           "That birthday falls outside our U6–U19 groups for this season."
-        highlight(null)
+        applyFilter(null, { scroll: false })
         return
       }
       answerEl.innerHTML =
         `Your kid plays <b>${group.label}</b> — born ${group.rangeLabel}.`
-      highlight(group.label)
+      applyFilter(group.label, { scroll: false })
       track("youth_age_lookup_used", { group: group.label })
     }
 

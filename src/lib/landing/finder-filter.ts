@@ -16,13 +16,27 @@ export interface FinderFilterDetail {
 
 let pending: FinderFilterDetail | null = null
 
+export interface DispatchFinderFilterOptions {
+  /** Scroll the target section into view. Defaults to true (hero-tile
+   *  behavior). Pass false when the dispatch is a side effect of the user
+   *  interacting with something they still need to read — the youth birthday
+   *  lookup answers in place, and yanking the viewport away from the answer to
+   *  the finder below reads as a page hijack. */
+  scroll?: boolean
+}
+
 /** Fired by a hero tile: notify the finder island, then scroll to it. */
-export function dispatchFinderFilter(detail: FinderFilterDetail): void {
+export function dispatchFinderFilter(
+  detail: FinderFilterDetail,
+  opts: DispatchFinderFilterOptions = {},
+): void {
   pending = detail
   window.dispatchEvent(new CustomEvent<FinderFilterDetail>(FINDER_FILTER_EVENT, { detail }))
-  document
-    .getElementById(detail.sectionId)
-    ?.scrollIntoView({ behavior: "smooth", block: "start" })
+  if (opts.scroll !== false) {
+    document
+      .getElementById(detail.sectionId)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" })
+  }
   // The replay buffer only needs to bridge the hydration window for a finder
   // island that mounts just after a pre-hydration click. Expire it so a later
   // remount (e.g. a youth age-band change re-keying the section) doesn't
