@@ -39,10 +39,10 @@ youth season goes live, they become customer-visible.
 2. **"Register — Solo or with your team"** (`season-tabs.tsx:108`) is wrong on both
    youth framings: developmental terms are individual-only, club terms are team-only.
    `playLine` already shows the parameterisation pattern; this is a one-prop fix.
-3. **Youth URLs are absent from the XML sitemap.** `sitemap-leagues.xml.ts:80` hard-filters
-   to adult (`minAge >= 18`, `/adult/` paths). The completed-term archive rationale —
-   the reason the term page fetches completed seasons at all — depends on those URLs
-   being indexed.
+3. ~~**Youth URLs are absent from the XML sitemap.**~~ **DONE (youth-landing-redesign):**
+   `sitemap-leagues.xml.ts` now partitions rows by the same audience guards the pages
+   apply and emits `/youth/leagues/[sport]/[term]` and division URLs via
+   `divisionSlugMapForAudience` — a URL is advertised iff its page resolves it.
 4. **`/youth/classes` and `/youth/leagues/soccer` missing from
    `src/lib/seo/aspire-sitemap-pages.mjs`.** Route discovery lists them with a trailing
    slash while each page's canonical is slash-less; the dev/CI fallback sitemap omits
