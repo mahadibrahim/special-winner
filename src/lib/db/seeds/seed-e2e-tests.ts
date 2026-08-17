@@ -1691,10 +1691,17 @@ async function seedFlagFootballFixture(db: Database, orgId: string) {
   }
 
   // Program: Adult 4v4 Flag Football League.
+  // orderBy is load-bearing, not cosmetic: the unique key on programs is
+  // (location_id, slug), so slug ALONE can match several rows on the shared,
+  // accumulating CI/staging DB. An unordered .limit(1) picks an arbitrary one
+  // and the heal below then writes is_test=false to it — i.e. makes a row
+  // publicly visible. Oldest-first makes that deterministic. (CLAUDE.md,
+  // "Multi-tenant query hazards".)
   let [flagProgram] = await db
     .select()
     .from(programs)
     .where(eq(programs.slug, "adult-4v4-flag-football"))
+    .orderBy(asc(programs.createdAt))
     .limit(1);
 
   if (!flagProgram) {
@@ -2287,11 +2294,15 @@ async function seedE2ETests() {
     .onConflictDoNothing();
   console.log(`   ✓ Field rental rate card seeded for org ${org.id}`);
 
-  // Create program
+  // Create program.
+  // orderBy: programs is unique on (location_id, slug), so a slug-only lookup
+  // can match more than one row on the shared CI/staging DB — and the is_test
+  // heal below publishes whichever row this picks. Oldest-first pins it.
   let [program] = await db
     .select()
     .from(programs)
     .where(eq(programs.slug, "e2e-test-soccer"))
+    .orderBy(asc(programs.createdAt))
     .limit(1);
 
   if (!program) {
@@ -2333,10 +2344,14 @@ async function seedE2ETests() {
   // Format dates as strings for the date columns
   const formatDate = (d: Date) => d.toISOString().split('T')[0];
 
+  // orderBy: seasons is unique on (program_id, slug), so a slug-only lookup can
+  // match more than one row on the shared CI/staging DB — and the is_test heal
+  // below publishes whichever row this picks. Oldest-first pins it.
   let [season] = await db
     .select()
     .from(seasons)
     .where(eq(seasons.slug, "e2e-test-spring-2026"))
+    .orderBy(asc(seasons.createdAt))
     .limit(1);
 
   if (!season) {
@@ -2390,11 +2405,14 @@ async function seedE2ETests() {
       .returning();
   }
 
-  // Adult Open Soccer program
+  // Adult Open Soccer program.
+  // orderBy: same (location_id, slug) uniqueness caveat as the blocks above —
+  // the audienceType/is_test heal below writes to whichever row this returns.
   let [adultProgram] = await db
     .select()
     .from(programs)
     .where(eq(programs.slug, "e2e-adult-open-soccer"))
+    .orderBy(asc(programs.createdAt))
     .limit(1);
 
   if (!adultProgram) {
@@ -2430,10 +2448,14 @@ async function seedE2ETests() {
   // Adult Open Soccer season (open for registration).
   // Always reset status and maxParticipants on re-seed so the dashboard shows
   // "Register Now" rather than "Join Waitlist" after partial-fill test runs.
+  // orderBy: same (program_id, slug) uniqueness caveat as the blocks above —
+  // the status/capacity/term-metadata reset below writes to whichever row this
+  // returns.
   let [adultSeason] = await db
     .select()
     .from(seasons)
     .where(eq(seasons.slug, ADULT_OPEN_SEASON_SLUG))
+    .orderBy(asc(seasons.createdAt))
     .limit(1);
 
   if (!adultSeason) {
