@@ -15,7 +15,7 @@ import CategoryFinder from "@/components/landing/category-finder.tsx"
 import SeasonCalendarBand, { type CalendarTermConfig } from "@/components/landing/season-calendar-band.tsx"
 import LandingFaq, { type LandingFaqItem } from "@/components/landing/landing-faq.tsx"
 import CTABanner from "@/components/cta-banner"
-import { getVenueFacts } from "@/lib/locations/venue-facts"
+import { getVenueFacts, VENUE_SLUGS } from "@/lib/locations/venue-facts"
 import { breadcrumbJsonLd } from "@/lib/seo/breadcrumbs"
 import { setMarketingEdgeCache } from "@/lib/http/edge-cache"
 
@@ -83,12 +83,20 @@ const faqSchema = {
 
 // VenueFacts (src/lib/locations/venue-facts.ts) carries facility facts —
 // tagline, specs, photos — but no display name; the name lives on the DB
-// location row instead. This section is a static two-venue list (no live
-// fetch), so rather than pull in getPublicLocations for two rows, the
-// display name is just the slug capitalised, per the venue-facts contract
-// note (verified 2026-08-16: no `name` field exists on VenueFacts).
-const VENUE_NAMES: Record<string, string> = { worthington: "Worthington", downtown: "Downtown" }
-const venueSlugs = ["worthington", "downtown"]
+// location row instead. This section is a static list (no live fetch), so
+// rather than pull in getPublicLocations for two rows, the display names
+// below are the same strings used consistently on every other
+// customer-facing page that names these venues (see
+// adult-soccer-leagues-columbus.astro, sports/[slug].astro).
+//
+// Which venues render here is derived from `offerings.youth`, not a
+// hardcoded slug list — Downtown is drop-in-pickup-only (offerings.youth is
+// false, confirmed by locations/[slug].astro and sports/[slug].astro, which
+// both say youth soccer runs at Worthington only). Filtering on the flag
+// means this section stays correct automatically if a venue's youth status
+// changes or a new venue is added to VENUE_SLUGS.
+const VENUE_NAMES: Record<string, string> = { worthington: "Worthington", downtown: "Downtown / OSU" }
+const venueSlugs = VENUE_SLUGS.filter((slug) => getVenueFacts(slug)?.offerings.youth)
 ---
 
 <BaseLayout
