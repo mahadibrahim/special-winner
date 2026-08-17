@@ -169,13 +169,13 @@ const fmtShort = (iso: string) =>
     </section>
 
     <div id="divisions">
-      {/* showLevels={false}: youth rows carry skillLevel "open", not the
-          adult A/B/C/D skill ladder — the level bars/chips are adult-only
-          content (LevelLadder is imported straight from
-          adult-soccer-content.ts) and would land every kid in the empty
-          state. audience="youth" swaps the Format chip set to Coed/Boys/Girls
-          (matching real divisionGender values) instead of adult's
-          Coed/Men's/Women's — see divisions-finder.tsx. */}
+      {/* audience="youth" drives two swaps in divisions-finder.tsx: the Format
+          chips become Coed/Boys/Girls (matching real divisionGender values)
+          instead of adult's Coed/Men's/Women's, and the level ladder renders
+          the youth vocabulary — Competitive A/B, Developmental, Recreational —
+          as flat-marked TRACKS rather than adult's ranked A/B/C/D tiers. A
+          youth division with no level set still falls through to "All levels".
+          See youth-soccer-content.ts for why youth is not a ranked ladder. */}
       <SeasonTabs
         client:load
         sport="soccer"
@@ -191,7 +191,7 @@ const fmtShort = (iso: string) =>
         findHeading={findHeading}
         findSubcopy={findSubcopy}
         initialTab={allCompleted ? "standings" : "divisions"}
-        showLevels={false}
+        showLevels={true}
         audience="youth"
       />
     </div>

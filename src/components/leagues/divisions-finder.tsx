@@ -2,7 +2,6 @@
 import { useState, type ReactNode } from "react";
 import { filterDivisions, groupDivisionsByDay, divisionGenderLabel, skillLevelShort, DIVISION_GENDER_LABEL, ADULT_GENDERS, YOUTH_GENDERS, type Division, type DivisionFilters, type DayKey, type DivisionGender } from "@/lib/leagues/division-filters";
 import { LevelLadder, Bars } from "@/components/leagues/level-ladder";
-import type { SkillLevel } from "@/lib/leagues/adult-soccer-content";
 import { InterestCapture } from "@/components/leagues/interest-capture";
 import { trackDivisionFilterApplied, trackDivisionRegisterClicked } from "@/lib/analytics/events";
 import { cn } from "@/lib/utils";
@@ -31,8 +30,17 @@ const ADULT_GENDER_CHIPS: { key: DivisionGender; label: string }[] = ADULT_GENDE
   .map((key) => ({ key, label: DIVISION_GENDER_LABEL[key] }));
 const YOUTH_GENDER_CHIPS: { key: DivisionGender; label: string }[] = YOUTH_GENDERS
   .map((key) => ({ key, label: DIVISION_GENDER_LABEL[key] }));
+// Adult rows carry an ascending strength mark. Youth rows deliberately do not —
+// Developmental and Recreational are tracks, not lower rungs — so every youth
+// level renders the flat 4-bar mark. An unknown value also renders flat rather
+// than an empty 0/4, which would read as "rated bottom".
 const BARS_FOR: Record<string, number> = { a: 4, b: 3, c: 2, d: 1, open: 4 };
-const TIER_TEXT: Record<string, string> = { a: "text-ink", b: "text-primary", c: "text-ochre", d: "text-sage", open: "text-navy" };
+const TIER_TEXT: Record<string, string> = {
+  a: "text-ink", b: "text-primary", c: "text-ochre", d: "text-sage", open: "text-navy",
+  competitive_a: "text-ink", competitive_b: "text-primary",
+  developmental: "text-ochre", recreational: "text-sage",
+};
+const ADULT_BAR_LEVELS = new Set(["a", "b", "c", "d"]);
 
 export function registerHref(d: Division, mode: "individual" | "team" = "individual"): string | null {
   // Forming divisions capture interest in place (InterestCapture) — there is
@@ -75,7 +83,11 @@ export function DivisionsFinder({ divisions, venues, term, showLevels = true, fo
     <div>
       {showLevels && (
         <div className="mb-4">
-          <LevelLadder selected={f.level as SkillLevel["key"] | null} onSelect={(k) => toggle("level", k)} />
+          <LevelLadder
+            audience={audience}
+            selected={f.level}
+            onSelect={(k) => toggle("level", k as DivisionFilters["level"])}
+          />
         </div>
       )}
 
@@ -148,7 +160,13 @@ function DivisionRow({ d, term, showLevels }: { d: Division; term: string; showL
     <>
       <div className={cn("flex flex-col gap-1.5 sm:grid sm:items-center sm:gap-3.5 py-3 px-2 border-b border-cream-2 hover:bg-paper",
         showLevels ? "sm:grid-cols-[30px_1.6fr_1.2fr_0.9fr_0.8fr_auto]" : "sm:grid-cols-[1.6fr_1.2fr_0.9fr_0.8fr_auto]")}>
-        {showLevels && <Bars filled={BARS_FOR[d.level]} flat={d.level === "open"} className={TIER_TEXT[d.level]} />}
+        {showLevels && (
+          <Bars
+            filled={BARS_FOR[d.level] ?? 4}
+            flat={!ADULT_BAR_LEVELS.has(d.level)}
+            className={TIER_TEXT[d.level]}
+          />
+        )}
         <div>
           <div className="font-display font-semibold text-base">{d.name}</div>
           <div className="font-mono text-[10.5px] tracking-wide uppercase text-ink-muted mt-0.5">
