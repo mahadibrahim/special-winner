@@ -12,6 +12,7 @@ import { getVenueFacts } from "@/lib/locations/venue-facts";
 import { toDivisionGender, type Division } from "@/lib/leagues/division-filters";
 import { divisionNaming } from "@/lib/leagues/division-slug";
 import { divisionSlugMapForAudience } from "@/lib/leagues/division-page-data";
+import { filterYouthSeasons } from "@/lib/leagues/youth-seasons";
 import { breadcrumbJsonLd } from "@/lib/seo/breadcrumbs";
 import { seasonsToLeagueEvents } from "@/lib/seo/events";
 
@@ -27,7 +28,15 @@ const [liveRes, doneRes] = await Promise.all([
 ]);
 const live: any[] = liveRes.ok ? ((await liveRes.json()).seasons ?? []) : [];
 const done: any[] = doneRes.ok ? ((await doneRes.json()).seasons ?? []) : [];
-const seasons: any[] = [...live, ...done];
+// `?audience=youth` also returns seasons with NO age group at all — the
+// endpoint treats `ageGroupId IS NULL` as "open to all" and includes those rows
+// in both audience views, while /api/admin/seasons lets an admin create one.
+// Without this guard a single adult season saved without an age group would
+// render here under youth branding (youth Coed/Boys/Girls chips leave a Men's
+// row unfilterable) and mint duplicate youth division URLs. Filtering to real
+// youth age groups drops it, and the empty-check below redirects to the sport
+// landing page exactly as it does for an unknown term.
+const seasons: any[] = filterYouthSeasons([...live, ...done]);
 
 if (seasons.length === 0) {
   return Astro.redirect("/youth/leagues/soccer");

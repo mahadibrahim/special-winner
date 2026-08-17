@@ -4,6 +4,7 @@
 // and precomputes everything the layout renders — so the soccer and
 // flag-football routes stay thin and can't drift from each other.
 import { divisionSlug, divisionNaming, type DivisionNaming, type DivisionAudience } from "./division-slug";
+import { filterYouthSeasons } from "./youth-seasons";
 import { venueAddress } from "@/lib/seo/venue-address";
 
 const DAY_LONG: Record<string, string> = {
@@ -89,7 +90,12 @@ export async function loadDivisionPage(opts: {
   ]);
   const live: any[] = liveRes.ok ? ((await liveRes.json()).seasons ?? []) : [];
   const done: any[] = doneRes.ok ? ((await doneRes.json()).seasons ?? []) : [];
-  const seasons: any[] = [...live, ...done];
+  const fetched: any[] = [...live, ...done];
+  // `?audience=youth` also returns age-group-less rows (see youth-seasons.ts) —
+  // one adult season saved without an age group would otherwise get a
+  // /youth/leagues/.../<division> page under youth branding. Youth only; the
+  // adult path keeps the raw fetched list, unchanged.
+  const seasons: any[] = audience === "youth" ? filterYouthSeasons(fetched) : fetched;
 
   // Youth slugs/titles lead with the age group, which differs per row, so
   // divisionSlugMap's single shared-options signature doesn't fit here — use
