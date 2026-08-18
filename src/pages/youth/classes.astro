@@ -350,10 +350,8 @@ const faqs: LandingFaqItem[] = [
         <h2 class="font-display font-semibold tracking-tight text-ink" style="font-size:clamp(2.1rem,3.8vw,2.9rem);letter-spacing:-0.015em">
           What it <span class="text-brand-red">costs.</span>
         </h2>
-        <p class="text-[15.5px] text-ink-2 max-w-[580px] mt-3">
-          Three numbers, no surprises. Exact figures always sit on the class card, next to what's
-          open.
-        </p>
+        {/* No lede — the cards carry the whole message (owner: redundant
+            framing text helps nobody). */}
         <div class="mt-[38px]">
           <PricingCards cards={PRICING_CARDS} />
         </div>
