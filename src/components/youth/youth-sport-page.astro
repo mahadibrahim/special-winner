@@ -8,6 +8,7 @@
 // working hero with in-hero offering tiles (tinted with the SPORT color —
 // sport answers "which game", emerald stays the youth accent on rules), then
 // one band per offering, coach, indicative pricing.
+import LandingFaq from "@/components/landing/landing-faq.tsx";
 import YouthCoachSection from "@/components/youth/youth-coach-section.astro";
 import { sportColor } from "@/lib/design/sport-colors";
 import type { YouthSportPage } from "@/lib/youth/sport-pages";
@@ -101,6 +102,17 @@ const tiles = [
     </div>
   </section>
 
+  {/* ---------- Editorial intro — the crawlable substance ------------------ */}
+  <section class="px-6 sm:px-9 py-10 border-b border-border" aria-label={`About youth ${sport.name.toLowerCase()}`}>
+    <div class="max-w-[1080px] mx-auto">
+      <div class="max-w-[640px] space-y-4">
+        {sport.intro.map((p) => (
+          <p class="text-[15px] text-ink-2 leading-relaxed">{p}</p>
+        ))}
+      </div>
+    </div>
+  </section>
+
   {/* ---------- Leagues — two kinds, then into the sport's league pages ---- */}
   <section class="px-6 sm:px-9 py-12 border-b border-border" aria-labelledby={`youth-${sport.slug}-leagues-h`}>
     <div class="max-w-[1080px] mx-auto">
@@ -183,6 +195,14 @@ const tiles = [
       </a>
     </div>
   </section>
+
+  {/* ---------- Sport FAQs — no JSON-LD (owned by the SEO branch) ---------- */}
+  <LandingFaq
+    client:visible
+    id={`${sport.slug}-faq`}
+    heading={`Youth ${sport.name.toLowerCase()} FAQs`}
+    items={sport.faqs}
+  />
 
   {/* ---------- The coaching story — sport-specific evidence --------------- */}
   {sport.hasCoach && <YouthCoachSection headingId={`youth-${sport.slug}-coach-h`} />}
