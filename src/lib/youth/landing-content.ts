@@ -57,6 +57,12 @@ export const HERO = {
   subhead: `Pick your kid's sport — leagues, classes and camps for ${AGE_SPAN}, in small groups with real coaching.`,
 };
 
+/** Hub crawlable intro — the only prose block on the hub (tiles and
+ *  accordions carry little indexable text). Customer-forward; NO location
+ *  words on the hub (owner rule). */
+export const INTRO =
+  "Whatever sport your kid picks, they get the same three things here: a coach who explains while the game is happening, a small group where they're never waiting for a turn, and one pathway that runs from their first steps at 18 months to competitive play at nineteen — so they never have to start over.";
+
 /**
  * Youth benefit trio. All three columns take the emerald accent because the
  * design system assigns emerald to youth — mixing accents here would borrow

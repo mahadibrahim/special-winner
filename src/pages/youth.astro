@@ -18,7 +18,7 @@ import { setMarketingEdgeCache } from "@/lib/http/edge-cache";
 import { sportColor } from "@/lib/design/sport-colors";
 import { YOUTH_SPORT_PAGES } from "@/lib/youth/sport-pages";
 import {
-  AGE_SPAN, HERO, BENEFITS, PATHWAY, PRICING, TESTIMONIALS,
+  AGE_SPAN, HERO, INTRO, BENEFITS, PATHWAY, PRICING, TESTIMONIALS,
 } from "@/lib/youth/landing-content";
 
 const announcement = getActiveSiteAnnouncement(Astro.locals.organization, "youth");
@@ -121,6 +121,13 @@ const HERO_IMAGE = "/images/stock/youth-training.jpg";
           Playing yourself?
           <a href="/adult" class="underline underline-offset-2 hover:text-cream transition-colors">See adult programs →</a>
         </p>
+      </div>
+    </section>
+
+    {/* ---------- Crawlable intro — the hub's one prose block --------------- */}
+    <section class="px-6 sm:px-9 py-10 border-b border-border" aria-label="About Aspire youth sports">
+      <div class="max-w-[1080px] mx-auto">
+        <p class="max-w-[640px] text-[15px] text-ink-2 leading-relaxed">{INTRO}</p>
       </div>
     </section>
 
