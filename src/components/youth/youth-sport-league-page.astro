@@ -13,12 +13,16 @@
 //
 // No Director of Coaching and no developmental pathway here — those live on
 // classes/camps, where coaching is the product being bought.
-// See docs/superpowers/specs/2026-08-16-youth-leagues-redesign-design.md
+// Recomposed (Phase 2) in the youth band grammar — docs/design-system.md
+// "Youth band grammar". See also
+// docs/superpowers/specs/2026-08-16-youth-leagues-redesign-design.md
 import AgeGroupLadder from "@/components/youth/age-group-ladder.astro"
 import CategoryFinder from "@/components/landing/category-finder.tsx"
+import TileFactsLine from "@/components/landing/tile-facts-line"
 import SeasonCalendarBand, { type CalendarTermConfig } from "@/components/landing/season-calendar-band.tsx"
 import LandingFaq, { type LandingFaqItem } from "@/components/landing/landing-faq.tsx"
-import CTABanner from "@/components/cta-banner"
+import SectionJumpBar from "@/components/youth/bands/section-jump-bar.astro"
+import FeatureBand from "@/components/youth/bands/feature-band.astro"
 import { getVenueFacts, VENUE_SLUGS } from "@/lib/locations/venue-facts"
 import { partitionTerms, type TermSeason } from "@/lib/leagues/terms"
 import { filterYouthSeasons } from "@/lib/leagues/youth-seasons"
@@ -103,6 +107,24 @@ const HERO_IMAGE = "/images/stock/five-aside-turf.jpg"
 // list, so this stays correct when a venue's youth status changes.
 const venueSlugs = VENUE_SLUGS.filter((slug) => getVenueFacts(slug)?.offerings.youth)
 
+// Two-kinds card tones: winter = royal (structural, competitive), the
+// developmental season = emerald (the youth signature accent).
+const KIND_TONES = ["bg-royal", "bg-emerald"]
+
+// The #seasons pill only renders when the section below it will — with an
+// empty catalog (a newly-launched sport, or staging) the anchor target does
+// not exist and the pill would be a dead control.
+const hasSeasonLinks = Boolean(currentTerm || upcomingTerms.length > 0 || pastTerms.length > 0)
+const JUMP_ITEMS = [
+  { href: "#age-groups", label: "Age groups" },
+  { href: "#open", label: "Book now" },
+  { href: "#kinds", label: "Season types" },
+  ...(hasSeasonLinks ? [{ href: "#seasons", label: "All seasons" }] : []),
+  { href: "#calendar", label: "Calendar" },
+  { href: "#venues", label: "Venues" },
+  { href: "#faq", label: "FAQs" },
+]
+
 // Last statement, per setMarketingEdgeCache's contract: only opt into edge
 // caching once the catalog fetch succeeded, so a transient failure (which
 // suppresses the banner) is never the response that gets cached and served.
@@ -110,7 +132,8 @@ if (catalogOk) setMarketingEdgeCache(Astro)
 ---
 
 <main id="main-content" class="flex-1">
-  <section class="relative text-cream pt-16 px-9 pb-10 bg-navy-deep overflow-hidden">
+  {/* ---------- Hero ---------------------------------------------------- */}
+  <section class="relative text-cream px-6 sm:px-9 pt-16 pb-14 sm:pb-16 overflow-hidden bg-navy-deep">
     <div class="graded graded--emerald graded--fill z-0" aria-hidden="true">
       <img src={HERO_IMAGE} alt="" />
     </div>
@@ -118,7 +141,7 @@ if (catalogOk) setMarketingEdgeCache(Astro)
       {currentTerm && (
         <a
           href={`${basePath}/${currentTerm.slug}`}
-          class="flex items-center justify-between gap-3 bg-primary text-cream rounded-lg px-4 py-3 mb-5"
+          class="flex items-center justify-between gap-3 bg-brand-red text-cream rounded-lg px-4 py-3 mb-6"
           data-testid="now-registering"
           data-hero-banner-cta
           data-term={currentTerm.slug}
@@ -127,51 +150,104 @@ if (catalogOk) setMarketingEdgeCache(Astro)
             <span class="font-mono text-[10px] tracking-widest uppercase opacity-85">● Now Registering</span><br />
             <span class="font-display font-semibold text-lg">{currentTerm.label} &middot; registration open</span>
           </span>
-          <span class="font-mono text-[11px] tracking-wider uppercase bg-cream text-primary px-3 py-2 rounded">See divisions &rarr;</span>
+          <span class="font-mono text-[11px] tracking-wider uppercase bg-cream text-brand-red px-3 py-2 rounded">See divisions &rarr;</span>
         </a>
       )}
-      <h1 class="font-display font-semibold tracking-tight" style="font-size:clamp(2.5rem,6vw,4rem);line-height:.95">
+      <h1
+        class="font-display font-semibold tracking-tight"
+        style="font-size:clamp(2.8rem,6.5vw,4.4rem);line-height:.98;letter-spacing:-0.015em"
+      >
         {heroTitle}<br />at Aspire.
       </h1>
-      <p class="mt-3 text-base text-cream/90 max-w-[520px]">{heroSubhead}</p>
+      <p class="mt-[18px] text-[17.5px] text-cream/92 max-w-[540px]">{heroSubhead}</p>
+      <div class="flex flex-wrap gap-3 mt-[30px]">
+        <a
+          href="#open"
+          data-youth-cta="league-hero-open"
+          class="inline-block font-semibold text-[14.5px] px-[22px] py-[13px] rounded-[10px] bg-brand-red text-cream no-underline"
+        >
+          See what's open →
+        </a>
+        <a
+          href="#age-groups"
+          data-youth-cta="league-hero-ages"
+          class="inline-block font-semibold text-[14.5px] px-[22px] py-[13px] rounded-[10px] border-[1.5px] border-cream/50 text-cream no-underline"
+        >
+          Which group is my kid in?
+        </a>
+      </div>
     </div>
   </section>
 
-  <AgeGroupLadder finderId={FINDER_ID} sportKey={sportSlug} />
+  <SectionJumpBar items={JUMP_ITEMS} />
 
-  <CategoryFinder
-    client:load
-    audience="youth"
-    programTypes={["league"]}
-    sport={sportSlug}
-    title="Open now"
-    descriptor="Pick an age group above to filter, or browse everything open."
-    sectionId={FINDER_ID}
-  />
+  {/* ---------- Age groups — the page's permanent content ---------------- */}
+  <div id="age-groups">
+    <AgeGroupLadder finderId={FINDER_ID} sportKey={sportSlug} />
+  </div>
 
-  {/* Two kinds of season — the winter/developmental split, shared verbatim
-      with the hub so the two never drift. Winter is club teams keeping their
-      season going; the rest of the year is developmental: touches and
-      guidance over the scoreline. */}
-  <section class="px-6 sm:px-9 py-12 border-t border-border" aria-labelledby={`youth-${sportSlug}-kinds`}>
+  {/* ---------- Book it right here — red flood + overlapping finder ------
+      The ladder's band clicks filter and scroll to the finder inside the
+      sheet (FINDER_ID), so ladder → booking stays one adjacent motion. */}
+  <section id="open" class="bg-brand-red text-cream text-center px-6 sm:px-9 pt-16 pb-[140px]">
     <div class="max-w-[1080px] mx-auto">
-      <h2 id={`youth-${sportSlug}-kinds`} class="font-display text-3xl text-ink tracking-tight">
-        Two kinds of season.
+      <h2
+        class="font-display font-semibold tracking-tight"
+        style="font-size:clamp(2.2rem,4.5vw,3.2rem);letter-spacing:-0.015em"
+      >
+        Book it right here.
       </h2>
-      <p class="text-[13.5px] text-ink-2 leading-relaxed mt-2 max-w-[520px]">
+      {/* Live status line, computed client-side — this page opts into edge
+          caching (setMarketingEdgeCache above), so the line must not bake in
+          at render time. Sport-scoped to agree with the finder below. */}
+      <TileFactsLine client:visible audience="youth" programTypes={["league"]} sport={sportSlug} tone="cream" />
+    </div>
+  </section>
+  <div class="-mt-[88px] pb-[76px] px-6 sm:px-9">
+    {/* Paper SHEET overlap — the finder's ink heading must never straddle
+        the red/cream boundary (owner-flagged contract from classes v2). */}
+    <div class="max-w-[1080px] mx-auto bg-paper border border-cream-3 rounded-2xl shadow-xl">
+      <CategoryFinder
+        client:load
+        audience="youth"
+        programTypes={["league"]}
+        sport={sportSlug}
+        title="Open now"
+        descriptor="Pick an age group above to filter, or browse everything open."
+        sectionId={FINDER_ID}
+        cardVariant="youth-band"
+        headerHidden
+      />
+    </div>
+  </div>
+
+  {/* ---------- Two kinds of season — toned band cards --------------------
+      The winter/developmental split, shared verbatim with the hub so the two
+      never drift. Winter is club teams keeping their season going; the rest
+      of the year is developmental: touches and guidance over the scoreline. */}
+  <section id="kinds" class="px-6 sm:px-9 py-[76px]" aria-labelledby={`youth-${sportSlug}-kinds`}>
+    <div class="max-w-[1080px] mx-auto">
+      <h2
+        id={`youth-${sportSlug}-kinds`}
+        class="font-display font-semibold tracking-tight text-ink"
+        style="font-size:clamp(2.1rem,3.8vw,2.9rem);letter-spacing:-0.015em"
+      >
+        Two kinds of <span class="text-brand-red">season.</span>
+      </h2>
+      <p class="text-[15.5px] text-ink-2 max-w-[580px] mt-3">
         Depending on the time of year and what your player needs.
       </p>
-      <div class="grid md:grid-cols-2 gap-3 mt-6">
-        {LEAGUE_KINDS.map((k) => (
-          <div class="rounded-xl border border-border bg-paper p-5">
-            <p class="font-mono text-[10px] tracking-widest uppercase text-ink-2">{k.when}</p>
-            <h3 class="font-display text-xl text-ink mt-1.5">{k.name}</h3>
-            <p class="text-[13px] text-ink-2 leading-relaxed mt-2">{k.body}</p>
-            <dl class="flex gap-6 mt-4 pt-3 border-t border-cream-2 text-[12px]">
+      <div class="grid md:grid-cols-2 gap-4 mt-[38px]">
+        {LEAGUE_KINDS.map((k, i) => (
+          <div class={`${KIND_TONES[i % KIND_TONES.length]} text-cream rounded-2xl px-[28px] pt-[28px] pb-[30px] flex flex-col`}>
+            <p class="font-mono text-[10px] tracking-[0.16em] uppercase text-cream/75">{k.when}</p>
+            <h3 class="font-display font-semibold text-[25px] leading-[1.2] tracking-[-0.01em] mt-[10px]">{k.name}</h3>
+            <p class="text-[13.5px] text-cream/90 mt-[10px] flex-1">{k.body}</p>
+            <dl class="flex gap-8 mt-5 pt-4 border-t border-cream/25 text-[12.5px]">
               {k.facts.map((f) => (
                 <div>
-                  <dt class="text-ink-2">{f.label}</dt>
-                  <dd class="text-ink font-semibold mt-0.5">{f.value}</dd>
+                  <dt class="text-cream/70">{f.label}</dt>
+                  <dd class="font-semibold mt-0.5">{f.value}</dd>
                 </div>
               ))}
             </dl>
@@ -186,27 +262,27 @@ if (catalogOk) setMarketingEdgeCache(Astro)
       and completed standings archives need inbound links too, or they exist
       only for visitors who type the URL. */}
   {(upcomingTerms.length > 0 || pastTerms.length > 0 || currentTerm) && (
-    <section class="px-6 sm:px-9 py-10 border-t border-border" aria-labelledby={`youth-${sportSlug}-seasons`}>
+    <section id="seasons" class="px-6 sm:px-9 py-10 border-t border-border" aria-labelledby={`youth-${sportSlug}-seasons`}>
       <div class="max-w-[1080px] mx-auto">
-        <h2 id={`youth-${sportSlug}-seasons`} class="font-display text-2xl text-ink tracking-tight mb-4">All seasons</h2>
+        <h2 id={`youth-${sportSlug}-seasons`} class="font-display font-semibold text-2xl text-ink tracking-tight mb-4">All seasons</h2>
         <ul class="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2 text-[14px]">
           {currentTerm && (
             <li>
-              <a href={`${basePath}/${currentTerm.slug}`} class="text-ink hover:text-primary font-semibold">
-                {currentTerm.label} <span class="font-mono text-[9.5px] tracking-widest uppercase text-primary ml-1">Open now</span>
+              <a href={`${basePath}/${currentTerm.slug}`} class="text-ink hover:text-brand-red font-semibold">
+                {currentTerm.label} <span class="font-mono text-[9.5px] tracking-widest uppercase text-brand-red ml-1">Open now</span>
               </a>
             </li>
           )}
           {upcomingTerms.map((t) => (
             <li>
-              <a href={`${basePath}/${t.slug}`} class="text-ink-2 hover:text-primary">
+              <a href={`${basePath}/${t.slug}`} class="text-ink-2 hover:text-brand-red">
                 {t.label} <span class="font-mono text-[9.5px] tracking-widest uppercase text-ink-2 ml-1">Coming up</span>
               </a>
             </li>
           ))}
           {pastTerms.map((t) => (
             <li>
-              <a href={`${basePath}/${t.slug}`} class="text-ink-2 hover:text-primary">
+              <a href={`${basePath}/${t.slug}`} class="text-ink-2 hover:text-brand-red">
                 {t.label} <span class="font-mono text-[9.5px] tracking-widest uppercase text-ink-2 ml-1">Final standings</span>
               </a>
             </li>
@@ -216,32 +292,41 @@ if (catalogOk) setMarketingEdgeCache(Astro)
     </section>
   )}
 
-  <SeasonCalendarBand
-    client:visible
-    audience="youth"
-    programTypes={["league"]}
-    pageKey={`youth-${sportSlug}`}
-    cardsSectionId={FINDER_ID}
-    heading="The season calendar."
-    descriptor="Seasons run back-to-back all year — leave your email and you'll hear the moment the next one opens."
-    futureTerms={calendarTerms}
-  />
+  {/* ---------- Calendar -------------------------------------------------- */}
+  <div id="calendar">
+    <SeasonCalendarBand
+      client:visible
+      audience="youth"
+      programTypes={["league"]}
+      pageKey={`youth-${sportSlug}`}
+      cardsSectionId={FINDER_ID}
+      heading="The season calendar."
+      descriptor="Seasons run back-to-back all year — leave your email and you'll hear the moment the next one opens."
+      futureTerms={calendarTerms}
+    />
+  </div>
 
-  <section class="bg-cream-2 border-t border-ink/10 py-14 px-6" aria-label="Where you'll play">
+  {/* ---------- Venues ---------------------------------------------------- */}
+  <section id="venues" class="bg-cream-2 border-t border-ink/10 py-[76px] px-6 sm:px-9" aria-label="Where you'll play">
     <div class="max-w-[1080px] mx-auto">
-      <h2 class="font-display text-3xl text-ink mb-6">Where you'll play</h2>
-      <div class="grid gap-5 md:grid-cols-2">
+      <h2
+        class="font-display font-semibold tracking-tight text-ink"
+        style="font-size:clamp(2.1rem,3.8vw,2.9rem);letter-spacing:-0.015em"
+      >
+        Where you'll <span class="text-brand-red">play.</span>
+      </h2>
+      <div class="grid gap-5 md:grid-cols-2 mt-[38px]">
         {venueSlugs.map((slug) => {
           const vf = getVenueFacts(slug)
           return vf ? (
-            <a href={`/locations/${slug}`} class="group rounded-2xl border border-border bg-paper overflow-hidden flex flex-col sm:flex-row">
+            <a href={`/locations/${slug}`} class="group rounded-2xl border border-border bg-paper overflow-hidden flex flex-col sm:flex-row no-underline">
               {vf.photos[0] && (
                 <img src={vf.photos[0].src} alt={vf.photos[0].alt} loading="lazy" class="sm:w-44 h-32 sm:h-auto object-cover" />
               )}
               <div class="p-5">
-                <div class="font-display text-xl text-ink group-hover:text-primary">{VENUE_DISPLAY_NAMES[slug] ?? slug}</div>
+                <div class="font-display font-semibold text-xl text-ink group-hover:text-brand-red">{VENUE_DISPLAY_NAMES[slug] ?? slug}</div>
                 <p class="text-[13px] text-ink-2 mt-1 max-w-sm">{vf.tagline}</p>
-                <span class="inline-block text-xs font-semibold text-primary mt-2.5">Venue details &amp; directions →</span>
+                <span class="inline-block text-xs font-semibold text-brand-red mt-2.5">Venue details &amp; directions →</span>
               </div>
             </a>
           ) : null
@@ -250,17 +335,65 @@ if (catalogOk) setMarketingEdgeCache(Astro)
     </div>
   </section>
 
-  <LandingFaq client:visible id="faq" heading="Parent FAQs" items={faqs} />
+  {/* ---------- FAQs ------------------------------------------------------ */}
+  <LandingFaq client:visible id="faq" heading="Questions parents ask." items={faqs} />
 
-  <CTABanner client:visible />
+  {/* ---------- Cross-promo: classes & camps ------------------------------ */}
+  <FeatureBand
+    tone="emerald"
+    graphicVariant={1}
+    kicker="Also at Aspire"
+    title="Training between seasons."
+    body="Small-group classes from 18 months to nineteen years — a coach who explains, and one pathway so your kid never has to start over."
+    cta={{ href: "/youth/classes", label: "See youth classes →" }}
+  />
+  <FeatureBand
+    tone="red"
+    graphicVariant={4}
+    kicker="Also at Aspire"
+    title="Camps, all year long."
+    body="Day camps on school breaks, plus specialty camps through the year — coached rather than supervised, by the same people they see all year."
+    cta={{ href: "/youth/camps", label: "See camp dates →" }}
+  />
+
+  {/* ---------- Close ------------------------------------------------------ */}
+  <section class="bg-navy-deep text-cream text-center px-6 sm:px-9 py-20" aria-labelledby={`youth-${sportSlug}-close-h`}>
+    <div class="max-w-[1080px] mx-auto">
+      <h2
+        id={`youth-${sportSlug}-close-h`}
+        class="font-display font-semibold tracking-tight"
+        style="font-size:clamp(2rem,4vw,2.8rem)"
+      >
+        See you on <span class="text-emerald-bright">game day.</span>
+      </h2>
+      <p class="mt-2.5 text-cream/90">Find their division and register — it takes a few minutes.</p>
+      <div class="flex justify-center gap-3 mt-6">
+        <a
+          href="#open"
+          data-youth-cta="league-close-book"
+          class="inline-block font-semibold text-[14.5px] px-[22px] py-[13px] rounded-[10px] bg-brand-red text-cream no-underline"
+        >
+          Find their division →
+        </a>
+      </div>
+    </div>
+  </section>
 </main>
 
 <script>
   import { trackLandingCtaClicked } from "@/lib/analytics/events"
+  import { track } from "@/lib/analytics/track"
 
   // Without this the hero "Now Registering" banner — the page's only route
   // into the term funnel — fires nothing, so tier 4 -> 5 conversion is invisible.
   document.querySelectorAll<HTMLAnchorElement>("[data-hero-banner-cta]").forEach((el) => {
     el.addEventListener("click", () => trackLandingCtaClicked({ term: el.dataset.term ?? "" }))
+  })
+
+  // Band CTAs fire the shared youth-section event, same as classes/hub.
+  document.querySelectorAll<HTMLAnchorElement>("[data-youth-cta]").forEach((el) => {
+    el.addEventListener("click", () =>
+      track("youth_hub_section_cta_clicked", { section: el.dataset.youthCta ?? "" }),
+    )
   })
 </script>
