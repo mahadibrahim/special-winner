@@ -35,6 +35,25 @@ test.describe("Landing-page finders", () => {
     await expect(page).toHaveURL(/\/youth\/leagues$/);
   });
 
+  test("/youth/soccer — sport page: hero, intro, anchors, FAQs", async ({ page }) => {
+    await page.goto("/youth/soccer", { waitUntil: "domcontentloaded" });
+
+    // level: 1 — the page also has an h2 "Youth soccer FAQs" further down
+    // that would otherwise match this regex too (strict-mode violation).
+    await expect(
+      page.getByRole("heading", { level: 1, name: /youth soccer/i }),
+    ).toBeVisible();
+    // Editorial intro (sport-pages.ts intro[0]) — update together.
+    await expect(page.getByText(/falls in love with the game/i)).toBeVisible();
+    // Age anchors are the landing targets for age queries.
+    for (const anchor of ["micros", "minis", "juniors", "academy", "select"]) {
+      await expect(page.locator(`#${anchor}`)).toBeVisible();
+    }
+    // Offering tiles route into the funnel.
+    await page.locator('[data-landing-cta="youth-soccer-leagues"]').click();
+    await expect(page).toHaveURL(/\/youth\/leagues\/soccer$/);
+  });
+
   test("/adult — hub: hero + three category doors", async ({ page }) => {
     await page.goto("/adult", { waitUntil: "domcontentloaded" });
 
