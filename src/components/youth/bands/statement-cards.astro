@@ -1,0 +1,32 @@
+---
+// Solid-color statement card row (mockup: .facts / .fact) — tone rotates
+// royal -> emerald -> brand-red as cards repeat. Renders just the card grid;
+// the consuming page owns the section heading above it.
+interface StatementCard {
+  label: string;
+  statement: string;
+  body: string;
+}
+
+interface Props {
+  cards: StatementCard[];
+}
+
+const { cards } = Astro.props;
+
+const TONES = ["bg-royal", "bg-emerald", "bg-brand-red"] as const;
+---
+
+<div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+  {
+    cards.map((card: StatementCard, i: number) => (
+      <div class={`${TONES[i % TONES.length]} text-cream rounded-2xl px-[28px] pt-[28px] pb-[30px] min-h-[200px] flex flex-col`}>
+        <p class="font-mono text-[10px] tracking-[0.16em] uppercase text-cream/75">{card.label}</p>
+        <p class="font-display font-semibold text-[25px] leading-[1.2] tracking-[-0.01em] mt-[10px]">
+          {card.statement}
+        </p>
+        <p class="text-[13.5px] text-cream/90 mt-[10px] flex-1">{card.body}</p>
+      </div>
+    ))
+  }
+</div>
