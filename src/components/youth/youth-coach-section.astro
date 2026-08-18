@@ -31,7 +31,7 @@ const quoteParts = COACH.quote.split(EMPHASIS)
 <section class="bg-cream-2 px-6 sm:px-9 py-12 sm:py-[76px] border-b border-border" aria-labelledby={headingId}>
   <div class="max-w-[1080px] mx-auto">
     <h2 id={headingId} class="sr-only">How we coach</h2>
-    <div class="grid sm:grid-cols-[190px_1fr] gap-8 sm:gap-11 items-start max-w-[720px]">
+    <div class="grid sm:grid-cols-[190px_1fr] gap-8 sm:gap-11 items-start">
       {/* Placeholder block until a real photograph of Saad exists — the trust
           slot needs one more than anything else on these pages. */}
       <div
@@ -43,8 +43,8 @@ const quoteParts = COACH.quote.split(EMPHASIS)
       </div>
       <div>
         <blockquote
-          class="font-display italic font-medium text-ink leading-[1.3] tracking-[-0.01em] max-w-[30ch]"
-          style="font-size: clamp(1.4rem, 2.6vw, 1.9rem);"
+          class="font-display italic font-medium text-ink leading-[1.3] tracking-[-0.01em] max-w-[44ch]"
+          style="font-size: clamp(1.5rem, 3vw, 2.3rem);"
         >
           “{quoteParts.length > 1 ? (
             <>
@@ -67,7 +67,7 @@ const quoteParts = COACH.quote.split(EMPHASIS)
             </div>
           ))}
         </dl>
-        <p class="mt-4 text-sm text-ink-2 leading-relaxed max-w-[62ch]">{COACH.bio}</p>
+        <p class="mt-4 text-[15px] text-ink-2 leading-relaxed max-w-[75ch]">{COACH.bio}</p>
       </div>
     </div>
   </div>
