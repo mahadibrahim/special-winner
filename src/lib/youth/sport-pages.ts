@@ -53,9 +53,9 @@ export const YOUTH_SPORT_PAGES: Record<string, YouthSportPage> = {
     tileMeta: "Leagues, classes & camps",
     heroTitle: "Youth soccer.",
     heroSubhead:
-      "Leagues by age group, weeknight classes from 18 months up, and camps on school breaks — one programme, U6 to U19.",
+      "Leagues by age group, weeknight classes from 18 months up, and camps through the year — one programme, U6 to U19.",
     intro: [
-      "Your kid wants to play soccer — or you want them to try it. Either way, there's a place for them here: leagues by age group from U6 to U19, weeknight classes that start at 18 months with you on the floor beside them, and camps that cover school breaks. It's all indoors in central Ohio, so the season your kid falls in love with the game doesn't end in November.",
+      "Your kid wants to play soccer — or you want them to try it. Either way, there's a place for them here: leagues by age group from U6 to U19, weeknight classes that start at 18 months with you on the floor beside them, and camps that run through the year. It's all in central Ohio, and the season your kid falls in love with the game doesn't end in November.",
       "Every coach they'll have trains under our Director of Coaching, so Tuesday's session means the same thing as Thursday's. Start with what's open above, or find their age group and go from there.",
     ],
     faqs: [
@@ -67,7 +67,7 @@ export const YOUTH_SPORT_PAGES: Record<string, YouthSportPage> = {
       {
         question: "Is it indoors in the winter?",
         answer:
-          "Yes. Everything runs indoors, so winter is a real season for your kid, not a pause.",
+          "Winter is a real season here — training runs all year, and every class and league card shows exactly where it meets.",
       },
       {
         question: "Does my kid need experience — or a team?",
@@ -81,7 +81,7 @@ export const YOUTH_SPORT_PAGES: Record<string, YouthSportPage> = {
       },
     ],
     metaDescription:
-      "Youth soccer in Columbus and central Ohio — leagues U6–U19, weeknight classes from 18 months, and school-break camps. See what's open and register.",
+      "Youth soccer in Columbus and central Ohio — leagues U6–U19, weeknight classes from 18 months, and camps through the year. See what's open and register.",
     hasCoach: true,
   },
   futsal: {
