@@ -109,16 +109,6 @@ export const LEAGUE_KINDS: LeagueKind[] = [
   },
 ];
 
-export const CLASSES = {
-  lede:
-    "Training on a weeknight, in small groups, with a path that runs from a toddler on the floor beside you to a high-schooler sharpening the part of their game they know needs work.",
-  points: [
-    "Starts at 18 months, with a grown-up on the floor",
-    "Five steps — Micros, Minis, Juniors, Academy, and Select by invitation",
-    "Move up when they are ready, on their coach's word",
-  ],
-};
-
 export const CAMPS = {
   lede:
     "Somewhere for them to be when there is no school and you still have work. Full days indoors, coached rather than supervised, with the same people they see the rest of the year.",

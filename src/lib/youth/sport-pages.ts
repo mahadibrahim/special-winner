@@ -91,7 +91,7 @@ export const YOUTH_SPORT_PAGES: Record<string, YouthSportPage> = {
     tileMeta: "Leagues by age group",
     heroTitle: "Youth futsal.",
     heroSubhead:
-      "Indoor futsal by age group — soccer's fast small-sided sibling, coached by the same staff on the same curriculum.",
+      "Indoor futsal by age group — soccer's sibling game, coached by the same staff on the same curriculum.",
     intro: [
       "If your kid already plays soccer, futsal is more of what they love — the same game's skills, coached by the same staff on the same curriculum. If they're new, it's a friendly way in: small groups, and coaches who explain while the game is happening.",
       "Leagues run by age group, indoors in central Ohio. Find your kid's group and see what's open for the 2026–27 season.",
@@ -100,7 +100,7 @@ export const YOUTH_SPORT_PAGES: Record<string, YouthSportPage> = {
       {
         question: "Is futsal right for a kid who plays soccer?",
         answer:
-          "Yes — the same staff coach both, on the same curriculum, and many soccer families add futsal to keep their kid playing between seasons.",
+          "Yes — the same staff coach both, on the same curriculum, so it's an easy way to keep your kid playing between seasons.",
       },
       {
         question: "What age groups do you run?",

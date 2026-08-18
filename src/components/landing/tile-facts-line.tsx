@@ -22,8 +22,11 @@ import type { CategoryAudience } from "@/lib/programs/category-pages"
  * invented; with no data at all the reserved line stays blank (no layout
  * shift, tile otherwise unchanged).
  *
- * Renders inside CategoryCard's aurora-gradient door: cream text over the
- * card's bottom darkening overlay, matching the tile's mono status label.
+ * Renders inside CategoryCard's aurora-gradient door (tone="cream", the
+ * default): cream text over the card's bottom darkening overlay, matching
+ * the tile's mono status label. Also renders inside the youth hub's solid
+ * sport-color tiles (tone="ink"), where the rest of the tile's text is ink
+ * rather than cream.
  */
 
 interface TileFactsLineProps {

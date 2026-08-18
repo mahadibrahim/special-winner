@@ -1,8 +1,8 @@
 ---
 // src/components/landing/category-card.astro
 // Colored, animated hub door card. Each category owns a palette ("leagues" |
-// "pickup" | "tournaments" | "youth-a" | "youth-b"); a slow aurora gradient
-// drifts behind it and the arrow slides on hover. Honors prefers-reduced-motion.
+// "pickup" | "tournaments"); a slow aurora gradient drifts behind it and the
+// arrow slides on hover. Honors prefers-reduced-motion.
 //
 // `factsAudience` opts a tile into a live mono facts line ("Fall · 7 games ·
 // $120 solo · closes Sep 3") rendered by the TileFactsLine island — computed
@@ -12,7 +12,7 @@ import TileFactsLine from "@/components/landing/tile-facts-line"
 interface Props {
   href: string
   cta: string                 // analytics id, e.g. "adult-hub-leagues"
-  palette: "leagues" | "pickup" | "tournaments" | "youth-a" | "youth-b" | "youth-c"
+  palette: "leagues" | "pickup" | "tournaments"
   title: string
   blurb: string
   statusLabel: string
@@ -63,22 +63,6 @@ const { href, cta, palette, title, blurb, statusLabel, live = false, ctaLabel, f
     radial-gradient(60% 60% at 30% 20%, oklch(0.68 0.2 320), transparent 60%),
     radial-gradient(70% 70% at 75% 80%, oklch(0.5 0.2 295), transparent 60%),
     linear-gradient(135deg, oklch(0.58 0.2 310), oklch(0.4 0.16 290)); }
-  .door-youth-a .aurora { background:
-    radial-gradient(60% 60% at 22% 22%, oklch(0.8 0.18 145), transparent 60%),
-    radial-gradient(70% 70% at 80% 78%, oklch(0.66 0.18 170), transparent 60%),
-    linear-gradient(135deg, oklch(0.7 0.17 150), oklch(0.5 0.15 175)); }
-  .door-youth-b .aurora { background:
-    radial-gradient(60% 60% at 25% 20%, oklch(0.82 0.17 85), transparent 60%),
-    radial-gradient(70% 70% at 78% 80%, oklch(0.7 0.19 55), transparent 60%),
-    linear-gradient(135deg, oklch(0.76 0.18 70), oklch(0.58 0.16 45)); }
-  /* Third youth palette — the hub runs three doors (leagues, classes, camps)
-     and two palettes meant one colour repeated. Teal sits between youth-a's
-     emerald and the navy ground so the three read as one family. */
-  .door-youth-c .aurora { background:
-    radial-gradient(60% 60% at 24% 22%, oklch(0.76 0.14 195), transparent 60%),
-    radial-gradient(70% 70% at 80% 78%, oklch(0.58 0.15 215), transparent 60%),
-    linear-gradient(135deg, oklch(0.66 0.14 200), oklch(0.46 0.13 220)); }
-
   @keyframes drift {
     0% { transform: translate(0,0) scale(1.05); }
     33% { transform: translate(3%,-4%) scale(1.12); }
