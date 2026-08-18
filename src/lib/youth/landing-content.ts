@@ -77,7 +77,7 @@ export const BENEFITS = [
   {
     accent: "border-t-emerald",
     title: "Coaching that explains",
-    body: "Every coach trains under our Director of Coaching — seven seasons a professional — and talks players through the game while it is happening.",
+    body: "Your kid's coach trains under our Director of Coaching — seven seasons a professional — and explains the game while it is happening, not just at half time.",
   },
   {
     accent: "border-t-emerald",
