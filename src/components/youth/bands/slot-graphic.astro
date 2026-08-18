@@ -1,0 +1,49 @@
+---
+// Decorative sport motif for photo-awaiting slots (owner decision
+// 2026-08-18: graphics now, real photography swapped in later — replacing
+// the "PHOTO · …" labeled gradients, which read as unfinished).
+//
+// One shared graphic language — pitch markings and a ball, cream over the
+// slot's tone gradient — so every slot looks intentional rather than
+// clip-arty. `variant` (0–4) shifts the ball and rotates the markings so
+// slots in a row never repeat exactly. Purely decorative: aria-hidden,
+// tokens only (cream via CSS var + opacity attributes).
+interface Props {
+  /** 0–4; callers cycle it per slot. */
+  variant?: number;
+}
+const { variant = 0 } = Astro.props;
+const v = ((variant % 5) + 5) % 5;
+const BALL = [
+  { cx: 118, cy: 96 },
+  { cx: 42, cy: 44 },
+  { cx: 130, cy: 40 },
+  { cx: 40, cy: 100 },
+  { cx: 84, cy: 72 },
+][v];
+const ROT = [0, 90, 180, 270, 45][v];
+---
+
+<svg
+  viewBox="0 0 160 140"
+  preserveAspectRatio="xMidYMid slice"
+  class="absolute inset-0 w-full h-full"
+  aria-hidden="true"
+>
+  <g
+    transform={`rotate(${ROT} 80 70)`}
+    stroke="var(--cream)"
+    stroke-opacity="0.22"
+    stroke-width="1.5"
+    fill="none"
+  >
+    {/* center circle + halfway line + the two penalty arcs, cropped by the
+        slot — enough pitch to read as a pitch, not a diagram */}
+    <circle cx="80" cy="70" r="34" />
+    <line x1="-20" y1="70" x2="180" y2="70" />
+    <path d="M -20 20 A 46 46 0 0 1 -20 120" />
+    <path d="M 180 20 A 46 46 0 0 0 180 120" />
+    <circle cx="80" cy="70" r="2.5" fill="var(--cream)" fill-opacity="0.22" stroke="none" />
+  </g>
+  <circle cx={BALL.cx} cy={BALL.cy} r="7" fill="var(--cream)" fill-opacity="0.55" />
+</svg>

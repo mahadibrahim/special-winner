@@ -70,6 +70,7 @@ Every page `<head>` must include:
 | `--ochre` | `text-ochre` | Warm secondary accent for subtle highlights |
 | `--sage` | `text-sage` | Success states, positive indicators |
 | `--emerald` (+ `-bright`, `-soft`) | `text-emerald`, `bg-emerald-bright`, `border-t-emerald` | Youth accent family. Mirrors the `primary-orange` structure: anchor on cream, `-bright` on navy, `-soft` for chips. |
+| `--brand-red`, `--royal`, `--royal-bright` | `text-brand-red`, `bg-royal`, `text-royal-bright` | Logo-derived youth extensions. Red = hot CTA/flood on youth surfaces; royal = structural (jump bar, cards). |
 
 ### Semantic tokens (shadcn bridge)
 
@@ -347,3 +348,40 @@ deploy the grade as a hero background layer:
 The `bg-navy-deep` on the section is the fallback ground so cream text never
 lands on cream if the photo is missing. General lesson: if a Tailwind utility
 appears to do nothing, check for a bare class rule in `globals.css`.
+
+---
+
+## Youth band grammar (2026-08-18)
+
+Youth pages (`/youth/**`) use a full-bleed band-composition system with serif
+typography and the logo-derived palette (emerald signature + brand-red CTAs +
+royal structure).
+
+**Band shape**: full-width color-blocked sections, each a self-contained visual
+unit. Section headers are bold serif with a `text-brand-red` tinted closing
+phrase. The 3px kicker rule element above h2s is retired on youth surfaces.
+
+**Primitive inventory** (youth-scoped consumers only; adult finder is prop-gated):
+- Sticky jump bar (`src/components/youth/bands/section-jump-bar.astro`) — royal
+  band, mono uppercase pill links, cream active state
+- Feature band (`src/components/youth/bands/feature-band.astro`) — full-bleed
+  colored band, image third, title + kicker + prose + CTA (powers pathway
+  steps and cross-promo)
+- Statement cards (`src/components/youth/bands/statement-cards.astro`) — solid
+  color card row (royal / emerald / red), mono label, large serif statement,
+  supporting line
+- Coach section (`src/components/youth/youth-coach-section.astro`) — circular
+  portrait, large italic serif line of attributed prose (his method, from
+  `COACH.method` — deliberately NOT rendered as a blockquote or in quotation
+  marks, since it isn't a blessed direct quote) with a red emphasis word,
+  credential chips from `COACH.credits`
+- Booking card (`ProgramCardV2` via `cardVariant="youth-band"` on
+  `CategoryFinder`, opt-in and default-unchanged) — colored level-band header
+  with the season's age/level label and its status pill (spots-left when the
+  season surfaces capacity, else "Open"), name, day/time/venue/price rows,
+  red Book CTA. Band color rotates emerald → royal → navy by card index.
+- Pricing cards (`src/components/youth/bands/pricing-cards.astro`) — three-card
+  cost explainer
+
+**Accent roles**: emerald = youth signature · brand-red = youth hot CTA/flood ·
+royal = structural (jump bar, cards, discs)

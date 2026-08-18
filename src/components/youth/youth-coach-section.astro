@@ -7,6 +7,12 @@
 // the evidence — no oppositional language about other clubs, and his club
 // history is stated as biography only, never implying any club endorses
 // Aspire. Content lives in landing-content.ts.
+//
+// Layout: mockup's `.coach` pull-quote treatment (circular portrait, large
+// italic serif quote, credential chips, bio, tie line) — see
+// docs/superpowers/specs/2026-08-18-youth-classes-v2-mockup.html. The quote
+// is OWNER-COMMISSIONED (2026-08-18, COACH.quote) and renders as a real
+// quotation; the bio paragraph is owner-provided verbatim.
 import { COACH, SPORTS } from "@/lib/youth/landing-content"
 
 interface Props {
@@ -14,33 +20,57 @@ interface Props {
   headingId?: string
 }
 const { headingId = "youth-coach-h" } = Astro.props
+
+// Split COACH.quote on the emphasis phrase so it can carry the mockup's red
+// accent without hardcoding the rest of the sentence here — the copy itself
+// still lives entirely in landing-content.ts.
+const EMPHASIS = "full potential"
+const quoteParts = COACH.quote.split(EMPHASIS)
 ---
 
-<section class="bg-cream-2 px-6 sm:px-9 py-12 border-b border-border" aria-labelledby={headingId}>
+<section class="bg-cream-2 px-6 sm:px-9 py-12 sm:py-[76px] border-b border-border" aria-labelledby={headingId}>
   <div class="max-w-[1080px] mx-auto">
-    <h2 id={headingId} class="font-display text-3xl text-ink tracking-tight">How we coach</h2>
-    <div class="mt-5 grid sm:grid-cols-[104px_1fr] gap-5 items-start max-w-[720px]">
-      {/* Placeholder block until a real photograph of Saad exists — the trust
-          slot needs one more than anything else on these pages. */}
-      <div class="w-[104px] h-[126px] rounded-lg bg-navy-deep" aria-hidden="true"></div>
+    <h2 id={headingId} class="sr-only">How we coach</h2>
+    <div class="grid sm:grid-cols-[230px_1fr] gap-8 sm:gap-11 items-start">
+      {/* TEMP portrait (owner-supplied 2026-08-18, public/images/staff/) —
+          swap the file in place when the real Aspire photo shoot happens;
+          no code change needed. Renders ungraded: this is a bio headshot,
+          not marketing imagery. */}
+      <img
+        src="/images/staff/saad-abdul-salaam.webp"
+        alt={`${COACH.name}, ${COACH.role}`}
+        width="220"
+        height="220"
+        loading="lazy"
+        class="w-[220px] h-[220px] rounded-full object-cover object-[center_30%] outline outline-4 outline-paper -outline-offset-1 shadow-[0_2px_14px_rgba(0,0,0,0.12)] bg-navy-deep"
+      />
       <div>
-        <p class="text-[13.5px] text-ink-2 leading-relaxed">
-          <b class="text-ink font-semibold">{COACH.name}</b>, {COACH.role}{
+        <blockquote
+          class="font-display italic font-medium text-ink leading-[1.3] tracking-[-0.01em] max-w-[44ch]"
+          style="font-size: clamp(1.5rem, 3vw, 2.3rem);"
+        >
+          “{quoteParts.length > 1 ? (
+            <>
+              {quoteParts[0]}<em class="text-brand-red not-italic font-medium">{EMPHASIS}</em>{quoteParts.slice(1).join(EMPHASIS)}
+            </>
+          ) : (
+            COACH.quote
+          )}”
+        </blockquote>
+        <div class="mt-[18px] text-sm text-ink-2">
+          <b class="text-ink font-semibold">{COACH.name}</b> · {COACH.role}{
             SPORTS.length > 1 ? ` — ${COACH.sport}` : ""
-          }. {COACH.bio}
-        </p>
-        <dl class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border border border-border rounded-lg overflow-hidden mt-4">
+          }
+        </div>
+        <dl class="flex gap-2 flex-wrap mt-[14px]">
           {COACH.credits.map((c) => (
-            <div class="bg-paper px-3 py-2.5">
+            <div class="font-mono text-[10px] tracking-[0.1em] uppercase bg-paper border border-border rounded-full px-3 py-1.5 text-ink-2">
               <dt class="sr-only">{c.label}</dt>
-              <dd>
-                <span class="block font-display text-[15px] text-ink leading-tight">{c.value}</span>
-                <span class="block text-[10.5px] text-ink-2 mt-1 leading-snug">{c.label}</span>
-              </dd>
+              <dd class="inline">{c.value} · {c.label}</dd>
             </div>
           ))}
         </dl>
-        <p class="text-[13.5px] text-ink-2 leading-relaxed mt-4">{COACH.method}</p>
+        <p class="mt-4 text-[15px] text-ink-2 leading-relaxed max-w-[75ch]">{COACH.bio}</p>
       </div>
     </div>
   </div>

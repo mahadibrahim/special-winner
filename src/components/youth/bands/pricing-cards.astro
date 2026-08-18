@@ -1,0 +1,51 @@
+---
+// Three-card cost explainer (mockup: .pgrid / .pcard). `hot` flips a card to
+// the navy-deep "highlighted" treatment. `note` is the small mono disclaimer
+// line under the grid (e.g. "sample rates — final figures come from the rate
+// card").
+interface PricingCard {
+  label: string;
+  amount: string;
+  unit?: string;
+  body: string;
+  hot?: boolean;
+}
+
+interface Props {
+  cards: PricingCard[];
+  note?: string;
+}
+
+const { cards, note } = Astro.props;
+---
+
+<div>
+  <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    {
+      cards.map((card) => (
+        <div
+          class={
+            card.hot
+              ? "bg-navy-deep text-cream border border-navy-deep rounded-2xl p-[26px] flex flex-col"
+              : "bg-paper text-ink border border-cream-3 rounded-2xl p-[26px] flex flex-col"
+          }
+        >
+          <p class={`font-mono text-[10px] tracking-[0.16em] uppercase ${card.hot ? "text-cream/70" : "text-ink-muted"}`}>
+            {card.label}
+          </p>
+          <p class="font-display font-semibold text-[34px] mt-[10px]">
+            {card.amount}
+            {card.unit && (
+              <small class={`font-sans font-normal text-[12.5px] ml-1 ${card.hot ? "text-cream/70" : "text-ink-muted"}`}>
+                {" "}
+                / {card.unit}
+              </small>
+            )}
+          </p>
+          <p class={`text-[13.5px] mt-[10px] flex-1 ${card.hot ? "text-cream/85" : "text-ink-2"}`}>{card.body}</p>
+        </div>
+      ))
+    }
+  </div>
+  {note && <p class="font-mono text-[10px] tracking-[0.12em] uppercase text-ink-muted mt-[18px]">{note}</p>}
+</div>

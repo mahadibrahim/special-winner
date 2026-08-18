@@ -53,6 +53,13 @@
   --emerald-bright: oklch(0.72 0.14 158);
   --emerald-soft: oklch(0.93 0.04 160);
 
+  /* Logo-derived brand extensions (2026-08-18 youth redesign): the script
+     logo's red and a bright structural blue between navy and white. Youth
+     surfaces: red = hot CTA/flood, royal = structural (jump bar, discs). */
+  --brand-red: oklch(0.52 0.19 27);
+  --royal: oklch(0.50 0.16 260);
+  --royal-bright: oklch(0.62 0.15 258);
+
   /* Paper — card surfaces that lift off the cream background */
   --paper: oklch(0.99 0.003 80);
   --paper-shadow: oklch(0.82 0.015 78 / 0.45);
@@ -194,6 +201,9 @@
   --color-emerald: var(--emerald);
   --color-emerald-bright: var(--emerald-bright);
   --color-emerald-soft: var(--emerald-soft);
+  --color-brand-red: var(--brand-red);
+  --color-royal: var(--royal);
+  --color-royal-bright: var(--royal-bright);
   --color-paper: var(--paper);
 
   --radius-sm: calc(var(--radius) - 2px);

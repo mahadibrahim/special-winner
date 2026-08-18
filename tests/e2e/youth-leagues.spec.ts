@@ -192,6 +192,38 @@ test.describe("youth navigation", () => {
   test("classes page loads its own finder", async ({ page }) => {
     await page.goto("/youth/classes", { waitUntil: "domcontentloaded" })
     await waitForHydration(page)
-    await expect(page.locator("#youth-classes")).toBeVisible()
+    // classes v2's CategoryFinder sectionId is "open-classes" (the red
+    // "Book it right here." band above it already owns id="open" for the
+    // jump bar / hero CTA anchor — two elements can't share an id).
+    await expect(page.locator("#open-classes")).toBeVisible()
+  })
+})
+
+test.describe("youth classes v2", () => {
+  // Band-system rebuild (docs/superpowers/specs/2026-08-18-youth-classes-v2-mockup.html):
+  // hero, sticky jump bar, five step-detail bands, on-page booking, and a
+  // link out to /youth/philosophy. No hydration wait needed — every element
+  // asserted here is server-rendered.
+  test("hero, jump bar, step band, booking section and philosophy link all render", async ({ page }) => {
+    await page.goto("/youth/classes", { waitUntil: "domcontentloaded" })
+
+    await expect(
+      page.getByRole("heading", { level: 1, name: /first coach is the one that counts/i }),
+    ).toBeVisible()
+
+    // SectionJumpBar renders one [data-jump-link] pill per JUMP_ITEMS entry.
+    await expect(page.locator("[data-jump-link]")).toHaveCount(7)
+
+    // One FeatureBand per pathway step, id="step-<slug>" — Micros is first.
+    await expect(page.locator("#step-micros")).toBeVisible()
+
+    // On-page booking: the red "Book it right here." band (id="open", the
+    // jump bar / hero CTA target) sits directly above the CategoryFinder
+    // island (sectionId="open-classes" — ids can't collide with #open).
+    await expect(page.locator("#open")).toBeVisible()
+    await expect(page.locator("#open-classes")).toBeVisible()
+
+    // Philosophy band links out to the full standalone page.
+    await expect(page.locator('a[href="/youth/philosophy"]')).toBeVisible()
   })
 })

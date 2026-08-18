@@ -77,7 +77,7 @@ export const BENEFITS = [
   {
     accent: "border-t-emerald",
     title: "Coaching that explains",
-    body: "Your kid's coach trains under our Director of Coaching — seven seasons a professional — and explains the game while it is happening, not just at half time.",
+    body: "Your kid's coach trains under our Director of Coaching — a nine-year MLS veteran — and explains the game while it is happening, not just at half time.",
   },
   {
     accent: "border-t-emerald",
@@ -111,7 +111,7 @@ export const LEAGUE_KINDS: LeagueKind[] = [
 
 export const CAMPS = {
   lede:
-    "Somewhere for them to be when there is no school and you still have work. Full days indoors, coached rather than supervised, with the same people they see the rest of the year.",
+    "Day camps for when school is out, and specialty camps through the year — full days coached rather than supervised, with the same people they see every week.",
 };
 
 export interface PathwayStep {
@@ -119,6 +119,11 @@ export interface PathwayStep {
   name: string;
   /** Age line, shown mono. Select carries its invited-track reading here. */
   ages: string;
+  /** Short mono "hook" line — the one-sentence promise for this step, shown
+   *  under the age line on the pathway cards (mockup `.hook`). The step
+   *  detail bands render `ages` in this position instead (via FeatureBand's
+   *  `hook` prop) — this field is not used there. */
+  hook: string;
   blurb: string;
 }
 
@@ -135,35 +140,90 @@ export interface PathwayStep {
 export const PATHWAY: PathwayStep[] = [
   {
     name: "Aspire Micros",
-    ages: "18 months – 3",
+    ages: "18 months – 3 years old",
+    hook: "Their first game, with you beside them.",
     blurb: "You're on the floor with them. Movement, balance, first contact with a ball.",
   },
   {
     name: "Aspire Minis",
-    ages: "3 – 5",
+    ages: "3 – 5 years old",
+    hook: "First time solo — big step, small group.",
     blurb: "Their first time without you. Listening to a coach, taking turns, and a lot of touches.",
   },
   {
     name: "Aspire Juniors",
-    ages: "5 – 8",
+    ages: "5 – 8 years old",
+    hook: "Where skills start to stick.",
     blurb: "First real skills. Control of the ball, and the start of wanting it.",
   },
   {
     name: "Aspire Academy",
-    ages: "8 – 12",
-    blurb: "Training gets serious. Decisions under pressure, not just technique.",
+    ages: "8 – 12 years old",
+    hook: "Training gets real.",
+    // Mockup-verbatim (dropped the old "Training gets serious." prefix — the
+    // hook line above now carries that beat, so the blurb doesn't repeat it).
+    blurb: "Decisions under pressure, not just technique.",
   },
   {
     name: "Aspire Select",
     ages: "8 – 19 · by invitation",
-    blurb: "Small groups our Director of Coaching takes himself.",
+    hook: "An invitation, not an age band.",
+    blurb:
+      "Small invitation-only groups for players who are ready for more, under our most senior coaches.",
+  },
+];
+
+export interface PathwayStepDetail {
+  /** Matches `Aspire <Name>`.toLowerCase() with the "Aspire " prefix
+   *  stripped — same slug rule as youth-sport-page.astro's `stepSlug`. Also
+   *  the suffix of the step band's `id="step-<slug>"`. */
+  slug: "micros" | "minis" | "juniors" | "academy" | "select";
+  /** Label for the step band's CTA button — the four age steps say "Book
+   *  <Name> →"; Select's invitation framing gets its own label. */
+  ctaLabel: string;
+  /** The long-form paragraph on the step detail band (mockup `#steps`
+   *  section) — verbatim from the committed mockup. */
+  body: string;
+}
+
+/**
+ * Long-form copy for the five `#step-<slug>` detail bands on /youth/classes.
+ * Kept separate from `PATHWAY` (the short pathway-card copy) because the two
+ * sections need different lengths of prose for the same step.
+ */
+export const PATHWAY_DETAILS: PathwayStepDetail[] = [
+  {
+    slug: "micros",
+    ctaLabel: "Book Micros →",
+    body: "Your kid's first organized play, with you on the floor beside them. Sessions are built around movement, balance, and first touches on a ball — and just as much around learning to be in a group: waiting a turn, following a coach's voice, celebrating somebody else's goal.",
+  },
+  {
+    slug: "minis",
+    ctaLabel: "Book Minis →",
+    body: "The first big step: training without you. Minis is where kids learn to listen to a coach, take turns, and get a lot of touches in a group small enough that nobody disappears. The session is play, and the learning hides inside it.",
+  },
+  {
+    slug: "juniors",
+    ctaLabel: "Book Juniors →",
+    body: "Where skills start to stick. Juniors works on real control of the ball and the beginnings of wanting it — turning, protecting, taking players on. Coaches narrate the game as it happens, so the learning lands in the moment.",
+  },
+  {
+    slug: "academy",
+    ctaLabel: "Book Academy →",
+    body: "Training gets real. Academy is decisions under pressure, not just technique — smaller spaces, faster play, and coaching that asks questions as often as it gives answers. Players leave knowing what they did well and what to work on next.",
+  },
+  {
+    slug: "select",
+    ctaLabel: "How invitations work →",
+    body: "An invitation, not an age band. Select is a small group for players who are ready for more, under our most senior coaches — invitations come from your kid's coach, based on readiness, not a tryout day. The pathway is how they get there.",
   },
 ];
 
 /**
- * ⚠️ Career facts below are from public record and were verified. His title
- * here is owner-provided. The page must not imply that any club he has played
- * or coached for endorses Aspire — state his history as biography only.
+ * ⚠️ The bio and quote are OWNER-PROVIDED (2026-08-18) and authoritative —
+ * do not edit their claims without the owner. The credits row is from public
+ * record and was verified. Clubs are named as biography only — the page must
+ * never imply any club he has played or coached for endorses Aspire.
  *
  * Structured as a single lead because there is one today. When a second sport
  * brings its own lead, this becomes an array and the section renders one card
@@ -175,7 +235,12 @@ export const COACH = {
   /** Which sport this lead is responsible for. Shown only once SPORTS > 1. */
   sport: "Soccer",
   bio:
-    "Saad grew up in Gahanna, played at Akron, went twelfth overall in the MLS SuperDraft and spent seven seasons as a professional. He moved into coaching and took a U18 side to the MLS Next Cup national championship.",
+    "Saad Abdul-Salaam brings championship-level experience to Aspire as both a player and coach. A former Columbus Crew player and nine-year MLS veteran, Saad won an MLS Cup during his professional career before transitioning into youth development. Most recently, he coached the Columbus Crew Academy U18 team to the first national championship in Academy history. Saad is passionate about helping young players build confidence, master the fundamentals, and develop a genuine love for the game.",
+  /** First-person, owner-commissioned (2026-08-18): his commitment to meet
+   *  every player where they are — fun or competition — and grow them to
+   *  their full potential. Rendered as a real quotation. */
+  quote:
+    "Every kid walks in at a different place — some are here for the fun, some for the competition. My commitment is the same either way: meet them where they are, and grow them to their full potential.",
   method:
     "He writes what every group is taught, from eighteen months upward, and trains the coaches who deliver it — so a session means the same thing whichever night you come.",
   credits: [

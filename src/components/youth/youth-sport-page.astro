@@ -42,7 +42,7 @@ const tiles = [
     href: "/youth/classes",
     cta: `youth-${sport.slug}-classes`,
     statusLabel: "Now enrolling",
-    meta: "Weeknight training, five steps",
+    meta: "Small-group training, five steps",
     open: true,
   },
   {
@@ -50,7 +50,7 @@ const tiles = [
     href: "/youth/camps",
     cta: `youth-${sport.slug}-camps`,
     statusLabel: "Booking soon",
-    meta: "School breaks and summer",
+    meta: "Day camps, year-round",
     open: false,
   },
 ];
@@ -161,14 +161,14 @@ const tiles = [
       <div class="h-[3px] w-11 rounded-sm mb-4 bg-emerald"></div>
       <h2 id={`youth-${sport.slug}-classes-h`} class="font-display text-3xl text-ink tracking-tight">Classes</h2>
       <p class="text-[13.5px] text-ink-2 leading-relaxed mt-2 max-w-[520px]">
-        Weeknight training in small groups — one pathway that starts with your toddler on the floor beside you and runs to an invitation-only group.
+        Training in small groups — one pathway that starts with your toddler on the floor beside you and runs to an invitation-only group.
       </p>
 
       <div class="grid sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-6">
         {PATHWAY.map((s) => (
           <div id={stepSlug(s.name)} class="rounded-xl border border-border bg-paper p-4 scroll-mt-28">
-            <p class="font-mono text-[10px] tracking-widest uppercase text-ink-2">{s.ages}</p>
-            <h3 class="font-display text-[17px] text-ink mt-1.5 leading-tight">{s.name}</h3>
+            <h3 class="font-display text-[17px] text-ink leading-tight">{s.name}</h3>
+            <p class="font-mono text-[10px] tracking-widest uppercase text-ink-2 mt-1.5">{s.ages}</p>
             <p class="text-[12.5px] text-ink-2 leading-relaxed mt-2">{s.blurb}</p>
           </div>
         ))}

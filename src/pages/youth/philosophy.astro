@@ -1,0 +1,128 @@
+---
+// Youth development philosophy — v1 stub. Classes and camps both link here
+// ("Read the full development philosophy →" / hero "How we develop players")
+// for the reader who wants the system spelled out rather than sold. The
+// four-step copy below is reused verbatim from the philosophy band on
+// src/pages/youth/classes.astro (LOOP_STEPS) — approved wording, not
+// reauthored here, so the two pages never drift apart.
+//
+// Copy rules (owner-directed, same as the rest of youth): no oppositional
+// language, facility not a selling point, no quotation marks around COACH
+// fields (see youth-coach-section.astro's note on why method renders as
+// attributed prose, not a blockquote), no new claims beyond what's already
+// approved elsewhere.
+//
+// Kept modest on purpose — this is a stub with real content, not the full
+// philosophy build (no photography, no testimonials, no pricing).
+import BaseLayout from "@/layouts/BaseLayout.astro"
+import { COACH } from "@/lib/youth/landing-content"
+import { setMarketingEdgeCache } from "@/lib/http/edge-cache"
+
+setMarketingEdgeCache(Astro)
+
+// Verbatim from classes.astro's LOOP_STEPS — see that file if this copy ever
+// needs to change; change it there first, then mirror here.
+const STEPS = [
+  {
+    num: "1",
+    title: "It's written down.",
+    body: "Every group's sessions come from one curriculum, authored by our Director of Coaching — not whatever tonight's coach feels like running.",
+  },
+  {
+    num: "2",
+    title: "Coaches train on it.",
+    body: "Your kid's coach is trained on that curriculum, so a session means the same thing whichever night you come.",
+  },
+  {
+    num: "3",
+    title: "Kids stay in the game.",
+    body: "Small groups and small-sided play — the whole session is touches and decisions, not waiting in line.",
+  },
+  {
+    num: "4",
+    title: "You see the progress.",
+    body: "After sessions, coaches share what clicked and what's next — so progress is something you watch, not something you take on faith.",
+  },
+]
+---
+
+<BaseLayout
+  title="How We Develop Players — Aspire Sports"
+  description="The Aspire development philosophy — one written curriculum, coaches trained on it, small groups, and progress parents can see."
+>
+  <Fragment slot="head">
+    <link rel="canonical" href={`${Astro.url.origin}/youth/philosophy`} />
+  </Fragment>
+
+  <main id="main-content" class="flex-1">
+    {/* ---------- Hero-less opener — straight into the claim -------------- */}
+    <section class="px-6 sm:px-9 pt-16 pb-8">
+      <div class="max-w-[720px] mx-auto">
+        <h1
+          class="font-display font-semibold tracking-tight text-ink"
+          style="font-size:clamp(2.4rem,5vw,3.6rem);letter-spacing:-0.015em"
+        >
+          How we develop players.
+        </h1>
+        <p class="text-[15.5px] text-ink-2 max-w-[58ch] mt-4">
+          The same written curriculum runs every group on the pathway, so what your kid learns one
+          week builds on what they learned last month — and follows them up every step.
+        </p>
+      </div>
+    </section>
+
+    {/* ---------- The four-step system, as prose --------------------------- */}
+    <section class="px-6 sm:px-9 py-10" aria-labelledby="philosophy-steps-h">
+      <div class="max-w-[720px] mx-auto">
+        <h2 id="philosophy-steps-h" class="sr-only">The four-step system</h2>
+        <div class="space-y-10">
+          {
+            STEPS.map((s) => (
+              <div>
+                <p class="font-mono text-[11px] tracking-[0.14em] uppercase text-ink-2">Step {s.num}</p>
+                <h2 class="font-display font-normal text-ink text-[26px] mt-1.5">{s.title}</h2>
+                <p class="text-[15px] text-ink-2 leading-relaxed mt-2 max-w-[56ch]">{s.body}</p>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    {/* ---------- Coach attribution — biography only, no quotation marks --- */}
+    <section class="bg-cream-2 px-6 sm:px-9 py-14 border-t border-b border-border" aria-labelledby="philosophy-coach-h">
+      <div class="max-w-[720px] mx-auto">
+        <h2 id="philosophy-coach-h" class="sr-only">Who wrote the curriculum</h2>
+        <p class="font-mono text-[11px] tracking-[0.14em] uppercase text-ink-2">Who wrote it</p>
+        <p class="text-[16px] text-ink leading-relaxed mt-3 max-w-[56ch]">{COACH.method}</p>
+        <div class="mt-3 text-sm text-ink-2">
+          <b class="text-ink font-semibold">{COACH.name}</b> · {COACH.role}
+        </div>
+      </div>
+    </section>
+
+    {/* ---------- CTA back to the classes page ------------------------------ */}
+    <section class="px-6 sm:px-9 py-16 text-center" aria-labelledby="philosophy-cta-h">
+      <div class="max-w-[720px] mx-auto">
+        <h2 id="philosophy-cta-h" class="sr-only">See the classes</h2>
+        <a
+          href="/youth/classes"
+          data-youth-cta="philosophy-classes"
+          class="inline-block font-semibold text-[14.5px] px-[22px] py-[13px] rounded-[10px] bg-brand-red text-cream no-underline"
+        >
+          See the classes →
+        </a>
+      </div>
+    </section>
+  </main>
+</BaseLayout>
+
+<script>
+  import { track } from "@/lib/analytics/track"
+
+  document.querySelectorAll<HTMLAnchorElement>("[data-youth-cta]").forEach((el) => {
+    el.addEventListener("click", () =>
+      track("youth_hub_section_cta_clicked", { section: el.dataset.youthCta ?? "" }),
+    )
+  })
+</script>

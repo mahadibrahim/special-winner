@@ -14,6 +14,7 @@ export const ASPIRE_SSR_PUBLIC_PAGES = [
   "/youth/leagues",
   "/youth/classes",
   "/youth/camps",
+  "/youth/philosophy",
   "/adult",
   "/adult-soccer-leagues-columbus",
   "/adult-flag-football-columbus",
