@@ -24,6 +24,7 @@ import SectionJumpBar from "@/components/youth/bands/section-jump-bar.astro"
 import FeatureBand from "@/components/youth/bands/feature-band.astro"
 import StatementCards from "@/components/youth/bands/statement-cards.astro"
 import PricingCards from "@/components/youth/bands/pricing-cards.astro"
+import SlotGraphic from "@/components/youth/bands/slot-graphic.astro"
 import { PATHWAY, PATHWAY_DETAILS } from "@/lib/youth/landing-content"
 import { setMarketingEdgeCache } from "@/lib/http/edge-cache"
 
@@ -250,7 +251,7 @@ const faqs: LandingFaqItem[] = [
 
         <div class="grid gap-[18px] mt-[38px]" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
           {
-            PATHWAY.map((step) => {
+            PATHWAY.map((step, i) => {
               const slug = stepSlug(step.name)
               return (
                 <div
@@ -259,10 +260,10 @@ const faqs: LandingFaqItem[] = [
                   }`}
                 >
                   <div
-                    class="h-[150px] flex items-center justify-center font-mono text-[10px] tracking-[0.14em] uppercase text-cream/60"
+                    class="relative overflow-hidden h-[150px]"
                     style={`background:${CARD_PHOTO[slug]}`}
                   >
-                    {`PHOTO · ${step.name.replace("Aspire ", "").toUpperCase()} SESSION`}
+                    <SlotGraphic variant={i} />
                   </div>
                   <div class="px-6 pt-[22px] pb-6 flex-1 flex flex-col">
                     <h3 class="font-display font-semibold text-[26px]">{step.name}</h3>
@@ -426,18 +427,14 @@ const faqs: LandingFaqItem[] = [
 
     {/* ---------- Step detail bands — full-bleed, one per pathway step ----- */}
     {
-      PATHWAY.map((step) => {
+      PATHWAY.map((step, i) => {
         const slug = stepSlug(step.name)
         const detail = detailFor(step.name)
         return (
           <FeatureBand
             id={`step-${slug}`}
             tone={TONE_BY_SLUG[slug]}
-            photoLabel={
-              slug === "select"
-                ? "PHOTO · SELECT SESSION"
-                : `PHOTO · KIDS PLAYING (${slug.toUpperCase()})`
-            }
+            graphicVariant={i}
             title={step.name}
             hook={step.ages}
             body={detail?.body ?? step.blurb}
@@ -450,7 +447,7 @@ const faqs: LandingFaqItem[] = [
     {/* ---------- Cross-promo: leagues -------------------------------------- */}
     <FeatureBand
       tone="emerald"
-      photoLabel="PHOTO · YOUTH LEAGUE GAME DAY"
+      graphicVariant={2}
       kicker="Also at Aspire"
       title="Ready for game day?"
       body="Youth leagues run by age group from U6 to U19 — developmental seasons where we build the teams, and competitive winter play."
@@ -460,7 +457,7 @@ const faqs: LandingFaqItem[] = [
     {/* ---------- Cross-promo: camps (generalized copy, per brief) ---------- */}
     <FeatureBand
       tone="red"
-      photoLabel="PHOTO · CAMP DAY"
+      graphicVariant={4}
       kicker="Also at Aspire"
       title="Camps, all year long."
       body="Day camps on school breaks, plus specialty camps through the year — coached rather than supervised, by the same people they see all year."

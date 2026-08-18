@@ -2,12 +2,19 @@
 // Full-bleed color-blocked band with a fixed-width photo slot and a text
 // column (mockup: .srow — pathway step detail rows and cross-promo bands
 // share this shape). `flip` mirrors which side the photo sits on.
+//
+// The photo slot renders a decorative sport motif (slot-graphic.astro) until
+// real photography exists — owner decision 2026-08-18: graphics now, photos
+// swapped in later.
+import SlotGraphic from "./slot-graphic.astro";
+
 export type FeatureBandTone = "royal" | "emerald" | "red" | "amber" | "navy";
 
 interface Props {
   tone: FeatureBandTone;
   id?: string;
-  photoLabel?: string;
+  /** 0–4, cycles the slot graphic so adjacent bands don't repeat. */
+  graphicVariant?: number;
   title: string;
   kicker?: string;
   hook?: string;
@@ -16,7 +23,7 @@ interface Props {
   flip?: boolean;
 }
 
-const { tone, id, photoLabel, title, kicker, hook, body, cta, flip = false } = Astro.props;
+const { tone, id, graphicVariant = 0, title, kicker, hook, body, cta, flip = false } = Astro.props;
 
 // Gradient placeholders are composed from tokens only — no literal oklch()
 // values — via color-mix(in oklch, var(--x), var(--navy-deep) N%). `amber`
@@ -83,10 +90,10 @@ const textOrder = flip ? "md:order-1" : "md:order-2";
 <section id={id} class={`${t.band} ${t.text}`}>
   <div class={`grid ${colsClass} items-stretch min-h-[220px] md:min-h-[280px]`}>
     <div
-      class={`${photoOrder} min-h-[150px] flex items-center justify-center font-mono text-[10px] tracking-[0.14em] uppercase text-cream/65`}
+      class={`${photoOrder} relative overflow-hidden min-h-[150px]`}
       style={`background:${t.photo}`}
     >
-      {photoLabel}
+      <SlotGraphic variant={graphicVariant} />
     </div>
     <div class={`${textOrder} px-6 sm:px-9 md:px-[56px] py-10 md:py-[48px] flex flex-col justify-center`}>
       {kicker && <p class={`font-mono text-[11px] tracking-[0.16em] uppercase ${t.accent} mb-2`}>{kicker}</p>}
