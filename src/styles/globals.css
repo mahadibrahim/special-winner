@@ -45,6 +45,14 @@
   /* Sage — success, subtle positive states */
   --sage: oklch(0.52 0.08 155);
 
+  /* Emerald — the youth accent family (design-system.md assigns emerald to
+     youth; these make it a real token). Mirrors the primary-orange structure:
+     anchor for rules/text on cream, -bright for tiles/text on navy, -soft
+     for tinted chips. */
+  --emerald: oklch(0.55 0.12 160);
+  --emerald-bright: oklch(0.72 0.14 158);
+  --emerald-soft: oklch(0.93 0.04 160);
+
   /* Paper — card surfaces that lift off the cream background */
   --paper: oklch(0.99 0.003 80);
   --paper-shadow: oklch(0.82 0.015 78 / 0.45);
@@ -183,6 +191,9 @@
   --color-primary-orange-soft: var(--primary-orange-soft);
   --color-ochre: var(--ochre);
   --color-sage: var(--sage);
+  --color-emerald: var(--emerald);
+  --color-emerald-bright: var(--emerald-bright);
+  --color-emerald-soft: var(--emerald-soft);
   --color-paper: var(--paper);
 
   --radius-sm: calc(var(--radius) - 2px);

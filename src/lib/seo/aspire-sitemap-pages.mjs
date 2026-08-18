@@ -7,7 +7,12 @@
 export const ASPIRE_SSR_PUBLIC_PAGES = [
   "/",
   "/youth",
+  // Sport landing pages — registry-driven (src/lib/youth/sport-pages.ts);
+  // keep in sync when a sport launches.
+  "/youth/soccer",
+  "/youth/futsal",
   "/youth/leagues",
+  "/youth/classes",
   "/youth/camps",
   "/adult",
   "/adult-soccer-leagues-columbus",

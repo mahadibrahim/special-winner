@@ -115,7 +115,10 @@ export default function Navigation({ initialUser }: NavigationProps) {
     {
       href: "/youth",
       label: "Youth",
+      // Sport-first: sports lead, offering pages stay as secondary entries.
       children: [
+        { href: "/youth/soccer", label: "Soccer" },
+        { href: "/youth/futsal", label: "Futsal" },
         { href: "/youth/leagues", label: "Leagues" },
         { href: "/youth/classes", label: "Classes" },
         { href: "/youth/camps", label: "Camps" },

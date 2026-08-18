@@ -16,13 +16,15 @@ import { parseDateOnly } from "@/lib/time/format-date"
  * above list is a misconfiguration and must not render).
  */
 
-/** Open seasons scoped to a category page's audience + program types. */
+/** Open seasons scoped to a category page's audience + program types,
+ *  optionally narrowed to one sport (per-sport tiles and pages). */
 export function openScopedSeasons(
   seasons: ApiSeason[],
   audience: CategoryAudience,
   programTypes: string[],
+  sportSlug?: string | null,
 ): ApiSeason[] {
-  return scopeSeasons(seasons, audience, programTypes).filter((s) => s.status === "open")
+  return scopeSeasons(seasons, audience, programTypes, sportSlug).filter((s) => s.status === "open")
 }
 
 function ebInFuture(s: ApiSeason, now: Date): boolean {

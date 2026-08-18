@@ -69,6 +69,7 @@ Every page `<head>` must include:
 | `--paper` | `bg-paper` | Card surfaces that lift off the cream background |
 | `--ochre` | `text-ochre` | Warm secondary accent for subtle highlights |
 | `--sage` | `text-sage` | Success states, positive indicators |
+| `--emerald` (+ `-bright`, `-soft`) | `text-emerald`, `bg-emerald-bright`, `border-t-emerald` | Youth accent family. Mirrors the `primary-orange` structure: anchor on cream, `-bright` on navy, `-soft` for chips. |
 
 ### Semantic tokens (shadcn bridge)
 

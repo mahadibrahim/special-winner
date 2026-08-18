@@ -14,7 +14,7 @@ import { waitForHydration } from "../utils/test-helpers";
  */
 
 test.describe("Landing-page finders", () => {
-  test("/youth — hub: hero + three category doors", async ({ page }) => {
+  test("/youth — hub: hero + sport tiles", async ({ page }) => {
     await page.goto("/youth", { waitUntil: "domcontentloaded" });
 
     // Hero headline from the youth redesign (HERO.title in
@@ -22,16 +22,36 @@ test.describe("Landing-page finders", () => {
     await expect(
       page.getByRole("heading", { name: /more time on the ball/i }),
     ).toBeVisible();
-    for (const cta of ["youth-hub-leagues", "youth-hub-classes", "youth-hub-camps"]) {
+    // Sport-first hub: one tile per YOUTH_SPORT_PAGES entry.
+    for (const cta of ["youth-hub-soccer", "youth-hub-futsal"]) {
       await expect(page.locator(`[data-landing-cta="${cta}"]`)).toBeVisible();
     }
 
-    await page.locator('[data-landing-cta="youth-hub-leagues"]').click();
-    await expect(page).toHaveURL(/\/youth\/leagues$/);
+    await page.locator('[data-landing-cta="youth-hub-soccer"]').click();
+    await expect(page).toHaveURL(/\/youth\/soccer$/);
 
     // Legacy age-band anchors forward to the leagues category page.
     await page.goto("/youth#ages-9-12", { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/\/youth\/leagues$/);
+  });
+
+  test("/youth/soccer — sport page: hero, intro, anchors, FAQs", async ({ page }) => {
+    await page.goto("/youth/soccer", { waitUntil: "domcontentloaded" });
+
+    // level: 1 — the page also has an h2 "Youth soccer FAQs" further down
+    // that would otherwise match this regex too (strict-mode violation).
+    await expect(
+      page.getByRole("heading", { level: 1, name: /youth soccer/i }),
+    ).toBeVisible();
+    // Editorial intro (sport-pages.ts intro[0]) — update together.
+    await expect(page.getByText(/falls in love with the game/i)).toBeVisible();
+    // Age anchors are the landing targets for age queries.
+    for (const anchor of ["micros", "minis", "juniors", "academy", "select"]) {
+      await expect(page.locator(`#${anchor}`)).toBeVisible();
+    }
+    // Offering tiles route into the funnel.
+    await page.locator('[data-landing-cta="youth-soccer-leagues"]').click();
+    await expect(page).toHaveURL(/\/youth\/leagues\/soccer$/);
   });
 
   test("/adult — hub: hero + three category doors", async ({ page }) => {
