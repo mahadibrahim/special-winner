@@ -383,8 +383,14 @@ const faqs: LandingFaqItem[] = [
         />
       </div>
     </section>
-    <div class="-mt-[88px] pb-[76px]">
+    <div class="-mt-[88px] pb-[76px] px-6 sm:px-9">
       {/*
+        The overlap element is a paper SHEET, not the bare finder — the
+        finder's own ink heading would otherwise straddle the red/cream
+        boundary (owner-flagged). The sheet floats out of the red band the
+        way the mockup's booking cards do, and everything inside it (heading
+        included) sits on paper.
+
         CategoryFinder's SeasonsFinderSection always renders a real <h2> —
         there's no visually-hidden-title mode in its Props. Rather than
         duplicate "Book it right here." (the red band's h2, immediately
@@ -395,16 +401,19 @@ const faqs: LandingFaqItem[] = [
         band above already owns id="open" for the jump bar / hero CTA
         anchor, and duplicate ids are invalid HTML.
       */}
-      <CategoryFinder
-        client:load
-        audience="youth"
-        programTypes={["training", "clinic"]}
-        title="Open classes"
-        descriptor="Every class shows its dates, venue and block price on the card."
-        ageChips
-        sectionId="open-classes"
-        cardVariant="youth-band"
-      />
+      <div class="max-w-[1080px] mx-auto bg-paper border border-cream-3 rounded-2xl shadow-xl">
+        <CategoryFinder
+          client:load
+          audience="youth"
+          programTypes={["training", "clinic"]}
+          title="Open classes"
+          descriptor="Every class shows its dates, venue and block price on the card."
+          ageChips
+          sectionId="open-classes"
+          cardVariant="youth-band"
+          headerHidden
+        />
+      </div>
     </div>
 
     {/* ---------- FAQs ------------------------------------------------------ */}

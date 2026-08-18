@@ -51,6 +51,9 @@ interface CategoryFinderProps {
    * grammar" section.
    */
   cardVariant?: "default" | "youth-band"
+  /** Pass-through to SeasonsFinderSection — visually hide the h2/descriptor
+   *  when the enclosing band already carries the heading. */
+  headerHidden?: boolean
 }
 
 export default function CategoryFinder({
@@ -62,6 +65,7 @@ export default function CategoryFinder({
   ageChips = false,
   sectionId,
   cardVariant,
+  headerHidden,
 }: CategoryFinderProps) {
   useHydrationBeacon()
 
@@ -147,6 +151,7 @@ export default function CategoryFinder({
         loading={loading}
         emptyCtaAudience={audience === "youth" ? "parent" : "adult"}
         cardVariant={cardVariant}
+        headerHidden={headerHidden}
       />
     </div>
   )

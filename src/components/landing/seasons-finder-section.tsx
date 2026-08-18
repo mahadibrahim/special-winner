@@ -78,6 +78,11 @@ interface SeasonsFinderSectionProps {
    * of a dead end, without repeating the form in every empty section.
    */
   emptyCtaAudience?: "parent" | "adult"
+  /** Visually hide the h2/descriptor/count (kept for screen readers). For
+   *  embeds where the enclosing band already carries the heading — e.g. the
+   *  classes page's "Book it right here." red band, where a second visible
+   *  heading would straddle the band boundary. Default: visible. */
+  headerHidden?: boolean
   /** Opt-in only — forwarded to ProgramCardV2. Omitted renders the default
    *  card, byte-identical to every existing consumer. */
   cardVariant?: "default" | "youth-band"
@@ -92,6 +97,7 @@ export function SeasonsFinderSection({
   loading,
   emptyCtaAudience,
   cardVariant,
+  headerHidden = false,
 }: SeasonsFinderSectionProps) {
   const [activeFormat, setActiveFormat] = useState<string | null>(null)
   const [activeSport, setActiveSport] = useState<string | null>(null)
@@ -166,21 +172,23 @@ export function SeasonsFinderSection({
   const openCount = seasons.filter((s) => s.status !== "forming").length
 
   return (
-    <section id={id} className="scroll-mt-36 py-12 lg:py-16">
+    <section id={id} className={headerHidden ? "scroll-mt-36 pt-8 pb-10" : "scroll-mt-36 py-12 lg:py-16"}>
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Heading */}
-        <div className="flex items-baseline justify-between gap-4">
-          <h2 className="font-display text-2xl lg:text-3xl text-ink">
-            {icon && <span aria-hidden="true" className="mr-2">{icon}</span>}
-            {title}
-          </h2>
-          {!loading && (
-            <span className="text-sm text-ink-muted whitespace-nowrap">
-              {openCount} open
-            </span>
-          )}
+        {/* Heading (sr-only when the enclosing band already carries one) */}
+        <div className={headerHidden ? "sr-only" : undefined}>
+          <div className="flex items-baseline justify-between gap-4">
+            <h2 className="font-display text-2xl lg:text-3xl text-ink">
+              {icon && <span aria-hidden="true" className="mr-2">{icon}</span>}
+              {title}
+            </h2>
+            {!loading && (
+              <span className="text-sm text-ink-muted whitespace-nowrap">
+                {openCount} open
+              </span>
+            )}
+          </div>
+          <p className="text-ink-muted mt-1">{descriptor}</p>
         </div>
-        <p className="text-ink-muted mt-1">{descriptor}</p>
 
         {/* Filters */}
         {!loading && seasons.length > 0 && (
@@ -204,20 +212,49 @@ export function SeasonsFinderSection({
             // data-finder-empty: hero tiles with a fallback href check this
             // marker to decide between scroll-filtering and navigating away
             // (see category-hero.astro's click handler).
-            <div data-finder-empty className="bg-paper border border-border rounded-2xl py-12 px-6 text-center">
-              <p className="font-display text-lg text-ink">Nothing open right now.</p>
-              <p className="text-ink-muted mt-1 text-sm">
-                {emptyCtaAudience
-                  ? "New programs are added each season — leave your email and you'll hear the moment one opens."
-                  : "New programs are added each season — check back soon."}
-              </p>
-              {emptyCtaAudience && (
-                <EmptyNotifyForm
-                  audience={emptyCtaAudience}
-                  source={`empty-finder-${id}`}
-                />
-              )}
-            </div>
+            cardVariant === "youth-band" ? (
+              // Youth-band empty state — styled like the booking cards it
+              // stands in for (colored band header + paper body) so an empty
+              // catalog still looks designed, not broken. Copy is generic to
+              // any youth offering (blocks AND seasons) — never invents
+              // inventory.
+              <div data-finder-empty className="max-w-[560px] mx-auto rounded-2xl overflow-hidden border border-cream-3 bg-paper text-center shadow-xl">
+                <div className="bg-emerald text-cream py-2.5 px-5 font-mono text-[10px] tracking-widest uppercase">
+                  Get notified first
+                </div>
+                <div className="py-10 px-6">
+                  <p className="font-display font-semibold text-2xl text-ink">
+                    Be first in when it opens.
+                  </p>
+                  <p className="text-ink-muted mt-2 text-sm max-w-[400px] mx-auto">
+                    {emptyCtaAudience
+                      ? "New blocks and seasons open through the year — leave your email and you'll hear the moment the next one does."
+                      : "New blocks and seasons open through the year — check back soon."}
+                  </p>
+                  {emptyCtaAudience && (
+                    <EmptyNotifyForm
+                      audience={emptyCtaAudience}
+                      source={`empty-finder-${id}`}
+                    />
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div data-finder-empty className="bg-paper border border-border rounded-2xl py-12 px-6 text-center">
+                <p className="font-display text-lg text-ink">Nothing open right now.</p>
+                <p className="text-ink-muted mt-1 text-sm">
+                  {emptyCtaAudience
+                    ? "New programs are added each season — leave your email and you'll hear the moment one opens."
+                    : "New programs are added each season — check back soon."}
+                </p>
+                {emptyCtaAudience && (
+                  <EmptyNotifyForm
+                    audience={emptyCtaAudience}
+                    source={`empty-finder-${id}`}
+                  />
+                )}
+              </div>
+            )
           ) : filtered.length === 0 ? (
             <div className="bg-paper border border-border rounded-2xl py-12 px-6 text-center">
               <p className="font-display text-lg text-ink">Nothing matches those filters.</p>
