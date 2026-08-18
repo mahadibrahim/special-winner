@@ -77,7 +77,7 @@ export const BENEFITS = [
   {
     accent: "border-t-emerald",
     title: "Coaching that explains",
-    body: "Your kid's coach trains under our Director of Coaching — seven seasons a professional — and explains the game while it is happening, not just at half time.",
+    body: "Your kid's coach trains under our Director of Coaching — a nine-year MLS veteran — and explains the game while it is happening, not just at half time.",
   },
   {
     accent: "border-t-emerald",
@@ -220,9 +220,10 @@ export const PATHWAY_DETAILS: PathwayStepDetail[] = [
 ];
 
 /**
- * ⚠️ Career facts below are from public record and were verified. His title
- * here is owner-provided. The page must not imply that any club he has played
- * or coached for endorses Aspire — state his history as biography only.
+ * ⚠️ The bio and quote are OWNER-PROVIDED (2026-08-18) and authoritative —
+ * do not edit their claims without the owner. The credits row is from public
+ * record and was verified. Clubs are named as biography only — the page must
+ * never imply any club he has played or coached for endorses Aspire.
  *
  * Structured as a single lead because there is one today. When a second sport
  * brings its own lead, this becomes an array and the section renders one card
@@ -234,7 +235,12 @@ export const COACH = {
   /** Which sport this lead is responsible for. Shown only once SPORTS > 1. */
   sport: "Soccer",
   bio:
-    "Saad grew up in Gahanna, played at Akron, went twelfth overall in the MLS SuperDraft and spent seven seasons as a professional. He moved into coaching and took a U18 side to the MLS Next Cup national championship.",
+    "Saad Abdul-Salaam brings championship-level experience to Aspire as both a player and coach. A former Columbus Crew player and nine-year MLS veteran, Saad won an MLS Cup during his professional career before transitioning into youth development. Most recently, he coached the Columbus Crew Academy U18 team to the first national championship in Academy history. Saad is passionate about helping young players build confidence, master the fundamentals, and develop a genuine love for the game.",
+  /** First-person, owner-commissioned (2026-08-18): his commitment to meet
+   *  every player where they are — fun or competition — and grow them to
+   *  their full potential. Rendered as a real quotation. */
+  quote:
+    "Every kid walks in at a different place — some are here for the fun, some for the competition. My commitment is the same either way: meet them where they are, and grow them to their full potential.",
   method:
     "He writes what every group is taught, from eighteen months upward, and trains the coaches who deliver it — so a session means the same thing whichever night you come.",
   credits: [
