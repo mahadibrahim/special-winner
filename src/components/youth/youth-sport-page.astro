@@ -23,6 +23,11 @@ const tint = sportColor({ slug: sport.slug });
 // Brand-graded hero — the emerald grade is the youth treatment.
 const HERO_IMAGE = "/images/stock/youth-training.jpg";
 
+// "Aspire Micros" -> "micros" — stable anchor for age-query landings
+// (/youth/soccer#micros). Renaming a pathway step changes the anchor;
+// the naming decision doc owns renames.
+const stepSlug = (name: string) => name.replace(/^Aspire /, "").toLowerCase();
+
 const tiles = [
   {
     label: "Leagues",
@@ -162,7 +167,7 @@ const tiles = [
 
       <div class="grid sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-6">
         {PATHWAY.map((s) => (
-          <div class="rounded-xl border border-border bg-paper p-4">
+          <div id={stepSlug(s.name)} class="rounded-xl border border-border bg-paper p-4 scroll-mt-28">
             <p class="font-mono text-[10px] tracking-widest uppercase text-ink-2">{s.ages}</p>
             <h3 class="font-display text-[17px] text-ink mt-1.5 leading-tight">{s.name}</h3>
             <p class="text-[12.5px] text-ink-2 leading-relaxed mt-2">{s.blurb}</p>
