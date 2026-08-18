@@ -77,7 +77,7 @@ export function DualCtaHero({ announcement }: DualCtaHeroProps) {
             <a
               href="/youth/leagues"
               data-landing-cta="homepage-hero-youth"
-              className="group inline-flex items-center gap-3 bg-emerald-600 text-cream px-7 py-4 text-sm font-medium tracking-wide uppercase hover:bg-emerald-700 transition-colors duration-300"
+              className="group inline-flex items-center gap-3 bg-emerald text-cream px-7 py-4 text-sm font-medium tracking-wide uppercase hover:bg-emerald/90 transition-colors duration-300"
               style={{ letterSpacing: "0.08em" }}
             >
               For Kids

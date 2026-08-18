@@ -20,20 +20,6 @@
 // level down, on /youth/leagues/<sport> and friends. Adding basketball should
 // mean adding a line to SPORTS, not rewriting this page.
 
-export interface WayIn {
-  label: string;
-  href: string;
-  /** One line under the name in the hero. Keep to two short clauses. */
-  meta: string;
-  /** CategoryCard aurora palette. Three doors need three palettes so no
-   *  colour repeats — see category-card.astro. */
-  palette: "youth-a" | "youth-b" | "youth-c";
-  /** Analytics id passed to CategoryCard. */
-  cta: string;
-  statusLabel: string;
-  ctaLabel: string;
-}
-
 export interface LeagueKind {
   /** e.g. "December – April". Plain months, not term slugs. */
   when: string;
@@ -63,28 +49,13 @@ export const SPORTS = ["Soccer", "Futsal"];
 
 export const HERO = {
   /** Philosophy as the headline: touches over standing around. Works for any
-   *  ball sport, which is deliberate — see the sport-agnostic note above. */
+   *  ball sport, which is deliberate — see the sport-agnostic note above.
+   *  Deliberately no location (owner-directed). The sports themselves render
+   *  as the hero tiles (YOUTH_SPORT_PAGES), so the copy never enumerates
+   *  them. */
   title: "More time on the ball.",
-  subhead: `Leagues, classes and camps in Worthington, for ${AGE_SPAN}. Small groups, real coaching, and a lot of touches.`,
+  subhead: `Pick your kid's sport — leagues, classes and camps for ${AGE_SPAN}, in small groups with real coaching.`,
 };
-
-export const WAYS_IN: WayIn[] = [
-  {
-    label: "Leagues", href: "/youth/leagues", palette: "youth-a", cta: "youth-hub-leagues",
-    meta: "Games at the weekend, by age group",
-    statusLabel: "Now enrolling", ctaLabel: "See the leagues",
-  },
-  {
-    label: "Classes", href: "/youth/classes", palette: "youth-b", cta: "youth-hub-classes",
-    meta: "Weeknight training, five steps",
-    statusLabel: "Now enrolling", ctaLabel: "See the pathway",
-  },
-  {
-    label: "Camps", href: "/youth/camps", palette: "youth-c", cta: "youth-hub-camps",
-    meta: "School breaks and summer",
-    statusLabel: "Booking soon", ctaLabel: "See camp dates",
-  },
-];
 
 /**
  * Youth benefit trio. All three columns take the emerald accent because the
@@ -93,17 +64,17 @@ export const WAYS_IN: WayIn[] = [
  */
 export const BENEFITS = [
   {
-    accent: "border-t-emerald-600",
+    accent: "border-t-emerald",
     title: "More touches",
     body: "Small groups and small-sided games, so nobody spends the session waiting for a turn.",
   },
   {
-    accent: "border-t-emerald-600",
+    accent: "border-t-emerald",
     title: "Coaching that explains",
-    body: "Coaches talk players through the game while it is happening, not only at half time.",
+    body: "Every coach trains under our Director of Coaching — seven seasons a professional — and talks players through the game while it is happening.",
   },
   {
-    accent: "border-t-emerald-600",
+    accent: "border-t-emerald",
     title: "Somewhere to keep going",
     body: "One path from eighteen months to nineteen years, so nobody has to start over.",
   },

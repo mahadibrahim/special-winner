@@ -1,0 +1,41 @@
+---
+// Youth sport landing page — one dynamic route for every sport in the
+// YOUTH_SPORT_PAGES registry (/youth/soccer, /youth/futsal, …). Sits between
+// the sport-first hub (/youth) and the sport's league pages
+// (/youth/leagues/[sport]); classes and camps link to the shared offering
+// pages. Unknown sport → back to the hub, matching the league routes'
+// degradation chain: every step lands on a real page.
+//
+// Static siblings (/youth/leagues, /youth/classes, /youth/camps) win over
+// this dynamic segment in Astro's route priority, so only registry slugs
+// reach here.
+export const prerender = false;
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import YouthSportPageBody from "@/components/youth/youth-sport-page.astro";
+import { breadcrumbJsonLd } from "@/lib/seo/breadcrumbs";
+import { getYouthSportPage } from "@/lib/youth/sport-pages";
+
+const sport = getYouthSportPage(Astro.params.sport);
+if (!sport) {
+  return Astro.redirect("/youth");
+}
+
+const ORIGIN = import.meta.env.PUBLIC_APP_URL || "https://aspiresportsohio.com";
+const breadcrumbSchema = breadcrumbJsonLd([
+  { name: "Home", url: `${ORIGIN}/` },
+  { name: "Youth", url: `${ORIGIN}/youth` },
+  { name: sport.name, url: `${ORIGIN}/youth/${sport.slug}` },
+]);
+---
+
+<BaseLayout
+  title={`Youth ${sport.name} — Aspire Sports`}
+  description={sport.metaDescription}
+>
+  <Fragment slot="head">
+    <link rel="canonical" href={`${Astro.url.origin}/youth/${sport.slug}`} />
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbSchema)} />
+  </Fragment>
+
+  <YouthSportPageBody sport={sport} />
+</BaseLayout>

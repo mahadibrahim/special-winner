@@ -12,7 +12,7 @@
  */
 
 export interface Benefit {
-  /** Tailwind border-top class, e.g. "border-t-emerald-600". */
+  /** Tailwind border-top class, e.g. "border-t-emerald". */
   accent: string;
   title: string;
   body: string;
@@ -26,7 +26,7 @@ export const DEFAULT_BENEFITS: Benefit[] = [
     body: "Post-game hangs, rivalries, people who notice when you're gone.",
   },
   {
-    accent: "border-t-emerald-600",
+    accent: "border-t-emerald",
     title: "You'll get better",
     body: "Real coaching for kids, competitive reps for adults.",
   },

@@ -1,0 +1,212 @@
+---
+// Youth SPORT landing page body (/youth/soccer, /youth/futsal) — the second
+// step of the sport-first youth funnel. The hub routes a parent to a sport;
+// this page shows everything Aspire runs in that sport — leagues, classes,
+// camps — and carries the coaching story, which is sport-specific evidence.
+//
+// Shape follows the adult category page (docs/adult-design-reference.md):
+// working hero with in-hero offering tiles (tinted with the SPORT color —
+// sport answers "which game", emerald stays the youth accent on rules), then
+// one band per offering, coach, indicative pricing.
+import YouthCoachSection from "@/components/youth/youth-coach-section.astro";
+import { sportColor } from "@/lib/design/sport-colors";
+import type { YouthSportPage } from "@/lib/youth/sport-pages";
+import { LEAGUE_KINDS, PATHWAY, CAMPS, PRICING } from "@/lib/youth/landing-content";
+
+interface Props {
+  sport: YouthSportPage;
+}
+const { sport } = Astro.props;
+const tint = sportColor({ slug: sport.slug });
+
+// Brand-graded hero — the emerald grade is the youth treatment.
+const HERO_IMAGE = "/images/stock/youth-training.jpg";
+
+const tiles = [
+  {
+    label: "Leagues",
+    href: `/youth/leagues/${sport.slug}`,
+    cta: `youth-${sport.slug}-leagues`,
+    statusLabel: "Now enrolling",
+    meta: "Games at the weekend, by age group",
+    open: true,
+  },
+  {
+    label: "Classes",
+    href: "/youth/classes",
+    cta: `youth-${sport.slug}-classes`,
+    statusLabel: "Now enrolling",
+    meta: "Weeknight training, five steps",
+    open: true,
+  },
+  {
+    label: "Camps",
+    href: "/youth/camps",
+    cta: `youth-${sport.slug}-camps`,
+    statusLabel: "Booking soon",
+    meta: "School breaks and summer",
+    open: false,
+  },
+];
+---
+
+<main id="main-content" class="flex-1">
+  {/* ---------- Working hero: what can my kid do in this sport, right now */}
+  <section class="relative text-cream px-6 sm:px-9 pt-16 pb-10 overflow-hidden bg-navy-deep">
+    <div class="graded graded--emerald graded--fill z-0" aria-hidden="true">
+      <img src={HERO_IMAGE} alt="" />
+    </div>
+    <div class="relative z-10 max-w-[1080px] mx-auto">
+      <h1
+        class="font-display font-semibold tracking-tight"
+        style="font-size:clamp(2.5rem,6vw,4rem);line-height:.95"
+      >
+        {sport.heroTitle}
+      </h1>
+      <p class="mt-3 text-base text-cream/90 max-w-[520px]">{sport.heroSubhead}</p>
+
+      <div class="grid sm:grid-cols-3 gap-3 mt-6">
+        {tiles.map((t) =>
+          t.open ? (
+            <a
+              href={t.href}
+              data-landing-cta={t.cta}
+              class="relative rounded-2xl p-4 text-ink overflow-hidden"
+              style={`background:${tint}`}
+            >
+              <div class="font-mono text-[9px] tracking-widest uppercase opacity-80">● {t.statusLabel}</div>
+              <div class="font-display font-semibold text-2xl mt-1.5">{t.label}</div>
+              <div class="font-mono text-xs">{t.meta}</div>
+              <span class="absolute right-4 bottom-4 font-semibold text-lg">→</span>
+            </a>
+          ) : (
+            <a
+              href={t.href}
+              data-landing-cta={t.cta}
+              class="relative rounded-2xl p-4 border border-cream/25 text-cream/80 bg-navy-deep/70"
+            >
+              <div class="font-mono text-[9px] tracking-widest uppercase opacity-80">{t.statusLabel}</div>
+              <div class="font-display font-semibold text-2xl mt-1.5">{t.label}</div>
+              <div class="font-mono text-xs">{t.meta}</div>
+              <span class="absolute right-4 bottom-4 font-semibold text-lg">→</span>
+            </a>
+          ),
+        )}
+      </div>
+
+      <p class="mt-5 text-sm text-cream/70">
+        Different sport?
+        <a href="/youth" class="underline underline-offset-2 hover:text-cream transition-colors">Back to youth sports →</a>
+      </p>
+    </div>
+  </section>
+
+  {/* ---------- Leagues — two kinds, then into the sport's league pages ---- */}
+  <section class="px-6 sm:px-9 py-12 border-b border-border" aria-labelledby={`youth-${sport.slug}-leagues-h`}>
+    <div class="max-w-[1080px] mx-auto">
+      <div class="h-[3px] w-11 rounded-sm mb-4 bg-emerald"></div>
+      <h2 id={`youth-${sport.slug}-leagues-h`} class="font-display text-3xl text-ink tracking-tight">Leagues</h2>
+      <p class="text-[13.5px] text-ink-2 leading-relaxed mt-2 max-w-[520px]">
+        Two kinds, depending on the time of year and what your player needs.
+      </p>
+
+      <div class="grid md:grid-cols-2 gap-3 mt-6">
+        {LEAGUE_KINDS.map((k) => (
+          <div class="rounded-xl border border-border bg-paper p-5">
+            <p class="font-mono text-[10px] tracking-widest uppercase text-ink-2">{k.when}</p>
+            <h3 class="font-display text-xl text-ink mt-1.5">{k.name}</h3>
+            <p class="text-[13px] text-ink-2 leading-relaxed mt-2">{k.body}</p>
+            <dl class="flex gap-6 mt-4 pt-3 border-t border-cream-2 text-[12px]">
+              {k.facts.map((f) => (
+                <div>
+                  <dt class="text-ink-2">{f.label}</dt>
+                  <dd class="text-ink font-semibold mt-0.5">{f.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        ))}
+      </div>
+
+      <a
+        href={`/youth/leagues/${sport.slug}`}
+        data-youth-cta={`${sport.slug}-leagues`}
+        class="inline-block mt-6 font-sans font-semibold text-[13px] bg-navy-deep text-cream px-4 py-2.5 rounded-lg"
+      >
+        See {sport.name.toLowerCase()} age groups →
+      </a>
+    </div>
+  </section>
+
+  {/* ---------- Classes — the pathway, rendered as the five steps ---------- */}
+  <section class="px-6 sm:px-9 py-12 border-b border-border" aria-labelledby={`youth-${sport.slug}-classes-h`}>
+    <div class="max-w-[1080px] mx-auto">
+      <div class="h-[3px] w-11 rounded-sm mb-4 bg-emerald"></div>
+      <h2 id={`youth-${sport.slug}-classes-h`} class="font-display text-3xl text-ink tracking-tight">Classes</h2>
+      <p class="text-[13.5px] text-ink-2 leading-relaxed mt-2 max-w-[520px]">
+        Weeknight training in small groups — one pathway from a toddler on the
+        floor beside you to an invitation-only group.
+      </p>
+
+      <div class="grid sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-6">
+        {PATHWAY.map((s) => (
+          <div class="rounded-xl border border-border bg-paper p-4">
+            <p class="font-mono text-[10px] tracking-widest uppercase text-ink-2">{s.ages}</p>
+            <h3 class="font-display text-[17px] text-ink mt-1.5 leading-tight">{s.name}</h3>
+            <p class="text-[12.5px] text-ink-2 leading-relaxed mt-2">{s.blurb}</p>
+          </div>
+        ))}
+      </div>
+
+      <a
+        href="/youth/classes"
+        data-youth-cta={`${sport.slug}-classes`}
+        class="inline-block mt-6 font-sans font-semibold text-[13px] bg-navy-deep text-cream px-4 py-2.5 rounded-lg"
+      >
+        See the pathway →
+      </a>
+    </div>
+  </section>
+
+  {/* ---------- Camps ----------------------------------------------------- */}
+  <section class="px-6 sm:px-9 py-12 border-b border-border" aria-labelledby={`youth-${sport.slug}-camps-h`}>
+    <div class="max-w-[1080px] mx-auto">
+      <div class="h-[3px] w-11 rounded-sm mb-4 bg-emerald"></div>
+      <h2 id={`youth-${sport.slug}-camps-h`} class="font-display text-3xl text-ink tracking-tight">Camps</h2>
+      <p class="text-[13.5px] text-ink-2 leading-relaxed mt-2 max-w-[520px]">{CAMPS.lede}</p>
+      <a
+        href="/youth/camps"
+        data-youth-cta={`${sport.slug}-camps`}
+        class="inline-block mt-6 font-sans font-semibold text-[13px] bg-navy-deep text-cream px-4 py-2.5 rounded-lg"
+      >
+        See camp dates →
+      </a>
+    </div>
+  </section>
+
+  {/* ---------- The coaching story — sport-specific evidence --------------- */}
+  {sport.hasCoach && <YouthCoachSection headingId={`youth-${sport.slug}-coach-h`} />}
+
+  {/* ---------- Pricing — indicative only ---------------------------------- */}
+  <section class="px-6 sm:px-9 py-12" aria-labelledby={`youth-${sport.slug}-cost-h`}>
+    <div class="max-w-[1080px] mx-auto">
+      <h2 id={`youth-${sport.slug}-cost-h`} class="font-display text-3xl text-ink tracking-tight">{PRICING.heading}</h2>
+      <p class="text-[13.5px] text-ink-2 leading-relaxed mt-2 max-w-[560px]">{PRICING.body}</p>
+    </div>
+  </section>
+</main>
+
+<script>
+  import { track } from "@/lib/analytics/track";
+
+  document.querySelectorAll<HTMLAnchorElement>("[data-landing-cta]").forEach((el) => {
+    el.addEventListener("click", () =>
+      track("landing_hero_cta_click", { cta: el.dataset.landingCta ?? "" }),
+    );
+  });
+  document.querySelectorAll<HTMLAnchorElement>("[data-youth-cta]").forEach((el) => {
+    el.addEventListener("click", () =>
+      track("youth_hub_section_cta_clicked", { section: el.dataset.youthCta ?? "" }),
+    );
+  });
+</script>

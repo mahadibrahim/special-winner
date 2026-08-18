@@ -31,9 +31,15 @@ interface TileFactsLineProps {
   /** Scope facts are computed over — leagues only on both hubs, so a cheap
    *  clinic never becomes the tile's headline price. */
   programTypes?: string[]
+  /** Narrow to one sport — the youth hub's per-sport tiles pass this so a
+   *  soccer tile never headlines a futsal price. */
+  sport?: string
   /** Authored fragment injected after the term, e.g. "7 games" — mirrors the
    *  category page's authored facts-band fact. */
   authoredFact?: string
+  /** Text tone: "cream" on dark door tiles (default), "ink" on solid
+   *  sport-color tiles where the rest of the text is ink. */
+  tone?: "cream" | "ink"
 }
 
 function joinFacts(parts: Array<string | null>): string | null {
@@ -44,7 +50,9 @@ function joinFacts(parts: Array<string | null>): string | null {
 export default function TileFactsLine({
   audience,
   programTypes = ["league"],
+  sport,
   authoredFact,
+  tone = "cream",
 }: TileFactsLineProps) {
   const [seasons, setSeasons] = useState<Awaited<
     ReturnType<typeof fetchPublicCatalogSeasons>
@@ -65,7 +73,7 @@ export default function TileFactsLine({
     }
   }, [])
 
-  const open = openScopedSeasons(seasons ?? [], audience, programTypes)
+  const open = openScopedSeasons(seasons ?? [], audience, programTypes, sport)
 
   // Term: compact on a tile — "Fall 2026" reads as "Fall"; a non-year term
   // like "Winter I" renders as-is.
@@ -91,7 +99,11 @@ export default function TileFactsLine({
   // Height is always reserved so the line popping in after hydration never
   // shifts the tile's CTA row.
   return (
-    <span className="block min-h-[15px] mt-2.5 font-mono text-[10.5px] tracking-[0.04em] leading-snug text-cream opacity-95">
+    <span
+      className={`block min-h-[15px] mt-2.5 font-mono text-[10.5px] tracking-[0.04em] leading-snug opacity-95 ${
+        tone === "ink" ? "text-ink" : "text-cream"
+      }`}
+    >
       {line ?? " "}
     </span>
   )
