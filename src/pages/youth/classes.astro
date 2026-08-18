@@ -344,7 +344,14 @@ const faqs: LandingFaqItem[] = [
       <YouthCoachSection headingId="classes-coach-h" />
     </div>
 
-    {/* ---------- Pricing — today's true model ---------------------------- */}
+    {/* ---------- Pricing — the NO-RATE-CARD default state -----------------
+        Owner-decided contract (2026-08-18): this band is rate-card-driven.
+        When a classes rate card exists in admin (annual registration,
+        per-session block tiers, private training — see the tracking issue),
+        it renders the priced three-card version from the approved mockup,
+        live. Until then this figure-free default renders — never invented
+        dollar amounts. Same pattern as /adult/pickup's drop-in rate card
+        fallback. */}
     <section id="pricing" class="px-6 sm:px-9 py-[76px]">
       <div class="max-w-[1080px] mx-auto">
         <h2 class="font-display font-semibold tracking-tight text-ink" style="font-size:clamp(2.1rem,3.8vw,2.9rem);letter-spacing:-0.015em">
