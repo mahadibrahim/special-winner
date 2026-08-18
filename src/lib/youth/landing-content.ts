@@ -120,8 +120,9 @@ export interface PathwayStep {
   /** Age line, shown mono. Select carries its invited-track reading here. */
   ages: string;
   /** Short mono "hook" line — the one-sentence promise for this step, shown
-   *  under the name on the pathway cards and under the age line on the step
-   *  detail bands (mockup `.hook` / `.srow .ages`-adjacent line). */
+   *  under the age line on the pathway cards (mockup `.hook`). The step
+   *  detail bands render `ages` in this position instead (via FeatureBand's
+   *  `hook` prop) — this field is not used there. */
   hook: string;
   blurb: string;
 }

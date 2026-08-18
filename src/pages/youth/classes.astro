@@ -17,6 +17,7 @@
 // docs/superpowers/specs/2026-08-17-youth-pathway-naming-decision.md.
 import BaseLayout from "@/layouts/BaseLayout.astro"
 import CategoryFinder from "@/components/landing/category-finder.tsx"
+import TileFactsLine from "@/components/landing/tile-facts-line"
 import YouthCoachSection from "@/components/youth/youth-coach-section.astro"
 import LandingFaq, { type LandingFaqItem } from "@/components/landing/landing-faq.tsx"
 import SectionJumpBar from "@/components/youth/bands/section-jump-bar.astro"
@@ -365,6 +366,21 @@ const faqs: LandingFaqItem[] = [
         <h2 class="font-display font-semibold tracking-tight" style="font-size:clamp(2.2rem,4.5vw,3.2rem);letter-spacing:-0.015em">
           Book it right here.
         </h2>
+        {/*
+          Mockup's .liveline ("FALL BLOCK · ENROLLING NOW · CLOSES SEP 2 —
+          live from the catalog") — this page is edge-cached marketing HTML
+          (setMarketingEdgeCache above), so the status line must be computed
+          client-side from live catalog data rather than baked in at build
+          time. Reuses the same island the category/youth hub tiles use;
+          scoped to this page's open-classes query (training + clinic) so the
+          line always agrees with the finder section right below it.
+        */}
+        <TileFactsLine
+          client:visible
+          audience="youth"
+          programTypes={["training", "clinic"]}
+          tone="cream"
+        />
       </div>
     </section>
     <div class="-mt-[88px] pb-[76px]">

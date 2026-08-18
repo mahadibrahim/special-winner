@@ -167,8 +167,8 @@ const tiles = [
       <div class="grid sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-6">
         {PATHWAY.map((s) => (
           <div id={stepSlug(s.name)} class="rounded-xl border border-border bg-paper p-4 scroll-mt-28">
-            <p class="font-mono text-[10px] tracking-widest uppercase text-ink-2">{s.ages}</p>
-            <h3 class="font-display text-[17px] text-ink mt-1.5 leading-tight">{s.name}</h3>
+            <h3 class="font-display text-[17px] text-ink leading-tight">{s.name}</h3>
+            <p class="font-mono text-[10px] tracking-widest uppercase text-ink-2 mt-1.5">{s.ages}</p>
             <p class="text-[12.5px] text-ink-2 leading-relaxed mt-2">{s.blurb}</p>
           </div>
         ))}
