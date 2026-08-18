@@ -78,6 +78,9 @@ interface SeasonsFinderSectionProps {
    * of a dead end, without repeating the form in every empty section.
    */
   emptyCtaAudience?: "parent" | "adult"
+  /** Opt-in only — forwarded to ProgramCardV2. Omitted renders the default
+   *  card, byte-identical to every existing consumer. */
+  cardVariant?: "default" | "youth-band"
 }
 
 export function SeasonsFinderSection({
@@ -88,6 +91,7 @@ export function SeasonsFinderSection({
   seasons,
   loading,
   emptyCtaAudience,
+  cardVariant,
 }: SeasonsFinderSectionProps) {
   const [activeFormat, setActiveFormat] = useState<string | null>(null)
   const [activeSport, setActiveSport] = useState<string | null>(null)
@@ -228,8 +232,8 @@ export function SeasonsFinderSection({
           ) : (
             <>
               <CardGrid layout="grid">
-                {filtered.slice(0, visible).map((s) => (
-                  <ProgramCardV2 key={s.id} season={s} />
+                {filtered.slice(0, visible).map((s, i) => (
+                  <ProgramCardV2 key={s.id} season={s} cardVariant={cardVariant} index={i} />
                 ))}
               </CardGrid>
               {visible < filtered.length && (

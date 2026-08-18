@@ -370,13 +370,16 @@ phrase. The 3px kicker rule element above h2s is retired on youth surfaces.
 - Statement cards (`src/components/youth/bands/statement-cards.astro`) — solid
   color card row (royal / emerald / red), mono label, large serif statement,
   supporting line
-- Pull-quote coach (`src/components/youth/youth-coach-section.astro`) —
-  circular portrait, large italic serif quote with red emphasis word,
-  credential chips
-- Booking cards with overlap header (CategoryFinder variant via
-  `cardVariant="youth-band"`) — red flood band with catalog-driven class
-  cards overlapping out; colored level band, spots-left pill, name,
-  day/time/venue/price rows, red Book CTA
+- Coach section (`src/components/youth/youth-coach-section.astro`) — circular
+  portrait, large italic serif line of attributed prose (his method, from
+  `COACH.method` — deliberately NOT rendered as a blockquote or in quotation
+  marks, since it isn't a blessed direct quote) with a red emphasis word,
+  credential chips from `COACH.credits`
+- Booking card (`ProgramCardV2` via `cardVariant="youth-band"` on
+  `CategoryFinder`, opt-in and default-unchanged) — colored level-band header
+  with the season's age/level label and its status pill (spots-left when the
+  season surfaces capacity, else "Open"), name, day/time/venue/price rows,
+  red Book CTA. Band color rotates emerald → royal → navy by card index.
 - Pricing cards (`src/components/youth/bands/pricing-cards.astro`) — three-card
   cost explainer
 

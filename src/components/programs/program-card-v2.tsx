@@ -80,6 +80,8 @@ function PriceFigure({ price, basePrice }: { price: number; basePrice: number | 
 export default function ProgramCardV2({
   season,
   emphasis,
+  cardVariant = "default",
+  index = 0,
 }: {
   season: Season
   /**
@@ -91,6 +93,17 @@ export default function ProgramCardV2({
    * pixel-identical to the default.
    */
   emphasis?: "team"
+  /**
+   * Opt-in only — omitted (or "default") renders byte-identical to every
+   * existing consumer (adult + current youth pages). "youth-band" renders
+   * the mockup `.bcard` treatment: colored level-band header with a
+   * spots/status pill, then name, meta rows, price, and a red "Book" CTA.
+   * See docs/superpowers/specs/2026-08-18-youth-classes-v2-mockup.html.
+   */
+  cardVariant?: "default" | "youth-band"
+  /** Card position within its grid — only consumed by "youth-band" to
+   *  rotate the band color (emerald → royal → navy). Ignored otherwise. */
+  index?: number
 }) {
   const status = deriveStatusPill(season)
   const indivUnit = deriveIndividualUnit(season)
@@ -203,6 +216,75 @@ export default function ProgramCardV2({
   // Captain-audience presentation — only reorders the dual-mode layout.
   const teamFirst = emphasis === "team" && dual && season.teamPrice != null
   const effTeamTotal = season.teamPrice != null ? (teamEb ?? season.teamPrice) : null
+
+  if (cardVariant === "youth-band") {
+    // Mockup .bcard — see the class comment on the `cardVariant` prop above.
+    // Deliberately simpler than the default footer: youth classes/camps
+    // (this variant's only intended consumer) are individual-signup, so the
+    // dual-mode team column isn't reproduced here — it still falls back to
+    // the shared headlinePrice/headlineUnit/teamOnly-aware register link.
+    const BAND_TONES = ["bg-emerald", "bg-royal", "bg-navy"] as const
+    const bandTone = BAND_TONES[index % BAND_TONES.length]
+    return (
+      <div
+        data-testid="program-card"
+        data-card-variant="youth-band"
+        className="group relative h-full flex flex-col bg-paper rounded-2xl overflow-hidden shadow-[0_6px_26px_rgba(0,0,0,0.14)]"
+      >
+        <div
+          className={`px-5 py-2.5 flex items-center justify-between gap-2 text-cream font-mono text-[10px] tracking-[0.14em] uppercase ${bandTone}`}
+        >
+          <span className="truncate">{audienceLabel}</span>
+          <span className="bg-cream/20 rounded-full px-2.5 py-1 whitespace-nowrap">{status.label}</span>
+        </div>
+        <div className="p-5 flex-1 flex flex-col">
+          <h3 className="font-display font-semibold text-xl text-ink leading-tight">{headingName}</h3>
+          <div className="text-[13px] text-ink-2 mt-2.5 grid gap-1">
+            <span>{dayTime || duration}</span>
+            <span>
+              {startsLabel}
+              {/* Only append duration here when the line above already shows
+                  real day/time — otherwise it repeats the dayTime fallback. */}
+              {dayTime ? ` · ${duration}` : ""}
+            </span>
+            <VenueLink slug={season.location.slug} label={venueLabel} />
+          </div>
+          <div className="mt-4.5 pt-3.5 border-t border-border flex-1 flex items-end">
+            {signupMode === "interest" ? (
+              <div className="w-full">
+                <SeasonInterestForm seasonId={season.id} seasonName={season.name} />
+              </div>
+            ) : soldOut ? (
+              <div className="w-full">
+                <WaitlistBlock seasonId={season.id} seasonName={season.name} />
+              </div>
+            ) : (
+              <div className="w-full flex items-end justify-between gap-3">
+                <div>
+                  <div className="font-display font-semibold text-2xl text-ink leading-none">
+                    ${(singleEb ?? headlinePrice).toLocaleString()}
+                    {singleEb != null && (
+                      <span className="ml-1.5 text-xs text-ink-faint line-through">
+                        ${headlinePrice.toLocaleString()}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[11px] text-ink-muted mt-1">{headlineUnit}</div>
+                </div>
+                <a
+                  href={teamOnly ? `/register/${season.id}?mode=team` : `/register/${season.id}`}
+                  className={`inline-flex items-center gap-1.5 text-xs font-semibold tracking-wide uppercase bg-brand-red text-cream px-4 py-2.5 rounded-md group-hover:opacity-90 transition-opacity ${STRETCHED_LINK_CLASSES}`}
+                >
+                  Book
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </a>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <CardShell

@@ -43,6 +43,14 @@ interface CategoryFinderProps {
   /** Section anchor id, e.g. "adult-leagues". Also drives the empty-state
    *  signup attribution: newsletter source = "empty-finder-<sectionId>". */
   sectionId: string
+  /**
+   * Opt-in only — omitted (or "default") renders byte-identical to every
+   * existing call site (adult pages, current youth pages). "youth-band"
+   * forwards through to ProgramCardV2 and renders the mockup `.bcard`
+   * booking-card treatment. See docs/design-system.md's "Youth band
+   * grammar" section.
+   */
+  cardVariant?: "default" | "youth-band"
 }
 
 export default function CategoryFinder({
@@ -53,6 +61,7 @@ export default function CategoryFinder({
   descriptor,
   ageChips = false,
   sectionId,
+  cardVariant,
 }: CategoryFinderProps) {
   useHydrationBeacon()
 
@@ -137,6 +146,7 @@ export default function CategoryFinder({
         seasons={visible}
         loading={loading}
         emptyCtaAudience={audience === "youth" ? "parent" : "adult"}
+        cardVariant={cardVariant}
       />
     </div>
   )
