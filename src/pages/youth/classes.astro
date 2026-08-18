@@ -1,96 +1,473 @@
 ---
-// Youth classes — the home of the training pathway. Where the league pages
-// are facts pages (which group, what's open, when, where), this page sells
-// coaching, because in a class the coaching IS the product. That split is an
-// explicit owner decision: the Director of Coaching is prominent here and on
-// camps, never on league surfaces.
+// Youth classes v2 — the home of the training pathway. Where the league
+// pages are facts pages (which group, what's open, when, where), this page
+// sells coaching, because in a class the coaching IS the product. That split
+// is an explicit owner decision: the Director of Coaching is prominent here
+// and on camps, never on league surfaces.
 //
-// Copy rules (owner-directed): no eyebrow text, no format claims, no
-// oppositional language, facility not a selling point, pricing indicative
-// only. Pathway names are locked — see
+// Band composition follows the owner-approved mockup verbatim —
+// docs/superpowers/specs/2026-08-18-youth-classes-v2-mockup.html — with the
+// copy exceptions called out inline below (camps cross-promo, coach section,
+// pricing band, FAQ additions). See docs/design-system.md "Youth band
+// grammar" for the shared primitive inventory this page composes.
+//
+// Copy rules (owner-directed): no oppositional language, facility not a
+// selling point, pricing indicative only except where a card explicitly
+// states today's true model. Pathway names are locked — see
 // docs/superpowers/specs/2026-08-17-youth-pathway-naming-decision.md.
 import BaseLayout from "@/layouts/BaseLayout.astro"
 import CategoryFinder from "@/components/landing/category-finder.tsx"
 import YouthCoachSection from "@/components/youth/youth-coach-section.astro"
-import CTABanner from "@/components/cta-banner"
-import { PATHWAY, AGE_SPAN } from "@/lib/youth/landing-content"
+import LandingFaq, { type LandingFaqItem } from "@/components/landing/landing-faq.tsx"
+import SectionJumpBar from "@/components/youth/bands/section-jump-bar.astro"
+import FeatureBand from "@/components/youth/bands/feature-band.astro"
+import StatementCards from "@/components/youth/bands/statement-cards.astro"
+import PricingCards from "@/components/youth/bands/pricing-cards.astro"
+import { PATHWAY, PATHWAY_DETAILS } from "@/lib/youth/landing-content"
 import { setMarketingEdgeCache } from "@/lib/http/edge-cache"
 
-const HERO_IMAGE = "/images/stock/team-huddle.jpg"
+const HERO_IMAGE = "/images/stock/youth-training.jpg"
 setMarketingEdgeCache(Astro)
+
+// "Aspire Micros" -> "micros" — same slug rule as youth-sport-page.astro's
+// stepSlug, and the suffix of every `id="step-<slug>"` band on this page.
+const stepSlug = (name: string) => name.replace(/^Aspire /, "").toLowerCase()
+const detailFor = (name: string) => PATHWAY_DETAILS.find((d) => d.slug === stepSlug(name))
+
+// Token-derived gradients for the pathway-card photo slots (mockup `.lvl .ph`
+// per-child backgrounds). No literal oklch() — composed from CSS custom
+// properties via color-mix, mirroring feature-band.astro's TONE.photo
+// approach so the two card shapes read as one system.
+const CARD_PHOTO: Record<string, string> = {
+  micros: "linear-gradient(135deg, var(--royal), var(--navy-deep))",
+  minis:
+    "linear-gradient(135deg, color-mix(in oklch, var(--emerald), var(--navy-deep) 15%), var(--navy-deep))",
+  juniors:
+    "linear-gradient(135deg, color-mix(in oklch, var(--brand-red), var(--navy-deep) 8%), var(--navy-deep))",
+  academy:
+    "linear-gradient(135deg, color-mix(in oklch, var(--ochre), var(--navy-deep) 8%), var(--navy-deep))",
+  select:
+    "linear-gradient(135deg, var(--royal-bright), color-mix(in oklch, var(--navy-deep), var(--royal) 25%))",
+}
+
+// Step-band tone per pathway slug (mockup `.srow.micros/minis/juniors/
+// academy/sel`). Declared in the frontmatter, not inline inside the
+// PATHWAY.map() template callback below — Astro's compiler misparses a `<`
+// starting a TS generic/union type annotation inside a `{...}` JSX
+// expression as the start of a tag.
+const TONE_BY_SLUG: Record<string, "royal" | "emerald" | "red" | "amber" | "navy"> = {
+  micros: "royal",
+  minis: "emerald",
+  juniors: "red",
+  academy: "amber",
+  select: "navy",
+}
+
+const JUMP_ITEMS = [
+  { href: "#pathway", label: "The pathway" },
+  { href: "#philosophy", label: "Philosophy" },
+  { href: "#feel", label: "What it's like" },
+  { href: "#coach", label: "Coaching" },
+  { href: "#pricing", label: "Pricing" },
+  { href: "#open", label: "Book now" },
+  { href: "#faqs", label: "FAQs" },
+]
+
+// Development-loop steps (mockup `.philo .loop .step`) — page-specific copy,
+// not reused elsewhere, so authored here rather than in landing-content.ts.
+const LOOP_STEPS = [
+  {
+    num: "1",
+    numClass: "text-royal-bright",
+    title: "It's written down.",
+    body: "Every group's sessions come from one curriculum, authored by our Director of Coaching — not whatever tonight's coach feels like running.",
+  },
+  {
+    num: "2",
+    numClass: "text-emerald-bright",
+    title: "Coaches train on it.",
+    body: "Your kid's coach is trained on that curriculum, so a session means the same thing whichever night you come.",
+  },
+  {
+    num: "3",
+    numClass: "text-brand-red",
+    title: "Kids stay in the game.",
+    body: "Small groups and small-sided play — the whole session is touches and decisions, not waiting in line.",
+  },
+  {
+    num: "4",
+    numClass: "text-ochre",
+    title: "You see the progress.",
+    // Mockup-verbatim — reflects the shipped coach-notes feature.
+    body: "After sessions, coaches share what clicked and what's next — so progress is something you watch, not something you take on faith.",
+  },
+]
+
+// "What a class here feels like" (mockup `.why .facts`).
+const FEEL_CARDS = [
+  {
+    label: "The group",
+    statement: "Small enough that nobody waits.",
+    body: "Small groups and small-sided play — the whole session is touches, not lines.",
+  },
+  {
+    label: "The coaching",
+    statement: "Explained while it happens.",
+    body: "Coaches talk kids through the game in the moment, not just at the end.",
+  },
+  {
+    label: "The feedback",
+    statement: "Praised for the right things.",
+    body: "Specific praise for real effort — confidence built on what they can actually do.",
+  },
+]
+
+// Pricing (mockup `.pricing .pgrid`) — today's TRUE model, not the mockup's
+// sample rates. Card 2 was meant to carry a live "from $" figure via a small
+// client island reusing fetchPublicCatalogSeasons + minIndividualPrice, but
+// PricingCards (src/components/youth/bands/pricing-cards.astro) is a plain
+// Astro presentational component with no slot/island seam per-card — piping
+// a live number through it cleanly isn't possible without either modifying
+// its Props (out of scope; its interface is ground truth) or duplicating its
+// markup outside the primitive. Computing the figure server-side instead
+// would freeze it into this page's edge-cached HTML for up to a day
+// (setMarketingEdgeCache below: s-maxage=60, stale-while-revalidate=86400) —
+// the same staleness trap src/components/landing/tile-facts-line.tsx exists
+// to avoid. Per the brief's documented fallback, Card 2 drops the live
+// figure and states the honest reason instead. Never hardcoded a number.
+const PRICING_CARDS = [
+  {
+    label: "Blocks",
+    amount: "Priced per block",
+    body: "Classes are booked as multi-week blocks. Every class card shows its block price before you register.",
+  },
+  {
+    label: "The card is the truth",
+    amount: "No separate figure",
+    body: "We could publish a summary price here, but it would only be one more number to keep in sync. The block price on each open class card below is the real one.",
+    hot: true,
+  },
+  {
+    label: "No surprises",
+    amount: "$0 hidden",
+    body: "No call required, no quote step — the price on the card is the price at checkout.",
+  },
+]
+
+// FAQ — mockup's five plus "Where are classes held?" (added per brief); the
+// cost answer is overridden to describe the real block-pricing model instead
+// of the mockup's unshipped annual-fee/per-session sample.
+const faqs: LandingFaqItem[] = [
+  {
+    question: "What age can my kid start?",
+    answer:
+      "At 18 months, in Aspire Micros — you're on the floor with them. From age 3 they train without you.",
+  },
+  {
+    question: "How do they move up?",
+    answer: "On their coach's word, when they're ready — there's no tryout between steps.",
+  },
+  {
+    question: "What days do classes run?",
+    answer:
+      "Sessions run throughout the week — every class card above shows its day and time, next to what's open.",
+  },
+  {
+    question: "Where are classes held?",
+    answer:
+      "Today's classes meet at the Worthington Fieldhouse — serving families across Worthington, Powell, Dublin, Westerville and north Columbus. Every class card shows its venue.",
+  },
+  {
+    question: "Do classes run all year?",
+    answer:
+      "Yes — the pathway runs year-round. Blocks roll one into the next, so there's never a season where your kid has nowhere to train.",
+  },
+  {
+    question: "What does it cost?",
+    answer:
+      "Classes are booked as multi-week blocks — the block price sits on each class card, next to what's open.",
+  },
+]
 ---
 
 <BaseLayout
-  title="Youth Classes — Aspire Sports"
-  description={`Youth training classes in central Ohio, for ${AGE_SPAN}. Five steps, small groups, real coaching.`}
+  title="Youth Sports Classes in Columbus & Worthington, Ohio — Aspire Sports"
+  description="Youth sports classes in Columbus and Worthington, Ohio for 18 months to 19 years — small groups, real coaching, one pathway. See what's open and book online."
 >
   <Fragment slot="head">
     <link rel="canonical" href={`${Astro.url.origin}/youth/classes`} />
   </Fragment>
 
   <main id="main-content" class="flex-1">
-    <section class="relative text-cream px-6 sm:px-9 py-20 overflow-hidden bg-navy-deep">
+    {/* ---------- Hero -------------------------------------------------- */}
+    <section class="relative text-cream px-6 sm:px-9 py-20 sm:py-[88px] overflow-hidden bg-navy-deep">
       <div class="graded graded--emerald graded--fill z-0" aria-hidden="true">
         <img src={HERO_IMAGE} alt="" />
       </div>
       <div class="relative z-10 max-w-[1080px] mx-auto">
-        <h1 class="font-display font-semibold tracking-tight" style="font-size:clamp(2.4rem,6vw,3.6rem);line-height:1">
-          Training, one<br />step at a time.
+        <h1
+          class="font-display font-semibold tracking-tight max-w-[14ch]"
+          style="font-size:clamp(3rem,6.5vw,4.6rem);line-height:.98;letter-spacing:-0.015em"
+        >
+          Their first coach is the one that counts.
         </h1>
-        <p class="mt-4 text-base text-cream/90 max-w-[480px] leading-relaxed">
-          Weeknight classes in small groups, from {AGE_SPAN}. Every kid enters
-          where they are and moves up when they&rsquo;re ready — on their
-          coach&rsquo;s word, not a tryout&rsquo;s.
+        <p class="mt-[18px] text-[17.5px] text-cream/92 max-w-[540px]">
+          Small-group classes from <b class="font-bold text-cream">18 months to nineteen years</b> — a
+          coach who explains, and one pathway so your kid never has to start over.
         </p>
-        <p class="mt-5 text-sm text-cream/75">
-          Looking for a season instead?
-          <a href="/youth/leagues" class="underline underline-offset-2 hover:text-cream transition-colors">Youth leagues →</a>
-        </p>
+        <div class="flex flex-wrap gap-3 mt-[30px]">
+          <a
+            href="#open"
+            data-youth-cta="hero-open"
+            class="inline-block font-semibold text-[14.5px] px-[22px] py-[13px] rounded-[10px] bg-brand-red text-cream no-underline"
+          >
+            See what's open →
+          </a>
+          <a
+            href="#philosophy"
+            data-youth-cta="hero-philosophy"
+            class="inline-block font-semibold text-[14.5px] px-[22px] py-[13px] rounded-[10px] border-[1.5px] border-cream/50 text-cream no-underline"
+          >
+            How we develop players
+          </a>
+        </div>
       </div>
     </section>
 
-    {/* ---------- The pathway — five locked steps -------------------------- */}
-    <section class="px-6 sm:px-9 py-12 border-b border-border" aria-labelledby="youth-pathway-h">
+    <SectionJumpBar items={JUMP_ITEMS} />
+
+    {/* ---------- The pathway — five locked steps ------------------------ */}
+    <section id="pathway" class="px-6 sm:px-9 py-[76px] pb-[68px]">
       <div class="max-w-[1080px] mx-auto">
-        <h2 id="youth-pathway-h" class="font-display text-3xl text-ink tracking-tight">
-          The pathway.
+        <h2 class="font-display font-semibold tracking-tight text-ink" style="font-size:clamp(2.1rem,3.8vw,2.9rem);letter-spacing:-0.015em">
+          Five steps, <span class="text-brand-red">one pathway.</span>
         </h2>
-        <p class="text-[13.5px] text-ink-2 leading-relaxed mt-2 max-w-[520px]">
-          Five steps. The first four are age groups; the fifth is an invitation.
+        <p class="text-[15.5px] text-ink-2 max-w-[580px] mt-3">
+          Every kid enters where they are and moves up when they're ready — on their coach's word, not
+          a tryout's.
         </p>
-        <ol class="mt-6 grid gap-2.5" role="list">
-          {PATHWAY.map((step, i) => (
-            <li
-              class={`rounded-xl border p-5 sm:grid sm:grid-cols-[220px_1fr] sm:gap-6 sm:items-baseline ${
-                i === PATHWAY.length - 1
-                  ? "border-emerald bg-cream-2"
-                  : "border-border bg-paper"
-              }`}
-            >
-              <div>
-                <h3 class="font-display text-xl text-ink">{step.name}</h3>
-                <p class="font-mono text-[10.5px] tracking-widest uppercase text-ink-2 mt-1">{step.ages}</p>
-              </div>
-              <p class="text-[13px] text-ink-2 leading-relaxed mt-2 sm:mt-0">{step.blurb}</p>
-            </li>
-          ))}
-        </ol>
+
+        <div class="grid gap-[18px] mt-[38px]" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
+          {
+            PATHWAY.map((step) => {
+              const slug = stepSlug(step.name)
+              return (
+                <div
+                  class={`bg-navy-deep text-cream rounded-[18px] overflow-hidden flex flex-col ${
+                    slug === "select" ? "outline outline-[1.5px] -outline-offset-[1.5px] outline-emerald-bright" : ""
+                  }`}
+                >
+                  <div
+                    class="h-[150px] flex items-center justify-center font-mono text-[10px] tracking-[0.14em] uppercase text-cream/60"
+                    style={`background:${CARD_PHOTO[slug]}`}
+                  >
+                    {`PHOTO · ${step.name.replace("Aspire ", "").toUpperCase()} SESSION`}
+                  </div>
+                  <div class="px-6 pt-[22px] pb-6 flex-1 flex flex-col">
+                    <h3 class="font-display font-semibold text-[26px]">{step.name}</h3>
+                    <div class="font-mono text-[10.5px] tracking-[0.16em] uppercase text-emerald-bright mt-1.5">
+                      {step.ages}
+                    </div>
+                    <div class="font-semibold text-[14.5px] text-emerald-bright mt-2.5">{step.hook}</div>
+                    <p class="text-[13.5px] text-cream/85 mt-2 flex-1">{step.blurb}</p>
+                    <div class="mt-[18px]">
+                      <a
+                        href={`#step-${slug}`}
+                        data-youth-cta={`pathway-${slug}`}
+                        class="inline-block bg-cream text-ink font-semibold text-[13px] px-4 py-[9px] rounded-[8px] no-underline"
+                      >
+                        More about {step.name.replace("Aspire ", "")} ↓
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )
+            })
+          }
+        </div>
       </div>
     </section>
 
-    <YouthCoachSection headingId="classes-coach-h" />
+    {/* ---------- Philosophy — the loop, not a vibe ---------------------- */}
+    <section id="philosophy" class="bg-navy-deep text-cream px-6 sm:px-9 py-[76px]">
+      <div class="max-w-[1080px] mx-auto">
+        <h2
+          class="font-display font-semibold tracking-tight max-w-[22ch]"
+          style="font-size:clamp(2.1rem,3.8vw,2.9rem);letter-spacing:-0.015em"
+        >
+          Development here is a <span class="text-emerald-bright">system</span>, not a vibe.
+        </h2>
+        <p class="text-cream/85 text-[15.5px] max-w-[60ch] mt-[14px]">
+          The same written curriculum runs every group on the pathway, so what your kid learns on
+          Tuesday builds on what they learned last month — and follows them up every step.
+        </p>
 
-    {/* ---------- What's open ---------------------------------------------- */}
-    <CategoryFinder
-      client:load
-      audience="youth"
-      programTypes={["training", "clinic"]}
-      title="Open now"
-      descriptor="Filter by age and venue — every class shows its dates on the card."
-      ageChips
-      sectionId="youth-classes"
+        <div class="grid gap-[14px] mt-10" style="grid-template-columns:repeat(auto-fit,minmax(230px,1fr))">
+          {
+            LOOP_STEPS.map((s) => (
+              <div class="rounded-[14px] p-6" style="background:color-mix(in oklch, var(--navy-deep), var(--royal) 12%)">
+                <div class={`font-display font-semibold text-[44px] leading-none ${s.numClass}`}>{s.num}</div>
+                <h4 class="font-display font-semibold text-[19px] mt-2.5">{s.title}</h4>
+                <p class="text-[13.5px] text-cream/85 mt-2">{s.body}</p>
+              </div>
+            ))
+          }
+        </div>
+
+        <div class="mt-[34px]">
+          <a
+            href="/youth/philosophy"
+            data-youth-cta="philosophy-full"
+            class="inline-block border-[1.5px] border-cream/50 text-cream font-semibold text-[14px] px-5 py-3 rounded-[10px] no-underline"
+          >
+            Read the full development philosophy →
+          </a>
+        </div>
+      </div>
+    </section>
+
+    {/* ---------- What it's like ------------------------------------------ */}
+    <section id="feel" class="px-6 sm:px-9 py-[76px]">
+      <div class="max-w-[1080px] mx-auto">
+        <h2 class="font-display font-semibold tracking-tight text-ink" style="font-size:clamp(2.1rem,3.8vw,2.9rem);letter-spacing:-0.015em">
+          What a class here <span class="text-brand-red">feels like.</span>
+        </h2>
+        <div class="mt-[38px]">
+          <StatementCards cards={FEEL_CARDS} />
+        </div>
+      </div>
+    </section>
+
+    {/* ---------- Coaching — YouthCoachSection is settled, just placed ---- */}
+    <div id="coach">
+      <YouthCoachSection headingId="classes-coach-h" />
+    </div>
+
+    {/* ---------- Pricing — today's true model ---------------------------- */}
+    <section id="pricing" class="px-6 sm:px-9 py-[76px]">
+      <div class="max-w-[1080px] mx-auto">
+        <h2 class="font-display font-semibold tracking-tight text-ink" style="font-size:clamp(2.1rem,3.8vw,2.9rem);letter-spacing:-0.015em">
+          What it <span class="text-brand-red">costs.</span>
+        </h2>
+        <p class="text-[15.5px] text-ink-2 max-w-[580px] mt-3">
+          Three numbers, no surprises. Exact figures always sit on the class card, next to what's
+          open.
+        </p>
+        <div class="mt-[38px]">
+          <PricingCards cards={PRICING_CARDS} />
+        </div>
+      </div>
+    </section>
+
+    {/* ---------- Book it right here — red flood + overlapping finder ----- */}
+    <section id="open" class="bg-brand-red text-cream text-center px-6 sm:px-9 pt-16 pb-[140px]">
+      <div class="max-w-[1080px] mx-auto">
+        <h2 class="font-display font-semibold tracking-tight" style="font-size:clamp(2.2rem,4.5vw,3.2rem);letter-spacing:-0.015em">
+          Book it right here.
+        </h2>
+      </div>
+    </section>
+    <div class="-mt-[88px] pb-[76px]">
+      {/*
+        CategoryFinder's SeasonsFinderSection always renders a real <h2> —
+        there's no visually-hidden-title mode in its Props. Rather than
+        duplicate "Book it right here." (the red band's h2, immediately
+        above) or leave it blank, this passes a short, distinct heading so
+        the section still makes sense on its own if landed on directly
+        (e.g. from a shared #open-classes link) or read by a screen reader
+        jumping headings. sectionId is "open-classes", not "open" — the red
+        band above already owns id="open" for the jump bar / hero CTA
+        anchor, and duplicate ids are invalid HTML.
+      */}
+      <CategoryFinder
+        client:load
+        audience="youth"
+        programTypes={["training", "clinic"]}
+        title="Open classes"
+        descriptor="Every class shows its dates, venue and block price on the card."
+        ageChips
+        sectionId="open-classes"
+        cardVariant="youth-band"
+      />
+    </div>
+
+    {/* ---------- FAQs ------------------------------------------------------ */}
+    <LandingFaq client:visible id="faqs" heading="Questions parents ask." items={faqs} />
+
+    {/* ---------- Step detail bands — full-bleed, one per pathway step ----- */}
+    {
+      PATHWAY.map((step) => {
+        const slug = stepSlug(step.name)
+        const detail = detailFor(step.name)
+        return (
+          <FeatureBand
+            id={`step-${slug}`}
+            tone={TONE_BY_SLUG[slug]}
+            photoLabel={
+              slug === "select"
+                ? "PHOTO · SELECT SESSION"
+                : `PHOTO · KIDS PLAYING (${slug.toUpperCase()})`
+            }
+            title={step.name}
+            hook={step.ages}
+            body={detail?.body ?? step.blurb}
+            cta={{ href: "#open", label: detail?.ctaLabel ?? "Book now →" }}
+          />
+        )
+      })
+    }
+
+    {/* ---------- Cross-promo: leagues -------------------------------------- */}
+    <FeatureBand
+      tone="emerald"
+      photoLabel="PHOTO · YOUTH LEAGUE GAME DAY"
+      kicker="Also at Aspire"
+      title="Ready for game day?"
+      body="Youth leagues run by age group from U6 to U19 — developmental seasons where we build the teams, and competitive winter play."
+      cta={{ href: "/youth/leagues", label: "See youth leagues →" }}
     />
 
-    <CTABanner client:visible />
+    {/* ---------- Cross-promo: camps (generalized copy, per brief) ---------- */}
+    <FeatureBand
+      tone="red"
+      photoLabel="PHOTO · CAMP DAY"
+      kicker="Also at Aspire"
+      title="Camps, all year long."
+      body="Day camps on school breaks, plus specialty camps through the year — coached rather than supervised, by the same people they see all year."
+      cta={{ href: "/youth/camps", label: "See camp dates →" }}
+    />
+
+    {/* ---------- Close ------------------------------------------------------ */}
+    <section class="bg-navy-deep text-cream text-center px-6 sm:px-9 py-20" aria-labelledby="youth-classes-close-h">
+      <div class="max-w-[1080px] mx-auto">
+        <h2
+          id="youth-classes-close-h"
+          class="font-display font-semibold tracking-tight"
+          style="font-size:clamp(2rem,4vw,2.8rem)"
+        >
+          Ready when <span class="text-emerald-bright">they</span> are.
+        </h2>
+        <p class="mt-2.5 text-cream/90">Find their group and book — it takes a few minutes.</p>
+        <div class="flex justify-center gap-3 mt-6">
+          <a
+            href="#open"
+            data-youth-cta="close-book"
+            class="inline-block font-semibold text-[14.5px] px-[22px] py-[13px] rounded-[10px] bg-brand-red text-cream no-underline"
+          >
+            Book a class →
+          </a>
+        </div>
+      </div>
+    </section>
   </main>
 </BaseLayout>
+
+<script>
+  import { track } from "@/lib/analytics/track"
+
+  document.querySelectorAll<HTMLAnchorElement>("[data-youth-cta]").forEach((el) => {
+    el.addEventListener("click", () =>
+      track("youth_hub_section_cta_clicked", { section: el.dataset.youthCta ?? "" }),
+    )
+  })
+</script>

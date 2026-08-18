@@ -192,6 +192,9 @@ test.describe("youth navigation", () => {
   test("classes page loads its own finder", async ({ page }) => {
     await page.goto("/youth/classes", { waitUntil: "domcontentloaded" })
     await waitForHydration(page)
-    await expect(page.locator("#youth-classes")).toBeVisible()
+    // classes v2's CategoryFinder sectionId is "open-classes" (the red
+    // "Book it right here." band above it already owns id="open" for the
+    // jump bar / hero CTA anchor — two elements can't share an id).
+    await expect(page.locator("#open-classes")).toBeVisible()
   })
 })

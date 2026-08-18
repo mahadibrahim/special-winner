@@ -119,6 +119,10 @@ export interface PathwayStep {
   name: string;
   /** Age line, shown mono. Select carries its invited-track reading here. */
   ages: string;
+  /** Short mono "hook" line — the one-sentence promise for this step, shown
+   *  under the name on the pathway cards and under the age line on the step
+   *  detail bands (mockup `.hook` / `.srow .ages`-adjacent line). */
+  hook: string;
   blurb: string;
 }
 
@@ -135,28 +139,82 @@ export interface PathwayStep {
 export const PATHWAY: PathwayStep[] = [
   {
     name: "Aspire Micros",
-    ages: "18 months – 3",
+    ages: "18 months – 3 years old",
+    hook: "Their first game, with you beside them.",
     blurb: "You're on the floor with them. Movement, balance, first contact with a ball.",
   },
   {
     name: "Aspire Minis",
-    ages: "3 – 5",
+    ages: "3 – 5 years old",
+    hook: "First time solo — big step, small group.",
     blurb: "Their first time without you. Listening to a coach, taking turns, and a lot of touches.",
   },
   {
     name: "Aspire Juniors",
-    ages: "5 – 8",
+    ages: "5 – 8 years old",
+    hook: "Where skills start to stick.",
     blurb: "First real skills. Control of the ball, and the start of wanting it.",
   },
   {
     name: "Aspire Academy",
-    ages: "8 – 12",
-    blurb: "Training gets serious. Decisions under pressure, not just technique.",
+    ages: "8 – 12 years old",
+    hook: "Training gets real.",
+    // Mockup-verbatim (dropped the old "Training gets serious." prefix — the
+    // hook line above now carries that beat, so the blurb doesn't repeat it).
+    blurb: "Decisions under pressure, not just technique.",
   },
   {
     name: "Aspire Select",
     ages: "8 – 19 · by invitation",
-    blurb: "Small groups our Director of Coaching takes himself.",
+    hook: "An invitation, not an age band.",
+    blurb:
+      "Small invitation-only groups for players who are ready for more, under our most senior coaches.",
+  },
+];
+
+export interface PathwayStepDetail {
+  /** Matches `Aspire <Name>`.toLowerCase() with the "Aspire " prefix
+   *  stripped — same slug rule as youth-sport-page.astro's `stepSlug`. Also
+   *  the suffix of the step band's `id="step-<slug>"`. */
+  slug: "micros" | "minis" | "juniors" | "academy" | "select";
+  /** Label for the step band's CTA button — the four age steps say "Book
+   *  <Name> →"; Select's invitation framing gets its own label. */
+  ctaLabel: string;
+  /** The long-form paragraph on the step detail band (mockup `#steps`
+   *  section) — verbatim from the committed mockup. */
+  body: string;
+}
+
+/**
+ * Long-form copy for the five `#step-<slug>` detail bands on /youth/classes.
+ * Kept separate from `PATHWAY` (the short pathway-card copy) because the two
+ * sections need different lengths of prose for the same step.
+ */
+export const PATHWAY_DETAILS: PathwayStepDetail[] = [
+  {
+    slug: "micros",
+    ctaLabel: "Book Micros →",
+    body: "Your kid's first organized play, with you on the floor beside them. Sessions are built around movement, balance, and first touches on a ball — and just as much around learning to be in a group: waiting a turn, following a coach's voice, celebrating somebody else's goal.",
+  },
+  {
+    slug: "minis",
+    ctaLabel: "Book Minis →",
+    body: "The first big step: training without you. Minis is where kids learn to listen to a coach, take turns, and get a lot of touches in a group small enough that nobody disappears. The session is play, and the learning hides inside it.",
+  },
+  {
+    slug: "juniors",
+    ctaLabel: "Book Juniors →",
+    body: "Where skills start to stick. Juniors works on real control of the ball and the beginnings of wanting it — turning, protecting, taking players on. Coaches narrate the game as it happens, so the learning lands in the moment.",
+  },
+  {
+    slug: "academy",
+    ctaLabel: "Book Academy →",
+    body: "Training gets real. Academy is decisions under pressure, not just technique — smaller spaces, faster play, and coaching that asks questions as often as it gives answers. Players leave knowing what they did well and what to work on next.",
+  },
+  {
+    slug: "select",
+    ctaLabel: "How invitations work →",
+    body: "An invitation, not an age band. Select is a small group for players who are ready for more, under our most senior coaches — invitations come from your kid's coach, based on readiness, not a tryout day. The pathway is how they get there.",
   },
 ];
 
