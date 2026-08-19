@@ -1,0 +1,88 @@
+---
+// Compact "Which group is my kid in?" row for the booking sheet — the
+// non-prominent successor to the 14-band ladder (owner: available, not
+// prominent). Same resolver + same finder-filter bus as the old ladder, so
+// the finder integration is unchanged.
+import { YOUTH_AGE_GROUPS } from "@/lib/leagues/youth-age-groups"
+
+interface Props {
+  finderId: string
+  sportKey: string
+}
+const { finderId, sportKey } = Astro.props
+
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+]
+const YEARS = [...new Set(
+  YOUTH_AGE_GROUPS.flatMap((g) => [
+    Number(g.bornFrom.slice(0, 4)),
+    Number(g.bornTo.slice(0, 4)),
+  ]),
+)].sort((a, b) => b - a)
+---
+
+<div
+  class="flex items-center gap-3.5 flex-wrap bg-cream border border-cream-3 rounded-xl px-4 py-3 mx-1.5 mt-3.5 mb-1"
+  data-age-lookup-inline
+  data-finder={finderId}
+  data-sport={sportKey}
+>
+  <label class="font-mono text-[9.5px] tracking-[0.14em] uppercase text-ink-muted" for="age-lookup-month">
+    Which group is my kid in?
+  </label>
+  <select id="age-lookup-month" class="text-[13px] border border-cream-3 bg-paper rounded-lg px-2.5 py-1.5 text-ink">
+    <option value="">Month born</option>
+    {MONTHS.map((m, i) => <option value={i + 1}>{m}</option>)}
+  </select>
+  <select id="age-lookup-year" class="text-[13px] border border-cream-3 bg-paper rounded-lg px-2.5 py-1.5 text-ink">
+    <option value="">Year born</option>
+    {YEARS.map((y) => <option value={y}>{y}</option>)}
+  </select>
+  <p id="age-lookup-answer" class="text-[13px] text-ink hidden" role="status" aria-live="polite"></p>
+</div>
+
+<script>
+  import { resolveAgeGroup } from "@/lib/leagues/youth-age-groups"
+  import { dispatchFinderFilter } from "@/lib/landing/finder-filter"
+  import { track } from "@/lib/analytics/track"
+
+  const root = document.querySelector<HTMLElement>("[data-age-lookup-inline]")
+  if (root) {
+    const finderId = root.dataset.finder ?? ""
+    const sportKey = root.dataset.sport ?? ""
+    const monthEl = document.getElementById("age-lookup-month") as HTMLSelectElement | null
+    const yearEl = document.getElementById("age-lookup-year") as HTMLSelectElement | null
+    const answerEl = document.getElementById("age-lookup-answer")
+
+    function runLookup() {
+      if (!monthEl || !yearEl || !answerEl) return
+      const month = Number(monthEl.value)
+      const year = Number(yearEl.value)
+      if (!month || !year) return
+      const group = resolveAgeGroup(month, year)
+      answerEl.classList.remove("hidden")
+      // `ageGroup: undefined` PRESENT-with-undefined clears the filter —
+      // the finder gates on `"ageGroup" in detail` (see age-group-ladder).
+      // scroll:false — the answer renders right here.
+      if (!group) {
+        answerEl.textContent = "That birthday falls outside our U6–U19 groups for this season."
+        dispatchFinderFilter(
+          { key: sportKey, sectionId: finderId, ageGroup: undefined },
+          { scroll: false },
+        )
+        return
+      }
+      answerEl.innerHTML = `→ Your kid plays <b class="text-brand-red">${group.label}</b> — rows filtered below`
+      dispatchFinderFilter(
+        { key: sportKey, sectionId: finderId, ageGroup: group.label },
+        { scroll: false },
+      )
+      track("youth_age_lookup_used", { group: group.label })
+    }
+
+    monthEl?.addEventListener("change", runLookup)
+    yearEl?.addEventListener("change", runLookup)
+  }
+</script>
