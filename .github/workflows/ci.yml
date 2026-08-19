@@ -225,6 +225,9 @@ jobs:
   test-critical:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    # A hung apt mirror during playwright install-deps once held a shard for
+    # the full 6h default — cap the job so infra stalls fail fast instead.
+    timeout-minutes: 45
     services:
       postgres:
         image: postgres:16
@@ -254,10 +257,12 @@ jobs:
 
       - name: Install Playwright (browser + system deps)
         if: steps.pw-cache.outputs.cache-hit != 'true'
+        timeout-minutes: 10
         run: npx playwright install --with-deps chromium
 
       - name: Install Playwright system deps
         if: steps.pw-cache.outputs.cache-hit == 'true'
+        timeout-minutes: 10
         run: npx playwright install-deps chromium
 
       - name: Run critical E2E tests
@@ -275,6 +280,9 @@ jobs:
   test-full:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    # See test-critical: the 2026-08-18 post-merge run lost shard 2 to a 6h
+    # install-deps hang. Full sharded suite finishes well inside an hour.
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -308,10 +316,12 @@ jobs:
 
       - name: Install Playwright (browser + system deps)
         if: steps.pw-cache.outputs.cache-hit != 'true'
+        timeout-minutes: 10
         run: npx playwright install --with-deps chromium
 
       - name: Install Playwright system deps
         if: steps.pw-cache.outputs.cache-hit == 'true'
+        timeout-minutes: 10
         run: npx playwright install-deps chromium
 
       - name: Run full E2E suite (shard ${{ matrix.shard }}/3)
