@@ -194,10 +194,23 @@ export function SeasonsFinderSection({
     ].filter((o) => o.count > 0)
   }, [rows])
 
+  // Another filter (day/venue/sport/…) can narrow `filtered` down to only
+  // the OTHER kind, dropping the active level's count to zero — its chip
+  // then disappears from levelOptions while `level` itself is still set,
+  // which would otherwise leave the table stuck on zero rows. Fall back to
+  // "all" the moment that happens. No-op for every existing consumer:
+  // `level` never leaves "all" when `levelChips` is false (the chip that
+  // would change it never renders).
+  useEffect(() => {
+    if (level === "all") return
+    if (!levelOptions.some((o) => o.value === level)) setLevel("all")
+  }, [level, levelOptions])
+
   const clearFilters = () => {
     setActiveFormat(null)
     setActiveSport(null)
     setActiveVenue(null)
+    setLevel("all")
     setActiveDay(null)
   }
   const hasActiveFilters =
@@ -303,7 +316,12 @@ export function SeasonsFinderSection({
                 )}
               </div>
             )
-          ) : filtered.length === 0 ? (
+          ) : filtered.length === 0 || (layout === "table" && levelRows.length === 0) ? (
+            // Reuses the same "nothing matches" messaging for the table's
+            // level-narrowed-to-zero case (transient — the effect above
+            // resets `level` to "all" right after this renders — but the
+            // render still needs to show something other than a bare table
+            // header in the meantime).
             <div className="bg-paper border border-border rounded-2xl py-12 px-6 text-center">
               <p className="font-display text-lg text-ink">Nothing matches those filters.</p>
               <button
