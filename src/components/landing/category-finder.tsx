@@ -54,6 +54,14 @@ interface CategoryFinderProps {
   /** Pass-through to SeasonsFinderSection — visually hide the h2/descriptor
    *  when the enclosing band already carries the heading. */
   headerHidden?: boolean
+  /** Pass-through to SeasonsFinderSection — "table" renders the
+   *  direct-booking division table instead of the card grid. Omitted (or
+   *  "cards") renders byte-identical to every existing consumer. */
+  layout?: "cards" | "table"
+  /** Pass-through to SeasonsFinderSection — opt-in Competitive/Developmental
+   *  chip row. Default false renders byte-identical to every existing
+   *  consumer. */
+  levelChips?: boolean
 }
 
 export default function CategoryFinder({
@@ -66,6 +74,8 @@ export default function CategoryFinder({
   sectionId,
   cardVariant,
   headerHidden,
+  layout,
+  levelChips,
 }: CategoryFinderProps) {
   useHydrationBeacon()
 
@@ -152,6 +162,8 @@ export default function CategoryFinder({
         emptyCtaAudience={audience === "youth" ? "parent" : "adult"}
         cardVariant={cardVariant}
         headerHidden={headerHidden}
+        layout={layout}
+        levelChips={levelChips}
       />
     </div>
   )

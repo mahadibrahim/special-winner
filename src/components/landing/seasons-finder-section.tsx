@@ -6,9 +6,11 @@ import { ProgramCardSkeleton } from "@/components/programs/program-card-skeleton
 import { CardGrid } from "@/components/programs/card-grid"
 import { FilterChips, type ChipOption } from "./filter-chips"
 import { EmptyNotifyForm } from "./empty-notify-form"
+import { YouthDivisionTable } from "./youth-division-table"
 import type { ApiSeason } from "@/lib/programs/api-season"
 import { deriveDayKey, DAY_KEYS, DAY_LABELS } from "@/lib/programs/derive"
 import { useFinderFilter } from "@/lib/hooks/use-finder-filter"
+import { divisionRowModel } from "@/lib/leagues/division-row-model"
 
 const PAGE_SIZE = 6
 
@@ -86,6 +88,14 @@ interface SeasonsFinderSectionProps {
   /** Opt-in only — forwarded to ProgramCardV2. Omitted renders the default
    *  card, byte-identical to every existing consumer. */
   cardVariant?: "default" | "youth-band"
+  /** Opt-in only — "table" renders the direct-booking division table
+   *  (YouthDivisionTable) instead of the card grid. Omitted (or "cards")
+   *  renders byte-identical to every existing consumer. */
+  layout?: "cards" | "table"
+  /** Opt-in only — shows an All/Competitive/Developmental chip row above the
+   *  existing filter chips. Default false renders byte-identical to every
+   *  existing consumer. */
+  levelChips?: boolean
 }
 
 export function SeasonsFinderSection({
@@ -98,11 +108,14 @@ export function SeasonsFinderSection({
   emptyCtaAudience,
   cardVariant,
   headerHidden = false,
+  layout = "cards",
+  levelChips = false,
 }: SeasonsFinderSectionProps) {
   const [activeFormat, setActiveFormat] = useState<string | null>(null)
   const [activeSport, setActiveSport] = useState<string | null>(null)
   const [activeVenue, setActiveVenue] = useState<string | null>(null)
   const [activeDay, setActiveDay] = useState<string | null>(null)
+  const [level, setLevel] = useState<"all" | "competitive" | "developmental">("all")
   const [visible, setVisible] = useState(PAGE_SIZE)
 
   // A hero tile elsewhere on the page can pre-apply this section's Sport
@@ -158,6 +171,29 @@ export function SeasonsFinderSection({
     })
   }, [seasons, activeFormat, activeSport, activeVenue, activeDay])
 
+  // Table-layout only — pure display rows derived from `filtered`, so the
+  // event-driven age filter (applied upstream, into the `seasons` prop
+  // itself) still narrows table rows exactly like it narrows cards.
+  const rows = useMemo(
+    () =>
+      filtered.map((s) =>
+        divisionRowModel(s as unknown as Parameters<typeof divisionRowModel>[0]),
+      ),
+    [filtered],
+  )
+  const levelRows = useMemo(
+    () => (level === "all" ? rows : rows.filter((r) => r.kind === level)),
+    [rows, level],
+  )
+  const levelOptions = useMemo(() => {
+    const counts = { competitive: 0, developmental: 0 }
+    for (const r of rows) counts[r.kind]++
+    return [
+      { value: "competitive", label: "Competitive (team entry)", count: counts.competitive },
+      { value: "developmental", label: "Developmental (per kid)", count: counts.developmental },
+    ].filter((o) => o.count > 0)
+  }, [rows])
+
   const clearFilters = () => {
     setActiveFormat(null)
     setActiveSport(null)
@@ -189,6 +225,18 @@ export function SeasonsFinderSection({
           </div>
           <p className="text-ink-muted mt-1">{descriptor}</p>
         </div>
+
+        {/* Level chips — opt-in, sits above the existing filter chips. */}
+        {levelChips && !loading && seasons.length > 0 && (
+          <div className="mt-6">
+            <FilterChips
+              label="Level"
+              options={levelOptions}
+              active={level === "all" ? null : level}
+              onChange={(v) => setLevel((v as "competitive" | "developmental") ?? "all")}
+            />
+          </div>
+        )}
 
         {/* Filters */}
         {!loading && seasons.length > 0 && (
@@ -268,23 +316,31 @@ export function SeasonsFinderSection({
             </div>
           ) : (
             <>
-              <CardGrid layout="grid">
-                {filtered.slice(0, visible).map((s, i) => (
-                  <ProgramCardV2 key={s.id} season={s} cardVariant={cardVariant} index={i} />
-                ))}
-              </CardGrid>
-              {visible < filtered.length && (
-                <div className="mt-8 text-center">
-                  <button
-                    type="button"
-                    onClick={() => setVisible((n) => n + PAGE_SIZE)}
-                    className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-ink text-cream text-sm font-medium tracking-wide uppercase hover:bg-primary transition-colors"
-                    style={{ letterSpacing: "0.08em" }}
-                  >
-                    Show {Math.min(PAGE_SIZE, filtered.length - visible)} more
-                    <span className="text-cream/60">({filtered.length - visible} more)</span>
-                  </button>
-                </div>
+              {layout === "table" ? (
+                // Table layout — opt-in, direct-booking division rows. Cards
+                // branch (the else-below) stays untouched.
+                <YouthDivisionTable rows={levelRows} />
+              ) : (
+                <>
+                  <CardGrid layout="grid">
+                    {filtered.slice(0, visible).map((s, i) => (
+                      <ProgramCardV2 key={s.id} season={s} cardVariant={cardVariant} index={i} />
+                    ))}
+                  </CardGrid>
+                  {visible < filtered.length && (
+                    <div className="mt-8 text-center">
+                      <button
+                        type="button"
+                        onClick={() => setVisible((n) => n + PAGE_SIZE)}
+                        className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-ink text-cream text-sm font-medium tracking-wide uppercase hover:bg-primary transition-colors"
+                        style={{ letterSpacing: "0.08em" }}
+                      >
+                        Show {Math.min(PAGE_SIZE, filtered.length - visible)} more
+                        <span className="text-cream/60">({filtered.length - visible} more)</span>
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
               {hasActiveFilters && (
                 <div className="mt-4 text-center">
