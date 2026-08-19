@@ -77,7 +77,10 @@ const FACTS: Record<string, VenueFacts> = {
       "Balanced-teams pickup format, live session times published",
     ],
     comingSoon: [],
-    offerings: { youth: false, pickup: true },
+    // youth: true since 2026-08-18 — owner-stated fact that league play runs
+    // at BOTH Worthington and Downtown. This drives the youth league pages'
+    // venue cards / "Where" fact and the youth blocks on /locations/downtown.
+    offerings: { youth: true, pickup: true },
     directions: [
       "I-71 → E 5th Ave exit, east on 5th",
       "Right (south) on St Clair Ave",

@@ -383,5 +383,17 @@ phrase. The 3px kicker rule element above h2s is retired on youth surfaces.
 - Pricing cards (`src/components/youth/bands/pricing-cards.astro`) — three-card
   cost explainer
 
+- Deadline banner (youth league pages) — full-width brand-red bar above the
+  hero: live term + registration deadline, cream CTA pill. Replaces the
+  in-hero now-registering banner on league surfaces.
+- Division table (`YouthDivisionTable` via `CategoryFinder layout="table"`,
+  opt-in) — direct-booking rows: group + Competitive/Developmental badge,
+  season, day/start, price with per-team/per-kid unit, row CTA. Level chips
+  via `levelChips`.
+- League-type labels are Competitive / Developmental; "Winter" only ever
+  names the season window (Nov – late March).
+- **Full-width body text (owner rule, 2026-08-18):** no max-width measure
+  caps on paragraph text. Ledes/subheads/notes span the content column.
+
 **Accent roles**: emerald = youth signature · brand-red = youth hot CTA/flood ·
 royal = structural (jump bar, cards, discs)

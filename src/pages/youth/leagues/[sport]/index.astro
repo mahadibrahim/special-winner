@@ -5,9 +5,11 @@
 // metadata, all of which now come from YOUTH_LEAGUE_SPORTS; everything
 // structural lives in YouthSportLeaguePage.
 //
-// Unknown sport → the sport picker, completing the degradation chain the
+// Unknown sport → the soccer page, completing the degradation chain the
 // deeper routes already follow: unknown division → term page, empty term →
-// sport page, unknown sport → picker. Every step lands on a real page.
+// sport page, unknown sport → soccer. Every step lands on a real page.
+// (Straight to /youth/leagues/soccer, not /youth/leagues — that URL is itself
+// a 302 to soccer now, and a double hop is a wasted round trip.)
 export const prerender = false;
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import YouthSportLeaguePage from "@/components/youth/youth-sport-league-page.astro";
@@ -17,7 +19,7 @@ import { YOUTH_LEAGUE_FAQS } from "@/lib/leagues/youth-league-content";
 
 const sport = getYouthLeagueSport(Astro.params.sport);
 if (!sport) {
-  return Astro.redirect("/youth/leagues");
+  return Astro.redirect("/youth/leagues/soccer");
 }
 
 const ORIGIN = import.meta.env.PUBLIC_APP_URL || "https://aspiresportsohio.com";
@@ -48,9 +50,5 @@ const faqSchema = {
     <script type="application/ld+json" is:inline set:html={JSON.stringify(faqSchema)} />
   </Fragment>
 
-  <YouthSportLeaguePage
-    sportSlug={sport.slug}
-    heroTitle={sport.heroTitle}
-    heroSubhead={sport.heroSubhead}
-  />
+  <YouthSportLeaguePage sportSlug={sport.slug} heroTitle={sport.heroTitle} />
 </BaseLayout>
