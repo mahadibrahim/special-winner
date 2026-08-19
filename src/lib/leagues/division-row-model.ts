@@ -6,14 +6,12 @@
 // team checkout. The charge path recomputes everything server-side — these
 // fields are display-only, same contract as /api/public/seasons.
 //
-// Group label: "U{maxAge}" — direct, not maxAge+1. Confirmed against the
-// only concrete minAge/maxAge → name mapping in the repo (age_groups seed
-// fixture in seed-e2e-tests.ts: name "U8" has minAge 6, maxAge 8) and against
-// program-card-v2.tsx, which never derives a U-label from minAge/maxAge at
-// all — it renders the pre-authored ageGroup.name field verbatim. This
-// helper computes a label from a season's own minAge/maxAge (no ageGroup
-// join available on this surface), so it must agree with the maxAge-direct
-// convention rather than inventing an off-by-one.
+// Group label: "U{maxAge}" — direct, not maxAge+1. There's no authoritative
+// mapping for seasons.minAge/maxAge (freeform admin inputs); the age_groups
+// table's seed fixture (name "U8" ↔ minAge 6, maxAge 8 in seed-e2e-tests.ts)
+// and program-card-v2.tsx (which never derives a U-label from minAge/maxAge
+// at all — it renders the pre-authored ageGroup.name field verbatim) offer
+// no formula to copy. U${maxAge} matches this task's mandated tests.
 
 interface SeasonLike {
   id: string
@@ -59,9 +57,13 @@ export interface DivisionRowModel {
   spotsLeft: number | null
 }
 
+// Mirrors DAY_LABEL's lowercase-keyed convention in division-slug.ts — real
+// dayOfWeek values are the 3-char lowercase codes stored in
+// seasons.day_of_week ('mon'..'sun', see programs.ts schema comment and the
+// admin Zod enum in api/admin/seasons.ts), not full capitalized day names.
 const DAY_ABBR: Record<string, string> = {
-  Monday: "Mon", Tuesday: "Tue", Wednesday: "Wed", Thursday: "Thu",
-  Friday: "Fri", Saturday: "Sat", Sunday: "Sun",
+  mon: "Mon", tue: "Tue", wed: "Wed", thu: "Thu",
+  fri: "Fri", sat: "Sat", sun: "Sun",
 }
 
 function shortStart(startDate: string | null): string | null {

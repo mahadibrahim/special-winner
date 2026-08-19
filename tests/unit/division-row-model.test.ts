@@ -12,7 +12,7 @@ const base = {
   earlyBirdPrice: null as number | null,
   earlyBirdDeadline: null as string | null,
   spotsLeft: null as number | null,
-  dayOfWeek: "Saturday",
+  dayOfWeek: "sat",
   startDate: "2026-11-08",
   termLabel: "Winter I",
   minAge: 8,
