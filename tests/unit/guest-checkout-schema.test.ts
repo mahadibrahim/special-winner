@@ -74,7 +74,7 @@ describe("guestCheckoutSchema — adult self path (v2 deferred waiver/DOB)", () 
   });
 });
 
-describe("guestCheckoutSchema — legacy parent+child path (byte-identical)", () => {
+describe("guestCheckoutSchema — parent+child (youth) path", () => {
   const legacyBody = {
     seasonId: SEASON_ID,
     parent: {
@@ -102,14 +102,39 @@ describe("guestCheckoutSchema — legacy parent+child path (byte-identical)", ()
     }
   });
 
-  it("still requires waiverSignedBy on the legacy shape (no deferral there)", () => {
+  // Youth adopted the v2 deferred waiver: the wizard posts the parent+child
+  // shape (that shape is what keeps the server's guest_checkout_started
+  // audience:"youth") with waiverSigned:false and NO signature, and the
+  // guardian signs on the post-payment completion form instead.
+  it("accepts the parent+child shape with waiverSigned:false and no waiverSignedBy", () => {
+    const { waiverSignedBy, ...rest } = legacyBody;
+    void waiverSignedBy;
+    const r = guestCheckoutSchema.safeParse({ ...rest, waiverSigned: false });
+    expect(r.success).toBe(true);
+    if (r.success) {
+      expect("waiverSignedBy" in r.data).toBe(false);
+      expect(r.data.waiverSigned).toBe(false);
+    }
+  });
+
+  it("rejects waiverSigned:true without a waiverSignedBy on the parent+child shape", () => {
     const { waiverSignedBy, ...rest } = legacyBody;
     void waiverSignedBy;
     const r = guestCheckoutSchema.safeParse(rest);
     expect(r.success).toBe(false);
   });
 
-  it("still requires child.birthDate on the legacy shape", () => {
+  it("rejects waiverSigned:true with a blank waiverSignedBy on the parent+child shape", () => {
+    const r = guestCheckoutSchema.safeParse({
+      ...legacyBody,
+      waiverSignedBy: "   ",
+    });
+    expect(r.success).toBe(false);
+  });
+
+  // The child's DOB is NOT deferred — it decides age-group eligibility, so it
+  // stays required before payment even though the waiver moved after it.
+  it("still requires child.birthDate on the parent+child shape", () => {
     const r = guestCheckoutSchema.safeParse({
       ...legacyBody,
       child: { firstName: "Kid", lastName: "Tester", gender: "male" as const },
