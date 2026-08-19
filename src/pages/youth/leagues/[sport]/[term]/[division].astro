@@ -11,7 +11,9 @@ import { getYouthLeagueSport } from "@/lib/leagues/youth-sports";
 
 const sport = getYouthLeagueSport(Astro.params.sport);
 if (!sport) {
-  return Astro.redirect("/youth/leagues");
+  // Straight to the soccer page, not /youth/leagues — that URL is itself a 302
+  // to soccer now, and the degradation chain is one step per hop.
+  return Astro.redirect("/youth/leagues/soccer");
 }
 const { term, division } = Astro.params;
 const basePath = `/youth/leagues/${sport.slug}`;

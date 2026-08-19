@@ -46,7 +46,17 @@ const {
 } = Astro.props;
 const audienceWord = audience === "youth" ? "Youth" : "Adult";
 const leaguesLabel = `${audienceWord} Leagues`;
-const leaguesHref = audience === "youth" ? "/youth/leagues" : "/adult/leagues";
+// Breadcrumbs mirror the URL's real navigable ancestors. /youth/leagues has
+// been a 302 to the soccer page since 2026-08-18 (two-path recompose), so it
+// is no longer one: the youth ancestor chain is / → /youth → the sport page →
+// the term page. Pointing this tier at the sport page instead would duplicate
+// the sport crumb directly below it (a malformed BreadcrumbList and a visible
+// stutter), so it resolves up to the youth hub — a real, indexed, sitemapped
+// page — and the tier count stays the same as adult's.
+const leaguesTier =
+  audience === "youth"
+    ? { label: "Youth", href: "/youth" }
+    : { label: leaguesLabel, href: "/adult/leagues" };
 const {
   season, naming, termLabel, sportName, dayName, timeWindow,
   isOpen, isForming, isCompleted, soloPrice, teamList, teamNow, teamEarlyBird,
@@ -73,7 +83,7 @@ const ORIGIN = ASPIRE_CANONICAL_ORIGIN;
 const pageUrl = `${ORIGIN}${basePath}/${term}/${division}`;
 const breadcrumbSchema = breadcrumbJsonLd([
   { name: "Home", url: `${ORIGIN}/` },
-  { name: leaguesLabel, url: `${ORIGIN}${leaguesHref}` },
+  { name: leaguesTier.label, url: `${ORIGIN}${leaguesTier.href}` },
   { name: sportCrumb, url: `${ORIGIN}${basePath}` },
   { name: termLabel, url: `${ORIGIN}${basePath}/${term}` },
   { name: naming.headline, url: pageUrl },
@@ -107,7 +117,7 @@ const facts: { label: string; value: string }[] = [
   <main id="main-content" class="pt-24 pb-16">
     <div class="max-w-[860px] mx-auto px-5 sm:px-8">
       <nav class="text-[12px] text-ink-muted mb-6" aria-label="Breadcrumb">
-        <a href={leaguesHref} class="hover:text-primary">{leaguesLabel}</a>
+        <a href={leaguesTier.href} class="hover:text-primary">{leaguesTier.label}</a>
         <span aria-hidden="true"> / </span>
         <a href={basePath} class="hover:text-primary">{sportCrumb}</a>
         <span aria-hidden="true"> / </span>

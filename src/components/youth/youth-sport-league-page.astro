@@ -76,6 +76,7 @@ let competitiveRows: DivisionRowModel[] = []
 let developmentalRows: DivisionRowModel[] = []
 let bannerDeadline: string | null = null
 let bannerTermLabel: string | null = null
+let bannerTermSlug: string | null = null
 
 try {
   // Live + completed, mirroring the term page: completed terms are the
@@ -108,10 +109,18 @@ try {
   openRows = open.map(divisionRowModel)
   competitiveRows = openRows.filter((r) => r.kind === "competitive").slice(0, 3)
   developmentalRows = openRows.filter((r) => r.kind === "developmental").slice(0, 3)
-  // Earliest deadline across everything open — the honest "act by" date.
-  const closes: string[] = open.map((s) => s.registrationCloses).filter(Boolean).sort()
-  bannerDeadline = closes[0] ?? null
-  bannerTermLabel = open[0]?.termLabel ?? currentTerm?.label ?? null
+  // ONE season drives the whole banner — the open season whose registration
+  // closes soonest (falling back to the first open season when none carry a
+  // deadline). Reading the label, the slug and the date from three different
+  // places is how a banner ends up pairing Winter I's name with Winter II's
+  // deadline once two terms are open at the same time.
+  const withDeadline = open
+    .filter((s) => Boolean(s.registrationCloses))
+    .sort((a, b) => String(a.registrationCloses).localeCompare(String(b.registrationCloses)))
+  const bannerSeason = withDeadline[0] ?? open[0] ?? null
+  bannerDeadline = bannerSeason?.registrationCloses ?? null
+  bannerTermLabel = bannerSeason?.termLabel ?? null
+  bannerTermSlug = bannerSeason?.termSlug ?? null
 } catch {
   // A catalog blip must not 500 the page — the commitment facts, venue cards
   // and FAQs are static and still worth serving. Falls through with no banner,
@@ -200,7 +209,7 @@ const CONTACT_EMAIL = "hello@aspiresportsohio.com"
 // Row pill: "Enter team · $1,150 →". row.cta already carries the arrow, so it
 // is stripped and re-attached after the price (mockup order).
 const rowPill = (r: DivisionRowModel) =>
-  `${r.cta.replace(/\s*→\s*$/, "")} · $${r.price.toLocaleString()} →`
+  `${r.cta.replace(/\s*→\s*$/, "")} · $${r.price.toLocaleString("en-US")} →`
 const rowMeta = (r: DivisionRowModel) =>
   [r.meta, r.termLabel, r.spotsLeft != null ? `${r.spotsLeft} spots left` : null]
     .filter(Boolean)
@@ -296,7 +305,7 @@ if (catalogOk) setMarketingEdgeCache(Astro)
         <a
           href="#open"
           data-hero-banner-cta
-          data-term={currentTerm?.slug ?? ""}
+          data-term={bannerTermSlug ?? ""}
           data-youth-cta="league-deadline-banner"
           class="bg-cream text-brand-red font-mono text-[11px] tracking-[0.1em] uppercase rounded-lg px-4 py-[9px] no-underline whitespace-nowrap"
         >
