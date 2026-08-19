@@ -46,33 +46,47 @@ const mediaAuthOptOutsSchema = z
   .array(z.enum(["internal", "promotional", "public"]))
   .optional();
 
-// Legacy parent + child shape (preserved unchanged)
-const legacyGuestCheckoutSchema = z.object({
-  seasonId: z.string().uuid(),
-  parent: z.object({
-    firstName: z.string().min(1),
-    lastName: z.string().min(1),
-    email: z.string().email(),
-    phone: z.string().optional(),
-  }),
-  child: z.object({
-    firstName: z.string().min(1),
-    lastName: z.string().min(1),
-    birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-    gender: z.enum(["male", "female", "other"]).optional(),
-  }),
-  registrationType: z.enum(["full", "deposit"]),
-  waiverSigned: z.boolean(),
-  waiverSignedBy: z.string().min(1),
-  discountCode: z.string().optional(),
-  lookingForTeam: z.boolean().optional(),
-  teamToken: z.string().max(64).optional(),
-  mediaAuthOptOuts: mediaAuthOptOutsSchema,
-  paymentMethodCategory: z.enum(["bank", "card"]).optional(),
-  // SMS consent checkbox next to the phone field (unchecked by default).
-  // Only meaningful when a phone is provided.
-  smsConsent: z.boolean().optional(),
-});
+// Parent + child shape — the YOUTH path. The child's DOB stays required (it
+// decides age-group eligibility and is collected before payment), but the
+// waiver moved to the post-payment completion step for youth too, so
+// waiverSignedBy is now conditional: required iff waiverSigned === true.
+// Same rule, same superRefine as the adult self shape below.
+const legacyGuestCheckoutSchema = z
+  .object({
+    seasonId: z.string().uuid(),
+    parent: z.object({
+      firstName: z.string().min(1),
+      lastName: z.string().min(1),
+      email: z.string().email(),
+      phone: z.string().optional(),
+    }),
+    child: z.object({
+      firstName: z.string().min(1),
+      lastName: z.string().min(1),
+      birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      gender: z.enum(["male", "female", "other"]).optional(),
+    }),
+    registrationType: z.enum(["full", "deposit"]),
+    waiverSigned: z.boolean(),
+    waiverSignedBy: z.string().min(1).optional(),
+    discountCode: z.string().optional(),
+    lookingForTeam: z.boolean().optional(),
+    teamToken: z.string().max(64).optional(),
+    mediaAuthOptOuts: mediaAuthOptOutsSchema,
+    paymentMethodCategory: z.enum(["bank", "card"]).optional(),
+    // SMS consent checkbox next to the phone field (unchecked by default).
+    // Only meaningful when a phone is provided.
+    smsConsent: z.boolean().optional(),
+  })
+  .superRefine((d, ctx) => {
+    if (d.waiverSigned && !d.waiverSignedBy?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["waiverSignedBy"],
+        message: "Signature required when signing the waiver",
+      });
+    }
+  });
 
 // New adult self shape (v2: waiver/signature deferred to a post-payment
 // completion step — see docs/superpowers/plans/2026-07-22-checkout-redesign-
@@ -476,6 +490,12 @@ export const POST: APIRoute = async (context) => {
     // -------------------------------------------------------------------------
     if ("registrant" in data) {
       const r = data.registrant;
+      // audience: "adult" — this branch is definitionally personKind "self"
+      // (it calls runCheckout with personKind:"self" below), so the literal is
+      // already the personKind derivation, just written before resolvePerson
+      // runs. Deriving it "properly" would mean moving the funnel's first
+      // event behind two awaits that can throw, which would lose the event on
+      // exactly the failures it exists to make visible. Left as a literal.
       posthog.capture({ distinctId: phClientId || r.email.toLowerCase().trim(), event: "guest_checkout_started", properties: { $session_id: phSessionId, season_id: data.seasonId, registration_type: data.registrationType, brand, email: r.email.toLowerCase().trim(), audience: "adult" } });
 
       const { userRow, wasNewUser } = await upsertGuestUser(db, {
@@ -520,11 +540,16 @@ export const POST: APIRoute = async (context) => {
     }
 
     // -------------------------------------------------------------------------
-    // PARENT + CHILD PATH (original behavior — preserved unchanged)
+    // PARENT + CHILD PATH (youth)
     // -------------------------------------------------------------------------
     // audience: "youth" — the purchaser is the parent, the player is the
     // dependent. Segments youth funnels from adult ones without a
-    // season-id lookup table.
+    // season-id lookup table. This branch is definitionally personKind
+    // "dependent" (see the runCheckout call below), so the literal already
+    // matches the personKind derivation — and it's why the youth wizard must
+    // keep posting the parent+child SHAPE even now that its waiver is
+    // deferred: the shape is what selects this branch, and this branch is
+    // what keeps the funnel's audience segmentation intact.
     posthog.capture({ distinctId: phClientId || data.parent.email.toLowerCase().trim(), event: "guest_checkout_started", properties: { $session_id: phSessionId, season_id: data.seasonId, registration_type: data.registrationType, brand, email: data.parent.email.toLowerCase().trim(), audience: "youth" } });
 
     const { userRow, wasNewUser } = await upsertGuestUser(db, {
@@ -555,7 +580,10 @@ export const POST: APIRoute = async (context) => {
       seasonId: data.seasonId,
       registrationType: data.registrationType,
       waiverSigned: data.waiverSigned,
-      waiverSignedBy: data.waiverSignedBy,
+      // Empty when the waiver is deferred (waiverSigned:false) — the consent
+      // block below is gated on waiverSigned, so no unsigned row records a
+      // signature. Mirrors the adult-self branch above.
+      waiverSignedBy: data.waiverSignedBy ?? "",
       discountCode: data.discountCode,
       wasNewUser,
       distinctIdForPosthog: userRow.email,
