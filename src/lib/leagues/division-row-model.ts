@@ -1,24 +1,30 @@
 // Pure presentation model for one division row on the youth league pages —
 // the single place that decides team-vs-individual economics for display.
-// A season SELLS TEAM ENTRY ONLY iff `signupModes` says so, read through the
-// canonical `isTeamOnly` helper. Neither skillLevel nor the mere presence of
-// a teamPrice is load-bearing: a DUAL-mode season carries a teamPrice too, and
-// routing it into the team checkout would hide the solo path from the one
-// parent who came to sign up one kid. The charge path recomputes everything
-// server-side — these fields are display-only, same contract as
-// /api/public/seasons.
 //
-// Group label: "U{maxAge}" — direct, not maxAge+1. There's no authoritative
-// mapping for seasons.minAge/maxAge (freeform admin inputs); the age_groups
-// table's seed fixture (name "U8" ↔ minAge 6, maxAge 8 in seed-e2e-tests.ts)
-// and program-card-v2.tsx (which never derives a U-label from minAge/maxAge
-// at all — it renders the pre-authored ageGroup.name field verbatim) offer
-// no formula to copy. U${maxAge} matches this task's mandated tests.
-import { isTeamOnly, type SeasonForDerive } from "@/lib/programs/derive"
+// A season is modelled as UP TO TWO PURCHASE PATHS, not one: `signupModes`
+// decides which doors exist, and a DUAL-mode season ('individual' + 'team')
+// genuinely has both. The winter club inventory is exactly that — a whole club
+// team can enter, AND one kid can join alone — so collapsing it to a single
+// price/CTA hid the team door on every Winter 1 row in prod. Neither
+// skillLevel nor the mere presence of a teamPrice is load-bearing.
+//
+// Each path deep-links its own mode (`?mode=individual` / `?mode=team`) so the
+// visitor lands in the flow they picked instead of the chooser interstitial —
+// the same pattern the adult season cards use.
+//
+// The charge path recomputes every number server-side; these fields are
+// display-only, same contract as /api/public/seasons.
+//
+// Group label: the age_groups row's authored `name` ("U6") is the truth and is
+// used verbatim, exactly as program-card-v2.tsx renders it. Season-level
+// minAge/maxAge are freeform admin inputs and are NULL on all current league
+// inventory, which is why the old maxAge-only derivation rendered a blank
+// group on every prod row; `U${maxAge}` survives only as a fallback.
+import { isDualMode, isIndividualOnly, isTeamOnly, type SeasonForDerive } from "@/lib/programs/derive"
 
 /** A `/api/public/seasons` row, narrowed to what a division row displays.
- *  Extends SeasonForDerive so `isTeamOnly` can read the real signup modes
- *  (and its pricingMode fallback) rather than a guess made here. */
+ *  Extends SeasonForDerive so the signup-mode helpers can read the real modes
+ *  (and their pricingMode fallback) rather than a guess made here. */
 export interface SeasonLike extends SeasonForDerive {
   id: string
   name: string
@@ -26,46 +32,63 @@ export interface SeasonLike extends SeasonForDerive {
   teamPrice: number | null
   effectiveTeamPrice?: number | null
   teamEarlyBirdActive?: boolean
+  /** Per-player early-bird price, in dollars. Unlike the team side the API
+   *  ships no server-computed "active" flag for it — see soloEarlyBird below. */
+  earlyBirdPrice?: number | null
+  earlyBirdDeadline?: string | null
   spotsLeft?: number | null
   termLabel?: string | null
   divisionGender?: string | null
+  /** The authored age-group label ("U6") — the group column's real source. */
+  ageGroup: { name: string; minAge: number; maxAge: number } | null
   // `status` is inherited from SeasonForDerive. This model never reads it —
   // callers filter to bookable seasons BEFORE building rows, because a row is
   // a checkout link and only status 'open' has a checkout.
 }
 
+/** One purchase door on a division: where it goes, what it costs, what it says. */
+export interface DivisionPath {
+  /** Mode-scoped checkout link — lands in the flow, not the chooser. */
+  href: string
+  /** Dollars, after any active early bird. */
+  price: number
+  /** Struck-through list price when an early bird is active, else null. */
+  basePrice: number | null
+  cta: string
+}
+
 export interface DivisionRowModel {
   id: string
-  /** e.g. "U10 boys" — division label from ages + gender. */
+  /** e.g. "U10" / "U10 boys" — the authored age-group label plus gender. */
   group: string
-  /** "competitive" when the season sells TEAM ENTRY ONLY, else "developmental". */
+  /** "competitive" when a TEAM door exists (team-only or dual), else
+   *  "developmental" (individual-only). Dual seasons are competitive club
+   *  inventory that also happens to be solo-joinable. */
   kind: "competitive" | "developmental"
   /** Chip text: "Competitive" | "Developmental". */
   kindLabel: string
+  /** Season name with a trailing "— U6" suffix stripped when it just repeats
+   *  the group already shown in its own column. */
   seasonName: string
   termLabel: string | null
   /** "Sat · starts Dec 6" style; null parts omitted. */
   meta: string
-  /** Dollars. Team rows use effectiveTeamPrice, individual rows use price. */
-  price: number
-  priceUnit: "per team" | "per kid"
-  /** Struck-through base price when early-bird is active, else null. */
-  basePrice: number | null
-  /** "/register/<id>?mode=team" for team rows, "/register/<id>" otherwise. */
-  href: string
-  cta: string // "Enter team →" | "Book →"
+  /** The per-kid door. Present iff individual signups are accepted. */
+  solo: DivisionPath | null
+  /** The whole-team door. Present iff team signups are accepted. */
+  team: DivisionPath | null
   /**
-   * Honest scarcity — remaining PLAYER spots, on INDIVIDUAL rows only.
-   * Always null on team rows: `spotsLeft` is maxParticipants minus player
-   * registrations and there is no team-capacity column anywhere in the
-   * schema, so "N team spots left" would be a number the catalog cannot
-   * back. Team rows therefore show no count at all.
+   * Honest scarcity — remaining PLAYER spots, on rows with a SOLO path only.
+   * Always null when there is no individual door: `spotsLeft` is
+   * maxParticipants minus player registrations and there is no team-capacity
+   * column anywhere in the schema, so "N team spots left" would be a number
+   * the catalog cannot back.
    */
   spotsLeft: number | null
   /**
-   * Nothing left to sell (raw spotsLeft === 0). Derived BEFORE the team-row
-   * nulling above so it stays honest for both kinds — consumers render a
-   * non-interactive "Sold out" pill instead of a book/enter CTA.
+   * Nothing left to sell (raw spotsLeft === 0). Derived BEFORE the nulling
+   * above so it stays honest for every row — consumers render a
+   * non-interactive "Sold out" pill instead of any CTA.
    */
   soldOut: boolean
 }
@@ -86,27 +109,74 @@ function shortStart(startDate: string | null | undefined): string | null {
   return `starts ${d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
 }
 
-export function divisionRowModel(season: SeasonLike): DivisionRowModel {
-  // Team-ONLY sells team entry. Dual-mode (individual + team) falls through to
-  // the individual row on purpose — the solo door is the one this page's
-  // "developmental" lane promises, and the team door on a dual season is still
-  // reachable from the season's own page.
-  const team = isTeamOnly(season)
-  const group = [
-    season.maxAge != null ? `U${season.maxAge}` : null,
-    season.divisionGender,
-  ]
-    .filter(Boolean)
-    .join(" ")
+/** Strip a trailing "— U6" / "- U6" that only repeats the group column. */
+function stripGroupSuffix(name: string, ageLabel: string): string {
+  if (!ageLabel) return name
+  const escaped = ageLabel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+  return name.replace(new RegExp(`\\s*[—–-]\\s*${escaped}\\s*$`, "i"), "").trim() || name
+}
 
-  const price = team
-    ? (season.effectiveTeamPrice ?? season.teamPrice ?? season.price)
-    : season.price
-  const basePrice =
-    team && season.teamEarlyBirdActive && season.effectiveTeamPrice != null &&
-    season.teamPrice != null && season.effectiveTeamPrice < season.teamPrice
+/**
+ * Build the display row for one season.
+ *
+ * `now` is an explicit, defaulted parameter — the same shape early-bird.ts
+ * uses — so the function stays deterministic under test while still resolving
+ * the per-player early-bird window at render time. That window is the ONE
+ * thing this model cannot take from the server: /api/public/seasons ships
+ * `teamEarlyBirdActive` + `effectiveTeamPrice` for the team side but only the
+ * raw `earlyBirdPrice` + `earlyBirdDeadline` for the player side, so the
+ * deadline check below deliberately mirrors program-card-v2.tsx's clock check
+ * (price set, positive, strictly under list, deadline in the future) rather
+ * than inventing a second set of rules.
+ */
+export function divisionRowModel(season: SeasonLike, now: Date = new Date()): DivisionRowModel {
+  // Doors, straight off signupModes (with the helpers' legacy pricingMode
+  // fallback for rows that predate the column).
+  const hasTeam = isTeamOnly(season) || isDualMode(season)
+  const hasSoloRaw = isIndividualOnly(season) || isDualMode(season)
+  // Unrecognised modes would otherwise leave a row with no door at all; a row
+  // with no CTA is a dead end, so default to the per-kid path.
+  const hasSolo = hasSoloRaw || !hasTeam
+
+  const ageLabel =
+    season.ageGroup?.name?.trim() || (season.maxAge != null ? `U${season.maxAge}` : "")
+  const group = [ageLabel || null, season.divisionGender].filter(Boolean).join(" ")
+
+  // ---- Per-player price + early bird
+  const soloEarlyBirdActive =
+    season.earlyBirdDeadline != null &&
+    season.earlyBirdPrice != null &&
+    season.earlyBirdPrice > 0 &&
+    season.earlyBirdPrice < season.price &&
+    new Date(season.earlyBirdDeadline).getTime() > now.getTime()
+  const soloPrice = soloEarlyBirdActive ? (season.earlyBirdPrice as number) : season.price
+
+  // ---- Team price + early bird (both server-computed)
+  const teamListPrice = season.teamPrice ?? season.price
+  const teamPrice = season.effectiveTeamPrice ?? teamListPrice
+  const teamBasePrice =
+    season.teamEarlyBirdActive && season.teamPrice != null && teamPrice < season.teamPrice
       ? season.teamPrice
       : null
+
+  const solo: DivisionPath | null = hasSolo
+    ? {
+        href: `/register/${season.id}?mode=individual`,
+        price: soloPrice,
+        basePrice: soloEarlyBirdActive ? season.price : null,
+        // "Book solo" only earns its word when a team door sits beside it.
+        cta: hasTeam ? "Book solo →" : "Book →",
+      }
+    : null
+
+  const team: DivisionPath | null = hasTeam
+    ? {
+        href: `/register/${season.id}?mode=team`,
+        price: teamPrice,
+        basePrice: teamBasePrice,
+        cta: "Enter team →",
+      }
+    : null
 
   const meta = [
     season.dayOfWeek ? DAY_ABBR[season.dayOfWeek] ?? season.dayOfWeek : null,
@@ -120,17 +190,14 @@ export function divisionRowModel(season: SeasonLike): DivisionRowModel {
   return {
     id: season.id,
     group,
-    kind: team ? "competitive" : "developmental",
-    kindLabel: team ? "Competitive" : "Developmental",
-    seasonName: season.name,
+    kind: hasTeam ? "competitive" : "developmental",
+    kindLabel: hasTeam ? "Competitive" : "Developmental",
+    seasonName: stripGroupSuffix(season.name, ageLabel),
     termLabel: season.termLabel ?? null,
     meta,
-    price,
-    priceUnit: team ? "per team" : "per kid",
-    basePrice,
-    href: team ? `/register/${season.id}?mode=team` : `/register/${season.id}`,
-    cta: team ? "Enter team →" : "Book →",
-    spotsLeft: team ? null : rawSpotsLeft,
+    solo,
+    team,
+    spotsLeft: solo ? rawSpotsLeft : null,
     soldOut: rawSpotsLeft === 0,
   }
 }

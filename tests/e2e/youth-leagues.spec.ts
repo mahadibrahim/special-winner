@@ -73,9 +73,15 @@ test.describe("youth soccer leagues — two-path page", () => {
       await expect(page.locator("[data-finder-empty]")).toBeVisible()
       return
     }
-    // Every row's CTA links straight into /register/<id>.
-    const href = await rows.first().locator('a[href^="/register/"]').getAttribute("href")
+    // Every row's CTA links straight into /register/<id>. A dual-mode division
+    // renders TWO pills (team + solo), so pick one explicitly rather than
+    // tripping Playwright's strict-mode check on a two-element locator.
+    const ctas = rows.first().locator('a[href^="/register/"]')
+    expect(await ctas.count()).toBeGreaterThan(0)
+    const href = await ctas.first().getAttribute("href")
+    // The id segment, before the ?mode= deep link the pills now carry.
     expect(href).toMatch(/^\/register\/[^/?]+/)
+    expect(href).toMatch(/\?mode=(individual|team)$/)
   })
 
   test("compact birthday lookup filters the finder, not just styling", async ({ page }) => {

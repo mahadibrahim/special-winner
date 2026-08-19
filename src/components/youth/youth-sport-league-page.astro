@@ -151,18 +151,33 @@ const otherSport = Object.values(YOUTH_LEAGUE_SPORTS).find((s) => s.slug !== spo
 // a new one invented here.
 const CONTACT_EMAIL = "hello@aspiresportsohio.com"
 
-// Row pill: "Enter team · $1,150 →". row.cta already carries the arrow, so it
-// is stripped and re-attached after the price (mockup order). A sold-out row
-// gets no price and no arrow — same contract as YouthDivisionTable, where the
-// anchor is replaced by a muted non-interactive pill.
-const rowPill = (r: DivisionRowModel) =>
-  r.soldOut
-    ? "Sold out"
-    : `${r.cta.replace(/\s*→\s*$/, "")} · $${r.price.toLocaleString("en-US")} →`
-// spotsLeft is already null on team rows (no team-capacity column exists), so
-// the count line is individual-row scarcity only, and never on a sold-out row.
-const rowMeta = (r: DivisionRowModel) =>
-  [r.meta, r.termLabel, r.spotsLeft != null && !r.soldOut ? `${r.spotsLeft} spots left` : null]
+// Each card shows ONE door of a row: the competitive card sells the team
+// entry, the developmental card sells the per-kid spot. A dual-mode division
+// is listed in both cards, each time with its own price and its own
+// mode-scoped link — so `rowPath` picks the door the card is about.
+type CardKey = "competitive" | "developmental"
+const rowPath = (r: DivisionRowModel, key: CardKey) =>
+  key === "competitive" ? r.team : r.solo
+// Row pill: "Enter team · $850 →" / "Book · $110 →". A sold-out row gets no
+// price and no arrow — same contract as YouthDivisionTable, where the anchor
+// is replaced by a muted non-interactive pill.
+const rowPill = (r: DivisionRowModel, key: CardKey) => {
+  const path = rowPath(r, key)
+  if (r.soldOut || !path) return "Sold out"
+  const verb = key === "competitive" ? "Enter team" : "Book"
+  return `${verb} · $${path.price.toLocaleString("en-US")} →`
+}
+// The count is PLAYER capacity, so it rides the per-kid card only — printing
+// it beside "Enter team" would read as a team count the schema cannot back.
+// Never on a sold-out row.
+const rowMeta = (r: DivisionRowModel, key: CardKey) =>
+  [
+    r.meta,
+    r.termLabel,
+    key === "developmental" && r.spotsLeft != null && !r.soldOut
+      ? `${r.spotsLeft} spots left`
+      : null,
+  ]
     .filter(Boolean)
     .join(" · ")
 
@@ -378,28 +393,29 @@ const JUMP_ITEMS = [
             {card.rows.length > 0 && (
               <div class="mt-4 border-t border-cream/25 pt-1.5">
                 {card.rows.map((row) => {
-                  const RowTag = row.soldOut ? "div" : "a"
+                  const path = rowPath(row, card.key)
+                  const RowTag = row.soldOut || !path ? "div" : "a"
                   return (
                     // Sold out is a state, not a destination — the row keeps
                     // its shape but drops the link and the analytics hook,
                     // matching YouthDivisionTable's muted pill.
                     <RowTag
-                      href={row.soldOut ? undefined : row.href}
-                      data-youth-cta={row.soldOut ? undefined : `league-row-${card.key}`}
+                      href={row.soldOut || !path ? undefined : path.href}
+                      data-youth-cta={row.soldOut || !path ? undefined : `league-row-${card.key}`}
                       data-division-inline-row={card.key}
                       data-division-sold-out={row.soldOut ? "true" : undefined}
                       class="flex justify-between items-center gap-2.5 py-[9px] border-b border-cream/15 last:border-b-0 text-cream no-underline"
                     >
                       <span>
                         <span class="font-semibold text-sm">{row.group}</span><br />
-                        <span class="font-mono text-[10.5px] text-cream/80">{rowMeta(row)}</span>
+                        <span class="font-mono text-[10.5px] text-cream/80">{rowMeta(row, card.key)}</span>
                       </span>
                       <span
                         class={`font-mono text-[10px] tracking-[0.1em] uppercase rounded-[7px] px-3 py-[7px] whitespace-nowrap ${
-                          row.soldOut ? "bg-cream/20 text-cream/70" : "bg-cream text-ink"
+                          row.soldOut || !path ? "bg-cream/20 text-cream/70" : "bg-cream text-ink"
                         }`}
                       >
-                        {rowPill(row)}
+                        {rowPill(row, card.key)}
                       </span>
                     </RowTag>
                   )

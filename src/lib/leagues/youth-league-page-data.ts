@@ -85,9 +85,16 @@ export async function fetchYouthLeaguePageData(opts: {
     // 'registration_open' status; matching on one silently emptied this whole
     // block, which is why the banner never rendered.
     const open = filterYouthSeasons(liveRows).filter((s) => s.status === "open");
-    openRows = open.map(divisionRowModel);
-    competitiveRows = openRows.filter((r) => r.kind === "competitive").slice(0, 3);
-    developmentalRows = openRows.filter((r) => r.kind === "developmental").slice(0, 3);
+    // `.map((s) => divisionRowModel(s))` — a bare reference would hand the
+    // model Array#map's index as its optional `now` argument.
+    openRows = open.map((s) => divisionRowModel(s));
+    // The two type cards are two DOORS, not two disjoint buckets: the left card
+    // lists every division a whole team can enter, the right lists every
+    // division one kid can join. A dual-mode winter division is genuinely both,
+    // so it appears in both cards — hiding it from one of them is exactly the
+    // defect this split had (the team door vanished off all of Winter 1).
+    competitiveRows = openRows.filter((r) => r.team != null).slice(0, 3);
+    developmentalRows = openRows.filter((r) => r.solo != null).slice(0, 3);
     // ONE season drives the whole banner — the open season whose registration
     // closes soonest (falling back to the first open season when none carry a
     // deadline). Reading the label, the slug and the date from three different
