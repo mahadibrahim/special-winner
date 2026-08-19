@@ -255,15 +255,34 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
 
+      # install-deps runs apt-get against Ubuntu mirrors on every run — the
+      # single flakiest step in this pipeline (three mirror hangs in the 24h
+      # around 2026-08-19, one of which ate a 6h job before step timeouts
+      # landed). Bounded retries ride out mirror blips; the step timeout
+      # still caps a truly wedged attempt.
       - name: Install Playwright (browser + system deps)
         if: steps.pw-cache.outputs.cache-hit != 'true'
-        timeout-minutes: 10
-        run: npx playwright install --with-deps chromium
+        timeout-minutes: 12
+        run: |
+          # Per-attempt `timeout` matters: a hung apt mirror never FAILS, it
+          # hangs — without it the first wedged attempt eats the whole step.
+          for i in 1 2 3; do
+            timeout 360 npx playwright install --with-deps chromium && break
+            echo "::warning::playwright install attempt $i failed/hung; retrying in $((i*20))s"
+            [ "$i" = 3 ] && exit 1
+            sleep $((i*20))
+          done
 
       - name: Install Playwright system deps
         if: steps.pw-cache.outputs.cache-hit == 'true'
-        timeout-minutes: 10
-        run: npx playwright install-deps chromium
+        timeout-minutes: 12
+        run: |
+          for i in 1 2 3; do
+            timeout 240 npx playwright install-deps chromium && break
+            echo "::warning::install-deps attempt $i failed/hung; retrying in $((i*20))s"
+            [ "$i" = 3 ] && exit 1
+            sleep $((i*20))
+          done
 
       - name: Run critical E2E tests
         run: npm run test:critical
@@ -314,15 +333,34 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
 
+      # install-deps runs apt-get against Ubuntu mirrors on every run — the
+      # single flakiest step in this pipeline (three mirror hangs in the 24h
+      # around 2026-08-19, one of which ate a 6h job before step timeouts
+      # landed). Bounded retries ride out mirror blips; the step timeout
+      # still caps a truly wedged attempt.
       - name: Install Playwright (browser + system deps)
         if: steps.pw-cache.outputs.cache-hit != 'true'
-        timeout-minutes: 10
-        run: npx playwright install --with-deps chromium
+        timeout-minutes: 12
+        run: |
+          # Per-attempt `timeout` matters: a hung apt mirror never FAILS, it
+          # hangs — without it the first wedged attempt eats the whole step.
+          for i in 1 2 3; do
+            timeout 360 npx playwright install --with-deps chromium && break
+            echo "::warning::playwright install attempt $i failed/hung; retrying in $((i*20))s"
+            [ "$i" = 3 ] && exit 1
+            sleep $((i*20))
+          done
 
       - name: Install Playwright system deps
         if: steps.pw-cache.outputs.cache-hit == 'true'
-        timeout-minutes: 10
-        run: npx playwright install-deps chromium
+        timeout-minutes: 12
+        run: |
+          for i in 1 2 3; do
+            timeout 240 npx playwright install-deps chromium && break
+            echo "::warning::install-deps attempt $i failed/hung; retrying in $((i*20))s"
+            [ "$i" = 3 ] && exit 1
+            sleep $((i*20))
+          done
 
       - name: Run full E2E suite (shard ${{ matrix.shard }}/3)
         run: npx playwright test --shard=${{ matrix.shard }}/3
