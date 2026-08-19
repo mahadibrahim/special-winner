@@ -2385,6 +2385,102 @@ async function seedE2ETests() {
   }
   console.log(`   ✓ Season: ${season.name} (registration open)`);
 
+  // ---- Dual-mode YOUTH season -------------------------------------------
+  // Mirrors the real Winter 1 2026-27 soccer inventory: a club team can enter
+  // whole AND one kid can join alone. Every other youth soccer fixture is
+  // individual-only, so without this row the youth league page's two-door
+  // rendering (a team CTA and a solo CTA on the SAME division, each deep-linked
+  // to its own ?mode=) has no live coverage — the defect where the team door
+  // vanished off all of Winter 1 shipped to prod under a green e2e run.
+  //
+  // Prod shape copied deliberately, not invented:
+  //   • the age label lives on the ageGroup ("U12"); season minAge/maxAge and
+  //     divisionGender stay NULL, which is what made the group column render
+  //     blank when the model derived it from season.maxAge;
+  //   • the name repeats the group ("… — U12") so the suffix-stripping in
+  //     divisionRowModel is exercised against real data;
+  //   • team-only early bird ($800 < $850 list) and NO earlyBirdPriceCents —
+  //     same policy as the adult team fixture below: captains get a discount,
+  //     solo players never do.
+  let [u12AgeGroup] = await db
+    .select()
+    .from(ageGroups)
+    .where(and(eq(ageGroups.organizationId, org.id), eq(ageGroups.name, "U12")))
+    .limit(1);
+
+  if (!u12AgeGroup) {
+    [u12AgeGroup] = await db
+      .insert(ageGroups)
+      .values({
+        organizationId: org.id,
+        name: "U12",
+        minAge: 10,
+        maxAge: 12,
+        description: "Ages 10-12",
+      })
+      .returning();
+  }
+
+  // Sits before registrationCloses (both future), so the team early bird is
+  // live on every seed run rather than expiring into a fixed past date.
+  const youthTeamEarlyBirdDeadline = new Date();
+  youthTeamEarlyBirdDeadline.setDate(youthTeamEarlyBirdDeadline.getDate() + 14);
+
+  // orderBy: same shared-DB hazard as the fixtures above — a slug-only lookup
+  // can match more than one row on CI/staging, so pin the oldest.
+  let [youthDualSeason] = await db
+    .select()
+    .from(seasons)
+    .where(eq(seasons.slug, "e2e-youth-dual-winter-2027"))
+    .orderBy(asc(seasons.createdAt))
+    .limit(1);
+
+  const youthDualFields = {
+    status: "open" as const,
+    registrationOpens: new Date(),
+    registrationCloses: registrationEnd,
+    earlyBirdDeadline: youthTeamEarlyBirdDeadline,
+    priceCents: 11000, // $110 per kid (solo door)
+    teamPriceCents: 85000, // $850 team fee (team door)
+    earlyBirdTeamPriceCents: 80000, // $800 while earlyBirdDeadline is live
+    signupModes: ["individual", "team"],
+    maxParticipants: 24,
+    termSlug: "winter-1-2627",
+    termLabel: "Winter 1 2026-27",
+    dayOfWeek: "sat",
+    startTime: "09:00",
+    endTime: "11:00",
+    isTest: false,
+  };
+
+  if (!youthDualSeason) {
+    [youthDualSeason] = await db
+      .insert(seasons)
+      .values({
+        programId: program.id,
+        ageGroupId: u12AgeGroup.id,
+        name: "E2E Test Winter Dual — U12",
+        slug: "e2e-youth-dual-winter-2027",
+        startDate: formatDate(seasonStartDate),
+        endDate: formatDate(seasonEndDate),
+        ...youthDualFields,
+      })
+      .returning();
+  } else {
+    // Re-seed heals status, capacity, both prices and the signup modes — the
+    // same fields the adult team fixture heals, for the same reason (staging
+    // rows drift, and a drifted signupModes silently removes the only
+    // dual-mode youth coverage there is).
+    [youthDualSeason] = await db
+      .update(seasons)
+      .set({ ...youthDualFields, ageGroupId: u12AgeGroup.id })
+      .where(eq(seasons.id, youthDualSeason.id))
+      .returning();
+  }
+  console.log(
+    `   ✓ Season: ${youthDualSeason.name} (dual-mode, signupModes=${youthDualSeason.signupModes})`,
+  );
+
   // Adult age group (18+) for self-registration tests
   let [adultAgeGroup] = await db
     .select()

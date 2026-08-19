@@ -180,17 +180,28 @@ export function SeasonsFinderSection({
   // sells an interest list (signupMode "interest"). Forming inventory stays
   // discoverable through the cards layout and the calendar band's notify
   // form; it just never gets a button that would 404 the visitor's intent.
+  //
+  // `.map((s) => divisionRowModel(s))` — NOT `.map(divisionRowModel)`: the
+  // model takes an optional `now` second argument, and a bare reference would
+  // hand it Array#map's index.
   const rows = useMemo(
-    () => filtered.filter((s) => s.status === "open").map(divisionRowModel),
+    () => filtered.filter((s) => s.status === "open").map((s) => divisionRowModel(s)),
     [filtered],
   )
-  const levelRows = useMemo(
-    () => (level === "all" ? rows : rows.filter((r) => r.kind === level)),
-    [rows, level],
-  )
+  // Level membership follows the AVAILABLE DOOR, not the season's headline
+  // kind: "Competitive (team entry)" means "I can enter a whole team here", so
+  // dual-mode winter divisions belong in it even though a single kid can also
+  // join. "Developmental (per kid)" stays the solo-only lane.
+  const levelRows = useMemo(() => {
+    if (level === "competitive") return rows.filter((r) => r.team != null)
+    if (level === "developmental") return rows.filter((r) => r.kind === "developmental")
+    return rows
+  }, [rows, level])
   const levelOptions = useMemo(() => {
-    const counts = { competitive: 0, developmental: 0 }
-    for (const r of rows) counts[r.kind]++
+    const counts = {
+      competitive: rows.filter((r) => r.team != null).length,
+      developmental: rows.filter((r) => r.kind === "developmental").length,
+    }
     return [
       { value: "competitive", label: "Competitive (team entry)", count: counts.competitive },
       { value: "developmental", label: "Developmental (per kid)", count: counts.developmental },
