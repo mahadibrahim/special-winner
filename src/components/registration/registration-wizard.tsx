@@ -161,9 +161,13 @@ const STEP_LISTS: Record<RegVariant, WizardStepName[]> = {
   v2: ["player", "payment", "confirm"],
 }
 
-// Draft-restore heuristics reference the v1 layout numerically; the v2 clamp
-// is derived from the live step list (see applyDraft).
-const STEP_AGREEMENTS = 2
+// The active step-list variant for EVERY season. Youth solo checkout adopted
+// the funnel-proven v2 shape (player → payment → confirm; the waiver moves to
+// the post-payment completion form), so nothing selects "v1" any more. The v1
+// list, its guards and its Agreements render block are deliberately left
+// intact as a one-line rollback lever — `as RegVariant` widens the literal so
+// those branches keep type-checking instead of narrowing to dead code.
+const ACTIVE_FLOW_VARIANT = "v2" as RegVariant
 
 const STEP_META: Record<WizardStepName, { name: string; icon: typeof User }> = {
   player: { name: "Player", icon: User },
@@ -231,11 +235,23 @@ export default function RegistrationWizard({
   const [error, setError] = useState<string | null>(null)
 
   // ── Flow variant ─────────────────────────────────────────────────────────
-  // Adult-locked seasons (audience=adult or ageGroup.minAge ≥ 18) run the v2
-  // flow: no pre-payment agreements step (the waiver + player details are
-  // collected after payment) and, for guests, a minimal name+email step.
-  const flowVariant: RegVariant =
-    audienceHint === "adult" || (season?.ageGroup?.minAge ?? 0) >= 18 ? "v2" : "v1"
+  // TWO INDEPENDENT AXES — they used to be one predicate, which is why youth
+  // was stuck on v1:
+  //
+  // 1. `flowVariant` — the STEP-LIST / WAIVER axis. Universally "v2" now: no
+  //    pre-payment agreements step, the waiver is signed on the post-payment
+  //    completion form. Applies to youth and adult alike.
+  const flowVariant: RegVariant = ACTIVE_FLOW_VARIANT
+  // 2. `adultSelfFlow` — the ADULT-SELF axis (the OLD v2 condition). True only
+  //    when the person being registered IS the account holder: an adult-locked
+  //    season or an explicit ?audience=adult. It gates every behavior that
+  //    assumes "one registrant, and it's you" — the minimal name+email guest
+  //    step, auto-selecting "Myself", the self-only already-registered
+  //    short-circuit, the aggressive resume card, and deferring the
+  //    registrant's DOB past payment. Youth keeps the parent-registers-a-child
+  //    behaviors (kid DOB pre-payment, second-child registrations allowed).
+  const adultSelfFlow =
+    audienceHint === "adult" || (season?.ageGroup?.minAge ?? 0) >= 18
   const stepList = STEP_LISTS[flowVariant]
   const stepName = stepList[currentStep - 1] ?? "player"
   // 1-based number of a named step in the active list (confirm is step 4 in
@@ -646,9 +662,15 @@ export default function RegistrationWizard({
         window.localStorage.removeItem(draftKey)
         return
       }
-      // Only offer resume when there's meaningful progress past step 1.
+      // Only offer resume when there's meaningful progress past step 1 —
+      // derived from the ACTIVE step list rather than the old hardcoded
+      // STEP_AGREEMENTS=2, which quietly came to mean "Payment" once v2
+      // became universal. A payment-step draft still counting as progress is
+      // intentional: nothing is created until Pay, so resuming there is safe
+      // and is exactly where an interrupted customer wants to land.
+      const minProgressStep = stepNumberOf("player") + 1
       const hasProgress =
-        (d.currentStep ?? 1) >= STEP_AGREEMENTS || Boolean(d.selectedKey)
+        (d.currentStep ?? 1) >= minProgressStep || Boolean(d.selectedKey)
       if (hasProgress) setRestorable(d)
     } catch {
       // corrupt draft — ignore
@@ -1047,8 +1069,8 @@ export default function RegistrationWizard({
   // returns the new client secret, or an error string the form surfaces.
   // Card-only (ACH is gone).
   const handleSubmitGuestCheckout = async (): Promise<CreateIntentResult> => {
-    // v2 (adult-locked) defers the waiver to the post-payment completion step,
-    // so the signed-waiver guard only applies to v1.
+    // v2 (now every season) defers the waiver to the post-payment completion
+    // step, so the signed-waiver guard only applies to a v1 rollback.
     if (!season) return { error: "This season is still loading — try again." }
     if (flowVariant === "v1" && (!waiverAccepted || !waiverSignature))
       return { error: "Please review and sign the waiver before paying." }
@@ -1057,8 +1079,15 @@ export default function RegistrationWizard({
     setError(null)
     try {
       const mediaAuthOptOutsArr = Array.from(mediaAuthOptOuts)
-      const payload =
+      // Waiver deferral is the flowVariant axis and applies to every payload
+      // shape below: v2 creates the row unsigned and the completion form signs
+      // it after payment; v1 (rollback) carries the pre-payment signature.
+      const guestWaiverFields =
         flowVariant === "v2"
+          ? { waiverSigned: false as const }
+          : { waiverSigned: true as const, waiverSignedBy: waiverSignature }
+      const payload =
+        adultSelfFlow
           ? {
               // Minimal adult self-registration: name + email only. DOB, gender
               // and the signed waiver are collected after payment via the
@@ -1072,7 +1101,7 @@ export default function RegistrationWizard({
               },
               smsConsent: guestSmsConsent,
               registrationType: paymentOption,
-              waiverSigned: false,
+              ...guestWaiverFields,
               discountCode: discountCode || undefined,
               lookingForTeam,
               mediaAuthOptOuts: mediaAuthOptOutsArr,
@@ -1081,6 +1110,10 @@ export default function RegistrationWizard({
             }
           : guestMode === "adult"
           ? {
+              // Ambiguous-audience season where the guest picked "adult" on the
+              // mode toggle: still a self-registration, so the `registrant`
+              // shape (server analytics audience:"adult") — but the DOB is
+              // asked up front here, since the minimal step is adultSelfFlow-only.
               seasonId,
               registrant: {
                 firstName: guestParentFirstName,
@@ -1093,8 +1126,7 @@ export default function RegistrationWizard({
               },
               smsConsent: guestSmsConsent,
               registrationType: paymentOption,
-              waiverSigned: true,
-              waiverSignedBy: waiverSignature,
+              ...guestWaiverFields,
               discountCode: discountCode || undefined,
               lookingForTeam,
               mediaAuthOptOuts: mediaAuthOptOutsArr,
@@ -1102,6 +1134,10 @@ export default function RegistrationWizard({
               teamToken: teamToken ?? undefined,
             }
           : {
+              // Youth: parent + child. The payload SHAPE is load-bearing — the
+              // server keys `guest_checkout_started` audience:"youth" off it —
+              // so a youth v2 registration keeps posting parent+child and only
+              // the waiver fields move to post-payment.
               seasonId,
               parent: {
                 firstName: guestParentFirstName,
@@ -1117,8 +1153,7 @@ export default function RegistrationWizard({
                 gender: guestChildGender || undefined,
               },
               registrationType: paymentOption,
-              waiverSigned: true,
-              waiverSignedBy: waiverSignature,
+              ...guestWaiverFields,
               discountCode: discountCode || undefined,
               mediaAuthOptOuts: mediaAuthOptOutsArr,
               paymentMethodCategory: category,
@@ -1245,8 +1280,8 @@ export default function RegistrationWizard({
   // Card-only (ACH is gone).
   const handleSubmitRegistration = async (): Promise<CreateIntentResult> => {
     if (!selectedKey) return { error: "Select who you're registering first." }
-    // v2 (adult-locked) has no pre-payment agreements step, so the waiver is
-    // signed after payment — only v1 requires the signed waiver here.
+    // v2 (now every season) has no pre-payment agreements step, so the waiver
+    // is signed after payment — only a v1 rollback requires it here.
     if (flowVariant === "v1" && (!waiverAccepted || !waiverSignature))
       return { error: "Please review and sign the waiver before paying." }
 
@@ -1298,12 +1333,13 @@ export default function RegistrationWizard({
         if (data?.code === "already_registered") {
           // Race/edge fallback: the up-front GET /api/registrations effect
           // found nothing (another tab/device beat us, or the fetch was
-          // stale) but the server still knows better. v2 (adult-locked,
-          // self-only) renders the same full-screen state as the up-front
-          // check; v1 can't globally block — a different child may still be
-          // registrable — so it gets a named inline message instead of the
-          // generic banner.
-          if (flowVariant === "v2") {
+          // stale) but the server still knows better. Adult-self flows are
+          // self-only, so the whole wizard is done — same full-screen state
+          // as the up-front check. Youth must NOT be globally blocked: the
+          // 409 is about ONE child, and the parent may still be here to
+          // register a sibling — so it gets a named inline message naming
+          // that player, and the wizard stays usable.
+          if (adultSelfFlow) {
             setRaceAlreadyRegistered(true)
           } else {
             setError(
@@ -1445,9 +1481,12 @@ export default function RegistrationWizard({
         ? "That email doesn't look right — check for typos."
         : "Enter your email."
     }
-    // v2 (adult-locked) guest step collects name + email only; the player's
-    // DOB/gender and the waiver are deferred to the post-payment completion.
-    if (flowVariant === "v2") {
+    // The adult-self guest step collects name + email only; the registrant's
+    // own DOB/gender and the waiver are deferred to the post-payment
+    // completion. Youth falls through to the full validation below — the
+    // child's DOB is still asked (and required) BEFORE payment, because it
+    // decides age-group eligibility.
+    if (adultSelfFlow) {
       return Object.keys(errors).length > 0 ? errors : null
     }
     if (guestMode === "adult") {
@@ -1557,7 +1596,7 @@ export default function RegistrationWizard({
   const selfFamilyMemberId =
     familyMembers.find((m) => m.selfUserId === user?.id)?.id ?? null
 
-  // v2 (adult-locked): the self row's blocking registration for THIS season,
+  // Adult-self flows: the self row's blocking registration for THIS season,
   // if any — drives the full-screen "You're already in" short-circuit.
   const selfBlockingRegistration =
     selfFamilyMemberId != null
@@ -1566,29 +1605,30 @@ export default function RegistrationWizard({
         ) ?? null
       : null
 
-  // v1/dependent flows: every family member (self or dependent) who already
-  // has a blocking registration for this season — WhoStep marks these
-  // "Registered ✓" and disables selection, without blocking the rest of the
-  // wizard (a parent may still register a different, unregistered child).
+  // Youth / dependent-capable flows: every family member (self or dependent)
+  // who already has a blocking registration for this season — WhoStep marks
+  // these "Registered ✓" and disables selection, without blocking the rest of
+  // the wizard (a parent may still register a different, unregistered child).
   const registeredMemberIds = new Set(
     activeSeasonRegistrations.filter(isBlockingRegistration).map((r) => r.familyMemberId),
   )
 
-  // Auto-select "Myself" for the adult (v2) self-registration flow. Adult
-  // leagues are self-only (the Add-Player button is hidden and self is the sole
-  // registerable option), so making the customer tap the lone card before
-  // Continue is pure friction — costly for the returning users ads re-engage.
+  // Auto-select "Myself" for the adult-self flow. Adult leagues are self-only
+  // (the Add-Player button is hidden and self is the sole registerable
+  // option), so making the customer tap the lone card before Continue is pure
+  // friction — costly for the returning users ads re-engage. Youth is excluded
+  // on purpose: there the parent genuinely has to pick WHICH child.
   // Skipped when something is already selected, or when the self row is already
-  // registered for this season (the v2 short-circuit owns that case).
+  // registered for this season (the short-circuit below owns that case).
   useEffect(() => {
-    if (isGuest || flowVariant !== "v2") return
+    if (isGuest || !adultSelfFlow) return
     if (!registrationsChecked || isLoading) return
     if (selectedKey !== null || !user) return
     if (selfBlockingRegistration) return
     setSelectedKey("self")
   }, [
     isGuest,
-    flowVariant,
+    adultSelfFlow,
     registrationsChecked,
     isLoading,
     selectedKey,
@@ -1625,14 +1665,20 @@ export default function RegistrationWizard({
   if (!season) return null
 
   // ── Resume-payment early return ────────────────────────────────────────────
-  // v2 (adult-locked, self-only) shows the resume card on ANY return. v1
-  // keeps its original trigger — only after a cancelled Stripe session —
-  // because a parent registering a SECOND child must never be interrupted
-  // by a sibling's unfinished payment (that row still resumes server-side
-  // if the same child is re-selected).
-
+  // Adult-self (self-only) flows show the resume card on ANY return: there is
+  // exactly one possible registrant, so an unfinished payment for this season
+  // is unambiguously the thing this visitor came back for.
+  //
+  // Youth keeps the narrower wasCancelled-only trigger, and this is the whole
+  // reason the axis was split. A parent with an unfinished payment for child A
+  // who comes back to register child B would otherwise be hijacked by A's
+  // resume card — the wizard would hide the Player step entirely and push them
+  // to pay for the wrong kid. A's row is not lost: it still resumes
+  // server-side the moment A is re-selected, and the ?payment=cancelled
+  // redirect (wasCancelled) still surfaces the card when the parent really did
+  // just bail out of Stripe.
   const showResumeCard =
-    Boolean(resumableRegistrationId) && (flowVariant === "v2" || wasCancelled)
+    Boolean(resumableRegistrationId) && (adultSelfFlow || wasCancelled)
 
   if (showResumeCard) {
     return (
@@ -1675,15 +1721,16 @@ export default function RegistrationWizard({
     )
   }
 
-  // ── Already-registered early return (v2 self, Task 5) ──────────────────────
+  // ── Already-registered early return (adult self, Task 5) ───────────────────
   // Adult-locked seasons are self-only, so a blocking registration on the
-  // self row means THIS wizard is done — no steps to render. v1/dependent
-  // flows never hit this: they only get the per-person WhoStep marker below,
-  // since a parent may still register a different, unregistered child.
+  // self row means THIS wizard is done — no steps to render. Youth /
+  // dependent-capable flows never hit this: they only get the per-person
+  // WhoStep marker below, since a parent whose first child is already
+  // registered is very often here precisely to register the second one.
   // Mutually exclusive with the resume card above (the DB's active-row
   // unique index means a member can't be both pending+unpaid and blocking
   // for the same season).
-  if (flowVariant === "v2" && !registrationComplete && (selfBlockingRegistration || raceAlreadyRegistered)) {
+  if (adultSelfFlow && !registrationComplete && (selfBlockingRegistration || raceAlreadyRegistered)) {
     return (
       <div className="mx-auto max-w-xl">
         <div className="rounded-xl border border-ink/10 bg-cream px-6 py-8 shadow-sm text-center">
@@ -1859,10 +1906,13 @@ export default function RegistrationWizard({
         {stepName === "player" && !isGuest && !showAddMember && (
           <WhoStep
             selfOption={
-              // Adult v2 defers DOB to post-payment, so "Myself" is selectable
-              // even with no birthDate on file — otherwise a returning user hits
-              // the "Complete your profile" wall before payment.
-              completedBirthDate || flowVariant === "v2"
+              // Adult-self flows defer DOB to post-payment, so "Myself" is
+              // selectable even with no birthDate on file — otherwise a
+              // returning user hits the "Complete your profile" wall before
+              // payment. Youth keeps the wall: a parent's own DOB is only
+              // asked when they're actually registering themselves, and their
+              // kid's DOB is collected on the dependent instead.
+              completedBirthDate || adultSelfFlow
                 ? {
                     firstName: completedProfile.firstName || (user?.firstName ?? ""),
                     lastName: completedProfile.lastName || (user?.lastName ?? ""),
@@ -1872,7 +1922,7 @@ export default function RegistrationWizard({
                   }
                 : null
             }
-            deferBirthDate={flowVariant === "v2"}
+            deferBirthDate={adultSelfFlow}
             selfProfile={
               user
                 ? {
@@ -1936,7 +1986,10 @@ export default function RegistrationWizard({
             mode={guestMode}
             onModeChange={setGuestMode}
             lockedMode={lockedGuestMode}
-            minimal={flowVariant === "v2"}
+            // Minimal = name + email only, adult-self only. Youth renders the
+            // full parent + child form here (child DOB included); the waiver
+            // step simply no longer follows it.
+            minimal={adultSelfFlow}
             parentFirstName={guestParentFirstName}
             parentLastName={guestParentLastName}
             parentEmail={guestParentEmail}
@@ -1967,7 +2020,10 @@ export default function RegistrationWizard({
         )}
 
         {/* Step 2: Agreements — waiver (required) + media consent (optional).
-            v2 (adult-locked) has no agreements step; the waiver is deferred. */}
+            UNREACHABLE under the live v2 step list (the waiver is deferred to
+            the post-payment completion form for every season). Kept wired up
+            so flipping ACTIVE_FLOW_VARIANT back to "v1" restores the old
+            pre-payment flow in one line. */}
         {stepName === "agreements" && (
           <div className="space-y-6">
             <WaiverStep
@@ -2101,12 +2157,14 @@ export default function RegistrationWizard({
             registrationId={activeRegistrationId}
             flow={regFlow}
             waiverSigned={flowVariant === "v1"}
-            // v2 (adult-locked) defers DOB to this post-payment step for BOTH
-            // guests (minimal name+email step) and signed-in users without a
-            // stored birthDate (previously walled off by "Complete your profile"
-            // before payment). v1 always has DOB up front, so it never needs it.
+            // Only the adult-self flow defers DOB to this post-payment step —
+            // for BOTH guests (minimal name+email step) and signed-in users
+            // without a stored birthDate (previously walled off by "Complete
+            // your profile" before payment). Youth always has the player's DOB
+            // by now (guest child form / dependent record), so it must pass
+            // false or the parent would be asked for a birth date twice.
             needsBirthDate={
-              flowVariant === "v2" &&
+              adultSelfFlow &&
               (isGuest || (selectedKey === "self" && !completedBirthDate))
             }
           />

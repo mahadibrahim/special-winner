@@ -10,12 +10,13 @@ test.describe("Anonymous registration (guest checkout)", { tag: "@critical" }, (
   test.setTimeout(120_000);
 
   test("anonymous visitor can fill the wizard and reach Stripe embedded checkout", async ({ page, request }) => {
-    // Pin the YOUTH seed season by slug. This spec fills the v1 parent+child
+    // Pin the YOUTH seed season by slug. This spec fills the full parent+child
     // form, which only renders for youth/ambiguous seasons — adult-locked
-    // seasons get the v2 minimal form (covered by registration-adult-guest
-    // .spec.ts). Picking "the first open season with capacity" silently
-    // flipped to an adult season once shared-staging capacity state drifted
-    // (the multi-tenant "never trust the first match" hazard, e2e edition).
+    // seasons get the minimal name+email form (covered by
+    // registration-adult-guest.spec.ts). Picking "the first open season with
+    // capacity" silently flipped to an adult season once shared-staging
+    // capacity state drifted (the multi-tenant "never trust the first match"
+    // hazard, e2e edition).
     const seasonsRes = await request.get("/api/public/seasons?status=open");
     expect(seasonsRes.ok()).toBe(true);
     const seasonsBody = await seasonsRes.json();
@@ -92,22 +93,22 @@ test.describe("Anonymous registration (guest checkout)", { tag: "@critical" }, (
     await childLastInput.fill("Kid");
     await birthDateInput.fill("2018-06-01");
 
+    // ── Single Continue → Payment. Youth now runs the v2 step list
+    // (Player → Payment → Confirm): the Agreements interstitial is gone and
+    // the guardian signs the waiver on the post-payment completion form. ──
     await page.getByRole("button", { name: /continue/i }).click();
 
-    // Step 2 — Agreements (waiver required; media consent optional & collapsed)
-    // The waiver checkbox has id="waiver" with a matching htmlFor on Label
-    await page.locator('#waiver').check();
+    // The agreements step must NOT appear — no pre-payment waiver for youth.
+    await expect(page.locator("#waiver")).toHaveCount(0);
+    await expect(page.getByText(/Participant Waiver/i)).not.toBeVisible();
 
-    // Digital signature — Label has no htmlFor; locate by container
-    const signatureInput = page
-      .locator('div.space-y-2')
-      .filter({ has: page.locator('label', { hasText: "Digital Signature" }) })
-      .locator('input');
-    await signatureInput.fill("E2E Parent");
+    // The 3-dot progress header replaced the 4-step one.
+    await expect(page.getByText("Agreements")).toHaveCount(0);
 
-    await page.getByRole("button", { name: /continue/i }).click();
+    // Payment step reached in ONE Continue.
+    await expect(page.getByText(/Payment Option/i)).toBeVisible({ timeout: 15_000 });
 
-    // Step 3 — Payment: card-only checkout renders the Stripe card form INLINE
+    // Step 2 — Payment: card-only checkout renders the Stripe card form INLINE
     // immediately — there is NO method-picker click. The registration row +
     // PaymentIntent are created only on Pay (deferred), so simply reaching this
     // step must mount the embedded Stripe Elements iframe. Wallets (Apple /

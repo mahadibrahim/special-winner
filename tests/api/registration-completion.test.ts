@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { apiFetch, getAuthCookie } from "./setup/test-helpers";
 import { getDb } from "@/lib/db";
-import { seasons } from "@/lib/db/schema";
+import { seasons, registrations, consents } from "@/lib/db/schema";
 import { phoneOptIns } from "@/lib/db/schema/phone-verifications";
 import { CONSENT_COPY } from "@/lib/consents/marketing-channels";
 import { eq } from "drizzle-orm";
@@ -109,6 +109,7 @@ describe("guest-checkout v2 (deferred waiver/DOB)", () => {
 describe("registration completion (POST /api/registrations/{id}/complete)", () => {
   async function mintOwnedRegistration(birthDate: string): Promise<{
     registrationId: string;
+    familyMemberId: string;
     cookie: string;
   }> {
     const cookie = await getAuthCookie(
@@ -145,7 +146,7 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
     expect(regRes.status).toBe(201);
     const regBody = await regRes.json();
     expect(regBody.registration?.id).toBeTruthy();
-    return { registrationId: regBody.registration.id, cookie };
+    return { registrationId: regBody.registration.id, familyMemberId, cookie };
   }
 
   it("rejects an unauthenticated request with 401", async () => {
@@ -208,6 +209,70 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
     expect(repeat.status).toBe(200);
     const repeatBody = await repeat.json();
     expect(repeatBody.alreadySigned).toBe(true);
+  });
+
+  // Youth's post-payment waiver runs through this same endpoint, with a
+  // DEPENDENT registrant and the guardian's name as the signature. The two
+  // things that make that legally sound are asserted here: the personal
+  // consent type must be `parental` (never `age_confirmation`, which would
+  // record a child as having confirmed their own age), and the signature must
+  // land on both the consent rows and the registration.
+  it("takes the parental (never age_confirmation) branch and stamps the waiver for a DEPENDENT registrant", async () => {
+    const { registrationId, familyMemberId, cookie } =
+      await mintOwnedRegistration("2016-04-01");
+    const signature = `Guardian Sig ${Date.now()}`;
+
+    const res = await apiFetch(`/api/registrations/${registrationId}/complete`, {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({
+        waiverAccepted: true,
+        waiverSignature: signature,
+      }),
+    });
+    expect(res.status).toBe(200);
+    expect((await res.json()).signed).toBe(true);
+
+    const db = getDb();
+
+    const [reg] = await db
+      .select({
+        waiverSigned: registrations.waiverSigned,
+        waiverSignedBy: registrations.waiverSignedBy,
+        waiverSignedAt: registrations.waiverSignedAt,
+      })
+      .from(registrations)
+      .where(eq(registrations.id, registrationId));
+    expect(reg.waiverSigned).toBe(true);
+    expect(reg.waiverSignedBy).toBe(signature);
+    expect(reg.waiverSignedAt).toBeTruthy();
+
+    // Liability + media-auth are written unconditionally against this
+    // registration, signed by the guardian's typed name.
+    const byRegistration = await db
+      .select({ type: consents.type, signedByName: consents.signedByName })
+      .from(consents)
+      .where(eq(consents.registrationId, registrationId));
+    const registrationTypes = byRegistration.map((r) => r.type);
+    expect(registrationTypes).toContain("liability");
+    expect(byRegistration.every((r) => r.signedByName === signature)).toBe(true);
+
+    // The personal consent is scoped to the PERSON, not the registration, and
+    // complete.ts only writes it when one isn't already active. This fixture
+    // mints the dependent through POST /api/family-members, which records the
+    // COPPA `parental` consent at creation — so here the endpoint correctly
+    // skips a duplicate. Either way the invariant is the same and it is the
+    // one that matters: the person carries a `parental` consent and NEVER an
+    // `age_confirmation` one (a child must never be recorded as having
+    // confirmed their own age — that's the branch complete.ts would have
+    // taken if personKind were misread as "self").
+    const byPerson = await db
+      .select({ type: consents.type })
+      .from(consents)
+      .where(eq(consents.familyMemberId, familyMemberId));
+    const personTypes = byPerson.map((r) => r.type);
+    expect(personTypes).toContain("parental");
+    expect(personTypes).not.toContain("age_confirmation");
   });
 
   it("records WhatsApp marketing consent as its own opted_in row, with the shown text", async () => {

@@ -25,11 +25,20 @@ export interface CompletionFormProps {
   /** Where this form is mounted — feeds the `?via=` param the completion
    *  endpoint reads for analytics/attribution. */
   via: "confirm_screen" | "email_link"
-  /** True when the registrant is the account owner (adult self path), for
-   *  the media-authorization copy. Defaults to false (dependent). */
+  /** True when the registrant is the account owner (adult self path).
+   *  Selects between the adult and the parent/guardian waiver attestation
+   *  below, and feeds the media-authorization copy. Defaults to false
+   *  (dependent).
+   *
+   *  AUTHORITATIVE — never re-derive "is a guardian signing" by comparing the
+   *  signer's typed name to participantName. That heuristic silently broke
+   *  the Jr./Sr. namesake case in the self-serve waiver (see
+   *  WaiverCard.tsx:26-35) and skipped guardian consent language entirely.
+   *  The server sets this from familyMembers.selfUserId. */
   isSelf?: boolean
-  /** Display name of the participant, for media-authorization copy. Falls
-   *  back to generic phrasing when omitted. */
+  /** Display name of the participant. Interpolated into the guardian
+   *  attestation sentence and the media-authorization copy. Falls back to
+   *  generic phrasing when omitted. */
   participantName?: string
   /** Flow classification for the completion-step analytics event
    *  (solo/team_captain/team_member). Defaults to "solo" — the right value
@@ -112,6 +121,13 @@ export function CompletionForm({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+
+  // One string, not interpolated JSX, so the sentence a customer sees is the
+  // sentence stored/compared verbatim (SSR splits `{" "}` with comment nodes).
+  // Wording mirrors the self-serve waiver's guardian line exactly.
+  const guardianAttestation = `I am the parent or legal guardian of ${
+    participantName.trim() || "this player"
+  } and accept these terms on their behalf.`
 
   useEffect(() => {
     trackRegistrationStepViewed({
@@ -258,8 +274,19 @@ export function CompletionForm({
         </Label>
       </div>
 
+      {/* Guardian attestation. The WaiverText body above is shared and
+          participant-agnostic, so for a dependent this sentence is what
+          carries the "signing on someone else's behalf" context — the same
+          job the self-serve waiver's isMinor line does (WaiverCard.tsx:86-88),
+          worded identically on purpose. */}
+      {!isSelf && (
+        <p className="text-sm text-ink-2">{guardianAttestation}</p>
+      )}
+
       <div className="space-y-2">
-        <Label className="text-ink-muted">Digital Signature *</Label>
+        <Label className="text-ink-muted">
+          {isSelf ? "Digital Signature *" : "Parent/guardian signature *"}
+        </Label>
         <Input
           value={waiverSignature}
           onChange={(e) => setWaiverSignature(e.target.value)}

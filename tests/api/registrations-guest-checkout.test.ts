@@ -111,6 +111,58 @@ describe("POST /api/registrations/guest-checkout", () => {
     expect(res.status).toBe(400);
   });
 
+  // Youth adopted the v2 deferred waiver. The wizard still posts the
+  // parent+child SHAPE — that shape is what selects the server branch that
+  // keeps `guest_checkout_started` audience:"youth" — but now with
+  // waiverSigned:false and NO waiverSignedBy, because the guardian signs on
+  // the post-payment completion form. The endpoint must create the row
+  // UNSIGNED instead of 400-ing on the missing signature.
+  it("accepts the parent+child shape with waiverSigned:false and creates the row unsigned", async () => {
+    const seasonId = await fetchOpenSeasonId();
+    const email = `guest-youth-v2-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`;
+    const body: Record<string, unknown> = validBody({
+      parent: { firstName: "YouthV2", lastName: "Parent", email },
+      child: {
+        firstName: `YouthV2Kid${Date.now()}`,
+        lastName: "Tester",
+        birthDate: "2018-06-01",
+      },
+      waiverSigned: false,
+    });
+    // The deferred payload carries no signature at all — not an empty one.
+    delete body.waiverSignedBy;
+
+    const res = await fetch(`${BASE}/api/registrations/guest-checkout`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...body, seasonId }),
+    });
+    // The registration row commits in step 3, ahead of the Stripe step — so
+    // the row assertions below hold whether or not this environment has a
+    // Stripe key (CI has none and 503s at step 5). What must NOT happen is a
+    // 400: that would mean the schema still demands a pre-payment signature.
+    expect(res.status).not.toBe(400);
+    expect([200, 503]).toContain(res.status);
+
+    const db = getDb();
+    const [userRow] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, email.toLowerCase()));
+    expect(userRow, "guest user should have been upserted").toBeTruthy();
+
+    const rows = await db
+      .select({
+        waiverSigned: registrations.waiverSigned,
+        waiverSignedBy: registrations.waiverSignedBy,
+      })
+      .from(registrations)
+      .where(eq(registrations.registeredByUserId, userRow.id));
+    expect(rows.length).toBe(1);
+    expect(rows[0].waiverSigned).toBe(false);
+    expect(rows[0].waiverSignedBy).toBeFalsy();
+  });
+
   it("returns 404 for invalid seasonId", async () => {
     const res = await fetch(`${BASE}/api/registrations/guest-checkout`, {
       method: "POST",
