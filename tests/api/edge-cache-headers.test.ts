@@ -7,7 +7,10 @@ const EDGE = "public, s-maxage=60, stale-while-revalidate=86400";
 const MARKETING_PATHS = [
   "/",
   "/youth",
-  "/youth/leagues",
+  // /youth/leagues is a 302 to this page since 2026-08-18 (two-path recompose),
+  // so the sport page is the real edge-cached youth league surface. It opts in
+  // only when its catalog fetch succeeds — a failure here is a real signal.
+  "/youth/leagues/soccer",
   "/youth/camps",
   "/adult",
   "/adult/leagues",

@@ -11,7 +11,12 @@ export const ASPIRE_SSR_PUBLIC_PAGES = [
   // keep in sync when a sport launches.
   "/youth/soccer",
   "/youth/futsal",
-  "/youth/leagues",
+  // Youth league sport pages — registry-driven (src/lib/leagues/youth-sports.ts),
+  // listed the same way the adult sport pages below are. /youth/leagues itself
+  // is NOT listed: since 2026-08-18 it 302s to the soccer page, and a sitemap
+  // must advertise the destination, not the redirect.
+  "/youth/leagues/soccer",
+  "/youth/leagues/futsal",
   "/youth/classes",
   "/youth/camps",
   "/youth/philosophy",

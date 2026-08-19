@@ -56,19 +56,16 @@ test.describe("Category pages", () => {
     await waitForHydration(page);
   });
 
-  test("/youth/leagues — hero, youth card from the catalog", async ({ page }) => {
+  test("/youth/leagues — forwards to the soccer two-path page", async ({ page }) => {
+    // Owner decision 2026-08-18: soccer-focused page; /youth/leagues 302s
+    // while soccer is the only league sport.
     await page.goto("/youth/leagues", { waitUntil: "domcontentloaded" });
-    await expect(page.getByRole("heading", { level: 1, name: /youth leagues/i })).toBeVisible();
-
-    // Landing-page assembly (static copy, server-rendered).
-    await expect(page.getByRole("heading", { name: "How it works for parents" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Parent FAQs" })).toBeVisible();
-
+    await expect(page).toHaveURL(/\/youth\/leagues\/soccer$/);
+    await expect(
+      page.getByRole("heading", { level: 1, name: /indoor youth soccer leagues/i }),
+    ).toBeVisible();
     await waitForHydration(page);
     await expect(page.getByText(/E2E Test Spring 2026/).first()).toBeVisible();
-    // Facts-band location note appears once the shared catalog fetch resolves
-    // (venue name is data-driven, so assert the stable authored tail).
-    await expect(page.getByText(/advance notice by text & email/)).toBeVisible();
   });
 
   test("/youth/camps — empty catalog captures email", async ({ page }) => {

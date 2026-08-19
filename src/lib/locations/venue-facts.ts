@@ -24,6 +24,8 @@ export interface VenueFacts {
   directions: string[];
   photos: { src: string; alt: string }[];
   heroPoster: string;
+  /** Short driving-access line, e.g. "Easy on and off I-270". Owner-supplied. */
+  highwayAccess?: string;
 }
 
 const FACTS: Record<string, VenueFacts> = {
@@ -60,6 +62,7 @@ const FACTS: Record<string, VenueFacts> = {
       },
     ],
     heroPoster: "/media/soccerone/worthington-hero-poster.jpg",
+    highwayAccess: "Easy on and off I-270",
   },
   downtown: {
     tagline:
@@ -74,7 +77,10 @@ const FACTS: Record<string, VenueFacts> = {
       "Balanced-teams pickup format, live session times published",
     ],
     comingSoon: [],
-    offerings: { youth: false, pickup: true },
+    // youth: true since 2026-08-18 — owner-stated fact that league play runs
+    // at BOTH Worthington and Downtown. This drives the youth league pages'
+    // venue cards / "Where" fact and the youth blocks on /locations/downtown.
+    offerings: { youth: true, pickup: true },
     directions: [
       "I-71 → E 5th Ave exit, east on 5th",
       "Right (south) on St Clair Ave",
@@ -86,6 +92,7 @@ const FACTS: Record<string, VenueFacts> = {
     // downtown-entrance.jpg) and list them here.
     photos: [],
     heroPoster: "/media/soccerone/worthington-hero-poster.jpg",
+    highwayAccess: "Easy on and off I-71",
   },
 };
 

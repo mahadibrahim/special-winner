@@ -78,7 +78,9 @@ replaced with new inventions.
 - **Section h2s**: `font-display text-2xl lg:text-3xl text-ink` on cream
   sections; no eyebrows above them (per the standing rule).
 - **Body**: IBM Plex Sans, `text-sm`/`text-base`, `text-ink-2`/`text-ink-muted`,
-  subheads capped at `max-w-[520px]`–`[560px]`.
+  ~~subheads capped at `max-w-[520px]`–`[560px]`~~ **Retired 2026-08-18 by
+  owner decision — body text spans the full content column. Existing adult
+  pages still carry caps; drop them when touching those pages.**
 - **Mono (IBM Plex Mono) is the signature micro-voice**: statuses
   (`text-[9px] tracking-widest uppercase`), facts lines (`text-xs`), step
   numbers, chip-group labels, footer column heads, card meta. Mono = data;

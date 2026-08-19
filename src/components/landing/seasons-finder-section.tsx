@@ -6,9 +6,11 @@ import { ProgramCardSkeleton } from "@/components/programs/program-card-skeleton
 import { CardGrid } from "@/components/programs/card-grid"
 import { FilterChips, type ChipOption } from "./filter-chips"
 import { EmptyNotifyForm } from "./empty-notify-form"
+import { YouthDivisionTable } from "./youth-division-table"
 import type { ApiSeason } from "@/lib/programs/api-season"
 import { deriveDayKey, DAY_KEYS, DAY_LABELS } from "@/lib/programs/derive"
 import { useFinderFilter } from "@/lib/hooks/use-finder-filter"
+import { divisionRowModel } from "@/lib/leagues/division-row-model"
 
 const PAGE_SIZE = 6
 
@@ -86,6 +88,14 @@ interface SeasonsFinderSectionProps {
   /** Opt-in only — forwarded to ProgramCardV2. Omitted renders the default
    *  card, byte-identical to every existing consumer. */
   cardVariant?: "default" | "youth-band"
+  /** Opt-in only — "table" renders the direct-booking division table
+   *  (YouthDivisionTable) instead of the card grid. Omitted (or "cards")
+   *  renders byte-identical to every existing consumer. */
+  layout?: "cards" | "table"
+  /** Opt-in only — shows an All/Competitive/Developmental chip row above the
+   *  existing filter chips. Default false renders byte-identical to every
+   *  existing consumer. */
+  levelChips?: boolean
 }
 
 export function SeasonsFinderSection({
@@ -98,11 +108,14 @@ export function SeasonsFinderSection({
   emptyCtaAudience,
   cardVariant,
   headerHidden = false,
+  layout = "cards",
+  levelChips = false,
 }: SeasonsFinderSectionProps) {
   const [activeFormat, setActiveFormat] = useState<string | null>(null)
   const [activeSport, setActiveSport] = useState<string | null>(null)
   const [activeVenue, setActiveVenue] = useState<string | null>(null)
   const [activeDay, setActiveDay] = useState<string | null>(null)
+  const [level, setLevel] = useState<"all" | "competitive" | "developmental">("all")
   const [visible, setVisible] = useState(PAGE_SIZE)
 
   // A hero tile elsewhere on the page can pre-apply this section's Sport
@@ -158,14 +171,59 @@ export function SeasonsFinderSection({
     })
   }, [seasons, activeFormat, activeSport, activeVenue, activeDay])
 
+  // Table-layout only — pure display rows derived from `filtered`, so the
+  // event-driven age filter (applied upstream, into the `seasons` prop
+  // itself) still narrows table rows exactly like it narrows cards.
+  //
+  // status === "open" ONLY. Every table row is a direct "Book →" / "Enter
+  // team →" link into checkout, and a forming season has no checkout — it
+  // sells an interest list (signupMode "interest"). Forming inventory stays
+  // discoverable through the cards layout and the calendar band's notify
+  // form; it just never gets a button that would 404 the visitor's intent.
+  const rows = useMemo(
+    () => filtered.filter((s) => s.status === "open").map(divisionRowModel),
+    [filtered],
+  )
+  const levelRows = useMemo(
+    () => (level === "all" ? rows : rows.filter((r) => r.kind === level)),
+    [rows, level],
+  )
+  const levelOptions = useMemo(() => {
+    const counts = { competitive: 0, developmental: 0 }
+    for (const r of rows) counts[r.kind]++
+    return [
+      { value: "competitive", label: "Competitive (team entry)", count: counts.competitive },
+      { value: "developmental", label: "Developmental (per kid)", count: counts.developmental },
+    ].filter((o) => o.count > 0)
+  }, [rows])
+
+  // Another filter (day/venue/sport/…) can narrow `filtered` down to only
+  // the OTHER kind, dropping the active level's count to zero — its chip
+  // then disappears from levelOptions while `level` itself is still set,
+  // which would otherwise leave the table stuck on zero rows. Fall back to
+  // "all" the moment that happens. No-op for every existing consumer:
+  // `level` never leaves "all" when `levelChips` is false (the chip that
+  // would change it never renders).
+  useEffect(() => {
+    if (level === "all") return
+    if (!levelOptions.some((o) => o.value === level)) setLevel("all")
+  }, [level, levelOptions])
+
   const clearFilters = () => {
     setActiveFormat(null)
     setActiveSport(null)
     setActiveVenue(null)
+    setLevel("all")
     setActiveDay(null)
   }
+  // Level counts too — clearFilters resets it, so leaving it out hid the
+  // "Clear filters" affordance whenever a level chip was the only thing set.
   const hasActiveFilters =
-    activeFormat !== null || activeSport !== null || activeVenue !== null || activeDay !== null
+    activeFormat !== null ||
+    activeSport !== null ||
+    activeVenue !== null ||
+    activeDay !== null ||
+    level !== "all"
 
   // Header count states what is registerable NOW — forming seasons render
   // (with their interest form) but do not count as "open".
@@ -189,6 +247,18 @@ export function SeasonsFinderSection({
           </div>
           <p className="text-ink-muted mt-1">{descriptor}</p>
         </div>
+
+        {/* Level chips — opt-in, sits above the existing filter chips. */}
+        {levelChips && !loading && seasons.length > 0 && (
+          <div className="mt-6">
+            <FilterChips
+              label="Level"
+              options={levelOptions}
+              active={level === "all" ? null : level}
+              onChange={(v) => setLevel((v as "competitive" | "developmental") ?? "all")}
+            />
+          </div>
+        )}
 
         {/* Filters */}
         {!loading && seasons.length > 0 && (
@@ -255,7 +325,12 @@ export function SeasonsFinderSection({
                 )}
               </div>
             )
-          ) : filtered.length === 0 ? (
+          ) : filtered.length === 0 || (layout === "table" && levelRows.length === 0) ? (
+            // Reuses the same "nothing matches" messaging for the table's
+            // level-narrowed-to-zero case (transient — the effect above
+            // resets `level` to "all" right after this renders — but the
+            // render still needs to show something other than a bare table
+            // header in the meantime).
             <div className="bg-paper border border-border rounded-2xl py-12 px-6 text-center">
               <p className="font-display text-lg text-ink">Nothing matches those filters.</p>
               <button
@@ -268,23 +343,31 @@ export function SeasonsFinderSection({
             </div>
           ) : (
             <>
-              <CardGrid layout="grid">
-                {filtered.slice(0, visible).map((s, i) => (
-                  <ProgramCardV2 key={s.id} season={s} cardVariant={cardVariant} index={i} />
-                ))}
-              </CardGrid>
-              {visible < filtered.length && (
-                <div className="mt-8 text-center">
-                  <button
-                    type="button"
-                    onClick={() => setVisible((n) => n + PAGE_SIZE)}
-                    className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-ink text-cream text-sm font-medium tracking-wide uppercase hover:bg-primary transition-colors"
-                    style={{ letterSpacing: "0.08em" }}
-                  >
-                    Show {Math.min(PAGE_SIZE, filtered.length - visible)} more
-                    <span className="text-cream/60">({filtered.length - visible} more)</span>
-                  </button>
-                </div>
+              {layout === "table" ? (
+                // Table layout — opt-in, direct-booking division rows. Cards
+                // branch (the else-below) stays untouched.
+                <YouthDivisionTable rows={levelRows} />
+              ) : (
+                <>
+                  <CardGrid layout="grid">
+                    {filtered.slice(0, visible).map((s, i) => (
+                      <ProgramCardV2 key={s.id} season={s} cardVariant={cardVariant} index={i} />
+                    ))}
+                  </CardGrid>
+                  {visible < filtered.length && (
+                    <div className="mt-8 text-center">
+                      <button
+                        type="button"
+                        onClick={() => setVisible((n) => n + PAGE_SIZE)}
+                        className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-ink text-cream text-sm font-medium tracking-wide uppercase hover:bg-primary transition-colors"
+                        style={{ letterSpacing: "0.08em" }}
+                      >
+                        Show {Math.min(PAGE_SIZE, filtered.length - visible)} more
+                        <span className="text-cream/60">({filtered.length - visible} more)</span>
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
               {hasActiveFilters && (
                 <div className="mt-4 text-center">

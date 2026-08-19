@@ -17,9 +17,10 @@ export interface YouthLeagueSport {
   slug: string;
   /** Display name, e.g. "Soccer". Also the divisionNaming fallback. */
   name: string;
-  /** Hero first line, e.g. "Youth soccer" (the page appends "at Aspire"). */
+  /** The WHOLE h1 on the landing page — a complete sentence, rendered verbatim
+   *  (2026-08-18 two-path recompose; there is no longer an "at Aspire" suffix
+   *  appended by the template). */
   heroTitle: string;
-  heroSubhead: string;
   /** Meta description for the landing page. */
   metaDescription: string;
 }
@@ -28,9 +29,7 @@ export const YOUTH_LEAGUE_SPORTS: Record<string, YouthLeagueSport> = {
   soccer: {
     slug: "soccer",
     name: "Soccer",
-    heroTitle: "Youth soccer",
-    heroSubhead:
-      "Every age group from U6 to U19, on boarded turf in central Ohio. Find your kid's group and see what's open.",
+    heroTitle: "Indoor youth soccer leagues.",
     metaDescription:
       "Youth soccer leagues in Columbus and central Ohio, U6 through U19. Find your kid's age group for the 2026–27 season and register.",
   },
@@ -39,9 +38,7 @@ export const YOUTH_LEAGUE_SPORTS: Record<string, YouthLeagueSport> = {
   futsal: {
     slug: "futsal",
     name: "Futsal",
-    heroTitle: "Youth futsal",
-    heroSubhead:
-      "Indoor futsal by age group, on boarded turf in central Ohio. Find your kid's group and see what's open.",
+    heroTitle: "Indoor youth futsal leagues.",
     metaDescription:
       "Youth futsal leagues in Columbus and central Ohio. Find your kid's age group for the 2026–27 season and register.",
   },
