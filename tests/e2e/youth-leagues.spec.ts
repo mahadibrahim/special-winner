@@ -84,6 +84,47 @@ test.describe("youth soccer leagues — two-path page", () => {
     expect(href).toMatch(/\?mode=(individual|team)$/)
   })
 
+  // The regression this guards: prod's Winter 1 inventory is dual-mode
+  // (signupModes ['individual','team']), and the row model used to collapse it
+  // to a single path — the team door disappeared from the whole term while
+  // every spec stayed green, because no fixture had two doors. `E2E Test Winter
+  // Dual — U12` (seed-e2e-tests.ts) exists to keep that honest.
+  test("a dual-mode division offers BOTH doors, each deep-linked to its own mode", async ({
+    page,
+  }) => {
+    await page.goto("/youth/leagues/soccer", { waitUntil: "domcontentloaded" })
+    await waitForHydration(page)
+    await expect(page.locator("[data-division-row], [data-finder-empty]").first()).toBeVisible()
+
+    const dual = page.locator("[data-division-row]", { hasText: "E2E Test Winter Dual" })
+    if ((await dual.count()) === 0) {
+      // Un-seeded environment — the fixture is the only dual-mode youth
+      // inventory, so there is nothing to assert rather than something failing.
+      test.skip(true, "dual-mode fixture not seeded on this database")
+      return
+    }
+    const row = dual.first()
+    // A whole club team enters through one pill, one kid joins through the
+    // other. Both must be present, and each must carry ITS OWN mode.
+    await expect(row.locator('[data-division-cta="team"]')).toHaveAttribute(
+      "href",
+      /^\/register\/[^/?]+\?mode=team$/,
+    )
+    await expect(row.locator('[data-division-cta="solo"]')).toHaveAttribute(
+      "href",
+      /^\/register\/[^/?]+\?mode=individual$/,
+    )
+    // Both prices are on the row: the per-kid lead and the compact team line.
+    await expect(row).toContainText("$110")
+    await expect(row).toContainText("$800")
+    // Group label comes from the age group, not the season's (NULL) maxAge —
+    // the blank-group defect. The season name drops its repeated "— U12".
+    await expect(row).toContainText("U12")
+    await expect(row).not.toContainText("Winter Dual — U12")
+    // A team door makes the division competitive, dual or not.
+    await expect(row).toHaveAttribute("data-division-row", "competitive")
+  })
+
   test("compact birthday lookup filters the finder, not just styling", async ({ page }) => {
     await page.goto("/youth/leagues/soccer", { waitUntil: "domcontentloaded" })
     await waitForHydration(page)
