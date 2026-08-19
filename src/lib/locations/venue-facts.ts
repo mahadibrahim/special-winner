@@ -24,6 +24,8 @@ export interface VenueFacts {
   directions: string[];
   photos: { src: string; alt: string }[];
   heroPoster: string;
+  /** Short driving-access line, e.g. "Easy on and off I-270". Owner-supplied. */
+  highwayAccess?: string;
 }
 
 const FACTS: Record<string, VenueFacts> = {
@@ -60,6 +62,7 @@ const FACTS: Record<string, VenueFacts> = {
       },
     ],
     heroPoster: "/media/soccerone/worthington-hero-poster.jpg",
+    highwayAccess: "Easy on and off I-270",
   },
   downtown: {
     tagline:
@@ -86,6 +89,7 @@ const FACTS: Record<string, VenueFacts> = {
     // downtown-entrance.jpg) and list them here.
     photos: [],
     heroPoster: "/media/soccerone/worthington-hero-poster.jpg",
+    highwayAccess: "Easy on and off I-71",
   },
 };
 

@@ -88,10 +88,10 @@ export const BENEFITS = [
 
 export const LEAGUE_KINDS: LeagueKind[] = [
   {
-    when: "December – April",
-    name: "Winter",
+    when: "Winter · November – late March",
+    name: "Competitive",
     body:
-      "Indoor competitive play for club teams who want to keep their season going through the cold months. Games on Saturdays and Sundays.",
+      "Competitive indoor play for club teams who want to keep their season going through the cold months. Games on Saturdays and Sundays.",
     facts: [
       { label: "For", value: "Established teams" },
       { label: "Play", value: "Sat & Sun" },
