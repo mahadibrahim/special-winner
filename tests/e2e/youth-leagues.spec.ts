@@ -30,61 +30,70 @@ const readFinderFilterEvents = (page: import("@playwright/test").Page) =>
         .__finderFilterEvents,
   )
 
-test.describe("youth soccer landing", () => {
-  test("renders all 14 age groups as static HTML", async ({ page }) => {
-    // JS disabled would be ideal; instead assert before hydration completes
-    // that the bands are already in the DOM — they are server-rendered.
+test.describe("youth soccer leagues — two-path page", () => {
+  test("hero, jump bar, and both path tiles render server-side", async ({ page }) => {
     await page.goto("/youth/leagues/soccer", { waitUntil: "domcontentloaded" })
-    const bands = page.locator("[data-age-band]")
-    await expect(bands).toHaveCount(14)
-    await expect(bands.first()).toContainText("U6")
-    await expect(bands.last()).toContainText("U19")
+    await expect(
+      page.getByRole("heading", { level: 1, name: /indoor youth soccer leagues/i }),
+    ).toBeVisible()
+    await expect(page.locator("[data-jump-link]")).toHaveCount(8)
+    await expect(page.locator("#types")).toBeVisible()
+    // Two toned type cards, competitive first.
+    await expect(page.getByRole("heading", { name: /competitive — for club teams/i })).toBeVisible()
+    await expect(page.getByRole("heading", { name: /developmental — for individual players/i })).toBeVisible()
   })
 
-  test("birthday lookup resolves a group", async ({ page }) => {
+  test("deadline banner is a real anchor when present, absent entirely otherwise", async ({ page }) => {
+    await page.goto("/youth/leagues/soccer", { waitUntil: "domcontentloaded" })
+    const banner = page.locator('[data-testid="now-registering"]')
+    if ((await banner.count()) === 0) {
+      // No open seasons: nothing renders — no empty banner, no placeholder.
+      return
+    }
+    await expect(banner).toHaveCount(1)
+    // The banner CTA anchors into the on-page booking section. The testid
+    // lives on the wrapper div, not the anchor — locate the CTA by its own
+    // marker and assert ITS href, not the wrapper's.
+    const cta = banner.locator("[data-hero-banner-cta]")
+    await expect(cta).toBeVisible()
+    await expect(cta).toHaveAttribute("href", "#open")
+  })
+
+  test("division table renders open seasons as bookable rows", async ({ page }) => {
     await page.goto("/youth/leagues/soccer", { waitUntil: "domcontentloaded" })
     await waitForHydration(page)
+    // The hydration beacon fires on mount, before the table's own client-side
+    // catalog fetch resolves — wait for either state to settle so the
+    // rows.count() check below doesn't race an in-flight fetch and mistake
+    // "still loading" for "empty catalog".
+    await expect(page.locator("[data-division-row], [data-finder-empty]").first()).toBeVisible()
+    const rows = page.locator("[data-division-row]")
+    if ((await rows.count()) === 0) {
+      // Empty catalog (staging): the notify empty state must show instead.
+      await expect(page.locator("[data-finder-empty]")).toBeVisible()
+      return
+    }
+    // Every row's CTA links straight into /register/<id>.
+    const href = await rows.first().locator('a[href^="/register/"]').getAttribute("href")
+    expect(href).toMatch(/^\/register\/[^/?]+/)
+  })
+
+  test("compact birthday lookup filters the finder, not just styling", async ({ page }) => {
+    await page.goto("/youth/leagues/soccer", { waitUntil: "domcontentloaded" })
+    await waitForHydration(page)
+    await recordFinderFilterEvents(page)
     await page.selectOption("#age-lookup-month", "3")
     await page.selectOption("#age-lookup-year", "2017")
     await expect(page.locator("#age-lookup-answer")).toContainText("U10")
+    expect(await readFinderFilterEvents(page)).toEqual([{ hasAgeGroup: true, ageGroup: "U10" }])
   })
 
-  test("a birthday in the same year but after August resolves one group younger", async ({ page }) => {
+  test("a birthday after August resolves one group younger", async ({ page }) => {
     await page.goto("/youth/leagues/soccer", { waitUntil: "domcontentloaded" })
     await waitForHydration(page)
     await page.selectOption("#age-lookup-month", "9")
     await page.selectOption("#age-lookup-year", "2017")
     await expect(page.locator("#age-lookup-answer")).toContainText("U9")
-  })
-
-  // The hero "Now Registering" banner is the ONLY crawlable route from this
-  // page into /youth/leagues/soccer/<term> (and, through it, every division
-  // page + the completed-term archive). Staging has zero youth seasons, so the
-  // no-current-term branch is the one this environment actually exercises —
-  // these two assertions are written to be honest in both states rather than
-  // asserting a banner that can't exist here.
-  test("the current-term hero link is a real anchor, or absent entirely", async ({ page }) => {
-    await page.goto("/youth/leagues/soccer", { waitUntil: "domcontentloaded" })
-    const banner = page.locator('#main-content [data-testid="now-registering"]')
-    const count = await banner.count()
-
-    if (count === 0) {
-      // No open/active youth term. The requirement is that NOTHING is rendered
-      // — not an empty banner, not a placeholder, and above all not a link to
-      // a term page that would redirect straight back here.
-      await expect(page.locator('#main-content a[href^="/youth/leagues/soccer/"]')).toHaveCount(0)
-      return
-    }
-
-    // A term exists: the link must be server-rendered HTML (asserted before
-    // hydration, same technique as the age-ladder test above), point at a
-    // non-empty term slug, and resolve to a page that does not bounce back to
-    // the sport landing page.
-    await expect(banner).toHaveCount(1)
-    const href = await banner.first().getAttribute("href")
-    expect(href).toMatch(/^\/youth\/leagues\/soccer\/[^/]+$/)
-    const res = await page.request.get(href!, { maxRedirects: 0 })
-    expect(res.status()).toBe(200)
   })
 
   test("shows no format claims", async ({ page }) => {
@@ -93,79 +102,27 @@ test.describe("youth soccer landing", () => {
     expect(body).not.toMatch(/\d+v\d+/)
     expect(body).not.toMatch(/size [345] ball/i)
   })
-
-  // The finder's "this age group has nothing open" branch is the whole-catalog
-  // empty state (notify form) — no "Clear filters" control. A band that could
-  // only ever be switched ON was therefore a dead end escapable only by
-  // reloading, and with zero youth inventory that is every tap.
-  test("re-clicking an active age band clears the filter", async ({ page }) => {
-    await page.goto("/youth/leagues/soccer", { waitUntil: "domcontentloaded" })
-    await waitForHydration(page)
-    await recordFinderFilterEvents(page)
-
-    const u10 = page.locator('[data-age-band][data-group="U10"]')
-    await u10.click()
-    await expect(u10).toHaveAttribute("aria-pressed", "true")
-
-    await u10.click()
-    await expect(u10).toHaveAttribute("aria-pressed", "false")
-
-    // The visual state is only half of it — the finder has to have been told.
-    expect(await readFinderFilterEvents(page)).toEqual([
-      { hasAgeGroup: true, ageGroup: "U10" },
-      { hasAgeGroup: true, ageGroup: null },
-    ])
-  })
-
-  test("switching bands moves the pressed state rather than stacking it", async ({ page }) => {
-    await page.goto("/youth/leagues/soccer", { waitUntil: "domcontentloaded" })
-    await waitForHydration(page)
-
-    await page.locator('[data-age-band][data-group="U10"]').click()
-    await page.locator('[data-age-band][data-group="U12"]').click()
-
-    await expect(page.locator('[data-age-band][data-group="U12"]')).toHaveAttribute("aria-pressed", "true")
-    await expect(page.locator('[data-age-band][data-group="U10"]')).toHaveAttribute("aria-pressed", "false")
-    await expect(page.locator('[data-age-band][aria-pressed="true"]')).toHaveCount(1)
-  })
-
-  // The lookup used to highlight a band without dispatching, so the band
-  // claimed aria-pressed="true" while the finder below was unfiltered — and
-  // clicking that band to "turn it off" would have turned it on.
-  test("the birthday lookup filters the finder, not just the band styling", async ({ page }) => {
-    await page.goto("/youth/leagues/soccer", { waitUntil: "domcontentloaded" })
-    await waitForHydration(page)
-    await recordFinderFilterEvents(page)
-
-    await page.selectOption("#age-lookup-month", "3")
-    await page.selectOption("#age-lookup-year", "2017")
-
-    await expect(page.locator("#age-lookup-answer")).toContainText("U10")
-    await expect(page.locator('[data-age-band][data-group="U10"]')).toHaveAttribute("aria-pressed", "true")
-    expect(await readFinderFilterEvents(page)).toEqual([{ hasAgeGroup: true, ageGroup: "U10" }])
-  })
 })
 
-test.describe("youth sport routes — one dynamic route serves every sport", () => {
-  // /youth/leagues/[sport] replaced per-sport static copies. These pin the two
-  // properties that matter: a registry sport renders the full page, and a
-  // non-registry slug degrades to the picker instead of rendering an empty
-  // page under invented branding. All independent of live inventory.
-  test("futsal renders the same static ladder as soccer", async ({ page }) => {
-    await page.goto("/youth/leagues/futsal", { waitUntil: "domcontentloaded" })
-    const bands = page.locator("[data-age-band]")
-    await expect(bands).toHaveCount(14)
-    await expect(page.locator("h1")).toContainText("Youth futsal")
+test.describe("youth league routing", () => {
+  test("/youth/leagues 302s to the soccer page", async ({ page }) => {
+    const res = await page.request.get("/youth/leagues", { maxRedirects: 0 })
+    expect(res.status()).toBe(302)
+    expect(res.headers()["location"]).toMatch(/\/youth\/leagues\/soccer$/)
   })
 
-  test("an unknown sport lands on the sport picker", async ({ page }) => {
+  test("futsal renders the same two-path shape", async ({ page }) => {
+    await page.goto("/youth/leagues/futsal", { waitUntil: "domcontentloaded" })
+    await expect(page.locator("h1")).toContainText(/futsal/i)
+    await expect(page.locator("#types")).toBeVisible()
+  })
+
+  test("an unknown sport lands on the soccer page", async ({ page }) => {
     await page.goto("/youth/leagues/hockey", { waitUntil: "domcontentloaded" })
-    await expect(page).toHaveURL(/\/youth\/leagues\/?$/)
+    await expect(page).toHaveURL(/\/youth\/leagues\/soccer\/?$/)
   })
 
   test("an unknown futsal term lands on the futsal page, not a 404", async ({ page }) => {
-    // The exact gap that blocked merging: the futsal landing page's banner
-    // pointed at a term route that did not exist.
     await page.goto("/youth/leagues/futsal/no-such-term", { waitUntil: "domcontentloaded" })
     await expect(page).toHaveURL(/\/youth\/leagues\/futsal\/?$/)
   })

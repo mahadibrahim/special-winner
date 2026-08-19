@@ -30,9 +30,11 @@ test.describe("Landing-page finders", () => {
     await page.locator('[data-landing-cta="youth-hub-soccer"]').click();
     await expect(page).toHaveURL(/\/youth\/soccer$/);
 
-    // Legacy age-band anchors forward to the leagues category page.
+    // Legacy age-band anchors forward to the leagues category page, which
+    // itself now 302s to the soccer two-path page (2026-08-18 — soccer is
+    // the only league sport, so /youth/leagues is a pure forwarder).
     await page.goto("/youth#ages-9-12", { waitUntil: "domcontentloaded" });
-    await expect(page).toHaveURL(/\/youth\/leagues$/);
+    await expect(page).toHaveURL(/\/youth\/leagues\/soccer$/);
   });
 
   test("/youth/soccer — sport page: hero, intro, anchors, FAQs", async ({ page }) => {

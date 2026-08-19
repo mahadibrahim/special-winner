@@ -56,18 +56,14 @@ test.describe("Category pages", () => {
     await waitForHydration(page);
   });
 
-  test("/youth/leagues — hero, youth card from the catalog", async ({ page }) => {
+  test("/youth/leagues — forwards to the soccer two-path page", async ({ page }) => {
+    // Owner decision 2026-08-18: soccer-focused page; /youth/leagues 302s
+    // while soccer is the only league sport.
     await page.goto("/youth/leagues", { waitUntil: "domcontentloaded" });
-    // Band-grammar recompose (Phase 2): keyword lives in <title>; the h1 is
-    // the hook line, same pattern as /youth/classes.
-    await expect(page.getByRole("heading", { level: 1, name: /game day, every weekend/i })).toBeVisible();
-
-    // Band assembly (static copy, server-rendered): sport picker cards,
-    // how-it-works band, FAQs.
-    await expect(page.locator('#main-content a[href="/youth/leagues/soccer"]')).toBeVisible();
-    await expect(page.getByRole("heading", { name: /how it works, for parents/i })).toBeVisible();
-    await expect(page.getByRole("heading", { name: /questions parents ask/i })).toBeVisible();
-
+    await expect(page).toHaveURL(/\/youth\/leagues\/soccer$/);
+    await expect(
+      page.getByRole("heading", { level: 1, name: /indoor youth soccer leagues/i }),
+    ).toBeVisible();
     await waitForHydration(page);
     await expect(page.getByText(/E2E Test Spring 2026/).first()).toBeVisible();
   });
