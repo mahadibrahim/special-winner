@@ -16,6 +16,8 @@ import YouthSportLeaguePage from "@/components/youth/youth-sport-league-page.ast
 import { breadcrumbJsonLd } from "@/lib/seo/breadcrumbs";
 import { getYouthLeagueSport } from "@/lib/leagues/youth-sports";
 import { YOUTH_LEAGUE_FAQS } from "@/lib/leagues/youth-league-content";
+import { fetchYouthLeaguePageData } from "@/lib/leagues/youth-league-page-data";
+import { setMarketingEdgeCache } from "@/lib/http/edge-cache";
 
 const sport = getYouthLeagueSport(Astro.params.sport);
 if (!sport) {
@@ -43,6 +45,21 @@ const faqSchema = {
     acceptedAnswer: { "@type": "Answer", text: item.answer },
   })),
 };
+
+// The catalog read lives in PAGE frontmatter, not inside YouthSportLeaguePage:
+// response headers are already flushed by the time a child component renders,
+// so a setMarketingEdgeCache call down there silently no-ops.
+const data = await fetchYouthLeaguePageData({
+  origin: Astro.url.origin,
+  cookie: Astro.request.headers.get("cookie") ?? "",
+  sportSlug: sport.slug,
+});
+
+// Last statement, per setMarketingEdgeCache's contract: only opt into edge
+// caching once the catalog fetch succeeded, so a transient failure (which
+// suppresses the banner and the inline rows) is never the response that gets
+// cached and served.
+if (data.catalogOk) setMarketingEdgeCache(Astro);
 ---
 
 <BaseLayout
@@ -55,5 +72,5 @@ const faqSchema = {
     <script type="application/ld+json" is:inline set:html={JSON.stringify(faqSchema)} />
   </Fragment>
 
-  <YouthSportLeaguePage sportSlug={sport.slug} heroTitle={sport.heroTitle} />
+  <YouthSportLeaguePage sportSlug={sport.slug} heroTitle={sport.heroTitle} data={data} />
 </BaseLayout>

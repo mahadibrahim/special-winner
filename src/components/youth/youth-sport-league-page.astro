@@ -23,10 +23,8 @@ import SectionJumpBar from "@/components/youth/bands/section-jump-bar.astro"
 import FeatureBand from "@/components/youth/bands/feature-band.astro"
 import AgeLookupInline from "@/components/youth/age-lookup-inline.astro"
 import { getVenueFacts, VENUE_SLUGS } from "@/lib/locations/venue-facts"
-import { partitionTerms, type TermSeason } from "@/lib/leagues/terms"
-import { filterYouthSeasons } from "@/lib/leagues/youth-seasons"
-import { divisionRowModel, type DivisionRowModel } from "@/lib/leagues/division-row-model"
-import { setMarketingEdgeCache } from "@/lib/http/edge-cache"
+import { type DivisionRowModel } from "@/lib/leagues/division-row-model"
+import { type YouthLeaguePageData } from "@/lib/leagues/youth-league-page-data"
 import { BUSINESS_TIMEZONE } from "@/lib/time/business-timezone"
 import {
   YOUTH_LEAGUE_FAQS, YOUTH_CALENDAR_TERMS, VENUE_DISPLAY_NAMES,
@@ -41,12 +39,20 @@ interface Props {
   sportSlug: string
   /** The WHOLE h1, e.g. "Indoor youth soccer leagues." */
   heroTitle: string
+  /**
+   * Catalog data, loaded by the PAGE via `fetchYouthLeaguePageData`. It cannot
+   * be fetched here: the page must know whether the catalog read succeeded
+   * before it decides to opt into edge caching, and by the time a child
+   * component renders Astro has already flushed the response headers.
+   */
+  data: YouthLeaguePageData
   faqs?: LandingFaqItem[]
   calendarTerms?: CalendarTermConfig[]
 }
 const {
   sportSlug,
   heroTitle,
+  data,
   faqs = YOUTH_LEAGUE_FAQS,
   calendarTerms = YOUTH_CALENDAR_TERMS,
 } = Astro.props
@@ -54,83 +60,17 @@ const {
 const FINDER_ID = `youth-${sportSlug}-divisions`
 const basePath = `/youth/leagues/${sportSlug}`
 
-// ---- Term links -> the only crawlable entry to <basePath>/<term>
-// The finder rows below link straight to /register/<id>, and the calendar band
-// only anchors in-page, so without these server-rendered <a>s the term page,
-// every division page under it, their Event JSON-LD and the completed-term
-// archive are reachable only by typing the URL. They now live as a compact
-// line-list inside #calendar (the top banner points at on-page booking).
-// Islands can't do this job: they render nothing into the HTML.
-const origin = Astro.url.origin
-const cookie = Astro.request.headers.get("cookie") ?? ""
-let currentTerm: { slug: string; label: string } | null = null
-let upcomingTerms: { slug: string; label: string }[] = []
-let pastTerms: { slug: string; label: string }[] = []
-let catalogOk = false
-
-// ---- Live open divisions -> the deadline banner + the inline rows in the two
-// type cards. Server-rendered on purpose: the type cards must show real,
-// bookable divisions in the HTML, not after an island settles.
-let openRows: DivisionRowModel[] = []
-let competitiveRows: DivisionRowModel[] = []
-let developmentalRows: DivisionRowModel[] = []
-let bannerDeadline: string | null = null
-let bannerTermLabel: string | null = null
-let bannerTermSlug: string | null = null
-
-try {
-  // Live + completed, mirroring the term page: completed terms are the
-  // permanent standings archive and deserve inbound links.
-  const [liveRes, doneRes] = await Promise.all([
-    fetch(`${origin}/api/public/seasons?sport=${sportSlug}&audience=youth`, { headers: { cookie } }),
-    fetch(`${origin}/api/public/seasons?sport=${sportSlug}&audience=youth&status=completed`, { headers: { cookie } }),
-  ])
-  catalogOk = liveRes.ok
-  const liveRows: any[] = liveRes.ok ? ((await liveRes.json()).seasons ?? []) : []
-  const doneRows: any[] = doneRes.ok ? ((await doneRes.json()).seasons ?? []) : []
-  const termSeasons: TermSeason[] = filterYouthSeasons([...liveRows, ...doneRows])
-    .filter((s) => s.termSlug)
-    .map((s) => ({
-      id: s.id,
-      termSlug: s.termSlug,
-      termLabel: s.termLabel,
-      status: s.status,
-      startDate: s.startDate,
-    }))
-  const { current, upcoming, past } = partitionTerms(termSeasons)
-  // No open/active term -> render nothing. A link with no destination is
-  // worse than no link, and for a newly-launched sport it is the normal state.
-  if (current) currentTerm = { slug: current.slug, label: current.label }
-  upcomingTerms = upcoming.map((t) => ({ slug: t.slug, label: t.label }))
-  pastTerms = past.map((t) => ({ slug: t.slug, label: t.label }))
-
-  // Only seasons you can actually buy today feed the banner and the card rows.
-  // 'open' is the enum value (seasons.status is draft|forming|open|closed|
-  // active|completed|cancelled) — /api/public/seasons returns open|active|
-  // forming, and only 'open' has a live checkout. There is no
-  // 'registration_open' status; matching on one silently emptied this whole
-  // block, which is why the banner never rendered.
-  const open = filterYouthSeasons(liveRows).filter((s) => s.status === "open")
-  openRows = open.map(divisionRowModel)
-  competitiveRows = openRows.filter((r) => r.kind === "competitive").slice(0, 3)
-  developmentalRows = openRows.filter((r) => r.kind === "developmental").slice(0, 3)
-  // ONE season drives the whole banner — the open season whose registration
-  // closes soonest (falling back to the first open season when none carry a
-  // deadline). Reading the label, the slug and the date from three different
-  // places is how a banner ends up pairing Winter I's name with Winter II's
-  // deadline once two terms are open at the same time.
-  const withDeadline = open
-    .filter((s) => Boolean(s.registrationCloses))
-    .sort((a, b) => String(a.registrationCloses).localeCompare(String(b.registrationCloses)))
-  const bannerSeason = withDeadline[0] ?? open[0] ?? null
-  bannerDeadline = bannerSeason?.registrationCloses ?? null
-  bannerTermLabel = bannerSeason?.termLabel ?? null
-  bannerTermSlug = bannerSeason?.termSlug ?? null
-} catch {
-  // A catalog blip must not 500 the page — the commitment facts, venue cards
-  // and FAQs are static and still worth serving. Falls through with no banner,
-  // no inline rows and no term links.
-}
+const {
+  currentTerm,
+  upcomingTerms,
+  pastTerms,
+  openRows,
+  competitiveRows,
+  developmentalRows,
+  bannerDeadline,
+  bannerTermLabel,
+  bannerTermSlug,
+} = data
 
 // Deadline dates are business-timezone facts: a 11:59pm ET cutoff serializes
 // as the next day in UTC, and this renders on a UTC server.
@@ -295,12 +235,6 @@ const JUMP_ITEMS = [
   { href: "#calendar", label: "Calendar" },
   { href: "#faq", label: "FAQs" },
 ]
-
-// Last statement, per setMarketingEdgeCache's contract: only opt into edge
-// caching once the catalog fetch succeeded, so a transient failure (which
-// suppresses the banner and the inline rows) is never the response that gets
-// cached and served.
-if (catalogOk) setMarketingEdgeCache(Astro)
 ---
 
 <main id="main-content" class="flex-1">
@@ -498,8 +432,9 @@ if (catalogOk) setMarketingEdgeCache(Astro)
         Every open division.
       </h2>
       {/* Live status line, computed client-side — this page opts into edge
-          caching (setMarketingEdgeCache above), so the line must not bake in
-          at render time. Sport-scoped to agree with the table below. */}
+          caching (setMarketingEdgeCache, called by the route's frontmatter), so
+          the line must not bake in at render time. Sport-scoped to agree with
+          the table below. */}
       <TileFactsLine client:visible audience="youth" programTypes={["league"]} sport={sportSlug} tone="cream" />
     </div>
   </section>

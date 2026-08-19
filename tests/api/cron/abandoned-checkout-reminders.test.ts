@@ -31,9 +31,32 @@ import {
 import { apiFetch, expectJson } from "../setup/test-helpers";
 import { seedTeamPaymentContext } from "../../utils/team-payment-context";
 import { hashPassword } from "@/lib/auth";
+import { BUSINESS_TIMEZONE } from "@/lib/time/business-timezone";
 
 const CRON_ENDPOINT = "/api/cron/send-abandoned-checkout-reminders";
 const DAY = 24 * 3600 * 1000;
+
+/** The calendar day in the business timezone — the same trick the cron uses. */
+const etDay = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: BUSINESS_TIMEZONE });
+
+/**
+ * A "closes later today" deadline that is still on the SAME business-timezone
+ * day as now. A flat now+2h is a time-of-day lottery: run inside the last two
+ * hours before ET midnight and the deadline lands on TOMORROW in ET, so the
+ * cron never classifies it as the deadline day and `last_day` never fires.
+ * That is exactly how CI failed at 03:23 UTC (11:23pm ET). Walking the offsets
+ * down shrinks the flake window from 2h/day to the final ~2 minutes before ET
+ * midnight.
+ */
+function closesLaterTodayET(): Date {
+  const now = new Date();
+  const today = etDay(now);
+  for (const ms of [2 * 3600 * 1000, 3600 * 1000, 30 * 60 * 1000, 10 * 60 * 1000, 2 * 60 * 1000]) {
+    const candidate = new Date(now.getTime() + ms);
+    if (etDay(candidate) === today) return candidate;
+  }
+  return new Date(now.getTime() + 2 * 60 * 1000);
+}
 
 async function runCron() {
   const res = await apiFetch(CRON_ENDPOINT, {
@@ -57,7 +80,7 @@ async function seedSoloCart(opts: {
 
   const closes =
     opts.closesInDays === "today"
-      ? new Date(Date.now() + 2 * 3600 * 1000) // later today, still open
+      ? closesLaterTodayET() // later today in ET, still open
       : opts.closesInDays === null
         ? null
         : new Date(Date.now() + (opts.closesInDays ?? 20) * DAY);
