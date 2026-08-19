@@ -10,6 +10,10 @@ export interface ApiSeason extends SeasonForDerive {
   endDate: string
   price: number
   teamPrice: number | null
+  /** Team price after an active early bird — DISPLAY ONLY, the charge path
+   *  recomputes it from cents (see /api/public/seasons). */
+  effectiveTeamPrice?: number | null
+  teamEarlyBirdActive?: boolean
   earlyBirdPrice?: number | null
   earlyBirdTeamPrice?: number | null
   earlyBirdDeadline?: string | null
@@ -30,6 +34,10 @@ export interface ApiSeason extends SeasonForDerive {
   /** Term grouping ("Fall 2026" / "fall-2026") — set on league seasons. */
   termSlug?: string | null
   termLabel?: string | null
+  /** Division axes, freeform admin inputs — advisory labels only, never a
+   *  discriminator for pricing or signup mode (that is `signupModes`). */
+  divisionGender?: string | null
+  skillLevel?: string | null
   program: {
     id: string
     name: string

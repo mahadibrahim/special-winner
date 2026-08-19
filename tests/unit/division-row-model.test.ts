@@ -1,30 +1,39 @@
 import { describe, it, expect } from "vitest"
-import { divisionRowModel } from "@/lib/leagues/division-row-model"
+import { divisionRowModel, type SeasonLike } from "@/lib/leagues/division-row-model"
 
-const base = {
+// Mirrors a real `/api/public/seasons` youth league row. `signupModes` is the
+// team-vs-individual discriminator (via isTeamOnly), NOT teamPrice — a
+// dual-mode season carries a teamPrice too.
+const base: SeasonLike = {
   id: "s1",
   name: "Youth Soccer League — Winter I",
-  skillLevel: null as string | null,
-  teamPrice: null as number | null,
-  effectiveTeamPrice: null as number | null,
-  teamEarlyBirdActive: false,
   price: 195,
-  earlyBirdPrice: null as number | null,
-  earlyBirdDeadline: null as string | null,
-  spotsLeft: null as number | null,
+  teamPrice: null,
+  effectiveTeamPrice: null,
+  teamEarlyBirdActive: false,
+  spotsLeft: null,
   dayOfWeek: "sat",
   startDate: "2026-11-08",
+  endDate: "2027-01-24",
   termLabel: "Winter I",
   minAge: 8,
   maxAge: 9,
-  divisionGender: null as string | null,
-  status: "registration_open",
+  divisionGender: null,
+  status: "open",
+  signupModes: ["individual"],
+  pricingMode: "per_individual",
+  registeredCount: 0,
+  maxParticipants: null,
+  program: { programType: "league", audienceType: "parents" },
+  ageGroup: { minAge: 8, maxAge: 9 },
 }
 
 describe("divisionRowModel", () => {
-  it("team-priced season → competitive team row", () => {
+  it("team-only season → competitive team row", () => {
     const row = divisionRowModel({
       ...base,
+      signupModes: ["team"],
+      pricingMode: "per_team",
       teamPrice: 1150,
       effectiveTeamPrice: 1150,
       divisionGender: "boys",
@@ -47,9 +56,26 @@ describe("divisionRowModel", () => {
     expect(row.priceUnit).toBe("per kid")
   })
 
+  it("dual-mode season keeps the solo path — team price never hides it", () => {
+    const row = divisionRowModel({
+      ...base,
+      signupModes: ["individual", "team"],
+      pricingMode: "per_team",
+      teamPrice: 1150,
+      effectiveTeamPrice: 1150,
+    })
+    expect(row.kind).toBe("developmental")
+    expect(row.href).toBe("/register/s1")
+    expect(row.cta).toBe("Book →")
+    expect(row.price).toBe(195)
+    expect(row.priceUnit).toBe("per kid")
+  })
+
   it("active team early-bird shows discounted price with struck base", () => {
     const row = divisionRowModel({
       ...base,
+      signupModes: ["team"],
+      pricingMode: "per_team",
       teamPrice: 1150,
       effectiveTeamPrice: 1050,
       teamEarlyBirdActive: true,
@@ -61,13 +87,37 @@ describe("divisionRowModel", () => {
   it("no early-bird → basePrice null (nothing to strike)", () => {
     expect(divisionRowModel(base).basePrice).toBeNull()
     expect(
-      divisionRowModel({ ...base, teamPrice: 1150, effectiveTeamPrice: 1150 }).basePrice,
+      divisionRowModel({
+        ...base,
+        signupModes: ["team"],
+        teamPrice: 1150,
+        effectiveTeamPrice: 1150,
+      }).basePrice,
     ).toBeNull()
   })
 
-  it("spotsLeft passes through only when capped", () => {
+  it("spotsLeft passes through on individual rows only", () => {
     expect(divisionRowModel({ ...base, spotsLeft: 3 }).spotsLeft).toBe(3)
     expect(divisionRowModel(base).spotsLeft).toBeNull()
+    // No team-capacity column exists — a team row must never print a count.
+    expect(
+      divisionRowModel({ ...base, signupModes: ["team"], teamPrice: 1150, spotsLeft: 3 })
+        .spotsLeft,
+    ).toBeNull()
+  })
+
+  it("soldOut is honest for both kinds", () => {
+    expect(divisionRowModel({ ...base, spotsLeft: 0 }).soldOut).toBe(true)
+    const teamSoldOut = divisionRowModel({
+      ...base,
+      signupModes: ["team"],
+      teamPrice: 1150,
+      spotsLeft: 0,
+    })
+    expect(teamSoldOut.soldOut).toBe(true)
+    expect(teamSoldOut.spotsLeft).toBeNull()
+    expect(divisionRowModel({ ...base, spotsLeft: 3 }).soldOut).toBe(false)
+    expect(divisionRowModel(base).soldOut).toBe(false)
   })
 
   it("group derives U-label from maxAge and appends gender", () => {
@@ -79,6 +129,6 @@ describe("divisionRowModel", () => {
 
   it("meta joins day and start date, dropping nulls", () => {
     expect(divisionRowModel(base).meta).toBe("Sat · starts Nov 8")
-    expect(divisionRowModel({ ...base, dayOfWeek: null as any }).meta).toBe("starts Nov 8")
+    expect(divisionRowModel({ ...base, dayOfWeek: null }).meta).toBe("starts Nov 8")
   })
 })

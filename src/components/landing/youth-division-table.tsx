@@ -39,9 +39,12 @@ export function YouthDivisionTable({
             </span>
             <span className="text-[13.5px] text-ink-2">
               {row.seasonName}
-              {row.spotsLeft != null && (
+              {/* Count only — no "team spots" variant. row.spotsLeft is already
+                  null on team rows (there is no team-capacity column to count
+                  against), so this line is individual-row scarcity only. */}
+              {row.spotsLeft != null && !row.soldOut && (
                 <span className="block font-mono text-[9.5px] tracking-[0.08em] uppercase text-brand-red mt-0.5">
-                  ● {row.spotsLeft} {row.kind === "competitive" ? "team spots" : "spots"} left
+                  ● {row.spotsLeft} spots left
                 </span>
               )}
             </span>
@@ -57,15 +60,24 @@ export function YouthDivisionTable({
                 {row.priceUnit}
               </small>
             </span>
-            <a
-              href={row.href}
-              onClick={() => onBook?.(row.id)}
-              className={`font-mono text-[10.5px] tracking-[0.1em] uppercase rounded-lg px-3.5 py-2.5 text-cream no-underline whitespace-nowrap justify-self-end ${
-                row.kind === "competitive" ? "bg-royal" : "bg-brand-red"
-              }`}
-            >
-              {row.cta}
-            </a>
+            {/* Sold out is a state, not a destination — a link into checkout
+                for a division with nothing left is a CTA the catalog cannot
+                honour, so it renders as a muted non-interactive pill. */}
+            {row.soldOut ? (
+              <span className="font-mono text-[10.5px] tracking-[0.1em] uppercase rounded-lg px-3.5 py-2.5 bg-cream-2 text-ink-muted border border-cream-3 whitespace-nowrap justify-self-end">
+                Sold out
+              </span>
+            ) : (
+              <a
+                href={row.href}
+                onClick={() => onBook?.(row.id)}
+                className={`font-mono text-[10.5px] tracking-[0.1em] uppercase rounded-lg px-3.5 py-2.5 text-cream no-underline whitespace-nowrap justify-self-end ${
+                  row.kind === "competitive" ? "bg-royal" : "bg-brand-red"
+                }`}
+              >
+                {row.cta}
+              </a>
+            )}
           </li>
         ))}
       </ul>

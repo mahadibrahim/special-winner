@@ -63,9 +63,11 @@ const YEARS = [...new Set(
       if (!month || !year) return
       const group = resolveAgeGroup(month, year)
       answerEl.classList.remove("hidden")
-      // `ageGroup: undefined` PRESENT-with-undefined clears the filter —
-      // the finder gates on `"ageGroup" in detail` (see age-group-ladder).
-      // scroll:false — the answer renders right here.
+      // `ageGroup: undefined` PRESENT-with-undefined clears the filter. The
+      // key must be on the object: category-finder.tsx gates on
+      // `"ageGroup" in detail`, so omitting it leaves any prior selection
+      // intact (that is how a sport-tile dispatch avoids clobbering this
+      // lookup). scroll:false — the answer renders right here.
       if (!group) {
         answerEl.textContent = "That birthday falls outside our U6–U19 groups for this season."
         dispatchFinderFilter(

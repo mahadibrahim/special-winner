@@ -21,7 +21,7 @@
 // mean adding a line to SPORTS, not rewriting this page.
 
 export interface LeagueKind {
-  /** e.g. "December – April". Plain months, not term slugs. */
+  /** e.g. "Winter · November – late March". Plain months, not term slugs. */
   when: string;
   name: string;
   body: string;

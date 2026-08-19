@@ -174,11 +174,14 @@ export function SeasonsFinderSection({
   // Table-layout only — pure display rows derived from `filtered`, so the
   // event-driven age filter (applied upstream, into the `seasons` prop
   // itself) still narrows table rows exactly like it narrows cards.
+  //
+  // status === "open" ONLY. Every table row is a direct "Book →" / "Enter
+  // team →" link into checkout, and a forming season has no checkout — it
+  // sells an interest list (signupMode "interest"). Forming inventory stays
+  // discoverable through the cards layout and the calendar band's notify
+  // form; it just never gets a button that would 404 the visitor's intent.
   const rows = useMemo(
-    () =>
-      filtered.map((s) =>
-        divisionRowModel(s as unknown as Parameters<typeof divisionRowModel>[0]),
-      ),
+    () => filtered.filter((s) => s.status === "open").map(divisionRowModel),
     [filtered],
   )
   const levelRows = useMemo(
@@ -213,8 +216,14 @@ export function SeasonsFinderSection({
     setLevel("all")
     setActiveDay(null)
   }
+  // Level counts too — clearFilters resets it, so leaving it out hid the
+  // "Clear filters" affordance whenever a level chip was the only thing set.
   const hasActiveFilters =
-    activeFormat !== null || activeSport !== null || activeVenue !== null || activeDay !== null
+    activeFormat !== null ||
+    activeSport !== null ||
+    activeVenue !== null ||
+    activeDay !== null ||
+    level !== "all"
 
   // Header count states what is registerable NOW — forming seasons render
   // (with their interest form) but do not count as "open".

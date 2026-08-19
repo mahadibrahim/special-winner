@@ -139,9 +139,14 @@ const divisionLinks = [...divisionSlugMapForAudience(seasons, "youth").entries()
   venueName: s.location.name,
 }));
 
+// Breadcrumbs mirror the URL's real navigable ancestors. /youth/leagues has
+// been a 302 to the soccer page since 2026-08-18 (two-path recompose), so the
+// tier resolves up to the youth hub — a real, indexed, sitemapped page —
+// exactly as DivisionPageLayout.astro does, keeping all three levels of the
+// youth league chain in agreement.
 const breadcrumbSchema = breadcrumbJsonLd([
   { name: "Home", url: `${ORIGIN}/` },
-  { name: "Youth Leagues", url: `${ORIGIN}/youth/leagues` },
+  { name: "Youth", url: `${ORIGIN}/youth` },
   { name: sport.name, url: `${ORIGIN}${basePath}` },
   { name: termLabel, url: `${ORIGIN}${basePath}/${term}` },
 ]);

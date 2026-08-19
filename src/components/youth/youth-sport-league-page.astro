@@ -105,7 +105,12 @@ try {
   pastTerms = past.map((t) => ({ slug: t.slug, label: t.label }))
 
   // Only seasons you can actually buy today feed the banner and the card rows.
-  const open = filterYouthSeasons(liveRows).filter((s) => s.status === "registration_open")
+  // 'open' is the enum value (seasons.status is draft|forming|open|closed|
+  // active|completed|cancelled) — /api/public/seasons returns open|active|
+  // forming, and only 'open' has a live checkout. There is no
+  // 'registration_open' status; matching on one silently emptied this whole
+  // block, which is why the banner never rendered.
+  const open = filterYouthSeasons(liveRows).filter((s) => s.status === "open")
   openRows = open.map(divisionRowModel)
   competitiveRows = openRows.filter((r) => r.kind === "competitive").slice(0, 3)
   developmentalRows = openRows.filter((r) => r.kind === "developmental").slice(0, 3)
@@ -207,11 +212,17 @@ const otherSport = Object.values(YOUTH_LEAGUE_SPORTS).find((s) => s.slug !== spo
 const CONTACT_EMAIL = "hello@aspiresportsohio.com"
 
 // Row pill: "Enter team · $1,150 →". row.cta already carries the arrow, so it
-// is stripped and re-attached after the price (mockup order).
+// is stripped and re-attached after the price (mockup order). A sold-out row
+// gets no price and no arrow — same contract as YouthDivisionTable, where the
+// anchor is replaced by a muted non-interactive pill.
 const rowPill = (r: DivisionRowModel) =>
-  `${r.cta.replace(/\s*→\s*$/, "")} · $${r.price.toLocaleString("en-US")} →`
+  r.soldOut
+    ? "Sold out"
+    : `${r.cta.replace(/\s*→\s*$/, "")} · $${r.price.toLocaleString("en-US")} →`
+// spotsLeft is already null on team rows (no team-capacity column exists), so
+// the count line is individual-row scarcity only, and never on a sold-out row.
 const rowMeta = (r: DivisionRowModel) =>
-  [r.meta, r.termLabel, r.spotsLeft != null ? `${r.spotsLeft} spots left` : null]
+  [r.meta, r.termLabel, r.spotsLeft != null && !r.soldOut ? `${r.spotsLeft} spots left` : null]
     .filter(Boolean)
     .join(" · ")
 
@@ -424,22 +435,33 @@ if (catalogOk) setMarketingEdgeCache(Astro)
                 promise reads as a broken page. */}
             {card.rows.length > 0 && (
               <div class="mt-4 border-t border-cream/25 pt-1.5">
-                {card.rows.map((row) => (
-                  <a
-                    href={row.href}
-                    data-youth-cta={`league-row-${card.key}`}
-                    data-division-inline-row={card.key}
-                    class="flex justify-between items-center gap-2.5 py-[9px] border-b border-cream/15 last:border-b-0 text-cream no-underline"
-                  >
-                    <span>
-                      <span class="font-semibold text-sm">{row.group}</span><br />
-                      <span class="font-mono text-[10.5px] text-cream/80">{rowMeta(row)}</span>
-                    </span>
-                    <span class="bg-cream text-ink font-mono text-[10px] tracking-[0.1em] uppercase rounded-[7px] px-3 py-[7px] whitespace-nowrap">
-                      {rowPill(row)}
-                    </span>
-                  </a>
-                ))}
+                {card.rows.map((row) => {
+                  const RowTag = row.soldOut ? "div" : "a"
+                  return (
+                    // Sold out is a state, not a destination — the row keeps
+                    // its shape but drops the link and the analytics hook,
+                    // matching YouthDivisionTable's muted pill.
+                    <RowTag
+                      href={row.soldOut ? undefined : row.href}
+                      data-youth-cta={row.soldOut ? undefined : `league-row-${card.key}`}
+                      data-division-inline-row={card.key}
+                      data-division-sold-out={row.soldOut ? "true" : undefined}
+                      class="flex justify-between items-center gap-2.5 py-[9px] border-b border-cream/15 last:border-b-0 text-cream no-underline"
+                    >
+                      <span>
+                        <span class="font-semibold text-sm">{row.group}</span><br />
+                        <span class="font-mono text-[10.5px] text-cream/80">{rowMeta(row)}</span>
+                      </span>
+                      <span
+                        class={`font-mono text-[10px] tracking-[0.1em] uppercase rounded-[7px] px-3 py-[7px] whitespace-nowrap ${
+                          row.soldOut ? "bg-cream/20 text-cream/70" : "bg-cream text-ink"
+                        }`}
+                      >
+                        {rowPill(row)}
+                      </span>
+                    </RowTag>
+                  )
+                })}
               </div>
             )}
 

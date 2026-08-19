@@ -23,10 +23,15 @@ if (!sport) {
 }
 
 const ORIGIN = import.meta.env.PUBLIC_APP_URL || "https://aspiresportsohio.com";
+// Breadcrumbs mirror the URL's real navigable ancestors. /youth/leagues has
+// been a 302 to the soccer page since 2026-08-18 (two-path recompose), so it
+// is no longer one — a BreadcrumbList tier pointing at a redirect is a crumb
+// Google resolves away. The youth ancestor is /youth, already the tier above,
+// so the leagues tier is dropped rather than duplicated. Matches the chain in
+// DivisionPageLayout.astro and [term].astro: / → /youth → sport → term.
 const breadcrumbSchema = breadcrumbJsonLd([
   { name: "Home", url: `${ORIGIN}/` },
   { name: "Youth", url: `${ORIGIN}/youth` },
-  { name: "Youth Leagues", url: `${ORIGIN}/youth/leagues` },
   { name: sport.name, url: `${ORIGIN}/youth/leagues/${sport.slug}` },
 ]);
 const faqSchema = {
