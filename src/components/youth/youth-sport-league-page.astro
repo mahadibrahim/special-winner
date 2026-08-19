@@ -308,9 +308,17 @@ if (catalogOk) setMarketingEdgeCache(Astro)
       Replaces the old in-hero "Now Registering" banner. It keeps that
       element's testid and analytics hooks, but points at on-page booking
       (#open) rather than the term page — the term links now live in
-      #calendar, where the crawlable-archive contract is satisfied. */}
+      #calendar, where the crawlable-archive contract is satisfied.
+
+      pt-16 lg:pt-20 clears the site nav. Navigation is `fixed top-0` at
+      h-16/h-20 (navigation.tsx) and BaseLayout renders no spacer — <slot />
+      flows straight from y=0 — so every other page absorbs the overlap inside
+      a tall hero's top padding. This banner is the FIRST flow element on the
+      page, so without the pad only its bottom strip cleared the nav. The red
+      paint that lands under the fixed nav is invisible; with the registration
+      ribbon in flow above it, the extra band reads as banner weight. */}
   {openRows.length > 0 && (
-    <div class="bg-brand-red text-cream px-6 sm:px-9" data-testid="now-registering">
+    <div class="bg-brand-red text-cream px-6 sm:px-9 pt-16 lg:pt-20" data-testid="now-registering">
       <div class="max-w-[1080px] mx-auto flex items-center justify-between gap-4 flex-wrap py-3">
         <span class="font-mono text-[11.5px] tracking-[0.12em] uppercase">● {bannerMessage}</span>
         <a
