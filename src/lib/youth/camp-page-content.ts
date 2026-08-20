@@ -136,7 +136,7 @@ export const CAMP_HUB_FAQS: CampFaqItem[] = [
   {
     question: "How do specialty camps get announced?",
     answer:
-      "As they're scheduled through the year. Leave your email in the notify form above and you'll hear the moment one opens.",
+      "As they're scheduled through the year. Leave your email in the notify form by the calendar and you'll hear the moment one opens.",
   },
   {
     question: "What's the refund policy?",

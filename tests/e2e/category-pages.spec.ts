@@ -79,11 +79,16 @@ test.describe("Category pages", () => {
     // card) renders. Copy changed with cardVariant="youth-band": it reads
     // "Be first in when it opens." rather than "nothing open right now".
     await expect(page.getByText(/be first in when it opens/i)).toBeVisible();
-    // Scope to the empty-state form — the footer newsletter form also has an
-    // email input with the same accessible label, so target by the unique id.
-    await page.locator("#empty-finder-youth-camps-email").fill("camps-waitlist-e2e@test.aspiresports.com");
-    await page.getByRole("button", { name: /notify me/i }).click();
-    await expect(page.getByText(/you're on the list/i)).toBeVisible();
+    // Scope to the empty-state card — the footer newsletter form and the
+    // persistent calendar-band notify form also render a "Notify me" button
+    // with the same accessible name, and EmptyNotifyForm swaps its <form>
+    // for a bare success <p> on submit, so a `form:has(...)` locator would
+    // stop matching post-submit. The `data-finder-empty` wrapper survives
+    // that swap, so scope to it instead of the (transient) form element.
+    const emptyStateCard = page.locator("[data-finder-empty]");
+    await emptyStateCard.locator("#empty-finder-youth-camps-email").fill("camps-waitlist-e2e@test.aspiresports.com");
+    await emptyStateCard.getByRole("button", { name: /notify me/i }).click();
+    await expect(emptyStateCard.getByText(/you're on the list/i)).toBeVisible();
   });
 
   test("/youth/camps — band links through to the family page", async ({ page }) => {

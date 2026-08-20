@@ -15,6 +15,7 @@
 import BaseLayout from "@/layouts/BaseLayout.astro"
 import CategoryFinder from "@/components/landing/category-finder.tsx"
 import TileFactsLine from "@/components/landing/tile-facts-line"
+import { EmptyNotifyForm } from "@/components/landing/empty-notify-form"
 import YouthCoachSection from "@/components/youth/youth-coach-section.astro"
 import LandingFaq from "@/components/landing/landing-faq.tsx"
 import SectionJumpBar from "@/components/youth/bands/section-jump-bar.astro"
@@ -74,10 +75,6 @@ const JUMP_ITEMS = [
   title="Youth Sports Camps in Columbus & Worthington, Ohio — Aspire Sports"
   description="Youth camps in Columbus and Worthington, Ohio — day camps when school's out, skills and specialty camps through the year. Coached rather than supervised. See dates and book online."
 >
-  <Fragment slot="head">
-    <link rel="canonical" href={`${Astro.url.origin}/youth/camps`} />
-  </Fragment>
-
   <main id="main-content" class="flex-1">
     {/* ---------- Top banner — owner-editable copy; static until camps are
         seeded (no live inventory to compute a deadline from), then revisit to
@@ -296,8 +293,8 @@ const JUMP_ITEMS = [
           The camp calendar.
         </h2>
         <p class="text-[15.5px] text-ink-2 mt-3">
-          Planned windows for the year — leave your email in the notify form above and you'll hear
-          the moment a window's dates open for booking.
+          Planned windows for the year — leave your email and you'll hear the moment a window's
+          dates open for booking.
         </p>
         <div class="grid gap-3.5 mt-[34px]" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
           {
@@ -306,7 +303,7 @@ const JUMP_ITEMS = [
                 <h3 class="font-display font-semibold text-[20px] text-ink">{c.name}</h3>
                 <div class="font-mono text-[11px] text-ink-muted mt-1">{c.meta}</div>
                 <a
-                  href="#open"
+                  href="#camps-notify"
                   data-youth-cta={`camps-calendar-${c.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
                   class="inline-block text-[11px] font-semibold bg-cream-2 border border-cream-3 rounded-full px-3 py-[5px] mt-3 no-underline text-ink"
                 >
@@ -315,6 +312,12 @@ const JUMP_ITEMS = [
               </div>
             ))
           }
+        </div>
+        <div id="camps-notify" class="bg-paper border border-cream-3 rounded-[14px] p-6 mt-6">
+          <p class="text-[14.5px] text-ink-2">
+            Any window, any camp — leave your email and you'll hear the moment dates open.
+          </p>
+          <EmptyNotifyForm client:visible audience="parent" source="camps-calendar" />
         </div>
       </div>
     </section>
