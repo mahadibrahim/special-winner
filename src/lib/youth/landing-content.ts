@@ -111,7 +111,7 @@ export const LEAGUE_KINDS: LeagueKind[] = [
 
 export const CAMPS = {
   lede:
-    "Day camps for when school is out, and specialty camps through the year — full days coached rather than supervised, with the same people they see every week.",
+    "Day camps when school's out, skills and specialty camps while it's in — every one of them coached rather than supervised, by the same people they see every week.",
 };
 
 export interface PathwayStep {
