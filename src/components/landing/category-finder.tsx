@@ -35,6 +35,10 @@ interface CategoryFinderProps {
    *  sport; pass it on per-sport pages (/youth/leagues/soccer, …) or they show
    *  every sport's inventory. */
   sport?: string
+  /** Restrict to specific programs, by slug. Opt-in — the camp-type pages
+   *  (/youth/camps/[type]) pass their family's program slugs; every other
+   *  call site omits it and renders byte-identical. */
+  programSlugs?: string[]
   /** Section heading, e.g. "Open now". */
   title: string
   descriptor: string
@@ -68,6 +72,7 @@ export default function CategoryFinder({
   audience,
   programTypes,
   sport,
+  programSlugs,
   title,
   descriptor,
   ageChips = false,
@@ -120,8 +125,11 @@ export default function CategoryFinder({
 
   const scoped = useMemo(
     // scopeSeasons returns a fresh array (.filter), so in-place sort is safe.
-    () => scopeSeasons(seasons, audience, programTypes, sport).sort(byRegistrationCloses),
-    [seasons, audience, programTypes, sport],
+    () =>
+      scopeSeasons(seasons, audience, programTypes, sport, programSlugs).sort(
+        byRegistrationCloses,
+      ),
+    [seasons, audience, programTypes, sport, programSlugs],
   )
 
   const bandOptions: ChipOption[] = useMemo(
