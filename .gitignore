@@ -72,3 +72,6 @@ training/output/
 # Scratch tooling for the training-deck crowding audit (Playwright
 # screenshots, calibration scripts) — not reusable build artifacts.
 .scratch-audit/
+
+# Live-review copies of design mockups served by the dev server — never deploy
+public/mockups/
