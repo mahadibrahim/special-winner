@@ -1,0 +1,272 @@
+---
+// Camp-type detail page — "what specifically happens at this camp." One
+// registry-driven route for the four families (schools-out / summer / skills
+// / specialty). The hub carries the menu; this page carries the full story:
+// the hour-by-hour day (or the named camps, for specialty), who it's for,
+// the logistics, and this family's dates from the catalog.
+//
+// Content contract: everything here renders from CAMP_TYPES — see
+// src/lib/youth/camp-page-content.ts for the owner-tuning surface and the
+// program-slug seeding contract.
+import BaseLayout from "@/layouts/BaseLayout.astro"
+import CategoryFinder from "@/components/landing/category-finder.tsx"
+import LandingFaq from "@/components/landing/landing-faq.tsx"
+import {
+  CAMP_TYPES,
+  CAMP_DAY_FACTS,
+  CAMP_DAY_FACTS_NOTE,
+} from "@/lib/youth/camp-page-content"
+import { setMarketingEdgeCache } from "@/lib/http/edge-cache"
+
+const { type } = Astro.params
+const camp = CAMP_TYPES.find((t) => t.slug === type)
+if (!camp) {
+  // Unknown slug → 404, not a redirect (dead URLs must fall out of the index
+  // — adult-soccer-leagues-[suburb].astro precedent).
+  return Astro.rewrite("/404")
+}
+setMarketingEdgeCache(Astro)
+
+const siblings = CAMP_TYPES.filter((t) => t.slug !== camp.slug)
+
+const TONE_BG: Record<string, string> = {
+  royal: "bg-royal",
+  emerald: "bg-emerald",
+  red: "bg-brand-red",
+  navy: "bg-navy-deep",
+}
+
+// Title-case the family name for the <title> without lowercasing the page's
+// own display copy (which renders camp.name as authored).
+const pageTitle = `${camp.name} in Columbus & Worthington, Ohio — Aspire Sports`
+---
+
+<BaseLayout
+  title={pageTitle}
+  description={`${camp.heroSub} See dates and book online at Aspire Sports.`}
+>
+  <Fragment slot="head">
+    <link rel="canonical" href={`${Astro.url.origin}/youth/camps/${camp.slug}`} />
+  </Fragment>
+
+  <main id="main-content" class="flex-1">
+    {/* ---------- Hero — family tone; breadcrumb back to the hub ----------
+        pt-16 lg:pt-20 inside the hero's top padding clears the fixed nav
+        (first flow element on the page). ---------- */}
+    <section class={`relative overflow-hidden text-cream px-6 sm:px-9 pt-24 lg:pt-28 pb-[52px] ${TONE_BG[camp.tone]}`}>
+      <div
+        class="absolute inset-0 z-0"
+        aria-hidden="true"
+        style="background:repeating-linear-gradient(45deg,oklch(0.972 0.008 80/.05) 0 2px,transparent 2px 30px),linear-gradient(160deg,oklch(0.18 0.07 262/.35),transparent 60%)"
+      >
+      </div>
+      <div class="relative z-10 max-w-[1080px] mx-auto">
+        <p class="font-mono text-[10.5px] tracking-[0.14em] uppercase mb-[22px]">
+          <a href="/youth/camps" class="text-cream/85 no-underline hover:underline">← All camps</a>
+        </p>
+        <h1
+          class="font-display font-semibold tracking-tight max-w-[18ch]"
+          style="font-size:clamp(2.6rem,5.5vw,3.8rem);line-height:1;letter-spacing:-0.015em"
+        >
+          {camp.name}
+        </h1>
+        {camp.agesLine && (
+          <div class="font-mono text-[11.5px] tracking-[0.14em] uppercase mt-3.5 text-cream/90">
+            {camp.agesLine} · Worthington Fieldhouse
+          </div>
+        )}
+        <p class="mt-4 text-[16.5px] text-cream/92">{camp.heroSub}</p>
+        <div class="flex flex-wrap gap-3 mt-[26px]">
+          <a
+            href="#open"
+            data-youth-cta={`camp-${camp.slug}-hero-book`}
+            class="inline-block font-semibold text-[14.5px] px-[22px] py-[13px] rounded-[10px] bg-brand-red text-cream no-underline"
+          >
+            See dates & book →
+          </a>
+          <a
+            href="#day"
+            data-youth-cta={`camp-${camp.slug}-hero-day`}
+            class="inline-block font-semibold text-[14.5px] px-[22px] py-[13px] rounded-[10px] border-[1.5px] border-cream/50 text-cream no-underline"
+          >
+            {camp.schedule.length > 0 ? "What the day looks like ↓" : "What we run ↓"}
+          </a>
+        </div>
+        <div class="font-mono text-[11.5px] mt-6 text-cream/85 leading-loose">{camp.windows}</div>
+      </div>
+    </section>
+
+    {/* ---------- The schedule — timetable, or the named camps ------------- */}
+    <section id="day" class="px-6 sm:px-9 py-[72px]">
+      <div class="max-w-[1080px] mx-auto">
+        <h2 class="font-display font-semibold tracking-tight text-ink" style="font-size:clamp(2.1rem,3.8vw,2.9rem);letter-spacing:-0.015em">
+          {camp.scheduleHeading}
+        </h2>
+        <p class="text-[15.5px] text-ink-2 mt-3">{camp.scheduleLede}</p>
+
+        {
+          camp.schedule.length > 0 ? (
+            <div class="mt-[34px] border border-cream-3 rounded-2xl bg-paper overflow-hidden">
+              {camp.schedule.map((row) => (
+                <div class="grid gap-[18px] px-6 py-4 border-b border-cream-3 last:border-b-0 items-baseline sm:grid-cols-[150px_1fr]">
+                  <span class="font-mono text-[12px] tracking-[0.08em] text-brand-red font-medium">{row.time}</span>
+                  <span>
+                    <span class="font-semibold text-[15px] text-ink">{row.what}</span>
+                    <span class="block text-[13px] text-ink-muted mt-0.5">{row.why}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div class="grid gap-3.5 mt-[34px]" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">
+              {camp.namedCamps.map((c) => (
+                <div class="bg-navy-deep text-cream rounded-[14px] p-6">
+                  <h3 class="font-display font-semibold text-[22px]">{c.name}</h3>
+                  <div class="font-mono text-[9.5px] tracking-[0.12em] uppercase text-emerald-bright mt-1.5">
+                    {c.hook}
+                  </div>
+                  <p class="text-[13.5px] text-cream/85 mt-2.5">{c.blurb}</p>
+                </div>
+              ))}
+            </div>
+          )
+        }
+      </div>
+    </section>
+
+    {/* ---------- Who it's for --------------------------------------------- */}
+    <section class="bg-cream-2 border-y border-cream-3 px-6 sm:px-9 py-16">
+      <div class="max-w-[1080km] mx-auto">
+        <h2 class="font-display font-semibold tracking-tight text-ink" style="font-size:clamp(2.1rem,3.8vw,2.9rem);letter-spacing:-0.015em">
+          Who it's <span class="text-brand-red">for.</span>
+        </h2>
+        <div class="grid gap-3.5 mt-[34px]" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
+          {
+            camp.whoCards.map((c) => (
+              <div class="bg-paper border border-cream-3 rounded-[14px] p-[22px]">
+                <div class="font-mono text-[9.5px] tracking-[0.15em] uppercase text-ink-muted">{c.label}</div>
+                <h3 class="font-display font-semibold text-[20px] mt-2 text-ink">{c.title}</h3>
+                <p class="text-[13.5px] text-ink-2 mt-1.5">{c.body}</p>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    {/* ---------- Know before you book — shared facts, one constant -------- */}
+    <section class="bg-paper border-b border-cream-3 px-6 sm:px-9 pt-14 pb-[60px]">
+      <div class="max-w-[1080px] mx-auto">
+        <h2 class="font-display font-semibold tracking-tight text-ink" style="font-size:clamp(2.1rem,3.8vw,2.9rem);letter-spacing:-0.015em">
+          Know before <span class="text-brand-red">you book.</span>
+        </h2>
+        <div class="grid gap-x-8 gap-y-[26px] mt-[34px]" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">
+          {
+            CAMP_DAY_FACTS.map((f) => (
+              <div>
+                <div class="font-mono text-[10.5px] tracking-[0.15em] uppercase text-ink-muted">{f.label}</div>
+                <div class="font-display font-semibold text-[21px] mt-1.5 leading-tight text-ink">{f.value}</div>
+              </div>
+            ))
+          }
+        </div>
+        <p class="mt-[26px] text-[13px] text-ink-muted">{CAMP_DAY_FACTS_NOTE}</p>
+      </div>
+    </section>
+
+    {/* ---------- Dates & booking — this family only ----------------------- */}
+    <section id="open" class="bg-brand-red text-cream text-center px-6 sm:px-9 pt-16 pb-[140px]">
+      <div class="max-w-[1080px] mx-auto">
+        <h2 class="font-display font-semibold tracking-tight" style="font-size:clamp(2.2rem,4.5vw,3.2rem);letter-spacing:-0.015em">
+          Dates & booking.
+        </h2>
+        <p class="mt-3 font-mono text-[12px] tracking-[0.06em] text-cream/92 uppercase">
+          Live from the catalog — cards appear the moment a camp opens
+        </p>
+      </div>
+    </section>
+    <div class="-mt-[88px] pb-[76px] px-6 sm:px-9">
+      <div class="max-w-[1080px] mx-auto bg-paper border border-cream-3 rounded-2xl shadow-xl">
+        <CategoryFinder
+          client:load
+          audience="youth"
+          programTypes={["camp"]}
+          programSlugs={camp.programSlugs}
+          title={`Open ${camp.name.toLowerCase()}`}
+          descriptor="Every camp shows its dates, ages, venue and price on the card."
+          ageChips
+          sectionId={`youth-camps-${camp.slug}`}
+          cardVariant="youth-band"
+          headerHidden
+        />
+      </div>
+    </div>
+
+    {/* ---------- Family FAQ ------------------------------------------------ */}
+    <LandingFaq client:visible id="faqs" heading="Questions parents ask." items={camp.faqs} />
+
+    {/* ---------- The other camps ------------------------------------------- */}
+    <section class="px-6 sm:px-9 py-16">
+      <div class="max-w-[1080px] mx-auto">
+        <h2 class="font-display font-semibold tracking-tight text-ink" style="font-size:clamp(2.1rem,3.8vw,2.9rem);letter-spacing:-0.015em">
+          The other <span class="text-brand-red">camps.</span>
+        </h2>
+        <div class="grid gap-3.5 mt-[30px]" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">
+          {
+            siblings.map((s) => (
+              <a
+                href={`/youth/camps/${s.slug}`}
+                data-youth-cta={`camp-${camp.slug}-other-${s.slug}`}
+                class={`relative rounded-2xl px-[22px] pt-5 pb-[18px] text-cream no-underline block ${TONE_BG[s.tone]}`}
+              >
+                <div class="font-mono text-[9.5px] tracking-[0.16em] uppercase text-cream/80">{s.kicker}</div>
+                <h3 class="font-display font-semibold text-[21px] mt-1.5">{s.name}</h3>
+                <span class="absolute right-[18px] bottom-3.5 font-semibold text-lg" aria-hidden="true">→</span>
+              </a>
+            ))
+          }
+        </div>
+      </div>
+    </section>
+
+    {/* ---------- Close ------------------------------------------------------ */}
+    <section class="bg-navy-deep text-cream text-center px-6 sm:px-9 py-[76px]" aria-labelledby={`camp-${camp.slug}-close-h`}>
+      <div class="max-w-[1080px] mx-auto">
+        <h2
+          id={`camp-${camp.slug}-close-h`}
+          class="font-display font-semibold tracking-tight"
+          style="font-size:clamp(2rem,4vw,2.8rem)"
+        >
+          {camp.closeHeading}
+        </h2>
+        <p class="mt-2.5 text-cream/90">{camp.closeSub}</p>
+        <div class="flex justify-center gap-3 mt-6">
+          <a
+            href="#open"
+            data-youth-cta={`camp-${camp.slug}-close-book`}
+            class="inline-block font-semibold text-[14.5px] px-[22px] py-[13px] rounded-[10px] bg-brand-red text-cream no-underline"
+          >
+            See dates →
+          </a>
+          <a
+            href="/youth/camps"
+            data-youth-cta={`camp-${camp.slug}-close-all`}
+            class="inline-block font-semibold text-[14.5px] px-[22px] py-[13px] rounded-[10px] border-[1.5px] border-cream/50 text-cream no-underline"
+          >
+            All camps →
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+</BaseLayout>
+
+<script>
+  import { track } from "@/lib/analytics/track"
+
+  document.querySelectorAll<HTMLAnchorElement>("[data-youth-cta]").forEach((el) => {
+    el.addEventListener("click", () =>
+      track("youth_hub_section_cta_clicked", { section: el.dataset.youthCta ?? "" }),
+    )
+  })
+</script>
