@@ -1,79 +1,388 @@
 ---
-// Youth camps. Like classes, this is a coaching surface — the owner's split
-// puts the Director of Coaching prominent here, never on league pages. The
-// lede names the actual reason people buy camps: there's no school and they
-// still have work.
+// Youth camps hub — the menu of the four camp families. Camps is a coaching
+// surface like classes (owner split: Director of Coaching IS prominent here,
+// never on league pages). Band composition follows the owner-approved mockup
+// verbatim — docs/superpowers/specs/2026-08-19-youth-camps-mockup.html.
+// Content and every placeholder fact live in ONE registry:
+// src/lib/youth/camp-page-content.ts (the owner-tuning surface).
 //
-// Copy rules (owner-directed): no eyebrow text, no format claims, no
-// oppositional language, facility not a selling point. No authored age
-// ranges or day structures here — those were flagged unverified, so the
-// finder cards carry each camp's real ages and dates instead.
+// Launch reality: the catalog has zero camp seasons, so the finder renders
+// its banded notify empty state and the authored calendar carries the dates
+// story. Cards appear automatically as camps are seeded — no code change.
+//
+// Copy rules (owner-directed): no oppositional language, facility not a
+// selling point, camps are NOT school-break-only, no invented dollar figures.
 import BaseLayout from "@/layouts/BaseLayout.astro"
 import CategoryFinder from "@/components/landing/category-finder.tsx"
+import TileFactsLine from "@/components/landing/tile-facts-line"
+import { EmptyNotifyForm } from "@/components/landing/empty-notify-form"
 import YouthCoachSection from "@/components/youth/youth-coach-section.astro"
-import CTABanner from "@/components/cta-banner"
+import LandingFaq from "@/components/landing/landing-faq.tsx"
+import SectionJumpBar from "@/components/youth/bands/section-jump-bar.astro"
+import FeatureBand from "@/components/youth/bands/feature-band.astro"
+import SlotGraphic from "@/components/youth/bands/slot-graphic.astro"
 import { CAMPS } from "@/lib/youth/landing-content"
+import {
+  CAMP_TYPES,
+  CAMP_DAY_FACTS,
+  CAMP_DAY_FACTS_NOTE,
+  CAMP_BANNER,
+  CAMP_CALENDAR,
+  CAMP_HUB_FAQS,
+} from "@/lib/youth/camp-page-content"
 import { setMarketingEdgeCache } from "@/lib/http/edge-cache"
 
-// youth-training.jpg is also the hub hero — acceptable reuse; the alternative
-// stock shots (night stadium, adult pickup) read wrong for daytime kids camps.
 const HERO_IMAGE = "/images/stock/youth-training.jpg"
 setMarketingEdgeCache(Astro)
+
+// Band/tile tone maps — token classes only, mirroring feature-band.astro's
+// TONE approach so the camp bands and the shipped primitives read as one
+// system. Declared in frontmatter (Astro misparses `<` type annotations
+// inside JSX expression callbacks — classes-page precedent).
+const TONE_BG: Record<string, string> = {
+  royal: "bg-royal",
+  emerald: "bg-emerald",
+  red: "bg-brand-red",
+  navy: "bg-navy-deep",
+}
+const TONE_ART: Record<string, string> = {
+  royal:
+    "linear-gradient(135deg, var(--royal-bright), color-mix(in oklch, var(--royal), var(--navy-deep) 35%))",
+  emerald:
+    "linear-gradient(135deg, var(--emerald-bright), color-mix(in oklch, var(--emerald), var(--navy-deep) 35%))",
+  red: "linear-gradient(135deg, color-mix(in oklch, var(--brand-red), var(--navy-deep) 10%), color-mix(in oklch, var(--brand-red), var(--navy-deep) 45%))",
+  navy: "linear-gradient(135deg, var(--royal-bright), color-mix(in oklch, var(--navy-deep), var(--royal) 25%))",
+}
+// Specialty (navy) gets the ochre kicker accent from the mockup.
+const TONE_KICKER: Record<string, string> = {
+  royal: "text-cream/75",
+  emerald: "text-cream/75",
+  red: "text-cream/75",
+  navy: "text-ochre",
+}
+
+const JUMP_ITEMS = [
+  { href: "#camp-schools-out", label: "The camps" },
+  { href: "#day", label: "The camp day" },
+  { href: "#coach", label: "Coaching" },
+  { href: "#open", label: "Book & dates" },
+  { href: "#calendar", label: "Calendar" },
+  { href: "#faqs", label: "FAQs" },
+]
 ---
 
 <BaseLayout
-  title="Youth Camps — Aspire Sports"
-  description="Youth sports camps in central Ohio — day camps on school breaks, plus specialty camps through the year. Coached rather than supervised."
+  title="Youth Sports Camps in Columbus & Worthington, Ohio — Aspire Sports"
+  description="Youth camps in Columbus and Worthington, Ohio — day camps when school's out, skills and specialty camps through the year. Coached rather than supervised. See dates and book online."
 >
-  <Fragment slot="head">
-    <link rel="canonical" href={`${Astro.url.origin}/youth/camps`} />
-  </Fragment>
-
   <main id="main-content" class="flex-1">
-    <section class="relative text-cream px-6 sm:px-9 py-20 overflow-hidden bg-navy-deep">
+    {/* ---------- Top banner — owner-editable copy; static until camps are
+        seeded (no live inventory to compute a deadline from), then revisit to
+        the leagues-style live line. pt-16 lg:pt-20 clears the fixed site nav:
+        this banner is the FIRST flow element on the page and Navigation is
+        `fixed top-0` at h-16/h-20 with no BaseLayout spacer. ---------- */}
+    <div class="bg-brand-red text-cream px-6 sm:px-9 pt-16 lg:pt-20" data-testid="camps-banner">
+      <div class="max-w-[1080px] mx-auto flex items-center justify-between gap-4 flex-wrap py-3">
+        <span class="font-mono text-[11.5px] tracking-[0.12em] uppercase">● {CAMP_BANNER.message}</span>
+        <a
+          href="#calendar"
+          data-youth-cta="camps-banner"
+          class="bg-cream text-brand-red font-mono text-[11px] tracking-[0.1em] uppercase rounded-lg px-4 py-[9px] no-underline whitespace-nowrap"
+        >
+          {CAMP_BANNER.cta}
+        </a>
+      </div>
+    </div>
+
+    {/* ---------- Hero — four doors, one page ---------------------------- */}
+    <section class="relative text-cream px-6 sm:px-9 pt-16 pb-14 overflow-hidden bg-navy-deep">
       <div class="graded graded--emerald graded--fill z-0" aria-hidden="true">
         <img src={HERO_IMAGE} alt="" />
       </div>
       <div class="relative z-10 max-w-[1080px] mx-auto">
-        <h1 class="font-display font-semibold tracking-tight" style="font-size:clamp(2.4rem,6vw,3.6rem);line-height:1">
-          School&rsquo;s out.<br />They&rsquo;re covered.
+        <h1
+          class="font-display font-semibold tracking-tight max-w-[16ch]"
+          style="font-size:clamp(2.8rem,6vw,4.2rem);line-height:.98;letter-spacing:-0.015em"
+        >
+          Camp, all year long.
         </h1>
-        <p class="mt-4 text-base text-cream/90 max-w-[480px] leading-relaxed">{CAMPS.lede}</p>
-        <p class="mt-5 text-sm text-cream/75">
-          Looking for a season instead?
-          <a href="/youth/leagues" class="underline underline-offset-2 hover:text-cream transition-colors">Youth leagues →</a>
+        <p class="mt-[18px] text-[17.5px] text-cream/92">{CAMPS.lede}</p>
+        <div
+          class="grid gap-3.5 mt-[30px]"
+          style="grid-template-columns:repeat(auto-fit,minmax(228px,1fr))"
+        >
+          {
+            CAMP_TYPES.map((t) => (
+              <a
+                href={`#camp-${t.slug}`}
+                data-youth-cta={`camps-tile-${t.slug}`}
+                class={`relative rounded-2xl px-[22px] pt-5 pb-[18px] text-cream no-underline block ${TONE_BG[t.tone]}`}
+              >
+                <div class={`font-mono text-[9.5px] tracking-[0.16em] uppercase ${TONE_KICKER[t.tone]}`}>
+                  {t.kicker}
+                </div>
+                <h2 class="font-display font-semibold text-[22px] mt-1.5">{t.name}</h2>
+                <div class="font-mono text-[10.5px] mt-1.5 text-cream/85">{t.tileMeta}</div>
+                <span class="absolute right-[18px] bottom-3.5 font-semibold text-lg" aria-hidden="true">→</span>
+              </a>
+            ))
+          }
+        </div>
+        <p class="mt-[22px] text-[13.5px] text-cream/70">
+          Looking for a weekly season instead?
+          <a href="/youth/leagues" class="text-cream/90 underline underline-offset-2">Youth leagues →</a>
+          · Year-round training?
+          <a href="/youth/classes" class="text-cream/90 underline underline-offset-2">Classes →</a>
         </p>
       </div>
     </section>
 
-    {/* ---------- Why an Aspire camp --------------------------------------- */}
-    <section class="px-6 sm:px-9 py-12 border-b border-border" aria-labelledby="camps-why-h">
+    <SectionJumpBar items={JUMP_ITEMS} />
+
+    {/* ---------- Camp-type bands — one full-bleed band per family --------
+        Custom band markup rather than FeatureBand: these carry an ages line,
+        a windows line, a teaser detail row (or the specialty chip grid) and
+        two CTAs, which FeatureBand's Props deliberately don't. ---------- */}
+    {
+      CAMP_TYPES.map((t, i) => (
+        <section id={`camp-${t.slug}`} class={`${TONE_BG[t.tone]} text-cream px-6 sm:px-9 py-16`}>
+          <div class="max-w-[1080px] mx-auto">
+            <div
+              class={`grid gap-11 items-center md:grid-cols-[1.15fr_1fr] ${
+                i % 2 === 1 ? "md:[&>*:first-child]:order-2 md:[&>*:last-child]:order-1" : ""
+              }`}
+            >
+              <div>
+                <p class={`font-mono text-[10px] tracking-[0.16em] uppercase ${TONE_KICKER[t.tone]}`}>
+                  {t.kicker}
+                </p>
+                <h2
+                  class="font-display font-semibold mt-2.5"
+                  style="font-size:clamp(1.9rem,3.4vw,2.6rem);letter-spacing:-0.01em"
+                >
+                  {t.name}
+                </h2>
+                {t.agesLine && (
+                  <div class="font-mono text-[11px] tracking-[0.14em] uppercase mt-2 text-cream/85">
+                    {t.agesLine}
+                  </div>
+                )}
+                <p class="text-[15px] text-cream/90 mt-3.5">{t.body}</p>
+                <div class="font-mono text-[11.5px] mt-4 text-cream/85 leading-loose">{t.windows}</div>
+                {t.teaser && (
+                  <div class="mt-4 border-t border-cream/25 pt-3.5">
+                    <div class="font-mono text-[9.5px] tracking-[0.15em] uppercase text-cream/70">
+                      {t.teaser.label}
+                    </div>
+                    <p class="text-[13.5px] text-cream/88 mt-1.5">{t.teaser.text}</p>
+                  </div>
+                )}
+                {t.namedCamps.length > 0 && (
+                  <div class="grid gap-2.5 mt-[18px]" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
+                    {t.namedCamps.map((c) => (
+                      <div class="border border-cream/30 rounded-[10px] px-3.5 py-3 font-semibold text-[13.5px]">
+                        {c.name}
+                        <small class="block font-mono font-normal text-[9.5px] tracking-[0.1em] uppercase text-cream/70 mt-1">
+                          {c.hook}
+                        </small>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div class="flex flex-wrap gap-2.5 mt-[22px]">
+                  <a
+                    href={`/youth/camps/${t.slug}`}
+                    data-youth-cta={`camps-band-${t.slug}`}
+                    class="inline-block bg-cream text-ink font-semibold text-[14px] px-5 py-3 rounded-[10px] no-underline"
+                  >
+                    Everything about {t.slug === "summer" ? "summer camp" : t.name.toLowerCase()} →
+                  </a>
+                  {t.slug === "specialty" ? (
+                    <a
+                      href="#calendar"
+                      data-youth-cta={`camps-band-${t.slug}-notify`}
+                      class="inline-block border-[1.5px] border-cream/40 text-cream font-semibold text-[14px] px-5 py-3 rounded-[10px] no-underline"
+                    >
+                      Get notified when one drops
+                    </a>
+                  ) : (
+                    <a
+                      href="#open"
+                      data-youth-cta={`camps-band-${t.slug}-dates`}
+                      class="inline-block border-[1.5px] border-cream/40 text-cream font-semibold text-[14px] px-5 py-3 rounded-[10px] no-underline"
+                    >
+                      See dates
+                    </a>
+                  )}
+                </div>
+              </div>
+              <div
+                class="relative overflow-hidden rounded-2xl min-h-[240px]"
+                style={`background:${TONE_ART[t.tone]}`}
+              >
+                <SlotGraphic variant={i} />
+              </div>
+            </div>
+          </div>
+        </section>
+      ))
+    }
+
+    {/* ---------- The camp day, up front — placeholder facts, one constant */}
+    <section id="day" class="bg-paper border-y border-cream-3 px-6 sm:px-9 pt-14 pb-[60px]">
       <div class="max-w-[1080px] mx-auto">
-        <h2 id="camps-why-h" class="font-display text-3xl text-ink tracking-tight">
-          Coached, not supervised.
+        <h2 class="font-display font-semibold tracking-tight text-ink" style="font-size:clamp(2.1rem,3.8vw,2.9rem);letter-spacing:-0.015em">
+          The camp day, <span class="text-brand-red">up front.</span>
         </h2>
-        <p class="text-[13.5px] text-ink-2 leading-relaxed mt-2 max-w-[560px]">
-          A camp day here is run by the same coaches, on the same curriculum,
-          as the rest of the year — so a camp week moves your kid forward
-          instead of just filling the time. Drop-off and pick-up run on time,
-          because we know the day doesn&rsquo;t end when yours does.
-        </p>
+        <div class="grid gap-x-8 gap-y-[26px] mt-[34px]" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">
+          {
+            CAMP_DAY_FACTS.map((f) => (
+              <div>
+                <div class="font-mono text-[10.5px] tracking-[0.15em] uppercase text-ink-muted">{f.label}</div>
+                <div class="font-display font-semibold text-[21px] mt-1.5 leading-tight text-ink">{f.value}</div>
+              </div>
+            ))
+          }
+        </div>
+        <p class="mt-[26px] text-[13px] text-ink-muted">{CAMP_DAY_FACTS_NOTE}</p>
       </div>
     </section>
 
-    <YouthCoachSection headingId="camps-coach-h" />
+    {/* ---------- Coaching — camps is a coaching surface (owner split) ---- */}
+    <div id="coach">
+      <YouthCoachSection headingId="camps-coach-h" />
+    </div>
 
-    {/* ---------- What's open ---------------------------------------------- */}
-    <CategoryFinder
-      client:load
-      audience="youth"
-      programTypes={["camp"]}
-      title="Open now"
-      descriptor="Filter by age and venue — every camp shows its dates on the card."
-      ageChips
-      sectionId="youth-camps"
+    {/* ---------- Book it — red flood + overlapping paper finder sheet ---- */}
+    <section id="open" class="bg-brand-red text-cream text-center px-6 sm:px-9 pt-16 pb-[140px]">
+      <div class="max-w-[1080px] mx-auto">
+        <h2 class="font-display font-semibold tracking-tight" style="font-size:clamp(2.2rem,4.5vw,3.2rem);letter-spacing:-0.015em">
+          Book a camp.
+        </h2>
+        {/* Live facts line — edge-cached page, so status is computed
+            client-side from the shared catalog fetch (classes precedent).
+            Renders blank while the catalog has no camps; never invents. */}
+        <TileFactsLine client:visible audience="youth" programTypes={["camp"]} tone="cream" />
+      </div>
+    </section>
+    <div class="-mt-[88px] pb-[76px] px-6 sm:px-9">
+      {/* Paper-sheet overlap (owner-flagged: the overlap element must be a
+          card/sheet surface, never bare text straddling the band boundary).
+          sectionId stays "youth-camps" — the e2e empty-notify capture id
+          (#empty-finder-youth-camps-email) and signup attribution depend on
+          it. Empty state = the banded "Be first in when it opens." card. */}
+      <div class="max-w-[1080px] mx-auto bg-paper border border-cream-3 rounded-2xl shadow-xl">
+        <CategoryFinder
+          client:load
+          audience="youth"
+          programTypes={["camp"]}
+          title="Open camps"
+          descriptor="Every camp shows its dates, ages, venue and price on the card."
+          ageChips
+          sectionId="youth-camps"
+          cardVariant="youth-band"
+          headerHidden
+        />
+      </div>
+    </div>
+
+    {/* ---------- The camp calendar — authored windows + notify ----------- */}
+    <section id="calendar" class="px-6 sm:px-9 py-[72px]">
+      <div class="max-w-[1080px] mx-auto">
+        <h2 class="font-display font-semibold tracking-tight text-ink" style="font-size:clamp(2.1rem,3.8vw,2.9rem);letter-spacing:-0.015em">
+          The camp calendar.
+        </h2>
+        <p class="text-[15.5px] text-ink-2 mt-3">
+          Planned windows for the year — leave your email and you'll hear the moment a window's
+          dates open for booking.
+        </p>
+        <div class="grid gap-3.5 mt-[34px]" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+          {
+            CAMP_CALENDAR.map((c) => (
+              <div class="bg-paper border border-cream-3 rounded-[14px] p-5">
+                <h3 class="font-display font-semibold text-[20px] text-ink">{c.name}</h3>
+                <div class="font-mono text-[11px] text-ink-muted mt-1">{c.meta}</div>
+                <a
+                  href="#camps-notify"
+                  data-youth-cta={`camps-calendar-${c.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+                  class="inline-block text-[11px] font-semibold bg-cream-2 border border-cream-3 rounded-full px-3 py-[5px] mt-3 no-underline text-ink"
+                >
+                  Get notified
+                </a>
+              </div>
+            ))
+          }
+        </div>
+        <div id="camps-notify" class="bg-paper border border-cream-3 rounded-[14px] p-6 mt-6">
+          <p class="text-[14.5px] text-ink-2">
+            Any window, any camp — leave your email and you'll hear the moment dates open.
+          </p>
+          <EmptyNotifyForm client:visible audience="parent" source="camps-calendar" />
+        </div>
+      </div>
+    </section>
+
+    {/* ---------- FAQs ----------------------------------------------------- */}
+    <LandingFaq client:visible id="faqs" heading="Questions parents ask." items={CAMP_HUB_FAQS} />
+
+    {/* ---------- Cross-promos --------------------------------------------- */}
+    <FeatureBand
+      tone="emerald"
+      graphicVariant={2}
+      kicker="Also at Aspire"
+      title="Ready for game day?"
+      body="Youth leagues run by age group from U6 to U19 — developmental seasons where we build the teams, and competitive winter play."
+      cta={{ href: "/youth/leagues", label: "See youth leagues →" }}
+    />
+    <FeatureBand
+      tone="royal"
+      graphicVariant={1}
+      kicker="Also at Aspire"
+      title="Training that runs all year."
+      body="Small-group classes from 18 months to nineteen years — one pathway, one curriculum, the same coaches they'll see at camp."
+      cta={{ href: "/youth/classes", label: "See classes →" }}
     />
 
-    <CTABanner client:visible />
+    {/* ---------- Close ------------------------------------------------------ */}
+    <section class="bg-navy-deep text-cream text-center px-6 sm:px-9 py-[76px]" aria-labelledby="youth-camps-close-h">
+      <div class="max-w-[1080px] mx-auto">
+        <h2
+          id="youth-camps-close-h"
+          class="font-display font-semibold tracking-tight"
+          style="font-size:clamp(2rem,4vw,2.8rem)"
+        >
+          The best week of <span class="text-emerald-bright">their year.</span>
+        </h2>
+        <p class="mt-2.5 text-cream/90">
+          Dates go fast when they drop — grab yours early, or get notified the moment they open.
+        </p>
+        <div class="flex justify-center gap-3 mt-6">
+          <a
+            href="#open"
+            data-youth-cta="camps-close-book"
+            class="inline-block font-semibold text-[14.5px] px-[22px] py-[13px] rounded-[10px] bg-brand-red text-cream no-underline"
+          >
+            Book a camp →
+          </a>
+          <a
+            href="#calendar"
+            data-youth-cta="camps-close-notify"
+            class="inline-block font-semibold text-[14.5px] px-[22px] py-[13px] rounded-[10px] border-[1.5px] border-cream/50 text-cream no-underline"
+          >
+            Get notified →
+          </a>
+        </div>
+      </div>
+    </section>
   </main>
 </BaseLayout>
+
+<script>
+  import { track } from "@/lib/analytics/track"
+
+  document.querySelectorAll<HTMLAnchorElement>("[data-youth-cta]").forEach((el) => {
+    el.addEventListener("click", () =>
+      track("youth_hub_section_cta_clicked", { section: el.dataset.youthCta ?? "" }),
+    )
+  })
+</script>

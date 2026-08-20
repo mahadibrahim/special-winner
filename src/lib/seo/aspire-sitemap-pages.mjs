@@ -19,6 +19,12 @@ export const ASPIRE_SSR_PUBLIC_PAGES = [
   "/youth/leagues/futsal",
   "/youth/classes",
   "/youth/camps",
+  // Camp-family detail pages — registry-driven (src/lib/youth/camp-page-content.ts);
+  // keep in sync with CAMP_TYPES slugs.
+  "/youth/camps/schools-out",
+  "/youth/camps/summer",
+  "/youth/camps/skills",
+  "/youth/camps/specialty",
   "/youth/philosophy",
   "/adult",
   "/adult-soccer-leagues-columbus",

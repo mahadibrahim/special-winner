@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup v1 — camp-type detail page (School's-out exemplar)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:oklch(0.972 0.008 80); --cream-2:oklch(0.955 0.012 78); --cream-3:oklch(0.935 0.018 76);
+    --ink:oklch(0.18 0.008 260); --ink-2:oklch(0.26 0.012 260); --ink-muted:oklch(0.42 0.01 260);
+    --navy:oklch(0.24 0.06 260); --navy-deep:oklch(0.18 0.07 262);
+    --emerald:oklch(0.55 0.12 160); --emerald-bright:oklch(0.72 0.14 158); --emerald-soft:oklch(0.93 0.04 160);
+    --paper:oklch(0.99 0.003 80);
+    --brand-red:oklch(0.52 0.19 27);
+    --royal:oklch(0.50 0.16 260);
+    --royal-bright:oklch(0.62 0.15 258);
+    --ochre:oklch(0.75 0.12 75);
+    --display:"Newsreader",serif; --sans:"IBM Plex Sans",sans-serif; --mono:"IBM Plex Mono",monospace;
+  }
+  *{box-sizing:border-box;margin:0}
+  body{background:var(--cream);color:var(--ink);font-family:var(--sans);line-height:1.55}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 36px}
+  .mockup-tag{position:fixed;bottom:14px;right:14px;z-index:99;background:var(--ink);color:var(--cream);font-family:var(--mono);font-size:10px;letter-spacing:.12em;padding:6px 10px;border-radius:6px;opacity:.85}
+  .btn{display:inline-block;font-weight:600;font-size:14.5px;padding:13px 22px;border-radius:10px;text-decoration:none}
+  .btn-red{background:var(--brand-red);color:var(--cream)}
+  .btn-ghost{border:1.5px solid oklch(0.972 0.008 80/.5);color:var(--cream)}
+  h2.serif{font-family:var(--display);font-weight:600;font-size:clamp(2.1rem,3.8vw,2.9rem);letter-spacing:-.015em}
+  h2.serif .tint{color:var(--brand-red)}
+  .lede{color:var(--ink-2);font-size:15.5px;margin-top:12px;max-width:64ch}
+  .ph-tag{font-family:var(--mono);font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;background:var(--ochre);color:var(--ink);border-radius:5px;padding:3px 7px;vertical-align:3px}
+
+  /* ---------- Hero — type tone (royal for school's-out) ---------- */
+  .hero{position:relative;background:var(--royal);color:var(--cream);overflow:hidden;padding:56px 0 52px}
+  .hero .grade{position:absolute;inset:0;background:
+      repeating-linear-gradient(45deg,oklch(0.972 0.008 80/.05) 0 2px,transparent 2px 30px),
+      linear-gradient(160deg,oklch(0.18 0.07 262/.35),transparent 60%)}
+  .hero .wrap{position:relative;z-index:2}
+  .hero .crumb{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:22px}
+  .hero .crumb a{color:oklch(0.972 0.008 80/.85);text-decoration:none}
+  .hero .crumb a:hover{text-decoration:underline}
+  .hero h1{font-family:var(--display);font-weight:600;font-size:clamp(2.6rem,5.5vw,3.8rem);line-height:1;letter-spacing:-.015em;max-width:18ch}
+  .hero .ages{font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;margin-top:14px;color:oklch(0.972 0.008 80/.9)}
+  .hero p.sub{margin-top:16px;font-size:16.5px;color:oklch(0.972 0.008 80/.92);max-width:60ch}
+  .hero .ctas{display:flex;gap:12px;margin-top:26px;flex-wrap:wrap}
+  .hero .windows{font-family:var(--mono);font-size:11.5px;margin-top:24px;color:oklch(0.972 0.008 80/.85)}
+
+  /* ---------- The day, hour by hour ---------- */
+  .day{padding:72px 0}
+  .sched{margin-top:34px;border:1px solid var(--cream-3);border-radius:16px;background:var(--paper);overflow:hidden}
+  .srow{display:grid;grid-template-columns:150px 1fr;gap:18px;padding:16px 24px;border-bottom:1px solid var(--cream-3);align-items:baseline}
+  .srow:last-child{border-bottom:0}
+  .srow .t{font-family:var(--mono);font-size:12px;letter-spacing:.08em;color:var(--brand-red);font-weight:500}
+  .srow .what{font-weight:600;font-size:15px}
+  .srow .why{font-size:13px;color:var(--ink-muted);margin-top:2px}
+  @media (max-width:640px){.srow{grid-template-columns:1fr}}
+
+  /* ---------- Who it's for ---------- */
+  .who{background:var(--cream-2);border-top:1px solid var(--cream-3);border-bottom:1px solid var(--cream-3);padding:64px 0}
+  .whogrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-top:34px}
+  .whocard{background:var(--paper);border:1px solid var(--cream-3);border-radius:14px;padding:22px}
+  .whocard .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-muted)}
+  .whocard h4{font-family:var(--display);font-weight:600;font-size:20px;margin-top:8px}
+  .whocard p{font-size:13.5px;color:var(--ink-2);margin-top:6px}
+
+  /* ---------- Logistics (type-specific day facts) ---------- */
+  .commit{background:var(--paper);border-bottom:1px solid var(--cream-3);padding:56px 0 60px}
+  .commit .fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:26px 32px;margin-top:34px}
+  .commit .f .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-muted)}
+  .commit .f .v{font-family:var(--display);font-weight:600;font-size:21px;margin-top:6px;line-height:1.25}
+  .commit .note{margin-top:26px;font-size:13px;color:var(--ink-muted)}
+
+  /* ---------- Book flood + sheet (this type only) ---------- */
+  .open{background:var(--brand-red);color:var(--cream);padding:64px 0 140px;text-align:center}
+  .open h2{font-family:var(--display);font-weight:600;font-size:clamp(2.2rem,4.5vw,3.2rem);letter-spacing:-.015em}
+  .open .liveline{margin-top:12px;font-family:var(--mono);font-size:12px;letter-spacing:.06em;color:oklch(0.972 0.008 80/.92)}
+  .sheetwrap{margin-top:-88px;padding-bottom:72px}
+  .sheet{background:var(--paper);border:1px solid var(--cream-3);border-radius:16px;box-shadow:0 18px 44px oklch(0.18 0.008 260/.18);padding:26px 28px 28px;max-width:1080px;margin:0 auto}
+  .notifycard{background:var(--emerald-soft);border:1px solid oklch(0.55 0.12 160/.25);border-radius:14px;padding:24px;display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap}
+  .notifycard .t{font-family:var(--display);font-weight:600;font-size:22px}
+  .notifycard .s{font-size:13.5px;color:var(--ink-2);margin-top:4px}
+  .notifycard .row{display:flex;gap:8px;flex-wrap:wrap}
+  .notifycard input{font-family:var(--sans);font-size:13.5px;border:1px solid var(--cream-3);background:var(--paper);border-radius:9px;padding:11px 14px;min-width:220px}
+  .notifycard button{background:var(--emerald);color:var(--cream);font-weight:600;font-size:13.5px;border:0;border-radius:9px;padding:11px 18px}
+  .samplebar{display:flex;align-items:center;gap:12px;margin:26px 0 14px}
+  .samplebar .line{flex:1;height:1px;background:var(--cream-3)}
+  .samplebar .t{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-muted)}
+  .cardgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+  .ccard{background:var(--navy-deep);color:var(--cream);border-radius:14px;padding:20px;display:flex;flex-direction:column}
+  .ccard .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--emerald-bright)}
+  .ccard h4{font-family:var(--display);font-weight:600;font-size:20px;margin-top:8px}
+  .ccard .m{font-family:var(--mono);font-size:10.5px;color:oklch(0.972 0.008 80/.8);margin-top:6px;line-height:1.9}
+  .ccard .foot{display:flex;justify-content:space-between;align-items:center;margin-top:16px}
+  .ccard .pr{font-family:var(--display);font-weight:600;font-size:20px}
+  .ccard .pr small{display:block;font-family:var(--sans);font-weight:400;font-size:10px;color:oklch(0.972 0.008 80/.7)}
+  .ccard .bk{background:var(--brand-red);color:var(--cream);font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap}
+
+  /* ---------- FAQ / other camps / close ---------- */
+  .faq{background:var(--cream-2);border-top:1px solid var(--cream-3);padding:64px 0}
+  .faq .q{background:var(--paper);border:1px solid var(--cream-3);border-radius:12px;padding:16px 20px;margin-top:10px;font-weight:600;font-size:14.5px;color:var(--ink-2)}
+  .others{padding:64px 0}
+  .ogrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:30px}
+  .otile{position:relative;border-radius:16px;padding:20px 22px 18px;color:var(--cream);text-decoration:none;display:block}
+  .otile.smr{background:var(--emerald)}
+  .otile.skl{background:var(--brand-red)}
+  .otile.spc{background:var(--navy)}
+  .otile .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:oklch(0.972 0.008 80/.8)}
+  .otile h3{font-family:var(--display);font-weight:600;font-size:21px;margin-top:6px}
+  .otile .arrow{position:absolute;right:18px;bottom:14px;font-weight:600;font-size:18px}
+  .close{background:var(--navy-deep);color:var(--cream);text-align:center;padding:76px 0}
+  .close h2{font-family:var(--display);font-weight:600;font-size:clamp(2rem,4vw,2.8rem)}
+  .close h2 em{font-style:normal;color:var(--emerald-bright)}
+  .close p{margin-top:10px;color:oklch(0.972 0.008 80/.9)}
+  .close .ctas{display:flex;justify-content:center;gap:12px;margin-top:24px}
+</style>
+</head>
+<body>
+<div class="mockup-tag">MOCKUP V1 · CAMP-TYPE DETAIL · SCHOOL'S-OUT EXEMPLAR</div>
+
+<!-- ============ HERO — type tone; breadcrumb back to the camps hub ============ -->
+<section class="hero">
+  <div class="grade"></div>
+  <div class="wrap">
+    <div class="crumb"><a href="/mockups/youth-camps.html">← All camps</a></div>
+    <h1>School&rsquo;s-out day camps</h1>
+    <div class="ages">5 – 12 years old · Worthington Fieldhouse <span class="ph-tag">placeholder</span></div>
+    <p class="sub">School&rsquo;s closed and work isn&rsquo;t. Drop off in the morning, pick up in the afternoon — and the hours in between are a real coached day, not a gym with a sitter.</p>
+    <div class="ctas">
+      <a class="btn btn-red" href="#open">See dates &amp; book →</a>
+      <a class="btn btn-ghost" href="#day">What the day looks like ↓</a>
+    </div>
+    <div class="windows">● Winter break · late December&nbsp;&nbsp;&nbsp;● Spring break · late March&nbsp;&nbsp;&nbsp;● District closure days as they land</div>
+  </div>
+</section>
+
+<!-- ============ 1. THE DAY, HOUR BY HOUR ============ -->
+<section class="day" id="day"><div class="wrap">
+  <h2 class="serif">The day, <span class="tint">hour by hour.</span> <span class="ph-tag">all times placeholder — owner tunes</span></h2>
+  <p class="lede">Every school&rsquo;s-out day runs the same shape, so kids know the rhythm by mid-morning of day one.</p>
+  <div class="sched">
+    <div class="srow"><span class="t">8:45 – 9:00</span><span><span class="what">Drop-off &amp; arrival games</span><div class="why">Coaches run low-key games as kids land — nobody stands around waiting for the day to start.</div></span></div>
+    <div class="srow"><span class="t">9:00 – 10:30</span><span><span class="what">Morning session</span><div class="why">The coached block — curriculum work in small groups, matched to age and level.</div></span></div>
+    <div class="srow"><span class="t">10:30 – 10:45</span><span><span class="what">Snack break</span><div class="why">From their bag — pack two snacks.</div></span></div>
+    <div class="srow"><span class="t">10:45 – 12:00</span><span><span class="what">Games that use the morning</span><div class="why">Small-sided play that puts the morning&rsquo;s work straight into a game.</div></span></div>
+    <div class="srow"><span class="t">12:00 – 12:45</span><span><span class="what">Lunch &amp; downtime</span><div class="why">Packed lunch. Kids who need quiet get it; kids who don&rsquo;t, don&rsquo;t.</div></span></div>
+    <div class="srow"><span class="t">12:45 – 2:15</span><span><span class="what">Afternoon session</span><div class="why">Second coached block — different focus from the morning, same small groups.</div></span></div>
+    <div class="srow"><span class="t">2:15 – 3:00</span><span><span class="what">The tournament</span><div class="why">The day ends on the thing they&rsquo;ll talk about in the car.</div></span></div>
+    <div class="srow"><span class="t">3:00 – 3:15</span><span><span class="what">Pick-up</span><div class="why">On time, every time — we know the day doesn&rsquo;t end when yours does.</div></span></div>
+  </div>
+</div></section>
+
+<!-- ============ 2. WHO IT'S FOR ============ -->
+<section class="who"><div class="wrap">
+  <h2 class="serif">Who it&rsquo;s <span class="tint">for.</span></h2>
+  <div class="whogrid">
+    <div class="whocard"><div class="k">Ages</div><h4>5 – 12 years old <span class="ph-tag">placeholder</span></h4><p>Grouped by age on the day, so a five-year-old is never in a twelve-year-old&rsquo;s game.</p></div>
+    <div class="whocard"><div class="k">Experience</div><h4>Never played? Fine.</h4><p>Groups are matched by level within each age — first-timers and club kids both get a day that fits.</p></div>
+    <div class="whocard"><div class="k">The fit</div><h4>Built for working parents.</h4><p>Drop-off from 8:45, pick-up by 3:15, and the day runs on time at both ends.</p></div>
+  </div>
+</div></section>
+
+<!-- ============ 3. LOGISTICS — type-specific day facts ============ -->
+<section class="commit"><div class="wrap">
+  <h2 class="serif">Know before <span class="tint">you book.</span> <span class="ph-tag">all values placeholder</span></h2>
+  <div class="fgrid">
+    <div class="f"><div class="k">Hours</div><div class="v">9:00am – 3:00pm</div></div>
+    <div class="f"><div class="k">Drop-off</div><div class="v">From 8:45am</div></div>
+    <div class="f"><div class="k">Pick-up</div><div class="v">By 3:15pm</div></div>
+    <div class="f"><div class="k">Lunch</div><div class="v">Pack it — two snack breaks</div></div>
+    <div class="f"><div class="k">Bring</div><div class="v">Water bottle, shin guards, indoor shoes</div></div>
+    <div class="f"><div class="k">Where</div><div class="v">Worthington Fieldhouse</div></div>
+  </div>
+  <p class="note">Book single days or the whole break — every camp&rsquo;s card shows its own dates and price. If a specific day differs from the above, its card says so.</p>
+</div></section>
+
+<!-- ============ 4. DATES & BOOKING — this type only ============ -->
+<section class="open" id="open">
+  <div class="wrap">
+    <h2>Dates &amp; booking.</h2>
+    <div class="liveline">SCHOOL&rsquo;S-OUT CAMPS ONLY — LIVE FROM THE CATALOG</div>
+  </div>
+</section>
+<div class="sheetwrap"><div class="wrap"><div class="sheet">
+  <div class="notifycard">
+    <div>
+      <div class="t">Winter break dates announce soon.</div>
+      <div class="s">Leave your email and you&rsquo;ll hear the moment they open — launch state; sample cards below.</div>
+    </div>
+    <div class="row">
+      <input placeholder="you@email.com">
+      <button>Notify me</button>
+    </div>
+  </div>
+  <div class="samplebar"><span class="line"></span><span class="t">Sample cards — live from the catalog once seeded</span><span class="line"></span></div>
+  <div class="cardgrid">
+    <div class="ccard">
+      <div class="k">Winter break</div>
+      <h4>Winter Break Camp</h4>
+      <div class="m">Dec 21 – 23 · 9am – 3pm<br>Ages 5 – 12 · Worthington</div>
+      <div class="foot"><span class="pr">$145<small>3 days</small></span><a class="bk" href="#">Book →</a></div>
+    </div>
+    <div class="ccard">
+      <div class="k">Winter break · single day</div>
+      <h4>Closure Day Camp</h4>
+      <div class="m">Jan 4 · 9am – 3pm<br>Ages 5 – 12 · Worthington</div>
+      <div class="foot"><span class="pr">$55<small>per day</small></span><a class="bk" href="#">Book →</a></div>
+    </div>
+  </div>
+</div></div></div>
+
+<!-- ============ 5. FAQ — type-specific ============ -->
+<section class="faq"><div class="wrap">
+  <h2 class="serif">Questions parents ask.</h2>
+  <div class="q">Can I book a single day instead of the whole break?</div>
+  <div class="q">What if my kid has never played soccer?</div>
+  <div class="q">Do I pack a lunch?</div>
+  <div class="q">What should they bring?</div>
+  <div class="q">What happens if school adds a closure day?</div>
+  <div class="q">What&rsquo;s the refund policy?</div>
+</div></section>
+
+<!-- ============ 6. THE OTHER CAMPS ============ -->
+<section class="others"><div class="wrap">
+  <h2 class="serif">The other <span class="tint">camps.</span></h2>
+  <div class="ogrid">
+    <a class="otile smr" href="#"><div class="k">June – August</div><h3>Summer day camp</h3><span class="arrow">→</span></a>
+    <a class="otile skl" href="#"><div class="k">Through the year</div><h3>Soccer skills camps</h3><span class="arrow">→</span></a>
+    <a class="otile spc" href="#"><div class="k">Announced through the year</div><h3>Specialty camps</h3><span class="arrow">→</span></a>
+  </div>
+</div></section>
+
+<!-- ============ 7. CLOSE ============ -->
+<section class="close"><div class="wrap">
+  <h2>The break, <em>covered.</em></h2>
+  <p>Book the days you need — or get notified the moment dates drop.</p>
+  <div class="ctas">
+    <a class="btn btn-red" href="#open">See dates →</a>
+    <a class="btn btn-ghost" href="/mockups/youth-camps.html">All camps →</a>
+  </div>
+</div></section>
+
+</body>
+</html>

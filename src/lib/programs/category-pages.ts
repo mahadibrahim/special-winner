@@ -46,12 +46,17 @@ export function scopeSeasons(
   audience: CategoryAudience,
   programTypes: string[],
   sportSlug?: string | null,
+  /** Restrict to specific programs, by slug — the camp-type pages pass their
+   *  family's programs. Omitted or empty = no program filter (every existing
+   *  page's behavior). Unknown slugs return nothing, never everything. */
+  programSlugs?: string[],
 ): ApiSeason[] {
   return seasons.filter(
     (s) =>
       deriveAudience(s) === audience &&
       programTypes.includes(s.program.programType) &&
-      (!sportSlug || s.sport?.slug === sportSlug),
+      (!sportSlug || s.sport?.slug === sportSlug) &&
+      (!programSlugs || programSlugs.length === 0 || programSlugs.includes(s.program.slug)),
   )
 }
 

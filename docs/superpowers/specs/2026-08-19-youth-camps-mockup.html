@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup v1 — youth camps, Arena-style menu, one booking surface</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,500&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:oklch(0.972 0.008 80); --cream-2:oklch(0.955 0.012 78); --cream-3:oklch(0.935 0.018 76);
+    --ink:oklch(0.18 0.008 260); --ink-2:oklch(0.26 0.012 260); --ink-muted:oklch(0.42 0.01 260);
+    --navy:oklch(0.24 0.06 260); --navy-deep:oklch(0.18 0.07 262);
+    --emerald:oklch(0.55 0.12 160); --emerald-bright:oklch(0.72 0.14 158); --emerald-soft:oklch(0.93 0.04 160);
+    --paper:oklch(0.99 0.003 80);
+    --brand-red:oklch(0.52 0.19 27);
+    --royal:oklch(0.50 0.16 260);
+    --royal-bright:oklch(0.62 0.15 258);
+    --ochre:oklch(0.75 0.12 75);
+    --display:"Newsreader",serif; --sans:"IBM Plex Sans",sans-serif; --mono:"IBM Plex Mono",monospace;
+  }
+  *{box-sizing:border-box;margin:0}
+  body{background:var(--cream);color:var(--ink);font-family:var(--sans);line-height:1.55}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 36px}
+  .mockup-tag{position:fixed;bottom:14px;right:14px;z-index:99;background:var(--ink);color:var(--cream);font-family:var(--mono);font-size:10px;letter-spacing:.12em;padding:6px 10px;border-radius:6px;opacity:.85}
+  .btn{display:inline-block;font-weight:600;font-size:14.5px;padding:13px 22px;border-radius:10px;text-decoration:none}
+  .btn-red{background:var(--brand-red);color:var(--cream)}
+  .btn-ghost{border:1.5px solid oklch(0.972 0.008 80/.5);color:var(--cream)}
+  h2.serif{font-family:var(--display);font-weight:600;font-size:clamp(2.1rem,3.8vw,2.9rem);letter-spacing:-.015em}
+  h2.serif .tint{color:var(--brand-red)}
+  .lede{color:var(--ink-2);font-size:15.5px;margin-top:12px}
+  .ph-tag{font-family:var(--mono);font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;background:var(--ochre);color:var(--ink);border-radius:5px;padding:3px 7px;vertical-align:3px}
+
+  /* ---------- Top banner — notify flavor (owner-editable copy) ---------- */
+  .deadline{background:var(--brand-red);color:var(--cream)}
+  .deadline .wrap{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-top:12px;padding-bottom:12px;flex-wrap:wrap}
+  .deadline .msg{font-family:var(--mono);font-size:11.5px;letter-spacing:.12em;text-transform:uppercase}
+  .deadline .msg b{font-weight:500}
+  .deadline .cta{background:var(--cream);color:var(--brand-red);font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;border-radius:8px;padding:9px 16px;text-decoration:none;white-space:nowrap}
+
+  /* ---------- Hero ---------- */
+  .hero{position:relative;background:var(--navy-deep);color:var(--cream);overflow:hidden;padding:64px 0 52px}
+  .hero .photo{position:absolute;inset:0;background:url('http://localhost:4455/images/stock/youth-training.jpg') center/cover;filter:grayscale(1) contrast(1.08) brightness(.96)}
+  .hero .grade{position:absolute;inset:0;background:linear-gradient(135deg,rgba(14,82,60,.78),rgba(232,78,27,.30)),linear-gradient(180deg,rgba(10,14,30,.25),rgba(10,14,30,.65))}
+  .hero .wrap{position:relative;z-index:2}
+  .hero h1{font-family:var(--display);font-weight:600;font-size:clamp(2.8rem,6vw,4.2rem);line-height:.98;letter-spacing:-.015em;max-width:16ch}
+  .hero p.sub{margin-top:18px;font-size:17.5px;color:oklch(0.972 0.008 80/.92);max-width:60ch}
+  .hero p.sub b{font-weight:700;color:var(--cream)}
+  .paths{display:grid;grid-template-columns:repeat(auto-fit,minmax(228px,1fr));gap:14px;margin-top:30px}
+  .ptile{position:relative;border-radius:16px;padding:20px 22px 18px;color:var(--cream);text-decoration:none;display:block}
+  .ptile.brk{background:var(--royal)}
+  .ptile.smr{background:var(--emerald)}
+  .ptile.skl{background:var(--brand-red)}
+  .ptile.spc{background:var(--navy)}
+  .ptile .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:oklch(0.972 0.008 80/.8)}
+  .ptile h3{font-family:var(--display);font-weight:600;font-size:22px;margin-top:6px}
+  .ptile .meta{font-family:var(--mono);font-size:10.5px;margin-top:6px;color:oklch(0.972 0.008 80/.85)}
+  .ptile .arrow{position:absolute;right:18px;bottom:14px;font-weight:600;font-size:18px}
+  .hero .crosslink{margin-top:22px;font-size:13.5px;color:oklch(0.972 0.008 80/.7)}
+  .hero .crosslink a{color:oklch(0.972 0.008 80/.9);text-decoration:underline;text-underline-offset:2px}
+
+  /* ---------- Jump bar ---------- */
+  .jump{position:sticky;top:0;z-index:50;background:var(--royal)}
+  .jump .wrap{display:flex;gap:6px;overflow-x:auto;padding-top:8px;padding-bottom:8px}
+  .jump a{font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--cream);text-decoration:none;padding:9px 16px;border-radius:999px;white-space:nowrap}
+  .jump a.on{background:var(--cream);color:var(--royal);font-weight:500}
+  .jump a:hover{background:oklch(0.972 0.008 80/.15)}
+
+  /* ---------- Camp-type bands — full-bleed, FeatureBand grammar ---------- */
+  .band{color:var(--cream);padding:64px 0}
+  .band .grid{display:grid;grid-template-columns:1.15fr 1fr;gap:44px;align-items:center}
+  .band.flip .grid{grid-template-columns:1fr 1.15fr}
+  .band.flip .txt{order:2}
+  .band.flip .art{order:1}
+  .band .k{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:oklch(0.972 0.008 80/.75)}
+  .band h3{font-family:var(--display);font-weight:600;font-size:clamp(1.9rem,3.4vw,2.6rem);letter-spacing:-.01em;margin-top:10px}
+  .band .ages{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;margin-top:8px;color:oklch(0.972 0.008 80/.85)}
+  .band p.body{font-size:15px;color:oklch(0.972 0.008 80/.9);margin-top:14px}
+  .band .windows{font-family:var(--mono);font-size:11.5px;margin-top:16px;color:oklch(0.972 0.008 80/.85);line-height:2}
+  .band .detail{margin-top:16px;border-top:1px solid oklch(0.972 0.008 80/.25);padding-top:14px}
+  .band .detail .dk{font-family:var(--mono);font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;color:oklch(0.972 0.008 80/.7)}
+  .band .detail p{font-size:13.5px;color:oklch(0.972 0.008 80/.88);margin-top:6px}
+  .band .ctas{display:flex;gap:10px;margin-top:22px;flex-wrap:wrap}
+  .band .btn-solid{background:var(--cream);color:var(--ink);font-weight:600;font-size:14px;padding:12px 20px;border-radius:10px;text-decoration:none}
+  .band .btn-line{border:1.5px solid oklch(0.972 0.008 80/.4);color:var(--cream);font-weight:600;font-size:14px;padding:12px 20px;border-radius:10px;text-decoration:none}
+  .band .art{border-radius:16px;min-height:240px;background:
+      repeating-linear-gradient(45deg,oklch(0.972 0.008 80/.07) 0 2px,transparent 2px 26px),
+      radial-gradient(circle at 30% 35%, oklch(0.972 0.008 80/.14), transparent 55%),
+      oklch(0.972 0.008 80/.06);position:relative;overflow:hidden}
+  .band .art::after{content:"pitch-motif graphic slot · photo later";position:absolute;bottom:12px;left:14px;font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:oklch(0.972 0.008 80/.55)}
+  .band.brk{background:var(--royal)}
+  .band.smr{background:var(--emerald)}
+  .band.skl{background:color-mix(in oklch,var(--brand-red),var(--navy-deep) 8%)}
+  .band.spc{background:var(--navy-deep)}
+  .band.spc .k{color:var(--ochre)}
+  .spclist{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:18px}
+  .spcchip{border:1px solid oklch(0.972 0.008 80/.3);border-radius:10px;padding:12px 14px;font-weight:600;font-size:13.5px}
+  .spcchip small{display:block;font-family:var(--mono);font-weight:400;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:oklch(0.972 0.008 80/.7);margin-top:4px}
+
+  /* ---------- The camp day, up front ---------- */
+  .commit{background:var(--paper);border-top:1px solid var(--cream-3);border-bottom:1px solid var(--cream-3);padding:56px 0 60px}
+  .commit .fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:26px 32px;margin-top:34px}
+  .commit .f .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--ink-muted)}
+  .commit .f .v{font-family:var(--display);font-weight:600;font-size:21px;margin-top:6px;line-height:1.25}
+  .commit .note{margin-top:26px;font-size:13px;color:var(--ink-muted)}
+
+  /* ---------- Coaching (shipped component placeholder) ---------- */
+  .coach{background:var(--navy-deep);color:var(--cream);padding:72px 0}
+  .coach .grid{display:grid;grid-template-columns:1fr 1.5fr;gap:44px;align-items:center}
+  .coach .portrait{border-radius:16px;min-height:280px;background:linear-gradient(135deg,var(--royal),var(--navy-deep));position:relative}
+  .coach .portrait::after{content:"YouthCoachSection — shipped component, renders exactly as on /youth/classes";position:absolute;inset:auto 14px 12px 14px;font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:oklch(0.972 0.008 80/.6)}
+  .coach h2{font-family:var(--display);font-weight:600;font-size:clamp(2.1rem,3.8vw,2.9rem);letter-spacing:-.015em}
+  .coach h2 em{font-style:normal;color:var(--emerald-bright)}
+  .coach p{font-size:15px;color:oklch(0.972 0.008 80/.88);margin-top:14px}
+
+  /* ---------- Book flood + sheet ---------- */
+  .open{background:var(--brand-red);color:var(--cream);padding:64px 0 140px;text-align:center}
+  .open h2{font-family:var(--display);font-weight:600;font-size:clamp(2.2rem,4.5vw,3.2rem);letter-spacing:-.015em}
+  .open .liveline{margin-top:12px;font-family:var(--mono);font-size:12px;letter-spacing:.06em;color:oklch(0.972 0.008 80/.92)}
+  .sheetwrap{margin-top:-88px;padding-bottom:72px}
+  .sheet{background:var(--paper);border:1px solid var(--cream-3);border-radius:16px;box-shadow:0 18px 44px oklch(0.18 0.008 260/.18);padding:26px 28px 28px;max-width:1080px;margin:0 auto}
+  .notifycard{background:var(--emerald-soft);border:1px solid oklch(0.55 0.12 160/.25);border-radius:14px;padding:24px;display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap}
+  .notifycard .t{font-family:var(--display);font-weight:600;font-size:22px}
+  .notifycard .s{font-size:13.5px;color:var(--ink-2);margin-top:4px}
+  .notifycard .row{display:flex;gap:8px;flex-wrap:wrap}
+  .notifycard input{font-family:var(--sans);font-size:13.5px;border:1px solid var(--cream-3);background:var(--paper);border-radius:9px;padding:11px 14px;min-width:220px}
+  .notifycard button{background:var(--emerald);color:var(--cream);font-weight:600;font-size:13.5px;border:0;border-radius:9px;padding:11px 18px}
+  .samplebar{display:flex;align-items:center;gap:12px;margin:26px 0 14px}
+  .samplebar .line{flex:1;height:1px;background:var(--cream-3)}
+  .samplebar .t{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-muted)}
+  .cardgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+  .ccard{background:var(--navy-deep);color:var(--cream);border-radius:14px;padding:20px;display:flex;flex-direction:column}
+  .ccard .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--emerald-bright)}
+  .ccard h4{font-family:var(--display);font-weight:600;font-size:20px;margin-top:8px}
+  .ccard .m{font-family:var(--mono);font-size:10.5px;color:oklch(0.972 0.008 80/.8);margin-top:6px;line-height:1.9}
+  .ccard .foot{display:flex;justify-content:space-between;align-items:center;margin-top:16px}
+  .ccard .pr{font-family:var(--display);font-weight:600;font-size:20px}
+  .ccard .pr small{display:block;font-family:var(--sans);font-weight:400;font-size:10px;color:oklch(0.972 0.008 80/.7)}
+  .ccard .bk{background:var(--brand-red);color:var(--cream);font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;border-radius:8px;padding:9px 14px;text-decoration:none;white-space:nowrap}
+
+  /* ---------- Calendar / FAQ / cross-promo / close ---------- */
+  .cal{padding:72px 0}
+  .calgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-top:34px}
+  .calcard{background:var(--paper);border:1px solid var(--cream-3);border-radius:14px;padding:20px}
+  .calcard h4{font-family:var(--display);font-weight:600;font-size:20px}
+  .calcard .m{font-family:var(--mono);font-size:11px;color:var(--ink-muted);margin-top:4px}
+  .calcard .chip{display:inline-block;font-size:11px;font-weight:600;background:var(--cream-2);border:1px solid var(--cream-3);border-radius:999px;padding:5px 12px;margin-top:12px}
+  .faq{background:var(--cream-2);border-top:1px solid var(--cream-3);padding:64px 0}
+  .faq .q{background:var(--paper);border:1px solid var(--cream-3);border-radius:12px;padding:16px 20px;margin-top:10px;font-weight:600;font-size:14.5px;color:var(--ink-2)}
+  .promo{color:var(--cream);padding:56px 0}
+  .promo.lg{background:var(--emerald)}
+  .promo.cl{background:var(--royal)}
+  .promo .wrap{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}
+  .promo .k{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:oklch(0.972 0.008 80/.75)}
+  .promo h3{font-family:var(--display);font-weight:600;font-size:26px;margin-top:6px}
+  .promo p{font-size:13.5px;color:oklch(0.972 0.008 80/.88);margin-top:6px;max-width:52ch}
+  .promo .btn-solid{background:var(--cream);color:var(--ink);font-weight:600;font-size:14px;padding:12px 20px;border-radius:10px;text-decoration:none;white-space:nowrap}
+  .close{background:var(--navy-deep);color:var(--cream);text-align:center;padding:76px 0}
+  .close h2{font-family:var(--display);font-weight:600;font-size:clamp(2rem,4vw,2.8rem)}
+  .close h2 em{font-style:normal;color:var(--emerald-bright)}
+  .close p{margin-top:10px;color:oklch(0.972 0.008 80/.9)}
+  .close .ctas{display:flex;justify-content:center;gap:12px;margin-top:24px}
+  @media (max-width:760px){.band .grid,.band.flip .grid,.coach .grid{grid-template-columns:1fr}.band.flip .txt{order:1}.band.flip .art{order:2}}
+</style>
+</head>
+<body>
+<div class="mockup-tag">MOCKUP V1 · CAMPS · MENU + ONE BOOKING SURFACE</div>
+
+<!-- ============ TOP BANNER — owner-editable copy; notify-flavored until camps are seeded,
+     flips to the live nearest-deadline copy (leagues pattern) once inventory exists ============ -->
+<div class="deadline">
+  <div class="wrap">
+    <span class="msg">● <b>Winter break camp dates announce soon</b> · dates go fast when they drop</span>
+    <a class="cta" href="#calendar">Get notified →</a>
+  </div>
+</div>
+
+<!-- ============ HERO — four doors, one page ============ -->
+<section class="hero">
+  <div class="photo"></div><div class="grade"></div>
+  <div class="wrap">
+    <h1>Camp, all year long.</h1>
+    <p class="sub">Day camps when school&rsquo;s out, <b>skills and specialty camps while it&rsquo;s in</b> — every one of them coached rather than supervised, by the same people they see every week.</p>
+    <div class="paths">
+      <a class="ptile brk" href="#breaks">
+        <div class="k">School breaks &amp; closure days</div>
+        <h3>School&rsquo;s-out day camps</h3>
+        <div class="meta">Winter break · spring break · closure days</div>
+        <span class="arrow">→</span>
+      </a>
+      <a class="ptile smr" href="#summer">
+        <div class="k">June – August</div>
+        <h3>Summer day camp</h3>
+        <div class="meta">Weekly sessions all summer</div>
+        <span class="arrow">→</span>
+      </a>
+      <a class="ptile skl" href="#skills">
+        <div class="k">Through the year</div>
+        <h3>Soccer skills camps</h3>
+        <div class="meta">Technical camps on our curriculum</div>
+        <span class="arrow">→</span>
+      </a>
+      <a class="ptile spc" href="#specialty">
+        <div class="k">Announced through the year</div>
+        <h3>Specialty camps</h3>
+        <div class="meta">Goalie · defender · striker · tryout prep</div>
+        <span class="arrow">→</span>
+      </a>
+    </div>
+    <p class="crosslink">Looking for a weekly season instead? <a href="#">Youth leagues →</a> · Year-round training? <a href="#">Classes →</a></p>
+  </div>
+</section>
+
+<nav class="jump"><div class="wrap">
+  <a class="on" href="#breaks">The camps</a>
+  <a href="#day">The camp day</a>
+  <a href="#coach">Coaching</a>
+  <a href="#open">Book &amp; dates</a>
+  <a href="#calendar">Calendar</a>
+  <a href="#faq">FAQs</a>
+</div></nav>
+
+<!-- ============ 1. CAMP-TYPE BANDS — one full-bleed band per family ============ -->
+<section class="band brk" id="breaks"><div class="wrap"><div class="grid">
+  <div class="txt">
+    <div class="k">Winter break · spring break · school closure days</div>
+    <h3>School&rsquo;s-out day camps</h3>
+    <div class="ages">5 – 12 years old <span class="ph-tag">placeholder</span></div>
+    <p class="body">School&rsquo;s closed and work isn&rsquo;t. Drop off in the morning, pick up in the afternoon, and the hours in between are a real coached day — small groups, games that teach something, and the same curriculum that runs the rest of the year. Not a gym with a sitter.</p>
+    <div class="windows">● Winter break · late December&nbsp;&nbsp;&nbsp;● Spring break · late March&nbsp;&nbsp;&nbsp;● District closure days as they land</div>
+    <div class="detail">
+      <div class="dk">The day, roughly <span class="ph-tag">placeholder</span></div>
+      <p>Arrival games while everyone lands → a coached session → lunch and downtime → small-sided tournament all afternoon → pick-up. Phones stay in bags; nobody sits out.</p>
+    </div>
+    <div class="ctas">
+      <a class="btn-solid" href="/mockups/youth-camp-schools-out.html">Everything about school&rsquo;s-out camps →</a>
+      <a class="btn-line" href="#open">See dates</a>
+    </div>
+  </div>
+  <div class="art"></div>
+</div></div></section>
+
+<section class="band smr flip" id="summer"><div class="wrap"><div class="grid">
+  <div class="txt">
+    <div class="k">June – August · book by the week</div>
+    <h3>Summer day camp</h3>
+    <div class="ages">5 – 12 years old <span class="ph-tag">placeholder</span></div>
+    <p class="body">The big one. Weekly sessions all summer — full days that mix real training with the kind of playing kids actually remember. Book the weeks that fit your summer; every week stands on its own, so there&rsquo;s no falling behind.</p>
+    <div class="windows">● Weekly sessions, June through August · each week bookable on its own</div>
+    <div class="detail">
+      <div class="dk">The week, roughly <span class="ph-tag">placeholder</span></div>
+      <p>Every day mixes a real training block with games and free play; the week builds to a Friday tournament. Themes change week to week, so repeat weeks don&rsquo;t repeat.</p>
+    </div>
+    <div class="ctas">
+      <a class="btn-solid" href="#">Everything about summer camp →</a>
+      <a class="btn-line" href="#open">See summer weeks</a>
+    </div>
+  </div>
+  <div class="art"></div>
+</div></div></section>
+
+<section class="band skl" id="skills"><div class="wrap"><div class="grid">
+  <div class="txt">
+    <div class="k">Through the year · not break-bound</div>
+    <h3>Soccer skills camps</h3>
+    <div class="ages">By age group <span class="ph-tag">placeholder</span></div>
+    <p class="body">Multi-day technical camps run on the same written curriculum as our classes — touches, decisions, and coaches who explain the game while it&rsquo;s happening. A skills camp week moves your kid forward, measurably, and their regular coach sees the difference.</p>
+    <div class="detail">
+      <div class="dk">What they&rsquo;ll work on <span class="ph-tag">placeholder</span></div>
+      <p>First touch, 1v1s, finishing, and decision-making — where each kid starts gets assessed on day one, and what they worked on comes home with them at the end.</p>
+    </div>
+    <div class="ctas">
+      <a class="btn-solid" href="#">Everything about skills camps →</a>
+      <a class="btn-line" href="#open">See dates</a>
+    </div>
+  </div>
+  <div class="art"></div>
+</div></div></section>
+
+<section class="band spc flip" id="specialty"><div class="wrap"><div class="grid">
+  <div class="txt">
+    <div class="k">Short &amp; focused · announced through the year</div>
+    <h3>Specialty camps</h3>
+    <p class="body">Position-specific and goal-specific camps, announced as they&rsquo;re scheduled — deep work on one thing, for kids who know what they&rsquo;re chasing.</p>
+    <div class="spclist">
+      <div class="spcchip">Goalie camp<small>The position nobody else trains</small></div>
+      <div class="spcchip">Defender camp<small>Reading the game, not chasing it</small></div>
+      <div class="spcchip">Striker camp<small>Finishing, movement, composure</small></div>
+      <div class="spcchip">Tryout prep<small>Ready when the clubs are watching</small></div>
+    </div>
+    <div class="ctas">
+      <a class="btn-solid" href="#">Everything about specialty camps →</a>
+      <a class="btn-line" href="#calendar">Get notified when one drops</a>
+    </div>
+  </div>
+  <div class="art"></div>
+</div></div></section>
+
+<!-- ============ 2. THE CAMP DAY, UP FRONT — all values placeholder, ONE constant ============ -->
+<section class="commit" id="day"><div class="wrap">
+  <h2 class="serif">The camp day, <span class="tint">up front.</span> <span class="ph-tag">all values placeholder — owner tunes in one constant</span></h2>
+  <div class="fgrid">
+    <div class="f"><div class="k">Hours</div><div class="v">9:00am – 3:00pm</div></div>
+    <div class="f"><div class="k">Drop-off</div><div class="v">From 8:45am</div></div>
+    <div class="f"><div class="k">Pick-up</div><div class="v">By 3:15pm</div></div>
+    <div class="f"><div class="k">Lunch</div><div class="v">Pack it — two snack breaks</div></div>
+    <div class="f"><div class="k">Bring</div><div class="v">Water bottle, shin guards, indoor shoes</div></div>
+    <div class="f"><div class="k">Where</div><div class="v">Worthington Fieldhouse</div></div>
+  </div>
+  <p class="note">Every camp&rsquo;s card shows its own dates, ages and venue — the facts above are the standard day, and any camp that differs says so on its card.</p>
+</div></section>
+
+<!-- ============ 3. COACHING — the shipped YouthCoachSection ============ -->
+<section class="coach" id="coach"><div class="wrap"><div class="grid">
+  <div class="portrait"></div>
+  <div>
+    <h2>Camp is coached by <em>the people they see all year.</em></h2>
+    <p>Every camp day is run by our coaches on our written curriculum, under a Director of Coaching who spent nine years playing in MLS. The difference between a camp that fills a week and a camp that changes one is the person running it.</p>
+  </div>
+</div></div></section>
+
+<!-- ============ 4. BOOK — red flood + sheet; empty-notify state at launch, live cards when seeded ============ -->
+<section class="open" id="open">
+  <div class="wrap">
+    <h2>Book a camp.</h2>
+    <div class="liveline">LIVE FROM THE CATALOG — CARDS APPEAR HERE THE MOMENT A CAMP OPENS</div>
+  </div>
+</section>
+<div class="sheetwrap"><div class="wrap"><div class="sheet">
+  <div class="notifycard">
+    <div>
+      <div class="t">Nothing bookable today — be first in when it opens.</div>
+      <div class="s">Leave your email and you&rsquo;ll hear the moment camp dates drop. That&rsquo;s the launch state; the cards below show what renders once camps are seeded.</div>
+    </div>
+    <div class="row">
+      <input placeholder="you@email.com">
+      <button>Notify me</button>
+    </div>
+  </div>
+  <div class="samplebar"><span class="line"></span><span class="t">Sample cards — live from the catalog once seeded</span><span class="line"></span></div>
+  <div class="cardgrid">
+    <div class="ccard">
+      <div class="k">School&rsquo;s-out · winter break</div>
+      <h4>Winter Break Camp</h4>
+      <div class="m">Dec 21 – 23 · 9am – 3pm<br>Ages 5 – 12 · Worthington</div>
+      <div class="foot"><span class="pr">$145<small>3 days</small></span><a class="bk" href="#">Book →</a></div>
+    </div>
+    <div class="ccard">
+      <div class="k">Summer · week 1</div>
+      <h4>Summer Camp — Week of Jun 7</h4>
+      <div class="m">Jun 7 – 11 · 9am – 3pm<br>Ages 5 – 12 · Worthington</div>
+      <div class="foot"><span class="pr">$225<small>per week</small></span><a class="bk" href="#">Book →</a></div>
+    </div>
+    <div class="ccard">
+      <div class="k">Specialty · goalkeepers</div>
+      <h4>Goalie Camp</h4>
+      <div class="m">Jan 17 – 18 · 9am – 12pm<br>Ages 8 – 14 · Worthington</div>
+      <div class="foot"><span class="pr">$95<small>2 mornings</small></span><a class="bk" href="#">Book →</a></div>
+    </div>
+  </div>
+</div></div></div>
+
+<!-- ============ 5. CALENDAR — authored windows + notify per window ============ -->
+<section class="cal" id="calendar"><div class="wrap">
+  <h2 class="serif">The camp calendar.</h2>
+  <p class="lede">Planned windows for the year — leave your email on any of them and you&rsquo;ll hear the moment its dates open for booking.</p>
+  <div class="calgrid">
+    <div class="calcard"><h4>Winter break</h4><div class="m">Late Dec · school&rsquo;s-out camp</div><span class="chip">Get notified</span></div>
+    <div class="calcard"><h4>Spring break</h4><div class="m">Late Mar · school&rsquo;s-out camp</div><span class="chip">Get notified</span></div>
+    <div class="calcard"><h4>Summer</h4><div class="m">Jun – Aug · weekly day camp</div><span class="chip">Get notified</span></div>
+    <div class="calcard"><h4>Skills &amp; specialty</h4><div class="m">Announced through the year</div><span class="chip">Get notified</span></div>
+  </div>
+</div></section>
+
+<!-- ============ 6. FAQ ============ -->
+<section class="faq" id="faq"><div class="wrap">
+  <h2 class="serif">Questions parents ask.</h2>
+  <div class="q">What ages can come to camp?</div>
+  <div class="q">What does a camp day actually look like?</div>
+  <div class="q">Do I pack a lunch?</div>
+  <div class="q">What should my kid bring?</div>
+  <div class="q">Are camps soccer-only?</div>
+  <div class="q">Does my kid need to have played before?</div>
+  <div class="q">How do specialty camps get announced?</div>
+  <div class="q">What&rsquo;s the refund policy?</div>
+</div></section>
+
+<!-- ============ 7. CROSS-PROMOS ============ -->
+<section class="promo lg"><div class="wrap">
+  <div>
+    <div class="k">Also at Aspire</div>
+    <h3>Ready for game day?</h3>
+    <p>Youth leagues run by age group from U6 to U19 — developmental seasons where we build the teams, and competitive winter play.</p>
+  </div>
+  <a class="btn-solid" href="#">See youth leagues →</a>
+</div></section>
+<section class="promo cl"><div class="wrap">
+  <div>
+    <div class="k">Also at Aspire</div>
+    <h3>Training that runs all year.</h3>
+    <p>Small-group classes from 18 months to nineteen years — one pathway, one curriculum, the same coaches they&rsquo;ll see at camp.</p>
+  </div>
+  <a class="btn-solid" href="#">See classes →</a>
+</div></section>
+
+<!-- ============ 8. CLOSE ============ -->
+<section class="close"><div class="wrap">
+  <h2>The best week of <em>their year.</em></h2>
+  <p>Dates go fast when they drop — grab yours early, or get notified the moment they open.</p>
+  <div class="ctas">
+    <a class="btn btn-red" href="#open">Book a camp →</a>
+    <a class="btn btn-ghost" href="#calendar">Get notified →</a>
+  </div>
+</div></section>
+
+</body>
+</html>
