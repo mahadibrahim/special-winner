@@ -11,7 +11,6 @@ import {
   DIVISION_LEVELS,
   genderOptionsFor,
   levelOptionsFor,
-  skillLevelBadge,
   skillLevelShort,
   railTierBadge,
 } from "@/lib/leagues/division-filters";
@@ -182,32 +181,6 @@ describe("genderOptionsFor", () => {
   });
 });
 
-describe("skillLevelBadge", () => {
-  it("keeps the adult Tier X treatment", () => {
-    expect(skillLevelBadge("b")).toBe("Tier B");
-    expect(skillLevelBadge("open")).toBe("Tier OPEN");
-  });
-
-  it("renders youth tiers as words, no Tier prefix, no shouting", () => {
-    expect(skillLevelBadge("developmental")).toBe("Developmental");
-    expect(skillLevelBadge("competitive_a")).toBe("Competitive A");
-  });
-
-  it("renders nothing for an unset level", () => {
-    expect(skillLevelBadge(null)).toBe("");
-    expect(skillLevelBadge("")).toBe("");
-  });
-
-  it("echoes an unrecognised value instead of guessing", () => {
-    expect(skillLevelBadge("legacy_tier")).toBe("legacy_tier");
-  });
-
-  it("is case-insensitive, matching its sibling tierColorClass", () => {
-    expect(skillLevelBadge("B")).toBe("Tier B");
-    expect(skillLevelBadge("DEVELOPMENTAL")).toBe("Developmental");
-  });
-});
-
 describe("skillLevelShort", () => {
   it("renders an adult value as the bare uppercase letter", () => {
     expect(skillLevelShort("b")).toBe("B");
@@ -234,28 +207,45 @@ describe("skillLevelShort", () => {
   });
 });
 
-// The regression this locks in: skillLevelBadge alone produced "Tier B" for
-// adult, and the rail's mobile chip used to reuse that same string — losing
-// the pre-vocabulary "just the letter, all caps" mobile rendering. This test
-// pins both call sites' exact output so a future edit to railTierBadge (or a
-// future swap back to skillLevelBadge in the component) fails loudly instead
-// of silently shipping a customer-facing regression again.
+// The regression this locks in: a since-deleted single-string helper
+// (skillLevelBadge) produced "Tier B" for adult, and the rail's mobile chip
+// used to reuse that same string — losing the pre-vocabulary "just the
+// letter, all caps" mobile rendering. This test pins both call sites' exact
+// output so a future edit to railTierBadge (or a future swap back to a
+// shared single string in the component) fails loudly instead of silently
+// shipping a customer-facing regression again.
 describe("railTierBadge (registration rail desktop + mobile badge)", () => {
   it("adult: desktop is ALL CAPS with the Tier prefix, mobile is the bare letter", () => {
-    expect(railTierBadge("b")).toEqual({ desktop: "TIER B", mobile: "B" });
-    expect(railTierBadge("B")).toEqual({ desktop: "TIER B", mobile: "B" });
-    expect(railTierBadge("open")).toEqual({ desktop: "TIER OPEN", mobile: "OPEN" });
+    expect(railTierBadge("b")).toEqual({ desktop: "TIER B", mobile: "B", isAdult: true });
+    expect(railTierBadge("B")).toEqual({ desktop: "TIER B", mobile: "B", isAdult: true });
+    expect(railTierBadge("open")).toEqual({ desktop: "TIER OPEN", mobile: "OPEN", isAdult: true });
   });
 
   it("youth: desktop and mobile both render the plain label, no Tier prefix, no shouting", () => {
-    expect(railTierBadge("developmental")).toEqual({ desktop: "Developmental", mobile: "Developmental" });
-    expect(railTierBadge("competitive_a")).toEqual({ desktop: "Competitive A", mobile: "Competitive A" });
+    expect(railTierBadge("developmental")).toEqual({
+      desktop: "Developmental",
+      mobile: "Developmental",
+      isAdult: false,
+    });
+    expect(railTierBadge("competitive_a")).toEqual({
+      desktop: "Competitive A",
+      mobile: "Competitive A",
+      isAdult: false,
+    });
   });
 
   it("renders nothing for an unset level", () => {
-    expect(railTierBadge(null)).toEqual({ desktop: "", mobile: "" });
-    expect(railTierBadge(undefined)).toEqual({ desktop: "", mobile: "" });
-    expect(railTierBadge("")).toEqual({ desktop: "", mobile: "" });
+    expect(railTierBadge(null)).toEqual({ desktop: "", mobile: "", isAdult: false });
+    expect(railTierBadge(undefined)).toEqual({ desktop: "", mobile: "", isAdult: false });
+    expect(railTierBadge("")).toEqual({ desktop: "", mobile: "", isAdult: false });
+  });
+
+  // The rail keys its success-suffix casing off isAdult (issue #561): the
+  // adult badge appends " · REGISTERED" to match its ALL-CAPS string, youth
+  // appends " · Registered". A junk/legacy value must NOT claim isAdult —
+  // it renders echoed as-is, so it takes the plain-words suffix.
+  it("does not claim isAdult for unrecognised values", () => {
+    expect(railTierBadge("legacy_tier").isAdult).toBe(false);
   });
 });
 

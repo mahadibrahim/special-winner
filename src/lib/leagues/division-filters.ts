@@ -25,7 +25,10 @@ export const DIVISION_LEVELS = [...ADULT_LEVELS, ...YOUTH_LEVELS] as const;
 
 export type DivisionLevel = (typeof DIVISION_LEVELS)[number];
 
-/** Admin dropdown labels. For the customer-facing badge use skillLevelBadge. */
+/** Admin dropdown labels. Customer-facing badges use railTierBadge (the
+ *  registration rail, split desktop/mobile) or skillLevelShort (catalog
+ *  cards) — a single-string helper here has already caused one breakpoint
+ *  regression, so there deliberately isn't one. */
 export const DIVISION_LEVEL_LABEL: Record<DivisionLevel, string> = {
   a: "A · Elite",
   b: "B · Competitive",
@@ -63,30 +66,11 @@ export function divisionGenderLabel(value: string): string {
 }
 
 /**
- * The customer-facing level badge (registration rail).
- *
- * Adult keeps the established "Tier B" shouting. Youth gets the plain word a
- * parent understands — "Tier DEVELOPMENTAL" in a one-character badge is not a
- * thing anyone wants to read at checkout.
- *
- * Normalizes case before the vocabulary check — its sibling tierColorClass
- * (rail-content.ts) lowercases first, and both are called on the same
- * `skillLevel` field in the same component; a stray "B" vs "b" shouldn't
- * make them disagree.
- */
-export function skillLevelBadge(value: string | null | undefined): string {
-  if (!value) return "";
-  const k = value.trim().toLowerCase();
-  if ((ADULT_LEVELS as readonly string[]).includes(k)) return `Tier ${k.toUpperCase()}`;
-  return DIVISION_LEVEL_LABEL[k as DivisionLevel] ?? value;
-}
-
-/**
  * Short-form level badge — no "Tier" prefix. Adult values render as the bare
  * uppercase letter ("B"), "open" renders "Open", youth values render their
  * plain label. Used by catalog cards (SoccerOneLeaguesFinder,
  * divisions-finder) that already show a separate "Youth"/status chip and
- * don't want the "Tier" wording skillLevelBadge adds for the registration
+ * don't want the "TIER" wording railTierBadge adds for the registration
  * rail.
  */
 export function skillLevelShort(value: string | null | undefined): string {
@@ -102,6 +86,10 @@ export interface RailTierBadge {
   desktop: string;
   /** Mobile pinned-strip chip text, e.g. "B" (adult) or "Developmental" (youth). */
   mobile: string;
+  /** True when the value is an adult tier — the rail uses this to match any
+   *  appended suffix (" · REGISTERED") to the badge's ALL-CAPS treatment,
+   *  while youth suffixes stay plain words like the rest of the youth copy. */
+  isAdult: boolean;
 }
 
 /**
@@ -117,14 +105,14 @@ export interface RailTierBadge {
  * Youth renders the same plain label at both breakpoints, unchanged.
  */
 export function railTierBadge(value: string | null | undefined): RailTierBadge {
-  if (!value) return { desktop: "", mobile: "" };
+  if (!value) return { desktop: "", mobile: "", isAdult: false };
   const k = value.trim().toLowerCase();
   if ((ADULT_LEVELS as readonly string[]).includes(k)) {
     const letter = k.toUpperCase();
-    return { desktop: `TIER ${letter}`, mobile: letter };
+    return { desktop: `TIER ${letter}`, mobile: letter, isAdult: true };
   }
   const label = DIVISION_LEVEL_LABEL[k as DivisionLevel] ?? value;
-  return { desktop: label, mobile: label };
+  return { desktop: label, mobile: label, isAdult: false };
 }
 
 export interface VocabOption {
