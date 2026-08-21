@@ -70,6 +70,9 @@ export const SUPER_ADMIN_NAV: NavGroup[] = [
       { name: "Games", href: "/admin/games", icon: Trophy },
       { name: "Teams", href: "/admin/teams", icon: Shield },
       { name: "Registrations", href: "/admin/registrations", icon: ClipboardList },
+      // The forming-season interest list (#543) — leads live here, next to
+      // the seasons they raised a hand for.
+      { name: "Season interest", href: "/admin/season-interest", icon: Users },
       { name: "Age groups", href: "/admin/age-groups", icon: Baby },
       { name: "Game day", href: "/admin/game-day/today", icon: Activity },
     ],
