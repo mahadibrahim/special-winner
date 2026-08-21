@@ -381,7 +381,11 @@ export function DiscountCodesList() {
 
                 <div className="space-y-2">
                   <Label htmlFor="discountValue">
-                    {formData.discountType === "percentage" ? "Percentage" : "Amount (cents)"}
+                    {/* Dollars, not cents — the stored value renders as "$N off"
+                        and checkout subtracts $N. The old "(cents)" label was a
+                        footgun: entering 2500 expecting cents would create a
+                        $2,500-off code (issue #523). */}
+                    {formData.discountType === "percentage" ? "Percentage" : "Amount (dollars)"}
                   </Label>
                   <Input
                     id="discountValue"

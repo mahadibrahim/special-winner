@@ -157,7 +157,10 @@ export default function LeagueContextRail({ season, mode, step, stepCount, steps
       <aside className={`hidden lg:block self-start sticky top-24 rounded-2xl p-6 ${railBg}`}>
         {tier.desktop && (
           <span className={`inline-block rounded px-2 py-1 text-[10px] font-bold tracking-wider bg-cream ${tierColorClass(season.skillLevel)}`}>
-            {tier.desktop}{success ? " · Registered" : ""}
+            {/* Suffix casing tracks the badge: adult badges are ALL CAPS (the
+                pre-vocabulary CSS `uppercase` covered this suffix too), youth
+                badges are plain words and stay that way. See issue #561. */}
+            {tier.desktop}{success ? (tier.isAdult ? " · REGISTERED" : " · Registered") : ""}
           </span>
         )}
         <h2 className="font-display text-2xl mt-3 mb-1">{season.name}</h2>
