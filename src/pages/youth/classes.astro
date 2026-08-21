@@ -26,6 +26,7 @@ import StatementCards from "@/components/youth/bands/statement-cards.astro"
 import PricingCards from "@/components/youth/bands/pricing-cards.astro"
 import SlotGraphic from "@/components/youth/bands/slot-graphic.astro"
 import { PATHWAY, PATHWAY_DETAILS } from "@/lib/youth/landing-content"
+import { faqPageJsonLd } from "@/lib/seo/faq-jsonld"
 import { setMarketingEdgeCache } from "@/lib/http/edge-cache"
 
 const HERO_IMAGE = "/images/stock/youth-training.jpg"
@@ -197,7 +198,9 @@ const faqs: LandingFaqItem[] = [
   description="Youth sports classes in Columbus and Worthington, Ohio for 18 months to 19 years — small groups, real coaching, one pathway. See what's open and book online."
 >
   <Fragment slot="head">
-    <link rel="canonical" href={`${Astro.url.origin}/youth/classes`} />
+    {/* FAQPage rich-result schema — mirrors the LandingFaq items rendered
+        below, nothing more (issue #575). Canonical comes from BaseLayout. */}
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(faqPageJsonLd(faqs))} />
   </Fragment>
 
   <main id="main-content" class="flex-1">

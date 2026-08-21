@@ -15,7 +15,9 @@ import {
   CAMP_TYPES,
   CAMP_DAY_FACTS,
   CAMP_DAY_FACTS_NOTE,
+  CAMP_FINDER_EMPTY_BODY,
 } from "@/lib/youth/camp-page-content"
+import { faqPageJsonLd } from "@/lib/seo/faq-jsonld"
 import { setMarketingEdgeCache } from "@/lib/http/edge-cache"
 
 const { type } = Astro.params
@@ -36,12 +38,14 @@ const TONE_BG: Record<string, string> = {
   navy: "bg-navy-deep",
 }
 
-// The <title> uses the family name exactly as authored in the registry
-// (camp.name), matching the page's own display copy — no case transform.
-const pageTitle = `${camp.name} in Columbus & Worthington, Ohio — Aspire Sports`
 ---
 
-<BaseLayout title={pageTitle} description={camp.heroSub}>
+<BaseLayout title={camp.seoTitle} description={camp.heroSub}>
+  <Fragment slot="head">
+    {/* FAQPage rich-result schema — mirrors this family's LandingFaq items
+        rendered below, nothing more (issue #575). Canonical is BaseLayout's. */}
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(faqPageJsonLd(camp.faqs))} />
+  </Fragment>
   <main id="main-content" class="flex-1">
     {/* ---------- Hero — family tone; breadcrumb back to the hub ----------
         pt-24 lg:pt-28 inside the hero's top padding clears the fixed nav
@@ -99,16 +103,38 @@ const pageTitle = `${camp.name} in Columbus & Worthington, Ohio — Aspire Sport
 
         {
           camp.schedule.length > 0 ? (
+            // A real <table> — the timetable is genuinely tabular (time /
+            // activity), and row/header association is what screen readers
+            // get from table semantics that a div grid can't give (issue
+            // #576). The visual treatment is unchanged: the time cell keeps
+            // its fixed 150px column, rows keep the divider borders. The
+            // header row is visually hidden but read aloud.
             <div class="mt-[34px] border border-cream-3 rounded-2xl bg-paper overflow-hidden">
-              {camp.schedule.map((row) => (
-                <div class="grid gap-[18px] px-6 py-4 border-b border-cream-3 last:border-b-0 items-baseline sm:grid-cols-[150px_1fr]">
-                  <span class="font-mono text-[12px] tracking-[0.08em] text-brand-red font-medium">{row.time}</span>
-                  <span>
-                    <span class="font-semibold text-[15px] text-ink">{row.what}</span>
-                    <span class="block text-[13px] text-ink-muted mt-0.5">{row.why}</span>
-                  </span>
-                </div>
-              ))}
+              <table class="w-full border-collapse">
+                <caption class="sr-only">{camp.scheduleHeading}</caption>
+                <thead class="sr-only">
+                  <tr>
+                    <th scope="col">Time</th>
+                    <th scope="col">What happens</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {camp.schedule.map((row) => (
+                    <tr class="border-b border-cream-3 last:border-b-0">
+                      <th
+                        scope="row"
+                        class="align-baseline text-left font-mono text-[12px] tracking-[0.08em] text-brand-red font-medium pl-6 pr-0 py-4 sm:w-[150px] whitespace-nowrap"
+                      >
+                        {row.time}
+                      </th>
+                      <td class="align-baseline px-6 py-4">
+                        <span class="font-semibold text-[15px] text-ink">{row.what}</span>
+                        <span class="block text-[13px] text-ink-muted mt-0.5">{row.why}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : (
             <div class="grid gap-3.5 mt-[34px]" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">
@@ -191,6 +217,7 @@ const pageTitle = `${camp.name} in Columbus & Worthington, Ohio — Aspire Sport
           sectionId={`youth-camps-${camp.slug}`}
           cardVariant="youth-band"
           headerHidden
+          emptyBody={CAMP_FINDER_EMPTY_BODY}
         />
       </div>
     </div>

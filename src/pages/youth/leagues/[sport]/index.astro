@@ -67,7 +67,6 @@ if (data.catalogOk) setMarketingEdgeCache(Astro);
   description={sport.metaDescription}
 >
   <Fragment slot="head">
-    <link rel="canonical" href={`${Astro.url.origin}/youth/leagues/${sport.slug}`} />
     <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbSchema)} />
     <script type="application/ld+json" is:inline set:html={JSON.stringify(faqSchema)} />
   </Fragment>

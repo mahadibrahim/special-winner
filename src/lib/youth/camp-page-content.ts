@@ -44,6 +44,9 @@ export interface CampNamedCamp {
 export interface CampType {
   slug: CampTypeSlug
   name: string
+  /** <title> for the family page — Title-Case with the head terms ("Youth",
+   *  "Soccer") the display name deliberately drops (issue #575). */
+  seoTitle: string
   /** Band/hero tone — maps to token backgrounds on the pages. */
   tone: "royal" | "emerald" | "red" | "navy"
   /** When it runs — hero-tile kicker and band kicker (real info, not an eyebrow). */
@@ -88,6 +91,11 @@ export const CAMP_DAY_FACTS: CampFact[] = [
 
 export const CAMP_DAY_FACTS_NOTE =
   "Every camp's card shows its own dates, ages and venue — the facts above are the standard day, and any camp that differs says so on its card."
+
+/** Empty-state body for the camps booking finders — the shared default says
+ *  "blocks and seasons", which is classes/leagues vocabulary (issue #574). */
+export const CAMP_FINDER_EMPTY_BODY =
+  "New camps open through the year — leave your email and you'll hear the moment the next one does."
 
 /** Top-banner copy (owner-editable). Static until camps are seeded; revisit
  *  to the leagues-style live deadline line once inventory exists. */
@@ -149,6 +157,8 @@ export const CAMP_TYPES: CampType[] = [
   {
     slug: "schools-out",
     name: "School's-out day camps",
+    seoTitle:
+      "School's-Out Youth Day Camps in Columbus & Worthington, Ohio — Aspire Sports",
     tone: "royal",
     kicker: "Winter break · spring break · school closure days",
     tileMeta: "Winter break · spring break · closure days",
@@ -196,6 +206,7 @@ export const CAMP_TYPES: CampType[] = [
   {
     slug: "summer",
     name: "Summer day camp",
+    seoTitle: "Youth Summer Day Camp in Columbus & Worthington, Ohio — Aspire Sports",
     tone: "emerald",
     kicker: "June – August · book by the week",
     tileMeta: "Weekly sessions all summer",
@@ -240,6 +251,7 @@ export const CAMP_TYPES: CampType[] = [
   {
     slug: "skills",
     name: "Soccer skills camps",
+    seoTitle: "Youth Soccer Skills Camps in Columbus & Worthington, Ohio — Aspire Sports",
     tone: "red",
     kicker: "Through the year · not break-bound",
     tileMeta: "Technical camps on our curriculum",
@@ -281,6 +293,8 @@ export const CAMP_TYPES: CampType[] = [
   {
     slug: "specialty",
     name: "Specialty camps",
+    seoTitle:
+      "Youth Soccer Goalie, Striker & Tryout-Prep Camps in Columbus, Ohio — Aspire Sports",
     tone: "navy",
     kicker: "Short & focused · announced through the year",
     tileMeta: "Goalie · defender · striker · tryout prep",

@@ -29,7 +29,9 @@ import {
   CAMP_BANNER,
   CAMP_CALENDAR,
   CAMP_HUB_FAQS,
+  CAMP_FINDER_EMPTY_BODY,
 } from "@/lib/youth/camp-page-content"
+import { faqPageJsonLd } from "@/lib/seo/faq-jsonld"
 import { setMarketingEdgeCache } from "@/lib/http/edge-cache"
 
 const HERO_IMAGE = "/images/stock/youth-training.jpg"
@@ -75,6 +77,11 @@ const JUMP_ITEMS = [
   title="Youth Sports Camps in Columbus & Worthington, Ohio — Aspire Sports"
   description="Youth camps in Columbus and Worthington, Ohio — day camps when school's out, skills and specialty camps through the year. Coached rather than supervised. See dates and book online."
 >
+  <Fragment slot="head">
+    {/* FAQPage rich-result schema — mirrors the LandingFaq items rendered
+        below, nothing more (issue #575). Canonical comes from BaseLayout. */}
+    <script type="application/ld+json" is:inline set:html={JSON.stringify(faqPageJsonLd(CAMP_HUB_FAQS))} />
+  </Fragment>
   <main id="main-content" class="flex-1">
     {/* ---------- Top banner — owner-editable copy; static until camps are
         seeded (no live inventory to compute a deadline from), then revisit to
@@ -121,7 +128,10 @@ const JUMP_ITEMS = [
                 <div class={`font-mono text-[9.5px] tracking-[0.16em] uppercase ${TONE_KICKER[t.tone]}`}>
                   {t.kicker}
                 </div>
-                <h2 class="font-display font-semibold text-[22px] mt-1.5">{t.name}</h2>
+                {/* Not a heading: the band below carries this name as the real
+                    section <h2>; doubling it here gave the page eight H2s,
+                    four duplicated (issue #576). Tiles are navigation. */}
+                <span class="block font-display font-semibold text-[22px] mt-1.5">{t.name}</span>
                 <div class="font-mono text-[10.5px] mt-1.5 text-cream/85">{t.tileMeta}</div>
                 <span class="absolute right-[18px] bottom-3.5 font-semibold text-lg" aria-hidden="true">→</span>
               </a>
@@ -282,6 +292,7 @@ const JUMP_ITEMS = [
           sectionId="youth-camps"
           cardVariant="youth-band"
           headerHidden
+          emptyBody={CAMP_FINDER_EMPTY_BODY}
         />
       </div>
     </div>
