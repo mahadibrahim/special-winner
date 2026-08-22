@@ -6,6 +6,7 @@ import { z } from "zod";
 import { stripe } from "@/lib/stripe/client";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 import { isRegistrationClosed } from "@/lib/programs/registration-window";
+import { seasonTeamCapReached, TEAM_CAP_MESSAGE } from "@/lib/registrations/team-capacity";
 import { effectiveTeamPriceCents } from "@/lib/programs/early-bird";
 import { CAPTAIN_DEPOSIT_CENTS } from "@/lib/registrations/team-deposit";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
@@ -77,12 +78,20 @@ export const POST: APIRoute = async (context) => {
       earlyBirdTeamPriceCents: seasons.earlyBirdTeamPriceCents,
       registrationCloses: seasons.registrationCloses,
       startDate: seasons.startDate,
+      maxTeams: seasons.maxTeams,
     })
     .from(seasons)
     .where(eq(seasons.id, seasonId))
     .limit(1);
   if (!season) return json({ error: "Season not found" }, 404);
   if (isRegistrationClosed(season)) return json({ error: "Registration for this season has closed" }, 400);
+
+  // Team cap (#429): gate BEFORE the deposit intent is minted — never take a
+  // $200 deposit for a slot that doesn't exist. finalize deliberately doesn't
+  // re-reject (money already taken; see team-capacity.ts).
+  if (await seasonTeamCapReached(db, seasonId, season.maxTeams)) {
+    return json({ error: TEAM_CAP_MESSAGE }, 409);
+  }
 
   const listTeamFeeCents = season.teamPriceCents ?? season.priceCents;
   const effectiveFeeCents = effectiveTeamPriceCents(season, listTeamFeeCents);

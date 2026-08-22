@@ -43,6 +43,7 @@ interface Season {
   endDate: string
   registrationCloses?: string | null
   maxParticipants: number | null
+  maxTeams?: number | null
   priceCents: number
   teamPriceCents: number | null
   earlyBirdDeadline: string | null
@@ -175,27 +176,33 @@ function fmtUsd(cents: number): string {
 
 /**
  * Capacity label. Two honesty rules, both verified against the enforcement
- * code (create-registration.ts):
+ * code (create-registration.ts / team-capacity.ts):
  *
  * 1. The admin GET returns no registered count, so a "spots left" figure
- *    can't be computed here — maxParticipants is the CAP, labeled as such.
- * 2. maxParticipants counts PEOPLE, not teams: the capacity gate compares
- *    confirmed `registrations` rows (one per player) and only runs on the
- *    individual/free-agent path. Team signups never touch it — rosters are
- *    capped per-team by teams.maxRosterSize instead. So the label says
- *    "players", says "solo" when team mode is also on, and flags the cap as
- *    unused on team-only seasons (where nothing enforces it).
+ *    can't be computed here — the caps are CAPS, labeled as such.
+ * 2. maxParticipants counts PEOPLE on the solo path only; maxTeams (#429)
+ *    caps TEAM entries at the public team-registration doors. Each cap is
+ *    only claimed for the mode it actually gates: a player cap on a
+ *    team-only season is flagged unused (nothing enforces it there), and a
+ *    team figure only renders when maxTeams is set.
  */
 function capacityLabel(s: Season): string {
   const modes = s.signupModes ?? ["individual"]
   const solo = modes.includes("individual")
   const team = modes.includes("team")
-  if (s.maxParticipants == null) return "No player cap"
-  const n = s.maxParticipants
-  const noun = n === 1 ? "player" : "players"
-  if (!solo && team) return `Cap ${n} unused (team-only)`
-  if (solo && team) return `${n} solo ${noun} max`
-  return `${n} ${noun} max`
+  const teamPart =
+    team && s.maxTeams != null ? `${s.maxTeams} ${s.maxTeams === 1 ? "team" : "teams"} max` : null
+  let playerPart: string | null = null
+  if (s.maxParticipants != null) {
+    const n = s.maxParticipants
+    const noun = n === 1 ? "player" : "players"
+    if (!solo && team) playerPart = `player cap ${n} unused (team-only)`
+    else if (solo && team) playerPart = `${n} solo ${noun} max`
+    else playerPart = `${n} ${noun} max`
+  }
+  const parts = [teamPart, playerPart].filter((p): p is string => p !== null)
+  if (parts.length === 0) return team && solo ? "No caps" : team ? "No team cap" : "No player cap"
+  return parts.join(" · ")
 }
 
 /** Rounded filter chip row with per-option counts, catalog idiom. */
@@ -272,6 +279,7 @@ export function SeasonsList() {
     endDate: "",
     registrationClosesDate: "",
     maxParticipants: "",
+    maxTeams: "",
     priceCents: "",
     teamPriceCents: "",
     earlyBirdDeadlineDate: "",
@@ -351,6 +359,7 @@ export function SeasonsList() {
       endDate: today,
       registrationClosesDate: "",
       maxParticipants: "",
+    maxTeams: "",
       priceCents: "",
       teamPriceCents: "",
     earlyBirdDeadlineDate: "",
@@ -392,6 +401,7 @@ export function SeasonsList() {
         ? zonedCalendarDate(season.registrationCloses, ORG_DEFAULT_TIMEZONE)
         : "",
       maxParticipants: season.maxParticipants?.toString() || "",
+      maxTeams: season.maxTeams?.toString() || "",
       priceCents: (season.priceCents / 100).toString(),
       teamPriceCents: season.teamPriceCents != null ? (season.teamPriceCents / 100).toString() : "",
       earlyBirdDeadlineDate: season.earlyBirdDeadline
@@ -433,6 +443,7 @@ export function SeasonsList() {
       ageGroupId: source.ageGroup?.id || "",
       venueId: source.venueId || "",
       maxParticipants: source.maxParticipants?.toString() || "",
+      maxTeams: source.maxTeams?.toString() || "",
       priceCents: (source.priceCents / 100).toString(),
       teamPriceCents: source.teamPriceCents != null ? (source.teamPriceCents / 100).toString() : "",
       earlyBirdDeadlineDate: source.earlyBirdDeadline
@@ -488,6 +499,7 @@ export function SeasonsList() {
           ? zonedEndOfDayUtcIso(formData.registrationClosesDate, ORG_DEFAULT_TIMEZONE)
           : null,
         maxParticipants: formData.maxParticipants ? parseInt(formData.maxParticipants) : null,
+        maxTeams: formData.allowTeam && formData.maxTeams ? parseInt(formData.maxTeams) : null,
         priceCents: Math.round(parseFloat(formData.priceCents || "0") * 100),
         teamPriceCents: formData.allowTeam && formData.teamPriceCents
           ? Math.round(parseFloat(formData.teamPriceCents) * 100)
@@ -1341,10 +1353,28 @@ export function SeasonsList() {
                   />
                   <p className="text-xs text-ink-muted">
                     Caps individual / free-agent registrations only — once reached, new solo
-                    signups go to the waitlist. Team signups are NOT counted against this;
-                    each team is capped by its own roster size. Leave blank for no cap.
+                    signups go to the waitlist. Team signups are capped separately by Max
+                    teams below. Leave blank for no cap.
                   </p>
                 </div>
+                {formData.allowTeam && (
+                  <div className="space-y-2">
+                    <Label htmlFor="maxTeams">Max teams (team entries)</Label>
+                    <Input
+                      id="maxTeams"
+                      type="number"
+                      min="1"
+                      value={formData.maxTeams}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, maxTeams: e.target.value }))}
+                      placeholder="12"
+                    />
+                    <p className="text-xs text-ink-muted">
+                      Caps public team registrations for this season — at the cap, new team
+                      reservations are rejected before any deposit is taken. Admin-created
+                      teams (scaffold / clone) are not blocked. Leave blank for no cap.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">

@@ -4,6 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { CARD_CLASS, DONE_CARD_CLASS, INPUT_CLASS, PRIMARY_BTN } from "./card-styles";
 import { getBrandTheme, type BrandId } from "@/lib/branding/themes";
+import {
+  waiverConsentVariant,
+  waiverAssentSentence,
+} from "@/lib/consents/waiver-consent-language";
 
 /**
  * The waiver names a legal entity, and this card is SHARED — the standalone
@@ -83,9 +87,10 @@ export function WaiverCard({
     );
   }
 
-  const acceptLabel = isMinor
-    ? `I am the parent or legal guardian of ${playerName} and accept these terms on their behalf.`
-    : "I have read and accept these terms.";
+  // Shared with the waiver endpoint (waiver-consent-language.ts), which
+  // persists this exact sentence onto the signed record (#398) — the screen
+  // and the durable record must always say the same words.
+  const acceptLabel = waiverAssentSentence(waiverConsentVariant(isMinor), playerName);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -90,6 +90,12 @@ export const fieldRentals = pgTable(
     waiverSigned: boolean("waiver_signed").notNull().default(false),
     waiverSignedAt: timestamp("waiver_signed_at", { withTimezone: true }),
     waiverSignedBy: text("waiver_signed_by"),
+    // Which consent language the signer actually saw (#398): 'adult' |
+    // 'guardian', plus the literal assent sentence. A liability record that
+    // can't prove which words were agreed to proves very little. Null on
+    // rows signed before this shipped.
+    waiverConsentVariant: varchar("waiver_consent_variant", { length: 10 }),
+    waiverConsentText: text("waiver_consent_text"),
     checkedInAt: timestamp("checked_in_at", { withTimezone: true }),
     checkedInByUserId: uuid("checked_in_by_user_id").references(() => users.id, {
       onDelete: "set null",

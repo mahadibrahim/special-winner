@@ -1,0 +1,2 @@
+DROP INDEX IF EXISTS "drop_in_bookings_one_active_per_user_session_v2";--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "drop_in_bookings_one_active_per_participant_session_v3" ON "drop_in_bookings" USING btree ("session_id",COALESCE("family_member_id", "user_id")) WHERE status IN ('confirmed', 'waitlisted', 'pending_claim', 'pending_payment');

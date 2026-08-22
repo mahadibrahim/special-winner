@@ -8,6 +8,7 @@ import { createDepositIntentWithSavedCard } from "@/lib/stripe/saved-cards";
 import { stripe } from "@/lib/stripe/client";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
 import { isRegistrationClosed } from "@/lib/programs/registration-window";
+import { seasonTeamCapReached, TEAM_CAP_MESSAGE } from "@/lib/registrations/team-capacity";
 import { effectiveTeamPriceCents } from "@/lib/programs/early-bird";
 import { CAPTAIN_DEPOSIT_CENTS } from "@/lib/registrations/team-deposit";
 import { upsertGuestUser } from "@/lib/registrations/upsert-guest-user";
@@ -159,6 +160,7 @@ export const POST: APIRoute = async (context) => {
         earlyBirdTeamPriceCents: seasons.earlyBirdTeamPriceCents,
         registrationCloses: seasons.registrationCloses,
         startDate: seasons.startDate,
+        maxTeams: seasons.maxTeams,
       })
       .from(seasons)
       .where(eq(seasons.id, seasonId))
@@ -189,30 +191,51 @@ export const POST: APIRoute = async (context) => {
     const listTeamFeeCents = season.teamPriceCents ?? season.priceCents;
     const teamFeeCents = effectiveTeamPriceCents(season, listTeamFeeCents);
 
-    const inserted = await db
-      .insert(teamRegistrations)
-      .values({
-        organizationId: org.id,
-        seasonId,
-        captainUserId,
-        captainEmail,
-        captainName,
-        teamName,
-        inviteToken,
-        notes,
-        status: "forming",
-        brand,
-        teamFeeCents,
-        depositCents: CAPTAIN_DEPOSIT_CENTS,
-        paymentDeadline: season.registrationCloses,
-        backstopConsentedAt: new Date(),
-      })
-      .returning({ id: teamRegistrations.id });
-
-    teamRegistrationId = inserted[0]?.id;
-    if (!teamRegistrationId) {
-      throw new Error("team_registrations insert returned no id");
+    // Team cap (#429): count + insert inside one transaction with the season
+    // row locked, so two captains racing for the last slot serialize — the
+    // same lock-first pattern as the walk-in capacity gate.
+    const capResult = await db.transaction(
+      async (tx): Promise<{ kind: "created"; id: string } | { kind: "cap_full" }> => {
+        await tx
+          .select({ id: seasons.id })
+          .from(seasons)
+          .where(eq(seasons.id, seasonId))
+          .for("update");
+        if (await seasonTeamCapReached(tx, seasonId, season.maxTeams)) {
+          return { kind: "cap_full" };
+        }
+        const inserted = await tx
+          .insert(teamRegistrations)
+          .values({
+            organizationId: org.id,
+            seasonId,
+            captainUserId,
+            captainEmail,
+            captainName,
+            teamName,
+            inviteToken,
+            notes,
+            status: "forming",
+            brand,
+            teamFeeCents,
+            depositCents: CAPTAIN_DEPOSIT_CENTS,
+            paymentDeadline: season.registrationCloses,
+            backstopConsentedAt: new Date(),
+          })
+          .returning({ id: teamRegistrations.id });
+        const id = inserted[0]?.id;
+        if (!id) throw new Error("team_registrations insert returned no id");
+        return { kind: "created", id };
+      },
+    );
+    if (capResult.kind === "cap_full") {
+      return new Response(JSON.stringify({ error: TEAM_CAP_MESSAGE }), {
+        status: 409,
+        headers: { "Content-Type": "application/json" },
+      });
     }
+
+    teamRegistrationId = capResult.id;
     const phSessionId = request.headers.get("X-PostHog-Session-Id") || undefined;
     return await finishWithDepositIntent({
       teamRegistrationId,
