@@ -187,4 +187,45 @@ describe("POST /api/dropin/guest-checkout", () => {
       .where(eq(dropInBookings.id, json.bookingId));
     expect(booking.userId).toBe(existing.id);
   });
+
+  it("a gmail dot-variant attaches to the SAME account — no duplicate user (#458)", async () => {
+    // The drop-in path used to create users with its own bare insert that
+    // never computed emailCanonical, so john.doe@gmail.com and
+    // johndoe@gmail.com minted two accounts — the exact gap #449 closed for
+    // the solo/team paths via the shared upsertGuestUser (which this path
+    // now uses too).
+    const uniq = Date.now();
+    const original = `dedupe.dropin.${uniq}@gmail.com`;
+    const variant = `dedupedropin${uniq}@gmail.com`; // dots removed — same canonical
+
+    const first = await apiFetch(ENDPOINT, {
+      method: "POST",
+      body: JSON.stringify(guestBody((await freeSessionInDefaultOrg()).sessionId, original)),
+    });
+    expect(first.status).toBe(200);
+    expect((await first.json()).wasNewUser).toBe(true);
+
+    // A DIFFERENT session (the duplicate-booking guard keys on session+user).
+    const second = await apiFetch(ENDPOINT, {
+      method: "POST",
+      body: JSON.stringify(guestBody((await freeSessionInDefaultOrg()).sessionId, variant)),
+    });
+    expect(second.status).toBe(200);
+    const secondJson = await second.json();
+    expect(secondJson.wasNewUser, "the dot-variant must collide, not mint a user").toBe(false);
+    // Existing-account semantics apply: no session cookie for the variant.
+    expect(second.headers.get("set-cookie") ?? "").not.toContain("auth_session");
+
+    const db = getDb();
+    const rows = await db
+      .select({ id: users.id, email: users.email })
+      .from(users)
+      .where(eq(users.email, original));
+    expect(rows, "exactly one account holds the canonical email").toHaveLength(1);
+    const variantRows = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, variant));
+    expect(variantRows, "the variant spelling must not exist as its own user").toHaveLength(0);
+  });
 });
