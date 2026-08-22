@@ -95,6 +95,11 @@ export const seasons = pgTable(
     registrationCloses: timestamp("registration_closes"),
     earlyBirdDeadline: timestamp("early_bird_deadline"),
     maxParticipants: integer("max_participants"),
+    // Season-level cap on TEAM entries (#429) — maxParticipants only ever
+    // capped solo players; team creation had no season cap at all. Null = no
+    // cap. Enforced at the pre-payment doors (team-registrations index +
+    // prepare); admin-side team creation (scaffold/clone) bypasses by design.
+    maxTeams: integer("max_teams"),
     minParticipants: integer("min_participants"),
     // Individual / free-agent price (always present). For team-only
     // leagues this duplicates teamPriceCents and is hidden by the UI.

@@ -76,16 +76,44 @@ export async function processStopKeyword(
 }
 
 /**
- * Process a START keyword — re-opts the phone in for SMS in every org that has
- * it on file. Like STOP, it is scoped to the SMS channel: a text message says
- * nothing about the sender's WhatsApp consent.
+ * Process a START keyword. Scoped to the SMS channel like STOP: a text
+ * message says nothing about the sender's WhatsApp consent.
+ *
+ * Unlike STOP, START must NOT apply org-wide by default (#402). STOP may be
+ * over-applied — the same sender number, and over-applying an opt-OUT can
+ * only reduce messages. Over-applying an opt-IN manufactures consent: a
+ * `pending` row in an org that never contacted this person must never be
+ * promoted to opted_in by a text the sender aimed at a different org. That
+ * asymmetry is exactly what TCPA (and a 10DLC carrier reviewer) cares about.
+ *
+ * Two modes:
+ * - `organizationId` given (a YES/START reply to THAT org's welcome text):
+ *   opt in this phone's rows in that org, whatever their status — the org
+ *   just contacted them and they replied yes.
+ * - No organizationId (a bare START with no pending welcome): RESTORE only —
+ *   flip rows already `opted_out` back to opted_in, in whichever orgs they
+ *   had opted out. Pending rows stay pending, and the original optInSource
+ *   is preserved (this restores consent that existed; it doesn't create it).
  */
 export async function processStartKeyword(
   phone: string,
   keyword: string,
+  opts: { organizationId?: string } = {},
 ): Promise<number> {
   const db = getDb();
   const now = new Date();
+
+  const scope = opts.organizationId
+    ? and(
+        eq(phoneOptIns.phone, phone),
+        eq(phoneOptIns.channel, "sms"),
+        eq(phoneOptIns.organizationId, opts.organizationId),
+      )
+    : and(
+        eq(phoneOptIns.phone, phone),
+        eq(phoneOptIns.channel, "sms"),
+        eq(phoneOptIns.status, "opted_out"),
+      );
 
   const result = await db
     .update(phoneOptIns)
@@ -94,10 +122,12 @@ export async function processStartKeyword(
       optedInAt: now,
       optedOutAt: null,
       stopKeywordTriggered: null,
-      optInSource: "welcome_reply_yes",
+      // Only a welcome-reply YES gets the welcome source; a bare-START
+      // restore keeps the row's original consent provenance.
+      ...(opts.organizationId ? { optInSource: "welcome_reply_yes" } : {}),
       updatedAt: now,
     })
-    .where(and(eq(phoneOptIns.phone, phone), eq(phoneOptIns.channel, "sms")))
+    .where(scope)
     .returning({ id: phoneOptIns.id });
 
   return result.length;

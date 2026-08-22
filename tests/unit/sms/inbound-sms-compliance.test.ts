@@ -104,14 +104,34 @@ describe("handleInboundSmsCompliance — records opt-out/in, reply held by defau
     expect(sendReply).not.toHaveBeenCalled();
   });
 
-  it("START records the opt-in", async () => {
+  it("START with a pending welcome scopes the opt-in to THAT org (#402)", async () => {
     const processStart = vi.fn().mockResolvedValue(1);
+    const findPending = vi
+      .fn()
+      .mockResolvedValue({ id: "row-1", organizationId: "org-a" });
     const res = await handleInboundSmsCompliance(parsed("YES"), {
       processStop: vi.fn(),
       processStart,
+      findPending,
       sendReply: vi.fn(),
     });
-    expect(processStart).toHaveBeenCalledWith("+15712256138", "YES");
+    // The org whose welcome text this YES answers — never org-wide, which
+    // would promote pending rows in orgs that never contacted this person.
+    expect(processStart).toHaveBeenCalledWith("+15712256138", "YES", {
+      organizationId: "org-a",
+    });
+    expect(res).toMatchObject({ kind: "start", recorded: true });
+  });
+
+  it("START with no pending welcome passes no org — restore-only semantics", async () => {
+    const processStart = vi.fn().mockResolvedValue(1);
+    const res = await handleInboundSmsCompliance(parsed("START"), {
+      processStop: vi.fn(),
+      processStart,
+      findPending: vi.fn().mockResolvedValue(null),
+      sendReply: vi.fn(),
+    });
+    expect(processStart).toHaveBeenCalledWith("+15712256138", "START", {});
     expect(res).toMatchObject({ kind: "start", recorded: true });
   });
 

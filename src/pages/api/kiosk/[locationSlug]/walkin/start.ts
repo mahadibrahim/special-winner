@@ -52,7 +52,7 @@
  *   9. Return { token, url, bookingId, amountDueCents }
  */
 import type { APIRoute } from "astro";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInSessions, dropInBookings, dropInRateCard } from "@/lib/db/schema/drop-in";
 import { users } from "@/lib/db/schema/users";
@@ -344,14 +344,28 @@ export const POST: APIRoute = async ({ params, request, clientAddress, locals })
         return { kind: "session_full" };
       }
 
+      // Duplicate check keys on the PARTICIPANT, not the booker (#397).
+      // A minor booking carries the parent's userId with the child in
+      // familyMemberId — keying on userId alone 409'd a parent's second
+      // child as a duplicate of the first. familyMemberId NULL means "the
+      // booking's user is the participant" (adult walk-ins, online drop-ins),
+      // so the adult predicate also requires NULL: a parent who walked a
+      // child in can still walk themselves in. The participant-keyed
+      // partial unique index (_v3, COALESCE(family_member_id, user_id))
+      // backstops the same rule at the DB layer.
       const [existingActive] = await tx
         .select({ id: dropInBookings.id })
         .from(dropInBookings)
         .where(
           and(
             eq(dropInBookings.sessionId, session.id),
-            eq(dropInBookings.userId, bookerUserId),
             inArray(dropInBookings.status, ACTIVE_BOOKING_STATUSES),
+            bookingFamilyMemberId
+              ? eq(dropInBookings.familyMemberId, bookingFamilyMemberId)
+              : and(
+                  eq(dropInBookings.userId, bookerUserId),
+                  isNull(dropInBookings.familyMemberId),
+                ),
           ),
         )
         .limit(1);

@@ -73,6 +73,8 @@ describe("POST /api/self-serve/[token]/waiver", () => {
         waiverSigned: fieldRentals.waiverSigned,
         waiverSignedBy: fieldRentals.waiverSignedBy,
         waiverSignedAt: fieldRentals.waiverSignedAt,
+        waiverConsentVariant: fieldRentals.waiverConsentVariant,
+        waiverConsentText: fieldRentals.waiverConsentText,
       })
       .from(fieldRentals)
       .where(eq(fieldRentals.id, rentalId))
@@ -81,6 +83,10 @@ describe("POST /api/self-serve/[token]/waiver", () => {
     expect(row.waiverSigned).toBe(true);
     expect(row.waiverSignedBy).toBe("Test Renter");
     expect(row.waiverSignedAt).not.toBeNull();
+    // #398: the record proves which consent language was shown. A rental
+    // renter signs for themselves — adult variant, adult sentence.
+    expect(row.waiverConsentVariant).toBe("adult");
+    expect(row.waiverConsentText).toBe("I have read and accept these terms.");
   });
 
   it("returns 422 when acceptedName is empty", async () => {

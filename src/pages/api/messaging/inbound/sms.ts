@@ -68,15 +68,20 @@ export const POST: APIRoute = async ({ request }) => {
     return twimlResponse(HELP_RESPONSE);
   }
   if (compliance.kind === "start") {
-    // Check if this is a reply to a pending opt-in welcome
+    // Check if this is a reply to a pending opt-in welcome. If so, the
+    // consent belongs to THAT org only (#402) — a YES aimed at the org that
+    // just texted them must not promote pending rows other orgs hold.
     const pending = await findPendingOptIn(normalized);
     if (pending) {
-      await processStartKeyword(normalized, compliance.keyword);
+      await processStartKeyword(normalized, compliance.keyword, {
+        organizationId: pending.organizationId,
+      });
       return twimlResponse(
         "You're all set. We'll send schedule updates and reminders here. Ask anything.",
       );
     }
-    // Otherwise it's a general re-opt-in
+    // Otherwise it's a general re-opt-in: restores previously-opted-out
+    // rows only; never flips a pending row to opted_in.
     await processStartKeyword(normalized, compliance.keyword);
     return twimlResponse(START_RESPONSE);
   }

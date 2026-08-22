@@ -20,6 +20,10 @@ import { consents } from "@/lib/db/schema/consents";
 import { verifyToken } from "@/lib/check-in/tokens-db";
 import { resolveSigner, asSelfServiceKind } from "@/lib/check-in/resolve-signer";
 import { resolveActiveLiabilityWaiver } from "@/lib/consents/active-waiver";
+import {
+  waiverConsentVariant,
+  waiverAssentSentence,
+} from "@/lib/consents/waiver-consent-language";
 
 export const prerender = false;
 
@@ -59,6 +63,23 @@ export const POST: APIRoute = async ({ params, request }) => {
   const now = new Date();
   const db = getDb();
 
+  // Resolve the signer ONCE, before writing — resolveSigner's isMinor is the
+  // same signal WaiverCard used to pick the consent sentence, so the record
+  // can persist which language was actually shown (#398). A resolution
+  // failure falls back to the adult shape, mirroring resolve-signer's own
+  // philosophy (and matching what the card would have rendered).
+  let signer: Awaited<ReturnType<typeof resolveSigner>> = null;
+  try {
+    signer = await resolveSigner(kind, tok.targetId, tok.organizationId);
+  } catch (err) {
+    console.error("[self-serve.waiver] resolveSigner failed", err);
+  }
+  const consentVariant = waiverConsentVariant(signer?.isMinor ?? false);
+  const consentText = waiverAssentSentence(
+    consentVariant,
+    signer?.displayName ?? undefined,
+  );
+
   if (tok.kind === "drop_in_booking" || tok.kind === "walkin_session") {
     await db
       .update(dropInBookings)
@@ -66,6 +87,8 @@ export const POST: APIRoute = async ({ params, request }) => {
         waiverSigned: true,
         waiverSignedAt: now,
         waiverSignedBy: acceptedName,
+        waiverConsentVariant: consentVariant,
+        waiverConsentText: consentText,
         updatedAt: now,
       })
       .where(eq(dropInBookings.id, tok.targetId));
@@ -76,6 +99,8 @@ export const POST: APIRoute = async ({ params, request }) => {
         waiverSigned: true,
         waiverSignedAt: now,
         waiverSignedBy: acceptedName,
+        waiverConsentVariant: consentVariant,
+        waiverConsentText: consentText,
         updatedAt: now,
       })
       .where(eq(fieldRentals.id, tok.targetId));
@@ -103,9 +128,9 @@ export const POST: APIRoute = async ({ params, request }) => {
 
   // Append a consents audit row.
   // Both familyMemberId and signedByUserId are NOT NULL in the consents schema,
-  // so we gate this insert on both being present.
+  // so we gate this insert on both being present. Reuses the signer resolved
+  // above — one resolution, one truth for both the record and the audit row.
   try {
-    const signer = await resolveSigner(kind, tok.targetId, tok.organizationId);
     const signerUserId = signer?.recipientUserId ?? tok.recipientUserId;
     if (signer?.familyMemberId && signerUserId) {
       // Liability consents expire after 365 days (per the schema comment).

@@ -501,6 +501,95 @@ describe("POST /api/kiosk/[locationSlug]/walkin/start + /payment", () => {
       );
       expect(match).toBeDefined();
     });
+
+    // ── #397: the duplicate guard keys on the PARTICIPANT, not the booker ──
+    // Minor bookings carry the parent's userId; the old (session, user) guard
+    // and unique index 409'd a parent's second child as a duplicate of the
+    // first. These three pin the participant-keyed semantics.
+
+    it("the same parent walks a SECOND child into the SAME session (#397)", async () => {
+      const res = await apiFetch(`/api/kiosk/${locationId}/walkin/start`, {
+        method: "POST",
+        body: JSON.stringify({
+          sessionId: minorSessionId,
+          contact: {
+            firstName: "Second",
+            lastName: "Player",
+            email: `second-${UNIQUE_SUFFIX}@walkin-test.invalid`,
+            phone: "6145550008",
+            dob: "2017-08-20", // a different child
+          },
+          parent: {
+            firstName: "Jane",
+            lastName: "Parent",
+            email: PARENT_EMAIL,
+            phone: "6145550004",
+          },
+        }),
+      });
+      const body = await res.json();
+      expect(res.status, `second child was rejected: ${JSON.stringify(body)}`).toBe(200);
+
+      // Two active bookings under one booker — two kids, two seats.
+      const db = getDb();
+      const bookings = await db
+        .select({ id: dropInBookings.id, familyMemberId: dropInBookings.familyMemberId })
+        .from(dropInBookings)
+        .where(
+          and(
+            eq(dropInBookings.sessionId, minorSessionId),
+            eq(dropInBookings.userId, parentUserId),
+          ),
+        );
+      expect(bookings.length).toBe(2);
+      const fmIds = bookings.map((b) => b.familyMemberId);
+      expect(new Set(fmIds).size, "each booking names its own child").toBe(2);
+      expect(fmIds.every((id) => id !== null)).toBe(true);
+    });
+
+    it("the SAME child twice is still a duplicate", async () => {
+      const res = await apiFetch(`/api/kiosk/${locationId}/walkin/start`, {
+        method: "POST",
+        body: JSON.stringify({
+          sessionId: minorSessionId,
+          contact: {
+            firstName: "Junior",
+            lastName: "Player",
+            email: `junior-${UNIQUE_SUFFIX}@walkin-test.invalid`,
+            phone: "6145550003",
+            dob: "2015-05-10", // the first child again
+          },
+          parent: {
+            firstName: "Jane",
+            lastName: "Parent",
+            email: PARENT_EMAIL,
+            phone: "6145550004",
+          },
+        }),
+      });
+      expect(res.status).toBe(409);
+    });
+
+    it("the parent can also walk THEMSELVES in on the same session", async () => {
+      // Adult path: familyMemberId NULL = "the booking's user is the
+      // participant". The old guard blocked this too — the child's booking
+      // matched the parent's userId.
+      const res = await apiFetch(`/api/kiosk/${locationId}/walkin/start`, {
+        method: "POST",
+        body: JSON.stringify({
+          sessionId: minorSessionId,
+          contact: {
+            firstName: "Jane",
+            lastName: "Parent",
+            email: PARENT_EMAIL,
+            phone: "6145550004",
+            dob: "1988-01-15",
+          },
+        }),
+      });
+      const body = await res.json();
+      expect(res.status, `parent-self walk-in rejected: ${JSON.stringify(body)}`).toBe(200);
+    });
   });
 
   // ── Ended session (endsAt in the past) ────────────────────────────────────

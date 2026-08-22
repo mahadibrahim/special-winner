@@ -3,6 +3,7 @@ import {
   detectComplianceKeyword,
   processStopKeyword,
   processStartKeyword,
+  findPendingOptIn,
   STOP_RESPONSE,
   HELP_RESPONSE,
   START_RESPONSE,
@@ -156,7 +157,16 @@ export interface InboundSmsComplianceResult {
 
 export interface InboundSmsComplianceDeps {
   processStop: (phone: string, keyword: string) => Promise<number>;
-  processStart: (phone: string, keyword: string) => Promise<unknown>;
+  processStart: (
+    phone: string,
+    keyword: string,
+    opts?: { organizationId?: string },
+  ) => Promise<unknown>;
+  /** Resolves the pending welcome opt-in a YES/START is replying to, so the
+   *  consent lands on THAT org only (#402). */
+  findPending: (
+    phone: string,
+  ) => Promise<{ id: string; organizationId: string } | null>;
   sendReply: (to: string, body: string) => Promise<void>;
   /**
    * Whether to send our own STOP/HELP/START confirmation. Default OFF pending
@@ -185,6 +195,7 @@ export async function handleInboundSmsCompliance(
 ): Promise<InboundSmsComplianceResult> {
   const processStop = deps.processStop ?? processStopKeyword;
   const processStart = deps.processStart ?? processStartKeyword;
+  const findPending = deps.findPending ?? findPendingOptIn;
   const sendReply = deps.sendReply ?? defaultSendReply;
   const autoReply =
     deps.autoReply ?? process.env.SMS_COMPLIANCE_AUTO_REPLY === "yes";
@@ -201,11 +212,21 @@ export async function handleInboundSmsCompliance(
       recorded = true;
       replyBody = STOP_RESPONSE;
       break;
-    case "start":
-      await processStart(normalized, match.keyword);
+    case "start": {
+      // A YES/START replying to a pending welcome grants consent to the org
+      // that sent the welcome — and ONLY that org (#402). With no pending
+      // welcome, processStart restores previously-opted-out rows and never
+      // promotes a pending row.
+      const pending = await findPending(normalized);
+      await processStart(
+        normalized,
+        match.keyword,
+        pending ? { organizationId: pending.organizationId } : {},
+      );
       recorded = true;
       replyBody = START_RESPONSE;
       break;
+    }
     case "help":
       replyBody = HELP_RESPONSE;
       break;
