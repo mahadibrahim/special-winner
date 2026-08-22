@@ -96,6 +96,11 @@ interface SeasonsFinderSectionProps {
    *  existing filter chips. Default false renders byte-identical to every
    *  existing consumer. */
   levelChips?: boolean
+  /** Opt-in only — replaces the empty-state body sentence. The default copy
+   *  says "New blocks and seasons open through the year", which reads
+   *  wrong-domain on camp surfaces (issue #574); camps pass their own
+   *  sentence. Omitted renders byte-identical to every existing consumer. */
+  emptyBody?: string
 }
 
 export function SeasonsFinderSection({
@@ -110,6 +115,7 @@ export function SeasonsFinderSection({
   headerHidden = false,
   layout = "cards",
   levelChips = false,
+  emptyBody,
 }: SeasonsFinderSectionProps) {
   const [activeFormat, setActiveFormat] = useState<string | null>(null)
   const [activeSport, setActiveSport] = useState<string | null>(null)
@@ -308,9 +314,10 @@ export function SeasonsFinderSection({
                     Be first in when it opens.
                   </p>
                   <p className="text-ink-muted mt-2 text-sm max-w-[400px] mx-auto">
-                    {emptyCtaAudience
-                      ? "New blocks and seasons open through the year — leave your email and you'll hear the moment the next one does."
-                      : "New blocks and seasons open through the year — check back soon."}
+                    {emptyBody ??
+                      (emptyCtaAudience
+                        ? "New blocks and seasons open through the year — leave your email and you'll hear the moment the next one does."
+                        : "New blocks and seasons open through the year — check back soon.")}
                   </p>
                   {emptyCtaAudience && (
                     <EmptyNotifyForm
@@ -324,9 +331,10 @@ export function SeasonsFinderSection({
               <div data-finder-empty className="bg-paper border border-border rounded-2xl py-12 px-6 text-center">
                 <p className="font-display text-lg text-ink">Nothing open right now.</p>
                 <p className="text-ink-muted mt-1 text-sm">
-                  {emptyCtaAudience
-                    ? "New programs are added each season — leave your email and you'll hear the moment one opens."
-                    : "New programs are added each season — check back soon."}
+                  {emptyBody ??
+                    (emptyCtaAudience
+                      ? "New programs are added each season — leave your email and you'll hear the moment one opens."
+                      : "New programs are added each season — check back soon.")}
                 </p>
                 {emptyCtaAudience && (
                   <EmptyNotifyForm

@@ -66,6 +66,10 @@ interface CategoryFinderProps {
    *  chip row. Default false renders byte-identical to every existing
    *  consumer. */
   levelChips?: boolean
+  /** Pass-through to SeasonsFinderSection — opt-in empty-state body sentence
+   *  (the default copy's "blocks and seasons" reads wrong-domain on camp
+   *  surfaces; see issue #574). Omitted renders byte-identical. */
+  emptyBody?: string
 }
 
 export default function CategoryFinder({
@@ -81,6 +85,7 @@ export default function CategoryFinder({
   headerHidden,
   layout,
   levelChips,
+  emptyBody,
 }: CategoryFinderProps) {
   useHydrationBeacon()
 
@@ -172,6 +177,7 @@ export default function CategoryFinder({
         headerHidden={headerHidden}
         layout={layout}
         levelChips={levelChips}
+        emptyBody={emptyBody}
       />
     </div>
   )

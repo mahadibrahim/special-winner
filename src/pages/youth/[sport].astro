@@ -33,7 +33,6 @@ const breadcrumbSchema = breadcrumbJsonLd([
   description={sport.metaDescription}
 >
   <Fragment slot="head">
-    <link rel="canonical" href={`${Astro.url.origin}/youth/${sport.slug}`} />
     <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbSchema)} />
   </Fragment>
 

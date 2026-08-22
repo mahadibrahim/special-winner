@@ -160,7 +160,6 @@ const fmtShort = (iso: string) =>
   description={`Register for ${termLabel} youth ${sport.name.toLowerCase()} at Aspire Sports in central Ohio.`}
 >
   <Fragment slot="head">
-    <link rel="canonical" href={`${Astro.url.origin}${basePath}/${term}`} />
     <script type="application/ld+json" is:inline set:html={JSON.stringify(breadcrumbSchema)} />
     {eventSchema.length > 0 && (
       <script type="application/ld+json" is:inline set:html={JSON.stringify(eventSchema)} />

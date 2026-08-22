@@ -21,6 +21,14 @@ import {
 import { toast } from "sonner"
 import { useConfirmDialog } from "@/components/ui/confirm-dialog"
 import { programTypes } from "@/lib/programs/program-type-labels"
+import { CAMP_TYPES } from "@/lib/youth/camp-page-content"
+
+// The /youth/camps/[type] family pages filter the catalog by EXACT program
+// slug (there is no camp-family column — the program is the family). A camp
+// program saved under any other slug still shows on the camps hub but is
+// invisible on its family page, silently (issue #577). This list powers the
+// non-blocking warning in the form below.
+const CAMP_FAMILY_SLUGS = CAMP_TYPES.flatMap((t) => t.programSlugs)
 
 interface Program {
   id: string
@@ -415,6 +423,16 @@ export function ProgramsList({ isSuperAdmin = false }: { isSuperAdmin?: boolean 
                   </Select>
                 </div>
               </div>
+
+              {/* Non-blocking: a camp is allowed to live outside the four
+                  families, but nobody should end up there by typo. */}
+              {formData.programType === "camp" && formData.slug && !CAMP_FAMILY_SLUGS.includes(formData.slug) && (
+                <div className="rounded-md border border-yellow-300 bg-yellow-50 px-3 py-2 text-sm text-yellow-900">
+                  This slug doesn&rsquo;t match any camp family, so seasons under it will
+                  appear on /youth/camps but on none of the family pages. Family slugs:{" "}
+                  {CAMP_FAMILY_SLUGS.join(", ")}.
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>

@@ -102,7 +102,9 @@ test.describe("Category pages", () => {
     await expect(
       page.getByRole("heading", { level: 1, name: /school's-out day camps/i }),
     ).toBeVisible();
-    await expect(page.getByText(/the day, hour by hour/i)).toBeVisible();
+    // Heading role, not getByText — the timetable's sr-only <caption> repeats
+    // the section heading (a11y, issue #576), so bare text matches twice.
+    await expect(page.getByRole("heading", { name: /the day, hour by hour/i })).toBeVisible();
     await expect(page.getByText(/drop-off & arrival games/i)).toBeVisible();
   });
 
