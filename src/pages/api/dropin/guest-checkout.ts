@@ -31,7 +31,7 @@ import type { APIRoute } from "astro";
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { users, userRoles, roles } from "@/lib/db/schema";
+import { upsertGuestUser } from "@/lib/registrations/upsert-guest-user";
 import {
   dropInSessions,
   dropInRateCard,
@@ -143,45 +143,17 @@ export const POST: APIRoute = async (context) => {
     return json({ error: "Rate card not configured" }, 500);
   }
 
-  // Upsert user by email — same semantics as registration guest-checkout.
-  let wasNewUser = false;
-  const inserted = await db
-    .insert(users)
-    .values({
-      email: data.email,
-      passwordHash: null,
-      firstName: data.firstName,
-      lastName: data.lastName,
-      emailVerified: false,
-    })
-    .onConflictDoNothing({ target: users.email })
-    .returning();
-
-  let userRow: typeof users.$inferSelect;
-  if (inserted.length > 0) {
-    userRow = inserted[0];
-    wasNewUser = true;
-    const [parentRole] = await db
-      .select()
-      .from(roles)
-      .where(eq(roles.name, "parent"));
-    if (parentRole) {
-      await db.insert(userRoles).values({
-        userId: userRow.id,
-        roleId: parentRole.id,
-        scopeType: "global",
-      });
-    }
-  } else {
-    const [existing] = await db
-      .select()
-      .from(users)
-      .where(eq(users.email, data.email));
-    if (!existing) {
-      return json({ error: "Internal server error" }, 500);
-    }
-    userRow = existing;
-  }
+  // Upsert user by email — the SHARED registration helper (#458). The local
+  // insert this replaces never computed emailCanonical, so a gmail dot/plus
+  // variant of an existing account minted a duplicate user — the exact gap
+  // #449 closed for the solo/team paths. upsertGuestUser de-dupes on the
+  // canonical form (with the pre-canonical-row self-heal) and assigns the
+  // parent role to new users, same semantics as before.
+  const { userRow, wasNewUser } = await upsertGuestUser(db, {
+    email: data.email,
+    firstName: data.firstName,
+    lastName: data.lastName,
+  });
 
   // existingBooking and membership are independent reads — both only need
   // userRow.id (already resolved above) — fetch concurrently. If

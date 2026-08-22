@@ -73,12 +73,20 @@
 # and promoted to an enforcing `Content-Security-Policy` once the real
 # source list is confirmed. Tighten `img-src`/`connect-src` and flip the
 # header name to enforce as a follow-up.
+#
+# Wallet prerequisite for that promotion (#461, satisfied here): the live
+# wallets (Apple Pay / Google Pay / Link via the payment element, PR #448)
+# render inside frames Stripe serves from *.js.stripe.com and link.com —
+# per https://docs.stripe.com/security/guide (Stripe.js + Link sections).
+# The bare js.stripe.com alone would have broken them silently the moment
+# the header started enforcing. Apple Pay itself is browser-native and
+# needs no extra origin.
 [[headers]]
   for = "/*"
   [headers.values]
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
-    Content-Security-Policy-Report-Only = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'; img-src 'self' data: blob: https:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://www.googletagmanager.com https://challenges.cloudflare.com https://upload-widget.cloudinary.com; connect-src 'self' https://api.stripe.com https://*.google-analytics.com https://*.googletagmanager.com https://api.cloudinary.com; frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com https://upload-widget.cloudinary.com"
+    Content-Security-Policy-Report-Only = "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'; img-src 'self' data: blob: https:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://*.js.stripe.com https://www.googletagmanager.com https://challenges.cloudflare.com https://upload-widget.cloudinary.com; connect-src 'self' https://api.stripe.com https://link.com https://*.link.com https://*.google-analytics.com https://*.googletagmanager.com https://api.cloudinary.com; frame-src 'self' https://js.stripe.com https://*.js.stripe.com https://hooks.stripe.com https://link.com https://*.link.com https://challenges.cloudflare.com https://upload-widget.cloudinary.com"
 
 # ============================================================
 # POSTHOG REVERSE PROXY
