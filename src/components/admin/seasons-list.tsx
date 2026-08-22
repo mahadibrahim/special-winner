@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { groupSpacesByLocation } from "@/lib/admin/group-spaces"
+import { ORG_DEFAULT_TIMEZONE, zonedCalendarDate, zonedEndOfDayUtcIso } from "@/lib/time/zoned-day"
 import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
@@ -383,13 +384,19 @@ export function SeasonsList() {
       slug: season.slug,
       startDate: season.startDate,
       endDate: season.endDate,
+      // ORG timezone, not UTC: the stored instant is "end of day X, org-local"
+      // expressed in UTC, so the UTC calendar date is one day LATE for any
+      // zone behind UTC — displaying it and re-anchoring on save shifted both
+      // deadlines forward a day per edit (issue #544).
       registrationClosesDate: season.registrationCloses
-        ? new Date(season.registrationCloses).toISOString().slice(0, 10)
+        ? zonedCalendarDate(season.registrationCloses, ORG_DEFAULT_TIMEZONE)
         : "",
       maxParticipants: season.maxParticipants?.toString() || "",
       priceCents: (season.priceCents / 100).toString(),
       teamPriceCents: season.teamPriceCents != null ? (season.teamPriceCents / 100).toString() : "",
-      earlyBirdDeadlineDate: season.earlyBirdDeadline ? season.earlyBirdDeadline.slice(0, 10) : "",
+      earlyBirdDeadlineDate: season.earlyBirdDeadline
+        ? zonedCalendarDate(season.earlyBirdDeadline, ORG_DEFAULT_TIMEZONE)
+        : "",
       earlyBirdTeamPriceCents: season.earlyBirdTeamPriceCents != null ? (season.earlyBirdTeamPriceCents / 100).toString() : "",
       allowIndividual: modes.includes("individual"),
       allowTeam: modes.includes("team"),
@@ -428,7 +435,9 @@ export function SeasonsList() {
       maxParticipants: source.maxParticipants?.toString() || "",
       priceCents: (source.priceCents / 100).toString(),
       teamPriceCents: source.teamPriceCents != null ? (source.teamPriceCents / 100).toString() : "",
-      earlyBirdDeadlineDate: source.earlyBirdDeadline ? source.earlyBirdDeadline.slice(0, 10) : "",
+      earlyBirdDeadlineDate: source.earlyBirdDeadline
+        ? zonedCalendarDate(source.earlyBirdDeadline, ORG_DEFAULT_TIMEZONE)
+        : "",
       earlyBirdTeamPriceCents: source.earlyBirdTeamPriceCents != null ? (source.earlyBirdTeamPriceCents / 100).toString() : "",
       allowIndividual: modes.includes("individual"),
       allowTeam: modes.includes("team"),
@@ -471,20 +480,22 @@ export function SeasonsList() {
         slug: formData.slug,
         startDate: formData.startDate,
         endDate: formData.endDate,
-        // End-of-day in the admin's browser timezone → exact UTC instant.
+        // End-of-day in the ORG timezone — the same zone the date input was
+        // populated from, so an untouched round-trip is byte-identical
+        // (issue #544; the old browser-zone anchor drifted +1 day per save).
         // Null clears it: the season then auto-closes the day after startDate.
         registrationCloses: formData.registrationClosesDate
-          ? new Date(`${formData.registrationClosesDate}T23:59:59`).toISOString()
+          ? zonedEndOfDayUtcIso(formData.registrationClosesDate, ORG_DEFAULT_TIMEZONE)
           : null,
         maxParticipants: formData.maxParticipants ? parseInt(formData.maxParticipants) : null,
         priceCents: Math.round(parseFloat(formData.priceCents || "0") * 100),
         teamPriceCents: formData.allowTeam && formData.teamPriceCents
           ? Math.round(parseFloat(formData.teamPriceCents) * 100)
           : null,
-        // Early-bird: end-of-day in the admin's timezone, same convention as
+        // Early-bird: end-of-day in the ORG timezone, same convention as
         // registrationCloses. Team-only by policy — see the field help text.
         earlyBirdDeadline: formData.earlyBirdDeadlineDate
-          ? new Date(`${formData.earlyBirdDeadlineDate}T23:59:59`).toISOString()
+          ? zonedEndOfDayUtcIso(formData.earlyBirdDeadlineDate, ORG_DEFAULT_TIMEZONE)
           : null,
         earlyBirdTeamPriceCents: formData.allowTeam && formData.earlyBirdTeamPriceCents
           ? Math.round(parseFloat(formData.earlyBirdTeamPriceCents) * 100)
@@ -873,7 +884,15 @@ export function SeasonsList() {
                                 </Badge>
                               )}
                               {season.status === "forming" && (
-                                <span className="text-xs text-ink-muted">{season.interestCount ?? 0} interested</span>
+                                // Click-through, not a dead count (#543): the
+                                // interest list page opens pre-filtered to
+                                // this season's records.
+                                <a
+                                  href={`/admin/season-interest?seasonId=${season.id}`}
+                                  className="text-xs text-ink-muted underline underline-offset-2 hover:text-ink"
+                                >
+                                  {season.interestCount ?? 0} interested
+                                </a>
                               )}
                             </div>
                             <p className="text-sm text-muted-foreground truncate">

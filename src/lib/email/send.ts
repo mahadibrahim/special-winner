@@ -1827,3 +1827,60 @@ export async function sendFirstGameRecapEmail(
     from: fromForBrand(params.brand),
   });
 }
+
+export interface SendSeasonInterestOpsAlertParams {
+  email: string;
+  firstName: string | null;
+  seasonName: string;
+  programName: string;
+  /** Interest rows on this season including the new one — "3rd hand raised". */
+  seasonInterestTotal: number;
+}
+
+/**
+ * Ops ping when someone joins a forming season's interest list (#543 — these
+ * submissions were previously write-only: stored, surfaced nowhere, and the
+ * founder had no idea they existed). Goes to FOUNDER_ALERT_EMAIL like the
+ * dispute alert. Inline markup rather than a React Email template: this is an
+ * internal one-liner, not customer-facing mail, and it must never grow enough
+ * copy to warrant one. No logEmail call — the log table keys on
+ * registrationId and an interest record has none.
+ */
+export async function sendSeasonInterestOpsAlert(
+  params: SendSeasonInterestOpsAlertParams,
+) {
+  if (!isEmailConfigured()) {
+    console.warn("Email not configured, skipping season-interest ops alert");
+    return { success: false, error: "Email not configured" };
+  }
+
+  const founderEmail = env.FOUNDER_ALERT_EMAIL;
+  if (!founderEmail) {
+    console.error(
+      "[email] FOUNDER_ALERT_EMAIL is not set — season-interest alert for " +
+        `${params.seasonName} was not sent`,
+    );
+    return { success: false, error: "FOUNDER_ALERT_EMAIL not set" };
+  }
+
+  const who = params.firstName ? `${params.firstName} <${params.email}>` : params.email;
+  const subject = `[Ops] Interest: ${params.seasonName} — ${params.seasonInterestTotal} waiting`;
+  const listUrl = `${env.PUBLIC_APP_URL}/admin/season-interest`;
+  // firstName/email are visitor-supplied — escape them (and everything else,
+  // uniformly) so the founder's mail client never renders submitted markup.
+  const esc = (s: string) =>
+    s.replace(/[&<>"']/g, (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
+    );
+  const text =
+    `${who} joined the interest list for ${params.seasonName} (${params.programName}).\n` +
+    `That season now has ${params.seasonInterestTotal} interested.\n\n` +
+    `Full list + CSV export: ${listUrl}\n`;
+  const html =
+    `<p><strong>${esc(who)}</strong> joined the interest list for ` +
+    `<strong>${esc(params.seasonName)}</strong> (${esc(params.programName)}).</p>` +
+    `<p>That season now has <strong>${params.seasonInterestTotal}</strong> interested.</p>` +
+    `<p><a href="${listUrl}">Full list + CSV export</a></p>`;
+
+  return sendEmail({ to: founderEmail, subject, html, text });
+}
