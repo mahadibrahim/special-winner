@@ -40,8 +40,13 @@ describe("computeWaiverReminderWindows", () => {
     expect(computeWaiverReminderWindows(0, 10)).toEqual(["final"]);
   });
 
-  it("combines an age window with final when both apply", () => {
-    expect(computeWaiverReminderWindows(8, 24)).toEqual(["w1", "final"]);
+  it("final SUPPRESSES the age window when both apply — one email that morning (#459)", () => {
+    // Owner decision 2026-08-22: before this, day-8 + 24h-to-start fired
+    // both w1 and final in the same cron run — two waiver emails in one
+    // morning. The final reminder carries the same ask with more urgency,
+    // so it's the only one sent.
+    expect(computeWaiverReminderWindows(8, 24)).toEqual(["final"]);
+    expect(computeWaiverReminderWindows(1, 48)).toEqual(["final"]);
   });
 
   it("does not fire final beyond the 48h boundary", () => {

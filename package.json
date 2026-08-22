@@ -8,7 +8,7 @@
     "dev:bws": "./scripts/with-bws.sh npm run dev",
     "test:api:bws": "./scripts/with-bws.sh npm run test:api",
     "secrets:load": "node scripts/bws-load-secrets.mjs",
-    "build": "astro build",
+    "build": "node scripts/build-preflight.mjs && astro build",
     "preview": "astro preview",
     "typecheck": "tsc --noEmit",
     "stripe:listen": "stripe listen --forward-to localhost:4321/api/webhooks/stripe --events checkout.session.completed,payment_intent.succeeded,payment_intent.payment_failed,charge.refunded",

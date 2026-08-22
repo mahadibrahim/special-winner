@@ -155,6 +155,10 @@ export default function RegisterExperience({
   if (effectiveMode === "choose" && canTeam) {
     return (
       <LeagueContextRail season={season} mode="solo" step={1} stepCount={4}>
+        {/* #460: the chooser is the FIRST screen an Instagram/Facebook
+            visitor sees on a team-capable season — without the banner here
+            they had no escape hatch until one screen later. */}
+        <InAppEscapeBanner seasonId={seasonId} />
         <ChooseMode season={season} canTeam={canTeam} onPick={setMode} />
       </LeagueContextRail>
     );

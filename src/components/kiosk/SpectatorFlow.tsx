@@ -40,6 +40,8 @@ interface LookupResult {
 interface SignResult {
   awaitingCode: ConsentChannel[];
   pending: ConsentChannel[];
+  /** The number replied STOP — only texting START can lift it (#457). */
+  stopped: ConsentChannel[];
   phoneVerificationId?: string;
 }
 
@@ -224,6 +226,7 @@ export function SpectatorFlow({ locationSlug, organizationId, brandId, onBack }:
       setSignResult({
         awaitingCode: body.awaitingCode ?? [],
         pending: body.pending ?? [],
+        stopped: body.stopped ?? [],
         phoneVerificationId: body.phoneVerificationId,
       });
       setStep("done");
@@ -613,7 +616,9 @@ function DoneStep({
   const phoneAwaiting = result.awaitingCode.filter((c) => c !== "email");
   const emailAwaiting = result.awaitingCode.includes("email");
   const hasFollowUp =
-    result.awaitingCode.length > 0 || result.pending.length > 0;
+    result.awaitingCode.length > 0 ||
+    result.pending.length > 0 ||
+    result.stopped.length > 0;
 
   return (
     <div className="space-y-6">
@@ -649,6 +654,22 @@ function DoneStep({
               phone={phone}
               organizationId={organizationId}
             />
+          )}
+
+          {/* stopped (#457): the number replied STOP at some point, and only
+              texting START from it can lift that — the one honest thing to
+              say, since no confirmation will ever arrive on its own. */}
+          {result.stopped.length > 0 && (
+            <div className="rounded-xl border border-border bg-paper p-5">
+              <p className="text-base font-medium text-ink mb-1">
+                Texting is turned off for this number
+              </p>
+              <p className="text-sm text-ink-2">
+                This number previously opted out of our texts, so we can't
+                send the confirmation code. To turn texts back on, reply
+                START to our number — then sign up again.
+              </p>
+            </div>
           )}
 
           {/* pending: captured, but no confirmation is possible yet. Nothing

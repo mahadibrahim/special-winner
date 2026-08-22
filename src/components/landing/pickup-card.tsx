@@ -86,15 +86,14 @@ export default function PickupCard({
       }
       title={dayLabel}
       metaA={
-        // Venue · "Pickup". No `location.slug` on session data yet — the
-        // /api/dropin/sessions endpoint only returns venueId/venueName — so
-        // this falls back to plain text per the "never a dead link" rule
-        // until that field is threaded through (server change, out of scope
-        // here). Always renders (em-dash fallback), never omitted.
+        // Venue · "Pickup". /api/dropin/sessions serves locationSlug (#456);
+        // VenueLink renders a real link when it's present and plain text
+        // when it isn't ("never a dead link"). Always renders (em-dash
+        // fallback), never omitted.
         <>
           <MapPin className="w-3 h-3 flex-shrink-0" />
           <span className="truncate">
-            <VenueLink slug={null} label={session.venueName ?? "—"} />
+            <VenueLink slug={session.locationSlug ?? null} label={session.venueName ?? "—"} />
             {" · Pickup"}
           </span>
         </>

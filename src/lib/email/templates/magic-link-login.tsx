@@ -17,6 +17,11 @@ export interface MagicLinkLoginEmailProps {
   childName?: string;
   seasonName?: string;
   brand?: BrandId;
+  /** "welcome" (default): post-checkout mail for an account we just created
+   *  — "We created an account for you…". "existing": the manage-link /
+   *  already-registered flow (#457) — that copy read signup-ish to people
+   *  who have had an account for months, so this variant stays neutral. */
+  variant?: "welcome" | "existing";
 }
 
 export function MagicLinkLoginEmail({
@@ -27,16 +32,22 @@ export function MagicLinkLoginEmail({
   childName,
   seasonName,
   brand,
+  variant = "welcome",
 }: MagicLinkLoginEmailProps) {
   const t = emailThemeFor(brand);
   const brandName = getBrandTheme(brand).displayName;
+  const existing = variant === "existing";
   return (
     <EmailLayout
-      preview={`You're registered — sign in to your ${brandName} account`}
+      preview={
+        existing
+          ? `Your sign-in link for ${brandName}`
+          : `You're registered — sign in to your ${brandName} account`
+      }
       brand={brand}
     >
       <Content>
-        <H1>You're registered</H1>
+        <H1>{existing ? "Your sign-in link" : "You're registered"}</H1>
         <P>Hi {parentName || "there"},</P>
 
         {childName && programName && seasonName && (
@@ -46,9 +57,9 @@ export function MagicLinkLoginEmail({
         )}
 
         <P>
-          Tap the button below to sign in to your {brandName} account. We
-          created an account for you so you can manage your registration, view
-          team info, and register for future programs.
+          {existing
+            ? `Tap the button below to sign in to your ${brandName} account and manage your registration.`
+            : `Tap the button below to sign in to your ${brandName} account. We created an account for you so you can manage your registration, view team info, and register for future programs.`}
         </P>
 
         <Button href={magicLinkUrl}>Sign in to your account →</Button>

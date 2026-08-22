@@ -35,12 +35,23 @@ export const NIGHT_LABELS: Record<string, string> = {
   mon: "Mon", tue: "Tue", wed: "Wed", thu: "Thu", fri: "Fri", sat: "Sat", sun: "Sun",
 }
 
+// Both vocabularies (#562): adult ladder + the youth levels added in #550.
+// A youth season surfacing on this finder previously produced NO level chip
+// (it rendered and badged fine, it just couldn't be filtered by level).
+// Labels match skillLevelShort() in lib/leagues/division-filters.ts.
 export const LEVEL_LABELS: Record<string, string> = {
   a: "A", b: "B", c: "C", d: "D", open: "Open",
+  competitive_a: "Competitive A",
+  competitive_b: "Competitive B",
+  developmental: "Developmental",
+  recreational: "Recreational",
 }
 
 const WEEK_ORDER = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
-const LEVEL_ORDER = ["a", "b", "c", "d", "open"]
+const LEVEL_ORDER = [
+  "a", "b", "c", "d", "open",
+  "competitive_a", "competitive_b", "developmental", "recreational",
+]
 
 export function deriveLocationChips(seasons: FinderSeason[]): Chip[] {
   const seen = new Map<string, string>()

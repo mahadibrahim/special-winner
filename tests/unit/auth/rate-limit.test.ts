@@ -108,12 +108,26 @@ describe("rateLimit", () => {
     expect(result.retryAfter).toBe(1);
   });
 
-  it("handles fail-open gracefully if anything throws (returns allowed: true)", () => {
-    // This is a bit tricky to test directly without mocking. We can at least verify
-    // that the function doesn't throw and returns { allowed: true } on normal operation.
-    // For true error handling, the only way would be to mock internals, which the
-    // requirements say not to do.
-    const result = rateLimit("test-key", 3, 1000, () => Date.now());
-    expect(result).toEqual(expect.objectContaining({ allowed: expect.any(Boolean) }));
+  it("fails OPEN when the limiter itself throws — a limiter bug must never block auth (#462)", () => {
+    // The injectable clock is the natural fault seam: everything inside the
+    // try block runs after `now()` is called, so a throwing clock exercises
+    // the real catch branch — no mocking of internals needed.
+    const throwingNow = () => {
+      throw new Error("clock exploded");
+    };
+    const result = rateLimit("fail-open-key", 3, 1000, throwingNow);
+    expect(result).toEqual({ allowed: true });
+  });
+
+  it("fail-open does not poison the bucket — the limiter still works afterwards", () => {
+    const key = `fail-open-recovery-${Date.now()}`;
+    const boom = () => {
+      throw new Error("boom");
+    };
+    rateLimit(key, 2, 1000, boom); // fail-open pass-through, records nothing
+    const now = () => 1000;
+    expect(rateLimit(key, 2, 1000, now).allowed).toBe(true);
+    expect(rateLimit(key, 2, 1000, now).allowed).toBe(true);
+    expect(rateLimit(key, 2, 1000, now).allowed).toBe(false); // cap still enforced
   });
 });

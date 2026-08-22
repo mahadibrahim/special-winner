@@ -11,6 +11,11 @@ import {
 } from "@/lib/analytics/events"
 
 const DISMISS_KEY = "aspire:inapp-banner-dismissed"
+// #460: the banner remounts on chooser↔mode navigation within one page view,
+// which re-fired inapp_banner_shown and inflated the funnel's top. One fire
+// per (session, season) — the banner is still VISIBLE on every remount, this
+// only de-dupes the analytics event.
+const SHOWN_KEY_PREFIX = "aspire:inapp-banner-shown:"
 // Narrower than in-app-browser.ts's IN_APP_UA (which also matches FBAN/FBAV/
 // FB_IAB) — used only to pick the more specific headline copy.
 const INSTAGRAM_UA = /Instagram/i
@@ -48,6 +53,15 @@ export function InAppEscapeBanner({ seasonId }: InAppEscapeBannerProps) {
     setIsInstagram(INSTAGRAM_UA.test(ua))
     setBreakout(buildBreakoutUrl(window.location.href, ua))
     setVisible(true)
+    // sessionStorage can be denied in some privacy modes — in that case fall
+    // back to firing per mount (the pre-#460 behavior) rather than never.
+    try {
+      const shownKey = `${SHOWN_KEY_PREFIX}${seasonId}`
+      if (sessionStorage.getItem(shownKey) === "1") return
+      sessionStorage.setItem(shownKey, "1")
+    } catch {
+      // fall through to the fire
+    }
     trackInappBannerShown({ seasonId })
     // Mount-only: detection inputs (UA, href) don't change within a page view.
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -35,8 +35,9 @@ import type { WaiverReminderWindowType } from "@/lib/registrations/waiver-remind
  *  - "2":        age in [4d, 8d)
  *  - "w1"…"w7":  weekly buckets, age in [8+7*(N-1) d, 8+7*N d)
  *  - "w8":       age >= 57d (uncapped — catches any further-neglected rows)
- *  - "final":    season starts within the next 48h, regardless of age
- *    (independent of the above; can fire alongside an age window)
+ *  - "final":    season starts within the next 48h, regardless of age —
+ *    and it SUPPRESSES the age windows for those registrations (#459):
+ *    one email that morning, not two
  *
  * reminder_number captured in analytics: "1" -> 1, "2" -> 2, "w{N}" -> 7+N
  * (w1 -> 8 ... w8 -> 15), "final" -> 99.
@@ -217,15 +218,23 @@ export const POST: APIRoute = async ({ request }) => {
     };
 
     try {
+      // Final-48h suppression (#459, owner decision): a registration whose
+      // season starts inside the final window gets ONLY the final reminder
+      // that morning, never an age-window email on top. Must stay the
+      // NEGATION of the final window's own predicate below — and mirror
+      // computeWaiverReminderWindows (waiver-reminder-windows.ts).
+      const notInFinalWindow = sql`NOT (${seasons.startDate} BETWEEN CURRENT_DATE AND (CURRENT_DATE + interval '2 days'))`;
       const ageWhere =
         windowDef.upperDays != null
           ? and(
               sql`${registrations.createdAt} <= now() - (${windowDef.lowerDays} || ' days')::interval`,
               sql`${registrations.createdAt} > now() - (${windowDef.upperDays} || ' days')::interval`,
+              notInFinalWindow,
               notAlreadyLogged(emailType),
             )
           : and(
               sql`${registrations.createdAt} <= now() - (${windowDef.lowerDays} || ' days')::interval`,
+              notInFinalWindow,
               notAlreadyLogged(emailType),
             );
 

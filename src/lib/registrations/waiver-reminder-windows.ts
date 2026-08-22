@@ -20,8 +20,10 @@
  *    N = min(8, floor((ageDays - 8) / 7) + 1) — capped at w8 so a
  *    long-neglected registration doesn't grow an unbounded reminder count.
  *  - "final" fires whenever the season starts within 48 hours, regardless
- *    of the registration's age — it combines with whatever age-window also
- *    applies (both can be due on the same day).
+ *    of the registration's age — and it SUPPRESSES the age-window reminder
+ *    for that run (#459, owner decision 2026-08-22): one email that morning,
+ *    not two. Before this, an age-window w{N} and the final could both fire
+ *    in the same cron run.
  *
  * reminder_number mapping used by the cron's analytics capture: "1" -> 1,
  * "2" -> 2, "w{N}" -> 7+N (so w1 -> 8 ... w8 -> 15), "final" -> 99.
@@ -43,6 +45,13 @@ export function computeWaiverReminderWindows(
   ageDays: number,
   hoursUntilStart: number,
 ): WaiverReminderWindowType[] {
+  // Final-48h wins outright (#459): the urgent email is the only one that
+  // morning. The age-window reminder it displaces is not "missed" — the
+  // final one carries the same ask with more urgency.
+  if (hoursUntilStart <= 48) {
+    return ["final"];
+  }
+
   const windows: WaiverReminderWindowType[] = [];
 
   if (ageDays >= 1 && ageDays < 4) {
@@ -52,10 +61,6 @@ export function computeWaiverReminderWindows(
   } else if (ageDays >= 8) {
     const weekNumber = Math.min(8, Math.floor((ageDays - 8) / 7) + 1);
     windows.push(`w${weekNumber}` as WaiverReminderWindowType);
-  }
-
-  if (hoursUntilStart <= 48) {
-    windows.push("final");
   }
 
   return windows;
