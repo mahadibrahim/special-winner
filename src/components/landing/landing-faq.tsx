@@ -10,9 +10,8 @@ import { Plus, Minus } from "lucide-react"
  * supplied per page instead of hardcoded, and no eyebrow text above the
  * headline (design-system rule).
  *
- * NO FAQPage JSON-LD here, deliberately — FAQ structured data is owned by
- * the in-flight Phase-A SEO branch (feat/seo-content-phase-a). Add it there,
- * not in this component.
+ * NO FAQPage JSON-LD here, deliberately — pages that want the rich result
+ * emit it themselves via faqPageJsonLd (src/lib/seo/faq-jsonld.ts).
  *
  * Aspire-brand pages only — cream-idiom tokens invert under the SoccerOne
  * theme; do not import into SoccerOne-brand pages.
@@ -26,14 +25,49 @@ export interface LandingFaqItem {
   linkLabel?: string
 }
 
+/**
+ * Open-item accent (#557, owner decision 2026-08-22): the accent follows the
+ * page's audience — orange (brand primary) on adult surfaces, emerald on
+ * youth ones, matching the emerald=youth / orange=adult token rule. Default
+ * stays orange so every existing call site renders unchanged; youth pages
+ * opt in with accent="emerald".
+ */
+export type LandingFaqAccent = "orange" | "emerald"
+
 interface LandingFaqProps {
   /** Section anchor id — the facts band's "FAQs" link points here. */
   id: string
   heading: string
   items: LandingFaqItem[]
+  accent?: LandingFaqAccent
 }
 
-export default function LandingFaq({ id, heading, items }: LandingFaqProps) {
+interface AccentClasses {
+  openBorder: string
+  hoverBorder: string
+  numOpen: string
+  toggleOpen: string
+  rule: string
+}
+
+const ACCENTS: Record<LandingFaqAccent, AccentClasses> = {
+  orange: {
+    openBorder: "border-primary/20",
+    hoverBorder: "hover:border-primary/10",
+    numOpen: "bg-primary text-cream",
+    toggleOpen: "bg-primary/20 text-primary",
+    rule: "bg-primary",
+  },
+  emerald: {
+    openBorder: "border-emerald/20",
+    hoverBorder: "hover:border-emerald/10",
+    numOpen: "bg-emerald text-cream",
+    toggleOpen: "bg-emerald/20 text-emerald",
+    rule: "bg-emerald",
+  },
+}
+
+export default function LandingFaq({ id, heading, items, accent = "orange" }: LandingFaqProps) {
   const [openIndex, setOpenIndex] = useState<number | null>(0)
 
   return (
@@ -48,6 +82,7 @@ export default function LandingFaq({ id, heading, items }: LandingFaqProps) {
               index={index}
               isOpen={openIndex === index}
               onToggle={() => setOpenIndex(openIndex === index ? null : index)}
+              a={ACCENTS[accent]}
             />
           ))}
         </div>
@@ -70,11 +105,13 @@ function FaqItem({
   index,
   isOpen,
   onToggle,
+  a,
 }: {
   item: LandingFaqItem
   index: number
   isOpen: boolean
   onToggle: () => void
+  a: AccentClasses
 }) {
   const contentRef = useRef<HTMLDivElement>(null)
   const [height, setHeight] = useState(0)
@@ -89,8 +126,8 @@ function FaqItem({
     <div
       className={`relative rounded-xl border transition-all duration-300 ${
         isOpen
-          ? "bg-paper border-primary/20"
-          : "bg-paper/50 border-border hover:bg-paper hover:border-primary/10"
+          ? `bg-paper ${a.openBorder}`
+          : `bg-paper/50 border-border hover:bg-paper ${a.hoverBorder}`
       }`}
     >
       <button
@@ -101,7 +138,7 @@ function FaqItem({
       >
         <span
           className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold transition-all duration-300 ${
-            isOpen ? "bg-primary text-cream" : "bg-cream-3 text-ink-muted"
+            isOpen ? a.numOpen : "bg-cream-3 text-ink-muted"
           }`}
         >
           {String(index + 1).padStart(2, "0")}
@@ -115,7 +152,7 @@ function FaqItem({
         </span>
         <span
           className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${
-            isOpen ? "bg-primary/20 text-primary" : "bg-cream-3 text-ink-muted"
+            isOpen ? a.toggleOpen : "bg-cream-3 text-ink-muted"
           }`}
         >
           {isOpen ? <Minus className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
@@ -135,7 +172,7 @@ function FaqItem({
         </div>
       </div>
       <div
-        className={`absolute left-0 top-4 bottom-4 w-[3px] rounded-full bg-primary transition-all duration-300 ${
+        className={`absolute left-0 top-4 bottom-4 w-[3px] rounded-full transition-all duration-300 ${a.rule} ${
           isOpen ? "opacity-100" : "opacity-0"
         }`}
       />

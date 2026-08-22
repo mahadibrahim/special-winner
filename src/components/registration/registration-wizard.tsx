@@ -1740,8 +1740,14 @@ export default function RegistrationWizard({
               ? `${selfBlockingRegistration.status === "waitlisted" ? "Waitlisted" : "Registered"} · ${paymentStatusLabel(selfBlockingRegistration.paymentStatus)} · waiver ${selfBlockingRegistration.waiverSigned ? "signed" : "pending"}`
               : "You already have a registration for this season."}
           </p>
+          {/* #460: arriving via a team invite means their context is the
+              TEAM — land them on My Teams (which links each team's hub)
+              rather than the generic dashboard. No token→id lookup exists
+              client-side, so the index is the closest team-scoped surface. */}
           <Button asChild>
-            <a href="/dashboard">View my registration</a>
+            <a href={teamToken ? "/dashboard/teams" : "/dashboard"}>
+              {teamToken ? "View my team" : "View my registration"}
+            </a>
           </Button>
         </div>
       </div>

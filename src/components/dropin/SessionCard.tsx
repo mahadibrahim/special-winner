@@ -18,6 +18,10 @@ export interface SessionCardData {
   memberRateCents: number | null;
   venueId: string | null;
   venueName: string | null;
+  /** Location slug for linking the venue name to its location page (#456).
+   *  Served by /api/dropin/sessions; older callers may omit it — consumers
+   *  must treat missing/null as "render plain text, never a dead link". */
+  locationSlug?: string | null;
   /** Confirmed + pending-payment holds + pending-claim promotions — every
    *  status that occupies a real seat (see dropin/sessions/index.ts). */
   confirmedCount: number;

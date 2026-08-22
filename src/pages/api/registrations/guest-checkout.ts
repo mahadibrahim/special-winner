@@ -281,6 +281,10 @@ export const POST: APIRoute = async (context) => {
                     }),
                     expiresIn: "15 minutes",
                     brand,
+                    // This recipient already HAS an account — the welcome
+                    // variant's "we created an account for you" read wrong
+                    // here (#457).
+                    variant: "existing",
                   }),
                 );
               } catch (emailErr) {

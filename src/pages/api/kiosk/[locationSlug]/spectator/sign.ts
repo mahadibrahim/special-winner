@@ -125,12 +125,21 @@ const CONSENT_SOURCE = KIOSK_SPECTATOR_SOURCE;
  * Both mean NOT ACTIVE. They differ only in whether the customer has a next
  * step. `phoneVerificationId` is present iff `awaitingCode` is non-empty — it is
  * what the UI posts to /api/auth/phone-verify/check with the entered code.
+ *
+ *   stopped (#457) — the number replied STOP at some point, and STOP
+ *     suppression is absolute: the OTP is never sent, and ONLY texting START
+ *     from that phone can lift it (nothing in the app may). Before this
+ *     bucket existed, a STOPped number landed in `pending` ("we'll be in
+ *     touch") — untrue, since no confirmation would ever come. The UI can
+ *     now say the one true thing: "Texting is turned off for this number —
+ *     reply START to re-enable."
  */
 type SignResponse = {
   ok: true;
   waiverId: string;
   awaitingCode: ConsentChannel[];
   pending: ConsentChannel[];
+  stopped: ConsentChannel[];
   phoneVerificationId?: string;
 };
 
@@ -217,12 +226,14 @@ export const POST: APIRoute = async ({ params, request, clientAddress, locals })
   // 2 — A ticked box, and ONLY a ticked box, makes a user.
   const pending: ConsentChannel[] = [];
   const awaitingCode: ConsentChannel[] = [];
+  const stopped: ConsentChannel[] = [];
   if (input.consents.length === 0) {
     const body: SignResponse = {
       ok: true,
       waiverId: waiver.id,
       awaitingCode,
       pending,
+      stopped,
     };
     return json(body, 200);
   }
@@ -293,6 +304,7 @@ export const POST: APIRoute = async ({ params, request, clientAddress, locals })
       waiverId: waiver.id,
       awaitingCode: [],
       pending: [...input.consents],
+      stopped: [],
     };
     return json(body, 200);
   }
@@ -334,6 +346,12 @@ export const POST: APIRoute = async ({ params, request, clientAddress, locals })
       phoneVerificationId = otp.verificationId;
       // In flight: the customer has a next step, and taking it promotes these.
       awaitingCode.push(...phoneChannels);
+    } else if (otp.reason === "sms_failed" && otp.error === "opted_out") {
+      // STOP suppression is absolute (#457): the number replied STOP, the
+      // OTP was never sent, and only texting START can lift it. Reporting
+      // this as `pending` ("we'll be in touch") was untrue — no confirmation
+      // will ever arrive. Its own bucket lets the UI say so.
+      stopped.push(...phoneChannels);
     } else {
       // Includes reason "sms_failed" carrying error "channel_dormant" (10DLC
       // registration still under carrier review). Whatever the cause, the
@@ -408,6 +426,7 @@ export const POST: APIRoute = async ({ params, request, clientAddress, locals })
     waiverId: waiver.id,
     awaitingCode,
     pending,
+    stopped,
     phoneVerificationId,
   };
   return json(body, 200);

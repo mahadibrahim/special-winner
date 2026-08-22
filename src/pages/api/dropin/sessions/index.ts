@@ -85,6 +85,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
       memberRateCents: dropInSessions.memberRateCents,
       venueId: dropInSessions.venueId,
       venueName: venues.name,
+      // #456: the pickup card's VenueLink renders a real link the moment a
+      // slug arrives — this was the missing piece (the locations join was
+      // already here for the ?location filter).
+      locationSlug: locations.slug,
       // Includes pending_payment (walk-in holds) and pending_claim (promoted
       // waitlisters) — both occupy a real seat until the expiry sweep
       // releases them, so the browse list's capacity meter/badge would

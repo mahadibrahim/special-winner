@@ -298,7 +298,10 @@ export function CompletionForm({
         </p>
       </div>
 
-      <details open className="group">
+      {/* Collapsed by default (#459, owner decision 2026-08-22). Opt-out
+          boxes inside are never pre-checked either way — collapsing changes
+          form length, not consent posture. */}
+      <details className="group">
         <summary className="text-sm font-medium text-ink cursor-pointer select-none">
           Photo &amp; video permissions
         </summary>

@@ -431,6 +431,9 @@ export interface SendMagicLinkLoginParams {
   /** Brand the checkout was placed on — controls template theme + sender.
    *  Defaults to aspire. */
   brand?: BrandId;
+  /** "existing" = the already-registered manage-link flow (#457): neutral
+   *  sign-in copy, no "we created an account for you". Default "welcome". */
+  variant?: "welcome" | "existing";
 }
 
 export async function sendMagicLinkLoginEmail(params: SendMagicLinkLoginParams) {
@@ -448,10 +451,14 @@ export async function sendMagicLinkLoginEmail(params: SendMagicLinkLoginParams) 
       childName: params.childName,
       seasonName: params.seasonName,
       brand: params.brand,
+      variant: params.variant,
     }),
   );
 
-  const subject = "You're registered — finish setting up your account";
+  const subject =
+    params.variant === "existing"
+      ? "Your sign-in link — manage your registration"
+      : "You're registered — finish setting up your account";
 
   return sendTransactionalEmail({
     userId: params.userId,
@@ -1091,13 +1098,17 @@ export async function sendCaptureIncentiveEmail(params: {
   );
 
   // Direct sendEmail rather than sendTransactionalEmail: there is no userId
-  // for the log association, no from override (Aspire-only surface), and no
-  // SMS nudge — so we log manually with the recipient email alone.
+  // for the log association and no SMS nudge — so we log manually with the
+  // recipient email alone. The sender IS brand-resolved (#457): this
+  // function takes a brand and themes the template with it, so a SoccerOne
+  // recipient must not get the Aspire sender (the newer recapture sibling
+  // always did this correctly).
   const result = await sendEmail({
     to: params.recipientEmail,
     subject,
     html,
     text,
+    from: fromForBrand(brand),
   });
 
   await logEmail({

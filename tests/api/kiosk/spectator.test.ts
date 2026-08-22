@@ -500,10 +500,15 @@ describe("kiosk spectator waiver", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     // No confirmation in flight — the send was blocked before a code
-    // existed. The endpoint fails soft: 200, channel reported "pending".
+    // existed. The endpoint fails soft: 200, and since #457 the channel is
+    // reported in its own `stopped` bucket rather than `pending` — "we'll
+    // be in touch" was untrue for a STOPped number (no confirmation will
+    // ever arrive; only texting START can lift the block), and the UI now
+    // says exactly that.
     expect(body.phoneVerificationId, "no OTP means no verification id").toBeFalsy();
     expect(body.awaitingCode).toEqual([]);
-    expect(body.pending).toEqual(["sms"]);
+    expect(body.pending).toEqual([]);
+    expect(body.stopped, "STOPped numbers get their own honest bucket (#457)").toEqual(["sms"]);
 
     // Prove the block happened at the send, not merely at a later promotion
     // step: nothing was ever texted to this number.
