@@ -57,7 +57,9 @@ export type DropInPaymentMethod =
   | "card_online"
   | "card_present"
   | "member_unlimited"
-  | "member_allotment";
+  | "member_allotment"
+  | "host_comp"
+  | "trial";
 
 export interface ResolvedRate {
   amountCents: number;

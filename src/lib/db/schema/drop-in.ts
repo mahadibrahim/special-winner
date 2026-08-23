@@ -56,6 +56,7 @@ export const dropInPaymentMethodEnum = pgEnum("drop_in_payment_method", [
   // Host's free seat in a game they host (GoodRec model) — created/cancelled
   // by src/lib/dropin/host-assignment.ts, always amount_paid_cents = 0.
   "host_comp",
+  "trial",
 ]);
 export const dropInCancellationReasonEnum = pgEnum("drop_in_cancellation_reason", [
   "user_request",
