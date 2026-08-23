@@ -185,6 +185,14 @@ export async function createChildClassBooking(opts: {
       paymentMethod = "member_allotment";
       membershipId = membership.id;
     } else {
+      // Cross-session TOCTOU, accepted at launch scale: this check only
+      // locks the SESSION row (above), not the child's other in-flight
+      // bookings. Two concurrent trial-booking calls for the same child on
+      // two DIFFERENT sessions can each read zero prior trials and both
+      // insert — the same accepted-risk class as the allotment race
+      // documented in src/lib/memberships/allotment.ts (over-granting by at
+      // most the number of in-flight concurrent bookings). App-level guard
+      // only; no DB uniqueness backstop by design at this scale.
       const [priorTrial] = await tx
         .select({ id: dropInBookings.id })
         .from(dropInBookings)
@@ -204,15 +212,20 @@ export async function createChildClassBooking(opts: {
       paymentMethod = "trial";
     }
 
-    // Waiver-on-file: any prior signed booking for this child satisfies it;
-    // otherwise the caller must supply one on this call.
+    // Waiver-on-file: any prior signed booking for this child IN THIS ORG
+    // satisfies it — waivers are per-organization legal releases (distinct
+    // legal entities, organizations.legalName), so a signature on file at
+    // org A must not silently waive liability at org B. Org-scoped via the
+    // same join shape as the trial-uniqueness check above.
     const [waiverOnFile] = await tx
       .select({ id: dropInBookings.id })
       .from(dropInBookings)
+      .innerJoin(dropInSessions, eq(dropInSessions.id, dropInBookings.sessionId))
       .where(
         and(
           eq(dropInBookings.familyMemberId, opts.familyMemberId),
           eq(dropInBookings.waiverSigned, true),
+          eq(dropInSessions.organizationId, session.organizationId),
         ),
       )
       .limit(1);
