@@ -135,6 +135,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
         locals.organization.id,
         locals.user.id,
         familyMemberId,
+        tier.monthlyPriceCents,
       );
     } catch (err) {
       console.error("[memberships/subscribe] sibling coupon lookup failed", err);

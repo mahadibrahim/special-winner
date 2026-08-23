@@ -1,8 +1,21 @@
 /**
- * Sibling discount: an additional child's monthly package gets a percent-off
- * Stripe coupon, decided at subscribe time and kept for the life of the
+ * Sibling discount: an additional child's MONTHLY PACKAGE gets a
+ * percent-off, decided at subscribe time and kept for the life of the
  * subscription (no re-ranking when the full-price sibling cancels — spec'd).
  * Rate comes from org settings `siblingDiscountPct`, default 10.
+ *
+ * Implemented as a fixed `amount_off` coupon, NOT `percent_off` — Stripe
+ * discount coupons on a subscription apply to the invoice total, so a
+ * percent coupon would also shave the (undiscounted-by-spec) annual fee
+ * line item on every invoice that carries one:
+ *   - first invoice (monthly + fee):      total − amount_off = discounted
+ *                                          monthly + FULL fee
+ *   - renewal invoices (monthly only):    monthly − amount_off
+ *   - anniversary invoices (monthly + fee item): full fee preserved
+ * A percent coupon can't express "monthly line only" — Stripe discounts
+ * the whole invoice — so the fixed cents amount (computed off the tier's
+ * monthly price) is the only way to keep the fee un-discounted on every
+ * invoice shape.
  */
 import { and, eq, inArray, isNotNull, ne } from "drizzle-orm";
 import { getDb } from "@/lib/db";
@@ -25,12 +38,22 @@ export function isSiblingEligible(
   );
 }
 
-/** Returns a reusable Stripe coupon id when the discount applies, else null. */
+/**
+ * Returns a reusable Stripe coupon id when the discount applies, else null.
+ *
+ * `monthlyPriceCents` is the subscribing child's tier's monthly price — the
+ * base the fixed discount amount is computed off of. Null (no monthly
+ * price configured on the tier) means there's nothing to discount, so this
+ * returns null without touching Stripe.
+ */
 export async function getSiblingCouponId(
   orgId: string,
   userId: string,
   familyMemberId: string,
+  monthlyPriceCents: number | null,
 ): Promise<string | null> {
+  if (monthlyPriceCents == null) return null;
+
   const db = getDb();
   const existing = await db
     .select({
@@ -59,14 +82,20 @@ export async function getSiblingCouponId(
       ?.siblingDiscountPct ?? DEFAULT_SIBLING_DISCOUNT_PCT;
   if (pct <= 0) return null;
 
-  // Reusable forever-duration coupon, one per percent. Custom coupon ids
-  // make create idempotent: on resource_already_exists we reuse it.
-  const couponId = `sibling-${pct}pct`;
+  // Fixed amount_off, computed off THIS tier's monthly price — see the
+  // module doc comment for why percent_off is wrong here. Reusable
+  // forever-duration coupon, one per (pct, amount) pair so tiers sharing a
+  // monthly price share a coupon. Custom coupon ids make create
+  // idempotent: on resource_already_exists we reuse it.
+  const amountOffCents = Math.round((monthlyPriceCents * pct) / 100);
+  if (amountOffCents <= 0) return null;
+  const couponId = `sibling-${pct}pct-${amountOffCents}c`;
   const s = membershipsStripe();
   try {
     await s.coupons.create({
       id: couponId,
-      percent_off: pct,
+      amount_off: amountOffCents,
+      currency: "usd",
       duration: "forever",
       name: `Sibling discount ${pct}%`,
     });
