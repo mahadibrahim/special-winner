@@ -94,6 +94,10 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
           discountApplied: true,
           creditAppliedCents: result.creditAppliedCents,
           memberDiscountCents: result.memberDiscountCents,
+          // Pct rides along with the cents so a zero-due confirmation can say
+          // "your 10% member discount" without a second lookup — matches the
+          // stripe_session response below.
+          memberDiscountPct: result.memberDiscountPct,
         }),
         { status: 200, headers: { "Content-Type": "application/json" } },
       );
