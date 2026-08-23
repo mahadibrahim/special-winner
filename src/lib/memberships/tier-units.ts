@@ -18,6 +18,9 @@ export const benefitsSchema = z
     booking_window_days: count.optional(),
     priority_league_signup_hrs: count.optional(),
     members_only_pickup: z.boolean().optional(),
+    classes_per_month: count.optional(),
+    unlimited_classes: z.boolean().optional(),
+    camp_discount_pct: z.number().int().min(0).max(100).optional(),
   })
   .passthrough();
 

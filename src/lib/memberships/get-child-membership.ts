@@ -1,0 +1,61 @@
+/**
+ * Child-membership lookup: resolves the active membership FOR A CHILD
+ * (family_members row), not for the paying user. Used by the camp
+ * discount (Plan 1) and class booking/auto-booking (Plan 2).
+ *
+ * Mirrors get-active-membership.ts's tier-join safety gate: zero rows
+ * when the org has no tiers or the child has no live membership.
+ */
+import { and, eq, inArray, desc } from "drizzle-orm";
+import { getDb } from "@/lib/db";
+import { memberships, membershipTiers } from "@/lib/db/schema/memberships";
+
+type DbClient =
+  | ReturnType<typeof getDb>
+  | Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
+
+const LIVE_STATUSES = ["active", "paused", "past_due", "incomplete"] as const;
+
+export interface ChildMembership {
+  id: string;
+  userId: string;
+  tierId: string;
+  tierName: string;
+  status: (typeof LIVE_STATUSES)[number];
+  benefits: Record<string, unknown>;
+}
+
+export async function getActiveChildMembership(
+  familyMemberId: string,
+  organizationId: string,
+  dbOrTx?: DbClient,
+): Promise<ChildMembership | null> {
+  const db = dbOrTx ?? getDb();
+  const rows = await db
+    .select({ m: memberships, t: membershipTiers })
+    .from(memberships)
+    .innerJoin(membershipTiers, eq(membershipTiers.id, memberships.tierId))
+    .where(
+      and(
+        eq(memberships.familyMemberId, familyMemberId),
+        eq(memberships.organizationId, organizationId),
+        eq(membershipTiers.organizationId, organizationId),
+        inArray(memberships.status, [...LIVE_STATUSES]),
+      ),
+    )
+    .orderBy(desc(memberships.createdAt))
+    .limit(1);
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    id: row.m.id,
+    userId: row.m.userId,
+    tierId: row.t.id,
+    tierName: row.t.name,
+    status: row.m.status as ChildMembership["status"],
+    benefits:
+      typeof row.t.benefits === "object" && row.t.benefits !== null
+        ? (row.t.benefits as Record<string, unknown>)
+        : {},
+  };
+}

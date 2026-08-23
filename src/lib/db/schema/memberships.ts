@@ -47,6 +47,9 @@ export const membershipBillingIntervalEnum = pgEnum(
  *   - members_only_pickup:        boolean
  *   - unlimited_pickup:           boolean
  *   - free_pickup_per_month:      integer
+ *   - classes_per_month:          integer
+ *   - unlimited_classes:          boolean
+ *   - camp_discount_pct:          integer 0–100
  */
 export const membershipTiers = pgTable(
   "membership_tiers",
