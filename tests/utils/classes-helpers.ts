@@ -146,6 +146,9 @@ export async function createTestClassTemplate(opts: {
    *  never depends on the org's (adult pickup) rate-card fallback. */
   sessionRateCents?: number;
   memberRateCents?: number;
+  /** Age range for the age-gate scenarios; both null (the default) = no gate. */
+  minAge?: number;
+  maxAge?: number;
 }): Promise<string> {
   const db = getDb();
   // Materialization horizon is 8 days (HORIZON_DAYS in
@@ -165,6 +168,8 @@ export async function createTestClassTemplate(opts: {
       capacity: opts.capacity,
       sessionRateCents: opts.sessionRateCents ?? null,
       memberRateCents: opts.memberRateCents ?? null,
+      minAge: opts.minAge ?? null,
+      maxAge: opts.maxAge ?? null,
       active: opts.active ?? true,
     })
     .returning();

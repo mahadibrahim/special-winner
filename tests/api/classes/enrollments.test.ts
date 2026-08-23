@@ -48,7 +48,7 @@ afterAll(async () => {
 async function createTemplate(
   name: string,
   capacity: number,
-  opts: { active?: boolean } = {},
+  opts: { active?: boolean; minAge?: number; maxAge?: number } = {},
 ): Promise<string> {
   const id = await createTestClassTemplate({
     organizationId,
@@ -56,9 +56,19 @@ async function createTemplate(
     name,
     capacity,
     active: opts.active,
+    minAge: opts.minAge,
+    maxAge: opts.maxAge,
   });
   createdTemplateIds.push(id);
   return id;
+}
+
+/** A `YYYY-MM-DD` birth date for a child who is exactly `age` years old
+ *  today, whatever "today" is — a Jan 1 birthday `age` years back is already
+ *  past on every day of the current year, so the age math is stable and this
+ *  test can't rot into a different age next January. */
+function birthDateForAge(age: number): string {
+  return `${new Date().getUTCFullYear() - age}-01-01`;
 }
 
 describe("POST /api/classes/enrollments", () => {
@@ -147,6 +157,60 @@ describe("POST /api/classes/enrollments", () => {
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body.error).toBe("template_inactive");
+  });
+
+  it("422s age_ineligible for a child outside the template's age range, and lets an in-range sibling through", async () => {
+    const suffix = Date.now();
+    const templateId = await createTemplate(`Enroll-AgeGate-${suffix}`, 5, {
+      minAge: 4,
+      maxAge: 6,
+    });
+
+    // Too old: 12 vs. maxAge 6. Without the gate this enrollment would be
+    // accepted and then fail age_ineligible inside the materialization cron
+    // every single week, forever.
+    const oldChild = await createTestChild(
+      parentUserId,
+      `AgeTooOld-${suffix}`,
+      birthDateForAge(12),
+    );
+    await createTestChildMembership({
+      userId: parentUserId,
+      familyMemberId: oldChild,
+      organizationId,
+      tierId,
+      idSuffix: `ageold-${suffix}`,
+    });
+
+    const tooOldRes = await apiFetch("/api/classes/enrollments", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({ slotTemplateId: templateId, familyMemberId: oldChild }),
+    });
+    expect(tooOldRes.status).toBe(422);
+    expect((await tooOldRes.json()).error).toBe("age_ineligible");
+
+    // In range (5, between 4 and 6) — the gate must not over-block.
+    const okChild = await createTestChild(
+      parentUserId,
+      `AgeInRange-${suffix}`,
+      birthDateForAge(5),
+    );
+    await createTestChildMembership({
+      userId: parentUserId,
+      familyMemberId: okChild,
+      organizationId,
+      tierId,
+      idSuffix: `ageok-${suffix}`,
+    });
+
+    const okRes = await apiFetch("/api/classes/enrollments", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({ slotTemplateId: templateId, familyMemberId: okChild }),
+    });
+    expect(okRes.status).toBe(200);
+    createdEnrollmentIds.push((await okRes.json()).enrollmentId);
   });
 
   it("409s already_enrolled when the child enrolls in the same template twice", async () => {
@@ -275,6 +339,51 @@ describe("PUT /api/classes/enrollments/:id", () => {
     expect(putRes.status).toBe(404);
     const body = await putRes.json();
     expect(body.error).toBe("enrollment_not_found");
+  });
+
+  it("422s age_ineligible when the destination template's age range excludes the child", async () => {
+    const suffix = Date.now();
+    const templateFrom = await createTemplate(`Move-AgeFrom-${suffix}`, 5);
+    const templateTo = await createTemplate(`Move-AgeTo-${suffix}`, 5, { minAge: 10 });
+
+    const childId = await createTestChild(
+      parentUserId,
+      `AgeMover-${suffix}`,
+      birthDateForAge(5),
+    );
+    await createTestChildMembership({
+      userId: parentUserId,
+      familyMemberId: childId,
+      organizationId,
+      tierId,
+      idSuffix: `agemover-${suffix}`,
+    });
+
+    const createRes = await apiFetch("/api/classes/enrollments", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({ slotTemplateId: templateFrom, familyMemberId: childId }),
+    });
+    expect(createRes.status).toBe(200);
+    const { enrollmentId } = await createRes.json();
+    createdEnrollmentIds.push(enrollmentId);
+
+    const putRes = await apiFetch(`/api/classes/enrollments/${enrollmentId}`, {
+      method: "PUT",
+      cookie,
+      body: JSON.stringify({ newSlotTemplateId: templateTo }),
+    });
+    expect(putRes.status).toBe(422);
+    expect((await putRes.json()).error).toBe("age_ineligible");
+
+    // Atomic failure — the child keeps their original seat.
+    const db = getDb();
+    const [row] = await db
+      .select()
+      .from(classEnrollments)
+      .where(eq(classEnrollments.id, enrollmentId));
+    expect(row.status).toBe("active");
+    expect(row.slotTemplateId).toBe(templateFrom);
   });
 
   it("409s template_full when the destination template is full", async () => {

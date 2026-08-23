@@ -160,6 +160,50 @@ describe("POST /api/classes/book", () => {
     expect(body2.error).toBe("trial_already_used");
   });
 
+  it("409s member_child_no_trial when a child who already holds a membership asks for a trial", async () => {
+    const suffix = `${Date.now()}-h`;
+    const childId = await createTestChild(parentUserId, `MemberTrial-${suffix}`);
+    await createTestChildMembership({
+      userId: parentUserId,
+      familyMemberId: childId,
+      organizationId,
+      tierId,
+      idSuffix: suffix,
+    });
+    const sessionId = await createClassSession(hoursFromNow(8 * 24));
+
+    // The trial is an acquisition offer — a member child's seat comes from
+    // the allotment (or the paid make-up), never from the one-per-child
+    // trial. Sent WITH a waiver so the rejection can only be the membership
+    // gate, not waiver_required.
+    const res = await apiFetch("/api/classes/book", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({
+        sessionId,
+        familyMemberId: childId,
+        kind: "trial",
+        waiver: CLASS_TEST_WAIVER,
+      }),
+    });
+    expect(res.status).toBe(409);
+    const body = await res.json();
+    expect(body.error).toBe("member_child_no_trial");
+
+    // ...and the same child CAN still book on the allotment.
+    const memberRes = await apiFetch("/api/classes/book", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({
+        sessionId,
+        familyMemberId: childId,
+        kind: "member",
+        waiver: CLASS_TEST_WAIVER,
+      }),
+    });
+    expect(memberRes.status).toBe(200);
+  });
+
   it("lets two different children of the same parent both book the same session", async () => {
     const suffix = `${Date.now()}-d`;
     const childA = await createTestChild(parentUserId, `SiblingA-${suffix}`);

@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
 import { membershipTiers } from "@/lib/db/schema/memberships";
-import { apiFetch } from "../setup/test-helpers";
+import { apiFetch, getAuthCookie } from "../setup/test-helpers";
 import { createTestDropInSession } from "../../utils/dropin-helpers";
 import {
   resolveClassTestFixtures,
@@ -12,6 +12,8 @@ import {
   createTestClassTemplate,
   sweepOrphanedTestTemplates,
   cleanupTestClassFixtures,
+  CLASS_TEST_PARENT_EMAIL,
+  CLASS_TEST_PARENT_PASSWORD,
 } from "../../utils/classes-helpers";
 import { classEnrollments } from "@/lib/db/schema/classes";
 
@@ -20,6 +22,7 @@ const CRON_SECRET = process.env.CRON_SECRET;
 let organizationId: string;
 let venueId: string;
 let parentUserId: string;
+let cookie: string;
 
 // Every template / enrollment this file creates, so afterAll can retire
 // them. This matters MORE here than in the other suites: an orphaned
@@ -31,6 +34,7 @@ const createdEnrollmentIds: string[] = [];
 
 beforeAll(async () => {
   ({ organizationId, venueId, parentUserId } = await resolveClassTestFixtures());
+  cookie = await getAuthCookie(CLASS_TEST_PARENT_EMAIL, CLASS_TEST_PARENT_PASSWORD);
   // One-time hygiene for orphans from before this cleanup existed — safe
   // here since tests/api runs with fileParallelism:false.
   await sweepOrphanedTestTemplates(organizationId);
@@ -222,6 +226,101 @@ describe("POST /api/cron/materialize-class-sessions", () => {
           ),
         );
       expect(exhaustedBookings2.length).toBe(0);
+    },
+  );
+
+  it(
+    "copies the template's class rates onto every materialized session, and quotes " +
+      "them (not the adult pickup rate card) on the allotment-exhausted 402",
+    async (ctx) => {
+      if (!CRON_SECRET) return ctx.skip();
+      const db = getDb();
+      const suffix = Date.now();
+
+      // Same rates the Task-9 seed template carries — a class member rate
+      // deliberately distinct from any plausible adult drop-in rate-card
+      // default, so a fallback regression can't accidentally match.
+      const templateId = await createTestClassTemplate({
+        organizationId,
+        venueId,
+        name: `Cron-Template-Rates-${suffix}`,
+        capacity: 20,
+        startTime: "13:00:00",
+        sessionRateCents: 2500,
+        memberRateCents: 1500,
+      });
+      createdTemplateIds.push(templateId);
+
+      const res = await postCron(CRON_SECRET);
+      expect(res.status).toBe(200);
+
+      // Explicit orderBy: CI's shared DB can hold several occurrences of
+      // this template inside the horizon.
+      const [session] = await db
+        .select()
+        .from(dropInSessions)
+        .where(
+          and(
+            eq(dropInSessions.classSlotTemplateId, templateId),
+            eq(dropInSessions.status, "scheduled"),
+          ),
+        )
+        .orderBy(asc(dropInSessions.startsAt))
+        .limit(1);
+      expect(session).toBeTruthy();
+      expect(session.sessionRateCents).toBe(2500);
+      expect(session.memberRateCents).toBe(1500);
+
+      // A child whose allotment is already spent: a cap-1 tier plus one
+      // prior confirmed member_allotment booking (cheaper than four
+      // bookings against the shared cap-4 tier).
+      const [tier1] = await db
+        .insert(membershipTiers)
+        .values({
+          organizationId,
+          name: `Cron Rates Tier 1 - ${suffix}`,
+          monthlyPriceCents: 5000,
+          benefits: { classes_per_month: 1 },
+          isActive: true,
+        })
+        .returning();
+      const child = await createTestChild(parentUserId, `CronRates-${suffix}`);
+      const membershipId = await createTestChildMembership({
+        userId: parentUserId,
+        familyMemberId: child,
+        organizationId,
+        tierId: tier1.id,
+        idSuffix: `cronrates-${suffix}`,
+      });
+      const priorCtx = await createTestDropInSession({ organizationId, venueId, kind: "class" });
+      await db.insert(dropInBookings).values({
+        sessionId: priorCtx.sessionId,
+        userId: parentUserId,
+        familyMemberId: child,
+        status: "confirmed",
+        source: "online_booking",
+        paymentMethod: "member_allotment",
+        amountPaidCents: 0,
+        membershipId,
+        waiverSigned: true,
+      });
+
+      const bookRes = await apiFetch("/api/classes/book", {
+        method: "POST",
+        cookie,
+        body: JSON.stringify({
+          sessionId: session.id,
+          familyMemberId: child,
+          kind: "member",
+        }),
+      });
+      expect(bookRes.status).toBe(402);
+      const body = await bookRes.json();
+      expect(body.error).toBe("allotment_exhausted");
+      // The exact cents seeded on the TEMPLATE — the paid make-up the
+      // client is about to be routed to is priced as a class, not as an
+      // adult drop-in.
+      expect(body.memberRateCents).toBe(1500);
     },
   );
 });
