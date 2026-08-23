@@ -61,13 +61,8 @@ export async function getOrCreateStripeCustomer(opts: {
   return created.id;
 }
 
-/**
- * Create a Stripe Checkout Session in subscription mode for a tier × interval.
- *
- * The session's metadata carries the fields the webhook needs to insert the
- * `memberships` row on `checkout.session.completed`.
- */
-export async function createSubscriptionCheckoutSession(opts: {
+/** Opts shared by {@link buildSubscriptionCheckoutParams} and {@link createSubscriptionCheckoutSession}. */
+export interface SubscriptionCheckoutOpts {
   customerId: string;
   priceId: string;
   userId: string;
@@ -92,9 +87,21 @@ export async function createSubscriptionCheckoutSession(opts: {
   feePriceId?: string | null;
   /** Sibling-discount coupon id (see sibling-discount.ts), when eligible. */
   couponId?: string | null;
-}): Promise<{ url: string; sessionId: string }> {
-  const s = membershipsStripe();
+}
 
+/**
+ * Pure assembly of the Stripe Checkout Session create params + idempotency
+ * key from subscribe opts. Split out from {@link createSubscriptionCheckoutSession}
+ * so the line-items/discounts/metadata wiring (fee line item, sibling
+ * coupon, per-child metadata + idempotency key) is unit-testable without a
+ * live Stripe client.
+ */
+export function buildSubscriptionCheckoutParams(
+  opts: SubscriptionCheckoutOpts,
+): {
+  params: Stripe.Checkout.SessionCreateParams;
+  idempotencyKey: string;
+} {
   const subscriptionData: Stripe.Checkout.SessionCreateParams.SubscriptionData = {
     metadata: {
       type: "membership_subscription",
@@ -113,37 +120,51 @@ export async function createSubscriptionCheckoutSession(opts: {
       : {}),
   };
 
-  const session = await s.checkout.sessions.create(
-    {
-      mode: "subscription",
-      customer: opts.customerId,
-      line_items: [
-        { price: opts.priceId, quantity: 1 },
-        ...(opts.feePriceId ? [{ price: opts.feePriceId, quantity: 1 }] : []),
-      ],
-      subscription_data: subscriptionData,
-      // `discounts` and `allow_promotion_codes` are mutually exclusive in
-      // Checkout — we don't use promotion codes, so no conflict.
-      ...(opts.couponId ? { discounts: [{ coupon: opts.couponId }] } : {}),
-      metadata: {
-        type: "membership_subscription",
-        user_id: opts.userId,
-        organization_id: opts.organizationId,
-        tier_id: opts.tierId,
-        billing_interval: opts.billingInterval,
-        brand: opts.brand,
-        ...(opts.familyMemberId ? { family_member_id: opts.familyMemberId } : {}),
-        ...(opts.tierName ? { tier_name: opts.tierName } : {}),
-        // Ad-attribution ids → webhook fires server-side GA4 + Meta purchases.
-        ...(opts.adAttribution ?? {}),
-      },
-      success_url: opts.successUrl,
-      cancel_url: opts.cancelUrl,
+  const params: Stripe.Checkout.SessionCreateParams = {
+    mode: "subscription",
+    customer: opts.customerId,
+    line_items: [
+      { price: opts.priceId, quantity: 1 },
+      ...(opts.feePriceId ? [{ price: opts.feePriceId, quantity: 1 }] : []),
+    ],
+    subscription_data: subscriptionData,
+    // `discounts` and `allow_promotion_codes` are mutually exclusive in
+    // Checkout — we don't use promotion codes, so no conflict.
+    ...(opts.couponId ? { discounts: [{ coupon: opts.couponId }] } : {}),
+    metadata: {
+      type: "membership_subscription",
+      user_id: opts.userId,
+      organization_id: opts.organizationId,
+      tier_id: opts.tierId,
+      billing_interval: opts.billingInterval,
+      brand: opts.brand,
+      ...(opts.familyMemberId ? { family_member_id: opts.familyMemberId } : {}),
+      ...(opts.tierName ? { tier_name: opts.tierName } : {}),
+      // Ad-attribution ids → webhook fires server-side GA4 + Meta purchases.
+      ...(opts.adAttribution ?? {}),
     },
-    {
-      idempotencyKey: `${opts.userId}:${opts.familyMemberId ?? "self"}:${opts.tierId}:${opts.billingInterval}:checkout:v1`,
-    },
-  );
+    success_url: opts.successUrl,
+    cancel_url: opts.cancelUrl,
+  };
+
+  const idempotencyKey = `${opts.userId}:${opts.familyMemberId ?? "self"}:${opts.tierId}:${opts.billingInterval}:checkout:v1`;
+
+  return { params, idempotencyKey };
+}
+
+/**
+ * Create a Stripe Checkout Session in subscription mode for a tier × interval.
+ *
+ * The session's metadata carries the fields the webhook needs to insert the
+ * `memberships` row on `checkout.session.completed`.
+ */
+export async function createSubscriptionCheckoutSession(
+  opts: SubscriptionCheckoutOpts,
+): Promise<{ url: string; sessionId: string }> {
+  const s = membershipsStripe();
+  const { params, idempotencyKey } = buildSubscriptionCheckoutParams(opts);
+
+  const session = await s.checkout.sessions.create(params, { idempotencyKey });
 
   if (!session.url) {
     throw new Error("Stripe Checkout Session has no URL");

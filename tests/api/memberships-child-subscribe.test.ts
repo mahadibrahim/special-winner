@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { eq, and } from "drizzle-orm";
+import { eq, and, asc } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { organizations } from "@/lib/db/schema/organizations";
 import { membershipTiers } from "@/lib/db/schema/memberships";
@@ -32,20 +32,27 @@ let hasAspireTierFixture = false;
 beforeAll(async () => {
   const db = getDb();
 
+  // organizations.slug and users.email both carry unique constraints, so a
+  // single match is guaranteed here — no orderBy needed. The family-member
+  // lookups below aren't uniquely constrained, so those get an explicit
+  // orderBy per the shared-CI-DB convention (see membershipTiers query).
   const [aspireOrg] = await db
     .select({ id: organizations.id })
     .from(organizations)
-    .where(eq(organizations.slug, "aspire-sports"));
+    .where(eq(organizations.slug, "aspire-sports"))
+    .limit(1);
   if (!aspireOrg) return;
 
   const [parentUser] = await db
     .select({ id: users.id })
     .from(users)
-    .where(eq(users.email, PARENT_EMAIL));
+    .where(eq(users.email, PARENT_EMAIL))
+    .limit(1);
   const [otherUser] = await db
     .select({ id: users.id })
     .from(users)
-    .where(eq(users.email, OTHER_EMAIL));
+    .where(eq(users.email, OTHER_EMAIL))
+    .limit(1);
 
   if (parentUser) {
     const [child] = await db
@@ -56,17 +63,26 @@ beforeAll(async () => {
           eq(familyMembers.parentUserId, parentUser.id),
           eq(familyMembers.firstName, "Tommy"),
         ),
-      );
+      )
+      .orderBy(asc(familyMembers.createdAt))
+      .limit(1);
     ownChildId = child?.id;
   }
   if (otherUser) {
     const [child] = await db
       .select({ id: familyMembers.id })
       .from(familyMembers)
-      .where(eq(familyMembers.parentUserId, otherUser.id));
+      .where(eq(familyMembers.parentUserId, otherUser.id))
+      .orderBy(asc(familyMembers.createdAt))
+      .limit(1);
     otherUsersChildId = child?.id;
   }
 
+  // Pin to the named fixture (seed-e2e-tests.ts Stage 13b) rather than
+  // "any active tier" — the CI DB is shared across runs and accumulates
+  // rows, so an unordered "give me a row" query can silently pick the
+  // wrong one. orderBy + limit(1) keeps this deterministic even with
+  // multiple matches.
   const [tier] = await db
     .select({ id: membershipTiers.id })
     .from(membershipTiers)
@@ -74,8 +90,11 @@ beforeAll(async () => {
       and(
         eq(membershipTiers.organizationId, aspireOrg.id),
         eq(membershipTiers.isActive, true),
+        eq(membershipTiers.name, "Test Class Tier 4"),
       ),
-    );
+    )
+    .orderBy(asc(membershipTiers.createdAt))
+    .limit(1);
   aspireTierId = tier?.id;
   hasAspireTierFixture = Boolean(aspireTierId);
 });

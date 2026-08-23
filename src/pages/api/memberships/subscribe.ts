@@ -120,15 +120,27 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     if (!child) return json({ error: "Family member not found" }, 404);
     familyMemberId = child.id;
   }
-  const couponId = familyMemberId
-    ? await getSiblingCouponId(
+
+  if (!stripe) return json({ error: "Stripe not configured" }, 503);
+
+  // A missing sibling discount must never block a subscribe: on any
+  // failure (Stripe unconfigured, coupon create error, rate limit) we
+  // degrade to no discount rather than surfacing a 500 for an unrelated
+  // checkout. The discount can be applied manually in Stripe after the
+  // fact if it ever drops this way.
+  let couponId: string | null = null;
+  if (familyMemberId) {
+    try {
+      couponId = await getSiblingCouponId(
         locals.organization.id,
         locals.user.id,
         familyMemberId,
-      )
-    : null;
-
-  if (!stripe) return json({ error: "Stripe not configured" }, 503);
+      );
+    } catch (err) {
+      console.error("[memberships/subscribe] sibling coupon lookup failed", err);
+      couponId = null;
+    }
+  }
 
   // Resolve the partner Stripe account at org level (memberships are
   // org-scoped, not venue-scoped). Falls back to direct charge.
