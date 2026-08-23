@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   invoiceToLedgerRow,
   membershipMarkerFromInvoice,
+  subscriptionIdFromInvoice,
 } from "@/lib/memberships/invoice-ledger";
 
 const membership = { id: "mem-1", userId: "user-1" };
@@ -108,5 +109,60 @@ describe("membershipMarkerFromInvoice", () => {
         },
       } as never),
     ).toBeNull();
+  });
+});
+
+// The LIVE prod webhook is pinned to API version 2026-04-22.dahlia, which
+// moved the subscription reference off the invoice's top level. Every
+// subscription-id read from an invoice must go through this helper —
+// reading only the legacy top-level field silently no-ops on real prod
+// payloads.
+describe("subscriptionIdFromInvoice", () => {
+  it("reads a dahlia-shape string subscription id", () => {
+    expect(
+      subscriptionIdFromInvoice({
+        id: "in_1",
+        parent: {
+          type: "subscription_details",
+          quote_details: null,
+          subscription_details: { subscription: "sub_1", metadata: null },
+        },
+      } as never),
+    ).toBe("sub_1");
+  });
+
+  it("reads a dahlia-shape expanded subscription object", () => {
+    expect(
+      subscriptionIdFromInvoice({
+        id: "in_2",
+        parent: {
+          type: "subscription_details",
+          quote_details: null,
+          subscription_details: {
+            subscription: { id: "sub_2" },
+            metadata: null,
+          },
+        },
+      } as never),
+    ).toBe("sub_2");
+  });
+
+  it("falls back to a legacy top-level string subscription id", () => {
+    expect(
+      subscriptionIdFromInvoice({ id: "in_3", subscription: "sub_3" } as never),
+    ).toBe("sub_3");
+  });
+
+  it("falls back to a legacy top-level expanded subscription object", () => {
+    expect(
+      subscriptionIdFromInvoice({
+        id: "in_4",
+        subscription: { id: "sub_4" },
+      } as never),
+    ).toBe("sub_4");
+  });
+
+  it("returns null when neither shape carries a subscription", () => {
+    expect(subscriptionIdFromInvoice({ id: "in_5" } as never)).toBeNull();
   });
 });

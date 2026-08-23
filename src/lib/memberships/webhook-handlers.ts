@@ -14,6 +14,7 @@ import { capturePaymentCompleted } from "@/lib/observability/payment-telemetry";
 import { fireServerPurchaseConversions } from "@/lib/analytics/server-conversions";
 import { sendOpsPing } from "@/lib/ops/ping";
 import { nextFeeDueAt } from "./annual-fee";
+import { subscriptionIdFromInvoice } from "./invoice-ledger";
 
 /**
  * `checkout.session.completed` for `mode === 'subscription'` with our
@@ -206,11 +207,8 @@ export async function handleSubscriptionDeleted(
 export async function handleInvoicePaymentFailed(
   invoice: Stripe.Invoice,
 ): Promise<void> {
-  if (!invoice.subscription) return;
-  const subscriptionId =
-    typeof invoice.subscription === "string"
-      ? invoice.subscription
-      : invoice.subscription.id;
+  const subscriptionId = subscriptionIdFromInvoice(invoice);
+  if (!subscriptionId) return;
   const db = getDb();
   await db
     .update(memberships)

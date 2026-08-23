@@ -11,6 +11,7 @@ import type Stripe from "stripe";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropSubscriptions } from "@/lib/db/schema/drop-league";
+import { subscriptionIdFromInvoice } from "@/lib/memberships/invoice-ledger";
 
 /**
  * `checkout.session.completed` for `mode === 'subscription'` with
@@ -127,11 +128,8 @@ export async function handleDropSubscriptionDeleted(
 export async function handleDropInvoicePaymentFailed(
   invoice: Stripe.Invoice,
 ): Promise<void> {
-  if (!invoice.subscription) return;
-  const subscriptionId =
-    typeof invoice.subscription === "string"
-      ? invoice.subscription
-      : invoice.subscription.id;
+  const subscriptionId = subscriptionIdFromInvoice(invoice);
+  if (!subscriptionId) return;
 
   const db = getDb();
   await db
