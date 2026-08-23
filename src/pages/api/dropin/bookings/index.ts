@@ -20,6 +20,17 @@
  * Marketplace fee: when the venue carries `partnerStripeAccountId`, the
  * Checkout Session uses Connect `transfer_data` so funds settle on the
  * partner account net of our `partnerApplicationFeePct` cut.
+ *
+ * `familyMemberId` (optional) — the CHILD paid make-up path. Set by the
+ * classes UI when `POST /api/classes/book` returns 402 `allotment_exhausted`
+ * (the child's monthly class allotment is used up): the parent pays the
+ * class's member rate to make up the child's spot rather than drawing from
+ * the allotment. Validated here (must be the caller's dependent, and the
+ * session must be `kind: "class"`), threaded into checkout/PaymentIntent
+ * metadata as `family_member_id`, and recorded on the booking row by the
+ * webhook fulfillment core (see handle-dropin-checkout-complete.ts). Absent
+ * (the normal adult drop-in booking) → behavior is unchanged from before
+ * this field existed.
  */
 import type { APIRoute } from "astro";
 import { and, desc, eq, sql } from "drizzle-orm";
@@ -29,6 +40,7 @@ import {
   dropInRateCard,
   dropInBookings,
 } from "@/lib/db/schema/drop-in";
+import { familyMembers } from "@/lib/db/schema/registrations";
 import { venues } from "@/lib/db/schema/teams";
 import { stripe } from "@/lib/stripe/client";
 import { resolveRate } from "@/lib/dropin/pricing";
@@ -44,6 +56,9 @@ import { brandFromHost } from "@/lib/organization/soccerone-routing";
 import { collectAdAttribution } from "@/lib/analytics/parse-cookies";
 
 export const prerender = false;
+
+const UUID_RX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * GET /api/dropin/bookings → list the authenticated user's drop-in
@@ -129,6 +144,10 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     /** Client-minted id, fresh per Pay click — Stripe idempotency scope for
      *  the intent create (dedupes duplicate deliveries of one attempt). */
     attemptId?: string;
+    /** Optional — the child paid make-up path. Must be the caller's
+     *  dependent and the session must be `kind: "class"`. See the file
+     *  doc comment above. */
+    familyMemberId?: string;
   };
   try {
     body = await request.json();
@@ -177,6 +196,35 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     return json({ error: "Session not open for booking" }, 409);
   }
 
+  // Child paid make-up: validate ownership before anything else — the
+  // family_members row must belong to this parent, or 404 (never leak
+  // whether the id exists under another user). Restricted to class
+  // sessions: the concept only makes sense there (the child's exhausted
+  // monthly class allotment), and it keeps every other branch below
+  // (existing-booking dedupe, capacity, refunds) exactly as it behaves for
+  // adult pickup bookings today.
+  let familyMemberId: string | null = null;
+  if (typeof body.familyMemberId === "string") {
+    if (!UUID_RX.test(body.familyMemberId)) {
+      return json({ error: "Invalid familyMemberId" }, 422);
+    }
+    if (session.kind !== "class") {
+      return json({ error: "familyMemberId is only valid for class sessions" }, 400);
+    }
+    const [child] = await db
+      .select({ id: familyMembers.id })
+      .from(familyMembers)
+      .where(
+        and(
+          eq(familyMembers.id, body.familyMemberId),
+          eq(familyMembers.parentUserId, locals.user.id),
+        ),
+      )
+      .limit(1);
+    if (!child) return json({ error: "Family member not found" }, 404);
+    familyMemberId = child.id;
+  }
+
   // rateCard and membership are independent reads (rate card is org-scoped,
   // membership is user+org-scoped) — fetch concurrently.
   const [[rateCard], membership] = await Promise.all([
@@ -191,9 +239,29 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     return json({ error: "Rate card not configured" }, 500);
   }
 
-  const rate = resolveRate(session, locals.user, membership, rateCard);
+  let rate = resolveRate(session, locals.user, membership, rateCard);
 
-  // Free path → create immediately.
+  // Child paid make-up: `resolveRate` above resolved the PARENT's own adult
+  // drop-in membership (rule 2-4), which is irrelevant here — the child's
+  // membership (a separate `memberships` row, see get-child-membership.ts)
+  // already gated this purchase upstream in POST /api/classes/book, which
+  // quoted the caller `session.memberRateCents ?? rateCard.memberRateCents`
+  // on its 402. Charge exactly that figure so the two endpoints never
+  // quote-then-charge a different number.
+  if (familyMemberId) {
+    rate = {
+      amountCents: session.memberRateCents ?? rateCard.defaultMemberRateCents,
+      paymentMethod: "card_online",
+      membershipId: null,
+    };
+    if (rate.amountCents <= 0) {
+      return json({ error: "Member rate not configured for this class" }, 500);
+    }
+  }
+
+  // Free path → create immediately. Never for the child make-up path — its
+  // rate is always > 0 (guarded above), and `createConfirmedBookingFreePath`
+  // doesn't know about family members; it would silently book the PARENT.
   if (rate.amountCents === 0) {
     const result = await createConfirmedBookingFreePath({
       sessionId,
@@ -230,13 +298,22 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
   // duplicate here, before Stripe is involved. (Not race-proof on its own —
   // two concurrent first-time checkouts pass this check; the webhook guard
   // + auto-refund is the transactional backstop.)
+  // Participant-scoped: matches the DB's own dedupe key
+  // (drop_in_bookings_one_active_per_participant_session_v3, keyed on
+  // COALESCE(family_member_id, user_id)). Without this, a parent buying a
+  // second child's make-up on the same session would be wrongly blocked as
+  // "already booked" by the first child's row. When familyMemberId is
+  // absent this is byte-for-byte the original adult-only query.
+  const participantFilter = familyMemberId
+    ? eq(dropInBookings.familyMemberId, familyMemberId)
+    : eq(dropInBookings.userId, locals.user.id);
   const [existingActive] = await db
     .select({ status: dropInBookings.status })
     .from(dropInBookings)
     .where(
       and(
         eq(dropInBookings.sessionId, sessionId),
-        eq(dropInBookings.userId, locals.user.id),
+        participantFilter,
         sql`${dropInBookings.status} IN ('confirmed', 'waitlisted', 'pending_claim', 'pending_payment')`,
       ),
     )
@@ -277,6 +354,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
       extraMetadata: {
         brand: brandFromHost(request.headers.get("host") ?? ""),
         ...collectAdAttribution(url, request.headers.get("cookie")),
+        ...(familyMemberId ? { family_member_id: familyMemberId } : {}),
       },
       idempotencyKey: `dropin-embedded:${sessionId}:${locals.user.id}:${attemptId}`,
     });
@@ -304,6 +382,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     extraMetadata: {
       brand: brandFromHost(request.headers.get("host") ?? ""),
       ...collectAdAttribution(url, request.headers.get("cookie")),
+      ...(familyMemberId ? { family_member_id: familyMemberId } : {}),
     },
     // Stripe success/cancel redirects return to the booking domain.
     origin: url.origin,

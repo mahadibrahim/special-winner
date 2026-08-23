@@ -28,7 +28,7 @@
  * mirroring the free path's ordering exactly: membership grant, then an
  * awaited confirmation dispatch.
  */
-import { and, eq, ne, sql } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
 import { familyMembers } from "@/lib/db/schema/registrations";
@@ -64,8 +64,35 @@ export type ChildBookingResult =
   | { ok: false; error: ChildBookingError };
 
 /** Booking statuses that occupy a real seat / block a duplicate booking —
- *  matches the v3 unique index's WHERE clause on drop_in_bookings. */
-const ACTIVE_BOOKING_STATUSES = sql`${dropInBookings.status} IN ('confirmed', 'waitlisted', 'pending_claim', 'pending_payment')`;
+ *  matches the v3 unique index's WHERE clause on drop_in_bookings. Exported
+ *  (both the plain list and the Drizzle condition built from it) so the
+ *  cancel endpoint (src/pages/api/classes/bookings/[id]/cancel.ts) can gate
+ *  on the same "still active" definition rather than duplicating the status
+ *  list and risking drift. */
+export const ACTIVE_BOOKING_STATUS_LIST = [
+  "confirmed",
+  "waitlisted",
+  "pending_claim",
+  "pending_payment",
+] as const;
+export const ACTIVE_BOOKING_STATUSES = inArray(
+  dropInBookings.status,
+  ACTIVE_BOOKING_STATUS_LIST,
+);
+
+/**
+ * Cancellation cutoff predicate — pure, unit-testable. A booking may be
+ * freely cancelled (seat/credit freed, no penalty) only when at least
+ * `hours` hours separate `now` from the session's start.
+ *
+ * Applied UNIFORMLY to both booking kinds (member AND trial): a trial slot
+ * occupies a real seat exactly like a member booking, so a late trial
+ * cancel is just as disruptive to capacity planning as a late member
+ * cancel — there is no reason to give trial bookings a laxer window.
+ */
+export function isBeforeCutoff(startsAt: Date, now: Date, hours = 24): boolean {
+  return startsAt.getTime() - hours * 3_600_000 > now.getTime();
+}
 
 /**
  * Age in whole years on `onDate`, given a `YYYY-MM-DD` birth date string.
