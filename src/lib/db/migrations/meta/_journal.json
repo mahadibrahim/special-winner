@@ -897,6 +897,13 @@
       "when": 1787486073092,
       "tag": "0127_odd_thundra",
       "breakpoints": true
+    },
+    {
+      "idx": 128,
+      "version": "7",
+      "when": 1787486281084,
+      "tag": "0128_ancient_vance_astro",
+      "breakpoints": true
     }
   ]
 }

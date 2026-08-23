@@ -24,6 +24,7 @@ export const paymentTypeEnum = pgEnum("payment_type", [
   "balance",
   "refund",
   "installment",
+  "membership",
 ]);
 
 export const transactionStatusEnum = pgEnum("transaction_status", [
