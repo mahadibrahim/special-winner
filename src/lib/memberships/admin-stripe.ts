@@ -95,13 +95,19 @@ export async function applyTierStripeEdits(opts: {
 
   let feePriceId = opts.old.feePriceId;
   if (opts.old.feeCents !== opts.next.feeCents) {
-    if (opts.old.feePriceId) {
+    if (opts.next.feeCents != null) {
+      // Create-then-archive, matching the interval-price "replace" branch
+      // above — never leave stripePriceIdFee pointing at an archived Price
+      // if createFeePrice throws.
+      const newFeePriceId = await createFeePrice(opts.productId, opts.next.feeCents);
+      if (opts.old.feePriceId) {
+        await s().prices.update(opts.old.feePriceId, { active: false });
+      }
+      feePriceId = newFeePriceId;
+    } else if (opts.old.feePriceId) {
       await s().prices.update(opts.old.feePriceId, { active: false });
+      feePriceId = null;
     }
-    feePriceId =
-      opts.next.feeCents != null
-        ? await createFeePrice(opts.productId, opts.next.feeCents)
-        : null;
   }
 
   return { monthlyPriceId, annualPriceId, feePriceId };
