@@ -47,6 +47,9 @@ export const dropInBookingStatusEnum = pgEnum("drop_in_booking_status", [
 export const dropInBookingSourceEnum = pgEnum("drop_in_booking_source", [
   "online_booking",
   "walk_up",
+  // Materialized by the class-slot cron (auto-booking an enrolled child into
+  // a newly-created weekly session) — see src/lib/classes/book-child.ts.
+  "auto_enrollment",
 ]);
 export const dropInPaymentMethodEnum = pgEnum("drop_in_payment_method", [
   "card_online",
