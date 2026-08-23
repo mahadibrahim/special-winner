@@ -23,14 +23,19 @@ const HOST = "aspire.local";
 let ownChildId: string | undefined;
 let otherUsersChildId: string | undefined;
 let aspireTierId: string | undefined;
+// Unique per test run so this spec is self-sufficient on shared staging —
+// a fixed/reused name (e.g. the seed's "Tommy") can already hold a live
+// membership from an earlier manual verification pass or a previous test
+// run's real Checkout completion, which 409s the happy path here.
+const HAPPY_PATH_CHILD_NAME = `HappyPathChild-${Date.now()}`;
 // Only set when an active, monthly-priced membership tier exists for the
 // aspire-sports org in the seeded DB — the youth membership tier fixture
 // isn't guaranteed yet, so the happy-path test skips dynamically rather
 // than failing on missing fixtures.
 let hasAspireTierFixture = false;
-// A dedicated child (distinct from ownChildId/"Tommy", which the happy-path
-// test needs to be subscribe-able) that already has an active membership,
-// for the double-subscribe 409 guard test.
+// A dedicated child (distinct from ownChildId/HAPPY_PATH_CHILD_NAME, which
+// the happy-path test needs to be subscribe-able) that already has an
+// active membership, for the double-subscribe 409 guard test.
 let alreadyMemberChildId: string | undefined;
 
 beforeAll(async () => {
@@ -59,17 +64,17 @@ beforeAll(async () => {
     .limit(1);
 
   if (parentUser) {
+    // Freshly inserted every run (unique name) rather than reusing an
+    // existing family member — see HAPPY_PATH_CHILD_NAME comment above.
     const [child] = await db
-      .select({ id: familyMembers.id })
-      .from(familyMembers)
-      .where(
-        and(
-          eq(familyMembers.parentUserId, parentUser.id),
-          eq(familyMembers.firstName, "Tommy"),
-        ),
-      )
-      .orderBy(asc(familyMembers.createdAt))
-      .limit(1);
+      .insert(familyMembers)
+      .values({
+        parentUserId: parentUser.id,
+        firstName: HAPPY_PATH_CHILD_NAME,
+        lastName: "Test",
+        birthDate: "2016-03-10",
+      })
+      .returning({ id: familyMembers.id });
     ownChildId = child?.id;
   }
   if (otherUser) {
