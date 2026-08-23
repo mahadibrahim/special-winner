@@ -9,7 +9,10 @@
  * the manual endpoint exists so we can hand-trigger from CI / curl during
  * pilots. Delegates to processDueAnnualFees (src/lib/memberships/annual-fee.ts),
  * which adds a Stripe invoice item for each membership whose fee anniversary
- * is due and advances feeNextDueAt by one calendar year.
+ * is due and advances feeNextDueAt by one calendar year. Each membership is
+ * isolated in its own try/catch, so one Stripe failure doesn't stop the
+ * batch — this endpoint always returns 200 with { processed, failed } counts
+ * (a genuine 500 here means the query itself, not a per-row charge, blew up).
  */
 import type { APIRoute } from "astro";
 import { processDueAnnualFees } from "@/lib/memberships/annual-fee";
@@ -44,14 +47,14 @@ export const POST: APIRoute = async ({ request }) => {
     // transient Railway CONNECT_TIMEOUT blips that otherwise fail the run.
     await warmDbConnection();
     const startedAt = Date.now();
-    const processed = await processDueAnnualFees(new Date());
+    const { processed, failed } = await processDueAnnualFees(new Date());
     const elapsedMs = Date.now() - startedAt;
 
     console.info(
-      `[cron] Membership annual fees: processed=${processed} in ${elapsedMs}ms`,
+      `[cron] Membership annual fees: processed=${processed} failed=${failed} in ${elapsedMs}ms`,
     );
 
-    return new Response(JSON.stringify({ processed, elapsedMs }), {
+    return new Response(JSON.stringify({ processed, failed, elapsedMs }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
@@ -72,7 +75,7 @@ export const GET: APIRoute = async () =>
     JSON.stringify({
       description: "Membership annual fee anniversary cron endpoint",
       usage:
-        "POST with header x-cron-secret: $CRON_SECRET to add a Stripe invoice item for each membership whose annual fee anniversary is due, and advance fee_next_due_at by one calendar year. Intended for scheduled callers only.",
+        "POST with header x-cron-secret: $CRON_SECRET to add a Stripe invoice item for each membership whose annual fee anniversary is due, and advance fee_next_due_at by one calendar year. Per-membership failures are isolated and counted in the failed field rather than aborting the batch. Intended for scheduled callers only.",
     }),
     { status: 200, headers: { "Content-Type": "application/json" } },
   );
