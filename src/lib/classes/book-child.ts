@@ -10,7 +10,8 @@
  *   other, and `getActiveChildMembership` looks up membership BY CHILD.
  * - Two booking kinds, both $0 at this layer: `member` (draws from the
  *   child's membership `classAllotmentRemaining`) and `trial` (one per child
- *   EVER per org, no membership required). Paid class bookings (allotment
+ *   EVER per org, no membership required — and NOT available to a child who
+ *   already holds one; see the trial branch). Paid class bookings (allotment
  *   exhausted, buy-a-class) are Task 5's checkout-endpoint concern — this
  *   library only ever inserts $0 rows.
  * - No team assignment, no gender caps, no `resolveRate` — classes have
@@ -54,6 +55,7 @@ export interface ChildBookingError {
     | "no_membership"
     | "allotment_exhausted"
     | "trial_already_used"
+    | "member_child_no_trial"
     | "age_ineligible"
     | "waiver_required";
   message: string;
@@ -212,6 +214,28 @@ export async function createChildClassBooking(opts: {
       paymentMethod = "member_allotment";
       membershipId = membership.id;
     } else {
+      // A trial is an ACQUISITION offer — "try one class before you
+      // subscribe". A child who already holds a membership has nothing left
+      // to try: their seat comes from the monthly allotment (or, once that's
+      // used up, the paid make-up path), and letting them spend the
+      // one-per-child-ever trial would burn a marketing credit to dodge the
+      // allotment. Gate on ANY live membership status (active/paused/
+      // past_due/incomplete — everything `getActiveChildMembership` returns),
+      // not just `active`: a paused or past-due member family is still a
+      // member family, and a lapsed-into-past_due subscription must be fixed
+      // through billing, not routed around with a free trial.
+      const membership = await getActiveChildMembership(
+        opts.familyMemberId,
+        session.organizationId,
+        tx,
+      );
+      if (membership) {
+        return err(
+          "member_child_no_trial",
+          "Child already has a membership — trial classes are for non-members",
+        );
+      }
+
       // Cross-session TOCTOU, accepted at launch scale: this check only
       // locks the SESSION row (above), not the child's other in-flight
       // bookings. Two concurrent trial-booking calls for the same child on

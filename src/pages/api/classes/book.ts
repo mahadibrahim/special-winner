@@ -59,6 +59,9 @@ const ERROR_STATUS: Record<Exclude<ChildBookingError["code"], "allotment_exhaust
   already_booked: 409,
   no_membership: 403,
   trial_already_used: 409,
+  // A member child asking for a trial — a state conflict (they already have
+  // a membership), same class of error as trial_already_used.
+  member_child_no_trial: 409,
   age_ineligible: 422,
   waiver_required: 422,
 };
