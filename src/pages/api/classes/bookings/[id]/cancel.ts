@@ -6,15 +6,22 @@
  * make-up rows inserted by the webhook fulfillment core also flow through
  * here since they share the same `drop_in_bookings` table).
  *
- * Cutoff policy: a 24h window before the session start, applied UNIFORMLY
- * to member and trial bookings alike (see `isBeforeCutoff`'s doc comment in
- * src/lib/classes/book-child.ts for why trial gets no special-casing).
- * Outside the window (>= 24h before start) → cancelled. Inside the window
- * (< 24h before start) → 409 `inside_cutoff`, no cancellation at all — this
- * is a HARDER gate than `processCancelRefund`'s own window check below (that
- * one only decides refund-or-forfeit; it never blocks the cancel itself).
- * Ownership + org-scope + active-status + the 24h cutoff are all enforced
- * here, BEFORE delegating the actual cancellation to `processCancelRefund`.
+ * Cutoff policy: a window before the session start, applied UNIFORMLY to
+ * member and trial bookings alike (see `isBeforeCutoff`'s doc comment in
+ * src/lib/classes/book-child.ts for why trial gets no special-casing). The
+ * window length is the org's OWN `dropInRateCard.cancelWindowHours`
+ * (admin-editable, DB default 24, falls back to 24 here too if the org has
+ * no rate card row) — NOT a hardcoded 24. This must be the exact same
+ * number `processCancelRefund` uses for its own window check below, or a
+ * cancel between 24h and an admin-raised window would pass this gate but
+ * silently forfeit the refund (customer cancels "in time" per this
+ * endpoint, gets `refunded: false` from the delegate). Outside the window
+ * → cancelled. Inside the window → 409 `inside_cutoff`, no cancellation at
+ * all — this is a HARDER gate than `processCancelRefund`'s own window
+ * check (that one only decides refund-or-forfeit; it never blocks the
+ * cancel itself). Ownership + org-scope + active-status + the cutoff are
+ * all enforced here, BEFORE delegating the actual cancellation to
+ * `processCancelRefund`.
  *
  * The cancellation itself (status flip, Stripe refund for paid `card_online`
  * make-ups, waitlist promotion — a class session's paid-overflow branch can
@@ -33,7 +40,7 @@
 import type { APIRoute } from "astro";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
+import { dropInBookings, dropInRateCard, dropInSessions } from "@/lib/db/schema/drop-in";
 import { ACTIVE_BOOKING_STATUS_LIST, isBeforeCutoff } from "@/lib/classes/book-child";
 import { processCancelRefund } from "@/lib/dropin/refund";
 
@@ -54,22 +61,36 @@ export const POST: APIRoute = async ({ params, locals }) => {
 
   const db = getDb();
 
-  // Org-scoped via the session join — a booking id from another org (or a
-  // nonexistent one) 404s rather than leaking existence.
-  const [row] = await db
-    .select({
-      booking: dropInBookings,
-      sessionStartsAt: dropInSessions.startsAt,
-    })
-    .from(dropInBookings)
-    .innerJoin(dropInSessions, eq(dropInSessions.id, dropInBookings.sessionId))
-    .where(
-      and(
-        eq(dropInBookings.id, id),
-        eq(dropInSessions.organizationId, locals.organization.id),
-      ),
-    )
-    .limit(1);
+  // rateCard (org-scoped, same query shape the dropin endpoints use — see
+  // bookings/index.ts) and the booking join are independent reads; fetch
+  // concurrently.
+  const [rateCardRows, bookingRows] = await Promise.all([
+    db
+      .select({ cancelWindowHours: dropInRateCard.cancelWindowHours })
+      .from(dropInRateCard)
+      .where(eq(dropInRateCard.organizationId, locals.organization.id))
+      .limit(1),
+    // Org-scoped via the session join — a booking id from another org (or a
+    // nonexistent one) 404s rather than leaking existence.
+    db
+      .select({
+        booking: dropInBookings,
+        sessionStartsAt: dropInSessions.startsAt,
+      })
+      .from(dropInBookings)
+      .innerJoin(dropInSessions, eq(dropInSessions.id, dropInBookings.sessionId))
+      .where(
+        and(
+          eq(dropInBookings.id, id),
+          eq(dropInSessions.organizationId, locals.organization.id),
+        ),
+      )
+      .limit(1),
+  ]);
+  // No rate card row for the org → fall back to the DB column's own
+  // default (24) rather than blocking the cancel outright.
+  const cancelWindowHours = rateCardRows[0]?.cancelWindowHours ?? 24;
+  const [row] = bookingRows;
   if (!row) return json({ error: "Booking not found" }, 404);
 
   if (row.booking.userId !== locals.user.id) {
@@ -80,7 +101,7 @@ export const POST: APIRoute = async ({ params, locals }) => {
     return json({ error: "not_cancellable", message: "Booking is not active" }, 409);
   }
 
-  if (!isBeforeCutoff(row.sessionStartsAt, new Date())) {
+  if (!isBeforeCutoff(row.sessionStartsAt, new Date(), cancelWindowHours)) {
     return json({ error: "inside_cutoff" }, 409);
   }
 
