@@ -13,6 +13,7 @@ import {
 import { sql } from "drizzle-orm";
 import { organizations } from "./organizations";
 import { users } from "./users";
+import { familyMembers } from "./registrations";
 
 // === enums ===
 
@@ -57,9 +58,12 @@ export const membershipTiers = pgTable(
     name: text("name").notNull(),
     monthlyPriceCents: integer("monthly_price_cents"),
     annualPriceCents: integer("annual_price_cents"),
+    annualFeeCents: integer("annual_fee_cents"),
+    tagline: text("tagline"),
     benefits: jsonb("benefits").notNull().default(sql`'{}'::jsonb`),
     stripePriceIdMonthly: text("stripe_price_id_monthly"),
     stripePriceIdAnnual: text("stripe_price_id_annual"),
+    stripePriceIdFee: text("stripe_price_id_fee"),
     stripeProductId: text("stripe_product_id"),
     displayOrder: integer("display_order").notNull().default(0),
     isActive: boolean("is_active").notNull().default(true),
@@ -92,6 +96,10 @@ export const memberships = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
+    familyMemberId: uuid("family_member_id").references(
+      () => familyMembers.id,
+      { onDelete: "restrict" },
+    ),
     organizationId: uuid("organization_id")
       .notNull()
       .references(() => organizations.id, { onDelete: "cascade" }),
@@ -104,6 +112,7 @@ export const memberships = pgTable(
       .notNull()
       .defaultNow(),
     currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+    feeNextDueAt: timestamp("fee_next_due_at", { withTimezone: true }),
     pausedAt: timestamp("paused_at", { withTimezone: true }),
     pauseResumesAt: timestamp("pause_resumes_at", { withTimezone: true }),
     cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
@@ -118,9 +127,19 @@ export const memberships = pgTable(
       .defaultNow(),
   },
   (table) => [
+    // Adult (self) memberships: unchanged one-active-per-user-per-org rule.
     uniqueIndex("memberships_one_active_per_user_org")
       .on(table.userId, table.organizationId)
-      .where(sql`status IN ('active', 'paused', 'past_due', 'incomplete')`),
+      .where(
+        sql`status IN ('active', 'paused', 'past_due', 'incomplete') AND family_member_id IS NULL`,
+      ),
+    // Child memberships: one active per child per org.
+    uniqueIndex("memberships_one_active_per_child_org")
+      .on(table.organizationId, table.familyMemberId)
+      .where(
+        sql`status IN ('active', 'paused', 'past_due', 'incomplete') AND family_member_id IS NOT NULL`,
+      ),
+    index("memberships_family_member_idx").on(table.familyMemberId),
     index("memberships_user_status_idx").on(table.userId, table.status),
     index("memberships_org_status_idx").on(table.organizationId, table.status),
   ],

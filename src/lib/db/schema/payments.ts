@@ -15,6 +15,7 @@ import { relations, sql } from "drizzle-orm";
 import { users } from "./users";
 import { registrations } from "./registrations";
 import { teamRegistrations } from "./team-registrations";
+import { memberships } from "./memberships";
 
 // Enums
 export const paymentTypeEnum = pgEnum("payment_type", [
@@ -73,6 +74,9 @@ export const payments = pgTable(
       () => teamRegistrations.id,
       { onDelete: "set null" },
     ),
+    membershipId: uuid("membership_id").references(() => memberships.id, {
+      onDelete: "set null",
+    }),
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
@@ -98,6 +102,7 @@ export const payments = pgTable(
   (table) => [
     index("payments_registration_idx").on(table.registrationId),
     index("payments_team_registration_idx").on(table.teamRegistrationId),
+    index("payments_membership_idx").on(table.membershipId),
     index("payments_user_idx").on(table.userId),
     // A Stripe PaymentIntent / Charge maps to at most one payment row.
     // Partial — NULL ids (e.g. comped registrations) are exempt.
