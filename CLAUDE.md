@@ -141,7 +141,7 @@ Secrets live in the Bitwarden Secrets Manager project **`aspire-web-app`** (id `
 
 **Daily use:**
 - `npm run dev:bws` — runs `scripts/with-bws.sh`, which reads the token from Keychain and runs the command through `bws run --project-id …`. Works for any command, e.g. `./scripts/with-bws.sh npm run test:api` (also exposed as `npm run test:api:bws`).
-- To override one value ad-hoc (e.g. point at prod for a single run), set it in the shell — it wins over the injected value: `DATABASE_URL=<prod-url> npm run dev:bws`.
+- To override one value ad-hoc (e.g. point at prod for a single run), inject the override **inside** the wrapper via `env`: `./scripts/with-bws.sh env DATABASE_URL=<prod-url> npm run dev`. Setting it in the outer shell (`DATABASE_URL=… npm run dev:bws`) does NOT work — `bws run` overwrites pre-set variables with the vault values (verified 2026-08; a shell-set `STRIPE_WEBHOOK_SECRET` was silently replaced).
 
 **Editing secrets:** add/edit them in the Bitwarden web UI (the laptop token is read-only). Each secret's **key must exactly match the env var name**, and it must be assigned to the `aspire-web-app` project. Watch for duplicate keys — Bitwarden allows two secrets with the same name, and which one wins on inject is undefined.
 
