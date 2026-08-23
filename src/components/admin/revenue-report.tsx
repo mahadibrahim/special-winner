@@ -104,6 +104,7 @@ export function RevenueReport() {
       balance: "Balance",
       installment: "Installment",
       refund: "Refund",
+      membership: "Membership",
     }
     return labels[type] || type
   }

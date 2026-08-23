@@ -8,6 +8,7 @@ import {
   sports,
   teamRegistrations,
 } from "@/lib/db/schema";
+import { memberships } from "@/lib/db/schema/memberships";
 import { locations } from "@/lib/db/schema/organizations";
 import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
 import { requireSuperAdminAccess, requireOrganizationContext } from "@/lib/auth";
@@ -53,7 +54,27 @@ export const GET: APIRoute = async (context) => {
     const prevEnd = new Date(start.getTime() - 1);
     const prevStart = new Date(prevEnd.getTime() - periodDuration);
 
-    // All 7 queries below are independent of each other — run in parallel.
+    // Memberships are org-scoped through `memberships.organizationId`
+    // directly, not through registrations/seasons/programs/locations — a
+    // membership payment has no registrationId/teamRegistrationId, so it's
+    // invisible to every inner-joined-on-seasons query above. Rather than
+    // widen those joins (memberships have no sport/season), pull membership
+    // revenue as a parallel summary and fold it into the totals + type
+    // breakdown below. This is the smallest change that surfaces
+    // month-2+ subscription revenue (see invoice-ledger.ts) without
+    // touching revenueBySport or recentTransactions, which don't have a
+    // membership-shaped analog.
+    const membershipOrgScope = eq(memberships.organizationId, orgContext.organizationId);
+    const membershipRevenueWhere = (rangeStart: Date, rangeEnd: Date) =>
+      and(
+        membershipOrgScope,
+        eq(payments.paymentType, "membership"),
+        eq(payments.status, "succeeded"),
+        gte(payments.createdAt, rangeStart),
+        lte(payments.createdAt, rangeEnd)
+      );
+
+    // All 9 queries below are independent of each other — run in parallel.
     const [
       totalRevenueResult,
       revenueByPeriod,
@@ -62,6 +83,8 @@ export const GET: APIRoute = async (context) => {
       recentTransactions,
       prevRevenueResult,
       refundsResult,
+      membershipRevenueResult,
+      prevMembershipRevenueResult,
     ] = await Promise.all([
       // Total revenue (org-scoped via payments -> registrations -> seasons -> programs -> locations)
       getDb()
@@ -222,24 +245,64 @@ export const GET: APIRoute = async (context) => {
             lte(payments.createdAt, end)
           )
         ),
+
+      // Membership revenue, current period (see membershipRevenueWhere above).
+      getDb()
+        .select({
+          total: sql<number>`COALESCE(SUM(${payments.amountCents}), 0)`,
+          count: sql<number>`COUNT(*)`,
+        })
+        .from(payments)
+        .innerJoin(memberships, eq(payments.membershipId, memberships.id))
+        .where(membershipRevenueWhere(start, end)),
+
+      // Membership revenue, previous period — for the same comparison the
+      // registration-revenue query above gets.
+      getDb()
+        .select({
+          total: sql<number>`COALESCE(SUM(${payments.amountCents}), 0)`,
+        })
+        .from(payments)
+        .innerJoin(memberships, eq(payments.membershipId, memberships.id))
+        .where(membershipRevenueWhere(prevStart, prevEnd)),
     ]);
 
     const totalRevenue = totalRevenueResult[0];
-    const prevRevenue = prevRevenueResult[0]?.total || 0;
+    const membershipRevenue = membershipRevenueResult[0] ?? { total: 0, count: 0 };
+    const combinedTotal = totalRevenue.total + membershipRevenue.total;
+    const combinedCount = totalRevenue.count + membershipRevenue.count;
+    const prevRevenue =
+      (prevRevenueResult[0]?.total || 0) + (prevMembershipRevenueResult[0]?.total || 0);
     const revenueChange = prevRevenue > 0
-      ? ((totalRevenue.total - prevRevenue) / prevRevenue) * 100
+      ? ((combinedTotal - prevRevenue) / prevRevenue) * 100
       : 0;
+
+    // Membership revenue doesn't come out of the payment-type groupBy above
+    // (it's excluded by the inner join on seasons), so append it as its own
+    // row when there's any to show — same {paymentType, revenue, count}
+    // shape the UI already renders per payment type.
+    const revenueByTypeWithMembership =
+      membershipRevenue.count > 0
+        ? [
+            ...revenueByType,
+            {
+              paymentType: "membership",
+              revenue: membershipRevenue.total,
+              count: membershipRevenue.count,
+            },
+          ]
+        : revenueByType;
 
     return new Response(
       JSON.stringify({
         summary: {
-          totalRevenue: totalRevenue.total,
-          transactionCount: totalRevenue.count,
+          totalRevenue: combinedTotal,
+          transactionCount: combinedCount,
           revenueChange: Math.round(revenueChange * 100) / 100,
           refunds: refundsResult[0],
         },
         revenueByPeriod,
-        revenueByType,
+        revenueByType: revenueByTypeWithMembership,
         revenueBySport,
         recentTransactions,
         dateRange: { start, end },
