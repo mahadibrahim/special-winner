@@ -29,6 +29,8 @@ export const tierInputSchema = z
     name: z.string().trim().min(1),
     monthlyDollars: z.number().positive().nullable(),
     annualDollars: z.number().positive().nullable(),
+    annualFeeDollars: z.number().positive().nullable().default(null),
+    tagline: z.string().trim().max(120).nullable().default(null),
     benefits: benefitsSchema,
     displayOrder: z.number().int().default(0),
     isActive: z.boolean().default(true),

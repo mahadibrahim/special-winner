@@ -32,3 +32,29 @@ describe("tierInputSchema", () => {
   it("rejects when both prices null", () =>
     expect(() => tierInputSchema.parse({ ...base, monthlyDollars: null, annualDollars: null })).toThrow());
 });
+
+describe("tierInputSchema fee + tagline", () => {
+  it("accepts annual fee and tagline", () => {
+    const v = tierInputSchema.parse({
+      name: "All-Star",
+      monthlyDollars: 120,
+      annualDollars: null,
+      annualFeeDollars: 45,
+      tagline: "8 classes a month",
+      benefits: { classes_per_month: 8, camp_discount_pct: 10 },
+    });
+    expect(v.annualFeeDollars).toBe(45);
+    expect(v.tagline).toBe("8 classes a month");
+  });
+
+  it("defaults annualFeeDollars and tagline to null when omitted", () => {
+    const v = tierInputSchema.parse({
+      name: "Member",
+      monthlyDollars: 29,
+      annualDollars: null,
+      benefits: {},
+    });
+    expect(v.annualFeeDollars).toBeNull();
+    expect(v.tagline).toBeNull();
+  });
+});

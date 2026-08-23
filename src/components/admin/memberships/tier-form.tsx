@@ -21,9 +21,13 @@ export default function TierForm({ tier }: TierFormProps) {
   const [annual, setAnnual] = useState<string>(
     tier?.annualPriceCents != null ? String(tier.annualPriceCents / 100) : "",
   );
+  const [annualFee, setAnnualFee] = useState<string>(
+    tier?.annualFeeCents != null ? String(tier.annualFeeCents / 100) : "",
+  );
 
   // Core fields
   const [name, setName] = useState(tier?.name ?? "");
+  const [tagline, setTagline] = useState(tier?.tagline ?? "");
   const [displayOrder, setDisplayOrder] = useState<string>(
     String(tier?.displayOrder ?? 0),
   );
@@ -48,6 +52,12 @@ export default function TierForm({ tier }: TierFormProps) {
       ? String(benefits.priority_league_signup_hrs)
       : "",
   );
+  const [classesPerMonth, setClassesPerMonth] = useState<string>(
+    benefits.classes_per_month != null ? String(benefits.classes_per_month) : "",
+  );
+  const [campDiscountPct, setCampDiscountPct] = useState<string>(
+    benefits.camp_discount_pct != null ? String(benefits.camp_discount_pct) : "",
+  );
 
   // Benefit fields — boolean
   const [unlimitedPickup, setUnlimitedPickup] = useState(
@@ -55,6 +65,9 @@ export default function TierForm({ tier }: TierFormProps) {
   );
   const [membersOnlyPickup, setMembersOnlyPickup] = useState(
     benefits.members_only_pickup === true,
+  );
+  const [unlimitedClasses, setUnlimitedClasses] = useState(
+    benefits.unlimited_classes === true,
   );
 
   const [busy, setBusy] = useState(false);
@@ -68,6 +81,8 @@ export default function TierForm({ tier }: TierFormProps) {
       ["guest_passes_per_month", guestPassesPerMonth],
       ["booking_window_days", bookingWindowDays],
       ["priority_league_signup_hrs", priorityLeagueSignupHrs],
+      ["classes_per_month", classesPerMonth],
+      ["camp_discount_pct", campDiscountPct],
     ];
     for (const [key, raw] of numericFields) {
       const n = Number(raw);
@@ -75,6 +90,7 @@ export default function TierForm({ tier }: TierFormProps) {
     }
     if (unlimitedPickup) b.unlimited_pickup = true;
     if (membersOnlyPickup) b.members_only_pickup = true;
+    if (unlimitedClasses) b.unlimited_classes = true;
     return b;
   }
 
@@ -94,6 +110,8 @@ export default function TierForm({ tier }: TierFormProps) {
           name,
           monthlyDollars: monthly === "" ? null : Number(monthly),
           annualDollars: annual === "" ? null : Number(annual),
+          annualFeeDollars: annualFee === "" ? null : Number(annualFee),
+          tagline: tagline.trim() === "" ? null : tagline.trim(),
           benefits: buildBenefits(),
           displayOrder: Number(displayOrder) || 0,
           isActive,
@@ -180,6 +198,31 @@ export default function TierForm({ tier }: TierFormProps) {
           configure prices later.
         </p>
 
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="annual-fee">Annual fee ($/yr)</Label>
+            <Input
+              id="annual-fee"
+              type="number"
+              min="0"
+              step="0.01"
+              value={annualFee}
+              onChange={(e) => setAnnualFee(e.target.value)}
+              placeholder="e.g. 45"
+            />
+          </div>
+          <div>
+            <Label htmlFor="tagline">Tagline</Label>
+            <Input
+              id="tagline"
+              value={tagline}
+              maxLength={120}
+              onChange={(e) => setTagline(e.target.value)}
+              placeholder="e.g. 8 classes a month"
+            />
+          </div>
+        </div>
+
         <div>
           <Label htmlFor="display-order">Display order</Label>
           <Input
@@ -258,6 +301,31 @@ export default function TierForm({ tier }: TierFormProps) {
               placeholder="e.g. 48"
             />
           </div>
+          <div>
+            <Label htmlFor="classes-per-month">Classes / month</Label>
+            <Input
+              id="classes-per-month"
+              type="number"
+              min="0"
+              step="1"
+              value={classesPerMonth}
+              onChange={(e) => setClassesPerMonth(e.target.value)}
+              placeholder="e.g. 8"
+            />
+          </div>
+          <div>
+            <Label htmlFor="camp-discount">Camp discount (%)</Label>
+            <Input
+              id="camp-discount"
+              type="number"
+              min="0"
+              max="100"
+              step="1"
+              value={campDiscountPct}
+              onChange={(e) => setCampDiscountPct(e.target.value)}
+              placeholder="e.g. 10"
+            />
+          </div>
         </div>
 
         <div className="space-y-2">
@@ -276,6 +344,14 @@ export default function TierForm({ tier }: TierFormProps) {
               onChange={(e) => setMembersOnlyPickup(e.target.checked)}
             />
             Members-only pick-up sessions
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={unlimitedClasses}
+              onChange={(e) => setUnlimitedClasses(e.target.checked)}
+            />
+            Unlimited classes
           </label>
         </div>
       </div>
