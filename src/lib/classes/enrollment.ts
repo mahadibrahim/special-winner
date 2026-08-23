@@ -22,6 +22,7 @@ import { getDb } from "@/lib/db";
 import { classSlotTemplates, classEnrollments } from "@/lib/db/schema/classes";
 import { familyMembers } from "@/lib/db/schema/registrations";
 import { getActiveChildMembership } from "@/lib/memberships/get-child-membership";
+import { ageOnDate } from "./book-child";
 import type { DropInTx } from "@/lib/dropin/booking";
 
 export interface EnrollmentError {
@@ -32,6 +33,7 @@ export interface EnrollmentError {
     | "child_not_found"
     | "no_membership"
     | "already_enrolled"
+    | "age_ineligible"
     // changeEnrollmentSlot-only: the enrollment id passed in doesn't exist
     // or isn't currently active. Not part of enrollChild's contract.
     | "enrollment_not_found";
@@ -58,6 +60,43 @@ function err(code: EnrollmentError["code"], message: string): EnrollmentResult {
  */
 function hasClassBenefit(benefits: Record<string, unknown>): boolean {
   return benefits.unlimited_classes === true || (Number(benefits.classes_per_month) || 0) > 0;
+}
+
+/**
+ * Whether `birthDate` puts the child outside the template's age range.
+ *
+ * Uses the SAME age math as the per-session gate in book-child.ts
+ * (`ageOnDate`, imported rather than re-derived — two implementations of
+ * "how old is this child" would eventually disagree at a birthday
+ * boundary). The reference date differs by design: the booking gate asks
+ * "how old will they be at that session", while enrollment is a standing
+ * seat with no single session to anchor on, so it asks "how old are they
+ * now". A child who ages INTO range next month can simply enroll then; a
+ * child who ages OUT mid-enrollment keeps their seat until the per-session
+ * gate catches it, which is the kinder failure of the two.
+ *
+ * A template with no min/max, or a child with no DOB on file, skips the
+ * gate — identical to the booking gate's conditions.
+ *
+ * Why this matters beyond a nicer error: without it, an out-of-range child
+ * can hold an active enrollment forever, and the weekly materialization
+ * cron re-attempts (and re-fails) their auto-booking with `age_ineligible`
+ * on EVERY run — a permanent, silent contribution to the cron's `failed`
+ * counter that nobody can act on, plus a family who thinks they have a
+ * seat and never gets booked.
+ */
+function isAgeIneligible(
+  template: { minAge: number | null; maxAge: number | null },
+  birthDate: string | null,
+  onDate: Date,
+): boolean {
+  if (!birthDate) return false;
+  if (template.minAge === null && template.maxAge === null) return false;
+  const age = ageOnDate(birthDate, onDate);
+  return (
+    (template.minAge !== null && age < template.minAge) ||
+    (template.maxAge !== null && age > template.maxAge)
+  );
 }
 
 async function activeEnrollmentCount(tx: DropInTx, slotTemplateId: string): Promise<number> {
@@ -98,7 +137,7 @@ export async function enrollChild(opts: {
     // Child ownership — the family_members row must belong to this parent
     // (classes are always a CHILD's standing seat; no adult self path).
     const [child] = await tx
-      .select({ id: familyMembers.id })
+      .select({ id: familyMembers.id, birthDate: familyMembers.birthDate })
       .from(familyMembers)
       .where(
         and(
@@ -108,6 +147,11 @@ export async function enrollChild(opts: {
       )
       .limit(1);
     if (!child) return err("child_not_found", "Child not found for this parent");
+
+    // Age gate — see isAgeIneligible's doc comment.
+    if (isAgeIneligible(template, child.birthDate, new Date())) {
+      return err("age_ineligible", "Child is outside this class's age range");
+    }
 
     // Membership + class-benefit gate.
     const membership = await getActiveChildMembership(
@@ -219,6 +263,19 @@ export async function changeEnrollmentSlot(
       return err("template_not_found", "New class not found");
     }
     if (!newTemplate.active) return err("template_inactive", "New class is no longer offered");
+
+    // Age gate against the DESTINATION template only — the child already
+    // holds the origin seat, and re-gating it here would strand a child who
+    // aged out of their current class inside it (unable to move anywhere).
+    // Same helper, same reference date as enrollChild.
+    const [child] = await tx
+      .select({ birthDate: familyMembers.birthDate })
+      .from(familyMembers)
+      .where(eq(familyMembers.id, enrollment.familyMemberId))
+      .limit(1);
+    if (isAgeIneligible(newTemplate, child?.birthDate ?? null, new Date())) {
+      return err("age_ineligible", "Child is outside the new class's age range");
+    }
 
     // Already-enrolled pre-check on the destination template (e.g. the
     // child already holds a separate active enrollment there).

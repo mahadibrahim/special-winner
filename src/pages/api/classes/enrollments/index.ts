@@ -40,6 +40,9 @@ const ERROR_STATUS: Record<EnrollmentError["code"], number> = {
   child_not_found: 404,
   no_membership: 403,
   already_enrolled: 409,
+  // Child outside the template's min/max age — unprocessable, same status
+  // the booking endpoint gives its own age_ineligible.
+  age_ineligible: 422,
   enrollment_not_found: 404,
 };
 
