@@ -103,12 +103,42 @@ export function membershipMarkerFromInvoice(
   return metadata.type === "membership_subscription";
 }
 
+/**
+ * The subscription id an invoice was generated from, independent of Stripe
+ * API version.
+ *
+ * The LIVE prod webhook endpoint is pinned to API version
+ * `2026-04-22.dahlia`, which moved the subscription reference off the
+ * invoice's top level. On dahlia (and later) payloads it lives at
+ * `invoice.parent.subscription_details.subscription` (string id or an
+ * expanded Subscription object); the pre-dahlia shape carries a top-level
+ * `invoice.subscription` (also string or expanded object) that the
+ * installed Stripe SDK's TS types no longer declare — hence the `unknown`
+ * cast, mirroring `membershipMarkerFromInvoice` above.
+ *
+ * Every subscription-id read from an invoice MUST go through this helper:
+ * reading only the legacy top-level field silently no-ops on real prod
+ * payloads (the whole point of this fix).
+ */
+export function subscriptionIdFromInvoice(invoice: Stripe.Invoice): string | null {
+  const dahliaSub = invoice.parent?.subscription_details?.subscription;
+  if (dahliaSub) {
+    return typeof dahliaSub === "string" ? dahliaSub : dahliaSub.id;
+  }
+  const legacy = invoice as unknown as {
+    subscription?: string | Stripe.Subscription | null;
+  };
+  if (legacy.subscription) {
+    return typeof legacy.subscription === "string"
+      ? legacy.subscription
+      : legacy.subscription.id;
+  }
+  return null;
+}
+
 export async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
-  if (!invoice.subscription) return;
-  const subscriptionId =
-    typeof invoice.subscription === "string"
-      ? invoice.subscription
-      : invoice.subscription.id;
+  const subscriptionId = subscriptionIdFromInvoice(invoice);
+  if (!subscriptionId) return;
   const db = getDb();
   const [membership] = await db
     .select({ id: memberships.id, userId: memberships.userId })
