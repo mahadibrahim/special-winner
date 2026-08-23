@@ -587,7 +587,9 @@ git add src/pages/api/memberships/subscribe.ts src/lib/memberships/stripe.ts src
 git commit -m "feat(memberships): per-child subscribe with annual fee line item and sibling coupon"
 ```
 
----### Task 6: `invoice.paid` → payments ledger + revenue report
+---
+
+### Task 6: `invoice.paid` → payments ledger + revenue report
 
 **Files:**
 - Create: `src/lib/memberships/invoice-ledger.ts`
