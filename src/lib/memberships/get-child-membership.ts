@@ -5,10 +5,19 @@
  *
  * Mirrors get-active-membership.ts's tier-join safety gate: zero rows
  * when the org has no tiers or the child has no live membership.
+ *
+ * `classAllotmentRemaining` reflects the `classes_per_month` /
+ * `unlimited_classes` benefits: for a tier with a class benefit it counts
+ * the child's confirmed/no_show `member_allotment` class bookings this
+ * calendar month and derives `cap − used` (or "unlimited"). Tiers without
+ * a class benefit short-circuit to 0 with no extra query — mirrors the
+ * pickup allotment short-circuit in get-active-membership.ts.
  */
-import { and, eq, inArray, desc } from "drizzle-orm";
+import { and, count, eq, gte, inArray, desc } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { memberships, membershipTiers } from "@/lib/db/schema/memberships";
+import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
+import { computeClassAllotmentRemaining, allotmentPeriodStart } from "./allotment";
 
 type DbClient =
   | ReturnType<typeof getDb>
@@ -23,6 +32,7 @@ export interface ChildMembership {
   tierName: string;
   status: (typeof LIVE_STATUSES)[number];
   benefits: Record<string, unknown>;
+  classAllotmentRemaining: number | "unlimited";
 }
 
 export async function getActiveChildMembership(
@@ -47,15 +57,42 @@ export async function getActiveChildMembership(
     .limit(1);
   const row = rows[0];
   if (!row) return null;
+
+  const benefits: Record<string, unknown> =
+    typeof row.t.benefits === "object" && row.t.benefits !== null
+      ? (row.t.benefits as Record<string, unknown>)
+      : {};
+
+  // Class allotment: unlimited/no-benefit tiers skip the count query
+  // entirely (mirrors the pickup short-circuit in get-active-membership.ts).
+  let classAllotmentRemaining: number | "unlimited" = 0;
+  const hasClassBenefit =
+    benefits.unlimited_classes === true || (Number(benefits.classes_per_month) || 0) > 0;
+  if (hasClassBenefit) {
+    const [usedRow] = await db
+      .select({ used: count() })
+      .from(dropInBookings)
+      .innerJoin(dropInSessions, eq(dropInSessions.id, dropInBookings.sessionId))
+      .where(
+        and(
+          eq(dropInBookings.membershipId, row.m.id),
+          eq(dropInBookings.familyMemberId, familyMemberId),
+          eq(dropInSessions.kind, "class"),
+          eq(dropInBookings.paymentMethod, "member_allotment"),
+          inArray(dropInBookings.status, ["confirmed", "no_show"]),
+          gte(dropInBookings.createdAt, allotmentPeriodStart(new Date())),
+        ),
+      );
+    classAllotmentRemaining = computeClassAllotmentRemaining(benefits, usedRow?.used ?? 0);
+  }
+
   return {
     id: row.m.id,
     userId: row.m.userId,
     tierId: row.t.id,
     tierName: row.t.name,
     status: row.m.status as ChildMembership["status"],
-    benefits:
-      typeof row.t.benefits === "object" && row.t.benefits !== null
-        ? (row.t.benefits as Record<string, unknown>)
-        : {},
+    benefits,
+    classAllotmentRemaining,
   };
 }
