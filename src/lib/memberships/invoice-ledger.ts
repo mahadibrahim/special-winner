@@ -25,12 +25,24 @@
  * membership row, it's a drop-league invoice (or unknown) and is skipped
  * here. That's correct for this task — a drop-league ledger entry is a
  * separate, out-of-scope concern.
+ *
+ * ONE exception to that skip: a missing membership row can also mean the
+ * row isn't inserted YET. Stripe does not guarantee ordering between
+ * `checkout.session.completed` (which inserts the memberships row) and the
+ * `invoice.paid` for that subscription's first invoice. Returning cleanly in
+ * that case permanently consumes the event — handle-stripe-event.ts claims
+ * the event id in `stripe_events` BEFORE dispatch and only releases the
+ * claim when dispatch throws — so the first invoice's revenue would never
+ * reach the ledger. When the subscription is provably ours we therefore
+ * THROW, releasing the claim so Stripe's retry (by which time the row
+ * exists) records it.
  */
 import type Stripe from "stripe";
 import { eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { memberships } from "@/lib/db/schema/memberships";
 import { payments } from "@/lib/db/schema/payments";
+import { membershipsStripe } from "./stripe";
 
 export function invoiceToLedgerRow(
   invoice: Stripe.Invoice,
@@ -55,6 +67,42 @@ export function invoiceToLedgerRow(
   };
 }
 
+/**
+ * Is this invoice's subscription one of OUR membership subscriptions,
+ * judged from the invoice payload alone (no Stripe API call)?
+ *
+ * Membership subscriptions are created with
+ * `subscription_data.metadata.type = "membership_subscription"` (see
+ * buildSubscriptionCheckoutParams in ./stripe.ts). Stripe snapshots that
+ * metadata onto the invoice at finalization, exposed as
+ * `parent.subscription_details.metadata` (and as the legacy top-level
+ * `subscription_details.metadata` on older API versions).
+ *
+ * Returns:
+ *   true  — ours (membership)
+ *   false — definitely not ours (drop-league or unrelated)
+ *   null  — undecidable from the payload; the caller must retrieve the
+ *           subscription. An EMPTY metadata object counts as undecidable:
+ *           our subscriptions always carry `type`, so an empty snapshot
+ *           means the payload just isn't carrying it.
+ */
+export function membershipMarkerFromInvoice(
+  invoice: Stripe.Invoice,
+): boolean | null {
+  const legacy = invoice as unknown as {
+    subscription_details?: { metadata?: Stripe.Metadata | null } | null;
+    subscription?: string | Stripe.Subscription | null;
+  };
+  const metadata =
+    invoice.parent?.subscription_details?.metadata ??
+    legacy.subscription_details?.metadata ??
+    (legacy.subscription && typeof legacy.subscription === "object"
+      ? legacy.subscription.metadata
+      : null);
+  if (!metadata || Object.keys(metadata).length === 0) return null;
+  return metadata.type === "membership_subscription";
+}
+
 export async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<void> {
   if (!invoice.subscription) return;
   const subscriptionId =
@@ -67,7 +115,26 @@ export async function handleInvoicePaid(invoice: Stripe.Invoice): Promise<void> 
     .from(memberships)
     .where(eq(memberships.stripeSubscriptionId, subscriptionId))
     .limit(1); // unique column — at most one row
-  if (!membership) return; // drop-league or unknown sub — not ours
+  if (!membership) {
+    // No row — either genuinely not ours, or ours-but-not-inserted-yet (the
+    // checkout.session.completed / invoice.paid ordering race described in
+    // the module header). Decide from the invoice payload first; only pay
+    // for a subscriptions.retrieve when the payload can't tell us.
+    let isMembershipSub = membershipMarkerFromInvoice(invoice);
+    if (isMembershipSub === null) {
+      // A retrieve failure is itself "undecided" — let it propagate so the
+      // event claim is released and Stripe retries, rather than guessing
+      // "not ours" and dropping a membership payment.
+      const sub = await membershipsStripe().subscriptions.retrieve(subscriptionId);
+      isMembershipSub = sub.metadata?.type === "membership_subscription";
+    }
+    if (isMembershipSub) {
+      throw new Error(
+        `[memberships] invoice.paid ${invoice.id} for membership subscription ${subscriptionId} arrived before the membership row existed — throwing so the stripe_events claim is released and Stripe retries`,
+      );
+    }
+    return; // drop-league or unrelated subscription — not ours
+  }
   const row = invoiceToLedgerRow(invoice, membership);
   if (!row) return;
   await db
