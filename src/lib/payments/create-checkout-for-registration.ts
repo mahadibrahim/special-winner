@@ -20,6 +20,8 @@ import {
   getAccountCreditBalanceCents,
   redeemAccountCredit,
 } from "@/lib/payments/account-credit";
+import { getActiveChildMembership } from "@/lib/memberships/get-child-membership";
+import { computeMemberCampDiscountCents } from "@/lib/memberships/camp-discount";
 
 // ---------------------------------------------------------------------------
 // Error class
@@ -47,8 +49,16 @@ export type CheckoutResult =
       sessionId: string
       surchargeCents: number
       creditAppliedCents: number
+      memberDiscountCents: number
+      memberDiscountPct: number
     }
-  | { kind: "paid_zero"; registrationId: string; creditAppliedCents: number };
+  | {
+      kind: "paid_zero"
+      registrationId: string
+      creditAppliedCents: number
+      memberDiscountCents: number
+      memberDiscountPct: number
+    };
 
 // baseUrl currently unused in Phase 1 (no redirect URLs); retained for Phase 2 magic-link emails
 export interface CreateCheckoutForRegistrationInput {
@@ -144,6 +154,29 @@ export async function createCheckoutForRegistration(
     throw new CheckoutError(400, "No payment required");
   }
 
+  // 4a. Member camp discount: computed BEFORE code redemption so the two can
+  // compete — the single larger discount wins (spec rule), and a losing
+  // code is never redeemed (no wasted use). Only camp-type programs carry
+  // this benefit; the membership must belong to the REGISTERED CHILD
+  // (registration.familyMemberId), not the paying user, and be strictly
+  // "active" (not paused/past_due/incomplete).
+  let memberDiscountCents = 0;
+  let memberDiscountPct = 0;
+  if (program.programType === "camp" && orgId) {
+    const childMembership = await getActiveChildMembership(
+      registration.familyMemberId,
+      orgId,
+      db,
+    );
+    if (childMembership && childMembership.status === "active") {
+      memberDiscountPct = Number(childMembership.benefits.camp_discount_pct) || 0;
+      memberDiscountCents = computeMemberCampDiscountCents(
+        amountDue,
+        childMembership.benefits,
+      );
+    }
+  }
+
   // 5. Validate and redeem the discount code in one transaction.
   //    The discount row is locked FOR UPDATE so two concurrent checkouts
   //    can't both pass the maxUses / maxUsesPerUser check and both redeem.
@@ -204,6 +237,12 @@ export async function createCheckoutForRegistration(
         amount = Math.min(found.discountValue, amountDue);
       }
 
+      // Spec: member discount and code don't stack — larger single wins.
+      // A code that loses to the member discount is NOT redeemed (no usage
+      // row, no usedCount increment). Exact ties go to the member discount —
+      // the code is the one that "loses" a tie.
+      if (amount <= memberDiscountCents) return null;
+
       // Redeem under the same row lock that gated the caps above.
       await tx.insert(discountUsages).values({
         discountCodeId: found.id,
@@ -223,7 +262,17 @@ export async function createCheckoutForRegistration(
       appliedDiscountCodeId = redeemed.id;
       discountAmountCents = redeemed.amount;
       amountDue = Math.max(0, amountDue - discountAmountCents);
+
+      // Code won; member discount is not applied.
+      memberDiscountCents = 0;
+      memberDiscountPct = 0;
+    } else if (memberDiscountCents > 0) {
+      amountDue = Math.max(0, amountDue - memberDiscountCents);
     }
+  } else if (memberDiscountCents > 0) {
+    // No discount code was supplied at all — apply the member discount
+    // outright (nothing to compete against).
+    amountDue = Math.max(0, amountDue - memberDiscountCents);
   }
 
   // 6. Apply account credit, after the discount step and before the single
@@ -269,24 +318,43 @@ export async function createCheckoutForRegistration(
         status: "confirmed",
         paymentStatus: "paid",
         amountDueCents:
-          registration.amountDueCents - discountAmountCents - creditAppliedCents,
+          registration.amountDueCents -
+          discountAmountCents -
+          memberDiscountCents -
+          creditAppliedCents,
         amountPaidCents:
-          registration.amountDueCents - discountAmountCents - creditAppliedCents,
+          registration.amountDueCents -
+          discountAmountCents -
+          memberDiscountCents -
+          creditAppliedCents,
         updatedAt: new Date(),
       })
       .where(eq(registrations.id, registrationId));
 
-    return { kind: "paid_zero", registrationId, creditAppliedCents };
+    return {
+      kind: "paid_zero",
+      registrationId,
+      creditAppliedCents,
+      memberDiscountCents,
+      memberDiscountPct,
+    };
   }
 
   // Discount and/or credit applied but amount still > 0 — persist the
   // reduced amountDueCents.
-  if ((appliedDiscountCodeId && discountAmountCents > 0) || creditAppliedCents > 0) {
+  if (
+    (appliedDiscountCodeId && discountAmountCents > 0) ||
+    memberDiscountCents > 0 ||
+    creditAppliedCents > 0
+  ) {
     await db
       .update(registrations)
       .set({
         amountDueCents:
-          registration.amountDueCents - discountAmountCents - creditAppliedCents,
+          registration.amountDueCents -
+          discountAmountCents -
+          memberDiscountCents -
+          creditAppliedCents,
         updatedAt: new Date(),
       })
       .where(eq(registrations.id, registrationId));
@@ -315,6 +383,12 @@ export async function createCheckoutForRegistration(
     ...(appliedDiscountCodeId && discountCode
       ? { discount_code: discountCode.toUpperCase() }
       : {}),
+    ...(memberDiscountCents > 0
+      ? {
+          member_discount_pct: String(memberDiscountPct),
+          member_discount_cents: String(memberDiscountCents),
+        }
+      : {}),
     ...(extraMetadata ?? {}),
   };
 
@@ -342,6 +416,8 @@ export async function createCheckoutForRegistration(
       sessionId: session.id,
       surchargeCents: session.surchargeCents,
       creditAppliedCents,
+      memberDiscountCents,
+      memberDiscountPct,
     };
   }
 
@@ -368,5 +444,7 @@ export async function createCheckoutForRegistration(
     sessionId: session.id,
     surchargeCents: session.surchargeCents,
     creditAppliedCents,
+    memberDiscountCents,
+    memberDiscountPct,
   };
 }

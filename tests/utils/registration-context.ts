@@ -33,6 +33,10 @@ export interface SeedPaidRegistrationOverrides {
   amountDueCents?: number;
   paymentStatus?: Registration["paymentStatus"];
   status?: Registration["status"];
+  /** programs.program_type on the seeded program. Defaults to "league"
+   *  (matching the original helper). Pass "camp" for member-camp-discount
+   *  checkout tests. */
+  programType?: "league" | "camp" | "clinic" | "tournament" | "training";
 }
 
 export interface SeedPaidRegistrationResult {
@@ -110,7 +114,7 @@ export async function seedPaidRegistration(
       slug: `prog-${suffix}`,
       sportId: sport.id,
       locationId: location.id,
-      programType: "league",
+      programType: overrides.programType ?? "league",
     })
     .returning();
 
