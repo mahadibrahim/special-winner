@@ -57,6 +57,7 @@ import { fieldRentalRateCard } from "../schema/field-rentals";
 import { payments } from "../schema/payments";
 import { teamRegistrations, teamInvitees } from "../schema/team-registrations";
 import { dropInSessions, dropInBookings } from "../schema/drop-in";
+import { classSlotTemplates } from "../schema/classes";
 import { hostProfiles, hostGameReports } from "../schema/hosts";
 import { membershipTiers, memberships } from "../schema/memberships";
 import { merchStores } from "../schema/merch-stores";
@@ -4800,6 +4801,53 @@ async function seedE2ETests() {
       console.log(`   ✓ Created tier "Test Class Tier 4" (${classTier.id})`);
     } else {
       console.log(`   ✓ Tier "Test Class Tier 4" already exists (${classTier.id})`);
+    }
+  }
+
+  // Stage 13c — Aspire "Test Class Slot" class-slot template fixture (Task 9
+  // — youth classes engine API suites, SDD 2026-08-23-youth-classes-engine).
+  // Idempotent, mirrors Stage 13b's tier pattern immediately above. Most
+  // class-suite scenarios self-seed their OWN dedicated templates (capacity/
+  // exhaustion tests need tight, test-owned control), but this shared row
+  // gives tests/api/classes/schedule.test.ts (and anything else that just
+  // wants "a known active template exists") a guaranteed fixture rather than
+  // depending on whatever staging debris happens to be lying around.
+  console.log("\n13c. Setting up Aspire \"Test Class Slot\" template fixture...");
+  {
+    let [classSlot] = await db
+      .select()
+      .from(classSlotTemplates)
+      .where(
+        and(
+          eq(classSlotTemplates.organizationId, org.id),
+          eq(classSlotTemplates.name, "Test Class Slot"),
+        ),
+      )
+      .limit(1);
+    if (!classSlot) {
+      // The materialization horizon is 8 days (HORIZON_DAYS in
+      // src/lib/classes/materialize.ts), so every weekday 0-6 recurs at
+      // least once inside it — "2 days from now" is picked purely for
+      // readability (a near-future day), not because any other weekday
+      // would be wrong.
+      const weekday = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).getUTCDay();
+      [classSlot] = await db
+        .insert(classSlotTemplates)
+        .values({
+          organizationId: org.id,
+          venueId: venue.id,
+          name: "Test Class Slot",
+          sportLabel: "Soccer",
+          weekday,
+          startTime: "17:00:00",
+          durationMins: 55,
+          capacity: 12,
+          active: true,
+        })
+        .returning();
+      console.log(`   ✓ Created template "Test Class Slot" (${classSlot.id})`);
+    } else {
+      console.log(`   ✓ Template "Test Class Slot" already exists (${classSlot.id})`);
     }
   }
 
