@@ -12,9 +12,10 @@
  *   - When `stripeAccountId` is null, we fall through to a direct charge
  *     on the platform account (identical to today's rentals fallback).
  *
- * Idempotency keys: `${userId}:${tierId}:${interval}:checkout` for the
- * subscribe call; this lets a double-clicked CTA reuse the same Checkout
- * Session URL within Stripe's 24h cache window.
+ * Idempotency keys: `${userId}:${familyMemberId ?? "self"}:${tierId}:${interval}:checkout`
+ * for the subscribe call; this lets a double-clicked CTA reuse the same
+ * Checkout Session URL within Stripe's 24h cache window, and keeps two
+ * children of the same parent from colliding on the same key.
  */
 import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe/client";
@@ -83,6 +84,14 @@ export async function createSubscriptionCheckoutSession(opts: {
   tierName?: string;
   /** Ad-attribution ids (collectAdAttribution) → server-side conversions. */
   adAttribution?: Record<string, string>;
+  /** Child (family_members.id) this subscription is for — youth per-child
+   *  memberships. Absent for adult/self memberships. */
+  familyMemberId?: string;
+  /** One-time annual fee Price, added as a second line item when present.
+   *  Only attached for child subscriptions with a configured tier fee. */
+  feePriceId?: string | null;
+  /** Sibling-discount coupon id (see sibling-discount.ts), when eligible. */
+  couponId?: string | null;
 }): Promise<{ url: string; sessionId: string }> {
   const s = membershipsStripe();
 
@@ -94,6 +103,7 @@ export async function createSubscriptionCheckoutSession(opts: {
       tier_id: opts.tierId,
       billing_interval: opts.billingInterval,
       brand: opts.brand,
+      ...(opts.familyMemberId ? { family_member_id: opts.familyMemberId } : {}),
     },
     ...(opts.partnerStripeAccountId
       ? {
@@ -107,8 +117,14 @@ export async function createSubscriptionCheckoutSession(opts: {
     {
       mode: "subscription",
       customer: opts.customerId,
-      line_items: [{ price: opts.priceId, quantity: 1 }],
+      line_items: [
+        { price: opts.priceId, quantity: 1 },
+        ...(opts.feePriceId ? [{ price: opts.feePriceId, quantity: 1 }] : []),
+      ],
       subscription_data: subscriptionData,
+      // `discounts` and `allow_promotion_codes` are mutually exclusive in
+      // Checkout — we don't use promotion codes, so no conflict.
+      ...(opts.couponId ? { discounts: [{ coupon: opts.couponId }] } : {}),
       metadata: {
         type: "membership_subscription",
         user_id: opts.userId,
@@ -116,6 +132,7 @@ export async function createSubscriptionCheckoutSession(opts: {
         tier_id: opts.tierId,
         billing_interval: opts.billingInterval,
         brand: opts.brand,
+        ...(opts.familyMemberId ? { family_member_id: opts.familyMemberId } : {}),
         ...(opts.tierName ? { tier_name: opts.tierName } : {}),
         // Ad-attribution ids → webhook fires server-side GA4 + Meta purchases.
         ...(opts.adAttribution ?? {}),
@@ -124,7 +141,7 @@ export async function createSubscriptionCheckoutSession(opts: {
       cancel_url: opts.cancelUrl,
     },
     {
-      idempotencyKey: `${opts.userId}:${opts.tierId}:${opts.billingInterval}:checkout:v1`,
+      idempotencyKey: `${opts.userId}:${opts.familyMemberId ?? "self"}:${opts.tierId}:${opts.billingInterval}:checkout:v1`,
     },
   );
 

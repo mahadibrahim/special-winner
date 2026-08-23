@@ -505,6 +505,13 @@ export interface OrganizationSettings {
       inviteLink?: string;
     };
   };
+  /**
+   * Percent-off applied to a second (and later) child's membership package
+   * when subscribing while another child of the same parent already holds
+   * a live membership. Missing/undefined falls back to
+   * `DEFAULT_SIBLING_DISCOUNT_PCT` in `src/lib/memberships/sibling-discount.ts`.
+   */
+  siblingDiscountPct?: number;
 }
 
 // Organization features (feature flags)
