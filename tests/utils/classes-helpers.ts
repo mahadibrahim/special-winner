@@ -141,6 +141,11 @@ export async function createTestClassTemplate(opts: {
   active?: boolean;
   weekday?: number;
   startTime?: string;
+  /** CLASS rates copied onto every materialized session by the cron — set
+   *  them when a test asserts an exact paid/quoted price, so the assertion
+   *  never depends on the org's (adult pickup) rate-card fallback. */
+  sessionRateCents?: number;
+  memberRateCents?: number;
 }): Promise<string> {
   const db = getDb();
   // Materialization horizon is 8 days (HORIZON_DAYS in
@@ -158,6 +163,8 @@ export async function createTestClassTemplate(opts: {
       startTime: opts.startTime ?? "16:00:00",
       durationMins: 55,
       capacity: opts.capacity,
+      sessionRateCents: opts.sessionRateCents ?? null,
+      memberRateCents: opts.memberRateCents ?? null,
       active: opts.active ?? true,
     })
     .returning();

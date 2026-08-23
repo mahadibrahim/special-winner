@@ -309,6 +309,16 @@ export async function materializeClassSessions(now: Date): Promise<MaterializeRe
             capacity: template.capacity,
             audience: "youth",
             status: "scheduled",
+            // Class rates travel from the template onto the session, so the
+            // paid make-up path (POST /api/dropin/bookings with
+            // familyMemberId) and the 402 quote from POST /api/classes/book
+            // both read a CLASS price off the session row — same shape
+            // pickup already uses. Null here (template left them unset)
+            // falls through to the org's drop_in_rate_card defaults at the
+            // booking endpoints, which is the adult pickup card, hence the
+            // strong preference for setting them on the template.
+            sessionRateCents: template.sessionRateCents,
+            memberRateCents: template.memberRateCents,
             classSlotTemplateId: template.id,
           })
           .onConflictDoNothing({

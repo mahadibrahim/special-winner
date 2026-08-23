@@ -142,6 +142,13 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const { code, message } = result.error;
 
     if (code === "allotment_exhausted") {
+      // Session rates originate on the class-slot template and are copied
+      // onto each materialized session by the cron (see
+      // src/lib/classes/materialize.ts), so this is a CLASS price. The
+      // drop_in_rate_card fallback below is the ADULT PICKUP card and now
+      // only fires for a session whose template left the rate unset (or a
+      // hand-made one-off class session) — keep it as a last resort so a
+      // half-configured org still quotes something rather than 0.
       let memberRateCents = session.memberRateCents;
       if (memberRateCents === null) {
         const [rateCard] = await db

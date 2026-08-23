@@ -4842,11 +4842,27 @@ async function seedE2ETests() {
           startTime: "17:00:00",
           durationMins: 55,
           capacity: 12,
+          // CLASS rates (not the adult pickup rate card) — copied onto every
+          // materialized session by the cron, so the paid make-up charge and
+          // the 402 quote from POST /api/classes/book both resolve to these.
+          // Deterministic values so tests can assert exact cents.
+          sessionRateCents: 2500,
+          memberRateCents: 1500,
           active: true,
         })
         .returning();
       console.log(`   ✓ Created template "Test Class Slot" (${classSlot.id})`);
     } else {
+      // Self-heal the rates on a fixture seeded before the rate columns
+      // existed — otherwise a long-lived staging DB keeps a null-rate
+      // template and the pricing assertions fall back to the pickup card.
+      if (classSlot.sessionRateCents !== 2500 || classSlot.memberRateCents !== 1500) {
+        await db
+          .update(classSlotTemplates)
+          .set({ sessionRateCents: 2500, memberRateCents: 1500 })
+          .where(eq(classSlotTemplates.id, classSlot.id));
+        console.log(`   ✓ Backfilled class rates on "Test Class Slot" (${classSlot.id})`);
+      }
       console.log(`   ✓ Template "Test Class Slot" already exists (${classSlot.id})`);
     }
   }

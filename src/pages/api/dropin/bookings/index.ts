@@ -287,6 +287,12 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
   //      `POST /api/classes/book`'s 402 is only a client-facing quote, not
   //      an authorization signal this endpoint can trust — it's a separate
   //      request with no server-side link to this one.
+  // Both branches below read the rate off the SESSION first: for a
+  // materialized class session those values were copied from its class-slot
+  // template (src/lib/classes/materialize.ts), i.e. a real CLASS price. The
+  // `?? rateCard.*` tail is the ADULT PICKUP rate card — correct only as a
+  // last resort for a class whose template left the rate unset, which is why
+  // templates should always carry one.
   if (familyMemberId) {
     const childMembership = await getActiveChildMembership(
       familyMemberId,

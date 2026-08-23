@@ -59,6 +59,26 @@ export const classSlotTemplates = pgTable(
     startTime: time("start_time").notNull(),
     durationMins: integer("duration_mins").notNull().default(55),
     capacity: integer("capacity").notNull(),
+    /**
+     * Per-class pricing for the PAID paths — the make-up booking a parent
+     * buys when the child's monthly allotment is exhausted
+     * (POST /api/dropin/bookings with familyMemberId), and the quote the
+     * 402 from POST /api/classes/book hands the client.
+     *
+     * These are the CLASS rate source. Without them the only fallback is
+     * `drop_in_rate_card`, which is the ADULT PICKUP rate card — a paid
+     * kids' class make-up would silently be charged the adult drop-in
+     * price. Copied onto each materialized `drop_in_sessions` row by the
+     * cron (src/lib/classes/materialize.ts), so the booking endpoints keep
+     * reading rates off the SESSION exactly as they do for pickup; the
+     * rate-card fallback stays as the last resort for a template (or a
+     * one-off class session) that leaves them null.
+     *
+     * Nullable on purpose: a template that predates this column, or an org
+     * that genuinely wants the rate-card default, keeps working.
+     */
+    sessionRateCents: integer("session_rate_cents"),
+    memberRateCents: integer("member_rate_cents"),
     active: boolean("active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
