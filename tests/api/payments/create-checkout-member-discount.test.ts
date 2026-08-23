@@ -6,6 +6,7 @@ import {
   memberships,
   discountCodes,
   discountUsages,
+  registrations,
 } from "@/lib/db/schema";
 import { createCheckoutForRegistration } from "@/lib/payments/create-checkout-for-registration";
 import { seedPaidRegistration } from "../../utils/registration-context";
@@ -274,6 +275,130 @@ describe("createCheckoutForRegistration — member camp discount", () => {
         .from(discountCodes)
         .where(eq(discountCodes.id, discount.id));
       expect(updatedCode.usedCount).toBe(0);
+    },
+  );
+
+  // --- Regression: the discount must never compound across repeated
+  // createCheckoutForRegistration calls. The function persists the reduced
+  // amountDueCents, and the same registration re-enters checkout creation on
+  // wizard resume (POST /api/registrations kind:"resumed"), the dashboard
+  // pay-balance form, and guest retry. Before the marker column, the second
+  // pass re-applied 10% to the already-reduced total (17910 → 16119).
+  itWithStripe(
+    "resumed checkout does NOT re-apply the member discount (no compounding)",
+    async () => {
+      const { registrationId, organizationId, userId, familyMemberId } =
+        await seedPaidRegistration(0, {
+          amountDueCents: 19900,
+          paymentStatus: "unpaid",
+          status: "pending",
+          programType: "camp",
+        });
+      await seedChildMembership(organizationId, userId, familyMemberId, {
+        camp_discount_pct: 10,
+      });
+
+      const db = getDb();
+      const first = await createCheckoutForRegistration({
+        db,
+        registrationId,
+        userId,
+        baseUrl: "http://localhost:4321",
+      });
+      expect(first.kind).toBe("stripe_session");
+      if (first.kind !== "stripe_session") return;
+      expect(first.memberDiscountCents).toBe(1990); // 10% of 19900
+
+      const [afterFirst] = await db
+        .select()
+        .from(registrations)
+        .where(eq(registrations.id, registrationId));
+      expect(afterFirst.amountDueCents).toBe(17910);
+      expect(afterFirst.memberDiscountCentsApplied).toBe(1990);
+
+      // Resume: same registration, second checkout creation.
+      const second = await createCheckoutForRegistration({
+        db,
+        registrationId,
+        userId,
+        baseUrl: "http://localhost:4321",
+      });
+      expect(second.kind).toBe("stripe_session");
+      if (second.kind !== "stripe_session") return;
+      expect(second.memberDiscountCents).toBe(0);
+      // Same charge total as the first pass (surcharge is derived from the
+      // amount, so equal surcharges means equal amounts).
+      expect(second.surchargeCents).toBe(first.surchargeCents);
+
+      const [afterSecond] = await db
+        .select()
+        .from(registrations)
+        .where(eq(registrations.id, registrationId));
+      expect(afterSecond.amountDueCents).toBe(17910); // NOT 16119
+      expect(afterSecond.memberDiscountCentsApplied).toBe(1990);
+    },
+  );
+
+  itWithStripe(
+    "a code that already won is not stacked with the member discount on resume",
+    async () => {
+      const { registrationId, organizationId, userId, familyMemberId, seasonId } =
+        await seedPaidRegistration(0, {
+          amountDueCents: 20000,
+          paymentStatus: "unpaid",
+          status: "pending",
+          programType: "camp",
+        });
+      await seedChildMembership(organizationId, userId, familyMemberId, {
+        camp_discount_pct: 10, // 2000c — loses to the 20% code below
+      });
+
+      const db = getDb();
+      const suffix = Math.random().toString(36).slice(2, 8).toUpperCase();
+      const code = `RESUME20-${suffix}`;
+      await db.insert(discountCodes).values({
+        organizationId,
+        code,
+        discountType: "percentage",
+        discountValue: 2000, // 20% of 20000 = 4000c
+        seasonId,
+      });
+
+      const first = await createCheckoutForRegistration({
+        db,
+        registrationId,
+        userId,
+        baseUrl: "http://localhost:4321",
+        discountCode: code,
+      });
+      expect(first.kind).toBe("stripe_session");
+      if (first.kind !== "stripe_session") return;
+      expect(first.memberDiscountCents).toBe(0); // code won
+
+      const [afterFirst] = await db
+        .select()
+        .from(registrations)
+        .where(eq(registrations.id, registrationId));
+      expect(afterFirst.amountDueCents).toBe(16000);
+
+      // Resume without the code: the redeemed usage row already reduced the
+      // stored total, so the member discount must NOT land on top of it.
+      const second = await createCheckoutForRegistration({
+        db,
+        registrationId,
+        userId,
+        baseUrl: "http://localhost:4321",
+      });
+      expect(second.kind).toBe("stripe_session");
+      if (second.kind !== "stripe_session") return;
+      expect(second.memberDiscountCents).toBe(0);
+
+      const [afterSecond] = await db
+        .select()
+        .from(registrations)
+        .where(eq(registrations.id, registrationId));
+      expect(afterSecond.amountDueCents).toBe(16000); // NOT 14400
+      expect(afterSecond.memberDiscountCentsApplied).toBeNull();
     },
   );
 });
