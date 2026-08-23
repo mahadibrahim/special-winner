@@ -23,6 +23,9 @@
  * Checkout Session (row created by `checkout.session.completed`). Free
  * path books immediately via the shared orchestrator.
  *
+ * Youth CLASS sessions (kind='class') are rejected outright — see the guard
+ * below the session lookup.
+ *
  * Waitlist is deliberately NOT offered to guests — joining one is a
  * commitment to come back later, which only makes sense with an account.
  * The UI shows "Sign in to join waitlist" when the session is full.
@@ -132,6 +135,25 @@ export const POST: APIRoute = async (context) => {
 
   if (session.status !== "scheduled") {
     return json({ error: "Session not open for booking" }, 409);
+  }
+
+  // Guests can NEVER book a youth class. Class sessions (kind='class',
+  // materialized weekly by the class-slot cron) are always booked FOR A
+  // CHILD — every class path is keyed to a `family_members` row owned by a
+  // signed-in parent, and a class seat is either allotment-drawn, the
+  // one-per-child trial, or a paid make-up. This endpoint has no child
+  // concept at all, so without the guard a guest could pay into a kids'
+  // class and end up with an adult-shaped booking row on it.
+  if (session.kind === "class") {
+    return json(
+      {
+        error: {
+          code: "class_requires_child",
+          message: "Class sessions must be booked for a child by a signed-in parent",
+        },
+      },
+      422,
+    );
   }
 
   const [rateCard] = await db

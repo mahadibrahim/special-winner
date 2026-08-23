@@ -234,6 +234,26 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     familyMemberId = child.id;
   }
 
+  // The inverse guard: a class session can ONLY be booked FOR A CHILD. Every
+  // class booking path (allotment, trial, paid make-up) is keyed to a
+  // `family_members` row, and the class product itself is a kids' program.
+  // Without this, an authed adult could POST a bare `{ sessionId }` for a
+  // cron-materialized class session and book THEMSELVES into a children's
+  // class — free, if they hold an unlimited_pickup membership (`resolveRate`
+  // has no notion of session kind). The make-up path (familyMemberId
+  // present, validated above) is unaffected.
+  if (session.kind === "class" && !familyMemberId) {
+    return json(
+      {
+        error: {
+          code: "class_requires_child",
+          message: "Class sessions must be booked for a child (familyMemberId required)",
+        },
+      },
+      422,
+    );
+  }
+
   // rateCard and membership are independent reads (rate card is org-scoped,
   // membership is user+org-scoped) — fetch concurrently.
   const [[rateCard], membership] = await Promise.all([
