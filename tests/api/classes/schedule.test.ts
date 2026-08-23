@@ -1,6 +1,5 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { getDb } from "@/lib/db";
-import { classSlotTemplates } from "@/lib/db/schema/classes";
 import { dropInSessions } from "@/lib/db/schema/drop-in";
 import { apiFetch, getAuthCookie } from "../setup/test-helpers";
 import { createTestUserWithPassword } from "../../utils/host-helpers";
@@ -8,6 +7,9 @@ import {
   resolveClassTestFixtures,
   createTestChild,
   createTestChildMembership,
+  createTestClassTemplate,
+  sweepOrphanedTestTemplates,
+  cleanupTestClassFixtures,
   CLASS_TEST_PARENT_EMAIL,
   CLASS_TEST_PARENT_PASSWORD,
   CLASS_TEST_WAIVER,
@@ -19,9 +21,22 @@ let parentUserId: string;
 let tierId: string;
 let cookie: string;
 
+// Every template / enrollment this file creates, so afterAll can retire
+// them — see cleanupTestClassFixtures's doc comment (tests/utils/classes-helpers.ts)
+// for why leaked templates directly slow down the materialization cron.
+const createdTemplateIds: string[] = [];
+const createdEnrollmentIds: string[] = [];
+
 beforeAll(async () => {
   ({ organizationId, venueId, parentUserId, tierId } = await resolveClassTestFixtures());
   cookie = await getAuthCookie(CLASS_TEST_PARENT_EMAIL, CLASS_TEST_PARENT_PASSWORD);
+  // One-time hygiene for orphans from before this cleanup existed — safe
+  // here since tests/api runs with fileParallelism:false.
+  await sweepOrphanedTestTemplates(organizationId);
+});
+
+afterAll(async () => {
+  await cleanupTestClassFixtures(createdTemplateIds, createdEnrollmentIds);
 });
 
 describe("GET /api/public/class-schedule", () => {
@@ -44,23 +59,15 @@ describe("GET /api/public/class-schedule", () => {
   });
 
   it("is reachable anonymously and reflects a slot's enrolledCount/spotsLeft", async () => {
-    const db = getDb();
     const suffix = Date.now();
-    const weekday = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).getUTCDay();
-    const [template] = await db
-      .insert(classSlotTemplates)
-      .values({
-        organizationId,
-        venueId,
-        name: `Schedule-Slot-${suffix}`,
-        sportLabel: "Soccer",
-        weekday,
-        startTime: "15:30:00",
-        durationMins: 55,
-        capacity: 5,
-        active: true,
-      })
-      .returning();
+    const templateId = await createTestClassTemplate({
+      organizationId,
+      venueId,
+      name: `Schedule-Slot-${suffix}`,
+      capacity: 5,
+      startTime: "15:30:00",
+    });
+    createdTemplateIds.push(templateId);
 
     // Anonymous — no cookie.
     const res1 = await apiFetch("/api/public/class-schedule");
@@ -69,7 +76,7 @@ describe("GET /api/public/class-schedule", () => {
     expect(Array.isArray(body1.slots)).toBe(true);
     expect(Array.isArray(body1.sessions)).toBe(true);
 
-    const slot1 = body1.slots.find((s: any) => s.templateId === template.id);
+    const slot1 = body1.slots.find((s: any) => s.templateId === templateId);
     expect(slot1).toBeTruthy();
     expect(slot1.capacity).toBe(5);
     expect(slot1.enrolledCount).toBe(0);
@@ -89,13 +96,15 @@ describe("GET /api/public/class-schedule", () => {
     const enrollRes = await apiFetch("/api/classes/enrollments", {
       method: "POST",
       cookie,
-      body: JSON.stringify({ slotTemplateId: template.id, familyMemberId: childId }),
+      body: JSON.stringify({ slotTemplateId: templateId, familyMemberId: childId }),
     });
     expect(enrollRes.status).toBe(200);
+    const { enrollmentId } = await enrollRes.json();
+    createdEnrollmentIds.push(enrollmentId);
 
     const res2 = await apiFetch("/api/public/class-schedule");
     const body2 = await res2.json();
-    const slot2 = body2.slots.find((s: any) => s.templateId === template.id);
+    const slot2 = body2.slots.find((s: any) => s.templateId === templateId);
     expect(slot2.enrolledCount).toBe(1);
     expect(slot2.spotsLeft).toBe(4);
   });
@@ -156,7 +165,6 @@ describe("GET /api/classes/summary", () => {
   });
 
   it("returns a per-child row with membership/enrollment/trial shape", async () => {
-    const db = getDb();
     const suffix = Date.now();
     // GET /api/classes/summary caps at the 20 OLDEST children of the caller
     // (summary.ts's documented MAX_CHILDREN bound) — the shared
@@ -181,26 +189,24 @@ describe("GET /api/classes/summary", () => {
     });
 
     const weekday = new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).getUTCDay();
-    const [template] = await db
-      .insert(classSlotTemplates)
-      .values({
-        organizationId,
-        venueId,
-        name: `Summary-Slot-${suffix}`,
-        sportLabel: "Soccer",
-        weekday,
-        startTime: "16:00:00",
-        durationMins: 55,
-        capacity: 8,
-        active: true,
-      })
-      .returning();
+    const templateId = await createTestClassTemplate({
+      organizationId,
+      venueId,
+      name: `Summary-Slot-${suffix}`,
+      capacity: 8,
+      weekday,
+      startTime: "16:00:00",
+    });
+    createdTemplateIds.push(templateId);
+
     const enrollRes = await apiFetch("/api/classes/enrollments", {
       method: "POST",
       cookie: summaryCookie,
-      body: JSON.stringify({ slotTemplateId: template.id, familyMemberId: childId }),
+      body: JSON.stringify({ slotTemplateId: templateId, familyMemberId: childId }),
     });
     expect(enrollRes.status).toBe(200);
+    const { enrollmentId } = await enrollRes.json();
+    createdEnrollmentIds.push(enrollmentId);
 
     const res = await apiFetch("/api/classes/summary", { cookie: summaryCookie });
     expect(res.status).toBe(200);
@@ -212,7 +218,7 @@ describe("GET /api/classes/summary", () => {
     // Fresh membership, zero usage this month — the full cap is remaining.
     expect(row.membership.classAllotmentRemaining).toBe(4);
     expect(row.enrollment).toMatchObject({
-      templateId: template.id,
+      templateId,
       weekday,
       startTime: "16:00:00",
     });

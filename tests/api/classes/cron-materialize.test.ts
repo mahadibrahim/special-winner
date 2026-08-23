@@ -1,7 +1,6 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { classSlotTemplates, classEnrollments } from "@/lib/db/schema/classes";
 import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
 import { membershipTiers } from "@/lib/db/schema/memberships";
 import { apiFetch } from "../setup/test-helpers";
@@ -10,7 +9,11 @@ import {
   resolveClassTestFixtures,
   createTestChild,
   createTestChildMembership,
+  createTestClassTemplate,
+  sweepOrphanedTestTemplates,
+  cleanupTestClassFixtures,
 } from "../../utils/classes-helpers";
+import { classEnrollments } from "@/lib/db/schema/classes";
 
 const CRON_SECRET = process.env.CRON_SECRET;
 
@@ -18,8 +21,23 @@ let organizationId: string;
 let venueId: string;
 let parentUserId: string;
 
+// Every template / enrollment this file creates, so afterAll can retire
+// them. This matters MORE here than in the other suites: an orphaned
+// template isn't just dead weight, it's a template `materializeClassSessions`
+// keeps sweeping (and re-attempting bookings against) on EVERY future cron
+// invocation, directly slowing down the exact endpoint this file tests.
+const createdTemplateIds: string[] = [];
+const createdEnrollmentIds: string[] = [];
+
 beforeAll(async () => {
   ({ organizationId, venueId, parentUserId } = await resolveClassTestFixtures());
+  // One-time hygiene for orphans from before this cleanup existed — safe
+  // here since tests/api runs with fileParallelism:false.
+  await sweepOrphanedTestTemplates(organizationId);
+});
+
+afterAll(async () => {
+  await cleanupTestClassFixtures(createdTemplateIds, createdEnrollmentIds);
 });
 
 async function postCron(secret: string) {
@@ -46,21 +64,14 @@ describe("POST /api/cron/materialize-class-sessions", () => {
 
       // A dedicated template so this test's assertions stay scoped away
       // from whatever other active templates exist on shared staging.
-      const weekday = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).getUTCDay();
-      const [template] = await db
-        .insert(classSlotTemplates)
-        .values({
-          organizationId,
-          venueId,
-          name: `Cron-Template-${suffix}`,
-          sportLabel: "Soccer",
-          weekday,
-          startTime: "12:00:00",
-          durationMins: 55,
-          capacity: 20,
-          active: true,
-        })
-        .returning();
+      const templateId = await createTestClassTemplate({
+        organizationId,
+        venueId,
+        name: `Cron-Template-${suffix}`,
+        capacity: 20,
+        startTime: "12:00:00",
+      });
+      createdTemplateIds.push(templateId);
 
       // A dedicated tier (classes_per_month: 1) so the "exhausted" child
       // only needs ONE prior booking to already be at cap — cheaper than
@@ -104,11 +115,11 @@ describe("POST /api/cron/materialize-class-sessions", () => {
         amountPaidCents: 0,
         waiverSigned: true,
       });
-      await db.insert(classEnrollments).values({
-        slotTemplateId: template.id,
-        familyMemberId: okChild,
-        membershipId: okMembershipId,
-      });
+      const [okEnrollment] = await db
+        .insert(classEnrollments)
+        .values({ slotTemplateId: templateId, familyMemberId: okChild, membershipId: okMembershipId })
+        .returning();
+      createdEnrollmentIds.push(okEnrollment.id);
 
       // Enrolled child whose allotment is ALREADY exhausted this month (one
       // prior confirmed member_allotment booking on an unrelated session) —
@@ -133,11 +144,15 @@ describe("POST /api/cron/materialize-class-sessions", () => {
         membershipId: exhaustedMembershipId,
         waiverSigned: true,
       });
-      await db.insert(classEnrollments).values({
-        slotTemplateId: template.id,
-        familyMemberId: exhaustedChild,
-        membershipId: exhaustedMembershipId,
-      });
+      const [exhaustedEnrollment] = await db
+        .insert(classEnrollments)
+        .values({
+          slotTemplateId: templateId,
+          familyMemberId: exhaustedChild,
+          membershipId: exhaustedMembershipId,
+        })
+        .returning();
+      createdEnrollmentIds.push(exhaustedEnrollment.id);
 
       // ---- Run 1 ----
       const res1 = await postCron(CRON_SECRET);
@@ -151,7 +166,7 @@ describe("POST /api/cron/materialize-class-sessions", () => {
         .select({ id: dropInSessions.id })
         .from(dropInSessions)
         .where(
-          and(eq(dropInSessions.classSlotTemplateId, template.id), eq(dropInSessions.status, "scheduled")),
+          and(eq(dropInSessions.classSlotTemplateId, templateId), eq(dropInSessions.status, "scheduled")),
         );
       expect(sessionsAfterRun1.length).toBeGreaterThanOrEqual(1);
       const sessionIds = sessionsAfterRun1.map((s) => s.id);
@@ -187,7 +202,7 @@ describe("POST /api/cron/materialize-class-sessions", () => {
         .select({ id: dropInSessions.id })
         .from(dropInSessions)
         .where(
-          and(eq(dropInSessions.classSlotTemplateId, template.id), eq(dropInSessions.status, "scheduled")),
+          and(eq(dropInSessions.classSlotTemplateId, templateId), eq(dropInSessions.status, "scheduled")),
         );
       expect(sessionsAfterRun2.length).toBe(sessionsAfterRun1.length);
 

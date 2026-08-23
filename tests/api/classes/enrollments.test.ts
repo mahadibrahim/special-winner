@@ -1,12 +1,15 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { classSlotTemplates, classEnrollments } from "@/lib/db/schema/classes";
+import { classEnrollments } from "@/lib/db/schema/classes";
 import { apiFetch, getAuthCookie } from "../setup/test-helpers";
 import {
   resolveClassTestFixtures,
   createTestChild,
   createTestChildMembership,
+  createTestClassTemplate,
+  sweepOrphanedTestTemplates,
+  cleanupTestClassFixtures,
   CLASS_TEST_PARENT_EMAIL,
   CLASS_TEST_PARENT_PASSWORD,
 } from "../../utils/classes-helpers";
@@ -17,35 +20,45 @@ let parentUserId: string;
 let tierId: string;
 let cookie: string;
 
+// Every template / enrollment this file creates, so afterAll can retire
+// them — materializeClassSessions sweeps EVERY active template on EVERY
+// cron invocation, so leaked fixtures directly slow down (and add noise
+// to) the cron this suite tests. See cleanupTestClassFixtures's doc comment.
+const createdTemplateIds: string[] = [];
+const createdEnrollmentIds: string[] = [];
+
 beforeAll(async () => {
   ({ organizationId, venueId, parentUserId, tierId } = await resolveClassTestFixtures());
   cookie = await getAuthCookie(CLASS_TEST_PARENT_EMAIL, CLASS_TEST_PARENT_PASSWORD);
+  // One-time hygiene for orphans from before this cleanup existed (or a
+  // crashed prior run) — safe here because tests/api runs with
+  // fileParallelism:false, so no sibling file is creating fixtures
+  // concurrently.
+  await sweepOrphanedTestTemplates(organizationId);
+});
+
+afterAll(async () => {
+  await cleanupTestClassFixtures(createdTemplateIds, createdEnrollmentIds);
 });
 
 /** A dedicated `class_slot_templates` row, own capacity — enrollment
  *  scenarios need tight, test-owned control over capacity, so each test
  *  creates its own rather than sharing seed-e2e-tests.ts's "Test Class
- *  Slot" fixture. */
-async function createTemplate(name: string, capacity: number): Promise<string> {
-  const db = getDb();
-  // Materialization horizon is 8 days, so any weekday works — see the doc
-  // comment on the "Test Class Slot" seed fixture.
-  const weekday = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).getUTCDay();
-  const [row] = await db
-    .insert(classSlotTemplates)
-    .values({
-      organizationId,
-      venueId,
-      name,
-      sportLabel: "Soccer",
-      weekday,
-      startTime: "16:00:00",
-      durationMins: 55,
-      capacity,
-      active: true,
-    })
-    .returning();
-  return row.id;
+ *  Slot" fixture. Tracks the id for afterAll cleanup. */
+async function createTemplate(
+  name: string,
+  capacity: number,
+  opts: { active?: boolean } = {},
+): Promise<string> {
+  const id = await createTestClassTemplate({
+    organizationId,
+    venueId,
+    name,
+    capacity,
+    active: opts.active,
+  });
+  createdTemplateIds.push(id);
+  return id;
 }
 
 describe("POST /api/classes/enrollments", () => {
@@ -70,6 +83,7 @@ describe("POST /api/classes/enrollments", () => {
     expect(resA.status).toBe(200);
     const bodyA = await resA.json();
     expect(typeof bodyA.enrollmentId).toBe("string");
+    createdEnrollmentIds.push(bodyA.enrollmentId);
 
     // The new enrollment shows up in the caller's list, joined to the template.
     const listRes = await apiFetch("/api/classes/enrollments", { cookie });
@@ -112,6 +126,59 @@ describe("POST /api/classes/enrollments", () => {
     const body = await res.json();
     expect(body.error).toBe("no_membership");
   });
+
+  it("400s template_inactive when the template has been retired", async () => {
+    const suffix = Date.now();
+    const templateId = await createTemplate(`Enroll-Inactive-${suffix}`, 5, { active: false });
+    const childId = await createTestChild(parentUserId, `InactiveTarget-${suffix}`);
+    await createTestChildMembership({
+      userId: parentUserId,
+      familyMemberId: childId,
+      organizationId,
+      tierId,
+      idSuffix: `inactive-${suffix}`,
+    });
+
+    const res = await apiFetch("/api/classes/enrollments", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({ slotTemplateId: templateId, familyMemberId: childId }),
+    });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe("template_inactive");
+  });
+
+  it("409s already_enrolled when the child enrolls in the same template twice", async () => {
+    const suffix = Date.now();
+    const templateId = await createTemplate(`Enroll-Twice-${suffix}`, 5);
+    const childId = await createTestChild(parentUserId, `TwiceEnroller-${suffix}`);
+    await createTestChildMembership({
+      userId: parentUserId,
+      familyMemberId: childId,
+      organizationId,
+      tierId,
+      idSuffix: `twice-${suffix}`,
+    });
+
+    const firstRes = await apiFetch("/api/classes/enrollments", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({ slotTemplateId: templateId, familyMemberId: childId }),
+    });
+    expect(firstRes.status).toBe(200);
+    const { enrollmentId } = await firstRes.json();
+    createdEnrollmentIds.push(enrollmentId);
+
+    const secondRes = await apiFetch("/api/classes/enrollments", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({ slotTemplateId: templateId, familyMemberId: childId }),
+    });
+    expect(secondRes.status).toBe(409);
+    const body = await secondRes.json();
+    expect(body.error).toBe("already_enrolled");
+  });
 });
 
 describe("PUT /api/classes/enrollments/:id", () => {
@@ -135,6 +202,7 @@ describe("PUT /api/classes/enrollments/:id", () => {
     });
     expect(createRes.status).toBe(200);
     const { enrollmentId } = await createRes.json();
+    createdEnrollmentIds.push(enrollmentId);
 
     const putRes = await apiFetch(`/api/classes/enrollments/${enrollmentId}`, {
       method: "PUT",
@@ -146,6 +214,7 @@ describe("PUT /api/classes/enrollments/:id", () => {
     expect(putBody.ok).toBe(true);
     const newEnrollmentId = putBody.enrollmentId as string;
     expect(newEnrollmentId).not.toBe(enrollmentId);
+    createdEnrollmentIds.push(newEnrollmentId);
 
     const db = getDb();
     const [oldRow] = await db
@@ -165,6 +234,107 @@ describe("PUT /api/classes/enrollments/:id", () => {
     // The membership carries over untouched — the move doesn't re-check or
     // re-grant the benefit, it's the same standing seat under a new template.
     expect(newRow.membershipId).toBe(oldRow.membershipId);
+  });
+
+  it("404s enrollment_not_found when changing the slot of an already-ended enrollment", async () => {
+    const suffix = Date.now();
+    const templateA = await createTemplate(`Move-EndedFrom-${suffix}`, 5);
+    const templateB = await createTemplate(`Move-EndedTo-${suffix}`, 5);
+    const childId = await createTestChild(parentUserId, `EndedMover-${suffix}`);
+    await createTestChildMembership({
+      userId: parentUserId,
+      familyMemberId: childId,
+      organizationId,
+      tierId,
+      idSuffix: `endedmover-${suffix}`,
+    });
+
+    const createRes = await apiFetch("/api/classes/enrollments", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({ slotTemplateId: templateA, familyMemberId: childId }),
+    });
+    expect(createRes.status).toBe(200);
+    const { enrollmentId } = await createRes.json();
+    createdEnrollmentIds.push(enrollmentId);
+
+    const deleteRes = await apiFetch(`/api/classes/enrollments/${enrollmentId}`, {
+      method: "DELETE",
+      cookie,
+    });
+    expect(deleteRes.status).toBe(200);
+
+    // Ownership check passes (the row still exists, just ended) — the
+    // changeEnrollmentSlot library call is what must report the not-active
+    // row as enrollment_not_found.
+    const putRes = await apiFetch(`/api/classes/enrollments/${enrollmentId}`, {
+      method: "PUT",
+      cookie,
+      body: JSON.stringify({ newSlotTemplateId: templateB }),
+    });
+    expect(putRes.status).toBe(404);
+    const body = await putRes.json();
+    expect(body.error).toBe("enrollment_not_found");
+  });
+
+  it("409s template_full when the destination template is full", async () => {
+    const suffix = Date.now();
+    const templateFrom = await createTemplate(`Move-DestFull-From-${suffix}`, 5);
+    const templateFull = await createTemplate(`Move-DestFull-To-${suffix}`, 1);
+
+    // Fill the destination template with a different child first.
+    const fillerChild = await createTestChild(parentUserId, `DestFullFiller-${suffix}`);
+    await createTestChildMembership({
+      userId: parentUserId,
+      familyMemberId: fillerChild,
+      organizationId,
+      tierId,
+      idSuffix: `destfullfiller-${suffix}`,
+    });
+    const fillerRes = await apiFetch("/api/classes/enrollments", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({ slotTemplateId: templateFull, familyMemberId: fillerChild }),
+    });
+    expect(fillerRes.status).toBe(200);
+    const { enrollmentId: fillerEnrollmentId } = await fillerRes.json();
+    createdEnrollmentIds.push(fillerEnrollmentId);
+
+    // The mover starts on a different (non-full) template.
+    const moverChild = await createTestChild(parentUserId, `DestFullMover-${suffix}`);
+    await createTestChildMembership({
+      userId: parentUserId,
+      familyMemberId: moverChild,
+      organizationId,
+      tierId,
+      idSuffix: `destfullmover-${suffix}`,
+    });
+    const moverRes = await apiFetch("/api/classes/enrollments", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({ slotTemplateId: templateFrom, familyMemberId: moverChild }),
+    });
+    expect(moverRes.status).toBe(200);
+    const { enrollmentId: moverEnrollmentId } = await moverRes.json();
+    createdEnrollmentIds.push(moverEnrollmentId);
+
+    const putRes = await apiFetch(`/api/classes/enrollments/${moverEnrollmentId}`, {
+      method: "PUT",
+      cookie,
+      body: JSON.stringify({ newSlotTemplateId: templateFull }),
+    });
+    expect(putRes.status).toBe(409);
+    const body = await putRes.json();
+    expect(body.error).toBe("template_full");
+
+    // The mover's original enrollment must be untouched (atomic failure).
+    const db = getDb();
+    const [moverRow] = await db
+      .select()
+      .from(classEnrollments)
+      .where(eq(classEnrollments.id, moverEnrollmentId));
+    expect(moverRow.status).toBe("active");
+    expect(moverRow.slotTemplateId).toBe(templateFrom);
   });
 });
 
@@ -188,6 +358,7 @@ describe("DELETE /api/classes/enrollments/:id", () => {
     });
     expect(createRes.status).toBe(200);
     const { enrollmentId } = await createRes.json();
+    createdEnrollmentIds.push(enrollmentId);
 
     const deleteRes = await apiFetch(`/api/classes/enrollments/${enrollmentId}`, {
       method: "DELETE",
