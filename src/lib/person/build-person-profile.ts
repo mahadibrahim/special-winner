@@ -32,7 +32,7 @@ import { getTableColumns } from "drizzle-orm";
 import { userOrganizationAccess } from "@/lib/db/schema/organizations";
 import { consents } from "@/lib/db/schema/consents";
 import { memberships, membershipTiers } from "@/lib/db/schema/memberships";
-import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { derivePersonType } from "./derive-person-type";
 import { summarizePayments } from "./summarize-payments";
 import { computeOutstandingCents } from "./compute-outstanding";
@@ -196,6 +196,10 @@ async function buildFamilyMemberProfile(
           .where(
             and(
               eq(memberships.userId, fm.selfUserId),
+              // Self-memberships only: child memberships are billed to the
+              // parent's userId but carry familyMemberId, so without this
+              // the parent's profile shows their child's tier as their own.
+              isNull(memberships.familyMemberId),
               eq(memberships.organizationId, orgId),
               inArray(memberships.status, ["active", "paused", "past_due"]),
             ),
