@@ -23,14 +23,22 @@
  *
  * `familyMemberId` (optional) — the CHILD paid make-up path. Set by the
  * classes UI when `POST /api/classes/book` returns 402 `allotment_exhausted`
- * (the child's monthly class allotment is used up): the parent pays the
- * class's member rate to make up the child's spot rather than drawing from
- * the allotment. Validated here (must be the caller's dependent, and the
- * session must be `kind: "class"`), threaded into checkout/PaymentIntent
- * metadata as `family_member_id`, and recorded on the booking row by the
- * webhook fulfillment core (see handle-dropin-checkout-complete.ts). Absent
- * (the normal adult drop-in booking) → behavior is unchanged from before
- * this field existed.
+ * (the child's monthly class allotment is used up): the parent pays to make
+ * up the child's spot rather than drawing from the allotment. Validated
+ * here (must be the caller's dependent, and the session must be
+ * `kind: "class"`), threaded into checkout/PaymentIntent metadata as
+ * `family_member_id`, and recorded on the booking row by the webhook
+ * fulfillment core (see handle-dropin-checkout-complete.ts). Absent (the
+ * normal adult drop-in booking) → behavior is unchanged from before this
+ * field existed.
+ *
+ * Price for the child path is NOT taken from the client (the 402 quote is
+ * informational only, from an unrelated request) and NOT from the parent's
+ * own adult membership (irrelevant to the child). It is re-derived here by
+ * checking whether the CHILD holds an active membership
+ * (`getActiveChildMembership`): active → the class member rate; otherwise
+ * → the plain public class rate. See the inline comment at the override
+ * site below for the full reasoning.
  */
 import type { APIRoute } from "astro";
 import { and, desc, eq, sql } from "drizzle-orm";
@@ -44,6 +52,7 @@ import { familyMembers } from "@/lib/db/schema/registrations";
 import { venues } from "@/lib/db/schema/teams";
 import { stripe } from "@/lib/stripe/client";
 import { resolveRate } from "@/lib/dropin/pricing";
+import { getActiveChildMembership } from "@/lib/memberships/get-child-membership";
 import {
   createConfirmedBookingFreePath,
   getActiveMembershipForUser,
@@ -242,20 +251,44 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
   let rate = resolveRate(session, locals.user, membership, rateCard);
 
   // Child paid make-up: `resolveRate` above resolved the PARENT's own adult
-  // drop-in membership (rule 2-4), which is irrelevant here — the child's
-  // membership (a separate `memberships` row, see get-child-membership.ts)
-  // already gated this purchase upstream in POST /api/classes/book, which
-  // quoted the caller `session.memberRateCents ?? rateCard.memberRateCents`
-  // on its 402. Charge exactly that figure so the two endpoints never
-  // quote-then-charge a different number.
+  // drop-in membership (rule 2-4). That's the wrong membership for this
+  // decision on TWO counts, and both must be corrected before a price is
+  // charged:
+  //   1. It must never DISCOUNT here — a parent's own adult membership has
+  //      nothing to do with their child's class allotment, and `resolveRate`
+  //      would otherwise apply the parent's member rate (or even $0) to a
+  //      child booking the parent's membership was never meant to cover.
+  //   2. The member RATE (vs. the plain public rate) must only apply when
+  //      the CHILD holds an active membership — server-verified here via
+  //      `getActiveChildMembership`, never trusted from the client. Without
+  //      this, any authed parent could pass an arbitrary `familyMemberId`
+  //      (their own, ownership-checked above, but with no membership at
+  //      all) and get the discounted class rate on any class session.
+  //      `POST /api/classes/book`'s 402 is only a client-facing quote, not
+  //      an authorization signal this endpoint can trust — it's a separate
+  //      request with no server-side link to this one.
   if (familyMemberId) {
-    rate = {
-      amountCents: session.memberRateCents ?? rateCard.defaultMemberRateCents,
-      paymentMethod: "card_online",
-      membershipId: null,
-    };
+    const childMembership = await getActiveChildMembership(
+      familyMemberId,
+      session.organizationId,
+    );
+    rate =
+      childMembership && childMembership.status === "active"
+        ? {
+            amountCents: session.memberRateCents ?? rateCard.defaultMemberRateCents,
+            paymentMethod: "card_online",
+            membershipId: childMembership.id,
+          }
+        : {
+            // No active child membership — the plain public class rate,
+            // deliberately NOT `resolveRate`'s result (which reflects the
+            // parent's own membership, irrelevant to the child).
+            amountCents: session.sessionRateCents ?? rateCard.defaultSessionRateCents,
+            paymentMethod: "card_online",
+            membershipId: null,
+          };
     if (rate.amountCents <= 0) {
-      return json({ error: "Member rate not configured for this class" }, 500);
+      return json({ error: "Rate not configured for this class" }, 500);
     }
   }
 

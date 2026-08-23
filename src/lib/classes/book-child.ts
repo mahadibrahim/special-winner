@@ -64,11 +64,11 @@ export type ChildBookingResult =
   | { ok: false; error: ChildBookingError };
 
 /** Booking statuses that occupy a real seat / block a duplicate booking —
- *  matches the v3 unique index's WHERE clause on drop_in_bookings. Exported
- *  (both the plain list and the Drizzle condition built from it) so the
- *  cancel endpoint (src/pages/api/classes/bookings/[id]/cancel.ts) can gate
- *  on the same "still active" definition rather than duplicating the status
- *  list and risking drift. */
+ *  matches the v3 unique index's WHERE clause on drop_in_bookings. The plain
+ *  list is also exported so the cancel endpoint
+ *  (src/pages/api/classes/bookings/[id]/cancel.ts) can gate on the same
+ *  "still active" definition rather than duplicating the status list and
+ *  risking drift. */
 export const ACTIVE_BOOKING_STATUS_LIST = [
   "confirmed",
   "waitlisted",

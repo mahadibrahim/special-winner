@@ -9,23 +9,33 @@
  * Cutoff policy: a 24h window before the session start, applied UNIFORMLY
  * to member and trial bookings alike (see `isBeforeCutoff`'s doc comment in
  * src/lib/classes/book-child.ts for why trial gets no special-casing).
- * Outside the window (>= 24h before start) → cancelled, seat/credit freed.
- * Inside the window (< 24h before start) → 409, no cancellation.
+ * Outside the window (>= 24h before start) → cancelled. Inside the window
+ * (< 24h before start) → 409 `inside_cutoff`, no cancellation at all — this
+ * is a HARDER gate than `processCancelRefund`'s own window check below (that
+ * one only decides refund-or-forfeit; it never blocks the cancel itself).
+ * Ownership + org-scope + active-status + the 24h cutoff are all enforced
+ * here, BEFORE delegating the actual cancellation to `processCancelRefund`.
+ *
+ * The cancellation itself (status flip, Stripe refund for paid `card_online`
+ * make-ups, waitlist promotion — a class session's paid-overflow branch can
+ * leave `waitlisted` rows just like a pickup session) is delegated to
+ * `processCancelRefund` (src/lib/dropin/refund.ts) rather than reimplemented
+ * here, so classes get the same refund/promotion behavior pickup bookings
+ * already have instead of a second, easily-drifting copy of it.
  *
  * `creditFreed` reports whether a member-allotment credit was given back —
  * the allotment is COUNT-based (see get-child-membership.ts), so flipping
- * this row's status to `cancelled` IS the credit-free operation; there is
- * no separate counter to decrement.
+ * the row's status to `cancelled` IS the credit-free operation; there is no
+ * separate counter to decrement. `refunded` reports whether
+ * `processCancelRefund` actually returned money via Stripe (only possible
+ * for a paid `card_online` make-up booking outside its own window check).
  */
 import type { APIRoute } from "astro";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
-import {
-  ACTIVE_BOOKING_STATUS_LIST,
-  ACTIVE_BOOKING_STATUSES,
-  isBeforeCutoff,
-} from "@/lib/classes/book-child";
+import { ACTIVE_BOOKING_STATUS_LIST, isBeforeCutoff } from "@/lib/classes/book-child";
+import { processCancelRefund } from "@/lib/dropin/refund";
 
 export const prerender = false;
 
@@ -74,18 +84,18 @@ export const POST: APIRoute = async ({ params, locals }) => {
     return json({ error: "inside_cutoff" }, 409);
   }
 
-  await db
-    .update(dropInBookings)
-    .set({
-      status: "cancelled",
-      cancelledAt: new Date(),
-      cancellationReason: "user_request",
-      updatedAt: new Date(),
-    })
-    .where(
-      and(eq(dropInBookings.id, row.booking.id), ACTIVE_BOOKING_STATUSES),
-    );
-
+  // Count-based: the allotment query (get-child-membership.ts) only counts
+  // "confirmed"/"no_show" rows, so this flag is determined by the booking's
+  // payment method alone — independent of whatever processCancelRefund does.
   const creditFreed = row.booking.paymentMethod === "member_allotment";
-  return json({ cancelled: true, creditFreed }, 200);
+
+  const result = await processCancelRefund(row.booking.id, { reason: "user_request" });
+  if (!result.ok) {
+    // Should be rare — our own active-status check above already filters
+    // this out, save for a race with a concurrent cancel between the SELECT
+    // and here.
+    return json({ error: result.reason ?? "Cancellation failed" }, 409);
+  }
+
+  return json({ cancelled: true, creditFreed, refunded: result.refunded }, 200);
 };
