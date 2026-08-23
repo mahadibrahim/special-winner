@@ -284,35 +284,76 @@ export const GET: APIRoute = async (context) => {
         .orderBy(periodExpr),
     ]);
 
+    // postgres.js returns SUM()/COUNT() aggregates as strings (Postgres
+    // numeric/bigint have no safe native JS representation), while plain
+    // integer columns (e.g. recentTransactions.amountCents) come back as
+    // real numbers already. Every aggregate below gets coerced HERE, at the
+    // API boundary, before any arithmetic touches it — `1 + "2"` is fine,
+    // `"1" + "2"` silently concatenates, and the merge below adds two
+    // aggregate sums together, so doing this after the merge would still
+    // be broken for any bucket where either side came back as a string.
+    const num = (v: unknown): number => Number(v) || 0;
+
+    const totalRevenue = {
+      total: num(totalRevenueResult[0]?.total),
+      count: num(totalRevenueResult[0]?.count),
+    };
+    const membershipRevenue = {
+      total: num(membershipRevenueResult[0]?.total),
+      count: num(membershipRevenueResult[0]?.count),
+    };
+    const prevRevenue =
+      num(prevRevenueResult[0]?.total) + num(prevMembershipRevenueResult[0]?.total);
+    const refunds = {
+      total: num(refundsResult[0]?.total),
+      count: num(refundsResult[0]?.count),
+    };
+
     // Merge membership-by-period rows into the registration-by-period rows,
     // summing when a period bucket appears in both (e.g. a month with both
-    // registration and membership payments).
+    // registration and membership payments). Both sides are coerced to
+    // numbers before the merge so `+=` adds instead of concatenating.
     const revenueByPeriodMap = new Map<
       string,
       { period: string; revenue: number; transactionCount: number }
     >();
     for (const row of revenueByPeriodRows) {
-      revenueByPeriodMap.set(row.period, { ...row });
+      revenueByPeriodMap.set(row.period, {
+        period: row.period,
+        revenue: num(row.revenue),
+        transactionCount: num(row.transactionCount),
+      });
     }
     for (const row of membershipRevenueByPeriod) {
+      const revenue = num(row.revenue);
+      const transactionCount = num(row.transactionCount);
       const existing = revenueByPeriodMap.get(row.period);
       if (existing) {
-        existing.revenue += row.revenue;
-        existing.transactionCount += row.transactionCount;
+        existing.revenue += revenue;
+        existing.transactionCount += transactionCount;
       } else {
-        revenueByPeriodMap.set(row.period, { ...row });
+        revenueByPeriodMap.set(row.period, { period: row.period, revenue, transactionCount });
       }
     }
     const revenueByPeriod = Array.from(revenueByPeriodMap.values()).sort((a, b) =>
       a.period.localeCompare(b.period)
     );
 
-    const totalRevenue = totalRevenueResult[0];
-    const membershipRevenue = membershipRevenueResult[0] ?? { total: 0, count: 0 };
+    const revenueByTypeNumeric = revenueByType.map((row) => ({
+      paymentType: row.paymentType,
+      revenue: num(row.revenue),
+      count: num(row.count),
+    }));
+
+    const revenueBySportNumeric = revenueBySport.map((row) => ({
+      sportId: row.sportId,
+      sportName: row.sportName,
+      revenue: num(row.revenue),
+      registrations: num(row.registrations),
+    }));
+
     const combinedTotal = totalRevenue.total + membershipRevenue.total;
     const combinedCount = totalRevenue.count + membershipRevenue.count;
-    const prevRevenue =
-      (prevRevenueResult[0]?.total || 0) + (prevMembershipRevenueResult[0]?.total || 0);
     const revenueChange = prevRevenue > 0
       ? ((combinedTotal - prevRevenue) / prevRevenue) * 100
       : 0;
@@ -324,14 +365,14 @@ export const GET: APIRoute = async (context) => {
     const revenueByTypeWithMembership =
       membershipRevenue.count > 0
         ? [
-            ...revenueByType,
+            ...revenueByTypeNumeric,
             {
               paymentType: "membership",
               revenue: membershipRevenue.total,
               count: membershipRevenue.count,
             },
           ]
-        : revenueByType;
+        : revenueByTypeNumeric;
 
     return new Response(
       JSON.stringify({
@@ -339,11 +380,11 @@ export const GET: APIRoute = async (context) => {
           totalRevenue: combinedTotal,
           transactionCount: combinedCount,
           revenueChange: Math.round(revenueChange * 100) / 100,
-          refunds: refundsResult[0],
+          refunds,
         },
         revenueByPeriod,
         revenueByType: revenueByTypeWithMembership,
-        revenueBySport,
+        revenueBySport: revenueBySportNumeric,
         recentTransactions,
         dateRange: { start, end },
       }),
