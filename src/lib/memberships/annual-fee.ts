@@ -7,6 +7,15 @@
  * the invoice item, and the invoice-item call carries an idempotency key
  * of `${membershipId}:fee:${dueYear}` — a crashed run that already hit
  * Stripe re-sends the same key and Stripe dedupes.
+ *
+ * That key alone is NOT enough here. Stripe only retains idempotency keys
+ * for ~24h, and this sweep runs daily: a run where `invoiceItems.create`
+ * succeeded but the follow-up `feeNextDueAt` update threw would retry a
+ * full day later with the key already expired, and bill the fee twice. So
+ * before creating, we list the customer's PENDING invoice items and skip
+ * the create when one for this tier's fee price is already queued (see
+ * {@link invoiceItemPriceId}) — advancing `feeNextDueAt` regardless, which
+ * is the step the crashed run never got to.
  */
 import type Stripe from "stripe";
 import { and, eq, isNotNull, lte, inArray } from "drizzle-orm";
@@ -59,6 +68,21 @@ export function buildFeeInvoiceItemParams(
     },
     idempotencyKey: `${m.id}:fee:${dueYear}`,
   };
+}
+
+/**
+ * Price id an invoice item is attached to. The installed SDK exposes it as
+ * `pricing.price_details.price` (string or expanded Price); older payloads
+ * carried a top-level `price` object. Returns null when neither is present
+ * (e.g. an ad-hoc amount-only invoice item), which can never match a fee
+ * price id and so never suppresses a create.
+ */
+export function invoiceItemPriceId(item: Stripe.InvoiceItem): string | null {
+  const price = item.pricing?.price_details?.price;
+  if (typeof price === "string") return price;
+  if (price && typeof price === "object") return price.id;
+  const legacy = (item as unknown as { price?: { id?: string } | null }).price;
+  return legacy?.id ?? null;
 }
 
 /**
@@ -138,7 +162,26 @@ export async function processDueAnnualFees(
         },
         { stripePriceIdFee: t.stripePriceIdFee },
       );
-      await s.invoiceItems.create(params, { idempotencyKey });
+      // Cross-run double-bill guard (the Stripe idempotency key only covers
+      // ~24h and this cron runs daily — see the module header). If a fee
+      // item for this price is already sitting pending on the customer, a
+      // previous run created it and died before advancing feeNextDueAt;
+      // skip the create and just finish that run's second half.
+      const pending = await s.invoiceItems.list({
+        customer: m.stripeCustomerId!,
+        pending: true,
+        limit: 100,
+      });
+      const alreadyQueued = pending.data.some(
+        (item) => invoiceItemPriceId(item) === t.stripePriceIdFee,
+      );
+      if (alreadyQueued) {
+        console.warn(
+          `[memberships] fee invoice item already pending for membership ${m.id} (price ${t.stripePriceIdFee}) — skipping create, advancing feeNextDueAt`,
+        );
+      } else {
+        await s.invoiceItems.create(params, { idempotencyKey });
+      }
       await db
         .update(memberships)
         .set({ feeNextDueAt: nextFeeDueAt(m.feeNextDueAt!), updatedAt: new Date() })
