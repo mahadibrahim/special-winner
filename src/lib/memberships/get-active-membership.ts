@@ -1,6 +1,14 @@
 /**
  * Active-membership lookup — the single hot-path safety surface for Phase 3.
  *
+ * SELF-MEMBERSHIPS ONLY. `memberships.userId` is the payer, not necessarily
+ * the member — per-child rows (youth memberships) carry the parent's
+ * userId with `familyMemberId` set to the actual child. This function
+ * filters those out (`familyMemberId IS NULL`) so a parent never inherits
+ * their kid's tier benefits on the adult/self surfaces below. For a
+ * child's membership, use `getActiveChildMembership` (./get-child-membership.ts)
+ * instead.
+ *
  * Returns the shape that drop-in `resolveRate` expects (`MembershipForPricing`
  * with `tier.benefits`, `allotmentRemaining`) PLUS the fields the rental
  * checkout and dashboard need (`status`, `currentPeriodEnd`). One function,
@@ -8,7 +16,7 @@
  *
  * SAFETY: returns `null` cheaply when:
  *   - the org has no rows in `membership_tiers` (Aspire today), OR
- *   - the user has no active membership row for that org.
+ *   - the user has no active SELF membership row for that org.
  *
  * The "no tier" gate is achieved by inner-joining `memberships` to
  * `membership_tiers` and filtering by `tier.organizationId`. The query
@@ -22,7 +30,7 @@
  * query. See `./allotment.ts` for the count-based model and its concurrency
  * caveat.
  */
-import { and, count, eq, gte, inArray, desc } from "drizzle-orm";
+import { and, count, eq, gte, inArray, isNull, desc } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   memberships,
@@ -89,6 +97,11 @@ export async function getActiveMembershipForOrg(
         eq(memberships.organizationId, organizationId),
         eq(membershipTiers.organizationId, organizationId),
         inArray(memberships.status, [...ACTIVE_STATUSES]),
+        // Self-memberships only. Per-child membership rows share the
+        // parent's userId (memberships.userId is the payer, not the
+        // member), so without this a parent inherits their kid's tier
+        // benefits here. Child rows: use getActiveChildMembership instead.
+        isNull(memberships.familyMemberId),
       ),
     )
     // The partial unique index guarantees at most one row matches, but

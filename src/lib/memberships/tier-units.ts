@@ -18,6 +18,9 @@ export const benefitsSchema = z
     booking_window_days: count.optional(),
     priority_league_signup_hrs: count.optional(),
     members_only_pickup: z.boolean().optional(),
+    classes_per_month: count.optional(),
+    unlimited_classes: z.boolean().optional(),
+    camp_discount_pct: z.number().int().min(0).max(100).optional(),
   })
   .passthrough();
 
@@ -26,6 +29,8 @@ export const tierInputSchema = z
     name: z.string().trim().min(1),
     monthlyDollars: z.number().positive().nullable(),
     annualDollars: z.number().positive().nullable(),
+    annualFeeDollars: z.number().positive().nullable().default(null),
+    tagline: z.string().trim().max(120).nullable().default(null),
     benefits: benefitsSchema,
     displayOrder: z.number().int().default(0),
     isActive: z.boolean().default(true),

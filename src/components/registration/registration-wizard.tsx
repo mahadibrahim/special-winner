@@ -433,6 +433,14 @@ export default function RegistrationWizard({
   const [creditBalanceCents, setCreditBalanceCents] = useState(0)
   const [applyAccountCredit, setApplyAccountCredit] = useState(true)
   const [appliedCreditCents, setAppliedCreditCents] = useState(0)
+
+  // Automatic member camp discount — only known once create-checkout
+  // resolves the registered child's active membership server-side (there's
+  // no pre-payment preview for this, unlike appliedDiscount which comes
+  // from a dedicated code-validation call). Stays 0 for non-camp seasons,
+  // non-members, and guests.
+  const [memberDiscountCents, setMemberDiscountCents] = useState(0)
+  const [memberDiscountPct, setMemberDiscountPct] = useState(0)
   // CheckoutPaymentType is "deposit" | "balance" | "full". The wizard only
   // sets "deposit" or "full" — balance pay UI ships in Phase 2 (separate
   // dashboard surface). Type is widened for forward-compat with the analytics
@@ -1399,9 +1407,13 @@ export default function RegistrationWizard({
               : paymentOption === "deposit" && depositValid(season!)
                 ? season!.depositCents!
                 : fullPriceCents(season!)
-          const baseAfterDiscount = appliedDiscount
-            ? valueCents - appliedDiscount.discountAmountCents
-            : valueCents
+          // memberDiscountCents and appliedDiscount never coexist server-side
+          // (the larger single discount wins) — subtracting both is safe.
+          const memberDiscountAppliedCents = checkoutData.memberDiscountCents ?? 0
+          const baseAfterDiscount =
+            valueCents -
+            (appliedDiscount?.discountAmountCents ?? 0) -
+            memberDiscountAppliedCents
           const creditCents = checkoutData.creditAppliedCents ?? 0
           const baseAfterCredit = Math.max(0, baseAfterDiscount - creditCents)
           const surchargeCents = checkoutData.surchargeCents ?? 0
@@ -1410,6 +1422,8 @@ export default function RegistrationWizard({
           rememberActiveRegistration(regData.registration.id)
           setAppliedSurchargeCents(surchargeCents)
           setAppliedCreditCents(creditCents)
+          setMemberDiscountCents(memberDiscountAppliedCents)
+          setMemberDiscountPct(checkoutData.memberDiscountPct ?? 0)
           setPaymentValueCents(finalValueCents)
           setPaymentTypeForTracking(paymentOption === "deposit" && depositValid(season!) ? "deposit" : "full")
 
@@ -2116,6 +2130,8 @@ export default function RegistrationWizard({
             isValidatingDiscount={isValidatingDiscount}
             discountError={discountError}
             appliedDiscount={appliedDiscount}
+            memberDiscountCents={memberDiscountCents}
+            memberDiscountPct={memberDiscountPct}
             onPaymentOptionChange={setPaymentOption}
             onDiscountCodeInputChange={(v) => {
               setDiscountCodeInput(v)

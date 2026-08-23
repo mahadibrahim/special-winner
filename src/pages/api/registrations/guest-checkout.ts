@@ -464,6 +464,12 @@ export const POST: APIRoute = async (context) => {
             clientSecret: checkout.clientSecret,
             sessionId: checkout.sessionId,
             surchargeCents: checkout.surchargeCents,
+            // Guest camp checkout can carry an automatic member discount too
+            // (the child's membership, not the payer's) — surface it so the
+            // payment step can show the same "member discount applied" line
+            // the signed-in flow shows via /api/payments/create-checkout.
+            memberDiscountCents: checkout.memberDiscountCents,
+            memberDiscountPct: checkout.memberDiscountPct,
             publishableKey: import.meta.env.STRIPE_PUBLISHABLE_KEY,
             wasNewUser,
             // Lets the wizard record the client-confirmed payment signal

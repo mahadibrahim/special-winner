@@ -4760,6 +4760,49 @@ async function seedE2ETests() {
     }
   }
 
+  // Stage 13b — Aspire youth class membership tier fixture (per-child
+  // billing, SDD 2026-08-23-youth-memberships-billing Task 5 review fix).
+  // Idempotent, mirrors Stage 13's SoccerOne tier pattern. Gives
+  // tests/api/memberships-child-subscribe.test.ts an active tier under the
+  // aspire-sports org so the itWithStripe happy path isn't permanently
+  // skipped for lack of a fixture. Stripe price ids are fake test values —
+  // same convention as the SoccerOne tiers above — since no live Stripe
+  // Price is provisioned for seed data; a real checkout call against them
+  // 502s (tolerated by the test), it just proves the wiring end to end.
+  console.log("\n13b. Setting up Aspire youth class membership tier fixture...");
+  {
+    let [classTier] = await db
+      .select()
+      .from(membershipTiers)
+      .where(
+        and(
+          eq(membershipTiers.organizationId, org.id),
+          eq(membershipTiers.name, "Test Class Tier 4"),
+        ),
+      )
+      .limit(1);
+    if (!classTier) {
+      [classTier] = await db
+        .insert(membershipTiers)
+        .values({
+          organizationId: org.id,
+          name: "Test Class Tier 4",
+          monthlyPriceCents: 12000,
+          annualFeeCents: 4500,
+          benefits: { classes_per_month: 4, camp_discount_pct: 10 },
+          stripePriceIdMonthly: "price_test_aspire_class_tier_4_monthly",
+          stripePriceIdAnnual: "price_test_aspire_class_tier_4_annual",
+          stripePriceIdFee: "price_test_aspire_class_tier_4_fee",
+          displayOrder: 1,
+          isActive: true,
+        })
+        .returning();
+      console.log(`   ✓ Created tier "Test Class Tier 4" (${classTier.id})`);
+    } else {
+      console.log(`   ✓ Tier "Test Class Tier 4" already exists (${classTier.id})`);
+    }
+  }
+
   // Stage 14 — Post-event feedback fixtures (Task 9 — NPS promoter E2E spec).
   console.log("\n14. Setting up post-event feedback fixtures...");
   await seedFeedbackFixtures(db, org.id);

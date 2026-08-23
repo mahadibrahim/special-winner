@@ -104,6 +104,7 @@ export function RevenueReport() {
       balance: "Balance",
       installment: "Installment",
       refund: "Refund",
+      membership: "Membership",
     }
     return labels[type] || type
   }
@@ -119,6 +120,12 @@ export function RevenueReport() {
   if (!data) return null
 
   const maxRevenue = Math.max(...data.revenueByPeriod.map((p) => p.revenue))
+  // Revenue by Sport has no membership row (memberships aren't sport-scoped),
+  // so its percentages are computed against the sum of the sport rows
+  // themselves rather than data.summary.totalRevenue — otherwise, now that
+  // the summary total includes membership revenue, the sport percentages
+  // would under-sum and read as unaccounted-for revenue.
+  const totalSportRevenue = data.revenueBySport.reduce((sum, s) => sum + s.revenue, 0)
 
   return (
     <div className="space-y-6">
@@ -255,8 +262,8 @@ export function RevenueReport() {
                   <div className="text-right">
                     <p className="font-medium">{formatCurrency(sport.revenue)}</p>
                     <p className="text-sm text-muted-foreground">
-                      {data.summary.totalRevenue > 0
-                        ? Math.round((sport.revenue / data.summary.totalRevenue) * 100)
+                      {totalSportRevenue > 0
+                        ? Math.round((sport.revenue / totalSportRevenue) * 100)
                         : 0}
                       % of total
                     </p>

@@ -20,6 +20,8 @@ import {
   getAccountCreditBalanceCents,
   redeemAccountCredit,
 } from "@/lib/payments/account-credit";
+import { getActiveChildMembership } from "@/lib/memberships/get-child-membership";
+import { computeMemberCampDiscountCents } from "@/lib/memberships/camp-discount";
 
 // ---------------------------------------------------------------------------
 // Error class
@@ -47,8 +49,16 @@ export type CheckoutResult =
       sessionId: string
       surchargeCents: number
       creditAppliedCents: number
+      memberDiscountCents: number
+      memberDiscountPct: number
     }
-  | { kind: "paid_zero"; registrationId: string; creditAppliedCents: number };
+  | {
+      kind: "paid_zero"
+      registrationId: string
+      creditAppliedCents: number
+      memberDiscountCents: number
+      memberDiscountPct: number
+    };
 
 // baseUrl currently unused in Phase 1 (no redirect URLs); retained for Phase 2 magic-link emails
 export interface CreateCheckoutForRegistrationInput {
@@ -144,6 +154,60 @@ export async function createCheckoutForRegistration(
     throw new CheckoutError(400, "No payment required");
   }
 
+  // 4a. Member camp discount: computed BEFORE code redemption so the two can
+  // compete — the single larger discount wins (spec rule), and a losing
+  // code is never redeemed (no wasted use). Only camp-type programs carry
+  // this benefit; the membership must belong to the REGISTERED CHILD
+  // (registration.familyMemberId), not the paying user, and be strictly
+  // "active" (not paused/past_due/incomplete).
+  //
+  // AT MOST ONCE per registration. The discounted amountDueCents is
+  // persisted further down, and one registration can re-enter checkout
+  // creation several times (wizard resume via POST /api/registrations
+  // kind:"resumed", the dashboard pay-balance form, a guest retry). Without
+  // the guards below each pass re-applied the percentage to the
+  // already-reduced amount and compounded it (17910 → 16119 → …). Two
+  // conditions skip the discount entirely:
+  //   1. memberDiscountCentsApplied is set — this discount already won and
+  //      is already baked into amountDueCents.
+  //   2. a discount_usages row already exists for this registration — a CODE
+  //      already won on an earlier pass and its reduction is already baked
+  //      in. Spec is "larger single discount wins, never both", so the
+  //      member discount must not land on top of it.
+  //
+  // Known residual (unchanged by this fix): a resumed checkout that supplies
+  // a NEW code after the member discount was applied still stacks that code
+  // on the member-discounted amount. Un-applying a persisted member discount
+  // would require recovering the pre-discount price, which the row no longer
+  // carries; out of scope here.
+  let memberDiscountCents = 0;
+  let memberDiscountPct = 0;
+  if (program.programType === "camp" && orgId) {
+    const alreadyApplied = registration.memberDiscountCentsApplied != null;
+    let codeAlreadyRedeemed = false;
+    if (!alreadyApplied) {
+      const [{ count }] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(discountUsages)
+        .where(eq(discountUsages.registrationId, registrationId));
+      codeAlreadyRedeemed = count > 0;
+    }
+    if (!alreadyApplied && !codeAlreadyRedeemed) {
+      const childMembership = await getActiveChildMembership(
+        registration.familyMemberId,
+        orgId,
+        db,
+      );
+      if (childMembership && childMembership.status === "active") {
+        memberDiscountPct = Number(childMembership.benefits.camp_discount_pct) || 0;
+        memberDiscountCents = computeMemberCampDiscountCents(
+          amountDue,
+          childMembership.benefits,
+        );
+      }
+    }
+  }
+
   // 5. Validate and redeem the discount code in one transaction.
   //    The discount row is locked FOR UPDATE so two concurrent checkouts
   //    can't both pass the maxUses / maxUsesPerUser check and both redeem.
@@ -162,7 +226,12 @@ export async function createCheckoutForRegistration(
       const [found] = await tx
         .select()
         .from(discountCodes)
-        .where(eq(discountCodes.code, discountCode.toUpperCase()))
+        .where(
+          and(
+            eq(discountCodes.organizationId, orgId),
+            eq(discountCodes.code, discountCode.toUpperCase()),
+          ),
+        )
         .for("update");
       if (!found) return null;
 
@@ -199,6 +268,12 @@ export async function createCheckoutForRegistration(
         amount = Math.min(found.discountValue, amountDue);
       }
 
+      // Spec: member discount and code don't stack — larger single wins.
+      // A code that loses to the member discount is NOT redeemed (no usage
+      // row, no usedCount increment). Exact ties go to the member discount —
+      // the code is the one that "loses" a tie.
+      if (amount <= memberDiscountCents) return null;
+
       // Redeem under the same row lock that gated the caps above.
       await tx.insert(discountUsages).values({
         discountCodeId: found.id,
@@ -218,7 +293,17 @@ export async function createCheckoutForRegistration(
       appliedDiscountCodeId = redeemed.id;
       discountAmountCents = redeemed.amount;
       amountDue = Math.max(0, amountDue - discountAmountCents);
+
+      // Code won; member discount is not applied.
+      memberDiscountCents = 0;
+      memberDiscountPct = 0;
+    } else if (memberDiscountCents > 0) {
+      amountDue = Math.max(0, amountDue - memberDiscountCents);
     }
+  } else if (memberDiscountCents > 0) {
+    // No discount code was supplied at all — apply the member discount
+    // outright (nothing to compete against).
+    amountDue = Math.max(0, amountDue - memberDiscountCents);
   }
 
   // 6. Apply account credit, after the discount step and before the single
@@ -258,30 +343,69 @@ export async function createCheckoutForRegistration(
         `[checkout] discount zeroed registration ${registrationId}: code=${input.discountCode ?? "?"} discounted=${discountAmountCents}c originalDue=${registration.amountDueCents}c credit=${creditAppliedCents}c`,
       );
     }
+    // NOTE (pre-existing, deliberately unchanged): these totals are
+    // `original − discounts − credit` with no `amountPaidCents` term, so a
+    // partially-paid registration reaching this branch would be written as
+    // if nothing had been paid. Out of scope for the compounding fix; left
+    // as-is rather than silently changing money math.
     await db
       .update(registrations)
       .set({
         status: "confirmed",
         paymentStatus: "paid",
         amountDueCents:
-          registration.amountDueCents - discountAmountCents - creditAppliedCents,
+          registration.amountDueCents -
+          discountAmountCents -
+          memberDiscountCents -
+          creditAppliedCents,
         amountPaidCents:
-          registration.amountDueCents - discountAmountCents - creditAppliedCents,
+          registration.amountDueCents -
+          discountAmountCents -
+          memberDiscountCents -
+          creditAppliedCents,
+        // Same write that persists the reduced total records that the
+        // member discount is now baked in — never re-applied on a later pass.
+        ...(memberDiscountCents > 0
+          ? { memberDiscountCentsApplied: memberDiscountCents }
+          : {}),
         updatedAt: new Date(),
       })
       .where(eq(registrations.id, registrationId));
 
-    return { kind: "paid_zero", registrationId, creditAppliedCents };
+    return {
+      kind: "paid_zero",
+      registrationId,
+      creditAppliedCents,
+      memberDiscountCents,
+      memberDiscountPct,
+    };
   }
 
   // Discount and/or credit applied but amount still > 0 — persist the
   // reduced amountDueCents.
-  if ((appliedDiscountCodeId && discountAmountCents > 0) || creditAppliedCents > 0) {
+  //
+  // NOTE (pre-existing, deliberately unchanged): `original − discounts −
+  // credit`, no `amountPaidCents` term — see the same note in the paid_zero
+  // branch above.
+  if (
+    (appliedDiscountCodeId && discountAmountCents > 0) ||
+    memberDiscountCents > 0 ||
+    creditAppliedCents > 0
+  ) {
     await db
       .update(registrations)
       .set({
         amountDueCents:
-          registration.amountDueCents - discountAmountCents - creditAppliedCents,
+          registration.amountDueCents -
+          discountAmountCents -
+          memberDiscountCents -
+          creditAppliedCents,
+        // Marker written in the SAME statement as the reduced total, so the
+        // two can never diverge (a persisted discount with no marker is
+        // exactly the compounding bug this fixes).
+        ...(memberDiscountCents > 0
+          ? { memberDiscountCentsApplied: memberDiscountCents }
+          : {}),
         updatedAt: new Date(),
       })
       .where(eq(registrations.id, registrationId));
@@ -310,6 +434,12 @@ export async function createCheckoutForRegistration(
     ...(appliedDiscountCodeId && discountCode
       ? { discount_code: discountCode.toUpperCase() }
       : {}),
+    ...(memberDiscountCents > 0
+      ? {
+          member_discount_pct: String(memberDiscountPct),
+          member_discount_cents: String(memberDiscountCents),
+        }
+      : {}),
     ...(extraMetadata ?? {}),
   };
 
@@ -337,6 +467,8 @@ export async function createCheckoutForRegistration(
       sessionId: session.id,
       surchargeCents: session.surchargeCents,
       creditAppliedCents,
+      memberDiscountCents,
+      memberDiscountPct,
     };
   }
 
@@ -363,5 +495,7 @@ export async function createCheckoutForRegistration(
     sessionId: session.id,
     surchargeCents: session.surchargeCents,
     creditAppliedCents,
+    memberDiscountCents,
+    memberDiscountPct,
   };
 }

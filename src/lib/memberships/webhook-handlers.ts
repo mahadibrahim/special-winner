@@ -8,11 +8,12 @@
 import type Stripe from "stripe";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { memberships } from "@/lib/db/schema/memberships";
+import { memberships, membershipTiers } from "@/lib/db/schema/memberships";
 import { normalizeBrand } from "@/lib/organization/soccerone-routing";
 import { capturePaymentCompleted } from "@/lib/observability/payment-telemetry";
 import { fireServerPurchaseConversions } from "@/lib/analytics/server-conversions";
 import { sendOpsPing } from "@/lib/ops/ping";
+import { nextFeeDueAt } from "./annual-fee";
 
 /**
  * `checkout.session.completed` for `mode === 'subscription'` with our
@@ -21,6 +22,10 @@ import { sendOpsPing } from "@/lib/ops/ping";
  * `ON CONFLICT (stripe_subscription_id) DO NOTHING` makes this safe on
  * webhook retry: if a previous delivery already inserted the row, the
  * second attempt is a no-op rather than a unique-key violation.
+ *
+ * For per-child memberships, `family_member_id` metadata is persisted
+ * verbatim, and `fee_next_due_at` is stamped one calendar year out —
+ * but only when the tier actually has an annual fee configured.
  */
 export async function handleCheckoutSessionCompleted(
   session: Stripe.Checkout.Session,
@@ -36,6 +41,7 @@ export async function handleCheckoutSessionCompleted(
     | "month"
     | "year"
     | undefined;
+  const familyMemberId = session.metadata.family_member_id ?? null;
   const subscriptionId =
     typeof session.subscription === "string"
       ? session.subscription
@@ -50,6 +56,21 @@ export async function handleCheckoutSessionCompleted(
   }
 
   const db = getDb();
+
+  // feeNextDueAt only applies to child memberships whose tier actually has
+  // an annual fee configured — adult/SoccerOne tiers have none.
+  let feeNextDueAt: Date | null = null;
+  if (familyMemberId) {
+    const [tierRow] = await db
+      .select({ annualFeeCents: membershipTiers.annualFeeCents })
+      .from(membershipTiers)
+      .where(eq(membershipTiers.id, tierId))
+      .limit(1); // primary-key lookup — at most one row
+    if (tierRow?.annualFeeCents != null) {
+      feeNextDueAt = nextFeeDueAt(new Date());
+    }
+  }
+
   const inserted = await db
     .insert(memberships)
     .values({
@@ -60,6 +81,8 @@ export async function handleCheckoutSessionCompleted(
       billingInterval,
       stripeSubscriptionId: subscriptionId,
       stripeCustomerId: customerId ?? null,
+      familyMemberId,
+      feeNextDueAt,
     })
     .onConflictDoNothing({ target: memberships.stripeSubscriptionId })
     .returning({ id: memberships.id });

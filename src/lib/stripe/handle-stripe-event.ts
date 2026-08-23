@@ -24,6 +24,7 @@ import {
   handleSubscriptionDeleted,
   handleInvoicePaymentFailed,
 } from "@/lib/memberships/webhook-handlers";
+import { handleInvoicePaid } from "@/lib/memberships/invoice-ledger";
 import {
   handleDropCheckoutCompleted,
   handleDropSubscriptionUpdated,
@@ -121,6 +122,7 @@ async function releaseStripeEvent(eventId: string): Promise<void> {
  *   - customer.subscription.updated
  *   - customer.subscription.deleted
  *   - invoice.payment_failed
+ *   - invoice.paid
  */
 async function dispatch(event: Stripe.Event): Promise<void> {
   switch (event.type) {
@@ -230,6 +232,22 @@ async function dispatch(event: Stripe.Event): Promise<void> {
       console.log(`[stripe webhook] invoice.payment_failed (membership) → ${invoice.id}`);
       await handleDropInvoicePaymentFailed(invoice);
       console.log(`[stripe webhook] invoice.payment_failed (drop) → ${invoice.id}`);
+      break;
+    }
+
+    case "invoice.paid": {
+      // Fires for BOTH membership and drop-league subscription invoices
+      // (same platform account, same event stream). handleInvoicePaid only
+      // matches against `memberships`; a drop-league invoice finds no
+      // matching row and is silently skipped — a drop-league ledger entry
+      // is a separate, out-of-scope concern (see invoice-ledger.ts).
+      // Exception: if the subscription IS a membership one but its row
+      // hasn't been inserted yet (this event beat
+      // checkout.session.completed), the handler THROWS on purpose so the
+      // claim above is released and Stripe's retry records the payment.
+      const invoice = event.data.object as Stripe.Invoice;
+      await handleInvoicePaid(invoice);
+      console.log(`[stripe webhook] invoice.paid (ledger) → ${invoice.id}`);
       break;
     }
 

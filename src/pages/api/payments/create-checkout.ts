@@ -93,6 +93,11 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
           message: "Registration complete - no payment required after discount",
           discountApplied: true,
           creditAppliedCents: result.creditAppliedCents,
+          memberDiscountCents: result.memberDiscountCents,
+          // Pct rides along with the cents so a zero-due confirmation can say
+          // "your 10% member discount" without a second lookup — matches the
+          // stripe_session response below.
+          memberDiscountPct: result.memberDiscountPct,
         }),
         { status: 200, headers: { "Content-Type": "application/json" } },
       );
@@ -115,6 +120,8 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
         sessionId: result.sessionId,
         surchargeCents: result.surchargeCents,
         creditAppliedCents: result.creditAppliedCents,
+        memberDiscountCents: result.memberDiscountCents,
+        memberDiscountPct: result.memberDiscountPct,
         publishableKey: import.meta.env.STRIPE_PUBLISHABLE_KEY,
       }),
       { status: 200, headers: { "Content-Type": "application/json" } },

@@ -8,6 +8,7 @@ import {
   sports,
   teamRegistrations,
 } from "@/lib/db/schema";
+import { memberships } from "@/lib/db/schema/memberships";
 import { locations } from "@/lib/db/schema/organizations";
 import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
 import { requireSuperAdminAccess, requireOrganizationContext } from "@/lib/auth";
@@ -53,15 +54,38 @@ export const GET: APIRoute = async (context) => {
     const prevEnd = new Date(start.getTime() - 1);
     const prevStart = new Date(prevEnd.getTime() - periodDuration);
 
-    // All 7 queries below are independent of each other — run in parallel.
+    // Memberships are org-scoped through `memberships.organizationId`
+    // directly, not through registrations/seasons/programs/locations — a
+    // membership payment has no registrationId/teamRegistrationId, so it's
+    // invisible to every inner-joined-on-seasons query above. Rather than
+    // widen those joins (memberships have no sport/season), pull membership
+    // revenue as a parallel summary and fold it into the totals + type
+    // breakdown below. This is the smallest change that surfaces
+    // month-2+ subscription revenue (see invoice-ledger.ts) without
+    // touching revenueBySport or recentTransactions, which don't have a
+    // membership-shaped analog.
+    const membershipOrgScope = eq(memberships.organizationId, orgContext.organizationId);
+    const membershipRevenueWhere = (rangeStart: Date, rangeEnd: Date) =>
+      and(
+        membershipOrgScope,
+        eq(payments.paymentType, "membership"),
+        eq(payments.status, "succeeded"),
+        gte(payments.createdAt, rangeStart),
+        lte(payments.createdAt, rangeEnd)
+      );
+
+    // All 10 queries below are independent of each other — run in parallel.
     const [
       totalRevenueResult,
-      revenueByPeriod,
+      revenueByPeriodRows,
       revenueByType,
       revenueBySport,
       recentTransactions,
       prevRevenueResult,
       refundsResult,
+      membershipRevenueResult,
+      prevMembershipRevenueResult,
+      membershipRevenueByPeriod,
     ] = await Promise.all([
       // Total revenue (org-scoped via payments -> registrations -> seasons -> programs -> locations)
       getDb()
@@ -222,25 +246,145 @@ export const GET: APIRoute = async (context) => {
             lte(payments.createdAt, end)
           )
         ),
+
+      // Membership revenue, current period (see membershipRevenueWhere above).
+      getDb()
+        .select({
+          total: sql<number>`COALESCE(SUM(${payments.amountCents}), 0)`,
+          count: sql<number>`COUNT(*)`,
+        })
+        .from(payments)
+        .innerJoin(memberships, eq(payments.membershipId, memberships.id))
+        .where(membershipRevenueWhere(start, end)),
+
+      // Membership revenue, previous period — for the same comparison the
+      // registration-revenue query above gets.
+      getDb()
+        .select({
+          total: sql<number>`COALESCE(SUM(${payments.amountCents}), 0)`,
+        })
+        .from(payments)
+        .innerJoin(memberships, eq(payments.membershipId, memberships.id))
+        .where(membershipRevenueWhere(prevStart, prevEnd)),
+
+      // Membership revenue by period, bucketed the same way as
+      // revenueByPeriodRows above — merged into it below so the "Revenue
+      // Over Time" chart's bars aren't missing subscription revenue that
+      // the Total Revenue card already counts.
+      getDb()
+        .select({
+          period: periodExpr,
+          revenue: sql<number>`COALESCE(SUM(${payments.amountCents}), 0)`,
+          transactionCount: sql<number>`COUNT(*)`,
+        })
+        .from(payments)
+        .innerJoin(memberships, eq(payments.membershipId, memberships.id))
+        .where(membershipRevenueWhere(start, end))
+        .groupBy(periodExpr)
+        .orderBy(periodExpr),
     ]);
 
-    const totalRevenue = totalRevenueResult[0];
-    const prevRevenue = prevRevenueResult[0]?.total || 0;
+    // postgres.js returns SUM()/COUNT() aggregates as strings (Postgres
+    // numeric/bigint have no safe native JS representation), while plain
+    // integer columns (e.g. recentTransactions.amountCents) come back as
+    // real numbers already. Every aggregate below gets coerced HERE, at the
+    // API boundary, before any arithmetic touches it — `1 + "2"` is fine,
+    // `"1" + "2"` silently concatenates, and the merge below adds two
+    // aggregate sums together, so doing this after the merge would still
+    // be broken for any bucket where either side came back as a string.
+    const num = (v: unknown): number => Number(v) || 0;
+
+    const totalRevenue = {
+      total: num(totalRevenueResult[0]?.total),
+      count: num(totalRevenueResult[0]?.count),
+    };
+    const membershipRevenue = {
+      total: num(membershipRevenueResult[0]?.total),
+      count: num(membershipRevenueResult[0]?.count),
+    };
+    const prevRevenue =
+      num(prevRevenueResult[0]?.total) + num(prevMembershipRevenueResult[0]?.total);
+    const refunds = {
+      total: num(refundsResult[0]?.total),
+      count: num(refundsResult[0]?.count),
+    };
+
+    // Merge membership-by-period rows into the registration-by-period rows,
+    // summing when a period bucket appears in both (e.g. a month with both
+    // registration and membership payments). Both sides are coerced to
+    // numbers before the merge so `+=` adds instead of concatenating.
+    const revenueByPeriodMap = new Map<
+      string,
+      { period: string; revenue: number; transactionCount: number }
+    >();
+    for (const row of revenueByPeriodRows) {
+      revenueByPeriodMap.set(row.period, {
+        period: row.period,
+        revenue: num(row.revenue),
+        transactionCount: num(row.transactionCount),
+      });
+    }
+    for (const row of membershipRevenueByPeriod) {
+      const revenue = num(row.revenue);
+      const transactionCount = num(row.transactionCount);
+      const existing = revenueByPeriodMap.get(row.period);
+      if (existing) {
+        existing.revenue += revenue;
+        existing.transactionCount += transactionCount;
+      } else {
+        revenueByPeriodMap.set(row.period, { period: row.period, revenue, transactionCount });
+      }
+    }
+    const revenueByPeriod = Array.from(revenueByPeriodMap.values()).sort((a, b) =>
+      a.period.localeCompare(b.period)
+    );
+
+    const revenueByTypeNumeric = revenueByType.map((row) => ({
+      paymentType: row.paymentType,
+      revenue: num(row.revenue),
+      count: num(row.count),
+    }));
+
+    const revenueBySportNumeric = revenueBySport.map((row) => ({
+      sportId: row.sportId,
+      sportName: row.sportName,
+      revenue: num(row.revenue),
+      registrations: num(row.registrations),
+    }));
+
+    const combinedTotal = totalRevenue.total + membershipRevenue.total;
+    const combinedCount = totalRevenue.count + membershipRevenue.count;
     const revenueChange = prevRevenue > 0
-      ? ((totalRevenue.total - prevRevenue) / prevRevenue) * 100
+      ? ((combinedTotal - prevRevenue) / prevRevenue) * 100
       : 0;
+
+    // Membership revenue doesn't come out of the payment-type groupBy above
+    // (it's excluded by the inner join on seasons), so append it as its own
+    // row when there's any to show — same {paymentType, revenue, count}
+    // shape the UI already renders per payment type.
+    const revenueByTypeWithMembership =
+      membershipRevenue.count > 0
+        ? [
+            ...revenueByTypeNumeric,
+            {
+              paymentType: "membership",
+              revenue: membershipRevenue.total,
+              count: membershipRevenue.count,
+            },
+          ]
+        : revenueByTypeNumeric;
 
     return new Response(
       JSON.stringify({
         summary: {
-          totalRevenue: totalRevenue.total,
-          transactionCount: totalRevenue.count,
+          totalRevenue: combinedTotal,
+          transactionCount: combinedCount,
           revenueChange: Math.round(revenueChange * 100) / 100,
-          refunds: refundsResult[0],
+          refunds,
         },
         revenueByPeriod,
-        revenueByType,
-        revenueBySport,
+        revenueByType: revenueByTypeWithMembership,
+        revenueBySport: revenueBySportNumeric,
         recentTransactions,
         dateRange: { start, end },
       }),

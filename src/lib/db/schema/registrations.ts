@@ -153,6 +153,14 @@ export const registrations = pgTable(
     // Set when a post-payment DOB fails the season's age-group check —
     // surfaces an admin badge instead of blocking the paid registration.
     ageReviewNeeded: boolean("age_review_needed").default(false).notNull(),
+    // Durable marker that the automatic member camp discount has ALREADY
+    // been baked into amountDueCents. createCheckoutForRegistration persists
+    // the reduced amountDueCents, and the same registration can go through
+    // checkout creation more than once (wizard resume, dashboard pay-balance
+    // form, guest retry) — without this marker each pass re-applied the
+    // percentage to the already-reduced amount and compounded it
+    // (17910 → 16119 → …). NULL = never applied.
+    memberDiscountCentsApplied: integer("member_discount_cents_applied"),
     // Storefront brand the registration was created through ("aspire" |
     // "soccerone"). Brands share one org; this is the only durable brand
     // signal for request-less contexts (crons). Default covers all

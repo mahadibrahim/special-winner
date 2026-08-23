@@ -71,6 +71,16 @@ export interface PaymentStepProps {
   discountError: string | null
   appliedDiscount: AppliedDiscount | null
 
+  /** Automatic member camp discount, resolved server-side from the
+   *  registered child's active membership (create-checkout's
+   *  memberDiscountCents/memberDiscountPct). Never stacks with
+   *  appliedDiscount — the server applies at most one of the two. Unlike
+   *  appliedDiscount (known from a pre-payment code-validation call), this
+   *  is only known once the checkout session is created, so it defaults to
+   *  0 until then. */
+  memberDiscountCents?: number
+  memberDiscountPct?: number
+
   onPaymentOptionChange: (v: "full" | "deposit") => void
   onDiscountCodeInputChange: (v: string) => void
   onApplyDiscount: () => void
@@ -116,6 +126,8 @@ export function PaymentStep({
   isValidatingDiscount,
   discountError,
   appliedDiscount,
+  memberDiscountCents = 0,
+  memberDiscountPct = 0,
   onPaymentOptionChange,
   onDiscountCodeInputChange,
   onApplyDiscount,
@@ -162,9 +174,15 @@ export function PaymentStep({
       : effectivePaymentOption === "deposit" && seasonDepositCents
         ? seasonDepositCents
         : seasonPriceCents
-  const discountedBaseCents = appliedDiscount
-    ? Math.max(0, baseAmountCents - appliedDiscount.discountAmountCents)
-    : baseAmountCents
+  // memberDiscountCents and appliedDiscount never coexist server-side (the
+  // larger single discount wins), so summing both here is safe — at most
+  // one is ever non-zero.
+  const discountedBaseCents = Math.max(
+    0,
+    baseAmountCents -
+      (appliedDiscount?.discountAmountCents ?? 0) -
+      memberDiscountCents,
+  )
   // Credit is applied after the discount, before surcharge — matches the
   // server (createCheckoutForRegistration applies credit right before
   // creating the Stripe session, so the surcharge Stripe actually computes
@@ -392,6 +410,8 @@ export function PaymentStep({
         surchargeCents={cardSurchargeCents}
         paymentMethodCategory="card"
         creditAppliedCents={previewCreditAppliedCents}
+        memberDiscountCents={memberDiscountCents}
+        memberDiscountPct={memberDiscountPct}
       />
       </>
       )}

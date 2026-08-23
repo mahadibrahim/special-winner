@@ -1,0 +1,1 @@
+ALTER TABLE "registrations" ADD COLUMN "member_discount_cents_applied" integer;
