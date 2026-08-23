@@ -74,10 +74,10 @@ export const GET: APIRoute = async (context) => {
         lte(payments.createdAt, rangeEnd)
       );
 
-    // All 9 queries below are independent of each other — run in parallel.
+    // All 10 queries below are independent of each other — run in parallel.
     const [
       totalRevenueResult,
-      revenueByPeriod,
+      revenueByPeriodRows,
       revenueByType,
       revenueBySport,
       recentTransactions,
@@ -85,6 +85,7 @@ export const GET: APIRoute = async (context) => {
       refundsResult,
       membershipRevenueResult,
       prevMembershipRevenueResult,
+      membershipRevenueByPeriod,
     ] = await Promise.all([
       // Total revenue (org-scoped via payments -> registrations -> seasons -> programs -> locations)
       getDb()
@@ -265,7 +266,46 @@ export const GET: APIRoute = async (context) => {
         .from(payments)
         .innerJoin(memberships, eq(payments.membershipId, memberships.id))
         .where(membershipRevenueWhere(prevStart, prevEnd)),
+
+      // Membership revenue by period, bucketed the same way as
+      // revenueByPeriodRows above — merged into it below so the "Revenue
+      // Over Time" chart's bars aren't missing subscription revenue that
+      // the Total Revenue card already counts.
+      getDb()
+        .select({
+          period: periodExpr,
+          revenue: sql<number>`COALESCE(SUM(${payments.amountCents}), 0)`,
+          transactionCount: sql<number>`COUNT(*)`,
+        })
+        .from(payments)
+        .innerJoin(memberships, eq(payments.membershipId, memberships.id))
+        .where(membershipRevenueWhere(start, end))
+        .groupBy(periodExpr)
+        .orderBy(periodExpr),
     ]);
+
+    // Merge membership-by-period rows into the registration-by-period rows,
+    // summing when a period bucket appears in both (e.g. a month with both
+    // registration and membership payments).
+    const revenueByPeriodMap = new Map<
+      string,
+      { period: string; revenue: number; transactionCount: number }
+    >();
+    for (const row of revenueByPeriodRows) {
+      revenueByPeriodMap.set(row.period, { ...row });
+    }
+    for (const row of membershipRevenueByPeriod) {
+      const existing = revenueByPeriodMap.get(row.period);
+      if (existing) {
+        existing.revenue += row.revenue;
+        existing.transactionCount += row.transactionCount;
+      } else {
+        revenueByPeriodMap.set(row.period, { ...row });
+      }
+    }
+    const revenueByPeriod = Array.from(revenueByPeriodMap.values()).sort((a, b) =>
+      a.period.localeCompare(b.period)
+    );
 
     const totalRevenue = totalRevenueResult[0];
     const membershipRevenue = membershipRevenueResult[0] ?? { total: 0, count: 0 };
