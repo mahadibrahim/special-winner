@@ -17,6 +17,7 @@ async function signIn(email: string): Promise<string> {
   // parent is TestParent123!. We map by email to keep the call-site terse.
   const passwordByEmail: Record<string, string> = {
     "member-pending@test.soccerone.com": "TestMember123!",
+    "member@test.soccerone.com": "TestMember123!",
     "parent@test.aspiresports.com": "TestParent123!",
   };
   const password = passwordByEmail[email];
@@ -125,6 +126,25 @@ describe("POST /api/memberships/subscribe", () => {
       body: JSON.stringify({ tierId: memberTierId, billingInterval: "year" }),
     });
     expect([200, 422, 502, 503]).toContain(res.status);
+  });
+
+  // Skipped: same host-stripping reason as above — "member@test.soccerone.com"
+  // (seed-e2e-tests.ts Stage 13) already holds an active membership, so this
+  // documents the adult-path double-subscribe 409 guard (mirrors the child-path
+  // guard covered live in tests/api/memberships-child-subscribe.test.ts).
+  // Verify via browser / staging until Node's fetch Host-stripping is fixed.
+  it.skip("rejects a second subscribe for an already-member adult (409)", async () => {
+    const cookie = await signIn("member@test.soccerone.com");
+    const res = await fetch(`${BASE}/api/memberships/subscribe`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        cookie,
+        host: "soccerone.aspiresports.com",
+      },
+      body: JSON.stringify({ tierId: memberTierId, billingInterval: "month" }),
+    });
+    expect(res.status).toBe(409);
   });
 
   // Skipped: same reason — host-stripped requests resolve to Aspire,

@@ -14,6 +14,11 @@
  * enforced below). When present, the tier's one-time annual fee price (if
  * configured) rides along as a second Checkout line item, and a second
  * child of the same parent gets the sibling discount applied automatically.
+ *
+ * Returns 409 when the target (child, or the caller for the adult/self
+ * path) already has a live membership in this org — a second Checkout
+ * Session would create a second real Stripe subscription that the
+ * one-active-per-child/user partial unique index can't record.
  */
 import type { APIRoute } from "astro";
 import { and, eq } from "drizzle-orm";
@@ -27,6 +32,8 @@ import {
   createSubscriptionCheckoutSession,
 } from "@/lib/memberships/stripe";
 import { getSiblingCouponId } from "@/lib/memberships/sibling-discount";
+import { getActiveChildMembership } from "@/lib/memberships/get-child-membership";
+import { getActiveMembershipForOrg } from "@/lib/memberships/get-active-membership";
 import { stripe } from "@/lib/stripe/client";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
 import { collectAdAttribution } from "@/lib/analytics/parse-cookies";
@@ -119,6 +126,33 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
       .limit(1);
     if (!child) return json({ error: "Family member not found" }, 404);
     familyMemberId = child.id;
+  }
+
+  // Block a double subscribe. Without this, a second Checkout Session
+  // creates a second REAL Stripe subscription — the webhook insert then
+  // collides with the one-active-per-child/user partial unique index and
+  // silently no-ops (onConflictDoNothing), so the app never records it and
+  // the family gets charged monthly for a subscription it can't see or
+  // manage. Checked for both the child path and the adult/self path.
+  if (familyMemberId) {
+    const existingChildMembership = await getActiveChildMembership(
+      familyMemberId,
+      locals.organization.id,
+    );
+    if (existingChildMembership) {
+      return json(
+        { error: "This child already has an active membership" },
+        409,
+      );
+    }
+  } else {
+    const existingSelfMembership = await getActiveMembershipForOrg(
+      locals.user.id,
+      locals.organization.id,
+    );
+    if (existingSelfMembership) {
+      return json({ error: "You already have an active membership" }, 409);
+    }
   }
 
   if (!stripe) return json({ error: "Stripe not configured" }, 503);

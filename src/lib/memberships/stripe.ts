@@ -12,10 +12,14 @@
  *   - When `stripeAccountId` is null, we fall through to a direct charge
  *     on the platform account (identical to today's rentals fallback).
  *
- * Idempotency keys: `${userId}:${familyMemberId ?? "self"}:${tierId}:${interval}:checkout`
+ * Idempotency keys: `${userId}:${familyMemberId ?? "self"}:${tierId}:${interval}:${priceId}:${feePriceId ?? "nofee"}:${couponId ?? "nocoupon"}:checkout`
  * for the subscribe call; this lets a double-clicked CTA reuse the same
- * Checkout Session URL within Stripe's 24h cache window, and keeps two
- * children of the same parent from colliding on the same key.
+ * Checkout Session URL within Stripe's 24h cache window, keeps two
+ * children of the same parent from colliding on the same key, AND
+ * fingerprints every price-affecting param. Stripe rejects a reused key
+ * whose params changed (StripeIdempotencyError) — an admin editing a
+ * tier's price/fee/coupon mid-window would otherwise 502 a legitimate,
+ * unrelated retry for the same (user, child, tier, interval).
  */
 import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe/client";
@@ -147,7 +151,11 @@ export function buildSubscriptionCheckoutParams(
     cancel_url: opts.cancelUrl,
   };
 
-  const idempotencyKey = `${opts.userId}:${opts.familyMemberId ?? "self"}:${opts.tierId}:${opts.billingInterval}:checkout:v1`;
+  // Fingerprint every price-affecting param, not just the identity ones —
+  // Stripe rejects a reused key whose params changed within the 24h
+  // idempotency window (StripeIdempotencyError), which would otherwise
+  // 502 a legitimate retry after a price/fee/coupon edit.
+  const idempotencyKey = `${opts.userId}:${opts.familyMemberId ?? "self"}:${opts.tierId}:${opts.billingInterval}:${opts.priceId}:${opts.feePriceId ?? "nofee"}:${opts.couponId ?? "nocoupon"}:checkout:v1`;
 
   return { params, idempotencyKey };
 }

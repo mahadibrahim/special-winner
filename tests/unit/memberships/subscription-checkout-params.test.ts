@@ -22,7 +22,9 @@ describe("buildSubscriptionCheckoutParams", () => {
     expect(params).not.toHaveProperty("discounts");
     expect(params.metadata?.family_member_id).toBeUndefined();
     expect(params.subscription_data?.metadata?.family_member_id).toBeUndefined();
-    expect(idempotencyKey).toBe("user-1:self:tier-1:month:checkout:v1");
+    expect(idempotencyKey).toBe(
+      "user-1:self:tier-1:month:price_monthly:nofee:nocoupon:checkout:v1",
+    );
   });
 
   it("child subscription with a fee price: two line items", () => {
@@ -80,12 +82,44 @@ describe("buildSubscriptionCheckoutParams", () => {
 
   it("idempotency key falls back to 'self' when no familyMemberId, and includes the child id when present", () => {
     expect(buildSubscriptionCheckoutParams(baseOpts).idempotencyKey).toBe(
-      "user-1:self:tier-1:month:checkout:v1",
+      "user-1:self:tier-1:month:price_monthly:nofee:nocoupon:checkout:v1",
     );
     expect(
       buildSubscriptionCheckoutParams({ ...baseOpts, familyMemberId: "kid-1" })
         .idempotencyKey,
-    ).toBe("user-1:kid-1:tier-1:month:checkout:v1");
+    ).toBe(
+      "user-1:kid-1:tier-1:month:price_monthly:nofee:nocoupon:checkout:v1",
+    );
+  });
+
+  it("idempotency key fingerprints price-affecting params: priceId, feePriceId, couponId", () => {
+    // Different priceId (e.g. monthly vs annual, or a tier price edit) →
+    // different key, so Stripe never rejects a legitimately-different
+    // session as a stale-params retry of the same cached key.
+    expect(
+      buildSubscriptionCheckoutParams({ ...baseOpts, priceId: "price_other" })
+        .idempotencyKey,
+    ).toBe(
+      "user-1:self:tier-1:month:price_other:nofee:nocoupon:checkout:v1",
+    );
+    expect(
+      buildSubscriptionCheckoutParams({
+        ...baseOpts,
+        familyMemberId: "kid-1",
+        feePriceId: "price_fee",
+      }).idempotencyKey,
+    ).toBe(
+      "user-1:kid-1:tier-1:month:price_monthly:price_fee:nocoupon:checkout:v1",
+    );
+    expect(
+      buildSubscriptionCheckoutParams({
+        ...baseOpts,
+        familyMemberId: "kid-1",
+        couponId: "sibling-10pct-1500c",
+      }).idempotencyKey,
+    ).toBe(
+      "user-1:kid-1:tier-1:month:price_monthly:nofee:sibling-10pct-1500c:checkout:v1",
+    );
   });
 
   it("Connect: partner account id adds application_fee_percent + transfer_data", () => {
