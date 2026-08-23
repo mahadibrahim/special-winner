@@ -77,14 +77,17 @@ describe("occurrenceInstants — pure tz-aware occurrence math", () => {
 
 // ---- materializeClassSessions (batch loop) ----
 //
-// getDb() is mocked so the batch logic — idempotent session inserts,
-// per-session transactions, per-enrollment auto-booking isolation, and the
-// counter breakdown — is testable without a live DB. createChildClassBooking
-// is mocked too (its own behavior is covered by book-child's own tests);
-// this suite only asserts materialize.ts wires it correctly and buckets its
-// results. Same vi.mock("@/lib/db", ...) shape as
-// tests/unit/memberships/annual-fee.test.ts.
-import { classSlotTemplates } from "@/lib/db/schema/classes";
+// getDb() is mocked so the two-pass batch logic — idempotent session
+// inserts (pass 1), the session sweep across ALL scheduled sessions in the
+// horizon (pass 2, not just ones inserted this run), the per-pair
+// any-status existing-booking check, per-session transactions, per-
+// enrollment auto-booking isolation, and the counter breakdown — is
+// testable without a live DB. createChildClassBooking is mocked too (its
+// own behavior is covered by book-child's own tests); this suite only
+// asserts materialize.ts wires it correctly and buckets its results. Same
+// vi.mock("@/lib/db", ...) shape as tests/unit/memberships/annual-fee.test.ts.
+import { classSlotTemplates, classEnrollments } from "@/lib/db/schema/classes";
+import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
 
 interface TemplateRow {
   template: Record<string, unknown>;
@@ -99,10 +102,30 @@ let templateRows: TemplateRow[] = [];
 let enrollmentRows: EnrollmentRow[] = [];
 /** starts_at ISO strings for which the insert should look already-materialized (onConflictDoNothing conflict → no row returned). */
 let alreadyExistsIso: Set<string> = new Set();
-/** starts_at ISO strings for which the insert itself should throw (simulated tx failure). */
+/** starts_at ISO strings for which the insert itself should throw (simulated insert failure). */
 let insertThrowsIso: Set<string> = new Set();
 let insertedCount = 0;
 const insertedSessionValues: Array<Record<string, unknown>> = [];
+
+/**
+ * The sweep query (`.from(dropInSessions).where(...)`) runs once PER
+ * TEMPLATE, in the same order `templateRows` is iterated. Each entry here
+ * is that template's "currently scheduled, in-horizon" session set — set
+ * this to model DB state independently of what pass 1 just inserted (a
+ * pre-existing session from a prior run is a valid, common entry).
+ */
+let sweepSessionRowsQueue: Array<Array<{ id: string }>> = [];
+let sweepSessionRowsIndex = 0;
+
+/**
+ * The any-status existing-booking check (`.from(dropInBookings).where(...).limit(1)`)
+ * runs once per (session, enrollment) pair, in session-major/enrollment-minor
+ * order across the whole run — matching materialize.ts's nested loop. `true`
+ * means "a booking row already exists (any status)" → the real code skips
+ * calling createChildClassBooking for that pair entirely.
+ */
+let existingBookingQueue: boolean[] = [];
+let existingBookingIndex = 0;
 
 vi.mock("@/lib/db", () => ({
   getDb: () => ({
@@ -111,27 +134,52 @@ vi.mock("@/lib/db", () => ({
         if (table === classSlotTemplates) {
           return { innerJoin: () => ({ where: async () => templateRows }) };
         }
+        if (table === dropInSessions) {
+          return {
+            where: async () => {
+              const rows = sweepSessionRowsQueue[sweepSessionRowsIndex] ?? [];
+              sweepSessionRowsIndex += 1;
+              return rows;
+            },
+          };
+        }
         throw new Error("unexpected top-level select target in test double");
       },
     }),
+    insert: () => ({
+      values: (vals: Record<string, unknown>) => ({
+        onConflictDoNothing: () => ({
+          returning: async () => {
+            const iso = (vals.startsAt as Date).toISOString();
+            insertedSessionValues.push(vals);
+            if (insertThrowsIso.has(iso)) throw new Error("insert boom");
+            if (alreadyExistsIso.has(iso)) return [];
+            insertedCount += 1;
+            return [{ id: `session-${insertedCount}` }];
+          },
+        }),
+      }),
+    }),
     transaction: async (cb: (tx: unknown) => Promise<unknown>) => {
       const tx = {
-        insert: () => ({
-          values: (vals: Record<string, unknown>) => ({
-            onConflictDoNothing: () => ({
-              returning: async () => {
-                const iso = (vals.startsAt as Date).toISOString();
-                insertedSessionValues.push(vals);
-                if (insertThrowsIso.has(iso)) throw new Error("insert boom");
-                if (alreadyExistsIso.has(iso)) return [];
-                insertedCount += 1;
-                return [{ id: `session-${insertedCount}` }];
-              },
-            }),
-          }),
-        }),
         select: () => ({
-          from: () => ({ innerJoin: () => ({ where: async () => enrollmentRows }) }),
+          from: (table: unknown) => {
+            if (table === classEnrollments) {
+              return { innerJoin: () => ({ where: async () => enrollmentRows }) };
+            }
+            if (table === dropInBookings) {
+              return {
+                where: () => ({
+                  limit: async () => {
+                    const exists = existingBookingQueue[existingBookingIndex] ?? false;
+                    existingBookingIndex += 1;
+                    return exists ? [{ id: "existing-booking" }] : [];
+                  },
+                }),
+              };
+            }
+            throw new Error("unexpected tx select target in test double");
+          },
         }),
       };
       return cb(tx);
@@ -177,12 +225,18 @@ describe("materializeClassSessions", () => {
     insertThrowsIso = new Set();
     insertedCount = 0;
     insertedSessionValues.length = 0;
+    sweepSessionRowsQueue = [];
+    sweepSessionRowsIndex = 0;
+    existingBookingQueue = [];
+    existingBookingIndex = 0;
     createChildClassBooking.mockReset();
   });
 
   it("creates a session and auto-books an active enrollment (ok result)", async () => {
     templateRows = [tuesdayTemplate()];
     enrollmentRows = [{ familyMemberId: "child-1", parentUserId: "parent-1" }];
+    sweepSessionRowsQueue = [[{ id: "session-1" }]];
+    existingBookingQueue = [false];
     createChildClassBooking.mockResolvedValue({
       ok: true,
       bookingId: "booking-1",
@@ -221,9 +275,40 @@ describe("materializeClassSessions", () => {
     });
   });
 
+  it("falls back to ORG_DEFAULT_TIMEZONE when the organization's timezone is null", async () => {
+    templateRows = [
+      {
+        template: {
+          id: "tmpl-1",
+          organizationId: "org-1",
+          venueId: "venue-1",
+          name: "Soccer Skills 6-8",
+          sportLabel: "Soccer",
+          weekday: 2, // Tuesday
+          startTime: "10:00:00",
+          durationMins: 55,
+          capacity: 12,
+          active: true,
+        },
+        orgTimezone: null, // exercises `orgTimezone ?? ORG_DEFAULT_TIMEZONE`
+      },
+    ];
+    enrollmentRows = [];
+    sweepSessionRowsQueue = [[]];
+
+    await materializeClassSessions(NOW);
+
+    // ORG_DEFAULT_TIMEZONE is "America/New_York". 2026-08-25 is EDT
+    // (UTC-4), so 10:00 local resolves to 14:00 UTC — NOT the 10:00 UTC it
+    // would be if the null fallback were silently ignored and treated as UTC.
+    expect(insertedSessionValues[0].startsAt).toEqual(new Date("2026-08-25T14:00:00.000Z"));
+  });
+
   it("counts allotment_exhausted as skippedExhausted", async () => {
     templateRows = [tuesdayTemplate()];
     enrollmentRows = [{ familyMemberId: "child-1", parentUserId: "parent-1" }];
+    sweepSessionRowsQueue = [[{ id: "session-1" }]];
+    existingBookingQueue = [false];
     createChildClassBooking.mockResolvedValue({
       ok: false,
       error: { code: "allotment_exhausted", message: "used up" },
@@ -243,6 +328,8 @@ describe("materializeClassSessions", () => {
   it("counts no_membership as skippedPastDue", async () => {
     templateRows = [tuesdayTemplate()];
     enrollmentRows = [{ familyMemberId: "child-1", parentUserId: "parent-1" }];
+    sweepSessionRowsQueue = [[{ id: "session-1" }]];
+    existingBookingQueue = [false];
     createChildClassBooking.mockResolvedValue({
       ok: false,
       error: { code: "no_membership", message: "lapsed" },
@@ -265,6 +352,8 @@ describe("materializeClassSessions", () => {
       { familyMemberId: "child-1", parentUserId: "parent-1" },
       { familyMemberId: "child-2", parentUserId: "parent-2" },
     ];
+    sweepSessionRowsQueue = [[{ id: "session-1" }]];
+    existingBookingQueue = [false, false];
     createChildClassBooking
       .mockResolvedValueOnce({ ok: false, error: { code: "session_full", message: "full" } })
       .mockRejectedValueOnce(new Error("db blip"));
@@ -281,15 +370,51 @@ describe("materializeClassSessions", () => {
     });
   });
 
-  it("never re-books an already-materialized session (onConflictDoNothing conflict)", async () => {
+  it("books a newly-enrolled child into an already-materialized future session", async () => {
+    // The session for this occurrence already exists (a prior run
+    // materialized it) — the insert conflicts, sessionsCreated stays 0 —
+    // but a child enrolled AFTER that materialization must still get
+    // booked via the sweep pass, not wait ~2 weeks for the next fresh
+    // insert. This is the Finding-1 regression case.
     templateRows = [tuesdayTemplate()];
-    enrollmentRows = [{ familyMemberId: "child-1", parentUserId: "parent-1" }];
+    enrollmentRows = [{ familyMemberId: "newly-enrolled-child", parentUserId: "parent-1" }];
     alreadyExistsIso = new Set([EXPECTED_STARTS_AT_ISO]);
+    sweepSessionRowsQueue = [[{ id: "pre-existing-session-9" }]];
+    existingBookingQueue = [false]; // no booking row yet for this child on this session
+    createChildClassBooking.mockResolvedValue({
+      ok: true,
+      bookingId: "booking-9",
+      paymentMethod: "member_allotment",
+    });
 
     const result = await materializeClassSessions(NOW);
 
     expect(result).toEqual({
-      sessionsCreated: 0,
+      sessionsCreated: 0, // nothing new materialized
+      autoBooked: 1, // but the newly-enrolled child still got booked
+      skippedExhausted: 0,
+      skippedPastDue: 0,
+      failed: 0,
+    });
+    expect(createChildClassBooking).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ sessionId: "pre-existing-session-9" }),
+    );
+  });
+
+  it("never re-books a seat with an existing booking row in ANY status (e.g. a cancelled one)", async () => {
+    // The any-status existence check is what preserves cancel-respect now
+    // that the sweep covers pre-existing sessions too: a family that
+    // cancelled for this specific week must not be silently re-booked by
+    // the next run just because their enrollment is still active.
+    templateRows = [tuesdayTemplate()];
+    enrollmentRows = [{ familyMemberId: "child-1", parentUserId: "parent-1" }];
+    sweepSessionRowsQueue = [[{ id: "session-1" }]];
+    existingBookingQueue = [true]; // a row already exists (any status)
+
+    const result = await materializeClassSessions(NOW);
+
+    expect(result).toEqual({
+      sessionsCreated: 1,
       autoBooked: 0,
       skippedExhausted: 0,
       skippedPastDue: 0,
@@ -298,14 +423,18 @@ describe("materializeClassSessions", () => {
     expect(createChildClassBooking).not.toHaveBeenCalled();
   });
 
-  it("isolates a per-session transaction failure: other occurrences/templates still process", async () => {
+  it("isolates a per-occurrence insert failure: other occurrences/templates still process", async () => {
     // Two templates with distinct start times (distinct starts_at) so the
     // insert-throws gate can target just the first template's occurrence.
+    // The failed template's session never existed, so its sweep finds
+    // nothing; the ok template's session was inserted and swept normally.
     templateRows = [
       tuesdayTemplate({ id: "tmpl-fail", venueId: "venue-fail", startTime: "09:00:00" }),
       tuesdayTemplate({ id: "tmpl-ok", venueId: "venue-ok", startTime: "10:00:00" }),
     ];
     enrollmentRows = [{ familyMemberId: "child-1", parentUserId: "parent-1" }];
+    sweepSessionRowsQueue = [[], [{ id: "session-1" }]];
+    existingBookingQueue = [false];
     createChildClassBooking.mockResolvedValue({
       ok: true,
       bookingId: "booking-1",

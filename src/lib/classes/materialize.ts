@@ -6,17 +6,39 @@
  * calendar sessions. This module is the cron that turns that standing slot
  * into real `drop_in_sessions` (kind='class') rows for the next
  * `HORIZON_DAYS` days, then auto-books every child with an ACTIVE enrollment
- * on that template into each newly-created session — while their monthly
- * class allotment lasts.
+ * into every scheduled session of that template inside the horizon — while
+ * their monthly class allotment lasts.
  *
- * Idempotency: the insert targets the partial unique index
- * `drop_in_sessions_one_per_template_start` on
- * (class_slot_template_id, starts_at) via `onConflictDoNothing`, so re-running
- * the cron (daily, or by hand) never duplicates a session. Auto-booking only
- * runs for sessions ACTUALLY inserted this run (`.returning()` on the insert
- * only yields rows that were newly created, never conflicted ones) —
- * re-running the cron against an already-materialized week must not
- * re-book a child who cancelled their seat on that specific occurrence.
+ * TWO SEPARATE PASSES, deliberately decoupled:
+ *
+ *  1. Materialize — insert a `drop_in_sessions` row for each occurrence in
+ *     [now, horizonEnd], idempotent via `onConflictDoNothing` against the
+ *     partial unique index `drop_in_sessions_one_per_template_start` on
+ *     (class_slot_template_id, starts_at). Re-running the cron never
+ *     duplicates a session.
+ *
+ *  2. Auto-book — sweep EVERY `scheduled` session of the template inside the
+ *     horizon, whether it was inserted THIS run or already existed from a
+ *     prior run, and attempt a booking for every active enrollment against
+ *     every such session. This is deliberately NOT limited to
+ *     newly-inserted sessions: this week's session is typically already
+ *     materialized by the time a family enrolls mid-week (the whole point
+ *     of an 8-day horizon), and if auto-booking only ever looked at rows
+ *     inserted this run, a newly-enrolled child would silently miss every
+ *     already-materialized session until the NEXT time that occurrence gets
+ *     freshly inserted — up to ~2 weeks with no seat, the worst possible
+ *     first experience.
+ *
+ *     Re-booking safety instead comes from an explicit per-pair existence
+ *     check: before attempting a booking, look for ANY `drop_in_bookings`
+ *     row for (session, family_member) in ANY status — including
+ *     `cancelled`. A cancelled row means the family explicitly opted out of
+ *     that specific week and must not be silently re-booked by the next
+ *     run; a confirmed/waitlisted/pending row means it's already handled.
+ *     Only a family with NO booking row at all for that session (a fresh
+ *     enrollment, or a session that postdates their enrollment) gets a
+ *     booking attempt. This is a stronger, run-independent guarantee than
+ *     the previous "only touch sessions this run inserted" rule.
  *
  * Timezone: `classSlotTemplates.weekday` (0=Sun..6=Sat, matches
  * `Date#getUTCDay`) and `.startTime` ("HH:MM:SS") are WALL-CLOCK values in
@@ -31,16 +53,17 @@
  * needed, and no naive per-line offset math that would drift across a DST
  * boundary.
  *
- * Transaction shape: ONE small transaction per (template, occurrence) pair
- * — insert the session, then auto-book every active enrollment inside the
- * same tx via `createChildClassBooking({ dbOrTx: tx })`. Each enrollment's
- * booking attempt is wrapped in its own try/catch (the
+ * Transaction shape: each session insert is its own statement (atomic on
+ * its own — no multi-step work to wrap). Each session's auto-booking sweep
+ * runs in ONE small transaction (lookup active enrollments + attempt each
+ * booking via `createChildClassBooking({ dbOrTx: tx })`), with every
+ * enrollment's booking attempt wrapped in its own try/catch (the
  * charge-unpaid-team-shares isolation pattern; see
  * src/pages/api/cron/charge-unpaid-team-shares.ts) so one child's unexpected
- * failure doesn't roll back the session or block the rest of that session's
- * enrollments. If the transaction itself throws (e.g. a DB blip), that one
- * session's materialization+booking is rolled back entirely and counted as
- * `failed` — the batch continues with the next occurrence/template.
+ * failure doesn't roll back the rest of that session's bookings. If a
+ * session's insert or booking-sweep transaction throws (e.g. a DB blip),
+ * that one occurrence/session is counted as `failed` and the batch
+ * continues with the next occurrence, session, or template.
  *
  * Post-commit side effects — DELIBERATELY SKIPPED for v1: `createChildClassBooking`
  * with `dbOrTx` set never dispatches a confirmation email; per its CALLER
@@ -52,10 +75,10 @@
  * auto-booked sessions into one message) is Plan 3 territory, not this
  * cron.
  */
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, gt, lte, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { classSlotTemplates, classEnrollments } from "@/lib/db/schema/classes";
-import { dropInSessions } from "@/lib/db/schema/drop-in";
+import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
 import { familyMembers } from "@/lib/db/schema/registrations";
 import { organizations } from "@/lib/db/schema/organizations";
 import { ORG_DEFAULT_TIMEZONE } from "@/lib/time/zoned-day";
@@ -105,9 +128,22 @@ function civilAddDays(civ: CivilDate, delta: number): CivilDate {
  * Guess-and-correct convergence (same shape as `zonedMidnightUtc` in
  * src/lib/dropin/week-schedule.ts): interpret the target wall clock as if it
  * were already UTC (the first guess), format that guess back through
- * `timeZone`, and shift the guess by the observed delta. Converges in at
- * most a couple iterations for any real-world zone/DST rule — offsets are
- * always well under 24h, so 3 iterations is generous headroom.
+ * `timeZone`, and shift the guess by the observed delta. For an EXISTING
+ * wall-clock time this converges to an exact answer in at most a couple
+ * iterations for any real-world zone/DST rule — offsets are always well
+ * under 24h, so 3 iterations is generous headroom.
+ *
+ * For a wall-clock time that does NOT exist (the spring-forward gap, e.g.
+ * "02:30:00" on a US DST-start day when clocks jump 02:00→03:00) there is no
+ * instant whose formatted wall clock equals the target, so `deltaMs` never
+ * hits exactly 0 and the loop does not "converge" in the usual sense — it
+ * runs the full 3 iterations and returns whatever the last guess landed on.
+ * In practice ICU resolves a gap instant by rolling it forward past the
+ * transition, so this deterministically returns the gap-forward instant
+ * (equivalent to `hh:mm:ss` interpreted at the POST-transition offset) —
+ * never an infinite loop or a thrown error, just a defined answer for an
+ * edge case that is nonsensical to begin with (a class literally cannot
+ * start at a wall-clock time that never happened that day).
  */
 function zonedWallClockUtc(
   civ: CivilDate,
@@ -201,11 +237,14 @@ export interface MaterializeResult {
 }
 
 /**
- * For each active class-slot template: materialize `drop_in_sessions` rows
- * for every occurrence in [now, now + HORIZON_DAYS days], then auto-book
- * every child with an active enrollment on that template into each session
- * ACTUALLY created this run (never into a pre-existing one — re-running
- * the cron must not resurrect a booking a family cancelled).
+ * For each active class-slot template: (1) materialize `drop_in_sessions`
+ * rows for every occurrence in [now, now + HORIZON_DAYS days], then (2)
+ * sweep EVERY `scheduled` session of that template inside the horizon —
+ * created this run or already existing — and attempt a booking for every
+ * active enrollment against every such session, skipping (without penalty)
+ * any (enrollment, session) pair that already has a booking row in any
+ * status. See the module header for why the sweep must not be limited to
+ * sessions inserted this run.
  */
 export async function materializeClassSessions(now: Date): Promise<MaterializeResult> {
   const db = getDb();
@@ -250,37 +289,85 @@ export async function materializeClassSessions(now: Date): Promise<MaterializeRe
       continue;
     }
 
+    // ---- Pass 1: materialize sessions ----
+    // A plain insert is already atomic on its own; no transaction needed
+    // just to wrap one statement.
     for (const startsAt of occurrences) {
       try {
+        const endsAt = new Date(startsAt.getTime() + template.durationMins * 60_000);
+        const [inserted] = await db
+          .insert(dropInSessions)
+          .values({
+            organizationId: template.organizationId,
+            venueId: template.venueId,
+            bookableResourceId: null,
+            kind: "class",
+            sportOrClassLabel: template.sportLabel,
+            formatLabel: template.name,
+            startsAt,
+            endsAt,
+            capacity: template.capacity,
+            audience: "youth",
+            status: "scheduled",
+            classSlotTemplateId: template.id,
+          })
+          .onConflictDoNothing({
+            target: [dropInSessions.classSlotTemplateId, dropInSessions.startsAt],
+            where: sql`class_slot_template_id IS NOT NULL`,
+          })
+          .returning({ id: dropInSessions.id });
+
+        if (inserted) counters.sessionsCreated += 1;
+      } catch (err) {
+        console.error(
+          `[classes] session insert failed for template ${template.id} at ${startsAt.toISOString()}:`,
+          err,
+        );
+        void captureServerException(err, {
+          component: "classes/materialize",
+          metadata: {
+            template_id: template.id,
+            starts_at: startsAt.toISOString(),
+            phase: "session-insert",
+          },
+        });
+        counters.failed += 1;
+      }
+    }
+
+    // ---- Pass 2: auto-book sweep ----
+    // ALL scheduled sessions of this template inside the horizon — not just
+    // ones inserted above — so a family that enrolls after this week's
+    // session was already materialized (any prior run) still gets booked.
+    let sessions: Array<{ id: string }>;
+    try {
+      sessions = await db
+        .select({ id: dropInSessions.id })
+        .from(dropInSessions)
+        .where(
+          and(
+            eq(dropInSessions.classSlotTemplateId, template.id),
+            eq(dropInSessions.status, "scheduled"),
+            gt(dropInSessions.startsAt, now),
+            lte(dropInSessions.startsAt, horizonEnd),
+          ),
+        );
+    } catch (err) {
+      console.error(
+        `[classes] session sweep query failed for template ${template.id}:`,
+        err,
+      );
+      void captureServerException(err, {
+        component: "classes/materialize",
+        metadata: { template_id: template.id, phase: "sweep-query" },
+      });
+      counters.failed += 1;
+      continue;
+    }
+
+    for (const session of sessions) {
+      try {
         const txResult = await db.transaction(async (tx: DropInTx) => {
-          const endsAt = new Date(startsAt.getTime() + template.durationMins * 60_000);
-
-          const [inserted] = await tx
-            .insert(dropInSessions)
-            .values({
-              organizationId: template.organizationId,
-              venueId: template.venueId,
-              bookableResourceId: null,
-              kind: "class",
-              sportOrClassLabel: template.sportLabel,
-              formatLabel: template.name,
-              startsAt,
-              endsAt,
-              capacity: template.capacity,
-              audience: "youth",
-              status: "scheduled",
-              classSlotTemplateId: template.id,
-            })
-            .onConflictDoNothing({
-              target: [dropInSessions.classSlotTemplateId, dropInSessions.startsAt],
-              where: sql`class_slot_template_id IS NOT NULL`,
-            })
-            .returning({ id: dropInSessions.id });
-
-          // Already materialized (a prior run, or a concurrent one) — never
-          // re-book against a pre-existing session.
-          if (!inserted) return null;
-
           const enrollments = await tx
             .select({
               familyMemberId: classEnrollments.familyMemberId,
@@ -312,9 +399,27 @@ export async function materializeClassSessions(now: Date): Promise<MaterializeRe
               failed += 1;
               continue;
             }
+
+            // Any-status existence check — the re-booking safety guarantee
+            // (see module header). A cancelled row means the family opted
+            // out of THIS session and must not be resurrected; any other
+            // row means it's already handled. Either way, skip silently:
+            // not a failure, not a fresh booking.
+            const [existingBooking] = await tx
+              .select({ id: dropInBookings.id })
+              .from(dropInBookings)
+              .where(
+                and(
+                  eq(dropInBookings.sessionId, session.id),
+                  eq(dropInBookings.familyMemberId, enr.familyMemberId),
+                ),
+              )
+              .limit(1);
+            if (existingBooking) continue;
+
             try {
               const result = await createChildClassBooking({
-                sessionId: inserted.id,
+                sessionId: session.id,
                 parentUserId: enr.parentUserId,
                 familyMemberId: enr.familyMemberId,
                 kind: "member",
@@ -332,22 +437,23 @@ export async function materializeClassSessions(now: Date): Promise<MaterializeRe
                 // but createChildClassBooking requires status === 'active'.
                 skippedPastDue += 1;
               } else {
-                // already_booked / session_full / waiver_required /
-                // age_ineligible / etc. — unexpected for an auto-booking
-                // path (no waiver prompt, no manual double-booking) but
-                // isolated per-enrollment rather than failing the session.
+                // session_full / waiver_required / age_ineligible / etc. —
+                // unexpected for an auto-booking path (no waiver prompt, no
+                // manual double-booking — already_booked is pre-empted by
+                // the existence check above) but isolated per-enrollment
+                // rather than failing the whole session.
                 failed += 1;
               }
             } catch (bookErr) {
               console.error(
-                `[classes] auto-booking failed for enrollment (child ${enr.familyMemberId}, session ${inserted.id}):`,
+                `[classes] auto-booking failed for enrollment (child ${enr.familyMemberId}, session ${session.id}):`,
                 bookErr,
               );
               void captureServerException(bookErr, {
                 component: "classes/materialize",
                 metadata: {
                   template_id: template.id,
-                  session_id: inserted.id,
+                  session_id: session.id,
                   family_member_id: enr.familyMemberId,
                   phase: "auto-booking",
                 },
@@ -359,24 +465,21 @@ export async function materializeClassSessions(now: Date): Promise<MaterializeRe
           return { autoBooked, skippedExhausted, skippedPastDue, failed };
         });
 
-        if (txResult) {
-          counters.sessionsCreated += 1;
-          counters.autoBooked += txResult.autoBooked;
-          counters.skippedExhausted += txResult.skippedExhausted;
-          counters.skippedPastDue += txResult.skippedPastDue;
-          counters.failed += txResult.failed;
-        }
+        counters.autoBooked += txResult.autoBooked;
+        counters.skippedExhausted += txResult.skippedExhausted;
+        counters.skippedPastDue += txResult.skippedPastDue;
+        counters.failed += txResult.failed;
       } catch (txErr) {
         console.error(
-          `[classes] materialization tx failed for template ${template.id} at ${startsAt.toISOString()}:`,
+          `[classes] auto-booking sweep tx failed for template ${template.id}, session ${session.id}:`,
           txErr,
         );
         void captureServerException(txErr, {
           component: "classes/materialize",
           metadata: {
             template_id: template.id,
-            starts_at: startsAt.toISOString(),
-            phase: "session-tx",
+            session_id: session.id,
+            phase: "sweep-tx",
           },
         });
         counters.failed += 1;
