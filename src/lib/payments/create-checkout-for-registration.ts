@@ -162,7 +162,12 @@ export async function createCheckoutForRegistration(
       const [found] = await tx
         .select()
         .from(discountCodes)
-        .where(eq(discountCodes.code, discountCode.toUpperCase()))
+        .where(
+          and(
+            eq(discountCodes.organizationId, orgId),
+            eq(discountCodes.code, discountCode.toUpperCase()),
+          ),
+        )
         .for("update");
       if (!found) return null;
 
