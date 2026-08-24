@@ -1,0 +1,19 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { ChooseSlot } from "@/components/dashboard/choose-slot";
+
+// Middleware guarantees user is authenticated for /dashboard routes; the
+// island fetches everything it needs (summary/schedule/family-members) over
+// the same authed session, so no server-side data is threaded as props.
+
+// Lighter, single-purpose page (no DashboardShell chrome) — this is a
+// one-shot post-checkout landing, not a dashboard tab. Mirrors the
+// children/[id].astro pattern: BaseLayout + one client:load island that
+// owns its own loading/error states.
+---
+
+<BaseLayout title="Choose your class — Aspire Sports">
+  <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
+    <ChooseSlot client:load />
+  </main>
+</BaseLayout>
