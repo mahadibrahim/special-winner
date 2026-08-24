@@ -1538,13 +1538,6 @@ export async function sendTeamBackstopWarningEmail(params: TeamBackstopWarningPa
 
 // ---- Trial-convert follow-up (youth classes cron) ----
 
-/** Canonical Aspire origin used by youth-classes marketing links from a
- *  cron/webhook context with no request to derive a host from. Classes are
- *  an Aspire-only product (no SoccerOne equivalent), so unlike the brand-
- *  aware `originForBrand` this is never anything else — matches the literal
- *  fallback EmailLayout itself uses for brand="aspire" appUrl resolution. */
-const ASPIRE_ORIGIN = "https://aspiresportsohio.com";
-
 export interface TrialConvertTier {
   name: string;
   /** Pre-formatted, e.g. "$79/mo" — see formatMonthlyPriceCents in
@@ -1616,13 +1609,22 @@ export async function sendTrialConvertEmail(
     return { success: false, error: "Email not configured" };
   }
 
+  // Classes are an Aspire-only product (no SoccerOne equivalent), so
+  // originForBrand("aspire") always returns null here — but computing it
+  // this way (instead of hardcoding the prod host) matches every sibling
+  // send*Email function's appUrl convention: it falls through to
+  // env.PUBLIC_APP_URL, which is the LOCAL/staging origin outside prod. A
+  // hardcoded prod URL would have emailed parents a production link from a
+  // staging or preview cron run.
+  const appUrl = originForBrand("aspire") ?? env.PUBLIC_APP_URL;
+
   const { html, text } = await renderEmail(
     TrialConvertEmail({
       parentFirstName: params.parentFirstName ?? "there",
       childFirstName: params.childFirstName,
       className: params.className,
       tiers: params.tiers,
-      ctaUrl: `${ASPIRE_ORIGIN}/youth/classes#pricing`,
+      ctaUrl: `${appUrl}/youth/classes#pricing`,
     }),
   );
 
