@@ -4,7 +4,19 @@ import { membershipTiers, memberships } from "@/lib/db/schema/memberships";
 import { users } from "@/lib/db/schema/users";
 import { familyMembers } from "@/lib/db/schema/registrations";
 import { classSlotTemplates, classEnrollments } from "@/lib/db/schema/classes";
+import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
 import { resolveDefaultOrgForHttpTests } from "./dropin-helpers";
+
+/**
+ * Name of the shared "Test Class Slot" class-slot template fixture (Stage
+ * 13c of seed-e2e-tests.ts) — the one template guaranteed to exist and stay
+ * `active`, so any classes E2E/API fixture that needs "a real template with
+ * a real upcoming session" targets this name rather than each spinning up
+ * its own. Exported so callers building session fixtures against it (e.g.
+ * tests/e2e/youth-classes-signup.spec.ts) share one literal, not two that
+ * could drift apart.
+ */
+export const SHARED_CLASS_SLOT_TEMPLATE_NAME = "Test Class Slot";
 
 export const CLASS_TEST_PARENT_EMAIL = "parent@test.aspiresports.com";
 export const CLASS_TEST_PARENT_PASSWORD = "TestParent123!";
@@ -42,6 +54,14 @@ export async function resolveClassTestFixtures(): Promise<{
 }> {
   const db = getDb();
   const { organizationId, venueId } = await resolveDefaultOrgForHttpTests();
+
+  // Every classes API suite's beforeAll calls this — the trivially-
+  // reachable shared spot to wire in the orphaned-session sweep (see that
+  // function's doc comment) without every individual test file needing its
+  // own opt-in call. Cheap no-op once a prior call in the same run already
+  // cleared the debris (tests/api's fileParallelism:false means these never
+  // race each other).
+  await sweepOrphanedTestSessions(organizationId);
 
   const [parent] = await db
     .select({ id: users.id })
@@ -219,6 +239,139 @@ export async function sweepOrphanedTestTemplates(organizationId: string): Promis
         or(...TEST_TEMPLATE_NAME_PREFIXES.map((prefix) => like(classSlotTemplates.name, `${prefix}%`))),
       ),
     );
+}
+
+/**
+ * Identifies a DISPOSABLE, dynamically-generated test-fixture child:
+ * `lastName === "Test"` (createTestChild's hardcoded value, above) AND a
+ * digit somewhere in the first name — every dynamically-generated test
+ * child across this codebase's classes/dropin suites follows the shape
+ * `${prefix}-${Date.now()}[...]` (see createTestChild's callers throughout
+ * tests/api/classes/*.test.ts and tests/e2e/youth-classes-signup.spec.ts),
+ * always with a run-unique numeric timestamp embedded in the name.
+ *
+ * Deliberately does NOT match plain reused seed fixtures like "Tommy Test"
+ * / "Sarah Test" (seed-e2e-tests.ts, live since 2026-05-20) even though
+ * they also carry `lastName: "Test"` — those are long-lived and referenced
+ * by unrelated suites (family/coach-notes, family/development-report,
+ * coach/assessment-snapshots), so a booking under their name must never be
+ * touched by an automated sweep. See `sweepOrphanedTestSessions`'s doc
+ * comment for why this distinction is load-bearing there.
+ */
+function isDisposableTestChild(firstName: string, lastName: string): boolean {
+  return lastName === "Test" && /\d/.test(firstName);
+}
+
+/**
+ * Hygiene sweep for orphaned MATERIALIZED CLASS SESSIONS (`drop_in_sessions`
+ * rows, not templates) left `scheduled` on:
+ *   - any `class_slot_templates` row whose name matches a
+ *     `TEST_TEMPLATE_NAME_PREFIXES` prefix (test-owned templates from the
+ *     API suites — `sweepOrphanedTestTemplates` above deactivates the
+ *     TEMPLATE but never touches its already-materialized sessions), and
+ *   - the shared `SHARED_CLASS_SLOT_TEMPLATE_NAME` fixture ("Test Class
+ *     Slot") that classes E2E specs book real sessions against.
+ *
+ * WHY THIS EXISTS: the booking UI (trial-booking.tsx, choose-slot.tsx)
+ * always books the template's EARLIEST upcoming `scheduled` session, never
+ * whichever session a spec just inserted — so a stale session from an
+ * earlier run keeps absorbing every later run's bookings instead of ever
+ * being superseded, and (without this sweep) accumulates cancelled-booking
+ * debris forever. Found live while building the youth-classes-signup E2E
+ * spec (Task 9 review): session `7abee084…` on "Test Class Slot" (created
+ * 2026-08-23) had absorbed 13 cumulative bookings from unrelated runs by
+ * the time this sweep was added.
+ *
+ * TWO SAFE ACTIONS, deliberately conservative:
+ *   1. A scheduled session with ZERO `confirmed` bookings is cancelled
+ *      outright (`status → 'cancelled'`) — no real seat is destroyed
+ *      either way; this only stops it being picked as "the earliest
+ *      session" by the booking UI on a future run.
+ *   2. A scheduled session WITH confirmed bookings is left ENTIRELY alone
+ *      unless EVERY one of those bookings' participant is an
+ *      `isDisposableTestChild`. When they all match, those specific
+ *      bookings are cancelled and — only if that leaves the session with
+ *      zero confirmed bookings — the session itself is cancelled too. A
+ *      session with even ONE non-matching confirmed booking (e.g. the
+ *      long-lived seed fixtures above) is left completely untouched,
+ *      booking and all: this sweep never cancels a booking it can't
+ *      confidently attribute to a disposable test run.
+ *
+ * Safe to call unconditionally from a suite's `beforeAll` — same
+ * `fileParallelism: false` / single-worker rationale as
+ * `sweepOrphanedTestTemplates` above.
+ */
+export async function sweepOrphanedTestSessions(organizationId: string): Promise<void> {
+  const db = getDb();
+
+  const templates = await db
+    .select({ id: classSlotTemplates.id })
+    .from(classSlotTemplates)
+    .where(
+      and(
+        eq(classSlotTemplates.organizationId, organizationId),
+        or(
+          eq(classSlotTemplates.name, SHARED_CLASS_SLOT_TEMPLATE_NAME),
+          ...TEST_TEMPLATE_NAME_PREFIXES.map((prefix) => like(classSlotTemplates.name, `${prefix}%`)),
+        ),
+      ),
+    );
+  if (templates.length === 0) return;
+  const templateIds = templates.map((t) => t.id);
+
+  const sessions = await db
+    .select({ id: dropInSessions.id })
+    .from(dropInSessions)
+    .where(
+      and(
+        inArray(dropInSessions.classSlotTemplateId, templateIds),
+        eq(dropInSessions.status, "scheduled"),
+        eq(dropInSessions.kind, "class"),
+      ),
+    );
+
+  for (const session of sessions) {
+    const confirmedBookings = await db
+      .select({ id: dropInBookings.id, familyMemberId: dropInBookings.familyMemberId })
+      .from(dropInBookings)
+      .where(and(eq(dropInBookings.sessionId, session.id), eq(dropInBookings.status, "confirmed")));
+
+    if (confirmedBookings.length === 0) {
+      await db.update(dropInSessions).set({ status: "cancelled" }).where(eq(dropInSessions.id, session.id));
+      continue;
+    }
+
+    const familyMemberIds = confirmedBookings
+      .map((b) => b.familyMemberId)
+      .filter((id): id is string => id !== null);
+    const children = familyMemberIds.length
+      ? await db
+          .select({ id: familyMembers.id, firstName: familyMembers.firstName, lastName: familyMembers.lastName })
+          .from(familyMembers)
+          .where(inArray(familyMembers.id, familyMemberIds))
+      : [];
+    const childById = new Map(children.map((c) => [c.id, c]));
+
+    const allDisposable = confirmedBookings.every((b) => {
+      // No participant on file (shouldn't occur for kind='class', but be
+      // safe) — never confidently attributable, so never touch.
+      if (!b.familyMemberId) return false;
+      const child = childById.get(b.familyMemberId);
+      return child ? isDisposableTestChild(child.firstName, child.lastName) : false;
+    });
+    if (!allDisposable) continue; // conservative: leave session + bookings entirely alone
+
+    await db
+      .update(dropInBookings)
+      .set({ status: "cancelled", cancelledAt: new Date() })
+      .where(
+        inArray(
+          dropInBookings.id,
+          confirmedBookings.map((b) => b.id),
+        ),
+      );
+    await db.update(dropInSessions).set({ status: "cancelled" }).where(eq(dropInSessions.id, session.id));
+  }
 }
 
 /**

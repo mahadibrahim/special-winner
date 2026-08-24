@@ -12,19 +12,33 @@
  *     enrolls the child's standing weekly seat, books the first class, and
  *     signs the waiver when prompted.
  *
+ * IMPORTANT — what the seeded session actually guarantees: both specs
+ * insert their own future `drop_in_sessions` row against the shared
+ * template (the seed only creates the standing template, never a
+ * materialized session — see that fixture's comment in
+ * seed-e2e-tests.ts), but the booking UI (trial-booking.tsx,
+ * choose-slot.tsx) always books the template's EARLIEST upcoming
+ * `scheduled` session, not the one a spec just inserted. On shared staging
+ * that's very often an older session left over from a previous run, not
+ * this run's own row. So the seeded session guarantees only that AT LEAST
+ * ONE bookable session exists for the template (covering the "no upcoming
+ * session" empty state) — it does NOT guarantee isolation from other
+ * runs' bookings, and cleanup below finds "the booking" by CHILD (whatever
+ * session it actually landed on), never by the session this spec created.
+ *
  * These run post-merge only (test-full — see CLAUDE.md's Playwright
  * conventions section), against the SHARED staging DB, so both specs:
- *   - seed their OWN future `drop_in_sessions` row against the shared
- *     "Test Class Slot" template (the seed only creates the standing
- *     template, never a materialized session — see that fixture's comment
- *     in seed-e2e-tests.ts) rather than assuming the daily materialization
- *     cron already ran;
+ *   - call `sweepOrphanedTestSessions` before seeding, to cancel stale
+ *     `scheduled` sessions on this template left behind by earlier runs
+ *     (crashed/timed-out runs that never reached their own `afterAll`) —
+ *     see that function's doc comment for exactly what it will and will
+ *     not touch;
  *   - use uniquely-named fixtures and retire everything they create in
- *     `afterAll` (booking cancelled via the real API, enrollment ended,
- *     membership deactivated, the seeded session row deleted) so repeated
- *     runs never accumulate debris on the shared template;
- *   - never assert on absolute counts (spots-left, booking totals) —
- *     only on this run's own outcome.
+ *     `afterAll` (booking cancelled via the real API — found by child, not
+ *     by session — enrollment ended, membership deactivated, the session
+ *     row THIS RUN inserted deleted);
+ *   - never assert on absolute counts (spots-left, booking totals) — only
+ *     on this run's own outcome.
  *
  * Both flows can independently hit a `session_full` response on the final
  * booking attempt if the shared template's earliest upcoming session has
@@ -43,7 +57,13 @@ import { classSlotTemplates, classEnrollments } from "@/lib/db/schema/classes";
 import { dropInSessions, dropInBookings, dropInRateCard } from "@/lib/db/schema/drop-in";
 import { familyMembers } from "@/lib/db/schema/registrations";
 import { memberships } from "@/lib/db/schema/memberships";
-import { resolveClassTestFixtures, createTestChild, createTestChildMembership } from "../utils/classes-helpers";
+import {
+  resolveClassTestFixtures,
+  createTestChild,
+  createTestChildMembership,
+  sweepOrphanedTestSessions,
+  SHARED_CLASS_SLOT_TEMPLATE_NAME,
+} from "../utils/classes-helpers";
 import { signIn, waitForHydration, TEST_USERS } from "../utils/test-helpers";
 
 // ---------------------------------------------------------------------------
@@ -72,14 +92,14 @@ async function resolveTestClassSlotTemplate(organizationId: string): Promise<{
     .where(
       and(
         eq(classSlotTemplates.organizationId, organizationId),
-        eq(classSlotTemplates.name, "Test Class Slot"),
+        eq(classSlotTemplates.name, SHARED_CLASS_SLOT_TEMPLATE_NAME),
       ),
     )
     .orderBy(asc(classSlotTemplates.createdAt))
     .limit(1);
   if (!row) {
     throw new Error(
-      '"Test Class Slot" template fixture is missing — run npm run db:seed:e2e before this spec',
+      `"${SHARED_CLASS_SLOT_TEMPLATE_NAME}" template fixture is missing — run npm run db:seed:e2e before this spec`,
     );
   }
   return row;
@@ -203,6 +223,13 @@ test.describe("Youth classes — trial-led signup from /youth/classes", () => {
 
   test.beforeAll(async () => {
     ({ organizationId, venueId } = await resolveClassTestFixtures());
+    // resolveClassTestFixtures already sweeps orphaned sessions internally
+    // (see that function's doc comment), but call it again explicitly here
+    // — this beforeAll's whole point is guaranteeing a clean, bookable
+    // session for THIS template exists before seeding one, and that must
+    // hold even if resolveClassTestFixtures's internal call is ever
+    // removed or scoped differently.
+    await sweepOrphanedTestSessions(organizationId);
     const template = await resolveTestClassSlotTemplate(organizationId);
     templateId = template.id;
     sessionId = await seedFutureClassSession({
@@ -320,6 +347,8 @@ test.describe("Youth classes — choose-slot standalone enroll + first booking",
 
   test.beforeAll(async () => {
     ({ organizationId, venueId, parentUserId, tierId } = await resolveClassTestFixtures());
+    // See the identical comment in the trial-led describe block above.
+    await sweepOrphanedTestSessions(organizationId);
     const template = await resolveTestClassSlotTemplate(organizationId);
     templateId = template.id;
     sessionId = await seedFutureClassSession({
