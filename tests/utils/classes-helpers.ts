@@ -190,6 +190,7 @@ export const TEST_TEMPLATE_NAME_PREFIXES = [
   "Schedule-Slot-",
   "Summary-Slot-",
   "Cron-Template-",
+  "Admin-",
 ] as const;
 
 /**
