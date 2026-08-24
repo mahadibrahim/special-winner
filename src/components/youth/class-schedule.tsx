@@ -22,11 +22,29 @@ import { LoadingSkeleton } from "@/components/ui/loading-skeleton"
  *   mounted alongside this one in classes.astro — listens for this event
  *   and owns the entire modal/booking flow; this component does not know
  *   or care whether anything is listening.
+ *
+ *   HANDSHAKE for the first-click race: `trial-booking.tsx` is a separate
+ *   client:load island, and hydration order between two independent
+ *   islands on the same page is not guaranteed — a click here can fire
+ *   before that island has mounted and attached its window listener,
+ *   silently dropping the event (observed live). To cover that gap,
+ *   `requestTrial` stashes the templateId on `window.__youthTrialPending`
+ *   BEFORE dispatching; trial-booking.tsx's mount effect consumes (and
+ *   clears) that value as a backstop in addition to listening for the
+ *   live event.
  * - "Join" is a plain anchor to #pricing.
  * Both carry `data-youth-cta="schedule"` so the page's existing click
  * tracker (classes.astro, the `[data-youth-cta]` listener near the bottom)
  * picks them up.
  */
+
+declare global {
+  interface Window {
+    /** First-click handshake with trial-booking.tsx — see the CTA doc
+     *  comment above. */
+    __youthTrialPending?: string
+  }
+}
 
 interface ScheduleSlot {
   templateId: string
@@ -107,6 +125,8 @@ function groupByWeekday(slots: ScheduleSlot[]): { weekday: number; slots: Schedu
 }
 
 function requestTrial(templateId: string) {
+  // Stash BEFORE dispatching — see the header comment's HANDSHAKE note.
+  window.__youthTrialPending = templateId
   window.dispatchEvent(new CustomEvent("youth:trial-requested", { detail: { templateId } }))
 }
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -20,15 +20,30 @@ import { ChildPicker, type ChildPickerMember } from "@/components/youth/child-pi
  * island's "Book a free trial" CTAs dispatch on `window` (see that file's
  * header comment for the contract) and owns the entire modal/flow itself.
  *
+ * HANDSHAKE for the first-click race: class-schedule.tsx is a separate
+ * client:load island; hydration order between two independent islands on
+ * the same page is not guaranteed, so a click there can fire
+ * `youth:trial-requested` before this component has mounted and attached
+ * its window listener (observed live — the very first click was silently
+ * dropped). class-schedule.tsx's `requestTrial` stashes the templateId on
+ * `window.__youthTrialPending` BEFORE dispatching; the mount effect below
+ * consumes (and clears) that value once, as a backstop, in addition to
+ * listening for the live event.
+ *
  * Sequence:
- *  1. Event fires → cheap auth probe via `GET /api/auth/me` (same endpoint
- *     Navigation uses). Unauthed → hard redirect to
- *     `/signin?redirect=/youth/classes#schedule`. Authed → open the modal
- *     and fetch `/api/public/class-schedule` FRESH (never threaded from the
- *     dispatching island, per the brief) to resolve the slot + its next
- *     upcoming session(s) for the requested templateId.
- *  2. Child picker (`child-picker.tsx`, shared with Task 6): age-filtered
- *     against the slot's minAge/maxAge.
+ *  1. Event fires (or `__youthTrialPending` is found on mount) → cheap auth
+ *     probe via `GET /api/auth/me` (same endpoint Navigation uses).
+ *     Unauthed → hard redirect to `/signin?redirect=/youth/classes#schedule`.
+ *     Authed → open the modal and fetch `/api/public/class-schedule` FRESH
+ *     (never threaded from the dispatching island, per the brief) to
+ *     resolve the slot + its next upcoming session(s) for the requested
+ *     templateId.
+ *  2. Child picker (`child-picker.tsx`, shared with Task 6):
+ *     `participantKind="dependent"` — self rows are hard-excluded (see that
+ *     file's header comment: a self row's `parentUserId` is null, so
+ *     `createChildClassBooking`'s ownership lookup can never match it and
+ *     booking always 404s `child_not_found`). Age-filtered against the
+ *     slot's minAge/maxAge.
  *  3. `POST /api/classes/book { sessionId, familyMemberId, kind: "trial" }`.
  *     Attempt-then-prompt waiver: a 422 `waiver_required` expands the
  *     guardian waiver panel (same `DROPIN_WAIVER_TEXT` /
@@ -38,15 +53,34 @@ import { ChildPicker, type ChildPickerMember } from "@/components/youth/child-pi
  *     note, "Add another player" (resets to the child picker for the same
  *     slot) and Close.
  *
- * Error copy (binding, from the task brief):
- *  - `member_child_no_trial` → member kids already have classes included;
- *    links to /dashboard/family.
- *  - `trial_already_used` → trial's used; links to #pricing.
- *  - `session_full` → auto-retries the template's following-week session
- *    (present in the schedule payload's `sessions` list) if one exists;
- *    otherwise "This class is full this week."
+ * Error copy (exact strings per the task brief):
+ *  - `member_child_no_trial` → "Your member kids already have classes
+ *    included — book a make-up instead"; links to /dashboard/family.
+ *  - `trial_already_used` → "Trial already used — join to keep coming";
+ *    links to #pricing.
+ *  - `child_not_found` → backstop copy (should not occur given the
+ *    `participantKind="dependent"` exclusion above, but the server is the
+ *    real authority on ownership): "We couldn't match that player to your
+ *    account — refresh and try again."
+ *  - `session_full` → NEVER auto-books an unrequested date — a trial is
+ *    one-per-child-ever, so silently spending it on a date the parent
+ *    didn't choose would be wrong. Instead surfaces an explicit offer
+ *    ("This week's class is full — book {next date} instead?") for the
+ *    template's following-week session, if the schedule payload has one;
+ *    only books on the parent's confirm. No next session → "This class is
+ *    full this week."
  *  - `age_ineligible` → inline on the picker (belt-and-suspenders; the
  *    picker already disables ineligible children client-side).
+ *
+ * Re-entrancy: a monotonic `generationRef` counter is bumped on every
+ * `closeModal()` and every `openForTemplate()` call. Any async
+ * continuation (the auth probe, the schedule fetch, a booking POST) checks
+ * its captured generation against `generationRef.current` after each
+ * `await` and bails without touching state if it's stale — this is what
+ * stops a booking request that's still in flight when the parent closes
+ * the modal from later reopening it via a delayed `setPhase`, and also
+ * resolves the double-open race if two `youth:trial-requested` events fire
+ * in quick succession.
  */
 
 interface ScheduleSlot {
@@ -83,6 +117,7 @@ type Phase =
   | "no_sessions"
   | "booking"
   | "waiver"
+  | "session_full_offer"
   | "success"
 
 type FlowErrorCode = "member_child_no_trial" | "trial_already_used" | "generic"
@@ -136,17 +171,59 @@ export default function TrialBooking() {
 
   const [slot, setSlot] = useState<ScheduleSlot | null>(null)
   // All upcoming sessions for this template, ascending by start time (the
-  // schedule endpoint's `sessions` list already sorts this way).
+  // schedule endpoint's `sessions` list already sorts this way). The first
+  // (earliest) one is always the initial attempt.
   const [templateSessions, setTemplateSessions] = useState<ScheduleSession[]>([])
-  const [sessionIndex, setSessionIndex] = useState(0)
 
   const [selectedChild, setSelectedChild] = useState<ChildPickerMember | null>(null)
   const [bookedSession, setBookedSession] = useState<ScheduleSession | null>(null)
 
+  // The session a `waiver_required` response is FOR — set whenever
+  // attemptBooking transitions to the "waiver" phase, so submitWaiver
+  // retries against the exact session that asked for the waiver rather
+  // than assuming it's always the earliest one. Matters once
+  // session_full_offer is in play: the offered (following-week) session
+  // can itself come back waiver_required, and submitWaiver must resubmit
+  // against THAT session, not templateSessions[0].
+  const [pendingSession, setPendingSession] = useState<ScheduleSession | null>(null)
+
+  // The session_full offer: the following-week session being proposed, and
+  // the waiver (if one was already signed on the attempt that hit
+  // session_full) to resubmit on confirm — never re-prompt for a waiver
+  // that's already been signed in this same flow.
+  const [offeredSession, setOfferedSession] = useState<ScheduleSession | null>(null)
+  const [offeredWaiver, setOfferedWaiver] = useState<{ signedBy: string; consentText: string } | undefined>(
+    undefined,
+  )
+
   const [waiverAccepted, setWaiverAccepted] = useState(false)
   const [waiverSignerName, setWaiverSignerName] = useState("")
 
+  // Monotonic generation counter — see the header comment's "Re-entrancy"
+  // section. A ref (not state) because it must be readable synchronously
+  // from within async continuations without waiting on a re-render.
+  const generationRef = useRef(0)
+
+  const isOpen = phase !== "closed"
+
+  // Defensive body-scroll lock. Radix's Dialog is `modal` by default and
+  // normally locks scroll itself, but the controller observed the page
+  // still scrolling behind the backdrop on this page — investigated and
+  // left unresolved which of this app's global layout styles is defeating
+  // react-remove-scroll's target detection; enforcing it directly here is
+  // simpler and robust regardless of the root cause.
+  useEffect(() => {
+    if (!isOpen) return
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [isOpen])
+
   const openForTemplate = useCallback(async (id: string) => {
+    const myGeneration = ++generationRef.current
+
     let authed = false
     try {
       const meRes = await fetch("/api/auth/me", { credentials: "same-origin" })
@@ -155,6 +232,8 @@ export default function TrialBooking() {
     } catch {
       authed = false
     }
+    if (myGeneration !== generationRef.current) return // superseded meanwhile
+
     if (!authed) {
       window.location.href = SIGNIN_REDIRECT
       return
@@ -165,15 +244,18 @@ export default function TrialBooking() {
     setFlowError(null)
     setSelectedChild(null)
     setBookedSession(null)
+    setPendingSession(null)
+    setOfferedSession(null)
+    setOfferedWaiver(undefined)
     setWaiverAccepted(false)
     setWaiverSignerName("")
-    setSessionIndex(0)
     setPhase("loading")
 
     try {
       const res = await fetch("/api/public/class-schedule")
       if (!res.ok) throw new Error("bad status")
       const body = (await res.json()) as { slots: ScheduleSlot[]; sessions: ScheduleSession[] }
+      if (myGeneration !== generationRef.current) return
       const foundSlot = body.slots.find((s) => s.templateId === id)
       if (!foundSlot) {
         setLoadError("This class isn't available right now — refresh the page and try again.")
@@ -187,6 +269,7 @@ export default function TrialBooking() {
       setTemplateSessions(sessionsForTemplate)
       setPhase(sessionsForTemplate.length === 0 ? "no_sessions" : "picking")
     } catch {
+      if (myGeneration !== generationRef.current) return
       setLoadError("Couldn't load this class — please try again.")
       setPhase("load_error")
     }
@@ -199,16 +282,28 @@ export default function TrialBooking() {
       void openForTemplate(detail.templateId)
     }
     window.addEventListener("youth:trial-requested", handleTrialRequested)
+
+    // Handshake backstop — see the header comment. Consume-and-clear once
+    // on mount so a click that fired before this listener was attached
+    // still opens the modal.
+    const pendingTemplateId = window.__youthTrialPending
+    if (pendingTemplateId) {
+      window.__youthTrialPending = undefined
+      void openForTemplate(pendingTemplateId)
+    }
+
     return () => window.removeEventListener("youth:trial-requested", handleTrialRequested)
   }, [openForTemplate])
 
   function closeModal() {
+    generationRef.current += 1
     setPhase("closed")
   }
 
   async function attemptBooking(
     session: ScheduleSession,
-    waiver?: { signedBy: string; consentText: string },
+    waiver: { signedBy: string; consentText: string } | undefined,
+    myGeneration: number,
   ) {
     if (!selectedChild) return
     setPhase("booking")
@@ -227,10 +322,13 @@ export default function TrialBooking() {
         }),
       })
     } catch {
+      if (myGeneration !== generationRef.current) return
       setFlowError({ code: "generic", message: "Network error — please try again." })
       setPhase("picking")
       return
     }
+
+    if (myGeneration !== generationRef.current) return // modal closed/reopened while this was in flight
 
     if (res.ok) {
       setBookedSession(session)
@@ -239,9 +337,12 @@ export default function TrialBooking() {
     }
 
     const body = await parseJson(res)
+    if (myGeneration !== generationRef.current) return
+
     const code = typeof body.error === "string" ? body.error : undefined
 
     if (code === "waiver_required") {
+      setPendingSession(session)
       setPhase("waiver")
       return
     }
@@ -253,11 +354,16 @@ export default function TrialBooking() {
     }
 
     if (code === "session_full") {
+      // Never auto-book an unrequested date — a trial is one-per-child-
+      // ever, so silently spending it on a date the parent didn't choose
+      // is exactly the wrong failure mode. Surface an explicit offer
+      // instead; only book on confirm (see confirmOfferedSession).
       const idx = templateSessions.findIndex((s) => s.id === session.id)
       const next = idx >= 0 ? templateSessions[idx + 1] : undefined
       if (next) {
-        setSessionIndex(idx + 1)
-        await attemptBooking(next, waiver)
+        setOfferedSession(next)
+        setOfferedWaiver(waiver)
+        setPhase("session_full_offer")
         return
       }
       setFlowError({ code: "generic", message: "This class is full this week." })
@@ -268,7 +374,7 @@ export default function TrialBooking() {
     if (code === "member_child_no_trial") {
       setFlowError({
         code: "member_child_no_trial",
-        message: "Member kids already have classes included — book a make-up from your dashboard",
+        message: "Your member kids already have classes included — book a make-up instead",
       })
       setPhase("picking")
       return
@@ -277,7 +383,20 @@ export default function TrialBooking() {
     if (code === "trial_already_used") {
       setFlowError({
         code: "trial_already_used",
-        message: "This player's free trial is used — join below to keep coming",
+        message: "Trial already used — join to keep coming",
+      })
+      setPhase("picking")
+      return
+    }
+
+    if (code === "child_not_found") {
+      // Backstop only — should not occur given ChildPicker's
+      // participantKind="dependent" exclusion of self rows. Surfacing
+      // rather than silently failing in case ownership ever legitimately
+      // changes mid-flow (e.g. the player was removed on another tab).
+      setFlowError({
+        code: "generic",
+        message: "We couldn't match that player to your account — refresh and try again.",
       })
       setPhase("picking")
       return
@@ -302,29 +421,52 @@ export default function TrialBooking() {
   function handleSelectChild(member: ChildPickerMember) {
     setSelectedChild(member)
     setFlowError(null)
-    const targetSession = templateSessions[sessionIndex]
+    setPendingSession(null)
+    setOfferedSession(null)
+    setOfferedWaiver(undefined)
+    const targetSession = templateSessions[0]
     if (!targetSession) return
-    void attemptBooking(targetSession)
+    void attemptBooking(targetSession, undefined, generationRef.current)
   }
 
   async function submitWaiver(e: React.FormEvent) {
     e.preventDefault()
     if (!selectedChild || !waiverAccepted || waiverSignerName.trim().length === 0) return
-    const targetSession = templateSessions[sessionIndex]
-    if (!targetSession) return
-    await attemptBooking(targetSession, {
-      signedBy: waiverSignerName.trim(),
-      consentText: DROPIN_WAIVER_TEXT,
-    })
+    // Retry against the exact session that returned waiver_required — NOT
+    // necessarily templateSessions[0]; see pendingSession's doc comment.
+    if (!pendingSession) return
+    await attemptBooking(
+      pendingSession,
+      { signedBy: waiverSignerName.trim(), consentText: DROPIN_WAIVER_TEXT },
+      generationRef.current,
+    )
+  }
+
+  function confirmOfferedSession() {
+    if (!offeredSession) return
+    const session = offeredSession
+    const waiver = offeredWaiver
+    setOfferedSession(null)
+    setOfferedWaiver(undefined)
+    void attemptBooking(session, waiver, generationRef.current)
+  }
+
+  function declineOfferedSession() {
+    setOfferedSession(null)
+    setOfferedWaiver(undefined)
+    setFlowError(null)
+    setPhase("picking")
   }
 
   function resetToPicker() {
     setSelectedChild(null)
     setBookedSession(null)
+    setPendingSession(null)
+    setOfferedSession(null)
+    setOfferedWaiver(undefined)
     setFlowError(null)
     setWaiverAccepted(false)
     setWaiverSignerName("")
-    setSessionIndex(0)
     setPhase(templateSessions.length === 0 ? "no_sessions" : "picking")
   }
 
@@ -333,11 +475,13 @@ export default function TrialBooking() {
     document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" })
   }
 
-  const isOpen = phase !== "closed"
-
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && closeModal()}>
-      <DialogContent className="bg-paper border-cream-3 text-ink max-w-md">
+      {/* Height-capped + its own scroll region as a whole-dialog safety net
+          (e.g. long waiver text on a small viewport) — ChildPicker's list
+          is the PRIMARY scroll region for the "30+ children" case (see that
+          file), so this outer scroll should rarely engage in practice. */}
+      <DialogContent className="bg-paper border-cream-3 text-ink max-w-md max-h-[85vh] overflow-y-auto">
         {phase === "loading" && (
           <>
             <DialogTitle className="text-ink">Booking your free trial</DialogTitle>
@@ -410,6 +554,7 @@ export default function TrialBooking() {
               selectedId={selectedChild?.id ?? null}
               onSelect={handleSelectChild}
               disabled={phase === "booking"}
+              participantKind="dependent"
             />
 
             {phase === "booking" && (
@@ -421,6 +566,23 @@ export default function TrialBooking() {
                 Booking…
               </div>
             )}
+          </>
+        )}
+
+        {phase === "session_full_offer" && slot && offeredSession && (
+          <>
+            <DialogTitle className="text-ink">This week's class is full</DialogTitle>
+            <DialogDescription className="text-ink-2">
+              Book {formatDateTime(offeredSession.startsAt)} instead?
+            </DialogDescription>
+            <div className="flex gap-3">
+              <Button type="button" onClick={confirmOfferedSession}>
+                Book that class
+              </Button>
+              <Button type="button" variant="outline" onClick={declineOfferedSession}>
+                Back
+              </Button>
+            </div>
           </>
         )}
 
@@ -476,6 +638,9 @@ export default function TrialBooking() {
         {phase === "success" && slot && bookedSession && (
           <>
             <DialogTitle className="text-ink">You're all set!</DialogTitle>
+            <DialogDescription className="text-ink-muted">
+              {selectedChild ? `${selectedChild.firstName}'s` : "Your player's"} free trial is booked.
+            </DialogDescription>
             <div className="rounded-xl border border-emerald-300 bg-emerald-50 px-5 py-5 text-emerald-900 space-y-2">
               <p className="font-semibold">{slot.name}</p>
               <p className="text-sm">{formatDateTime(bookedSession.startsAt)}</p>

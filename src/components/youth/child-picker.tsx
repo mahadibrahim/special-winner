@@ -19,6 +19,17 @@ import { LoadingSkeleton } from "@/components/ui/loading-skeleton"
  * `/api/family-members` endpoint with the same payload shape (see
  * registration-wizard.tsx's `handleAddMember`), including the required
  * `parentalConsent: true` the endpoint's Zod schema demands.
+ *
+ * `participantKind="dependent"` hard-excludes `kind: "self"` rows (adult
+ * self-registrant family_members) from the list entirely — not just an
+ * eligibility filter. This matters beyond age: `createChildClassBooking`
+ * (src/lib/classes/book-child.ts) looks up the child by
+ * `eq(familyMembers.parentUserId, opts.parentUserId)`, and a `self` row has
+ * `parentUserId` null (only `selfUserId` is set) — so it can NEVER match
+ * that query and booking always 404s `child_not_found` for a self row,
+ * regardless of age eligibility. A trial/member class booking context has
+ * no legitimate use for `self` rows; default is `"any"` for other callers
+ * that may want them (e.g. a future adult-eligible context).
  */
 
 export interface ChildPickerMember {
@@ -44,6 +55,9 @@ export interface ChildPickerProps {
   /** Disables every card + the add-player button (e.g. while a booking
    *  request for the current selection is in flight). */
   disabled?: boolean
+  /** `"dependent"` hard-excludes `kind: "self"` rows — see the header
+   *  comment. Default `"any"` renders every row returned by the endpoint. */
+  participantKind?: "dependent" | "any"
 }
 
 /** Mirrors `ageOnDate` in src/lib/classes/book-child.ts (also duplicated in
@@ -76,7 +90,13 @@ function formatAgeRange(range: ChildAgeRange): string {
 
 type Phase = "loading" | "error" | "ready"
 
-export function ChildPicker({ ageRange, selectedId, onSelect, disabled = false }: ChildPickerProps) {
+export function ChildPicker({
+  ageRange,
+  selectedId,
+  onSelect,
+  disabled = false,
+  participantKind = "any",
+}: ChildPickerProps) {
   const [phase, setPhase] = useState<Phase>("loading")
   const [members, setMembers] = useState<ChildPickerMember[]>([])
 
@@ -177,11 +197,18 @@ export function ChildPicker({ ageRange, selectedId, onSelect, disabled = false }
     )
   }
 
+  const visibleMembers =
+    participantKind === "dependent" ? members.filter((m) => m.kind !== "self") : members
+
   return (
     <div className="space-y-3">
-      {members.length > 0 && (
-        <div className="space-y-2">
-          {members.map((m) => {
+      {visibleMembers.length > 0 && (
+        // The LIST is the internal scroll region — capped independently of
+        // the modal so a parent with 30+ players still keeps the header,
+        // waiver panel, and CTA buttons visible without scrolling past a
+        // long list to reach them (controller-observed gap).
+        <div className="space-y-2 max-h-[42vh] overflow-y-auto pr-1">
+          {visibleMembers.map((m) => {
             const age = m.birthDate ? ageOnDate(m.birthDate, new Date()) : null
             const eligible = isEligible(age, ageRange)
             const isSelected = selectedId === m.id
@@ -213,7 +240,7 @@ export function ChildPicker({ ageRange, selectedId, onSelect, disabled = false }
         </div>
       )}
 
-      {members.length === 0 && !showAdd && (
+      {visibleMembers.length === 0 && !showAdd && (
         <p className="text-sm text-ink-muted">Add your player below to get started.</p>
       )}
 
