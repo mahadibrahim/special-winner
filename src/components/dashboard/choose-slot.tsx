@@ -162,6 +162,8 @@ function humanizeBookError(code: string | undefined): string {
       return "This week's class isn't open for booking right now — you're enrolled, and next week's class will book automatically.";
     case "no_membership":
       return "We're still confirming your membership payment for this week's booking — you're enrolled, and it'll pick up automatically once that settles.";
+    case "allotment_exhausted":
+      return "This month's classes are used up — your first class books when the new month starts, or book a make-up from your dashboard.";
     case "trial_already_used":
     case "member_child_no_trial":
     case "age_ineligible":
@@ -208,6 +210,11 @@ export function ChooseSlot() {
   const [sessions, setSessions] = useState<ScheduleSession[]>([]);
 
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  // Set when the child already has a different active enrollment and the
+  // parent clicked a different slot — gates the PUT (change-slot) call
+  // behind an explicit confirm rather than silently swapping their home
+  // class out from under them.
+  const [confirmSwitchSlot, setConfirmSwitchSlot] = useState<ScheduleSlot | null>(null);
   const [pendingSlot, setPendingSlot] = useState<ScheduleSlot | null>(null);
   const [pendingSession, setPendingSession] = useState<ScheduleSession | null>(null);
   const [successInfo, setSuccessInfo] = useState<SuccessInfo | null>(null);
@@ -287,17 +294,40 @@ export function ChooseSlot() {
     return sessions.find((s) => s.templateId === templateId) ?? null;
   }
 
-  async function enrollWithRetry(
-    templateId: string,
+  /**
+   * Enrolls the child in `slot`, OR — when the child already holds a
+   * different active enrollment — atomically MOVES the standing seat via
+   * `PUT /api/classes/enrollments/:id` instead of POSTing a second one.
+   * Two standing enrollments against one membership's allotment is exactly
+   * the bug this guards against: the cron would silently fail to auto-book
+   * the second slot every week once the shared allotment is spent.
+   *
+   * Selecting the child's CURRENT slot short-circuits to success with no
+   * network call — there's nothing to change.
+   */
+  async function enrollOrChangeWithRetry(
+    slot: ScheduleSlot,
     attempt = 0,
   ): Promise<{ ok: true } | { ok: false; message: string }> {
+    const currentEnrollment = childSummary?.enrollment;
+
+    if (currentEnrollment && currentEnrollment.templateId === slot.templateId) {
+      return { ok: true };
+    }
+
     let res: Response;
     try {
-      res = await fetch("/api/classes/enrollments", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slotTemplateId: templateId, familyMemberId: childId }),
-      });
+      res = currentEnrollment
+        ? await fetch(`/api/classes/enrollments/${currentEnrollment.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ newSlotTemplateId: slot.templateId }),
+          })
+        : await fetch("/api/classes/enrollments", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ slotTemplateId: slot.templateId, familyMemberId: childId }),
+          });
     } catch {
       return { ok: false, message: "Network error — please try again." };
     }
@@ -313,7 +343,7 @@ export function ChooseSlot() {
         setPhase("payment_settling");
         setSettlingAttempt(attempt + 1);
         await sleep(NO_MEMBERSHIP_RETRY_DELAYS_MS[attempt]);
-        return enrollWithRetry(templateId, attempt + 1);
+        return enrollOrChangeWithRetry(slot, attempt + 1);
       }
       return {
         ok: false,
@@ -401,14 +431,30 @@ export function ChooseSlot() {
     finishSuccess(slot, null, humanizeBookError(code));
   }
 
+  /**
+   * Slot-card click handler. When the child already has a DIFFERENT active
+   * enrollment, this only opens the confirm-switch prompt — the actual
+   * change goes through handleSelectSlot after the parent confirms.
+   */
+  function requestSelectSlot(slot: ScheduleSlot) {
+    if (phase === "enrolling" || phase === "payment_settling" || phase === "booking") return;
+    const currentEnrollment = childSummary?.enrollment;
+    if (currentEnrollment && currentEnrollment.templateId !== slot.templateId) {
+      setConfirmSwitchSlot(slot);
+      return;
+    }
+    void handleSelectSlot(slot);
+  }
+
   async function handleSelectSlot(slot: ScheduleSlot) {
     if (phase === "enrolling" || phase === "payment_settling" || phase === "booking") return;
+    setConfirmSwitchSlot(null);
     setSelectedTemplateId(slot.templateId);
     setFlowError(null);
     setSettlingAttempt(0);
     setPhase("enrolling");
 
-    const enrollResult = await enrollWithRetry(slot.templateId);
+    const enrollResult = await enrollOrChangeWithRetry(slot);
     if (!enrollResult.ok) {
       setPhase("picking");
       setFlowError(enrollResult.message);
@@ -542,6 +588,15 @@ export function ChooseSlot() {
             {waiverSubmitting ? "Saving…" : "Sign waiver & confirm class"}
           </Button>
         </form>
+        {/* The enrollment already stands even without a signature — this is
+            an exit for "not right now", never a way to skip the waiver
+            requirement for booking itself. */}
+        <a
+          href="/dashboard/family"
+          className="mt-4 inline-block text-sm text-ochre font-medium hover:underline"
+        >
+          Back to your dashboard — I'll sign this later →
+        </a>
       </div>
     );
   }
@@ -589,13 +644,32 @@ export function ChooseSlot() {
         <div className="rounded-lg border border-border bg-cream-2 px-4 py-3 text-sm text-ink-muted">
           Already enrolled in {childSummary.enrollment.templateName} —{" "}
           {formatDayTime(childSummary.enrollment.weekday, childSummary.enrollment.startTime)}.
-          Picking a slot below adds another class.
+          Picking a different slot below switches their home class.
         </div>
       )}
 
       <ErrorBanner message={flowError} />
 
-      {eligibleSlots.length === 0 ? (
+      {confirmSwitchSlot ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-5 space-y-4">
+          <p className="text-sm text-ink-2">
+            Switch {childSummary?.name ?? "your child"}'s home class to{" "}
+            <strong>{confirmSwitchSlot.name}</strong> (
+            {formatDayTime(confirmSwitchSlot.weekday, confirmSwitchSlot.startTime)})?
+            {childSummary?.enrollment && (
+              <> This replaces their current class, {childSummary.enrollment.templateName}.</>
+            )}
+          </p>
+          <div className="flex gap-3">
+            <Button type="button" onClick={() => void handleSelectSlot(confirmSwitchSlot)}>
+              Switch class
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setConfirmSwitchSlot(null)}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : eligibleSlots.length === 0 ? (
         <EmptyState
           title="No classes yet for this age"
           description="We don't have an open slot in this child's age range right now — check back soon or reach out and we'll help you find one."
@@ -610,7 +684,7 @@ export function ChooseSlot() {
                 key={slot.templateId}
                 type="button"
                 disabled={full}
-                onClick={() => void handleSelectSlot(slot)}
+                onClick={() => requestSelectSlot(slot)}
                 className={`text-left rounded-xl border p-4 transition-colors ${
                   full
                     ? "border-border bg-cream-2 opacity-60 cursor-not-allowed"

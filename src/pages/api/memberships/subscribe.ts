@@ -73,6 +73,13 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
   if (!tierId || !billingInterval) {
     return json({ error: "tierId and billingInterval are required" }, 422);
   }
+  // A malformed uuid literal makes Postgres throw ("invalid input syntax for
+  // type uuid") on the lookup below, which would surface as a 500 instead of
+  // the same "not found" a well-formed-but-nonexistent id gets — mirrors the
+  // familyMemberId guard above.
+  if (!UUID_RX.test(tierId)) {
+    return json({ error: "Tier not found" }, 404);
+  }
 
   const db = getDb();
 
