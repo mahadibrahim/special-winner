@@ -23,10 +23,10 @@ import LandingFaq, { type LandingFaqItem } from "@/components/landing/landing-fa
 import SectionJumpBar from "@/components/youth/bands/section-jump-bar.astro"
 import FeatureBand from "@/components/youth/bands/feature-band.astro"
 import StatementCards from "@/components/youth/bands/statement-cards.astro"
-import PricingCards from "@/components/youth/bands/pricing-cards.astro"
 import SlotGraphic from "@/components/youth/bands/slot-graphic.astro"
 import ClassSchedule from "@/components/youth/class-schedule"
 import TrialBooking from "@/components/youth/trial-booking"
+import ClassTiers from "@/components/youth/class-tiers"
 import { PATHWAY, PATHWAY_DETAILS } from "@/lib/youth/landing-content"
 import { faqPageJsonLd } from "@/lib/seo/faq-jsonld"
 import { setMarketingEdgeCache } from "@/lib/http/edge-cache"
@@ -125,38 +125,6 @@ const FEEL_CARDS = [
     label: "The feedback",
     statement: "Praised for the right things.",
     body: "Specific praise for real effort — confidence built on what they can actually do.",
-  },
-]
-
-// Pricing (mockup `.pricing .pgrid`) — today's TRUE model, not the mockup's
-// sample rates. Card 2 was meant to carry a live "from $" figure via a small
-// client island reusing fetchPublicCatalogSeasons + minIndividualPrice, but
-// PricingCards (src/components/youth/bands/pricing-cards.astro) is a plain
-// Astro presentational component with no slot/island seam per-card — piping
-// a live number through it cleanly isn't possible without either modifying
-// its Props (out of scope; its interface is ground truth) or duplicating its
-// markup outside the primitive. Computing the figure server-side instead
-// would freeze it into this page's edge-cached HTML for up to a day
-// (setMarketingEdgeCache below: s-maxage=60, stale-while-revalidate=86400) —
-// the same staleness trap src/components/landing/tile-facts-line.tsx exists
-// to avoid. Per the brief's documented fallback, Card 2 drops the live
-// figure and states the honest reason instead. Never hardcoded a number.
-const PRICING_CARDS = [
-  {
-    label: "Blocks",
-    amount: "Priced per block",
-    body: "Classes are booked as multi-week blocks. Every class card shows its block price before you register.",
-  },
-  {
-    label: "The card is the truth",
-    amount: "No separate figure",
-    body: "We could publish a summary price here, but it would only be one more number to keep in sync. The block price on each open class card below is the real one.",
-    hot: true,
-  },
-  {
-    label: "No surprises",
-    amount: "No hidden fees",
-    body: "No call required, no quote step — the price on the card is the price at checkout.",
   },
 ]
 
@@ -351,14 +319,18 @@ const faqs: LandingFaqItem[] = [
       <YouthCoachSection headingId="classes-coach-h" />
     </div>
 
-    {/* ---------- Pricing — the NO-RATE-CARD default state -----------------
+    {/* ---------- Pricing — live tiers, rate-card-driven ---------------------
         Owner-decided contract (2026-08-18): this band is rate-card-driven.
-        When a classes rate card exists in admin (annual registration,
-        per-session block tiers, private training — see the tracking issue),
-        it renders the priced three-card version from the approved mockup,
-        live. Until then this figure-free default renders — never invented
-        dollar amounts. Same pattern as /adult/pickup's drop-in rate card
-        fallback. */}
+        ClassTiers (Task 6) fetches /api/public/membership-tiers client-side
+        and renders every live CLASS tier (classes_per_month > 0 or
+        unlimited_classes) with a wired "Join" → child-picker → checkout
+        flow. When the org has no live class tiers, it falls back to the
+        same figure-free default this band used to render statically — never
+        invented dollar amounts. Same pattern as /adult/pickup's drop-in
+        rate card fallback. Must be an island, not frontmatter-computed: the
+        enclosing page is edge-cached marketing HTML
+        (setMarketingEdgeCache above), so live pricing can only live in the
+        client. */}
     <section id="pricing" class="px-6 sm:px-9 py-[76px]">
       <div class="max-w-[1080px] mx-auto">
         <h2 class="font-display font-semibold tracking-tight text-ink" style="font-size:clamp(2.1rem,3.8vw,2.9rem);letter-spacing:-0.015em">
@@ -367,7 +339,7 @@ const faqs: LandingFaqItem[] = [
         {/* No lede — the cards carry the whole message (owner: redundant
             framing text helps nobody). */}
         <div class="mt-[38px]">
-          <PricingCards cards={PRICING_CARDS} />
+          <ClassTiers client:load />
         </div>
       </div>
     </section>

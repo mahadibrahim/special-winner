@@ -215,8 +215,11 @@ test.describe("youth classes v2", () => {
       page.getByRole("heading", { level: 1, name: /first coach is the one that counts/i }),
     ).toBeVisible()
 
-    // SectionJumpBar renders one [data-jump-link] pill per JUMP_ITEMS entry.
-    await expect(page.locator("[data-jump-link]")).toHaveCount(7)
+    // SectionJumpBar renders one [data-jump-link] pill per JUMP_ITEMS entry
+    // (pathway, philosophy, feel, coach, pricing, schedule, open, faqs — 8;
+    // this was drifted at 7, a pre-existing mismatch unrelated to Task 6's
+    // pricing-band change, found and fixed here).
+    await expect(page.locator("[data-jump-link]")).toHaveCount(8)
 
     // One FeatureBand per pathway step, id="step-<slug>" — Micros is first.
     await expect(page.locator("#step-micros")).toBeVisible()
