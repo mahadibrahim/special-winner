@@ -266,6 +266,7 @@ export async function cleanupTestClassFixtures(
 export const TEST_MEMBERSHIP_TIER_NAME_PREFIXES = [
   "Cron Tier 1 - ",
   "Cron Rates Tier 1 - ",
+  "Makeup Tier 1 - ",
 ] as const;
 
 /**
