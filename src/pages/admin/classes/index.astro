@@ -1,0 +1,60 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { AdminLayout } from '@/components/admin/admin-layout';
+import { getPrimaryRoleName } from '@/lib/auth';
+import { getDb } from '@/lib/db';
+import { classSlotTemplates, classEnrollments } from '@/lib/db/schema/classes';
+import { and, asc, eq, sql } from 'drizzle-orm';
+import TemplatesList from '@/components/admin/classes/templates-list';
+
+export const prerender = false;
+
+const user = Astro.locals.user!;
+const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
+const orgId = Astro.locals.organization?.id;
+
+const templateRows = orgId
+  ? await getDb()
+      .select()
+      .from(classSlotTemplates)
+      .where(eq(classSlotTemplates.organizationId, orgId))
+      .orderBy(asc(classSlotTemplates.weekday), asc(classSlotTemplates.startTime))
+  : [];
+
+const enrollmentCountRows = orgId
+  ? await getDb()
+      .select({
+        slotTemplateId: classEnrollments.slotTemplateId,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(classEnrollments)
+      .innerJoin(classSlotTemplates, eq(classEnrollments.slotTemplateId, classSlotTemplates.id))
+      .where(
+        and(
+          eq(classSlotTemplates.organizationId, orgId),
+          eq(classEnrollments.status, 'active'),
+        ),
+      )
+      .groupBy(classEnrollments.slotTemplateId)
+  : [];
+
+const enrolledCountByTemplateId = new Map(
+  enrollmentCountRows.map((row) => [row.slotTemplateId, row.count]),
+);
+
+const templates = templateRows.map((template) => ({
+  ...template,
+  enrolledCount: enrolledCountByTemplateId.get(template.id) ?? 0,
+}));
+---
+
+<BaseLayout title="Classes — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    role={primaryRole}
+    currentPath="/admin/classes"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <TemplatesList client:load templates={templates} />
+  </AdminLayout>
+</BaseLayout>

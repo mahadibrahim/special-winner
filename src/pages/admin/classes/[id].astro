@@ -1,0 +1,54 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { AdminLayout } from '@/components/admin/admin-layout';
+import { getPrimaryRoleName } from '@/lib/auth';
+import { getDb } from '@/lib/db';
+import { classSlotTemplates } from '@/lib/db/schema/classes';
+import { venues } from '@/lib/db/schema/teams';
+import { locations } from '@/lib/db/schema/organizations';
+import { and, asc, eq } from 'drizzle-orm';
+import TemplateForm from '@/components/admin/classes/template-form';
+import TemplateRoster from '@/components/admin/classes/template-roster';
+
+export const prerender = false;
+
+const user = Astro.locals.user!;
+const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
+const orgId = Astro.locals.organization?.id;
+const templateId = Astro.params.id!;
+
+if (!orgId) {
+  return Astro.redirect('/admin/classes');
+}
+
+const [template] = await getDb()
+  .select()
+  .from(classSlotTemplates)
+  .where(and(eq(classSlotTemplates.id, templateId), eq(classSlotTemplates.organizationId, orgId)))
+  .limit(1);
+
+if (!template) {
+  return Astro.redirect('/admin/classes');
+}
+
+const venueRows = await getDb()
+  .select({ id: venues.id, name: venues.name })
+  .from(venues)
+  .innerJoin(locations, eq(locations.id, venues.locationId))
+  .where(eq(locations.organizationId, orgId))
+  .orderBy(asc(venues.name));
+---
+
+<BaseLayout title={`Edit ${template.name} — Admin — Aspire Sports`} navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    role={primaryRole}
+    currentPath="/admin/classes"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <div class="space-y-8">
+      <TemplateForm client:load template={template} venues={venueRows} />
+      <TemplateRoster client:load templateId={template.id} />
+    </div>
+  </AdminLayout>
+</BaseLayout>
