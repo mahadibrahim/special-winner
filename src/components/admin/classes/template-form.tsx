@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -74,27 +74,44 @@ export default function TemplateForm({ template, venues }: TemplateFormProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Guards against a stale roster-check response (from a toggle the admin
+  // already reversed) landing after a newer one and clobbering state.
+  const rosterAbortRef = useRef<AbortController | null>(null);
+
   async function handleActiveChange(checked: boolean) {
     setActive(checked);
+    rosterAbortRef.current?.abort();
     if (!isEdit || !template.active || checked) {
+      rosterAbortRef.current = null;
+      setCheckingRoster(false);
       setShowCancelConfirm(false);
       setCancelFutureSessions(false);
       return;
     }
     // Was active, now being turned off — check for upcoming sessions.
+    const controller = new AbortController();
+    rosterAbortRef.current = controller;
     setCheckingRoster(true);
     try {
-      const res = await fetch(`/api/admin/classes/templates/${template.id}/roster`);
+      const res = await fetch(`/api/admin/classes/templates/${template.id}/roster`, {
+        signal: controller.signal,
+      });
       if (res.ok) {
         const data = (await res.json()) as { upcomingSessions?: unknown[] };
         const count = data.upcomingSessions?.length ?? 0;
         setUpcomingSessionsCount(count);
         setShowCancelConfirm(count > 0);
       }
-    } catch {
+    } catch (err) {
+      if ((err as Error)?.name === "AbortError") return;
       // fail-soft: no confirm section if the roster check itself fails
     } finally {
-      setCheckingRoster(false);
+      // Only the most recent in-flight check gets to clear the busy flag —
+      // an aborted/superseded one must not stomp on the newer toggle's state.
+      if (rosterAbortRef.current === controller) {
+        setCheckingRoster(false);
+        rosterAbortRef.current = null;
+      }
     }
   }
 
@@ -102,6 +119,10 @@ export default function TemplateForm({ template, venues }: TemplateFormProps) {
     e.preventDefault();
     setError(null);
 
+    if (checkingRoster) {
+      setError("Still checking upcoming sessions — try again in a moment.");
+      return;
+    }
     if (!venueId) {
       setError("Venue is required");
       return;
@@ -203,9 +224,9 @@ export default function TemplateForm({ template, venues }: TemplateFormProps) {
         <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 space-y-2">
           <p>
             {upcomingSessionsCount} upcoming session
-            {upcomingSessionsCount === 1 ? "" : "s"} exist
-            {upcomingSessionsCount === 1 ? "s" : ""} for this class. Cancel them too?
-            Bookings will be refunded.
+            {upcomingSessionsCount === 1 ? "" : "s"}{" "}
+            {upcomingSessionsCount === 1 ? "exists" : "exist"} for this class. Cancel{" "}
+            {upcomingSessionsCount === 1 ? "it" : "them"} too? Bookings will be refunded.
           </p>
           <label className="flex items-center gap-2">
             <input
@@ -377,8 +398,8 @@ export default function TemplateForm({ template, venues }: TemplateFormProps) {
       </div>
 
       <div className="flex gap-2">
-        <Button type="submit" disabled={busy}>
-          {busy ? "Saving…" : isEdit ? "Save changes" : "Create class"}
+        <Button type="submit" disabled={busy || checkingRoster}>
+          {busy ? "Saving…" : checkingRoster ? "Checking sessions…" : isEdit ? "Save changes" : "Create class"}
         </Button>
         <Button type="button" variant="outline" asChild>
           <a href="/admin/classes">Back</a>
