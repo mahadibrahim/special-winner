@@ -7,6 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ErrorBanner } from "@/components/ui/error-banner"
+import { EmptyState } from "@/components/ui/empty-state"
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton"
 import { toast } from "sonner"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
@@ -364,6 +365,13 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
     if (res.ok) {
       setBookedSession(session)
       setPhase("success")
+      // Feedback survives even if the modal gets dismissed some other way
+      // (e.g. a stray Escape) before the user reads the success panel —
+      // see the "success screen unreachable" fix-list finding. `onBooked`
+      // below refreshes the parent's /api/classes/summary data but does
+      // NOT close the modal; only the user's own Close/backdrop dismiss
+      // (handleClose) does that.
+      toast.success(`${child.name}'s make-up class is booked for ${formatDateTime(session.startsAt)}.`)
       onBooked()
       return
     }
@@ -386,8 +394,13 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
     }
 
     if (code === "already_booked") {
+      // Soft success — the child already holds a booking on this session
+      // (e.g. a second click, or a session the picker didn't know to
+      // exclude). Same "stay open, let the user dismiss" rule as the
+      // primary success path above.
       setBookedSession(session)
       setPhase("success")
+      toast.success(`${child.name} is already booked for that class.`)
       onBooked()
       return
     }
@@ -422,6 +435,10 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
       })
       if (myGeneration !== generationRef.current) return
       const body = await parseJson(res)
+      // Re-check AGAIN after the second await (parseJson) — the modal can
+      // close/reopen for a different session while the body is still being
+      // read, same class of race attemptBook already guards against.
+      if (myGeneration !== generationRef.current) return
       if (!res.ok) {
         const err = body.error as { message?: string } | string | undefined
         const message =
@@ -432,16 +449,34 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
         setPhase("allotment_exhausted")
         return
       }
-      if (body.paymentRequired && typeof body.checkoutUrl === "string") {
-        window.location.href = body.checkoutUrl
+      if (body.paymentRequired === true) {
+        if (typeof body.checkoutUrl === "string" && body.checkoutUrl.length > 0) {
+          window.location.href = body.checkoutUrl
+          return
+        }
+        // Malformed response — paymentRequired without a usable
+        // checkoutUrl. Never fall through to a false "success"; surface an
+        // error and let the user retry.
+        setFlowError("Could not start payment — please try again.")
+        setPhase("allotment_exhausted")
         return
       }
-      // Free path — shouldn't normally happen for a paid make-up (the
-      // endpoint always prices it > 0), but degrade to success rather than
-      // stall if it ever does.
-      setBookedSession(exhaustedOffer.session)
-      setPhase("success")
-      onBooked()
+      if (body.paymentRequired === false) {
+        // Free path — shouldn't normally happen for a paid make-up (the
+        // endpoint always prices it > 0), but a genuine $0 response from
+        // the server is a real success, not a fallback guess.
+        setBookedSession(exhaustedOffer.session)
+        setPhase("success")
+        toast.success(
+          `${child.name}'s make-up class is booked for ${formatDateTime(exhaustedOffer.session.startsAt)}.`,
+        )
+        onBooked()
+        return
+      }
+      // Any other shape (missing/unexpected paymentRequired) is malformed —
+      // never assume success from an ambiguous response.
+      setFlowError("Could not start payment — please try again.")
+      setPhase("allotment_exhausted")
     } catch {
       if (myGeneration !== generationRef.current) return
       setFlowError("Network error — please try again.")
@@ -500,9 +535,11 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
 
             <div className="relative">
               {eligibleSessions.length === 0 ? (
-                <p className="text-sm text-ink-muted">
-                  No upcoming make-up classes are available right now — check back soon.
-                </p>
+                <EmptyState
+                  title="No other classes available"
+                  description="Nothing open in the next two weeks — check back soon, or reach out if your child needs a spot sooner."
+                  className="py-6"
+                />
               ) : (
                 <div className="space-y-2 max-h-[45vh] overflow-y-auto">
                   {eligibleSessions.map((s) => {
@@ -710,6 +747,19 @@ function MembershipChildCard({
 
   const badge = statusBadge(membership.status)
   const isActive = membership.status === "active"
+  // No billing portal exists in this repo yet (tracked platform gap — see
+  // task-7-report.md). /dashboard/payments is a dead stub, so past_due's
+  // CTA is an honest mailto to support rather than a link to nowhere.
+  // paused/incomplete get NO payment CTA at all — there's nothing actionable
+  // for the parent to click (paused was a deliberate pause; incomplete is
+  // mid-processing), just a neutral status line below.
+  const updatePaymentMailto =
+    "mailto:hello@aspiresportsohio.com?subject=" +
+    encodeURIComponent("Update payment method") +
+    "&body=" +
+    encodeURIComponent(
+      `Hi Aspire team,\n\nI need to update the payment method for ${child.name}'s class membership.\n\nThanks!`,
+    )
 
   return (
     <>
@@ -721,13 +771,14 @@ function MembershipChildCard({
         status={badge}
         action={
           <div className="flex flex-col items-end gap-1.5">
-            {isActive ? (
+            {isActive && (
               <Button size="sm" onClick={() => setModalOpen(true)}>
                 Book a make-up
               </Button>
-            ) : (
+            )}
+            {membership.status === "past_due" && (
               <Button asChild size="sm" variant="outline">
-                <a href="/dashboard/payments">Update payment</a>
+                <a href={updatePaymentMailto}>Contact us to update payment</a>
               </Button>
             )}
             {child.enrollment && (
@@ -772,6 +823,12 @@ function MembershipChildCard({
               Update your payment method to keep classes active.
             </p>
           )}
+          {membership.status === "paused" && (
+            <p className="text-xs text-ink-muted">Membership paused.</p>
+          )}
+          {membership.status === "incomplete" && (
+            <p className="text-xs text-ink-muted">Payment processing…</p>
+          )}
         </div>
       </DashboardCard>
 
@@ -779,10 +836,12 @@ function MembershipChildCard({
         child={child}
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        onBooked={() => {
-          setModalOpen(false)
-          onChanged()
-        }}
+        // Refreshes /api/classes/summary (new nextSession, allotment used)
+        // but deliberately does NOT close the modal — the user needs to see
+        // the success panel first. Only handleClose (Close button /
+        // backdrop / Escape, inside MakeUpModal) closes it. See the
+        // "success screen unreachable" fix-list finding.
+        onBooked={onChanged}
       />
     </>
   )
@@ -831,7 +890,20 @@ export default function FamilyClassesCard() {
 
   useEffect(() => {
     let cancelled = false
-    setPhase("loading")
+    // Only the very FIRST load shows the loading skeleton. Every later
+    // reload (reloadKey > 0, triggered by `onChanged` after a booking/
+    // cancel action) is a background refresh: flipping `phase` back to
+    // "loading" here would swap the whole list — including any currently
+    // OPEN make-up modal, which lives inside one of these cards — for a
+    // skeleton and back, unmounting the modal and silently resetting its
+    // `modalOpen` state to false. That was the real bug behind "the
+    // success screen is unreachable" (fix-list finding): the modal wasn't
+    // being closed by a stray `setModalOpen(false)` call, it was being
+    // destroyed out from under itself by this refresh. A background
+    // refresh must update `children` in place without ever unmounting the
+    // tree that's already rendered.
+    const isInitialLoad = reloadKey === 0
+    if (isInitialLoad) setPhase("loading")
     ;(async () => {
       try {
         const [summaryRes, tiersRes] = await Promise.all([
@@ -840,7 +912,11 @@ export default function FamilyClassesCard() {
         ])
         if (cancelled) return
         if (!summaryRes.ok) {
-          setPhase("error")
+          if (isInitialLoad) {
+            setPhase("error")
+          } else {
+            toast.error("Couldn't refresh your class memberships — try reloading the page.")
+          }
           return
         }
         const summaryBody = (await summaryRes.json()) as { children: SummaryChild[] }
@@ -866,7 +942,12 @@ export default function FamilyClassesCard() {
         setCheapestMonthlyCents(cheapest)
         setPhase("ready")
       } catch {
-        if (!cancelled) setPhase("error")
+        if (cancelled) return
+        if (isInitialLoad) {
+          setPhase("error")
+        } else {
+          toast.error("Couldn't refresh your class memberships — try reloading the page.")
+        }
       }
     })()
     return () => {
