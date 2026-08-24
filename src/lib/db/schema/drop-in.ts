@@ -19,6 +19,7 @@ import { users } from "./users";
 import { familyMembers } from "./registrations";
 import { mediaAssets } from "./media";
 import { venueResources } from "./scheduling";
+import { classSlotTemplates } from "./classes";
 
 // === enums ===
 
@@ -46,6 +47,9 @@ export const dropInBookingStatusEnum = pgEnum("drop_in_booking_status", [
 export const dropInBookingSourceEnum = pgEnum("drop_in_booking_source", [
   "online_booking",
   "walk_up",
+  // Materialized by the class-slot cron (auto-booking an enrolled child into
+  // a newly-created weekly session) — see src/lib/classes/book-child.ts.
+  "auto_enrollment",
 ]);
 export const dropInPaymentMethodEnum = pgEnum("drop_in_payment_method", [
   "card_online",
@@ -55,6 +59,7 @@ export const dropInPaymentMethodEnum = pgEnum("drop_in_payment_method", [
   // Host's free seat in a game they host (GoodRec model) — created/cancelled
   // by src/lib/dropin/host-assignment.ts, always amount_paid_cents = 0.
   "host_comp",
+  "trial",
 ]);
 export const dropInCancellationReasonEnum = pgEnum("drop_in_cancellation_reason", [
   "user_request",
@@ -123,6 +128,13 @@ export const dropInSessions = pgTable(
     hostUserId: uuid("host_user_id").references(() => users.id, {
       onDelete: "set null",
     }),
+    // Set when the session was materialized from a recurring class slot
+    // template (kind='class' home-slot machinery). NULL for every pickup
+    // session and for one-off classes created directly in admin.
+    classSlotTemplateId: uuid("class_slot_template_id").references(
+      () => classSlotTemplates.id,
+      { onDelete: "set null" },
+    ),
     // Stamped when the one-and-only "needs players" alert blast for this
     // session is claimed by the cron (stamp-then-send; see fill-alerts.ts).
     fillAlertSentAt: timestamp("fill_alert_sent_at", { withTimezone: true }),
@@ -133,6 +145,11 @@ export const dropInSessions = pgTable(
     index("drop_in_sessions_org_starts_at_idx").on(table.organizationId, table.startsAt),
     index("drop_in_sessions_venue_starts_at_idx").on(table.venueId, table.startsAt),
     index("drop_in_sessions_status_idx").on(table.status),
+    // Materialization idempotency: at most one session per template per
+    // start instant — the cron upserts against this.
+    uniqueIndex("drop_in_sessions_one_per_template_start")
+      .on(table.classSlotTemplateId, table.startsAt)
+      .where(sql`class_slot_template_id IS NOT NULL`),
   ],
 );
 
@@ -163,7 +180,9 @@ export const dropInBookings = pgTable(
     source: dropInBookingSourceEnum("source").notNull(),
     paymentMethod: dropInPaymentMethodEnum("payment_method").notNull(),
     amountPaidCents: integer("amount_paid_cents").notNull().default(0),
-    // Soft reference — no FK; the memberships table does not exist yet.
+    // Soft reference — no FK. See memberships.ts (memberships table, has
+    // existed since Phase 3); kept soft here to avoid a cross-cutting
+    // migration on this already-populated table.
     membershipId: uuid("membership_id"),
     stripePaymentIntentId: text("stripe_payment_intent_id"),
     stripeRefundId: text("stripe_refund_id"),

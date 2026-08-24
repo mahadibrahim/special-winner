@@ -84,7 +84,9 @@ async function orgsWithFeature(
 }
 
 /**
- * Scan 1: completed drop-in sessions → confirmed, non-no-show bookings.
+ * Scan 1: completed PICKUP drop-in sessions → confirmed, non-no-show
+ * bookings. Class sessions are excluded on purpose — see the inline note on
+ * the `kind` condition below.
  *
  * The `notExists` clause anti-joins against feedback_requests on the exact
  * dedupe key (kind + targetId + recipientUserId — the same key the unique
@@ -120,6 +122,16 @@ async function scanDropIns(now: Date, enabledOrgs: Set<string>): Promise<Candida
     .where(
       and(
         eq(dropInBookings.status, "confirmed"),
+        // PICKUP ONLY — deliberate. `drop_in_sessions` also holds youth
+        // class sessions (kind='class'), which the class-slot cron
+        // materializes WEEKLY and auto-books every enrolled child into. Left
+        // unfiltered, this scan turns every recurring class attendance into
+        // its own NPS ask, so an enrolled family gets an "how was your
+        // visit?" email every single week — for a standing seat they opted
+        // into once. What (if anything) class families should be asked, and
+        // on what cadence, is a Plan 3 product decision; until then they get
+        // nothing rather than weekly noise.
+        eq(dropInSessions.kind, "pickup"),
         lte(dropInSessions.endsAt, endedBefore),
         gte(dropInSessions.endsAt, endedAfter),
         inArray(dropInSessions.status, ["scheduled", "completed"]),

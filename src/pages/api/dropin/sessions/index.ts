@@ -3,7 +3,8 @@
  *
  * Customer-facing list endpoint for the browse page. Returns scheduled
  * sessions for the current host org over a window of upcoming days, with
- * optional filters (date, sport, skill, venue, audience).
+ * optional filters (date, sport, skill, venue, audience) and a `kind`
+ * filter that DEFAULTS to pickup (see the inline note below).
  *
  * Confirmed-count is computed inline so the UI can render a capacity meter
  * without a follow-up call. Pricing is NOT applied per-user here — the UI
@@ -50,6 +51,17 @@ export const GET: APIRoute = async ({ url, locals }) => {
   const audience = url.searchParams.get("audience");
   const fromIso = url.searchParams.get("from");
   const toIso = url.searchParams.get("to");
+  // Kind: DEFAULTS TO 'pickup'. `drop_in_sessions` holds two very different
+  // products — adult pickup and youth classes (kind='class', materialized
+  // weekly by the class-slot cron, see src/lib/classes/materialize.ts).
+  // Every consumer of this endpoint (the browse page's SessionList, the
+  // SoccerOne PickupGames grid, the locations page's next-pickup cadence,
+  // the landing pickup finder) renders and links its rows as bookable
+  // PICKUP inventory, so an unfiltered list would flood adult surfaces with
+  // kids' classes the moment the cron runs. Class surfaces opt in
+  // explicitly with `?kind=class`; anything else (absent, unknown value)
+  // means pickup.
+  const kind = url.searchParams.get("kind") === "class" ? "class" : "pickup";
 
   const now = new Date();
   const fromDate = fromIso ? new Date(fromIso) : now;
@@ -60,6 +72,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
   const conds = [
     eq(dropInSessions.organizationId, orgId),
     eq(dropInSessions.status, "scheduled"),
+    eq(dropInSessions.kind, kind),
     gte(dropInSessions.startsAt, fromDate),
     lte(dropInSessions.startsAt, toDate),
   ];

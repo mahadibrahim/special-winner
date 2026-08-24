@@ -128,6 +128,11 @@ export async function fulfillDropInBookingPayment(
   const waiverSignedAt = waiverSignedAtRaw ? new Date(waiverSignedAtRaw) : null;
   // Brand is set in extraMetadata at payment creation time (PR #168, bookings/index.ts).
   const brand = normalizeBrand(md.brand);
+  // Child paid make-up (see bookings/index.ts's file doc comment): the
+  // checkout endpoint already validated this is the buyer's dependent and
+  // that the session is `kind: "class"` before stamping it, so the webhook
+  // trusts it exactly like `membership_id` above — never re-validated here.
+  const familyMemberId = md.family_member_id || null;
   // Re-sanitize even though create-checkout.ts already sanitized before
   // stamping metadata — the webhook is the DB insert boundary, so it never
   // trusts a round-tripped Stripe value without re-checking the allow-list.
@@ -218,6 +223,16 @@ export async function fulfillDropInBookingPayment(
     //      row's stripePaymentIntentId is replaced by the claim payment's
     //      PI — a redelivery of the ORIGINAL checkout event then misses the
     //      PI-based dedupe above and would re-insert here without this guard.
+    // Participant-scoped: matches the DB's own dedupe key
+    // (drop_in_bookings_one_active_per_participant_session_v3, keyed on
+    // COALESCE(family_member_id, user_id)). Without this, a parent whose
+    // first child already has an active row on this session would have a
+    // SECOND child's paid make-up wrongly treated as a duplicate of the
+    // first child's booking. When `familyMemberId` is absent (every adult
+    // drop-in, unchanged) this is byte-for-byte the original query.
+    const participantFilter = familyMemberId
+      ? eq(dropInBookings.familyMemberId, familyMemberId)
+      : eq(dropInBookings.userId, userId);
     const [activeForUser] = await tx
       .select({
         id: dropInBookings.id,
@@ -228,7 +243,7 @@ export async function fulfillDropInBookingPayment(
       .where(
         and(
           eq(dropInBookings.sessionId, sessionDbId),
-          eq(dropInBookings.userId, userId),
+          participantFilter,
           sql`${dropInBookings.status} IN ('confirmed', 'waitlisted', 'pending_claim', 'pending_payment')`,
         ),
       )
@@ -269,6 +284,7 @@ export async function fulfillDropInBookingPayment(
         .values({
           sessionId: sessionDbId,
           userId,
+          familyMemberId,
           status: "waitlisted",
           waitlistPriority: OVERFLOW_WAITLIST_PRIORITY,
           source: "online_booking",
@@ -286,6 +302,7 @@ export async function fulfillDropInBookingPayment(
           waiverSigned: waiverName !== null,
           waiverSignedAt,
           waiverSignedBy: waiverName,
+          waiverConsentVariant: waiverName !== null && familyMemberId ? "guardian" : null,
           brand,
           referralSource,
         })
@@ -330,6 +347,7 @@ export async function fulfillDropInBookingPayment(
       .values({
         sessionId: sessionDbId,
         userId,
+        familyMemberId,
         status: "confirmed",
         source: "online_booking",
         paymentMethod,
@@ -340,6 +358,7 @@ export async function fulfillDropInBookingPayment(
         waiverSigned: waiverName !== null,
         waiverSignedAt,
         waiverSignedBy: waiverName,
+        waiverConsentVariant: waiverName !== null && familyMemberId ? "guardian" : null,
         brand,
         referralSource,
       })

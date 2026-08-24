@@ -20,6 +20,25 @@
  * Marketplace fee: when the venue carries `partnerStripeAccountId`, the
  * Checkout Session uses Connect `transfer_data` so funds settle on the
  * partner account net of our `partnerApplicationFeePct` cut.
+ *
+ * `familyMemberId` (optional) — the CHILD paid make-up path. Set by the
+ * classes UI when `POST /api/classes/book` returns 402 `allotment_exhausted`
+ * (the child's monthly class allotment is used up): the parent pays to make
+ * up the child's spot rather than drawing from the allotment. Validated
+ * here (must be the caller's dependent, and the session must be
+ * `kind: "class"`), threaded into checkout/PaymentIntent metadata as
+ * `family_member_id`, and recorded on the booking row by the webhook
+ * fulfillment core (see handle-dropin-checkout-complete.ts). Absent (the
+ * normal adult drop-in booking) → behavior is unchanged from before this
+ * field existed.
+ *
+ * Price for the child path is NOT taken from the client (the 402 quote is
+ * informational only, from an unrelated request) and NOT from the parent's
+ * own adult membership (irrelevant to the child). It is re-derived here by
+ * checking whether the CHILD holds an active membership
+ * (`getActiveChildMembership`): active → the class member rate; otherwise
+ * → the plain public class rate. See the inline comment at the override
+ * site below for the full reasoning.
  */
 import type { APIRoute } from "astro";
 import { and, desc, eq, sql } from "drizzle-orm";
@@ -29,9 +48,11 @@ import {
   dropInRateCard,
   dropInBookings,
 } from "@/lib/db/schema/drop-in";
+import { familyMembers } from "@/lib/db/schema/registrations";
 import { venues } from "@/lib/db/schema/teams";
 import { stripe } from "@/lib/stripe/client";
 import { resolveRate } from "@/lib/dropin/pricing";
+import { getActiveChildMembership } from "@/lib/memberships/get-child-membership";
 import {
   createConfirmedBookingFreePath,
   getActiveMembershipForUser,
@@ -44,6 +65,9 @@ import { brandFromHost } from "@/lib/organization/soccerone-routing";
 import { collectAdAttribution } from "@/lib/analytics/parse-cookies";
 
 export const prerender = false;
+
+const UUID_RX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * GET /api/dropin/bookings → list the authenticated user's drop-in
@@ -129,6 +153,10 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     /** Client-minted id, fresh per Pay click — Stripe idempotency scope for
      *  the intent create (dedupes duplicate deliveries of one attempt). */
     attemptId?: string;
+    /** Optional — the child paid make-up path. Must be the caller's
+     *  dependent and the session must be `kind: "class"`. See the file
+     *  doc comment above. */
+    familyMemberId?: string;
   };
   try {
     body = await request.json();
@@ -177,6 +205,55 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     return json({ error: "Session not open for booking" }, 409);
   }
 
+  // Child paid make-up: validate ownership before anything else — the
+  // family_members row must belong to this parent, or 404 (never leak
+  // whether the id exists under another user). Restricted to class
+  // sessions: the concept only makes sense there (the child's exhausted
+  // monthly class allotment), and it keeps every other branch below
+  // (existing-booking dedupe, capacity, refunds) exactly as it behaves for
+  // adult pickup bookings today.
+  let familyMemberId: string | null = null;
+  if (typeof body.familyMemberId === "string") {
+    if (!UUID_RX.test(body.familyMemberId)) {
+      return json({ error: "Invalid familyMemberId" }, 422);
+    }
+    if (session.kind !== "class") {
+      return json({ error: "familyMemberId is only valid for class sessions" }, 400);
+    }
+    const [child] = await db
+      .select({ id: familyMembers.id })
+      .from(familyMembers)
+      .where(
+        and(
+          eq(familyMembers.id, body.familyMemberId),
+          eq(familyMembers.parentUserId, locals.user.id),
+        ),
+      )
+      .limit(1);
+    if (!child) return json({ error: "Family member not found" }, 404);
+    familyMemberId = child.id;
+  }
+
+  // The inverse guard: a class session can ONLY be booked FOR A CHILD. Every
+  // class booking path (allotment, trial, paid make-up) is keyed to a
+  // `family_members` row, and the class product itself is a kids' program.
+  // Without this, an authed adult could POST a bare `{ sessionId }` for a
+  // cron-materialized class session and book THEMSELVES into a children's
+  // class — free, if they hold an unlimited_pickup membership (`resolveRate`
+  // has no notion of session kind). The make-up path (familyMemberId
+  // present, validated above) is unaffected.
+  if (session.kind === "class" && !familyMemberId) {
+    return json(
+      {
+        error: {
+          code: "class_requires_child",
+          message: "Class sessions must be booked for a child (familyMemberId required)",
+        },
+      },
+      422,
+    );
+  }
+
   // rateCard and membership are independent reads (rate card is org-scoped,
   // membership is user+org-scoped) — fetch concurrently.
   const [[rateCard], membership] = await Promise.all([
@@ -191,9 +268,59 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     return json({ error: "Rate card not configured" }, 500);
   }
 
-  const rate = resolveRate(session, locals.user, membership, rateCard);
+  let rate = resolveRate(session, locals.user, membership, rateCard);
 
-  // Free path → create immediately.
+  // Child paid make-up: `resolveRate` above resolved the PARENT's own adult
+  // drop-in membership (rule 2-4). That's the wrong membership for this
+  // decision on TWO counts, and both must be corrected before a price is
+  // charged:
+  //   1. It must never DISCOUNT here — a parent's own adult membership has
+  //      nothing to do with their child's class allotment, and `resolveRate`
+  //      would otherwise apply the parent's member rate (or even $0) to a
+  //      child booking the parent's membership was never meant to cover.
+  //   2. The member RATE (vs. the plain public rate) must only apply when
+  //      the CHILD holds an active membership — server-verified here via
+  //      `getActiveChildMembership`, never trusted from the client. Without
+  //      this, any authed parent could pass an arbitrary `familyMemberId`
+  //      (their own, ownership-checked above, but with no membership at
+  //      all) and get the discounted class rate on any class session.
+  //      `POST /api/classes/book`'s 402 is only a client-facing quote, not
+  //      an authorization signal this endpoint can trust — it's a separate
+  //      request with no server-side link to this one.
+  // Both branches below read the rate off the SESSION first: for a
+  // materialized class session those values were copied from its class-slot
+  // template (src/lib/classes/materialize.ts), i.e. a real CLASS price. The
+  // `?? rateCard.*` tail is the ADULT PICKUP rate card — correct only as a
+  // last resort for a class whose template left the rate unset, which is why
+  // templates should always carry one.
+  if (familyMemberId) {
+    const childMembership = await getActiveChildMembership(
+      familyMemberId,
+      session.organizationId,
+    );
+    rate =
+      childMembership && childMembership.status === "active"
+        ? {
+            amountCents: session.memberRateCents ?? rateCard.defaultMemberRateCents,
+            paymentMethod: "card_online",
+            membershipId: childMembership.id,
+          }
+        : {
+            // No active child membership — the plain public class rate,
+            // deliberately NOT `resolveRate`'s result (which reflects the
+            // parent's own membership, irrelevant to the child).
+            amountCents: session.sessionRateCents ?? rateCard.defaultSessionRateCents,
+            paymentMethod: "card_online",
+            membershipId: null,
+          };
+    if (rate.amountCents <= 0) {
+      return json({ error: "Rate not configured for this class" }, 500);
+    }
+  }
+
+  // Free path → create immediately. Never for the child make-up path — its
+  // rate is always > 0 (guarded above), and `createConfirmedBookingFreePath`
+  // doesn't know about family members; it would silently book the PARENT.
   if (rate.amountCents === 0) {
     const result = await createConfirmedBookingFreePath({
       sessionId,
@@ -230,13 +357,22 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
   // duplicate here, before Stripe is involved. (Not race-proof on its own —
   // two concurrent first-time checkouts pass this check; the webhook guard
   // + auto-refund is the transactional backstop.)
+  // Participant-scoped: matches the DB's own dedupe key
+  // (drop_in_bookings_one_active_per_participant_session_v3, keyed on
+  // COALESCE(family_member_id, user_id)). Without this, a parent buying a
+  // second child's make-up on the same session would be wrongly blocked as
+  // "already booked" by the first child's row. When familyMemberId is
+  // absent this is byte-for-byte the original adult-only query.
+  const participantFilter = familyMemberId
+    ? eq(dropInBookings.familyMemberId, familyMemberId)
+    : eq(dropInBookings.userId, locals.user.id);
   const [existingActive] = await db
     .select({ status: dropInBookings.status })
     .from(dropInBookings)
     .where(
       and(
         eq(dropInBookings.sessionId, sessionId),
-        eq(dropInBookings.userId, locals.user.id),
+        participantFilter,
         sql`${dropInBookings.status} IN ('confirmed', 'waitlisted', 'pending_claim', 'pending_payment')`,
       ),
     )
@@ -277,6 +413,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
       extraMetadata: {
         brand: brandFromHost(request.headers.get("host") ?? ""),
         ...collectAdAttribution(url, request.headers.get("cookie")),
+        ...(familyMemberId ? { family_member_id: familyMemberId } : {}),
       },
       idempotencyKey: `dropin-embedded:${sessionId}:${locals.user.id}:${attemptId}`,
     });
@@ -304,6 +441,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     extraMetadata: {
       brand: brandFromHost(request.headers.get("host") ?? ""),
       ...collectAdAttribution(url, request.headers.get("cookie")),
+      ...(familyMemberId ? { family_member_id: familyMemberId } : {}),
     },
     // Stripe success/cancel redirects return to the booking domain.
     origin: url.origin,

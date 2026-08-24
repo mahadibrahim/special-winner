@@ -9,6 +9,7 @@ import type Stripe from "stripe";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { memberships, membershipTiers } from "@/lib/db/schema/memberships";
+import { classEnrollments } from "@/lib/db/schema/classes";
 import { normalizeBrand } from "@/lib/organization/soccerone-routing";
 import { capturePaymentCompleted } from "@/lib/observability/payment-telemetry";
 import { fireServerPurchaseConversions } from "@/lib/analytics/server-conversions";
@@ -184,12 +185,22 @@ export async function handleSubscriptionUpdated(
 /**
  * Subscription deleted — final cancellation. Sets `status = 'cancelled'`,
  * stamps `cancelledAt`.
+ *
+ * Spec requires standing class enrollments to END at period end when a
+ * membership is cancelled — otherwise a cancelled family's child keeps
+ * holding a seat (and the materialization cron keeps auto-booking them)
+ * forever. `.returning({ id })` on the membership update gives us the row
+ * this event actually cancelled (0 or 1 — stripeSubscriptionId is unique)
+ * without a second lookup query; the enrollments update is scoped to that
+ * membership id, so a webhook retry (or a subscription id that never
+ * matched a membership) is a safe no-op — the `status = 'active'` filter
+ * means a row already ended by a prior delivery is simply not re-touched.
  */
 export async function handleSubscriptionDeleted(
   sub: Stripe.Subscription,
 ): Promise<void> {
   const db = getDb();
-  await db
+  const [membership] = await db
     .update(memberships)
     .set({
       status: "cancelled",
@@ -197,7 +208,20 @@ export async function handleSubscriptionDeleted(
       cancelAtPeriodEnd: false,
       updatedAt: new Date(),
     })
-    .where(eq(memberships.stripeSubscriptionId, sub.id));
+    .where(eq(memberships.stripeSubscriptionId, sub.id))
+    .returning({ id: memberships.id });
+
+  if (!membership) return;
+
+  await db
+    .update(classEnrollments)
+    .set({ status: "ended", endedAt: new Date() })
+    .where(
+      and(
+        eq(classEnrollments.membershipId, membership.id),
+        eq(classEnrollments.status, "active"),
+      ),
+    );
 }
 
 /**

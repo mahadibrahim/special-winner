@@ -1,0 +1,1 @@
+ALTER TYPE "public"."drop_in_booking_source" ADD VALUE 'auto_enrollment';

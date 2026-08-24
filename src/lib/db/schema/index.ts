@@ -98,6 +98,9 @@ export * from "./activity-tracking";
 // Field-time ledger — venue resources (fields) + occupancy blocks
 export * from "./scheduling";
 
+// Recurring weekly class slot templates + child home-slot enrollments
+export * from "./classes";
+
 // Drop-in booking (pickup + classes per-seat) + brand profiles + skill levels
 export * from "./drop-in";
 

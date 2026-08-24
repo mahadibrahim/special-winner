@@ -48,3 +48,17 @@ export function computeAllotmentRemaining(
 export function allotmentPeriodStart(now: Date): Date {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 }
+
+/** Class-package twin of the pickup allotment. Same count-based model and
+ *  UTC-calendar-month period; benefits keys `classes_per_month` /
+ *  `unlimited_classes`. Consumption unit: a confirmed/no_show booking on a
+ *  kind='class' session with paymentMethod 'member_allotment' for the child. */
+export function computeClassAllotmentRemaining(
+  benefits: Record<string, unknown>,
+  used: number,
+): number | "unlimited" {
+  if (benefits.unlimited_classes === true) return "unlimited";
+  const cap = Number(benefits.classes_per_month) || 0;
+  if (cap <= 0) return 0;
+  return Math.max(0, cap - used);
+}
