@@ -12,6 +12,8 @@ import {
   createTestClassTemplate,
   sweepOrphanedTestTemplates,
   cleanupTestClassFixtures,
+  sweepOrphanedTestMembershipTiers,
+  cleanupTestMembershipTiers,
   CLASS_TEST_PARENT_EMAIL,
   CLASS_TEST_PARENT_PASSWORD,
 } from "../../utils/classes-helpers";
@@ -24,13 +26,17 @@ let venueId: string;
 let parentUserId: string;
 let cookie: string;
 
-// Every template / enrollment this file creates, so afterAll can retire
-// them. This matters MORE here than in the other suites: an orphaned
-// template isn't just dead weight, it's a template `materializeClassSessions`
-// keeps sweeping (and re-attempting bookings against) on EVERY future cron
-// invocation, directly slowing down the exact endpoint this file tests.
+// Every template / enrollment / membership tier this file creates, so
+// afterAll can retire them. This matters MORE here than in the other
+// suites: an orphaned template isn't just dead weight, it's a template
+// `materializeClassSessions` keeps sweeping (and re-attempting bookings
+// against) on EVERY future cron invocation, directly slowing down the exact
+// endpoint this file tests. An orphaned tier is worse still — it's a live
+// `classes_per_month` row that stays indistinguishable from a real class
+// membership tier on `/api/public/membership-tiers` forever.
 const createdTemplateIds: string[] = [];
 const createdEnrollmentIds: string[] = [];
+const createdTierIds: string[] = [];
 
 beforeAll(async () => {
   ({ organizationId, venueId, parentUserId } = await resolveClassTestFixtures());
@@ -38,10 +44,12 @@ beforeAll(async () => {
   // One-time hygiene for orphans from before this cleanup existed — safe
   // here since tests/api runs with fileParallelism:false.
   await sweepOrphanedTestTemplates(organizationId);
+  await sweepOrphanedTestMembershipTiers(organizationId);
 });
 
 afterAll(async () => {
   await cleanupTestClassFixtures(createdTemplateIds, createdEnrollmentIds);
+  await cleanupTestMembershipTiers(createdTierIds);
 });
 
 async function postCron(secret: string) {
@@ -90,6 +98,7 @@ describe("POST /api/cron/materialize-class-sessions", () => {
           isActive: true,
         })
         .returning();
+      createdTierIds.push(tier1.id);
 
       // Enrolled child with a fresh (unused) allotment — the cron should
       // auto-book them into a materialized session.
@@ -284,6 +293,7 @@ describe("POST /api/cron/materialize-class-sessions", () => {
           isActive: true,
         })
         .returning();
+      createdTierIds.push(tier1.id);
       const child = await createTestChild(parentUserId, `CronRates-${suffix}`);
       const membershipId = await createTestChildMembership({
         userId: parentUserId,

@@ -247,3 +247,63 @@ export async function cleanupTestClassFixtures(
       .where(inArray(classSlotTemplates.id, templateIds));
   }
 }
+
+/**
+ * Name prefixes used by `cron-materialize.test.ts`'s per-suffix, per-run
+ * `membership_tiers` rows ("Cron Tier 1 - <suffix>", "Cron Rates Tier 1 -
+ * <suffix>" — the cap-1 tiers each test creates so an "exhausted" child only
+ * needs a single prior booking). Mirrors `TEST_TEMPLATE_NAME_PREFIXES` above:
+ * a single source of truth for both the creating file's naming convention
+ * and `sweepOrphanedTestMembershipTiers`'s matching.
+ *
+ * These tiers previously had no teardown at all (unlike templates, which
+ * always had `cleanupTestClassFixtures`), so they leaked one active row per
+ * CI run straight onto `/api/public/membership-tiers` — every one of them
+ * carries `classes_per_month: 1`, which is indistinguishable from a real
+ * class-membership tier to any consumer filtering on that key (e.g.
+ * `src/components/youth/class-tiers.tsx`'s public pricing card).
+ */
+export const TEST_MEMBERSHIP_TIER_NAME_PREFIXES = [
+  "Cron Tier 1 - ",
+  "Cron Rates Tier 1 - ",
+] as const;
+
+/**
+ * One-time hygiene sweep for pre-existing orphaned test membership tiers:
+ * sets `isActive: false` on every ACTIVE `membership_tiers` row in the org
+ * whose name matches a `TEST_MEMBERSHIP_TIER_NAME_PREFIXES` prefix. Same
+ * shape and rationale as `sweepOrphanedTestTemplates` — going forward,
+ * `cleanupTestMembershipTiers` (called from each creating file's `afterAll`)
+ * is the primary defense; this sweep cleans up the debris that accumulated
+ * before that existed, plus any crashed/timed-out run that never reached
+ * its `afterAll`. Safe to call unconditionally from `beforeAll`: `tests/api`
+ * runs with `fileParallelism: false`, so this can't race a sibling file's
+ * in-progress fixture creation.
+ */
+export async function sweepOrphanedTestMembershipTiers(organizationId: string): Promise<void> {
+  const db = getDb();
+  await db
+    .update(membershipTiers)
+    .set({ isActive: false })
+    .where(
+      and(
+        eq(membershipTiers.organizationId, organizationId),
+        eq(membershipTiers.isActive, true),
+        or(
+          ...TEST_MEMBERSHIP_TIER_NAME_PREFIXES.map((prefix) => like(membershipTiers.name, `${prefix}%`)),
+        ),
+      ),
+    );
+}
+
+/**
+ * Per-test-file teardown: deactivates every membership tier this file
+ * created, so nothing it touched remains `active` (and therefore visible on
+ * `/api/public/membership-tiers`) after the run. Call from `afterAll`.
+ * Idempotent — safe to call with ids already `isActive: false`.
+ */
+export async function cleanupTestMembershipTiers(tierIds: string[]): Promise<void> {
+  if (tierIds.length === 0) return;
+  const db = getDb();
+  await db.update(membershipTiers).set({ isActive: false }).where(inArray(membershipTiers.id, tierIds));
+}

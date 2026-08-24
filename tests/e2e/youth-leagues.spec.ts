@@ -216,9 +216,10 @@ test.describe("youth classes v2", () => {
     ).toBeVisible()
 
     // SectionJumpBar renders one [data-jump-link] pill per JUMP_ITEMS entry
-    // (pathway, philosophy, feel, coach, pricing, schedule, open, faqs — 8;
-    // this was drifted at 7, a pre-existing mismatch unrelated to Task 6's
-    // pricing-band change, found and fixed here).
+    // (pathway, philosophy, feel, coach, pricing, schedule, open, faqs — 8).
+    // Task 4 (dc459f33, this branch) added the "Schedule" entry to
+    // JUMP_ITEMS without bumping this assertion off its prior count of 7 —
+    // found and fixed here, in Task 6.
     await expect(page.locator("[data-jump-link]")).toHaveCount(8)
 
     // One FeatureBand per pathway step, id="step-<slug>" — Micros is first.

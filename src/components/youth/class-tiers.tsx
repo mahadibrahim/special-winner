@@ -17,10 +17,11 @@ import { ChildPicker, type ChildPickerMember } from "@/components/youth/child-pi
  * `unlimited_classes === true`) — this filters out any adult/SoccerOne-only
  * tiers (rental-discount-only, day pass, etc.) that share the same org.
  *
- * `pricing-cards.astro` (the primitive this reproduces) is a plain Astro
- * presentational component with no slot/island seam per-card, so its markup
- * is hand-reproduced here in React rather than reused — see classes.astro's
- * removed comment on the same constraint for the old figure-free default.
+ * `pricing-cards.astro` (the primitive this originally reproduced) was a
+ * plain Astro presentational component with no slot/island seam per-card,
+ * so its markup was hand-reproduced here in React rather than reused, and
+ * — with this being the primitive's only remaining consumer — the now-dead
+ * `.astro` file was deleted rather than left as an orphan.
  *
  * Empty/error state: when the org has no live class tiers (or the fetch
  * fails), falls back to rendering the exact same figure-free
@@ -112,7 +113,16 @@ function isClassTier(tier: Tier): boolean {
 
 function fmtDollars(cents: number | null): string | null {
   if (cents === null || cents === undefined) return null
-  return `$${(cents / 100).toLocaleString(undefined, { maximumFractionDigits: cents % 100 === 0 ? 0 : 2 })}`
+  // Whole-dollar amounts render without cents ($50, not $50.00); anything
+  // with a fractional cent value needs BOTH min and max fraction digits
+  // pinned to 2 — `maximumFractionDigits` alone lets toLocaleString drop a
+  // trailing zero (4990 -> "49.9" instead of "49.90").
+  const dollars = cents / 100
+  const hasCents = cents % 100 !== 0
+  return `$${dollars.toLocaleString(undefined, {
+    minimumFractionDigits: hasCents ? 2 : 0,
+    maximumFractionDigits: hasCents ? 2 : 0,
+  })}`
 }
 
 function benefitsLine(tier: Tier): string {
@@ -303,7 +313,7 @@ export default function ClassTiers() {
   }
 
   if (fetchPhase === "loading") {
-    return <LoadingSkeleton variant="card" rows={3} />
+    return <LoadingSkeleton variant="card" />
   }
 
   const showFallback = fetchPhase === "error" || tiers.length === 0
@@ -408,8 +418,8 @@ export default function ClassTiers() {
               </DialogDescription>
 
               {flowError && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-3 text-sm text-ink-2 space-y-1.5">
-                  <p>{flowError.message}</p>
+                <div className="space-y-1.5">
+                  <ErrorBanner message={flowError.message} />
                   {flowError.code === "already_member" && (
                     <a href="/dashboard/family" className="inline-block font-medium text-ochre hover:underline">
                       Go to your dashboard →
