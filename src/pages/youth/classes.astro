@@ -26,6 +26,7 @@ import StatementCards from "@/components/youth/bands/statement-cards.astro"
 import PricingCards from "@/components/youth/bands/pricing-cards.astro"
 import SlotGraphic from "@/components/youth/bands/slot-graphic.astro"
 import ClassSchedule from "@/components/youth/class-schedule"
+import TrialBooking from "@/components/youth/trial-booking"
 import { PATHWAY, PATHWAY_DETAILS } from "@/lib/youth/landing-content"
 import { faqPageJsonLd } from "@/lib/seo/faq-jsonld"
 import { setMarketingEdgeCache } from "@/lib/http/edge-cache"
@@ -509,6 +510,15 @@ const faqs: LandingFaqItem[] = [
         </div>
       </div>
     </section>
+
+    {/* ---------- Free trial booking modal --------------------------------
+        Its own island, mounted once at the page level (not nested inside
+        the #schedule section) — it listens for the `youth:trial-requested`
+        CustomEvent that ClassSchedule's "Book a free trial" CTAs dispatch
+        on window rather than receiving props, so where it mounts in the DOM
+        doesn't matter; it renders nothing until that event fires. See
+        trial-booking.tsx's header comment for the full contract. */}
+    <TrialBooking client:load />
   </main>
 </BaseLayout>
 

@@ -18,9 +18,10 @@ import { LoadingSkeleton } from "@/components/ui/loading-skeleton"
  *
  * CTAs:
  * - "Book a free trial" dispatches `youth:trial-requested` (detail:
- *   { templateId }) on window and scrolls to #pricing as an interim
- *   behavior — Task 5 wires the actual trial-booking modal by listening for
- *   this event, per the brief. Do not build a modal here.
+ *   { templateId }) on window. `trial-booking.tsx` — a separate island
+ *   mounted alongside this one in classes.astro — listens for this event
+ *   and owns the entire modal/booking flow; this component does not know
+ *   or care whether anything is listening.
  * - "Join" is a plain anchor to #pricing.
  * Both carry `data-youth-cta="schedule"` so the page's existing click
  * tracker (classes.astro, the `[data-youth-cta]` listener near the bottom)
@@ -107,7 +108,6 @@ function groupByWeekday(slots: ScheduleSlot[]): { weekday: number; slots: Schedu
 
 function requestTrial(templateId: string) {
   window.dispatchEvent(new CustomEvent("youth:trial-requested", { detail: { templateId } }))
-  document.getElementById("pricing")?.scrollIntoView({ behavior: "smooth" })
 }
 
 type Phase = "loading" | "error" | "ready"
