@@ -25,6 +25,7 @@ import FeatureBand from "@/components/youth/bands/feature-band.astro"
 import StatementCards from "@/components/youth/bands/statement-cards.astro"
 import PricingCards from "@/components/youth/bands/pricing-cards.astro"
 import SlotGraphic from "@/components/youth/bands/slot-graphic.astro"
+import ClassSchedule from "@/components/youth/class-schedule"
 import { PATHWAY, PATHWAY_DETAILS } from "@/lib/youth/landing-content"
 import { faqPageJsonLd } from "@/lib/seo/faq-jsonld"
 import { setMarketingEdgeCache } from "@/lib/http/edge-cache"
@@ -72,6 +73,7 @@ const JUMP_ITEMS = [
   { href: "#feel", label: "What it's like" },
   { href: "#coach", label: "Coaching" },
   { href: "#pricing", label: "Pricing" },
+  { href: "#schedule", label: "Schedule" },
   { href: "#open", label: "Book now" },
   { href: "#faqs", label: "FAQs" },
 ]
@@ -365,6 +367,24 @@ const faqs: LandingFaqItem[] = [
             framing text helps nobody). */}
         <div class="mt-[38px]">
           <PricingCards cards={PRICING_CARDS} />
+        </div>
+      </div>
+    </section>
+
+    {/* ---------- This week's classes — live schedule ---------------------
+        This page is edge-cached marketing HTML (setMarketingEdgeCache
+        above), so the live slot/capacity data must live in the island, not
+        the frontmatter — see ClassSchedule's doc comment. */}
+    <section id="schedule" class="px-6 sm:px-9 py-[76px]">
+      <div class="max-w-[1080px] mx-auto">
+        <h2 class="font-display font-semibold tracking-tight text-ink" style="font-size:clamp(2.1rem,3.8vw,2.9rem);letter-spacing:-0.015em">
+          This week's <span class="text-brand-red">classes.</span>
+        </h2>
+        <p class="text-[15.5px] text-ink-2 mt-3">
+          Every open slot for the week, with what's left to book — pick one below.
+        </p>
+        <div class="mt-[38px]">
+          <ClassSchedule client:load />
         </div>
       </div>
     </section>
