@@ -419,6 +419,12 @@ export default function TrialBooking() {
   }
 
   function handleSelectChild(member: ChildPickerMember) {
+    // Bump BEFORE starting the new attempt — invalidates any attemptBooking
+    // still in flight for a PREVIOUSLY selected child. Without this, picking
+    // child B while child A's request is still pending let A's late
+    // response (e.g. waiver_required) drive the phase after selectedChild
+    // had already moved on to B — reproduced live (controller finding).
+    const myGeneration = ++generationRef.current
     setSelectedChild(member)
     setFlowError(null)
     setPendingSession(null)
@@ -426,7 +432,7 @@ export default function TrialBooking() {
     setOfferedWaiver(undefined)
     const targetSession = templateSessions[0]
     if (!targetSession) return
-    void attemptBooking(targetSession, undefined, generationRef.current)
+    void attemptBooking(targetSession, undefined, myGeneration)
   }
 
   async function submitWaiver(e: React.FormEvent) {
@@ -549,23 +555,32 @@ export default function TrialBooking() {
               </div>
             )}
 
-            <ChildPicker
-              ageRange={{ minAge: slot.minAge, maxAge: slot.maxAge }}
-              selectedId={selectedChild?.id ?? null}
-              onSelect={handleSelectChild}
-              disabled={phase === "booking"}
-              participantKind="dependent"
-            />
-
-            {phase === "booking" && (
-              <div className="flex items-center justify-center gap-2 py-2 text-sm text-ink-muted">
+            {/* relative + overlay so the "booking" phase is visibly busy —
+                controller live-testing found the modal looked like an idle
+                picker while a request was in flight (natively-disabled
+                buttons alone read as identical to the idle state). */}
+            <div className="relative">
+              <ChildPicker
+                ageRange={{ minAge: slot.minAge, maxAge: slot.maxAge }}
+                selectedId={selectedChild?.id ?? null}
+                onSelect={handleSelectChild}
+                disabled={phase === "booking"}
+                participantKind="dependent"
+              />
+              {phase === "booking" && (
                 <div
-                  className="size-4 rounded-full border-2 border-ochre border-t-transparent animate-spin"
-                  aria-hidden="true"
-                />
-                Booking…
-              </div>
-            )}
+                  className="absolute inset-0 flex items-center justify-center gap-2 rounded-lg bg-paper/85 text-sm font-medium text-ink-2"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <div
+                    className="size-4 rounded-full border-2 border-ochre border-t-transparent animate-spin"
+                    aria-hidden="true"
+                  />
+                  Booking…
+                </div>
+              )}
+            </div>
           </>
         )}
 

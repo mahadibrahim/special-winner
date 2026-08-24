@@ -212,6 +212,19 @@ export function ChildPicker({
             const age = m.birthDate ? ageOnDate(m.birthDate, new Date()) : null
             const eligible = isEligible(age, ageRange)
             const isSelected = selectedId === m.id
+            // Selected stays visibly highlighted even while `disabled`
+            // (e.g. mid-booking) so the parent can see which player
+            // they're waiting on — a NON-selected, otherwise-eligible card
+            // dims instead, so a busy state doesn't read as an idle picker
+            // (controller live-testing finding).
+            let cardClass = "border-cream-3 hover:border-brand-red/40"
+            if (!eligible) {
+              cardClass = "border-cream-3 bg-cream-2 opacity-60 cursor-not-allowed"
+            } else if (isSelected) {
+              cardClass = "border-brand-red bg-brand-red/5"
+            } else if (disabled) {
+              cardClass = "border-cream-3 opacity-50 cursor-not-allowed"
+            }
             return (
               <button
                 key={m.id}
@@ -219,13 +232,7 @@ export function ChildPicker({
                 disabled={!eligible || disabled}
                 onClick={() => eligible && !disabled && onSelect(m)}
                 aria-pressed={isSelected}
-                className={`w-full text-left rounded-lg border p-3 transition-colors ${
-                  !eligible
-                    ? "border-cream-3 bg-cream-2 opacity-60 cursor-not-allowed"
-                    : isSelected
-                      ? "border-brand-red bg-brand-red/5"
-                      : "border-cream-3 hover:border-brand-red/40"
-                }`}
+                className={`w-full text-left rounded-lg border p-3 transition-colors ${cardClass}`}
               >
                 <div className="font-medium text-ink ph-mask">
                   {m.firstName} {m.lastName}
