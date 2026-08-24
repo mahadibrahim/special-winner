@@ -73,7 +73,9 @@ function formatAges(minAge: number | null, maxAge: number | null): string {
 
 function spotsChip(spotsLeft: number): { label: string; className: string } {
   if (spotsLeft === 0) {
-    return { label: "Full", className: "bg-cream-2 text-ink-muted border border-cream-3" }
+    // Same sold-out treatment as STATUS_PILL_STYLES.soldout in
+    // program-card-v2.tsx — dark, unambiguous, not just a faint neutral.
+    return { label: "Full", className: "bg-ink text-cream" }
   }
   if (spotsLeft <= 3) {
     return {
@@ -189,14 +191,19 @@ export default function ClassSchedule() {
               return (
                 <div
                   key={slot.templateId}
-                  className="bg-paper text-ink border border-cream-3 rounded-2xl p-[22px] flex flex-col gap-3"
+                  className="bg-paper text-ink border border-cream-3 rounded-2xl p-[26px] flex flex-col gap-3"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-muted">
+                      {slot.sportLabel && (
+                        <p className="font-mono text-[10px] tracking-[0.16em] uppercase text-emerald-700">
+                          {slot.sportLabel}
+                        </p>
+                      )}
+                      <h4 className="font-display font-semibold text-[18px] mt-1">{slot.name}</h4>
+                      <p className="font-mono text-[10px] tracking-[0.16em] uppercase text-ink-muted mt-1">
                         {formatWeekdayTime(slot.weekday, slot.startTime)}
                       </p>
-                      <h4 className="font-display font-semibold text-[18px] mt-1">{slot.name}</h4>
                     </div>
                     <span
                       className={`shrink-0 font-medium text-[11.5px] px-2.5 py-1 rounded-full whitespace-nowrap ${chip.className}`}

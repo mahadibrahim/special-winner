@@ -515,9 +515,14 @@ const faqs: LandingFaqItem[] = [
 <script>
   import { track } from "@/lib/analytics/track"
 
-  document.querySelectorAll<HTMLAnchorElement>("[data-youth-cta]").forEach((el) => {
-    el.addEventListener("click", () =>
-      track("youth_hub_section_cta_clicked", { section: el.dataset.youthCta ?? "" }),
-    )
+  // Delegated on document (not a one-time querySelectorAll) so CTAs that
+  // land in the DOM after this script runs — e.g. a client:load island's
+  // async-hydrated markup — still get tracked. Static data-youth-cta
+  // elements worked with the old per-element-listener approach only
+  // because they're always present at parse time; islands aren't.
+  document.addEventListener("click", (e) => {
+    const el = e.target instanceof Element ? e.target.closest<HTMLElement>("[data-youth-cta]") : null
+    if (!el) return
+    track("youth_hub_section_cta_clicked", { section: el.dataset.youthCta ?? "" })
   })
 </script>
