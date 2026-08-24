@@ -187,6 +187,13 @@ export default function TrialBooking() {
   // against THAT session, not templateSessions[0].
   const [pendingSession, setPendingSession] = useState<ScheduleSession | null>(null)
 
+  // The child a paused waiver/session_full_offer sub-flow is FOR — set by
+  // attemptBooking from its explicit `child` parameter (never from
+  // `selectedChild`; see attemptBooking's doc comment on the stale-closure
+  // bug this guards against). submitWaiver and confirmOfferedSession use
+  // THIS, not `selectedChild`, as the authoritative child for their retry.
+  const [pendingChild, setPendingChild] = useState<ChildPickerMember | null>(null)
+
   // The session_full offer: the following-week session being proposed, and
   // the waiver (if one was already signed on the attempt that hit
   // session_full) to resubmit on confirm — never re-prompt for a waiver
@@ -245,6 +252,7 @@ export default function TrialBooking() {
     setSelectedChild(null)
     setBookedSession(null)
     setPendingSession(null)
+    setPendingChild(null)
     setOfferedSession(null)
     setOfferedWaiver(undefined)
     setWaiverAccepted(false)
@@ -300,12 +308,29 @@ export default function TrialBooking() {
     setPhase("closed")
   }
 
+  /**
+   * `child` is an explicit parameter — NEVER read `selectedChild` (state)
+   * inside this function. Root-cause bug (controller live-testing,
+   * reproduced): `attemptBooking` is a plain closure created fresh each
+   * render; when `handleSelectChild` calls `setSelectedChild(member)` and
+   * then immediately invokes `attemptBooking`, the state update hasn't
+   * committed yet — `attemptBooking`'s closure over `selectedChild` is
+   * frozen to whatever it was at the START of that render (null on the
+   * very first pick in a fresh modal, or the PREVIOUSLY selected child on
+   * any pick after the first). That produced two failures: the first
+   * click in a fresh modal silently no-op'd on a `!selectedChild` guard
+   * (no spinner, no request — just an unexplained no-op), and a second
+   * click booked the FIRST child's id while the UI had already visually
+   * moved on to the second. Passing `child` as a parameter sidesteps
+   * React's state-commit timing entirely — it's an ordinary JS value
+   * captured by value at the call site, always correct.
+   */
   async function attemptBooking(
     session: ScheduleSession,
+    child: ChildPickerMember,
     waiver: { signedBy: string; consentText: string } | undefined,
     myGeneration: number,
   ) {
-    if (!selectedChild) return
     setPhase("booking")
     setFlowError(null)
 
@@ -316,7 +341,7 @@ export default function TrialBooking() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sessionId: session.id,
-          familyMemberId: selectedChild.id,
+          familyMemberId: child.id,
           kind: "trial",
           ...(waiver ? { waiver } : {}),
         }),
@@ -343,6 +368,7 @@ export default function TrialBooking() {
 
     if (code === "waiver_required") {
       setPendingSession(session)
+      setPendingChild(child)
       setPhase("waiver")
       return
     }
@@ -363,6 +389,7 @@ export default function TrialBooking() {
       if (next) {
         setOfferedSession(next)
         setOfferedWaiver(waiver)
+        setPendingChild(child)
         setPhase("session_full_offer")
         return
       }
@@ -405,7 +432,7 @@ export default function TrialBooking() {
     if (code === "age_ineligible") {
       setFlowError({
         code: "generic",
-        message: `${selectedChild.firstName} is outside this class's age range — pick another player above.`,
+        message: `${child.firstName} is outside this class's age range — pick another player above.`,
       })
       setPhase("picking")
       return
@@ -428,38 +455,45 @@ export default function TrialBooking() {
     setSelectedChild(member)
     setFlowError(null)
     setPendingSession(null)
+    setPendingChild(null)
     setOfferedSession(null)
     setOfferedWaiver(undefined)
     const targetSession = templateSessions[0]
     if (!targetSession) return
-    void attemptBooking(targetSession, undefined, myGeneration)
+    // `member` is passed directly — see attemptBooking's doc comment on
+    // why this must never be `selectedChild` (the state var).
+    void attemptBooking(targetSession, member, undefined, myGeneration)
   }
 
   async function submitWaiver(e: React.FormEvent) {
     e.preventDefault()
-    if (!selectedChild || !waiverAccepted || waiverSignerName.trim().length === 0) return
-    // Retry against the exact session that returned waiver_required — NOT
-    // necessarily templateSessions[0]; see pendingSession's doc comment.
-    if (!pendingSession) return
+    if (!waiverAccepted || waiverSignerName.trim().length === 0) return
+    // Retry against the exact session AND child this waiver_required
+    // response was for — never `selectedChild`; see pendingSession's and
+    // pendingChild's doc comments.
+    if (!pendingSession || !pendingChild) return
     await attemptBooking(
       pendingSession,
+      pendingChild,
       { signedBy: waiverSignerName.trim(), consentText: DROPIN_WAIVER_TEXT },
       generationRef.current,
     )
   }
 
   function confirmOfferedSession() {
-    if (!offeredSession) return
+    if (!offeredSession || !pendingChild) return
     const session = offeredSession
     const waiver = offeredWaiver
+    const child = pendingChild
     setOfferedSession(null)
     setOfferedWaiver(undefined)
-    void attemptBooking(session, waiver, generationRef.current)
+    void attemptBooking(session, child, waiver, generationRef.current)
   }
 
   function declineOfferedSession() {
     setOfferedSession(null)
     setOfferedWaiver(undefined)
+    setPendingChild(null)
     setFlowError(null)
     setPhase("picking")
   }
@@ -468,6 +502,7 @@ export default function TrialBooking() {
     setSelectedChild(null)
     setBookedSession(null)
     setPendingSession(null)
+    setPendingChild(null)
     setOfferedSession(null)
     setOfferedWaiver(undefined)
     setFlowError(null)
@@ -605,7 +640,10 @@ export default function TrialBooking() {
           <form onSubmit={(e) => void submitWaiver(e)} className="space-y-4">
             <DialogTitle className="text-ink">One more step: sign the guardian waiver</DialogTitle>
             <DialogDescription className="text-ink-2">
-              {(selectedChild ? `${selectedChild.firstName} ${selectedChild.lastName}` : "Your player")}{" "}
+              {/* pendingChild, not selectedChild — this is the exact child
+                  the paused waiver_required response is for; see
+                  attemptBooking's doc comment. */}
+              {(pendingChild ? `${pendingChild.firstName} ${pendingChild.lastName}` : "Your player")}{" "}
               is trying {slot.name} — this covers their free trial class.
             </DialogDescription>
 
@@ -622,7 +660,7 @@ export default function TrialBooking() {
               <Label htmlFor="trial-waiver-accept" className="text-sm leading-snug cursor-pointer">
                 {waiverAssentSentence(
                   "guardian",
-                  selectedChild ? `${selectedChild.firstName} ${selectedChild.lastName}` : undefined,
+                  pendingChild ? `${pendingChild.firstName} ${pendingChild.lastName}` : undefined,
                 )}
               </Label>
             </div>
