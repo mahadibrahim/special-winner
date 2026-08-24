@@ -1,4 +1,4 @@
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import { sendEmail, isEmailConfigured, fromForBrand } from "./index";
 import { renderEmail } from "./render";
 import { formatEmailDate, formatEmailDateTime } from "./format";
@@ -29,6 +29,7 @@ import { FeedbackNpsEmail } from "./templates/feedback-nps";
 import { FeedbackDetractorAlertEmail } from "./templates/feedback-detractor-alert";
 import { FeedbackRefereeRatingEmail } from "./templates/feedback-referee-rating";
 import { FirstGameRecapEmail } from "./templates/first-game-recap";
+import { TrialConvertEmail } from "./templates/trial-convert";
 import { resolveGoogleReviewUrl } from "@/lib/feedback/review-url";
 import {
   CAPTURE_INCENTIVE,
@@ -136,6 +137,10 @@ async function logEmail(data: {
   subject: string;
   resendMessageId?: string;
   status: string;
+  /** Free-form identifying stamp for dedupe keys that don't fit the fixed
+   *  columns above (e.g. a per-child id when recipientEmail is a shared
+   *  parent address) — see sendTrialConvertEmail's dedupe note. */
+  metadata?: Record<string, unknown>;
 }) {
   try {
     await getDb().insert(emailLogs).values({
@@ -146,6 +151,7 @@ async function logEmail(data: {
       subject: data.subject,
       resendMessageId: data.resendMessageId,
       status: data.status,
+      metadata: data.metadata,
     });
   } catch (error) {
     console.error("Error logging email:", error);
@@ -1527,6 +1533,119 @@ export async function sendTeamBackstopWarningEmail(params: TeamBackstopWarningPa
     resendMessageId: result.messageId,
     status: result.success ? "sent" : "failed",
   });
+  return result;
+}
+
+// ---- Trial-convert follow-up (youth classes cron) ----
+
+export interface TrialConvertTier {
+  name: string;
+  /** Pre-formatted, e.g. "$79/mo" — see formatMonthlyPriceCents in
+   *  src/lib/classes/trial-convert.ts. */
+  priceLabel: string;
+}
+
+export interface SendTrialConvertParams {
+  /** Dedupe key — see the module-level note on trial-convert.ts for why
+   *  this, not recipientEmail, is the "one per X ever" identity. */
+  familyMemberId: string;
+  parentUserId: string;
+  parentEmail: string;
+  parentFirstName: string | null;
+  childFirstName: string;
+  className: string;
+  tiers: TrialConvertTier[];
+}
+
+/**
+ * Trial-convert nudge — fired by /api/cron/trial-convert-emails for a child
+ * whose one-time trial class ended 1-3 days ago and who still has no live
+ * membership. One per child EVER.
+ *
+ * Dedupe: same shape as sendCaptureIncentiveEmail/sendInappRecaptureEmail
+ * (check email_logs immediately before sending, log unconditionally after),
+ * but keyed on `metadata->>'familyMemberId'` instead of recipientEmail —
+ * see trial-convert.ts's module header for why. The SQL scan in
+ * trial-convert.ts already anti-joins on this same key, so this check is a
+ * race guard, not the primary dedupe gate. Failed sends are excluded from
+ * the "already sent" check so a transient Resend error retries on the next
+ * cron run instead of dead-ending the child forever.
+ */
+export async function sendTrialConvertEmail(
+  params: SendTrialConvertParams,
+): Promise<{ success: boolean; deduped?: boolean; error?: string }> {
+  const emailType = "trial_convert";
+  const subject = `How was ${params.childFirstName}'s trial class?`;
+
+  const [already] = await getDb()
+    .select({ id: emailLogs.id })
+    .from(emailLogs)
+    .where(
+      and(
+        eq(emailLogs.emailType, emailType),
+        ne(emailLogs.status, "failed"),
+        sql`${emailLogs.metadata} ->> 'familyMemberId' = ${params.familyMemberId}`,
+      ),
+    )
+    .limit(1);
+  if (already) {
+    return { success: true, deduped: true };
+  }
+
+  const metadata = { familyMemberId: params.familyMemberId };
+
+  if (!isEmailConfigured()) {
+    console.warn("Email not configured, skipping trial-convert email");
+    // Record the attempt anyway so the dedupe gate holds (same pattern as
+    // sendWelcomeSeriesEmail/sendCaptureIncentiveEmail).
+    await logEmail({
+      userId: params.parentUserId,
+      emailType,
+      recipientEmail: params.parentEmail,
+      subject,
+      status: "skipped",
+      metadata,
+    });
+    return { success: false, error: "Email not configured" };
+  }
+
+  // Classes are an Aspire-only product (no SoccerOne equivalent), so
+  // originForBrand("aspire") always returns null here — but computing it
+  // this way (instead of hardcoding the prod host) matches every sibling
+  // send*Email function's appUrl convention: it falls through to
+  // env.PUBLIC_APP_URL, which is the LOCAL/staging origin outside prod. A
+  // hardcoded prod URL would have emailed parents a production link from a
+  // staging or preview cron run.
+  const appUrl = originForBrand("aspire") ?? env.PUBLIC_APP_URL;
+
+  const { html, text } = await renderEmail(
+    TrialConvertEmail({
+      parentFirstName: params.parentFirstName ?? "there",
+      childFirstName: params.childFirstName,
+      className: params.className,
+      tiers: params.tiers,
+      ctaUrl: `${appUrl}/youth/classes#pricing`,
+    }),
+  );
+
+  const result = await sendEmail({
+    to: params.parentEmail,
+    subject,
+    html,
+    text,
+    from: fromForBrand("aspire"),
+  });
+
+  await logEmail({
+    userId: params.parentUserId,
+    emailType,
+    recipientEmail: params.parentEmail,
+    subject,
+    resendMessageId: result.messageId,
+    status: result.success ? "sent" : "failed",
+    metadata,
+  });
+
   return result;
 }
 

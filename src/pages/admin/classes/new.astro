@@ -1,0 +1,36 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { AdminLayout } from '@/components/admin/admin-layout';
+import { getPrimaryRoleName } from '@/lib/auth';
+import { getDb } from '@/lib/db';
+import { venues } from '@/lib/db/schema/teams';
+import { locations } from '@/lib/db/schema/organizations';
+import { asc, eq } from 'drizzle-orm';
+import TemplateForm from '@/components/admin/classes/template-form';
+
+export const prerender = false;
+
+const user = Astro.locals.user!;
+const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
+const orgId = Astro.locals.organization?.id;
+
+const venueRows = orgId
+  ? await getDb()
+      .select({ id: venues.id, name: venues.name })
+      .from(venues)
+      .innerJoin(locations, eq(locations.id, venues.locationId))
+      .where(eq(locations.organizationId, orgId))
+      .orderBy(asc(venues.name))
+  : [];
+---
+
+<BaseLayout title="New Class — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    role={primaryRole}
+    currentPath="/admin/classes"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <TemplateForm client:load venues={venueRows} />
+  </AdminLayout>
+</BaseLayout>

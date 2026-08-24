@@ -73,6 +73,13 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
   if (!tierId || !billingInterval) {
     return json({ error: "tierId and billingInterval are required" }, 422);
   }
+  // A malformed uuid literal makes Postgres throw ("invalid input syntax for
+  // type uuid") on the lookup below, which would surface as a 500 instead of
+  // the same "not found" a well-formed-but-nonexistent id gets — mirrors the
+  // familyMemberId guard above.
+  if (!UUID_RX.test(tierId)) {
+    return json({ error: "Tier not found" }, 404);
+  }
 
   const db = getDb();
 
@@ -210,6 +217,15 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
   // Request origin, not PUBLIC_APP_URL — Stripe success/cancel redirects
   // must return to the domain the customer subscribed from (brand host).
   const appUrl = url.origin;
+  // Child (youth per-class) subscriptions land on the post-checkout
+  // home-slot picker so the new member can enroll and capture the guardian
+  // waiver in one motion — the adult/self path is byte-identical to before.
+  const successUrl = familyMemberId
+    ? `${appUrl}/dashboard/family/choose-slot?child=${familyMemberId}&membership=success`
+    : `${appUrl}/dashboard/play?membership=success`;
+  const cancelUrl = familyMemberId
+    ? `${appUrl}/youth/classes?membership=cancelled`
+    : `${appUrl}/memberships?membership=cancelled`;
   try {
     const result = await createSubscriptionCheckoutSession({
       customerId,
@@ -219,8 +235,8 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
       tierId: tier.id,
       billingInterval,
       partnerStripeAccountId,
-      successUrl: `${appUrl}/dashboard/play?membership=success`,
-      cancelUrl: `${appUrl}/memberships?membership=cancelled`,
+      successUrl,
+      cancelUrl,
       // Storefront brand — host-derived, since both brands share one org.
       brand: brandFromHost(request.headers.get("host") ?? ""),
       tierName: tier.name,

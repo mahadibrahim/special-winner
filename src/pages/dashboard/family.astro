@@ -4,6 +4,7 @@ import DashboardShell from "@/components/dashboard/shell/DashboardShell.astro";
 import DashboardSection from "@/components/dashboard/shell/DashboardSection.astro";
 import UpcomingEvents from "@/components/dashboard/upcoming-events";
 import ChildrenOverview from "@/components/dashboard/children-overview";
+import FamilyClassesCard from "@/components/dashboard/family-classes-card";
 import CoachNotes from "@/components/dashboard/coach-notes";
 import PaymentsSummary from "@/components/dashboard/payments-summary";
 import { AccountCreditBalance } from "@/components/dashboard/account-credit-balance";
@@ -31,6 +32,15 @@ writeLastVisited(Astro.cookies, "family");
 const paymentStatus = Astro.url.searchParams.get("payment");
 const registrationIdParam = Astro.url.searchParams.get("registration");
 const showPaymentSuccessBanner = paymentStatus === "success" && !!registrationIdParam;
+
+// Child membership subscribe normally lands on
+// /dashboard/family/choose-slot?membership=success (the post-checkout
+// home-slot picker). This lets the same param land here too — e.g. a user
+// who bookmarks/refreshes family.astro after finishing the picker, or a
+// membership resumed without a specific child in flight — mirrors
+// play.astro's inline emerald banner pattern (play.astro:33-34, 64-79).
+const showMembershipSuccessBanner =
+  Astro.url.searchParams.get("membership") === "success";
 
 // Surface redirect error from middleware (e.g. ?error=unauthorized when a
 // user was bounced from /admin or /coach because they lack the required role).
@@ -74,6 +84,7 @@ const telegramBannerActive =
 // The banners themselves may also self-hide; this prevents an empty section heading.
 const hasAttentionItems =
   showPaymentSuccessBanner ||
+  showMembershipSuccessBanner ||
   !!errorMessage ||
   !user.emailVerified ||
   telegramBannerActive ||
@@ -107,6 +118,22 @@ const { hasFamily, hasPlay } = await getDashboardDestinations(user.id);
               <div class="flex flex-col gap-4 mt-1">
                 {showPaymentSuccessBanner && (
                   <PaymentSuccessBanner registrationId={registrationIdParam!} client:load />
+                )}
+                {showMembershipSuccessBanner && (
+                  <div
+                    role="status"
+                    class="flex items-start gap-3 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-emerald-900"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="mt-0.5 size-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+                    </svg>
+                    <div>
+                      <div class="font-medium">Membership active — welcome!</div>
+                      <div class="text-sm opacity-90">
+                        A receipt is on its way to your email. You're all set below.
+                      </div>
+                    </div>
+                  </div>
                 )}
                 {errorMessage && (
                   <div
@@ -173,6 +200,7 @@ const { hasFamily, hasPlay } = await getDashboardDestinations(user.id);
           {/* ── What you're part of ── */}
           <DashboardSection title="What you're part of" icon="shield" accent="default">
             <div class="flex flex-col gap-6 mt-1">
+              <FamilyClassesCard client:load />
               <ChildrenOverview client:load />
               <AccountCreditBalance client:load />
               <CoachNotes client:visible />

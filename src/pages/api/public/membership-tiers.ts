@@ -31,8 +31,10 @@ export const GET: APIRoute = async ({ locals }) => {
     .select({
       id: membershipTiers.id,
       name: membershipTiers.name,
+      tagline: membershipTiers.tagline,
       monthlyPriceCents: membershipTiers.monthlyPriceCents,
       annualPriceCents: membershipTiers.annualPriceCents,
+      annualFeeCents: membershipTiers.annualFeeCents,
       benefits: membershipTiers.benefits,
       displayOrder: membershipTiers.displayOrder,
     })

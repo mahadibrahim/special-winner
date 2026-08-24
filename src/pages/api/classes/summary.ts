@@ -43,11 +43,20 @@ export const GET: APIRoute = async ({ locals }) => {
   const organizationId = locals.organization.id;
   const db = getDb();
 
+  // Most-recently-added first, not oldest-first: this endpoint's own doc
+  // comment says its main consumer is the POST-CHECKOUT slot picker for a
+  // "freshly-subscribed child" (see ChooseSlot's header comment) — for any
+  // account past MAX_CHILDREN, an oldest-first cap silently drops exactly
+  // that child (the newest row) from the result, breaking the endpoint for
+  // its own primary use case. Bug found while adding the choose-slot E2E
+  // spec (Task 9) — the shared parent@test.aspiresports.com fixture account
+  // has accumulated 400+ family_members rows across the test suite's
+  // history, well past the old cap.
   const children = await db
     .select({ id: familyMembers.id, firstName: familyMembers.firstName, lastName: familyMembers.lastName })
     .from(familyMembers)
     .where(eq(familyMembers.parentUserId, locals.user.id))
-    .orderBy(asc(familyMembers.createdAt))
+    .orderBy(desc(familyMembers.createdAt))
     .limit(MAX_CHILDREN);
 
   if (children.length === 0) {
