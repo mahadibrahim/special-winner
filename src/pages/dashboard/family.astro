@@ -4,6 +4,7 @@ import DashboardShell from "@/components/dashboard/shell/DashboardShell.astro";
 import DashboardSection from "@/components/dashboard/shell/DashboardSection.astro";
 import UpcomingEvents from "@/components/dashboard/upcoming-events";
 import ChildrenOverview from "@/components/dashboard/children-overview";
+import FamilyClassesCard from "@/components/dashboard/family-classes-card";
 import CoachNotes from "@/components/dashboard/coach-notes";
 import PaymentsSummary from "@/components/dashboard/payments-summary";
 import { AccountCreditBalance } from "@/components/dashboard/account-credit-balance";
@@ -199,6 +200,7 @@ const { hasFamily, hasPlay } = await getDashboardDestinations(user.id);
           {/* ── What you're part of ── */}
           <DashboardSection title="What you're part of" icon="shield" accent="default">
             <div class="flex flex-col gap-6 mt-1">
+              <FamilyClassesCard client:load />
               <ChildrenOverview client:load />
               <AccountCreditBalance client:load />
               <CoachNotes client:visible />
