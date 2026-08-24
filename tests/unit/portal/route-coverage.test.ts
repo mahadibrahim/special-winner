@@ -48,6 +48,7 @@ const CONTEXTUAL_ROUTES = new Set<string>([
   // Contextual sub-pages reached from their parent index.
   "/admin/media/shoots/new",   // reached from /admin/media/shoots (new shoot form)
   "/admin/dropin/sessions/new", // reached from /admin/dropins (new session form)
+  "/admin/classes/new", // reached from /admin/classes ("+ New class" / "Create first class")
   // Reached from /coach/practices (new practice form) — contextual.
   "/coach/practices/new",
 
