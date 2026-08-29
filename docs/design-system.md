@@ -329,12 +329,11 @@ They are different axes and a surface may carry both. One source:
 
 ### `.graded--fill`
 
-`.graded` is unlayered CSS, and Tailwind v4 emits utilities inside a cascade
-layer — so unlayered rules always beat utilities. `position: relative` on
-`.graded` therefore silently defeats `class="absolute inset-0"`, the container
-keeps auto height, and `.graded > img { height: 100% }` resolves to **zero**:
-the image renders at 0px with no error. Use the `graded--fill` modifier to
-deploy the grade as a hero background layer:
+Use the `graded--fill` modifier to deploy the grade as a hero background
+layer. (Historically this modifier existed because `.graded` was unlayered
+CSS and silently beat Tailwind's `absolute inset-0`; globals.css is now fully
+layered — see "CSS layering" below — so utilities win, but `graded--fill`
+remains the canonical spelling.)
 
 ```html
 <section class="relative bg-navy-deep overflow-hidden">
@@ -346,8 +345,55 @@ deploy the grade as a hero background layer:
 ```
 
 The `bg-navy-deep` on the section is the fallback ground so cream text never
-lands on cream if the photo is missing. General lesson: if a Tailwind utility
-appears to do nothing, check for a bare class rule in `globals.css`.
+lands on cream if the photo is missing.
+
+---
+
+## CSS layering (2026-08-29)
+
+Tailwind v4 emits every utility inside the `utilities` cascade layer, and
+**unlayered author CSS beats all layered CSS regardless of specificity**. A
+bare class rule in a global stylesheet therefore silently overrides any
+Tailwind utility on the same property — the utility appears to do nothing,
+with no error (this is exactly how the `.graded` / `absolute inset-0`
+incident happened).
+
+Rules:
+
+- **Every style rule in `globals.css` lives inside an `@layer` block.**
+  Element defaults (`a`, `h1`, focus rings) → `@layer base`. Class rules
+  (`.graded`, `.fade-up`, `.guide-card`) → `@layer components`. Utilities
+  then predictably win over both. Token-only statements (`:root`, `.dark`,
+  `@theme`) are exempt — they define variables, not competing declarations.
+- Enforced by `tests/unit/globals-css-layering.test.ts`, which fails on any
+  unlayered top-level rule.
+- The `prefers-reduced-motion` block keeps winning despite being layered: its
+  declarations are `!important`, and the cascade reverses layer order for
+  important rules, so a layered important beats even `!`-prefixed utilities.
+
+## Styling React islands (Astro + React)
+
+Astro's scoped `<style>` blocks are compiled to `data-astro-*` attribute
+selectors that are only stamped onto elements in the `.astro` template —
+**they never reach the DOM a React island renders**. Relying on a parent
+page's scoped styles to style island internals fails silently (this caused a
+prod incident).
+
+Convention for any `.tsx` component rendered with a `client:*` directive:
+
+- Style island internals exclusively with **Tailwind utilities and the global
+  design tokens** (`bg-cream`, `text-ink`, `var(--emerald)`, …). Both travel
+  with the component wherever it mounts.
+- If an island genuinely needs bespoke CSS a utility can't express, either
+  embed a `<style>` tag in the island's own JSX with island-prefixed class
+  names (the established pattern — see `partners-section.tsx`,
+  `SoccerOneSeasonTabs.tsx`), or add a layered rule to `globals.css`. Never
+  put it in the parent `.astro` page's scoped `<style>`. Embedded island
+  styles are unlayered, so keep their selectors on bespoke class names that
+  no Tailwind utility also targets.
+- Astro scoped `<style>` blocks are fine for markup that lives in the same
+  `.astro` file; just don't write selectors there that target an island's
+  internal markup.
 
 ---
 

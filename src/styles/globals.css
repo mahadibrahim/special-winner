@@ -337,7 +337,15 @@
 /* ============================================================
    Editorial reveal animations
    — stagger fade-up for dashboard sections, page entries, etc.
+
+   Everything below lives in @layer components so Tailwind
+   utilities (emitted in the later `utilities` layer) always win
+   over these classes when both target the same property. Never
+   add an unlayered class rule to this file — unlayered CSS
+   silently beats every utility (see tests/unit/globals-css-layering).
 ============================================================ */
+
+@layer components {
 
 /* Primary reveal: 12px travel, 0.5s — dashboard section stagger */
 @keyframes fade-slide-in {
@@ -427,7 +435,10 @@
 }
 
 /* ============================================================
-   Reduced motion — respect the setting
+   Reduced motion — respect the setting. !important declarations
+   in a named layer outrank unlayered and later-layer importants
+   (the cascade reverses layer order for important rules), so this
+   still beats `!`-prefixed utilities.
 ============================================================ */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -453,12 +464,10 @@
        <div class="graded graded--emerald graded--fill"><img …></div>
        <div class="relative z-10">…content…</div>
      </section>
-   This modifier exists because `.graded` is unlayered CSS and therefore beats
-   Tailwind's `.absolute` utility (Tailwind v4 emits utilities inside a cascade
-   layer, and unlayered rules always win). Without it, adding `absolute inset-0`
-   in the class list silently does nothing, the container keeps `position:
-   relative` with auto height, and `.graded > img { height: 100% }` resolves to
-   zero — the image renders at 0px with no error. */
+   Historical note: this modifier predates the @layer components wrapper —
+   `.graded` used to be unlayered and silently beat Tailwind's `.absolute`
+   utility. Utilities now win, so `absolute inset-0` would also work, but
+   `graded--fill` stays as the semantic spelling existing pages use. */
 .graded--fill {
   position: absolute;
   inset: 0;
@@ -487,25 +496,30 @@
   z-index: 1;
 }
 
+} /* end @layer components */
+
 /* ── Mobile tap responsiveness ──────────────────────────────────────────
    ~80% of paid traffic is mobile; session replays showed double/triple-taps
    on CTAs. touch-action kills the double-tap-zoom wait heuristic on
    interactive elements; the pressed state gives instant feedback so a slow
    navigation doesn't read as a dead tap. Opacity only — no transform, so
-   nothing shifts and prefers-reduced-motion needs no carve-out. */
-a,
-button,
-[role="button"],
-input,
-select,
-textarea,
-label {
-  touch-action: manipulation;
-}
-@media (hover: none) {
-  a:active,
-  button:not(:disabled):active,
-  [role="button"]:active {
-    opacity: 0.75;
+   nothing shifts and prefers-reduced-motion needs no carve-out.
+   Element-selector defaults → base layer, so any utility can override. */
+@layer base {
+  a,
+  button,
+  [role="button"],
+  input,
+  select,
+  textarea,
+  label {
+    touch-action: manipulation;
+  }
+  @media (hover: none) {
+    a:active,
+    button:not(:disabled):active,
+    [role="button"]:active {
+      opacity: 0.75;
+    }
   }
 }
