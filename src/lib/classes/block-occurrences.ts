@@ -29,10 +29,43 @@
  */
 import { occurrenceInstants, zonedWallClockUtc } from "./materialize";
 
-/** Parse a Postgres `date` string ("YYYY-MM-DD") into civil parts. */
+const ISO_DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/**
+ * Parse a Postgres `date` string ("YYYY-MM-DD") into civil parts, rejecting
+ * anything else with a named, localized error.
+ *
+ * Drizzle hands `class_blocks.startDate`/`endDate` back in exactly this
+ * shape, so in the happy path the guard never fires. It exists because the
+ * callers are REQUEST HANDLERS (the Task 6 catalog quote and the Task 8
+ * purchase price): a hand-built payload, a mis-mapped column, or a
+ * `toISOString()` that slipped through would otherwise sail past the split
+ * as `NaN` parts and surface from deep inside `Intl.DateTimeFormat` as a
+ * bare `RangeError: Invalid time value` — with nothing in the message
+ * naming the field or the offending value. Failing here instead makes the
+ * 500 self-explanatory.
+ *
+ * The round-trip check also catches well-shaped but nonexistent dates
+ * ("2026-02-30", "2026-13-01"), which `Date.UTC` would otherwise silently
+ * roll forward into a different month — a wrong block window priced as if
+ * it were right is worse than a loud failure.
+ */
 function parseCivilDate(isoDate: string): { y: number; m: number; day: number } {
-  const [y, m, day] = isoDate.split("-");
-  return { y: Number(y), m: Number(m), day: Number(day) };
+  const match = ISO_DATE_RE.exec(isoDate);
+  if (!match) {
+    throw new Error(`Expected a YYYY-MM-DD date string, got: ${JSON.stringify(isoDate)}`);
+  }
+  const [, ys, ms, ds] = match;
+  const civ = { y: Number(ys), m: Number(ms), day: Number(ds) };
+  const roundTrip = new Date(Date.UTC(civ.y, civ.m - 1, civ.day));
+  if (
+    roundTrip.getUTCFullYear() !== civ.y ||
+    roundTrip.getUTCMonth() + 1 !== civ.m ||
+    roundTrip.getUTCDate() !== civ.day
+  ) {
+    throw new Error(`Not a real calendar date (YYYY-MM-DD): ${JSON.stringify(isoDate)}`);
+  }
+  return civ;
 }
 
 /**

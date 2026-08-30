@@ -305,6 +305,50 @@ describe("POST /api/classes/book — pack credit redemption", () => {
     expect(resA.status).toBe(200);
     expect((await resA.json()).paymentMethod).toBe("pack_credit");
   });
+
+  it("will NOT spend a grant on a session that starts after the grant expires", async () => {
+    // Redeemability is judged against the SESSION START, not the wall clock
+    // (`selectRedeemableGrant`'s `at` opt). A block grant expires at the end
+    // of its block window; the auto-booking cron materializes 8 days ahead,
+    // so without this rule a grant with 2 days left would still be spent on
+    // a session 8 days out — buying a seat outside the block the family
+    // actually paid for. The grant here is live NOW and dead by the late
+    // session, which is exactly that shape.
+    const suffix = `${Date.now()}-c9`;
+    const childId = await createTestChild(parentUserId, `CreditPastExpiry-${suffix}`);
+    const templateId = await createTestClassTemplate({
+      organizationId,
+      venueId,
+      name: `Credit-Past-Expiry-${suffix}`,
+      capacity: 10,
+      active: false,
+    });
+    await createCreditGrant({
+      familyMemberId: childId,
+      sessionsGranted: 4,
+      idSuffix: suffix,
+      source: "block",
+      slotTemplateId: templateId,
+      expiresAt: hoursFromNow(6 * 24),
+    });
+
+    // Session 8 days out — past the grant's expiry, so rejected despite the
+    // grant being unexpired at the moment of the request.
+    const lateSessionId = await createClassSession(hoursFromNow(8 * 24), {
+      slotTemplateId: templateId,
+    });
+    const lateRes = await book(lateSessionId, childId, true);
+    expect(lateRes.status).toBe(403);
+    expect((await lateRes.json()).error).toBe("no_membership");
+
+    // Control: same child, same grant, a session INSIDE the window — books.
+    const earlySessionId = await createClassSession(hoursFromNow(5 * 24), {
+      slotTemplateId: templateId,
+    });
+    const earlyRes = await book(earlySessionId, childId, true);
+    expect(earlyRes.status).toBe(200);
+    expect((await earlyRes.json()).paymentMethod).toBe("pack_credit");
+  });
 });
 
 /**

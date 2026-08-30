@@ -135,6 +135,8 @@ let existingBookingIndex = 0;
 let expiredEnrollmentRows: Array<{ id: string }> = [];
 /** The `.set(...)` payload the expiry UPDATE was called with, for assertion. */
 let expirySetPayload: Record<string, unknown> | null = null;
+/** Simulates a DB blip on the pass-0 UPDATE. */
+let expiryUpdateThrows = false;
 
 vi.mock("@/lib/db", () => ({
   getDb: () => ({
@@ -142,7 +144,12 @@ vi.mock("@/lib/db", () => ({
       set: (vals: Record<string, unknown>) => {
         expirySetPayload = vals;
         return {
-          where: () => ({ returning: async () => expiredEnrollmentRows }),
+          where: () => ({
+            returning: async () => {
+              if (expiryUpdateThrows) throw new Error("expiry update boom");
+              return expiredEnrollmentRows;
+            },
+          }),
         };
       },
     }),
@@ -248,6 +255,7 @@ describe("materializeClassSessions", () => {
     existingBookingIndex = 0;
     expiredEnrollmentRows = [];
     expirySetPayload = null;
+    expiryUpdateThrows = false;
     createChildClassBooking.mockReset();
   });
 
@@ -498,6 +506,35 @@ describe("materializeClassSessions", () => {
     });
     // Ended AT the run's `now`, not at some other clock read.
     expect(expirySetPayload).toEqual({ status: "ended", endedAt: NOW });
+  });
+
+  it("pass 0: a failed expiry UPDATE is isolated — materialization and auto-booking still run", async () => {
+    // Per-phase isolation, same as every other phase in this cron: a
+    // transient DB blip on the expiry sweep counts as one `failed` and the
+    // run continues. Aborting here would cost a whole cycle of sessions and
+    // auto-bookings to fix a bookkeeping UPDATE that the next run redoes
+    // anyway (it is idempotent — the predicate re-matches).
+    templateRows = [tuesdayTemplate()];
+    enrollmentRows = [{ familyMemberId: "child-1", parentUserId: "parent-1" }];
+    sweepSessionRowsQueue = [[{ id: "session-1" }]];
+    existingBookingQueue = [false];
+    expiryUpdateThrows = true;
+    createChildClassBooking.mockResolvedValue({
+      ok: true,
+      bookingId: "booking-1",
+      paymentMethod: "member_allotment",
+    });
+
+    const result = await materializeClassSessions(NOW);
+
+    expect(result).toEqual({
+      sessionsCreated: 1,
+      autoBooked: 1,
+      skippedExhausted: 0,
+      skippedPastDue: 0,
+      failed: 1,
+      enrollmentsEnded: 0,
+    });
   });
 
   it("pass 0: reports zero when no credit-backed grant has expired", async () => {

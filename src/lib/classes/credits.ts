@@ -113,17 +113,29 @@ export async function getCreditBalances(
 /** Pure. Picks the grant to redeem for a session of `slotTemplateId`
  *  (null for one-off class sessions): pinned grants matching the template
  *  first, then floating pack grants; earliest expiry wins within each
- *  class; unexpired (expiresAt > now) and remaining > 0 only. Returns
- *  null when nothing is redeemable. */
+ *  class; remaining > 0 and `expiresAt > at` only. Returns null when
+ *  nothing is redeemable.
+ *
+ *  CALLER CONTRACT — `at` is the SESSION START instant, not the wall clock.
+ *  A grant must outlive the session it pays for: a block grant expires at
+ *  the end of its block window, and the materialization cron books up to
+ *  HORIZON_DAYS ahead, so judging redeemability against "now" would let a
+ *  grant with two days left buy a seat eight days out — a session outside
+ *  the block the family actually purchased. The same rule keeps a floating
+ *  pack from booking a session scheduled past its own expiry. This is
+ *  strictly tighter than an `at = now` check for any bookable session,
+ *  because the `session_started` gate in book-child.ts already guarantees
+ *  `startsAt > now` before this is ever reached. Hence `at`, not `now` —
+ *  the name is the contract. */
 export function selectRedeemableGrant(
   balances: CreditGrantBalance[],
-  opts: { slotTemplateId: string | null; now: Date },
+  opts: { slotTemplateId: string | null; at: Date },
 ): CreditGrantBalance | null {
-  const nowMs = opts.now.getTime();
+  const atMs = opts.at.getTime();
 
   const candidates = balances.filter((b) => {
     if (b.remaining <= 0) return false;
-    if (b.expiresAt.getTime() <= nowMs) return false;
+    if (b.expiresAt.getTime() <= atMs) return false;
     // A pinned grant only ever spends on its own template's sessions.
     if (b.slotTemplateId !== null && b.slotTemplateId !== opts.slotTemplateId) return false;
     return true;

@@ -38,3 +38,36 @@ describe("blockExpiryInstant", () => {
       .toBe("2026-11-08T04:59:59.000Z") // 23:59:59 EST
   })
 })
+
+describe("date-string shape guard", () => {
+  // Tasks 6/8 call these from request handlers with dates that ultimately
+  // come off `class_blocks` rows (always "YYYY-MM-DD") — but a hand-built
+  // quote payload or a mis-mapped column would otherwise reach Intl and
+  // surface as an opaque RangeError from deep inside the format call.
+  // Fail loudly, at the boundary, naming the expected shape.
+  it("rejects a wrong-shaped date string", () => {
+    for (const bad of ["2026-9-15", "11/07/2026", "2026-11-07T00:00:00Z", "", "nope"]) {
+      expect(() => blockExpiryInstant(bad, "America/New_York")).toThrow(/YYYY-MM-DD/)
+    }
+  })
+
+  it("rejects a well-shaped but nonexistent calendar date", () => {
+    expect(() => blockExpiryInstant("2026-02-30", "America/New_York")).toThrow(/YYYY-MM-DD/)
+    expect(() => blockExpiryInstant("2026-13-01", "America/New_York")).toThrow(/YYYY-MM-DD/)
+  })
+
+  it("guards both of blockOccurrenceInstants' date inputs", () => {
+    expect(() =>
+      blockOccurrenceInstants({ ...TPL, startDate: "9/15/26", endDate: "2026-11-07",
+        after: new Date("2026-09-01T00:00:00Z") }),
+    ).toThrow(/YYYY-MM-DD/)
+    expect(() =>
+      blockOccurrenceInstants({ ...TPL, startDate: "2026-09-15", endDate: "2026-11-7",
+        after: new Date("2026-09-01T00:00:00Z") }),
+    ).toThrow(/YYYY-MM-DD/)
+  })
+
+  it("names the offending value in the error message", () => {
+    expect(() => blockExpiryInstant("2026-13-01", "America/New_York")).toThrow(/2026-13-01/)
+  })
+})

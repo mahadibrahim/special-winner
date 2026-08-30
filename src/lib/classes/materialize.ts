@@ -263,19 +263,35 @@ export async function materializeClassSessions(now: Date): Promise<MaterializeRe
   // A block enrollment holds its template seat only through the block
   // window (grant.expiresAt = block end). Membership-backed enrollments
   // are ended by handleSubscriptionDeleted, never here.
-  const ended = await db
-    .update(classEnrollments)
-    .set({ status: "ended", endedAt: now })
-    .where(
-      and(
-        eq(classEnrollments.status, "active"),
-        sql`${classEnrollments.creditGrantId} IN (
-          SELECT id FROM class_credit_grants WHERE expires_at <= ${now}
-        )`,
-      ),
-    )
-    .returning({ id: classEnrollments.id });
-  counters.enrollmentsEnded = ended.length;
+  //
+  // Isolated like every other phase: a transient DB blip here counts as one
+  // `failed` and the run CONTINUES. Aborting would cost a whole cycle of
+  // session materialization and auto-booking to protect a bookkeeping
+  // UPDATE that the next run redoes for free — the predicate still matches
+  // (nothing about it is time-of-run dependent beyond `now` moving
+  // forward), so the sweep is naturally idempotent and self-healing.
+  try {
+    const ended = await db
+      .update(classEnrollments)
+      .set({ status: "ended", endedAt: now })
+      .where(
+        and(
+          eq(classEnrollments.status, "active"),
+          sql`${classEnrollments.creditGrantId} IN (
+            SELECT id FROM class_credit_grants WHERE expires_at <= ${now}
+          )`,
+        ),
+      )
+      .returning({ id: classEnrollments.id });
+    counters.enrollmentsEnded = ended.length;
+  } catch (err) {
+    console.error("[classes] credit-backed enrollment expiry sweep failed:", err);
+    void captureServerException(err, {
+      component: "classes/materialize",
+      metadata: { phase: "enrollment-expiry" },
+    });
+    counters.failed += 1;
+  }
 
   const horizonEnd = new Date(now.getTime() + HORIZON_DAYS * DAY_MS);
 

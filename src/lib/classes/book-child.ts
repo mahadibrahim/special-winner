@@ -247,9 +247,14 @@ export async function createChildClassBooking(opts: {
           opts.source === "auto_enrollment"
             ? balances.filter((b) => b.slotTemplateId !== null)
             : balances;
+        // Judged against the SESSION START, not the wall clock: a grant has
+        // to still be alive when the session actually runs. See
+        // selectRedeemableGrant's caller contract — this is what stops a
+        // block credit being spent on a session past the block window
+        // (the cron materializes HORIZON_DAYS ahead of any given run).
         const grant = selectRedeemableGrant(redeemable, {
           slotTemplateId: session.classSlotTemplateId,
-          now: new Date(),
+          at: session.startsAt,
         });
         if (grant) {
           paymentMethod = "pack_credit";
