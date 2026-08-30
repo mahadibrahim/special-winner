@@ -60,6 +60,9 @@ export const dropInPaymentMethodEnum = pgEnum("drop_in_payment_method", [
   // by src/lib/dropin/host-assignment.ts, always amount_paid_cents = 0.
   "host_comp",
   "trial",
+  // Class session paid from a purchased credit grant (pack or block) —
+  // see src/lib/db/schema/classes.ts classCreditGrants.
+  "pack_credit",
 ]);
 export const dropInCancellationReasonEnum = pgEnum("drop_in_cancellation_reason", [
   "user_request",
