@@ -14,7 +14,8 @@
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { getDb } from "@/lib/db";
-import { dropInRateCard, dropInSessions } from "@/lib/db/schema/drop-in";
+import { dropInBookings, dropInRateCard, dropInSessions } from "@/lib/db/schema/drop-in";
+import { createChildClassBooking } from "@/lib/classes/book-child";
 import { classCreditGrants } from "@/lib/db/schema/classes";
 import { eq, inArray } from "drizzle-orm";
 import { apiFetch, getAuthCookie } from "./setup/test-helpers";
@@ -143,7 +144,11 @@ describe("POST /api/classes/book — pack credit redemption", () => {
   it("books a membership-less child against a floating pack credit", async () => {
     const suffix = `${Date.now()}-c1`;
     const childId = await createTestChild(parentUserId, `CreditFloat-${suffix}`);
-    await createCreditGrant({ familyMemberId: childId, sessionsGranted: 3, idSuffix: suffix });
+    const grantId = await createCreditGrant({
+      familyMemberId: childId,
+      sessionsGranted: 3,
+      idSuffix: suffix,
+    });
 
     const sessionId = await createClassSession(hoursFromNow(5 * 24));
     const res = await book(sessionId, childId, true);
@@ -151,6 +156,25 @@ describe("POST /api/classes/book — pack credit redemption", () => {
     const body = await res.json();
     expect(body.paymentMethod).toBe("pack_credit");
     expect(typeof body.bookingId).toBe("string");
+
+    // Row shape, read straight from the DB: a redeemed credit is a $0 row
+    // that points at the grant it spent and carries NO membership.
+    const [row] = await getDb()
+      .select({
+        paymentMethod: dropInBookings.paymentMethod,
+        creditGrantId: dropInBookings.creditGrantId,
+        membershipId: dropInBookings.membershipId,
+        amountPaidCents: dropInBookings.amountPaidCents,
+      })
+      .from(dropInBookings)
+      .where(eq(dropInBookings.id, body.bookingId))
+      .limit(1);
+    expect(row).toMatchObject({
+      paymentMethod: "pack_credit",
+      creditGrantId: grantId,
+      membershipId: null,
+      amountPaidCents: 0,
+    });
   });
 
   it("403s no_membership once a membership-less child's credits run out", async () => {
@@ -280,5 +304,77 @@ describe("POST /api/classes/book — pack credit redemption", () => {
     const resA = await book(sessionA, childId, true);
     expect(resA.status).toBe(200);
     expect((await resA.json()).paymentMethod).toBe("pack_credit");
+  });
+});
+
+/**
+ * `source` is not reachable over HTTP — `POST /api/classes/book` never sets
+ * it, so every booking that endpoint makes is `online_booking`. The only
+ * caller that passes `auto_enrollment` is the materialization cron, which
+ * picks its own children and sessions and can't be steered at a specific
+ * grant from a test. So these two call `createChildClassBooking` directly,
+ * against the same real staging DB the HTTP tests above use — a library
+ * call, not a mock, so the transaction, gates and inserts are all the real
+ * ones.
+ */
+describe("createChildClassBooking — background bookings and the credits ladder", () => {
+  it("will NOT spend a floating pack credit on an auto_enrollment booking", async () => {
+    const suffix = `${Date.now()}-c7`;
+    const childId = await createTestChild(parentUserId, `CreditCronFloat-${suffix}`);
+    await createCreditGrant({ familyMemberId: childId, sessionsGranted: 3, idSuffix: suffix });
+    const sessionId = await createClassSession(hoursFromNow(5 * 24));
+
+    // Waiver supplied, so the only thing that can reject this is the credit
+    // gate. A floating pack is parent-initiated spend: the background job
+    // must skip the child exactly as it did before credits existed.
+    const cronResult = await createChildClassBooking({
+      sessionId,
+      parentUserId,
+      familyMemberId: childId,
+      kind: "member",
+      source: "auto_enrollment",
+      waiver: CLASS_TEST_WAIVER,
+    });
+    expect(cronResult.ok).toBe(false);
+    if (!cronResult.ok) expect(cronResult.error.code).toBe("no_membership");
+
+    // Control: the SAME child, SAME session, same untouched grant — only
+    // the source differs — books fine when the parent asks for it.
+    const res = await book(sessionId, childId, true);
+    expect(res.status).toBe(200);
+    expect((await res.json()).paymentMethod).toBe("pack_credit");
+  });
+
+  it("DOES spend a pinned block grant on an auto_enrollment booking", async () => {
+    const suffix = `${Date.now()}-c8`;
+    const childId = await createTestChild(parentUserId, `CreditCronPinned-${suffix}`);
+    const templateId = await createTestClassTemplate({
+      organizationId,
+      venueId,
+      name: `Credit-Cron-Pinned-${suffix}`,
+      capacity: 10,
+      active: false,
+    });
+    await createCreditGrant({
+      familyMemberId: childId,
+      sessionsGranted: 4,
+      idSuffix: suffix,
+      source: "block",
+      slotTemplateId: templateId,
+    });
+    const sessionId = await createClassSession(hoursFromNow(5 * 24), { slotTemplateId: templateId });
+
+    // A block IS a standing commitment to this weekly slot — auto-booking it
+    // week after week is the whole feature.
+    const cronResult = await createChildClassBooking({
+      sessionId,
+      parentUserId,
+      familyMemberId: childId,
+      kind: "member",
+      source: "auto_enrollment",
+      waiver: CLASS_TEST_WAIVER,
+    });
+    expect(cronResult.ok).toBe(true);
+    if (cronResult.ok) expect(cronResult.paymentMethod).toBe("pack_credit");
   });
 });

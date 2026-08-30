@@ -16,7 +16,9 @@
  *   falls through to the class-credit ledger (src/lib/classes/credits.ts) —
  *   a pack or block credit the family ALREADY paid for, so the resulting row
  *   is still $0 with `paymentMethod: 'pack_credit'` and the spent grant
- *   recorded in `creditGrantId`. Paying for a class AT BOOKING TIME (the
+ *   recorded in `creditGrantId`. A BACKGROUND (`source: 'auto_enrollment'`)
+ *   booking may only redeem PINNED block grants, never floating packs — see
+ *   the comment in that branch. Paying for a class AT BOOKING TIME (the
  *   make-up checkout) remains a separate endpoint's concern — this library
  *   only ever inserts $0 rows.
  * - No team assignment, no gender caps, no `resolveRate` — classes have
@@ -227,7 +229,25 @@ export async function createChildClassBooking(opts: {
           session.organizationId,
           tx,
         );
-        const grant = selectRedeemableGrant(balances, {
+        // A BACKGROUND booking (the materialization cron auto-enrolling a
+        // child into a freshly created session) may only ever redeem PINNED
+        // grants. The two credit kinds mean different things:
+        //   - A pinned BLOCK grant IS a standing commitment to this exact
+        //     weekly slot — "my kid is in the Tuesday 4pm block" — so
+        //     auto-booking it week after week is the feature, not a
+        //     surprise.
+        //   - A floating PACK grant is a wallet of parent-initiated spend
+        //     ("use one whenever we can make it"), pinned to nothing. Left
+        //     unrestricted, a child whose membership lapsed to paused/
+        //     past_due while their enrollment stayed active would have that
+        //     wallet silently drained by a background job — money spent
+        //     with nobody asking. Before the credits ladder existed the
+        //     cron simply skipped such a child; it still must.
+        const redeemable =
+          opts.source === "auto_enrollment"
+            ? balances.filter((b) => b.slotTemplateId !== null)
+            : balances;
+        const grant = selectRedeemableGrant(redeemable, {
           slotTemplateId: session.classSlotTemplateId,
           now: new Date(),
         });
