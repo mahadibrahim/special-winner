@@ -122,9 +122,12 @@ handshake at first booking.
 4. Stripe Checkout in payment mode with a dynamic `price_data` amount; metadata carries
    block/slot/child.
 5. Webhook (idempotent): insert pinned credit grant + insert `class_enrollments` row
-   (`status: active`, ends at block end — reusing the enrollment the auto-booking cron
-   already understands) + immediately book any already-materialized upcoming sessions
-   of that slot against the grant.
+   (`status: active`, backed by the grant instead of a membership; ended when the
+   grant expires at block end). The webhook does **not** book sessions — a first-time
+   family has no guardian waiver on file yet, so unattended booking would fail. The
+   Checkout success URL lands on the existing choose-slot page in block mode, which
+   captures the waiver and books this week's session (redeeming a pinned credit); the
+   daily cron books the remaining weeks once the waiver is on file.
 6. The daily materialize/auto-book cron books each week's session for block enrollments
    by consuming pinned credits (`paymentMethod: pack_credit`, `creditGrantId` set)
    instead of a membership allotment. When the grant is exhausted or expired, the cron
