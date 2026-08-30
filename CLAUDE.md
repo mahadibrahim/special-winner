@@ -154,6 +154,8 @@ Secrets live in the Bitwarden Secrets Manager project **`aspire-web-app`** (id `
 - Forms use react-hook-form with zod validation
 - Toast notifications via sonner
 - All timestamps stored in UTC, displayed in organization's timezone
+- **CSS layering**: every style rule in `globals.css` must sit inside an `@layer` block (`base` for element defaults, `components` for classes) so Tailwind utilities predictably win — unlayered CSS silently beats all utilities. Enforced by `tests/unit/globals-css-layering.test.ts`.
+- **React islands style themselves**: Astro scoped `<style>` never reaches a `client:*` React component's DOM. Islands use Tailwind utilities/design tokens, an embedded `<style>` in the island itself, or layered global CSS — never selectors in a parent `.astro` page's scoped style block. See "Styling React islands" in `docs/design-system.md`.
 
 ### Prerender policy
 
