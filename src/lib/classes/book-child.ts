@@ -8,12 +8,17 @@
  * - Bookings are always keyed to a CHILD (`familyMemberId`), never a parent
  *   self-booking — pickup and class allotments must never contaminate each
  *   other, and `getActiveChildMembership` looks up membership BY CHILD.
- * - Two booking kinds, both $0 at this layer: `member` (draws from the
- *   child's membership `classAllotmentRemaining`) and `trial` (one per child
- *   EVER per org, no membership required — and NOT available to a child who
- *   already holds one; see the trial branch). Paid class bookings (allotment
- *   exhausted, buy-a-class) are Task 5's checkout-endpoint concern — this
- *   library only ever inserts $0 rows.
+ * - Two booking kinds, both $0 at this layer: `member` and `trial` (one per
+ *   child EVER per org, no membership required — and NOT available to a
+ *   child who already holds one; see the trial branch). `member` draws from
+ *   the child's membership `classAllotmentRemaining` first and, when that is
+ *   unavailable (no active membership, or the monthly allotment is used up),
+ *   falls through to the class-credit ledger (src/lib/classes/credits.ts) —
+ *   a pack or block credit the family ALREADY paid for, so the resulting row
+ *   is still $0 with `paymentMethod: 'pack_credit'` and the spent grant
+ *   recorded in `creditGrantId`. Paying for a class AT BOOKING TIME (the
+ *   make-up checkout) remains a separate endpoint's concern — this library
+ *   only ever inserts $0 rows.
  * - No team assignment, no gender caps, no `resolveRate` — classes have
  *   neither teams nor a rate card; every class booking here is $0.
  *
@@ -35,6 +40,7 @@ import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
 import { familyMembers } from "@/lib/db/schema/registrations";
 import { classSlotTemplates } from "@/lib/db/schema/classes";
 import { getActiveChildMembership } from "@/lib/memberships/get-child-membership";
+import { getCreditBalances, selectRedeemableGrant } from "@/lib/classes/credits";
 import { checkSessionCapacityLocked, type DropInTx } from "@/lib/dropin/booking";
 import { ensureDropInCustomerMembership } from "@/lib/organization/ensure-membership";
 import { dispatchBookingConfirmation } from "@/lib/dropin/messages/dispatch";
@@ -62,7 +68,11 @@ export interface ChildBookingError {
 }
 
 export type ChildBookingResult =
-  | { ok: true; bookingId: string; paymentMethod: "member_allotment" | "trial" }
+  | {
+      ok: true;
+      bookingId: string;
+      paymentMethod: "member_allotment" | "trial" | "pack_credit";
+    }
   | { ok: false; error: ChildBookingError };
 
 /** Booking statuses that occupy a real seat / block a duplicate booking —
@@ -197,22 +207,39 @@ export async function createChildClassBooking(opts: {
     }
 
     // Kind-specific gate: membership allotment, or one-trial-ever.
-    let paymentMethod: "member_allotment" | "trial";
+    let paymentMethod: "member_allotment" | "trial" | "pack_credit";
     let membershipId: string | null = null;
+    let creditGrantId: string | null = null;
     if (opts.kind === "member") {
       const membership = await getActiveChildMembership(
         opts.familyMemberId,
         session.organizationId,
         tx,
       );
-      if (!membership || membership.status !== "active") {
-        return err("no_membership", "Child has no active membership");
+      if (membership && membership.status === "active" && membership.classAllotmentRemaining !== 0) {
+        paymentMethod = "member_allotment";
+        membershipId = membership.id;
+      } else {
+        // Credits fallthrough — pinned (this slot) first, then floating
+        // packs, earliest expiry first. See src/lib/classes/credits.ts.
+        const balances = await getCreditBalances(
+          opts.familyMemberId,
+          session.organizationId,
+          tx,
+        );
+        const grant = selectRedeemableGrant(balances, {
+          slotTemplateId: session.classSlotTemplateId,
+          now: new Date(),
+        });
+        if (grant) {
+          paymentMethod = "pack_credit";
+          creditGrantId = grant.grantId;
+        } else if (!membership || membership.status !== "active") {
+          return err("no_membership", "Child has no active membership");
+        } else {
+          return err("allotment_exhausted", "Child's monthly class allotment is used up");
+        }
       }
-      if (membership.classAllotmentRemaining === 0) {
-        return err("allotment_exhausted", "Child's monthly class allotment is used up");
-      }
-      paymentMethod = "member_allotment";
-      membershipId = membership.id;
     } else {
       // A trial is an ACQUISITION offer — "try one class before you
       // subscribe". A child who already holds a membership has nothing left
@@ -315,6 +342,7 @@ export async function createChildClassBooking(opts: {
         paymentMethod,
         amountPaidCents: 0,
         membershipId,
+        creditGrantId,
         waiverSigned,
         waiverSignedAt,
         waiverSignedBy,

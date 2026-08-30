@@ -2,19 +2,26 @@
  * POST /api/classes/book
  *
  * Customer-facing endpoint for the two $0 child class booking kinds
- * (`member` — draws from the child's monthly class allotment, and `trial`
- * — one per child ever per org). Both are handled by
+ * (`member` and `trial` — one per child ever per org). Both are handled by
  * `createChildClassBooking` (src/lib/classes/book-child.ts), which does all
  * the real work — capacity, dedupe, age gate, waiver-on-file, membership/
- * trial gates — inside one locked transaction.
+ * credit/trial gates — inside one locked transaction.
  *
- * When `kind: "member"` and the child's monthly allotment is exhausted, this
- * returns 402 with `memberRateCents` instead of a 4xx failure — the client
- * uses that figure to route to the PAID make-up flow
- * (`POST /api/dropin/bookings` with `familyMemberId` set; see that
- * endpoint's doc comment and the webhook fulfillment core for how the paid
- * child booking is threaded through to the same `drop_in_bookings` row
- * shape).
+ * `kind: "member"` spends, in order: the child's monthly membership
+ * allotment, then an already-purchased class credit (pack or block — see
+ * src/lib/classes/credits.ts). So the returned `paymentMethod` is
+ * `"member_allotment"`, `"pack_credit"` or `"trial"`; all three are $0 rows,
+ * and the client should not treat `pack_credit` as a payment prompt.
+ *
+ * The 402 is reached ONLY when the child has an active membership whose
+ * allotment is exhausted AND no redeemable credit: it returns
+ * `memberRateCents` instead of a 4xx failure, and the client uses that
+ * figure to route to the PAID make-up flow (`POST /api/dropin/bookings`
+ * with `familyMemberId` set; see that endpoint's doc comment and the
+ * webhook fulfillment core for how the paid child booking is threaded
+ * through to the same `drop_in_bookings` row shape). A child with NO
+ * membership and no redeemable credit still gets 403 `no_membership` —
+ * there is no allotment to exhaust.
  *
  * Body: `{ sessionId, familyMemberId, kind: "member" | "trial", waiver?: { signedBy, consentText } }`
  * Returns: 200 `{ bookingId, paymentMethod }` |

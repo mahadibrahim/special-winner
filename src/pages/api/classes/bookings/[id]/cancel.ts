@@ -105,10 +105,15 @@ export const POST: APIRoute = async ({ params, locals }) => {
     return json({ error: "inside_cutoff" }, 409);
   }
 
-  // Count-based: the allotment query (get-child-membership.ts) only counts
-  // "confirmed"/"no_show" rows, so this flag is determined by the booking's
+  // Count-based on BOTH ledgers: the allotment query
+  // (get-child-membership.ts) and the class-credit balance
+  // (src/lib/classes/credits.ts) each derive "used" by counting
+  // seat-holding booking rows, so flipping this row's status to `cancelled`
+  // IS the credit-free operation for either. Determined by the booking's
   // payment method alone — independent of whatever processCancelRefund does.
-  const creditFreed = row.booking.paymentMethod === "member_allotment";
+  const creditFreed =
+    row.booking.paymentMethod === "member_allotment" ||
+    row.booking.paymentMethod === "pack_credit";
 
   const result = await processCancelRefund(row.booking.id, { reason: "user_request" });
   if (!result.ok) {
