@@ -145,7 +145,7 @@ function civilAddDays(civ: CivilDate, delta: number): CivilDate {
  * edge case that is nonsensical to begin with (a class literally cannot
  * start at a wall-clock time that never happened that day).
  */
-function zonedWallClockUtc(
+export function zonedWallClockUtc(
   civ: CivilDate,
   hh: number,
   mm: number,
@@ -234,6 +234,8 @@ export interface MaterializeResult {
   skippedExhausted: number;
   skippedPastDue: number;
   failed: number;
+  /** Credit-backed enrollments ended by pass 0 because their grant expired. */
+  enrollmentsEnded: number;
 }
 
 /**
@@ -254,7 +256,26 @@ export async function materializeClassSessions(now: Date): Promise<MaterializeRe
     skippedExhausted: 0,
     skippedPastDue: 0,
     failed: 0,
+    enrollmentsEnded: 0,
   };
+
+  // ---- Pass 0: end credit-backed enrollments whose grant has expired ----
+  // A block enrollment holds its template seat only through the block
+  // window (grant.expiresAt = block end). Membership-backed enrollments
+  // are ended by handleSubscriptionDeleted, never here.
+  const ended = await db
+    .update(classEnrollments)
+    .set({ status: "ended", endedAt: now })
+    .where(
+      and(
+        eq(classEnrollments.status, "active"),
+        sql`${classEnrollments.creditGrantId} IN (
+          SELECT id FROM class_credit_grants WHERE expires_at <= ${now}
+        )`,
+      ),
+    )
+    .returning({ id: classEnrollments.id });
+  counters.enrollmentsEnded = ended.length;
 
   const horizonEnd = new Date(now.getTime() + HORIZON_DAYS * DAY_MS);
 
@@ -445,6 +466,9 @@ export async function materializeClassSessions(now: Date): Promise<MaterializeRe
                 // time — the enrollment row itself may still be "active"
                 // (ended only by handleSubscriptionDeleted on cancellation),
                 // but createChildClassBooking requires status === 'active'.
+                // A credit-backed enrollment whose grant is EXHAUSTED but not
+                // yet expired also reports no_membership and lands in this
+                // bucket — imprecise labeling, not a distinct failure mode.
                 skippedPastDue += 1;
               } else {
                 // session_full / waiver_required / age_ineligible / etc. —

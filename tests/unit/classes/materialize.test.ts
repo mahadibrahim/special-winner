@@ -127,8 +127,25 @@ let sweepSessionRowsIndex = 0;
 let existingBookingQueue: boolean[] = [];
 let existingBookingIndex = 0;
 
+/**
+ * Pass 0 (`db.update(classEnrollments)...returning()`) — the rows the
+ * expiry UPDATE reports as ended. Each entry is one credit-backed
+ * enrollment whose grant's `expiresAt` had already passed at `now`.
+ */
+let expiredEnrollmentRows: Array<{ id: string }> = [];
+/** The `.set(...)` payload the expiry UPDATE was called with, for assertion. */
+let expirySetPayload: Record<string, unknown> | null = null;
+
 vi.mock("@/lib/db", () => ({
   getDb: () => ({
+    update: () => ({
+      set: (vals: Record<string, unknown>) => {
+        expirySetPayload = vals;
+        return {
+          where: () => ({ returning: async () => expiredEnrollmentRows }),
+        };
+      },
+    }),
     select: () => ({
       from: (table: unknown) => {
         if (table === classSlotTemplates) {
@@ -229,6 +246,8 @@ describe("materializeClassSessions", () => {
     sweepSessionRowsIndex = 0;
     existingBookingQueue = [];
     existingBookingIndex = 0;
+    expiredEnrollmentRows = [];
+    expirySetPayload = null;
     createChildClassBooking.mockReset();
   });
 
@@ -251,6 +270,7 @@ describe("materializeClassSessions", () => {
       skippedExhausted: 0,
       skippedPastDue: 0,
       failed: 0,
+      enrollmentsEnded: 0,
     });
     expect(createChildClassBooking).toHaveBeenCalledExactlyOnceWith({
       sessionId: "session-1",
@@ -322,6 +342,7 @@ describe("materializeClassSessions", () => {
       skippedExhausted: 1,
       skippedPastDue: 0,
       failed: 0,
+      enrollmentsEnded: 0,
     });
   });
 
@@ -343,6 +364,7 @@ describe("materializeClassSessions", () => {
       skippedExhausted: 0,
       skippedPastDue: 1,
       failed: 0,
+      enrollmentsEnded: 0,
     });
   });
 
@@ -367,6 +389,7 @@ describe("materializeClassSessions", () => {
       skippedExhausted: 0,
       skippedPastDue: 0,
       failed: 2,
+      enrollmentsEnded: 0,
     });
   });
 
@@ -395,6 +418,7 @@ describe("materializeClassSessions", () => {
       skippedExhausted: 0,
       skippedPastDue: 0,
       failed: 0,
+      enrollmentsEnded: 0,
     });
     expect(createChildClassBooking).toHaveBeenCalledExactlyOnceWith(
       expect.objectContaining({ sessionId: "pre-existing-session-9" }),
@@ -419,6 +443,7 @@ describe("materializeClassSessions", () => {
       skippedExhausted: 0,
       skippedPastDue: 0,
       failed: 0,
+      enrollmentsEnded: 0,
     });
     expect(createChildClassBooking).not.toHaveBeenCalled();
   });
@@ -450,7 +475,38 @@ describe("materializeClassSessions", () => {
       skippedExhausted: 0,
       skippedPastDue: 0,
       failed: 1,
+      enrollmentsEnded: 0,
     });
+  });
+
+  it("pass 0: ends credit-backed enrollments whose grant expired, and counts them", async () => {
+    // A block enrollment holds its template seat only through the block
+    // window (grant.expiresAt = block end). Two grants had expired by `now`,
+    // so pass 0 flips both to 'ended' before any materialization work.
+    templateRows = [];
+    expiredEnrollmentRows = [{ id: "enr-1" }, { id: "enr-2" }];
+
+    const result = await materializeClassSessions(NOW);
+
+    expect(result).toEqual({
+      sessionsCreated: 0,
+      autoBooked: 0,
+      skippedExhausted: 0,
+      skippedPastDue: 0,
+      failed: 0,
+      enrollmentsEnded: 2,
+    });
+    // Ended AT the run's `now`, not at some other clock read.
+    expect(expirySetPayload).toEqual({ status: "ended", endedAt: NOW });
+  });
+
+  it("pass 0: reports zero when no credit-backed grant has expired", async () => {
+    templateRows = [];
+    expiredEnrollmentRows = [];
+
+    const result = await materializeClassSessions(NOW);
+
+    expect(result.enrollmentsEnded).toBe(0);
   });
 
   it("skips inactive templates entirely (query-level filter, nothing to assert on result shape beyond zero)", async () => {
@@ -462,6 +518,7 @@ describe("materializeClassSessions", () => {
       skippedExhausted: 0,
       skippedPastDue: 0,
       failed: 0,
+      enrollmentsEnded: 0,
     });
     expect(createChildClassBooking).not.toHaveBeenCalled();
   });

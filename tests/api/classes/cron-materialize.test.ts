@@ -171,7 +171,7 @@ describe("POST /api/cron/materialize-class-sessions", () => {
       const res1 = await postCron(CRON_SECRET);
       expect(res1.status).toBe(200);
       const body1 = await res1.json();
-      for (const key of ["sessionsCreated", "autoBooked", "skippedExhausted", "skippedPastDue", "failed"]) {
+      for (const key of ["sessionsCreated", "autoBooked", "skippedExhausted", "skippedPastDue", "enrollmentsEnded", "failed"]) {
         expect(typeof body1[key]).toBe("number");
       }
 
