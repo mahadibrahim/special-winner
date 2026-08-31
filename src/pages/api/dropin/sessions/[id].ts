@@ -22,6 +22,7 @@ import {
 import { venues } from "@/lib/db/schema/teams";
 import { users } from "@/lib/db/schema/users";
 import { hostProfiles } from "@/lib/db/schema/hosts";
+import { hasValidLiabilityWaiver } from "@/lib/consents/liability";
 import { resolveRate } from "@/lib/dropin/pricing";
 import { getActiveMembershipForUser } from "@/lib/dropin/booking";
 import { stripe } from "@/lib/stripe/client";
@@ -153,6 +154,9 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
   // payment; see /api/dropin/bookings/[id]/waiver).
   let bookingId: string | null = null;
   let bookingWaiverSigned: boolean | null = null;
+  // The resolved booking's PARTICIPANT, needed only to answer "is this person
+  // already covered by the annual waiver?" — see bookingWaiverOnFile below.
+  let bookingFamilyMemberId: string | null = null;
   if (rateCard) {
     const membership = locals.user
       ? await getActiveMembershipForUser(
@@ -172,6 +176,7 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
         id: dropInBookings.id,
         status: dropInBookings.status,
         waiverSigned: dropInBookings.waiverSigned,
+        familyMemberId: dropInBookings.familyMemberId,
       })
       .from(dropInBookings)
       .where(
@@ -186,6 +191,7 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
       alreadyBookedStatus = existing.status;
       bookingId = existing.id;
       bookingWaiverSigned = existing.waiverSigned;
+      bookingFamilyMemberId = existing.familyMemberId;
     }
   }
 
@@ -204,6 +210,7 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
         id: dropInBookings.id,
         status: dropInBookings.status,
         waiverSigned: dropInBookings.waiverSigned,
+        familyMemberId: dropInBookings.familyMemberId,
       })
       .from(dropInBookings)
       .where(
@@ -217,6 +224,7 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
       alreadyBookedStatus = booked.status;
       bookingId = booked.id;
       bookingWaiverSigned = booked.waiverSigned;
+      bookingFamilyMemberId = booked.familyMemberId;
     }
   }
 
@@ -238,6 +246,7 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
             id: dropInBookings.id,
             status: dropInBookings.status,
             waiverSigned: dropInBookings.waiverSigned,
+            familyMemberId: dropInBookings.familyMemberId,
           })
           .from(dropInBookings)
           .where(
@@ -251,11 +260,45 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
           alreadyBookedStatus = booked.status;
           bookingId = booked.id;
           bookingWaiverSigned = booked.waiverSigned;
+          bookingFamilyMemberId = booked.familyMemberId;
         }
       }
     } catch {
       // Non-fatal: a bad/expired checkout id just leaves the status null and
       // the page falls back to its normal polling/timeout behavior.
+    }
+  }
+
+  // ANNUAL WAIVER, display side. `bookingWaiverSigned` is a PER-BOOKING flag:
+  // it is false on every newly created row, including one whose participant
+  // signed a fortnight ago at another door. Rendering the "one more step
+  // before you play" card off that flag alone re-asks a family the platform
+  // rule already covers — and the endpoint the card posts to
+  // (/api/dropin/bookings/:id/waiver) would just short-circuit
+  // `alreadySigned` anyway. Answer the same question here so the page can
+  // skip the ask instead of collecting a redundant signature.
+  //
+  // Scoped to bookings that carry a PARTICIPANT (`family_member_id` — the
+  // child class/make-up doors), exactly like that endpoint's on-file branch.
+  // An adult drop-in has no `family_members` row, so there is no person for a
+  // person-scoped consent to hang on and nothing to skip; see the same
+  // limitation documented on the waiver endpoint.
+  //
+  // Fails toward ASKING: any lookup error leaves this false, and the local
+  // `waiverSigned` flag remains the only other input.
+  let bookingWaiverOnFile: boolean | null = null;
+  if (bookingId && bookingWaiverSigned === false) {
+    bookingWaiverOnFile = false;
+    if (bookingFamilyMemberId) {
+      try {
+        bookingWaiverOnFile = await hasValidLiabilityWaiver(
+          bookingFamilyMemberId,
+          row.session.organizationId,
+          db,
+        );
+      } catch (err) {
+        console.error("[dropin] waiver validity lookup failed", err);
+      }
     }
   }
 
@@ -271,6 +314,7 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
       alreadyBookedStatus,
       bookingId,
       bookingWaiverSigned,
+      bookingWaiverOnFile,
       host,
     },
     200,

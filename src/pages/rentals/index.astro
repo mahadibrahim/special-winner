@@ -4,6 +4,7 @@ import RentalBooking from '@/components/rentals/RentalBooking';
 import { getDb } from '@/lib/db';
 import { venues, locations } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { renterWaiverOnFile } from '@/lib/rentals/waiver-on-file';
 
 // SSR — depends on org context resolved by middleware.
 export const prerender = false;
@@ -37,6 +38,18 @@ if (org) {
     fieldCount: r.fieldCount ?? 1,
   }));
 }
+
+// Annual liability waiver: a signed-in renter already covered for this org
+// should not be asked to re-sign — POST /api/rentals/bookings already ignores
+// whatever signature they'd type and stamps the on-file attribution instead.
+// Resolved here (server-side, read-only) rather than by a client probe so the
+// form never flashes a checkbox it is about to remove. Guests are never
+// covered (no account, no person row), so this is false for them by
+// construction.
+const waiverOnFile = await renterWaiverOnFile(
+  Astro.locals.user?.id,
+  org?.id,
+);
 ---
 
 <BaseLayout
@@ -55,7 +68,7 @@ if (org) {
           sooner.
         </p>
       </div>
-      <RentalBooking client:load venues={rentalVenues} signedIn={!!Astro.locals.user} timeZone={org?.timezone ?? "America/New_York"} />
+      <RentalBooking client:load venues={rentalVenues} signedIn={!!Astro.locals.user} waiverOnFile={waiverOnFile} timeZone={org?.timezone ?? "America/New_York"} />
     </div>
   </main>
 </BaseLayout>

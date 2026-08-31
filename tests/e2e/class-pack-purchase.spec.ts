@@ -82,15 +82,20 @@
  *     row this run inserted deleted).
  */
 import { test, expect } from "@playwright/test";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { classPackProducts, classCreditGrants } from "@/lib/db/schema/classes";
 import { dropInSessions, dropInBookings, dropInRateCard } from "@/lib/db/schema/drop-in";
+import { consents } from "@/lib/db/schema/consents";
+import { memberships, membershipTiers } from "@/lib/db/schema/memberships";
+import { WAIVER_VALID_DAYS } from "@/lib/consents/liability";
 import {
   createTestChild,
+  createTestChildMembership,
   createTestCreditGrant,
   createTestClassTemplate,
   cleanupTestClassFixtures,
+  cleanupTestMembershipTiers,
 } from "../utils/classes-helpers";
 import { resolveDefaultOrgForHttpTests } from "../utils/dropin-helpers";
 import { signIn, waitForHydration } from "../utils/test-helpers";
@@ -576,6 +581,384 @@ test.describe("Family dashboard — pack success acknowledgment", () => {
     await page.reload();
     await waitForHydration(page);
     await expect(page.locator("[data-pack-success-banner]")).toHaveCount(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Shared annual-waiver fixture helper (scenarios 6-8)
+// ---------------------------------------------------------------------------
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Direct `consents` insert — the row shape a real liability signature
+ * produces (`recordLiabilityWaiver` → `recordConsent`). `signedDaysAgo`
+ * drives BOTH `signedAt` and the derived `expiresAt`, so one helper seeds a
+ * live grant and a lapsed one with no second code path. The expiry is
+ * computed from `WAIVER_VALID_DAYS` rather than a literal 365 so this fixture
+ * tracks the write side if the window ever moves.
+ */
+async function seedLiabilityConsent(opts: {
+  familyMemberId: string;
+  organizationId: string;
+  signedByUserId: string;
+  signedDaysAgo: number;
+}): Promise<void> {
+  const signedAt = new Date(Date.now() - opts.signedDaysAgo * DAY_MS);
+  await getDb()
+    .insert(consents)
+    .values({
+      familyMemberId: opts.familyMemberId,
+      organizationId: opts.organizationId,
+      type: "liability",
+      status: "granted",
+      signedByUserId: opts.signedByUserId,
+      signedByName: "Annual Waiver E2E Parent",
+      signedAt,
+      expiresAt: new Date(signedAt.getTime() + WAIVER_VALID_DAYS * DAY_MS),
+    });
+}
+
+async function deleteConsentsFor(familyMemberIds: string[]): Promise<void> {
+  const ids = familyMemberIds.filter(Boolean);
+  if (ids.length === 0) return;
+  await getDb().delete(consents).where(inArray(consents.familyMemberId, ids));
+}
+
+// ---------------------------------------------------------------------------
+// Scenarios 6 + 7 — drop-in door, annual waiver: covered skips, lapsed asks
+// ---------------------------------------------------------------------------
+
+/**
+ * The two halves of the annual-waiver skip on the DROP-IN DOOR
+ * (class-dropin-modal.tsx's `payOrCollectWaiver`), sharing one template and
+ * one session because neither half completes a booking:
+ *
+ *  6. A child carrying a FRESH `consents` liability row goes from the child
+ *     picker straight to payment. Asserted two ways, both mandatory: the
+ *     guardian waiver panel is never rendered, AND the
+ *     `POST /api/dropin/bookings` body carries NO waiver fields — a covered
+ *     family must not be made to type a signature the server would discard
+ *     and overwrite with the on-file attribution.
+ *
+ *  7. REGRESSION (the whole point of a 365-day expiry): a child whose only
+ *     signature is older than the window is treated as UNCOVERED and still
+ *     gets the panel, with zero paid-booking requests. Scenario 3 above
+ *     proves the never-signed case; this one proves the LAPSED case, which is
+ *     the state the expiry rule actually exists to catch and the one a naive
+ *     "have they ever signed?" implementation gets wrong.
+ *
+ * Stripe: the covered half's POST is a real request against a real paid class
+ * rate, so it may create a test-mode Checkout Session and then try to
+ * navigate to checkout.stripe.com. That navigation is aborted at the route
+ * level — every assertion here is about the REQUEST the browser sent and the
+ * panel it never showed, so they hold identically whether or not Stripe is
+ * configured in the environment.
+ */
+test.describe("Drop-in door — annual liability waiver", () => {
+  test.setTimeout(120_000);
+
+  let organizationId: string;
+  let venueId: string;
+  let templateId: string;
+  let sessionId: string;
+  let parentEmail: string;
+  let parentPassword: string;
+  let parentUserId: string;
+  let coveredChildId: string;
+  let lapsedChildId: string;
+
+  const suffix = Date.now();
+  const coveredChildFirstName = `WaiverCoveredE2E-${suffix}`;
+  const lapsedChildFirstName = `WaiverLapsedE2E-${suffix}`;
+  const templateName = `PackPurchaseE2E-WaiverDoor-${suffix}`;
+
+  test.beforeAll(async () => {
+    ({ organizationId, venueId } = await resolveDefaultOrgForHttpTests());
+
+    // Own dedicated template + session, both priced, so the drop-in door
+    // renders and prices a no-membership child at the public class rate.
+    templateId = await createTestClassTemplate({
+      organizationId,
+      venueId,
+      name: templateName,
+      capacity: 12,
+      sessionRateCents: 2500,
+      memberRateCents: 1500,
+    });
+    sessionId = await seedFutureClassSession({
+      organizationId,
+      venueId,
+      templateId,
+      capacity: 12,
+      sessionRateCents: 2500,
+      memberRateCents: 1500,
+    });
+
+    const throwawayUser = await createTestUserWithPassword();
+    parentEmail = throwawayUser.email;
+    parentPassword = throwawayUser.password;
+    parentUserId = throwawayUser.userId;
+
+    coveredChildId = await createTestChild(parentUserId, coveredChildFirstName);
+    lapsedChildId = await createTestChild(parentUserId, lapsedChildFirstName);
+
+    // Signed a month ago — comfortably inside the window.
+    await seedLiabilityConsent({
+      familyMemberId: coveredChildId,
+      organizationId,
+      signedByUserId: parentUserId,
+      signedDaysAgo: 30,
+    });
+    // Signed 35 days PAST the window — the lapsed veteran family.
+    await seedLiabilityConsent({
+      familyMemberId: lapsedChildId,
+      organizationId,
+      signedByUserId: parentUserId,
+      signedDaysAgo: WAIVER_VALID_DAYS + 35,
+    });
+  });
+
+  test.afterAll(async () => {
+    // A leaked GRANTED consents row on the shared staging DB would silently
+    // satisfy a later run's "no waiver on file" fixture.
+    await deleteConsentsFor([coveredChildId, lapsedChildId]);
+    if (sessionId) await deleteTestSession(sessionId);
+    if (templateId) await cleanupTestClassFixtures([templateId]);
+  });
+
+  /** Opens the drop-in door modal and picks `childName`. Shared by both
+   *  halves so the only difference between them is the fixture's coverage. */
+  async function openDoorAndPick(
+    page: import("@playwright/test").Page,
+    childName: string,
+  ) {
+    await page.goto("/youth/classes");
+    await waitForHydration(page);
+
+    // /youth/classes has TWO beacon islands, so wait for the door's own
+    // concrete DOM rather than trusting waitForHydration alone (see
+    // scenario 3's identical note).
+    const doorButton = page.locator(`button[data-dropin-slot="${templateId}"]`);
+    await expect(doorButton).toBeVisible({ timeout: 20_000 });
+    await doorButton.click();
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByText(new RegExp(`^Book ${templateName}$`))).toBeVisible({
+      timeout: 15_000,
+    });
+    await dialog.getByRole("button", { name: new RegExp(childName) }).click();
+    return dialog;
+  }
+
+  test("covered child goes straight to payment — no waiver panel, no waiver fields on the wire", async ({
+    page,
+  }) => {
+    // Stop the modal's `window.location.href = checkoutUrl` from actually
+    // leaving for Stripe. Registered before anything can navigate.
+    await page.route(/checkout\.stripe\.com/, (route) => route.abort());
+
+    const bookingPostBodies: (string | null)[] = [];
+    page.on("request", (req) => {
+      if (req.method() === "POST" && req.url().includes("/api/dropin/bookings")) {
+        bookingPostBodies.push(req.postData());
+      }
+    });
+
+    await signIn(page, parentEmail, parentPassword);
+    const dialog = await openDoorAndPick(page, coveredChildFirstName);
+
+    // The free-first attempt 403s `no_membership`; the modal's 403 branch
+    // then consults `waiverOnFile` (from /api/family-members?includeWaiver=1)
+    // and, for this child, goes straight to the paid door.
+    await page.waitForRequest(
+      (req) => req.method() === "POST" && req.url().includes("/api/dropin/bookings"),
+      { timeout: 30_000 },
+    );
+
+    expect(bookingPostBodies).toHaveLength(1);
+    const sent = JSON.parse(bookingPostBodies[0] ?? "{}") as Record<string, unknown>;
+    // The contract: a covered family sends NO signature. The server re-checks
+    // the same predicate and stamps "On file (annual waiver)" itself.
+    expect(sent).not.toHaveProperty("waiverAccepted");
+    expect(sent).not.toHaveProperty("waiverName");
+    expect(sent.familyMemberId).toBe(coveredChildId);
+
+    // Zero waiver-panel renders. Nothing in this flow auto-advances past the
+    // panel, so if it had ever appeared it would still be on screen here.
+    await expect(
+      dialog.getByText("One more step: sign the guardian waiver"),
+    ).toHaveCount(0);
+  });
+
+  test("child whose signature has EXPIRED still gets the waiver panel", async ({ page }) => {
+    const dropinBookingPosts: string[] = [];
+    page.on("request", (req) => {
+      if (req.method() === "POST" && req.url().includes("/api/dropin/bookings")) {
+        dropinBookingPosts.push(req.url());
+      }
+    });
+
+    await signIn(page, parentEmail, parentPassword);
+    const dialog = await openDoorAndPick(page, lapsedChildFirstName);
+
+    // A signature exists — it is simply too old. "Have they ever signed?"
+    // would skip the panel here; "is their signature still valid?" must not.
+    await expect(dialog.getByText("One more step: sign the guardian waiver")).toBeVisible({
+      timeout: 20_000,
+    });
+    expect(dropinBookingPosts).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Scenario 8 — family-card make-up modal: the 402 path is waiver-gated
+// ---------------------------------------------------------------------------
+
+/**
+ * The 402 `allotment_exhausted` → "Pay for this class" path in
+ * family-classes-card.tsx's MakeUpModal. It used to go straight to the paid
+ * booking on the assumption that spending an allotment proved a signature
+ * existed — an assumption a 365-day expiry inverts: a family enrolled 14
+ * months ago has spent an allotment every month AND has a lapsed waiver.
+ *
+ * Fixture: an ACTIVE membership on a tier granting ZERO classes per month, so
+ * the very first booking attempt returns 402 with a real `memberRateCents`
+ * quote and no allotment has to be drained first (get-child-membership.ts
+ * short-circuits `classAllotmentRemaining` to 0 for a tier with no class
+ * benefit, and book-child.ts reads `remaining === 0` on an active membership
+ * as `allotment_exhausted`).
+ *
+ * The child has no waiver at all, so confirming the price must land on the
+ * guardian waiver panel and fire ZERO requests to the paid booking endpoint.
+ */
+test.describe("Make-up modal — paid 402 path is waiver-gated", () => {
+  test.setTimeout(120_000);
+
+  let organizationId: string;
+  let venueId: string;
+  let templateId: string;
+  let sessionId: string;
+  let tierId: string;
+  let membershipId: string;
+  let parentEmail: string;
+  let parentPassword: string;
+  let childId: string;
+
+  const suffix = Date.now();
+  const childFirstName = `MakeupGateE2E-${suffix}`;
+  const templateName = `PackPurchaseE2E-MakeupGate-${suffix}`;
+
+  test.beforeAll(async () => {
+    ({ organizationId, venueId } = await resolveDefaultOrgForHttpTests());
+    const db = getDb();
+
+    templateId = await createTestClassTemplate({
+      organizationId,
+      venueId,
+      name: templateName,
+      capacity: 12,
+      sessionRateCents: 2500,
+      memberRateCents: 1500,
+    });
+    // memberRateCents MUST be set: without it the 402 branch in
+    // /api/classes/book returns 409 class_rate_not_configured instead of a
+    // quote, and this scenario never reaches the confirm panel.
+    sessionId = await seedFutureClassSession({
+      organizationId,
+      venueId,
+      templateId,
+      capacity: 12,
+      sessionRateCents: 2500,
+      memberRateCents: 1500,
+    });
+
+    // Reuses the existing "Makeup Tier 1 - " prefix so the shared orphan
+    // sweep in classes-helpers already knows how to clean it up.
+    const [tier] = await db
+      .insert(membershipTiers)
+      .values({
+        organizationId,
+        name: `Makeup Tier 1 - e2e-gate-${suffix}`,
+        monthlyPriceCents: 5000,
+        benefits: { classes_per_month: 0 },
+        isActive: true,
+      })
+      .returning();
+    tierId = tier.id;
+
+    const throwawayUser = await createTestUserWithPassword();
+    parentEmail = throwawayUser.email;
+    parentPassword = throwawayUser.password;
+    childId = await createTestChild(throwawayUser.userId, childFirstName);
+    membershipId = await createTestChildMembership({
+      userId: throwawayUser.userId,
+      familyMemberId: childId,
+      organizationId,
+      tierId,
+      idSuffix: `e2e-makeup-gate-${suffix}`,
+    });
+  });
+
+  test.afterAll(async () => {
+    const db = getDb();
+    if (membershipId) await db.delete(memberships).where(eq(memberships.id, membershipId));
+    if (tierId) await cleanupTestMembershipTiers([tierId]);
+    if (sessionId) await deleteTestSession(sessionId);
+    if (templateId) await cleanupTestClassFixtures([templateId]);
+  });
+
+  test("confirming the paid make-up price collects the guardian waiver before any payment request", async ({
+    page,
+  }) => {
+    const dropinBookingPosts: string[] = [];
+    page.on("request", (req) => {
+      if (req.method() === "POST" && req.url().includes("/api/dropin/bookings")) {
+        dropinBookingPosts.push(req.url());
+      }
+    });
+
+    await signIn(page, parentEmail, parentPassword);
+    await page.goto("/dashboard/family");
+    await waitForHydration(page);
+
+    const card = page
+      .locator("div.flex.items-start.gap-3.rounded-xl.border.border-border.border-l-4.p-3")
+      .filter({ hasText: childFirstName });
+    await expect(card).toBeVisible({ timeout: 20_000 });
+    await card.getByRole("button", { name: "Book a make-up" }).click();
+
+    const dialog = page.getByRole("dialog");
+    await expect(
+      dialog.getByText(new RegExp(`Book a make-up class for ${childFirstName}`)),
+    ).toBeVisible({ timeout: 20_000 });
+
+    await dialog
+      .locator("button.w-full.text-left.rounded-xl")
+      .filter({ hasText: templateName })
+      .click();
+
+    // 402 allotment_exhausted → the price-confirm step, quoting the session's
+    // real memberRateCents (never the adult pickup rate card).
+    await expect(dialog.getByText("This month's classes are used up")).toBeVisible({
+      timeout: 20_000,
+    });
+    // 1500 cents renders as "$15" — family-classes-card.tsx's `fmtDollars`
+    // drops the fraction digits on a whole-dollar amount.
+    await expect(dialog.getByText(/Pay \$15 to make up this one class/)).toBeVisible();
+
+    await dialog.getByRole("button", { name: "Pay for this class" }).click();
+
+    // THE FIX: the price is confirmed, but the waiver decision still applies.
+    // The panel must appear — with its pay-specific button label — and no
+    // request to the paid booking endpoint may have been made.
+    await expect(dialog.getByText("One more step: sign the guardian waiver")).toBeVisible({
+      timeout: 20_000,
+    });
+    await expect(
+      dialog.getByRole("button", { name: "Sign waiver & continue to payment" }),
+    ).toBeVisible();
+    expect(dropinBookingPosts).toHaveLength(0);
   });
 });
 

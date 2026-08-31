@@ -125,7 +125,17 @@ test.describe("Self-serve PayCard", { tag: "@critical" }, () => {
       // walk-up rate (2100 cents → $21.00) — deliberately distinct from the
       // session rate (1200 cents) so this can't pass by coincidence.
       if (iframeMounted) {
-        await expect(page.getByText("$21.00")).toBeVisible({ timeout: 10_000 });
+        // Scoped to the breakdown's "Session" ROW. A bare
+        // `getByText("$21.00")` is strict-mode ambiguous whenever the
+        // surcharge is zero — PayCard.tsx then renders the same figure three
+        // times (Session, Total, and the "Pay $21.00" button), and Playwright
+        // fails the assertion for having too many matches rather than too
+        // few. Pinning the row also keeps the assertion honest about WHICH
+        // line must equal the walk-up rate.
+        const sessionRow = page
+          .locator("div.flex.justify-between")
+          .filter({ hasText: /^Session/ });
+        await expect(sessionRow).toContainText("$21.00", { timeout: 10_000 });
       }
 
       // Boundary: this spec stops here. Completing payment would require

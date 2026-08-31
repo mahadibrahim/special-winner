@@ -33,6 +33,20 @@ interface Props {
    */
   signedIn?: boolean;
   /**
+   * Whether this signed-in renter already holds a valid annual liability
+   * waiver for the org (server-resolved on the page; see
+   * `src/lib/rentals/waiver-on-file.ts`). When true the waiver block is
+   * replaced by a short "waiver on file" note and NO waiver fields are sent —
+   * POST /api/rentals/bookings re-checks the same predicate and stamps the
+   * booking "On file (annual waiver)", discarding any signature a covered
+   * renter typed anyway.
+   *
+   * Defaults to false, and only strict `true` skips: an un-prop'd caller, a
+   * guest, or a failed probe all ASK. A missing answer must never suppress a
+   * real release.
+   */
+  waiverOnFile?: boolean;
+  /**
    * IANA timezone the facility's calendar day is anchored to. Defaults to
    * the org home timezone.
    */
@@ -51,9 +65,15 @@ export default function RentalBooking({
   venues,
   bookingWindowDays = 7,
   signedIn = false,
+  waiverOnFile = false,
   timeZone = "America/New_York",
 }: Props) {
   useHydrationBeacon();
+
+  // A guest has no account and therefore no person row to carry coverage —
+  // belt-and-braces against a caller that passes waiverOnFile without
+  // signedIn. The endpoint reaches the same conclusion independently.
+  const waiverCovered = signedIn && waiverOnFile === true;
 
   // Computed per render, in the facility's timezone. Module scope would
   // freeze "today" at the SSR lambda's cold start (serving a days-old date
@@ -136,8 +156,14 @@ export default function RentalBooking({
           endsAt: addMinutes(slotStart, durationMinutes).toISOString(),
           partySize,
           purpose: purpose.trim() || undefined,
-          waiverName: waiverName.trim(),
-          waiverAccepted: true,
+          // A covered renter sends NO waiver fields at all — the validator
+          // accepts their absence only when the server independently agrees
+          // they're covered, and the endpoint then stamps the on-file
+          // attribution. Sending a signature it would discard is what this
+          // skip exists to stop.
+          ...(waiverCovered
+            ? {}
+            : { waiverName: waiverName.trim(), waiverAccepted: true }),
           ...(!signedIn && {
             renterName: waiverName.trim(),
             renterEmail: guestEmail.trim(),
@@ -197,8 +223,7 @@ export default function RentalBooking({
   const endTime = slotStart ? addMinutes(slotStart, durationMinutes) : null;
   const submitDisabled =
     submitting ||
-    !waiverAccepted ||
-    !waiverName.trim() ||
+    (!waiverCovered && (!waiverAccepted || !waiverName.trim())) ||
     !slotStart ||
     (!signedIn && !guestEmail.trim());
 
@@ -367,7 +392,27 @@ export default function RentalBooking({
               </div>
             )}
 
-            {/* Waiver */}
+            {/* Waiver — skipped entirely for a renter already covered by the
+                annual waiver (see the `waiverOnFile` prop). */}
+            {waiverCovered ? (
+              <div
+                className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 space-y-1"
+                data-waiver-on-file
+              >
+                <h3 className="text-sm font-semibold text-emerald-900">
+                  Waiver on file ✓
+                </h3>
+                <p className="text-sm text-emerald-900">
+                  Your annual liability waiver covers this rental — nothing to
+                  sign.
+                </p>
+                <p className="text-xs text-emerald-800">
+                  Every player must still have a signed waiver on file to play.
+                  You&apos;ll confirm your roster and waivers once your request
+                  is approved.
+                </p>
+              </div>
+            ) : (
             <div className="rounded-lg border border-stone-200 bg-stone-50 p-4 space-y-3">
               <h3 className="text-sm font-semibold text-stone-900">Liability waiver</h3>
               <p className="text-sm text-stone-600">
@@ -402,6 +447,7 @@ export default function RentalBooking({
                 confirm your roster and waivers once your request is approved.
               </p>
             </div>
+            )}
 
             {endTime && (
               <p className="text-sm text-stone-500">Ends at {fmtTime(endTime)}</p>

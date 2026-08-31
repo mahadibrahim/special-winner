@@ -384,4 +384,80 @@ describe("POST /api/dropin/bookings/:id/waiver — annual liability waiver", () 
     expect((await expectJson(again, 200)).alreadySigned).toBe(true);
     expect(await liabilityRowsFor(childId)).toHaveLength(1);
   });
+
+  /**
+   * DISPLAY side of the same rule. `GET /api/dropin/sessions/:id` powers the
+   * session page's "one more step before you play" WaiverCard, which keyed
+   * only off the per-BOOKING `waiverSigned` flag — false on every new row,
+   * including one whose participant signed a fortnight ago at another door.
+   * The card therefore asked a covered family for a signature the POST above
+   * would immediately short-circuit. `bookingWaiverOnFile` is the endpoint
+   * answering the SAME predicate so the two surfaces cannot disagree.
+   */
+  describe("GET /api/dropin/sessions/:id — bookingWaiverOnFile", () => {
+    /** The session id an inserted child booking belongs to (the detail
+     *  endpoint is per-session, so the test needs both ids). */
+    async function insertChildBookingWithSession(
+      familyMemberId: string,
+    ): Promise<{ bookingId: string; sessionId: string }> {
+      const ctx = await freeSessionInDefaultOrg();
+      const [booking] = await getDb()
+        .insert(dropInBookings)
+        .values({
+          sessionId: ctx.sessionId,
+          userId: parentUserId,
+          familyMemberId,
+          status: "confirmed",
+          source: "online_booking",
+          paymentMethod: "card_online",
+          amountPaidCents: 0,
+          waiverSigned: false,
+        })
+        .returning();
+      return { bookingId: booking.id, sessionId: ctx.sessionId };
+    }
+
+    it("reports true for an unsigned booking whose participant is covered", async () => {
+      const cookie = await getParentCookie();
+      const childId = await newChild("DisplayOnFile");
+      await insertLiabilityConsent(childId, 30);
+      const { sessionId } = await insertChildBookingWithSession(childId);
+
+      const res = await apiFetch(`/api/dropin/sessions/${sessionId}`, { cookie });
+      const json = await expectJson(res, 200);
+      expect(json.bookingWaiverSigned).toBe(false);
+      expect(json.bookingWaiverOnFile).toBe(true);
+    });
+
+    it("reports false for an unsigned booking whose participant is NOT covered", async () => {
+      const cookie = await getParentCookie();
+      const childId = await newChild("DisplayAsk");
+      const { sessionId } = await insertChildBookingWithSession(childId);
+
+      const res = await apiFetch(`/api/dropin/sessions/${sessionId}`, { cookie });
+      const json = await expectJson(res, 200);
+      expect(json.bookingWaiverSigned).toBe(false);
+      // Fails toward ASKING — the card still renders.
+      expect(json.bookingWaiverOnFile).toBe(false);
+    });
+
+    it("reports false for an ADULT booking (no participant row to check)", async () => {
+      const cookie = await getParentCookie();
+      const ctx = await freeSessionInDefaultOrg();
+      const res0 = await apiFetch("/api/dropin/bookings", {
+        method: "POST",
+        cookie,
+        body: JSON.stringify({ sessionId: ctx.sessionId }),
+      });
+      await expectJson(res0, 200);
+
+      const res = await apiFetch(`/api/dropin/sessions/${ctx.sessionId}`, { cookie });
+      const json = await expectJson(res, 200);
+      // An adult drop-in has no `family_members` row for a person-scoped
+      // consent to hang on — the same limitation the POST documents. The
+      // card keeps asking, exactly as before this field existed.
+      expect(json.bookingWaiverSigned).toBe(false);
+      expect(json.bookingWaiverOnFile).toBe(false);
+    });
+  });
 });
