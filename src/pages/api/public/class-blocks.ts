@@ -40,7 +40,7 @@ import { getDb } from "@/lib/db";
 import { classBlocks, classEnrollments, classSlotTemplates } from "@/lib/db/schema/classes";
 import { venues } from "@/lib/db/schema/teams";
 import { blockOccurrenceInstants } from "@/lib/classes/block-occurrences";
-import { civilPartsInTz } from "@/lib/classes/materialize";
+import { dateInTimeZone } from "@/lib/time/format-date";
 import { ORG_DEFAULT_TIMEZONE } from "@/lib/time/zoned-day";
 
 export const prerender = false;
@@ -58,12 +58,6 @@ const json = (body: unknown, status: number) =>
       "Cache-Control": "public, max-age=60",
     },
   });
-
-/** "YYYY-MM-DD" for today as observed in `timeZone`. */
-function civilTodayInTz(timeZone: string): string {
-  const { y, m, day } = civilPartsInTz(new Date(), timeZone);
-  return `${y}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-}
 
 /**
  * An instant guaranteed to fall before the block window's first local
@@ -87,7 +81,7 @@ export const GET: APIRoute = async ({ locals }) => {
   // the zone is already in hand — no second round trip. Nullable column, same
   // repo-wide fallback the materialize cron uses.
   const timeZone = organization.timezone ?? ORG_DEFAULT_TIMEZONE;
-  const today = civilTodayInTz(timeZone);
+  const today = dateInTimeZone(timeZone);
 
   // Current-or-next: still running (endDate is today or later) or starting
   // later, earliest first. Ended blocks fall out on the `endDate` predicate.
@@ -106,7 +100,10 @@ export const GET: APIRoute = async ({ locals }) => {
         gte(classBlocks.endDate, today),
       ),
     )
-    .orderBy(asc(classBlocks.startDate))
+    // createdAt breaks the tie: nothing stops an admin creating two blocks on
+    // the same startDate, and a bare `limit(1)` would then pick between them
+    // nondeterministically (the shared-DB ordering hazard in CLAUDE.md).
+    .orderBy(asc(classBlocks.startDate), asc(classBlocks.createdAt))
     .limit(1);
 
   if (!block) return json({ block: null }, 200);
@@ -157,17 +154,24 @@ export const GET: APIRoute = async ({ locals }) => {
     const rateCents = t.blockRateCents ?? t.sessionRateCents;
     if (rateCents === null) return []; // unsellable — no class rate configured
 
-    const occurrenceOpts = {
+    // ONE occurrence walk: the remaining sessions are exactly the future
+    // members of the full window. `blockOccurrenceInstants` clamps its lower
+    // bound to `max(after, windowStart - 1ms)` and its upper bound is `after`-
+    // independent, so calling it again with `after: now` returns precisely
+    // this array filtered by `> now` — for both cases (`now` before the
+    // window, where the clamp keeps the full set, and `now` inside it).
+    const occurrences = blockOccurrenceInstants({
       weekday: t.weekday,
       startTime: t.startTime,
       timeZone,
       startDate: block.startDate,
       endDate: block.endDate,
-    };
-    const totalSessions = blockOccurrenceInstants({ ...occurrenceOpts, after: windowEve }).length;
+      after: windowEve,
+    });
+    const totalSessions = occurrences.length;
     if (totalSessions === 0) return []; // weekday never lands in this window
 
-    const remainingSessions = blockOccurrenceInstants({ ...occurrenceOpts, after: now }).length;
+    const remainingSessions = occurrences.filter((instant) => instant > now).length;
     const enrolled = enrolledByTemplate.get(t.id) ?? 0;
 
     return [

@@ -4,14 +4,24 @@
  *
  * Both are anonymous, org-resolved reads. The block endpoint returns the ONE
  * current-or-next block, so these tests have to control which `class_blocks`
- * rows are active for the duration of the file: `beforeAll` parks (deactivates)
- * every pre-existing active block in the org and `afterAll` restores exactly
- * those ids. Each block test then creates its own block, asserts, and parks it
- * again before the next one runs — `tests/api` runs with
- * `fileParallelism: false` (vitest.config.ts), so nothing races this.
+ * rows are active for the duration of the file: `beforeAll` parks every
+ * pre-existing active block in the org and `afterAll` un-parks them. Each block
+ * test then creates its own block, asserts, and parks it again (in a `finally`)
+ * before the next one runs — `tests/api` runs with `fileParallelism: false`
+ * (vitest.config.ts), so nothing races this.
+ *
+ * PARKING IS CRASH-RECOVERABLE, and deliberately so: this suite deactivates
+ * rows it does not own on a SHARED staging DB, so a killed run (Ctrl-C, CI
+ * timeout, OOM) that never reaches `afterAll` must not leave a real block
+ * switched off forever. Parking therefore also stamps `PARK_MARKER` onto the
+ * block's name, and `unparkBlocks()` restores by scanning for that marker
+ * rather than an in-memory id list — it runs in `beforeAll` (recovering any
+ * previous crashed run's debris before this run parks anything) and again in
+ * `afterAll`'s `finally`. Same "rediscoverable marker, swept on entry" shape
+ * as `sweepOrphanedTestTemplates` in tests/utils/classes-helpers.ts.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, like } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { classBlocks, classPackProducts } from "@/lib/db/schema/classes";
 import { organizations } from "@/lib/db/schema/organizations";
@@ -31,8 +41,12 @@ let timeZone: string;
 const createdTemplateIds: string[] = [];
 const createdBlockIds: string[] = [];
 const createdPackIds: string[] = [];
-/** Pre-existing active blocks parked for the duration of this file. */
-const parkedBlockIds: string[] = [];
+
+/** Name stamp identifying a pre-existing block this suite deactivated, so a
+ *  crashed run's parked rows stay recoverable without any in-memory state.
+ *  `[` and `]` are not LIKE metacharacters in Postgres, so the marker is
+ *  matchable with a plain prefix `LIKE`. */
+const PARK_MARKER = "[parked-by-test] ";
 
 /** Today's civil date ("YYYY-MM-DD") in the org's timezone — the same notion
  *  of "today" the endpoint uses to decide which block is current. */
@@ -56,9 +70,52 @@ function weekdayOf(civil: string): number {
   return new Date(`${civil}T00:00:00Z`).getUTCDay();
 }
 
+/** Deactivate blocks this suite CREATED — no marker needed, `afterAll` deletes
+ *  them outright and a crashed run leaves only disposable fixtures behind. */
 async function parkBlocks(ids: string[]): Promise<void> {
   if (ids.length === 0) return;
   await getDb().update(classBlocks).set({ active: false }).where(inArray(classBlocks.id, ids));
+}
+
+/** Deactivate every currently-active block in the org that this suite does NOT
+ *  own, stamping PARK_MARKER on the name so `unparkBlocks` can find it again
+ *  even after a crashed run. */
+async function parkPreExistingBlocks(): Promise<void> {
+  const db = getDb();
+  const rows = await db
+    .select({ id: classBlocks.id, name: classBlocks.name })
+    .from(classBlocks)
+    .where(and(eq(classBlocks.organizationId, organizationId), eq(classBlocks.active, true)));
+
+  for (const row of rows) {
+    if (createdBlockIds.includes(row.id)) continue;
+    await db
+      .update(classBlocks)
+      .set({ active: false, name: `${PARK_MARKER}${row.name}` })
+      .where(eq(classBlocks.id, row.id));
+  }
+}
+
+/** Reactivate every marker-stamped block in the org and strip the marker.
+ *  Idempotent; safe to call when nothing is parked. */
+async function unparkBlocks(): Promise<void> {
+  const db = getDb();
+  const rows = await db
+    .select({ id: classBlocks.id, name: classBlocks.name })
+    .from(classBlocks)
+    .where(
+      and(
+        eq(classBlocks.organizationId, organizationId),
+        like(classBlocks.name, `${PARK_MARKER}%`),
+      ),
+    );
+
+  for (const row of rows) {
+    await db
+      .update(classBlocks)
+      .set({ active: true, name: row.name.slice(PARK_MARKER.length) })
+      .where(eq(classBlocks.id, row.id));
+  }
 }
 
 async function createBlock(opts: {
@@ -117,25 +174,26 @@ beforeAll(async () => {
     .limit(1);
   timeZone = org?.timezone ?? ORG_DEFAULT_TIMEZONE;
 
-  const preExisting = await db
-    .select({ id: classBlocks.id })
-    .from(classBlocks)
-    .where(and(eq(classBlocks.organizationId, organizationId), eq(classBlocks.active, true)));
-  parkedBlockIds.push(...preExisting.map((b) => b.id));
-  await parkBlocks(parkedBlockIds);
+  // Recover anything a previous crashed run left parked BEFORE parking again,
+  // so a marker-stamped row never gets double-stamped.
+  await unparkBlocks();
+  await parkPreExistingBlocks();
 });
 
 afterAll(async () => {
   const db = getDb();
-  await cleanupTestClassFixtures(createdTemplateIds);
-  if (createdBlockIds.length > 0) {
-    await db.delete(classBlocks).where(inArray(classBlocks.id, createdBlockIds));
-  }
-  if (createdPackIds.length > 0) {
-    await db.delete(classPackProducts).where(inArray(classPackProducts.id, createdPackIds));
-  }
-  if (parkedBlockIds.length > 0) {
-    await db.update(classBlocks).set({ active: true }).where(inArray(classBlocks.id, parkedBlockIds));
+  try {
+    await cleanupTestClassFixtures(createdTemplateIds);
+    if (createdBlockIds.length > 0) {
+      await db.delete(classBlocks).where(inArray(classBlocks.id, createdBlockIds));
+    }
+    if (createdPackIds.length > 0) {
+      await db.delete(classPackProducts).where(inArray(classPackProducts.id, createdPackIds));
+    }
+  } finally {
+    // Un-parking rows this suite does not own is the one teardown step that
+    // must run even if the cleanup above throws.
+    await unparkBlocks();
   }
 });
 
@@ -217,11 +275,16 @@ describe("GET /api/public/class-blocks", () => {
       endDate: civilDay(-10),
     });
 
-    const res = await apiFetch("/api/public/class-blocks");
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ block: null });
-
-    await parkBlocks([endedId]);
+    // `finally` throughout this describe: each test owns "only my block is
+    // active" as an invariant for the NEXT one, so a failed assertion must
+    // still hand that state back rather than cascading into every later test.
+    try {
+      const res = await apiFetch("/api/public/class-blocks");
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ block: null });
+    } finally {
+      await parkBlocks([endedId]);
+    }
   });
 
   it("prorates a mid-flight block: remainingSessions < totalSessions, prices follow the counts", async () => {
@@ -245,41 +308,49 @@ describe("GET /api/public/class-blocks", () => {
     });
     createdTemplateIds.push(templateId);
 
-    const res = await apiFetch("/api/public/class-blocks");
-    expect(res.status).toBe(200);
-    const { block } = await res.json();
-    expect(block).toMatchObject({ id: blockId, name: `Catalog Block Mid ${suffix}`, startDate, endDate, upcoming: false });
+    try {
+      const res = await apiFetch("/api/public/class-blocks");
+      expect(res.status).toBe(200);
+      const { block } = await res.json();
+      expect(block).toMatchObject({
+        id: blockId,
+        name: `Catalog Block Mid ${suffix}`,
+        startDate,
+        endDate,
+        upcoming: false,
+      });
 
-    const tpl = block.templates.find((t: any) => t.slotTemplateId === templateId);
-    expect(tpl).toBeTruthy();
-    expect(Object.keys(tpl).sort()).toEqual(
-      [
-        "fullPriceCents",
-        "name",
-        "proratedPriceCents",
-        "remainingSessions",
-        "slotTemplateId",
-        "spotsLeft",
-        "startTime",
-        "totalSessions",
-        "venueName",
-        "weekday",
-      ].sort(),
-    );
-    expect(tpl.weekday).toBe(weekday);
-    expect(tpl.startTime).toBe("16:00:00");
-    expect(typeof tpl.venueName).toBe("string");
-    expect(tpl.spotsLeft).toBe(6);
-    // Mid-flight: some sessions are already gone.
-    expect(tpl.remainingSessions).toBeGreaterThanOrEqual(2);
-    expect(tpl.remainingSessions).toBeLessThan(tpl.totalSessions);
-    expect(tpl.totalSessions - tpl.remainingSessions).toBeGreaterThanOrEqual(2);
-    // blockRateCents wins over sessionRateCents.
-    expect(tpl.fullPriceCents).toBe(tpl.totalSessions * 3000);
-    expect(tpl.proratedPriceCents).toBe(tpl.remainingSessions * 3000);
-
-    await parkBlocks([blockId]);
-    await cleanupTestClassFixtures([templateId]);
+      const tpl = block.templates.find((t: any) => t.slotTemplateId === templateId);
+      expect(tpl).toBeTruthy();
+      expect(Object.keys(tpl).sort()).toEqual(
+        [
+          "fullPriceCents",
+          "name",
+          "proratedPriceCents",
+          "remainingSessions",
+          "slotTemplateId",
+          "spotsLeft",
+          "startTime",
+          "totalSessions",
+          "venueName",
+          "weekday",
+        ].sort(),
+      );
+      expect(tpl.weekday).toBe(weekday);
+      expect(tpl.startTime).toBe("16:00:00");
+      expect(typeof tpl.venueName).toBe("string");
+      expect(tpl.spotsLeft).toBe(6);
+      // Mid-flight: some sessions are already gone.
+      expect(tpl.remainingSessions).toBeGreaterThanOrEqual(2);
+      expect(tpl.remainingSessions).toBeLessThan(tpl.totalSessions);
+      expect(tpl.totalSessions - tpl.remainingSessions).toBeGreaterThanOrEqual(2);
+      // blockRateCents wins over sessionRateCents.
+      expect(tpl.fullPriceCents).toBe(tpl.totalSessions * 3000);
+      expect(tpl.proratedPriceCents).toBe(tpl.remainingSessions * 3000);
+    } finally {
+      await parkBlocks([blockId]);
+      await cleanupTestClassFixtures([templateId]);
+    }
   });
 
   it("marks a not-yet-started block upcoming, falls back to sessionRateCents, and omits rate-less templates", async () => {
@@ -309,24 +380,26 @@ describe("GET /api/public/class-blocks", () => {
     });
     createdTemplateIds.push(sellableId, unsellableId);
 
-    const res = await apiFetch("/api/public/class-blocks");
-    expect(res.status).toBe(200);
-    const { block } = await res.json();
-    expect(block.id).toBe(blockId);
-    expect(block.upcoming).toBe(true);
+    try {
+      const res = await apiFetch("/api/public/class-blocks");
+      expect(res.status).toBe(200);
+      const { block } = await res.json();
+      expect(block.id).toBe(blockId);
+      expect(block.upcoming).toBe(true);
 
-    const tpl = block.templates.find((t: any) => t.slotTemplateId === sellableId);
-    expect(tpl).toBeTruthy();
-    expect(tpl.totalSessions).toBe(2);
-    expect(tpl.remainingSessions).toBe(2);
-    expect(tpl.fullPriceCents).toBe(5000);
-    expect(tpl.proratedPriceCents).toBe(5000);
+      const tpl = block.templates.find((t: any) => t.slotTemplateId === sellableId);
+      expect(tpl).toBeTruthy();
+      expect(tpl.totalSessions).toBe(2);
+      expect(tpl.remainingSessions).toBe(2);
+      expect(tpl.fullPriceCents).toBe(5000);
+      expect(tpl.proratedPriceCents).toBe(5000);
 
-    // Both rates null = unsellable (Task 5's class_rate_not_configured) — omitted.
-    expect(block.templates.find((t: any) => t.slotTemplateId === unsellableId)).toBeUndefined();
-
-    await parkBlocks([blockId]);
-    await cleanupTestClassFixtures([sellableId, unsellableId]);
+      // Both rates null = unsellable (Task 5's class_rate_not_configured) — omitted.
+      expect(block.templates.find((t: any) => t.slotTemplateId === unsellableId)).toBeUndefined();
+    } finally {
+      await parkBlocks([blockId]);
+      await cleanupTestClassFixtures([sellableId, unsellableId]);
+    }
   });
 
   it("picks the earliest-starting active block and ignores inactive ones", async () => {
@@ -348,12 +421,14 @@ describe("GET /api/public/class-blocks", () => {
       endDate: civilDay(12),
     });
 
-    const res = await apiFetch("/api/public/class-blocks");
-    expect(res.status).toBe(200);
-    const { block } = await res.json();
-    expect(block.id).toBe(earlierId);
-    expect(block.id).not.toBe(inactiveId);
-
-    await parkBlocks([laterId, earlierId]);
+    try {
+      const res = await apiFetch("/api/public/class-blocks");
+      expect(res.status).toBe(200);
+      const { block } = await res.json();
+      expect(block.id).toBe(earlierId);
+      expect(block.id).not.toBe(inactiveId);
+    } finally {
+      await parkBlocks([laterId, earlierId]);
+    }
   });
 });
