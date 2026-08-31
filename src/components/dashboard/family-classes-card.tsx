@@ -229,6 +229,18 @@ function creditLine(credit: SummaryCredit): string {
   return `${sessions} · ${credit.label} · expires ${formatShortDate(credit.expiresAt)}`
 }
 
+/** Best-effort remaining-credits count for the "N left" success copy,
+ *  computed from the summary's PRE-booking `credits` snapshot (the modal
+ *  never learns which specific grant a spend hit — `POST /api/classes/book`
+ *  returns only `paymentMethod`, not a grant id — so this sums every active
+ *  grant's balance and subtracts the one session this booking just spent).
+ *  `onBooked()` triggers a real refetch right after, so this number is
+ *  shown only for the instant before that lands; it is never persisted. */
+function remainingCreditsAfterSpend(credits: SummaryCredit[]): number {
+  const totalBefore = credits.reduce((sum, c) => sum + c.remaining, 0)
+  return Math.max(0, totalBefore - 1)
+}
+
 /** One line per active credit grant — shared between the membership card
  *  (a member can also be sitting on leftover pack/block credits) and the
  *  credit-only card below, so the two never drift apart on copy. */
@@ -331,6 +343,13 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
   const [pendingSession, setPendingSession] = useState<ScheduleSession | null>(null)
   const [exhaustedOffer, setExhaustedOffer] = useState<ExhaustedOffer | null>(null)
   const [bookedSession, setBookedSession] = useState<ScheduleSession | null>(null)
+  /** `paymentMethod` off a successful booking response (`"member_allotment"`
+   *  | `"pack_credit"` | `"trial"`), so the success copy can say WHICH
+   *  thing was spent rather than a bare "booked" — mirrors
+   *  class-dropin-modal.tsx's identical `paidWith` state. Null on the
+   *  `already_booked` soft-success path (no real spend to report) and
+   *  reset on every fresh `load()`. */
+  const [paidWith, setPaidWith] = useState<string | null>(null)
 
   const [waiverAccepted, setWaiverAccepted] = useState(false)
   const [waiverSignerName, setWaiverSignerName] = useState("")
@@ -359,6 +378,7 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
     setPendingSession(null)
     setExhaustedOffer(null)
     setBookedSession(null)
+    setPaidWith(null)
     setWaiverAccepted(false)
     setWaiverSignerName("")
     try {
@@ -441,7 +461,11 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
     if (myGeneration !== generationRef.current) return
 
     if (res.ok) {
+      const okBody = await parseJson(res)
+      if (myGeneration !== generationRef.current) return
+      const spentPaymentMethod = typeof okBody.paymentMethod === "string" ? okBody.paymentMethod : null
       setBookedSession(session)
+      setPaidWith(spentPaymentMethod)
       setPhase("success")
       // Feedback survives even if the modal gets dismissed some other way
       // (e.g. a stray Escape) before the user reads the success panel —
@@ -449,7 +473,20 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
       // below refreshes the parent's /api/classes/summary data but does
       // NOT close the modal; only the user's own Close/backdrop dismiss
       // (handleClose) does that.
-      toast.success(`${child.name}'s make-up class is booked for ${formatDateTime(session.startsAt)}.`)
+      //
+      // A pack/block credit spend gets its OWN copy (mirrors
+      // class-dropin-modal.tsx's `paidWith === "pack_credit"` branch) —
+      // otherwise it reads identically to an allotment booking, and a
+      // parent watching their credit balance has no way to tell the two
+      // apart from the toast alone.
+      if (spentPaymentMethod === "pack_credit") {
+        const remaining = remainingCreditsAfterSpend(child.credits)
+        toast.success(
+          `${child.name}'s session is booked — 1 credit used, ${remaining} left.`,
+        )
+      } else {
+        toast.success(`${child.name}'s make-up class is booked for ${formatDateTime(session.startsAt)}.`)
+      }
       onBooked()
       return
     }
@@ -475,8 +512,11 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
       // Soft success — the child already holds a booking on this session
       // (e.g. a second click, or a session the picker didn't know to
       // exclude). Same "stay open, let the user dismiss" rule as the
-      // primary success path above.
+      // primary success path above. No real spend happened on THIS
+      // attempt, so paidWith is explicitly cleared rather than left over
+      // from a prior try.
       setBookedSession(session)
+      setPaidWith(null)
       setPhase("success")
       toast.success(`${child.name} is already booked for that class.`)
       onBooked()
@@ -768,7 +808,11 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
           <>
             <DialogTitle className="text-ink">You're all set!</DialogTitle>
             <DialogDescription className="text-ink-muted">
-              {child.name}'s make-up class is booked for {formatDateTime(bookedSession.startsAt)}.
+              {child.name}'s {paidWith === "pack_credit" ? "session" : "make-up class"} is booked
+              for {formatDateTime(bookedSession.startsAt)}
+              {paidWith === "pack_credit"
+                ? ` — 1 credit used, ${remainingCreditsAfterSpend(child.credits)} left.`
+                : "."}
             </DialogDescription>
             <Button type="button" onClick={handleClose}>
               Close

@@ -294,6 +294,13 @@ test.describe("Class credits — family dashboard", () => {
     await dialog.getByRole("button", { name: "Sign waiver & book class" }).click();
 
     await expect(dialog.getByText("You're all set!")).toBeVisible({ timeout: 20_000 });
+    // Pins the credit-spend-specific success copy (review Finding 1): a
+    // pack/block credit spend must read differently from a plain allotment
+    // booking, not the generic "make-up class is booked" line. The child
+    // started this test with 2 credits (see the grant seeded in beforeAll),
+    // so after this one spend the modal's pre-refresh snapshot math says 1
+    // left.
+    await expect(dialog.getByText(/1 credit used, 1 left\./)).toBeVisible();
     // DialogContent renders its OWN unlabeled "Close" (the radix X in the
     // corner) alongside MakeUpModal's success-panel Close button — both
     // resolve to accessible name "Close", so scope to the first (the

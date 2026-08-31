@@ -16,7 +16,6 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { getDb } from "@/lib/db";
 import { dropInBookings, dropInRateCard, dropInSessions } from "@/lib/db/schema/drop-in";
 import { createChildClassBooking } from "@/lib/classes/book-child";
-import { classCreditGrants } from "@/lib/db/schema/classes";
 import { eq, inArray } from "drizzle-orm";
 import { apiFetch, getAuthCookie } from "./setup/test-helpers";
 import { createTestDropInSession } from "../utils/dropin-helpers";
@@ -25,6 +24,7 @@ import {
   createTestChild,
   createTestChildMembership,
   createTestClassTemplate,
+  createTestCreditGrant,
   CLASS_TEST_PARENT_EMAIL,
   CLASS_TEST_PARENT_PASSWORD,
   CLASS_TEST_WAIVER,
@@ -95,8 +95,14 @@ async function createClassSession(
   return ctx.sessionId;
 }
 
-/** Direct insert into the credits ledger — the purchase path that normally
- *  writes these rows is the Stripe webhook, which no API test can drive. */
+/** Thin wrapper around the shared `createTestCreditGrant`
+ *  (tests/utils/classes-helpers.ts) that closes over this file's own
+ *  `organizationId` — every call site below predates that helper's
+ *  extraction and was written without it, so this keeps them all
+ *  unchanged rather than threading `organizationId` through each one.
+ *  (Previously a near-duplicate direct insert lived here; the purchase
+ *  path that normally writes these rows is the Stripe webhook, which no
+ *  API test can drive.) */
 async function createCreditGrant(opts: {
   familyMemberId: string;
   sessionsGranted: number;
@@ -105,21 +111,7 @@ async function createCreditGrant(opts: {
   slotTemplateId?: string | null;
   expiresAt?: Date;
 }): Promise<string> {
-  const db = getDb();
-  const [grant] = await db
-    .insert(classCreditGrants)
-    .values({
-      organizationId,
-      familyMemberId: opts.familyMemberId,
-      source: opts.source ?? "pack",
-      slotTemplateId: opts.slotTemplateId ?? null,
-      sessionsGranted: opts.sessionsGranted,
-      pricePaidCents: 9900,
-      expiresAt: opts.expiresAt ?? new Date(Date.now() + 90 * 86_400_000),
-      stripeCheckoutSessionId: `cs_test_credit_${opts.idSuffix}`,
-    })
-    .returning({ id: classCreditGrants.id });
-  return grant.id;
+  return createTestCreditGrant({ organizationId, ...opts });
 }
 
 /** `POST /api/classes/book` with `kind: "member"`. */

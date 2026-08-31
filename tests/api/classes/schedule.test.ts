@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
 import { classPackProducts, classCreditGrants } from "@/lib/db/schema/classes";
@@ -31,6 +31,18 @@ let cookie: string;
 const createdTemplateIds: string[] = [];
 const createdEnrollmentIds: string[] = [];
 
+// The two summary "credits" tests below create a real, ACTIVE
+// class_pack_products row (visible on the live /youth/classes pricing
+// ladder — src/lib/classes/ladder-model.ts's packs rung — until it's
+// cleaned up) plus its grants and a couple of drop_in_sessions rows. Same
+// self-cleaning convention as admin-class-packs.test.ts: grants deleted
+// BEFORE their pack (class_credit_grants.pack_product_id is ON DELETE
+// RESTRICT), sessions deleted last (cascades their bookings — see
+// drop_in_bookings.session_id's ON DELETE CASCADE).
+const createdPackIds: string[] = [];
+const createdCreditGrantIds: string[] = [];
+const createdSummarySessionIds: string[] = [];
+
 beforeAll(async () => {
   ({ organizationId, venueId, parentUserId, tierId } = await resolveClassTestFixtures());
   cookie = await getAuthCookie(CLASS_TEST_PARENT_EMAIL, CLASS_TEST_PARENT_PASSWORD);
@@ -41,6 +53,17 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await cleanupTestClassFixtures(createdTemplateIds, createdEnrollmentIds);
+
+  const db = getDb();
+  if (createdCreditGrantIds.length > 0) {
+    await db.delete(classCreditGrants).where(inArray(classCreditGrants.id, createdCreditGrantIds));
+  }
+  if (createdPackIds.length > 0) {
+    await db.delete(classPackProducts).where(inArray(classPackProducts.id, createdPackIds));
+  }
+  if (createdSummarySessionIds.length > 0) {
+    await db.delete(dropInSessions).where(inArray(dropInSessions.id, createdSummarySessionIds));
+  }
 });
 
 describe("GET /api/public/class-schedule", () => {
@@ -248,19 +271,21 @@ describe("GET /api/classes/summary", () => {
         expiryMonths: 3,
       })
       .returning();
+    createdPackIds.push(pack.id);
 
     // Active — 6 granted, 0 used, expires well in the future.
-    await createTestCreditGrant({
+    const activeGrantId = await createTestCreditGrant({
       organizationId,
       familyMemberId: childId,
       sessionsGranted: 6,
       packProductId: pack.id,
       idSuffix: `active-${suffix}`,
     });
+    createdCreditGrantIds.push(activeGrantId);
 
     // Expired — expiresAt in the past, so it must never appear even though
     // its balance would otherwise be positive.
-    await createTestCreditGrant({
+    const expiredGrantId = await createTestCreditGrant({
       organizationId,
       familyMemberId: childId,
       sessionsGranted: 2,
@@ -268,6 +293,7 @@ describe("GET /api/classes/summary", () => {
       idSuffix: `expired-${suffix}`,
       expiresAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
     });
+    createdCreditGrantIds.push(expiredGrantId);
 
     // Exhausted — 1 granted, then fully consumed by a confirmed booking
     // against it, so remaining hits 0 and it must be excluded too.
@@ -278,11 +304,13 @@ describe("GET /api/classes/summary", () => {
       packProductId: pack.id,
       idSuffix: `exhausted-${suffix}`,
     });
+    createdCreditGrantIds.push(exhaustedGrantId);
     const { sessionId: consumedSessionId } = await createTestDropInSession({
       organizationId,
       venueId,
       kind: "class",
     });
+    createdSummarySessionIds.push(consumedSessionId);
     await db.insert(dropInBookings).values({
       sessionId: consumedSessionId,
       userId: summaryUser.userId,
@@ -324,6 +352,7 @@ describe("GET /api/classes/summary", () => {
       venueId,
       kind: "class",
     });
+    createdSummarySessionIds.push(waiveredSessionId);
     await db.insert(dropInBookings).values({
       sessionId: waiveredSessionId,
       userId: summaryUser.userId,
