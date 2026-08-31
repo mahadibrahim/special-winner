@@ -37,13 +37,16 @@ import {
   classEnrollments,
   classSlotTemplates,
 } from "@/lib/db/schema/classes";
+import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
 import { organizations } from "@/lib/db/schema/organizations";
 import { familyMembers } from "@/lib/db/schema/registrations";
 import { users } from "@/lib/db/schema/users";
 import { handleClassBlockPurchaseComplete } from "@/lib/classes/purchase-webhooks";
 import { blockExpiryInstant, blockOccurrenceInstants } from "@/lib/classes/block-occurrences";
+import { getCreditBalances, selectRedeemableGrant } from "@/lib/classes/credits";
 import { ORG_DEFAULT_TIMEZONE } from "@/lib/time/zoned-day";
 import { apiFetch, getAuthCookie } from "./setup/test-helpers";
+import { createTestDropInSession } from "../utils/dropin-helpers";
 import {
   resolveClassTestFixtures,
   createTestChild,
@@ -104,9 +107,18 @@ let overTemplateId: string;
 let ownChildId: string;
 let otherUsersChildId: string | undefined;
 
+/** Origin/destination pair for the stranded-booking test — kept off the
+ *  shared `templateId` so its enrollments can't perturb the capacity and
+ *  already-enrolled assertions above. */
+let strandOriginTemplateId: string;
+let strandDestTemplateId: string;
+
 const createdBlockIds: string[] = [];
 const createdTemplateIds: string[] = [];
 const createdEnrollmentIds: string[] = [];
+/** Every drop_in_sessions row this file materializes, cancelled in afterAll so
+ *  none of them linger as a later run's "earliest upcoming scheduled session". */
+const createdSessionIds: string[] = [];
 /** Every Checkout Session id this file stamps onto a grant — the delete key
  *  in afterAll (grants/enrollments are created by the handler, so their ids
  *  are only known via this run-unique natural key). */
@@ -162,6 +174,8 @@ async function createTemplate(opts: {
   active?: boolean;
   blockRateCents?: number | null;
   sessionRateCents?: number | null;
+  minAge?: number;
+  maxAge?: number;
   organizationId?: string;
 }): Promise<string> {
   const id = await createTestClassTemplate({
@@ -174,9 +188,35 @@ async function createTemplate(opts: {
     active: opts.active ?? true,
     blockRateCents: opts.blockRateCents ?? undefined,
     sessionRateCents: opts.sessionRateCents ?? undefined,
+    minAge: opts.minAge,
+    maxAge: opts.maxAge,
   });
   createdTemplateIds.push(id);
   return id;
+}
+
+function hoursFromNow(hours: number): Date {
+  return new Date(Date.now() + hours * 3_600_000);
+}
+
+/** A `kind='class'` drop_in_sessions row pinned to a class-slot template —
+ *  the shape the materialize cron produces. */
+async function createClassSession(startsAt: Date, slotTemplateId: string): Promise<string> {
+  const db = getDb();
+  const ctx = await createTestDropInSession({
+    organizationId,
+    venueId,
+    kind: "class",
+    capacity: 10,
+    startsAt,
+    memberRateCents: 999,
+  });
+  await db
+    .update(dropInSessions)
+    .set({ classSlotTemplateId: slotTemplateId })
+    .where(eq(dropInSessions.id, ctx.sessionId));
+  createdSessionIds.push(ctx.sessionId);
+  return ctx.sessionId;
 }
 
 /** The metadata contract POST /api/classes/blocks/purchase stamps, on a
@@ -328,6 +368,19 @@ beforeAll(async () => {
     blockRateCents: BLOCK_RATE_CENTS,
   });
 
+  // Same effective rate on both, so the stranded-booking test exercises the
+  // booking release rather than tripping the rate guard.
+  strandOriginTemplateId = await createTemplate({
+    name: `Block-StrandFrom-${RUN}`,
+    weekday: templateWeekday,
+    blockRateCents: BLOCK_RATE_CENTS,
+  });
+  strandDestTemplateId = await createTemplate({
+    name: `Block-StrandTo-${RUN}`,
+    weekday: (templateWeekday + 1) % 7,
+    blockRateCents: BLOCK_RATE_CENTS,
+  });
+
   endedBlockId = await createBlock({
     name: `Block-Ended-${RUN}`,
     startDate: civilDay(-40),
@@ -383,6 +436,15 @@ beforeAll(async () => {
 
 afterAll(async () => {
   const db = getDb();
+  // Bookings carry a SOFT reference to the grants (no FK), so they are deleted
+  // by session id rather than cascading.
+  if (createdSessionIds.length > 0) {
+    await db.delete(dropInBookings).where(inArray(dropInBookings.sessionId, createdSessionIds));
+    await db
+      .update(dropInSessions)
+      .set({ status: "cancelled" })
+      .where(inArray(dropInSessions.id, createdSessionIds));
+  }
   // Enrollments reference grants (FK onDelete restrict), so they go first.
   if (usedCheckoutSessionIds.length > 0) {
     const grants = await db
@@ -513,6 +575,60 @@ describe("POST /api/classes/blocks/purchase — validation", () => {
     );
     expect(res.status).toBe(409);
     expect((await res.json()).error).toBe("template_full");
+  });
+
+  it("422 age_ineligible for a child outside the slot's age range — and not for one inside it", async () => {
+    // Without this gate the parent pays for a standing seat the materialize
+    // cron can never fill: every weekly auto-booking comes back
+    // `age_ineligible` forever.
+    const agedTemplateId = await createTemplate({
+      name: `Block-Aged-${RUN}`,
+      weekday: templateWeekday,
+      blockRateCents: BLOCK_RATE_CENTS,
+      minAge: 14,
+      maxAge: 16,
+    });
+
+    // DOBs are derived from the current year, not hardcoded — a fixed literal
+    // silently drifts into (or out of) the band as years pass.
+    const thisYear = new Date().getUTCFullYear();
+    const tooYoungId = await createTestChild(
+      parentUserId,
+      `BlockTooYoung-${RUN}`,
+      `${thisYear - 8}-01-01`,
+    );
+    const tooYoung = await purchase(
+      { blockId: midBlockId, slotTemplateId: agedTemplateId, familyMemberId: tooYoungId },
+      { cookie },
+    );
+    expect(tooYoung.status).toBe(422);
+    expect((await tooYoung.json()).error).toBe("age_ineligible");
+
+    // Same template, a child whose DOB puts them mid-band: must NOT be gated.
+    // (It may still 503 when Stripe is unconfigured — the point is only that
+    // the age gate does not fire.)
+    const inRangeId = await createTestChild(
+      parentUserId,
+      `BlockInRange-${RUN}`,
+      `${thisYear - 15}-01-01`,
+    );
+    const inRange = await purchase(
+      { blockId: midBlockId, slotTemplateId: agedTemplateId, familyMemberId: inRangeId },
+      { cookie },
+    );
+    expect(inRange.status).not.toBe(422);
+
+    // And a child with NO DOB on file skips the gate entirely, exactly as the
+    // booking engine does.
+    const [noDobChild] = await getDb()
+      .insert(familyMembers)
+      .values({ parentUserId, firstName: `BlockNoDob-${RUN}`, lastName: "Test" })
+      .returning({ id: familyMembers.id });
+    const noDob = await purchase(
+      { blockId: midBlockId, slotTemplateId: agedTemplateId, familyMemberId: noDobChild.id },
+      { cookie },
+    );
+    expect(noDob.status).not.toBe(422);
   });
 
   it("409 already_enrolled when the child already holds this slot", async () => {
@@ -854,6 +970,160 @@ describe("PUT /api/classes/enrollments/:id on a credit-backed enrollment", () =>
       .from(classEnrollments)
       .where(eq(classEnrollments.id, enrollment.id));
     expect(old.status).toBe("ended");
+  });
+
+  it("cancels the child's future bookings on the old slot and frees the credit", async () => {
+    // The materialize cron books up to HORIZON_DAYS ahead, so a slot change
+    // strands already-booked future sessions on the class the child left —
+    // each one holding a paid credit hostage. The move must release them.
+    const db = getDb();
+    const childId = await createTestChild(parentUserId, `BlockStrand-${RUN}`);
+    const checkoutSessionId = `cs_test_block_${RUN}_strand`;
+
+    await handleClassBlockPurchaseComplete(
+      makeBlockCheckoutSession({
+        checkoutSessionId,
+        familyMemberId: childId,
+        slotTemplateId: strandOriginTemplateId,
+        sessionsGranted: 4,
+      }),
+    );
+    const [grant] = await grantsFor(checkoutSessionId);
+    const [enrollment] = await enrollmentsForGrant(grant.id);
+    expect(enrollment).toBeTruthy();
+
+    // A future session on the OLD slot with a credit-paid seat — exactly what
+    // the cron's auto-booking leaves behind.
+    const futureSessionId = await createClassSession(hoursFromNow(72), strandOriginTemplateId);
+    const [booking] = await db
+      .insert(dropInBookings)
+      .values({
+        sessionId: futureSessionId,
+        userId: parentUserId,
+        familyMemberId: childId,
+        status: "confirmed",
+        source: "auto_enrollment",
+        paymentMethod: "pack_credit",
+        amountPaidCents: 0,
+        creditGrantId: grant.id,
+      })
+      .returning({ id: dropInBookings.id });
+
+    // One of the four credits is spoken for while that booking stands.
+    const before = await getCreditBalances(childId, organizationId);
+    expect(before.find((b) => b.grantId === grant.id)?.remaining).toBe(3);
+
+    const res = await apiFetch(`/api/classes/enrollments/${enrollment.id}`, {
+      method: "PUT",
+      cookie,
+      body: JSON.stringify({ newSlotTemplateId: strandDestTemplateId }),
+    });
+    expect(res.status).toBe(200);
+
+    const [after] = await db
+      .select({
+        status: dropInBookings.status,
+        cancelledAt: dropInBookings.cancelledAt,
+        cancellationReason: dropInBookings.cancellationReason,
+      })
+      .from(dropInBookings)
+      .where(eq(dropInBookings.id, booking.id));
+    expect(after.status).toBe("cancelled");
+    expect(after.cancelledAt).not.toBeNull();
+    expect(after.cancellationReason).toBe("user_request");
+
+    // Balances are count-derived, so the credit came back with no counter to
+    // decrement — and the re-pinned grant is redeemable on the NEW slot.
+    const balances = await getCreditBalances(childId, organizationId);
+    const moved = balances.find((b) => b.grantId === grant.id);
+    expect(moved?.remaining).toBe(4);
+    expect(
+      selectRedeemableGrant(balances, {
+        slotTemplateId: strandDestTemplateId,
+        at: hoursFromNow(72),
+      })?.grantId,
+    ).toBe(grant.id);
+  });
+
+  it("409 rate_mismatch when a credit-backed move targets a pricier slot", async () => {
+    // A pinned grant gets re-pinned by the move, so without this guard a
+    // family could buy the cheapest slot in the block and immediately move to
+    // the priciest one at the cheap rate. Policy: destination rate must be
+    // <= origin rate. (Owner-reviewable default — see enrollment.ts.)
+    const childId = await createTestChild(parentUserId, `BlockArb-${RUN}`);
+    const checkoutSessionId = `cs_test_block_${RUN}_arb`;
+
+    await handleClassBlockPurchaseComplete(
+      makeBlockCheckoutSession({ checkoutSessionId, familyMemberId: childId }),
+    );
+    const [grant] = await grantsFor(checkoutSessionId);
+    const [enrollment] = await enrollmentsForGrant(grant.id);
+
+    const pricierTemplateId = await createTemplate({
+      name: `Block-Pricier-${RUN}`,
+      weekday: (templateWeekday + 2) % 7,
+      blockRateCents: BLOCK_RATE_CENTS * 2,
+    });
+    const cheaperTemplateId = await createTemplate({
+      name: `Block-Cheaper-${RUN}`,
+      weekday: (templateWeekday + 3) % 7,
+      blockRateCents: BLOCK_RATE_CENTS - 100,
+    });
+
+    const up = await apiFetch(`/api/classes/enrollments/${enrollment.id}`, {
+      method: "PUT",
+      cookie,
+      body: JSON.stringify({ newSlotTemplateId: pricierTemplateId }),
+    });
+    expect(up.status).toBe(409);
+    expect((await up.json()).error).toBe("rate_mismatch");
+
+    // Moving DOWN in price is allowed — the family already paid more.
+    const down = await apiFetch(`/api/classes/enrollments/${enrollment.id}`, {
+      method: "PUT",
+      cookie,
+      body: JSON.stringify({ newSlotTemplateId: cheaperTemplateId }),
+    });
+    expect(down.status).toBe(200);
+  });
+
+  it("leaves a MEMBERSHIP-backed move unguarded by the rate policy", async () => {
+    // A subscription doesn't buy a per-session rate, so there is nothing to
+    // arbitrage — a member may move to a pricier slot freely.
+    const db = getDb();
+    const childId = await createTestChild(parentUserId, `BlockMemberMove-${RUN}`);
+    const { tierId } = await resolveClassTestFixtures();
+    const membershipId = await createTestChildMembership({
+      userId: parentUserId,
+      familyMemberId: childId,
+      organizationId,
+      tierId,
+      idSuffix: `block_member_move_${RUN}`,
+    });
+    const originId = await createTemplate({
+      name: `Block-MemberOrigin-${RUN}`,
+      weekday: (templateWeekday + 4) % 7,
+      blockRateCents: BLOCK_RATE_CENTS,
+    });
+    const pricierId = await createTemplate({
+      name: `Block-MemberPricier-${RUN}`,
+      weekday: (templateWeekday + 5) % 7,
+      blockRateCents: BLOCK_RATE_CENTS * 3,
+    });
+    const [enrollment] = await db
+      .insert(classEnrollments)
+      .values({ slotTemplateId: originId, familyMemberId: childId, membershipId })
+      .returning({ id: classEnrollments.id });
+    createdEnrollmentIds.push(enrollment.id);
+
+    const res = await apiFetch(`/api/classes/enrollments/${enrollment.id}`, {
+      method: "PUT",
+      cookie,
+      body: JSON.stringify({ newSlotTemplateId: pricierId }),
+    });
+    expect(res.status).toBe(200);
+    const { enrollmentId } = await res.json();
+    createdEnrollmentIds.push(enrollmentId);
   });
 });
 

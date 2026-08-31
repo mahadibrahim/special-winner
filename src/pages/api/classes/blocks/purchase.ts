@@ -33,6 +33,7 @@ import { organizations } from "@/lib/db/schema/organizations";
 import { users } from "@/lib/db/schema/users";
 import { familyMembers } from "@/lib/db/schema/registrations";
 import { blockOccurrenceInstants } from "@/lib/classes/block-occurrences";
+import { isAgeIneligible } from "@/lib/classes/enrollment";
 import { getOrCreateStripeCustomer } from "@/lib/memberships/stripe";
 import { stripe } from "@/lib/stripe/client";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
@@ -115,6 +116,8 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
       weekday: classSlotTemplates.weekday,
       startTime: classSlotTemplates.startTime,
       capacity: classSlotTemplates.capacity,
+      minAge: classSlotTemplates.minAge,
+      maxAge: classSlotTemplates.maxAge,
       sessionRateCents: classSlotTemplates.sessionRateCents,
       blockRateCents: classSlotTemplates.blockRateCents,
     })
@@ -132,7 +135,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
   // The child must be the caller's dependent. 404 (not 403) so the response
   // is identical whether the id is unknown or someone else's.
   const [child] = await db
-    .select({ id: familyMembers.id })
+    .select({ id: familyMembers.id, birthDate: familyMembers.birthDate })
     .from(familyMembers)
     .where(
       and(eq(familyMembers.id, familyMemberId), eq(familyMembers.parentUserId, locals.user.id)),
@@ -159,14 +162,15 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
   // the org zone, so a window straddling a DST transition counts correctly.
   // It throws only on a malformed date string; `class_blocks.startDate/endDate`
   // are Postgres `date` columns, so that cannot happen from a clean read.
-  const remainingSessions = blockOccurrenceInstants({
+  const remainingOccurrences = blockOccurrenceInstants({
     weekday: template.weekday,
     startTime: template.startTime,
     timeZone,
     startDate: block.startDate,
     endDate: block.endDate,
     after: new Date(),
-  }).length;
+  });
+  const remainingSessions = remainingOccurrences.length;
   // A block can still be RUNNING (`endDate >= today`) while this slot's last
   // occurrence has already passed — the public catalog lists that state so the
   // UI can explain it, and the purchase endpoint refuses it. Never trust the
@@ -175,6 +179,30 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     return json(
       { error: "block_over", message: "This class has no sessions left in the current block" },
       409,
+    );
+  }
+
+  // Age gate BEFORE Stripe. Without it a parent can pay for a standing seat
+  // the materialize cron can never fill: every weekly auto-booking would come
+  // back `age_ineligible` forever (see book-child.ts), leaving a paid-for
+  // family with a seat that silently never books and a permanent contribution
+  // to the cron's `failed` counter.
+  //
+  // Reference date is the FIRST REMAINING OCCURRENCE, not "now": this is a
+  // purchase of specific future sessions, and a child who turns the minimum
+  // age two days before the block's next session should be able to buy it.
+  // (`enrollChild`/`changeEnrollmentSlot` anchor on "now" because a standing
+  // seat has no single session to point at; the per-session booking gate
+  // anchors on that session's start. Same helper, same age math, in all
+  // three.) No DOB on file, or no min/max on the template → gate skipped,
+  // identical to the booking engine's conditions.
+  if (isAgeIneligible(template, child.birthDate, remainingOccurrences[0])) {
+    return json(
+      {
+        error: "age_ineligible",
+        message: "This child is outside the age range for this class",
+      },
+      422,
     );
   }
 

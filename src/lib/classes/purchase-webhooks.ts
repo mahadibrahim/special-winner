@@ -338,6 +338,7 @@ export async function handleClassBlockPurchaseComplete(
     .select({
       id: classSlotTemplates.id,
       name: classSlotTemplates.name,
+      active: classSlotTemplates.active,
       sessionRateCents: classSlotTemplates.sessionRateCents,
       blockRateCents: classSlotTemplates.blockRateCents,
     })
@@ -362,6 +363,32 @@ export async function handleClassBlockPurchaseComplete(
       },
     );
     return;
+  }
+
+  // The endpoint refuses an inactive template, so this can only happen when
+  // an admin retires the class between checkout and the webhook landing. The
+  // money is taken, so we FULFILL anyway — but loudly: the materialize cron
+  // skips inactive templates, so the family would otherwise sit on a paid
+  // enrollment that silently never books, with nothing anywhere saying so.
+  // A distinct error-tracking signal (not the generic unfulfillable one, which
+  // means "nothing was written") is what makes it actionable.
+  if (!template.active) {
+    console.error(
+      `[classes/block-purchase] template ${template.id} is INACTIVE but was paid for on session ${session.id} — fulfilling; the cron will not book this seat`,
+    );
+    void captureServerException(
+      new Error("class_block_purchase fulfilled against a retired slot template"),
+      {
+        component: "classes/purchase-webhooks",
+        metadata: {
+          checkout_session_id: session.id,
+          organization_id: organizationId,
+          slot_template_id: template.id,
+          block_id: block.id,
+          family_member_id: familyMemberId,
+        },
+      },
+    );
   }
 
   // `blockExpiryInstant` throws on a malformed date string. A `date` column

@@ -45,6 +45,9 @@ const ERROR_STATUS: Record<EnrollmentError["code"], number> = {
   // same status the booking endpoint gives its own age_ineligible.
   age_ineligible: 422,
   enrollment_not_found: 404,
+  // Destination slot is priced above the block the family paid for — a
+  // conflict with the purchase, not a malformed request.
+  rate_mismatch: 409,
 };
 
 /**
