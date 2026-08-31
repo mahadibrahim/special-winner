@@ -25,7 +25,10 @@ export type PaymentKind =
   | "membership"
   | "team_deposit"
   /** One-off purchase of N floating class credits (class_pack_products). */
-  | "class_pack";
+  | "class_pack"
+  /** Prorated purchase of a fixed-term class block — credits PINNED to one
+   *  weekly slot, plus the standing enrollment in it (class_blocks). */
+  | "class_block";
 
 export interface PaymentCompletedInput {
   /** Paying user's id — used as the PostHog distinct id. */

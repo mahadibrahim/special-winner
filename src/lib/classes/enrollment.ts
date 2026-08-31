@@ -19,7 +19,11 @@
  */
 import { and, eq, inArray, count } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { classSlotTemplates, classEnrollments } from "@/lib/db/schema/classes";
+import {
+  classSlotTemplates,
+  classEnrollments,
+  classCreditGrants,
+} from "@/lib/db/schema/classes";
 import { familyMembers } from "@/lib/db/schema/registrations";
 import { getActiveChildMembership } from "@/lib/memberships/get-child-membership";
 import { ageOnDate } from "./book-child";
@@ -223,6 +227,12 @@ export async function endEnrollment(id: string): Promise<{ ended: boolean }> {
  * failed capacity check on the new slot leaves the old enrollment untouched
  * (no window where the child holds neither seat).
  *
+ * The replacement row carries over whatever backed the old one — a
+ * membership OR a credit grant — and, when it's a grant, re-pins that grant
+ * to the destination template inside the same transaction (see the comments
+ * at the insert). A block family that changes home slot takes their
+ * remaining pinned credits with them.
+ *
  * Locks BOTH template rows FOR UPDATE, in a stable order (sorted by id)
  * rather than (old, new) — two concurrent swaps between the same pair of
  * templates in opposite directions would otherwise each hold one lock and
@@ -300,14 +310,42 @@ export async function changeEnrollmentSlot(
       .set({ status: "ended", endedAt: new Date() })
       .where(eq(classEnrollments.id, id));
 
+    // Carry BOTH backing columns, not just membershipId: a credit-backed
+    // (block) enrollment has membershipId null, so copying only that would
+    // insert a row with neither set and trip the
+    // `class_enrollments_membership_xor_grant` CHECK — a 500 on every slot
+    // change a block family makes. The CHECK guarantees exactly one of the
+    // two is non-null on the source row, so copying both preserves it.
     const [created] = await tx
       .insert(classEnrollments)
       .values({
         slotTemplateId: newSlotTemplateId,
         familyMemberId: enrollment.familyMemberId,
         membershipId: enrollment.membershipId,
+        creditGrantId: enrollment.creditGrantId,
       })
       .returning();
+
+    // Re-pin the grant to the destination template, in the SAME transaction.
+    // Block credits are pinned (`selectRedeemableGrant` refuses a grant whose
+    // slotTemplateId doesn't match the session's), so a family that changes
+    // home slot must take their remaining credits with them — otherwise the
+    // seat moves and the credits paying for it become unspendable.
+    //
+    // The predicate also requires the grant still points at the OLD template,
+    // which confines the update to genuinely pinned grants: a floating pack
+    // grant (slotTemplateId null) is never re-pinned by a slot change.
+    if (enrollment.creditGrantId) {
+      await tx
+        .update(classCreditGrants)
+        .set({ slotTemplateId: newSlotTemplateId })
+        .where(
+          and(
+            eq(classCreditGrants.id, enrollment.creditGrantId),
+            eq(classCreditGrants.slotTemplateId, enrollment.slotTemplateId),
+          ),
+        );
+    }
 
     return { ok: true, enrollmentId: created.id };
   });

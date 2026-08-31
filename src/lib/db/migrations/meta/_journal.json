@@ -960,6 +960,13 @@
       "when": 1788136820472,
       "tag": "0136_illegal_hercules",
       "breakpoints": true
+    },
+    {
+      "idx": 137,
+      "version": "7",
+      "when": 1788138078352,
+      "tag": "0137_chunky_roughhouse",
+      "breakpoints": true
     }
   ]
 }

@@ -25,7 +25,10 @@ import {
   handleInvoicePaymentFailed,
 } from "@/lib/memberships/webhook-handlers";
 import { handleInvoicePaid } from "@/lib/memberships/invoice-ledger";
-import { handleClassPackPurchaseComplete } from "@/lib/classes/purchase-webhooks";
+import {
+  handleClassPackPurchaseComplete,
+  handleClassBlockPurchaseComplete,
+} from "@/lib/classes/purchase-webhooks";
 import {
   handleDropCheckoutCompleted,
   handleDropSubscriptionUpdated,
@@ -107,10 +110,12 @@ async function releaseStripeEvent(eventId: string): Promise<void> {
  *      "membership_subscription") inserts the row; `customer.subscription.*`
  *      and `invoice.payment_failed` keep its status in sync.
  *
- *   4. Class packs (one-off credit purchases) — Stripe Checkout in PAYMENT
- *      mode on the platform account. `checkout.session.completed` with
- *      metadata.type "class_pack_purchase" inserts the class_credit_grants
- *      row (src/lib/classes/purchase-webhooks.ts).
+ *   4. Class packs and blocks (one-off credit purchases) — Stripe Checkout in
+ *      PAYMENT mode on the platform account. `checkout.session.completed`
+ *      with metadata.type "class_pack_purchase" inserts a floating
+ *      class_credit_grants row; "class_block_purchase" inserts a slot-pinned
+ *      grant PLUS the credit-backed class_enrollments row that turns it into
+ *      a standing weekly seat (src/lib/classes/purchase-webhooks.ts).
  *
  * Consequence: the Stripe webhook endpoint MUST stay subscribed to BOTH
  * `payment_intent.succeeded` AND `checkout.session.completed` — drop one
@@ -204,6 +209,15 @@ async function dispatch(event: Stripe.Event): Promise<void> {
         await handleClassPackPurchaseComplete(session);
         console.log(
           `[stripe webhook] checkout.session.completed (class_pack) → ${session.id}`,
+        );
+      } else if (session.metadata?.type === "class_block_purchase") {
+        // Class-BLOCK purchase (payment mode, platform account). Inserts the
+        // slot-pinned class_credit_grants row AND the credit-backed
+        // class_enrollments row in one transaction; idempotent on the session
+        // id's UNIQUE index, so a redelivery no-ops.
+        await handleClassBlockPurchaseComplete(session);
+        console.log(
+          `[stripe webhook] checkout.session.completed (class_block) → ${session.id}`,
         );
       } else {
         console.log(
