@@ -26,7 +26,7 @@ import StatementCards from "@/components/youth/bands/statement-cards.astro"
 import SlotGraphic from "@/components/youth/bands/slot-graphic.astro"
 import ClassSchedule from "@/components/youth/class-schedule"
 import TrialBooking from "@/components/youth/trial-booking"
-import ClassTiers from "@/components/youth/class-tiers"
+import ClassPurchaseLadder from "@/components/youth/class-purchase-ladder"
 import { PATHWAY, PATHWAY_DETAILS } from "@/lib/youth/landing-content"
 import { faqPageJsonLd } from "@/lib/seo/faq-jsonld"
 import { setMarketingEdgeCache } from "@/lib/http/edge-cache"
@@ -154,12 +154,17 @@ const faqs: LandingFaqItem[] = [
   {
     question: "Do classes run all year?",
     answer:
-      "Yes — the pathway runs year-round. Blocks roll one into the next, so there's never a season where your kid has nowhere to train.",
+      "Yes — the pathway runs year-round. Blocks roll one into the next, and memberships and class packs carry straight across, so there's never a season where your kid has nowhere to train.",
   },
   {
     question: "What does it cost?",
     answer:
-      "Classes are booked as multi-week blocks — the block price sits on each class card, next to what's open.",
+      "There are four ways in, and you pick: a single drop-in class at its own price, a pack of classes to use whenever suits you, a block — a fixed run of weeks on the same night — or a monthly membership with a set number of classes each month. Every price is on the card before you book; nothing is quoted over the phone.",
+  },
+  {
+    question: "Do I have to commit to a block?",
+    answer:
+      "No. A block is one option, not the only one — plenty of families come on a monthly membership, on a class pack, or just once to see how it goes. If you do join a block part-way through, you only pay for the weeks that are left.",
   },
 ]
 ---
@@ -319,27 +324,31 @@ const faqs: LandingFaqItem[] = [
       <YouthCoachSection headingId="classes-coach-h" />
     </div>
 
-    {/* ---------- Pricing — live tiers, rate-card-driven ---------------------
-        Owner-decided contract (2026-08-18): this band is rate-card-driven.
-        ClassTiers (Task 6) fetches /api/public/membership-tiers client-side
-        and renders every live CLASS tier (classes_per_month > 0 or
-        unlimited_classes) with a wired "Join" → child-picker → checkout
-        flow. When the org has no live class tiers, it falls back to the
-        same figure-free default this band used to render statically — never
-        invented dollar amounts. Same pattern as /adult/pickup's drop-in
-        rate card fallback. Must be an island, not frontmatter-computed: the
-        enclosing page is edge-cached marketing HTML
+    {/* ---------- Pricing — the four-rung purchase ladder --------------------
+        Owner-decided contract (2026-08-18): this band is rate-card-driven,
+        never invented figures. ClassPurchaseLadder (Task 11) fetches the
+        packs / block / tiers / schedule catalogs client-side and renders one
+        rung per way into a class — drop-in, pack, block, membership — each
+        with its own wired checkout. It replaces the membership-only
+        ClassTiers band, which quietly implied a monthly membership was the
+        only door; ClassTiers is still the membership rung's engine, embedded
+        by the ladder. Rungs whose catalog is empty don't render, and an org
+        with nothing sellable falls back to the same figure-free default this
+        band used to render statically. Must be an island, not
+        frontmatter-computed: the enclosing page is edge-cached marketing HTML
         (setMarketingEdgeCache above), so live pricing can only live in the
         client. */}
     <section id="pricing" class="px-6 sm:px-9 py-[76px]">
       <div class="max-w-[1080px] mx-auto">
         <h2 class="font-display font-semibold tracking-tight text-ink" style="font-size:clamp(2.1rem,3.8vw,2.9rem);letter-spacing:-0.015em">
-          What it <span class="text-brand-red">costs.</span>
+          Four ways <span class="text-brand-red">in.</span>
         </h2>
-        {/* No lede — the cards carry the whole message (owner: redundant
-            framing text helps nobody). */}
+        <p class="text-[15.5px] text-ink-2 mt-3">
+          Come once, buy a pack, take a block, or go monthly — start wherever it suits you and
+          change your mind later.
+        </p>
         <div class="mt-[38px]">
-          <ClassTiers client:load />
+          <ClassPurchaseLadder client:load />
         </div>
       </div>
     </section>
@@ -409,7 +418,7 @@ const faqs: LandingFaqItem[] = [
           audience="youth"
           programTypes={["training", "clinic"]}
           title="Open classes"
-          descriptor="Every class shows its dates, venue and block price on the card."
+          descriptor="Every class shows its dates, venue and price on the card."
           ageChips
           sectionId="open-classes"
           cardVariant="youth-band"

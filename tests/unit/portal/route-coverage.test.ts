@@ -49,6 +49,16 @@ const CONTEXTUAL_ROUTES = new Set<string>([
   "/admin/media/shoots/new",   // reached from /admin/media/shoots (new shoot form)
   "/admin/dropin/sessions/new", // reached from /admin/dropins (new session form)
   "/admin/classes/new", // reached from /admin/classes ("+ New class" / "Create first class")
+  // The classes admin is one surface with a tab bar
+  // (components/admin/classes/classes-admin-tabs.tsx) hung off the single
+  // /admin/classes nav entry — Packs and Blocks are tabs of it, not separate
+  // sidebar destinations, and their /new pages are reached from the
+  // "+ New pack" / "+ New block" buttons on those tabs. Same contextual
+  // shape as /admin/dropin/sessions and /admin/rentals/blocks above.
+  "/admin/classes/packs",
+  "/admin/classes/packs/new",
+  "/admin/classes/blocks",
+  "/admin/classes/blocks/new",
   // Reached from /coach/practices (new practice form) — contextual.
   "/coach/practices/new",
 

@@ -1,8 +1,15 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton"
+import { formatCents } from "@/lib/classes/ladder-model"
+import {
+  ClassDropInModal,
+  formatSessionDateTime,
+  type DropInSession,
+  type DropInSlot,
+} from "@/components/youth/class-dropin-modal"
 
 /**
  * Live "this week's classes" schedule for /youth/classes. The enclosing page
@@ -32,8 +39,17 @@ import { LoadingSkeleton } from "@/components/ui/loading-skeleton"
  *   BEFORE dispatching; trial-booking.tsx's mount effect consumes (and
  *   clears) that value as a backstop in addition to listening for the
  *   live event.
+ * - "Book <date> · $X" — the DROP-IN DOOR (Task 11). Rendered only when the
+ *   slot has a configured `sessionRateCents` AND has a materialized session
+ *   with a seat left in the endpoint's 14-day `sessions` window. Probes
+ *   `/api/auth/me` and bounces signed-out visitors to /signin (matching the
+ *   pricing band's CTAs), then hands the slot + session to
+ *   `ClassDropInModal`, which owns the whole book-or-pay flow. A slot with a
+ *   null rate shows NO price and no door: an unconfigured class rate must
+ *   never be quoted off the adult drop-in rate card (see
+ *   src/lib/classes/class-rate.ts), and it is certainly not free.
  * - "Join" is a plain anchor to #pricing.
- * Both carry `data-youth-cta="schedule"` so the page's existing click
+ * All three carry `data-youth-cta="schedule"` so the page's existing click
  * tracker (classes.astro, the `[data-youth-cta]` listener near the bottom)
  * picks them up.
  */
@@ -58,9 +74,24 @@ interface ScheduleSlot {
   locationName: string | null
   venueName: string | null
   capacity: number
+  /** Public single-session price. Null = not configured → no drop-in door. */
+  sessionRateCents: number | null
   enrolledCount: number
   spotsLeft: number
 }
+
+/** Materialized upcoming session (next 14 days) from the same endpoint. */
+interface ScheduleSession {
+  id: string
+  templateId: string
+  startsAt: string
+  endsAt: string
+  capacity: number
+  bookedCount: number
+  spotsLeft: number
+}
+
+const SIGNIN_REDIRECT = "/signin?redirect=" + encodeURIComponent("/youth/classes#schedule")
 
 const WEEKDAY_NAMES = [
   "Sunday",
@@ -137,14 +168,23 @@ export default function ClassSchedule() {
 
   const [phase, setPhase] = useState<Phase>("loading")
   const [slots, setSlots] = useState<ScheduleSlot[]>([])
+  const [sessions, setSessions] = useState<ScheduleSession[]>([])
+
+  // Drop-in door state. `door` is null while closed; opening it is gated on
+  // the auth probe below.
+  const [door, setDoor] = useState<{ slot: DropInSlot; session: DropInSession } | null>(null)
+  // Bumped on every open/close so an auth probe still in flight can't open
+  // the modal after the user clicked a different card (or navigated away).
+  const doorGenerationRef = useRef(0)
 
   const load = useCallback(async () => {
     setPhase("loading")
     try {
       const res = await fetch("/api/public/class-schedule")
       if (!res.ok) throw new Error("bad status")
-      const body = (await res.json()) as { slots: ScheduleSlot[] }
+      const body = (await res.json()) as { slots: ScheduleSlot[]; sessions: ScheduleSession[] }
       setSlots(body.slots)
+      setSessions(body.sessions ?? [])
       setPhase("ready")
     } catch {
       setPhase("error")
@@ -154,6 +194,63 @@ export default function ClassSchedule() {
   useEffect(() => {
     void load()
   }, [load])
+
+  /** Soonest upcoming session for a template. `sessions` arrives sorted
+   *  ascending by startsAt, so the first match with a seat is the one to
+   *  offer. */
+  const nextOpenSession = useCallback(
+    (templateId: string): ScheduleSession | null =>
+      sessions.find((s) => s.templateId === templateId && s.spotsLeft > 0) ?? null,
+    [sessions],
+  )
+
+  async function openDropIn(slot: ScheduleSlot, session: ScheduleSession) {
+    const myGeneration = ++doorGenerationRef.current
+    let authed = false
+    try {
+      const meRes = await fetch("/api/auth/me", { credentials: "same-origin" })
+      const me = meRes.ok ? await meRes.json() : { user: null }
+      authed = Boolean(me?.user)
+    } catch {
+      authed = false
+    }
+    if (myGeneration !== doorGenerationRef.current) return // superseded meanwhile
+    if (!authed) {
+      window.location.href = SIGNIN_REDIRECT
+      return
+    }
+    setDoor({
+      slot: {
+        templateId: slot.templateId,
+        name: slot.name,
+        minAge: slot.minAge,
+        maxAge: slot.maxAge,
+        venueName: slot.venueName,
+        locationName: slot.locationName,
+        sessionRateCents: slot.sessionRateCents,
+      },
+      session: { id: session.id, startsAt: session.startsAt, spotsLeft: session.spotsLeft },
+    })
+  }
+
+  function closeDropIn() {
+    doorGenerationRef.current += 1
+    setDoor(null)
+    // A booking may have just consumed a seat, so the counts on the cards are
+    // stale. Refresh in place — deliberately NOT via `load()`, which would
+    // drop the whole grid back to the skeleton for a beat.
+    void (async () => {
+      try {
+        const res = await fetch("/api/public/class-schedule")
+        if (!res.ok) return
+        const body = (await res.json()) as { slots: ScheduleSlot[]; sessions: ScheduleSession[] }
+        setSlots(body.slots)
+        setSessions(body.sessions ?? [])
+      } catch {
+        // Best-effort only — stale counts are better than a broken grid.
+      }
+    })()
+  }
 
   if (phase === "loading") {
     return (
@@ -208,6 +305,13 @@ export default function ClassSchedule() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {group.slots.map((slot) => {
               const chip = spotsChip(slot.spotsLeft)
+              // Drop-in door: needs BOTH a configured rate and a real
+              // upcoming session with a seat. Either missing → no door, no
+              // price shown (see the header comment).
+              const nextSession =
+                slot.sessionRateCents && slot.sessionRateCents > 0
+                  ? nextOpenSession(slot.templateId)
+                  : null
               return (
                 <div
                   key={slot.templateId}
@@ -239,6 +343,11 @@ export default function ClassSchedule() {
                     {(slot.venueName || slot.locationName) && (
                       <div>{slot.venueName ?? slot.locationName}</div>
                     )}
+                    {nextSession && (
+                      <div className="text-ink-muted">
+                        Next: {formatSessionDateTime(nextSession.startsAt)}
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex flex-wrap gap-2 mt-1">
@@ -251,6 +360,17 @@ export default function ClassSchedule() {
                     >
                       Book a free trial
                     </button>
+                    {nextSession && (
+                      <button
+                        type="button"
+                        data-dropin-slot={slot.templateId}
+                        data-youth-cta="schedule-dropin"
+                        onClick={() => void openDropIn(slot, nextSession)}
+                        className="inline-block font-semibold text-[13px] px-4 py-[9px] rounded-[8px] border-[1.5px] border-ink/15 text-ink no-underline"
+                      >
+                        Book once · {formatCents(slot.sessionRateCents)}
+                      </button>
+                    )}
                     <a
                       href="#pricing"
                       data-youth-cta="schedule"
@@ -265,6 +385,16 @@ export default function ClassSchedule() {
           </div>
         </div>
       ))}
+
+      {/* One modal for the whole grid — mounted here rather than per card so
+          there is exactly one open dialog at a time and the ChildPicker
+          inside it fetches family members once. */}
+      <ClassDropInModal
+        open={door !== null}
+        slot={door?.slot ?? null}
+        session={door?.session ?? null}
+        onClose={closeDropIn}
+      />
     </div>
   )
 }

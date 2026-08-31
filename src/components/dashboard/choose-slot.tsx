@@ -36,6 +36,29 @@ import { waiverAssentSentence } from "@/lib/consents/waiver-consent-language";
  * enrolled, we'll pick this up automatically" success state rather than
  * blocking — the durable outcome parents actually came here for is the
  * standing seat, not this exact week's session.
+ *
+ * ── BLOCK MODE (`?child=X&block=success&slot=Y`) ─────────────────────────
+ * This same page is also the success landing for a BLOCK purchase
+ * (/api/classes/blocks/purchase's `success_url`). There, step 1 has ALREADY
+ * happened: `handleClassBlockPurchaseComplete` created both the pinned
+ * `class_credit_grants` row and the credit-backed `class_enrollments` row on
+ * `checkout.session.completed`. So block mode:
+ *
+ *   - LOCKS slot Y. No picker grid, no slot cards — the family already paid
+ *     for that specific weekly slot, and offering alternatives here would
+ *     invite them to move a seat they bought.
+ *   - NEVER POSTs an enrollment. It confirms the webhook's row exists (the
+ *     ordinary `/api/classes/summary` fetch this page already makes), and
+ *     retries with backoff when it doesn't — a redirect from Stripe Checkout
+ *     routinely beats the webhook by a second or two.
+ *   - Captures the guardian waiver on the same 422 handshake as above, then
+ *     books this week via `POST /api/classes/book { kind: "member" }`. That
+ *     endpoint's credit fall-through redeems the pinned block grant
+ *     automatically (src/lib/classes/credits.ts) — nothing block-specific is
+ *     sent, and no membership is required.
+ *   - Degrades to "your seat is confirmed, this week's class will appear
+ *     shortly" if the webhook never lands within the retry budget. The
+ *     PURCHASE is safe either way; only the immediate booking is at stake.
  */
 
 interface SummaryChild {
@@ -94,12 +117,17 @@ type Phase =
   | "picking"
   | "enrolling"
   | "payment_settling"
+  /** Block mode only — waiting for the purchase webhook to create the seat. */
+  | "block_settling"
   | "booking"
   | "waiver"
   | "success";
 
 interface SuccessInfo {
-  slot: ScheduleSlot;
+  /** Null only on the block-mode edge case where the purchased template is
+   *  no longer on the public schedule — the seat is real, we just can't name
+   *  it. */
+  slot: ScheduleSlot | null;
   session: ScheduleSession | null;
   /** Set when booking degraded gracefully (e.g. this week's session was
    *  full) — distinct from "no session in the payload at all", which shows
@@ -153,7 +181,13 @@ function isAgeEligible(slot: ScheduleSlot, age: number | null): boolean {
   return true;
 }
 
-function humanizeBookError(code: string | undefined): string {
+function humanizeBookError(code: string | undefined, blockMode = false): string {
+  // Block mode has no membership and no monthly allotment — a block seat is
+  // paid credits pinned to one slot — so the two membership-flavoured
+  // messages below would be actively misleading there.
+  if (blockMode && (code === "no_membership" || code === "allotment_exhausted")) {
+    return "Your seat is paid for — we're still finalising it, and this week's class appears on your dashboard shortly.";
+  }
   switch (code) {
     case "session_full":
       return "This week's class is full — you're enrolled, and we'll book you in automatically as soon as a spot opens or for next week.";
@@ -198,6 +232,16 @@ export function ChooseSlot() {
       ? new URLSearchParams(window.location.search).get("child")
       : null,
   );
+
+  // Block mode: `?block=success&slot=<slotTemplateId>` — see BLOCK MODE in
+  // the header comment. Read in the same lazy initializer for the same
+  // SSR-safety reason.
+  const [blockSlotId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    const params = new URLSearchParams(window.location.search);
+    return params.get("block") === "success" ? params.get("slot") : null;
+  });
+  const blockMode = blockSlotId !== null;
 
   const [phase, setPhase] = useState<Phase>("loading");
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -268,6 +312,20 @@ export function ChooseSlot() {
       setChildAge(age);
       setSlots(scheduleBody.slots);
       setSessions(scheduleBody.sessions);
+
+      if (blockMode) {
+        const boughtSlot = scheduleBody.slots.find((s) => s.templateId === blockSlotId);
+        if (!boughtSlot) {
+          // The purchase went through against a template the public schedule
+          // no longer lists (deactivated between checkout and redirect). The
+          // seat is real, so this is a soft landing, not an error page.
+          finishSuccess(null, null, "Your payment went through — your seat appears on your dashboard shortly.");
+          return;
+        }
+        await runBlockFlow(boughtSlot, child, scheduleBody.sessions);
+        return;
+      }
+
       setPhase("picking");
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : "Network error — please try again.");
@@ -288,10 +346,19 @@ export function ChooseSlot() {
     }
   }
 
-  function findNextSession(templateId: string): ScheduleSession | null {
-    // `sessions` from the schedule endpoint is already sorted ascending by
-    // startsAt, so the first match is the soonest upcoming one.
-    return sessions.find((s) => s.templateId === templateId) ?? null;
+  /**
+   * Soonest upcoming session for a template. `from` is passed explicitly by
+   * the block flow, which runs INSIDE `loadAll` before `setSessions` has
+   * committed — reading the `sessions` state there would always see the
+   * empty initial array and silently skip this week's booking.
+   */
+  function findNextSession(
+    templateId: string,
+    from: ScheduleSession[] = sessions,
+  ): ScheduleSession | null {
+    // The schedule endpoint returns sessions sorted ascending by startsAt,
+    // so the first match is the soonest upcoming one.
+    return from.find((s) => s.templateId === templateId) ?? null;
   }
 
   /**
@@ -364,22 +431,96 @@ export function ChooseSlot() {
       };
     }
 
+    // Block families only: the destination slot is priced above the block
+    // they paid for, so moving there would silently under-charge. The server
+    // sends the human explanation — surface it rather than burying it under
+    // the generic retry copy.
+    if (code === "rate_mismatch") {
+      return {
+        ok: false,
+        message:
+          typeof body.message === "string"
+            ? body.message
+            : "That class is priced differently from the block you paid for — pick another, or contact us and we'll sort it out.",
+      };
+    }
+
     return {
       ok: false,
       message: typeof body.message === "string" ? body.message : "Could not enroll — please try again.",
     };
   }
 
-  function finishSuccess(slot: ScheduleSlot, session: ScheduleSession | null, note: string | null) {
+  /**
+   * BLOCK MODE. The webhook already created the seat and the pinned credit
+   * grant, so this NEVER enrolls — it only confirms the row landed, then
+   * books this week. See BLOCK MODE in the header comment.
+   *
+   * `child`/`sessions` are passed in rather than read from state: this runs
+   * inside `loadAll`, before either `setChildSummary` or `setSessions` has
+   * committed.
+   */
+  async function runBlockFlow(
+    slot: ScheduleSlot,
+    child: SummaryChild,
+    scheduleSessions: ScheduleSession[],
+    attempt = 0,
+  ): Promise<void> {
+    if (child.enrollment?.templateId === slot.templateId) {
+      await attemptBooking(slot, undefined, scheduleSessions);
+      return;
+    }
+
+    // The Stripe redirect routinely beats the webhook. Re-read the summary
+    // with the same backoff ladder the membership path uses for its own
+    // settle-lag, then degrade rather than blocking on it.
+    if (attempt < NO_MEMBERSHIP_RETRY_DELAYS_MS.length) {
+      setPhase("block_settling");
+      setSettlingAttempt(attempt + 1);
+      await sleep(NO_MEMBERSHIP_RETRY_DELAYS_MS[attempt]);
+      let refreshed: SummaryChild | undefined;
+      try {
+        const res = await fetch("/api/classes/summary");
+        if (res.ok) {
+          const body = (await res.json()) as { children: SummaryChild[] };
+          refreshed = body.children.find((c) => c.familyMemberId === childId);
+        }
+      } catch {
+        // Fall through to the next attempt — a transient failure here is
+        // indistinguishable from the webhook simply not having landed.
+      }
+      if (refreshed) setChildSummary(refreshed);
+      await runBlockFlow(slot, refreshed ?? child, scheduleSessions, attempt + 1);
+      return;
+    }
+
+    finishSuccess(
+      slot,
+      null,
+      "Your payment went through and your seat is being finalized — this week's class appears on your dashboard shortly.",
+    );
+  }
+
+  function finishSuccess(
+    slot: ScheduleSlot | null,
+    session: ScheduleSession | null,
+    note: string | null,
+  ) {
     setSuccessInfo({ slot, session, note });
     setPendingSlot(null);
     setPendingSession(null);
     setPhase("success");
   }
 
-  async function attemptBooking(slot: ScheduleSlot, waiver?: { signedBy: string; consentText: string }) {
+  async function attemptBooking(
+    slot: ScheduleSlot,
+    waiver?: { signedBy: string; consentText: string },
+    /** Explicit session list for callers running before `setSessions` has
+     *  committed (the block flow) — see findNextSession's comment. */
+    sessionsOverride?: ScheduleSession[],
+  ) {
     setPhase("booking");
-    const nextSession = findNextSession(slot.templateId);
+    const nextSession = findNextSession(slot.templateId, sessionsOverride ?? sessions);
     if (!nextSession) {
       // No materialized session in the next 14 days — the enrollment alone
       // is the success outcome; the cron books the first real session once
@@ -428,7 +569,7 @@ export function ChooseSlot() {
     // Any other booking failure: the standing enrollment already landed —
     // degrade to a soft success rather than blocking the whole flow on a
     // best-effort immediate booking.
-    finishSuccess(slot, null, humanizeBookError(code));
+    finishSuccess(slot, null, humanizeBookError(code, blockMode));
   }
 
   /**
@@ -514,9 +655,17 @@ export function ChooseSlot() {
             <div>
               <h2 className="font-semibold text-lg">You're all set!</h2>
               <p className="text-sm opacity-90 mt-1">
-                {childSummary?.name ?? "Your child"} is enrolled in {slot.name} —{" "}
-                {formatDayTime(slot.weekday, slot.startTime)}
-                {slot.venueName ? ` at ${slot.venueName}` : ""}.
+                {slot ? (
+                  <>
+                    {childSummary?.name ?? "Your child"}
+                    {blockMode ? " has a seat in " : " is enrolled in "}
+                    {slot.name} — {formatDayTime(slot.weekday, slot.startTime)}
+                    {slot.venueName ? ` at ${slot.venueName}` : ""}
+                    {blockMode ? " for the rest of the block" : ""}.
+                  </>
+                ) : (
+                  <>{childSummary?.name ?? "Your child"}'s seat is paid for.</>
+                )}
               </p>
             </div>
           </div>
@@ -549,8 +698,8 @@ export function ChooseSlot() {
           <div>
             <h2 className="font-semibold text-ink">One more step: sign the guardian waiver</h2>
             <p className="mt-1 text-sm text-ink-2">
-              {playerName} is enrolled in {pendingSlot.name} — this covers every class they
-              attend from here on, not just this week's.
+              {playerName} {blockMode ? "has a seat in" : "is enrolled in"} {pendingSlot.name} —
+              this covers every class they attend from here on, not just this week's.
             </p>
           </div>
 
@@ -601,13 +750,18 @@ export function ChooseSlot() {
     );
   }
 
-  if (phase === "enrolling" || phase === "payment_settling" || phase === "booking") {
+  if (
+    phase === "enrolling" ||
+    phase === "payment_settling" ||
+    phase === "block_settling" ||
+    phase === "booking"
+  ) {
     return (
       <div className="max-w-2xl mx-auto mt-8">
         <div className="rounded-xl border border-border bg-cream-2 px-6 py-8 text-center space-y-2">
           <div className="mx-auto size-6 rounded-full border-2 border-ochre border-t-transparent animate-spin" aria-hidden="true" />
           <p className="text-sm text-ink-muted">
-            {phase === "payment_settling"
+            {phase === "payment_settling" || phase === "block_settling"
               ? `Confirming your payment settled… (attempt ${settlingAttempt} of ${NO_MEMBERSHIP_RETRY_DELAYS_MS.length})`
               : phase === "booking"
                 ? "Booking your first class…"
@@ -659,6 +813,15 @@ export function ChooseSlot() {
             {childSummary?.enrollment && (
               <> This replaces their current class, {childSummary.enrollment.templateName}.</>
             )}
+          </p>
+          {/* Deliberate behaviour, not an oversight (Task 8): changing the
+              home slot moves the STANDING weekly seat only. A make-up class
+              they already paid for is a booking on a specific session, and
+              moving it would either lose that payment or silently re-price
+              it — so it stays where it is, and we say so up front. */}
+          <p className="text-sm text-ink-muted">
+            Any make-up classes you've already paid for stay on their original day — this only
+            moves the weekly class.
           </p>
           <div className="flex gap-3">
             <Button type="button" onClick={() => void handleSelectSlot(confirmSwitchSlot)}>

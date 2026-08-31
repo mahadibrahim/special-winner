@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/compone
 import { ErrorBanner } from "@/components/ui/error-banner"
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton"
 import { ChildPicker, type ChildPickerMember } from "@/components/youth/child-picker"
+import { formatCents, isClassTier, type LadderTier as Tier } from "@/lib/classes/ladder-model"
 
 /**
  * Live class-tier pricing + child join flow for /youth/classes's #pricing
@@ -41,6 +42,15 @@ import { ChildPicker, type ChildPickerMember } from "@/components/youth/child-pi
  *    `/dashboard/family`, same copy/link pattern as trial-booking's
  *    `member_child_no_trial` banner.
  *
+ * EMBEDDED MODE (Task 11): `class-purchase-ladder.tsx` renders this component
+ * as the ladder's MEMBERSHIP rung. It passes the tiers it already fetched
+ * (`tiers` prop) so the page makes one `/api/public/membership-tiers` request
+ * rather than two, and sets `renderFallback={false}` — the ladder decides
+ * when the figure-free `PRICING_CARDS_FALLBACK` explainer is the right thing
+ * to show for the WHOLE band, and a rung rendering it on its own would
+ * contradict the priced rungs above it. With no props this component still
+ * behaves exactly as before (self-fetches, falls back when empty).
+ *
  * Re-entrancy / stale-closure guard: `attemptSubscribe` takes `tier` and
  * `child` as explicit parameters — never reads `activeTier`/`selectedChild`
  * state inside the async continuation. This mirrors trial-booking.tsx's
@@ -51,24 +61,6 @@ import { ChildPicker, type ChildPickerMember } from "@/components/youth/child-pi
  * clobbering the UI after the modal has been closed/reopened for a
  * different tier or child.
  */
-
-interface TierBenefits {
-  classes_per_month?: number
-  unlimited_classes?: boolean
-  camp_discount_pct?: number
-  [key: string]: unknown
-}
-
-interface Tier {
-  id: string
-  name: string
-  tagline: string | null
-  monthlyPriceCents: number | null
-  annualPriceCents: number | null
-  annualFeeCents: number | null
-  benefits: TierBenefits
-  displayOrder: number
-}
 
 type FetchPhase = "loading" | "ready" | "error"
 type ModalPhase = "closed" | "picking" | "submitting"
@@ -85,16 +77,16 @@ const SIGNIN_REDIRECT = "/signin?redirect=" + encodeURIComponent("/youth/classes
 // Figure-free default state (owner-decided, 2026-08-18) — moved verbatim
 // from classes.astro's PRICING_CARDS. Renders when the org has no live
 // class tiers, or the tiers fetch fails, so the band never goes blank.
-const PRICING_CARDS_FALLBACK: { label: string; amount: string; body: string; hot?: boolean }[] = [
+export const PRICING_CARDS_FALLBACK: { label: string; amount: string; body: string; hot?: boolean }[] = [
   {
-    label: "Blocks",
-    amount: "Priced per block",
-    body: "Classes are booked as multi-week blocks. Every class card shows its block price before you register.",
+    label: "Four ways in",
+    amount: "Priced per class",
+    body: "Come once, buy a pack of classes, join a block, or take a monthly membership. Every open class card shows its own price before you book.",
   },
   {
     label: "The card is the truth",
     amount: "No separate figure",
-    body: "We could publish a summary price here, but it would only be one more number to keep in sync. The block price on each open class card below is the real one.",
+    body: "We could publish a summary price here, but it would only be one more number to keep in sync. The price on each open class card below is the real one.",
     hot: true,
   },
   {
@@ -103,27 +95,6 @@ const PRICING_CARDS_FALLBACK: { label: string; amount: string; body: string; hot
     body: "No call required, no quote step — the price on the card is the price at checkout.",
   },
 ]
-
-function isClassTier(tier: Tier): boolean {
-  const benefits = tier.benefits ?? {}
-  const classesPerMonth =
-    typeof benefits.classes_per_month === "number" ? benefits.classes_per_month : 0
-  return classesPerMonth > 0 || benefits.unlimited_classes === true
-}
-
-function fmtDollars(cents: number | null): string | null {
-  if (cents === null || cents === undefined) return null
-  // Whole-dollar amounts render without cents ($50, not $50.00); anything
-  // with a fractional cent value needs BOTH min and max fraction digits
-  // pinned to 2 — `maximumFractionDigits` alone lets toLocaleString drop a
-  // trailing zero (4990 -> "49.9" instead of "49.90").
-  const dollars = cents / 100
-  const hasCents = cents % 100 !== 0
-  return `$${dollars.toLocaleString(undefined, {
-    minimumFractionDigits: hasCents ? 2 : 0,
-    maximumFractionDigits: hasCents ? 2 : 0,
-  })}`
-}
 
 function benefitsLine(tier: Tier): string {
   const benefits = tier.benefits ?? {}
@@ -151,9 +122,23 @@ async function parseJson(res: Response): Promise<Record<string, unknown>> {
   }
 }
 
-export default function ClassTiers() {
-  const [fetchPhase, setFetchPhase] = useState<FetchPhase>("loading")
-  const [tiers, setTiers] = useState<Tier[]>([])
+export interface ClassTiersProps {
+  /** Pre-fetched, already-filtered class tiers. When provided, the component
+   *  skips its own `/api/public/membership-tiers` request — see EMBEDDED MODE
+   *  in the header comment. */
+  tiers?: Tier[]
+  /** Render `PRICING_CARDS_FALLBACK` when there is nothing to show. Default
+   *  true (standalone). The ladder passes false and owns the band-level
+   *  fallback decision itself. */
+  renderFallback?: boolean
+}
+
+export default function ClassTiers({
+  tiers: tiersProp,
+  renderFallback = true,
+}: ClassTiersProps = {}) {
+  const [fetchPhase, setFetchPhase] = useState<FetchPhase>(tiersProp ? "ready" : "loading")
+  const [tiers, setTiers] = useState<Tier[]>(tiersProp ?? [])
 
   const [modalPhase, setModalPhase] = useState<ModalPhase>("closed")
   const [activeTier, setActiveTier] = useState<Tier | null>(null)
@@ -168,6 +153,13 @@ export default function ClassTiers() {
   const isModalOpen = modalPhase !== "closed"
 
   useEffect(() => {
+    // Embedded mode: the ladder already fetched these — keep local state in
+    // sync with the prop instead of firing a second request.
+    if (tiersProp) {
+      setTiers(tiersProp)
+      setFetchPhase("ready")
+      return
+    }
     let cancelled = false
     async function load() {
       try {
@@ -189,7 +181,7 @@ export default function ClassTiers() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [tiersProp])
 
   // Defensive body-scroll lock — same rationale as trial-booking.tsx's
   // identical effect (Radix's Dialog scroll lock was observed not fully
@@ -316,7 +308,10 @@ export default function ClassTiers() {
     return <LoadingSkeleton variant="card" />
   }
 
-  const showFallback = fetchPhase === "error" || tiers.length === 0
+  const showFallback = renderFallback && (fetchPhase === "error" || tiers.length === 0)
+  // Embedded with nothing to show: render nothing at all, rather than an
+  // empty <div> that would still consume the band's grid gap.
+  if (!showFallback && tiers.length === 0) return null
 
   return (
     <div>
@@ -351,8 +346,8 @@ export default function ClassTiers() {
             // and the pathway cards above on this page. Only applied once
             // there's more than one tier to contrast against.
             const hot = tiers.length > 1 && i === Math.floor((tiers.length - 1) / 2)
-            const monthly = fmtDollars(tier.monthlyPriceCents)
-            const fee = fmtDollars(tier.annualFeeCents)
+            const monthly = formatCents(tier.monthlyPriceCents)
+            const fee = formatCents(tier.annualFeeCents)
             const benefits = benefitsLine(tier)
             return (
               <div

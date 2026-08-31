@@ -10,9 +10,20 @@ import { ChooseSlot } from "@/components/dashboard/choose-slot";
 // one-shot post-checkout landing, not a dashboard tab. Mirrors the
 // children/[id].astro pattern: BaseLayout + one client:load island that
 // owns its own loading/error states.
+//
+// TWO landings share this page, both driven by query params the island reads
+// client-side (never here — see below):
+//   ?child=X                        membership checkout → pick a home class
+//   ?child=X&block=success&slot=Y   block checkout → slot Y is already bought,
+//                                   so the island locks it, confirms the
+//                                   webhook's seat and books this week
+// Deliberately NOT read in this frontmatter: the params only ever select
+// which flow the island runs, and reading Astro.url.searchParams here would
+// make the page request-time-variant for no rendering benefit. It is SSR
+// either way (middleware-protected /dashboard route, no prerender flag).
 ---
 
-<BaseLayout title="Choose your class — Aspire Sports">
+<BaseLayout title="Your class — Aspire Sports">
   <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
     <ChooseSlot client:load />
   </main>
