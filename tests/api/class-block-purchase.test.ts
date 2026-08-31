@@ -972,7 +972,7 @@ describe("PUT /api/classes/enrollments/:id on a credit-backed enrollment", () =>
     expect(old.status).toBe("ended");
   });
 
-  it("cancels the child's future bookings on the old slot and frees the credit", async () => {
+  it("cancels the child's $0 future bookings on the old slot but never a PAID one", async () => {
     // The materialize cron books up to HORIZON_DAYS ahead, so a slot change
     // strands already-booked future sessions on the class the child left —
     // each one holding a paid credit hostage. The move must release them.
@@ -1009,6 +1009,25 @@ describe("PUT /api/classes/enrollments/:id on a credit-backed enrollment", () =>
       })
       .returning({ id: dropInBookings.id });
 
+    // A PAID make-up on the old slot, on its own future session. Cancelling
+    // this here would void a real payment with no Stripe refund and no email
+    // (the refund-capable endpoint is the only path allowed to touch it), so
+    // the move must leave it strictly alone.
+    const paidSessionId = await createClassSession(hoursFromNow(96), strandOriginTemplateId);
+    const [paidBooking] = await db
+      .insert(dropInBookings)
+      .values({
+        sessionId: paidSessionId,
+        userId: parentUserId,
+        familyMemberId: childId,
+        status: "confirmed",
+        source: "online_booking",
+        paymentMethod: "card_online",
+        amountPaidCents: 2_500,
+        stripePaymentIntentId: `pi_test_block_${RUN}_makeup`,
+      })
+      .returning({ id: dropInBookings.id });
+
     // One of the four credits is spoken for while that booking stands.
     const before = await getCreditBalances(childId, organizationId);
     expect(before.find((b) => b.grantId === grant.id)?.remaining).toBe(3);
@@ -1031,6 +1050,15 @@ describe("PUT /api/classes/enrollments/:id on a credit-backed enrollment", () =>
     expect(after.status).toBe("cancelled");
     expect(after.cancelledAt).not.toBeNull();
     expect(after.cancellationReason).toBe("user_request");
+
+    // The paid make-up survives untouched — still attendable, still refundable
+    // through the endpoint that can actually refund it.
+    const [paidAfter] = await db
+      .select({ status: dropInBookings.status, cancelledAt: dropInBookings.cancelledAt })
+      .from(dropInBookings)
+      .where(eq(dropInBookings.id, paidBooking.id));
+    expect(paidAfter.status).toBe("confirmed");
+    expect(paidAfter.cancelledAt).toBeNull();
 
     // Balances are count-derived, so the credit came back with no counter to
     // decrement — and the re-pinned grant is redeemable on the NEW slot.

@@ -27,6 +27,7 @@ import {
 import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
 import { familyMembers } from "@/lib/db/schema/registrations";
 import { getActiveChildMembership } from "@/lib/memberships/get-child-membership";
+import { promoteNextWaitlister } from "@/lib/dropin/promotion";
 import { ageOnDate } from "./book-child";
 import type { DropInTx } from "@/lib/dropin/booking";
 
@@ -243,8 +244,11 @@ export async function endEnrollment(id: string): Promise<{ ended: boolean }> {
  * at the insert). A block family that changes home slot takes their
  * remaining pinned credits with them, subject to the price guard below.
  *
- * The move also CANCELS the child's already-materialized future bookings on
- * the old slot, so a credit / allotment unit isn't burnt on a class they left.
+ * The move also CANCELS the child's already-materialized future $0
+ * (member_allotment / pack_credit) bookings on the old slot, so a credit or
+ * allotment unit isn't burnt on a class they left — PAID bookings are left
+ * alone (see the scope boundary at that UPDATE) — and promotes any waitlisters
+ * into the freed seats once the transaction commits.
  *
  * Locks BOTH template rows FOR UPDATE, in a stable order (sorted by id)
  * rather than (old, new) — two concurrent swaps between the same pair of
@@ -257,7 +261,13 @@ export async function changeEnrollmentSlot(
   newSlotTemplateId: string,
 ): Promise<EnrollmentResult> {
   const db = getDb();
-  return db.transaction(async (tx) => {
+  /** Old-slot sessions whose seat this move freed — promoted AFTER the
+   *  transaction commits (see the loop below the transaction). */
+  const releasedSessionIds = new Set<string>();
+
+  // Explicit annotation: without it the callback's inferred return widens
+  // `ok` to `boolean` and no longer satisfies the discriminated union.
+  const result = await db.transaction(async (tx): Promise<EnrollmentResult> => {
     const [enrollment] = await tx
       .select()
       .from(classEnrollments)
@@ -365,17 +375,29 @@ export async function changeEnrollmentSlot(
     // Same transaction as the move, so a family never ends up paying for the
     // old slot and the new one at once.
     //
-    // `pending_payment` is deliberately NOT cancelled: it's a live payment
-    // hold with a customer-facing pay link, owned by the hold-expiry / refund
-    // machinery. Cancelling it out from under a parent mid-payment is worse
-    // than letting it expire on its own schedule.
-    await tx
+    // SCOPE BOUNDARY — this cancels ONLY the $0 seats the ENROLLMENT itself
+    // created: `member_allotment` and `pack_credit`. Everything else on that
+    // session is left strictly alone, because this path cannot honour the
+    // obligations that come with it:
+    //   - `card_online` / `card_present` are PAID make-ups. Cancelling one
+    //     here would void a real payment with no Stripe refund and no
+    //     notification — every other cancellation route goes through
+    //     `processCancelRefund`, which does both. A paid session stays
+    //     attendable on the old slot; if the family doesn't want it, they
+    //     cancel it themselves through the refund-capable endpoint.
+    //   - `trial` is a one-off goodwill seat, not enrollment-owned.
+    //   - `pending_payment` is a live hold with a customer-facing pay link,
+    //     owned by the hold-expiry / refund machinery. Yanking it out from
+    //     under a parent mid-payment is worse than letting it expire.
+    // Widening this set means routing through the refund path instead.
+    const released = await tx
       .update(dropInBookings)
       .set({ status: "cancelled", cancelledAt: now, cancellationReason: "user_request" })
       .where(
         and(
           eq(dropInBookings.familyMemberId, enrollment.familyMemberId),
           inArray(dropInBookings.status, ["confirmed", "waitlisted", "pending_claim"]),
+          inArray(dropInBookings.paymentMethod, ["member_allotment", "pack_credit"]),
           inArray(
             dropInBookings.sessionId,
             tx
@@ -389,7 +411,10 @@ export async function changeEnrollmentSlot(
               ),
           ),
         ),
-      );
+      )
+      // The freed sessions, for the post-commit waitlist promotion below.
+      .returning({ sessionId: dropInBookings.sessionId });
+    for (const row of released) releasedSessionIds.add(row.sessionId);
 
     // Carry BOTH backing columns, not just membershipId: a credit-backed
     // (block) enrollment has membershipId null, so copying only that would
@@ -430,4 +455,24 @@ export async function changeEnrollmentSlot(
 
     return { ok: true, enrollmentId: created.id };
   });
+
+  // Waitlist promotion, POST-COMMIT and best-effort — the same shape (and the
+  // same try/catch rationale) as `processCancelRefund` in
+  // src/lib/dropin/refund.ts: `promoteNextWaitlister` opens its own
+  // transaction, so calling it inside ours would either deadlock on the rows
+  // we still hold or promote against a state that may still roll back.
+  // A promotion failure must never fail the slot change the family asked for;
+  // the freed seat simply stays open until the next cancellation or the
+  // expiry sweep runs.
+  if (result.ok) {
+    for (const sessionId of releasedSessionIds) {
+      try {
+        await promoteNextWaitlister(sessionId);
+      } catch (err) {
+        console.error("[classes/enrollment] promote-next failed", { sessionId, err });
+      }
+    }
+  }
+
+  return result;
 }
