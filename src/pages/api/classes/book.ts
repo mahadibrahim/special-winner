@@ -26,17 +26,22 @@
  * Body: `{ sessionId, familyMemberId, kind: "member" | "trial", waiver?: { signedBy, consentText } }`
  * Returns: 200 `{ bookingId, paymentMethod }` |
  *          402 `{ error: "allotment_exhausted", memberRateCents }` |
+ *          409 `{ error: "class_rate_not_configured" }` — the allotment IS
+ *              exhausted but the session carries no class member rate, so
+ *              there is nothing honest to quote (see class-rate.ts: the
+ *              adult pickup rate card is NOT a fallback here) |
  *          4xx mapped from `ChildBookingError.code` (see ERROR_STATUS below).
  */
 import type { APIRoute } from "astro";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { dropInSessions, dropInRateCard } from "@/lib/db/schema/drop-in";
+import { dropInSessions } from "@/lib/db/schema/drop-in";
 import {
   createChildClassBooking,
   type ChildBookingKind,
   type ChildBookingError,
 } from "@/lib/classes/book-child";
+import { classRateNotConfigured } from "@/lib/classes/class-rate";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
 
 export const prerender = false;
@@ -151,21 +156,25 @@ export const POST: APIRoute = async ({ request, locals }) => {
     if (code === "allotment_exhausted") {
       // Session rates originate on the class-slot template and are copied
       // onto each materialized session by the cron (see
-      // src/lib/classes/materialize.ts), so this is a CLASS price. The
-      // drop_in_rate_card fallback below is the ADULT PICKUP card and now
-      // only fires for a session whose template left the rate unset (or a
-      // hand-made one-off class session) — keep it as a last resort so a
-      // half-configured org still quotes something rather than 0.
-      let memberRateCents = session.memberRateCents;
-      if (memberRateCents === null) {
-        const [rateCard] = await db
-          .select({ defaultMemberRateCents: dropInRateCard.defaultMemberRateCents })
-          .from(dropInRateCard)
-          .where(eq(dropInRateCard.organizationId, session.organizationId))
-          .limit(1);
-        memberRateCents = rateCard?.defaultMemberRateCents ?? 0;
+      // src/lib/classes/materialize.ts), so this is a CLASS price. There is
+      // deliberately NO drop_in_rate_card fallback: that card is the ADULT
+      // PICKUP price list, and quoting it here would hand a parent an adult
+      // drop-in price for their kid's make-up class. A session whose
+      // template left the rate unset (or a hand-made one-off class session)
+      // is a config error — 409 with ops visibility, not a made-up quote.
+      // Reaching this branch means the session is `kind: "class"`:
+      // createChildClassBooking rejects anything else with `session_not_class`.
+      if (session.memberRateCents === null) {
+        return classRateNotConfigured(
+          { id: sessionId, organizationId: session.organizationId },
+          "member",
+          { component: "api/classes/book" },
+        );
       }
-      return json({ error: "allotment_exhausted", memberRateCents }, 402);
+      return json(
+        { error: "allotment_exhausted", memberRateCents: session.memberRateCents },
+        402,
+      );
     }
 
     return json({ error: code, message }, ERROR_STATUS[code] ?? 400);

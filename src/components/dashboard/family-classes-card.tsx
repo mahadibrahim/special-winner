@@ -440,11 +440,19 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
       // read, same class of race attemptBook already guards against.
       if (myGeneration !== generationRef.current) return
       if (!res.ok) {
+        // Two error shapes come off this endpoint: nested
+        // `{ error: { code, message } }` (already_booked, class_requires_child)
+        // and flat `{ error: "<code>", message }` (class_rate_not_configured —
+        // see src/lib/classes/class-rate.ts). Read the human message from
+        // either rather than swallowing a specific, actionable one ("This
+        // class is missing its pricing — contact the front desk") behind the
+        // generic retry copy.
         const err = body.error as { message?: string } | string | undefined
+        const nestedMessage = typeof err === "object" && err?.message ? err.message : null
+        const flatMessage =
+          typeof err === "string" && typeof body.message === "string" ? body.message : null
         const message =
-          typeof err === "object" && err?.message
-            ? err.message
-            : "Could not start payment — please try again.";
+          nestedMessage ?? flatMessage ?? "Could not start payment — please try again.";
         setFlowError(message)
         setPhase("allotment_exhausted")
         return

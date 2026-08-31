@@ -37,7 +37,9 @@
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import Stripe from "stripe";
+import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
+import { dropInRateCard } from "@/lib/db/schema/drop-in";
 import { membershipTiers } from "@/lib/db/schema/memberships";
 import { apiFetch, getAuthCookie } from "../setup/test-helpers";
 import { createTestDropInSession } from "../../utils/dropin-helpers";
@@ -99,31 +101,53 @@ async function createClassSession(startsAt: Date): Promise<string> {
   return ctx.sessionId;
 }
 
+/** A class session whose template left BOTH rates unset — the config error
+ *  the `class_rate_not_configured` guard exists for. `createTestDropInSession`
+ *  defaults both rate columns to null, so this is just the explicit spelling. */
+async function createUnpricedClassSession(startsAt: Date): Promise<string> {
+  const ctx = await createTestDropInSession({
+    organizationId,
+    venueId,
+    kind: "class",
+    capacity: 10,
+    startsAt,
+    sessionRateCents: null,
+    memberRateCents: null,
+  });
+  return ctx.sessionId;
+}
+
+/** Creates this file's own `classes_per_month: 1` tier (drains in a single
+ *  booking) and registers it for `afterAll` cleanup. */
+async function createCapOneTier(suffix: string): Promise<string> {
+  const db = getDb();
+  const [tier] = await db
+    .insert(membershipTiers)
+    .values({
+      organizationId,
+      name: `Makeup Tier 1 - ${suffix}`,
+      monthlyPriceCents: 5000,
+      benefits: { classes_per_month: 1 },
+      isActive: true,
+    })
+    .returning();
+  createdTierIds.push(tier.id);
+  return tier.id;
+}
+
 describe("Paid make-up: allotment_exhausted → POST /api/dropin/bookings → Stripe Checkout", () => {
   itWithStripe(
     "quotes memberRateCents on 402, then creates a Checkout Session priced and tagged for the child",
     async () => {
       const suffix = `${Date.now()}-makeup`;
-      const db = getDb();
-
-      const [tier] = await db
-        .insert(membershipTiers)
-        .values({
-          organizationId,
-          name: `Makeup Tier 1 - ${suffix}`,
-          monthlyPriceCents: 5000,
-          benefits: { classes_per_month: 1 },
-          isActive: true,
-        })
-        .returning();
-      createdTierIds.push(tier.id);
+      const tierId = await createCapOneTier(suffix);
 
       const childId = await createTestChild(parentUserId, `MakeupChild-${suffix}`);
       await createTestChildMembership({
         userId: parentUserId,
         familyMemberId: childId,
         organizationId,
-        tierId: tier.id,
+        tierId,
         idSuffix: `makeup-${suffix}`,
       });
 
@@ -187,4 +211,130 @@ describe("Paid make-up: allotment_exhausted → POST /api/dropin/bookings → St
       expect(stripeSession.metadata?.user_id).toBe(parentUserId);
     },
   );
+});
+
+/**
+ * The other half of the same contract: when a class session carries NO rate
+ * of its own (its class-slot template left `sessionRateCents` /
+ * `memberRateCents` unset, or someone hand-made a one-off class session),
+ * neither paid entry point may fall back to the org's `drop_in_rate_card` —
+ * that card is the ADULT PICKUP price list, and quoting it would invoice a
+ * parent for their kid's class at a price nobody configured. Both paths must
+ * fail loud with 409 `class_rate_not_configured`.
+ *
+ * No Stripe needed: the guard fires before any Checkout Session is minted,
+ * so these run on every environment (unlike the priced test above).
+ */
+describe("Unpriced class session → 409 class_rate_not_configured (never the adult rate card)", () => {
+  it("409s on the classes/book allotment-exhausted quote instead of 402ing with the adult card rate", async () => {
+    const suffix = `${Date.now()}-norate`;
+    const tierId = await createCapOneTier(suffix);
+    const childId = await createTestChild(parentUserId, `NoRateChild-${suffix}`);
+    await createTestChildMembership({
+      userId: parentUserId,
+      familyMemberId: childId,
+      organizationId,
+      tierId,
+      idSuffix: `norate-${suffix}`,
+    });
+
+    // Drain the single-class allotment (a $0 member booking — rates are
+    // irrelevant to it, so the drain session can be unpriced too).
+    const drainSessionId = await createUnpricedClassSession(hoursFromNow(5 * 24));
+    const drainRes = await apiFetch("/api/classes/book", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({
+        sessionId: drainSessionId,
+        familyMemberId: childId,
+        kind: "member",
+        waiver: CLASS_TEST_WAIVER,
+      }),
+    });
+    expect(drainRes.status).toBe(200);
+
+    // The next class would be a paid make-up — but there is no class price
+    // to quote. 409, NOT a 402 carrying dropInRateCard.defaultMemberRateCents.
+    const unpricedSessionId = await createUnpricedClassSession(hoursFromNow(6 * 24));
+    const quoteRes = await apiFetch("/api/classes/book", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({
+        sessionId: unpricedSessionId,
+        familyMemberId: childId,
+        kind: "member",
+      }),
+    });
+    expect(quoteRes.status).toBe(409);
+    const quoteBody = await quoteRes.json();
+    expect(quoteBody.error).toBe("class_rate_not_configured");
+    expect(typeof quoteBody.message).toBe("string");
+    expect(quoteBody.memberRateCents).toBeUndefined();
+
+    // Same session through the PAID path (member-rate branch — the child's
+    // membership is active, just out of allotment): also 409, no checkout.
+    const payRes = await apiFetch("/api/dropin/bookings", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({ sessionId: unpricedSessionId, familyMemberId: childId }),
+    });
+    expect(payRes.status).toBe(409);
+    const payBody = await payRes.json();
+    expect(payBody.error).toBe("class_rate_not_configured");
+    expect(payBody.checkoutUrl).toBeUndefined();
+    expect(payBody.clientSecret).toBeUndefined();
+  });
+
+  it("409s the paid path for a child with no membership (public-rate branch)", async () => {
+    const suffix = `${Date.now()}-norate-nomem`;
+    const childId = await createTestChild(parentUserId, `NoRateNoMemChild-${suffix}`);
+    const unpricedSessionId = await createUnpricedClassSession(hoursFromNow(7 * 24));
+
+    const payRes = await apiFetch("/api/dropin/bookings", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({ sessionId: unpricedSessionId, familyMemberId: childId }),
+    });
+    expect(payRes.status).toBe(409);
+    const payBody = await payRes.json();
+    expect(payBody.error).toBe("class_rate_not_configured");
+    expect(payBody.checkoutUrl).toBeUndefined();
+  });
+
+  it("leaves the PICKUP rate-card fallback intact — an unpriced pickup session still quotes the card", async () => {
+    // The guard is scoped to kind='class'. An unpriced ADULT pickup session
+    // must still resolve its price from drop_in_rate_card exactly as before
+    // (defaultSessionRateCents), i.e. a real Checkout/PaymentIntent path,
+    // never a 409.
+    const db = getDb();
+    const pickup = await createTestDropInSession({
+      organizationId,
+      venueId,
+      kind: "pickup",
+      capacity: 10,
+      startsAt: hoursFromNow(8 * 24),
+      sessionRateCents: null,
+      memberRateCents: null,
+    });
+    const [card] = await db
+      .select({ defaultSessionRateCents: dropInRateCard.defaultSessionRateCents })
+      .from(dropInRateCard)
+      .where(eq(dropInRateCard.organizationId, organizationId))
+      .limit(1);
+
+    const res = await apiFetch("/api/dropin/bookings", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({ sessionId: pickup.sessionId, paymentFlow: "embedded" }),
+    });
+    const body = await res.json();
+    expect(body.error).not.toBe("class_rate_not_configured");
+    expect(res.status).not.toBe(409);
+    // When it does take the paid branch (the parent test account holds no
+    // free-pickup membership in the seed, so it should), the amount is the
+    // rate card's default — proof the pickup fallback still fires.
+    if (res.status === 200 && body.paymentRequired === true) {
+      expect(body.amountCents).toBe(card.defaultSessionRateCents);
+    }
+  });
 });
