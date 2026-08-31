@@ -13,12 +13,28 @@
  * PARKING IS CRASH-RECOVERABLE, and deliberately so: this suite deactivates
  * rows it does not own on a SHARED staging DB, so a killed run (Ctrl-C, CI
  * timeout, OOM) that never reaches `afterAll` must not leave a real block
- * switched off forever. Parking therefore also stamps `PARK_MARKER` onto the
- * block's name, and `unparkBlocks()` restores by scanning for that marker
- * rather than an in-memory id list — it runs in `beforeAll` (recovering any
- * previous crashed run's debris before this run parks anything) and again in
- * `afterAll`'s `finally`. Same "rediscoverable marker, swept on entry" shape
- * as `sweepOrphanedTestTemplates` in tests/utils/classes-helpers.ts.
+ * switched off forever. Parking therefore stamps a marker onto the block's
+ * name and restoration scans for that marker rather than an in-memory id list
+ * (which dies with the process it lived in). Same "rediscoverable marker,
+ * swept on entry" shape as `sweepOrphanedTestTemplates` in
+ * tests/utils/classes-helpers.ts.
+ *
+ * The marker is RUN-SCOPED — `[parked-by-test:<runId>:<unixHour>] ` — because
+ * `fileParallelism: false` only serializes files WITHIN one vitest process:
+ * a CI run overlapping a local run (or a second worktree/agent) hits the same
+ * staging DB concurrently. A generic marker would let either process un-park
+ * the other's rows mid-suite. So restoration splits in two:
+ *   - `afterAll`'s `finally` restores ONLY this process's exact marker;
+ *   - `beforeAll` recovers rows whose marker belongs to ANOTHER run AND whose
+ *     stamped hour is more than STALE_HOURS old — old enough that no live
+ *     suite could still be holding them.
+ *
+ * ACCEPTED RESIDUAL RISK: a crashed run's blocks stay parked (inactive, with a
+ * visibly marked name) for up to STALE_HOURS before the next run recovers
+ * them. That is the deliberate trade for never yanking a concurrent run's
+ * rows out from under it; the alternative failure — two suites fighting over
+ * which blocks are active — produces confusing red tests instead of one
+ * bounded, self-healing window.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { and, eq, inArray, like } from "drizzle-orm";
@@ -42,11 +58,20 @@ const createdTemplateIds: string[] = [];
 const createdBlockIds: string[] = [];
 const createdPackIds: string[] = [];
 
-/** Name stamp identifying a pre-existing block this suite deactivated, so a
- *  crashed run's parked rows stay recoverable without any in-memory state.
- *  `[` and `]` are not LIKE metacharacters in Postgres, so the marker is
- *  matchable with a plain prefix `LIKE`. */
-const PARK_MARKER = "[parked-by-test] ";
+/** Shared prefix of every parked-block stamp. `[`, `]` and `:` are not LIKE
+ *  metacharacters in Postgres, so markers are matchable with a plain prefix
+ *  `LIKE`. */
+const PARK_PREFIX = "[parked-by-test:";
+/** Identifies THIS process's parked rows. Contains no `:` or `]` so the marker
+ *  stays unambiguously parseable. */
+const RUN_ID = `${process.pid}-${Date.now().toString(36)}`;
+/** Hours after which another run's parked rows are treated as crash debris. */
+const STALE_HOURS = 6;
+const unixHour = () => Math.floor(Date.now() / 3_600_000);
+/** `[parked-by-test:<runId>:<unixHour>] ` — stamped onto a parked block's name. */
+const OWN_MARKER = `${PARK_PREFIX}${RUN_ID}:${unixHour()}] `;
+/** Parses any run's marker off a parked name. */
+const MARKER_RE = /^\[parked-by-test:([^:\]]+):(\d+)\] /;
 
 /** Today's civil date ("YYYY-MM-DD") in the org's timezone — the same notion
  *  of "today" the endpoint uses to decide which block is current. */
@@ -78,8 +103,8 @@ async function parkBlocks(ids: string[]): Promise<void> {
 }
 
 /** Deactivate every currently-active block in the org that this suite does NOT
- *  own, stamping PARK_MARKER on the name so `unparkBlocks` can find it again
- *  even after a crashed run. */
+ *  own, stamping OWN_MARKER on the name so this run — and only this run — can
+ *  find them again, even after a crash. */
 async function parkPreExistingBlocks(): Promise<void> {
   const db = getDb();
   const rows = await db
@@ -91,29 +116,53 @@ async function parkPreExistingBlocks(): Promise<void> {
     if (createdBlockIds.includes(row.id)) continue;
     await db
       .update(classBlocks)
-      .set({ active: false, name: `${PARK_MARKER}${row.name}` })
+      .set({ active: false, name: `${OWN_MARKER}${row.name}` })
       .where(eq(classBlocks.id, row.id));
   }
 }
 
-/** Reactivate every marker-stamped block in the org and strip the marker.
- *  Idempotent; safe to call when nothing is parked. */
-async function unparkBlocks(): Promise<void> {
+/** Reactivate the blocks THIS process parked and strip its marker. Idempotent;
+ *  never touches another run's rows. */
+async function unparkOwnBlocks(): Promise<void> {
   const db = getDb();
   const rows = await db
     .select({ id: classBlocks.id, name: classBlocks.name })
     .from(classBlocks)
     .where(
-      and(
-        eq(classBlocks.organizationId, organizationId),
-        like(classBlocks.name, `${PARK_MARKER}%`),
-      ),
+      and(eq(classBlocks.organizationId, organizationId), like(classBlocks.name, `${OWN_MARKER}%`)),
     );
 
   for (const row of rows) {
     await db
       .update(classBlocks)
-      .set({ active: true, name: row.name.slice(PARK_MARKER.length) })
+      .set({ active: true, name: row.name.slice(OWN_MARKER.length) })
+      .where(eq(classBlocks.id, row.id));
+  }
+}
+
+/** Crash recovery, `beforeAll` only: restore rows parked by a DIFFERENT run
+ *  whose stamped hour is older than STALE_HOURS. A recent stamp is assumed to
+ *  belong to a live concurrent run and is left alone (see the file docstring's
+ *  accepted residual risk). */
+async function recoverStaleParkedBlocks(): Promise<void> {
+  const db = getDb();
+  const rows = await db
+    .select({ id: classBlocks.id, name: classBlocks.name })
+    .from(classBlocks)
+    .where(
+      and(eq(classBlocks.organizationId, organizationId), like(classBlocks.name, `${PARK_PREFIX}%`)),
+    );
+
+  const cutoffHour = unixHour() - STALE_HOURS;
+  for (const row of rows) {
+    const match = MARKER_RE.exec(row.name);
+    if (!match) continue;
+    const [marker, runId, stampedHour] = match;
+    if (runId === RUN_ID) continue; // this process's own rows — unparkOwnBlocks owns them
+    if (Number(stampedHour) > cutoffHour) continue; // possibly still live
+    await db
+      .update(classBlocks)
+      .set({ active: true, name: row.name.slice(marker.length) })
       .where(eq(classBlocks.id, row.id));
   }
 }
@@ -174,9 +223,9 @@ beforeAll(async () => {
     .limit(1);
   timeZone = org?.timezone ?? ORG_DEFAULT_TIMEZONE;
 
-  // Recover anything a previous crashed run left parked BEFORE parking again,
-  // so a marker-stamped row never gets double-stamped.
-  await unparkBlocks();
+  // Recover a crashed run's stale rows BEFORE parking, so a marker-stamped
+  // row never gets double-stamped by this run.
+  await recoverStaleParkedBlocks();
   await parkPreExistingBlocks();
 });
 
@@ -193,7 +242,7 @@ afterAll(async () => {
   } finally {
     // Un-parking rows this suite does not own is the one teardown step that
     // must run even if the cleanup above throws.
-    await unparkBlocks();
+    await unparkOwnBlocks();
   }
 });
 
