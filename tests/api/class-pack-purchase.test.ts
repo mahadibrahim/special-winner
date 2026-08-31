@@ -271,8 +271,9 @@ describe("POST /api/classes/packs/purchase", () => {
   });
 
   it("409s a half-configured pack that has no price to charge", async () => {
-    // Neither a reconciled Stripe Price nor a positive priceCents: an admin
-    // catalog row that isn't finished, not a client error.
+    // Checkout always charges the DB row's priceCents (price_data), so a
+    // zero-priced row is an unfinished admin catalog entry, not a client
+    // error — and must not reach Stripe as an invalid line item.
     const unpricedId = await createPack({
       organizationId,
       name: `Purchase Pack Unpriced ${RUN}`,

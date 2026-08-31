@@ -20,6 +20,7 @@ import { classCreditGrants, classPackProducts } from "@/lib/db/schema/classes";
 import { normalizeBrand } from "@/lib/organization/soccerone-routing";
 import { capturePaymentCompleted } from "@/lib/observability/payment-telemetry";
 import { fireServerPurchaseConversions } from "@/lib/analytics/server-conversions";
+import { captureServerException } from "@/lib/observability/server-error";
 import { sendOpsPing } from "@/lib/ops/ping";
 
 /**
@@ -69,7 +70,22 @@ export async function handleClassPackPurchaseComplete(
   const familyMemberId = md.family_member_id;
   const packProductId = md.pack_product_id;
   if (!organizationId || !userId || !familyMemberId || !packProductId) {
+    // Money moved and nothing was granted — the console line alone dies in
+    // the function log, so this branch also needs to reach error tracking.
     console.error("[classes/pack-purchase] missing metadata on session", session.id);
+    void captureServerException(
+      new Error("class_pack_purchase session missing required metadata"),
+      {
+        component: "classes/purchase-webhooks",
+        metadata: {
+          checkout_session_id: session.id,
+          organization_id: organizationId ?? null,
+          user_id: userId ?? null,
+          family_member_id: familyMemberId ?? null,
+          pack_product_id: packProductId ?? null,
+        },
+      },
+    );
     return;
   }
 
@@ -97,8 +113,23 @@ export async function handleClassPackPurchaseComplete(
     )
     .limit(1); // primary-key lookup — at most one row
   if (!pack) {
+    // Paid-for pack that no longer resolves (deleted, or metadata pointing
+    // at another tenant's row): same money-moved-nothing-happened shape as
+    // the metadata branch above, so it gets the same visibility.
     console.error(
       `[classes/pack-purchase] pack ${packProductId} not found in org ${organizationId} for session ${session.id}`,
+    );
+    void captureServerException(
+      new Error("class_pack_purchase pack not resolvable at fulfillment"),
+      {
+        component: "classes/purchase-webhooks",
+        metadata: {
+          checkout_session_id: session.id,
+          organization_id: organizationId,
+          pack_product_id: packProductId,
+          family_member_id: familyMemberId,
+        },
+      },
     );
     return;
   }

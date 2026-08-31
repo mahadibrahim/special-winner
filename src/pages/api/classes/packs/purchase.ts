@@ -90,10 +90,10 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     .limit(1); // primary-key lookup — at most one row
   if (!child) return json({ error: "Family member not found" }, 404);
 
-  // A pack with no Stripe price AND no positive price is unsellable — a
-  // half-configured catalog row, not a client error. 409 rather than 500 so
-  // the UI can say "not available" instead of showing a crash.
-  if (!pack.stripePriceId && pack.priceCents <= 0) {
+  // Nothing to charge — a half-configured catalog row, not a client error.
+  // 409 rather than 500 so the UI can say "not available" instead of
+  // surfacing a Stripe validation crash.
+  if (pack.priceCents <= 0) {
     return json({ error: "Pack is not purchasable" }, 409);
   }
 
@@ -154,25 +154,24 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
       {
         mode: "payment",
         customer: customerId,
+        // Deliberately `price_data` off the DB row, never the pack's stored
+        // `stripePriceId`: a one-time payment needs no stored Price, and
+        // charging one would let the Stripe-side amount drift from the
+        // `priceCents` the Connect application fee below is computed from.
+        // One source of truth for both. (`stripeProductId`/`stripePriceId`
+        // stay on the row for catalog reconciliation/reporting.)
         line_items: [
-          // Prefer the reconciled Stripe Price when the admin has configured
-          // one (mirrors membership_tiers); otherwise price the line inline
-          // off the catalog row, so a freshly-created pack is sellable
-          // without a Stripe-side data-entry step. Either way the amount
-          // comes from OUR row — `priceCents` is the source of truth.
-          pack.stripePriceId
-            ? { price: pack.stripePriceId, quantity: 1 }
-            : {
-                quantity: 1,
-                price_data: {
-                  currency: "usd",
-                  unit_amount: pack.priceCents,
-                  product_data: {
-                    name: pack.name,
-                    description: `${pack.sessionCount} class credits · expires in ${pack.expiryMonths} months`,
-                  },
-                },
+          {
+            quantity: 1,
+            price_data: {
+              currency: "usd",
+              unit_amount: pack.priceCents,
+              product_data: {
+                name: pack.name,
+                description: `${pack.sessionCount} class credits · expires in ${pack.expiryMonths} months`,
               },
+            },
+          },
         ],
         payment_intent_data: {
           description: `${pack.name} — ${pack.sessionCount} class credits`,
