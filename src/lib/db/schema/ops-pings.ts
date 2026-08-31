@@ -19,6 +19,7 @@ export const opsPingKindEnum = pgEnum("ops_ping_kind", [
   "rental_confirmed",
   "membership_started",
   "payment_succeeded",
+  "class_pack_purchased",
   "user_signup",
   "job_application",
   "host_incident",

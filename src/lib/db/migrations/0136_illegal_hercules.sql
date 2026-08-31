@@ -1,0 +1,1 @@
+ALTER TYPE "public"."ops_ping_kind" ADD VALUE 'class_pack_purchased' BEFORE 'user_signup';

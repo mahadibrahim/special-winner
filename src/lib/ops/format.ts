@@ -7,6 +7,7 @@ export type OpsPingEvent =
   | { kind: "rental_confirmed"; brand: string; eventId: string; label: string; amountCents: number }
   | { kind: "membership_started"; brand: string; eventId: string; label: string; amountCents: number }
   | { kind: "payment_succeeded"; brand: string; eventId: string; label: string; amountCents: number }
+  | { kind: "class_pack_purchased"; brand: string; eventId: string; label: string; amountCents: number }
   | { kind: "user_signup"; brand: string; eventId: string; label: string }
   | { kind: "job_application"; brand: string; eventId: string; label: string }
   | { kind: "host_incident"; brand: string; eventId: string; label: string }
@@ -25,6 +26,7 @@ export const INSTANT_KINDS: ReadonlySet<string> = new Set([
   "rental_confirmed",
   "membership_started",
   "payment_succeeded",
+  "class_pack_purchased",
   "job_application",
   "host_incident",
   "test",
@@ -39,6 +41,7 @@ export const OPS_PING_KIND_LABELS: Record<OpsPingEvent["kind"], string> = {
   rental_confirmed: "Rental",
   membership_started: "Membership",
   payment_succeeded: "Payment",
+  class_pack_purchased: "Class pack",
   user_signup: "New user",
   job_application: "Job application",
   host_incident: "Host incident",
@@ -54,6 +57,7 @@ const KIND_EMOJI: Record<OpsPingEvent["kind"], string> = {
   rental_confirmed: "💰",
   membership_started: "💰",
   payment_succeeded: "💰",
+  class_pack_purchased: "💰",
   user_signup: "👤",
   job_application: "📝",
   host_incident: "🚨",
