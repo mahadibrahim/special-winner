@@ -407,7 +407,9 @@ export function CompletionForm({
         disabled={isSubmitting}
         className="w-full bg-primary hover:bg-primary/90"
       >
-        {isSubmitting ? "Saving…" : "Sign & Finish"}
+        {/* Nothing is being signed on the on-file path — the screen shows no
+            release and no signature box — so the button must not claim it. */}
+        {isSubmitting ? "Saving…" : waiverOnFile ? "Finish" : "Sign & Finish"}
       </Button>
     </div>
   )

@@ -239,18 +239,42 @@ export const POST: APIRoute = async ({ request, params, locals, clientAddress, u
       // window it was derived from. Same rule as book-child.ts's on-file
       // branch and the drop-in door's WaiverCard endpoint.
       //
-      // Nothing is appended to `consents`: this branch is a READ.
+      // Nothing is appended to the LIABILITY log: that part is a READ.
       alreadySigned = true;
-      await db
-        .update(registrations)
-        .set({
-          waiverSigned: true,
-          waiverSignedBy: WAIVER_ON_FILE_ATTRIBUTION,
-          waiverSignedAt: null,
-          ageReviewNeeded,
-          updatedAt: new Date(),
-        })
-        .where(eq(registrations.id, registration.id));
+      await db.transaction(async (tx) => {
+        // Media authorization is NOT a liability signature — it is the answer
+        // to a consent control this screen puts in front of the customer, on
+        // this branch exactly as on the fresh-signature one. Presenting the
+        // photo/video opt-outs and then discarding them because the waiver
+        // happened to be on file would silently ignore a choice they made.
+        // In the tx with the stamp below so a failed stamp can't leave the
+        // media rows orphaned and then be skipped by the replay branch on
+        // retry (registration.waiverSigned would already read true).
+        await recordDefaultMediaAuth({
+          db: tx,
+          familyMemberId: familyMember.id,
+          registrationId: registration.id,
+          organizationId,
+          signedByUserId: user.id,
+          // No signature was taken here, so the shared on-file attribution is
+          // the honest signer — the same string the row is stamped with.
+          signedByName: WAIVER_ON_FILE_ATTRIBUTION,
+          ipAddress: clientAddress ?? null,
+          userAgent: userAgent ?? null,
+          optOutScopes: data.mediaAuthOptOuts ?? [],
+        });
+
+        await tx
+          .update(registrations)
+          .set({
+            waiverSigned: true,
+            waiverSignedBy: WAIVER_ON_FILE_ATTRIBUTION,
+            waiverSignedAt: null,
+            ageReviewNeeded,
+            updatedAt: new Date(),
+          })
+          .where(eq(registrations.id, registration.id));
+      });
     } else if (!data.waiverAccepted || !data.waiverSignature) {
       // A signature is genuinely owed here and none was supplied. The schema
       // lets these through so a covered participant can submit a DOB-only
@@ -350,15 +374,29 @@ export const POST: APIRoute = async ({ request, params, locals, clientAddress, u
     // Best-effort side effects, kept outside the transaction — not
     // consistency-critical with the waiver signature/consent state above.
     //
-    // FRESH-SIGNATURE PATH ONLY, and that gate is load-bearing. Before this
-    // endpoint was restructured, the already-signed check returned early and
-    // this block was unreachable on a repeat POST. Leaving it reachable let a
-    // replayed submission re-run `recordMarketingConsent`, which promotes a
-    // channel to opted_in — i.e. a repeat call could silently CLEAR an opt-out
-    // the customer set afterwards. Consent state must only move on the request
-    // that actually collected it. (The DOB backfill above is deliberately NOT
-    // gated: it is isNull-guarded, so it can only ever fill a blank.)
-    if (!alreadySigned && data.phone && organizationId) {
+    // FIRST COMPLETION ONLY, and the discriminator is the PRE-REQUEST state
+    // (`registration.waiverSigned`, read before any branch ran) — not
+    // `alreadySigned`, which is also true for the waiver-on-file branch.
+    //
+    // Both halves of that matter:
+    //  - Gating it at all is load-bearing. Before this endpoint was
+    //    restructured the already-signed check returned early and this block
+    //    was unreachable on a repeat POST. Leaving it reachable let a replayed
+    //    submission re-run `recordMarketingConsent`, which promotes a channel
+    //    to opted_in — i.e. a repeat call could silently CLEAR an opt-out the
+    //    customer set afterwards.
+    //  - Gating it on `alreadySigned` was too wide. A covered family's FIRST
+    //    completion takes the on-file branch, and that form still renders and
+    //    posts the phone + consent boxes. This endpoint is the only capture
+    //    point for authed-flow phone opt-ins and for ALL WhatsApp marketing
+    //    consent, so skipping it there dropped the customer's answer on the
+    //    floor.
+    //
+    // Pre-request state separates the two exactly: it is false on every first
+    // completion (the on-file branch only runs when it is false) and true only
+    // on a replay. (The DOB backfill above is deliberately NOT gated at all:
+    // it is isNull-guarded, so it can only ever fill a blank.)
+    if (!registration.waiverSigned && data.phone && organizationId) {
       try {
         await recordPhoneOptIn({
           db,

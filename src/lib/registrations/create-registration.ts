@@ -22,6 +22,7 @@ import {
 import {
   WAIVER_ON_FILE_ATTRIBUTION,
   hasValidLiabilityWaiver,
+  liabilityWaiverValidUntil,
 } from "@/lib/consents/liability";
 
 export type RegistrationKind = "created" | "resumed" | "waitlisted";
@@ -82,6 +83,14 @@ export type CreateRegistrationResult = {
    * should still be recorded.
    */
   waiverOnFile: boolean;
+  /**
+   * When that on-file waiver runs out — for surfaces that want to say "waiver
+   * on file, valid through <date>" rather than re-asking. Null whenever
+   * `waiverOnFile` is false, AND when the coverage comes from one of the legacy
+   * signature fallbacks (no consents row, so no expiry to quote). Null
+   * therefore never means "not covered" — read `waiverOnFile` for that.
+   */
+  waiverValidUntil: Date | null;
 };
 
 export class RegistrationError extends Error {
@@ -368,7 +377,11 @@ async function resolveWaiverColumns(opts: {
   organizationId: string | null;
   waiverSigned: boolean;
   waiverSignedBy: string;
-}): Promise<{ onFile: boolean; columns: WaiverColumns }> {
+}): Promise<{
+  onFile: boolean;
+  validUntil: Date | null;
+  columns: WaiverColumns;
+}> {
   let onFile = false;
   if (opts.organizationId) {
     try {
@@ -386,8 +399,21 @@ async function resolveWaiverColumns(opts: {
   }
 
   if (onFile) {
+    // Display only, and only on this branch — one extra indexed read on the
+    // path that is about to skip an ask, never on the common uncovered path.
+    let validUntil: Date | null = null;
+    try {
+      validUntil = await liabilityWaiverValidUntil(
+        opts.familyMemberId,
+        opts.organizationId!,
+        opts.db,
+      );
+    } catch (err) {
+      console.error("[createRegistration] waiver expiry lookup failed:", err);
+    }
     return {
       onFile: true,
+      validUntil,
       columns: {
         waiverSigned: true,
         waiverSignedBy: WAIVER_ON_FILE_ATTRIBUTION,
@@ -399,6 +425,7 @@ async function resolveWaiverColumns(opts: {
   if (opts.waiverSigned) {
     return {
       onFile: false,
+      validUntil: null,
       columns: {
         waiverSigned: true,
         waiverSignedBy: opts.waiverSignedBy.trim() || null,
@@ -409,6 +436,7 @@ async function resolveWaiverColumns(opts: {
 
   return {
     onFile: false,
+    validUntil: null,
     columns: { waiverSigned: false, waiverSignedBy: null, waiverSignedAt: null },
   };
 }
@@ -596,6 +624,7 @@ export async function createRegistration(
         amountDueCents: resumedReg.amountDueCents,
         organizationId,
         waiverOnFile: waiverState.onFile,
+        waiverValidUntil: waiverState.validUntil,
       };
     }
     throw new RegistrationError(
@@ -698,6 +727,7 @@ export async function createRegistration(
         amountDueCents: amountDue,
         organizationId,
         waiverOnFile: waiverState.onFile,
+        waiverValidUntil: waiverState.validUntil,
       };
     }
   }
@@ -836,5 +866,6 @@ export async function createRegistration(
     amountDueCents: amountDue,
     organizationId,
     waiverOnFile: waiverState.onFile,
+    waiverValidUntil: waiverState.validUntil,
   };
 }

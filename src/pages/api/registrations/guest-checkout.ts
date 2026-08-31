@@ -437,6 +437,10 @@ export const POST: APIRoute = async (context) => {
             // drop the waiver text and signature box (the server would
             // discard that signature anyway).
             waiverOnFile: regResult.waiverOnFile,
+            // Expiry of that waiver, ISO or null. Null just means there is no
+            // date to quote (legacy-signature coverage carries no consents row);
+            // the confirm screen falls back to date-free phrasing.
+            waiverValidUntil: regResult.waiverValidUntil?.toISOString() ?? null,
             wasNewUser,
           }),
           { status: 200, headers: { "Content-Type": "application/json" } },
@@ -460,6 +464,10 @@ export const POST: APIRoute = async (context) => {
             // drop the waiver text and signature box (the server would
             // discard that signature anyway).
             waiverOnFile: regResult.waiverOnFile,
+            // Expiry of that waiver, ISO or null. Null just means there is no
+            // date to quote (legacy-signature coverage carries no consents row);
+            // the confirm screen falls back to date-free phrasing.
+            waiverValidUntil: regResult.waiverValidUntil?.toISOString() ?? null,
             wasNewUser,
           }),
           { status: 200, headers: { "Content-Type": "application/json" } },
@@ -505,6 +513,10 @@ export const POST: APIRoute = async (context) => {
               // drop the waiver text and signature box (the server would
               // discard that signature anyway).
               waiverOnFile: regResult.waiverOnFile,
+              // Expiry of that waiver, ISO or null. Null just means there is no
+              // date to quote (legacy-signature coverage carries no consents row);
+              // the confirm screen falls back to date-free phrasing.
+              waiverValidUntil: regResult.waiverValidUntil?.toISOString() ?? null,
               wasNewUser,
               amountDueCents: regResult.registration.amountDueCents,
             }),
@@ -532,6 +544,10 @@ export const POST: APIRoute = async (context) => {
             // drop the waiver text and signature box (the server would
             // discard that signature anyway).
             waiverOnFile: regResult.waiverOnFile,
+            // Expiry of that waiver, ISO or null. Null just means there is no
+            // date to quote (legacy-signature coverage carries no consents row);
+            // the confirm screen falls back to date-free phrasing.
+            waiverValidUntil: regResult.waiverValidUntil?.toISOString() ?? null,
             amountDueCents: regResult.registration.amountDueCents,
           }),
           { status: 200, headers: { "Content-Type": "application/json" } },

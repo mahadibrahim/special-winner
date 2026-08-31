@@ -553,6 +553,104 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
       ).toBe("2016-04-01");
     });
 
+    // ROUND-2 FINDING 1 (regression). The F3 gate was keyed on `alreadySigned`,
+    // which is ALSO true on the waiver-on-file branch — so a covered family's
+    // FIRST completion silently dropped its phone and marketing answers. This
+    // endpoint is the only capture point for authed-flow phone opt-ins and for
+    // ALL WhatsApp marketing consent, so that was a real data loss, not a
+    // cosmetic one. The gate is now the PRE-REQUEST signature state.
+    it("captures phone + WhatsApp consent on a FIRST completion that takes the on-file branch", async () => {
+      const { registrationId, familyMemberId, cookie } =
+        await mintOwnedRegistration("2016-04-01");
+      const phone = `+1614558${String(Date.now()).slice(-4)}`;
+
+      const db = getDb();
+      const [reg] = await db
+        .select({ signerUserId: registrations.registeredByUserId })
+        .from(registrations)
+        .where(eq(registrations.id, registrationId));
+      // Covered BEFORE the completion, and the row itself still unsigned —
+      // exactly the state the on-file branch exists for.
+      await insertLiabilityConsent(familyMemberId, reg.signerUserId);
+
+      const res = await apiFetch(`/api/registrations/${registrationId}/complete`, {
+        method: "POST",
+        cookie,
+        body: JSON.stringify({
+          phone,
+          smsConsent: true,
+          whatsappConsent: true,
+        }),
+      });
+      expect(res.status).toBe(200);
+      expect((await res.json()).alreadySigned).toBe(true);
+
+      const rows = await db
+        .select({
+          channel: phoneOptIns.channel,
+          status: phoneOptIns.status,
+          textShown: phoneOptIns.consentTextShown,
+        })
+        .from(phoneOptIns)
+        .where(eq(phoneOptIns.phone, phone));
+
+      const whatsapp = rows.find((r) => r.channel === "whatsapp");
+      expect(
+        whatsapp,
+        "the on-file branch still shows the consent boxes — it must record the answer",
+      ).toBeTruthy();
+      expect(whatsapp!.status).toBe("opted_in");
+      expect(whatsapp!.textShown).toBe(CONSENT_COPY.whatsapp);
+
+      const sms = rows.find((r) => r.channel === "sms");
+      expect(sms, "the ticked SMS box must be recorded too").toBeTruthy();
+      expect(sms!.status).toBe("opted_in");
+    });
+
+    // ROUND-2 FINDING 2 (same class). recordDefaultMediaAuth only ran inside
+    // the fresh-signature transaction, so a covered family's photo/video
+    // opt-outs were presented and then thrown away.
+    it("honors media-auth opt-outs submitted on the on-file branch", async () => {
+      const { registrationId, familyMemberId, cookie } =
+        await mintOwnedRegistration("2016-04-01");
+
+      const db = getDb();
+      const [reg] = await db
+        .select({ signerUserId: registrations.registeredByUserId })
+        .from(registrations)
+        .where(eq(registrations.id, registrationId));
+      await insertLiabilityConsent(familyMemberId, reg.signerUserId);
+
+      const res = await apiFetch(`/api/registrations/${registrationId}/complete`, {
+        method: "POST",
+        cookie,
+        body: JSON.stringify({ mediaAuthOptOuts: ["public"] }),
+      });
+      expect(res.status).toBe(200);
+      expect((await res.json()).alreadySigned).toBe(true);
+
+      const media = await db
+        .select({ scope: consents.scope, signedByName: consents.signedByName })
+        .from(consents)
+        .where(
+          and(
+            eq(consents.familyMemberId, familyMemberId),
+            eq(consents.type, "media_authorization"),
+          ),
+        );
+      const scopes = media.map((m) => m.scope);
+      // Opt-out model: a row per scope the customer did NOT disable.
+      expect(scopes).toContain("internal");
+      expect(scopes).toContain("promotional");
+      expect(
+        scopes,
+        "the scope they opted out of must not be recorded as granted",
+      ).not.toContain("public");
+      // No signature was taken, so the shared on-file attribution stands in as
+      // the signer rather than a name nobody typed.
+      expect(media[0].signedByName).toBe(WAIVER_ON_FILE_ATTRIBUTION);
+    });
+
     it("still rejects a missing signature when one is genuinely owed", async () => {
       const { registrationId, cookie } = await mintOwnedRegistration("1990-05-15");
 

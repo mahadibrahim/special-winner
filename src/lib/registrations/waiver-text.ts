@@ -31,6 +31,31 @@ import {
 export const REGISTRATION_WAIVER_ACCEPT_LABEL = "I agree to the terms above.";
 
 /**
+ * Format an annual waiver's expiry for the "waiver on file — valid through …"
+ * note. Accepts a Date, an ISO string (what the create endpoints return), or
+ * null/undefined, and returns null when there is nothing to show — a covered
+ * participant whose coverage comes from a legacy signature has no consents row
+ * and therefore no date. Callers must render date-free copy for null; it is
+ * never a "not covered" signal.
+ *
+ * UTC on purpose: `consents.expiresAt` is stored in UTC like every timestamp
+ * here, and a viewer's local midnight must not shift the printed day.
+ */
+export function formatWaiverValidUntil(
+  value: Date | string | null | undefined,
+): string | null {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+/**
  * A sentence split around the participant's name, so the screen can bold the
  * name (`{before}<strong>{name}</strong>{after}`) while the server records the
  * identical plain string. Interpolating the name into JSX and *separately*

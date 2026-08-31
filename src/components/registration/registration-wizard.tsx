@@ -28,6 +28,7 @@ import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { parseApiError } from "@/lib/api/error-message"
 import { recordConfirmedPayment } from "@/lib/registrations/payment-confirmation-signal"
 import { readGuestDraft, clearGuestDraft, stashGuestDraft } from "@/lib/registrations/guest-draft"
+import { formatWaiverValidUntil } from "@/lib/registrations/waiver-text"
 import {
   trackRegistrationStepViewed,
   type RegVariant,
@@ -408,13 +409,21 @@ export default function RegistrationWizard({
   // it); the confirm step's completion form uses it to skip a release the
   // server would refuse to re-record anyway.
   const [activeWaiverOnFile, setActiveWaiverOnFile] = useState(false)
+  // Expiry of that waiver, already formatted for display. Null whenever there
+  // is no date to quote — the confirm screen falls back to date-free phrasing
+  // rather than reading null as "not covered".
+  const [activeWaiverValidUntilLabel, setActiveWaiverValidUntilLabel] = useState<
+    string | null
+  >(null)
   const rememberActiveRegistration = (
     id: string | null,
     waiverOnFile = false,
+    waiverValidUntilIso?: string | null,
   ) => {
     activeRegistrationIdRef.current = id
     setActiveRegistrationId(id)
     setActiveWaiverOnFile(waiverOnFile)
+    setActiveWaiverValidUntilLabel(formatWaiverValidUntil(waiverValidUntilIso))
   }
 
   // ── Draft-restore state (authed only) ────────────────────────────────────
@@ -1217,6 +1226,7 @@ export default function RegistrationWizard({
         rememberActiveRegistration(
           data.registrationId ?? null,
           data.waiverOnFile === true,
+          data.waiverValidUntil ?? null,
         )
         setAppliedSurchargeCents(surchargeCents)
         setPaymentValueCents(finalValueCents)
@@ -1433,7 +1443,8 @@ export default function RegistrationWizard({
 
           rememberActiveRegistration(
             regData.registration.id,
-            regData.registration.waiverSigned === true,
+            regData.waiverOnFile === true,
+            regData.waiverValidUntil ?? null,
           )
           setAppliedSurchargeCents(surchargeCents)
           setAppliedCreditCents(creditCents)
@@ -1472,7 +1483,8 @@ export default function RegistrationWizard({
       // pass through the clientSecret branch above that normally sets it.
       rememberActiveRegistration(
         regData.registration.id,
-        regData.registration.waiverSigned === true,
+        regData.waiverOnFile === true,
+        regData.waiverValidUntil ?? null,
       )
       clearDraft()
       setRegistrationComplete(true)
@@ -2196,6 +2208,7 @@ export default function RegistrationWizard({
             isSelf={isGuest ? guestMode === "adult" : selectedKey === "self"}
             registrationId={activeRegistrationId}
             waiverOnFile={activeWaiverOnFile}
+            waiverValidUntilLabel={activeWaiverValidUntilLabel}
             flow={regFlow}
             waiverSigned={flowVariant === "v1"}
             // Only the adult-self flow defers DOB to this post-payment step —

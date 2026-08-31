@@ -318,6 +318,13 @@ export const POST: APIRoute = async ({ request, clientAddress, locals }) => {
           registration: result.registration,
           requiresPayment: result.requiresPayment,
           amountDueCents: result.amountDueCents,
+          // Whether the participant's ANNUAL waiver already covers this row
+          // (the confirm screen's completion form drops the release when it
+          // does), and when it runs out. `waiverValidUntil` is null whenever
+          // there is no consents row to read an expiry from — never a signal
+          // that the participant is uncovered.
+          waiverOnFile: result.waiverOnFile,
+          waiverValidUntil: result.waiverValidUntil?.toISOString() ?? null,
           ...(result.kind === "resumed" ? { resumed: true } : {}),
           ...(result.kind === "waitlisted"
             ? { message: "Added to waitlist - season is at capacity" }

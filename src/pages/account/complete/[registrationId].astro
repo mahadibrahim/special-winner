@@ -4,6 +4,7 @@ import { getDb } from '@/lib/db';
 import { registrations, familyMembers, seasons, programs, locations } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
 import { liabilityWaiverValidUntil } from '@/lib/consents/liability';
+import { formatWaiverValidUntil } from '@/lib/registrations/waiver-text';
 import { CompletionForm } from '@/components/registration/completion-form';
 
 // /account routes are gated by middleware — signed-out visitors bounce
@@ -69,14 +70,7 @@ const waiverValidUntil =
   waiverOnFile && organizationId
     ? await liabilityWaiverValidUntil(familyMember.id, organizationId)
     : null;
-const waiverValidUntilLabel = waiverValidUntil
-  ? waiverValidUntil.toLocaleDateString('en-US', {
-      month: 'long',
-      day: 'numeric',
-      year: 'numeric',
-      timeZone: 'UTC',
-    })
-  : null;
+const waiverValidUntilLabel = formatWaiverValidUntil(waiverValidUntil);
 ---
 
 <BaseLayout title="Finish Your Registration — Aspire Sports">
