@@ -42,6 +42,9 @@ let legacySessionId: string;
 
 const createdChildIds: string[] = [];
 const createdSessionIds: string[] = [];
+/** People this suite writes consents for but does NOT own (seedPaidRegistration
+ *  makes its own family_members row) — consents get cleaned, the person stays. */
+const borrowedConsentFamilyMemberIds: string[] = [];
 
 const suffix = Math.random().toString(36).slice(2, 10);
 
@@ -66,6 +69,11 @@ beforeAll(async () => {
 
 afterAll(async () => {
   const db = getDb();
+  if (borrowedConsentFamilyMemberIds.length > 0) {
+    await db
+      .delete(consents)
+      .where(inArray(consents.familyMemberId, borrowedConsentFamilyMemberIds));
+  }
   if (createdChildIds.length > 0) {
     await db.delete(consents).where(inArray(consents.familyMemberId, createdChildIds));
     await db
@@ -99,6 +107,7 @@ async function insertLiabilityConsent(opts: {
   familyMemberId: string;
   organizationId: string | null;
   signedDaysAgo: number;
+  status?: "granted" | "revoked";
 }): Promise<void> {
   const db = getDb();
   const signedAt = new Date(Date.now() - opts.signedDaysAgo * DAY_MS);
@@ -106,7 +115,7 @@ async function insertLiabilityConsent(opts: {
     familyMemberId: opts.familyMemberId,
     organizationId: opts.organizationId,
     type: "liability",
-    status: "granted",
+    status: opts.status ?? "granted",
     signedByUserId: parentUserId,
     signedByName: "Parent Test",
     signedAt,
@@ -158,6 +167,24 @@ describe("hasValidLiabilityWaiver — canonical consents predicate", () => {
     expect(await hasValidLiabilityWaiver(childId, otherOrganizationId)).toBe(false);
   });
 
+  it("is valid at 364 days and invalid at 366 (window boundary)", async () => {
+    const inside = await newChild("Day364");
+    await insertLiabilityConsent({
+      familyMemberId: inside,
+      organizationId,
+      signedDaysAgo: WAIVER_VALID_DAYS - 1,
+    });
+    const outside = await newChild("Day366");
+    await insertLiabilityConsent({
+      familyMemberId: outside,
+      organizationId,
+      signedDaysAgo: WAIVER_VALID_DAYS + 1,
+    });
+
+    expect(await hasValidLiabilityWaiver(inside, organizationId)).toBe(true);
+    expect(await hasValidLiabilityWaiver(outside, organizationId)).toBe(false);
+  });
+
   it("returns false for a legacy consent row left org-NULL by the backfill", async () => {
     const childId = await newChild("NullOrg");
     await insertLiabilityConsent({
@@ -195,6 +222,24 @@ describe("hasValidLiabilityWaiver — legacy drop-in booking fallback", () => {
     expect(await hasValidLiabilityWaiver(childId, organizationId)).toBe(false);
   });
 
+  it("is valid at 364 days and invalid at 366 (window boundary)", async () => {
+    const inside = await newChild("BookD364");
+    await insertLegacyBooking({
+      familyMemberId: inside,
+      waiverSigned: true,
+      waiverSignedAt: new Date(Date.now() - (WAIVER_VALID_DAYS - 1) * DAY_MS),
+    });
+    const outside = await newChild("BookD366");
+    await insertLegacyBooking({
+      familyMemberId: outside,
+      waiverSigned: true,
+      waiverSignedAt: new Date(Date.now() - (WAIVER_VALID_DAYS + 1) * DAY_MS),
+    });
+
+    expect(await hasValidLiabilityWaiver(inside, organizationId)).toBe(true);
+    expect(await hasValidLiabilityWaiver(outside, organizationId)).toBe(false);
+  });
+
   it("(f) rejects a derived row (waiverSigned true, no signature timestamp)", async () => {
     const childId = await newChild("Derived");
     await insertLegacyBooking({
@@ -217,6 +262,49 @@ describe("hasValidLiabilityWaiver — legacy registration fallback", () => {
     // The org comes from registrations → seasons → programs → locations, so a
     // different org must not inherit the signature.
     expect(await hasValidLiabilityWaiver(seeded.familyMemberId, organizationId)).toBe(false);
+  });
+});
+
+describe("hasValidLiabilityWaiver — revocation is authoritative", () => {
+  it("a revoked consent overrides a recent legacy registration signature", async () => {
+    const seeded = await seedPaidRegistration(1000);
+    borrowedConsentFamilyMemberIds.push(seeded.familyMemberId);
+
+    // The legacy signature alone is enough (proved by (g) above).
+    expect(await hasValidLiabilityWaiver(seeded.familyMemberId, seeded.organizationId)).toBe(
+      true,
+    );
+
+    await insertLiabilityConsent({
+      familyMemberId: seeded.familyMemberId,
+      organizationId: seeded.organizationId,
+      signedDaysAgo: 0,
+      status: "revoked",
+    });
+
+    // A revocation is an affirmative "not covered" — it must not fall
+    // through to the older signature it supersedes.
+    expect(await hasValidLiabilityWaiver(seeded.familyMemberId, seeded.organizationId)).toBe(
+      false,
+    );
+  });
+
+  it("an EXPIRED grant still falls through to a legacy signature (renewal)", async () => {
+    const seeded = await seedPaidRegistration(1000);
+    borrowedConsentFamilyMemberIds.push(seeded.familyMemberId);
+
+    // Expired grant is the most recent consents row, but the registration
+    // was signed today — that is a legitimate later renewal, not a
+    // revocation, so the fallback must still be consulted.
+    await insertLiabilityConsent({
+      familyMemberId: seeded.familyMemberId,
+      organizationId: seeded.organizationId,
+      signedDaysAgo: WAIVER_VALID_DAYS + 10,
+    });
+
+    expect(await hasValidLiabilityWaiver(seeded.familyMemberId, seeded.organizationId)).toBe(
+      true,
+    );
   });
 });
 

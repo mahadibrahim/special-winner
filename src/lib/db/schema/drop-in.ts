@@ -256,6 +256,17 @@ export const dropInBookings = pgTable(
     index("drop_in_bookings_credit_grant_idx")
       .on(table.creditGrantId)
       .where(sql`credit_grant_id IS NOT NULL`),
+    // Serves the annual-waiver legacy fallback in src/lib/consents/liability.ts
+    // ("did this person sign at this org within 365 days?"). No other index on
+    // this table leads with family_member_id, so without this the fallback
+    // seq-scans drop_in_bookings on the HOT path — it runs for every person
+    // who has no canonical consents row yet, i.e. everyone at cutover. The
+    // predicate keeps it tiny: only rows that carry a real signature.
+    index("drop_in_bookings_waiver_signature_idx")
+      .on(table.familyMemberId, table.waiverSignedAt)
+      .where(
+        sql`waiver_signed = true AND waiver_signed_at IS NOT NULL AND family_member_id IS NOT NULL`,
+      ),
   ],
 );
 

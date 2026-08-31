@@ -29,11 +29,17 @@ import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
 import { familyMembers, registrations } from "@/lib/db/schema/registrations";
 import { programs, seasons } from "@/lib/db/schema/programs";
 import { locations } from "@/lib/db/schema/organizations";
-import { recordConsent } from "./record";
+import { LIABILITY_VALIDITY_DAYS, recordConsent } from "./record";
 
-/** How long one liability signature is good for. Matches the expiry
- *  `recordConsent` has always written for `type='liability'`. */
-export const WAIVER_VALID_DAYS = 365;
+/**
+ * How long one liability signature is good for.
+ *
+ * Re-exported from `./record`, NOT redeclared: `recordConsent` computes the
+ * `expiresAt` this module's predicate then reads back. Two independent
+ * literals would let the write-side expiry and the read-side window fork
+ * silently on any future change.
+ */
+export const WAIVER_VALID_DAYS = LIABILITY_VALIDITY_DAYS;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -75,6 +81,27 @@ export function waiverWindowStart(now: Date = new Date()): Date {
  *
  * Callers keep writing their own local `waiver*` columns for audit
  * continuity — those are denormalized copies, no longer gates.
+ *
+ * CALLER CONTRACT
+ * ---------------
+ * 1. This function is APPEND-ONLY and does NOT dedupe. `consents` is an
+ *    audit log: every call writes another row, each with its own signedAt,
+ *    expiry, content hash and IP/UA. That is deliberate — collapsing two
+ *    signatures into one row would destroy the evidence of the second.
+ * 2. Therefore: call it ONCE PER FRESH SIGNATURE — i.e. only on the branch
+ *    where a human actually just agreed to the waiver text. Never call it
+ *    unconditionally on every booking/registration write.
+ * 3. Gate on `hasValidLiabilityWaiver(familyMemberId, organizationId)`
+ *    FIRST. If it returns true, the person is covered: skip the ask, skip
+ *    this call, and stamp your local `waiverSigned: true` with an "On file
+ *    (annual waiver)" attribution. Only when it returns false do you show
+ *    the waiver, collect the signature, and call this.
+ * 4. Pass your transaction handle as `dbOrTx` so the consent lands or rolls
+ *    back with the booking/registration it belongs to.
+ *
+ * The `book-child.ts` fresh-signature branch is the reference shape: it
+ * already separates "waiver on file" from "signature supplied in this
+ * request", and only the latter path writes.
  */
 export async function recordLiabilityWaiver(
   sig: LiabilityWaiverSignature,
@@ -114,9 +141,18 @@ export async function recordLiabilityWaiver(
  * Whether `familyMemberId` has a liability waiver on file for
  * `organizationId` that is still inside the 365-day window.
  *
- * Three cheap indexed lookups, short-circuiting in order: the canonical
- * consents row first (the only one that will survive long-term), then the
- * two legacy signature fallbacks.
+ * Three indexed lookups, short-circuiting in order: the canonical consents
+ * row first (the only one that will survive long-term, served by
+ * `consents_liability_validity_idx`), then the two legacy signature
+ * fallbacks (`drop_in_bookings_waiver_signature_idx`, and
+ * `registrations_family_member_idx` for the registration join).
+ *
+ * NOTE on booking/registration STATUS: the fallbacks deliberately do not
+ * filter it. A cancelled or no-showed booking, or a withdrawn registration,
+ * still means a human signed a legal release on that date — cancelling
+ * attendance does not retract the release. (Contrast the trial-uniqueness
+ * check, which excludes cancelled rows on purpose: an unused trial should be
+ * given back. Opposite question, opposite answer.)
  */
 export async function hasValidLiabilityWaiver(
   familyMemberId: string,
@@ -143,12 +179,15 @@ export async function hasValidLiabilityWaiver(
     )
     .orderBy(desc(consents.signedAt))
     .limit(1);
-  if (
-    consent &&
-    consent.status === "granted" &&
-    consent.expiresAt &&
-    consent.expiresAt.getTime() > now.getTime()
-  ) {
+  if (consent && consent.status !== "granted") {
+    // A REVOCATION is an affirmative "this person is not covered" and is
+    // authoritative — it must not fall through to a legacy signature row
+    // that predates it. Note the asymmetry with the expired case below: an
+    // expired GRANT falls through on purpose, because a legacy signature
+    // inside the window is a legitimate later renewal of the same consent.
+    return false;
+  }
+  if (consent && consent.expiresAt && consent.expiresAt.getTime() > now.getTime()) {
     return true;
   }
 
