@@ -61,6 +61,13 @@ export const GET: APIRoute = async ({ locals }) => {
       minAge: classSlotTemplates.minAge,
       maxAge: classSlotTemplates.maxAge,
       capacity: classSlotTemplates.capacity,
+      // Public single-session price for this class. Surfaced so the youth
+      // purchase ladder can quote a real "drop-in from $X" and the schedule
+      // cards can offer a priced one-off booking — it is NEVER derived from
+      // the org's drop_in_rate_card, which is adult pickup pricing (see
+      // src/lib/classes/class-rate.ts). Null means "not configured", and
+      // every consumer must treat that as "no drop-in offer", not "free".
+      sessionRateCents: classSlotTemplates.sessionRateCents,
       venueName: venues.name,
       locationName: locations.name,
     })
@@ -104,6 +111,7 @@ export const GET: APIRoute = async ({ locals }) => {
       locationName: t.locationName,
       venueName: t.venueName,
       capacity: t.capacity,
+      sessionRateCents: t.sessionRateCents,
       enrolledCount,
       spotsLeft: Math.max(t.capacity - enrolledCount, 0),
     };

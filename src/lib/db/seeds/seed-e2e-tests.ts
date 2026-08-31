@@ -57,7 +57,7 @@ import { fieldRentalRateCard } from "../schema/field-rentals";
 import { payments } from "../schema/payments";
 import { teamRegistrations, teamInvitees } from "../schema/team-registrations";
 import { dropInSessions, dropInBookings } from "../schema/drop-in";
-import { classSlotTemplates } from "../schema/classes";
+import { classSlotTemplates, classPackProducts } from "../schema/classes";
 import { hostProfiles, hostGameReports } from "../schema/hosts";
 import { membershipTiers, memberships } from "../schema/memberships";
 import { merchStores } from "../schema/merch-stores";
@@ -4906,6 +4906,45 @@ async function seedE2ETests() {
   // catalog so Tasks 5-6's landing pages have real data to render.
   console.log("\n22. Setting up flag football fixtures...");
   await seedFlagFootballFixture(db, org.id);
+
+  // Stage 23 — Aspire "Test Class Pack" class-pack product fixture (SDD
+  // 2026-08-30-class-purchase-ladder, Task 12 — dashboard credits + summary
+  // API + E2E). Idempotent, mirrors Stage 13b/13c's select-then-insert-if-
+  // missing pattern. Gives the class-pack-purchase E2E spec (and any other
+  // suite that just wants "a real class-pack product exists, with a real
+  // name for the dashboard's credit label") a stable, pinned-by-name row —
+  // the credit GRANTS themselves are still created per-test/per-run (no
+  // Stripe checkout can be driven from a test), same as every other classes
+  // fixture in this file.
+  console.log("\n23. Setting up Aspire \"Test Class Pack\" pack-product fixture...");
+  {
+    let [classPack] = await db
+      .select()
+      .from(classPackProducts)
+      .where(
+        and(
+          eq(classPackProducts.organizationId, org.id),
+          eq(classPackProducts.name, "Test Class Pack"),
+        ),
+      )
+      .limit(1);
+    if (!classPack) {
+      [classPack] = await db
+        .insert(classPackProducts)
+        .values({
+          organizationId: org.id,
+          name: "Test Class Pack",
+          sessionCount: 6,
+          priceCents: 9900,
+          expiryMonths: 3,
+          active: true,
+        })
+        .returning();
+      console.log(`   ✓ Created pack product "Test Class Pack" (${classPack.id})`);
+    } else {
+      console.log(`   ✓ Pack product "Test Class Pack" already exists (${classPack.id})`);
+    }
+  }
 
   console.log("\n✅ E2E test data seeded successfully!");
   console.log("\n📋 Test Credentials:");

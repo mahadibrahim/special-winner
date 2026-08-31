@@ -3,7 +3,7 @@ import { getDb } from "@/lib/db";
 import { membershipTiers, memberships } from "@/lib/db/schema/memberships";
 import { users } from "@/lib/db/schema/users";
 import { familyMembers } from "@/lib/db/schema/registrations";
-import { classSlotTemplates, classEnrollments } from "@/lib/db/schema/classes";
+import { classSlotTemplates, classEnrollments, classCreditGrants } from "@/lib/db/schema/classes";
 import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
 import { resolveDefaultOrgForHttpTests } from "./dropin-helpers";
 
@@ -166,6 +166,9 @@ export async function createTestClassTemplate(opts: {
    *  never depends on the org's (adult pickup) rate-card fallback. */
   sessionRateCents?: number;
   memberRateCents?: number;
+  /** Per-session BLOCK rate — what the block catalog quotes when set
+   *  (`blockRateCents ?? sessionRateCents`, see /api/public/class-blocks). */
+  blockRateCents?: number;
   /** Age range for the age-gate scenarios; both null (the default) = no gate. */
   minAge?: number;
   maxAge?: number;
@@ -188,12 +191,53 @@ export async function createTestClassTemplate(opts: {
       capacity: opts.capacity,
       sessionRateCents: opts.sessionRateCents ?? null,
       memberRateCents: opts.memberRateCents ?? null,
+      blockRateCents: opts.blockRateCents ?? null,
       minAge: opts.minAge ?? null,
       maxAge: opts.maxAge ?? null,
       active: opts.active ?? true,
     })
     .returning();
   return row.id;
+}
+
+/**
+ * Direct insert into the `class_credit_grants` ledger — the purchase path
+ * that normally writes these rows is the Stripe webhook, which no API/E2E
+ * test can drive (see class-pack-purchase.test.ts / class-block-purchase.test.ts
+ * for the itWithStripe-gated checkout-URL-only coverage of that webhook
+ * path). Mirrors the private `createCreditGrant` helper in
+ * classes-credit-booking.test.ts, promoted here so Task 12's summary-API
+ * tests and the class-pack-purchase E2E spec can share one implementation
+ * rather than drifting apart.
+ */
+export async function createTestCreditGrant(opts: {
+  organizationId: string;
+  familyMemberId: string;
+  sessionsGranted: number;
+  idSuffix: string;
+  source?: "pack" | "block";
+  packProductId?: string | null;
+  blockId?: string | null;
+  slotTemplateId?: string | null;
+  expiresAt?: Date;
+}): Promise<string> {
+  const db = getDb();
+  const [grant] = await db
+    .insert(classCreditGrants)
+    .values({
+      organizationId: opts.organizationId,
+      familyMemberId: opts.familyMemberId,
+      source: opts.source ?? "pack",
+      packProductId: opts.packProductId ?? null,
+      blockId: opts.blockId ?? null,
+      slotTemplateId: opts.slotTemplateId ?? null,
+      sessionsGranted: opts.sessionsGranted,
+      pricePaidCents: 9900,
+      expiresAt: opts.expiresAt ?? new Date(Date.now() + 90 * 86_400_000),
+      stripeCheckoutSessionId: `cs_test_credit_${opts.idSuffix}`,
+    })
+    .returning({ id: classCreditGrants.id });
+  return grant.id;
 }
 
 /**
@@ -211,6 +255,9 @@ export const TEST_TEMPLATE_NAME_PREFIXES = [
   "Summary-Slot-",
   "Cron-Template-",
   "Admin-",
+  "Credit-",
+  "Catalog-",
+  "Block-",
 ] as const;
 
 /**

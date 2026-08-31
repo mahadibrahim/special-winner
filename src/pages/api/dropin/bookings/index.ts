@@ -37,7 +37,10 @@
  * own adult membership (irrelevant to the child). It is re-derived here by
  * checking whether the CHILD holds an active membership
  * (`getActiveChildMembership`): active → the class member rate; otherwise
- * → the plain public class rate. See the inline comment at the override
+ * → the plain public class rate. Both come from the SESSION only — a class
+ * session with no rate of its own returns 409 `class_rate_not_configured`
+ * rather than falling back to the org's adult pickup rate card (see
+ * src/lib/classes/class-rate.ts). See the inline comment at the override
  * site below for the full reasoning.
  */
 import type { APIRoute } from "astro";
@@ -53,6 +56,7 @@ import { venues } from "@/lib/db/schema/teams";
 import { stripe } from "@/lib/stripe/client";
 import { resolveRate } from "@/lib/dropin/pricing";
 import { getActiveChildMembership } from "@/lib/memberships/get-child-membership";
+import { classRateNotConfigured } from "@/lib/classes/class-rate";
 import {
   createConfirmedBookingFreePath,
   getActiveMembershipForUser,
@@ -287,32 +291,44 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
   //      `POST /api/classes/book`'s 402 is only a client-facing quote, not
   //      an authorization signal this endpoint can trust — it's a separate
   //      request with no server-side link to this one.
-  // Both branches below read the rate off the SESSION first: for a
-  // materialized class session those values were copied from its class-slot
-  // template (src/lib/classes/materialize.ts), i.e. a real CLASS price. The
-  // `?? rateCard.*` tail is the ADULT PICKUP rate card — correct only as a
-  // last resort for a class whose template left the rate unset, which is why
-  // templates should always carry one.
+  // Both branches below read the rate off the SESSION, and ONLY off the
+  // session: for a materialized class session those values were copied from
+  // its class-slot template (src/lib/classes/materialize.ts), i.e. a real
+  // CLASS price. There is deliberately no `?? rateCard.*` tail — that card is
+  // the ADULT PICKUP price list, and charging a parent an adult drop-in price
+  // for their kid's make-up class is worse than refusing the sale. A class
+  // whose template left the rate unset is a config error: 409
+  // `class_rate_not_configured` with ops visibility (see class-rate.ts).
+  // `familyMemberId` is only ever set for `session.kind === "class"` (guarded
+  // above), so this never touches pickup pricing.
   if (familyMemberId) {
     const childMembership = await getActiveChildMembership(
       familyMemberId,
       session.organizationId,
     );
-    rate =
-      childMembership && childMembership.status === "active"
-        ? {
-            amountCents: session.memberRateCents ?? rateCard.defaultMemberRateCents,
-            paymentMethod: "card_online",
-            membershipId: childMembership.id,
-          }
-        : {
-            // No active child membership — the plain public class rate,
-            // deliberately NOT `resolveRate`'s result (which reflects the
-            // parent's own membership, irrelevant to the child).
-            amountCents: session.sessionRateCents ?? rateCard.defaultSessionRateCents,
-            paymentMethod: "card_online",
-            membershipId: null,
-          };
+    const activeChildMembership =
+      childMembership && childMembership.status === "active" ? childMembership : null;
+    // No active child membership → the plain public class rate, deliberately
+    // NOT `resolveRate`'s result (which reflects the parent's own membership,
+    // irrelevant to the child).
+    const classRateCents = activeChildMembership
+      ? session.memberRateCents
+      : session.sessionRateCents;
+    if (classRateCents === null) {
+      return classRateNotConfigured(
+        session,
+        activeChildMembership ? "member" : "session",
+        { component: "api/dropin/bookings" },
+      );
+    }
+    rate = {
+      amountCents: classRateCents,
+      paymentMethod: "card_online",
+      membershipId: activeChildMembership?.id ?? null,
+    };
+    // Backstop for a rate that IS configured but nonsensical (0 or negative):
+    // a class booking must never take the free path below, which knows
+    // nothing about family members and would book the PARENT.
     if (rate.amountCents <= 0) {
       return json({ error: "Rate not configured for this class" }, 500);
     }

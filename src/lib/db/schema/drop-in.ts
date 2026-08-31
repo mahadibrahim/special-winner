@@ -60,6 +60,9 @@ export const dropInPaymentMethodEnum = pgEnum("drop_in_payment_method", [
   // by src/lib/dropin/host-assignment.ts, always amount_paid_cents = 0.
   "host_comp",
   "trial",
+  // Class session paid from a purchased credit grant (pack or block) —
+  // see src/lib/db/schema/classes.ts classCreditGrants.
+  "pack_credit",
 ]);
 export const dropInCancellationReasonEnum = pgEnum("drop_in_cancellation_reason", [
   "user_request",
@@ -184,6 +187,10 @@ export const dropInBookings = pgTable(
     // existed since Phase 3); kept soft here to avoid a cross-cutting
     // migration on this already-populated table.
     membershipId: uuid("membership_id"),
+    // Soft reference to class_credit_grants (same no-FK rationale as
+    // membershipId above). Set iff paymentMethod = 'pack_credit'; the
+    // credits balance derivation counts active bookings by this column.
+    creditGrantId: uuid("credit_grant_id"),
     stripePaymentIntentId: text("stripe_payment_intent_id"),
     stripeRefundId: text("stripe_refund_id"),
     promotedAt: timestamp("promoted_at", { withTimezone: true }),
@@ -246,6 +253,9 @@ export const dropInBookings = pgTable(
     index("drop_in_bookings_promotion_expiry_idx")
       .on(table.promotionExpiresAt)
       .where(sql`status = 'pending_claim'`),
+    index("drop_in_bookings_credit_grant_idx")
+      .on(table.creditGrantId)
+      .where(sql`credit_grant_id IS NOT NULL`),
   ],
 );
 

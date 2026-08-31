@@ -17,11 +17,17 @@
  * exists in another tenant (matches the codebase's no-existence-leak
  * convention, e.g. POST /api/classes/book's session lookup).
  */
-import { and, eq, inArray, count } from "drizzle-orm";
+import { and, eq, gt, inArray, count } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { classSlotTemplates, classEnrollments } from "@/lib/db/schema/classes";
+import {
+  classSlotTemplates,
+  classEnrollments,
+  classCreditGrants,
+} from "@/lib/db/schema/classes";
+import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
 import { familyMembers } from "@/lib/db/schema/registrations";
 import { getActiveChildMembership } from "@/lib/memberships/get-child-membership";
+import { promoteNextWaitlister } from "@/lib/dropin/promotion";
 import { ageOnDate } from "./book-child";
 import type { DropInTx } from "@/lib/dropin/booking";
 
@@ -36,7 +42,11 @@ export interface EnrollmentError {
     | "age_ineligible"
     // changeEnrollmentSlot-only: the enrollment id passed in doesn't exist
     // or isn't currently active. Not part of enrollChild's contract.
-    | "enrollment_not_found";
+    | "enrollment_not_found"
+    // changeEnrollmentSlot-only, CREDIT-BACKED enrollments only: the
+    // destination slot costs more per session than the one the family paid
+    // for. See the policy note at the check.
+    | "rate_mismatch";
   message: string;
 }
 
@@ -78,6 +88,11 @@ function hasClassBenefit(benefits: Record<string, unknown>): boolean {
  * A template with no min/max, or a child with no DOB on file, skips the
  * gate — identical to the booking gate's conditions.
  *
+ * Exported because the BLOCK PURCHASE endpoint has to run the same gate
+ * before taking money (`POST /api/classes/blocks/purchase`) — see the note
+ * there on why it anchors on the first remaining occurrence rather than
+ * "now". One implementation, three call sites.
+ *
  * Why this matters beyond a nicer error: without it, an out-of-range child
  * can hold an active enrollment forever, and the weekly materialization
  * cron re-attempts (and re-fails) their auto-booking with `age_ineligible`
@@ -85,7 +100,7 @@ function hasClassBenefit(benefits: Record<string, unknown>): boolean {
  * counter that nobody can act on, plus a family who thinks they have a
  * seat and never gets booked.
  */
-function isAgeIneligible(
+export function isAgeIneligible(
   template: { minAge: number | null; maxAge: number | null },
   birthDate: string | null,
   onDate: Date,
@@ -223,6 +238,18 @@ export async function endEnrollment(id: string): Promise<{ ended: boolean }> {
  * failed capacity check on the new slot leaves the old enrollment untouched
  * (no window where the child holds neither seat).
  *
+ * The replacement row carries over whatever backed the old one — a
+ * membership OR a credit grant — and, when it's a grant, re-pins that grant
+ * to the destination template inside the same transaction (see the comments
+ * at the insert). A block family that changes home slot takes their
+ * remaining pinned credits with them, subject to the price guard below.
+ *
+ * The move also CANCELS the child's already-materialized future $0
+ * (member_allotment / pack_credit) bookings on the old slot, so a credit or
+ * allotment unit isn't burnt on a class they left — PAID bookings are left
+ * alone (see the scope boundary at that UPDATE) — and promotes any waitlisters
+ * into the freed seats once the transaction commits.
+ *
  * Locks BOTH template rows FOR UPDATE, in a stable order (sorted by id)
  * rather than (old, new) — two concurrent swaps between the same pair of
  * templates in opposite directions would otherwise each hold one lock and
@@ -234,7 +261,13 @@ export async function changeEnrollmentSlot(
   newSlotTemplateId: string,
 ): Promise<EnrollmentResult> {
   const db = getDb();
-  return db.transaction(async (tx) => {
+  /** Old-slot sessions whose seat this move freed — promoted AFTER the
+   *  transaction commits (see the loop below the transaction). */
+  const releasedSessionIds = new Set<string>();
+
+  // Explicit annotation: without it the callback's inferred return widens
+  // `ok` to `boolean` and no longer satisfies the discriminated union.
+  const result = await db.transaction(async (tx): Promise<EnrollmentResult> => {
     const [enrollment] = await tx
       .select()
       .from(classEnrollments)
@@ -277,6 +310,34 @@ export async function changeEnrollmentSlot(
       return err("age_ineligible", "Child is outside the new class's age range");
     }
 
+    // PRICE GUARD, credit-backed (block) enrollments only.
+    //
+    // Credits are pinned to a slot and get re-pinned by this move (below), so
+    // without a guard a family could buy the cheapest slot in the block and
+    // immediately move to the most expensive one, keeping the cheap rate for
+    // every remaining session. Membership-backed moves are unaffected: a
+    // subscription doesn't buy a per-session rate, so there is nothing to
+    // arbitrage.
+    //
+    // POLICY (safe default, owner-reviewable): allow the move when the
+    // destination's effective block rate is <= the origin's — moving DOWN in
+    // price costs the family money they already spent and is nobody's exploit.
+    // A missing rate on either side is also refused: with nothing to compare,
+    // "contact us" is the honest answer rather than a guess in either
+    // direction. Revisit if the owner would rather charge the difference.
+    if (enrollment.creditGrantId) {
+      const effectiveRate = (t: { blockRateCents: number | null; sessionRateCents: number | null }) =>
+        t.blockRateCents ?? t.sessionRateCents;
+      const oldRate = effectiveRate(oldTemplate);
+      const newRate = effectiveRate(newTemplate);
+      if (oldRate === null || newRate === null || newRate > oldRate) {
+        return err(
+          "rate_mismatch",
+          "This class has a different rate — contact us to switch.",
+        );
+      }
+    }
+
     // Already-enrolled pre-check on the destination template (e.g. the
     // child already holds a separate active enrollment there).
     const [existing] = await tx
@@ -295,20 +356,123 @@ export async function changeEnrollmentSlot(
     const activeCount = await activeEnrollmentCount(tx, newSlotTemplateId);
     if (activeCount >= newTemplate.capacity) return err("template_full", "New class is full");
 
+    const now = new Date();
+
     await tx
       .update(classEnrollments)
-      .set({ status: "ended", endedAt: new Date() })
+      .set({ status: "ended", endedAt: now })
       .where(eq(classEnrollments.id, id));
 
+    // Release the seats the child already holds on the OLD slot's FUTURE
+    // sessions. The materialize cron books up to HORIZON_DAYS ahead, so a
+    // slot change almost always leaves one or more already-booked sessions on
+    // a class the child no longer attends — each one burning a paid credit
+    // (`creditGrantId` on the booking) or a month's allotment unit on a class
+    // they won't turn up to. Both balances are COUNT-DERIVED over non-
+    // cancelled bookings, so cancelling here returns the credit / allotment
+    // unit automatically; there is no counter to decrement.
+    //
+    // Same transaction as the move, so a family never ends up paying for the
+    // old slot and the new one at once.
+    //
+    // SCOPE BOUNDARY — this cancels ONLY the $0 seats the ENROLLMENT itself
+    // created: `member_allotment` and `pack_credit`. Everything else on that
+    // session is left strictly alone, because this path cannot honour the
+    // obligations that come with it:
+    //   - `card_online` / `card_present` are PAID make-ups. Cancelling one
+    //     here would void a real payment with no Stripe refund and no
+    //     notification — every other cancellation route goes through
+    //     `processCancelRefund`, which does both. A paid session stays
+    //     attendable on the old slot; if the family doesn't want it, they
+    //     cancel it themselves through the refund-capable endpoint.
+    //   - `trial` is a one-off goodwill seat, not enrollment-owned.
+    //   - `pending_payment` is a live hold with a customer-facing pay link,
+    //     owned by the hold-expiry / refund machinery. Yanking it out from
+    //     under a parent mid-payment is worse than letting it expire.
+    // Widening this set means routing through the refund path instead.
+    const released = await tx
+      .update(dropInBookings)
+      .set({ status: "cancelled", cancelledAt: now, cancellationReason: "user_request" })
+      .where(
+        and(
+          eq(dropInBookings.familyMemberId, enrollment.familyMemberId),
+          inArray(dropInBookings.status, ["confirmed", "waitlisted", "pending_claim"]),
+          inArray(dropInBookings.paymentMethod, ["member_allotment", "pack_credit"]),
+          inArray(
+            dropInBookings.sessionId,
+            tx
+              .select({ id: dropInSessions.id })
+              .from(dropInSessions)
+              .where(
+                and(
+                  eq(dropInSessions.classSlotTemplateId, enrollment.slotTemplateId),
+                  gt(dropInSessions.startsAt, now),
+                ),
+              ),
+          ),
+        ),
+      )
+      // The freed sessions, for the post-commit waitlist promotion below.
+      .returning({ sessionId: dropInBookings.sessionId });
+    for (const row of released) releasedSessionIds.add(row.sessionId);
+
+    // Carry BOTH backing columns, not just membershipId: a credit-backed
+    // (block) enrollment has membershipId null, so copying only that would
+    // insert a row with neither set and trip the
+    // `class_enrollments_membership_xor_grant` CHECK — a 500 on every slot
+    // change a block family makes. The CHECK guarantees exactly one of the
+    // two is non-null on the source row, so copying both preserves it.
     const [created] = await tx
       .insert(classEnrollments)
       .values({
         slotTemplateId: newSlotTemplateId,
         familyMemberId: enrollment.familyMemberId,
         membershipId: enrollment.membershipId,
+        creditGrantId: enrollment.creditGrantId,
       })
       .returning();
 
+    // Re-pin the grant to the destination template, in the SAME transaction.
+    // Block credits are pinned (`selectRedeemableGrant` refuses a grant whose
+    // slotTemplateId doesn't match the session's), so a family that changes
+    // home slot must take their remaining credits with them — otherwise the
+    // seat moves and the credits paying for it become unspendable.
+    //
+    // The predicate also requires the grant still points at the OLD template,
+    // which confines the update to genuinely pinned grants: a floating pack
+    // grant (slotTemplateId null) is never re-pinned by a slot change.
+    if (enrollment.creditGrantId) {
+      await tx
+        .update(classCreditGrants)
+        .set({ slotTemplateId: newSlotTemplateId })
+        .where(
+          and(
+            eq(classCreditGrants.id, enrollment.creditGrantId),
+            eq(classCreditGrants.slotTemplateId, enrollment.slotTemplateId),
+          ),
+        );
+    }
+
     return { ok: true, enrollmentId: created.id };
   });
+
+  // Waitlist promotion, POST-COMMIT and best-effort — the same shape (and the
+  // same try/catch rationale) as `processCancelRefund` in
+  // src/lib/dropin/refund.ts: `promoteNextWaitlister` opens its own
+  // transaction, so calling it inside ours would either deadlock on the rows
+  // we still hold or promote against a state that may still roll back.
+  // A promotion failure must never fail the slot change the family asked for;
+  // the freed seat simply stays open until the next cancellation or the
+  // expiry sweep runs.
+  if (result.ok) {
+    for (const sessionId of releasedSessionIds) {
+      try {
+        await promoteNextWaitlister(sessionId);
+      } catch (err) {
+        console.error("[classes/enrollment] promote-next failed", { sessionId, err });
+      }
+    }
+  }
+
+  return result;
 }

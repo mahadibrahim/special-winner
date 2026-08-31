@@ -145,7 +145,7 @@ function civilAddDays(civ: CivilDate, delta: number): CivilDate {
  * edge case that is nonsensical to begin with (a class literally cannot
  * start at a wall-clock time that never happened that day).
  */
-function zonedWallClockUtc(
+export function zonedWallClockUtc(
   civ: CivilDate,
   hh: number,
   mm: number,
@@ -233,7 +233,20 @@ export interface MaterializeResult {
   autoBooked: number;
   skippedExhausted: number;
   skippedPastDue: number;
+  /**
+   * Auto-book attempts that came back `waiver_required` — an EXPECTED steady
+   * state, not a failure. A block/pack family buys a seat online and is
+   * enrolled without ever passing through a booking flow, so no guardian
+   * waiver is on file until they open the make-up/booking modal for the first
+   * time (which is where the waiver step lives — see family-classes-card.tsx's
+   * MakeUpModal). Every cron run re-attempts and re-skips those children until
+   * they sign, so this counter is the size of the "bought but never came back"
+   * cohort, and belongs nowhere near `failed`.
+   */
+  skippedNoWaiver: number;
   failed: number;
+  /** Credit-backed enrollments ended by pass 0 because their grant expired. */
+  enrollmentsEnded: number;
 }
 
 /**
@@ -253,8 +266,44 @@ export async function materializeClassSessions(now: Date): Promise<MaterializeRe
     autoBooked: 0,
     skippedExhausted: 0,
     skippedPastDue: 0,
+    skippedNoWaiver: 0,
     failed: 0,
+    enrollmentsEnded: 0,
   };
+
+  // ---- Pass 0: end credit-backed enrollments whose grant has expired ----
+  // A block enrollment holds its template seat only through the block
+  // window (grant.expiresAt = block end). Membership-backed enrollments
+  // are ended by handleSubscriptionDeleted, never here.
+  //
+  // Isolated like every other phase: a transient DB blip here counts as one
+  // `failed` and the run CONTINUES. Aborting would cost a whole cycle of
+  // session materialization and auto-booking to protect a bookkeeping
+  // UPDATE that the next run redoes for free — the predicate still matches
+  // (nothing about it is time-of-run dependent beyond `now` moving
+  // forward), so the sweep is naturally idempotent and self-healing.
+  try {
+    const ended = await db
+      .update(classEnrollments)
+      .set({ status: "ended", endedAt: now })
+      .where(
+        and(
+          eq(classEnrollments.status, "active"),
+          sql`${classEnrollments.creditGrantId} IN (
+            SELECT id FROM class_credit_grants WHERE expires_at <= ${now}
+          )`,
+        ),
+      )
+      .returning({ id: classEnrollments.id });
+    counters.enrollmentsEnded = ended.length;
+  } catch (err) {
+    console.error("[classes] credit-backed enrollment expiry sweep failed:", err);
+    void captureServerException(err, {
+      component: "classes/materialize",
+      metadata: { phase: "enrollment-expiry" },
+    });
+    counters.failed += 1;
+  }
 
   const horizonEnd = new Date(now.getTime() + HORIZON_DAYS * DAY_MS);
 
@@ -395,6 +444,7 @@ export async function materializeClassSessions(now: Date): Promise<MaterializeRe
           let autoBooked = 0;
           let skippedExhausted = 0;
           let skippedPastDue = 0;
+          let skippedNoWaiver = 0;
           let failed = 0;
 
           for (const enr of enrollments) {
@@ -445,11 +495,24 @@ export async function materializeClassSessions(now: Date): Promise<MaterializeRe
                 // time — the enrollment row itself may still be "active"
                 // (ended only by handleSubscriptionDeleted on cancellation),
                 // but createChildClassBooking requires status === 'active'.
+                // A credit-backed enrollment whose grant is EXHAUSTED but not
+                // yet expired also reports no_membership and lands in this
+                // bucket — imprecise labeling, not a distinct failure mode.
                 skippedPastDue += 1;
+              } else if (result.error.code === "waiver_required") {
+                // EXPECTED, not a failure: a block/pack family who bought a
+                // seat online and never opened the booking modal has no
+                // guardian waiver on file yet (the waiver step lives in that
+                // modal — see family-classes-card.tsx's MakeUpModal). Their
+                // enrollment is real and their credits are real; the cron
+                // simply cannot seat them until someone signs. Counted on its
+                // own so the `failed` number stays a genuine alarm signal.
+                // (A nudge email to that cohort is deliberately out of scope
+                // here — tracked as a follow-up.)
+                skippedNoWaiver += 1;
               } else {
-                // session_full / waiver_required / age_ineligible / etc. —
-                // unexpected for an auto-booking path (no waiver prompt, no
-                // manual double-booking — already_booked is pre-empted by
+                // session_full / age_ineligible / etc. — genuinely unexpected
+                // for an auto-booking path (already_booked is pre-empted by
                 // the existence check above) but isolated per-enrollment
                 // rather than failing the whole session.
                 failed += 1;
@@ -472,12 +535,13 @@ export async function materializeClassSessions(now: Date): Promise<MaterializeRe
             }
           }
 
-          return { autoBooked, skippedExhausted, skippedPastDue, failed };
+          return { autoBooked, skippedExhausted, skippedPastDue, skippedNoWaiver, failed };
         });
 
         counters.autoBooked += txResult.autoBooked;
         counters.skippedExhausted += txResult.skippedExhausted;
         counters.skippedPastDue += txResult.skippedPastDue;
+        counters.skippedNoWaiver += txResult.skippedNoWaiver;
         counters.failed += txResult.failed;
       } catch (txErr) {
         console.error(

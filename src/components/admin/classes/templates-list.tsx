@@ -4,6 +4,7 @@ import { GraduationCap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ClassesAdminTabs } from "@/components/admin/classes/classes-admin-tabs";
 import type { ClassSlotTemplate } from "@/lib/db/schema/classes";
 
 type TemplateRow = ClassSlotTemplate & { enrolledCount: number };
@@ -35,6 +36,7 @@ function formatAgeRange(minAge: number | null, maxAge: number | null): string {
 export default function TemplatesList({ templates }: TemplatesListProps) {
   return (
     <div className="space-y-6">
+      <ClassesAdminTabs active="templates" />
       <header className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-ink">Classes</h1>
@@ -69,6 +71,7 @@ export default function TemplatesList({ templates }: TemplatesListProps) {
                 <th className="px-4 py-2 font-medium text-ink-muted">Capacity</th>
                 <th className="px-4 py-2 font-medium text-ink-muted">Enrolled</th>
                 <th className="px-4 py-2 font-medium text-ink-muted">Status</th>
+                <th className="px-4 py-2 font-medium text-ink-muted"></th>
                 <th className="px-4 py-2"></th>
               </tr>
             </thead>
@@ -95,6 +98,16 @@ export default function TemplatesList({ templates }: TemplatesListProps) {
                     >
                       {template.active ? "Active" : "Inactive"}
                     </Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    {template.sessionRateCents == null && template.memberRateCents == null && (
+                      <Badge
+                        variant="outline"
+                        className="bg-warning/10 text-warning border-warning/30 whitespace-nowrap"
+                      >
+                        No rates set — paid bookings blocked
+                      </Badge>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <a

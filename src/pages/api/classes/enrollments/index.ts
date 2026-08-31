@@ -30,8 +30,9 @@ const json = (body: unknown, status: number) =>
 
 /**
  * Maps every `EnrollmentError["code"]` to its HTTP status. `enrollChild`
- * never produces `enrollment_not_found` (that's `changeEnrollmentSlot`-only)
- * but the map covers it anyway so a shared switch never falls through.
+ * never produces `enrollment_not_found` or `rate_mismatch` (both are
+ * `changeEnrollmentSlot`-only) but the map covers them anyway so a shared
+ * switch never falls through.
  */
 const ERROR_STATUS: Record<EnrollmentError["code"], number> = {
   template_not_found: 404,
@@ -44,6 +45,8 @@ const ERROR_STATUS: Record<EnrollmentError["code"], number> = {
   // the booking endpoint gives its own age_ineligible.
   age_ineligible: 422,
   enrollment_not_found: 404,
+  // Destination slot is priced above the block the family paid for.
+  rate_mismatch: 409,
 };
 
 export const POST: APIRoute = async ({ request, locals }) => {

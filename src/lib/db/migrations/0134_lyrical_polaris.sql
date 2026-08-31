@@ -1,0 +1,1 @@
+ALTER TYPE "public"."drop_in_payment_method" ADD VALUE IF NOT EXISTS 'pack_credit';

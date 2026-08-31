@@ -22,11 +22,41 @@ import { waiverAssentSentence } from "@/lib/consents/waiver-consent-language"
  * part of" section, above `<ChildrenOverview client:load/>`.
  *
  * Fetches `/api/classes/summary` once and renders one `DashboardCard` per
- * child who EITHER holds a class membership OR has used their org trial
- * (`trialUsed`). Children with neither render nothing — `ChildrenOverview`
- * already covers the plain "no classes yet" case, so duplicating that here
- * would be noise. The whole component renders `null` when zero children
- * qualify (no empty section, no dangling heading).
+ * child who holds a class membership, has active pack/block credits
+ * (`credits`, Task 12 — the class-purchase-ladder's non-membership rungs),
+ * OR has used their org trial (`trialUsed`). Children with none of the
+ * three render nothing — `ChildrenOverview` already covers the plain "no
+ * classes yet" case, so duplicating that here would be noise. The whole
+ * component renders `null` when zero children qualify (no empty section, no
+ * dangling heading).
+ *
+ * CREDITS: every qualifying child's card also shows its active credit
+ * grants inline (`CreditLines`) — a MEMBER can be sitting on leftover pack/
+ * block credits too, not just a non-member. A child with credits but no
+ * membership gets its own `CreditChildCard`, whose "Book a session" CTA
+ * opens the same `MakeUpModal` as the membership card: `POST /api/classes/
+ * book { kind: "member" }` already spends a credit transparently when
+ * there's no membership allotment to draw from first (see
+ * src/lib/classes/credits.ts), so no separate booking UI is needed.
+ *
+ * WAIVER NUDGE: a child who has spendable credits but has NEVER been
+ * through a booking flow (`!hasWaiverOnFile && !hasEverBooked`, both from
+ * the summary endpoint) gets an amber nudge pointing at the same modal —
+ * their first booking attempt is what actually surfaces the guardian
+ * waiver step (see MakeUpModal's `waiver_required` handling below), so the
+ * nudge only needs to explain what's coming and share the trigger, not
+ * engineer a special modal entry state.
+ *
+ * PACK SUCCESS (`?pack=success&child=…`): this island is also the consumer of
+ * the pack-purchase Checkout return URL (see src/pages/api/classes/packs/
+ * purchase.ts's `success_url`). Stripe's redirect routinely beats the webhook
+ * that writes the credit grant, so the top-level component acknowledges the
+ * payment immediately with `PackSuccessBanner` and re-reads
+ * /api/classes/summary on a short backoff ladder until the child's credits
+ * appear (`PACK_SETTLE_DELAYS_MS` — runBlockFlow's settling approach in
+ * choose-slot.tsx, in miniature), degrading to an honest "still processing"
+ * line if they don't. The params are stripped via `history.replaceState` so a
+ * refresh never re-triggers the ladder.
  *
  * Field note: the summary endpoint (src/pages/api/classes/summary.ts) does
  * NOT expose a membership renewal/period-end date or the org's cancellation
@@ -67,6 +97,13 @@ interface SummaryNextSession {
   bookingId: string
 }
 
+interface SummaryCredit {
+  source: "pack" | "block"
+  remaining: number
+  expiresAt: string
+  label: string
+}
+
 interface SummaryChild {
   familyMemberId: string
   name: string
@@ -74,6 +111,9 @@ interface SummaryChild {
   enrollment: SummaryEnrollment | null
   nextSession: SummaryNextSession | null
   trialUsed: boolean
+  credits: SummaryCredit[]
+  hasWaiverOnFile: boolean
+  hasEverBooked: boolean
 }
 
 interface ScheduleSlot {
@@ -187,6 +227,114 @@ function fmtDollars(cents: number | null): string | null {
   })}`
 }
 
+/** "2026-09-15T00:00:00.000Z" → "Sep 15" — short civil-date, no year/time
+ *  (matches class-purchase-ladder.tsx's `formatCivilDate` grammar for the
+ *  same "expires <date>" phrasing, but this one reads a real timestamp
+ *  rather than a plain civil date string). */
+function formatShortDate(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+}
+
+function creditLine(credit: SummaryCredit): string {
+  const sessions = `${credit.remaining} session${credit.remaining === 1 ? "" : "s"} left`
+  return `${sessions} · ${credit.label} · expires ${formatShortDate(credit.expiresAt)}`
+}
+
+/** Best-effort remaining-credits count for the "N left" success copy,
+ *  computed from the summary's PRE-booking `credits` snapshot (the modal
+ *  never learns which specific grant a spend hit — `POST /api/classes/book`
+ *  returns only `paymentMethod`, not a grant id — so this sums every active
+ *  grant's balance and subtracts the one session this booking just spent).
+ *  `onBooked()` triggers a real refetch right after, so this number is
+ *  shown only for the instant before that lands; it is never persisted. */
+function remainingCreditsAfterSpend(credits: SummaryCredit[]): number {
+  const totalBefore = credits.reduce((sum, c) => sum + c.remaining, 0)
+  return Math.max(0, totalBefore - 1)
+}
+
+/** One line per active credit grant — shared between the membership card
+ *  (a member can also be sitting on leftover pack/block credits) and the
+ *  credit-only card below, so the two never drift apart on copy. */
+function CreditLines({ credits }: { credits: SummaryCredit[] }) {
+  if (credits.length === 0) return null
+  return (
+    <div className="space-y-0.5">
+      {credits.map((credit, i) => (
+        <p key={`${credit.source}-${credit.label}-${i}`} className="text-xs text-ink-2">
+          {creditLine(credit)}
+        </p>
+      ))}
+    </div>
+  )
+}
+
+/** Amber "sign the waiver first" nudge — shown when a child has spendable
+ *  credits but has never been through a booking flow (so no waiver is on
+ *  file yet). Clicking it opens the same make-up modal `onOpen` opens for
+ *  the "Book a session" CTA: the modal's own first booking attempt is what
+ *  actually surfaces the waiver step (see MakeUpModal's `waiver_required`
+ *  handling), so this nudge doesn't need to engineer a special modal entry
+ *  state — it just explains what's about to happen and shares the trigger.
+ */
+function WaiverNudge({ onOpen }: { onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="block text-left text-xs font-medium text-amber-800 bg-amber-50/80 border border-amber-200 rounded-lg px-2.5 py-1.5 hover:bg-amber-100/80"
+    >
+      Sign the waiver to activate bookings →
+    </button>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Pack-purchase settling banner (`?pack=success&child=…`)
+// ---------------------------------------------------------------------------
+
+/** Backoff ladder for the post-Checkout webhook settle, deliberately shorter
+ *  than choose-slot.tsx's `NO_MEMBERSHIP_RETRY_DELAYS_MS` ([2000, 4000, 8000]):
+ *  nothing here is BLOCKED on the credits landing (unlike the block flow,
+ *  which must actually book a session before it can report success), so the
+ *  page degrades to an honest "still processing" line rather than making the
+ *  parent stare at a spinner for 14 seconds. */
+const PACK_SETTLE_DELAYS_MS = [2000, 5000]
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+type PackSettleStatus = "settling" | "settled" | "processing"
+
+/** The acknowledgment a pack buyer sees when Stripe's success redirect beats
+ *  the `checkout.session.completed` webhook that actually writes the credit
+ *  grant. Without it the buyer lands on a dashboard that looks exactly like
+ *  the one they left — no card, no credits, no sign the payment worked. */
+function PackSuccessBanner({ status }: { status: PackSettleStatus }) {
+  const message =
+    status === "settled"
+      ? "Payment received — your class credits are ready to use."
+      : status === "processing"
+        ? "Payment received — your class credits are still processing and will appear shortly."
+        : "Payment received — your class credits will appear in a moment."
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      data-pack-success-banner={status}
+      className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50/80 px-3 py-2.5 text-sm font-medium text-emerald-900"
+    >
+      {status === "settling" && (
+        <span
+          className="mt-0.5 size-3.5 shrink-0 rounded-full border-2 border-emerald-600 border-t-transparent animate-spin"
+          aria-hidden="true"
+        />
+      )}
+      <span>{message}</span>
+    </div>
+  )
+}
+
 function allotmentLabel(remaining: number | "unlimited"): string {
   if (remaining === "unlimited") return "Unlimited classes this month"
   return `${remaining} class${remaining === 1 ? "" : "es"} left this month`
@@ -253,6 +401,24 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
   const [pendingSession, setPendingSession] = useState<ScheduleSession | null>(null)
   const [exhaustedOffer, setExhaustedOffer] = useState<ExhaustedOffer | null>(null)
   const [bookedSession, setBookedSession] = useState<ScheduleSession | null>(null)
+  /** `paymentMethod` off a successful booking response (`"member_allotment"`
+   *  | `"pack_credit"` | `"trial"`), so the success copy can say WHICH
+   *  thing was spent rather than a bare "booked" — mirrors
+   *  class-dropin-modal.tsx's identical `paidWith` state. Null on the
+   *  `already_booked` soft-success path (no real spend to report) and
+   *  reset on every fresh `load()`. */
+  const [paidWith, setPaidWith] = useState<string | null>(null)
+  /** Snapshotted ONCE at the moment of spend — `remainingCreditsAfterSpend(
+   *  child.credits)` MUST NOT be called at render time, because `onBooked()`
+   *  triggers a background `/api/classes/summary` refetch that updates the
+   *  parent's `children` state (and therefore this modal's `child` prop)
+   *  WITHOUT unmounting the modal. Once that refetch lands — well under a
+   *  second later — `child.credits` is already server-decremented, and
+   *  recomputing from it at render time would subtract the spend a SECOND
+   *  time (showing "0 left" when 1 remains), disagreeing with the toast
+   *  that already fired. Captured alongside `paidWith`; reset everywhere
+   *  `paidWith` resets. */
+  const [creditsLeftAfterSpend, setCreditsLeftAfterSpend] = useState<number | null>(null)
 
   const [waiverAccepted, setWaiverAccepted] = useState(false)
   const [waiverSignerName, setWaiverSignerName] = useState("")
@@ -281,6 +447,8 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
     setPendingSession(null)
     setExhaustedOffer(null)
     setBookedSession(null)
+    setPaidWith(null)
+    setCreditsLeftAfterSpend(null)
     setWaiverAccepted(false)
     setWaiverSignerName("")
     try {
@@ -363,7 +531,22 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
     if (myGeneration !== generationRef.current) return
 
     if (res.ok) {
+      const okBody = await parseJson(res)
+      if (myGeneration !== generationRef.current) return
+      const spentPaymentMethod = typeof okBody.paymentMethod === "string" ? okBody.paymentMethod : null
+      // Snapshot the remaining-credits count HERE, synchronously, off the
+      // `child` prop as it stands RIGHT NOW — this is the last point before
+      // `onBooked()` (below) kicks off the background summary refetch that
+      // will eventually update `child.credits` to the already-decremented
+      // server value. Storing the derived number (not recomputing from
+      // `child.credits` at render time) is what keeps the dialog from
+      // double-subtracting once that refetch lands — see the state's own
+      // doc comment.
+      const creditsLeft =
+        spentPaymentMethod === "pack_credit" ? remainingCreditsAfterSpend(child.credits) : null
       setBookedSession(session)
+      setPaidWith(spentPaymentMethod)
+      setCreditsLeftAfterSpend(creditsLeft)
       setPhase("success")
       // Feedback survives even if the modal gets dismissed some other way
       // (e.g. a stray Escape) before the user reads the success panel —
@@ -371,7 +554,19 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
       // below refreshes the parent's /api/classes/summary data but does
       // NOT close the modal; only the user's own Close/backdrop dismiss
       // (handleClose) does that.
-      toast.success(`${child.name}'s make-up class is booked for ${formatDateTime(session.startsAt)}.`)
+      //
+      // A pack/block credit spend gets its OWN copy (mirrors
+      // class-dropin-modal.tsx's `paidWith === "pack_credit"` branch) —
+      // otherwise it reads identically to an allotment booking, and a
+      // parent watching their credit balance has no way to tell the two
+      // apart from the toast alone.
+      if (spentPaymentMethod === "pack_credit") {
+        toast.success(
+          `${child.name}'s session is booked — 1 credit used, ${creditsLeft} left.`,
+        )
+      } else {
+        toast.success(`${child.name}'s make-up class is booked for ${formatDateTime(session.startsAt)}.`)
+      }
       onBooked()
       return
     }
@@ -397,8 +592,12 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
       // Soft success — the child already holds a booking on this session
       // (e.g. a second click, or a session the picker didn't know to
       // exclude). Same "stay open, let the user dismiss" rule as the
-      // primary success path above.
+      // primary success path above. No real spend happened on THIS
+      // attempt, so paidWith/creditsLeftAfterSpend are explicitly cleared
+      // rather than left over from a prior try.
       setBookedSession(session)
+      setPaidWith(null)
+      setCreditsLeftAfterSpend(null)
       setPhase("success")
       toast.success(`${child.name} is already booked for that class.`)
       onBooked()
@@ -440,11 +639,19 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
       // read, same class of race attemptBook already guards against.
       if (myGeneration !== generationRef.current) return
       if (!res.ok) {
+        // Two error shapes come off this endpoint: nested
+        // `{ error: { code, message } }` (already_booked, class_requires_child)
+        // and flat `{ error: "<code>", message }` (class_rate_not_configured —
+        // see src/lib/classes/class-rate.ts). Read the human message from
+        // either rather than swallowing a specific, actionable one ("This
+        // class is missing its pricing — contact the front desk") behind the
+        // generic retry copy.
         const err = body.error as { message?: string } | string | undefined
+        const nestedMessage = typeof err === "object" && err?.message ? err.message : null
+        const flatMessage =
+          typeof err === "string" && typeof body.message === "string" ? body.message : null
         const message =
-          typeof err === "object" && err?.message
-            ? err.message
-            : "Could not start payment — please try again.";
+          nestedMessage ?? flatMessage ?? "Could not start payment — please try again.";
         setFlowError(message)
         setPhase("allotment_exhausted")
         return
@@ -525,10 +732,14 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
 
         {(phase === "picking" || phase === "booking") && (
           <>
-            <DialogTitle className="text-ink">Book a make-up class for {child.name}</DialogTitle>
+            <DialogTitle className="text-ink">
+              {child.membership ? `Book a make-up class for ${child.name}` : `Book a session for ${child.name}`}
+            </DialogTitle>
             <DialogDescription className="text-ink-muted">
-              Pick an upcoming class to make up a missed week — this draws from{" "}
-              {child.name}'s monthly allotment.
+              {child.membership
+                ? <>Pick an upcoming class to make up a missed week — this draws from{" "}
+                    {child.name}'s monthly allotment.</>
+                : <>Pick an upcoming class — this spends one of {child.name}'s class credits.</>}
             </DialogDescription>
 
             <ErrorBanner message={flowError} />
@@ -678,7 +889,11 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
           <>
             <DialogTitle className="text-ink">You're all set!</DialogTitle>
             <DialogDescription className="text-ink-muted">
-              {child.name}'s make-up class is booked for {formatDateTime(bookedSession.startsAt)}.
+              {child.name}'s {paidWith === "pack_credit" ? "session" : "make-up class"} is booked
+              for {formatDateTime(bookedSession.startsAt)}
+              {paidWith === "pack_credit"
+                ? ` — 1 credit used, ${creditsLeftAfterSpend} left.`
+                : "."}
             </DialogDescription>
             <Button type="button" onClick={handleClose}>
               Close
@@ -829,6 +1044,10 @@ function MembershipChildCard({
           {membership.status === "incomplete" && (
             <p className="text-xs text-ink-muted">Payment processing…</p>
           )}
+          <CreditLines credits={child.credits} />
+          {child.credits.length > 0 && !child.hasWaiverOnFile && !child.hasEverBooked && (
+            <WaiverNudge onOpen={() => setModalOpen(true)} />
+          )}
         </div>
       </DashboardCard>
 
@@ -841,6 +1060,55 @@ function MembershipChildCard({
         // the success panel first. Only handleClose (Close button /
         // backdrop / Escape, inside MakeUpModal) closes it. See the
         // "success screen unreachable" fix-list finding.
+        onBooked={onChanged}
+      />
+    </>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Per-child card — no membership, but holds class-pack/block credits
+// ---------------------------------------------------------------------------
+
+/** A child with no membership but who bought a pack or block seat directly
+ *  (the ladder's non-membership rungs — see class-purchase-ladder.tsx). Same
+ *  `MakeUpModal` as the membership card: `POST /api/classes/book { kind:
+ *  "member" }` already spends a credit transparently when there's no
+ *  membership to spend from first (src/lib/classes/credits.ts), so no
+ *  separate booking UI is needed here. */
+function CreditChildCard({
+  child,
+  onChanged,
+}: {
+  child: SummaryChild
+  onChanged: () => void
+}) {
+  const [modalOpen, setModalOpen] = useState(false)
+  const showWaiverNudge = child.credits.length > 0 && !child.hasWaiverOnFile && !child.hasEverBooked
+
+  return (
+    <>
+      <DashboardCard
+        type="class"
+        eyebrow="Class credits"
+        title={child.name}
+        meta={creditLine(child.credits[0])}
+        action={
+          <Button size="sm" onClick={() => setModalOpen(true)}>
+            Book a session
+          </Button>
+        }
+      >
+        <div className="mt-1.5 space-y-1">
+          {child.credits.length > 1 && <CreditLines credits={child.credits.slice(1)} />}
+          {showWaiverNudge && <WaiverNudge onOpen={() => setModalOpen(true)} />}
+        </div>
+      </DashboardCard>
+
+      <MakeUpModal
+        child={child}
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
         onBooked={onChanged}
       />
     </>
@@ -887,6 +1155,88 @@ export default function FamilyClassesCard() {
   const [children, setChildren] = useState<SummaryChild[]>([])
   const [cheapestMonthlyCents, setCheapestMonthlyCents] = useState<number | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
+  const [packSettle, setPackSettle] = useState<PackSettleStatus | null>(null)
+
+  // ---- `?pack=success&child=…` settle ladder -----------------------------
+  //
+  // Stripe's success redirect routinely beats the webhook that writes the
+  // credit grant, so the buyer can land here before ANY of their purchase is
+  // visible. Mirrors runBlockFlow's settling approach in choose-slot.tsx in
+  // miniature: acknowledge the payment immediately, then re-read
+  // /api/classes/summary on a short backoff until the child's credits show
+  // up, and degrade to an honest "still processing" line rather than lying
+  // either way.
+  //
+  // Runs in an effect (not a useState initializer) so the server-rendered
+  // and first client render agree — reading window.location during render
+  // would be a hydration mismatch. Empty dep array: this must fire exactly
+  // once per page load, and it strips its own params below so a refresh
+  // can't re-trigger it.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get("pack") !== "success") return
+    const packChildId = params.get("child")
+
+    setPackSettle("settling")
+
+    // Clear the params up front — before the async ladder, so an impatient
+    // refresh mid-settle lands on a clean URL rather than restarting the
+    // whole acknowledgment.
+    params.delete("pack")
+    params.delete("child")
+    const query = params.toString()
+    window.history.replaceState(
+      {},
+      "",
+      `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`,
+    )
+
+    let cancelled = false
+
+    /** One settle probe: re-read the summary, push it into state (so the new
+     *  credit card renders the instant it exists), and report whether the
+     *  purchased child's credits have actually landed. */
+    async function probe(): Promise<boolean> {
+      let rows: SummaryChild[]
+      try {
+        const res = await fetch("/api/classes/summary")
+        if (!res.ok) return false
+        rows = ((await res.json()) as { children: SummaryChild[] }).children
+      } catch {
+        // Indistinguishable from "the webhook hasn't landed yet" — let the
+        // ladder take another swing rather than treating it as terminal.
+        return false
+      }
+      if (cancelled) return false
+      setChildren(rows)
+      setPhase("ready")
+      // A missing/garbled `child` param still gets an acknowledgment: fall
+      // back to "any child now holds credits" rather than never settling.
+      return rows.some(
+        (c) =>
+          c.credits.length > 0 && (packChildId ? c.familyMemberId === packChildId : true),
+      )
+    }
+
+    void (async () => {
+      for (const delay of PACK_SETTLE_DELAYS_MS) {
+        if (await probe()) {
+          if (!cancelled) setPackSettle("settled")
+          return
+        }
+        if (cancelled) return
+        await sleep(delay)
+        if (cancelled) return
+      }
+      const landed = await probe()
+      if (cancelled) return
+      setPackSettle(landed ? "settled" : "processing")
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -955,13 +1305,25 @@ export default function FamilyClassesCard() {
     }
   }, [reloadKey])
 
+  // Rendered in EVERY branch below, deliberately: a pack buyer who beats the
+  // webhook has no membership, no credits and often no other qualifying
+  // child, so the paths that render a skeleton, an error, or nothing at all
+  // are exactly the ones where the acknowledgment matters most.
+  const packBanner = packSettle ? <PackSuccessBanner status={packSettle} /> : null
+
   if (phase === "loading") {
-    return <LoadingSkeleton variant="card" rows={2} />
+    return (
+      <div className="space-y-3">
+        {packBanner}
+        <LoadingSkeleton variant="card" rows={2} />
+      </div>
+    )
   }
 
   if (phase === "error") {
     return (
       <div className="space-y-2">
+        {packBanner}
         <ErrorBanner message="We couldn't load your class memberships." />
         <Button size="sm" variant="outline" onClick={() => setReloadKey((k) => k + 1)}>
           Retry
@@ -970,14 +1332,23 @@ export default function FamilyClassesCard() {
     )
   }
 
-  const qualifying = children.filter((c) => c.membership !== null || c.trialUsed)
-  if (qualifying.length === 0) return null
+  const qualifying = children.filter(
+    (c) => c.membership !== null || c.trialUsed || c.credits.length > 0,
+  )
+  if (qualifying.length === 0) return packBanner
 
   return (
     <div className="space-y-3">
+      {packBanner}
       {qualifying.map((c) =>
         c.membership ? (
           <MembershipChildCard
+            key={c.familyMemberId}
+            child={c}
+            onChanged={() => setReloadKey((k) => k + 1)}
+          />
+        ) : c.credits.length > 0 ? (
+          <CreditChildCard
             key={c.familyMemberId}
             child={c}
             onChanged={() => setReloadKey((k) => k + 1)}

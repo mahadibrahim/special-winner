@@ -52,7 +52,7 @@ export const POST: APIRoute = async ({ request }) => {
     const elapsedMs = Date.now() - startedAt;
 
     console.info(
-      `[cron] Materialize class sessions: sessionsCreated=${result.sessionsCreated} autoBooked=${result.autoBooked} skippedExhausted=${result.skippedExhausted} skippedPastDue=${result.skippedPastDue} failed=${result.failed} in ${elapsedMs}ms`,
+      `[cron] Materialize class sessions: sessionsCreated=${result.sessionsCreated} autoBooked=${result.autoBooked} skippedExhausted=${result.skippedExhausted} skippedPastDue=${result.skippedPastDue} skippedNoWaiver=${result.skippedNoWaiver} enrollmentsEnded=${result.enrollmentsEnded} failed=${result.failed} in ${elapsedMs}ms`,
     );
 
     return new Response(JSON.stringify({ ...result, elapsedMs }), {

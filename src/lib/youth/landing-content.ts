@@ -263,8 +263,15 @@ export interface Testimonial {
  */
 export const TESTIMONIALS: Testimonial[] = [];
 
+// Rendered on the youth sport pages AND reused verbatim as their FAQ answer
+// (src/lib/youth/sport-pages.ts) — so it must hold true against whatever the
+// class catalog happens to carry. The old line quoted classes as "a block …
+// slightly less" than a league season, which both invented a figure and
+// implied a block was the only way into a class. Classes now sell on a
+// ladder (single class → pack → block → monthly membership), priced per
+// option on the card, so state the RANGE and let the card carry the number.
 export const PRICING = {
   heading: "What it costs",
   body:
-    "A season of league play runs a little over $100 per player, and a block of classes is slightly less. Camps are priced by the day. Exact pricing sits on each programme's page, next to what is open.",
+    "A season of league play runs a little over $100 per player. Classes are priced by how much you commit — from a single class up to a monthly membership. Camps are priced by the day. Exact pricing sits on each programme's page, next to what is open.",
 };

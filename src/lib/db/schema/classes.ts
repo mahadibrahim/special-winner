@@ -6,9 +6,11 @@ import {
   integer,
   boolean,
   time,
+  date,
   timestamp,
   uniqueIndex,
   index,
+  check,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { organizations } from "./organizations";
@@ -20,6 +22,8 @@ export const classEnrollmentStatusEnum = pgEnum("class_enrollment_status", [
   "active",
   "ended",
 ]);
+
+export const classCreditSourceEnum = pgEnum("class_credit_source", ["pack", "block"]);
 
 /**
  * A recurring weekly class slot ("Soccer Skills 6–8, Tue 17:00, cap 12").
@@ -79,12 +83,108 @@ export const classSlotTemplates = pgTable(
      */
     sessionRateCents: integer("session_rate_cents"),
     memberRateCents: integer("member_rate_cents"),
+    /** Per-session rate for BLOCK purchases of this template. Null falls
+     *  back to sessionRateCents at quote time. */
+    blockRateCents: integer("block_rate_cents"),
     active: boolean("active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     index("class_slot_templates_org_active_idx").on(table.organizationId, table.active),
+  ],
+);
+
+/** Admin-defined class-pack catalog (N floating session credits for one
+ *  child). Mirrors membership_tiers' Stripe reconciliation shape. */
+export const classPackProducts = pgTable(
+  "class_pack_products",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    sessionCount: integer("session_count").notNull(),
+    priceCents: integer("price_cents").notNull(),
+    /** Credits expire this many months after purchase. */
+    expiryMonths: integer("expiry_months").notNull().default(6),
+    stripeProductId: text("stripe_product_id"),
+    stripePriceId: text("stripe_price_id"),
+    active: boolean("active").notNull().default(true),
+    displayOrder: integer("display_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("class_pack_products_org_active_idx").on(table.organizationId, table.active),
+  ],
+);
+
+/** Admin-defined org-wide block window ("Fall Block", Sep 15 – Nov 7).
+ *  Dates are civil dates in the org's timezone; instants resolve at
+ *  purchase time via the same wall-clock machinery the cron uses. */
+export const classBlocks = pgTable(
+  "class_blocks",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    startDate: date("start_date").notNull(),
+    endDate: date("end_date").notNull(),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("class_blocks_org_active_idx").on(table.organizationId, table.active, table.startDate),
+  ],
+);
+
+/** Per-child credits ledger. Balance is COUNT-DERIVED: remaining =
+ *  sessionsGranted − active bookings whose creditGrantId references this
+ *  row (statuses confirmed/waitlisted/pending_claim/pending_payment/
+ *  no_show; a cancelled booking returns the credit automatically). Same
+ *  derive-don't-store pattern (and accepted TOCTOU tolerance) as the
+ *  monthly allotment in src/lib/memberships/allotment.ts. */
+export const classCreditGrants = pgTable(
+  "class_credit_grants",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    organizationId: uuid("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    familyMemberId: uuid("family_member_id")
+      .notNull()
+      .references(() => familyMembers.id, { onDelete: "restrict" }),
+    source: classCreditSourceEnum("source").notNull(),
+    // restrict (not set-null): a raced admin DELETE on the pack/block must
+    // not silently orphan a paid grant's attribution. The app-level 409 in
+    // the pack/block DELETE endpoints (loadOwned + classCreditGrants count
+    // check) is the primary guard; this FK is the race backstop.
+    packProductId: uuid("pack_product_id").references(() => classPackProducts.id, {
+      onDelete: "restrict",
+    }),
+    blockId: uuid("block_id").references(() => classBlocks.id, { onDelete: "restrict" }),
+    /** Set on block grants: credits are pinned to this weekly slot. NULL on
+     *  pack grants (floating — any class session). Deliberately still
+     *  set-null: unlike pack/block, losing the slot-template pin on grant
+     *  attribution is not a paid-record integrity issue. */
+    slotTemplateId: uuid("slot_template_id").references(() => classSlotTemplates.id, {
+      onDelete: "set null",
+    }),
+    sessionsGranted: integer("sessions_granted").notNull(),
+    pricePaidCents: integer("price_paid_cents").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    stripeCheckoutSessionId: text("stripe_checkout_session_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // Webhook idempotency: one grant per Checkout Session, replays no-op.
+    uniqueIndex("class_credit_grants_checkout_session_uq").on(table.stripeCheckoutSessionId),
+    index("class_credit_grants_child_idx").on(table.familyMemberId, table.expiresAt),
   ],
 );
 
@@ -103,9 +203,16 @@ export const classEnrollments = pgTable(
     familyMemberId: uuid("family_member_id")
       .notNull()
       .references(() => familyMembers.id, { onDelete: "restrict" }),
-    membershipId: uuid("membership_id")
-      .notNull()
-      .references(() => memberships.id, { onDelete: "restrict" }),
+    // Nullable since the purchase-ladder work: a block purchase creates an
+    // enrollment backed by a credit grant instead of a membership. Exactly
+    // one of (membershipId, creditGrantId) is set — enforced by the CHECK
+    // below, mirroring family_members_self_xor_parent.
+    membershipId: uuid("membership_id").references(() => memberships.id, {
+      onDelete: "restrict",
+    }),
+    creditGrantId: uuid("credit_grant_id").references(() => classCreditGrants.id, {
+      onDelete: "restrict",
+    }),
     status: classEnrollmentStatusEnum("status").notNull().default("active"),
     startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
     endedAt: timestamp("ended_at", { withTimezone: true }),
@@ -117,9 +224,16 @@ export const classEnrollments = pgTable(
       .where(sql`status = 'active'`),
     index("class_enrollments_child_idx").on(table.familyMemberId, table.status),
     index("class_enrollments_template_status_idx").on(table.slotTemplateId, table.status),
+    check(
+      "class_enrollments_membership_xor_grant",
+      sql`(membership_id IS NOT NULL) <> (credit_grant_id IS NOT NULL)`,
+    ),
   ],
 );
 
 export type ClassSlotTemplate = typeof classSlotTemplates.$inferSelect;
 export type NewClassSlotTemplate = typeof classSlotTemplates.$inferInsert;
 export type ClassEnrollment = typeof classEnrollments.$inferSelect;
+export type ClassPackProduct = typeof classPackProducts.$inferSelect;
+export type ClassBlock = typeof classBlocks.$inferSelect;
+export type ClassCreditGrant = typeof classCreditGrants.$inferSelect;

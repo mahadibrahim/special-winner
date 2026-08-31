@@ -1,10 +1,10 @@
 /**
  * POST /api/classes/bookings/:id/cancel
  *
- * Customer-facing cancel for a CHILD class booking (member-allotment or
- * trial — both rows inserted by `createChildClassBooking`, and the paid
- * make-up rows inserted by the webhook fulfillment core also flow through
- * here since they share the same `drop_in_bookings` table).
+ * Customer-facing cancel for a CHILD class booking (member-allotment,
+ * pack-credit or trial — all three inserted by `createChildClassBooking`,
+ * and the paid make-up rows inserted by the webhook fulfillment core also
+ * flow through here since they share the same `drop_in_bookings` table).
  *
  * Cutoff policy: a window before the session start, applied UNIFORMLY to
  * member and trial bookings alike (see `isBeforeCutoff`'s doc comment in
@@ -30,10 +30,12 @@
  * here, so classes get the same refund/promotion behavior pickup bookings
  * already have instead of a second, easily-drifting copy of it.
  *
- * `creditFreed` reports whether a member-allotment credit was given back —
- * the allotment is COUNT-based (see get-child-membership.ts), so flipping
- * the row's status to `cancelled` IS the credit-free operation; there is no
- * separate counter to decrement. `refunded` reports whether
+ * `creditFreed` reports whether a seat-credit was given back — either a
+ * monthly membership allotment credit (`member_allotment`) or a purchased
+ * class credit (`pack_credit`). BOTH ledgers are COUNT-based (see
+ * get-child-membership.ts and src/lib/classes/credits.ts), so flipping the
+ * row's status to `cancelled` IS the credit-free operation in either case;
+ * there is no separate counter to decrement. `refunded` reports whether
  * `processCancelRefund` actually returned money via Stripe (only possible
  * for a paid `card_online` make-up booking outside its own window check).
  */
@@ -105,10 +107,15 @@ export const POST: APIRoute = async ({ params, locals }) => {
     return json({ error: "inside_cutoff" }, 409);
   }
 
-  // Count-based: the allotment query (get-child-membership.ts) only counts
-  // "confirmed"/"no_show" rows, so this flag is determined by the booking's
+  // Count-based on BOTH ledgers: the allotment query
+  // (get-child-membership.ts) and the class-credit balance
+  // (src/lib/classes/credits.ts) each derive "used" by counting
+  // seat-holding booking rows, so flipping this row's status to `cancelled`
+  // IS the credit-free operation for either. Determined by the booking's
   // payment method alone — independent of whatever processCancelRefund does.
-  const creditFreed = row.booking.paymentMethod === "member_allotment";
+  const creditFreed =
+    row.booking.paymentMethod === "member_allotment" ||
+    row.booking.paymentMethod === "pack_credit";
 
   const result = await processCancelRefund(row.booking.id, { reason: "user_request" });
   if (!result.ok) {

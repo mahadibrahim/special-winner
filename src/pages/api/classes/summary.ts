@@ -23,6 +23,7 @@ import { familyMembers } from "@/lib/db/schema/registrations";
 import { classEnrollments, classSlotTemplates } from "@/lib/db/schema/classes";
 import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
 import { getActiveChildMembership } from "@/lib/memberships/get-child-membership";
+import { getCreditBalances } from "@/lib/classes/credits";
 
 export const prerender = false;
 
@@ -73,6 +74,53 @@ export const GET: APIRoute = async ({ locals }) => {
         async (c) => [c.id, await getActiveChildMembership(c.id, organizationId)] as const,
       ),
     ),
+  );
+
+  // Class-credit balances — single-child lookup by design (see
+  // getCreditBalances's doc comment), same "no batch variant, families are
+  // small" exception as getActiveChildMembership above. Runs all children
+  // in parallel rather than sequentially.
+  const creditsByChild = new Map(
+    await Promise.all(
+      children.map(async (c) => [c.id, await getCreditBalances(c.id, organizationId, db)] as const),
+    ),
+  );
+
+  // Waiver-on-file — mirrors book-child.ts's exact check (any prior booking
+  // for this child, in THIS org, with waiverSigned = true), batched via
+  // inArray instead of book-child.ts's single-child query. Used by the
+  // dashboard to decide whether to nudge a credit-holding child's parent to
+  // sign the guardian waiver before their first booking attempt.
+  const waiverRows = await db
+    .select({ familyMemberId: dropInBookings.familyMemberId })
+    .from(dropInBookings)
+    .innerJoin(dropInSessions, eq(dropInSessions.id, dropInBookings.sessionId))
+    .where(
+      and(
+        inArray(dropInBookings.familyMemberId, childIds),
+        eq(dropInBookings.waiverSigned, true),
+        eq(dropInSessions.organizationId, organizationId),
+      ),
+    );
+  const waiverOnFileSet = new Set(
+    waiverRows.filter((r) => r.familyMemberId !== null).map((r) => r.familyMemberId as string),
+  );
+
+  // Has this child EVER been the subject of a booking in this org, any
+  // status? Distinct from `nextSession` (future+confirmed only) and
+  // `trialUsed` (trial-method only) — this is the broader "has this child
+  // ever gone through a booking flow at all" signal the waiver nudge needs,
+  // so a child who's only ever cancelled a booking still counts as
+  // "not brand new" and doesn't get re-nudged.
+  const everBookedRows = await db
+    .select({ familyMemberId: dropInBookings.familyMemberId })
+    .from(dropInBookings)
+    .innerJoin(dropInSessions, eq(dropInSessions.id, dropInBookings.sessionId))
+    .where(
+      and(inArray(dropInBookings.familyMemberId, childIds), eq(dropInSessions.organizationId, organizationId)),
+    );
+  const everBookedSet = new Set(
+    everBookedRows.filter((r) => r.familyMemberId !== null).map((r) => r.familyMemberId as string),
   );
 
   // Standing enrollment — a child could technically hold more than one
@@ -156,6 +204,20 @@ export const GET: APIRoute = async ({ locals }) => {
     const membership = membershipsByChild.get(c.id) ?? null;
     const enrollment = enrollmentByChild.get(c.id) ?? null;
     const nextSession = nextSessionByChild.get(c.id) ?? null;
+    // Active, spendable balances only — a grant with nothing left or one
+    // that's lapsed is history, not something the dashboard should offer to
+    // spend. `label` prefers the specific pack/block name; a grant that
+    // somehow lost its product/block join (deleted admin-side, restrict FK
+    // notwithstanding a pre-FK legacy row) still gets a generic label rather
+    // than rendering blank.
+    const credits = (creditsByChild.get(c.id) ?? [])
+      .filter((g) => g.remaining > 0 && g.expiresAt.getTime() > now.getTime())
+      .map((g) => ({
+        source: g.source,
+        remaining: g.remaining,
+        expiresAt: g.expiresAt.toISOString(),
+        label: g.packName ?? g.blockName ?? (g.source === "pack" ? "Class pack" : "Block"),
+      }));
     return {
       familyMemberId: c.id,
       name: `${c.firstName} ${c.lastName}`,
@@ -183,6 +245,9 @@ export const GET: APIRoute = async ({ locals }) => {
           }
         : null,
       trialUsed: trialUsedSet.has(c.id),
+      credits,
+      hasWaiverOnFile: waiverOnFileSet.has(c.id),
+      hasEverBooked: everBookedSet.has(c.id),
     };
   });
 
