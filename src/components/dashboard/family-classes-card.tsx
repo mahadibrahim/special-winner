@@ -22,11 +22,30 @@ import { waiverAssentSentence } from "@/lib/consents/waiver-consent-language"
  * part of" section, above `<ChildrenOverview client:load/>`.
  *
  * Fetches `/api/classes/summary` once and renders one `DashboardCard` per
- * child who EITHER holds a class membership OR has used their org trial
- * (`trialUsed`). Children with neither render nothing — `ChildrenOverview`
- * already covers the plain "no classes yet" case, so duplicating that here
- * would be noise. The whole component renders `null` when zero children
- * qualify (no empty section, no dangling heading).
+ * child who holds a class membership, has active pack/block credits
+ * (`credits`, Task 12 — the class-purchase-ladder's non-membership rungs),
+ * OR has used their org trial (`trialUsed`). Children with none of the
+ * three render nothing — `ChildrenOverview` already covers the plain "no
+ * classes yet" case, so duplicating that here would be noise. The whole
+ * component renders `null` when zero children qualify (no empty section, no
+ * dangling heading).
+ *
+ * CREDITS: every qualifying child's card also shows its active credit
+ * grants inline (`CreditLines`) — a MEMBER can be sitting on leftover pack/
+ * block credits too, not just a non-member. A child with credits but no
+ * membership gets its own `CreditChildCard`, whose "Book a session" CTA
+ * opens the same `MakeUpModal` as the membership card: `POST /api/classes/
+ * book { kind: "member" }` already spends a credit transparently when
+ * there's no membership allotment to draw from first (see
+ * src/lib/classes/credits.ts), so no separate booking UI is needed.
+ *
+ * WAIVER NUDGE: a child who has spendable credits but has NEVER been
+ * through a booking flow (`!hasWaiverOnFile && !hasEverBooked`, both from
+ * the summary endpoint) gets an amber nudge pointing at the same modal —
+ * their first booking attempt is what actually surfaces the guardian
+ * waiver step (see MakeUpModal's `waiver_required` handling below), so the
+ * nudge only needs to explain what's coming and share the trigger, not
+ * engineer a special modal entry state.
  *
  * Field note: the summary endpoint (src/pages/api/classes/summary.ts) does
  * NOT expose a membership renewal/period-end date or the org's cancellation
@@ -67,6 +86,13 @@ interface SummaryNextSession {
   bookingId: string
 }
 
+interface SummaryCredit {
+  source: "pack" | "block"
+  remaining: number
+  expiresAt: string
+  label: string
+}
+
 interface SummaryChild {
   familyMemberId: string
   name: string
@@ -74,6 +100,9 @@ interface SummaryChild {
   enrollment: SummaryEnrollment | null
   nextSession: SummaryNextSession | null
   trialUsed: boolean
+  credits: SummaryCredit[]
+  hasWaiverOnFile: boolean
+  hasEverBooked: boolean
 }
 
 interface ScheduleSlot {
@@ -185,6 +214,55 @@ function fmtDollars(cents: number | null): string | null {
     minimumFractionDigits: hasCents ? 2 : 0,
     maximumFractionDigits: hasCents ? 2 : 0,
   })}`
+}
+
+/** "2026-09-15T00:00:00.000Z" → "Sep 15" — short civil-date, no year/time
+ *  (matches class-purchase-ladder.tsx's `formatCivilDate` grammar for the
+ *  same "expires <date>" phrasing, but this one reads a real timestamp
+ *  rather than a plain civil date string). */
+function formatShortDate(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+}
+
+function creditLine(credit: SummaryCredit): string {
+  const sessions = `${credit.remaining} session${credit.remaining === 1 ? "" : "s"} left`
+  return `${sessions} · ${credit.label} · expires ${formatShortDate(credit.expiresAt)}`
+}
+
+/** One line per active credit grant — shared between the membership card
+ *  (a member can also be sitting on leftover pack/block credits) and the
+ *  credit-only card below, so the two never drift apart on copy. */
+function CreditLines({ credits }: { credits: SummaryCredit[] }) {
+  if (credits.length === 0) return null
+  return (
+    <div className="space-y-0.5">
+      {credits.map((credit, i) => (
+        <p key={`${credit.source}-${credit.label}-${i}`} className="text-xs text-ink-2">
+          {creditLine(credit)}
+        </p>
+      ))}
+    </div>
+  )
+}
+
+/** Amber "sign the waiver first" nudge — shown when a child has spendable
+ *  credits but has never been through a booking flow (so no waiver is on
+ *  file yet). Clicking it opens the same make-up modal `onOpen` opens for
+ *  the "Book a session" CTA: the modal's own first booking attempt is what
+ *  actually surfaces the waiver step (see MakeUpModal's `waiver_required`
+ *  handling), so this nudge doesn't need to engineer a special modal entry
+ *  state — it just explains what's about to happen and shares the trigger.
+ */
+function WaiverNudge({ onOpen }: { onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="block text-left text-xs font-medium text-amber-800 bg-amber-50/80 border border-amber-200 rounded-lg px-2.5 py-1.5 hover:bg-amber-100/80"
+    >
+      Sign the waiver to activate bookings →
+    </button>
+  )
 }
 
 function allotmentLabel(remaining: number | "unlimited"): string {
@@ -533,10 +611,14 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
 
         {(phase === "picking" || phase === "booking") && (
           <>
-            <DialogTitle className="text-ink">Book a make-up class for {child.name}</DialogTitle>
+            <DialogTitle className="text-ink">
+              {child.membership ? `Book a make-up class for ${child.name}` : `Book a session for ${child.name}`}
+            </DialogTitle>
             <DialogDescription className="text-ink-muted">
-              Pick an upcoming class to make up a missed week — this draws from{" "}
-              {child.name}'s monthly allotment.
+              {child.membership
+                ? <>Pick an upcoming class to make up a missed week — this draws from{" "}
+                    {child.name}'s monthly allotment.</>
+                : <>Pick an upcoming class — this spends one of {child.name}'s class credits.</>}
             </DialogDescription>
 
             <ErrorBanner message={flowError} />
@@ -837,6 +919,10 @@ function MembershipChildCard({
           {membership.status === "incomplete" && (
             <p className="text-xs text-ink-muted">Payment processing…</p>
           )}
+          <CreditLines credits={child.credits} />
+          {child.credits.length > 0 && !child.hasWaiverOnFile && !child.hasEverBooked && (
+            <WaiverNudge onOpen={() => setModalOpen(true)} />
+          )}
         </div>
       </DashboardCard>
 
@@ -849,6 +935,55 @@ function MembershipChildCard({
         // the success panel first. Only handleClose (Close button /
         // backdrop / Escape, inside MakeUpModal) closes it. See the
         // "success screen unreachable" fix-list finding.
+        onBooked={onChanged}
+      />
+    </>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Per-child card — no membership, but holds class-pack/block credits
+// ---------------------------------------------------------------------------
+
+/** A child with no membership but who bought a pack or block seat directly
+ *  (the ladder's non-membership rungs — see class-purchase-ladder.tsx). Same
+ *  `MakeUpModal` as the membership card: `POST /api/classes/book { kind:
+ *  "member" }` already spends a credit transparently when there's no
+ *  membership to spend from first (src/lib/classes/credits.ts), so no
+ *  separate booking UI is needed here. */
+function CreditChildCard({
+  child,
+  onChanged,
+}: {
+  child: SummaryChild
+  onChanged: () => void
+}) {
+  const [modalOpen, setModalOpen] = useState(false)
+  const showWaiverNudge = child.credits.length > 0 && !child.hasWaiverOnFile && !child.hasEverBooked
+
+  return (
+    <>
+      <DashboardCard
+        type="class"
+        eyebrow="Class credits"
+        title={child.name}
+        meta={creditLine(child.credits[0])}
+        action={
+          <Button size="sm" onClick={() => setModalOpen(true)}>
+            Book a session
+          </Button>
+        }
+      >
+        <div className="mt-1.5 space-y-1">
+          {child.credits.length > 1 && <CreditLines credits={child.credits.slice(1)} />}
+          {showWaiverNudge && <WaiverNudge onOpen={() => setModalOpen(true)} />}
+        </div>
+      </DashboardCard>
+
+      <MakeUpModal
+        child={child}
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
         onBooked={onChanged}
       />
     </>
@@ -978,7 +1113,9 @@ export default function FamilyClassesCard() {
     )
   }
 
-  const qualifying = children.filter((c) => c.membership !== null || c.trialUsed)
+  const qualifying = children.filter(
+    (c) => c.membership !== null || c.trialUsed || c.credits.length > 0,
+  )
   if (qualifying.length === 0) return null
 
   return (
@@ -986,6 +1123,12 @@ export default function FamilyClassesCard() {
       {qualifying.map((c) =>
         c.membership ? (
           <MembershipChildCard
+            key={c.familyMemberId}
+            child={c}
+            onChanged={() => setReloadKey((k) => k + 1)}
+          />
+        ) : c.credits.length > 0 ? (
+          <CreditChildCard
             key={c.familyMemberId}
             child={c}
             onChanged={() => setReloadKey((k) => k + 1)}

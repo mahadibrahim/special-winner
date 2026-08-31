@@ -1,13 +1,17 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { dropInSessions } from "@/lib/db/schema/drop-in";
+import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
+import { classPackProducts, classCreditGrants } from "@/lib/db/schema/classes";
 import { apiFetch, getAuthCookie } from "../setup/test-helpers";
 import { createTestUserWithPassword } from "../../utils/host-helpers";
+import { createTestDropInSession } from "../../utils/dropin-helpers";
 import {
   resolveClassTestFixtures,
   createTestChild,
   createTestChildMembership,
   createTestClassTemplate,
+  createTestCreditGrant,
   sweepOrphanedTestTemplates,
   cleanupTestClassFixtures,
   CLASS_TEST_PARENT_EMAIL,
@@ -225,5 +229,123 @@ describe("GET /api/classes/summary", () => {
     expect(row.nextSession).toBeNull();
     expect(typeof row.trialUsed).toBe("boolean");
     expect(row.trialUsed).toBe(false);
+  });
+
+  it("exposes active class-credit balances and excludes exhausted/expired grants", async () => {
+    const suffix = Date.now();
+    const summaryUser = await createTestUserWithPassword();
+    const summaryCookie = await getAuthCookie(summaryUser.email, summaryUser.password);
+    const childId = await createTestChild(summaryUser.userId, `CreditsChild-${suffix}`);
+
+    const db = getDb();
+    const [pack] = await db
+      .insert(classPackProducts)
+      .values({
+        organizationId,
+        name: `Summary-Pack-${suffix}`,
+        sessionCount: 6,
+        priceCents: 9900,
+        expiryMonths: 3,
+      })
+      .returning();
+
+    // Active — 6 granted, 0 used, expires well in the future.
+    await createTestCreditGrant({
+      organizationId,
+      familyMemberId: childId,
+      sessionsGranted: 6,
+      packProductId: pack.id,
+      idSuffix: `active-${suffix}`,
+    });
+
+    // Expired — expiresAt in the past, so it must never appear even though
+    // its balance would otherwise be positive.
+    await createTestCreditGrant({
+      organizationId,
+      familyMemberId: childId,
+      sessionsGranted: 2,
+      packProductId: pack.id,
+      idSuffix: `expired-${suffix}`,
+      expiresAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+    });
+
+    // Exhausted — 1 granted, then fully consumed by a confirmed booking
+    // against it, so remaining hits 0 and it must be excluded too.
+    const exhaustedGrantId = await createTestCreditGrant({
+      organizationId,
+      familyMemberId: childId,
+      sessionsGranted: 1,
+      packProductId: pack.id,
+      idSuffix: `exhausted-${suffix}`,
+    });
+    const { sessionId: consumedSessionId } = await createTestDropInSession({
+      organizationId,
+      venueId,
+      kind: "class",
+    });
+    await db.insert(dropInBookings).values({
+      sessionId: consumedSessionId,
+      userId: summaryUser.userId,
+      familyMemberId: childId,
+      status: "confirmed",
+      source: "online_booking",
+      paymentMethod: "pack_credit",
+      creditGrantId: exhaustedGrantId,
+    });
+
+    const res = await apiFetch("/api/classes/summary", { cookie: summaryCookie });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const row = body.children.find((c: any) => c.familyMemberId === childId);
+    expect(row).toBeTruthy();
+    expect(Array.isArray(row.credits)).toBe(true);
+    expect(row.credits).toHaveLength(1);
+    expect(row.credits[0]).toMatchObject({
+      source: "pack",
+      remaining: 6,
+      label: `Summary-Pack-${suffix}`,
+    });
+    expect(typeof row.credits[0].expiresAt).toBe("string");
+  });
+
+  it("flags waiver-on-file and prior-booking state per child", async () => {
+    const suffix = Date.now();
+    const summaryUser = await createTestUserWithPassword();
+    const summaryCookie = await getAuthCookie(summaryUser.email, summaryUser.password);
+
+    // Fresh child: no waiver, no bookings at all.
+    const freshChildId = await createTestChild(summaryUser.userId, `FreshChild-${suffix}`);
+
+    // Waivered child: one booking on file with waiverSigned = true.
+    const waiveredChildId = await createTestChild(summaryUser.userId, `WaiveredChild-${suffix}`);
+    const db = getDb();
+    const { sessionId: waiveredSessionId } = await createTestDropInSession({
+      organizationId,
+      venueId,
+      kind: "class",
+    });
+    await db.insert(dropInBookings).values({
+      sessionId: waiveredSessionId,
+      userId: summaryUser.userId,
+      familyMemberId: waiveredChildId,
+      status: "confirmed",
+      source: "online_booking",
+      paymentMethod: "trial",
+      waiverSigned: true,
+      waiverSignedAt: new Date(),
+      waiverSignedBy: "Summary Test Parent",
+    });
+
+    const res = await apiFetch("/api/classes/summary", { cookie: summaryCookie });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+
+    const freshRow = body.children.find((c: any) => c.familyMemberId === freshChildId);
+    expect(freshRow.hasWaiverOnFile).toBe(false);
+    expect(freshRow.hasEverBooked).toBe(false);
+
+    const waiveredRow = body.children.find((c: any) => c.familyMemberId === waiveredChildId);
+    expect(waiveredRow.hasWaiverOnFile).toBe(true);
+    expect(waiveredRow.hasEverBooked).toBe(true);
   });
 });
