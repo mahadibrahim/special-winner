@@ -8,6 +8,7 @@ import { venues } from "@/lib/db/schema/teams";
 import { locations } from "@/lib/db/schema/organizations";
 import { users } from "@/lib/db/schema/users";
 import { familyMembers } from "@/lib/db/schema/registrations";
+import { consents } from "@/lib/db/schema/consents";
 import { mintToken, consumeToken } from "@/lib/check-in/tokens-db";
 import { E2E_RENTAL_VENUE_ID, E2E_ORG_ID } from "@/lib/db/seeds/seed-e2e-tests";
 
@@ -496,6 +497,65 @@ describe("GET /api/self-serve/[token] (context) — walk-in MINOR", () => {
     expect(fm.parentUserId).toBe(booking.userId);
   });
 
+  // ANNUAL WAIVER: a person who signed elsewhere inside the 365-day window
+  // must not be asked again at the kiosk. The derivation used to read the
+  // booking row's own `waiverSigned` flag alone, which is per-target and
+  // therefore always false on a brand-new hold.
+  it("a child with a valid liability consent is not asked to sign again", async () => {
+    const { token, bookingId } = await startWalkIn({
+      contact: {
+        firstName: "Casey",
+        lastName: `Covered${SUFFIX.slice(-4)}`,
+        email: PARENT_EMAIL,
+        phone: "6145550011",
+        dob: "2015-06-01",
+      },
+      parent: {
+        firstName: PARENT_FIRST,
+        lastName: PARENT_LAST,
+        email: PARENT_EMAIL,
+        phone: "6145550011",
+      },
+    });
+
+    const [booking] = await getDb()
+      .select({
+        userId: dropInBookings.userId,
+        familyMemberId: dropInBookings.familyMemberId,
+      })
+      .from(dropInBookings)
+      .where(eq(dropInBookings.id, bookingId))
+      .limit(1);
+    expect(booking.familyMemberId).not.toBeNull();
+
+    // Before the consent exists, the kiosk asks.
+    const before = await fetch(`${BASE}/api/self-serve/${token}`);
+    expect((await before.json()).outstanding.waiver).toBe(true);
+
+    // A signature from a month ago, at THIS org — the canonical row shape.
+    const signedAt = new Date(Date.now() - 30 * 86_400_000);
+    await getDb()
+      .insert(consents)
+      .values({
+        familyMemberId: booking.familyMemberId!,
+        organizationId: E2E_ORG_ID,
+        type: "liability",
+        status: "granted",
+        signedByUserId: booking.userId,
+        signedByName: `${PARENT_FIRST} ${PARENT_LAST}`,
+        signedAt,
+        expiresAt: new Date(signedAt.getTime() + 365 * 86_400_000),
+      });
+
+    const after = await fetch(`${BASE}/api/self-serve/${token}`);
+    expect(after.status).toBe(200);
+    const body = await after.json();
+    expect(body.outstanding.waiver).toBe(false);
+    // Nothing else about the context changes — the photo is still owed.
+    expect(body.isMinor).toBe(true);
+    expect(body.outstanding.photo).toBe(true);
+  });
+
   it("adult walk-in still reports isMinor false and signs for themselves", async () => {
     const { token, bookingId } = await startWalkIn({
       contact: {
@@ -537,6 +597,19 @@ describe("GET /api/self-serve/[token] (context) — walk-in MINOR", () => {
         .where(inArray(users.email, [PARENT_EMAIL, ADULT_EMAIL]));
       const userIds = created.map((u) => u.id);
       if (userIds.length) {
+        // Liability consents reference family_members — drop them first, and
+        // so a leaked row can't silently satisfy a LATER run's
+        // "no waiver on file" fixture on the shared staging DB.
+        const kids = await db
+          .select({ id: familyMembers.id })
+          .from(familyMembers)
+          .where(inArray(familyMembers.parentUserId, userIds));
+        const kidIds = kids.map((k) => k.id);
+        if (kidIds.length) {
+          await db
+            .delete(consents)
+            .where(inArray(consents.familyMemberId, kidIds));
+        }
         await db
           .delete(familyMembers)
           .where(inArray(familyMembers.parentUserId, userIds));

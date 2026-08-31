@@ -12,7 +12,10 @@ import { toast } from "sonner";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import { useBrandId } from "@/lib/hooks/use-brand-id";
 import { deriveDropInSuccessPhase } from "@/lib/dropin/success-phase";
-import { DROPIN_WAIVER_TEXT } from "@/lib/dropin/waiver-text";
+import {
+  DROPIN_WAIVER_TEXT,
+  DROPIN_WAIVER_ACCEPT_LABEL,
+} from "@/lib/dropin/waiver-text";
 import { BookButton } from "./BookButton";
 
 interface DetailResponse {
@@ -140,7 +143,7 @@ function WaiverCard({
           htmlFor="waiver-accept"
           className="text-sm leading-snug cursor-pointer"
         >
-          I accept the waiver above
+          {DROPIN_WAIVER_ACCEPT_LABEL}
         </Label>
       </div>
 

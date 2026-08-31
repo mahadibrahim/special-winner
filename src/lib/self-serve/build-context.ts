@@ -20,6 +20,7 @@ import { locations } from "@/lib/db/schema/organizations";
 import { verifyToken } from "@/lib/check-in/tokens-db";
 import { resolveSigner, asSelfServiceKind } from "@/lib/check-in/resolve-signer";
 import { resolvePhotoTarget, hasPhotoOnFile } from "@/lib/check-in/photo-target";
+import { hasValidLiabilityWaiver } from "@/lib/consents/liability";
 import { resolveRate, DEFAULT_WALK_UP_RATE_CENTS } from "@/lib/dropin/pricing";
 import { formatEmailDateTime, DEFAULT_TIMEZONE } from "@/lib/email/format";
 
@@ -178,6 +179,11 @@ export async function buildSelfServeContext(
     outstanding.waiver = !r.waiverSigned;
   } else if (tok.kind === "roster_entry") {
     summary = `Today's game`;
+    // A roster entry has no per-target signature column of its own, so the
+    // default is to ask. The annual-waiver pass below is what turns this off
+    // for a player who already signed anywhere at this org this year — it
+    // used to be an unconditional `true`, which is why a rostered kid was
+    // handed the waiver at every single game.
     outstanding.waiver = true;
   } else if (tok.kind === "rental_player") {
     const [p] = await db
@@ -205,6 +211,32 @@ export async function buildSelfServeContext(
       outstanding.waiver = p.status !== "signed";
     }
     // photo + payment stay false; amountDueCents stays 0.
+  }
+
+  // ANNUAL WAIVER. Every branch above derives `outstanding.waiver` from the
+  // TARGET's own signature state, which is per-booking/per-rental and so
+  // always "unsigned" on a brand-new hold. The platform rule is per PERSON,
+  // per organization, for a year — so a signer who already has a valid
+  // liability consent must not be asked again at the kiosk, whichever door
+  // they signed at.
+  //
+  // Only narrows (never widens): a target that is already signed stays
+  // settled, and a cancelled hold stays entirely non-actionable. Skipped
+  // when the token resolves to no `family_members` person — adult drop-ins,
+  // adult walk-ins, field rentals and rental players have no person row to
+  // ask the predicate about, so they keep the per-target behaviour.
+  if (outstanding.waiver && signer.familyMemberId) {
+    try {
+      if (
+        await hasValidLiabilityWaiver(signer.familyMemberId, tok.organizationId)
+      ) {
+        outstanding.waiver = false;
+      }
+    } catch (err) {
+      // Fail towards ASKING: a re-signature is a mild annoyance, a missed
+      // release is a legal gap. Never 500 a kiosk over this lookup.
+      console.error("[self-serve.context] waiver validity lookup failed", err);
+    }
   }
 
   // A cancelled hold has nothing actionable — leave every outstanding flag
