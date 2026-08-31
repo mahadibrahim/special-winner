@@ -50,9 +50,17 @@ import { formatCents } from "@/lib/classes/ladder-model"
  *  3. 402 `allotment_exhausted` (a member who has used this month up) → a
  *     confirm step showing the REAL `memberRateCents` from the response
  *     before taking the same paid path. Never charge a member a price they
- *     weren't shown. No waiver step: reaching `allotment_exhausted` means
- *     this child has already spent classes on this membership, which means a
- *     signature is on file.
+ *     weren't shown. Confirming then takes the SAME waiver decision as step 2,
+ *     on the same `waiverOnFile` flag.
+ *
+ *     This used to skip the waiver outright, reasoning that reaching
+ *     `allotment_exhausted` proved a signature was already on file. Waivers
+ *     EXPIRE now (365 days), so that no longer follows: a family enrolled 14
+ *     months ago has spent allotments every month AND has a lapsed waiver —
+ *     exactly the long-standing member the expiry rule exists to re-ask. They
+ *     are also the last people who should be charged with no live release on
+ *     record, so this is a confirm-price → sign → pay sequence, not a
+ *     confirm-price → pay one.
  *  4. 422 `waiver_required` → guardian waiver panel; resubmitting carries the
  *     signature, which both books this class and puts the waiver on file.
  *
@@ -239,18 +247,7 @@ export function ClassDropInModal({
         await payForClass(child, myGeneration, waiver.signedBy)
         return
       }
-      if (child.waiverOnFile === true) {
-        // The annual waiver covers this child (ChildPicker's
-        // `includeWaiverStatus` probe — the same canonical predicate the
-        // engine uses). Send NO waiver fields: the booking endpoint re-checks
-        // server-side and stamps the booking "On file (annual waiver)". Only
-        // `true` skips — undefined/false both mean ask, so a probe that
-        // failed or was never requested falls back to the old behaviour.
-        await payForClass(child, myGeneration)
-        return
-      }
-      setWaiverPurpose("pay")
-      setPhase("waiver")
+      await payOrCollectWaiver(child, myGeneration)
       return
     }
     if (res.status === 402 && code === "allotment_exhausted") {
@@ -261,6 +258,29 @@ export function ClassDropInModal({
 
     setFlowError(humanizeBookError(code, body.message))
     setPhase("picking")
+  }
+
+  /**
+   * The ONE place the modal decides "straight to payment, or collect a
+   * guardian signature first?" — shared by both paid entry points (403
+   * `no_membership` and the 402 `allotment_exhausted` confirm step) so they
+   * can never drift into disagreeing about who has to sign.
+   *
+   * Covered → pay with NO waiver fields; the booking endpoint re-checks the
+   * same canonical predicate server-side and stamps the booking "On file
+   * (annual waiver)". The flag is a UX probe, never the authority.
+   *
+   * Only strict `true` skips. `undefined` (caller forgot `includeWaiverStatus`,
+   * or the probe never ran) and `false` both mean ASK — a missing answer must
+   * degrade to collecting consent, never to taking money without it.
+   */
+  async function payOrCollectWaiver(child: ChildPickerMember, myGeneration: number) {
+    if (child.waiverOnFile === true) {
+      await payForClass(child, myGeneration)
+      return
+    }
+    setWaiverPurpose("pay")
+    setPhase("waiver")
   }
 
   /** Paid drop-in checkout — same fetch + response handling as
@@ -479,7 +499,12 @@ export function ClassDropInModal({
                   <Button
                     type="button"
                     onClick={() => {
-                      if (selectedChild) void payForClass(selectedChild, generationRef.current)
+                      // Price is confirmed; the waiver decision still applies
+                      // (an exhausted allotment no longer implies a live
+                      // signature — see step 3 in the header comment).
+                      if (selectedChild) {
+                        void payOrCollectWaiver(selectedChild, generationRef.current)
+                      }
                     }}
                   >
                     Pay for this class

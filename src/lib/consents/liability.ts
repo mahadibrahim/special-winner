@@ -41,6 +41,25 @@ import { LIABILITY_VALIDITY_DAYS, recordConsent } from "./record";
  */
 export const WAIVER_VALID_DAYS = LIABILITY_VALIDITY_DAYS;
 
+/**
+ * The `waiverSigned*` attribution every surface must stamp when a booking or
+ * registration is covered by the person's ANNUAL waiver rather than by a
+ * signature taken at that moment — the wording clause 3 of
+ * `recordLiabilityWaiver`'s caller contract prescribes.
+ *
+ * Lives here, with the contract it belongs to, because SEVERAL surfaces stamp
+ * it (the classes engine's on-file branch in book-child.ts, the paid drop-in
+ * door's webhook fulfillment, and further doors as they migrate). Two
+ * independent literals would let the same semantic state render with two
+ * different attributions on the roster and the dashboard.
+ *
+ * Its companion rule is that the local `waiverSignedAt` stays NULL on this
+ * branch: `hasValidLiabilityWaiver`'s legacy fallbacks accept only DATED
+ * signature rows, so a dated derived copy would let a booking renew the very
+ * window it was derived from.
+ */
+export const WAIVER_ON_FILE_ATTRIBUTION = "On file (annual waiver)";
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** A `getDb()` handle or a transaction handle from `db.transaction(...)`.

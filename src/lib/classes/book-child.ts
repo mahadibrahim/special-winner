@@ -42,7 +42,11 @@ import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
 import { familyMembers } from "@/lib/db/schema/registrations";
 import { classSlotTemplates } from "@/lib/db/schema/classes";
 import { getActiveChildMembership } from "@/lib/memberships/get-child-membership";
-import { hasValidLiabilityWaiver, recordLiabilityWaiver } from "@/lib/consents/liability";
+import {
+  WAIVER_ON_FILE_ATTRIBUTION,
+  hasValidLiabilityWaiver,
+  recordLiabilityWaiver,
+} from "@/lib/consents/liability";
 import { getCreditBalances, selectRedeemableGrant } from "@/lib/classes/credits";
 import { checkSessionCapacityLocked, type DropInTx } from "@/lib/dropin/booking";
 import { ensureDropInCustomerMembership } from "@/lib/organization/ensure-membership";
@@ -353,6 +357,18 @@ export async function createChildClassBooking(opts: {
     let waiverConsentText: string | null = null;
     if (waiverOnFile) {
       waiverSigned = true;
+      // Say WHY the row is marked signed. The shared attribution (owned by
+      // consents/liability.ts) is the same one the paid drop-in door's webhook
+      // fulfillment stamps, so the identical semantic state — "covered by the
+      // annual waiver, nobody signed for this booking" — never renders two
+      // different ways across the free and paid doors.
+      //
+      // `waiverSignedAt` deliberately stays NULL: hasValidLiabilityWaiver's
+      // legacy fallbacks accept only DATED signature rows, so a dated derived
+      // copy would let each booking renew the very window it was derived from.
+      // `waiverConsentVariant`/`waiverConsentText` stay null too — no waiver
+      // text was shown here, so there is nothing to name.
+      waiverSignedBy = WAIVER_ON_FILE_ATTRIBUTION;
     } else if (opts.waiver) {
       waiverSigned = true;
       waiverSignedAt = new Date();

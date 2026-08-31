@@ -42,7 +42,11 @@ import { getDb } from "@/lib/db";
 import { dropInBookings, dropInRateCard } from "@/lib/db/schema/drop-in";
 import { consents } from "@/lib/db/schema/consents";
 import { membershipTiers } from "@/lib/db/schema/memberships";
-import { WAIVER_VALID_DAYS, hasValidLiabilityWaiver } from "@/lib/consents/liability";
+import {
+  WAIVER_ON_FILE_ATTRIBUTION,
+  WAIVER_VALID_DAYS,
+  hasValidLiabilityWaiver,
+} from "@/lib/consents/liability";
 import { handleDropInCheckoutComplete } from "@/lib/stripe/handle-dropin-checkout-complete";
 import { apiFetch, getAuthCookie } from "../setup/test-helpers";
 import { createTestDropInSession } from "../../utils/dropin-helpers";
@@ -402,8 +406,6 @@ describe("Unpriced class session → 409 class_rate_not_configured (never the ad
  * dropin-checkout.test.ts. A real webhook delivery is unreachable from an
  * API test, and the handler is the whole contract.
  */
-const WAIVER_ON_FILE_ATTRIBUTION = "On file (annual waiver)";
-
 /** Direct `consents` insert — the row shape a real signature produces
  *  (`expiresAt = signedAt + WAIVER_VALID_DAYS`), with the age of the
  *  signature as the only knob. Mirrors tests/api/consents-liability.test.ts. */
@@ -644,6 +646,48 @@ describe("Paid child door — fulfillment writes the waiver state", () => {
     expect(row.status).toBe("confirmed");
     expect(row.waiverSigned).toBe(false);
     expect(row.waiverSignedBy).toBeNull();
+  });
+
+  /**
+   * The FREE door (`/api/classes/book` → book-child.ts) reaches the identical
+   * semantic state — "covered by the annual waiver, nobody signed for this
+   * booking" — and must render it identically. It used to leave
+   * `waiverSignedBy` null while the paid door stamped an attribution, so the
+   * same state produced two different audit rows depending on which door the
+   * family walked through. Both now read the constant off
+   * `consents/liability.ts`, which is what makes this assertion meaningful:
+   * it fails if either door starts spelling it its own way.
+   */
+  it("the FREE door's on-file branch stamps the same attribution as the paid door", async () => {
+    const suffix = `${Date.now()}-onfile-free`;
+    const tierId = await createCapOneTier(suffix);
+    const childId = await newWaiverChild("FreeDoorOnFileChild");
+    await createTestChildMembership({
+      userId: parentUserId,
+      familyMemberId: childId,
+      organizationId,
+      tierId,
+      idSuffix: `onfilefree-${suffix}`,
+    });
+    await insertLiabilityConsent({ familyMemberId: childId, signedDaysAgo: 5 });
+
+    const sessionId = await createClassSession(hoursFromNow(15 * 24));
+    const res = await apiFetch("/api/classes/book", {
+      method: "POST",
+      cookie,
+      // No `waiver` in the body — the child is covered, so the engine must
+      // take its on-file branch rather than 422 `waiver_required`.
+      body: JSON.stringify({ sessionId, familyMemberId: childId, kind: "member" }),
+    });
+    expect(res.status).toBe(200);
+
+    const row = await bookingForSession(sessionId);
+    expect(row.waiverSigned).toBe(true);
+    expect(row.waiverSignedBy).toBe(WAIVER_ON_FILE_ATTRIBUTION);
+    // Same load-bearing null as the paid door: a dated derived copy would let
+    // the legacy fallback renew the window it was derived from.
+    expect(row.waiverSignedAt).toBeNull();
+    expect(row.waiverConsentVariant).toBeNull();
   });
 
   it("(c) fresh client signature → canonical consents row with the ip/UA from metadata", async () => {

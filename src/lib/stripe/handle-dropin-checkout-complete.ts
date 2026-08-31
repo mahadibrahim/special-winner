@@ -58,7 +58,10 @@ import { capturePaymentCompleted } from "@/lib/observability/payment-telemetry";
 import { fireServerPurchaseConversions } from "@/lib/analytics/server-conversions";
 import { stripe } from "@/lib/stripe/client";
 import { logAlert } from "@/lib/logging/alerts";
-import { recordLiabilityWaiver } from "@/lib/consents/liability";
+import {
+  WAIVER_ON_FILE_ATTRIBUTION,
+  recordLiabilityWaiver,
+} from "@/lib/consents/liability";
 import { DROPIN_WAIVER_TEXT } from "@/lib/dropin/waiver-text";
 import type { BrandId } from "@/lib/branding/themes";
 
@@ -72,16 +75,6 @@ const VALID_PAYMENT_METHODS: DropInPaymentMethod[] = [
 // Overflow bookings jump straight to the front of the waitlist — they
 // already committed and paid, unlike a voluntary join (priority 0).
 const OVERFLOW_WAITLIST_PRIORITY = 100;
-
-/**
- * `waiverSignedBy` attribution for a booking covered by the child's ANNUAL
- * liability waiver rather than a signature taken at purchase — the wording
- * the caller contract in src/lib/consents/liability.ts prescribes, so the
- * dashboard/roster surfaces render "who signed" honestly instead of implying
- * this parent signed again for this class. The canonical evidence is the
- * `consents` row; this column is a derived copy.
- */
-const WAIVER_ON_FILE_ATTRIBUTION = "On file (annual waiver)";
 
 /** A transaction handle from `db.transaction(...)` — mirrors the `DbClient`
  *  shape in src/lib/consents/liability.ts. */
