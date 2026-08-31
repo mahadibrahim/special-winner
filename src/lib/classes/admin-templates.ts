@@ -39,6 +39,9 @@ export const templateInputSchema = z.object({
   capacity: z.number().int().min(1),
   sessionRateDollars: z.number().positive().nullable().default(null),
   memberRateDollars: z.number().positive().nullable().default(null),
+  /** Per-session rate for BLOCK purchases of this template. Null falls back
+   *  to sessionRateDollars at quote time — see classSlotTemplates.blockRateCents. */
+  blockRateDollars: z.number().positive().nullable().default(null),
   active: z.boolean().default(true),
 });
 

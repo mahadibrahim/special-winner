@@ -60,6 +60,9 @@ export default function TemplateForm({ template, venues }: TemplateFormProps) {
   const [memberRate, setMemberRate] = useState<string>(
     template?.memberRateCents != null ? String(template.memberRateCents / 100) : "",
   );
+  const [blockRate, setBlockRate] = useState<string>(
+    template?.blockRateCents != null ? String(template.blockRateCents / 100) : "",
+  );
 
   const [active, setActive] = useState(template?.active ?? true);
 
@@ -150,6 +153,7 @@ export default function TemplateForm({ template, venues }: TemplateFormProps) {
         capacity: Number(capacity),
         sessionRateDollars: sessionRate === "" ? null : Number(sessionRate),
         memberRateDollars: memberRate === "" ? null : Number(memberRate),
+        blockRateDollars: blockRate === "" ? null : Number(blockRate),
         active,
       };
       if (isEdit && !active) {
@@ -365,11 +369,13 @@ export default function TemplateForm({ template, venues }: TemplateFormProps) {
       <div className="space-y-5">
         <h2 className="font-semibold text-ink text-lg">Pricing</h2>
         <p className="text-xs text-ink-muted -mt-3">
-          Charged only for a make-up booking once a child's monthly allotment is used up.
-          Leave blank to fall back to the org's drop-in rate card.
+          Session and member rate are charged for a make-up booking once a child's monthly
+          allotment is used up (leave blank to fall back to the org's drop-in rate card).
+          Block rate is the per-session price for a block-window purchase of this class
+          (leave blank to fall back to the session rate).
         </p>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-3 gap-4">
           <div>
             <Label htmlFor="session-rate">Session rate ($)</Label>
             <Input
@@ -392,6 +398,18 @@ export default function TemplateForm({ template, venues }: TemplateFormProps) {
               value={memberRate}
               onChange={(e) => setMemberRate(e.target.value)}
               placeholder="e.g. 20"
+            />
+          </div>
+          <div>
+            <Label htmlFor="block-rate">Block rate ($)</Label>
+            <Input
+              id="block-rate"
+              type="number"
+              min="0"
+              step="0.01"
+              value={blockRate}
+              onChange={(e) => setBlockRate(e.target.value)}
+              placeholder="e.g. 22"
             />
           </div>
         </div>

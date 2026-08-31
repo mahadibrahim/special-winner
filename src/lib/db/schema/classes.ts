@@ -160,12 +160,18 @@ export const classCreditGrants = pgTable(
       .notNull()
       .references(() => familyMembers.id, { onDelete: "restrict" }),
     source: classCreditSourceEnum("source").notNull(),
+    // restrict (not set-null): a raced admin DELETE on the pack/block must
+    // not silently orphan a paid grant's attribution. The app-level 409 in
+    // the pack/block DELETE endpoints (loadOwned + classCreditGrants count
+    // check) is the primary guard; this FK is the race backstop.
     packProductId: uuid("pack_product_id").references(() => classPackProducts.id, {
-      onDelete: "set null",
+      onDelete: "restrict",
     }),
-    blockId: uuid("block_id").references(() => classBlocks.id, { onDelete: "set null" }),
+    blockId: uuid("block_id").references(() => classBlocks.id, { onDelete: "restrict" }),
     /** Set on block grants: credits are pinned to this weekly slot. NULL on
-     *  pack grants (floating — any class session). */
+     *  pack grants (floating — any class session). Deliberately still
+     *  set-null: unlike pack/block, losing the slot-template pin on grant
+     *  attribution is not a paid-record integrity issue. */
     slotTemplateId: uuid("slot_template_id").references(() => classSlotTemplates.id, {
       onDelete: "set null",
     }),

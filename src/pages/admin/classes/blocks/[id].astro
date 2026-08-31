@@ -1,0 +1,41 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { AdminLayout } from '@/components/admin/admin-layout';
+import { getPrimaryRoleName } from '@/lib/auth';
+import { getDb } from '@/lib/db';
+import { classBlocks } from '@/lib/db/schema/classes';
+import { and, eq } from 'drizzle-orm';
+import BlockForm from '@/components/admin/classes/block-form';
+
+export const prerender = false;
+
+const user = Astro.locals.user!;
+const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
+const orgId = Astro.locals.organization?.id;
+const blockId = Astro.params.id!;
+
+if (!orgId) {
+  return Astro.redirect('/admin/classes/blocks');
+}
+
+const [block] = await getDb()
+  .select()
+  .from(classBlocks)
+  .where(and(eq(classBlocks.id, blockId), eq(classBlocks.organizationId, orgId)))
+  .limit(1);
+
+if (!block) {
+  return Astro.redirect('/admin/classes/blocks');
+}
+---
+
+<BaseLayout title="Edit Class Block — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    role={primaryRole}
+    currentPath="/admin/classes/blocks"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <BlockForm client:load block={block} />
+  </AdminLayout>
+</BaseLayout>

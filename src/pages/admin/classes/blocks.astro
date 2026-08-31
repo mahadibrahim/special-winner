@@ -1,0 +1,34 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { AdminLayout } from '@/components/admin/admin-layout';
+import { getPrimaryRoleName } from '@/lib/auth';
+import { getDb } from '@/lib/db';
+import { classBlocks } from '@/lib/db/schema/classes';
+import { eq, asc } from 'drizzle-orm';
+import BlocksList from '@/components/admin/classes/blocks-list';
+
+export const prerender = false;
+
+const user = Astro.locals.user!;
+const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
+const orgId = Astro.locals.organization?.id;
+
+const blocks = orgId
+  ? await getDb()
+      .select()
+      .from(classBlocks)
+      .where(eq(classBlocks.organizationId, orgId))
+      .orderBy(asc(classBlocks.startDate), asc(classBlocks.createdAt))
+  : [];
+---
+
+<BaseLayout title="Class Blocks — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    role={primaryRole}
+    currentPath="/admin/classes/blocks"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <BlocksList client:load blocks={blocks} />
+  </AdminLayout>
+</BaseLayout>

@@ -71,6 +71,7 @@ export default function TemplatesList({ templates }: TemplatesListProps) {
                 <th className="px-4 py-2 font-medium text-ink-muted">Capacity</th>
                 <th className="px-4 py-2 font-medium text-ink-muted">Enrolled</th>
                 <th className="px-4 py-2 font-medium text-ink-muted">Status</th>
+                <th className="px-4 py-2 font-medium text-ink-muted"></th>
                 <th className="px-4 py-2"></th>
               </tr>
             </thead>
@@ -97,6 +98,16 @@ export default function TemplatesList({ templates }: TemplatesListProps) {
                     >
                       {template.active ? "Active" : "Inactive"}
                     </Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    {template.sessionRateCents == null && template.memberRateCents == null && (
+                      <Badge
+                        variant="outline"
+                        className="bg-warning/10 text-warning border-warning/30 whitespace-nowrap"
+                      >
+                        No rates set — paid bookings blocked
+                      </Badge>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-right">
                     <a

@@ -81,6 +81,7 @@ export const PUT: APIRoute = async (context) => {
       capacity: input.capacity,
       sessionRateCents: dollarsToCents(input.sessionRateDollars),
       memberRateCents: dollarsToCents(input.memberRateDollars),
+      blockRateCents: dollarsToCents(input.blockRateDollars),
       active: input.active,
       updatedAt: new Date(),
     })

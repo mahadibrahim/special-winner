@@ -1,11 +1,6 @@
 "use client";
 
-/**
- * Shared pill-link tab strip for the /admin/classes/* admin section.
- * "blocks" lands with the block-purchase task (Task 10 of the class
- * purchase ladder) — the pill is wired up ahead of that page existing, so
- * it 404s until then. That's an accepted gap for this two-task window.
- */
+/** Shared pill-link tab strip for the /admin/classes/* admin section. */
 
 type ClassesAdminTab = "templates" | "packs" | "blocks";
 
