@@ -26,11 +26,20 @@
  *   other kind).
  * - field_rental: signer = renterUser if set; else the typed
  *   renterName/email/phone (admin-created with no account). When renterUser
- *   IS set, familyMemberId resolves to the renter's own SELF family_members
- *   row (via resolvePerson) — a renter is an adult signing for themselves,
- *   the same "adults sign too" rule the annual-waiver design applies to the
- *   paid drop-in door. An account-less (guest) renter has no person to
- *   resolve and keeps familyMemberId null.
+ *   IS set, familyMemberId is a READ-ONLY lookup of the renter's own SELF
+ *   family_members row (oldest-first, mirrors resolvePerson's own ordering)
+ *   — a renter is an adult signing for themselves, the same "adults sign
+ *   too" rule the annual-waiver design applies to the paid drop-in door.
+ *   Deliberately NOT resolvePerson (find-or-CREATE): this function backs
+ *   the self-serve context GET, which the PayCard polls every ~2s, and
+ *   family_members.self_user_id has no unique index — concurrent polling
+ *   creates would race duplicate self rows. A covered renter necessarily
+ *   already has one, so the read narrows identically; an UNCOVERED renter
+ *   with no row yet just resolves familyMemberId: null here, and the
+ *   self-serve waiver POST (src/pages/api/self-serve/[token]/waiver.ts)
+ *   is what calls resolvePerson when a fresh signature actually arrives.
+ *   An account-less (guest) renter has no person to resolve and keeps
+ *   familyMemberId null.
  * - rental_player: familyMemberId is always null. field_rental_players
  *   carries only a typed playerName + signerEmail — no userId / family_member
  *   column — so an invited player has no verified identity to resolve a
@@ -45,7 +54,7 @@
  * scoping is the security boundary for the admin send-link / upload-photo /
  * check-in endpoints, which take a client-supplied targetId.
  */
-import { and, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
 import { fieldRentals, fieldRentalPlayers } from "@/lib/db/schema/field-rentals";
@@ -54,7 +63,6 @@ import { seasons, programs } from "@/lib/db/schema/programs";
 import { registrations, familyMembers } from "@/lib/db/schema/registrations";
 import { locations } from "@/lib/db/schema/organizations";
 import { users } from "@/lib/db/schema/users";
-import { resolvePerson } from "@/lib/registrations/resolve-person";
 
 export type SelfServiceKind =
   | "drop_in_booking"
@@ -190,7 +198,6 @@ export async function resolveSigner(
           lastName: users.lastName,
           email: users.email,
           phone: users.phone,
-          birthDate: users.birthDate,
         })
         .from(users)
         .where(eq(users.id, row.renterUserId))
@@ -199,25 +206,28 @@ export async function resolveSigner(
         ? `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim() || u.email
         : row.renterName;
 
-      // Resolve the renter's own SELF family_members row so the annual
-      // liability predicate has a person to check. Best-effort: a lookup
-      // failure falls back to no person (the pre-existing shape), never
-      // blocks resolving the signer entirely.
+      // READ-ONLY lookup of the renter's own SELF family_members row (see
+      // the doc block above for why this is a select, never a
+      // find-or-create): this function backs a GET that the self-serve
+      // PayCard polls every ~2s, and `selfUserId` carries no unique index —
+      // a create here would let concurrent polls race duplicate self rows.
+      // A covered renter necessarily already has one; an uncovered renter
+      // with none yet resolves familyMemberId: null, and the waiver POST
+      // endpoint (which MAY create) is what gives them one once they
+      // actually sign. Best-effort: a lookup failure also falls back to no
+      // person, never blocks resolving the signer entirely.
       let familyMemberId: string | null = null;
       if (u) {
         try {
-          const person = await resolvePerson(db, {
-            kind: "self",
-            user: {
-              id: row.renterUserId,
-              firstName: u.firstName ?? "",
-              lastName: u.lastName ?? "",
-              birthDate: u.birthDate,
-            },
-          });
-          familyMemberId = person.id;
+          const [existing] = await db
+            .select({ id: familyMembers.id })
+            .from(familyMembers)
+            .where(eq(familyMembers.selfUserId, row.renterUserId))
+            .orderBy(asc(familyMembers.createdAt))
+            .limit(1);
+          familyMemberId = existing?.id ?? null;
         } catch (err) {
-          console.error("[resolve-signer] resolvePerson failed for renter", err);
+          console.error("[resolve-signer] self family_members lookup failed for renter", err);
         }
       }
 

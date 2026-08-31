@@ -17,8 +17,10 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInBookings } from "@/lib/db/schema/drop-in";
 import { fieldRentals, fieldRentalPlayers } from "@/lib/db/schema/field-rentals";
+import { users } from "@/lib/db/schema/users";
 import { verifyToken } from "@/lib/check-in/tokens-db";
 import { resolveSigner, asSelfServiceKind } from "@/lib/check-in/resolve-signer";
+import { resolvePerson } from "@/lib/registrations/resolve-person";
 import { resolveActiveLiabilityWaiver } from "@/lib/consents/active-waiver";
 import {
   hasValidLiabilityWaiver,
@@ -122,6 +124,52 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
     }
   }
 
+  // field_rental, first-time accounted renter: resolve-signer.ts's
+  // field_rental branch deliberately does a READ-ONLY lookup for the
+  // renter's self family_members row (it also backs a GET the self-serve
+  // PayCard polls every ~2s, and a create-on-read would let concurrent
+  // polls race duplicate self rows — see that file's doc comment). A POST
+  // here is a one-shot, real signature event, so THIS is where a
+  // never-rented-before renter's self row gets created. `familyMemberId`
+  // being null here (with an account present) can ONLY mean "no row yet" —
+  // if one existed, resolveSigner's read would have found it and
+  // `waiverAlreadyOnFile` above would already be authoritative.
+  if (
+    tok.kind === "field_rental" &&
+    signer &&
+    !signer.familyMemberId &&
+    signer.recipientUserId
+  ) {
+    try {
+      const [u] = await db
+        .select({
+          firstName: users.firstName,
+          lastName: users.lastName,
+          birthDate: users.birthDate,
+        })
+        .from(users)
+        .where(eq(users.id, signer.recipientUserId))
+        .limit(1);
+      if (u) {
+        const person = await resolvePerson(db, {
+          kind: "self",
+          user: {
+            id: signer.recipientUserId,
+            firstName: u.firstName ?? "",
+            lastName: u.lastName ?? "",
+            birthDate: u.birthDate,
+          },
+        });
+        signer = { ...signer, familyMemberId: person.id };
+      }
+    } catch (err) {
+      // Best-effort: a lookup/create failure just means this signature
+      // stays local-only (the fieldRentals waiver* columns below), same
+      // degrade-to-adult-shape philosophy as resolveSigner itself.
+      console.error("[self-serve.waiver] resolvePerson failed for renter", err);
+    }
+  }
+
   if (tok.kind === "drop_in_booking" || tok.kind === "walkin_session") {
     // NOTE — this stamps a DATED signature even when `waiverAlreadyOnFile`
     // is true. Reaching that state means the ask was served from a stale
@@ -186,10 +234,13 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
   // LIMITATION — which kinds actually land a row:
   //   roster_entry, drop_in_booking / walkin_session booked for a MINOR, and
   //   field_rental for an ACCOUNTED renter all carry a `family_members`
-  //   person (resolve-signer.ts resolves the renter's own SELF row via
-  //   resolvePerson). Adult drop-ins and adult walk-ins do not
-  //   (walkin/start.ts creates the person row only for a minor); a GUEST
-  //   (account-less) field_rental has no user to resolve a person from; and
+  //   person — for field_rental, resolve-signer.ts's GET-safe read finds an
+  //   EXISTING self row, and the block above this one resolvePerson()s a
+  //   first-time renter's self row right here (this is the one-shot POST,
+  //   not the polled GET, so create-on-write is safe). Adult drop-ins and
+  //   adult walk-ins do not (walkin/start.ts creates the person row only
+  //   for a minor); a GUEST (account-less) field_rental has no user to
+  //   resolve a person from; and
   //   rental_player has no linkage at all — a rental player is a bare typed
   //   name + email, with no userId/family_member column to resolve (see
   //   the LIMITATION comment on createRentalPlayer in

@@ -107,11 +107,16 @@ export interface ValidateRentalBookingOpts {
    * validator stays pure/DB-free — the caller does the lookup and passes the
    * verdict in.
    *
-   * Only relaxes the requirement when the client OMITTED both waiver fields
-   * (a client that already knows it's covered simply doesn't render the
-   * checkbox). An explicit `waiverAccepted: false` is still rejected even
-   * when covered — that is a signal the box was shown and unchecked, which
-   * must not be silently overridden by server-side coverage.
+   * Relaxes the requirement whenever the renter is covered AND the client
+   * did not explicitly DECLINE (`waiverAccepted: false`) — that covers the
+   * fully-omitted case (a client that knows it's covered simply doesn't
+   * render the checkbox) and any partial submission (e.g. `waiverAccepted:
+   * true` with no name, or a name with no accepted flag): the endpoint
+   * ignores whatever the client sent for a covered renter and stamps the
+   * shared "on file" attribution regardless, so a partial value carries no
+   * more meaning than an omitted one. An explicit `waiverAccepted: false`
+   * is the one signal that overrides coverage — the box was shown and
+   * unchecked, which must not be silently ignored.
    */
   waiverOnFile?: boolean;
 }
@@ -143,9 +148,12 @@ export function validateRentalBookingRequest(
   ) {
     return "partySize must be a positive integer";
   }
-  const waiverFieldsOmitted =
-    body.waiverAccepted === undefined && body.waiverName === undefined;
-  if (!(opts.waiverOnFile && waiverFieldsOmitted)) {
+  // A covered renter bypasses the ask entirely UNLESS they explicitly
+  // declined — any other value (omitted, partial, or true) is trusted to
+  // server-side coverage, since the endpoint ignores it either way. See
+  // ValidateRentalBookingOpts.waiverOnFile for the full rationale.
+  const explicitlyDeclined = body.waiverAccepted === false;
+  if (!(opts.waiverOnFile && !explicitlyDeclined)) {
     if (!body.waiverAccepted) return "waiver must be accepted to book";
     if (!body.waiverName || body.waiverName.trim().length === 0) {
       return "waiver signature name is required";

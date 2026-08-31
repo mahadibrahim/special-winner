@@ -775,4 +775,29 @@ describe("GET /api/self-serve/[token] (context) — field_rental annual waiver",
     const body = await res.json();
     expect(body.outstanding.waiver).toBe(true);
   });
+
+  // Regression for a fix-round finding: resolve-signer.ts's field_rental
+  // branch used to call resolvePerson (find-or-CREATE) on every resolution
+  // — including THIS context GET, which the self-serve PayCard polls every
+  // ~2s. A read mutating the DB is wrong on its own, and with no unique
+  // index on family_members.self_user_id, concurrent polls could race
+  // duplicate self rows. The branch is now a read-only lookup; only the
+  // waiver POST (tested in waiver.test.ts) may create.
+  it("polling the context GET for a renter with NO person row creates no family_members row", async () => {
+    const userId = await makeAccountedRenter("never-signed");
+    const token = await mintRentalToken(userId, 62);
+
+    // Simulate a few PayCard polling cycles.
+    for (let i = 0; i < 3; i++) {
+      const res = await fetch(`${BASE}/api/self-serve/${token}`);
+      expect(res.status).toBe(200);
+      expect((await res.json()).outstanding.waiver).toBe(true);
+    }
+
+    const rows = await getDb()
+      .select({ id: familyMembers.id })
+      .from(familyMembers)
+      .where(eq(familyMembers.selfUserId, userId));
+    expect(rows).toHaveLength(0);
+  });
 });
