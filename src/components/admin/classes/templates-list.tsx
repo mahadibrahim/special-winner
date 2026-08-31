@@ -4,6 +4,7 @@ import { GraduationCap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
+import { ClassesAdminTabs } from "@/components/admin/classes/classes-admin-tabs";
 import type { ClassSlotTemplate } from "@/lib/db/schema/classes";
 
 type TemplateRow = ClassSlotTemplate & { enrolledCount: number };
@@ -35,6 +36,7 @@ function formatAgeRange(minAge: number | null, maxAge: number | null): string {
 export default function TemplatesList({ templates }: TemplatesListProps) {
   return (
     <div className="space-y-6">
+      <ClassesAdminTabs active="templates" />
       <header className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-ink">Classes</h1>

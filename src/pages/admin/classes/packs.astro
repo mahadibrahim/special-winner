@@ -1,0 +1,34 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { AdminLayout } from '@/components/admin/admin-layout';
+import { getPrimaryRoleName } from '@/lib/auth';
+import { getDb } from '@/lib/db';
+import { classPackProducts } from '@/lib/db/schema/classes';
+import { eq, asc } from 'drizzle-orm';
+import PacksList from '@/components/admin/classes/packs-list';
+
+export const prerender = false;
+
+const user = Astro.locals.user!;
+const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
+const orgId = Astro.locals.organization?.id;
+
+const packs = orgId
+  ? await getDb()
+      .select()
+      .from(classPackProducts)
+      .where(eq(classPackProducts.organizationId, orgId))
+      .orderBy(asc(classPackProducts.displayOrder), asc(classPackProducts.createdAt))
+  : [];
+---
+
+<BaseLayout title="Class Packs — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    role={primaryRole}
+    currentPath="/admin/classes/packs"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <PacksList client:load packs={packs} />
+  </AdminLayout>
+</BaseLayout>

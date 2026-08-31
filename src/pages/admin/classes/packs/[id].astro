@@ -1,0 +1,41 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { AdminLayout } from '@/components/admin/admin-layout';
+import { getPrimaryRoleName } from '@/lib/auth';
+import { getDb } from '@/lib/db';
+import { classPackProducts } from '@/lib/db/schema/classes';
+import { and, eq } from 'drizzle-orm';
+import PackForm from '@/components/admin/classes/pack-form';
+
+export const prerender = false;
+
+const user = Astro.locals.user!;
+const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
+const orgId = Astro.locals.organization?.id;
+const packId = Astro.params.id!;
+
+if (!orgId) {
+  return Astro.redirect('/admin/classes/packs');
+}
+
+const [pack] = await getDb()
+  .select()
+  .from(classPackProducts)
+  .where(and(eq(classPackProducts.id, packId), eq(classPackProducts.organizationId, orgId)))
+  .limit(1);
+
+if (!pack) {
+  return Astro.redirect('/admin/classes/packs');
+}
+---
+
+<BaseLayout title="Edit Class Pack — Admin — Aspire Sports" navigation={false} footer={false}>
+  <AdminLayout
+    client:load
+    role={primaryRole}
+    currentPath="/admin/classes/packs"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <PackForm client:load pack={pack} />
+  </AdminLayout>
+</BaseLayout>
