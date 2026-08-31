@@ -350,6 +350,17 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
    *  `already_booked` soft-success path (no real spend to report) and
    *  reset on every fresh `load()`. */
   const [paidWith, setPaidWith] = useState<string | null>(null)
+  /** Snapshotted ONCE at the moment of spend — `remainingCreditsAfterSpend(
+   *  child.credits)` MUST NOT be called at render time, because `onBooked()`
+   *  triggers a background `/api/classes/summary` refetch that updates the
+   *  parent's `children` state (and therefore this modal's `child` prop)
+   *  WITHOUT unmounting the modal. Once that refetch lands — well under a
+   *  second later — `child.credits` is already server-decremented, and
+   *  recomputing from it at render time would subtract the spend a SECOND
+   *  time (showing "0 left" when 1 remains), disagreeing with the toast
+   *  that already fired. Captured alongside `paidWith`; reset everywhere
+   *  `paidWith` resets. */
+  const [creditsLeftAfterSpend, setCreditsLeftAfterSpend] = useState<number | null>(null)
 
   const [waiverAccepted, setWaiverAccepted] = useState(false)
   const [waiverSignerName, setWaiverSignerName] = useState("")
@@ -379,6 +390,7 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
     setExhaustedOffer(null)
     setBookedSession(null)
     setPaidWith(null)
+    setCreditsLeftAfterSpend(null)
     setWaiverAccepted(false)
     setWaiverSignerName("")
     try {
@@ -464,8 +476,19 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
       const okBody = await parseJson(res)
       if (myGeneration !== generationRef.current) return
       const spentPaymentMethod = typeof okBody.paymentMethod === "string" ? okBody.paymentMethod : null
+      // Snapshot the remaining-credits count HERE, synchronously, off the
+      // `child` prop as it stands RIGHT NOW — this is the last point before
+      // `onBooked()` (below) kicks off the background summary refetch that
+      // will eventually update `child.credits` to the already-decremented
+      // server value. Storing the derived number (not recomputing from
+      // `child.credits` at render time) is what keeps the dialog from
+      // double-subtracting once that refetch lands — see the state's own
+      // doc comment.
+      const creditsLeft =
+        spentPaymentMethod === "pack_credit" ? remainingCreditsAfterSpend(child.credits) : null
       setBookedSession(session)
       setPaidWith(spentPaymentMethod)
+      setCreditsLeftAfterSpend(creditsLeft)
       setPhase("success")
       // Feedback survives even if the modal gets dismissed some other way
       // (e.g. a stray Escape) before the user reads the success panel —
@@ -480,9 +503,8 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
       // parent watching their credit balance has no way to tell the two
       // apart from the toast alone.
       if (spentPaymentMethod === "pack_credit") {
-        const remaining = remainingCreditsAfterSpend(child.credits)
         toast.success(
-          `${child.name}'s session is booked — 1 credit used, ${remaining} left.`,
+          `${child.name}'s session is booked — 1 credit used, ${creditsLeft} left.`,
         )
       } else {
         toast.success(`${child.name}'s make-up class is booked for ${formatDateTime(session.startsAt)}.`)
@@ -513,10 +535,11 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
       // (e.g. a second click, or a session the picker didn't know to
       // exclude). Same "stay open, let the user dismiss" rule as the
       // primary success path above. No real spend happened on THIS
-      // attempt, so paidWith is explicitly cleared rather than left over
-      // from a prior try.
+      // attempt, so paidWith/creditsLeftAfterSpend are explicitly cleared
+      // rather than left over from a prior try.
       setBookedSession(session)
       setPaidWith(null)
+      setCreditsLeftAfterSpend(null)
       setPhase("success")
       toast.success(`${child.name} is already booked for that class.`)
       onBooked()
@@ -811,7 +834,7 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
               {child.name}'s {paidWith === "pack_credit" ? "session" : "make-up class"} is booked
               for {formatDateTime(bookedSession.startsAt)}
               {paidWith === "pack_credit"
-                ? ` — 1 credit used, ${remainingCreditsAfterSpend(child.credits)} left.`
+                ? ` — 1 credit used, ${creditsLeftAfterSpend} left.`
                 : "."}
             </DialogDescription>
             <Button type="button" onClick={handleClose}>

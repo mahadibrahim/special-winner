@@ -291,6 +291,17 @@ test.describe("Class credits — family dashboard", () => {
     });
     await dialog.locator("#makeup-waiver-accept").click();
     await dialog.locator("#makeup-waiver-signer-name").fill("Credits E2E Parent");
+
+    // Registered BEFORE the click that triggers the booking (which fires
+    // `onBooked()` → a background `/api/classes/summary` refetch — see
+    // family-classes-card.tsx's `creditsLeftAfterSpend` doc comment) so it
+    // can only catch THAT refetch, never the modal's own earlier
+    // /api/public/class-schedule / /api/family-members load calls or the
+    // family card's initial pre-booking summary fetch (both already
+    // resolved long before this point).
+    const summaryRefetch = page.waitForResponse(
+      (res) => res.url().includes("/api/classes/summary") && res.request().method() === "GET",
+    );
     await dialog.getByRole("button", { name: "Sign waiver & book class" }).click();
 
     await expect(dialog.getByText("You're all set!")).toBeVisible({ timeout: 20_000 });
@@ -298,9 +309,20 @@ test.describe("Class credits — family dashboard", () => {
     // pack/block credit spend must read differently from a plain allotment
     // booking, not the generic "make-up class is booked" line. The child
     // started this test with 2 credits (see the grant seeded in beforeAll),
-    // so after this one spend the modal's pre-refresh snapshot math says 1
-    // left.
+    // so after this one spend the count is 1 left.
     await expect(dialog.getByText(/1 credit used, 1 left\./)).toBeVisible();
+
+    // Review Finding (regression): the success copy MUST come from a value
+    // snapshotted at spend time, not recomputed at render time from the
+    // live `child` prop — that prop updates in place (no unmount) once
+    // this background refetch lands, and `child.credits` is by then
+    // already server-decremented. Explicitly wait for the refetch to
+    // finish, then re-assert the EXACT SAME text still shows — a
+    // render-time recompute would double-subtract and flip this to
+    // "0 left", silently disagreeing with the toast already shown.
+    await summaryRefetch;
+    await expect(dialog.getByText(/1 credit used, 1 left\./)).toBeVisible();
+
     // DialogContent renders its OWN unlabeled "Close" (the radix X in the
     // corner) alongside MakeUpModal's success-panel Close button — both
     // resolve to accessible name "Close", so scope to the first (the
