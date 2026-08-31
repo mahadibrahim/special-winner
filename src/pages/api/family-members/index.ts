@@ -5,7 +5,28 @@ import { eq, or, asc } from "drizzle-orm";
 import { z } from "zod";
 import { getPostHogServer } from "@/lib/posthog-server";
 import { recordConsent } from "@/lib/consents/record";
+import { hasValidLiabilityWaiver } from "@/lib/consents/liability";
 import { resolvePerson } from "@/lib/registrations/resolve-person";
+
+/**
+ * Cap on the per-person annual-waiver probe below. `hasValidLiabilityWaiver`
+ * is single-person by design (see its doc comment) and this endpoint returns
+ * EVERY person the caller owns — unbounded, unlike /api/classes/summary's own
+ * MAX_CHILDREN-capped list. Real families are small; long-lived test/staff
+ * accounts are not (the shared `parent@test.aspiresports.com` fixture has
+ * accumulated ~1,800 rows across the suite's history), and a fan-out that
+ * size on a modal open is not worth paying.
+ *
+ * The cap takes the NEWEST rows, not the oldest — the same correction
+ * /api/classes/summary documents for its own cap. The list itself is ordered
+ * oldest-first for display, but an oldest-first CAP would drop exactly the
+ * child a parent just added, i.e. the one most likely to be booked next.
+ *
+ * Beyond the cap the flag is `false`, which is the SAFE default: false means
+ * "show the waiver panel", so the worst case is asking a covered family to
+ * sign again — never charging one with no release on record.
+ */
+const WAIVER_PROBE_LIMIT = 25;
 
 const createFamilyMemberSchema = z.object({
   firstName: z.string().min(1, "First name is required").max(100),
@@ -23,8 +44,23 @@ const createFamilyMemberSchema = z.object({
   }),
 });
 
-// GET - List family members for current user
-export const GET: APIRoute = async ({ locals }) => {
+/**
+ * GET - List family members for current user.
+ *
+ * `?includeWaiver=1` additionally resolves `waiverOnFile` per person — the
+ * canonical ANNUAL liability predicate (src/lib/consents/liability.ts) scoped
+ * to the resolved organization. It is OPT-IN because it costs one indexed
+ * lookup per person and only the class booking modals need it: they use the
+ * flag to skip the guardian-waiver panel for a child who is already covered,
+ * instead of asking every family to re-sign at the paid door. Callers that
+ * don't ask (the registration wizard, the dashboard) pay nothing and see an
+ * unchanged payload.
+ *
+ * Without an organization context (an unmapped host) the flag is `false` for
+ * everyone — waivers are per-organization legal releases, so there is no
+ * honest org-agnostic answer, and `false` errs toward asking.
+ */
+export const GET: APIRoute = async ({ locals, url }) => {
   try {
     const user = locals.user;
     if (!user) {
@@ -47,9 +83,26 @@ export const GET: APIRoute = async ({ locals }) => {
       )
       .orderBy(asc(familyMembers.createdAt));
 
+    const organizationId = locals.organization?.id ?? null;
+    const wantsWaiver =
+      url.searchParams.get("includeWaiver") === "1" && organizationId !== null;
+    const waiverOnFileById = new Map<string, boolean>(
+      wantsWaiver
+        ? await Promise.all(
+            rows
+              .slice(-WAIVER_PROBE_LIMIT)
+              .map(
+                async (r) =>
+                  [r.id, await hasValidLiabilityWaiver(r.id, organizationId!, db)] as const,
+              ),
+          )
+        : [],
+    );
+
     const members = rows.map((r) => ({
       ...r,
       kind: r.selfUserId ? "self" : "dependent",
+      ...(wantsWaiver ? { waiverOnFile: waiverOnFileById.get(r.id) ?? false } : {}),
     }));
 
     return new Response(JSON.stringify({ familyMembers: members }), {

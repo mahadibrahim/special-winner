@@ -38,6 +38,13 @@ export interface ChildPickerMember {
   lastName: string
   birthDate: string | null
   kind: "self" | "dependent"
+  /** Whether this person holds a valid ANNUAL liability waiver for the
+   *  resolved org. Only populated when the caller passes
+   *  `includeWaiverStatus` (the endpoint's `?includeWaiver=1`); `undefined`
+   *  and `false` both mean "ask for a signature", so a caller that forgets
+   *  the prop degrades to the old always-ask behaviour rather than silently
+   *  skipping consent. */
+  waiverOnFile?: boolean
 }
 
 export interface ChildAgeRange {
@@ -58,6 +65,11 @@ export interface ChildPickerProps {
   /** `"dependent"` hard-excludes `kind: "self"` rows — see the header
    *  comment. Default `"any"` renders every row returned by the endpoint. */
   participantKind?: "dependent" | "any"
+  /** Ask the endpoint for each person's annual-waiver status
+   *  (`ChildPickerMember.waiverOnFile`). Opt-in: it costs one indexed lookup
+   *  per person server-side, and only the booking flows that can skip a
+   *  waiver panel need it. */
+  includeWaiverStatus?: boolean
 }
 
 /** Mirrors `ageOnDate` in src/lib/classes/book-child.ts (also duplicated in
@@ -96,6 +108,7 @@ export function ChildPicker({
   onSelect,
   disabled = false,
   participantKind = "any",
+  includeWaiverStatus = false,
 }: ChildPickerProps) {
   const [phase, setPhase] = useState<Phase>("loading")
   const [members, setMembers] = useState<ChildPickerMember[]>([])
@@ -117,7 +130,9 @@ export function ChildPicker({
   async function load() {
     setPhase("loading")
     try {
-      const res = await fetch("/api/family-members")
+      const res = await fetch(
+        includeWaiverStatus ? "/api/family-members?includeWaiver=1" : "/api/family-members",
+      )
       if (!res.ok) throw new Error("bad status")
       const body = (await res.json()) as { familyMembers: ChildPickerMember[] }
       setMembers(body.familyMembers)
@@ -165,8 +180,17 @@ export function ChildPicker({
               : "Could not add player — please try again.";
         throw new Error(message)
       }
-      const data = (await res.json()) as { familyMember: Omit<ChildPickerMember, "kind"> }
-      const newMember: ChildPickerMember = { ...data.familyMember, kind: "dependent" }
+      const data = (await res.json()) as {
+        familyMember: Omit<ChildPickerMember, "kind" | "waiverOnFile">
+      }
+      // A player added seconds ago cannot have a waiver on file — say so
+      // explicitly rather than leaving it undefined, so the caller's skip
+      // logic reads a real answer instead of an absence.
+      const newMember: ChildPickerMember = {
+        ...data.familyMember,
+        kind: "dependent",
+        waiverOnFile: false,
+      }
       setMembers((prev) => [...prev, newMember])
       setShowAdd(false)
       resetAddForm()

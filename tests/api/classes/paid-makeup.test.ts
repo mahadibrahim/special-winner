@@ -37,10 +37,13 @@
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import Stripe from "stripe";
-import { eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { dropInRateCard } from "@/lib/db/schema/drop-in";
+import { dropInBookings, dropInRateCard } from "@/lib/db/schema/drop-in";
+import { consents } from "@/lib/db/schema/consents";
 import { membershipTiers } from "@/lib/db/schema/memberships";
+import { WAIVER_VALID_DAYS, hasValidLiabilityWaiver } from "@/lib/consents/liability";
+import { handleDropInCheckoutComplete } from "@/lib/stripe/handle-dropin-checkout-complete";
 import { apiFetch, getAuthCookie } from "../setup/test-helpers";
 import { createTestDropInSession } from "../../utils/dropin-helpers";
 import {
@@ -71,7 +74,15 @@ let cookie: string;
 // single booking.
 const createdTierIds: string[] = [];
 
+/** Children the annual-waiver suite below creates — every consents row and
+ *  booking row written against them is deleted in `afterAll` (the shared
+ *  staging DB accumulates rows across runs, and a leaked `consents` row would
+ *  silently satisfy a LATER run's "no waiver on file" fixture). */
+const waiverChildIds: string[] = [];
+
 const MEMBER_RATE_CENTS = 1499;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 beforeAll(async () => {
   ({ organizationId, venueId, parentUserId } = await resolveClassTestFixtures());
@@ -82,6 +93,13 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  const db = getDb();
+  if (waiverChildIds.length > 0) {
+    await db.delete(consents).where(inArray(consents.familyMemberId, waiverChildIds));
+    await db
+      .delete(dropInBookings)
+      .where(inArray(dropInBookings.familyMemberId, waiverChildIds));
+  }
   await cleanupTestMembershipTiers(createdTierIds);
 });
 
@@ -96,6 +114,23 @@ async function createClassSession(startsAt: Date): Promise<string> {
     kind: "class",
     capacity: 10,
     startsAt,
+    memberRateCents: MEMBER_RATE_CENTS,
+  });
+  return ctx.sessionId;
+}
+
+/** A class session carrying BOTH class rates, so the paid door prices it for
+ *  a child with no membership (the plain public class rate) as well as for a
+ *  member child. `createClassSession` above sets only the member rate, which
+ *  409s `class_rate_not_configured` on the no-membership branch. */
+async function createPublicPricedClassSession(startsAt: Date): Promise<string> {
+  const ctx = await createTestDropInSession({
+    organizationId,
+    venueId,
+    kind: "class",
+    capacity: 10,
+    startsAt,
+    sessionRateCents: MEMBER_RATE_CENTS,
     memberRateCents: MEMBER_RATE_CENTS,
   });
   return ctx.sessionId;
@@ -336,5 +371,325 @@ describe("Unpriced class session → 409 class_rate_not_configured (never the ad
     if (res.status === 200 && body.paymentRequired === true) {
       expect(body.amountCents).toBe(card.defaultSessionRateCents);
     }
+  });
+});
+
+/**
+ * ANNUAL WAIVER on the PAID child door (`POST /api/dropin/bookings` with
+ * `familyMemberId` → Stripe → `fulfillDropInBookingPayment`).
+ *
+ * The free child door (`/api/classes/book`) already honours the canonical
+ * annual predicate: a child with a valid `consents` row is never asked to
+ * re-sign. The paid door had no such notion — every paid make-up landed
+ * `waiverSigned: false` even for a family who signed a fortnight ago, and a
+ * signature collected at the paid door was written onto the booking row only,
+ * never into `consents`. Both halves are covered here:
+ *
+ *   (a) valid waiver + no client waiver fields → the endpoint stamps
+ *       `waiver_on_file` into the checkout metadata and fulfillment writes
+ *       `waiverSigned: true, waiverSignedBy: "On file (annual waiver)"`;
+ *   (b) NO valid waiver + no client fields → the booking is still created
+ *       (the server stays permissive — post-payment waiver capture is the
+ *       backstop, matching the adult drop-in posture) but `waiverSigned` is
+ *       false, which is what makes the client-side panel the real gate;
+ *   (c) a FRESH client signature → fulfillment writes the canonical
+ *       `consents` row, carrying the ip/user-agent captured at the BOOKING
+ *       endpoint (the webhook has no request context of its own).
+ *
+ * Fulfillment is driven by calling `handleDropInCheckoutComplete` directly
+ * with a synthetic `Stripe.Checkout.Session` — the pattern in
+ * tests/api/class-pack-purchase.test.ts and tests/api/webhooks/
+ * dropin-checkout.test.ts. A real webhook delivery is unreachable from an
+ * API test, and the handler is the whole contract.
+ */
+const WAIVER_ON_FILE_ATTRIBUTION = "On file (annual waiver)";
+
+/** Direct `consents` insert — the row shape a real signature produces
+ *  (`expiresAt = signedAt + WAIVER_VALID_DAYS`), with the age of the
+ *  signature as the only knob. Mirrors tests/api/consents-liability.test.ts. */
+async function insertLiabilityConsent(opts: {
+  familyMemberId: string;
+  signedDaysAgo: number;
+}): Promise<void> {
+  const signedAt = new Date(Date.now() - opts.signedDaysAgo * DAY_MS);
+  await getDb()
+    .insert(consents)
+    .values({
+      familyMemberId: opts.familyMemberId,
+      organizationId,
+      type: "liability",
+      status: "granted",
+      signedByUserId: parentUserId,
+      signedByName: "Parent Test",
+      signedAt,
+      expiresAt: new Date(signedAt.getTime() + WAIVER_VALID_DAYS * DAY_MS),
+    });
+}
+
+async function newWaiverChild(label: string): Promise<string> {
+  const id = await createTestChild(parentUserId, `${label}-${Date.now()}`);
+  waiverChildIds.push(id);
+  return id;
+}
+
+/** The fulfillment metadata contract `POST /api/dropin/bookings` stamps for a
+ *  paid CHILD booking, on a realistic completed payment-mode Checkout Session.
+ *  Only the fields the handler reads are real. */
+function makeChildCheckoutSession(o: {
+  dropInSessionId: string;
+  familyMemberId: string;
+  paymentIntentId: string;
+  waiverOnFile?: boolean;
+  waiverName?: string;
+  waiverIp?: string;
+  waiverUa?: string;
+}): Stripe.Checkout.Session {
+  return {
+    id: `cs_test_${o.paymentIntentId}`,
+    object: "checkout.session",
+    amount_total: MEMBER_RATE_CENTS,
+    currency: "usd",
+    payment_intent: o.paymentIntentId,
+    payment_status: "paid",
+    status: "complete",
+    mode: "payment",
+    metadata: {
+      type: "dropin_booking",
+      session_id: o.dropInSessionId,
+      user_id: parentUserId,
+      organization_id: organizationId,
+      payment_method: "card_online",
+      membership_id: "",
+      family_member_id: o.familyMemberId,
+      waiver_signed_at: o.waiverName ? new Date().toISOString() : "",
+      waiver_name: o.waiverName ?? "",
+      ...(o.waiverOnFile ? { waiver_on_file: "1" } : {}),
+      ...(o.waiverIp ? { waiver_ip: o.waiverIp } : {}),
+      ...(o.waiverUa ? { waiver_ua: o.waiverUa } : {}),
+    },
+  } as unknown as Stripe.Checkout.Session;
+}
+
+async function bookingForSession(sessionId: string) {
+  const [row] = await getDb()
+    .select()
+    .from(dropInBookings)
+    .where(eq(dropInBookings.sessionId, sessionId))
+    .limit(1);
+  return row;
+}
+
+describe("Paid child door — annual waiver stamping at the booking endpoint", () => {
+  itWithStripe(
+    "stamps waiver_on_file when the child's annual waiver is still valid",
+    async () => {
+      const childId = await newWaiverChild("WaiverOnFileChild");
+      await insertLiabilityConsent({ familyMemberId: childId, signedDaysAgo: 14 });
+
+      const sessionId = await createPublicPricedClassSession(hoursFromNow(9 * 24));
+      const res = await apiFetch("/api/dropin/bookings", {
+        method: "POST",
+        cookie,
+        body: JSON.stringify({ sessionId, familyMemberId: childId }),
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+
+      const stripeSession = await stripe!.checkout.sessions.retrieve(body.checkoutSessionId);
+      expect(stripeSession.metadata?.waiver_on_file).toBe("1");
+      // No signature was collected in THIS request — the on-file stamp is a
+      // pointer to the consents row, not a claim that someone just signed.
+      expect(stripeSession.metadata?.waiver_name).toBe("");
+    },
+  );
+
+  itWithStripe(
+    "does NOT stamp waiver_on_file when the only signature has expired",
+    async () => {
+      const childId = await newWaiverChild("WaiverExpiredChild");
+      await insertLiabilityConsent({
+        familyMemberId: childId,
+        signedDaysAgo: WAIVER_VALID_DAYS + 30,
+      });
+
+      const sessionId = await createPublicPricedClassSession(hoursFromNow(10 * 24));
+      const res = await apiFetch("/api/dropin/bookings", {
+        method: "POST",
+        cookie,
+        body: JSON.stringify({ sessionId, familyMemberId: childId }),
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+
+      const stripeSession = await stripe!.checkout.sessions.retrieve(body.checkoutSessionId);
+      expect(stripeSession.metadata?.waiver_on_file ?? "").toBe("");
+    },
+  );
+
+  itWithStripe(
+    "threads the signing ip/user-agent into metadata, truncated to Stripe's 500-char limit",
+    async () => {
+      const childId = await newWaiverChild("WaiverFreshSigChild");
+      const sessionId = await createPublicPricedClassSession(hoursFromNow(11 * 24));
+      // Real-world UA strings can exceed Stripe's 500-char metadata value cap;
+      // an over-long value makes the whole payment create throw, which would
+      // turn a signature into a failed checkout.
+      const longUa = `Mozilla/5.0 ${"x".repeat(700)}`;
+
+      const res = await apiFetch("/api/dropin/bookings", {
+        method: "POST",
+        cookie,
+        headers: { "user-agent": longUa },
+        body: JSON.stringify({
+          sessionId,
+          familyMemberId: childId,
+          waiverAccepted: true,
+          waiverName: "Parent Test",
+        }),
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+
+      const stripeSession = await stripe!.checkout.sessions.retrieve(body.checkoutSessionId);
+      expect(stripeSession.metadata?.waiver_name).toBe("Parent Test");
+      expect(stripeSession.metadata?.waiver_ua?.length).toBe(500);
+      expect(stripeSession.metadata?.waiver_ua?.startsWith("Mozilla/5.0 ")).toBe(true);
+    },
+  );
+});
+
+/**
+ * The client half of the same door: the drop-in modal only skips its guardian
+ * waiver panel when the child-list endpoint says the child is covered. That
+ * flag is opt-in (`?includeWaiver=1`) so the registration wizard and dashboard
+ * keep their unchanged, un-probed payload.
+ */
+describe("GET /api/family-members?includeWaiver=1 — the modal's waiver probe", () => {
+  it("reports waiverOnFile per person, and only when asked", async () => {
+    const coveredId = await newWaiverChild("ProbeCoveredChild");
+    const uncoveredId = await newWaiverChild("ProbeUncoveredChild");
+    await insertLiabilityConsent({ familyMemberId: coveredId, signedDaysAgo: 3 });
+
+    const probed = await apiFetch("/api/family-members?includeWaiver=1", { cookie });
+    expect(probed.status).toBe(200);
+    const probedBody = await probed.json();
+    const byId = new Map<string, any>(
+      probedBody.familyMembers.map((m: any) => [m.id, m]),
+    );
+    expect(byId.get(coveredId)?.waiverOnFile).toBe(true);
+    expect(byId.get(uncoveredId)?.waiverOnFile).toBe(false);
+
+    // Unprobed callers see no such field at all — an absent flag reads as
+    // "ask for a signature" on the client, i.e. the pre-change behaviour.
+    const plain = await apiFetch("/api/family-members", { cookie });
+    expect(plain.status).toBe(200);
+    const plainBody = await plain.json();
+    const plainCovered = plainBody.familyMembers.find((m: any) => m.id === coveredId);
+    expect(plainCovered).toBeDefined();
+    expect(plainCovered.waiverOnFile).toBeUndefined();
+  });
+});
+
+describe("Paid child door — fulfillment writes the waiver state", () => {
+  it("(a) on-file metadata → confirmed booking marked signed, attributed to the annual waiver", async () => {
+    const childId = await newWaiverChild("FulfilOnFileChild");
+    const sessionId = await createClassSession(hoursFromNow(12 * 24));
+
+    const result = await handleDropInCheckoutComplete(
+      makeChildCheckoutSession({
+        dropInSessionId: sessionId,
+        familyMemberId: childId,
+        paymentIntentId: `pi_test_onfile_${Date.now()}`,
+        waiverOnFile: true,
+      }),
+    );
+    expect(result.status).toBe("processed");
+
+    const row = await bookingForSession(sessionId);
+    expect(row.familyMemberId).toBe(childId);
+    expect(row.waiverSigned).toBe(true);
+    expect(row.waiverSignedBy).toBe(WAIVER_ON_FILE_ATTRIBUTION);
+    // No fresh signature happened, so there is no signature DATE — and a row
+    // with a date is exactly what the legacy fallback in
+    // hasValidLiabilityWaiver treats as a signature. A derived copy must
+    // never be able to renew the very window it was derived from.
+    expect(row.waiverSignedAt).toBeNull();
+    expect(row.waiverConsentVariant).toBeNull();
+
+    // …and it wrote no consents row: the on-file branch is a READ.
+    const rows = await getDb()
+      .select()
+      .from(consents)
+      .where(and(eq(consents.familyMemberId, childId), eq(consents.type, "liability")));
+    expect(rows).toHaveLength(0);
+  });
+
+  it("(b) no waiver on file and no client fields → booking still created, unsigned", async () => {
+    const childId = await newWaiverChild("FulfilUnsignedChild");
+    const sessionId = await createClassSession(hoursFromNow(13 * 24));
+
+    const result = await handleDropInCheckoutComplete(
+      makeChildCheckoutSession({
+        dropInSessionId: sessionId,
+        familyMemberId: childId,
+        paymentIntentId: `pi_test_unsigned_${Date.now()}`,
+      }),
+    );
+    expect(result.status).toBe("processed");
+
+    const row = await bookingForSession(sessionId);
+    // Permissive by design: the customer paid, so they get their spot. The
+    // post-payment waiver capture surface is the backstop, exactly as it is
+    // for an adult drop-in.
+    expect(row.status).toBe("confirmed");
+    expect(row.waiverSigned).toBe(false);
+    expect(row.waiverSignedBy).toBeNull();
+  });
+
+  it("(c) fresh client signature → canonical consents row with the ip/UA from metadata", async () => {
+    const childId = await newWaiverChild("FulfilFreshSigChild");
+    const sessionId = await createClassSession(hoursFromNow(14 * 24));
+
+    expect(await hasValidLiabilityWaiver(childId, organizationId)).toBe(false);
+
+    const result = await handleDropInCheckoutComplete(
+      makeChildCheckoutSession({
+        dropInSessionId: sessionId,
+        familyMemberId: childId,
+        paymentIntentId: `pi_test_freshsig_${Date.now()}`,
+        waiverName: "Parent Test",
+        waiverIp: "203.0.113.9",
+        waiverUa: "vitest-paid-door",
+      }),
+    );
+    expect(result.status).toBe("processed");
+
+    const row = await bookingForSession(sessionId);
+    expect(row.waiverSigned).toBe(true);
+    expect(row.waiverSignedBy).toBe("Parent Test");
+    expect(row.waiverSignedAt).not.toBeNull();
+    // Child paid path is always a guardian signing for a minor.
+    expect(row.waiverConsentVariant).toBe("guardian");
+
+    const [consent] = await getDb()
+      .select()
+      .from(consents)
+      .where(and(eq(consents.familyMemberId, childId), eq(consents.type, "liability")))
+      .orderBy(desc(consents.signedAt))
+      .limit(1);
+    expect(consent).toBeDefined();
+    expect(consent.organizationId).toBe(organizationId);
+    expect(consent.status).toBe("granted");
+    expect(consent.signedByUserId).toBe(parentUserId);
+    expect(consent.signedByName).toBe("Parent Test");
+    // The webhook has no request context — ip/UA can only reach it through
+    // the checkout metadata the booking endpoint stamped.
+    expect(consent.ipAddress).toBe("203.0.113.9");
+    expect(consent.userAgent).toBe("vitest-paid-door");
+    expect(consent.notes).toContain("guardian");
+
+    // The write satisfies the read — this child's NEXT paid booking takes the
+    // on-file branch instead of asking again.
+    expect(await hasValidLiabilityWaiver(childId, organizationId)).toBe(true);
   });
 });

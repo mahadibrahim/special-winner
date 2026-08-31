@@ -32,6 +32,11 @@
  * normal adult drop-in booking) → behavior is unchanged from before this
  * field existed.
  *
+ * The child path is also the ANNUAL-WAIVER door: before minting the payment
+ * this endpoint consults `hasValidLiabilityWaiver` and stamps the outcome
+ * into the checkout metadata (`waiver_on_file`, or `waiver_ip`/`waiver_ua`
+ * for a fresh signature) — see the block at the metadata site below.
+ *
  * Price for the child path is NOT taken from the client (the 402 quote is
  * informational only, from an unrelated request) and NOT from the parent's
  * own adult membership (irrelevant to the child). It is re-derived here by
@@ -67,6 +72,13 @@ import {
 } from "@/lib/dropin/create-checkout";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
 import { collectAdAttribution } from "@/lib/analytics/parse-cookies";
+import { hasValidLiabilityWaiver } from "@/lib/consents/liability";
+
+/** Stripe rejects a metadata VALUE longer than 500 characters, and it rejects
+ *  the whole payment create — so an over-long user-agent would turn a real
+ *  signature into a failed checkout. Truncate rather than drop: a 500-char
+ *  prefix still identifies the browser. */
+const STRIPE_METADATA_VALUE_MAX = 500;
 
 export const prerender = false;
 
@@ -140,7 +152,7 @@ const json = (body: unknown, status: number) =>
     headers: { "Content-Type": "application/json" },
   });
 
-export const POST: APIRoute = async ({ request, locals, url }) => {
+export const POST: APIRoute = async ({ request, locals, url, clientAddress }) => {
   if (!locals.user) {
     return json({ error: "Unauthorized" }, 401);
   }
@@ -409,6 +421,45 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
     return json({ error: "Stripe not configured" }, 500);
   }
 
+  // ANNUAL WAIVER (src/lib/consents/liability.ts) — the CHILD paid door.
+  //
+  // Two mutually exclusive outcomes, both encoded as checkout metadata so the
+  // webhook (which inserts the row, and has no request context of its own)
+  // can act on them:
+  //
+  //   waiver_on_file="1"  The child already holds a valid, org-scoped,
+  //                       unexpired liability consent. Nobody signs anything
+  //                       here; fulfillment stamps the booking row
+  //                       `waiverSigned: true` attributed to the annual
+  //                       waiver, with NO signature date (the row is a
+  //                       derived copy — a dated copy would let the legacy
+  //                       fallback in hasValidLiabilityWaiver renew the very
+  //                       window it was derived from). This is the read side
+  //                       of the caller contract: gate on the predicate,
+  //                       never write a consent for a signature nobody gave.
+  //
+  //   waiver_ip/_ua       A FRESH signature came in on this request. The
+  //                       audit trail is taken from the REQUEST CONTEXT,
+  //                       never the body (same rule as /api/classes/book),
+  //                       and threaded through metadata because
+  //                       `recordLiabilityWaiver` runs at fulfillment, in a
+  //                       webhook with no request to read.
+  //
+  // Adult drop-in bookings (no familyMemberId) are untouched: the annual
+  // predicate is keyed on a `family_members` row, and the adult surface
+  // captures its waiver post-payment.
+  const waiverMetadata: Record<string, string> = {};
+  if (familyMemberId) {
+    if (waiverProvided) {
+      const ip = clientAddress ?? "";
+      const ua = request.headers.get("user-agent") ?? "";
+      if (ip) waiverMetadata.waiver_ip = ip.slice(0, STRIPE_METADATA_VALUE_MAX);
+      if (ua) waiverMetadata.waiver_ua = ua.slice(0, STRIPE_METADATA_VALUE_MAX);
+    } else if (await hasValidLiabilityWaiver(familyMemberId, session.organizationId, db)) {
+      waiverMetadata.waiver_on_file = "1";
+    }
+  }
+
   // Inline deferred Payment Element (current UI): mint a bare PaymentIntent
   // carrying the same fulfillment metadata the hosted flow stamps; the card
   // form confirms it in-page, no redirect. Row inserted by
@@ -430,6 +481,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
         brand: brandFromHost(request.headers.get("host") ?? ""),
         ...collectAdAttribution(url, request.headers.get("cookie")),
         ...(familyMemberId ? { family_member_id: familyMemberId } : {}),
+        ...waiverMetadata,
       },
       idempotencyKey: `dropin-embedded:${sessionId}:${locals.user.id}:${attemptId}`,
     });
@@ -458,6 +510,7 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
       brand: brandFromHost(request.headers.get("host") ?? ""),
       ...collectAdAttribution(url, request.headers.get("cookie")),
       ...(familyMemberId ? { family_member_id: familyMemberId } : {}),
+      ...waiverMetadata,
     },
     // Stripe success/cancel redirects return to the booking domain.
     origin: url.origin,

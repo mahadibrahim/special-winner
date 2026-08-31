@@ -58,6 +58,8 @@ import { capturePaymentCompleted } from "@/lib/observability/payment-telemetry";
 import { fireServerPurchaseConversions } from "@/lib/analytics/server-conversions";
 import { stripe } from "@/lib/stripe/client";
 import { logAlert } from "@/lib/logging/alerts";
+import { recordLiabilityWaiver } from "@/lib/consents/liability";
+import { DROPIN_WAIVER_TEXT } from "@/lib/dropin/waiver-text";
 import type { BrandId } from "@/lib/branding/themes";
 
 const VALID_PAYMENT_METHODS: DropInPaymentMethod[] = [
@@ -70,6 +72,20 @@ const VALID_PAYMENT_METHODS: DropInPaymentMethod[] = [
 // Overflow bookings jump straight to the front of the waitlist — they
 // already committed and paid, unlike a voluntary join (priority 0).
 const OVERFLOW_WAITLIST_PRIORITY = 100;
+
+/**
+ * `waiverSignedBy` attribution for a booking covered by the child's ANNUAL
+ * liability waiver rather than a signature taken at purchase — the wording
+ * the caller contract in src/lib/consents/liability.ts prescribes, so the
+ * dashboard/roster surfaces render "who signed" honestly instead of implying
+ * this parent signed again for this class. The canonical evidence is the
+ * `consents` row; this column is a derived copy.
+ */
+const WAIVER_ON_FILE_ATTRIBUTION = "On file (annual waiver)";
+
+/** A transaction handle from `db.transaction(...)` — mirrors the `DbClient`
+ *  shape in src/lib/consents/liability.ts. */
+type Tx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
 
 type HandlerResult =
   | { status: "skipped"; reason: string }
@@ -133,6 +149,31 @@ export async function fulfillDropInBookingPayment(
   // that the session is `kind: "class"` before stamping it, so the webhook
   // trusts it exactly like `membership_id` above — never re-validated here.
   const familyMemberId = md.family_member_id || null;
+  // ANNUAL WAIVER (src/lib/consents/liability.ts), stamped by the booking
+  // endpoint — see the metadata block in api/dropin/bookings/index.ts.
+  // Trusted here exactly like `family_member_id` and `membership_id` above:
+  // the endpoint is the validating boundary, and this handler has no request
+  // context to re-derive an answer from.
+  //
+  //   waiverOnFile   → the child was already covered; write the derived
+  //                    "signed" columns and NOTHING to `consents`
+  //                    (recordLiabilityWaiver is append-only and must only
+  //                    ever see a fresh signature — per its caller contract).
+  //   freshSignature → a human signed on the booking request; the canonical
+  //                    consents row is written below, inside the same
+  //                    transaction as the booking, with the ip/UA the
+  //                    endpoint captured.
+  //
+  // A supplied signature always wins over the on-file flag: the endpoint only
+  // sets one or the other, but if both ever arrived, a real signature is
+  // evidence and must be recorded.
+  const waiverOnFile = waiverName === null && md.waiver_on_file === "1";
+  const bookingWaiverSigned = waiverName !== null || waiverOnFile;
+  const bookingWaiverSignedBy =
+    waiverName ?? (waiverOnFile ? WAIVER_ON_FILE_ATTRIBUTION : null);
+  // Only a FRESH signature gets a variant — it names the text the human was
+  // shown. The child paid path is always a guardian signing for a minor.
+  const bookingWaiverVariant = waiverName !== null && familyMemberId ? "guardian" : null;
   // Re-sanitize even though create-checkout.ts already sanitized before
   // stamping metadata — the webhook is the DB insert boundary, so it never
   // trusts a round-tripped Stripe value without re-checking the allow-list.
@@ -299,14 +340,24 @@ export async function fulfillDropInBookingPayment(
           membershipId,
           stripePaymentIntentId: paymentIntentId,
           teamAssignment: null,
-          waiverSigned: waiverName !== null,
+          waiverSigned: bookingWaiverSigned,
           waiverSignedAt,
-          waiverSignedBy: waiverName,
-          waiverConsentVariant: waiverName !== null && familyMemberId ? "guardian" : null,
+          waiverSignedBy: bookingWaiverSignedBy,
+          waiverConsentVariant: bookingWaiverVariant,
           brand,
           referralSource,
         })
         .returning();
+      // The signature is real even though the seat wasn't — the customer read
+      // the text and agreed to it. Same reasoning book-child.ts applies to its
+      // `session_full` return: `consents` records SIGNATURES, not bookings.
+      await recordFreshGuardianWaiver(tx, {
+        familyMemberId,
+        organizationId: sessionRow.organizationId,
+        userId,
+        waiverName,
+        metadata: md,
+      });
       return { status: "overflow", bookingId: overflowBooking.id };
     }
 
@@ -355,14 +406,24 @@ export async function fulfillDropInBookingPayment(
         membershipId,
         stripePaymentIntentId: paymentIntentId,
         teamAssignment: team,
-        waiverSigned: waiverName !== null,
+        waiverSigned: bookingWaiverSigned,
         waiverSignedAt,
-        waiverSignedBy: waiverName,
-        waiverConsentVariant: waiverName !== null && familyMemberId ? "guardian" : null,
+        waiverSignedBy: bookingWaiverSignedBy,
+        waiverConsentVariant: bookingWaiverVariant,
         brand,
         referralSource,
       })
       .returning();
+
+    // Canonical annual consent for a signature taken at the paid door — in
+    // THIS transaction so it lands with the booking it belongs to.
+    await recordFreshGuardianWaiver(tx, {
+      familyMemberId,
+      organizationId: sessionRow.organizationId,
+      userId,
+      waiverName,
+      metadata: md,
+    });
 
     // Confirmation email is dispatched AFTER the tx commits (see below), not
     // here — an un-awaited send inside the tx is dropped when the serverless
@@ -465,6 +526,57 @@ export async function fulfillDropInBookingPayment(
   }
 
   return result;
+}
+
+/**
+ * Write the canonical annual liability consent for a signature captured at
+ * the paid CHILD door, inside the caller's transaction.
+ *
+ * No-op unless BOTH a `family_members` participant and a fresh signature are
+ * present — an adult drop-in has no person row to key the org-scoped
+ * predicate on (its waiver is captured post-payment on the session page), and
+ * the waiver-on-file branch deliberately writes nothing: per
+ * `recordLiabilityWaiver`'s caller contract the writer is append-only and
+ * must only ever see a signature a human actually just gave.
+ *
+ * IP/user-agent come from the checkout metadata rather than a request — this
+ * runs in a Stripe webhook, which has no request context of its own; the
+ * booking endpoint captured them at signing time (see
+ * api/dropin/bookings/index.ts).
+ *
+ * Replay safety comes from the callers, not from here: `recordLiabilityWaiver`
+ * does not dedupe, but every path into it is downstream of the stripe_events
+ * ledger, the PaymentIntent-id row lookup, and the duplicate-participant
+ * guard — a redelivered event never reaches an insert.
+ */
+async function recordFreshGuardianWaiver(
+  tx: Tx,
+  opts: {
+    familyMemberId: string | null;
+    organizationId: string;
+    userId: string;
+    waiverName: string | null;
+    metadata: Record<string, string>;
+  },
+): Promise<void> {
+  if (!opts.familyMemberId || !opts.waiverName) return;
+  await recordLiabilityWaiver(
+    {
+      familyMemberId: opts.familyMemberId,
+      organizationId: opts.organizationId,
+      signedByUserId: opts.userId,
+      signedByName: opts.waiverName,
+      consentVariant: "guardian",
+      // The text the modal showed the signer — one source, shared by every
+      // drop-in waiver surface (src/lib/dropin/waiver-text.ts). It is far too
+      // long for a Stripe metadata value, so it is resolved here rather than
+      // round-tripped through the payment.
+      consentText: DROPIN_WAIVER_TEXT,
+      ipAddress: opts.metadata.waiver_ip || null,
+      userAgent: opts.metadata.waiver_ua || null,
+    },
+    tx,
+  );
 }
 
 /**

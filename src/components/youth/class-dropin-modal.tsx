@@ -26,8 +26,9 @@ import { formatCents } from "@/lib/classes/ladder-model"
  *     membership allotment OR a pack/block credit transparently (see
  *     src/lib/classes/credits.ts) and returns `paymentMethod`. A visitor with
  *     nothing to spend gets 403 `no_membership` — the ordinary case here.
- *  2. 403 `no_membership` → the GUARDIAN WAIVER, then the paid drop-in
- *     checkout, `POST /api/dropin/bookings { sessionId, familyMemberId,
+ *  2. 403 `no_membership` → the GUARDIAN WAIVER (unless one is already on
+ *     file — see below), then the paid drop-in checkout,
+ *     `POST /api/dropin/bookings { sessionId, familyMemberId,
  *     waiverAccepted, waiverName }` → redirect to `checkoutUrl`. The price
  *     needs no second confirmation (the button already advertised it) but the
  *     signature does: book-child.ts returns `no_membership` BEFORE its
@@ -36,8 +37,16 @@ import { formatCents } from "@/lib/classes/ladder-model"
  *     on record — landing `waiverSigned: false` and the adult self-waiver
  *     framing on the confirmation surface. This is the PRIMARY path for
  *     first-time families, so it is the one that must not skip consent.
- *     Re-signing a family who already has one on file is harmless: the
- *     endpoint just records a fresh signature.
+ *
+ *     A family who ALREADY holds a valid annual waiver skips the panel:
+ *     `ChildPicker` is mounted with `includeWaiverStatus`, so each child
+ *     carries `waiverOnFile` from the canonical org-scoped predicate, and a
+ *     covered child goes straight to payment with NO waiver fields. The
+ *     booking endpoint re-checks the same predicate server-side (the flag is
+ *     a UX probe, never the authority) and stamps the resulting booking "On
+ *     file (annual waiver)". Asking a covered family to re-sign on every
+ *     single drop-in was the friction this removes — and each re-signature
+ *     also appended a redundant row to the consents audit log.
  *  3. 402 `allotment_exhausted` (a member who has used this month up) → a
  *     confirm step showing the REAL `memberRateCents` from the response
  *     before taking the same paid path. Never charge a member a price they
@@ -221,11 +230,23 @@ export function ClassDropInModal({
       // button already advertised — no extra price confirmation. But this is
       // a MINOR's class and book-child.ts bails out here BEFORE its
       // waiver-on-file check, so the guardian release has to be captured
-      // now; otherwise we take money with no signature on record.
+      // now UNLESS one is already on file; otherwise we'd either take money
+      // with no signature on record, or make a covered family sign again
+      // every single time they book.
       if (waiver) {
         // Already signed a moment ago in this same flow (the 422 path came
         // first) — carry it through rather than asking twice.
         await payForClass(child, myGeneration, waiver.signedBy)
+        return
+      }
+      if (child.waiverOnFile === true) {
+        // The annual waiver covers this child (ChildPicker's
+        // `includeWaiverStatus` probe — the same canonical predicate the
+        // engine uses). Send NO waiver fields: the booking endpoint re-checks
+        // server-side and stamps the booking "On file (annual waiver)". Only
+        // `true` skips — undefined/false both mean ask, so a probe that
+        // failed or was never requested falls back to the old behaviour.
+        await payForClass(child, myGeneration)
         return
       }
       setWaiverPurpose("pay")
@@ -369,6 +390,9 @@ export function ClassDropInModal({
                     onSelect={handleSelectChild}
                     disabled={phase === "booking"}
                     participantKind="dependent"
+                    // Drives the 403 branch's waiver-panel skip in
+                    // `attemptBook` — see the comment there.
+                    includeWaiverStatus
                   />
                   {phase === "booking" && (
                     <div

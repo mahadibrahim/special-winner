@@ -456,6 +456,12 @@ test.describe("Drop-in door — guardian waiver gate (regression)", () => {
     // waiver-on-file check for a child with nothing to spend, so the modal
     // must land on the waiver panel, not the paid checkout, on this very
     // first attempt.
+    //
+    // The modal's 403 branch now ALSO skips the panel for a child whose
+    // annual waiver is still valid (`waiverOnFile` from the child-list
+    // probe). This child was created seconds ago under a throwaway parent, so
+    // the flag is false and the panel is still mandatory — which is exactly
+    // what makes this the right fixture for the regression.
     await expect(dialog.getByText("One more step: sign the guardian waiver")).toBeVisible({
       timeout: 20_000,
     });
