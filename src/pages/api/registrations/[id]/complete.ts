@@ -21,7 +21,7 @@ import {
   hasValidLiabilityWaiver,
   recordLiabilityWaiver,
 } from "@/lib/consents/liability";
-import { REGISTRATION_WAIVER_ACCEPT_LABEL } from "@/lib/registrations/waiver-text";
+import { completionWaiverAssentText } from "@/lib/registrations/waiver-text";
 import { recordPhoneOptIn } from "@/lib/sms/opt-in";
 import { recordMarketingConsent } from "@/lib/consents/marketing";
 import { CONSENT_COPY } from "@/lib/consents/marketing-channels";
@@ -29,8 +29,14 @@ import { getPostHogServer } from "@/lib/posthog-server";
 import { SERVER_EVENTS } from "@/lib/analytics/events";
 
 const bodySchema = z.object({
-  waiverAccepted: z.literal(true),
-  waiverSignature: z.string().min(2),
+  // Optional at the schema layer, REQUIRED on the fresh-signature branch (the
+  // handler 400s there when either is missing). A participant already covered
+  // by their annual waiver is shown no waiver text and no signature box — the
+  // form submits only the items still outstanding, typically just the DOB —
+  // and a schema that demanded a signature would force that client to invent
+  // one, putting a fabricated name into a request about a legal release.
+  waiverAccepted: z.literal(true).optional(),
+  waiverSignature: z.string().min(2).optional(),
   birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   phone: z.string().optional(),
   smsConsent: z.boolean().optional(),
@@ -245,7 +251,21 @@ export const POST: APIRoute = async ({ request, params, locals, clientAddress, u
           updatedAt: new Date(),
         })
         .where(eq(registrations.id, registration.id));
+    } else if (!data.waiverAccepted || !data.waiverSignature) {
+      // A signature is genuinely owed here and none was supplied. The schema
+      // lets these through so a covered participant can submit a DOB-only
+      // completion; this is where they become mandatory again.
+      return new Response(
+        JSON.stringify({
+          error: "Validation failed",
+          details: {
+            waiverSignature: ["A signature is required to sign this waiver"],
+          },
+        }),
+        { status: 400, headers: { "Content-Type": "application/json" } },
+      );
     } else {
+      const waiverSignature = data.waiverSignature;
       // Consent recording — copied from guest-checkout.ts's consent block
       // rather than paraphrased, so the semantics (personal-consent guard,
       // unconditional liability + media-auth writes) stay identical.
@@ -264,7 +284,7 @@ export const POST: APIRoute = async ({ request, params, locals, clientAddress, u
           registrationId: registration.id,
           organizationId,
           signedByUserId: user.id,
-          signedByName: data.waiverSignature,
+          signedByName: waiverSignature,
           ipAddress: clientAddress ?? null,
           userAgent: userAgent ?? null,
         };
@@ -290,9 +310,16 @@ export const POST: APIRoute = async ({ request, params, locals, clientAddress, u
               organizationId,
               registrationId: registration.id,
               signedByUserId: user.id,
-              signedByName: data.waiverSignature,
+              signedByName: waiverSignature,
               consentVariant: personKind === "self" ? "adult" : "guardian",
-              consentText: REGISTRATION_WAIVER_ACCEPT_LABEL,
+              // The exact words completion-form.tsx put on screen: the accept
+              // label, plus the guardian attestation for a dependent. Both
+              // surfaces that mount that form pass the same participant name
+              // this rebuilds (the confirm step and /account/complete).
+              consentText: completionWaiverAssentText(
+                personKind === "self" ? "adult" : "guardian",
+                `${familyMember.firstName} ${familyMember.lastName}`.trim(),
+              ),
               // The signing audit trail from THIS request — never the body.
               ipAddress: clientAddress ?? null,
               userAgent: userAgent ?? null,
@@ -312,7 +339,7 @@ export const POST: APIRoute = async ({ request, params, locals, clientAddress, u
           .set({
             waiverSigned: true,
             waiverSignedAt: new Date(),
-            waiverSignedBy: data.waiverSignature,
+            waiverSignedBy: waiverSignature,
             ageReviewNeeded,
             updatedAt: new Date(),
           })
@@ -322,7 +349,16 @@ export const POST: APIRoute = async ({ request, params, locals, clientAddress, u
 
     // Best-effort side effects, kept outside the transaction — not
     // consistency-critical with the waiver signature/consent state above.
-    if (data.phone && organizationId) {
+    //
+    // FRESH-SIGNATURE PATH ONLY, and that gate is load-bearing. Before this
+    // endpoint was restructured, the already-signed check returned early and
+    // this block was unreachable on a repeat POST. Leaving it reachable let a
+    // replayed submission re-run `recordMarketingConsent`, which promotes a
+    // channel to opted_in — i.e. a repeat call could silently CLEAR an opt-out
+    // the customer set afterwards. Consent state must only move on the request
+    // that actually collected it. (The DOB backfill above is deliberately NOT
+    // gated: it is isNull-guarded, so it can only ever fill a blank.)
+    if (!alreadySigned && data.phone && organizationId) {
       try {
         await recordPhoneOptIn({
           db,

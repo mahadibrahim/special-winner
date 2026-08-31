@@ -35,6 +35,7 @@ import {
   WAIVER_ON_FILE_ATTRIBUTION,
   WAIVER_VALID_DAYS,
 } from "@/lib/consents/liability";
+import { wizardWaiverAssentText } from "@/lib/registrations/waiver-text";
 import { CLASS_TEST_PARENT_EMAIL, CLASS_TEST_PARENT_PASSWORD } from "../utils/classes-helpers";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -235,6 +236,17 @@ describe("POST /api/registrations — annual waiver on file", () => {
     expect(rows[0].signedByName).toBe(signature);
     // ip/UA come from THIS request's context, never the body.
     expect(rows[0].userAgent).toBeTruthy();
+    // The record must quote what the SCREEN showed. This is the AUTHED wizard
+    // registering a DEPENDENT, so waiver-step.tsx rendered the guardian body
+    // sentence ("I authorize <child> to participate…") followed by the accept
+    // label — not the bare adult label.
+    const expectedAssent = wizardWaiverAssentText({
+      variant: "guardian",
+      participantName: `AnnualWaiverFresh ${suffix}`,
+    });
+    expect(rows[0].notes).toContain(expectedAssent);
+    expect(expectedAssent).toContain("parent or legal guardian");
+    expect(rows[0].notes).toContain("variant=guardian");
     const expiresAt = rows[0].expiresAt?.getTime() ?? 0;
     expect(
       Math.abs(expiresAt - (rows[0].signedAt.getTime() + WAIVER_VALID_DAYS * DAY_MS)),

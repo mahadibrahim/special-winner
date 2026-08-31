@@ -265,6 +265,43 @@ export async function hasValidLiabilityWaiver(
   return Boolean(registration);
 }
 
+/**
+ * When the person's CANONICAL liability consent for this org runs out, or null.
+ *
+ * Display-only — for surfaces that want to say "waiver on file, valid through
+ * <date>" instead of re-asking. Never a gate: `hasValidLiabilityWaiver` is the
+ * only predicate, and this deliberately answers null in cases where that
+ * predicate answers true — a person covered solely by one of the two LEGACY
+ * signature fallbacks has no consents row, and therefore no expiry to quote.
+ * Callers must render a date-free fallback ("valid this year") for null rather
+ * than treating it as "not covered".
+ *
+ * Reads exactly query 1 of `hasValidLiabilityWaiver` (most recent liability row
+ * for the pair, judged on its own status) so the two can't disagree about which
+ * row is authoritative.
+ */
+export async function liabilityWaiverValidUntil(
+  familyMemberId: string,
+  organizationId: string,
+  dbOrTx?: DbClient,
+): Promise<Date | null> {
+  const db = dbOrTx ?? getDb();
+  const [consent] = await db
+    .select({ status: consents.status, expiresAt: consents.expiresAt })
+    .from(consents)
+    .where(
+      and(
+        eq(consents.familyMemberId, familyMemberId),
+        eq(consents.organizationId, organizationId),
+        eq(consents.type, "liability"),
+      ),
+    )
+    .orderBy(desc(consents.signedAt))
+    .limit(1);
+  if (!consent || consent.status !== "granted" || !consent.expiresAt) return null;
+  return consent.expiresAt.getTime() > Date.now() ? consent.expiresAt : null;
+}
+
 /** The user account that owns a person row: the parent (COPPA path) or the
  *  user themselves (adult self path). Exactly one is set. */
 async function resolveOwningUserId(

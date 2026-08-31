@@ -98,9 +98,19 @@ interface WindowResult {
 // are caught per-row by `stampIfWaiverOnFile` below rather than by a second
 // SQL predicate here — a correlated EXISTS would have to restate
 // hasValidLiabilityWaiver's rule (canonical consents row OR either legacy
-// signature fallback) in SQL, forking the one place that owns it. The per-row
-// cost is bounded and self-liquidating: each covered row is stamped once and
-// then never re-enters the candidate set through any window.
+// signature fallback) in SQL, forking the one place that owns it.
+//
+// COST, honestly: only the COVERED rows are self-liquidating — each is stamped
+// once and never re-enters the candidate set. Every UNCOVERED candidate (the
+// majority, and the steady state once the transition population drains) pays
+// the lookup again on every window it matches, on every run, forever: up to 3
+// indexed queries each, and a row can match one age window plus the final
+// window. That is the price of not forking the predicate, and it is affordable
+// only because the candidate set is small by construction (paid AND unsigned
+// AND season not yet started AND not already emailed for that window). If that
+// set ever grows past the low hundreds, the fix is a batched
+// `hasValidLiabilityWaiver` variant taking many (person, org) pairs — NOT a
+// hand-written EXISTS here.
 function baseEligibility() {
   return and(
     eq(registrations.waiverSigned, false),
@@ -156,9 +166,11 @@ async function fetchRows(whereExtra: ReturnType<typeof and>) {
  * on-file attribution and reports true so the caller counts it as skipped
  * instead of sending.
  *
- * The stamp is what keeps this cheap — it takes the row out of
- * `baseEligibility` permanently, so a given registration costs this lookup at
- * most once across all eleven windows and all future runs.
+ * The stamp bounds the cost only for rows that HIT: stamping takes them out of
+ * `baseEligibility` permanently, so a covered registration pays this lookup
+ * once, ever. Rows that MISS — the majority, and the whole steady state —
+ * re-pay it on every window they match on every run. See the cost note on
+ * `baseEligibility` above.
  *
  * `waiverSignedAt` stays NULL (written explicitly): the row is a derived copy
  * of an earlier signature, and hasValidLiabilityWaiver's legacy `registrations`

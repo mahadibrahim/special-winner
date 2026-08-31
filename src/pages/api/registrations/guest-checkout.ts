@@ -31,7 +31,7 @@ import { sendMagicLinkLoginEmail } from "@/lib/email/send";
 import { awaitEmailSend } from "@/lib/notifications/await-dispatch";
 import { createMagicLink, buildMagicLinkUrl } from "@/lib/auth/magic-link";
 import { recordLiabilityWaiver } from "@/lib/consents/liability";
-import { REGISTRATION_WAIVER_ACCEPT_LABEL } from "@/lib/registrations/waiver-text";
+import { wizardWaiverAssentText } from "@/lib/registrations/waiver-text";
 
 const guestRegistrantSchema = z.object({
   firstName: z.string().min(1),
@@ -391,7 +391,17 @@ export const POST: APIRoute = async (context) => {
                   signedByUserId: userRow.id,
                   signedByName: waiverSignedBy,
                   consentVariant: personKind === "self" ? "adult" : "guardian",
-                  consentText: REGISTRATION_WAIVER_ACCEPT_LABEL,
+                  // The exact words waiver-step.tsx put on screen. This is the
+                  // GUEST endpoint, and the wizard's `isGuest` drives both the
+                  // screen variant and the endpoint choice — so a dependent
+                  // here always saw the guest+child checkbox (which names the
+                  // child and shows no body paragraph).
+                  consentText: wizardWaiverAssentText({
+                    variant: personKind === "self" ? "adult" : "guardian",
+                    participantName:
+                      `${familyMemberRow.firstName} ${familyMemberRow.lastName}`.trim(),
+                    isGuestChild: personKind !== "self",
+                  }),
                   ipAddress: clientAddress ?? null,
                   userAgent: userAgent ?? null,
                 },
@@ -422,6 +432,11 @@ export const POST: APIRoute = async (context) => {
           JSON.stringify({
             waitlisted: true,
             registrationId: regResult.registration.id,
+            // Whether the participant's ANNUAL waiver already covers this
+            // registration. The confirm screen's completion form uses it to
+            // drop the waiver text and signature box (the server would
+            // discard that signature anyway).
+            waiverOnFile: regResult.waiverOnFile,
             wasNewUser,
           }),
           { status: 200, headers: { "Content-Type": "application/json" } },
@@ -440,6 +455,11 @@ export const POST: APIRoute = async (context) => {
           JSON.stringify({
             paid: true,
             registrationId: regResult.registration.id,
+            // Whether the participant's ANNUAL waiver already covers this
+            // registration. The confirm screen's completion form uses it to
+            // drop the waiver text and signature box (the server would
+            // discard that signature anyway).
+            waiverOnFile: regResult.waiverOnFile,
             wasNewUser,
           }),
           { status: 200, headers: { "Content-Type": "application/json" } },
@@ -480,6 +500,11 @@ export const POST: APIRoute = async (context) => {
             JSON.stringify({
               paid: true,
               registrationId: regResult.registration.id,
+              // Whether the participant's ANNUAL waiver already covers this
+              // registration. The confirm screen's completion form uses it to
+              // drop the waiver text and signature box (the server would
+              // discard that signature anyway).
+              waiverOnFile: regResult.waiverOnFile,
               wasNewUser,
               amountDueCents: regResult.registration.amountDueCents,
             }),
@@ -502,6 +527,11 @@ export const POST: APIRoute = async (context) => {
             // Lets the wizard record the client-confirmed payment signal
             // (webhook-lag bridge) against the right registration.
             registrationId: regResult.registration.id,
+            // Whether the participant's ANNUAL waiver already covers this
+            // registration. The confirm screen's completion form uses it to
+            // drop the waiver text and signature box (the server would
+            // discard that signature anyway).
+            waiverOnFile: regResult.waiverOnFile,
             amountDueCents: regResult.registration.amountDueCents,
           }),
           { status: 200, headers: { "Content-Type": "application/json" } },

@@ -403,9 +403,18 @@ export default function RegistrationWizard({
   // calls onSuccess — so handlePaymentSuccess's closure would still read the
   // stale (null) state value. The ref is current immediately.
   const activeRegistrationIdRef = useRef<string | null>(null)
-  const rememberActiveRegistration = (id: string | null) => {
+  // Whether the row the confirm screen is about was born covered by the
+  // participant's ANNUAL waiver. Server-decided (both create endpoints return
+  // it); the confirm step's completion form uses it to skip a release the
+  // server would refuse to re-record anyway.
+  const [activeWaiverOnFile, setActiveWaiverOnFile] = useState(false)
+  const rememberActiveRegistration = (
+    id: string | null,
+    waiverOnFile = false,
+  ) => {
     activeRegistrationIdRef.current = id
     setActiveRegistrationId(id)
+    setActiveWaiverOnFile(waiverOnFile)
   }
 
   // ── Draft-restore state (authed only) ────────────────────────────────────
@@ -1205,7 +1214,10 @@ export default function RegistrationWizard({
         const surchargeCents = data.surchargeCents ?? 0
         const finalValueCents = baseAfterDiscount + surchargeCents
 
-        rememberActiveRegistration(data.registrationId ?? null)
+        rememberActiveRegistration(
+          data.registrationId ?? null,
+          data.waiverOnFile === true,
+        )
         setAppliedSurchargeCents(surchargeCents)
         setPaymentValueCents(finalValueCents)
         setPaymentTypeForTracking(paymentOption === "deposit" && depositValid(season!) ? "deposit" : "full")
@@ -1419,7 +1431,10 @@ export default function RegistrationWizard({
           const surchargeCents = checkoutData.surchargeCents ?? 0
           const finalValueCents = baseAfterCredit + surchargeCents
 
-          rememberActiveRegistration(regData.registration.id)
+          rememberActiveRegistration(
+            regData.registration.id,
+            regData.registration.waiverSigned === true,
+          )
           setAppliedSurchargeCents(surchargeCents)
           setAppliedCreditCents(creditCents)
           setMemberDiscountCents(memberDiscountAppliedCents)
@@ -1455,7 +1470,10 @@ export default function RegistrationWizard({
       // CompletionForm (v2's post-payment waiver capture) gates on
       // `registrationId` being present, and zero-due registrations never
       // pass through the clientSecret branch above that normally sets it.
-      rememberActiveRegistration(regData.registration.id)
+      rememberActiveRegistration(
+        regData.registration.id,
+        regData.registration.waiverSigned === true,
+      )
       clearDraft()
       setRegistrationComplete(true)
       setCurrentStep(stepNumberOf("confirm"))
@@ -2177,6 +2195,7 @@ export default function RegistrationWizard({
             }
             isSelf={isGuest ? guestMode === "adult" : selectedKey === "self"}
             registrationId={activeRegistrationId}
+            waiverOnFile={activeWaiverOnFile}
             flow={regFlow}
             waiverSigned={flowVariant === "v1"}
             // Only the adult-self flow defers DOB to this post-payment step —

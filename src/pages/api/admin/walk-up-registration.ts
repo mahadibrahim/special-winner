@@ -22,7 +22,7 @@ import {
   hasValidLiabilityWaiver,
   recordLiabilityWaiver,
 } from "@/lib/consents/liability";
-import { REGISTRATION_WAIVER_ACCEPT_LABEL } from "@/lib/registrations/waiver-text";
+import { walkUpWaiverAssentText } from "@/lib/registrations/waiver-text";
 
 /**
  * POST /api/admin/walk-up-registration
@@ -338,7 +338,14 @@ export const POST: APIRoute = async (context) => {
             signedByUserId: adultUserId,
             signedByName: input.waiverSignedBy,
             consentVariant: "adult",
-            consentText: REGISTRATION_WAIVER_ACCEPT_LABEL,
+            // No customer-facing waiver screen exists here — staff record an
+            // in-person acceptance — so the canonical adult assent sentence is
+            // the honest content, and `notes` below discloses it was
+            // desk-captured rather than typed by the signer.
+            consentText: walkUpWaiverAssentText(
+              "adult",
+              `${r.firstName} ${r.lastName}`.trim(),
+            ),
             // From THIS request's context — the staff device at the desk.
             ipAddress: clientAddress ?? null,
             userAgent: userAgent ?? null,
@@ -570,7 +577,10 @@ export const POST: APIRoute = async (context) => {
           signedByUserId: parentUserId,
           signedByName: childWaiverSignedBy,
           consentVariant: "guardian",
-          consentText: REGISTRATION_WAIVER_ACCEPT_LABEL,
+          consentText: walkUpWaiverAssentText(
+            "guardian",
+            `${childInput.kid.firstName} ${childInput.kid.lastName}`.trim(),
+          ),
           ipAddress: clientAddress ?? null,
           userAgent: userAgent ?? null,
           notes: `walk-up: admin=${adminUser.id}`,

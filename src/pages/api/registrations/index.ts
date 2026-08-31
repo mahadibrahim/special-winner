@@ -10,7 +10,7 @@ import { brandFromHost } from "@/lib/organization/soccerone-routing";
 import { fireRegistrationCreatedConversion } from "@/lib/analytics/server-conversions";
 import { recordConsent, recordDefaultMediaAuth } from "@/lib/consents/record";
 import { recordLiabilityWaiver } from "@/lib/consents/liability";
-import { REGISTRATION_WAIVER_ACCEPT_LABEL } from "@/lib/registrations/waiver-text";
+import { wizardWaiverAssentText } from "@/lib/registrations/waiver-text";
 
 // waiverSignedBy is only required when the client actually claims the
 // waiver was signed at checkout time (v2 solo checkout defers waiver
@@ -258,7 +258,15 @@ export const POST: APIRoute = async ({ request, clientAddress, locals }) => {
                   signedByUserId: user.id,
                   signedByName: data.waiverSignedBy ?? "",
                   consentVariant: data.registerSelf ? "adult" : "guardian",
-                  consentText: REGISTRATION_WAIVER_ACCEPT_LABEL,
+                  // The exact words waiver-step.tsx put on screen for THIS
+                  // variant — body sentence + checkbox label — not the generic
+                  // adult label. This endpoint is the authed path, which never
+                  // renders the guest+child checkbox variant.
+                  consentText: wizardWaiverAssentText({
+                    variant: data.registerSelf ? "adult" : "guardian",
+                    participantName:
+                      `${familyMember.firstName} ${familyMember.lastName}`.trim(),
+                  }),
                   ipAddress: clientAddress ?? null,
                   userAgent: userAgent ?? null,
                 },
