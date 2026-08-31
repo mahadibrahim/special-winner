@@ -153,12 +153,16 @@ export const POST: APIRoute = async ({
         .set({
           waiverSigned: true,
           waiverSignedBy: WAIVER_ON_FILE_ATTRIBUTION,
-          // waiverSignedAt STAYS NULL — load-bearing. This row is a derived
-          // copy of an earlier signature, not a signature; and
+          // Written as an EXPLICIT null rather than merely omitted — this
+          // update can land on a row that already carries a date, and the
+          // invariant should enforce itself here instead of relying on the
+          // column happening to be empty. Load-bearing: this row is a
+          // derived copy of an earlier signature, not a signature, and
           // hasValidLiabilityWaiver's legacy fallback accepts any DATED
-          // drop_in_bookings row, so dating it would let each booking renew
+          // drop_in_bookings row — dating it would let each booking renew
           // the very window it was derived from. Same rule as the paid
           // door's fulfillment stamp and book-child.ts's on-file branch.
+          waiverSignedAt: null,
           updatedAt: now,
         })
         .where(eq(dropInBookings.id, id));

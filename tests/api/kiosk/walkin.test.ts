@@ -21,12 +21,17 @@ import {
   dropInRateCard,
 } from "@/lib/db/schema/drop-in";
 import { familyMembers } from "@/lib/db/schema/registrations";
+import { consents } from "@/lib/db/schema/consents";
 import { users } from "@/lib/db/schema/users";
 import { selfServiceTokens } from "@/lib/db/schema/self-service-tokens";
 import { venues } from "@/lib/db/schema/teams";
 import { locations } from "@/lib/db/schema/organizations";
 import { dayBoundsInTz } from "@/lib/time/day-bounds";
-import { and, eq, ne } from "drizzle-orm";
+import {
+  WAIVER_ON_FILE_ATTRIBUTION,
+  WAIVER_VALID_DAYS,
+} from "@/lib/consents/liability";
+import { and, eq, ne, inArray } from "drizzle-orm";
 import {
   E2E_RENTAL_VENUE_ID,
   E2E_ORG_ID,
@@ -601,6 +606,191 @@ describe("POST /api/kiosk/[locationSlug]/walkin/start + /payment", () => {
   // kiosk tab that fetched the session list hours ago can still POST this
   // sessionId directly, so the server must reject it independently of the
   // listing filter.
+
+  // ── ANNUAL WAIVER at hold creation ───────────────────────────────────────
+  //
+  // A walk-in hold must be BORN with the on-file shape when the participant
+  // already has a valid liability consent for the org. Without that, the row
+  // sits at `waiverSigned: false` forever: the kiosk and self-serve surfaces
+  // now skip the ask (build-context consults the same predicate), so nothing
+  // ever flips the flag — and the STAFF surfaces that count it (the day
+  // view's `waiversOutstanding`, the roll-call chip) would show a phantom
+  // outstanding waiver and reproduce the redundant ask at the desk.
+  //
+  // Both walk-ins below are the SAME child: resolvePerson dedupes on
+  // (parentUserId, name, birthDate), so the second hold resolves the person
+  // row the first one created. That is what makes the pair a true
+  // before/after on one person rather than two unrelated fixtures.
+  describe("annual waiver at hold creation", () => {
+    const WAIVER_SUFFIX = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const COVERED_PARENT_EMAIL = `walkin-covered-${WAIVER_SUFFIX}@walkin-test.invalid`;
+    const CHILD_FIRST = "Wanda";
+    const CHILD_LAST = `Covered${WAIVER_SUFFIX.slice(-4)}`;
+
+    let firstSessionId: string;
+    let secondSessionId: string;
+    let childId: string;
+    const createdBookingIds: string[] = [];
+
+    beforeAll(async () => {
+      const db = getDb();
+      // Two separate sessions: the duplicate-hold guard keys on
+      // (session, participant), so the same child needs a second session to
+      // get a second hold.
+      const startsAt = new Date(Date.now() + 5 * 60_000);
+      const rows = await db
+        .insert(dropInSessions)
+        .values(
+          ["a", "b"].map((tag) => ({
+            organizationId: E2E_ORG_ID,
+            venueId: E2E_RENTAL_VENUE_ID,
+            kind: "pickup" as const,
+            sportOrClassLabel: `walkin-waiver-${tag}-${WAIVER_SUFFIX}`,
+            startsAt,
+            endsAt: new Date(startsAt.getTime() + 90 * 60_000),
+            capacity: 20,
+            teamCount: 2,
+            teamColors: ["red", "blue"],
+            audience: "all_ages" as const,
+            sessionRateCents: 1200,
+            walkUpRateCents: 1900,
+          })),
+        )
+        .returning({ id: dropInSessions.id });
+      firstSessionId = rows[0].id;
+      secondSessionId = rows[1].id;
+    });
+
+    async function walkTheChildIn(targetSessionId: string): Promise<string> {
+      const res = await apiFetch(`/api/kiosk/${locationId}/walkin/start`, {
+        method: "POST",
+        body: JSON.stringify({
+          sessionId: targetSessionId,
+          contact: {
+            firstName: CHILD_FIRST,
+            lastName: CHILD_LAST,
+            email: COVERED_PARENT_EMAIL,
+            phone: "6145550031",
+            dob: "2015-03-04",
+          },
+          parent: {
+            firstName: "Wendy",
+            lastName: `Guardian${WAIVER_SUFFIX.slice(-4)}`,
+            email: COVERED_PARENT_EMAIL,
+            phone: "6145550031",
+          },
+        }),
+      });
+      const body = await res.json();
+      expect(res.status, JSON.stringify(body)).toBe(200);
+      createdBookingIds.push(body.bookingId);
+      return body.bookingId as string;
+    }
+
+    it("an UNCOVERED minor's hold is born unsigned", async () => {
+      const bookingId = await walkTheChildIn(firstSessionId);
+
+      const [row] = await getDb()
+        .select({
+          familyMemberId: dropInBookings.familyMemberId,
+          waiverSigned: dropInBookings.waiverSigned,
+          waiverSignedBy: dropInBookings.waiverSignedBy,
+        })
+        .from(dropInBookings)
+        .where(eq(dropInBookings.id, bookingId))
+        .limit(1);
+
+      expect(row.familyMemberId).not.toBeNull();
+      childId = row.familyMemberId!;
+      expect(row.waiverSigned).toBe(false);
+      expect(row.waiverSignedBy).toBeNull();
+    });
+
+    it("a COVERED minor's hold is born stamped on-file, with NO signature date", async () => {
+      // Give the child a signature from a month ago at this org.
+      const signedAt = new Date(Date.now() - 30 * 86_400_000);
+      const [parent] = await getDb()
+        .select({ id: users.id })
+        .from(users)
+        .where(eq(users.email, COVERED_PARENT_EMAIL))
+        .limit(1);
+      await getDb()
+        .insert(consents)
+        .values({
+          familyMemberId: childId,
+          organizationId: E2E_ORG_ID,
+          type: "liability",
+          status: "granted",
+          signedByUserId: parent.id,
+          signedByName: "Wendy Guardian",
+          signedAt,
+          expiresAt: new Date(
+            signedAt.getTime() + WAIVER_VALID_DAYS * 86_400_000,
+          ),
+        });
+
+      const bookingId = await walkTheChildIn(secondSessionId);
+
+      const [row] = await getDb()
+        .select({
+          familyMemberId: dropInBookings.familyMemberId,
+          waiverSigned: dropInBookings.waiverSigned,
+          waiverSignedBy: dropInBookings.waiverSignedBy,
+          waiverSignedAt: dropInBookings.waiverSignedAt,
+        })
+        .from(dropInBookings)
+        .where(eq(dropInBookings.id, bookingId))
+        .limit(1);
+
+      // Same person — resolvePerson deduped rather than creating a second row.
+      expect(row.familyMemberId).toBe(childId);
+      expect(row.waiverSigned).toBe(true);
+      expect(row.waiverSignedBy).toBe(WAIVER_ON_FILE_ATTRIBUTION);
+      // Load-bearing: a dated derived row would let each new hold renew the
+      // legacy fallback window it was derived from.
+      expect(row.waiverSignedAt).toBeNull();
+    });
+
+    afterAll(async () => {
+      const db = getDb();
+      try {
+        if (childId) {
+          await db.delete(consents).where(eq(consents.familyMemberId, childId));
+        }
+        if (createdBookingIds.length) {
+          await db
+            .delete(dropInBookings)
+            .where(inArray(dropInBookings.id, createdBookingIds));
+        }
+        const created = await db
+          .select({ id: users.id })
+          .from(users)
+          .where(eq(users.email, COVERED_PARENT_EMAIL));
+        const userIds = created.map((u) => u.id);
+        if (userIds.length) {
+          await db
+            .delete(familyMembers)
+            .where(inArray(familyMembers.parentUserId, userIds));
+          await db.delete(users).where(inArray(users.id, userIds));
+        }
+      } finally {
+        // Keep the fixture sessions off the venue command center's today board.
+        const adminCookie = await getAdminCookie().catch(() => null);
+        if (!adminCookie) return;
+        for (const id of [firstSessionId, secondSessionId]) {
+          if (!id) continue;
+          await apiFetch(`/api/admin/dropin/sessions/${id}/cancel`, {
+            method: "POST",
+            cookie: adminCookie,
+          }).catch(() => null);
+          await apiFetch(`/api/admin/dropin/sessions/${id}`, {
+            method: "DELETE",
+            cookie: adminCookie,
+          }).catch(() => null);
+        }
+      }
+    });
+  });
 
   describe("walk-in against a session that has already ended", () => {
     let endedSessionId: string;

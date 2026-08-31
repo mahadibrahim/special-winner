@@ -4,10 +4,12 @@ import { getDb } from "@/lib/db";
 import { fieldRentals } from "@/lib/db/schema/field-rentals";
 import { consents } from "@/lib/db/schema/consents";
 import { dropInSessions, dropInBookings, dropInRateCard } from "@/lib/db/schema/drop-in";
-import { familyMembers } from "@/lib/db/schema/registrations";
-import { venues } from "@/lib/db/schema/teams";
+import { familyMembers, registrations } from "@/lib/db/schema/registrations";
+import { venues, rosters } from "@/lib/db/schema/teams";
 import { users } from "@/lib/db/schema/users";
 import { mintToken } from "@/lib/check-in/tokens-db";
+import { WAIVER_VALID_DAYS } from "@/lib/consents/liability";
+import { createTestGameContext } from "../../utils/activity-tracking-helpers";
 import { E2E_RENTAL_VENUE_ID, E2E_ORG_ID } from "@/lib/db/seeds/seed-e2e-tests";
 import { and, eq, inArray } from "drizzle-orm";
 
@@ -380,5 +382,175 @@ describe("POST /api/self-serve/[token]/waiver — annual liability consent", () 
         }).catch(() => null);
       }
     }
+  });
+});
+
+// ── roster_entry: the branch with a person ALWAYS and no local column ────────
+//
+// The largest behaviour delta in the annual-waiver change lives here.
+// build-context used to hardcode `outstanding.waiver = true` for every
+// roster_entry token, so a rostered kid was handed the waiver at every single
+// game; it now defers to the annual predicate. And the signature endpoint has
+// nothing local to stamp for this kind — `rosters` carries no waiver columns
+// (the registration-time signature lives on `registrations`) — which makes the
+// `consents` row the ONLY record this branch produces. Both are asserted.
+//
+// The assertions share one fixture chain and run in the order a real game-day
+// link is used: context asks → signature POST → context stops asking → the
+// signature ages out and it asks again.
+describe("self-serve roster_entry — annual waiver", () => {
+  let organizationId: string;
+  let parentUserId: string;
+  let childId: string;
+  let rosterId: string;
+  let registrationId: string;
+  let token: string;
+
+  beforeAll(async () => {
+    const db = getDb();
+    // Its own org chain (org → location → sport → program → season → team):
+    // resolveSigner's roster_entry lookup joins rosters → registrations →
+    // teams → seasons → programs → locations.organizationId, so the fixture
+    // has to be a complete one. Deliberately NOT hung off the seeded E2E org
+    // — a stray program/season there would surface in the public catalog and
+    // in other suites' listings.
+    const ctx = await createTestGameContext({});
+    organizationId = ctx.organizationId;
+
+    const stamp = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const [parent] = await db
+      .insert(users)
+      .values({
+        email: `roster-waiver-${stamp}@test.example`,
+        firstName: "Rostered",
+        lastName: "Parent",
+      })
+      .returning();
+    parentUserId = parent.id;
+
+    const [kid] = await db
+      .insert(familyMembers)
+      .values({
+        parentUserId: parent.id,
+        firstName: "Rosie",
+        lastName: `Rostered${stamp.slice(-4)}`,
+        birthDate: "2016-01-01",
+      })
+      .returning();
+    childId = kid.id;
+
+    const [registration] = await db
+      .insert(registrations)
+      .values({
+        seasonId: ctx.seasonId,
+        familyMemberId: kid.id,
+        registeredByUserId: parent.id,
+        status: "confirmed",
+        amountDueCents: 15000,
+      })
+      .returning();
+    registrationId = registration.id;
+
+    const [roster] = await db
+      .insert(rosters)
+      .values({
+        teamId: ctx.homeTeamId,
+        registrationId: registration.id,
+        status: "active",
+      })
+      .returning();
+    rosterId = roster.id;
+
+    const tok = await mintToken({
+      kind: "roster_entry",
+      targetId: roster.id,
+      organizationId,
+      venueId: null,
+      sentVia: "qr",
+      recipientUserId: parent.id,
+      recipientEmail: parent.email,
+      recipientPhone: null,
+      createdByUserId: null,
+    });
+    token = tok.token;
+  });
+
+  async function contextWaiverOutstanding(): Promise<boolean> {
+    const res = await fetch(`${BASE}/api/self-serve/${token}`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.tokenKind).toBe("roster_entry");
+    return body.outstanding.waiver as boolean;
+  }
+
+  function liabilityRows() {
+    return getDb()
+      .select()
+      .from(consents)
+      .where(
+        and(
+          eq(consents.familyMemberId, childId),
+          eq(consents.type, "liability"),
+        ),
+      );
+  }
+
+  it("with no consent on file the waiver is outstanding", async () => {
+    expect(await contextWaiverOutstanding()).toBe(true);
+  });
+
+  it("signing writes the consents row — the only record this branch produces", async () => {
+    const res = await apiFetch(`/api/self-serve/${token}/waiver`, {
+      method: "POST",
+      headers: { "User-Agent": "annual-waiver-roster-test/1.0" },
+      body: JSON.stringify({ acceptedName: "Rostered Parent" }),
+    });
+    expect(res.status).toBe(200);
+
+    const rows = await liabilityRows();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].organizationId).toBe(organizationId);
+    expect(rows[0].signedByUserId).toBe(parentUserId);
+    expect(rows[0].signedByName).toBe("Rostered Parent");
+    expect(rows[0].status).toBe("granted");
+    expect(rows[0].userAgent).toBe("annual-waiver-roster-test/1.0");
+    // A parent signing for their kid gets the guardian language.
+    expect(rows[0].notes ?? "").toContain("variant=guardian");
+  });
+
+  it("...and the same player is not asked again at the next game", async () => {
+    // No new token, no new row — the predicate is per person + org, so the
+    // flag flips for the SAME link and for every future roster link.
+    expect(await contextWaiverOutstanding()).toBe(false);
+  });
+
+  it("an expired signature is asked again", async () => {
+    // Age the only consent past its window: `expiresAt` is what the canonical
+    // predicate reads, and roster_entry has no dated local row for the legacy
+    // fallback to rescue it with.
+    const longAgo = new Date(Date.now() - (WAIVER_VALID_DAYS + 10) * 86_400_000);
+    await getDb()
+      .update(consents)
+      .set({
+        signedAt: longAgo,
+        expiresAt: new Date(longAgo.getTime() + WAIVER_VALID_DAYS * 86_400_000),
+      })
+      .where(eq(consents.familyMemberId, childId));
+
+    expect(await contextWaiverOutstanding()).toBe(true);
+  });
+
+  afterAll(async () => {
+    const db = getDb();
+    // Consents reference family_members; rosters reference registrations.
+    // Unwind in FK order. A leaked liability row would silently satisfy a
+    // later run's "no waiver on file" fixture on the shared staging DB.
+    await db.delete(consents).where(eq(consents.familyMemberId, childId));
+    if (rosterId) await db.delete(rosters).where(eq(rosters.id, rosterId));
+    if (registrationId) {
+      await db.delete(registrations).where(eq(registrations.id, registrationId));
+    }
+    await db.delete(familyMembers).where(eq(familyMembers.id, childId));
+    await db.delete(users).where(eq(users.id, parentUserId));
   });
 });

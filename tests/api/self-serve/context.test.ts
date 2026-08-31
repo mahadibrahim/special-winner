@@ -501,6 +501,11 @@ describe("GET /api/self-serve/[token] (context) — walk-in MINOR", () => {
   // must not be asked again at the kiosk. The derivation used to read the
   // booking row's own `waiverSigned` flag alone, which is per-target and
   // therefore always false on a brand-new hold.
+  //
+  // The roster_entry half of this derivation — the branch that used to
+  // hardcode `outstanding.waiver = true` — is covered in
+  // tests/api/self-serve/waiver.test.ts, which owns the org→season→roster
+  // fixture chain that branch needs.
   it("a child with a valid liability consent is not asked to sign again", async () => {
     const { token, bookingId } = await startWalkIn({
       contact: {

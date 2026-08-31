@@ -123,6 +123,16 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
   }
 
   if (tok.kind === "drop_in_booking" || tok.kind === "walkin_session") {
+    // NOTE — this stamps a DATED signature even when `waiverAlreadyOnFile`
+    // is true. Reaching that state means the ask was served from a stale
+    // page (or POSTed directly): build-context suppresses the WaiverCard for
+    // a covered person, and walkin/start.ts now births covered holds already
+    // stamped. It is an accepted narrow path, deliberately not collapsed
+    // into the on-file shape — a human really did read and sign, and
+    // recording that with its date is the honest audit entry. The cost is
+    // that this row extends the transitional legacy fallback window past
+    // the canonical consent's expiry; the fallback ages out on its own, and
+    // the alternative (discarding a real signature's date) is worse.
     await db
       .update(dropInBookings)
       .set({
