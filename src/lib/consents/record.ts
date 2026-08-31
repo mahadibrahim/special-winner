@@ -99,6 +99,10 @@ export async function recordConsent(
     .insert(consents)
     .values({
       familyMemberId: input.familyMemberId,
+      // The owning organization of the legal release. Was accepted and used
+      // only to pick the waiver document; persisting it is what makes the
+      // org-scoped annual-liability predicate work (see ./liability.ts).
+      organizationId: input.organizationId ?? null,
       registrationId: input.registrationId ?? null,
       waiverId,
       type: input.type,
