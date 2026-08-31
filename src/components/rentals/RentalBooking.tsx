@@ -8,6 +8,11 @@ import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import { AvailabilityGrid, type FieldAvailability } from "./AvailabilityGrid";
 import { fetchRentalAvailability } from "@/lib/rentals/fetch-availability";
+import {
+  rentalWaiverBlocksSubmit,
+  rentalWaiverCovered,
+  rentalWaiverRequestFields,
+} from "@/lib/rentals/waiver-fields";
 import { dateInTimeZone } from "@/lib/time/format-date";
 
 interface AvailabilityResponse {
@@ -70,10 +75,10 @@ export default function RentalBooking({
 }: Props) {
   useHydrationBeacon();
 
-  // A guest has no account and therefore no person row to carry coverage —
-  // belt-and-braces against a caller that passes waiverOnFile without
-  // signedIn. The endpoint reaches the same conclusion independently.
-  const waiverCovered = signedIn && waiverOnFile === true;
+  // Shared with the SoccerOne panel — see src/lib/rentals/waiver-fields.ts
+  // for the fail-toward-asking rules and why both brands run one
+  // implementation.
+  const waiverCovered = rentalWaiverCovered({ signedIn, waiverOnFile });
 
   // Computed per render, in the facility's timezone. Module scope would
   // freeze "today" at the SSR lambda's cold start (serving a days-old date
@@ -161,9 +166,7 @@ export default function RentalBooking({
           // they're covered, and the endpoint then stamps the on-file
           // attribution. Sending a signature it would discard is what this
           // skip exists to stop.
-          ...(waiverCovered
-            ? {}
-            : { waiverName: waiverName.trim(), waiverAccepted: true }),
+          ...rentalWaiverRequestFields(waiverCovered, waiverName),
           ...(!signedIn && {
             renterName: waiverName.trim(),
             renterEmail: guestEmail.trim(),
@@ -223,7 +226,7 @@ export default function RentalBooking({
   const endTime = slotStart ? addMinutes(slotStart, durationMinutes) : null;
   const submitDisabled =
     submitting ||
-    (!waiverCovered && (!waiverAccepted || !waiverName.trim())) ||
+    rentalWaiverBlocksSubmit({ covered: waiverCovered, waiverAccepted, waiverName }) ||
     !slotStart ||
     (!signedIn && !guestEmail.trim());
 

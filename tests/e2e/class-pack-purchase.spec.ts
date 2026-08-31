@@ -625,6 +625,58 @@ async function deleteConsentsFor(familyMemberIds: string[]): Promise<void> {
   await getDb().delete(consents).where(inArray(consents.familyMemberId, ids));
 }
 
+/**
+ * Captures the paid-booking POST body and answers it with the endpoint's own
+ * `paymentRequired: false` shape, so the modal lands on its success panel
+ * instead of redirecting to Stripe.
+ *
+ * Why fulfill rather than let the real request through: a covered child's
+ * booking is genuinely priced, so the real response carries a `checkoutUrl`
+ * and the modal immediately does `window.location.href = …`. Aborting that
+ * navigation at the route level leaves a BLANK document — against which
+ * `expect(panel).toHaveCount(0)` passes vacuously, whatever the modal did.
+ * Keeping the page alive is what makes "the waiver panel never rendered" a
+ * real assertion.
+ *
+ * What is under test here is the REQUEST the client composed (its waiver
+ * fields, or absence of them) and the panel it skipped — never Stripe's
+ * response, which these scenarios don't exercise. The endpoint's own
+ * server-side behaviour for a covered renter is pinned separately in
+ * tests/api (paid-makeup.test.ts, waiver-sign.test.ts).
+ *
+ * It also removes the Stripe dependency: the assertions hold identically on
+ * CI, which has no Stripe keys.
+ */
+function stubPaidBooking(page: import("@playwright/test").Page) {
+  const bodies: (string | null)[] = [];
+
+  void page.route("**/api/dropin/bookings", async (route) => {
+    const req = route.request();
+    if (req.method() !== "POST") return route.continue();
+    bodies.push(req.postData());
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ bookingId: "e2e-stubbed-booking", paymentRequired: false }),
+    });
+  });
+
+  return {
+    postCount: () => bodies.length,
+    /** The single POST body, parsed. Throws (rather than returning `{}`) if
+     *  no request was made, so a silent no-request can't read as "sent no
+     *  waiver fields" and pass the contract assertions. */
+    sentBody: (): Record<string, unknown> => {
+      if (bodies.length !== 1) {
+        throw new Error(
+          `expected exactly 1 POST /api/dropin/bookings, saw ${bodies.length}`,
+        );
+      }
+      return JSON.parse(bodies[0] ?? "{}") as Record<string, unknown>;
+    },
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Scenarios 6 + 7 — drop-in door, annual waiver: covered skips, lapsed asks
 // ---------------------------------------------------------------------------
@@ -754,41 +806,31 @@ test.describe("Drop-in door — annual liability waiver", () => {
   test("covered child goes straight to payment — no waiver panel, no waiver fields on the wire", async ({
     page,
   }) => {
-    // Stop the modal's `window.location.href = checkoutUrl` from actually
-    // leaving for Stripe. Registered before anything can navigate.
-    await page.route(/checkout\.stripe\.com/, (route) => route.abort());
-
-    const bookingPostBodies: (string | null)[] = [];
-    page.on("request", (req) => {
-      if (req.method() === "POST" && req.url().includes("/api/dropin/bookings")) {
-        bookingPostBodies.push(req.postData());
-      }
-    });
+    const booking = stubPaidBooking(page);
 
     await signIn(page, parentEmail, parentPassword);
     const dialog = await openDoorAndPick(page, coveredChildFirstName);
 
     // The free-first attempt 403s `no_membership`; the modal's 403 branch
     // then consults `waiverOnFile` (from /api/family-members?includeWaiver=1)
-    // and, for this child, goes straight to the paid door.
-    await page.waitForRequest(
-      (req) => req.method() === "POST" && req.url().includes("/api/dropin/bookings"),
-      { timeout: 30_000 },
-    );
+    // and, for this child, goes straight to the paid door. The stub answers
+    // that POST without a checkoutUrl, so the modal settles on its success
+    // panel and the page stays alive for the assertions below.
+    await expect(dialog.getByText("You're all set!")).toBeVisible({ timeout: 30_000 });
 
-    expect(bookingPostBodies).toHaveLength(1);
-    const sent = JSON.parse(bookingPostBodies[0] ?? "{}") as Record<string, unknown>;
+    const sent = booking.sentBody();
     // The contract: a covered family sends NO signature. The server re-checks
     // the same predicate and stamps "On file (annual waiver)" itself.
     expect(sent).not.toHaveProperty("waiverAccepted");
     expect(sent).not.toHaveProperty("waiverName");
     expect(sent.familyMemberId).toBe(coveredChildId);
 
-    // Zero waiver-panel renders. Nothing in this flow auto-advances past the
-    // panel, so if it had ever appeared it would still be on screen here.
+    // Zero waiver-panel renders, asserted against a live document rather than
+    // a blank post-navigation one.
     await expect(
       dialog.getByText("One more step: sign the guardian waiver"),
     ).toHaveCount(0);
+    expect(booking.postCount()).toBe(1);
   });
 
   test("child whose signature has EXPIRED still gets the waiver panel", async ({ page }) => {
@@ -829,8 +871,19 @@ test.describe("Drop-in door — annual liability waiver", () => {
  * benefit, and book-child.ts reads `remaining === 0` on an active membership
  * as `allotment_exhausted`).
  *
- * The child has no waiver at all, so confirming the price must land on the
- * guardian waiver panel and fire ZERO requests to the paid booking endpoint.
+ * BOTH halves of `payOrCollectWaiver` are covered here, because a gate that
+ * always asks is as wrong as one that never does:
+ *   - the UNCOVERED child must land on the guardian waiver panel with ZERO
+ *     requests to the paid booking endpoint;
+ *   - the COVERED child must go straight to payment, with no panel and no
+ *     waiver fields on the wire (the same two assertions scenario 6 makes for
+ *     the drop-in door).
+ *
+ * The covered half matters disproportionately on THIS door: unlike the
+ * classes booking endpoint, `/api/dropin/bookings` consults
+ * `hasValidLiabilityWaiver` only to decide the Stripe metadata STAMP — it
+ * never refuses an unsigned paid make-up. The client is the only gate, so
+ * there is no server backstop to catch a regression in either direction.
  */
 test.describe("Make-up modal — paid 402 path is waiver-gated", () => {
   test.setTimeout(120_000);
@@ -841,12 +894,16 @@ test.describe("Make-up modal — paid 402 path is waiver-gated", () => {
   let sessionId: string;
   let tierId: string;
   let membershipId: string;
+  let coveredMembershipId: string;
   let parentEmail: string;
   let parentPassword: string;
+  let parentUserId: string;
   let childId: string;
+  let coveredChildId: string;
 
   const suffix = Date.now();
   const childFirstName = `MakeupGateE2E-${suffix}`;
+  const coveredChildFirstName = `MakeupCoveredE2E-${suffix}`;
   const templateName = `PackPurchaseE2E-MakeupGate-${suffix}`;
 
   test.beforeAll(async () => {
@@ -890,47 +947,70 @@ test.describe("Make-up modal — paid 402 path is waiver-gated", () => {
     const throwawayUser = await createTestUserWithPassword();
     parentEmail = throwawayUser.email;
     parentPassword = throwawayUser.password;
-    childId = await createTestChild(throwawayUser.userId, childFirstName);
+    parentUserId = throwawayUser.userId;
+
+    // Two children on the SAME zero-allotment tier under the SAME parent, so
+    // the only variable between the two halves is waiver coverage.
+    childId = await createTestChild(parentUserId, childFirstName);
     membershipId = await createTestChildMembership({
-      userId: throwawayUser.userId,
+      userId: parentUserId,
       familyMemberId: childId,
       organizationId,
       tierId,
       idSuffix: `e2e-makeup-gate-${suffix}`,
     });
+
+    coveredChildId = await createTestChild(parentUserId, coveredChildFirstName);
+    coveredMembershipId = await createTestChildMembership({
+      userId: parentUserId,
+      familyMemberId: coveredChildId,
+      organizationId,
+      tierId,
+      // memberships.stripe_subscription_id carries a DB unique constraint —
+      // the suffix must differ from the sibling above.
+      idSuffix: `e2e-makeup-covered-${suffix}`,
+    });
+    await seedLiabilityConsent({
+      familyMemberId: coveredChildId,
+      organizationId,
+      signedByUserId: parentUserId,
+      signedDaysAgo: 30,
+    });
   });
 
   test.afterAll(async () => {
     const db = getDb();
-    if (membershipId) await db.delete(memberships).where(eq(memberships.id, membershipId));
+    // A leaked GRANTED consents row would silently satisfy a later run's "no
+    // waiver on file" fixture on the shared staging DB.
+    await deleteConsentsFor([coveredChildId]);
+    const membershipIds = [membershipId, coveredMembershipId].filter(Boolean);
+    if (membershipIds.length > 0) {
+      await db.delete(memberships).where(inArray(memberships.id, membershipIds));
+    }
     if (tierId) await cleanupTestMembershipTiers([tierId]);
     if (sessionId) await deleteTestSession(sessionId);
     if (templateId) await cleanupTestClassFixtures([templateId]);
   });
 
-  test("confirming the paid make-up price collects the guardian waiver before any payment request", async ({
-    page,
-  }) => {
-    const dropinBookingPosts: string[] = [];
-    page.on("request", (req) => {
-      if (req.method() === "POST" && req.url().includes("/api/dropin/bookings")) {
-        dropinBookingPosts.push(req.url());
-      }
-    });
-
-    await signIn(page, parentEmail, parentPassword);
+  /** Dashboard → the child's card → make-up modal → click this run's session,
+   *  landing on the 402 price-confirm step. Shared by both halves so the only
+   *  difference between them is the fixture's coverage. */
+  async function openMakeUpAndConfirmPrice(
+    page: import("@playwright/test").Page,
+    childName: string,
+  ) {
     await page.goto("/dashboard/family");
     await waitForHydration(page);
 
     const card = page
       .locator("div.flex.items-start.gap-3.rounded-xl.border.border-border.border-l-4.p-3")
-      .filter({ hasText: childFirstName });
+      .filter({ hasText: childName });
     await expect(card).toBeVisible({ timeout: 20_000 });
     await card.getByRole("button", { name: "Book a make-up" }).click();
 
     const dialog = page.getByRole("dialog");
     await expect(
-      dialog.getByText(new RegExp(`Book a make-up class for ${childFirstName}`)),
+      dialog.getByText(new RegExp(`Book a make-up class for ${childName}`)),
     ).toBeVisible({ timeout: 20_000 });
 
     await dialog
@@ -947,6 +1027,22 @@ test.describe("Make-up modal — paid 402 path is waiver-gated", () => {
     // drops the fraction digits on a whole-dollar amount.
     await expect(dialog.getByText(/Pay \$15 to make up this one class/)).toBeVisible();
 
+    return dialog;
+  }
+
+  test("confirming the paid make-up price collects the guardian waiver before any payment request", async ({
+    page,
+  }) => {
+    const dropinBookingPosts: string[] = [];
+    page.on("request", (req) => {
+      if (req.method() === "POST" && req.url().includes("/api/dropin/bookings")) {
+        dropinBookingPosts.push(req.url());
+      }
+    });
+
+    await signIn(page, parentEmail, parentPassword);
+    const dialog = await openMakeUpAndConfirmPrice(page, childFirstName);
+
     await dialog.getByRole("button", { name: "Pay for this class" }).click();
 
     // THE FIX: the price is confirmed, but the waiver decision still applies.
@@ -959,6 +1055,44 @@ test.describe("Make-up modal — paid 402 path is waiver-gated", () => {
       dialog.getByRole("button", { name: "Sign waiver & continue to payment" }),
     ).toBeVisible();
     expect(dropinBookingPosts).toHaveLength(0);
+  });
+
+  test("a COVERED child skips the panel and pays with no waiver fields on the wire", async ({
+    page,
+  }) => {
+    // The other half of `payOrCollectWaiver`. Without this, a gate that
+    // ALWAYS asks — the exact regression the fix could decay into — would
+    // still pass the test above, and the covered family would be back to
+    // re-signing on every single make-up.
+    //
+    const booking = stubPaidBooking(page);
+
+    await signIn(page, parentEmail, parentPassword);
+    const dialog = await openMakeUpAndConfirmPrice(page, coveredChildFirstName);
+
+    await dialog.getByRole("button", { name: "Pay for this class" }).click();
+
+    // The stub keeps the page put, so the modal lands on its own success
+    // panel instead of leaving for Stripe — which is what makes the
+    // panel-absence assertion below meaningful rather than a check against a
+    // blank post-navigation document.
+    await expect(dialog.getByText("You're all set!")).toBeVisible({ timeout: 20_000 });
+
+    const sent = booking.sentBody();
+    // The contract, mirroring scenario 6's drop-in door assertions: a covered
+    // family sends NO signature, and the paid booking is tagged to the CHILD
+    // (fulfillment records it against them, not the payer).
+    expect(sent).not.toHaveProperty("waiverAccepted");
+    expect(sent).not.toHaveProperty("waiverName");
+    expect(sent.familyMemberId).toBe(coveredChildId);
+    expect(sent.sessionId).toBe(sessionId);
+
+    // Zero waiver-panel renders, asserted on a page that is still showing the
+    // modal.
+    await expect(
+      dialog.getByText("One more step: sign the guardian waiver"),
+    ).toHaveCount(0);
+    expect(booking.postCount()).toBe(1);
   });
 });
 

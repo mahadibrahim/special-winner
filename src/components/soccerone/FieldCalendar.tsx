@@ -10,6 +10,11 @@ import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import { zonedHourToUtc } from "@/lib/activity-tracking/tz-day";
 import { fieldInfoForName, fieldColorForName } from "@/lib/soccerone/field-info";
 import { fetchRentalAvailability } from "@/lib/rentals/fetch-availability";
+import {
+  rentalWaiverBlocksSubmit,
+  rentalWaiverCovered,
+  rentalWaiverRequestFields,
+} from "@/lib/rentals/waiver-fields";
 import { dateInTimeZone } from "@/lib/time/format-date";
 
 // --- Live availability types ---
@@ -235,9 +240,10 @@ export function FieldCalendar({
   signedIn = false,
   waiverOnFile = false,
 }: FieldCalendarProps) {
-  // A guest has no account and so no person row to carry coverage; the
-  // endpoint reaches the same conclusion independently.
-  const waiverCovered = signedIn && waiverOnFile === true;
+  // Shared with the Aspire /rentals form — see
+  // src/lib/rentals/waiver-fields.ts for the fail-toward-asking rules and why
+  // both brands run one implementation.
+  const waiverCovered = rentalWaiverCovered({ signedIn, waiverOnFile });
   // Top-level client:load island on /rent; set the hydration beacon so e2e
   // waitForHydration() resolves (per CLAUDE.md Playwright conventions).
   useHydrationBeacon();
@@ -405,9 +411,7 @@ export function FieldCalendar({
           // Covered renters send NO waiver fields — the validator accepts
           // their absence only when the server independently agrees, and the
           // endpoint stamps the on-file attribution itself.
-          ...(waiverCovered
-            ? {}
-            : { waiverName: waiverName.trim(), waiverAccepted: true }),
+          ...rentalWaiverRequestFields(waiverCovered, waiverName),
           ...(!signedIn && {
             renterName: waiverName.trim(),
             renterEmail: guestEmail.trim(),
@@ -842,8 +846,11 @@ export function FieldCalendar({
                     onClick={handleBook}
                     disabled={
                       submitting ||
-                      (!waiverCovered &&
-                        (!waiverAccepted || !waiverName.trim())) ||
+                      rentalWaiverBlocksSubmit({
+                        covered: waiverCovered,
+                        waiverAccepted,
+                        waiverName,
+                      }) ||
                       (!signedIn && !guestEmail.trim())
                     }
                   >

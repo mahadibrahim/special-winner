@@ -667,10 +667,15 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
    * lapsed waiver. They are the last people who should be charged with no
    * live release on record.
    *
-   * Covered → pay with NO waiver fields; the booking endpoint re-checks the
-   * same canonical predicate server-side and stamps the booking "On file
-   * (annual waiver)". `hasWaiverOnFile` is a UX probe, never the authority.
-   * Only strict `true` skips, so a missing/false answer degrades to ASKING.
+   * Covered → pay with NO waiver fields. The booking endpoint re-checks the
+   * same canonical predicate, but be honest about what that check DOES:
+   * `/api/dropin/bookings` consults `hasValidLiabilityWaiver` only to decide
+   * the STAMP (it sets `waiver_on_file: "1"` in the Stripe metadata that
+   * fulfillment reads). It does NOT refuse an unsigned paid make-up. So for
+   * THIS door the client is the only gate, which is exactly why the skip must
+   * be conservative: only strict `true` skips, and `false`/`undefined`/a
+   * summary that never loaded all fall through to ASKING. Do not weaken this
+   * to a truthiness check on the assumption that the server would catch it.
    */
   async function payOrCollectWaiver() {
     if (!exhaustedOffer) return
@@ -718,7 +723,31 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
         // either rather than swallowing a specific, actionable one ("This
         // class is missing its pricing — contact the front desk") behind the
         // generic retry copy.
-        const err = body.error as { message?: string } | string | undefined
+        const err = body.error as { message?: string; code?: string } | string | undefined
+        const code =
+          typeof err === "string"
+            ? err
+            : typeof err === "object" && typeof err?.code === "string"
+              ? err.code
+              : undefined
+
+        // The endpoint does not gate on the waiver TODAY (it consults the
+        // predicate only to stamp Stripe metadata — see payOrCollectWaiver's
+        // doc comment). But `payOrCollectWaiver` sends no signature whenever
+        // `hasWaiverOnFile` is true, and that flag comes off a summary
+        // snapshot that can be STALE — a waiver that lapsed between the
+        // dashboard load and this click, or a future server-side gate, would
+        // both surface here. Route it to the panel the user can actually act
+        // on instead of a dead "could not start payment". `waiverPurpose`
+        // stays "pay", so signing resubmits this same paid booking with the
+        // signature attached.
+        if (code === "waiver_required") {
+          setPendingSession(exhaustedOffer.session)
+          setWaiverPurpose("pay")
+          setPhase("waiver")
+          return
+        }
+
         const nestedMessage = typeof err === "object" && err?.message ? err.message : null
         const flatMessage =
           typeof err === "string" && typeof body.message === "string" ? body.message : null
