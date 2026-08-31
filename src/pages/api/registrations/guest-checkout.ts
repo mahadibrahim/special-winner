@@ -30,6 +30,8 @@ import { recordPhoneOptIn } from "@/lib/sms/opt-in";
 import { sendMagicLinkLoginEmail } from "@/lib/email/send";
 import { awaitEmailSend } from "@/lib/notifications/await-dispatch";
 import { createMagicLink, buildMagicLinkUrl } from "@/lib/auth/magic-link";
+import { recordLiabilityWaiver } from "@/lib/consents/liability";
+import { REGISTRATION_WAIVER_ACCEPT_LABEL } from "@/lib/registrations/waiver-text";
 
 const guestRegistrantSchema = z.object({
   firstName: z.string().min(1),
@@ -372,13 +374,38 @@ export const POST: APIRoute = async (context) => {
           familyMemberRow.id,
           personalConsentType,
         ));
+        // ANNUAL WAIVER, write side. `waiverOnFile` means createRegistration
+        // stamped the row from an existing signature, so per its caller
+        // contract nothing is appended to the liability log here — that branch
+        // is a READ. Only a genuinely fresh signature writes. The org-less
+        // season case keeps the legacy `recordConsent` write (the org-scoped
+        // helper cannot be called without an org) so the audit row still exists.
+        const liabilityWrite = regResult.waiverOnFile
+          ? Promise.resolve()
+          : regResult.organizationId
+            ? recordLiabilityWaiver(
+                {
+                  familyMemberId: familyMemberRow.id,
+                  organizationId: regResult.organizationId,
+                  registrationId: regResult.registration.id,
+                  signedByUserId: userRow.id,
+                  signedByName: waiverSignedBy,
+                  consentVariant: personKind === "self" ? "adult" : "guardian",
+                  consentText: REGISTRATION_WAIVER_ACCEPT_LABEL,
+                  ipAddress: clientAddress ?? null,
+                  userAgent: userAgent ?? null,
+                },
+                db,
+              )
+            : recordConsent({ ...baseConsent, type: "liability" });
+
         // Independent inserts (different consent rows, no shared uniqueness
         // constraint) — run them concurrently.
         await Promise.all([
           needsPersonalConsent
             ? recordConsent({ ...baseConsent, type: personalConsentType })
             : Promise.resolve(),
-          recordConsent({ ...baseConsent, type: "liability" }),
+          liabilityWrite,
           recordDefaultMediaAuth({
             ...baseConsent,
             optOutScopes: mediaAuthOptOuts ?? [],

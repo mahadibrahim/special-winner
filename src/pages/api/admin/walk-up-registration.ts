@@ -17,6 +17,12 @@ import {
   recordDefaultMediaAuth,
   hasActiveConsent,
 } from "@/lib/consents/record";
+import {
+  WAIVER_ON_FILE_ATTRIBUTION,
+  hasValidLiabilityWaiver,
+  recordLiabilityWaiver,
+} from "@/lib/consents/liability";
+import { REGISTRATION_WAIVER_ACCEPT_LABEL } from "@/lib/registrations/waiver-text";
 
 /**
  * POST /api/admin/walk-up-registration
@@ -91,6 +97,78 @@ const walkUpSchema = z.union([
     lookingForTeam: z.boolean().optional(),
   }),
 ]);
+
+/** The three denormalized waiver columns a walk-up registration insert writes.
+ *  Shared by both paths so the adult and parent+child desks stamp the same
+ *  shapes for the same three cases. */
+interface WalkUpWaiverColumns {
+  waiverSigned: boolean;
+  waiverSignedAt: Date | null;
+  waiverSignedBy: string | null;
+}
+
+/**
+ * ANNUAL WAIVER, read side, for the walk-up desk — the same three-outcome
+ * decision `create-registration.ts` makes for the customer-facing paths.
+ *
+ * `onFile` true means the participant is already covered by a valid,
+ * org-scoped signature; the caller must stamp the row and write NO liability
+ * consents row (that branch is a READ — `recordLiabilityWaiver` is append-only
+ * and would log a signature nobody gave). `waiverSignedAt` is null on that
+ * branch by design: hasValidLiabilityWaiver's legacy `registrations` fallback
+ * accepts any DATED signed row, so a dated derived copy would renew the very
+ * window it came from.
+ *
+ * The fresh branch dates the row and names the signer — both columns the two
+ * inserts here previously dropped, leaving the admin roster with a "signed"
+ * flag and no record of who signed or when.
+ *
+ * Fails towards ASKING: a lookup blip must never mark a walk-up signed off a
+ * waiver we could not read.
+ */
+async function resolveWalkUpWaiver(opts: {
+  db: Parameters<typeof hasValidLiabilityWaiver>[2];
+  familyMemberId: string;
+  organizationId: string;
+  waiverSigned: boolean;
+  waiverSignedBy: string;
+}): Promise<{ onFile: boolean; columns: WalkUpWaiverColumns }> {
+  let onFile = false;
+  try {
+    onFile = await hasValidLiabilityWaiver(
+      opts.familyMemberId,
+      opts.organizationId,
+      opts.db,
+    );
+  } catch (err) {
+    console.error("[walk-up] waiver-on-file lookup failed:", err);
+  }
+
+  if (onFile) {
+    return {
+      onFile: true,
+      columns: {
+        waiverSigned: true,
+        waiverSignedBy: WAIVER_ON_FILE_ATTRIBUTION,
+        waiverSignedAt: null,
+      },
+    };
+  }
+  if (opts.waiverSigned) {
+    return {
+      onFile: false,
+      columns: {
+        waiverSigned: true,
+        waiverSignedBy: opts.waiverSignedBy.trim() || null,
+        waiverSignedAt: new Date(),
+      },
+    };
+  }
+  return {
+    onFile: false,
+    columns: { waiverSigned: false, waiverSignedBy: null, waiverSignedAt: null },
+  };
+}
 
 export const POST: APIRoute = async (context) => {
   const auth = await requireOrgAdminAccess(context);
@@ -207,6 +285,14 @@ export const POST: APIRoute = async (context) => {
     const adultPaymentStatus: "paid" | "unpaid" =
       input.paymentStatus === "paid" ? "paid" : "unpaid";
 
+    const adultWaiver = await resolveWalkUpWaiver({
+      db,
+      familyMemberId: selfMember.id,
+      organizationId,
+      waiverSigned: input.waiverSigned,
+      waiverSignedBy: input.waiverSignedBy,
+    });
+
     const [adultRegistration] = await db
       .insert(registrations)
       .values({
@@ -217,7 +303,7 @@ export const POST: APIRoute = async (context) => {
         paymentStatus: adultPaymentStatus,
         amountPaidCents: input.amountPaidCents ?? 0,
         amountDueCents: seasonInfo.season.priceCents,
-        waiverSigned: input.waiverSigned,
+        ...adultWaiver.columns,
         notes: input.notes ?? null,
         lookingForTeam: input.lookingForTeam ?? false,
       })
@@ -238,7 +324,31 @@ export const POST: APIRoute = async (context) => {
       if (!(await hasActiveConsent(db, selfMember.id, "age_confirmation"))) {
         await recordConsent({ ...baseConsent, type: "age_confirmation" });
       }
-      await recordConsent({ ...baseConsent, type: "liability" });
+      // ANNUAL WAIVER, write side. Skipped when the participant is already
+      // covered: that branch stamped the row from an existing signature and
+      // must append nothing to the append-only liability log. The media-auth
+      // write below is untouched — it records the desk's per-registration
+      // choice, not a liability signature.
+      if (!adultWaiver.onFile) {
+        await recordLiabilityWaiver(
+          {
+            familyMemberId: selfMember.id,
+            organizationId,
+            registrationId: adultRegistration.id,
+            signedByUserId: adultUserId,
+            signedByName: input.waiverSignedBy,
+            consentVariant: "adult",
+            consentText: REGISTRATION_WAIVER_ACCEPT_LABEL,
+            // From THIS request's context — the staff device at the desk.
+            ipAddress: clientAddress ?? null,
+            userAgent: userAgent ?? null,
+            // Who operated the screen: signedByUserId is the customer, but a
+            // staff member did the typing. No other column carries that.
+            notes: `walk-up: admin=${adminUser.id}`,
+          },
+          db,
+        );
+      }
       await recordDefaultMediaAuth(baseConsent);
     }
 
@@ -353,8 +463,8 @@ export const POST: APIRoute = async (context) => {
   // The parent-user upsert, family-member resolve, and registration insert
   // must land together — a partial write leaves an orphaned user or a
   // family member with no registration. Wrap the chain in one transaction.
-  const { parentUserId, familyMemberId, registrationId } = await db.transaction(
-    async (tx) => {
+  const { parentUserId, familyMemberId, registrationId, waiverOnFile } =
+    await db.transaction(async (tx) => {
       // Create or find the parent user
       const [existingUser] = await tx
         .select()
@@ -400,6 +510,17 @@ export const POST: APIRoute = async (context) => {
         medicalNotes: childInput.kid.medicalNotes ?? null,
       });
 
+      // Resolved on the tx handle so the read sees the person row this tx
+      // just created (or found) — outside it, resolvePerson's insert may not
+      // be visible yet.
+      const childWaiver = await resolveWalkUpWaiver({
+        db: tx,
+        familyMemberId: familyMember.id,
+        organizationId,
+        waiverSigned: childInput.waiverSigned,
+        waiverSignedBy: childWaiverSignedBy,
+      });
+
       const [registration] = await tx
         .insert(registrations)
         .values({
@@ -410,7 +531,7 @@ export const POST: APIRoute = async (context) => {
           paymentStatus,
           amountPaidCents: childInput.amountPaidCents ?? 0,
           amountDueCents: seasonInfo.season.priceCents,
-          waiverSigned: childInput.waiverSigned,
+          ...childWaiver.columns,
           notes: childInput.notes ?? null,
         })
         .returning({ id: registrations.id });
@@ -419,9 +540,9 @@ export const POST: APIRoute = async (context) => {
         parentUserId,
         familyMemberId: familyMember.id,
         registrationId: registration.id,
+        waiverOnFile: childWaiver.onFile,
       };
-    },
-  );
+    });
 
   if (childInput.waiverSigned) {
     const baseConsent = {
@@ -438,7 +559,25 @@ export const POST: APIRoute = async (context) => {
     if (!(await hasActiveConsent(db, familyMemberId, "parental"))) {
       await recordConsent({ ...baseConsent, type: "parental" });
     }
-    await recordConsent({ ...baseConsent, type: "liability" });
+    // ANNUAL WAIVER, write side — see the adult path above for why the
+    // on-file branch appends nothing.
+    if (!waiverOnFile) {
+      await recordLiabilityWaiver(
+        {
+          familyMemberId,
+          organizationId,
+          registrationId,
+          signedByUserId: parentUserId,
+          signedByName: childWaiverSignedBy,
+          consentVariant: "guardian",
+          consentText: REGISTRATION_WAIVER_ACCEPT_LABEL,
+          ipAddress: clientAddress ?? null,
+          userAgent: userAgent ?? null,
+          notes: `walk-up: admin=${adminUser.id}`,
+        },
+        db,
+      );
+    }
     await recordDefaultMediaAuth(baseConsent);
   }
 

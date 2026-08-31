@@ -19,6 +19,10 @@ import {
   captainShareDueCents,
   teamDepositPaid,
 } from "@/lib/registrations/captain-credit";
+import {
+  WAIVER_ON_FILE_ATTRIBUTION,
+  hasValidLiabilityWaiver,
+} from "@/lib/consents/liability";
 
 export type RegistrationKind = "created" | "resumed" | "waitlisted";
 
@@ -62,6 +66,22 @@ export type CreateRegistrationResult = {
   /** Owning org of the season, resolved once here — callers should thread
    * this through instead of re-querying it (e.g. for consent recording). */
   organizationId: string | null;
+  /**
+   * True when the participant's ANNUAL liability waiver was already valid for
+   * this org (`hasValidLiabilityWaiver`) — the registration row was stamped
+   * signed from that existing signature rather than from anything the caller
+   * supplied.
+   *
+   * CALLER CONTRACT: when this is true you MUST NOT write a `liability`
+   * consents row for this registration. `recordLiabilityWaiver` is
+   * append-only and does not dedupe, so a write here would log a signature
+   * nobody gave for this registration — and, worse, extend the annual window
+   * off the back of a form the customer may not even have been shown.
+   * Non-liability consents (media authorization, parental/age confirmation)
+   * are unaffected: those are the customer's per-submission choices and
+   * should still be recorded.
+   */
+  waiverOnFile: boolean;
 };
 
 export class RegistrationError extends Error {
@@ -308,6 +328,91 @@ async function resolveTeamPricing(opts: {
   };
 }
 
+/** The three denormalized waiver columns every `registrations` insert (and the
+ *  resumed-row update) below writes as one unit. */
+interface WaiverColumns {
+  waiverSigned: boolean;
+  waiverSignedAt: Date | null;
+  waiverSignedBy: string | null;
+}
+
+/**
+ * Decide the registration row's waiver columns, ANNUAL waiver first.
+ *
+ * `registrations.waiverSigned` is per-REGISTRATION, so it starts false even
+ * for a family who signed a fortnight ago in another program at the same
+ * organization. The platform rule is per person, per org, for a year
+ * (`src/lib/consents/liability.ts`) — so the on-file signature is consulted
+ * before anything the caller supplied, and wins when it is valid.
+ *
+ * Three outcomes:
+ *  - ON FILE → `waiverSigned: true` with the shared "On file (annual waiver)"
+ *    attribution and `waiverSignedAt` NULL. The null date is load-bearing:
+ *    `hasValidLiabilityWaiver`'s legacy `registrations` fallback accepts any
+ *    DATED signed row, so dating this derived copy would let each new
+ *    registration renew the very window it was derived from. Same rule as
+ *    book-child.ts's on-file branch and the drop-in door's fulfillment stamp.
+ *  - FRESH SIGNATURE (caller passed `waiverSigned: true` and nothing is on
+ *    file) → signed, dated now, attributed to the supplied signature. The
+ *    date and the signer name were previously dropped on the floor here: the
+ *    insert only ever wrote the boolean, so a genuine pre-payment signature
+ *    left no signer and no timestamp on the row at all.
+ *  - NEITHER → unsigned; the post-payment completion step is the backstop.
+ *
+ * Fails towards ASKING: a lookup error must never mark a registration signed
+ * on the strength of a waiver we could not read.
+ */
+async function resolveWaiverColumns(opts: {
+  db: ReturnType<typeof getDb>;
+  familyMemberId: string;
+  organizationId: string | null;
+  waiverSigned: boolean;
+  waiverSignedBy: string;
+}): Promise<{ onFile: boolean; columns: WaiverColumns }> {
+  let onFile = false;
+  if (opts.organizationId) {
+    try {
+      onFile = await hasValidLiabilityWaiver(
+        opts.familyMemberId,
+        opts.organizationId,
+        opts.db,
+      );
+    } catch (err) {
+      console.error(
+        "[createRegistration] waiver-on-file lookup failed:",
+        err,
+      );
+    }
+  }
+
+  if (onFile) {
+    return {
+      onFile: true,
+      columns: {
+        waiverSigned: true,
+        waiverSignedBy: WAIVER_ON_FILE_ATTRIBUTION,
+        waiverSignedAt: null,
+      },
+    };
+  }
+
+  if (opts.waiverSigned) {
+    return {
+      onFile: false,
+      columns: {
+        waiverSigned: true,
+        waiverSignedBy: opts.waiverSignedBy.trim() || null,
+        waiverSignedAt: new Date(),
+      },
+    };
+  }
+
+  return {
+    onFile: false,
+    columns: { waiverSigned: false, waiverSignedBy: null, waiverSignedAt: null },
+  };
+}
+
 export async function createRegistration(
   input: CreateRegistrationInput,
 ): Promise<CreateRegistrationResult> {
@@ -379,6 +484,17 @@ export async function createRegistration(
     }
   }
 
+  // ANNUAL WAIVER, read side — resolved once, before any of the three write
+  // paths below (resumed row, waitlist insert, normal insert), so all three
+  // agree on the row's waiver state.
+  const waiverState = await resolveWaiverColumns({
+    db,
+    familyMemberId: familyMember.id,
+    organizationId,
+    waiverSigned: input.waiverSigned,
+    waiverSignedBy: input.waiverSignedBy,
+  });
+
   if (existingReg) {
     const isPendingUnpaid =
       existingReg.status === "pending" && existingReg.paymentStatus === "unpaid";
@@ -390,6 +506,28 @@ export async function createRegistration(
           .update(registrations)
           .set({ lookingForTeam: true, updatedAt: new Date() })
           .where(eq(registrations.id, existingReg.id))
+          .returning();
+        resumedReg = updated;
+      }
+
+      // A stale unsigned draft must pick up a waiver that became valid after
+      // it was created — signed at another door in the meantime. Without this
+      // the row keeps its `false`, the confirm screen keeps asking, and the
+      // reminder cron keeps chasing a family that is already covered.
+      //
+      // ON-FILE ONLY, deliberately. A fresh signature supplied on THIS request
+      // is not stamped here, because both callers skip their consent writes
+      // for `kind === "resumed"` — stamping would leave a DATED signature on
+      // the row with no `consents` row behind it, and that dated row would
+      // then satisfy hasValidLiabilityWaiver's legacy fallback for a year off
+      // an unrecorded signature. Resumed drafts keep today's behaviour: the
+      // post-payment completion step captures and records the signature.
+      // Never downgrades — only fires when the row is currently unsigned.
+      if (waiverState.onFile && !resumedReg.waiverSigned) {
+        const [updated] = await db
+          .update(registrations)
+          .set({ ...waiverState.columns, updatedAt: new Date() })
+          .where(eq(registrations.id, resumedReg.id))
           .returning();
         resumedReg = updated;
       }
@@ -457,6 +595,7 @@ export async function createRegistration(
         requiresPayment: resumedReg.amountDueCents > 0,
         amountDueCents: resumedReg.amountDueCents,
         organizationId,
+        waiverOnFile: waiverState.onFile,
       };
     }
     throw new RegistrationError(
@@ -492,7 +631,7 @@ export async function createRegistration(
           amountPaidCents: 0,
           amountDueCents: amountDue,
           registrationType: input.registrationType,
-          waiverSigned: input.waiverSigned,
+          ...waiverState.columns,
           notes: input.notes ?? null,
           lookingForTeam: input.lookingForTeam ?? false,
           brand: input.brand ?? "aspire",
@@ -558,6 +697,7 @@ export async function createRegistration(
         requiresPayment: false,
         amountDueCents: amountDue,
         organizationId,
+        waiverOnFile: waiverState.onFile,
       };
     }
   }
@@ -623,7 +763,7 @@ export async function createRegistration(
       amountPaidCents: 0,
       amountDueCents: amountDue,
       registrationType: input.registrationType,
-      waiverSigned: input.waiverSigned,
+      ...waiverState.columns,
       notes: input.notes ?? null,
       lookingForTeam: input.lookingForTeam ?? false,
       brand: input.brand ?? "aspire",
@@ -695,5 +835,6 @@ export async function createRegistration(
     requiresPayment: amountDue > 0,
     amountDueCents: amountDue,
     organizationId,
+    waiverOnFile: waiverState.onFile,
   };
 }

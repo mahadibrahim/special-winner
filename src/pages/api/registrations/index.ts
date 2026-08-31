@@ -9,6 +9,8 @@ import { getPostHogServer } from "@/lib/posthog-server";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
 import { fireRegistrationCreatedConversion } from "@/lib/analytics/server-conversions";
 import { recordConsent, recordDefaultMediaAuth } from "@/lib/consents/record";
+import { recordLiabilityWaiver } from "@/lib/consents/liability";
+import { REGISTRATION_WAIVER_ACCEPT_LABEL } from "@/lib/registrations/waiver-text";
 
 // waiverSignedBy is only required when the client actually claims the
 // waiver was signed at checkout time (v2 solo checkout defers waiver
@@ -237,10 +239,37 @@ export const POST: APIRoute = async ({ request, clientAddress, locals }) => {
           ipAddress: clientAddress ?? null,
           userAgent: userAgent ?? null,
         };
+        // ANNUAL WAIVER, write side. `waiverOnFile` means the row was stamped
+        // from an existing signature, so per createRegistration's caller
+        // contract nothing is appended to the liability log here — that branch
+        // is a READ. Only a genuinely fresh signature writes.
+        //
+        // The org-less case (a season whose location carries no organization)
+        // can't go through the org-scoped helper at all; it keeps the legacy
+        // `recordConsent` write so the audit row still exists.
+        const liabilityWrite = result.waiverOnFile
+          ? Promise.resolve()
+          : result.organizationId
+            ? recordLiabilityWaiver(
+                {
+                  familyMemberId: familyMember.id,
+                  organizationId: result.organizationId,
+                  registrationId: result.registration.id,
+                  signedByUserId: user.id,
+                  signedByName: data.waiverSignedBy ?? "",
+                  consentVariant: data.registerSelf ? "adult" : "guardian",
+                  consentText: REGISTRATION_WAIVER_ACCEPT_LABEL,
+                  ipAddress: clientAddress ?? null,
+                  userAgent: userAgent ?? null,
+                },
+                db,
+              )
+            : recordConsent({ ...baseConsent, type: "liability" });
+
         // These are independent inserts (different consent rows, no shared
         // uniqueness constraint) — run them concurrently.
         await Promise.all([
-          recordConsent({ ...baseConsent, type: "liability" }),
+          liabilityWrite,
           recordDefaultMediaAuth({
             ...baseConsent,
             optOutScopes: data.mediaAuthOptOuts ?? [],

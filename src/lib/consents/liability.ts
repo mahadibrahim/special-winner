@@ -82,6 +82,15 @@ export interface LiabilityWaiverSignature {
   ipAddress?: string | null;
   userAgent?: string | null;
   registrationId?: string | null;
+  /**
+   * Extra provenance appended to the generated `notes` string, for surfaces
+   * where WHO operated the screen is part of the audit trail and is not
+   * captured by any other column — the admin walk-up desk (`walk-up:
+   * admin=<id>`) is the case this exists for, where `signedByUserId` is the
+   * customer while a staff member did the typing. Never a substitute for the
+   * variant/text the helper always records.
+   */
+  notes?: string | null;
 }
 
 /**
@@ -152,7 +161,9 @@ export async function recordLiabilityWaiver(
     signedByName: sig.signedByName,
     ipAddress: sig.ipAddress ?? null,
     userAgent: sig.userAgent ?? null,
-    notes: `variant=${sig.consentVariant}; text=${sig.consentText}`,
+    notes: sig.notes
+      ? `variant=${sig.consentVariant}; text=${sig.consentText}; ${sig.notes}`
+      : `variant=${sig.consentVariant}; text=${sig.consentText}`,
   });
 }
 

@@ -15,6 +15,7 @@ import { MediaAuthStep, type MediaAuthScope } from "./media-auth-step"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { parseApiError } from "@/lib/api/error-message"
 import { trackRegistrationStepViewed, type RegFlow } from "@/lib/analytics/events"
+import { REGISTRATION_WAIVER_ACCEPT_LABEL } from "@/lib/registrations/waiver-text"
 
 export interface CompletionFormProps {
   registrationId: string
@@ -270,7 +271,7 @@ export function CompletionForm({
           className="mt-1 border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
         />
         <Label htmlFor="completion-waiver-accept" className="text-sm text-ink-2 cursor-pointer">
-          I agree to the terms above.
+          {REGISTRATION_WAIVER_ACCEPT_LABEL}
         </Label>
       </div>
 

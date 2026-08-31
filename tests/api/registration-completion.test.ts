@@ -1,10 +1,20 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { apiFetch, getAuthCookie } from "./setup/test-helpers";
 import { getDb } from "@/lib/db";
-import { seasons, registrations, consents } from "@/lib/db/schema";
+import {
+  seasons,
+  programs,
+  locations,
+  registrations,
+  consents,
+} from "@/lib/db/schema";
 import { phoneOptIns } from "@/lib/db/schema/phone-verifications";
 import { CONSENT_COPY } from "@/lib/consents/marketing-channels";
-import { eq } from "drizzle-orm";
+import {
+  WAIVER_ON_FILE_ATTRIBUTION,
+  WAIVER_VALID_DAYS,
+} from "@/lib/consents/liability";
+import { and, eq } from "drizzle-orm";
 
 // Same slug convention as registrations-self.test.ts / registrations-
 // membership.test.ts — the e2e seed catalog exports no fixture ids, so tests
@@ -19,21 +29,27 @@ const stripeConfigured = Boolean(process.env.STRIPE_SECRET_KEY);
 const itWithStripe = stripeConfigured ? it : it.skip;
 
 let adultSeasonId: string;
+/** Owning org of that season. Waivers are org-scoped legal releases, so the
+ *  annual-waiver cases below must seed their consents row against THIS org. */
+let adultSeasonOrgId: string;
 
 beforeAll(async () => {
   const db = getDb();
   const [season] = await db
-    .select({ id: seasons.id })
+    .select({ id: seasons.id, organizationId: locations.organizationId })
     .from(seasons)
+    .innerJoin(programs, eq(seasons.programId, programs.id))
+    .innerJoin(locations, eq(programs.locationId, locations.id))
     .where(eq(seasons.slug, ADULT_OPEN_SEASON_SLUG))
     .limit(1);
 
-  if (!season) {
+  if (!season?.organizationId) {
     throw new Error(
-      `Adult open soccer season not found (slug: ${ADULT_OPEN_SEASON_SLUG}) — re-run npm run db:seed:e2e`,
+      `Adult open soccer season (slug: ${ADULT_OPEN_SEASON_SLUG}) or its owning org not found — re-run npm run db:seed:e2e`,
     );
   }
   adultSeasonId = season.id;
+  adultSeasonOrgId = season.organizationId;
 });
 
 describe("guest-checkout v2 (deferred waiver/DOB)", () => {
@@ -344,6 +360,119 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
       .from(phoneOptIns)
       .where(eq(phoneOptIns.phone, phone));
     expect(rows.some((r) => r.channel === "whatsapp")).toBe(false);
+  });
+
+  // ANNUAL WAIVER. `registrations.waiverSigned` is per-REGISTRATION, so it is
+  // false on every new row even for a family already covered at this org. The
+  // registration is normally born stamped (create-registration.ts), so the
+  // branch these two cover is the TRANSITION one: the row existed BEFORE the
+  // signature landed, which is why each mints the registration first and only
+  // then inserts the consent.
+  describe("annual waiver on file", () => {
+    async function insertLiabilityConsent(
+      familyMemberId: string,
+      signerUserId: string,
+    ): Promise<void> {
+      const signedAt = new Date(Date.now() - 30 * 86_400_000);
+      await getDb().insert(consents).values({
+        familyMemberId,
+        organizationId: adultSeasonOrgId,
+        type: "liability",
+        status: "granted",
+        signedByUserId: signerUserId,
+        signedByName: "Parent Test",
+        signedAt,
+        expiresAt: new Date(signedAt.getTime() + WAIVER_VALID_DAYS * 86_400_000),
+      });
+    }
+
+    it("short-circuits alreadySigned and stamps the row on-file, logging no new consent", async () => {
+      const { registrationId, familyMemberId, cookie } =
+        await mintOwnedRegistration("2016-04-01");
+
+      const db = getDb();
+      const [reg] = await db
+        .select({ signerUserId: registrations.registeredByUserId })
+        .from(registrations)
+        .where(eq(registrations.id, registrationId));
+      await insertLiabilityConsent(familyMemberId, reg.signerUserId);
+
+      const res = await apiFetch(`/api/registrations/${registrationId}/complete`, {
+        method: "POST",
+        cookie,
+        body: JSON.stringify({
+          waiverAccepted: true,
+          waiverSignature: "Redundant Signer",
+        }),
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.alreadySigned).toBe(true);
+      expect(body.signed).toBeUndefined();
+
+      const [row] = await db
+        .select({
+          waiverSigned: registrations.waiverSigned,
+          waiverSignedBy: registrations.waiverSignedBy,
+          waiverSignedAt: registrations.waiverSignedAt,
+        })
+        .from(registrations)
+        .where(eq(registrations.id, registrationId));
+      expect(row.waiverSigned).toBe(true);
+      expect(row.waiverSignedBy).toBe(WAIVER_ON_FILE_ATTRIBUTION);
+      // Load-bearing: hasValidLiabilityWaiver's legacy `registrations`
+      // fallback accepts any DATED signed row, so a dated derived copy would
+      // renew the very window it was derived from.
+      expect(row.waiverSignedAt).toBeNull();
+
+      // consents is append-only and does not dedupe — this branch is a READ.
+      const liability = await db
+        .select({ id: consents.id })
+        .from(consents)
+        .where(
+          and(
+            eq(consents.familyMemberId, familyMemberId),
+            eq(consents.type, "liability"),
+          ),
+        );
+      expect(liability).toHaveLength(1);
+    });
+
+    it("writes an org-scoped, ip/UA-stamped consent for a genuinely fresh signature", async () => {
+      const { registrationId, familyMemberId, cookie } =
+        await mintOwnedRegistration("2016-04-01");
+      const signature = `Org Scoped ${Date.now()}`;
+
+      const res = await apiFetch(`/api/registrations/${registrationId}/complete`, {
+        method: "POST",
+        cookie,
+        body: JSON.stringify({
+          waiverAccepted: true,
+          waiverSignature: signature,
+        }),
+      });
+      expect(res.status).toBe(200);
+      expect((await res.json()).signed).toBe(true);
+
+      const [row] = await getDb()
+        .select()
+        .from(consents)
+        .where(
+          and(
+            eq(consents.familyMemberId, familyMemberId),
+            eq(consents.type, "liability"),
+          ),
+        );
+      // The org is what makes the annual predicate work — a NULL-org row
+      // satisfies nothing.
+      expect(row.organizationId).toBe(adultSeasonOrgId);
+      expect(row.signedByName).toBe(signature);
+      // From THIS request's context, never the body.
+      expect(row.userAgent).toBeTruthy();
+      expect(row.expiresAt).toBeTruthy();
+      const expected = row.signedAt.getTime() + WAIVER_VALID_DAYS * 86_400_000;
+      expect(Math.abs((row.expiresAt?.getTime() ?? 0) - expected)).toBeLessThan(5000);
+    });
   });
 
   it("flags age review for a DOB outside the season's age group without blocking the sign", async () => {

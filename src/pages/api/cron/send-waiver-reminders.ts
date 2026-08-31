@@ -9,6 +9,10 @@ import {
   locations,
   emailLogs,
 } from "@/lib/db/schema";
+import {
+  WAIVER_ON_FILE_ATTRIBUTION,
+  hasValidLiabilityWaiver,
+} from "@/lib/consents/liability";
 import { sendWaiverReminderEmail } from "@/lib/email/send";
 import {
   createMagicLink,
@@ -82,6 +86,21 @@ interface WindowResult {
 // started, and not a cancelled/refunded registration (paymentStatus is not
 // reset on cancel — without this a cancelled-but-paid registration would
 // keep getting reminded to sign a waiver for a season it's no longer in).
+//
+// ANNUAL WAIVER note: `registrations.waiverSigned = false` is ALSO the annual
+// exclusion for anything created after that change landed — every registration
+// write path now stamps the row `waiverSigned: true` at birth when the
+// participant already has a valid org-scoped signature
+// (create-registration.ts, walk-up-registration.ts), so covered families never
+// enter this candidate set in the first place. What this query cannot see is
+// the TRANSITION population: rows created before the stamp existed, and rows
+// whose family signed at another door after the registration was made. Those
+// are caught per-row by `stampIfWaiverOnFile` below rather than by a second
+// SQL predicate here — a correlated EXISTS would have to restate
+// hasValidLiabilityWaiver's rule (canonical consents row OR either legacy
+// signature fallback) in SQL, forking the one place that owns it. The per-row
+// cost is bounded and self-liquidating: each covered row is stamped once and
+// then never re-enters the candidate set through any window.
 function baseEligibility() {
   return and(
     eq(registrations.waiverSigned, false),
@@ -112,6 +131,7 @@ async function fetchRows(whereExtra: ReturnType<typeof and>) {
     .select({
       registrationId: registrations.id,
       registrationBrand: registrations.brand,
+      familyMemberId: registrations.familyMemberId,
       seasonId: registrations.seasonId,
       startDate: seasons.startDate,
       seasonName: seasons.name,
@@ -128,6 +148,53 @@ async function fetchRows(whereExtra: ReturnType<typeof and>) {
     .innerJoin(locations, eq(programs.locationId, locations.id))
     .innerJoin(users, eq(registrations.registeredByUserId, users.id))
     .where(and(baseEligibility(), whereExtra));
+}
+
+/**
+ * Transition backstop: a candidate row whose participant is ALREADY covered by
+ * a valid annual signature must not be chased. Stamps the row with the shared
+ * on-file attribution and reports true so the caller counts it as skipped
+ * instead of sending.
+ *
+ * The stamp is what keeps this cheap — it takes the row out of
+ * `baseEligibility` permanently, so a given registration costs this lookup at
+ * most once across all eleven windows and all future runs.
+ *
+ * `waiverSignedAt` stays NULL (written explicitly): the row is a derived copy
+ * of an earlier signature, and hasValidLiabilityWaiver's legacy `registrations`
+ * fallback accepts any DATED signed row — dating it would let the reminder cron
+ * renew the very window it just read.
+ *
+ * Errors resolve to "not covered" so a lookup blip degrades to today's
+ * behaviour (send the reminder) rather than silently suppressing it.
+ */
+async function stampIfWaiverOnFile(
+  row: Awaited<ReturnType<typeof fetchRows>>[number],
+): Promise<boolean> {
+  if (!row.locationOrgId) return false;
+  try {
+    const covered = await hasValidLiabilityWaiver(
+      row.familyMemberId,
+      row.locationOrgId,
+    );
+    if (!covered) return false;
+    await getDb()
+      .update(registrations)
+      .set({
+        waiverSigned: true,
+        waiverSignedBy: WAIVER_ON_FILE_ATTRIBUTION,
+        waiverSignedAt: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(registrations.id, row.registrationId));
+    return true;
+  } catch (err) {
+    console.error(
+      `[cron] waiver-on-file check failed for registration ${row.registrationId}:`,
+      err,
+    );
+    return false;
+  }
 }
 
 async function sendForRow(
@@ -242,6 +309,10 @@ export const POST: APIRoute = async ({ request }) => {
 
       for (const row of rows) {
         try {
+          if (await stampIfWaiverOnFile(row)) {
+            result.skipped += 1;
+            continue;
+          }
           await sendForRow(row, windowDef.type, windowDef.reminderNumber);
           result.sent += 1;
         } catch (rowErr) {
@@ -297,6 +368,10 @@ export const POST: APIRoute = async ({ request }) => {
 
       for (const row of rows) {
         try {
+          if (await stampIfWaiverOnFile(row)) {
+            result.skipped += 1;
+            continue;
+          }
           await sendForRow(row, "final", FINAL_REMINDER_NUMBER);
           result.sent += 1;
         } catch (rowErr) {

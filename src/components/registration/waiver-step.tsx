@@ -4,6 +4,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { WaiverText } from "./waiver-text"
+import { REGISTRATION_WAIVER_ACCEPT_LABEL } from "@/lib/registrations/waiver-text"
 
 export interface WaiverStepProps {
   /** Whether the registrant is the parent/guardian (guest flow or dependent) vs. registering themselves */
@@ -84,7 +85,7 @@ export function WaiverStep({
                 <span className="text-ink font-medium">{guestChildFullName ?? ""}</span>.
               </>
             ) : (
-              "I agree to the terms above."
+              REGISTRATION_WAIVER_ACCEPT_LABEL
             )}
           </Label>
         </div>
