@@ -39,13 +39,19 @@ import { waiverAssentSentence } from "@/lib/consents/waiver-consent-language"
  * there's no membership allotment to draw from first (see
  * src/lib/classes/credits.ts), so no separate booking UI is needed.
  *
- * WAIVER NUDGE: a child who has spendable credits but has NEVER been
- * through a booking flow (`!hasWaiverOnFile && !hasEverBooked`, both from
- * the summary endpoint) gets an amber nudge pointing at the same modal —
- * their first booking attempt is what actually surfaces the guardian
- * waiver step (see MakeUpModal's `waiver_required` handling below), so the
- * nudge only needs to explain what's coming and share the trigger, not
- * engineer a special modal entry state.
+ * WAIVER NUDGE: a child who has spendable credits but no VALID waiver
+ * (`!hasWaiverOnFile` from the summary endpoint, which is now the annual
+ * validity predicate — src/lib/consents/liability.ts) gets an amber nudge
+ * pointing at the same modal — their next booking attempt is what actually
+ * surfaces the guardian waiver step (see MakeUpModal's `waiver_required`
+ * handling below), so the nudge only needs to explain what's coming and
+ * share the trigger, not engineer a special modal entry state.
+ *
+ * The condition used to also require `!hasEverBooked` ("never been through a
+ * booking flow"), on the assumption that anyone who had booked was covered
+ * forever. With a 365-day waiver that assumption inverts: a veteran family
+ * whose signature lapsed is exactly who must be nudged, and they have years
+ * of booking history. Validity alone decides.
  *
  * PACK SUCCESS (`?pack=success&child=…`): this island is also the consumer of
  * the pack-purchase Checkout return URL (see src/pages/api/classes/packs/
@@ -112,8 +118,9 @@ interface SummaryChild {
   nextSession: SummaryNextSession | null
   trialUsed: boolean
   credits: SummaryCredit[]
+  /** Annual validity, not "has ever signed" — a signature older than the
+   *  365-day window reads false here. */
   hasWaiverOnFile: boolean
-  hasEverBooked: boolean
 }
 
 interface ScheduleSlot {
@@ -269,13 +276,17 @@ function CreditLines({ credits }: { credits: SummaryCredit[] }) {
 }
 
 /** Amber "sign the waiver first" nudge — shown when a child has spendable
- *  credits but has never been through a booking flow (so no waiver is on
- *  file yet). Clicking it opens the same make-up modal `onOpen` opens for
- *  the "Book a session" CTA: the modal's own first booking attempt is what
- *  actually surfaces the waiver step (see MakeUpModal's `waiver_required`
- *  handling), so this nudge doesn't need to engineer a special modal entry
- *  state — it just explains what's about to happen and shares the trigger.
- */
+ *  credits but no waiver inside the annual window. Clicking it opens the same
+ *  make-up modal `onOpen` opens for the "Book a session" CTA: the modal's own
+ *  booking attempt is what actually surfaces the waiver step (see
+ *  MakeUpModal's `waiver_required` handling), so this nudge doesn't need to
+ *  engineer a special modal entry state — it just explains what's about to
+ *  happen and shares the trigger.
+ *
+ *  Copy is deliberately first-timer-neutral: waivers now expire yearly, so
+ *  this fires for lapsed veteran families too, and "activate bookings" read
+ *  like a one-time setup step they'd already done. "Annual" is also the
+ *  honest reason, which pre-empts the "but I signed already" reply. */
 function WaiverNudge({ onOpen }: { onOpen: () => void }) {
   return (
     <button
@@ -283,7 +294,7 @@ function WaiverNudge({ onOpen }: { onOpen: () => void }) {
       onClick={onOpen}
       className="block text-left text-xs font-medium text-amber-800 bg-amber-50/80 border border-amber-200 rounded-lg px-2.5 py-1.5 hover:bg-amber-100/80"
     >
-      Sign the waiver to activate bookings →
+      Sign this year's waiver to book classes →
     </button>
   )
 }
@@ -1045,7 +1056,7 @@ function MembershipChildCard({
             <p className="text-xs text-ink-muted">Payment processing…</p>
           )}
           <CreditLines credits={child.credits} />
-          {child.credits.length > 0 && !child.hasWaiverOnFile && !child.hasEverBooked && (
+          {child.credits.length > 0 && !child.hasWaiverOnFile && (
             <WaiverNudge onOpen={() => setModalOpen(true)} />
           )}
         </div>
@@ -1084,7 +1095,7 @@ function CreditChildCard({
   onChanged: () => void
 }) {
   const [modalOpen, setModalOpen] = useState(false)
-  const showWaiverNudge = child.credits.length > 0 && !child.hasWaiverOnFile && !child.hasEverBooked
+  const showWaiverNudge = child.credits.length > 0 && !child.hasWaiverOnFile
 
   return (
     <>

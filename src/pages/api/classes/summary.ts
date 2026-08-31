@@ -10,11 +10,17 @@
  * - children fetched once
  * - enrollment / next-session / trial-used are each ONE batched query keyed
  *   by `inArray(familyMemberId, childIds)`, merged in JS by child id
- * - `getActiveChildMembership` is the one exception — it's single-child by
- *   design (see its doc comment) and re-implementing its allotment logic
- *   here would duplicate real business rules. Families are small in
- *   practice, so this file caps at the first 20 children (deterministic,
- *   oldest-created-first) and calls it once per child, in parallel.
+ * - `getActiveChildMembership`, `getCreditBalances` and
+ *   `hasValidLiabilityWaiver` are the exceptions — each is single-child by
+ *   design (see their doc comments) and re-implementing their business rules
+ *   here as a batch query would fork the rule. Families are small in
+ *   practice, so this file caps at `MAX_CHILDREN` and calls each once per
+ *   child, in parallel.
+ *
+ * `hasWaiverOnFile` is the ANNUAL validity predicate, not "has ever signed" —
+ * see the call site. There is deliberately no `hasEverBooked` flag: it existed
+ * only to stop the dashboard nudging a veteran family, which is precisely the
+ * family an expiring waiver now has to nudge.
  */
 import type { APIRoute } from "astro";
 import { and, asc, desc, eq, gt, inArray, ne } from "drizzle-orm";
@@ -24,6 +30,7 @@ import { classEnrollments, classSlotTemplates } from "@/lib/db/schema/classes";
 import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
 import { getActiveChildMembership } from "@/lib/memberships/get-child-membership";
 import { getCreditBalances } from "@/lib/classes/credits";
+import { hasValidLiabilityWaiver } from "@/lib/consents/liability";
 
 export const prerender = false;
 
@@ -86,41 +93,27 @@ export const GET: APIRoute = async ({ locals }) => {
     ),
   );
 
-  // Waiver-on-file — mirrors book-child.ts's exact check (any prior booking
-  // for this child, in THIS org, with waiverSigned = true), batched via
-  // inArray instead of book-child.ts's single-child query. Used by the
-  // dashboard to decide whether to nudge a credit-holding child's parent to
-  // sign the guardian waiver before their first booking attempt.
-  const waiverRows = await db
-    .select({ familyMemberId: dropInBookings.familyMemberId })
-    .from(dropInBookings)
-    .innerJoin(dropInSessions, eq(dropInSessions.id, dropInBookings.sessionId))
-    .where(
-      and(
-        inArray(dropInBookings.familyMemberId, childIds),
-        eq(dropInBookings.waiverSigned, true),
-        eq(dropInSessions.organizationId, organizationId),
+  // Waiver validity — the canonical ANNUAL predicate (src/lib/consents/
+  // liability.ts), the exact same call book-child.ts's booking gate makes,
+  // so the dashboard nudge and the engine can never disagree about whether a
+  // child is covered. Replaces a local batched "any prior signed booking in
+  // this org" query that had no date bound.
+  //
+  // Per-child, not batched: `hasValidLiabilityWaiver` has no batch variant,
+  // and it is three short-circuiting indexed lookups that usually stop at
+  // the first. MAX_CHILDREN caps the fan-out at 20, and they run in
+  // parallel — the same "families are small, single-child helper is worth
+  // more than a bespoke batch query" exception getActiveChildMembership and
+  // getCreditBalances already take above. Adding a batch variant would mean
+  // a second implementation of the validity rule, which is exactly the
+  // divergence this unification exists to remove.
+  const waiverOnFileByChild = new Map(
+    await Promise.all(
+      children.map(
+        async (c) =>
+          [c.id, await hasValidLiabilityWaiver(c.id, organizationId, db)] as const,
       ),
-    );
-  const waiverOnFileSet = new Set(
-    waiverRows.filter((r) => r.familyMemberId !== null).map((r) => r.familyMemberId as string),
-  );
-
-  // Has this child EVER been the subject of a booking in this org, any
-  // status? Distinct from `nextSession` (future+confirmed only) and
-  // `trialUsed` (trial-method only) — this is the broader "has this child
-  // ever gone through a booking flow at all" signal the waiver nudge needs,
-  // so a child who's only ever cancelled a booking still counts as
-  // "not brand new" and doesn't get re-nudged.
-  const everBookedRows = await db
-    .select({ familyMemberId: dropInBookings.familyMemberId })
-    .from(dropInBookings)
-    .innerJoin(dropInSessions, eq(dropInSessions.id, dropInBookings.sessionId))
-    .where(
-      and(inArray(dropInBookings.familyMemberId, childIds), eq(dropInSessions.organizationId, organizationId)),
-    );
-  const everBookedSet = new Set(
-    everBookedRows.filter((r) => r.familyMemberId !== null).map((r) => r.familyMemberId as string),
+    ),
   );
 
   // Standing enrollment — a child could technically hold more than one
@@ -246,8 +239,9 @@ export const GET: APIRoute = async ({ locals }) => {
         : null,
       trialUsed: trialUsedSet.has(c.id),
       credits,
-      hasWaiverOnFile: waiverOnFileSet.has(c.id),
-      hasEverBooked: everBookedSet.has(c.id),
+      // Named "on file" for continuity with the client, but the question it
+      // now answers is "…and still valid?" — see the helper call above.
+      hasWaiverOnFile: waiverOnFileByChild.get(c.id) ?? false,
     };
   });
 

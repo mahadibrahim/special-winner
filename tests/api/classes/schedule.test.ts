@@ -3,6 +3,8 @@ import { eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
 import { classPackProducts, classCreditGrants } from "@/lib/db/schema/classes";
+import { consents } from "@/lib/db/schema/consents";
+import { WAIVER_VALID_DAYS } from "@/lib/consents/liability";
 import { apiFetch, getAuthCookie } from "../setup/test-helpers";
 import { createTestUserWithPassword } from "../../utils/host-helpers";
 import { createTestDropInSession } from "../../utils/dropin-helpers";
@@ -42,6 +44,12 @@ const createdEnrollmentIds: string[] = [];
 const createdPackIds: string[] = [];
 const createdCreditGrantIds: string[] = [];
 const createdSummarySessionIds: string[] = [];
+/** Children this file writes `consents` rows for. Those rows are org-scoped
+ *  and live 365 days by design, so a leaked one would silently satisfy the
+ *  waiver flag for its child on every later run — always cleaned. */
+const createdConsentFamilyMemberIds: string[] = [];
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 beforeAll(async () => {
   ({ organizationId, venueId, parentUserId, tierId } = await resolveClassTestFixtures());
@@ -55,6 +63,11 @@ afterAll(async () => {
   await cleanupTestClassFixtures(createdTemplateIds, createdEnrollmentIds);
 
   const db = getDb();
+  if (createdConsentFamilyMemberIds.length > 0) {
+    await db
+      .delete(consents)
+      .where(inArray(consents.familyMemberId, createdConsentFamilyMemberIds));
+  }
   if (createdCreditGrantIds.length > 0) {
     await db.delete(classCreditGrants).where(inArray(classCreditGrants.id, createdCreditGrantIds));
   }
@@ -336,45 +349,72 @@ describe("GET /api/classes/summary", () => {
     expect(typeof row.credits[0].expiresAt).toBe("string");
   });
 
-  it("flags waiver-on-file and prior-booking state per child", async () => {
+  it("flags waiver validity per child — annual window, not forever", async () => {
+    // `hasWaiverOnFile` is the canonical annual predicate
+    // (src/lib/consents/liability.ts), the SAME one the booking engine gates
+    // on: a granted, unexpired, org-scoped consents row, or a legacy
+    // signature inside the same 365-day window. The four children below are
+    // the four corners of that rule.
     const suffix = Date.now();
     const summaryUser = await createTestUserWithPassword();
     const summaryCookie = await getAuthCookie(summaryUser.email, summaryUser.password);
+    const db = getDb();
 
-    // Fresh child: no waiver, no bookings at all.
+    /** A legacy signature row on its own class session in this org. */
+    const signedBooking = async (familyMemberId: string, signedAt: Date) => {
+      const { sessionId } = await createTestDropInSession({ organizationId, venueId, kind: "class" });
+      createdSummarySessionIds.push(sessionId);
+      await db.insert(dropInBookings).values({
+        sessionId,
+        userId: summaryUser.userId,
+        familyMemberId,
+        status: "confirmed",
+        source: "online_booking",
+        paymentMethod: "card_online",
+        waiverSigned: true,
+        waiverSignedAt: signedAt,
+        waiverSignedBy: "Summary Test Parent",
+      });
+    };
+
+    // (a) Fresh child: no waiver, no bookings at all.
     const freshChildId = await createTestChild(summaryUser.userId, `FreshChild-${suffix}`);
 
-    // Waivered child: one booking on file with waiverSigned = true.
+    // (b) Signature inside the window.
     const waiveredChildId = await createTestChild(summaryUser.userId, `WaiveredChild-${suffix}`);
-    const db = getDb();
-    const { sessionId: waiveredSessionId } = await createTestDropInSession({
+    await signedBooking(waiveredChildId, new Date(Date.now() - 30 * DAY_MS));
+
+    // (c) The veteran family the nudge now has to catch: a real signature,
+    // but 400 days old. The pre-annual predicate reported this child as
+    // covered forever.
+    const lapsedChildId = await createTestChild(summaryUser.userId, `LapsedChild-${suffix}`);
+    await signedBooking(lapsedChildId, new Date(Date.now() - 400 * DAY_MS));
+
+    // (d) Canonical consents row, zero booking history — must satisfy the
+    // flag on its own (the old query only ever looked at bookings).
+    const consentChildId = await createTestChild(summaryUser.userId, `ConsentChild-${suffix}`);
+    createdConsentFamilyMemberIds.push(consentChildId);
+    const signedAt = new Date();
+    await db.insert(consents).values({
+      familyMemberId: consentChildId,
       organizationId,
-      venueId,
-      kind: "class",
-    });
-    createdSummarySessionIds.push(waiveredSessionId);
-    await db.insert(dropInBookings).values({
-      sessionId: waiveredSessionId,
-      userId: summaryUser.userId,
-      familyMemberId: waiveredChildId,
-      status: "confirmed",
-      source: "online_booking",
-      paymentMethod: "trial",
-      waiverSigned: true,
-      waiverSignedAt: new Date(),
-      waiverSignedBy: "Summary Test Parent",
+      type: "liability",
+      status: "granted",
+      signedByUserId: summaryUser.userId,
+      signedByName: "Summary Test Parent",
+      signedAt,
+      expiresAt: new Date(signedAt.getTime() + WAIVER_VALID_DAYS * DAY_MS),
     });
 
     const res = await apiFetch("/api/classes/summary", { cookie: summaryCookie });
     expect(res.status).toBe(200);
     const body = await res.json();
+    const flagFor = (id: string) =>
+      body.children.find((c: any) => c.familyMemberId === id)?.hasWaiverOnFile;
 
-    const freshRow = body.children.find((c: any) => c.familyMemberId === freshChildId);
-    expect(freshRow.hasWaiverOnFile).toBe(false);
-    expect(freshRow.hasEverBooked).toBe(false);
-
-    const waiveredRow = body.children.find((c: any) => c.familyMemberId === waiveredChildId);
-    expect(waiveredRow.hasWaiverOnFile).toBe(true);
-    expect(waiveredRow.hasEverBooked).toBe(true);
+    expect(flagFor(freshChildId)).toBe(false);
+    expect(flagFor(waiveredChildId)).toBe(true);
+    expect(flagFor(lapsedChildId)).toBe(false);
+    expect(flagFor(consentChildId)).toBe(true);
   });
 });
