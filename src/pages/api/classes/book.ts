@@ -24,6 +24,10 @@
  * there is no allotment to exhaust.
  *
  * Body: `{ sessionId, familyMemberId, kind: "member" | "trial", waiver?: { signedBy, consentText } }`
+ *   — a supplied `waiver` is a FRESH signature and writes the canonical
+ *     annual liability consent (src/lib/consents/liability.ts). This endpoint
+ *     attaches the signing ip/user-agent from the request context; the body
+ *     carries only what the human typed.
  * Returns: 200 `{ bookingId, paymentMethod }` |
  *          402 `{ error: "allotment_exhausted", memberRateCents }` |
  *          409 `{ error: "class_rate_not_configured" }` — the allotment IS
@@ -78,7 +82,7 @@ const ERROR_STATUS: Record<Exclude<ChildBookingError["code"], "allotment_exhaust
   waiver_required: 422,
 };
 
-export const POST: APIRoute = async ({ request, locals }) => {
+export const POST: APIRoute = async ({ request, locals, clientAddress }) => {
   if (!locals.user) return json({ error: "Unauthorized" }, 401);
   if (!locals.organization) return json({ error: "No organization context" }, 400);
 
@@ -110,7 +114,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return json({ error: 'kind must be "member" or "trial"' }, 422);
   }
 
-  let waiver: { signedBy: string; consentText: string } | undefined;
+  let waiver:
+    | { signedBy: string; consentText: string; ipAddress: string | null; userAgent: string | null }
+    | undefined;
   if (body.waiver !== undefined) {
     const w = body.waiver as { signedBy?: unknown; consentText?: unknown } | null;
     const signedBy = typeof w?.signedBy === "string" ? w.signedBy.trim() : "";
@@ -118,7 +124,19 @@ export const POST: APIRoute = async ({ request, locals }) => {
     if (!signedBy || !consentText) {
       return json({ error: "waiver.signedBy and waiver.consentText are required when waiver is provided" }, 422);
     }
-    waiver = { signedBy, consentText };
+    // Signing audit trail, taken from the REQUEST CONTEXT — never from the
+    // body, which the client controls. A fresh signature here writes the
+    // canonical annual consents row (see book-child.ts), and once the legacy
+    // signature fallbacks age out that row is the only record the signature
+    // ever had; every other consent-writing surface in the platform captures
+    // ip/UA, so this one does too. Both `?? null` rather than "unknown": the
+    // column is nullable and an honest NULL beats a fake value.
+    waiver = {
+      signedBy,
+      consentText,
+      ipAddress: clientAddress ?? null,
+      userAgent: request.headers.get("user-agent"),
+    };
   }
 
   const db = getDb();

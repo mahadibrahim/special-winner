@@ -134,7 +134,18 @@ export async function createChildClassBooking(opts: {
   familyMemberId: string;
   kind: ChildBookingKind;
   source?: "online_booking" | "auto_enrollment";
-  waiver?: { signedBy: string; consentText: string };
+  /** A signature captured in THIS request. `ipAddress`/`userAgent` are the
+   *  signing audit trail and must be supplied by the HTTP layer from the
+   *  request context (`clientAddress`, the `user-agent` header) — never read
+   *  off the request body, which the client controls. Both optional so the
+   *  cron and library callers (which never present a waiver) stay unchanged;
+   *  they land as NULL, same as any other unattributable signature. */
+  waiver?: {
+    signedBy: string;
+    consentText: string;
+    ipAddress?: string | null;
+    userAgent?: string | null;
+  };
   brand?: BrandId;
   /** Cron passes its own tx — see the CALLER CONTRACT note above the import block. */
   dbOrTx?: DropInTx;
@@ -371,6 +382,12 @@ export async function createChildClassBooking(opts: {
           signedByName: opts.waiver.signedBy,
           consentVariant: "guardian",
           consentText: opts.waiver.consentText,
+          // The signing audit trail, captured by the HTTP layer (see the
+          // `waiver` field's doc comment). Once the legacy fallbacks age out
+          // this consents row is the ONLY record of the signature, so it
+          // carries the same ip/UA every other consent-writing surface does.
+          ipAddress: opts.waiver.ipAddress ?? null,
+          userAgent: opts.waiver.userAgent ?? null,
         },
         tx,
       );

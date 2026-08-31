@@ -417,6 +417,15 @@ describe("POST /api/classes/book — annual waiver validity", () => {
     // Variant is hardcoded "guardian" — the classes engine only ever books a
     // child (see book-child.ts's header).
     expect(row.notes).toContain("guardian");
+    // Signing audit trail, attached by the endpoint from the request context
+    // (clientAddress + the user-agent header), never from the body. Once the
+    // legacy signature fallbacks age out this row is the ONLY record of the
+    // signature, so it has to carry what every other consent-writing surface
+    // captures. Asserted as "present", not as a literal: the local address
+    // is ::1 or 127.0.0.1 depending on how the dev server bound, and the
+    // fetch client picks its own UA string.
+    expect(row.ipAddress).toBeTruthy();
+    expect(row.userAgent).toBeTruthy();
     const expiresAt = row.expiresAt?.getTime() ?? 0;
     const expected = row.signedAt.getTime() + WAIVER_VALID_DAYS * DAY_MS;
     expect(Math.abs(expiresAt - expected)).toBeLessThan(5000);
