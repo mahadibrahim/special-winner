@@ -98,8 +98,11 @@ interface CivilDate {
   day: number;
 }
 
-/** Civil date (and JS-style 0=Sun..6=Sat weekday) of `d` as observed in `timeZone`. */
-function civilPartsInTz(d: Date, timeZone: string): CivilDate & { weekday: number } {
+/** Civil date (and JS-style 0=Sun..6=Sat weekday) of `d` as observed in `timeZone`.
+ *  Exported so request handlers that need "today, in the org's zone" (e.g.
+ *  /api/public/class-blocks picking the current-or-next block) resolve it with
+ *  the same `Intl` walk the cron uses instead of re-deriving it. */
+export function civilPartsInTz(d: Date, timeZone: string): CivilDate & { weekday: number } {
   const fmt = new Intl.DateTimeFormat("en-US", {
     timeZone,
     year: "numeric",

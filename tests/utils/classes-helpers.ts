@@ -166,6 +166,9 @@ export async function createTestClassTemplate(opts: {
    *  never depends on the org's (adult pickup) rate-card fallback. */
   sessionRateCents?: number;
   memberRateCents?: number;
+  /** Per-session BLOCK rate — what the block catalog quotes when set
+   *  (`blockRateCents ?? sessionRateCents`, see /api/public/class-blocks). */
+  blockRateCents?: number;
   /** Age range for the age-gate scenarios; both null (the default) = no gate. */
   minAge?: number;
   maxAge?: number;
@@ -188,6 +191,7 @@ export async function createTestClassTemplate(opts: {
       capacity: opts.capacity,
       sessionRateCents: opts.sessionRateCents ?? null,
       memberRateCents: opts.memberRateCents ?? null,
+      blockRateCents: opts.blockRateCents ?? null,
       minAge: opts.minAge ?? null,
       maxAge: opts.maxAge ?? null,
       active: opts.active ?? true,
@@ -212,6 +216,7 @@ export const TEST_TEMPLATE_NAME_PREFIXES = [
   "Cron-Template-",
   "Admin-",
   "Credit-",
+  "Catalog-",
 ] as const;
 
 /**
