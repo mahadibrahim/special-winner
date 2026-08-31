@@ -10,6 +10,9 @@
  *   - Schedule-change notice: a PUT that changes weekday/startTime while the
  *     template has active enrollments emails each enrolled family (asserted
  *     via the MESSAGING_MOCK=1 inbox, same pattern as tests/api/dropin/notify.test.ts).
+ *   - Rate propagation: a PUT that changes sessionRate/memberRate rewrites the
+ *     new rates onto FUTURE materialized sessions (which is what the charge
+ *     paths price off) while leaving already-started sessions alone.
  *   - GET roster shape: active enrollments + upcoming sessions with seat counts.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
@@ -207,6 +210,103 @@ describe("PUT /api/admin/classes/templates/:id", () => {
       body: JSON.stringify(templateBody({ name: "should-not-apply" })),
     });
     expect(crossRes.status).toBe(404);
+  });
+
+  it("propagates a rate edit onto future materialized sessions but never a started one", async () => {
+    const suffix = Date.now();
+    const templateId = await createTestClassTemplate({
+      organizationId,
+      venueId,
+      name: `Admin-Reprice-${suffix}`,
+      capacity: 5,
+      weekday: 2,
+      startTime: "10:00:00",
+      sessionRateCents: 2500,
+      memberRateCents: 1500,
+    });
+    createdTemplateIds.push(templateId);
+
+    // Two already-materialized sessions carrying the template's ORIGINAL
+    // rates — the copy materialize.ts makes at insert time, which is what the
+    // charge paths actually price off.
+    const db = getDb();
+    const now = Date.now();
+    const sessionValues = (startsAt: Date) => ({
+      organizationId,
+      venueId,
+      kind: "class" as const,
+      sportOrClassLabel: "Soccer",
+      classSlotTemplateId: templateId,
+      startsAt,
+      endsAt: new Date(startsAt.getTime() + 55 * 60 * 1000),
+      capacity: 5,
+      audience: "youth" as const,
+      status: "scheduled" as const,
+      sessionRateCents: 2500,
+      memberRateCents: 1500,
+    });
+    const [futureSession] = await db
+      .insert(dropInSessions)
+      .values(sessionValues(new Date(now + 3 * 24 * 60 * 60 * 1000)))
+      .returning();
+    const [startedSession] = await db
+      .insert(dropInSessions)
+      .values(sessionValues(new Date(now - 3 * 24 * 60 * 60 * 1000)))
+      .returning();
+
+    const res = await apiFetch(`/api/admin/classes/templates/${templateId}`, {
+      method: "PUT",
+      cookie: adminCookie,
+      body: JSON.stringify(
+        templateBody({
+          name: `Admin-Reprice-${suffix}`,
+          weekday: 2,
+          startTime: "10:00",
+          sessionRateDollars: 30,
+          memberRateDollars: 20,
+        }),
+      ),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.template.sessionRateCents).toBe(3000);
+    expect(body.template.memberRateCents).toBe(2000);
+    // Only the future one. Other suites' sessions can't inflate this: the
+    // template is unique to this run.
+    expect(body.sessionsRepriced).toBe(1);
+
+    const [futureRow] = await db
+      .select()
+      .from(dropInSessions)
+      .where(eq(dropInSessions.id, futureSession.id));
+    expect(futureRow.sessionRateCents).toBe(3000);
+    expect(futureRow.memberRateCents).toBe(2000);
+
+    // A class that has already started was SOLD at the old price — rewriting
+    // it would retroactively contradict receipts.
+    const [startedRow] = await db
+      .select()
+      .from(dropInSessions)
+      .where(eq(dropInSessions.id, startedSession.id));
+    expect(startedRow.sessionRateCents).toBe(2500);
+    expect(startedRow.memberRateCents).toBe(1500);
+
+    // A no-op rate edit must not touch anything.
+    const noopRes = await apiFetch(`/api/admin/classes/templates/${templateId}`, {
+      method: "PUT",
+      cookie: adminCookie,
+      body: JSON.stringify(
+        templateBody({
+          name: `Admin-Reprice-${suffix}`,
+          weekday: 2,
+          startTime: "10:00",
+          sessionRateDollars: 30,
+          memberRateDollars: 20,
+        }),
+      ),
+    });
+    expect(noopRes.status).toBe(200);
+    expect((await noopRes.json()).sessionsRepriced).toBe(0);
   });
 
   it("emails each actively-enrolled family when weekday/startTime changes", async () => {

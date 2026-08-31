@@ -47,6 +47,17 @@ import { waiverAssentSentence } from "@/lib/consents/waiver-consent-language"
  * nudge only needs to explain what's coming and share the trigger, not
  * engineer a special modal entry state.
  *
+ * PACK SUCCESS (`?pack=success&child=…`): this island is also the consumer of
+ * the pack-purchase Checkout return URL (see src/pages/api/classes/packs/
+ * purchase.ts's `success_url`). Stripe's redirect routinely beats the webhook
+ * that writes the credit grant, so the top-level component acknowledges the
+ * payment immediately with `PackSuccessBanner` and re-reads
+ * /api/classes/summary on a short backoff ladder until the child's credits
+ * appear (`PACK_SETTLE_DELAYS_MS` — runBlockFlow's settling approach in
+ * choose-slot.tsx, in miniature), degrading to an honest "still processing"
+ * line if they don't. The params are stripped via `history.replaceState` so a
+ * refresh never re-triggers the ladder.
+ *
  * Field note: the summary endpoint (src/pages/api/classes/summary.ts) does
  * NOT expose a membership renewal/period-end date or the org's cancellation
  * cutoff window — both were checked against the actual route rather than
@@ -274,6 +285,53 @@ function WaiverNudge({ onOpen }: { onOpen: () => void }) {
     >
       Sign the waiver to activate bookings →
     </button>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Pack-purchase settling banner (`?pack=success&child=…`)
+// ---------------------------------------------------------------------------
+
+/** Backoff ladder for the post-Checkout webhook settle, deliberately shorter
+ *  than choose-slot.tsx's `NO_MEMBERSHIP_RETRY_DELAYS_MS` ([2000, 4000, 8000]):
+ *  nothing here is BLOCKED on the credits landing (unlike the block flow,
+ *  which must actually book a session before it can report success), so the
+ *  page degrades to an honest "still processing" line rather than making the
+ *  parent stare at a spinner for 14 seconds. */
+const PACK_SETTLE_DELAYS_MS = [2000, 5000]
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+type PackSettleStatus = "settling" | "settled" | "processing"
+
+/** The acknowledgment a pack buyer sees when Stripe's success redirect beats
+ *  the `checkout.session.completed` webhook that actually writes the credit
+ *  grant. Without it the buyer lands on a dashboard that looks exactly like
+ *  the one they left — no card, no credits, no sign the payment worked. */
+function PackSuccessBanner({ status }: { status: PackSettleStatus }) {
+  const message =
+    status === "settled"
+      ? "Payment received — your class credits are ready to use."
+      : status === "processing"
+        ? "Payment received — your class credits are still processing and will appear shortly."
+        : "Payment received — your class credits will appear in a moment."
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      data-pack-success-banner={status}
+      className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50/80 px-3 py-2.5 text-sm font-medium text-emerald-900"
+    >
+      {status === "settling" && (
+        <span
+          className="mt-0.5 size-3.5 shrink-0 rounded-full border-2 border-emerald-600 border-t-transparent animate-spin"
+          aria-hidden="true"
+        />
+      )}
+      <span>{message}</span>
+    </div>
   )
 }
 
@@ -1097,6 +1155,88 @@ export default function FamilyClassesCard() {
   const [children, setChildren] = useState<SummaryChild[]>([])
   const [cheapestMonthlyCents, setCheapestMonthlyCents] = useState<number | null>(null)
   const [reloadKey, setReloadKey] = useState(0)
+  const [packSettle, setPackSettle] = useState<PackSettleStatus | null>(null)
+
+  // ---- `?pack=success&child=…` settle ladder -----------------------------
+  //
+  // Stripe's success redirect routinely beats the webhook that writes the
+  // credit grant, so the buyer can land here before ANY of their purchase is
+  // visible. Mirrors runBlockFlow's settling approach in choose-slot.tsx in
+  // miniature: acknowledge the payment immediately, then re-read
+  // /api/classes/summary on a short backoff until the child's credits show
+  // up, and degrade to an honest "still processing" line rather than lying
+  // either way.
+  //
+  // Runs in an effect (not a useState initializer) so the server-rendered
+  // and first client render agree — reading window.location during render
+  // would be a hydration mismatch. Empty dep array: this must fire exactly
+  // once per page load, and it strips its own params below so a refresh
+  // can't re-trigger it.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    if (params.get("pack") !== "success") return
+    const packChildId = params.get("child")
+
+    setPackSettle("settling")
+
+    // Clear the params up front — before the async ladder, so an impatient
+    // refresh mid-settle lands on a clean URL rather than restarting the
+    // whole acknowledgment.
+    params.delete("pack")
+    params.delete("child")
+    const query = params.toString()
+    window.history.replaceState(
+      {},
+      "",
+      `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`,
+    )
+
+    let cancelled = false
+
+    /** One settle probe: re-read the summary, push it into state (so the new
+     *  credit card renders the instant it exists), and report whether the
+     *  purchased child's credits have actually landed. */
+    async function probe(): Promise<boolean> {
+      let rows: SummaryChild[]
+      try {
+        const res = await fetch("/api/classes/summary")
+        if (!res.ok) return false
+        rows = ((await res.json()) as { children: SummaryChild[] }).children
+      } catch {
+        // Indistinguishable from "the webhook hasn't landed yet" — let the
+        // ladder take another swing rather than treating it as terminal.
+        return false
+      }
+      if (cancelled) return false
+      setChildren(rows)
+      setPhase("ready")
+      // A missing/garbled `child` param still gets an acknowledgment: fall
+      // back to "any child now holds credits" rather than never settling.
+      return rows.some(
+        (c) =>
+          c.credits.length > 0 && (packChildId ? c.familyMemberId === packChildId : true),
+      )
+    }
+
+    void (async () => {
+      for (const delay of PACK_SETTLE_DELAYS_MS) {
+        if (await probe()) {
+          if (!cancelled) setPackSettle("settled")
+          return
+        }
+        if (cancelled) return
+        await sleep(delay)
+        if (cancelled) return
+      }
+      const landed = await probe()
+      if (cancelled) return
+      setPackSettle(landed ? "settled" : "processing")
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -1165,13 +1305,25 @@ export default function FamilyClassesCard() {
     }
   }, [reloadKey])
 
+  // Rendered in EVERY branch below, deliberately: a pack buyer who beats the
+  // webhook has no membership, no credits and often no other qualifying
+  // child, so the paths that render a skeleton, an error, or nothing at all
+  // are exactly the ones where the acknowledgment matters most.
+  const packBanner = packSettle ? <PackSuccessBanner status={packSettle} /> : null
+
   if (phase === "loading") {
-    return <LoadingSkeleton variant="card" rows={2} />
+    return (
+      <div className="space-y-3">
+        {packBanner}
+        <LoadingSkeleton variant="card" rows={2} />
+      </div>
+    )
   }
 
   if (phase === "error") {
     return (
       <div className="space-y-2">
+        {packBanner}
         <ErrorBanner message="We couldn't load your class memberships." />
         <Button size="sm" variant="outline" onClick={() => setReloadKey((k) => k + 1)}>
           Retry
@@ -1183,10 +1335,11 @@ export default function FamilyClassesCard() {
   const qualifying = children.filter(
     (c) => c.membership !== null || c.trialUsed || c.credits.length > 0,
   )
-  if (qualifying.length === 0) return null
+  if (qualifying.length === 0) return packBanner
 
   return (
     <div className="space-y-3">
+      {packBanner}
       {qualifying.map((c) =>
         c.membership ? (
           <MembershipChildCard

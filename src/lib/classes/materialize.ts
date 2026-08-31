@@ -233,6 +233,17 @@ export interface MaterializeResult {
   autoBooked: number;
   skippedExhausted: number;
   skippedPastDue: number;
+  /**
+   * Auto-book attempts that came back `waiver_required` — an EXPECTED steady
+   * state, not a failure. A block/pack family buys a seat online and is
+   * enrolled without ever passing through a booking flow, so no guardian
+   * waiver is on file until they open the make-up/booking modal for the first
+   * time (which is where the waiver step lives — see family-classes-card.tsx's
+   * MakeUpModal). Every cron run re-attempts and re-skips those children until
+   * they sign, so this counter is the size of the "bought but never came back"
+   * cohort, and belongs nowhere near `failed`.
+   */
+  skippedNoWaiver: number;
   failed: number;
   /** Credit-backed enrollments ended by pass 0 because their grant expired. */
   enrollmentsEnded: number;
@@ -255,6 +266,7 @@ export async function materializeClassSessions(now: Date): Promise<MaterializeRe
     autoBooked: 0,
     skippedExhausted: 0,
     skippedPastDue: 0,
+    skippedNoWaiver: 0,
     failed: 0,
     enrollmentsEnded: 0,
   };
@@ -432,6 +444,7 @@ export async function materializeClassSessions(now: Date): Promise<MaterializeRe
           let autoBooked = 0;
           let skippedExhausted = 0;
           let skippedPastDue = 0;
+          let skippedNoWaiver = 0;
           let failed = 0;
 
           for (const enr of enrollments) {
@@ -486,10 +499,20 @@ export async function materializeClassSessions(now: Date): Promise<MaterializeRe
                 // yet expired also reports no_membership and lands in this
                 // bucket — imprecise labeling, not a distinct failure mode.
                 skippedPastDue += 1;
+              } else if (result.error.code === "waiver_required") {
+                // EXPECTED, not a failure: a block/pack family who bought a
+                // seat online and never opened the booking modal has no
+                // guardian waiver on file yet (the waiver step lives in that
+                // modal — see family-classes-card.tsx's MakeUpModal). Their
+                // enrollment is real and their credits are real; the cron
+                // simply cannot seat them until someone signs. Counted on its
+                // own so the `failed` number stays a genuine alarm signal.
+                // (A nudge email to that cohort is deliberately out of scope
+                // here — tracked as a follow-up.)
+                skippedNoWaiver += 1;
               } else {
-                // session_full / waiver_required / age_ineligible / etc. —
-                // unexpected for an auto-booking path (no waiver prompt, no
-                // manual double-booking — already_booked is pre-empted by
+                // session_full / age_ineligible / etc. — genuinely unexpected
+                // for an auto-booking path (already_booked is pre-empted by
                 // the existence check above) but isolated per-enrollment
                 // rather than failing the whole session.
                 failed += 1;
@@ -512,12 +535,13 @@ export async function materializeClassSessions(now: Date): Promise<MaterializeRe
             }
           }
 
-          return { autoBooked, skippedExhausted, skippedPastDue, failed };
+          return { autoBooked, skippedExhausted, skippedPastDue, skippedNoWaiver, failed };
         });
 
         counters.autoBooked += txResult.autoBooked;
         counters.skippedExhausted += txResult.skippedExhausted;
         counters.skippedPastDue += txResult.skippedPastDue;
+        counters.skippedNoWaiver += txResult.skippedNoWaiver;
         counters.failed += txResult.failed;
       } catch (txErr) {
         console.error(

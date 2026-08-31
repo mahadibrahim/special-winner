@@ -191,9 +191,14 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
       {
         // A double-clicked "Buy" reuses the same Checkout Session inside
         // Stripe's 24h window instead of minting a second one. Fingerprints
-        // the price too: Stripe rejects a reused key whose params changed, so
-        // an admin price edit mid-window would otherwise 502 a legit retry.
-        idempotencyKey: `${locals.user.id}:${child.id}:${pack.id}:${pack.priceCents}:class-pack-checkout:v1`,
+        // the pack row's `updatedAt` too: Stripe rejects a reused key whose
+        // params changed, and price is not the only pack field that reaches
+        // the Checkout params — `pack.name` and `pack.sessionCount`/
+        // `expiryMonths` all feed line_items/product_data above. Keying on
+        // the row's mutation timestamp covers every one of them at once, so
+        // ANY admin edit mid-window mints a fresh key instead of 502-ing a
+        // legitimate retry.
+        idempotencyKey: `${locals.user.id}:${child.id}:${pack.id}:${pack.priceCents}:${pack.updatedAt.getTime()}:class-pack-checkout:v1`,
       },
     );
 

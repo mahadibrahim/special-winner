@@ -135,6 +135,56 @@ export async function cancelFutureTemplateSessions(
 }
 
 // ---------------------------------------------------------------------------
+// Rate edits propagate forward onto already-materialized sessions.
+// ---------------------------------------------------------------------------
+
+/**
+ * Copies a template's (new) class rates onto every FUTURE `scheduled` session
+ * already materialized from it.
+ *
+ * Why this exists: the price a session is charged at is read off the SESSION
+ * row, not the template — `materializeClassSessions` copies
+ * `sessionRateCents`/`memberRateCents` onto each `drop_in_sessions` row at
+ * insert time (see materialize.ts's session-insert block), and both the paid
+ * make-up path (`POST /api/dropin/bookings`) and the 402 quote from
+ * `POST /api/classes/book` price off that copy. The public drop-in door,
+ * however, QUOTES the template's rate via /api/public/class-schedule. So an
+ * admin rate edit left the two disagreeing for every session already inside
+ * the HORIZON_DAYS window — up to 8 days of "quoted $25, charged $20".
+ *
+ * Healing it at the origin (here) keeps the session-as-price-source model
+ * intact rather than making the charge path chase the template. Past and
+ * in-progress sessions are deliberately untouched: whatever a family was
+ * quoted for a class that has already started is the price that class was
+ * sold at, and rewriting it would retroactively contradict receipts.
+ *
+ * Returns the number of session rows repriced.
+ */
+export async function propagateTemplateRatesToFutureSessions(
+  templateId: string,
+  rates: { sessionRateCents: number | null; memberRateCents: number | null },
+  now = new Date(),
+): Promise<number> {
+  const repriced = await getDb()
+    .update(dropInSessions)
+    .set({
+      sessionRateCents: rates.sessionRateCents,
+      memberRateCents: rates.memberRateCents,
+      updatedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(dropInSessions.classSlotTemplateId, templateId),
+        eq(dropInSessions.status, "scheduled"),
+        gt(dropInSessions.startsAt, now),
+      ),
+    )
+    .returning({ id: dropInSessions.id });
+
+  return repriced.length;
+}
+
+// ---------------------------------------------------------------------------
 // Schedule-change family notification.
 // ---------------------------------------------------------------------------
 

@@ -57,6 +57,12 @@
  *     success URL) lands choose-slot.astro on the soft-success panel, never
  *     the enroll-capable picker — see choose-slot.tsx's BLOCK MODE doc
  *     comment for why a missing slot must never fall through to the grid.
+ *  5. `?pack=success&child=…` (the pack Checkout return URL — see
+ *     src/pages/api/classes/packs/purchase.ts's `success_url`) shows the
+ *     payment-received banner on /dashboard/family and strips its own params
+ *     so a refresh can't re-trigger the settle ladder. The child is seeded
+ *     WITH credits, so the ladder's very first probe resolves and the banner
+ *     lands on its settled copy without any real waiting.
  *
  * These run post-merge only (test-full — see CLAUDE.md's Playwright
  * conventions section), against the SHARED staging DB, so every scenario:
@@ -496,6 +502,74 @@ test.describe("Choose-slot — block success without a slot param", () => {
     // marker, so this holds regardless of which slot names happen to exist
     // on the org), so zero matches proves the grid never rendered.
     await expect(page.getByText(/spots? left/)).toHaveCount(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Scenario 5 — ?pack=success acknowledgment banner + param cleanup
+// ---------------------------------------------------------------------------
+
+test.describe("Family dashboard — pack success acknowledgment", () => {
+  test.setTimeout(120_000);
+
+  let organizationId: string;
+  let parentEmail: string;
+  let parentPassword: string;
+  let childId: string;
+  let grantId: string;
+
+  const suffix = Date.now();
+  const childFirstName = `PackSuccessE2E-${suffix}`;
+
+  test.beforeAll(async () => {
+    ({ organizationId } = await resolveDefaultOrgForHttpTests());
+
+    const pack = await resolveTestClassPack(organizationId);
+    const throwawayUser = await createTestUserWithPassword();
+    parentEmail = throwawayUser.email;
+    parentPassword = throwawayUser.password;
+    childId = await createTestChild(throwawayUser.userId, childFirstName);
+    // Seeded WITH credits (standing in for the webhook having already
+    // landed), so family-classes-card.tsx's settle ladder resolves on its
+    // very first probe — this scenario asserts the acknowledgment surface,
+    // not the backoff timing.
+    grantId = await createTestCreditGrant({
+      organizationId,
+      familyMemberId: childId,
+      sessionsGranted: 3,
+      packProductId: pack.id,
+      idSuffix: `packsuccess-e2e-${suffix}`,
+    });
+  });
+
+  test.afterAll(async () => {
+    const db = getDb();
+    await db.delete(classCreditGrants).where(eq(classCreditGrants.id, grantId));
+  });
+
+  test("acknowledges the purchase and clears the params from the URL", async ({ page }) => {
+    await signIn(page, parentEmail, parentPassword);
+
+    await page.goto(`/dashboard/family?pack=success&child=${childId}`);
+    await waitForHydration(page);
+
+    // The banner must appear for a pack buyer regardless of what else the
+    // dashboard renders — this is the whole finding it fixes (a buyer who
+    // beats the webhook otherwise sees an unchanged dashboard).
+    const banner = page.locator("[data-pack-success-banner]");
+    await expect(banner).toBeVisible({ timeout: 20_000 });
+    await expect(banner).toContainText("Payment received");
+    // Credits already exist for this child, so the ladder settles on its
+    // first probe rather than exhausting into the "still processing" copy.
+    await expect(banner).toHaveAttribute("data-pack-success-banner", "settled", {
+      timeout: 20_000,
+    });
+
+    // history.replaceState ran, so a refresh can't re-trigger the ladder.
+    await expect(page).toHaveURL(/\/dashboard\/family$/);
+    await page.reload();
+    await waitForHydration(page);
+    await expect(page.locator("[data-pack-success-banner]")).toHaveCount(0);
   });
 });
 
