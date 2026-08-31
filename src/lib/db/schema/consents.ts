@@ -75,6 +75,13 @@ export const consents = pgTable(
     familyMemberId: uuid("family_member_id")
       .notNull()
       .references(() => familyMembers.id, { onDelete: "cascade" }),
+    /** Waivers are per-organization legal releases (distinct legal entities —
+     *  organizations.legalName). Nullable for legacy rows; the canonical
+     *  validity predicate (src/lib/consents/liability.ts) requires an org
+     *  match, so rows left NULL after backfill never satisfy it. */
+    organizationId: uuid("organization_id").references(() => organizations.id, {
+      onDelete: "cascade",
+    }),
     registrationId: uuid("registration_id").references(() => registrations.id, {
       onDelete: "set null",
     }),
@@ -116,6 +123,11 @@ export const consents = pgTable(
       table.status,
       table.signedAt,
     ),
+    // Serves the annual-liability validity lookup: "is there a granted,
+    // unexpired liability consent for this person at this org?"
+    index("consents_liability_validity_idx")
+      .on(table.familyMemberId, table.organizationId, table.expiresAt)
+      .where(sql`${table.type} = 'liability'`),
   ],
 );
 
@@ -128,6 +140,10 @@ export const waiversRelations = relations(waivers, ({ one, many }) => ({
 }));
 
 export const consentsRelations = relations(consents, ({ one }) => ({
+  organization: one(organizations, {
+    fields: [consents.organizationId],
+    references: [organizations.id],
+  }),
   familyMember: one(familyMembers, {
     fields: [consents.familyMemberId],
     references: [familyMembers.id],
