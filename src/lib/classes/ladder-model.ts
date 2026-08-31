@@ -142,6 +142,41 @@ export interface LadderModel {
 // Helpers
 // ---------------------------------------------------------------------------
 
+/** One clause per rung, in the sentence voice the band's lede uses. */
+const RUNG_PHRASE: Record<LadderRung["kind"], string> = {
+  dropin: "come to a single class",
+  packs: "buy a pack of classes",
+  block: "take a block of weeks",
+  membership: "go monthly",
+};
+
+/**
+ * Honest enumeration of the ways in that ACTUALLY exist right now.
+ *
+ * The page's static header and lede must never count the doors: three of the
+ * four rungs (packs, block, drop-in) are catalog-dependent, so a hard-coded
+ * "four ways in" would promise four options above a band rendering two — the
+ * exact honest-copy failure this project bans. The enumeration therefore
+ * lives here, derived from the rungs `assembleLadder` actually produced, and
+ * the island renders it under the neutral static heading.
+ *
+ * Returns null when there is nothing to enumerate (the fallback state), so
+ * the caller renders no sentence at all rather than an empty one.
+ */
+export function ladderSummarySentence(rungs: LadderRung[]): string | null {
+  const phrases = rungs.map((rung) => RUNG_PHRASE[rung.kind]);
+  if (phrases.length === 0) return null;
+  let list: string;
+  if (phrases.length === 1) {
+    list = phrases[0];
+  } else if (phrases.length === 2) {
+    list = `${phrases[0]} or ${phrases[1]}`;
+  } else {
+    list = `${phrases.slice(0, -1).join(", ")}, or ${phrases[phrases.length - 1]}`;
+  }
+  return `Right now you can ${list}.`;
+}
+
 /**
  * Cents → display dollars. Whole-dollar amounts render without cents ($25,
  * not $25.00); anything with a fractional cent value needs BOTH min and max

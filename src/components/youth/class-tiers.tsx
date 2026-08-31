@@ -79,9 +79,13 @@ const SIGNIN_REDIRECT = "/signin?redirect=" + encodeURIComponent("/youth/classes
 // class tiers, or the tiers fetch fails, so the band never goes blank.
 export const PRICING_CARDS_FALLBACK: { label: string; amount: string; body: string; hot?: boolean }[] = [
   {
-    label: "Four ways in",
+    // Renders ONLY in the empty-catalog state (no packs, no block, no
+    // tiers), so it must not enumerate the ladder's doors — naming options
+    // that aren't currently sellable is exactly the promise this band can't
+    // keep. Describe the model, let the class cards carry the figures.
+    label: "Pick your commitment",
     amount: "Priced per class",
-    body: "Come once, buy a pack of classes, join a block, or take a monthly membership. Every open class card shows its own price before you book.",
+    body: "Come once, or commit to more — what's on offer moves with the schedule, and every open class card shows its own price before you book.",
   },
   {
     label: "The card is the truth",

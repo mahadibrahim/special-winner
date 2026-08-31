@@ -10,6 +10,7 @@ import ClassTiers, { PRICING_CARDS_FALLBACK } from "@/components/youth/class-tie
 import {
   assembleLadder,
   formatCents,
+  ladderSummarySentence,
   type BlockRungTemplate,
   type BlockWindow,
   type LadderModel,
@@ -42,6 +43,12 @@ import {
  * block AND tiers are all empty the band renders the figure-free
  * `PRICING_CARDS_FALLBACK` explainer (imported from class-tiers.tsx, still
  * its owner) rather than a blank section or invented figures.
+ *
+ * HONEST HEADER: because three of the four rungs are catalog-dependent, the
+ * enclosing section's h2/lede in classes.astro are deliberately neutral —
+ * they neither count nor name the doors. The enumeration is `ladderSummary
+ * Sentence(model.rungs)`, rendered here from what actually assembled, so an
+ * empty catalog can never leave the page promising four ways in above two.
  *
  * MEMBERSHIP RUNG: `<ClassTiers />` itself, handed the tiers this component
  * already fetched (`tiers` prop → no duplicate request) with
@@ -123,36 +130,49 @@ type PurchaseTarget =
   | { kind: "block"; blockId: string; blockName: string; template: BlockRungTemplate }
 
 /**
- * Machine-readable codes the BLOCK endpoint returns, mapped to copy a parent
- * can act on. The PACK endpoint uses a different envelope — its `error` is
- * already a human sentence ("Pack not found") with no `message` field — which
- * `purchaseErrorMessage` below handles by passing a human-looking string
- * through rather than burying it under the generic retry prompt.
+ * Every `error` value from either purchase endpoint that a parent should
+ * actually SEE, mapped to copy they can act on.
+ *
+ * Two envelopes are folded into one table. The BLOCK endpoint returns
+ * snake_case machine codes alongside a human `message`; the PACK endpoint
+ * returns a bare human-ish sentence in `error` and no `message` at all. An
+ * allow-list rather than a shape heuristic ("does it contain a space?") is
+ * deliberate: the pack endpoint's `error` strings also include operational
+ * ones — "Stripe not configured", "Could not create Stripe customer", "No
+ * organization context" — which are true, useless to a parent, and leak how
+ * the payment stack is wired. Anything not listed here falls through to the
+ * generic retry line.
  */
 const PURCHASE_ERROR_COPY: Record<string, string> = {
+  // Block endpoint — machine codes.
   block_over: "This class has no sessions left in the current block — pick another day.",
   template_full: "That class just filled up — pick another day.",
   already_enrolled: "This child already has a seat in that class — see it on your dashboard.",
   rate_mismatch: "That class is priced differently — reload the page and try again.",
   class_rate_not_configured: "This class is missing its pricing — contact the front desk.",
   age_ineligible: "That class is outside this child's age range — pick another.",
+  // Pack endpoint — sentence-shaped `error` values.
+  "Pack not found": "That pack isn't available any more — reload the page and try again.",
+  "Pack is not purchasable": "That pack isn't on sale right now — reload the page and try again.",
+  "Family member not found":
+    "We couldn't find that child on your account — reload the page and try again.",
+  "Block not found": "That block isn't available any more — reload the page and try again.",
+  "Class not found": "That class isn't available any more — reload the page and try again.",
 }
 
 const GENERIC_PURCHASE_ERROR = "Could not start checkout — please try again."
 
 /**
  * Best available human message from either purchase endpoint's error body.
- * Order: mapped copy for a known machine code → the endpoint's own `message`
- * → the `error` value itself when it reads as a sentence rather than a
- * snake_case code (the pack endpoint's shape) → generic.
+ * Order: allow-listed copy for a known `error` value → the endpoint's own
+ * `message` (block-endpoint-only, and always customer-facing copy: "This
+ * class is full", "This child is outside the age range for this class") →
+ * generic. An unrecognised `error` is never rendered verbatim.
  */
 function purchaseErrorMessage(payload: Record<string, unknown>): string {
   const error = typeof payload.error === "string" ? payload.error : null
   if (error && PURCHASE_ERROR_COPY[error]) return PURCHASE_ERROR_COPY[error]
   if (typeof payload.message === "string" && payload.message.length > 0) return payload.message
-  // A machine code is a single snake_case token; anything with a space is
-  // already customer-facing copy and is more useful than the generic line.
-  if (error && error.includes(" ")) return error
   return GENERIC_PURCHASE_ERROR
 }
 
@@ -312,8 +332,18 @@ export default function ClassPurchaseLadder() {
     return <LoadingSkeleton variant="card" rows={3} />
   }
 
+  // Derived, never hard-coded: the enclosing section's h2/lede deliberately
+  // don't count or name the doors, because three of the four rungs are
+  // catalog-dependent. This sentence names exactly what rendered.
+  const summary = ladderSummarySentence(model.rungs)
+
   return (
     <div className="space-y-[46px]">
+      {/* Negative top margin cancels most of the section wrapper's mt-[38px]
+          so this reads as the second line of the lede above it, not an
+          orphan paragraph floating over the first rung. */}
+      {summary && <p className="text-[15.5px] text-ink-2 -mt-[26px]">{summary}</p>}
+
       {model.rungs.map((rung) => {
         switch (rung.kind) {
           case "dropin":

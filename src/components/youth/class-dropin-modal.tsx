@@ -26,14 +26,24 @@ import { formatCents } from "@/lib/classes/ladder-model"
  *     membership allotment OR a pack/block credit transparently (see
  *     src/lib/classes/credits.ts) and returns `paymentMethod`. A visitor with
  *     nothing to spend gets 403 `no_membership` — the ordinary case here.
- *  2. 403 `no_membership` → the paid drop-in checkout, `POST
- *     /api/dropin/bookings { sessionId, familyMemberId }` → redirect to
- *     `checkoutUrl`. This is the price the button already advertised, so it
- *     proceeds without a second confirmation.
+ *  2. 403 `no_membership` → the GUARDIAN WAIVER, then the paid drop-in
+ *     checkout, `POST /api/dropin/bookings { sessionId, familyMemberId,
+ *     waiverAccepted, waiverName }` → redirect to `checkoutUrl`. The price
+ *     needs no second confirmation (the button already advertised it) but the
+ *     signature does: book-child.ts returns `no_membership` BEFORE its
+ *     waiver-on-file check, so a first-time family never reaches step 4 and
+ *     would otherwise be charged for a minor's class with no guardian release
+ *     on record — landing `waiverSigned: false` and the adult self-waiver
+ *     framing on the confirmation surface. This is the PRIMARY path for
+ *     first-time families, so it is the one that must not skip consent.
+ *     Re-signing a family who already has one on file is harmless: the
+ *     endpoint just records a fresh signature.
  *  3. 402 `allotment_exhausted` (a member who has used this month up) → a
  *     confirm step showing the REAL `memberRateCents` from the response
  *     before taking the same paid path. Never charge a member a price they
- *     weren't shown.
+ *     weren't shown. No waiver step: reaching `allotment_exhausted` means
+ *     this child has already spent classes on this membership, which means a
+ *     signature is on file.
  *  4. 422 `waiver_required` → guardian waiver panel; resubmitting carries the
  *     signature, which both books this class and puts the waiver on file.
  *
@@ -126,6 +136,10 @@ export function ClassDropInModal({
 
   const [waiverAccepted, setWaiverAccepted] = useState(false)
   const [waiverSignerName, setWaiverSignerName] = useState("")
+  /** What happens once the waiver is signed: re-attempt the free booking
+   *  (the 422 path) or go straight to the paid checkout carrying the
+   *  signature (the 403 no-membership path). */
+  const [waiverPurpose, setWaiverPurpose] = useState<"book" | "pay">("book")
 
   const generationRef = useRef(0)
 
@@ -144,6 +158,7 @@ export function ClassDropInModal({
     setPaidWith(null)
     setWaiverAccepted(false)
     setWaiverSignerName("")
+    setWaiverPurpose("book")
   }, [open, session?.id])
 
   function handleClose() {
@@ -192,6 +207,7 @@ export function ClassDropInModal({
     const code = typeof body.error === "string" ? body.error : undefined
 
     if (code === "waiver_required") {
+      setWaiverPurpose("book")
       setPhase("waiver")
       return
     }
@@ -202,8 +218,18 @@ export function ClassDropInModal({
     }
     if (res.status === 403 && code === "no_membership") {
       // The ordinary drop-in case: nothing to spend, so pay the price the
-      // button already advertised. No extra confirmation step.
-      await payForClass(child, myGeneration)
+      // button already advertised — no extra price confirmation. But this is
+      // a MINOR's class and book-child.ts bails out here BEFORE its
+      // waiver-on-file check, so the guardian release has to be captured
+      // now; otherwise we take money with no signature on record.
+      if (waiver) {
+        // Already signed a moment ago in this same flow (the 422 path came
+        // first) — carry it through rather than asking twice.
+        await payForClass(child, myGeneration, waiver.signedBy)
+        return
+      }
+      setWaiverPurpose("pay")
+      setPhase("waiver")
       return
     }
     if (res.status === 402 && code === "allotment_exhausted") {
@@ -217,8 +243,16 @@ export function ClassDropInModal({
   }
 
   /** Paid drop-in checkout — same fetch + response handling as
-   *  family-classes-card.tsx's `payForClass`. */
-  async function payForClass(child: ChildPickerMember, myGeneration: number) {
+   *  family-classes-card.tsx's `payForClass`, plus the guardian signature
+   *  when one was just captured (`waiverSignedBy`). The endpoint takes
+   *  `waiverAccepted` + `waiverName` and records the release on the booking
+   *  row; omitting them leaves `waiverSigned: false`, which is what the
+   *  no-membership path used to do. */
+  async function payForClass(
+    child: ChildPickerMember,
+    myGeneration: number,
+    waiverSignedBy?: string,
+  ) {
     if (!session) return
     setPhase("paying")
     setFlowError(null)
@@ -226,7 +260,11 @@ export function ClassDropInModal({
       const res = await fetch("/api/dropin/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: session.id, familyMemberId: child.id }),
+        body: JSON.stringify({
+          sessionId: session.id,
+          familyMemberId: child.id,
+          ...(waiverSignedBy ? { waiverAccepted: true, waiverName: waiverSignedBy } : {}),
+        }),
       })
       if (myGeneration !== generationRef.current) return
       const body = await parseJson(res)
@@ -272,16 +310,26 @@ export function ClassDropInModal({
   function submitWaiver(e: React.FormEvent) {
     e.preventDefault()
     if (!selectedChild || !waiverAccepted || waiverSignerName.trim().length === 0) return
-    void attemptBook(selectedChild, {
-      signedBy: waiverSignerName.trim(),
-      consentText: DROPIN_WAIVER_TEXT,
-    })
+    const signedBy = waiverSignerName.trim()
+    if (waiverPurpose === "pay") {
+      // No membership and no credit: the signature rides along with the paid
+      // booking so the row lands `waiverSigned: true`.
+      void payForClass(selectedChild, generationRef.current, signedBy)
+      return
+    }
+    void attemptBook(selectedChild, { signedBy, consentText: DROPIN_WAIVER_TEXT })
   }
 
   function handleSelectChild(member: ChildPickerMember) {
     generationRef.current += 1
     setSelectedChild(member)
     setFlowError(null)
+    // Consent is PER CHILD: the assent sentence below names whoever is
+    // selected, so a box left ticked (and a name left typed) for the previous
+    // child must not be carried over as consent given for this one.
+    setWaiverAccepted(false)
+    setWaiverSignerName("")
+    setWaiverPurpose("book")
     // `member` is passed through, never read back from state — the state
     // update above has not committed yet inside this handler's closure.
     void attemptBook(member)
@@ -347,6 +395,9 @@ export function ClassDropInModal({
                 <DialogDescription className="text-ink-2">
                   {childName} is booking {when} — this covers every class they attend from here on,
                   not just this one.
+                  {waiverPurpose === "pay"
+                    ? " Sign it here and we'll take you straight to payment."
+                    : ""}
                 </DialogDescription>
 
                 <p className="text-sm text-ink-2 leading-relaxed rounded-lg border border-amber-200 bg-amber-50/60 p-3">
@@ -387,7 +438,7 @@ export function ClassDropInModal({
                   disabled={!waiverAccepted || waiverSignerName.trim().length === 0}
                   className="w-full sm:w-auto"
                 >
-                  Sign waiver &amp; book class
+                  {waiverPurpose === "pay" ? "Sign waiver & continue to payment" : "Sign waiver & book class"}
                 </Button>
               </form>
             )}

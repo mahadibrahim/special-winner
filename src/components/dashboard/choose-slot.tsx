@@ -59,6 +59,12 @@ import { waiverAssentSentence } from "@/lib/consents/waiver-consent-language";
  *   - Degrades to "your seat is confirmed, this week's class will appear
  *     shortly" if the webhook never lands within the retry budget. The
  *     PURCHASE is safe either way; only the immediate booking is at stake.
+ *
+ * `block=success` ALONE (truncated/shared URL, no `slot=`) is still block
+ * mode — with an unknown slot. It takes the soft-success landing, never the
+ * picker: falling through to the enroll-capable grid would invite a family
+ * who just bought a block seat to create a SECOND, membership-backed
+ * enrollment on top of it.
  */
 
 interface SummaryChild {
@@ -236,12 +242,21 @@ export function ChooseSlot() {
   // Block mode: `?block=success&slot=<slotTemplateId>` — see BLOCK MODE in
   // the header comment. Read in the same lazy initializer for the same
   // SSR-safety reason.
+  //
+  // `block=success` is what makes this block mode, NOT the presence of
+  // `slot`: a truncated URL must not fall through to the enroll-capable
+  // picker, or a family who just paid for a block seat could create a second
+  // enrollment on top of it. Missing `slot` = block mode with an unknown
+  // slot, which loadAll lands on the soft-success panel.
+  const [blockMode] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return new URLSearchParams(window.location.search).get("block") === "success";
+  });
   const [blockSlotId] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
     const params = new URLSearchParams(window.location.search);
     return params.get("block") === "success" ? params.get("slot") : null;
   });
-  const blockMode = blockSlotId !== null;
 
   const [phase, setPhase] = useState<Phase>("loading");
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -314,11 +329,15 @@ export function ChooseSlot() {
       setSessions(scheduleBody.sessions);
 
       if (blockMode) {
-        const boughtSlot = scheduleBody.slots.find((s) => s.templateId === blockSlotId);
+        const boughtSlot = blockSlotId
+          ? scheduleBody.slots.find((s) => s.templateId === blockSlotId)
+          : undefined;
         if (!boughtSlot) {
-          // The purchase went through against a template the public schedule
-          // no longer lists (deactivated between checkout and redirect). The
-          // seat is real, so this is a soft landing, not an error page.
+          // Either `slot=` was missing from the URL entirely, or the purchase
+          // went through against a template the public schedule no longer
+          // lists (deactivated between checkout and redirect). Both mean we
+          // can't name the slot — but the seat is real, so this is a soft
+          // landing, not an error page and never the picker.
           finishSuccess(null, null, "Your payment went through — your seat appears on your dashboard shortly.");
           return;
         }

@@ -154,17 +154,17 @@ const faqs: LandingFaqItem[] = [
   {
     question: "Do classes run all year?",
     answer:
-      "Yes — the pathway runs year-round. Blocks roll one into the next, and memberships and class packs carry straight across, so there's never a season where your kid has nowhere to train.",
+      "Yes — the pathway runs year-round, and a monthly membership carries straight across, so there's never a season where your kid has nowhere to train.",
   },
   {
     question: "What does it cost?",
     answer:
-      "There are four ways in, and you pick: a single drop-in class at its own price, a pack of classes to use whenever suits you, a block — a fixed run of weeks on the same night — or a monthly membership with a set number of classes each month. Every price is on the card before you book; nothing is quoted over the phone.",
+      "There's no single price — you pick how much you commit, and every option carries its own price on the card before you book. A trial class costs nothing, and a monthly membership covers a set number of classes each month; depending on what's scheduled you can also buy a pack of classes, take a block (a fixed run of weeks on the same night), or pay for one class and just come once. The pricing section on this page lists everything that's open right now. Nothing is quoted over the phone.",
   },
   {
     question: "Do I have to commit to a block?",
     answer:
-      "No. A block is one option, not the only one — plenty of families come on a monthly membership, on a class pack, or just once to see how it goes. If you do join a block part-way through, you only pay for the weeks that are left.",
+      "No — a block is one option, never the only one. Plenty of families are on a monthly membership instead, and the pricing section on this page shows every way in that's open right now. If you do join a block part-way through, you only pay for the weeks that are left.",
   },
 ]
 ---
@@ -340,12 +340,18 @@ const faqs: LandingFaqItem[] = [
         client. */}
     <section id="pricing" class="px-6 sm:px-9 py-[76px]">
       <div class="max-w-[1080px] mx-auto">
+        {/* Neutral by design: the header must not COUNT or NAME the doors.
+            Three of the ladder's four rungs (drop-in, packs, block) only
+            exist when the catalog carries them, so a static "four ways in"
+            would promise four options above a band rendering two. The
+            island prints the real enumeration under this lede via
+            ladderSummarySentence(). */}
         <h2 class="font-display font-semibold tracking-tight text-ink" style="font-size:clamp(2.1rem,3.8vw,2.9rem);letter-spacing:-0.015em">
-          Four ways <span class="text-brand-red">in.</span>
+          Pick your <span class="text-brand-red">commitment.</span>
         </h2>
         <p class="text-[15.5px] text-ink-2 mt-3">
-          Come once, buy a pack, take a block, or go monthly — start wherever it suits you and
-          change your mind later.
+          Start wherever it suits you and change your mind later — every option below carries its
+          own price on the card, before you book.
         </p>
         <div class="mt-[38px]">
           <ClassPurchaseLadder client:load />

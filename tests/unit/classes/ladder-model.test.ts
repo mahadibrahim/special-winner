@@ -4,6 +4,7 @@ import {
   dropInFromPriceCents,
   formatCents,
   isClassTier,
+  ladderSummarySentence,
   perSessionCents,
   type BlockTemplate,
   type BlockWindow,
@@ -110,6 +111,52 @@ describe("isClassTier", () => {
   it("drops rental/day-pass tiers that imply no classes", () => {
     expect(isClassTier(tier({ benefits: { classes_per_month: 0 } }))).toBe(false);
     expect(isClassTier(tier({ benefits: {} }))).toBe(false);
+  });
+});
+
+describe("ladderSummarySentence", () => {
+  it("enumerates ONLY the rungs that assembled, never a fixed count", () => {
+    const model = assembleLadder({
+      packs: [],
+      block: null,
+      tiers: [tier()],
+      scheduleSlots: [slot(2500)],
+    });
+    // The catalog carries a drop-in rate and a tier and nothing else, so the
+    // copy must promise exactly two ways in — not the four the band can show
+    // at full catalog. This is the honest-copy guard.
+    expect(ladderSummarySentence(model.rungs)).toBe(
+      "Right now you can come to a single class or go monthly.",
+    );
+  });
+
+  it("lists all four with a serial comma when the whole ladder assembles", () => {
+    const model = assembleLadder({
+      packs: [pack()],
+      block: block(),
+      tiers: [tier()],
+      scheduleSlots: [slot(2500)],
+    });
+    expect(ladderSummarySentence(model.rungs)).toBe(
+      "Right now you can come to a single class, buy a pack of classes, take a block of weeks, or go monthly.",
+    );
+  });
+
+  it("renders a single rung without a conjunction", () => {
+    const model = assembleLadder({
+      packs: [],
+      block: null,
+      tiers: [],
+      scheduleSlots: [slot(2500)],
+    });
+    expect(ladderSummarySentence(model.rungs)).toBe("Right now you can come to a single class.");
+  });
+
+  it("returns null with no rungs, so the fallback state prints no sentence", () => {
+    expect(ladderSummarySentence([])).toBeNull();
+    const empty = assembleLadder({ packs: [], block: null, tiers: [], scheduleSlots: [] });
+    expect(empty.showFallback).toBe(true);
+    expect(ladderSummarySentence(empty.rungs)).toBeNull();
   });
 });
 
