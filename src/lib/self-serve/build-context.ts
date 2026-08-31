@@ -223,8 +223,11 @@ export async function buildSelfServeContext(
   // Only narrows (never widens): a target that is already signed stays
   // settled, and a cancelled hold stays entirely non-actionable. Skipped
   // when the token resolves to no `family_members` person — adult drop-ins,
-  // adult walk-ins, field rentals and rental players have no person row to
-  // ask the predicate about, so they keep the per-target behaviour.
+  // adult walk-ins, guest (account-less) field rentals, and rental players
+  // have no person row to ask the predicate about, so they keep the
+  // per-target behaviour. An accounted renter's field_rental token DOES
+  // resolve a person (resolveSigner resolves their own SELF row), so this
+  // pass activates for them automatically.
   if (outstanding.waiver && signer.familyMemberId) {
     try {
       if (

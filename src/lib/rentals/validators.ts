@@ -99,8 +99,26 @@ export interface RentalBookingRequestBody {
   waiverAccepted?: boolean;
 }
 
+export interface ValidateRentalBookingOpts {
+  /**
+   * True when the API layer has already resolved the renter's person and
+   * confirmed they carry a valid annual liability waiver for this org (see
+   * `hasValidLiabilityWaiver` in src/lib/consents/liability.ts). This
+   * validator stays pure/DB-free — the caller does the lookup and passes the
+   * verdict in.
+   *
+   * Only relaxes the requirement when the client OMITTED both waiver fields
+   * (a client that already knows it's covered simply doesn't render the
+   * checkbox). An explicit `waiverAccepted: false` is still rejected even
+   * when covered — that is a signal the box was shown and unchecked, which
+   * must not be silently overridden by server-side coverage.
+   */
+  waiverOnFile?: boolean;
+}
+
 export function validateRentalBookingRequest(
   body: RentalBookingRequestBody,
+  opts: ValidateRentalBookingOpts = {},
 ): string | null {
   if (!body.venueId || !UUID_RX.test(body.venueId)) {
     return "venueId must be a valid id";
@@ -125,9 +143,13 @@ export function validateRentalBookingRequest(
   ) {
     return "partySize must be a positive integer";
   }
-  if (!body.waiverAccepted) return "waiver must be accepted to book";
-  if (!body.waiverName || body.waiverName.trim().length === 0) {
-    return "waiver signature name is required";
+  const waiverFieldsOmitted =
+    body.waiverAccepted === undefined && body.waiverName === undefined;
+  if (!(opts.waiverOnFile && waiverFieldsOmitted)) {
+    if (!body.waiverAccepted) return "waiver must be accepted to book";
+    if (!body.waiverName || body.waiverName.trim().length === 0) {
+      return "waiver signature name is required";
+    }
   }
   return null;
 }

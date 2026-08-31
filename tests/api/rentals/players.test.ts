@@ -8,10 +8,13 @@
  * tests (mirrors pay.test.ts's setup).
  */
 import { describe, it, expect, beforeAll } from "vitest";
+import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { fieldRentals } from "@/lib/db/schema/field-rentals";
+import { fieldRentals, fieldRentalPlayers } from "@/lib/db/schema/field-rentals";
 import { getParentCookie, getCoachCookie, apiFetch } from "../setup/test-helpers";
 import { E2E_RENTAL_VENUE_ID, E2E_ORG_ID } from "@/lib/db/seeds/seed-e2e-tests";
+import { addRequesterAsSignedPlayer } from "@/lib/rentals/players";
+import { WAIVER_ON_FILE_ATTRIBUTION } from "@/lib/consents/liability";
 
 const orgId = E2E_ORG_ID;
 let parentUserId: string;
@@ -167,5 +170,89 @@ describe("Rentals roster endpoints", () => {
       }),
     });
     expect(res.status).toBe(422);
+  });
+});
+
+/**
+ * `addRequesterAsSignedPlayer` — the renter-seeded roster row #1, born
+ * `signed` from the RENTAL's own waiver* columns. Annual-waiver Task 6
+ * changed what those columns can hold (an "on file" derived stamp with a
+ * NULL date, not just a dated fresh signature) — this is the regression
+ * check that the renter-seeded player still works either way. Invited
+ * players (createRentalPlayer) do NOT get an equivalent auto-sign: see the
+ * LIMITATION comment on that function — field_rental_players has no
+ * userId/family_member linkage to resolve a person from.
+ */
+describe("addRequesterAsSignedPlayer — annual waiver", () => {
+  let fieldCounter = 70;
+
+  async function makeRental(waiver: {
+    waiverSigned: boolean;
+    waiverSignedBy: string | null;
+    waiverSignedAt: Date | null;
+  }) {
+    const [r] = await getDb()
+      .insert(fieldRentals)
+      .values({
+        organizationId: orgId,
+        venueId: E2E_RENTAL_VENUE_ID,
+        fieldNumber: fieldCounter++,
+        startsAt: new Date(RUN_BASE_UTC + 15 * 3_600_000),
+        endsAt: new Date(RUN_BASE_UTC + 16 * 3_600_000),
+        status: "confirmed",
+        source: "online_booking",
+        paymentMethod: "card_online",
+        paymentStatus: "paid",
+        amountDueCents: 5000,
+        amountPaidCents: 5000,
+        renterUserId: parentUserId,
+        renterName: "On File Renter",
+        renterEmail: "onfile-renter@example.com",
+        ...waiver,
+      })
+      .returning();
+    return r;
+  }
+
+  it("a rental born with the on-file stamp still seeds a signed roster row #1", async () => {
+    const rental = await makeRental({
+      waiverSigned: true,
+      waiverSignedBy: WAIVER_ON_FILE_ATTRIBUTION,
+      waiverSignedAt: null,
+    });
+
+    await addRequesterAsSignedPlayer(rental);
+
+    const [player] = await getDb()
+      .select()
+      .from(fieldRentalPlayers)
+      .where(eq(fieldRentalPlayers.rentalId, rental.id));
+    expect(player.status).toBe("signed");
+    expect(player.playerName).toBe(rental.renterName);
+    expect(player.signerName).toBe(WAIVER_ON_FILE_ATTRIBUTION);
+    // rental.waiverSignedAt is null (on-file derived) — the function falls
+    // back to "now" for the roster row's own signedAt; nothing downstream
+    // gates on this column (only dropInBookings/registrations feed the
+    // legacy fallback), so a non-null fallback here is harmless.
+    expect(player.signedAt).not.toBeNull();
+  });
+
+  it("a rental with a fresh dated signature still seeds a signed roster row #1 with that date", async () => {
+    const signedAt = new Date();
+    const rental = await makeRental({
+      waiverSigned: true,
+      waiverSignedBy: "Fresh Signer",
+      waiverSignedAt: signedAt,
+    });
+
+    await addRequesterAsSignedPlayer(rental);
+
+    const [player] = await getDb()
+      .select()
+      .from(fieldRentalPlayers)
+      .where(eq(fieldRentalPlayers.rentalId, rental.id));
+    expect(player.status).toBe("signed");
+    expect(player.signerName).toBe("Fresh Signer");
+    expect(player.signedAt?.getTime()).toBe(signedAt.getTime());
   });
 });

@@ -184,15 +184,17 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
   // shares the ONE definition of the validity window with the read side.
   //
   // LIMITATION — which kinds actually land a row:
-  //   roster_entry, and drop_in_booking / walkin_session booked for a MINOR,
-  //   all carry a `family_members` participant. Adult drop-ins and adult
-  //   walk-ins do not (walkin/start.ts creates the person row only for a
-  //   minor), and neither field_rental nor rental_player has any person
-  //   linkage at all — a renter is a user account or bare typed contact
-  //   details, and a rental player is a name + email. Those signatures are
-  //   skipped here, silently: the local waiver* columns remain their audit
-  //   record. The rentals task closes the rental half by resolving the
-  //   renter's own `family_members` row via resolvePerson.
+  //   roster_entry, drop_in_booking / walkin_session booked for a MINOR, and
+  //   field_rental for an ACCOUNTED renter all carry a `family_members`
+  //   person (resolve-signer.ts resolves the renter's own SELF row via
+  //   resolvePerson). Adult drop-ins and adult walk-ins do not
+  //   (walkin/start.ts creates the person row only for a minor); a GUEST
+  //   (account-less) field_rental has no user to resolve a person from; and
+  //   rental_player has no linkage at all — a rental player is a bare typed
+  //   name + email, with no userId/family_member column to resolve (see
+  //   the LIMITATION comment on createRentalPlayer in
+  //   src/lib/rentals/players.ts). Those signatures are skipped here,
+  //   silently: the local waiver* columns remain their audit record.
   try {
     if (signer?.familyMemberId && !waiverAlreadyOnFile) {
       await recordLiabilityWaiver(

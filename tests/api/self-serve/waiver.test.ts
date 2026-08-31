@@ -385,6 +385,162 @@ describe("POST /api/self-serve/[token]/waiver — annual liability consent", () 
   });
 });
 
+// ── field_rental (accounted renter): resolve-signer now resolves a person ────
+//
+// Task 6 fixed resolve-signer.ts's field_rental branch to resolve the
+// renter's own SELF family_members row (via resolvePerson) whenever the
+// rental has a renterUserId — previously hardcoded null, which made this
+// endpoint's consent write dead for every rental regardless of the fix
+// shipped alongside it. An admin-created rental with NO renterUserId (the
+// suite above) still resolves no person and writes nothing — unchanged.
+describe("POST /api/self-serve/[token]/waiver — field_rental annual waiver (accounted renter)", () => {
+  const SUFFIX = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const createdUserIds: string[] = [];
+  const createdFamilyMemberIds: string[] = [];
+  const createdRentalIds: string[] = [];
+
+  async function makeAccountedRenter(label: string): Promise<string> {
+    const email = `waiver-rental-${label}-${SUFFIX}@test.aspiresports.com`;
+    const [user] = await getDb()
+      .insert(users)
+      .values({
+        email: email.toLowerCase(),
+        emailCanonical: email.toLowerCase(),
+        firstName: "Sign",
+        lastName: `Renter${label}`,
+        emailVerified: true,
+      })
+      .returning();
+    createdUserIds.push(user.id);
+    return user.id;
+  }
+
+  async function mintRentalToken(userId: string, fieldNumber: number) {
+    const start = new Date(RUN_BASE_UTC + (30 + fieldNumber) * 3_600_000);
+    const [rental] = await getDb()
+      .insert(fieldRentals)
+      .values({
+        organizationId: E2E_ORG_ID,
+        venueId: E2E_RENTAL_VENUE_ID,
+        fieldNumber,
+        startsAt: start,
+        endsAt: new Date(start.getTime() + 3_600_000),
+        status: "confirmed",
+        source: "online_booking",
+        renterUserId: userId,
+        renterName: "Sign Renter",
+        renterEmail: "sign-renter@example.com",
+        paymentMethod: "card_online",
+        amountDueCents: 8000,
+        amountPaidCents: 8000,
+        paymentStatus: "paid",
+        waiverSigned: false,
+      })
+      .returning();
+    createdRentalIds.push(rental.id);
+    const tok = await mintToken({
+      kind: "field_rental",
+      targetId: rental.id,
+      organizationId: E2E_ORG_ID,
+      venueId: E2E_RENTAL_VENUE_ID,
+      sentVia: "qr",
+      recipientUserId: userId,
+      recipientEmail: "sign-renter@example.com",
+      recipientPhone: null,
+      createdByUserId: null,
+    });
+    return tok.token;
+  }
+
+  function liabilityRowsForSelf(userId: string) {
+    return getDb()
+      .select({
+        familyMemberId: consents.familyMemberId,
+        organizationId: consents.organizationId,
+        signedByUserId: consents.signedByUserId,
+        signedByName: consents.signedByName,
+        status: consents.status,
+        expiresAt: consents.expiresAt,
+        userAgent: consents.userAgent,
+      })
+      .from(consents)
+      .innerJoin(familyMembers, eq(familyMembers.id, consents.familyMemberId))
+      .where(and(eq(familyMembers.selfUserId, userId), eq(consents.type, "liability")));
+  }
+
+  afterAll(async () => {
+    const db = getDb();
+    if (createdUserIds.length) {
+      const rows = await db
+        .select({ id: familyMembers.id })
+        .from(familyMembers)
+        .where(inArray(familyMembers.selfUserId, createdUserIds));
+      const fmIds = rows.map((r) => r.id);
+      createdFamilyMemberIds.push(...fmIds);
+    }
+    if (createdFamilyMemberIds.length) {
+      await db
+        .delete(consents)
+        .where(inArray(consents.familyMemberId, createdFamilyMemberIds));
+    }
+    if (createdRentalIds.length) {
+      await db.delete(fieldRentals).where(inArray(fieldRentals.id, createdRentalIds));
+    }
+    if (createdFamilyMemberIds.length) {
+      await db
+        .delete(familyMembers)
+        .where(inArray(familyMembers.id, createdFamilyMemberIds));
+    }
+    if (createdUserIds.length) {
+      await db.delete(users).where(inArray(users.id, createdUserIds));
+    }
+  });
+
+  it("a fresh signature writes an org-scoped consents row for the renter's own SELF person", async () => {
+    const userId = await makeAccountedRenter("fresh");
+    const token = await mintRentalToken(userId, 10);
+
+    const res = await apiFetch(`/api/self-serve/${token}/waiver`, {
+      method: "POST",
+      headers: { "User-Agent": "annual-waiver-rental-selfserve-test/1.0" },
+      body: JSON.stringify({ acceptedName: "Sign Renter" }),
+    });
+    expect(res.status).toBe(200);
+
+    const rows = await liabilityRowsForSelf(userId);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].organizationId).toBe(E2E_ORG_ID);
+    expect(rows[0].signedByUserId).toBe(userId);
+    expect(rows[0].signedByName).toBe("Sign Renter");
+    expect(rows[0].status).toBe("granted");
+    expect(rows[0].expiresAt).not.toBeNull();
+    expect(rows[0].userAgent).toBe("annual-waiver-rental-selfserve-test/1.0");
+  });
+
+  it("a re-POST after coverage does not append a second consents row", async () => {
+    const userId = await makeAccountedRenter("repeat");
+    const token = await mintRentalToken(userId, 11);
+
+    const first = await apiFetch(`/api/self-serve/${token}/waiver`, {
+      method: "POST",
+      body: JSON.stringify({ acceptedName: "Sign Renter" }),
+    });
+    expect(first.status).toBe(200);
+    expect(await liabilityRowsForSelf(userId)).toHaveLength(1);
+
+    // The token is never consumed by this endpoint (that only happens for
+    // single-use check-in flows elsewhere) — a second POST on the SAME
+    // token (double submit / refreshed link) must not append a second
+    // audit row, because the person is now covered by the row just written.
+    const second = await apiFetch(`/api/self-serve/${token}/waiver`, {
+      method: "POST",
+      body: JSON.stringify({ acceptedName: "Sign Renter Again" }),
+    });
+    expect(second.status).toBe(200);
+    expect(await liabilityRowsForSelf(userId)).toHaveLength(1);
+  });
+});
+
 // ── roster_entry: the branch with a person ALWAYS and no local column ────────
 //
 // The largest behaviour delta in the annual-waiver change lives here.

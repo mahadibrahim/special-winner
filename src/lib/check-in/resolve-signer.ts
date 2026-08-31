@@ -25,7 +25,17 @@
  *   self-serve PayCard actually accepts (payment.ts hard-rejects any
  *   other kind).
  * - field_rental: signer = renterUser if set; else the typed
- *   renterName/email/phone (admin-created with no account).
+ *   renterName/email/phone (admin-created with no account). When renterUser
+ *   IS set, familyMemberId resolves to the renter's own SELF family_members
+ *   row (via resolvePerson) — a renter is an adult signing for themselves,
+ *   the same "adults sign too" rule the annual-waiver design applies to the
+ *   paid drop-in door. An account-less (guest) renter has no person to
+ *   resolve and keeps familyMemberId null.
+ * - rental_player: familyMemberId is always null. field_rental_players
+ *   carries only a typed playerName + signerEmail — no userId / family_member
+ *   column — so an invited player has no verified identity to resolve a
+ *   person for (see the LIMITATION comment on createRentalPlayer in
+ *   src/lib/rentals/players.ts).
  * - roster_entry: load the registration's family_member. If parentUserId
  *   set → signer is the parent. If selfUserId set → adult self.
  *
@@ -44,6 +54,7 @@ import { seasons, programs } from "@/lib/db/schema/programs";
 import { registrations, familyMembers } from "@/lib/db/schema/registrations";
 import { locations } from "@/lib/db/schema/organizations";
 import { users } from "@/lib/db/schema/users";
+import { resolvePerson } from "@/lib/registrations/resolve-person";
 
 export type SelfServiceKind =
   | "drop_in_booking"
@@ -179,6 +190,7 @@ export async function resolveSigner(
           lastName: users.lastName,
           email: users.email,
           phone: users.phone,
+          birthDate: users.birthDate,
         })
         .from(users)
         .where(eq(users.id, row.renterUserId))
@@ -186,13 +198,36 @@ export async function resolveSigner(
       const name = u
         ? `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim() || u.email
         : row.renterName;
+
+      // Resolve the renter's own SELF family_members row so the annual
+      // liability predicate has a person to check. Best-effort: a lookup
+      // failure falls back to no person (the pre-existing shape), never
+      // blocks resolving the signer entirely.
+      let familyMemberId: string | null = null;
+      if (u) {
+        try {
+          const person = await resolvePerson(db, {
+            kind: "self",
+            user: {
+              id: row.renterUserId,
+              firstName: u.firstName ?? "",
+              lastName: u.lastName ?? "",
+              birthDate: u.birthDate,
+            },
+          });
+          familyMemberId = person.id;
+        } catch (err) {
+          console.error("[resolve-signer] resolvePerson failed for renter", err);
+        }
+      }
+
       return {
         signerName: name,
         displayName: name,
         recipientEmail: u?.email ?? row.renterEmail,
         recipientPhone: u?.phone ?? row.renterPhone,
         recipientUserId: row.renterUserId,
-        familyMemberId: null,
+        familyMemberId,
         isMinor: false,
       };
     }
@@ -229,6 +264,11 @@ export async function resolveSigner(
       recipientEmail: row.signerEmail,
       recipientPhone: null,
       recipientUserId: null,
+      // No linkage to resolve — field_rental_players carries only a typed
+      // playerName + signerEmail, no userId/family_member column. An
+      // email-only invitee has no verified person to hang an annual
+      // liability consent off; the row's own signed*/status columns remain
+      // its audit record (see the LIMITATION comment on createRentalPlayer).
       familyMemberId: null,
       isMinor: row.isMinor,
     };
