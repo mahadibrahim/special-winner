@@ -285,23 +285,8 @@ export async function hasValidLiabilityWaiverBatch(
   /** People not yet decided TRUE and not yet stopped by a revocation. */
   const undecided = new Set(ids);
 
-  // 1. Canonical consents rows — one per person, the most recent. Served by
-  //    consents_liability_validity_idx.
-  const consentRows = await db
-    .selectDistinctOn([consents.familyMemberId], {
-      familyMemberId: consents.familyMemberId,
-      status: consents.status,
-      expiresAt: consents.expiresAt,
-    })
-    .from(consents)
-    .where(
-      and(
-        inArray(consents.familyMemberId, ids),
-        eq(consents.organizationId, organizationId),
-        eq(consents.type, "liability"),
-      ),
-    )
-    .orderBy(consents.familyMemberId, desc(consents.signedAt));
+  // 1. Canonical consents rows — one per person, the most recent.
+  const consentRows = await latestLiabilityConsents(db, ids, organizationId);
 
   for (const row of consentRows) {
     if (row.status !== "granted") {
@@ -318,16 +303,25 @@ export async function hasValidLiabilityWaiverBatch(
   if (undecided.size === 0) return verdicts;
 
   const cutoff = waiverWindowStart(now);
+  const pendingAfterConsents = Array.from(undecided);
 
   // 2. Legacy drop-in / class booking signature. The org lives on the
   //    session, not the booking.
+  //
+  //    `selectDistinct` + `limit(pending.length)` is ONE mechanism, not two:
+  //    the limit is the early exit (stop scanning once every undecided person
+  //    is accounted for, restoring the `.limit(1)` the singular form used to
+  //    have), and DISTINCT is what makes that limit safe. Without DISTINCT a
+  //    single person with N signed bookings could consume the whole limit and
+  //    starve everyone else out of the result — a silent false negative on a
+  //    legal release. Never drop one without the other.
   const bookingRows = await db
     .selectDistinct({ familyMemberId: dropInBookings.familyMemberId })
     .from(dropInBookings)
     .innerJoin(dropInSessions, eq(dropInBookings.sessionId, dropInSessions.id))
     .where(
       and(
-        inArray(dropInBookings.familyMemberId, Array.from(undecided)),
+        inArray(dropInBookings.familyMemberId, pendingAfterConsents),
         eq(dropInSessions.organizationId, organizationId),
         eq(dropInBookings.waiverSigned, true),
         // Redundant against `gt` in SQL three-valued logic, but it is the
@@ -335,7 +329,8 @@ export async function hasValidLiabilityWaiverBatch(
         isNotNull(dropInBookings.waiverSignedAt),
         gt(dropInBookings.waiverSignedAt, cutoff),
       ),
-    );
+    )
+    .limit(pendingAfterConsents.length);
   for (const row of bookingRows) {
     if (!row.familyMemberId) continue;
     verdicts.set(row.familyMemberId, true);
@@ -346,6 +341,8 @@ export async function hasValidLiabilityWaiverBatch(
   // 3. Legacy season/league/camp registration signature. `seasons` has no
   //    organizationId — the real path is registrations → seasons → programs
   //    → locations.organizationId (same join the 0139 backfill uses).
+  //    Same DISTINCT-guards-the-limit pairing as stage 2 above.
+  const pendingAfterBookings = Array.from(undecided);
   const registrationRows = await db
     .selectDistinct({ familyMemberId: registrations.familyMemberId })
     .from(registrations)
@@ -354,13 +351,14 @@ export async function hasValidLiabilityWaiverBatch(
     .innerJoin(locations, eq(programs.locationId, locations.id))
     .where(
       and(
-        inArray(registrations.familyMemberId, Array.from(undecided)),
+        inArray(registrations.familyMemberId, pendingAfterBookings),
         eq(locations.organizationId, organizationId),
         eq(registrations.waiverSigned, true),
         isNotNull(registrations.waiverSignedAt),
         gt(registrations.waiverSignedAt, cutoff),
       ),
-    );
+    )
+    .limit(pendingAfterBookings.length);
   for (const row of registrationRows) {
     if (!row.familyMemberId) continue;
     verdicts.set(row.familyMemberId, true);
@@ -380,9 +378,11 @@ export async function hasValidLiabilityWaiverBatch(
  * Callers must render a date-free fallback ("valid this year") for null rather
  * than treating it as "not covered".
  *
- * Reads exactly query 1 of `hasValidLiabilityWaiver` (most recent liability row
- * for the pair, judged on its own status) so the two can't disagree about which
- * row is authoritative.
+ * Shares `latestLiabilityConsents` — literally STAGE 1 of
+ * `hasValidLiabilityWaiverBatch` — so the two can never disagree about which
+ * row is authoritative for a (person, org). What differs is only what each
+ * does with that row: the predicate falls through to the legacy sources on an
+ * expired grant, this returns null (there is no date to quote).
  */
 export async function liabilityWaiverValidUntil(
   familyMemberId: string,
@@ -390,20 +390,46 @@ export async function liabilityWaiverValidUntil(
   dbOrTx?: DbClient,
 ): Promise<Date | null> {
   const db = dbOrTx ?? getDb();
-  const [consent] = await db
-    .select({ status: consents.status, expiresAt: consents.expiresAt })
+  const [consent] = await latestLiabilityConsents(db, [familyMemberId], organizationId);
+  if (!consent || consent.status !== "granted" || !consent.expiresAt) return null;
+  return consent.expiresAt.getTime() > Date.now() ? consent.expiresAt : null;
+}
+
+/**
+ * STAGE 1 of the validity rule, extracted so its two consumers cannot fork:
+ * the MOST RECENT `liability` consents row per person for one organization.
+ *
+ * "Most recent" is `DISTINCT ON (family_member_id) … ORDER BY family_member_id,
+ * signed_at DESC` — `consents` is an append-only audit log, so the newest row
+ * is the only one that speaks for the person's current state, and a later
+ * revocation must be able to overrule the grant it supersedes.
+ *
+ * Note the org filter is an equality, so rows the 0139 backfill left
+ * `organization_id` NULL match NOTHING and grant nothing — waivers are
+ * per-organization legal releases and an unscoped row cannot stand in for one.
+ * Served by `consents_liability_validity_idx`.
+ */
+async function latestLiabilityConsents(
+  db: DbClient,
+  familyMemberIds: string[],
+  organizationId: string,
+): Promise<{ familyMemberId: string; status: string; expiresAt: Date | null }[]> {
+  if (familyMemberIds.length === 0) return [];
+  return await db
+    .selectDistinctOn([consents.familyMemberId], {
+      familyMemberId: consents.familyMemberId,
+      status: consents.status,
+      expiresAt: consents.expiresAt,
+    })
     .from(consents)
     .where(
       and(
-        eq(consents.familyMemberId, familyMemberId),
+        inArray(consents.familyMemberId, familyMemberIds),
         eq(consents.organizationId, organizationId),
         eq(consents.type, "liability"),
       ),
     )
-    .orderBy(desc(consents.signedAt))
-    .limit(1);
-  if (!consent || consent.status !== "granted" || !consent.expiresAt) return null;
-  return consent.expiresAt.getTime() > Date.now() ? consent.expiresAt : null;
+    .orderBy(consents.familyMemberId, desc(consents.signedAt));
 }
 
 /** The user account that owns a person row: the parent (COPPA path) or the

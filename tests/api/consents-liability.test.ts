@@ -310,21 +310,37 @@ describe("hasValidLiabilityWaiver — revocation is authoritative", () => {
 });
 
 /**
- * The batch form is not a second implementation of the validity rule — the
- * singular delegates to it. This suite is the executable proof of that: it
- * seeds one person per branch of the rule (and per edge of each branch), then
- * asserts, for THREE different organizations, that the batch map agrees with
- * the singular predicate for every single person.
+ * WHAT THIS SUITE PROVES — AND WHAT IT DOES NOT.
  *
- * Running it against three orgs is what covers the registration fallback and
- * the cross-org isolation of all three sources at once: the same person is
- * covered under one org, uncovered under the others, and both forms have to
- * say so identically.
+ * `hasValidLiabilityWaiver` DELEGATES to `hasValidLiabilityWaiverBatch`
+ * (one-person call), so "batch agrees with singular" is NOT a check on the
+ * rule itself — it is a check that batch-of-N equals batch-of-1 for every
+ * person, i.e. that nothing LEAKS ACROSS PEOPLE when they share a query:
+ * a revocation stopping the wrong person's fall-through, one person's
+ * signature satisfying another, the stage-2/3 `limit` starving someone out of
+ * the result set. Those are exactly the bugs a set-based rewrite introduces,
+ * and only a many-person run can catch them.
+ *
+ * The RULE's own pins are the ABSOLUTE assertions in the describes above —
+ * (a)–(g), the window boundaries, the derived-row rejection, and the
+ * revocation pair. They assert concrete true/false verdicts against seeded
+ * facts and are the only thing standing between this file and a predicate
+ * that is self-consistently wrong. They are NOT superseded by this suite and
+ * must not be deleted as redundant.
+ *
+ * Judging the matrix under several orgs is what covers the registration
+ * fallback and the cross-org isolation of all three sources at once.
  */
 describe("hasValidLiabilityWaiverBatch ≡ hasValidLiabilityWaiver", () => {
   /** Every seeded person, plus the orgs the matrix has to be judged under. */
   const matrixIds: string[] = [];
   const matrixOrgIds: string[] = [];
+  /** The two registration-source people, kept for the absolute assertions
+   *  below — their interesting verdicts only exist under their OWN orgs. */
+  let seededId: string;
+  let seededOrgId: string;
+  let seededRevokedId: string;
+  let seededRevokedOrgId: string;
 
   beforeAll(async () => {
     // ── consents branch ──────────────────────────────────────────────────
@@ -430,7 +446,12 @@ describe("hasValidLiabilityWaiverBatch ≡ hasValidLiabilityWaiver", () => {
 
     // ── legacy registration branch (its own org, seeded by the helper) ────
     const seeded = await seedPaidRegistration(1000);
+    seededId = seeded.familyMemberId;
+    seededOrgId = seeded.organizationId;
+
     const seededRevoked = await seedPaidRegistration(1000);
+    seededRevokedId = seededRevoked.familyMemberId;
+    seededRevokedOrgId = seededRevoked.organizationId;
     borrowedConsentFamilyMemberIds.push(seededRevoked.familyMemberId);
     await insertLiabilityConsent({
       familyMemberId: seededRevoked.familyMemberId,
@@ -455,7 +476,15 @@ describe("hasValidLiabilityWaiverBatch ≡ hasValidLiabilityWaiver", () => {
       seeded.familyMemberId,
       seededRevoked.familyMemberId,
     );
-    matrixOrgIds.push(organizationId, otherOrganizationId, seeded.organizationId);
+    // Both registration orgs are judged, so `seededRevoked` is exercised
+    // under the org where its revocation actually decides something rather
+    // than being a false===false no-op everywhere.
+    matrixOrgIds.push(
+      organizationId,
+      otherOrganizationId,
+      seededOrgId,
+      seededRevokedOrgId,
+    );
   });
 
   it("agrees with the singular predicate for every person, under every org", async () => {
@@ -483,6 +512,32 @@ describe("hasValidLiabilityWaiverBatch ≡ hasValidLiabilityWaiver", () => {
     const verdicts = matrixIds.map((id) => batch.get(id) ?? false);
     expect(verdicts).toContain(true);
     expect(verdicts).toContain(false);
+  });
+
+  /**
+   * ABSOLUTE verdicts for the registration branch — the parity loop above
+   * cannot see these, because under the two registration orgs it only ever
+   * compares false to false unless the interesting rows are pinned by value.
+   * This is the batch-side twin of the (g) + revocation assertions.
+   */
+  it("pins the registration branch by value, inside a many-person batch", async () => {
+    const atSeededOrg = await hasValidLiabilityWaiverBatch(matrixIds, seededOrgId);
+    // The dated registration signature alone covers its own person…
+    expect(atSeededOrg.get(seededId)).toBe(true);
+    // …and nobody else in the batch inherits it.
+    for (const id of matrixIds.filter((i) => i !== seededId)) {
+      expect(atSeededOrg.get(id) ?? false, `person ${id} at seeded org`).toBe(false);
+    }
+
+    const atRevokedOrg = await hasValidLiabilityWaiverBatch(
+      matrixIds,
+      seededRevokedOrgId,
+    );
+    // Same fixture shape, plus a revocation on top: the revocation wins and
+    // must NOT fall through to the registration signature underneath it —
+    // proved here in a batch, where the revoked person shares the query with
+    // people the fallbacks do answer true for.
+    expect(atRevokedOrg.get(seededRevokedId)).toBe(false);
   });
 
   it("returns an empty map for empty input", async () => {

@@ -18,9 +18,10 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { consents } from "@/lib/db/schema/consents";
-import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
+import { dropInBookings, dropInSessions, dropInRateCard } from "@/lib/db/schema/drop-in";
 import { fieldRentals } from "@/lib/db/schema/field-rentals";
 import { familyMembers } from "@/lib/db/schema/registrations";
+import { organizations } from "@/lib/db/schema/organizations";
 import { users } from "@/lib/db/schema/users";
 import { WAIVER_VALID_DAYS } from "@/lib/consents/liability";
 import { getVenueDayEvents } from "@/lib/check-in/day-view";
@@ -41,19 +42,24 @@ let organizationId: string;
 let venueId: string;
 let parentUserId: string;
 let sessionId: string;
+/** A second org sharing the SAME venue — the Aspire/SoccerOne shape. */
+let otherOrganizationId: string;
+let otherOrgSessionId: string;
+let sharedChildId: string;
 
 const childIds: string[] = [];
 const selfPersonIds: string[] = [];
 const renterUserIds: string[] = [];
 const rentalIds: string[] = [];
+const sessionIds: string[] = [];
 
-async function grantWaiver(familyMemberId: string): Promise<void> {
+async function grantWaiver(familyMemberId: string, orgId?: string): Promise<void> {
   const signedAt = new Date(Date.now() - DAY_MS);
   await getDb()
     .insert(consents)
     .values({
       familyMemberId,
-      organizationId,
+      organizationId: orgId ?? organizationId,
       type: "liability",
       status: "granted",
       signedByUserId: parentUserId,
@@ -74,6 +80,7 @@ beforeAll(async () => {
     endsAt: new Date(RUN_BASE_UTC + 11 * 3_600_000),
   });
   sessionId = session.sessionId;
+  sessionIds.push(sessionId);
 
   // Three confirmed bookings, none of them stamped except the last:
   //   covered + unstamped   → NOT outstanding (the bug this suite pins)
@@ -174,6 +181,68 @@ beforeAll(async () => {
     paymentStatus: "paid" as const,
     waiverSigned: false,
   };
+  // ── Shared venue, second org ────────────────────────────────────────────
+  // The same physical field hosts a session belonging to a DIFFERENT org on
+  // the same day, with the same child booked into it. The child is covered at
+  // `organizationId` only — org B never got a release.
+  const [orgB] = await db
+    .insert(organizations)
+    .values({
+      name: `Day View Org B ${suffix}`,
+      slug: `day-view-org-b-${suffix}`,
+      organizationType: "headquarters",
+    })
+    .returning({ id: organizations.id });
+  otherOrganizationId = orgB.id;
+  await db
+    .insert(dropInRateCard)
+    .values({ organizationId: otherOrganizationId })
+    .onConflictDoNothing();
+
+  sharedChildId = await createTestChild(parentUserId, `DayShared${suffix}`);
+  childIds.push(sharedChildId);
+  await grantWaiver(sharedChildId, organizationId);
+
+  const [orgBSession] = await db
+    .insert(dropInSessions)
+    .values({
+      organizationId: otherOrganizationId,
+      venueId, // SAME venue as the org-A session above
+      kind: "pickup",
+      sportOrClassLabel: "soccer",
+      startsAt: new Date(RUN_BASE_UTC + 18 * 3_600_000),
+      endsAt: new Date(RUN_BASE_UTC + 19 * 3_600_000),
+      capacity: 16,
+      teamCount: 2,
+      teamColors: ["orange", "black"],
+    })
+    .returning({ id: dropInSessions.id });
+  otherOrgSessionId = orgBSession.id;
+  sessionIds.push(otherOrgSessionId);
+
+  await db.insert(dropInBookings).values([
+    {
+      sessionId,
+      userId: parentUserId,
+      familyMemberId: sharedChildId,
+      status: "confirmed" as const,
+      source: "online_booking" as const,
+      paymentMethod: "card_online" as const,
+      amountPaidCents: 0,
+      waiverSigned: false,
+    },
+    {
+      sessionId: otherOrgSessionId,
+      userId: parentUserId,
+      familyMemberId: sharedChildId,
+      status: "confirmed" as const,
+      source: "online_booking" as const,
+      paymentMethod: "card_online" as const,
+      amountPaidCents: 0,
+      waiverSigned: false,
+    },
+  ]);
+
   const inserted = await db
     .insert(fieldRentals)
     .values([
@@ -203,9 +272,9 @@ afterAll(async () => {
   if (rentalIds.length) {
     await db.delete(fieldRentals).where(inArray(fieldRentals.id, rentalIds));
   }
-  if (sessionId) {
-    await db.delete(dropInBookings).where(eq(dropInBookings.sessionId, sessionId));
-    await db.delete(dropInSessions).where(eq(dropInSessions.id, sessionId));
+  if (sessionIds.length) {
+    await db.delete(dropInBookings).where(inArray(dropInBookings.sessionId, sessionIds));
+    await db.delete(dropInSessions).where(inArray(dropInSessions.id, sessionIds));
   }
   const people = [...childIds, ...selfPersonIds];
   if (people.length) {
@@ -215,6 +284,10 @@ afterAll(async () => {
   if (renterUserIds.length) {
     await db.delete(users).where(inArray(users.id, renterUserIds));
   }
+  if (otherOrganizationId) {
+    await db.delete(dropInRateCard).where(eq(dropInRateCard.organizationId, otherOrganizationId));
+    await db.delete(organizations).where(eq(organizations.id, otherOrganizationId));
+  }
 });
 
 describe("getVenueDayEvents — waiversOutstanding is coverage-aware", () => {
@@ -223,8 +296,10 @@ describe("getVenueDayEvents — waiversOutstanding is coverage-aware", () => {
     const event = view?.events.find((e) => e.id === sessionId);
 
     expect(event).toBeDefined();
-    expect(event!.counts.expected).toBe(3);
-    // The covered-but-unstamped child used to be counted here; the stamped
+    // covered + uncovered + stamped + the shared-venue child (also covered
+    // at this org), all confirmed.
+    expect(event!.counts.expected).toBe(4);
+    // The covered-but-unstamped children used to be counted here; the stamped
     // one never was. Only the genuinely uncovered person is real work.
     expect(event!.counts.waiversOutstanding).toBe(1);
   });
@@ -242,5 +317,24 @@ describe("getVenueDayEvents — waiversOutstanding is coverage-aware", () => {
     // missing release.
     expect(covered!.counts.waiversOutstanding).toBe(0);
     expect(uncovered!.counts.waiversOutstanding).toBe(1);
+  });
+
+  it("judges coverage per ROW's org, not the venue's, on a shared venue", async () => {
+    const view = await getVenueDayEvents(venueId, DAY_START, DAY_END);
+
+    const orgAEvent = view?.events.find((e) => e.id === sessionId);
+    const orgBEvent = view?.events.find((e) => e.id === otherOrgSessionId);
+    expect(orgAEvent).toBeDefined();
+    expect(orgBEvent).toBeDefined();
+
+    // ONE child, ONE venue, TWO orgs, an unstamped booking in each. The child
+    // holds a release from org A only. Judging the whole view under the
+    // venue's org would let that release silence org B's count — a missing
+    // waiver rendered as "nothing to do".
+    expect(orgBEvent!.counts.expected).toBe(1);
+    expect(orgBEvent!.counts.waiversOutstanding).toBe(1);
+    // …while the same person, same day, same field is correctly NOT chased at
+    // the org they actually signed for.
+    expect(orgAEvent!.counts.waiversOutstanding).toBe(1); // the uncovered child only
   });
 });
