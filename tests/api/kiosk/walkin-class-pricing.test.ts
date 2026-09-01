@@ -81,6 +81,9 @@ const PICKUP_SESSION_CENTS = 1200;
 const PICKUP_WALK_UP_CENTS = 1900;
 
 const PARENT_EMAIL = `kiosk-class-parent-${SUFFIX}@walkin-test.invalid`;
+/** Used ONLY by the unpriced-class attempt, so "no user row exists afterwards"
+ *  is a real assertion about the pre-write guard. */
+const UNPRICED_EMAIL = `kiosk-class-unpriced-${SUFFIX}@walkin-test.invalid`;
 const MEMBER_PARENT_EMAIL = `kiosk-class-member-${SUFFIX}@walkin-test.invalid`;
 const ADULT_EMAIL = `kiosk-class-adult-${SUFFIX}@walkin-test.invalid`;
 const PICKUP_EMAIL = `kiosk-class-pickup-${SUFFIX}@walkin-test.invalid`;
@@ -114,6 +117,10 @@ let classPublicId: string;
 let classMemberId: string;
 let classMemberRateMissingId: string;
 let classUnpricedId: string;
+/** Public rate unset, member rate set — "member-only priced". Not sellable at
+ *  the kiosk under the unified rule: the desk can't know an arrival is a
+ *  member before the walk-up starts. */
+let classMemberOnlyPricedId: string;
 let classAgeGatedId: string;
 let pickupWithOverrideId: string;
 let pickupNoOverrideId: string;
@@ -121,6 +128,11 @@ let pickupNoOverrideId: string;
 let memberChildFirstName: string;
 const MEMBER_CHILD_LAST_NAME = "Test";
 let memberChildDob: string;
+
+/** The first class hold this file takes — its token/booking are reused by the
+ *  payment, self-serve, and degradation assertions further down. */
+let publicClassToken: string;
+let publicClassBookingId: string;
 
 /** Session start used by every fixture: inside the facility's local day (so
  *  GET /sessions can see it) and comfortably in the future (so /walkin/start
@@ -295,6 +307,12 @@ beforeAll(async () => {
     sessionRateCents: null,
     memberRateCents: null,
   });
+  classMemberOnlyPricedId = await insertSession({
+    kind: "class",
+    label: "kiosk-class-memberonly",
+    sessionRateCents: null,
+    memberRateCents: CLASS_MEMBER_CENTS,
+  });
   classAgeGatedId = await insertSession({
     kind: "class",
     label: "kiosk-class-agegate",
@@ -367,6 +385,20 @@ beforeAll(async () => {
 
 afterAll(async () => {
   const db = getDb();
+  // FIRST, in its own try/finally: the rate card is SHARED org state, and the
+  // sentinel values above (9137/9138/9139) would otherwise become the org's
+  // real prices for every later suite — and for the staging site — if any
+  // step of the fixture cleanup below threw.
+  try {
+    if (originalCard) {
+      await db
+        .update(dropInRateCard)
+        .set(originalCard)
+        .where(eq(dropInRateCard.organizationId, E2E_ORG_ID));
+    }
+  } catch (err) {
+    console.error("[walkin-class-pricing] rate-card restore FAILED", err);
+  }
   try {
     if (createdSessionIds.length > 0) {
       await db
@@ -385,6 +417,7 @@ afterAll(async () => {
           MEMBER_PARENT_EMAIL,
           ADULT_EMAIL,
           PICKUP_EMAIL,
+          UNPRICED_EMAIL,
         ]),
       );
     const parentUserIds = parentUsers.map((u) => u.id);
@@ -406,12 +439,6 @@ afterAll(async () => {
         .set({ active: false })
         .where(inArray(classSlotTemplates.id, createdTemplateIds));
     }
-    if (originalCard) {
-      await db
-        .update(dropInRateCard)
-        .set(originalCard)
-        .where(eq(dropInRateCard.organizationId, E2E_ORG_ID));
-    }
   } finally {
     // Keep the fixture sessions off the venue command center's today board —
     // same cancel-then-delete dance as walkin.test.ts.
@@ -431,8 +458,6 @@ afterAll(async () => {
 });
 
 describe("kiosk class walk-up — priced from the SESSION, never the adult rate card", () => {
-  let publicToken: string;
-  let publicBookingId: string;
 
   it("quotes the class's own sessionRateCents for a child with no membership", async () => {
     const res = await startChildWalkIn({
@@ -450,8 +475,8 @@ describe("kiosk class walk-up — priced from the SESSION, never the adult rate 
     expect(body.amountDueCents).not.toBe(CARD_WALK_UP_CENTS);
     expect(body.amountDueCents).not.toBe(CLASS_WALK_UP_OVERRIDE_CENTS);
 
-    publicToken = body.token;
-    publicBookingId = body.bookingId;
+    publicClassToken = body.token;
+    publicClassBookingId = body.bookingId;
   });
 
   it("books the CHILD (family_member_id set), not the parent", async () => {
@@ -461,7 +486,7 @@ describe("kiosk class walk-up — priced from the SESSION, never the adult rate 
         status: dropInBookings.status,
       })
       .from(dropInBookings)
-      .where(eq(dropInBookings.id, publicBookingId))
+      .where(eq(dropInBookings.id, publicClassBookingId))
       .limit(1);
     expect(booking.status).toBe("pending_payment");
     expect(booking.familyMemberId).not.toBeNull();
@@ -470,7 +495,7 @@ describe("kiosk class walk-up — priced from the SESSION, never the adult rate 
   it("charges exactly that at /walkin/payment (or skips when Stripe is absent)", async () => {
     const res = await apiFetch(`/api/kiosk/${locationId}/walkin/payment`, {
       method: "POST",
-      body: JSON.stringify({ token: publicToken }),
+      body: JSON.stringify({ token: publicClassToken }),
     });
     const body = await res.json();
     if (res.status === 503 && body?.error === "Stripe not configured") {
@@ -485,7 +510,7 @@ describe("kiosk class walk-up — priced from the SESSION, never the adult rate 
   });
 
   it("shows the same amount on the self-serve pay link", async () => {
-    const res = await apiFetch(`/api/self-serve/${publicToken}`);
+    const res = await apiFetch(`/api/self-serve/${publicClassToken}`);
     const body = await res.json();
     expect(res.status, JSON.stringify(body)).toBe(200);
     expect(body.outstanding.payment).toBe(true);
@@ -505,13 +530,33 @@ describe("kiosk class walk-up — priced from the SESSION, never the adult rate 
     expect(body.amountDueCents).toBe(CLASS_MEMBER_CENTS);
     expect(body.amountDueCents).not.toBe(CARD_MEMBER_CENTS);
 
-    // …and it really did resolve onto the pre-seeded, membership-holding child.
+    // …and it really did resolve onto the pre-seeded, membership-holding
+    // child, with the membership that bought the discount recorded on the row
+    // (same shape the online door writes) — a member-priced booking nobody
+    // can trace back to a membership is unauditable.
     const [booking] = await getDb()
-      .select({ familyMemberId: dropInBookings.familyMemberId })
+      .select({
+        familyMemberId: dropInBookings.familyMemberId,
+        membershipId: dropInBookings.membershipId,
+        paymentMethod: dropInBookings.paymentMethod,
+      })
       .from(dropInBookings)
       .where(eq(dropInBookings.id, body.bookingId))
       .limit(1);
     expect(booking.familyMemberId).toBe(createdChildIds[0]);
+    expect(booking.membershipId).toBe(createdMembershipIds[0]);
+    // Still a PAID row: the membership bought a discount, not a free seat, so
+    // it must not read as allotment consumption.
+    expect(booking.paymentMethod).toBe("card_online");
+  });
+
+  it("leaves membershipId null on a NON-member class walk-up", async () => {
+    const [booking] = await getDb()
+      .select({ membershipId: dropInBookings.membershipId })
+      .from(dropInBookings)
+      .where(eq(dropInBookings.id, publicClassBookingId))
+      .limit(1);
+    expect(booking.membershipId).toBeNull();
   });
 });
 
@@ -562,12 +607,43 @@ describe("kiosk class walk-up — eligibility", () => {
 });
 
 describe("kiosk class walk-up — unconfigured class rate fails loud", () => {
-  it("409s the walk-in start instead of quoting the adult card", async () => {
+  it("degrades the self-serve pay card (not the whole page) when a held class loses its rate", async () => {
+    // An existing hold whose session's rates get cleared underneath it. The
+    // page still has a waiver and a photo to collect — killing the context
+    // would take those with it — so the payment card is withdrawn and the
+    // rest is served.
+    const db = getDb();
+    try {
+      await db
+        .update(dropInSessions)
+        .set({ sessionRateCents: null, memberRateCents: null })
+        .where(eq(dropInSessions.id, classPublicId));
+
+      const res = await apiFetch(`/api/self-serve/${publicClassToken}`);
+      const body = await res.json();
+      expect(res.status, JSON.stringify(body)).toBe(200);
+      expect(body.outstanding.payment).toBe(false);
+      expect(body.amountDueCents).toBe(0);
+      // The rest of the flow is intact.
+      expect(typeof body.summary).toBe("string");
+      expect(body.outstanding.waiver).toBe(true);
+    } finally {
+      await db
+        .update(dropInSessions)
+        .set({
+          sessionRateCents: CLASS_SESSION_CENTS,
+          memberRateCents: CLASS_MEMBER_CENTS,
+        })
+        .where(eq(dropInSessions.id, classPublicId));
+    }
+  });
+
+  it("409s the walk-in start, writing NO stub rows, instead of quoting the adult card", async () => {
     const res = await startChildWalkIn({
       sessionId: classUnpricedId,
       firstName: `Unpriced${SUFFIX.slice(-4)}`,
       dob: dobForAge(9, sessionStart),
-      parentEmail: PARENT_EMAIL,
+      parentEmail: UNPRICED_EMAIL,
     });
     const body = await res.json();
     expect(res.status, JSON.stringify(body)).toBe(409);
@@ -575,12 +651,20 @@ describe("kiosk class walk-up — unconfigured class rate fails loud", () => {
     expect(typeof body.message).toBe("string");
     expect(body.amountDueCents).toBeUndefined();
 
-    // No hold was created for a session we can't price.
+    // No hold was created for a session we can't price…
     const holds = await getDb()
       .select({ id: dropInBookings.id })
       .from(dropInBookings)
       .where(eq(dropInBookings.sessionId, classUnpricedId));
     expect(holds).toHaveLength(0);
+    // …and no half-made customer either: the rate is settled BEFORE the
+    // booker user and the child's family_members row are written.
+    const [user] = await getDb()
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, UNPRICED_EMAIL))
+      .limit(1);
+    expect(user).toBeUndefined();
   });
 
   it("409s a MEMBER child when only the member rate is missing", async () => {
@@ -595,17 +679,43 @@ describe("kiosk class walk-up — unconfigured class rate fails loud", () => {
     // The session HAS a public rate — but this child is a member, so the
     // member rate is the one that applies, and it isn't configured. Falling
     // back to either the public rate or the card would both be inventions.
+    // The family is already on file, so the guard resolves them read-only and
+    // still refuses before writing a hold.
+    expect(res.status, JSON.stringify(body)).toBe(409);
+    expect(body.error).toBe(CLASS_RATE_NOT_CONFIGURED);
+    const holds = await getDb()
+      .select({ id: dropInBookings.id })
+      .from(dropInBookings)
+      .where(eq(dropInBookings.sessionId, classMemberRateMissingId));
+    expect(holds).toHaveLength(0);
+  });
+
+  it("treats a MEMBER-ONLY-priced class as not sellable at the desk", async () => {
+    // Public rate unset, member rate set. The kiosk can't know an arrival is
+    // a member before the walk-up starts, so a class it can only price for
+    // some arrivals isn't offerable at all — same rule the listing hides by.
+    const res = await startChildWalkIn({
+      sessionId: classMemberOnlyPricedId,
+      firstName: memberChildFirstName,
+      lastName: MEMBER_CHILD_LAST_NAME,
+      dob: memberChildDob,
+      parentEmail: MEMBER_PARENT_EMAIL,
+    });
+    const body = await res.json();
     expect(res.status, JSON.stringify(body)).toBe(409);
     expect(body.error).toBe(CLASS_RATE_NOT_CONFIGURED);
   });
 
-  it("hides the unpriced class from the kiosk session list, but keeps the priced one", async () => {
+  it("hides every unsellable class from the kiosk session list, but keeps the priced one", async () => {
     const res = await apiFetch(`/api/kiosk/${locationId}/sessions`);
     expect(res.status).toBe(200);
     const body = await res.json();
     const ids = (body.sessions as { id: string }[]).map((s) => s.id);
     expect(ids).toContain(classPublicId);
     expect(ids).not.toContain(classUnpricedId);
+    // The listing and /walkin/start gate on the SAME rule — a member-only
+    // priced class is hidden here and 409s there.
+    expect(ids).not.toContain(classMemberOnlyPricedId);
     // Pickup sessions are untouched by the filter, priced or not.
     expect(ids).toContain(pickupNoOverrideId);
   });

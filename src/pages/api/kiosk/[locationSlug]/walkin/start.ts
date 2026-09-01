@@ -63,7 +63,10 @@ import { getDb } from "@/lib/db";
 import { dropInSessions, dropInBookings, dropInRateCard } from "@/lib/db/schema/drop-in";
 import { users } from "@/lib/db/schema/users";
 import { venues } from "@/lib/db/schema/teams";
-import { resolvePerson } from "@/lib/registrations/resolve-person";
+import {
+  findExistingDependent,
+  resolvePerson,
+} from "@/lib/registrations/resolve-person";
 import {
   WAIVER_ON_FILE_ATTRIBUTION,
   hasValidLiabilityWaiver,
@@ -252,15 +255,49 @@ export const POST: APIRoute = async ({ params, request, clientAddress, locals })
         422,
       );
     }
-    // Cheap pre-check, before any row is written: a class carrying NEITHER
-    // rate can't be priced for anybody, member or not. The real, membership-
-    // sensitive decision happens once the person exists (see "Resolve rate"
-    // below) — this only spares a doomed request the user + family_members
-    // rows it would otherwise leave behind on its way to the same 409.
-    if (session.sessionRateCents === null && session.memberRateCents === null) {
+    // PRICE, settled BEFORE any row is written. A 409 here must not leave a
+    // stub `users` / `family_members` row behind for a sale that never
+    // happened.
+    //
+    // Rule 1 — no `sessionRateCents` means not sellable at this desk at all,
+    // the SAME rule GET /api/kiosk/[locationSlug]/sessions hides the session
+    // by. A member-only-priced class (public rate unset, member rate set) is
+    // included deliberately: the kiosk can't know a walk-up will turn out to
+    // be a member before it starts, so a class it can only price for some
+    // arrivals isn't offerable — configure the public rate.
+    if (session.sessionRateCents === null) {
       return classRateNotConfigured(session, "session", {
         component: "api/kiosk/walkin/start",
       });
+    }
+    // Rule 2 — if this family is already on file, the CHILD may hold a
+    // membership, in which case `memberRateCents` (not the public rate) is
+    // the one that has to exist. Resolved READ-ONLY here via the same dedupe
+    // `resolvePerson` will use below, so the answer can't differ. A family
+    // that ISN'T on file yet gets a brand-new person row with no membership,
+    // for whom rule 1 is already the whole answer.
+    const [knownBooker] = parentEmail
+      ? await db
+          .select({ id: users.id })
+          .from(users)
+          .where(eq(users.email, parentEmail))
+          .limit(1)
+      : [];
+    if (knownBooker) {
+      const knownChild = await findExistingDependent(db, {
+        parentUserId: knownBooker.id,
+        firstName: contactFirstName,
+        lastName: contactLastName,
+        birthDate: contactDob!,
+      });
+      if (knownChild) {
+        const preQuote = await resolveClassWalkUpRate(session, knownChild.id, db);
+        if (!preQuote.ok) {
+          return classRateNotConfigured(session, preQuote.need, {
+            component: "api/kiosk/walkin/start",
+          });
+        }
+      }
     }
   }
 
@@ -323,6 +360,11 @@ export const POST: APIRoute = async ({ params, request, clientAddress, locals })
   // CHILD (their membership, not the booker's), so the price can't be quoted
   // until the `family_members` row exists.
   let amountDueCents: number;
+  /** The CHILD's membership when it bought the discounted class rate — stamped
+   *  on the booking row below so a member-priced row is auditable, exactly as
+   *  the online door does (`POST /api/dropin/bookings`). Null everywhere else,
+   *  including every pickup walk-in (which never resolves a membership). */
+  let bookingMembershipId: string | null = null;
   if (session.kind === "class") {
     // CLASS: the price comes from the session (copied down from its
     // class-slot template) and from the CHILD's own membership — never from
@@ -331,7 +373,10 @@ export const POST: APIRoute = async ({ params, request, clientAddress, locals })
     // read/upsert below is skipped entirely on this branch: there is nothing
     // in that card a class may consult, including its DEFAULT_WALK_UP_RATE_CENTS
     // fallback. A class with no rate configured is a config error → 409,
-    // before any hold is created.
+    // before any hold is created. (In practice the pre-check above already
+    // returned that 409 without writing anything — this stays as the
+    // authority, and covers the narrow race where the rate is cleared
+    // mid-request.)
     // bookingFamilyMemberId is non-null here: `session.kind === "class"`
     // required isMinor above, and every minor gets a person row.
     const quote = await resolveClassWalkUpRate(session, bookingFamilyMemberId!, db);
@@ -341,6 +386,7 @@ export const POST: APIRoute = async ({ params, request, clientAddress, locals })
       });
     }
     amountDueCents = quote.amountCents;
+    bookingMembershipId = quote.membershipId;
   } else {
     let [rateCard] = await db
       .select()
@@ -500,6 +546,13 @@ export const POST: APIRoute = async ({ params, request, clientAddress, locals })
           source: "walk_up",
           paymentMethod: "card_online",
           amountPaidCents: 0,
+          // Which membership bought this price, when one did (class member
+          // rate). `paymentMethod` stays `card_online`, so this never counts
+          // against an allotment — allotment consumption is keyed on
+          // `member_allotment` rows (src/lib/memberships/allotment.ts). The
+          // payment webhook only flips status/amount, so the id survives
+          // fulfillment (handle-dropin-walkin-payment.ts).
+          membershipId: bookingMembershipId,
           // Born covered by the person's ANNUAL waiver — see the lookup
           // above. `waiverSignedAt` is deliberately left unset (NULL): this
           // is a derived copy of an earlier signature, and

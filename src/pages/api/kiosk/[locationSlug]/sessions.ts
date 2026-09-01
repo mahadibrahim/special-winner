@@ -22,6 +22,11 @@ import { dayBoundsInTz } from "@/lib/time/day-bounds";
 
 export const prerender = false;
 
+/** Session ids already reported as unpriced by this process — see the filter
+ *  in the handler. Bounded by the number of misconfigured class sessions a
+ *  facility has (a handful at worst), and reset on every cold start. */
+const reportedUnpricedClasses = new Set<string>();
+
 const json = (b: unknown, s: number) =>
   new Response(JSON.stringify(b), {
     status: s,
@@ -80,11 +85,19 @@ export const GET: APIRoute = async ({ params, locals }) => {
   // untouched — an unpriced pickup legitimately falls back to that card.
   const bookable = sessions.filter((s) => {
     if (s.kind !== "class" || s.sessionRateCents !== null) return true;
-    reportClassRateNotConfigured(
-      { id: s.id, organizationId: s.organizationId },
-      "session",
-      { component: "api/kiosk/sessions" },
-    );
+    // Report ONCE per session per process. This runs on every kiosk list
+    // fetch — a lobby iPad reloading all day would otherwise file the same
+    // config error dozens of times, drowning the signal it exists to give.
+    // Direct booking attempts still report every time (they're rare, and each
+    // one is a customer who hit the wall).
+    if (!reportedUnpricedClasses.has(s.id)) {
+      reportedUnpricedClasses.add(s.id);
+      reportClassRateNotConfigured(
+        { id: s.id, organizationId: s.organizationId },
+        "session",
+        { component: "api/kiosk/sessions" },
+      );
+    }
     return false;
   });
 

@@ -565,19 +565,31 @@ export function AdminSessionDetail({ sessionId }: AdminSessionDetailProps) {
       <section>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-xl font-semibold text-ink">Roster</h2>
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button>+ Add walk-up</Button>
-            </SheetTrigger>
-            <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
-              <SheetHeader>
-                <SheetTitle>Walk-up registration</SheetTitle>
-              </SheetHeader>
-              <div className="mt-4">
-                <WalkUpPanel sessionId={sessionId} />
-              </div>
-            </SheetContent>
-          </Sheet>
+          {/* This desk door books the USER it is handed, with no child
+              participant anywhere in its chain (PaymentIntent → webhook), so
+              the endpoint refuses class sessions outright (422
+              class_requires_child). Don't offer a button that can only fail —
+              say where the class walk-up actually happens instead. */}
+          {session.kind === "class" ? (
+            <p className="text-sm text-ink-muted max-w-md text-right">
+              Class walk-ins are taken at the kiosk walk-in flow — classes need
+              a child participant.
+            </p>
+          ) : (
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button>+ Add walk-up</Button>
+              </SheetTrigger>
+              <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+                <SheetHeader>
+                  <SheetTitle>Walk-up registration</SheetTitle>
+                </SheetHeader>
+                <div className="mt-4">
+                  <WalkUpPanel sessionId={sessionId} />
+                </div>
+              </SheetContent>
+            </Sheet>
+          )}
         </div>
         <AttendancePanel
           sessionId={sessionId}

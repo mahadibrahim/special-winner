@@ -72,22 +72,8 @@ export async function resolvePerson(
   }
 
   // dependent path — preserves existing dedupe logic from guest-checkout
-  const firstLower = input.firstName.toLowerCase();
-  const lastLower = input.lastName.toLowerCase();
-  const existing = await db
-    .select()
-    .from(familyMembers)
-    .where(
-      and(
-        eq(familyMembers.parentUserId, input.parentUserId),
-        sql`lower(${familyMembers.firstName}) = ${firstLower}`,
-        sql`lower(${familyMembers.lastName}) = ${lastLower}`,
-        eq(familyMembers.birthDate, input.birthDate),
-      ),
-    )
-    .orderBy(asc(familyMembers.createdAt))
-    .limit(1);
-  if (existing[0]) return existing[0];
+  const existingDependent = await findExistingDependent(db, input);
+  if (existingDependent) return existingDependent;
 
   const [created] = await db
     .insert(familyMembers)
@@ -112,6 +98,43 @@ export async function resolvePerson(
   }
 
   return created;
+}
+
+/**
+ * The READ-ONLY half of the dependent dedupe: the `family_members` row a
+ * `kind:"dependent"` `resolvePerson` call would return, or null when it would
+ * have to create one.
+ *
+ * Exists for callers that must know WHO the participant is — and anything
+ * hanging off them that changes the answer, e.g. a membership that changes
+ * the price — BEFORE they are willing to write any rows. The kiosk class
+ * walk-up uses it to settle the class rate before creating a user or a
+ * person (see api/kiosk/[locationSlug]/walkin/start.ts): a 409 for an
+ * unpriced class must not leave stub rows behind.
+ *
+ * `resolvePerson` itself calls this, so the lookup and the dedupe can never
+ * drift apart.
+ */
+export async function findExistingDependent(
+  db: Database,
+  input: { parentUserId: string; firstName: string; lastName: string; birthDate: string },
+): Promise<FamilyMember | null> {
+  const firstLower = input.firstName.toLowerCase();
+  const lastLower = input.lastName.toLowerCase();
+  const existing = await db
+    .select()
+    .from(familyMembers)
+    .where(
+      and(
+        eq(familyMembers.parentUserId, input.parentUserId),
+        sql`lower(${familyMembers.firstName}) = ${firstLower}`,
+        sql`lower(${familyMembers.lastName}) = ${lastLower}`,
+        eq(familyMembers.birthDate, input.birthDate),
+      ),
+    )
+    .orderBy(asc(familyMembers.createdAt))
+    .limit(1);
+  return existing[0] ?? null;
 }
 
 async function ensureParentRole(db: Database, userId: string): Promise<void> {

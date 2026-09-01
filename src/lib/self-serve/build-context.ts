@@ -154,26 +154,30 @@ export async function buildSelfServeContext(
           // CLASS: the session's own class rates, member rate only when the
           // CHILD holds an active membership. Never the org drop_in_rate_card
           // (adult pickup pricing) — see src/lib/classes/class-walkup.ts.
+          //
           // A class hold always names a child (walkin/start refuses
-          // otherwise); a legacy row without one, or a session missing its
-          // rate, is a config error rather than a price we may invent —
-          // surface it as a 409 (the same code the pay endpoint returns) with
-          // the same ops visibility, instead of quoting $0 or an adult rate.
+          // otherwise); a legacy row without one, or a session whose rate was
+          // cleared after the hold was taken, is a config error. We will not
+          // invent a price for it — but we also don't fail the whole context:
+          // this payload also drives the WAIVER and PHOTO cards, and killing
+          // the page would take a signature the desk still needs with it.
+          // Degrade instead: report the config error for ops, drop the
+          // payment card (there is no honest amount to show), and leave the
+          // rest of the flow working. The pay endpoint remains the authority
+          // and 409s anyone who reaches it anyway.
           const quote = b.familyMemberId
             ? await resolveClassWalkUpRate(b, b.familyMemberId, db)
             : ({ ok: false, need: "session" } as const);
-          if (!quote.ok) {
-            return {
-              ok: false,
-              status: 409,
-              body: reportClassRateNotConfigured(
-                { id: b.sessionId, organizationId: b.organizationId },
-                quote.need,
-                { component: "lib/self-serve/build-context" },
-              ),
-            };
+          if (quote.ok) {
+            amountDueCents = quote.amountCents;
+          } else {
+            reportClassRateNotConfigured(
+              { id: b.sessionId, organizationId: b.organizationId },
+              quote.need,
+              { component: "lib/self-serve/build-context" },
+            );
+            outstanding.payment = false;
           }
-          amountDueCents = quote.amountCents;
         } else {
           // PICKUP: the SAME resolveRate(..., "walk_up") path (pricing.ts),
           // NOT check-in/event.ts's walkUp ?? session fallback chain: the two
@@ -191,7 +195,9 @@ export async function buildSelfServeContext(
             ? resolveRate(b, null, null, rateCard, "walk_up").amountCents
             : DEFAULT_WALK_UP_RATE_CENTS;
         }
-        locationSlug = b.locationSlug;
+        // Only when a payment is genuinely on offer — PayCard keys off this
+        // slug, and the unpriced-class branch above just withdrew the card.
+        if (outstanding.payment) locationSlug = b.locationSlug;
       }
     }
   } else if (tok.kind === "field_rental") {

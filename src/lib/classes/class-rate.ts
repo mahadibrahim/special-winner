@@ -21,8 +21,18 @@
  *
  * Scope: CLASS sessions only. Pickup sessions keep the rate-card fallback
  * exactly as before — that card IS their price list. Call sites must
- * therefore have established `session.kind === 'class'` before calling
- * `classRateNotConfigured` (both current callers do; see their comments).
+ * therefore have established `session.kind === 'class'` before calling in;
+ * every current caller does (see their comments):
+ *
+ *   - POST /api/classes/book                       (409)
+ *   - POST /api/dropin/bookings                    (409)
+ *   - POST /api/kiosk/[locationSlug]/walkin/start  (409)
+ *   - POST /api/kiosk/[locationSlug]/walkin/payment(409)
+ *   - GET  /api/kiosk/[locationSlug]/sessions      (report only — the
+ *                                                   session is dropped from
+ *                                                   the listing)
+ *   - lib/self-serve/build-context                 (report only — the
+ *                                                   payment card is withdrawn)
  */
 import { captureServerException } from "@/lib/observability/server-error";
 
