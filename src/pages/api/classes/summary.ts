@@ -46,11 +46,13 @@ const MAX_CHILDREN = 20;
 
 /** Fallback display label per grant source, used when the pack/block join
  *  produced no name. Comp grants NEVER have one (they reference no product),
- *  so this is their permanent label, not a fallback. */
+ *  so this is their permanent label, not a fallback — and it stays
+ *  BRAND-NEUTRAL: this endpoint is org-scoped and serves both Aspire and
+ *  SoccerOne, so it must not name a brand. */
 const GENERIC_CREDIT_LABEL: Record<"pack" | "block" | "comp", string> = {
   pack: "Class pack",
   block: "Block",
-  comp: "Credit from Aspire",
+  comp: "Account credit",
 };
 
 export const GET: APIRoute = async ({ locals }) => {

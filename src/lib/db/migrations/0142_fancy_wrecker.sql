@@ -14,7 +14,26 @@
 -- this is belt-and-braces intent rather than a live break, but the rule is
 -- absolute: any change to an index's columns or predicate bumps its name).
 -- See the same note on drop_in_bookings_one_active_per_participant_session_v3.
-DROP INDEX IF EXISTS "class_credit_grants_checkout_session_uq";--> statement-breakpoint
+--
+-- DELIBERATELY NOT DROPPING the old total index
+-- ("class_credit_grants_checkout_session_uq") in this migration, for ONE
+-- release. Prod migrates and publishes as two independent mechanisms and the
+-- migration finishes first, so for the whole Netlify build the OLD code runs
+-- against the NEW schema — and the old code's bare `ON CONFLICT
+-- (stripe_checkout_session_id)` cannot infer a PARTIAL index (42P10,
+-- infer_arbiter_indexes), which would fail every pack/block purchase webhook
+-- completing in that window while the customer sits on a success page with no
+-- credits. Keeping both indexes makes every deploy order safe: old code infers
+-- the total one, new code's predicated target infers either. The leftover
+-- index costs nothing and blocks nothing (NULL session ids are distinct under
+-- it, so comp grants insert freely).
+--
+-- FOLLOW-UP OWED, next release: drop it by hand.
+--   DROP INDEX IF EXISTS "class_credit_grants_checkout_session_uq";
+-- `npm run db:generate` will NOT emit that for you — meta/0142_snapshot.json
+-- already records only _v2, and generate diffs schema-vs-snapshot, never
+-- schema-vs-database. So this needs a hand-written migration file or the
+-- index lives on prod forever.
 ALTER TABLE "class_credit_grants" ALTER COLUMN "stripe_checkout_session_id" DROP NOT NULL;--> statement-breakpoint
 ALTER TABLE "class_credit_grants" ADD COLUMN IF NOT EXISTS "granted_by_user_id" uuid;--> statement-breakpoint
 DO $$ BEGIN

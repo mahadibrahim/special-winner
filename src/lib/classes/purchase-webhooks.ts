@@ -48,6 +48,11 @@ import { sendOpsPing } from "@/lib/ops/ping";
  * Postgres infer that partial index as the arbiter; drop it and the insert
  * errors rather than no-ops (see the file header). Both call sites share
  * this so they can never drift apart.
+ *
+ * Only valid for inserts that ALWAYS set a checkout session id. A row with a
+ * NULL id is outside the partial index entirely, so it passes this arbiter
+ * with NO dedupe whatsoever — the admin comp-grant endpoint must not reach
+ * for this constant and expect idempotency from it.
  */
 const CHECKOUT_SESSION_ARBITER = {
   target: classCreditGrants.stripeCheckoutSessionId,
