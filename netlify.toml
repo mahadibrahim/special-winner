@@ -119,6 +119,26 @@
   status = 200
   force = true
 
+# Flyer vanity URL. Printed collateral carries
+# www.aspiresportsohio.com/fall, which had no route and returned a hard 404.
+#
+# 302, deliberately NOT 301: this points at a term-scoped page that goes stale
+# when Fall 2026 ends, and a 301 would be cached in visitors' browsers
+# indefinitely, making it un-repointable for the people who already scanned the
+# flyer. Revisit when the fall term closes.
+#
+# Adult flag football has no live fall term (its catalog rows were never
+# created), so adult soccer is the only live fall league content.
+[[redirects]]
+  from = "/fall"
+  to = "/adult/leagues/soccer/fall-2026"
+  status = 302
+
+[[redirects]]
+  from = "/fall/*"
+  to = "/adult/leagues/soccer/fall-2026"
+  status = 302
+
 [context.production]
   command = "npm run build"
 
