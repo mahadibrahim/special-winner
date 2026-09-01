@@ -126,6 +126,17 @@ export const registrations = pgTable(
     waiverSigned: boolean("waiver_signed").default(false).notNull(),
     waiverSignedAt: timestamp("waiver_signed_at"),
     waiverSignedBy: varchar("waiver_signed_by", { length: 200 }),
+    // Set the FIRST time POST /api/registrations/:id/complete finishes this
+    // registration — fresh signature, on-file, or replay-detected-unset —
+    // never on any later call. This is the real "first completion" marker:
+    // unlike `waiverSigned`, which a covered family's row can be BORN with
+    // (undated, at createRegistration) before this endpoint is ever hit,
+    // `completedAt` can only be set by this endpoint itself, so it can never
+    // be true before a completion actually happened. The phone/WhatsApp
+    // side-effect capture block gates on `completedAt === null` (pre-request)
+    // for exactly this reason — see the endpoint's own comment. Also useful
+    // beyond this bug as a completion-funnel timestamp.
+    completedAt: timestamp("completed_at"),
     customFields: jsonb("custom_fields"), // For sport-specific registration data
     // Cancellation tracking
     cancelledAt: timestamp("cancelled_at"),

@@ -9,7 +9,7 @@ import type Stripe from "stripe";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { memberships, membershipTiers } from "@/lib/db/schema/memberships";
-import { classEnrollments } from "@/lib/db/schema/classes";
+import { endEnrollmentsForMembership } from "@/lib/classes/enrollment";
 import { normalizeBrand } from "@/lib/organization/soccerone-routing";
 import { capturePaymentCompleted } from "@/lib/observability/payment-telemetry";
 import { fireServerPurchaseConversions } from "@/lib/analytics/server-conversions";
@@ -191,10 +191,19 @@ export async function handleSubscriptionUpdated(
  * holding a seat (and the materialization cron keeps auto-booking them)
  * forever. `.returning({ id })` on the membership update gives us the row
  * this event actually cancelled (0 or 1 — stripeSubscriptionId is unique)
- * without a second lookup query; the enrollments update is scoped to that
- * membership id, so a webhook retry (or a subscription id that never
- * matched a membership) is a safe no-op — the `status = 'active'` filter
- * means a row already ended by a prior delivery is simply not re-touched.
+ * without a second lookup query.
+ *
+ * Ending the enrollment is only half of it, and this used to be the other
+ * half's absence: the cron books up to HORIZON_DAYS ahead, so ending the
+ * standing seat stopped NEW weeks being booked while leaving every seat
+ * already materialized inside the horizon standing — a churned family kept
+ * days of confirmed classes they no longer pay for, holding capacity against
+ * waitlisted families. `endEnrollmentsForMembership` (src/lib/classes/
+ * enrollment.ts) does both, through the same release helper the parent-facing
+ * quit and slot-change paths use, and promotes the freed seats post-commit.
+ * It is scoped to this membership id and filtered to `status = 'active'`, so
+ * a webhook retry (or a subscription id that never matched a membership) is
+ * a safe no-op.
  */
 export async function handleSubscriptionDeleted(
   sub: Stripe.Subscription,
@@ -213,15 +222,7 @@ export async function handleSubscriptionDeleted(
 
   if (!membership) return;
 
-  await db
-    .update(classEnrollments)
-    .set({ status: "ended", endedAt: new Date() })
-    .where(
-      and(
-        eq(classEnrollments.membershipId, membership.id),
-        eq(classEnrollments.status, "active"),
-      ),
-    );
+  await endEnrollmentsForMembership(membership.id);
 }
 
 /**

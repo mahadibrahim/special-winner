@@ -3,11 +3,16 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { users } from "@/lib/db/schema/users";
 import { dropInBookings } from "@/lib/db/schema/drop-in";
+import { familyMembers } from "@/lib/db/schema/registrations";
+import { consents } from "@/lib/db/schema/consents";
+import { WAIVER_VALID_DAYS } from "@/lib/consents/liability";
 import { apiFetch, getAuthCookie } from "../setup/test-helpers";
 import {
   createTestDropInSession,
   resolveDefaultOrgForHttpTests,
 } from "../../utils/dropin-helpers";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 const ENDPOINT = "/api/dropin/guest-checkout";
 
@@ -227,5 +232,73 @@ describe("POST /api/dropin/guest-checkout", () => {
       .from(users)
       .where(eq(users.email, variant));
     expect(variantRows, "the variant spelling must not exist as its own user").toHaveLength(0);
+  });
+
+  // F5 review FINDING 2 (controller ruling). The free path's born-covered
+  // on-file stamp (task 5, spec L) is deliberately EXCLUDED from guest
+  // checkout: `upsertGuestUser` above matches an EXISTING account purely by
+  // typed email — unverified (`emailVerified: false`), no session, no OTP.
+  // Anyone who knows (or guesses) a covered adult's email could otherwise
+  // book under that identity with the liability-signature ask silently
+  // suppressed on their behalf. This proves the exclusion: a genuinely
+  // covered self person's own email, booked as a guest with no waiver
+  // fields, must still come out UNSIGNED — same as an uncovered guest.
+  it("EXCLUDES the born-covered on-file stamp — a covered self person's own email still books UNSIGNED as a guest", async () => {
+    const db = getDb();
+    const stamp = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const email = `guest-dropin-covered-${stamp}@t.example`.toLowerCase();
+
+    const [user] = await db
+      .insert(users)
+      .values({ email, firstName: "Covered", lastName: "GuestMatch" })
+      .returning();
+    const [fm] = await db
+      .insert(familyMembers)
+      .values({ selfUserId: user.id, firstName: "Covered", lastName: "GuestMatch" })
+      .returning();
+    const signedAt = new Date(Date.now() - 30 * DAY_MS);
+    await db.insert(consents).values({
+      familyMemberId: fm.id,
+      organizationId: defaultOrg.organizationId,
+      type: "liability",
+      status: "granted",
+      signedByUserId: user.id,
+      signedByName: "Covered GuestMatch",
+      signedAt,
+      expiresAt: new Date(signedAt.getTime() + WAIVER_VALID_DAYS * DAY_MS),
+    });
+
+    const ctx = await freeSessionInDefaultOrg();
+    const res = await apiFetch(ENDPOINT, {
+      method: "POST",
+      body: JSON.stringify({
+        sessionId: ctx.sessionId,
+        firstName: "Covered",
+        lastName: "GuestMatch",
+        // Matches the EXISTING (genuinely covered) account by email alone —
+        // exactly the unverified-match path the finding is about.
+        email,
+      }),
+    });
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.paymentRequired).toBe(false);
+
+    const [booking] = await db
+      .select()
+      .from(dropInBookings)
+      .where(eq(dropInBookings.id, json.bookingId));
+    expect(booking.userId).toBe(user.id);
+    expect(
+      booking.waiverSigned,
+      "guest checkout must never inherit the born-covered stamp, even for a genuinely covered person",
+    ).toBe(false);
+    expect(booking.waiverSignedAt).toBeNull();
+    expect(booking.waiverSignedBy).toBeNull();
+
+    await db.delete(consents).where(eq(consents.familyMemberId, fm.id));
+    await db.delete(dropInBookings).where(eq(dropInBookings.userId, user.id));
+    // ON DELETE CASCADE on family_members.self_user_id sweeps `fm` for free.
+    await db.delete(users).where(eq(users.id, user.id));
   });
 });

@@ -10,7 +10,10 @@
  *   2. verifyToken(token) — must be kind=walkin_session
  *   3. Load dropInBookings by tok.targetId — must still be pending_payment
  *      (or the legacy pending_claim, for pre-cutover stranded holds)
- *   4. Load dropInSessions → dropInRateCard for amountDueCents
+ *   4. Load dropInSessions → dropInRateCard for amountDueCents (PICKUP), or
+ *      the session's own class rates + the booked CHILD's membership when
+ *      `kind='class'` — a class never touches the adult pickup rate card
+ *      (src/lib/classes/class-walkup.ts)
  *   5. Create Stripe PaymentIntent (base + card surcharge) with a
  *      human-readable description and Connect-aware transfer
  *   6. Return { clientSecret, amountCents, baseAmountCents, surchargeCents }
@@ -25,6 +28,12 @@ import { verifyToken } from "@/lib/check-in/tokens-db";
 import { stripe } from "@/lib/stripe/client";
 import { computeSurchargeCents } from "@/lib/payments/surcharge";
 import { resolveRate, DEFAULT_WALK_UP_RATE_CENTS } from "@/lib/dropin/pricing";
+import { classRateNotConfigured } from "@/lib/classes/class-rate";
+import {
+  CLASS_REQUIRES_CHILD,
+  CLASS_REQUIRES_CHILD_DESK_MESSAGE,
+  resolveClassWalkUpRate,
+} from "@/lib/classes/class-walkup";
 import { dropInPaymentDescription } from "@/lib/dropin/checkout-line-item";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 
@@ -111,6 +120,7 @@ export const POST: APIRoute = async ({ params, request, clientAddress, locals })
   const [sessionRow] = await db
     .select({
       id: dropInSessions.id,
+      kind: dropInSessions.kind,
       sessionRateCents: dropInSessions.sessionRateCents,
       memberRateCents: dropInSessions.memberRateCents,
       walkUpRateCents: dropInSessions.walkUpRateCents,
@@ -141,27 +151,53 @@ export const POST: APIRoute = async ({ params, request, clientAddress, locals })
     .limit(1);
 
   // --- Resolve rate ---
-  let [rateCard] = await db
-    .select()
-    .from(dropInRateCard)
-    .where(eq(dropInRateCard.organizationId, sessionRow.organizationId))
-    .limit(1);
-  if (!rateCard) {
-    await db
-      .insert(dropInRateCard)
-      .values({ organizationId: sessionRow.organizationId })
-      .onConflictDoNothing();
-    [rateCard] = await db
+  // Must charge EXACTLY what walkin/start quoted and what the self-serve
+  // context (build-context.ts) shows — all three run the same two branches.
+  let amountCents: number;
+  if (sessionRow.kind === "class") {
+    // CLASS: priced from the session's own class rates and the CHILD's
+    // membership, never the org `drop_in_rate_card` (adult pickup pricing).
+    // The rate-card read/upsert below is skipped entirely on this branch.
+    // See src/lib/classes/class-walkup.ts.
+    if (!booking.familyMemberId) {
+      // Defensive: walkin/start refuses to create a class hold without a
+      // child, so this is only reachable for a legacy/hand-made row. Refuse
+      // rather than invent a price for a participant we can't identify.
+      return json(
+        { error: CLASS_REQUIRES_CHILD_DESK_MESSAGE, code: CLASS_REQUIRES_CHILD },
+        422,
+      );
+    }
+    const quote = await resolveClassWalkUpRate(sessionRow, booking.familyMemberId, db);
+    if (!quote.ok) {
+      return classRateNotConfigured(sessionRow, quote.need, {
+        component: "api/kiosk/walkin/payment",
+      });
+    }
+    amountCents = quote.amountCents;
+  } else {
+    let [rateCard] = await db
       .select()
       .from(dropInRateCard)
       .where(eq(dropInRateCard.organizationId, sessionRow.organizationId))
       .limit(1);
+    if (!rateCard) {
+      await db
+        .insert(dropInRateCard)
+        .values({ organizationId: sessionRow.organizationId })
+        .onConflictDoNothing();
+      [rateCard] = await db
+        .select()
+        .from(dropInRateCard)
+        .where(eq(dropInRateCard.organizationId, sessionRow.organizationId))
+        .limit(1);
+    }
+    // Kiosk walk-ins always pay the walk-up rate (no membership lookup here).
+    // The card surcharge below is still added on top → walk-up base + surcharge.
+    amountCents = rateCard
+      ? resolveRate(sessionRow, null, null, rateCard, "walk_up").amountCents
+      : DEFAULT_WALK_UP_RATE_CENTS;
   }
-  // Kiosk walk-ins always pay the walk-up rate (no membership lookup here).
-  // The card surcharge below is still added on top → walk-up base + surcharge.
-  const amountCents = rateCard
-    ? resolveRate(sessionRow, null, null, rateCard, "walk_up").amountCents
-    : DEFAULT_WALK_UP_RATE_CENTS;
 
   // Kiosk walk-in is always a card payment — apply the same card surcharge
   // the online drop-in checkout adds, so a walk-in costs the customer the

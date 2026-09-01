@@ -33,7 +33,9 @@ const CONSUMING_BOOKING_STATUSES = [
 
 export interface CreditGrantBalance {
   grantId: string;
-  source: "pack" | "block";
+  /** "comp" = admin-issued goodwill credits; they float exactly like pack
+   *  credits (no slotTemplateId pin) and carry no pack/block name. */
+  source: "pack" | "block" | "comp";
   slotTemplateId: string | null; // set → pinned to that weekly slot
   sessionsGranted: number;
   used: number;

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { apiFetch, getAuthCookie } from "./setup/test-helpers";
 import { getDb } from "@/lib/db";
 import {
@@ -16,7 +16,7 @@ import {
 } from "@/lib/consents/liability";
 import { completionWaiverAssentText } from "@/lib/registrations/waiver-text";
 import { familyMembers } from "@/lib/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 
 // Same slug convention as registrations-self.test.ts / registrations-
 // membership.test.ts — the e2e seed catalog exports no fixture ids, so tests
@@ -396,7 +396,87 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
       });
     }
 
-    it("short-circuits alreadySigned and stamps the row on-file, logging no new consent", async () => {
+    // The STOP-guard tests below mint their own `phone_opt_ins` rows outside
+    // any registration/family-member cleanup path, keyed on a fixture phone
+    // number. `Date.now()`'s last 4 digits repeat every 10s, so two runs
+    // (or two CI shards) within that window can collide on the (org, phone,
+    // channel) unique index — a direct insert throws a unique-violation, or
+    // a leftover STOP row from a prior run silently blocks THIS run's "must
+    // record the opt-in" assertion. Random suffixes make collision
+    // astronomically unlikely; the sweep below is belt-and-braces (a run
+    // that DOES collide still leaves no debris for the next one).
+    const stopGuardTestPhones: string[] = [];
+    function randomPhoneSuffix(): string {
+      return String(Math.floor(Math.random() * 10_000)).padStart(4, "0");
+    }
+
+    afterAll(async () => {
+      if (stopGuardTestPhones.length === 0) return;
+      await getDb().delete(phoneOptIns).where(inArray(phoneOptIns.phone, stopGuardTestPhones));
+    });
+
+    it("a BORN-STAMPED registration is not a replay — the arriving signature is recorded", async () => {
+      // createRegistration births a covered participant's row
+      // `waiverSigned: true` with a NULL date and the on-file attribution.
+      // Nobody signed it. The idempotency branch used to read that bare flag
+      // as "already has a signature" and no-op, silently dropping a real one.
+      const { registrationId, familyMemberId, cookie } =
+        await mintOwnedRegistration("2016-04-01");
+
+      const db = getDb();
+      const [reg] = await db
+        .select({ signerUserId: registrations.registeredByUserId })
+        .from(registrations)
+        .where(eq(registrations.id, registrationId));
+      await insertLiabilityConsent(familyMemberId, reg.signerUserId);
+      await db
+        .update(registrations)
+        .set({
+          waiverSigned: true,
+          waiverSignedBy: WAIVER_ON_FILE_ATTRIBUTION,
+          waiverSignedAt: null,
+        })
+        .where(eq(registrations.id, registrationId));
+
+      const res = await apiFetch(`/api/registrations/${registrationId}/complete`, {
+        method: "POST",
+        cookie,
+        body: JSON.stringify({
+          waiverAccepted: true,
+          waiverSignature: "Born Stamped Signer",
+        }),
+      });
+      expect(res.status).toBe(200);
+      expect((await res.json()).signed).toBe(true);
+
+      const [row] = await db
+        .select({
+          waiverSignedBy: registrations.waiverSignedBy,
+          waiverSignedAt: registrations.waiverSignedAt,
+        })
+        .from(registrations)
+        .where(eq(registrations.id, registrationId));
+      expect(row.waiverSignedBy).toBe("Born Stamped Signer");
+      expect(row.waiverSignedAt).toBeTruthy();
+
+      const liability = await db
+        .select({ id: consents.id })
+        .from(consents)
+        .where(
+          and(
+            eq(consents.familyMemberId, familyMemberId),
+            eq(consents.type, "liability"),
+          ),
+        );
+      expect(liability).toHaveLength(2);
+    });
+
+    it("records the REAL signature when a covered family signs anyway", async () => {
+      // Coverage gates the ASK, not the record (recordLiabilityWaiver's caller
+      // contract, clause 4). This form still rendered the release — the client
+      // only drops it when the CREATE response said `waiverOnFile` — so a name
+      // typed here is a genuine signing event and is filed as one: dated,
+      // named, and appended to the canonical log.
       const { registrationId, familyMemberId, cookie } =
         await mintOwnedRegistration("2016-04-01");
 
@@ -410,6 +490,7 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
       const res = await apiFetch(`/api/registrations/${registrationId}/complete`, {
         method: "POST",
         cookie,
+        headers: { "User-Agent": "covered-signs-completion/1.0" },
         body: JSON.stringify({
           waiverAccepted: true,
           waiverSignature: "Redundant Signer",
@@ -417,8 +498,10 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
       });
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body.alreadySigned).toBe(true);
-      expect(body.signed).toBeUndefined();
+      // A real signature was taken, so this is the fresh-signature response —
+      // not the "we didn't need you" shape.
+      expect(body.signed).toBe(true);
+      expect(body.alreadySigned).toBeUndefined();
 
       const [row] = await db
         .select({
@@ -429,23 +512,24 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
         .from(registrations)
         .where(eq(registrations.id, registrationId));
       expect(row.waiverSigned).toBe(true);
-      expect(row.waiverSignedBy).toBe(WAIVER_ON_FILE_ATTRIBUTION);
-      // Load-bearing: hasValidLiabilityWaiver's legacy `registrations`
-      // fallback accepts any DATED signed row, so a dated derived copy would
-      // renew the very window it was derived from.
-      expect(row.waiverSignedAt).toBeNull();
+      expect(row.waiverSignedBy).toBe("Redundant Signer");
+      expect(row.waiverSignedAt).toBeTruthy();
 
-      // consents is append-only and does not dedupe — this branch is a READ.
+      // Exactly ONE row appended: the seeded grant plus this signature.
       const liability = await db
-        .select({ id: consents.id })
+        .select()
         .from(consents)
         .where(
           and(
             eq(consents.familyMemberId, familyMemberId),
             eq(consents.type, "liability"),
           ),
-        );
-      expect(liability).toHaveLength(1);
+        )
+        .orderBy(desc(consents.signedAt));
+      expect(liability).toHaveLength(2);
+      expect(liability[0].signedByName).toBe("Redundant Signer");
+      // ip/UA from THIS request's context, never the body.
+      expect(liability[0].userAgent).toBe("covered-signs-completion/1.0");
     });
 
     // FINDING 3 regression. Before the endpoint was restructured, an
@@ -605,6 +689,227 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
       const sms = rows.find((r) => r.channel === "sms");
       expect(sms, "the ticked SMS box must be recorded too").toBeTruthy();
       expect(sms!.status).toBe("opted_in");
+    });
+
+    // CARRIED FIX (F3 -> F5), corrected after review (F5 fix round 1).
+    //
+    // Distinct from the case directly above: there, the consent lands AFTER
+    // the registration already exists, so the on-file branch runs INSIDE
+    // this endpoint and the PRE-REQUEST `waiverSigned` read is false. Here
+    // the family is covered BEFORE POST /api/registrations is ever called,
+    // so create-registration.ts's own covered branch BIRTHS the row already
+    // `waiverSigned: true` with a NULL date (see registrations-annual-
+    // waiver.test.ts case (a)).
+    //
+    // The original fix gated the phone/marketing block on the DATED bare
+    // flag (`waiverSigned && waiverSignedAt !== null`) — that fixed the
+    // FIRST-completion drop this test starts by proving, but review found it
+    // reopened a worse hole: the on-file branch never dates the row, so it
+    // can re-fire on a REPLAY, and each re-fire read as "first completion"
+    // under that gate — re-promoting whatever channel state existed,
+    // including an opt-out/STOP the customer set in between. This test now
+    // proves BOTH halves: the first-completion capture (the original bug)
+    // AND that a replay after a STOP does not resurrect it (the review
+    // finding), via the real `registrations.completedAt` marker.
+    it("captures phone + WhatsApp consent on a FIRST completion of a registration BORN-STAMPED at creation, and a REPLAY after a STOP does not resurrect it", async () => {
+      const cookie = await getAuthCookie(
+        "parent@test.aspiresports.com",
+        "TestParent123!",
+      );
+      const stamp = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const db = getDb();
+
+      const meRes = await apiFetch("/api/auth/me", { cookie });
+      const parentUserId = (await meRes.json()).user?.id;
+      expect(parentUserId, "signed-in parent id").toBeTruthy();
+
+      const fmRes = await apiFetch("/api/family-members", {
+        method: "POST",
+        cookie,
+        body: JSON.stringify({
+          firstName: "BornStamped",
+          lastName: `Fixture${stamp}`,
+          birthDate: "2016-04-01",
+          parentalConsent: true,
+        }),
+      });
+      expect(fmRes.status).toBe(201);
+      const familyMemberId = (await fmRes.json()).familyMember.id;
+
+      // Coverage seeded BEFORE the registration is created — the precondition
+      // that makes create-registration.ts's covered branch fire at insert
+      // time, rather than the completion endpoint's own on-file branch.
+      await insertLiabilityConsent(familyMemberId, parentUserId);
+
+      const regRes = await apiFetch("/api/registrations", {
+        method: "POST",
+        cookie,
+        body: JSON.stringify({
+          seasonId: adultSeasonId,
+          familyMemberId,
+          registrationType: "full",
+          waiverSigned: false,
+        }),
+      });
+      expect(regRes.status).toBe(201);
+      const registrationId = (await regRes.json()).registration.id;
+
+      // Confirm the born-stamp actually landed — the precondition this test
+      // depends on, not the thing it's testing.
+      const [bornRow] = await db
+        .select({
+          waiverSigned: registrations.waiverSigned,
+          waiverSignedAt: registrations.waiverSignedAt,
+        })
+        .from(registrations)
+        .where(eq(registrations.id, registrationId));
+      expect(bornRow.waiverSigned).toBe(true);
+      expect(bornRow.waiverSignedAt).toBeNull();
+
+      const phone = `+1614559${randomPhoneSuffix()}`;
+      stopGuardTestPhones.push(phone);
+      const res = await apiFetch(`/api/registrations/${registrationId}/complete`, {
+        method: "POST",
+        cookie,
+        body: JSON.stringify({
+          phone,
+          smsConsent: true,
+          whatsappConsent: true,
+        }),
+      });
+      expect(res.status).toBe(200);
+      // The row was already covered — no signature was owed or taken — so
+      // this is the "we didn't need you" shape, same as the sibling case.
+      expect((await res.json()).alreadySigned).toBe(true);
+
+      const rows = await db
+        .select({ channel: phoneOptIns.channel, status: phoneOptIns.status })
+        .from(phoneOptIns)
+        .where(eq(phoneOptIns.phone, phone));
+
+      const whatsapp = rows.find((r) => r.channel === "whatsapp");
+      expect(
+        whatsapp,
+        "a born-stamped family's FIRST completion must still record the opt-in",
+      ).toBeTruthy();
+      expect(whatsapp!.status).toBe("opted_in");
+
+      const sms = rows.find((r) => r.channel === "sms");
+      expect(sms, "the ticked SMS box must be recorded too").toBeTruthy();
+      expect(sms!.status).toBe("opted_in");
+
+      // completedAt is the real first-completion marker this fix introduces
+      // — it must be set now, by THIS call, even though `waiverSigned` was
+      // already true before the request ever landed.
+      const [afterFirst] = await db
+        .select({ completedAt: registrations.completedAt })
+        .from(registrations)
+        .where(eq(registrations.id, registrationId));
+      expect(afterFirst.completedAt).toBeTruthy();
+
+      // The customer replies STOP on both channels sometime after this
+      // first completion — the real-world event the review finding is about.
+      await db
+        .update(phoneOptIns)
+        .set({
+          status: "opted_out",
+          optedOutAt: new Date(),
+          stopKeywordTriggered: "STOP",
+          updatedAt: new Date(),
+        })
+        .where(eq(phoneOptIns.phone, phone));
+
+      // REPLAY: the exact same completion POST lands again (a resubmit, a
+      // retried request, a stale tab) — same phone, same boxes still ticked
+      // client-side. Because `completedAt` is now set, this must be
+      // recognized as a replay and never re-enter the phone/marketing block
+      // at all, regardless of the STOP guard's own logic.
+      const replay = await apiFetch(`/api/registrations/${registrationId}/complete`, {
+        method: "POST",
+        cookie,
+        body: JSON.stringify({
+          phone,
+          smsConsent: true,
+          whatsappConsent: true,
+        }),
+      });
+      expect(replay.status).toBe(200);
+      expect((await replay.json()).alreadySigned).toBe(true);
+
+      const afterReplay = await db
+        .select({
+          channel: phoneOptIns.channel,
+          status: phoneOptIns.status,
+          stopKeywordTriggered: phoneOptIns.stopKeywordTriggered,
+        })
+        .from(phoneOptIns)
+        .where(eq(phoneOptIns.phone, phone));
+
+      const whatsappAfter = afterReplay.find((r) => r.channel === "whatsapp");
+      const smsAfter = afterReplay.find((r) => r.channel === "sms");
+      expect(
+        whatsappAfter?.status,
+        "a replayed completion must never resurrect a STOP",
+      ).toBe("opted_out");
+      expect(whatsappAfter?.stopKeywordTriggered).toBe("STOP");
+      expect(smsAfter?.status, "same for the SMS channel").toBe("opted_out");
+      expect(smsAfter?.stopKeywordTriggered).toBe("STOP");
+    });
+
+    // The STOP guard is DEFENSE IN DEPTH — it must also hold on its own,
+    // independent of the completedAt replay-closure above. This drives a
+    // registration whose completedAt is NOT yet set (a genuine first
+    // completion) but whose phone number ALREADY carries a STOP from some
+    // earlier, unrelated interaction (e.g. a different registration, a
+    // drop-in booking) — the checkbox on THIS form must not be able to
+    // override a carrier-level STOP on that number.
+    it("the STOP guard blocks a genuinely FIRST completion too, when the phone already carries a STOP", async () => {
+      const { registrationId, cookie } = await mintOwnedRegistration("1990-05-15");
+      const phone = `+1614560${randomPhoneSuffix()}`;
+      stopGuardTestPhones.push(phone);
+      const db = getDb();
+
+      const meRes = await apiFetch("/api/auth/me", { cookie });
+      const orgRow = await db
+        .select({ organizationId: locations.organizationId })
+        .from(seasons)
+        .innerJoin(programs, eq(seasons.programId, programs.id))
+        .innerJoin(locations, eq(programs.locationId, locations.id))
+        .where(eq(seasons.id, adultSeasonId));
+      const organizationId = orgRow[0]?.organizationId;
+      expect(organizationId, "adult season org").toBeTruthy();
+      void meRes;
+
+      // Pre-existing STOP on this number, unrelated to this registration.
+      await db.insert(phoneOptIns).values({
+        organizationId: organizationId!,
+        phone,
+        channel: "sms",
+        status: "opted_out",
+        optedOutAt: new Date(),
+        stopKeywordTriggered: "STOP",
+        optInSource: "unrelated_prior_interaction",
+      });
+
+      const res = await apiFetch(`/api/registrations/${registrationId}/complete`, {
+        method: "POST",
+        cookie,
+        body: JSON.stringify({
+          waiverAccepted: true,
+          waiverSignature: "Stop Guard Fixture",
+          phone,
+          smsConsent: true,
+        }),
+      });
+      expect(res.status).toBe(200);
+      expect((await res.json()).signed).toBe(true);
+
+      const [row] = await db
+        .select({ status: phoneOptIns.status, stopKeywordTriggered: phoneOptIns.stopKeywordTriggered })
+        .from(phoneOptIns)
+        .where(and(eq(phoneOptIns.phone, phone), eq(phoneOptIns.channel, "sms")));
+      expect(row.status, "the STOP must survive this FIRST completion too").toBe("opted_out");
+      expect(row.stopKeywordTriggered).toBe("STOP");
     });
 
     // ROUND-2 FINDING 2 (same class). recordDefaultMediaAuth only ran inside

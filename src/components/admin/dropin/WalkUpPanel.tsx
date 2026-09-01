@@ -18,6 +18,7 @@ import {
   type Reader,
 } from "@stripe/terminal-js";
 import { toast } from "sonner";
+import { walkUpErrorMessage } from "@/lib/admin/walk-up-error";
 
 interface WalkUpPanelProps {
   sessionId: string;
@@ -143,8 +144,13 @@ export default function WalkUpPanel({
       );
       const json = (await res.json()) as WalkUpResponse | { error: unknown };
       if (!res.ok) {
-        toast.error("Walk-up failed — see console");
+        // Surface what the server actually said. Two shapes are in play:
+        // a plain `{ error: "…" }` string (most of this endpoint's refusals)
+        // and the coded `{ error: { code, message } }` the class guard uses.
+        // The old blanket "see console" toast hid both from the person at the
+        // desk, who is the only one who can act on them.
         console.error(json);
+        toast.error(walkUpErrorMessage(json));
         return;
       }
       const result = json as WalkUpResponse;

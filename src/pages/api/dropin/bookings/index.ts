@@ -32,10 +32,14 @@
  * normal adult drop-in booking) → behavior is unchanged from before this
  * field existed.
  *
- * The child path is also the ANNUAL-WAIVER door: before minting the payment
+ * The child path is also the ANNUAL-WAIVER GATE: before minting the payment
  * this endpoint consults `hasValidLiabilityWaiver` and stamps the outcome
  * into the checkout metadata (`waiver_on_file`, or `waiver_ip`/`waiver_ua`
- * for a fresh signature) — see the block at the metadata site below.
+ * for a fresh signature) — and, when neither holds, refuses with
+ * `422 { error: "waiver_required" }` rather than selling a minor's class with
+ * no guardian release on record. See the block at the metadata site below.
+ * The ADULT path is deliberately not gated: sign before you PLAY, captured on
+ * the confirmation surface.
  *
  * Price for the child path is NOT taken from the client (the 402 quote is
  * informational only, from an unrelated request) and NOT from the parent's
@@ -63,6 +67,10 @@ import { resolveRate } from "@/lib/dropin/pricing";
 import { getActiveChildMembership } from "@/lib/memberships/get-child-membership";
 import { classRateNotConfigured } from "@/lib/classes/class-rate";
 import {
+  CLASS_REQUIRES_CHILD,
+  CLASS_REQUIRES_CHILD_MESSAGE,
+} from "@/lib/classes/class-walkup";
+import {
   createConfirmedBookingFreePath,
   getActiveMembershipForUser,
 } from "@/lib/dropin/booking";
@@ -73,6 +81,7 @@ import {
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
 import { collectAdAttribution } from "@/lib/analytics/parse-cookies";
 import { hasValidLiabilityWaiver } from "@/lib/consents/liability";
+import { findSelfPersonIds } from "@/lib/registrations/resolve-person";
 
 /** Stripe rejects a metadata VALUE longer than 500 characters, and it rejects
  *  the whole payment create — so an over-long user-agent would turn a real
@@ -262,8 +271,11 @@ export const POST: APIRoute = async ({ request, locals, url, clientAddress }) =>
     return json(
       {
         error: {
-          code: "class_requires_child",
-          message: "Class sessions must be booked for a child (familyMemberId required)",
+          // Same code + copy the WALK-UP surfaces refuse an adult-self class
+          // attempt with (src/lib/classes/class-walkup.ts) — one vocabulary
+          // across both doors.
+          code: CLASS_REQUIRES_CHILD,
+          message: CLASS_REQUIRES_CHILD_MESSAGE,
         },
       },
       422,
@@ -417,15 +429,11 @@ export const POST: APIRoute = async ({ request, locals, url, clientAddress }) =>
     );
   }
 
-  if (!stripe) {
-    return json({ error: "Stripe not configured" }, 500);
-  }
-
   // ANNUAL WAIVER (src/lib/consents/liability.ts) — the CHILD paid door.
   //
-  // Two mutually exclusive outcomes, both encoded as checkout metadata so the
+  // Three outcomes. The first two are encoded as checkout metadata so the
   // webhook (which inserts the row, and has no request context of its own)
-  // can act on them:
+  // can act on them; the third refuses the sale outright:
   //
   //   waiver_on_file="1"  The child already holds a valid, org-scoped,
   //                       unexpired liability consent. Nobody signs anything
@@ -445,9 +453,33 @@ export const POST: APIRoute = async ({ request, locals, url, clientAddress }) =>
   //                       `recordLiabilityWaiver` runs at fulfillment, in a
   //                       webhook with no request to read.
   //
-  // Adult drop-in bookings (no familyMemberId) are untouched: the annual
-  // predicate is keyed on a `family_members` row, and the adult surface
-  // captures its waiver post-payment.
+  //   422 waiver_required Neither: no valid annual waiver AND no signature.
+  //                       A minor's class must not be SOLD with no guardian
+  //                       release on record — the door used to take the money
+  //                       and leave `waiverSigned: false`, making the client
+  //                       the only gate (and a stale `waiverOnFile` probe, or
+  //                       a direct POST, enough to slip past it). Same flat
+  //                       `{ error, message }` envelope and 422 the FREE door
+  //                       (/api/classes/book) already emits for this code, so
+  //                       the clients' single `waiver_required` branch —
+  //                       which re-submits WITH the signature — covers both.
+  //
+  // Placed AFTER pricing and the duplicate check (a misconfigured class or an
+  // existing booking is a more specific answer than "go sign"), and BEFORE
+  // Stripe is touched at all — including the `!stripe` guard below, so a
+  // Stripe-less environment still reports the real reason. Nothing is written
+  // either way: the booking row is inserted by the webhook, which cannot fire
+  // for a payment that was never created.
+  //
+  // Adult drop-in bookings (no familyMemberId) are NOT gated — sign before
+  // you PLAY still applies, and this door never refuses the sale. But when
+  // the booker's own self `family_members` row already carries a valid
+  // annual waiver, the booking should be BORN covered rather than asking the
+  // customer again on the post-payment confirmation card — the same courtesy
+  // the child branch above gives, minus the refusal. `findSelfPersonIds` is
+  // read-only (never creates a self row on a booking write); a booker with
+  // none yet, or a lookup error, simply leaves the metadata unset and the
+  // booking unsigned, exactly as before this existed.
   const waiverMetadata: Record<string, string> = {};
   if (familyMemberId) {
     if (waiverProvided) {
@@ -455,9 +487,59 @@ export const POST: APIRoute = async ({ request, locals, url, clientAddress }) =>
       const ua = request.headers.get("user-agent") ?? "";
       if (ip) waiverMetadata.waiver_ip = ip.slice(0, STRIPE_METADATA_VALUE_MAX);
       if (ua) waiverMetadata.waiver_ua = ua.slice(0, STRIPE_METADATA_VALUE_MAX);
-    } else if (await hasValidLiabilityWaiver(familyMemberId, session.organizationId, db)) {
-      waiverMetadata.waiver_on_file = "1";
+    } else {
+      // FAILS TOWARD ASKING. A lookup blip must not be read as coverage: this
+      // predicate is the only thing standing between an unsigned minor and a
+      // completed sale, so an error here is treated as UNCOVERED and the
+      // customer is sent to the waiver panel (which they can act on) rather
+      // than sold a class with no release on record. The same direction
+      // `createRegistration` and `resolveWalkUpWaiver` take, and the OPPOSITE
+      // of the signature-capture endpoints — those fail toward RECORDING,
+      // because there the cheap wrong answer is a redundant consents row.
+      let onFile = false;
+      try {
+        onFile = await hasValidLiabilityWaiver(
+          familyMemberId,
+          session.organizationId,
+          db,
+        );
+      } catch (err) {
+        console.error("[dropin] waiver validity lookup failed", err);
+      }
+      if (onFile) {
+        waiverMetadata.waiver_on_file = "1";
+      } else {
+        return json(
+          {
+            error: "waiver_required",
+            message: "A signed guardian waiver is required",
+          },
+          422,
+        );
+      }
     }
+  } else if (!waiverProvided) {
+    // Adult path — no gate (see the block comment above), just a courtesy
+    // on-file check. Silent catch: a lookup blip here just means the
+    // customer is asked post-payment as usual, never a blocked sale.
+    try {
+      const selfPersonMap = await findSelfPersonIds(db, [locals.user.id]);
+      const selfPersonId = selfPersonMap.get(locals.user.id);
+      if (selfPersonId) {
+        const onFile = await hasValidLiabilityWaiver(
+          selfPersonId,
+          session.organizationId,
+          db,
+        );
+        if (onFile) waiverMetadata.waiver_on_file = "1";
+      }
+    } catch (err) {
+      console.error("[dropin] adult waiver on-file lookup failed", err);
+    }
+  }
+
+  if (!stripe) {
+    return json({ error: "Stripe not configured" }, 500);
   }
 
   // Inline deferred Payment Element (current UI): mint a bare PaymentIntent

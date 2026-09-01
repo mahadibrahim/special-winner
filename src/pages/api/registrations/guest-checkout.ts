@@ -374,13 +374,16 @@ export const POST: APIRoute = async (context) => {
           familyMemberRow.id,
           personalConsentType,
         ));
-        // ANNUAL WAIVER, write side. `waiverOnFile` means createRegistration
-        // stamped the row from an existing signature, so per its caller
-        // contract nothing is appended to the liability log here — that branch
-        // is a READ. Only a genuinely fresh signature writes. The org-less
+        // ANNUAL WAIVER, write side. Keyed on `waiverSignatureCaptured` — did
+        // a human sign on THIS request — not on `waiverOnFile`: a covered
+        // registrant shown a stale form still really signs, and clause 3 of
+        // `recordLiabilityWaiver`'s caller contract records that with its own
+        // date. A submission with no signature never reaches here (this block
+        // is gated on `waiverSigned`), and the `resumed` kind is excluded
+        // above because its row keeps the undated on-file stamp. The org-less
         // season case keeps the legacy `recordConsent` write (the org-scoped
         // helper cannot be called without an org) so the audit row still exists.
-        const liabilityWrite = regResult.waiverOnFile
+        const liabilityWrite = !regResult.waiverSignatureCaptured
           ? Promise.resolve()
           : regResult.organizationId
             ? recordLiabilityWaiver(

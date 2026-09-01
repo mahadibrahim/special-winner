@@ -108,20 +108,23 @@ interface WalkUpWaiverColumns {
 }
 
 /**
- * ANNUAL WAIVER, read side, for the walk-up desk — the same three-outcome
- * decision `create-registration.ts` makes for the customer-facing paths.
+ * ANNUAL WAIVER, read side, for the walk-up desk — the same decision
+ * `create-registration.ts` makes for the customer-facing paths, and keyed on
+ * the same two INDEPENDENT questions: "is this participant already covered?"
+ * and "did staff take a signature on THIS request?".
  *
- * `onFile` true means the participant is already covered by a valid,
- * org-scoped signature; the caller must stamp the row and write NO liability
- * consents row (that branch is a READ — `recordLiabilityWaiver` is append-only
- * and would log a signature nobody gave). `waiverSignedAt` is null on that
- * branch by design: hasValidLiabilityWaiver's legacy `registrations` fallback
- * accepts any DATED signed row, so a dated derived copy would renew the very
- * window it came from.
+ * `onFile` answers only the first, and only gates the ASK. When the desk did
+ * take a signature it is recorded whether or not the person was covered
+ * (`signatureCaptured`, which is what the caller must gate its
+ * `recordLiabilityWaiver` write on) — stamping the on-file attribution over an
+ * acceptance staff actually collected would file a false audit entry and lose
+ * the desk's `walk-up: admin=<id>` provenance with it. Clause 3 of
+ * `recordLiabilityWaiver`'s caller contract.
  *
- * The fresh branch dates the row and names the signer — both columns the two
- * inserts here previously dropped, leaving the admin roster with a "signed"
- * flag and no record of who signed or when.
+ * The undated stamp survives for exactly one case: covered AND nothing signed.
+ * The null date is load-bearing there — hasValidLiabilityWaiver's legacy
+ * `registrations` fallback accepts any DATED signed row, so a dated derived
+ * copy would renew the very window it came from.
  *
  * Fails towards ASKING: a lookup blip must never mark a walk-up signed off a
  * waiver we could not read.
@@ -132,7 +135,11 @@ async function resolveWalkUpWaiver(opts: {
   organizationId: string;
   waiverSigned: boolean;
   waiverSignedBy: string;
-}): Promise<{ onFile: boolean; columns: WalkUpWaiverColumns }> {
+}): Promise<{
+  onFile: boolean;
+  signatureCaptured: boolean;
+  columns: WalkUpWaiverColumns;
+}> {
   let onFile = false;
   try {
     onFile = await hasValidLiabilityWaiver(
@@ -144,19 +151,11 @@ async function resolveWalkUpWaiver(opts: {
     console.error("[walk-up] waiver-on-file lookup failed:", err);
   }
 
-  if (onFile) {
-    return {
-      onFile: true,
-      columns: {
-        waiverSigned: true,
-        waiverSignedBy: WAIVER_ON_FILE_ATTRIBUTION,
-        waiverSignedAt: null,
-      },
-    };
-  }
+  // A signature staff really took wins the columns, covered or not.
   if (opts.waiverSigned) {
     return {
-      onFile: false,
+      onFile,
+      signatureCaptured: true,
       columns: {
         waiverSigned: true,
         waiverSignedBy: opts.waiverSignedBy.trim() || null,
@@ -164,8 +163,20 @@ async function resolveWalkUpWaiver(opts: {
       },
     };
   }
+  if (onFile) {
+    return {
+      onFile: true,
+      signatureCaptured: false,
+      columns: {
+        waiverSigned: true,
+        waiverSignedBy: WAIVER_ON_FILE_ATTRIBUTION,
+        waiverSignedAt: null,
+      },
+    };
+  }
   return {
     onFile: false,
+    signatureCaptured: false,
     columns: { waiverSigned: false, waiverSignedBy: null, waiverSignedAt: null },
   };
 }
@@ -324,12 +335,14 @@ export const POST: APIRoute = async (context) => {
       if (!(await hasActiveConsent(db, selfMember.id, "age_confirmation"))) {
         await recordConsent({ ...baseConsent, type: "age_confirmation" });
       }
-      // ANNUAL WAIVER, write side. Skipped when the participant is already
-      // covered: that branch stamped the row from an existing signature and
-      // must append nothing to the append-only liability log. The media-auth
-      // write below is untouched — it records the desk's per-registration
-      // choice, not a liability signature.
-      if (!adultWaiver.onFile) {
+      // ANNUAL WAIVER, write side. Keyed on the SIGNATURE the desk took, not
+      // on coverage: a covered participant who signed again really signed, and
+      // the log records signing events (caller contract, clause 3). The only
+      // branch that appends nothing is covered-and-unsigned, which cannot
+      // reach here — this whole block is gated on `input.waiverSigned`. The
+      // media-auth write below is untouched: it records the desk's
+      // per-registration choice, not a liability signature.
+      if (adultWaiver.signatureCaptured) {
         await recordLiabilityWaiver(
           {
             familyMemberId: selfMember.id,
@@ -470,7 +483,7 @@ export const POST: APIRoute = async (context) => {
   // The parent-user upsert, family-member resolve, and registration insert
   // must land together — a partial write leaves an orphaned user or a
   // family member with no registration. Wrap the chain in one transaction.
-  const { parentUserId, familyMemberId, registrationId, waiverOnFile } =
+  const { parentUserId, familyMemberId, registrationId, waiverSignatureCaptured } =
     await db.transaction(async (tx) => {
       // Create or find the parent user
       const [existingUser] = await tx
@@ -547,7 +560,7 @@ export const POST: APIRoute = async (context) => {
         parentUserId,
         familyMemberId: familyMember.id,
         registrationId: registration.id,
-        waiverOnFile: childWaiver.onFile,
+        waiverSignatureCaptured: childWaiver.signatureCaptured,
       };
     });
 
@@ -566,9 +579,9 @@ export const POST: APIRoute = async (context) => {
     if (!(await hasActiveConsent(db, familyMemberId, "parental"))) {
       await recordConsent({ ...baseConsent, type: "parental" });
     }
-    // ANNUAL WAIVER, write side — see the adult path above for why the
-    // on-file branch appends nothing.
-    if (!waiverOnFile) {
+    // ANNUAL WAIVER, write side — see the adult path above for why this is
+    // keyed on the signature rather than on coverage.
+    if (waiverSignatureCaptured) {
       await recordLiabilityWaiver(
         {
           familyMemberId,

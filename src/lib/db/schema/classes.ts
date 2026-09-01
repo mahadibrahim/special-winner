@@ -17,13 +17,18 @@ import { organizations } from "./organizations";
 import { venues } from "./teams";
 import { familyMembers } from "./registrations";
 import { memberships } from "./memberships";
+import { users } from "./users";
 
 export const classEnrollmentStatusEnum = pgEnum("class_enrollment_status", [
   "active",
   "ended",
 ]);
 
-export const classCreditSourceEnum = pgEnum("class_credit_source", ["pack", "block"]);
+// "comp" = admin-issued goodwill credits (service recovery, a missed class we
+// owe back). No Stripe Checkout Session behind them — hence the nullable
+// stripe_checkout_session_id and the grantedByUserId attribution column on
+// class_credit_grants below.
+export const classCreditSourceEnum = pgEnum("class_credit_source", ["pack", "block", "comp"]);
 
 /**
  * A recurring weekly class slot ("Soccer Skills 6–8, Tue 17:00, cap 12").
@@ -178,12 +183,42 @@ export const classCreditGrants = pgTable(
     sessionsGranted: integer("sessions_granted").notNull(),
     pricePaidCents: integer("price_paid_cents").notNull(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-    stripeCheckoutSessionId: text("stripe_checkout_session_id").notNull(),
+    /** NULL on source='comp' grants — an admin issues those directly, no
+     *  Checkout Session exists. Still set (and still unique, via the partial
+     *  index below) on every pack/block grant, which is what makes the
+     *  purchase webhooks idempotent. */
+    stripeCheckoutSessionId: text("stripe_checkout_session_id"),
+    /** set on source='comp' rows; the admin who issued them */
+    grantedByUserId: uuid("granted_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    /**
+     * Stamp-then-send marker for the block-abandon nudge
+     * (src/lib/classes/block-nudge.ts): set the instant the ONE-EVER nudge
+     * email fires for this grant's enrollment, so a crashed send can't
+     * double-fire and a second cron tick can't re-claim an already-claimed
+     * grant. NULL = not yet nudged. Lives here (not on class_enrollments)
+     * because the grant, not the enrollment, is the thing that is "one per
+     * ever" scoped — an enrollment can end and a new one start against the
+     * same grant's leftover credits (see the end-enrollment float), and the
+     * nudge should not re-fire just because a fresh enrollment row exists
+     * for credits that already got their one nudge.
+     */
+    nudgeSentAt: timestamp("nudge_sent_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
     // Webhook idempotency: one grant per Checkout Session, replays no-op.
-    uniqueIndex("class_credit_grants_checkout_session_uq").on(table.stripeCheckoutSessionId),
+    // PARTIAL since comp grants carry no session id — many NULLs would each
+    // be distinct under a plain unique index in Postgres, but the predicate
+    // states the intent and keeps the index to the rows that need it.
+    // _v2 is load-bearing: db-migrate-bootstrap.ts verifies index migrations
+    // by NAME only, so a same-name drop+recreate is silently skipped on a
+    // populated DB and the old total index survives. Any future change to
+    // this index's columns or predicate must bump the name again.
+    uniqueIndex("class_credit_grants_checkout_session_uq_v2")
+      .on(table.stripeCheckoutSessionId)
+      .where(sql`stripe_checkout_session_id IS NOT NULL`),
     index("class_credit_grants_child_idx").on(table.familyMemberId, table.expiresAt),
   ],
 );

@@ -69,20 +69,31 @@ export type CreateRegistrationResult = {
   organizationId: string | null;
   /**
    * True when the participant's ANNUAL liability waiver was already valid for
-   * this org (`hasValidLiabilityWaiver`) — the registration row was stamped
-   * signed from that existing signature rather than from anything the caller
-   * supplied.
+   * this org (`hasValidLiabilityWaiver`) — i.e. no ask was needed. Report it
+   * to clients so surfaces that would otherwise re-present the release (the
+   * confirm screen's completion form) can drop it.
    *
-   * CALLER CONTRACT: when this is true you MUST NOT write a `liability`
-   * consents row for this registration. `recordLiabilityWaiver` is
-   * append-only and does not dedupe, so a write here would log a signature
-   * nobody gave for this registration — and, worse, extend the annual window
-   * off the back of a form the customer may not even have been shown.
-   * Non-liability consents (media authorization, parental/age confirmation)
-   * are unaffected: those are the customer's per-submission choices and
-   * should still be recorded.
+   * NOT the flag that decides whether to write a consents row — read
+   * `waiverSignatureCaptured` for that. The two are independent: a covered
+   * participant CAN also have signed on this request.
    */
   waiverOnFile: boolean;
+  /**
+   * True when a genuine signature arrived on this request and the row's
+   * `waiverSignedAt` carries its real date.
+   *
+   * CALLER CONTRACT: write the `liability` consents row IFF this is true, and
+   * only for `kind !== "resumed"` (the resumed branch deliberately does not
+   * stamp a supplied signature — see the comment there). `recordLiabilityWaiver`
+   * is append-only and does not dedupe, so writing when this is false would log
+   * a signature nobody gave and extend the annual window off the back of a form
+   * the customer may never have been shown; NOT writing when it is true would
+   * leave a dated local row with no consent behind it, which the legacy fallback
+   * would then honour for a year. Non-liability consents (media authorization,
+   * parental/age confirmation) are unaffected: those are the customer's
+   * per-submission choices and are recorded on their own terms.
+   */
+  waiverSignatureCaptured: boolean;
   /**
    * When that on-file waiver runs out — for surfaces that want to say "waiver
    * on file, valid through <date>" rather than re-asking. Null whenever
@@ -346,27 +357,59 @@ interface WaiverColumns {
 }
 
 /**
+ * The derived stamp for a person covered by their annual waiver who signed
+ * nothing on this request. Shared by `resolveWaiverColumns` and the resumed
+ * -draft catch-up below so the two can't spell it differently.
+ *
+ * Frozen because it is returned BY REFERENCE as `waiverState.columns` and then
+ * spread into inserts/updates by three call sites — a stray mutation on any of
+ * them would silently re-point every later caller in the same process.
+ */
+const ON_FILE_WAIVER_COLUMNS: Readonly<WaiverColumns> = Object.freeze({
+  waiverSigned: true,
+  waiverSignedBy: WAIVER_ON_FILE_ATTRIBUTION,
+  waiverSignedAt: null,
+});
+
+/**
  * Decide the registration row's waiver columns, ANNUAL waiver first.
  *
  * `registrations.waiverSigned` is per-REGISTRATION, so it starts false even
  * for a family who signed a fortnight ago in another program at the same
  * organization. The platform rule is per person, per org, for a year
  * (`src/lib/consents/liability.ts`) — so the on-file signature is consulted
- * before anything the caller supplied, and wins when it is valid.
+ * before anything the caller supplied, and decides whether an ASK was needed.
  *
- * Three outcomes:
- *  - ON FILE → `waiverSigned: true` with the shared "On file (annual waiver)"
- *    attribution and `waiverSignedAt` NULL. The null date is load-bearing:
- *    `hasValidLiabilityWaiver`'s legacy `registrations` fallback accepts any
- *    DATED signed row, so dating this derived copy would let each new
- *    registration renew the very window it was derived from. Same rule as
+ * Four outcomes, keyed on TWO independent questions ("is this person already
+ * covered?" and "did a human sign on this request?"):
+ *  - ON FILE, no signature → `waiverSigned: true` with the shared "On file
+ *    (annual waiver)" attribution and `waiverSignedAt` NULL. The null date is
+ *    load-bearing: `hasValidLiabilityWaiver`'s legacy `registrations` fallback
+ *    accepts any DATED signed row, so dating this derived copy would let each
+ *    new registration renew the very window it was derived from. Same rule as
  *    book-child.ts's on-file branch and the drop-in door's fulfillment stamp.
- *  - FRESH SIGNATURE (caller passed `waiverSigned: true` and nothing is on
- *    file) → signed, dated now, attributed to the supplied signature. The
- *    date and the signer name were previously dropped on the floor here: the
- *    insert only ever wrote the boolean, so a genuine pre-payment signature
- *    left no signer and no timestamp on the row at all.
+ *  - ON FILE, but a signature arrived anyway (a stale client that still
+ *    rendered the release, e.g. the v1 wizard) → the SIGNATURE wins the local
+ *    columns: dated, named, and `signatureCaptured` true so the caller
+ *    appends the consents row. Clause 4 of `recordLiabilityWaiver`'s caller
+ *    contract: a human really signed, and recording that with its own date is
+ *    the honest audit entry — an undated "On file" stamp over the top would
+ *    describe an event that did not happen the way it is written down. That
+ *    the row is dated is fine here precisely because a real consents row backs
+ *    it, so the legacy fallback renews nothing that wasn't renewed anyway.
+ *  - FRESH SIGNATURE, nothing on file → identical columns; the ordinary path.
  *  - NEITHER → unsigned; the post-payment completion step is the backstop.
+ *
+ * ACCEPTED FAILURE MODE on both signature branches: this helper writes the
+ * DATED local columns, and its API callers append the consents row afterwards,
+ * best-effort. If that append fails silently the registration carries a dated
+ * signature with no canonical consent behind it — and
+ * `hasValidLiabilityWaiver`'s legacy `registrations` fallback will honour that
+ * local row for a year. Accepted for the same reason the rentals door accepts
+ * it: refusing a paid registration over an audit-row blip is worse, and the
+ * failure is logged. It is also the reason the RESUMED branch must never stamp
+ * a date (its callers skip the append by design, so the gap would be
+ * guaranteed rather than exceptional).
  *
  * Fails towards ASKING: a lookup error must never mark a registration signed
  * on the strength of a waiver we could not read.
@@ -379,6 +422,7 @@ async function resolveWaiverColumns(opts: {
   waiverSignedBy: string;
 }): Promise<{
   onFile: boolean;
+  signatureCaptured: boolean;
   validUntil: Date | null;
   columns: WaiverColumns;
 }> {
@@ -398,10 +442,10 @@ async function resolveWaiverColumns(opts: {
     }
   }
 
+  // Display only, and only when covered — one extra indexed read on the path
+  // that is about to skip an ask, never on the common uncovered path.
+  let validUntil: Date | null = null;
   if (onFile) {
-    // Display only, and only on this branch — one extra indexed read on the
-    // path that is about to skip an ask, never on the common uncovered path.
-    let validUntil: Date | null = null;
     try {
       validUntil = await liabilityWaiverValidUntil(
         opts.familyMemberId,
@@ -411,21 +455,15 @@ async function resolveWaiverColumns(opts: {
     } catch (err) {
       console.error("[createRegistration] waiver expiry lookup failed:", err);
     }
-    return {
-      onFile: true,
-      validUntil,
-      columns: {
-        waiverSigned: true,
-        waiverSignedBy: WAIVER_ON_FILE_ATTRIBUTION,
-        waiverSignedAt: null,
-      },
-    };
   }
 
+  // A real signature is recorded whether or not the person was covered — the
+  // two questions are independent, and coverage gates the ASK, not the record.
   if (opts.waiverSigned) {
     return {
-      onFile: false,
-      validUntil: null,
+      onFile,
+      signatureCaptured: true,
+      validUntil,
       columns: {
         waiverSigned: true,
         waiverSignedBy: opts.waiverSignedBy.trim() || null,
@@ -434,8 +472,18 @@ async function resolveWaiverColumns(opts: {
     };
   }
 
+  if (onFile) {
+    return {
+      onFile: true,
+      signatureCaptured: false,
+      validUntil,
+      columns: ON_FILE_WAIVER_COLUMNS,
+    };
+  }
+
   return {
     onFile: false,
+    signatureCaptured: false,
     validUntil: null,
     columns: { waiverSigned: false, waiverSignedBy: null, waiverSignedAt: null },
   };
@@ -543,18 +591,19 @@ export async function createRegistration(
       // the row keeps its `false`, the confirm screen keeps asking, and the
       // reminder cron keeps chasing a family that is already covered.
       //
-      // ON-FILE ONLY, deliberately. A fresh signature supplied on THIS request
-      // is not stamped here, because both callers skip their consent writes
-      // for `kind === "resumed"` — stamping would leave a DATED signature on
-      // the row with no `consents` row behind it, and that dated row would
-      // then satisfy hasValidLiabilityWaiver's legacy fallback for a year off
-      // an unrecorded signature. Resumed drafts keep today's behaviour: the
-      // post-payment completion step captures and records the signature.
-      // Never downgrades — only fires when the row is currently unsigned.
+      // ON-FILE COLUMNS ONLY, deliberately — `ON_FILE_WAIVER_COLUMNS`, not
+      // `waiverState.columns`, which carry a DATED signature whenever one was
+      // supplied. Both callers skip their consent writes for
+      // `kind === "resumed"`, so stamping a date here would leave a dated
+      // signature on the row with no `consents` row behind it, and that dated
+      // row would then satisfy hasValidLiabilityWaiver's legacy fallback for a
+      // year off an unrecorded signature. Resumed drafts keep today's
+      // behaviour: the post-payment completion step captures and records the
+      // signature. Never downgrades — only fires when the row is unsigned.
       if (waiverState.onFile && !resumedReg.waiverSigned) {
         const [updated] = await db
           .update(registrations)
-          .set({ ...waiverState.columns, updatedAt: new Date() })
+          .set({ ...ON_FILE_WAIVER_COLUMNS, updatedAt: new Date() })
           .where(eq(registrations.id, resumedReg.id))
           .returning();
         resumedReg = updated;
@@ -624,6 +673,10 @@ export async function createRegistration(
         amountDueCents: resumedReg.amountDueCents,
         organizationId,
         waiverOnFile: waiverState.onFile,
+        // Always false on this branch: the resumed row deliberately does not
+        // take a supplied signature (see the update above), so there is no
+        // dated local row for a consents write to back.
+        waiverSignatureCaptured: false,
         waiverValidUntil: waiverState.validUntil,
       };
     }
@@ -727,6 +780,7 @@ export async function createRegistration(
         amountDueCents: amountDue,
         organizationId,
         waiverOnFile: waiverState.onFile,
+        waiverSignatureCaptured: waiverState.signatureCaptured,
         waiverValidUntil: waiverState.validUntil,
       };
     }
@@ -866,6 +920,7 @@ export async function createRegistration(
     amountDueCents: amountDue,
     organizationId,
     waiverOnFile: waiverState.onFile,
+    waiverSignatureCaptured: waiverState.signatureCaptured,
     waiverValidUntil: waiverState.validUntil,
   };
 }

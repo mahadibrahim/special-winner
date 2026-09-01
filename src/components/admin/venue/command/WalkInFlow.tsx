@@ -221,7 +221,15 @@ export function WalkInFlow({ session, locationId, onDone, onCancel }: Props) {
       const body = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        setSubmitError(body.error ?? `Failed (${res.status})`);
+        // Same rule as WalkInWizard: some responses put a machine code in
+        // `error` and the human sentence in `message` (the class-rate 409).
+        const human =
+          typeof body.message === "string"
+            ? body.message
+            : typeof body.error === "string"
+              ? body.error
+              : null;
+        setSubmitError(human ?? `Failed (${res.status})`);
         setBusy(false);
         return;
       }

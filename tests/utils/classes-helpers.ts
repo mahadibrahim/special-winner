@@ -215,26 +215,35 @@ export async function createTestCreditGrant(opts: {
   familyMemberId: string;
   sessionsGranted: number;
   idSuffix: string;
-  source?: "pack" | "block";
+  source?: "pack" | "block" | "comp";
   packProductId?: string | null;
   blockId?: string | null;
   slotTemplateId?: string | null;
   expiresAt?: Date;
+  /** Grants with source "comp" have no Checkout Session — default null for
+   *  that source, `cs_test_credit_<idSuffix>` otherwise. Overridable for
+   *  tests that need a specific (or explicit null) value. */
+  stripeCheckoutSessionId?: string | null;
+  grantedByUserId?: string | null;
 }): Promise<string> {
   const db = getDb();
+  const source = opts.source ?? "pack";
   const [grant] = await db
     .insert(classCreditGrants)
     .values({
       organizationId: opts.organizationId,
       familyMemberId: opts.familyMemberId,
-      source: opts.source ?? "pack",
+      source,
       packProductId: opts.packProductId ?? null,
       blockId: opts.blockId ?? null,
       slotTemplateId: opts.slotTemplateId ?? null,
       sessionsGranted: opts.sessionsGranted,
-      pricePaidCents: 9900,
+      pricePaidCents: source === "comp" ? 0 : 9900,
       expiresAt: opts.expiresAt ?? new Date(Date.now() + 90 * 86_400_000),
-      stripeCheckoutSessionId: `cs_test_credit_${opts.idSuffix}`,
+      stripeCheckoutSessionId:
+        opts.stripeCheckoutSessionId ??
+        (source === "comp" ? null : `cs_test_credit_${opts.idSuffix}`),
+      grantedByUserId: opts.grantedByUserId ?? null,
     })
     .returning({ id: classCreditGrants.id });
   return grant.id;

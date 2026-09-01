@@ -33,6 +33,11 @@ import { awaitDispatch } from "@/lib/notifications/await-dispatch";
 import { getActiveMembershipForOrg } from "@/lib/memberships/get-active-membership";
 import { ensureDropInCustomerMembership } from "@/lib/organization/ensure-membership";
 import type { BrandId } from "@/lib/branding/themes";
+import { findSelfPersonIds } from "@/lib/registrations/resolve-person";
+import {
+  hasValidLiabilityWaiver,
+  WAIVER_ON_FILE_ATTRIBUTION,
+} from "@/lib/consents/liability";
 
 /** Allow-list referral tags (?src=) so junk/URLs never land in the column. */
 export function sanitizeReferralSource(raw: unknown): string | null {
@@ -79,6 +84,18 @@ export async function createConfirmedBookingFreePath(opts: {
   brand?: BrandId;
   /** Raw `?src=` query value from the share link — sanitized before insert. */
   referralSource?: string;
+  /**
+   * Whether the born-covered on-file stamp (see below) may apply to this
+   * booking. Defaults to `true` — every caller EXCEPT guest checkout wants
+   * it: the authed online-booking endpoint and the admin walk-up desk both
+   * operate on an identity that's either signed-in or staff-verified at the
+   * point of sale. Guest checkout is different: `upsertGuestUser` matches an
+   * EXISTING account purely by typed email (`emailVerified: false`, no
+   * session, no OTP) — an unverified email match must never suppress a
+   * liability-signature ask on someone else's behalf. Guest checkout passes
+   * `false` explicitly; see its own call site for the full reasoning.
+   */
+  allowWaiverOnFileStamp?: boolean;
 }): Promise<CreateConfirmedBookingResult> {
   const db = getDb();
 
@@ -252,6 +269,45 @@ export async function createConfirmedBookingFreePath(opts: {
     );
     const team = assignTeam(session, userSkill, existingForTeam);
 
+    // ANNUAL WAIVER, adult drop-in — born-covered stamp. Every row this
+    // orchestrator inserts is an ADULT (self) booking (see the file doc
+    // comment: the child paid make-up path never takes the free path). When
+    // the caller supplied no signature of their own (legacy pre-payment
+    // waiver capture — rare on the current UI) AND the caller allows it
+    // (`allowWaiverOnFileStamp` — false for guest checkout, see the opt doc
+    // above), check whether the BOOKER's own self `family_members` row
+    // already carries a valid, org-scoped liability waiver via
+    // `findSelfPersonIds` (read-only — never creates one on a booking write)
+    // and, if so, stamp the row exactly like the child paid door's on-file
+    // branch: `waiverSigned: true`, the shared `WAIVER_ON_FILE_ATTRIBUTION`,
+    // and `waiverSignedAt` left NULL (a derived copy, not a signature — a
+    // dated one would let this booking renew the very window it was derived
+    // from). Fails toward asking: a lookup error or a booker with no self
+    // row yet leaves the booking unsigned, same as before this existed.
+    let waiverSigned = opts.waiverSigned ?? false;
+    let waiverSignedAt = opts.waiverSignedAt ?? null;
+    let waiverSignedBy = opts.waiverSignedBy ?? null;
+    if (!waiverSigned && opts.allowWaiverOnFileStamp !== false) {
+      try {
+        const selfPersonMap = await findSelfPersonIds(tx, [opts.userId]);
+        const selfPersonId = selfPersonMap.get(opts.userId);
+        if (selfPersonId) {
+          const onFile = await hasValidLiabilityWaiver(
+            selfPersonId,
+            session.organizationId,
+            tx,
+          );
+          if (onFile) {
+            waiverSigned = true;
+            waiverSignedBy = WAIVER_ON_FILE_ATTRIBUTION;
+            waiverSignedAt = null;
+          }
+        }
+      } catch (err) {
+        console.error("[dropin] adult waiver on-file lookup failed", err);
+      }
+    }
+
     const [booking] = await tx
       .insert(dropInBookings)
       .values({
@@ -263,9 +319,9 @@ export async function createConfirmedBookingFreePath(opts: {
         amountPaidCents: 0,
         membershipId: rate.membershipId,
         teamAssignment: team,
-        waiverSigned: opts.waiverSigned ?? false,
-        waiverSignedAt: opts.waiverSignedAt ?? null,
-        waiverSignedBy: opts.waiverSignedBy ?? null,
+        waiverSigned,
+        waiverSignedAt,
+        waiverSignedBy,
         brand: opts.brand ?? "aspire",
         referralSource: sanitizeReferralSource(opts.referralSource),
       })

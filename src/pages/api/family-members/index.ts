@@ -5,28 +5,33 @@ import { eq, or, asc } from "drizzle-orm";
 import { z } from "zod";
 import { getPostHogServer } from "@/lib/posthog-server";
 import { recordConsent } from "@/lib/consents/record";
-import { hasValidLiabilityWaiver } from "@/lib/consents/liability";
+import { hasValidLiabilityWaiverBatch } from "@/lib/consents/liability";
 import { resolvePerson } from "@/lib/registrations/resolve-person";
 
 /**
- * Cap on the per-person annual-waiver probe below. `hasValidLiabilityWaiver`
- * is single-person by design (see its doc comment) and this endpoint returns
- * EVERY person the caller owns — unbounded, unlike /api/classes/summary's own
- * MAX_CHILDREN-capped list. Real families are small; long-lived test/staff
- * accounts are not (the shared `parent@test.aspiresports.com` fixture has
- * accumulated ~1,800 rows across the suite's history), and a fan-out that
- * size on a modal open is not worth paying.
+ * Cap on the annual-waiver probe below. This endpoint returns EVERY person the
+ * caller owns — unbounded, unlike /api/classes/summary's own MAX_CHILDREN-capped
+ * list. Real families are small; long-lived test/staff accounts are not (the
+ * shared `parent@test.aspiresports.com` fixture has accumulated ~1,800 rows
+ * across the suite's history).
+ *
+ * The probe is now `hasValidLiabilityWaiverBatch` — three set-based queries no
+ * matter how many people are in it, where it used to be a serial per-person
+ * fan-out that the old cap of 25 existed to bound. What the cap bounds now is
+ * only the size of the `IN` lists, so it is raised to 200: past that a single
+ * account is not a family and the flag is not worth the planner time.
  *
  * The cap takes the NEWEST rows, not the oldest — the same correction
  * /api/classes/summary documents for its own cap. The list itself is ordered
  * oldest-first for display, but an oldest-first CAP would drop exactly the
  * child a parent just added, i.e. the one most likely to be booked next.
  *
- * Beyond the cap the flag is `false`, which is the SAFE default: false means
- * "show the waiver panel", so the worst case is asking a covered family to
- * sign again — never charging one with no release on record.
+ * Beyond the cap — and on any probe failure — the flag is `false`, which is the
+ * SAFE default: false means "show the waiver panel", so the worst case is
+ * asking a covered family to sign again, never booking one with no release on
+ * record.
  */
-const WAIVER_PROBE_LIMIT = 25;
+const WAIVER_PROBE_LIMIT = 200;
 
 const createFamilyMemberSchema = z.object({
   firstName: z.string().min(1, "First name is required").max(100),
@@ -86,18 +91,21 @@ export const GET: APIRoute = async ({ locals, url }) => {
     const organizationId = locals.organization?.id ?? null;
     const wantsWaiver =
       url.searchParams.get("includeWaiver") === "1" && organizationId !== null;
-    const waiverOnFileById = new Map<string, boolean>(
-      wantsWaiver
-        ? await Promise.all(
-            rows
-              .slice(-WAIVER_PROBE_LIMIT)
-              .map(
-                async (r) =>
-                  [r.id, await hasValidLiabilityWaiver(r.id, organizationId!, db)] as const,
-              ),
-          )
-        : [],
-    );
+    let waiverOnFileById = new Map<string, boolean>();
+    if (wantsWaiver) {
+      try {
+        waiverOnFileById = await hasValidLiabilityWaiverBatch(
+          rows.slice(-WAIVER_PROBE_LIMIT).map((r) => r.id),
+          organizationId!,
+          db,
+        );
+      } catch (err) {
+        // Fail toward ASKING, never toward a silent 500 on a list endpoint the
+        // dashboard also uses without the flag: an empty map reads as `false`
+        // for everyone, i.e. every booking door shows its waiver panel.
+        console.error("[family-members] waiver probe failed", err);
+      }
+    }
 
     const members = rows.map((r) => ({
       ...r,

@@ -391,7 +391,7 @@ describe("POST /api/classes/book — annual waiver validity", () => {
     expect(res.status).toBe(200);
   });
 
-  it("writes ONE org-scoped consents row for a fresh signature, and none on the on-file path", async () => {
+  it("writes ONE consents row per SIGNATURE — none on the on-file path, one more when a covered family signs again", async () => {
     const childId = await newWaiverChild("WaiverFreshSig");
 
     const firstSessionId = await createTrackedClassSession(10 * 24);
@@ -465,6 +465,38 @@ describe("POST /api/classes/book — annual waiver validity", () => {
       .limit(1);
     expect(bookingRow.waiverSigned).toBe(true);
     expect(bookingRow.waiverSignedAt).toBeNull();
+
+    // ...and a THIRD booking that DOES carry a signature records it, even
+    // though the child is covered. Coverage gates the ask, never the record
+    // (clause 3): a stale client that still rendered the panel produces a real
+    // signing event, and stamping "On file" over it would file the release as
+    // something that did not happen the way it is written down.
+    const thirdSessionId = await createTrackedClassSession(12 * 24);
+    const thirdRes = await apiFetch("/api/classes/book", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({
+        sessionId: thirdSessionId,
+        familyMemberId: childId,
+        kind: "member",
+        waiver: CLASS_TEST_WAIVER,
+      }),
+    });
+    expect(thirdRes.status).toBe(200);
+    expect(await liabilityConsentsFor(childId)).toHaveLength(2);
+
+    const [signedRow] = await getDb()
+      .select({
+        waiverSigned: dropInBookings.waiverSigned,
+        waiverSignedAt: dropInBookings.waiverSignedAt,
+        waiverSignedBy: dropInBookings.waiverSignedBy,
+      })
+      .from(dropInBookings)
+      .where(eq(dropInBookings.id, (await thirdRes.json()).bookingId))
+      .limit(1);
+    expect(signedRow.waiverSigned).toBe(true);
+    expect(signedRow.waiverSignedBy).toBe(CLASS_TEST_WAIVER.signedBy);
+    expect(signedRow.waiverSignedAt).not.toBeNull();
   });
 
   it("does not let a signature at another org satisfy this org's gate", async () => {

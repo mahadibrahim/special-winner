@@ -355,21 +355,15 @@ export async function createChildClassBooking(opts: {
     let waiverSignedBy: string | null = null;
     let waiverConsentVariant: string | null = null;
     let waiverConsentText: string | null = null;
-    if (waiverOnFile) {
-      waiverSigned = true;
-      // Say WHY the row is marked signed. The shared attribution (owned by
-      // consents/liability.ts) is the same one the paid drop-in door's webhook
-      // fulfillment stamps, so the identical semantic state — "covered by the
-      // annual waiver, nobody signed for this booking" — never renders two
-      // different ways across the free and paid doors.
-      //
-      // `waiverSignedAt` deliberately stays NULL: hasValidLiabilityWaiver's
-      // legacy fallbacks accept only DATED signature rows, so a dated derived
-      // copy would let each booking renew the very window it was derived from.
-      // `waiverConsentVariant`/`waiverConsentText` stay null too — no waiver
-      // text was shown here, so there is nothing to name.
-      waiverSignedBy = WAIVER_ON_FILE_ATTRIBUTION;
-    } else if (opts.waiver) {
+    // A SIGNATURE FIRST, coverage second — the order is the rule, not a
+    // detail. `waiverOnFile` decides whether this child had to be ASKED; only
+    // the presence of `opts.waiver` decides what gets RECORDED (clause 3 of
+    // recordLiabilityWaiver's caller contract). Checking coverage first, as
+    // this used to, threw away every signature typed by an already-covered
+    // family — a stale client, or a second tab that opened before the
+    // dashboard's `hasWaiverOnFile` refreshed — and stamped the row as though
+    // nobody had signed at all.
+    if (opts.waiver) {
       waiverSigned = true;
       waiverSignedAt = new Date();
       // The classes engine only ever books a CHILD (see this file's header),
@@ -381,8 +375,8 @@ export async function createChildClassBooking(opts: {
       // …and the canonical consents row, written inside THIS tx so it lands
       // with the booking. recordLiabilityWaiver is append-only and does NOT
       // dedupe (consents is an audit log), so per its caller contract this
-      // call lives ONLY on this branch — the fresh-signature one. The
-      // on-file branch above must never reach it, or every subsequent
+      // call lives ONLY on this branch — the one where a human signed. The
+      // on-file branch below must never reach it, or every subsequent
       // booking would log a signature nobody gave.
       //
       // Deliberate: a `session_full` return below can still commit this row
@@ -407,6 +401,20 @@ export async function createChildClassBooking(opts: {
         },
         tx,
       );
+    } else if (waiverOnFile) {
+      waiverSigned = true;
+      // Say WHY the row is marked signed. The shared attribution (owned by
+      // consents/liability.ts) is the same one the paid drop-in door's webhook
+      // fulfillment stamps, so the identical semantic state — "covered by the
+      // annual waiver, nobody signed for this booking" — never renders two
+      // different ways across the free and paid doors.
+      //
+      // `waiverSignedAt` deliberately stays NULL: hasValidLiabilityWaiver's
+      // legacy fallbacks accept only DATED signature rows, so a dated derived
+      // copy would let each booking renew the very window it was derived from.
+      // `waiverConsentVariant`/`waiverConsentText` stay null too — no waiver
+      // text was shown here, so there is nothing to name.
+      waiverSignedBy = WAIVER_ON_FILE_ATTRIBUTION;
     } else {
       return err("waiver_required", "A signed guardian waiver is required");
     }

@@ -15,6 +15,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { getDb } from "@/lib/db";
 import { dropInBookings, dropInRateCard, dropInSessions } from "@/lib/db/schema/drop-in";
+import { classCreditGrants, classEnrollments } from "@/lib/db/schema/classes";
 import { consents } from "@/lib/db/schema/consents";
 import { createChildClassBooking } from "@/lib/classes/book-child";
 import { eq, inArray } from "drizzle-orm";
@@ -128,7 +129,7 @@ async function createCreditGrant(opts: {
   familyMemberId: string;
   sessionsGranted: number;
   idSuffix: string;
-  source?: "pack" | "block";
+  source?: "pack" | "block" | "comp";
   slotTemplateId?: string | null;
   expiresAt?: Date;
 }): Promise<string> {
@@ -317,6 +318,124 @@ describe("POST /api/classes/book — pack credit redemption", () => {
     const resA = await book(sessionA, childId, true);
     expect(resA.status).toBe(200);
     expect((await resA.json()).paymentMethod).toBe("pack_credit");
+  });
+
+  it("spends a FLOATED block grant on another template's session after the enrollment ends", async () => {
+    // Owner decision 2, proved through the booking ENGINE rather than the
+    // selection policy alone: ending the enrollment un-pins the grant, and a
+    // floating grant is redeemable on any class. The same session on the same
+    // template is refused BEFORE the end and accepted after — the only thing
+    // that changed is the pin.
+    const db = getDb();
+    const suffix = `${Date.now()}-c10`;
+    const childId = await newChild(`CreditFloatOnEnd-${suffix}`);
+    // Inactive: pin targets only, never materialized by the class cron.
+    const homeTemplateId = await createTestClassTemplate({
+      organizationId,
+      venueId,
+      name: `Credit-FloatHome-${suffix}`,
+      capacity: 10,
+      active: false,
+    });
+    const otherTemplateId = await createTestClassTemplate({
+      organizationId,
+      venueId,
+      name: `Credit-FloatOther-${suffix}`,
+      capacity: 10,
+      active: false,
+    });
+    const grantId = await createCreditGrant({
+      familyMemberId: childId,
+      sessionsGranted: 3,
+      idSuffix: suffix,
+      source: "block",
+      slotTemplateId: homeTemplateId,
+    });
+    const [enrollment] = await db
+      .insert(classEnrollments)
+      .values({
+        slotTemplateId: homeTemplateId,
+        familyMemberId: childId,
+        creditGrantId: grantId,
+      })
+      .returning({ id: classEnrollments.id });
+
+    // Before: pinned to the home slot, so the other template is unreachable.
+    const otherSessionId = await createClassSession(hoursFromNow(5 * 24), {
+      slotTemplateId: otherTemplateId,
+    });
+    const beforeRes = await book(otherSessionId, childId, true);
+    expect(beforeRes.status).toBe(403);
+    expect((await beforeRes.json()).error).toBe("no_membership");
+
+    const deleteRes = await apiFetch(`/api/classes/enrollments/${enrollment.id}`, {
+      method: "DELETE",
+      cookie,
+    });
+    expect(deleteRes.status).toBe(200);
+    expect(await deleteRes.json()).toMatchObject({ ok: true, creditsFloated: 3 });
+
+    const [grantAfter] = await db
+      .select({ slotTemplateId: classCreditGrants.slotTemplateId })
+      .from(classCreditGrants)
+      .where(eq(classCreditGrants.id, grantId));
+    expect(grantAfter.slotTemplateId).toBeNull();
+
+    const afterRes = await book(otherSessionId, childId, true);
+    expect(afterRes.status).toBe(200);
+    expect((await afterRes.json()).paymentMethod).toBe("pack_credit");
+  });
+
+  it("reports NO floated credits when the backing grant has already expired", async () => {
+    // The toast built from this response promises credits "you can use on any
+    // class until <date>". A family quitting in the window between their
+    // block's expiry and the cron's sweep still has a grant with a real
+    // count-derived balance on it — and not one session of it is bookable
+    // (`selectRedeemableGrant` refuses `expiresAt <= at`). Reporting that
+    // balance would promise credits, in the past tense, that nothing can
+    // spend. The spendability filter (`remaining > 0 && expiresAt > now`) is
+    // the same one /api/classes/summary applies to the credits it renders.
+    const db = getDb();
+    const suffix = `${Date.now()}-c11`;
+    const childId = await newChild(`CreditExpiredEnd-${suffix}`);
+    const templateId = await createTestClassTemplate({
+      organizationId,
+      venueId,
+      name: `Credit-ExpiredEnd-${suffix}`,
+      capacity: 10,
+      active: false,
+    });
+    const grantId = await createCreditGrant({
+      familyMemberId: childId,
+      sessionsGranted: 3,
+      idSuffix: suffix,
+      source: "block",
+      slotTemplateId: templateId,
+      expiresAt: hoursFromNow(-1), // lapsed an hour ago; sweep hasn't run
+    });
+    const [enrollment] = await db
+      .insert(classEnrollments)
+      .values({ slotTemplateId: templateId, familyMemberId: childId, creditGrantId: grantId })
+      .returning({ id: classEnrollments.id });
+
+    const res = await apiFetch(`/api/classes/enrollments/${enrollment.id}`, {
+      method: "DELETE",
+      cookie,
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      ok: true,
+      creditsFloated: 0,
+      creditsExpireAt: null,
+    });
+
+    // A dead grant is left pinned: floating it changes nothing anyone can
+    // spend, and leaving the pin is the smaller write.
+    const [after] = await db
+      .select({ slotTemplateId: classCreditGrants.slotTemplateId })
+      .from(classCreditGrants)
+      .where(eq(classCreditGrants.id, grantId));
+    expect(after.slotTemplateId).toBe(templateId);
   });
 
   it("will NOT spend a grant on a session that starts after the grant expires", async () => {

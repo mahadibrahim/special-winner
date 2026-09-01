@@ -13,7 +13,13 @@
  *     tests/api/webhooks/dropin-checkout.test.ts): a real webhook delivery is
  *     unreachable from an API test, and the handler is the whole contract —
  *     grant shape, calendar-month expiry, and replay idempotency via the
- *     UNIQUE index on `stripe_checkout_session_id`.
+ *     PARTIAL unique index on `stripe_checkout_session_id`
+ *     (`class_credit_grants_checkout_session_uq_v2`, over the non-null rows —
+ *     admin-issued comp grants carry no session id). The replay test is the
+ *     guard on that arbiter: the handler's insert must supply the index
+ *     PREDICATE alongside the conflict target, because Postgres refuses to
+ *     infer a partial index from a bare column target (42P10) — drop the
+ *     predicate and this file fails on the very first insert.
  *
  * Fixtures are self-cleaning per tests/utils/classes-helpers.ts conventions:
  * every pack row and every grant this file creates is deleted in `afterAll`,

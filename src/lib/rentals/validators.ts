@@ -111,12 +111,14 @@ export interface ValidateRentalBookingOpts {
    * did not explicitly DECLINE (`waiverAccepted: false`) — that covers the
    * fully-omitted case (a client that knows it's covered simply doesn't
    * render the checkbox) and any partial submission (e.g. `waiverAccepted:
-   * true` with no name, or a name with no accepted flag): the endpoint
-   * ignores whatever the client sent for a covered renter and stamps the
-   * shared "on file" attribution regardless, so a partial value carries no
-   * more meaning than an omitted one. An explicit `waiverAccepted: false`
-   * is the one signal that overrides coverage — the box was shown and
-   * unchecked, which must not be silently ignored.
+   * true` with no name, or a name with no accepted flag): a partial is not a
+   * signature, so the endpoint treats it exactly like an omission and stamps
+   * the shared "on file" attribution. (A COMPLETE signature from a covered
+   * renter is a different matter — the endpoint records it, dated; see clause
+   * 4 of `recordLiabilityWaiver`'s caller contract. Either way this validator
+   * lets it through.) An explicit `waiverAccepted: false` is the one signal
+   * that overrides coverage — the box was shown and unchecked, which must not
+   * be silently ignored.
    */
   waiverOnFile?: boolean;
 }

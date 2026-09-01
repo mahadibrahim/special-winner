@@ -9,13 +9,22 @@
  * Stripe says the money moved, and an abandoned Checkout leaves no orphan.
  *
  * Idempotent: `class_credit_grants.stripe_checkout_session_id` carries a
- * UNIQUE index, so a redelivered webhook hits `ON CONFLICT DO NOTHING` and
+ * PARTIAL unique index (`class_credit_grants_checkout_session_uq_v2`, over
+ * the non-null rows — admin-issued `source='comp'` grants have no Checkout
+ * Session), so a redelivered webhook hits `ON CONFLICT DO NOTHING` and
  * no-ops instead of double-granting. The stripe_events ledger upstream is
  * the primary dedupe; this is the belt-and-braces second one, and the only
  * one that survives a ledger release-on-error retry.
+ *
+ * Both inserts below MUST pass the index predicate alongside the conflict
+ * target (`CHECKOUT_SESSION_ARBITER`). Postgres will not infer a PARTIAL
+ * unique index from a bare column target — verified against staging: the
+ * bare form fails with "there is no unique or exclusion constraint matching
+ * the ON CONFLICT specification", which would turn every webhook redelivery
+ * into a hard error (and a Stripe retry storm) instead of a no-op.
  */
 import type Stripe from "stripe";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   classBlocks,
@@ -32,6 +41,23 @@ import { capturePaymentCompleted } from "@/lib/observability/payment-telemetry";
 import { fireServerPurchaseConversions } from "@/lib/analytics/server-conversions";
 import { captureServerException } from "@/lib/observability/server-error";
 import { sendOpsPing } from "@/lib/ops/ping";
+
+/**
+ * Conflict target for the grant inserts: the column PLUS the predicate of
+ * `class_credit_grants_checkout_session_uq_v2`. The predicate is what lets
+ * Postgres infer that partial index as the arbiter; drop it and the insert
+ * errors rather than no-ops (see the file header). Both call sites share
+ * this so they can never drift apart.
+ *
+ * Only valid for inserts that ALWAYS set a checkout session id. A row with a
+ * NULL id is outside the partial index entirely, so it passes this arbiter
+ * with NO dedupe whatsoever — the admin comp-grant endpoint must not reach
+ * for this constant and expect idempotency from it.
+ */
+const CHECKOUT_SESSION_ARBITER = {
+  target: classCreditGrants.stripeCheckoutSessionId,
+  where: sql`stripe_checkout_session_id IS NOT NULL`,
+} as const;
 
 /**
  * Add `months` CALENDAR months to an instant, computed off its UTC parts.
@@ -173,7 +199,7 @@ export async function handleClassPackPurchaseComplete(
       expiresAt: addCalendarMonthsUtc(new Date(), pack.expiryMonths),
       stripeCheckoutSessionId: session.id,
     })
-    .onConflictDoNothing({ target: classCreditGrants.stripeCheckoutSessionId })
+    .onConflictDoNothing(CHECKOUT_SESSION_ARBITER)
     .returning({ id: classCreditGrants.id });
 
   // Only fire revenue analytics + ad conversions on the genuine first insert,
@@ -257,8 +283,8 @@ export async function handleClassPackPurchaseComplete(
  * seat afterwards is worse than the accepted worst case of overselling by one
  * under a race. The ops ping is how that surfaces.
  *
- * Idempotent on two independent keys: the UNIQUE index on
- * `class_credit_grants.stripe_checkout_session_id` (a redelivery no-ops and
+ * Idempotent on two independent keys: the partial unique index
+ * `class_credit_grants_checkout_session_uq_v2` (a redelivery no-ops and
  * returns before the enrollment insert) and the partial unique index
  * `class_enrollments_one_active_per_child_template` (which also absorbs the
  * genuine case of a child who already holds this slot on a membership).
@@ -438,7 +464,7 @@ export async function handleClassBlockPurchaseComplete(
         expiresAt,
         stripeCheckoutSessionId: session.id,
       })
-      .onConflictDoNothing({ target: classCreditGrants.stripeCheckoutSessionId })
+      .onConflictDoNothing(CHECKOUT_SESSION_ARBITER)
       .returning({ id: classCreditGrants.id });
     // Replay: the grant (and therefore the enrollment) already exist.
     if (inserted.length === 0) return null;

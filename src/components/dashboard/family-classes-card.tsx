@@ -104,6 +104,12 @@ interface SummaryEnrollment {
   templateName: string
   weekday: number
   startTime: string
+  /** Credit-BACKED (block) enrollments with sessions still on the grant: the
+   *  date those credits expire. Ending the enrollment un-pins the grant so
+   *  they float to any class until exactly this date (owner decision 2) —
+   *  which is the whole reason the end-enrollment confirm can promise it.
+   *  Null for membership-backed seats and exhausted/lapsed grants. */
+  creditsExpireAt: string | null
 }
 
 interface SummaryNextSession {
@@ -113,7 +119,9 @@ interface SummaryNextSession {
 }
 
 interface SummaryCredit {
-  source: "pack" | "block"
+  /** "comp" = admin-issued goodwill credits; they render exactly like pack
+   *  credits, with the label the API supplies. */
+  source: "pack" | "block" | "comp"
   remaining: number
   expiresAt: string
   label: string
@@ -305,6 +313,90 @@ function WaiverNudge({ onOpen }: { onOpen: () => void }) {
     >
       Sign this year's waiver to book classes →
     </button>
+  )
+}
+
+/**
+ * "End enrollment" — gives up the child's STANDING weekly seat (not a single
+ * booking; that's the `Cancel` action above, which targets `nextSession`).
+ *
+ * `DELETE /api/classes/enrollments/:id` releases the seat, cancels the child's
+ * already-booked future $0 sessions on that slot, and — for a credit-backed
+ * (block) seat — un-pins the backing grant so the sessions the family already
+ * paid for become credits spendable on ANY class until their unchanged expiry
+ * (owner decision 2; no cash refunds). The confirm says so BEFORE the click
+ * commits, using the expiry the summary supplies; the toast afterwards reports
+ * the exact count off the response, which is the only place it's knowable —
+ * the releases above hand credits BACK, so the post-end balance is higher than
+ * anything the dashboard could have computed up front. That's also why the
+ * confirm deliberately quotes no number.
+ *
+ * Shared by both card variants: a block family with no membership renders as
+ * `CreditChildCard`, and they are precisely the family this float exists for.
+ */
+function EndEnrollmentButton({
+  child,
+  onChanged,
+}: {
+  child: SummaryChild
+  onChanged: () => void
+}) {
+  const [ending, setEnding] = useState(false)
+  const enrollment = child.enrollment
+  if (!enrollment) return null
+
+  async function handleEnd() {
+    if (!enrollment) return
+    const creditsLine = enrollment.creditsExpireAt
+      ? ` The remaining sessions become credits you can use on any class until ${formatShortDate(enrollment.creditsExpireAt)}.`
+      : ""
+    // "with your membership or block credits" is load-bearing, not padding:
+    // the release deliberately spares PAID make-ups (see the scope boundary in
+    // `releaseFutureEnrollmentSeats`), so a flat "any classes already booked
+    // are cancelled" would tell a family their paid session is gone when it
+    // is still theirs to attend.
+    const confirmed = window.confirm(
+      `End ${child.name}'s enrollment in ${enrollment.templateName}? Their weekly spot is ` +
+        `released and any classes already booked on it with your membership or block ` +
+        `credits are cancelled — classes you paid for separately are unaffected.${creditsLine}`,
+    )
+    if (!confirmed) return
+
+    setEnding(true)
+    try {
+      const res = await fetch(`/api/classes/enrollments/${enrollment.id}`, { method: "DELETE" })
+      const body = await parseJson(res)
+      if (!res.ok) {
+        toast.error(
+          typeof body.message === "string"
+            ? body.message
+            : "Could not end this enrollment — please try again.",
+        )
+        return
+      }
+      const floated = typeof body.creditsFloated === "number" ? body.creditsFloated : 0
+      const expiresAt = typeof body.creditsExpireAt === "string" ? body.creditsExpireAt : null
+      if (floated > 0 && expiresAt) {
+        toast.success(
+          `Enrollment ended — ${floated} session${floated === 1 ? "" : "s"} ${
+            floated === 1 ? "is" : "are"
+          } now credits you can use on any class until ${formatShortDate(expiresAt)}.`,
+        )
+      } else {
+        toast.success(`${child.name}'s enrollment has ended.`)
+      }
+      onChanged()
+    } catch {
+      toast.error("Network error — please try again.")
+    } finally {
+      setEnding(false)
+    }
+  }
+
+  return (
+    <Button size="sm" variant="outline" disabled={ending} onClick={() => void handleEnd()}>
+      {ending ? "Ending…" : "End enrollment"}
+    </Button>
   )
 }
 
@@ -668,14 +760,15 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
    * live release on record.
    *
    * Covered → pay with NO waiver fields. The booking endpoint re-checks the
-   * same canonical predicate, but be honest about what that check DOES:
-   * `/api/dropin/bookings` consults `hasValidLiabilityWaiver` only to decide
-   * the STAMP (it sets `waiver_on_file: "1"` in the Stripe metadata that
-   * fulfillment reads). It does NOT refuse an unsigned paid make-up. So for
-   * THIS door the client is the only gate, which is exactly why the skip must
-   * be conservative: only strict `true` skips, and `false`/`undefined`/a
-   * summary that never loaded all fall through to ASKING. Do not weaken this
-   * to a truthiness check on the assumption that the server would catch it.
+   * same canonical predicate: it sets `waiver_on_file: "1"` in the Stripe
+   * metadata fulfillment reads when the child IS covered, and refuses with
+   * 422 `waiver_required` when the child is not and no signature came with
+   * the request. That server gate is a backstop, not a licence to loosen this
+   * one — `child.hasWaiverOnFile` comes off a summary snapshot that can be
+   * stale, and the difference between the two decisions is a dead-end error
+   * versus a panel the parent can act on. Only strict `true` skips;
+   * `false`/`undefined`/a summary that never loaded all fall through to
+   * ASKING. Do not weaken this to a truthiness check.
    */
   async function payOrCollectWaiver() {
     if (!exhaustedOffer) return
@@ -731,16 +824,14 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
               ? err.code
               : undefined
 
-        // The endpoint does not gate on the waiver TODAY (it consults the
-        // predicate only to stamp Stripe metadata — see payOrCollectWaiver's
-        // doc comment). But `payOrCollectWaiver` sends no signature whenever
-        // `hasWaiverOnFile` is true, and that flag comes off a summary
-        // snapshot that can be STALE — a waiver that lapsed between the
-        // dashboard load and this click, or a future server-side gate, would
-        // both surface here. Route it to the panel the user can actually act
-        // on instead of a dead "could not start payment". `waiverPurpose`
-        // stays "pay", so signing resubmits this same paid booking with the
-        // signature attached.
+        // The endpoint gates the child path server-side: no valid annual
+        // waiver and no signature on the request → 422. `payOrCollectWaiver`
+        // sends no signature whenever `hasWaiverOnFile` is true, and that flag
+        // comes off a summary snapshot that can be STALE — a waiver that
+        // lapsed between the dashboard load and this click lands exactly here.
+        // Route it to the panel the user can actually act on instead of a dead
+        // "could not start payment". `waiverPurpose` stays "pay", so signing
+        // resubmits this same paid booking with the signature attached.
         if (code === "waiver_required") {
           setPendingSession(exhaustedOffer.session)
           setWaiverPurpose("pay")
@@ -962,12 +1053,11 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
 
         {phase === "allotment_exhausted" && exhaustedOffer && (
           <>
-            <DialogTitle className="text-ink">This month's classes are used up</DialogTitle>
+            <DialogTitle className="text-ink">Book this class</DialogTitle>
             <DialogDescription className="text-ink-2">
-              {child.name}'s monthly allotment is used up for{" "}
-              {formatDateTime(exhaustedOffer.session.startsAt)}. Pay{" "}
-              {fmtDollars(exhaustedOffer.memberRateCents) ?? "the class rate"} to make up this one
-              class instead?
+              {child.name}'s membership doesn't cover{" "}
+              {formatDateTime(exhaustedOffer.session.startsAt)} — book it as a one-off for{" "}
+              {fmtDollars(exhaustedOffer.memberRateCents) ?? "the class rate"}?
             </DialogDescription>
             <ErrorBanner message={flowError} />
             <div className="flex gap-3">
@@ -1109,6 +1199,7 @@ function MembershipChildCard({
                 </a>
               </Button>
             )}
+            <EndEnrollmentButton child={child} onChanged={onChanged} />
             {child.nextSession && (
               <Button size="sm" variant="outline" disabled={cancelling} onClick={() => void handleCancel()}>
                 {cancelling ? "Cancelling…" : "Cancel"}
@@ -1200,12 +1291,22 @@ function CreditChildCard({
         title={child.name}
         meta={creditLine(child.credits[0])}
         action={
-          <Button size="sm" onClick={() => setModalOpen(true)}>
-            Book a session
-          </Button>
+          <div className="flex flex-col items-end gap-1.5">
+            <Button size="sm" onClick={() => setModalOpen(true)}>
+              Book a session
+            </Button>
+            <EndEnrollmentButton child={child} onChanged={onChanged} />
+          </div>
         }
       >
         <div className="mt-1.5 space-y-1">
+          {child.enrollment && (
+            <p className="text-xs text-ink-2">
+              Home slot:{" "}
+              <span className="font-medium text-ink">{child.enrollment.templateName}</span> —{" "}
+              {formatDayTime(child.enrollment.weekday, child.enrollment.startTime)}
+            </p>
+          )}
           {child.credits.length > 1 && <CreditLines credits={child.credits.slice(1)} />}
           {showWaiverNudge && <WaiverNudge onOpen={() => setModalOpen(true)} />}
         </div>

@@ -8,7 +8,10 @@ import { familyMembers, registrations } from "@/lib/db/schema/registrations";
 import { venues, rosters } from "@/lib/db/schema/teams";
 import { users } from "@/lib/db/schema/users";
 import { mintToken } from "@/lib/check-in/tokens-db";
-import { WAIVER_VALID_DAYS } from "@/lib/consents/liability";
+import {
+  WAIVER_ON_FILE_ATTRIBUTION,
+  WAIVER_VALID_DAYS,
+} from "@/lib/consents/liability";
 import { createTestGameContext } from "../../utils/activity-tracking-helpers";
 import { E2E_RENTAL_VENUE_ID, E2E_ORG_ID } from "@/lib/db/seeds/seed-e2e-tests";
 import { and, eq, inArray } from "drizzle-orm";
@@ -517,7 +520,97 @@ describe("POST /api/self-serve/[token]/waiver — field_rental annual waiver (ac
     expect(rows[0].userAgent).toBe("annual-waiver-rental-selfserve-test/1.0");
   });
 
-  it("a re-POST after coverage does not append a second consents row", async () => {
+  it("a covered renter signing a DIFFERENT rental has that signature appended", async () => {
+    // Two rentals, two visits, two signatures. The first makes the renter
+    // covered; the second is still a real human signing a real release on a
+    // row that carries none. Coverage gates the ASK (build-context suppresses
+    // the card), never the record — caller contract, clause 4. The old
+    // behaviour dropped the second signature out of the canonical log
+    // entirely, leaving a dated local row with nothing behind it.
+    const userId = await makeAccountedRenter("covered-second");
+    const firstToken = await mintRentalToken(userId, 12);
+    const firstRes = await apiFetch(`/api/self-serve/${firstToken}/waiver`, {
+      method: "POST",
+      body: JSON.stringify({ acceptedName: "Sign Renter" }),
+    });
+    expect(firstRes.status).toBe(200);
+    expect(await liabilityRowsForSelf(userId)).toHaveLength(1);
+
+    const secondToken = await mintRentalToken(userId, 13);
+    const secondRes = await apiFetch(`/api/self-serve/${secondToken}/waiver`, {
+      method: "POST",
+      headers: { "User-Agent": "covered-signs-selfserve/1.0" },
+      body: JSON.stringify({ acceptedName: "Sign Renter Second Visit" }),
+    });
+    expect(secondRes.status).toBe(200);
+
+    const rows = await liabilityRowsForSelf(userId);
+    expect(rows).toHaveLength(2);
+    const names = rows.map((r) => r.signedByName);
+    expect(names).toContain("Sign Renter Second Visit");
+    const appended = rows.find((r) => r.signedByName === "Sign Renter Second Visit")!;
+    // ip/UA from THIS request's context, never the body.
+    expect(appended.userAgent).toBe("covered-signs-selfserve/1.0");
+  });
+
+  it("a BORN-STAMPED covered rental still records a signature that arrives", async () => {
+    // The rentals door births a covered renter's booking already stamped
+    // `waiverSigned: true` with a NULL date — nobody signed it. A replay guard
+    // that read the bare flag would call that "already signed", skip the
+    // append, and yet still DATE the row below: a dated local signature with
+    // no canonical consent behind it, which is the exact state the legacy
+    // fallback then honours for a year off a signature the log never saw.
+    // Only a DATED prior signature is a replay.
+    const userId = await makeAccountedRenter("born-stamped");
+    const firstToken = await mintRentalToken(userId, 14);
+    await apiFetch(`/api/self-serve/${firstToken}/waiver`, {
+      method: "POST",
+      body: JSON.stringify({ acceptedName: "Sign Renter" }),
+    });
+    expect(await liabilityRowsForSelf(userId)).toHaveLength(1);
+
+    // Second rental, born stamped from the annual waiver the first visit put
+    // on file — exactly what POST /api/rentals/bookings writes for a covered
+    // renter who sends no signature fields.
+    const stampedToken = await mintRentalToken(userId, 15);
+    // `mintRentalToken` pushes the rental it just created, so the tail of the
+    // tracking array is this token's target — no token-table lookup needed.
+    const stampedRentalId = createdRentalIds[createdRentalIds.length - 1];
+    await getDb()
+      .update(fieldRentals)
+      .set({
+        waiverSigned: true,
+        waiverSignedBy: WAIVER_ON_FILE_ATTRIBUTION,
+        waiverSignedAt: null,
+      })
+      .where(eq(fieldRentals.id, stampedRentalId));
+
+    const res = await apiFetch(`/api/self-serve/${stampedToken}/waiver`, {
+      method: "POST",
+      headers: { "User-Agent": "born-stamped-selfserve/1.0" },
+      body: JSON.stringify({ acceptedName: "Sign Renter Third Visit" }),
+    });
+    expect(res.status).toBe(200);
+
+    // The row is now DATED and named for the human who signed it…
+    const [row] = await getDb()
+      .select({
+        waiverSignedBy: fieldRentals.waiverSignedBy,
+        waiverSignedAt: fieldRentals.waiverSignedAt,
+      })
+      .from(fieldRentals)
+      .where(eq(fieldRentals.id, stampedRentalId));
+    expect(row.waiverSignedBy).toBe("Sign Renter Third Visit");
+    expect(row.waiverSignedAt).not.toBeNull();
+
+    // …and exactly ONE consent was appended to stand behind that date.
+    const rows = await liabilityRowsForSelf(userId);
+    expect(rows).toHaveLength(2);
+    const appended = rows.find((r) => r.signedByName === "Sign Renter Third Visit")!;
+    expect(appended.userAgent).toBe("born-stamped-selfserve/1.0");
+  });
+
+  it("a re-POST on the SAME rental does not append a second consents row", async () => {
     const userId = await makeAccountedRenter("repeat");
     const token = await mintRentalToken(userId, 11);
 
@@ -530,8 +623,11 @@ describe("POST /api/self-serve/[token]/waiver — field_rental annual waiver (ac
 
     // The token is never consumed by this endpoint (that only happens for
     // single-use check-in flows elsewhere) — a second POST on the SAME
-    // token (double submit / refreshed link) must not append a second
-    // audit row, because the person is now covered by the row just written.
+    // token (double submit / refreshed link) must not append a second audit
+    // row. What stops it is PER-ROW idempotency ("this rental already carries
+    // a signature"), not coverage: one signing event delivered twice is not
+    // two signing events, while the test above shows two real signings on two
+    // rentals both get recorded.
     const second = await apiFetch(`/api/self-serve/${token}/waiver`, {
       method: "POST",
       body: JSON.stringify({ acceptedName: "Sign Renter Again" }),

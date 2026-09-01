@@ -13,8 +13,9 @@
  *    before;
  *  - a genuinely fresh signature is dated, named, and written to `consents`
  *    org-scoped;
- *  - a covered participant who ALSO submits a signature appends nothing to the
- *    append-only consents log.
+ *  - a covered participant who ALSO submits a genuine signature has it
+ *    RECORDED — dated columns plus one appended consents row — while a covered
+ *    participant who submits none leaves the log untouched.
  *
  * Fixtures are run-unique children under the seeded parent account, torn down
  * in afterAll (registrations first — family_members is ON DELETE RESTRICT).
@@ -253,7 +254,12 @@ describe("POST /api/registrations — annual waiver on file", () => {
     ).toBeLessThan(5000);
   });
 
-  it("appends nothing to the consents log when a covered family signs anyway", async () => {
+  it("records the REAL signature when a covered family signs anyway", async () => {
+    // The deliberate exception to "gate first" (see recordLiabilityWaiver's
+    // caller contract): a covered family shown a stale form types a real name
+    // and really assents. Stamping "On file (annual waiver)" over that would
+    // file a false audit entry — the honest record is the signature, dated,
+    // with its own appended consents row.
     const childId = await newChild("CoveredSigns");
     await insertLiabilityConsent(childId, 1);
     expect(await liabilityConsents(childId)).toHaveLength(1);
@@ -263,12 +269,36 @@ describe("POST /api/registrations — annual waiver on file", () => {
       waiverSignedBy: "Redundant Signer",
     });
     expect(res.status).toBe(201);
+    // The response still reports coverage — the completion form keeps
+    // dropping the release for this family.
+    expect((await res.json()).waiverOnFile).toBe(true);
 
-    // consents is append-only and does not dedupe: a second row here would
-    // log a signature the flow did not need and would extend the annual
-    // window off the back of it.
+    const rows = await liabilityConsents(childId);
+    expect(rows).toHaveLength(2);
+    expect(rows[0].signedByName).toBe("Redundant Signer");
+    // ip/UA come from THIS request's context, never the body.
+    expect(rows[0].userAgent).toBeTruthy();
+    expect(rows[0].status).toBe("granted");
+
+    const row = await waiverColumns(childId);
+    expect(row.waiverSigned).toBe(true);
+    expect(row.waiverSignedBy).toBe("Redundant Signer");
+    expect(row.waiverSignedAt).toBeTruthy();
+  });
+
+  it("appends nothing when a covered family submits NO signature", async () => {
+    // The other side of the same rule, and the one that keeps the annual
+    // waiver from renewing itself: with no signature field in the payload
+    // there is no human act to record, so the on-file branch stays a pure
+    // READ — undated stamp, log untouched.
+    const childId = await newChild("CoveredSilent");
+    await insertLiabilityConsent(childId, 1);
     expect(await liabilityConsents(childId)).toHaveLength(1);
 
+    const res = await registerChild(childId);
+    expect(res.status).toBe(201);
+
+    expect(await liabilityConsents(childId)).toHaveLength(1);
     const row = await waiverColumns(childId);
     expect(row.waiverSignedBy).toBe(WAIVER_ON_FILE_ATTRIBUTION);
     expect(row.waiverSignedAt).toBeNull();

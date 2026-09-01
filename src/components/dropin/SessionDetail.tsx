@@ -16,6 +16,7 @@ import {
   DROPIN_WAIVER_TEXT,
   DROPIN_WAIVER_ACCEPT_LABEL,
 } from "@/lib/dropin/waiver-text";
+import { waiverAssentSentence } from "@/lib/consents/waiver-consent-language";
 import { BookButton } from "./BookButton";
 
 interface DetailResponse {
@@ -62,6 +63,15 @@ interface DetailResponse {
    *  Absent/undefined from an older response body reads as NOT covered — the
    *  skip must fail toward asking. */
   bookingWaiverOnFile?: boolean | null;
+  /** The booking's ACTUAL paymentMethod (e.g. "pack_credit" when a class
+   *  session was paid from a purchased credit grant) — distinct from
+   *  resolvedPaymentMethod above, which quotes what a NEW booking would
+   *  cost right now. Powers the "Paid with class credit" badge. */
+  bookingPaymentMethod?: string | null;
+  /** The booking's PARTICIPANT id/name — powers the guardian assent
+   *  sentence on the waiver card. Null for an adult drop-in. */
+  bookingFamilyMemberId?: string | null;
+  bookingFamilyMemberName?: string | null;
   host: { firstName: string; photoUrl: string | null; bio: string | null } | null;
 }
 
@@ -91,16 +101,32 @@ interface SessionDetailProps {
 function WaiverCard({
   bookingId,
   paymentIntentId,
+  isChildBooking,
+  childName,
   onSigned,
 }: {
   bookingId: string;
   /** Guest capability token — lets a buyer with no login session sign. */
   paymentIntentId: string | null;
+  /** True iff the booking carries a `family_member_id` — swaps the checkbox
+   *  sentence to the guardian variant. Gated on the SAME signal
+   *  `/api/dropin/bookings/[id]/waiver` gates its recorded consentText on
+   *  (`row.familyMemberId` truthy), not on whether the name happened to
+   *  resolve — the two must never be able to disagree about which sentence
+   *  applies, only about how it's worded. */
+  isChildBooking: boolean;
+  /** The booking's participant name, when known. `waiverAssentSentence`
+   *  falls back to "the player" if this is null. */
+  childName: string | null;
   onSigned: () => void;
 }) {
   const [accepted, setAccepted] = useState(false);
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  const acceptLabel = isChildBooking
+    ? waiverAssentSentence("guardian", childName ?? undefined)
+    : DROPIN_WAIVER_ACCEPT_LABEL;
 
   const submit = async () => {
     setSubmitting(true);
@@ -152,7 +178,7 @@ function WaiverCard({
           htmlFor="waiver-accept"
           className="text-sm leading-snug cursor-pointer"
         >
-          {DROPIN_WAIVER_ACCEPT_LABEL}
+          {acceptLabel}
         </Label>
       </div>
 
@@ -397,6 +423,8 @@ export default function SessionDetail({
         <WaiverCard
           bookingId={data.bookingId!}
           paymentIntentId={paymentIntentId ?? null}
+          isChildBooking={Boolean(data.bookingFamilyMemberId)}
+          childName={data.bookingFamilyMemberName ?? null}
           onSigned={() => setWaiverJustSigned(true)}
         />
       )}
@@ -438,6 +466,11 @@ export default function SessionDetail({
         {session.membersOnly && (
           <Badge className="bg-amber-100 text-amber-900 border-amber-200">
             Members only
+          </Badge>
+        )}
+        {data.bookingPaymentMethod === "pack_credit" && (
+          <Badge className="bg-emerald-100 text-emerald-900 border-emerald-200">
+            Paid with class credit
           </Badge>
         )}
       </div>

@@ -205,7 +205,11 @@ async function dispatch(event: Stripe.Event): Promise<void> {
       } else if (session.metadata?.type === "class_pack_purchase") {
         // Class-pack purchase (payment mode, platform account). The handler
         // inserts the class_credit_grants row and is idempotent on the
-        // session id's UNIQUE index, so a redelivery no-ops.
+        // PARTIAL unique index over non-null session ids
+        // (class_credit_grants_checkout_session_uq_v2), so a redelivery
+        // no-ops. That insert must pass the index predicate alongside the
+        // conflict target — Postgres cannot infer a partial index from a bare
+        // column target.
         await handleClassPackPurchaseComplete(session);
         console.log(
           `[stripe webhook] checkout.session.completed (class_pack) → ${session.id}`,
@@ -213,8 +217,9 @@ async function dispatch(event: Stripe.Event): Promise<void> {
       } else if (session.metadata?.type === "class_block_purchase") {
         // Class-BLOCK purchase (payment mode, platform account). Inserts the
         // slot-pinned class_credit_grants row AND the credit-backed
-        // class_enrollments row in one transaction; idempotent on the session
-        // id's UNIQUE index, so a redelivery no-ops.
+        // class_enrollments row in one transaction; idempotent on the same
+        // PARTIAL unique index as the pack handler above (predicate required
+        // in the ON CONFLICT clause), so a redelivery no-ops.
         await handleClassBlockPurchaseComplete(session);
         console.log(
           `[stripe webhook] checkout.session.completed (class_block) → ${session.id}`,

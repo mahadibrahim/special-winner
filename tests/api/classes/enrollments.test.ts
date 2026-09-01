@@ -1,8 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { classEnrollments } from "@/lib/db/schema/classes";
+import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
+import { endEnrollmentsForMembership } from "@/lib/classes/enrollment";
 import { apiFetch, getAuthCookie } from "../setup/test-helpers";
+import { createTestDropInSession } from "../../utils/dropin-helpers";
 import {
   resolveClassTestFixtures,
   createTestChild,
@@ -26,6 +29,10 @@ let cookie: string;
 // to) the cron this suite tests. See cleanupTestClassFixtures's doc comment.
 const createdTemplateIds: string[] = [];
 const createdEnrollmentIds: string[] = [];
+/** Every drop_in_sessions row this file materializes, cancelled in afterAll so
+ *  none of them linger as a later run's "earliest upcoming scheduled session"
+ *  (same rationale as class-block-purchase.test.ts's identical list). */
+const createdSessionIds: string[] = [];
 
 beforeAll(async () => {
   ({ organizationId, venueId, parentUserId, tierId } = await resolveClassTestFixtures());
@@ -38,6 +45,14 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  const db = getDb();
+  if (createdSessionIds.length > 0) {
+    await db.delete(dropInBookings).where(inArray(dropInBookings.sessionId, createdSessionIds));
+    await db
+      .update(dropInSessions)
+      .set({ status: "cancelled" })
+      .where(inArray(dropInSessions.id, createdSessionIds));
+  }
   await cleanupTestClassFixtures(createdTemplateIds, createdEnrollmentIds);
 });
 
@@ -61,6 +76,30 @@ async function createTemplate(
   });
   createdTemplateIds.push(id);
   return id;
+}
+
+function hoursFromNow(hours: number): Date {
+  return new Date(Date.now() + hours * 3_600_000);
+}
+
+/** A `kind='class'` drop_in_sessions row pinned to a class-slot template —
+ *  the shape the materialization cron produces. */
+async function createClassSession(startsAt: Date, slotTemplateId: string): Promise<string> {
+  const db = getDb();
+  const ctx = await createTestDropInSession({
+    organizationId,
+    venueId,
+    kind: "class",
+    capacity: 10,
+    startsAt,
+    memberRateCents: 999,
+  });
+  await db
+    .update(dropInSessions)
+    .set({ classSlotTemplateId: slotTemplateId })
+    .where(eq(dropInSessions.id, ctx.sessionId));
+  createdSessionIds.push(ctx.sessionId);
+  return ctx.sessionId;
 }
 
 /** A `YYYY-MM-DD` birth date for a child who is exactly `age` years old
@@ -488,5 +527,234 @@ describe("DELETE /api/classes/enrollments/:id", () => {
       cookie,
     });
     expect(secondDeleteRes.status).toBe(409);
+  });
+
+  it("releases the child's future $0 seats, reports no floated credits, and promotes the waitlist", async () => {
+    // A MEMBERSHIP-backed end has the same leak a slot change does: the
+    // materialize cron books up to HORIZON_DAYS ahead, so quitting leaves
+    // already-booked future sessions burning an allotment unit on a class
+    // nobody will attend — and holding a seat a waitlisted family wants.
+    // There is no grant behind this enrollment, so the float fields report
+    // the honest zero rather than being omitted.
+    const db = getDb();
+    const suffix = Date.now();
+    const templateId = await createTemplate(`Delete-Release-${suffix}`, 5);
+    const childId = await createTestChild(parentUserId, `Releaser-${suffix}`);
+    await createTestChildMembership({
+      userId: parentUserId,
+      familyMemberId: childId,
+      organizationId,
+      tierId,
+      idSuffix: `releaser-${suffix}`,
+    });
+
+    const createRes = await apiFetch("/api/classes/enrollments", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({ slotTemplateId: templateId, familyMemberId: childId }),
+    });
+    expect(createRes.status).toBe(200);
+    const { enrollmentId } = await createRes.json();
+    createdEnrollmentIds.push(enrollmentId);
+
+    // The auto-booked future seat the cron would have left behind…
+    const futureSessionId = await createClassSession(hoursFromNow(72), templateId);
+    const [booking] = await db
+      .insert(dropInBookings)
+      .values({
+        sessionId: futureSessionId,
+        userId: parentUserId,
+        familyMemberId: childId,
+        status: "confirmed",
+        source: "auto_enrollment",
+        paymentMethod: "member_allotment",
+        amountPaidCents: 0,
+      })
+      .returning({ id: dropInBookings.id });
+
+    // …and a sibling waiting for exactly that seat.
+    const waitlistChildId = await createTestChild(parentUserId, `ReleaseWaiter-${suffix}`);
+    const [waitlisted] = await db
+      .insert(dropInBookings)
+      .values({
+        sessionId: futureSessionId,
+        userId: parentUserId,
+        familyMemberId: waitlistChildId,
+        status: "waitlisted",
+        source: "online_booking",
+        paymentMethod: "member_allotment",
+        amountPaidCents: 0,
+      })
+      .returning({ id: dropInBookings.id });
+
+    // A PAST $0 seat on the same slot: already attended, never rewritten.
+    const pastSessionId = await createClassSession(hoursFromNow(-72), templateId);
+    const [pastBooking] = await db
+      .insert(dropInBookings)
+      .values({
+        sessionId: pastSessionId,
+        userId: parentUserId,
+        familyMemberId: childId,
+        status: "confirmed",
+        source: "auto_enrollment",
+        paymentMethod: "member_allotment",
+        amountPaidCents: 0,
+      })
+      .returning({ id: dropInBookings.id });
+
+    const deleteRes = await apiFetch(`/api/classes/enrollments/${enrollmentId}`, {
+      method: "DELETE",
+      cookie,
+    });
+    expect(deleteRes.status).toBe(200);
+    expect(await deleteRes.json()).toMatchObject({
+      ok: true,
+      creditsFloated: 0,
+      creditsExpireAt: null,
+    });
+
+    const [after] = await db
+      .select({
+        status: dropInBookings.status,
+        cancelledAt: dropInBookings.cancelledAt,
+        cancellationReason: dropInBookings.cancellationReason,
+      })
+      .from(dropInBookings)
+      .where(eq(dropInBookings.id, booking.id));
+    expect(after.status).toBe("cancelled");
+    expect(after.cancelledAt).not.toBeNull();
+    expect(after.cancellationReason).toBe("user_request");
+
+    const [pastAfter] = await db
+      .select({ status: dropInBookings.status })
+      .from(dropInBookings)
+      .where(eq(dropInBookings.id, pastBooking.id));
+    expect(pastAfter.status).toBe("confirmed");
+
+    // Post-commit promotion, the same best-effort loop the slot change runs.
+    const [promoted] = await db
+      .select({ status: dropInBookings.status, promotionToken: dropInBookings.promotionToken })
+      .from(dropInBookings)
+      .where(eq(dropInBookings.id, waitlisted.id));
+    expect(promoted.status).toBe("pending_claim");
+    expect(promoted.promotionToken).not.toBeNull();
+  });
+});
+
+describe("endEnrollmentsForMembership (the subscription-deleted cascade)", () => {
+  // The `customer.subscription.deleted` webhook can't be driven from here
+  // (it needs STRIPE_CONNECT_WEBHOOK_SECRET and the SoccerOne fixture org —
+  // see tests/api/memberships/webhook-subscription-lifecycle.test.ts, which
+  // skips wholesale without them). The handler is a two-liner whose delegation
+  // is unit-tested; the REAL SQL — the part that regressed — is this library
+  // function, exercised here against the same staging DB every other test in
+  // this file uses.
+
+  it("ends the membership's enrollments AND releases their future $0 seats, sparing paid ones", async () => {
+    const db = getDb();
+    const suffix = Date.now();
+    const templateId = await createTemplate(`Delete-Churn-${suffix}`, 5);
+    const childId = await createTestChild(parentUserId, `Churner-${suffix}`);
+    const membershipId = await createTestChildMembership({
+      userId: parentUserId,
+      familyMemberId: childId,
+      organizationId,
+      tierId,
+      idSuffix: `churner-${suffix}`,
+    });
+
+    const createRes = await apiFetch("/api/classes/enrollments", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({ slotTemplateId: templateId, familyMemberId: childId }),
+    });
+    expect(createRes.status).toBe(200);
+    const { enrollmentId } = await createRes.json();
+    createdEnrollmentIds.push(enrollmentId);
+
+    // Ending the standing seat alone used to leave this booking standing: the
+    // cron had already materialized it, so a churned family kept a confirmed
+    // class they no longer pay for and the seat stayed off the waitlist.
+    const futureSessionId = await createClassSession(hoursFromNow(72), templateId);
+    const [booking] = await db
+      .insert(dropInBookings)
+      .values({
+        sessionId: futureSessionId,
+        userId: parentUserId,
+        familyMemberId: childId,
+        status: "confirmed",
+        source: "auto_enrollment",
+        paymentMethod: "member_allotment",
+        amountPaidCents: 0,
+      })
+      .returning({ id: dropInBookings.id });
+
+    // A PAID make-up survives a churn for the same reason it survives a quit:
+    // this path can't refund it, so it isn't this path's to cancel.
+    const paidSessionId = await createClassSession(hoursFromNow(96), templateId);
+    const [paidBooking] = await db
+      .insert(dropInBookings)
+      .values({
+        sessionId: paidSessionId,
+        userId: parentUserId,
+        familyMemberId: childId,
+        status: "confirmed",
+        source: "online_booking",
+        paymentMethod: "card_online",
+        amountPaidCents: 2_500,
+        stripePaymentIntentId: `pi_test_churn_${suffix}`,
+      })
+      .returning({ id: dropInBookings.id });
+
+    // A waitlisted sibling on the freed session — post-commit promotion runs
+    // in the webhook path too.
+    const waitlistChildId = await createTestChild(parentUserId, `ChurnWaiter-${suffix}`);
+    const [waitlisted] = await db
+      .insert(dropInBookings)
+      .values({
+        sessionId: futureSessionId,
+        userId: parentUserId,
+        familyMemberId: waitlistChildId,
+        status: "waitlisted",
+        source: "online_booking",
+        paymentMethod: "member_allotment",
+        amountPaidCents: 0,
+      })
+      .returning({ id: dropInBookings.id });
+
+    expect(await endEnrollmentsForMembership(membershipId)).toEqual({ endedCount: 1 });
+
+    const [enrollmentAfter] = await db
+      .select({ status: classEnrollments.status, endedAt: classEnrollments.endedAt })
+      .from(classEnrollments)
+      .where(eq(classEnrollments.id, enrollmentId));
+    expect(enrollmentAfter.status).toBe("ended");
+    expect(enrollmentAfter.endedAt).not.toBeNull();
+
+    const [released] = await db
+      .select({
+        status: dropInBookings.status,
+        cancellationReason: dropInBookings.cancellationReason,
+      })
+      .from(dropInBookings)
+      .where(eq(dropInBookings.id, booking.id));
+    expect(released.status).toBe("cancelled");
+    expect(released.cancellationReason).toBe("user_request");
+
+    const [paidAfter] = await db
+      .select({ status: dropInBookings.status, cancelledAt: dropInBookings.cancelledAt })
+      .from(dropInBookings)
+      .where(eq(dropInBookings.id, paidBooking.id));
+    expect(paidAfter.status).toBe("confirmed");
+    expect(paidAfter.cancelledAt).toBeNull();
+
+    const [promoted] = await db
+      .select({ status: dropInBookings.status })
+      .from(dropInBookings)
+      .where(eq(dropInBookings.id, waitlisted.id));
+    expect(promoted.status).toBe("pending_claim");
+
+    // Replay-safe: a redelivered webhook ends nothing and releases nothing.
+    expect(await endEnrollmentsForMembership(membershipId)).toEqual({ endedCount: 0 });
   });
 });

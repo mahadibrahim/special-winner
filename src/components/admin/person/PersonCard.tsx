@@ -6,7 +6,8 @@
  * Opens a Sheet on the right when `target` is non-null. Uses `usePerson` to
  * load the PersonProfile, then renders `PersonHeader` + a type-specific body:
  *
- *   child  (teal)   → Today + Consents (COPPA). "Send to parent" link actions.
+ *   child  (teal)   → Today + Consents (COPPA) + Class credits (comp-grant
+ *                     admin action). "Send to parent" link actions.
  *   adult  (slate)  → Today + Membership.
  *   parent (ochre)  → Family roster + Account & billing; primary CTA is "+ Walk-in for family".
  *
@@ -32,6 +33,7 @@ import {
   RegistrationsSection,
   PaymentsSection,
   ConsentsSection,
+  ClassCreditsSection,
   MembershipSection,
   FamilySection,
   AccountBillingSection,
@@ -280,7 +282,8 @@ export function PersonCard({ target, onClose, onWalkIn, onOpenPerson }: Props) {
                   />
                   <RegistrationsSection registrations={profile.registrations} />
                   <PaymentsSection payments={profile.payments} />
-                  <ConsentsSection consents={profile.consents} last />
+                  <ConsentsSection consents={profile.consents} />
+                  <ClassCreditsSection familyMemberId={profile.id} last />
                 </>
               )}
 

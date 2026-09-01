@@ -505,8 +505,10 @@ describe("Paid child door — annual waiver stamping at the booking endpoint", (
     },
   );
 
-  itWithStripe(
-    "does NOT stamp waiver_on_file when the only signature has expired",
+  // No Stripe needed: the gate fires BEFORE any Checkout Session is minted,
+  // which is the whole point of the assertion — so it runs everywhere.
+  it(
+    "422s waiver_required when the only signature has expired and none is supplied",
     async () => {
       const childId = await newWaiverChild("WaiverExpiredChild");
       await insertLiabilityConsent({
@@ -520,10 +522,139 @@ describe("Paid child door — annual waiver stamping at the booking endpoint", (
         cookie,
         body: JSON.stringify({ sessionId, familyMemberId: childId }),
       });
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(422);
       const body = await res.json();
+      // Same flat `{ error: "<code>" }` envelope the FREE door emits, so the
+      // clients' single `waiver_required` branch covers both.
+      expect(body.error).toBe("waiver_required");
+      // Nothing was minted, and nothing was written.
+      expect(body.checkoutUrl).toBeUndefined();
+      expect(body.checkoutSessionId).toBeUndefined();
+      expect(body.clientSecret).toBeUndefined();
+      expect(await bookingForSession(sessionId)).toBeUndefined();
+    },
+  );
 
-      const stripeSession = await stripe!.checkout.sessions.retrieve(body.checkoutSessionId);
+  it("422s waiver_required for a child with no waiver of any kind — embedded flow too", async () => {
+    const childId = await newWaiverChild("WaiverNoneChild");
+    const sessionId = await createPublicPricedClassSession(hoursFromNow(16 * 24));
+
+    const res = await apiFetch("/api/dropin/bookings", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({ sessionId, familyMemberId: childId, paymentFlow: "embedded" }),
+    });
+    expect(res.status).toBe(422);
+    expect((await res.json()).error).toBe("waiver_required");
+    expect(await bookingForSession(sessionId)).toBeUndefined();
+  });
+
+  // No Stripe needed: the waiver gate is keyed to the CHILD path
+  // (`familyMemberId`) and fires (or doesn't) BEFORE any Stripe call — see
+  // bookings/index.ts, where the `waiver_required` 422 is returned well
+  // ahead of the PaymentIntent mint. That's the actual regression this test
+  // pins (an adult pickup booking must never be treated as needing a
+  // waiver), so it must run unconditionally on CI, which has no Stripe keys
+  // (see ci-api-tests-have-no-stripe). The exact success shape — 200 with a
+  // real clientSecret, which DOES require Stripe — is asserted separately
+  // below under itWithStripe.
+  it("does NOT gate the ADULT pickup door — sign-before-you-play stays post-payment (waiver invariance)", async () => {
+    const pickup = await createTestDropInSession({
+      organizationId,
+      venueId,
+      kind: "pickup",
+      capacity: 10,
+      startsAt: hoursFromNow(17 * 24),
+      sessionRateCents: MEMBER_RATE_CENTS,
+    });
+    const res = await apiFetch("/api/dropin/bookings", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({ sessionId: pickup.sessionId, paymentFlow: "embedded" }),
+    });
+    const body = await res.json();
+    expect(res.status, JSON.stringify(body)).not.toBe(422);
+    expect(body.error).not.toBe("waiver_required");
+  });
+
+  itWithStripe(
+    "adult pickup with no waiver fields mints a PaymentIntent and returns the priced 200",
+    async () => {
+      // The gate is keyed to the CHILD path (`familyMemberId`). An adult
+      // pickup booking with no waiver fields must still reach payment,
+      // exactly as it did before — its waiver is captured on the
+      // confirmation surface.
+      const pickup = await createTestDropInSession({
+        organizationId,
+        venueId,
+        kind: "pickup",
+        capacity: 10,
+        startsAt: hoursFromNow(17.5 * 24),
+        sessionRateCents: MEMBER_RATE_CENTS,
+      });
+      const res = await apiFetch("/api/dropin/bookings", {
+        method: "POST",
+        cookie,
+        body: JSON.stringify({ sessionId: pickup.sessionId, paymentFlow: "embedded" }),
+      });
+      const body = await res.json();
+      // The EXACT pre-change outcome, not merely "not 422": an adult pickup
+      // with no waiver fields mints a PaymentIntent and returns the priced
+      // 200. A weaker assertion would still pass if the gate leaked into
+      // this path and turned it into some other error.
+      expect(res.status, JSON.stringify(body)).toBe(200);
+      expect(body.paymentRequired).toBe(true);
+      expect(typeof body.clientSecret).toBe("string");
+      expect(body.amountCents).toBe(MEMBER_RATE_CENTS);
+      expect(body.error).toBeUndefined();
+    },
+  );
+
+  itWithStripe(
+    "a covered child with no waiver fields still reaches checkout (the gate is not a blanket ask)",
+    async () => {
+      const childId = await newWaiverChild("WaiverGateCoveredChild");
+      await insertLiabilityConsent({ familyMemberId: childId, signedDaysAgo: 2 });
+
+      const sessionId = await createPublicPricedClassSession(hoursFromNow(18 * 24));
+      const res = await apiFetch("/api/dropin/bookings", {
+        method: "POST",
+        cookie,
+        body: JSON.stringify({ sessionId, familyMemberId: childId }),
+      });
+      expect(res.status).toBe(200);
+      const stripeSession = await stripe!.checkout.sessions.retrieve(
+        (await res.json()).checkoutSessionId,
+      );
+      expect(stripeSession.metadata?.waiver_on_file).toBe("1");
+    },
+  );
+
+  itWithStripe(
+    "an UNCOVERED child WITH a signature passes the gate and carries the fresh-signature metadata",
+    async () => {
+      const childId = await newWaiverChild("WaiverGateSignedChild");
+      const sessionId = await createPublicPricedClassSession(hoursFromNow(19 * 24));
+
+      const res = await apiFetch("/api/dropin/bookings", {
+        method: "POST",
+        cookie,
+        headers: { "user-agent": "vitest-gate-signed" },
+        body: JSON.stringify({
+          sessionId,
+          familyMemberId: childId,
+          waiverAccepted: true,
+          waiverName: "Parent Test",
+        }),
+      });
+      expect(res.status).toBe(200);
+      const stripeSession = await stripe!.checkout.sessions.retrieve(
+        (await res.json()).checkoutSessionId,
+      );
+      expect(stripeSession.metadata?.waiver_name).toBe("Parent Test");
+      expect(stripeSession.metadata?.waiver_ua).toBe("vitest-gate-signed");
+      // A fresh signature is never ALSO an on-file stamp — the two outcomes
+      // are mutually exclusive in the metadata contract.
       expect(stripeSession.metadata?.waiver_on_file ?? "").toBe("");
     },
   );

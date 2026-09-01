@@ -239,15 +239,18 @@ export const POST: APIRoute = async ({ request, clientAddress, locals }) => {
           ipAddress: clientAddress ?? null,
           userAgent: userAgent ?? null,
         };
-        // ANNUAL WAIVER, write side. `waiverOnFile` means the row was stamped
-        // from an existing signature, so per createRegistration's caller
-        // contract nothing is appended to the liability log here — that branch
-        // is a READ. Only a genuinely fresh signature writes.
+        // ANNUAL WAIVER, write side. Keyed on `waiverSignatureCaptured` — did
+        // a human sign on THIS request — not on `waiverOnFile`. A covered
+        // family shown a stale form still really signs, and clause 3 of
+        // `recordLiabilityWaiver`'s caller contract records that; only the
+        // no-signature branch (which never reaches here — this whole block is
+        // gated on `data.waiverSigned`) is a pure READ. The `resumed` kind is
+        // excluded above because its row keeps the undated on-file stamp.
         //
         // The org-less case (a season whose location carries no organization)
         // can't go through the org-scoped helper at all; it keeps the legacy
         // `recordConsent` write so the audit row still exists.
-        const liabilityWrite = result.waiverOnFile
+        const liabilityWrite = !result.waiverSignatureCaptured
           ? Promise.resolve()
           : result.organizationId
             ? recordLiabilityWaiver(

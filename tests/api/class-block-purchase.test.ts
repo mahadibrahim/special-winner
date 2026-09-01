@@ -1155,6 +1155,217 @@ describe("PUT /api/classes/enrollments/:id on a credit-backed enrollment", () =>
   });
 });
 
+describe("DELETE /api/classes/enrollments/:id on a credit-backed enrollment", () => {
+  it("floats the remaining credits, releases $0 seats, and leaves a PAID one alone", async () => {
+    // Owner decision 2: a family that quits a block mid-run keeps the sessions
+    // they paid for as credits usable on ANY class, until the block's original
+    // end date. Mechanically that is the slot-change cancel scope plus a grant
+    // UN-pin (slotTemplateId → NULL) in the same transaction; `expiresAt` is
+    // never touched, because the credits are the same credits.
+    const db = getDb();
+    const childId = await createTestChild(parentUserId, `BlockEnd-${RUN}`);
+    const checkoutSessionId = `cs_test_block_${RUN}_end`;
+
+    const originTemplateId = await createTemplate({
+      name: `Block-EndOrigin-${RUN}`,
+      weekday: templateWeekday,
+      blockRateCents: BLOCK_RATE_CENTS,
+    });
+
+    await handleClassBlockPurchaseComplete(
+      makeBlockCheckoutSession({
+        checkoutSessionId,
+        familyMemberId: childId,
+        slotTemplateId: originTemplateId,
+        sessionsGranted: 4,
+      }),
+    );
+    const [grant] = await grantsFor(checkoutSessionId);
+    expect(grant.slotTemplateId).toBe(originTemplateId);
+    const [enrollment] = await enrollmentsForGrant(grant.id);
+    expect(enrollment).toBeTruthy();
+
+    // The cron's already-materialized future seat, paid for with a credit.
+    const futureSessionId = await createClassSession(hoursFromNow(72), originTemplateId);
+    const [booking] = await db
+      .insert(dropInBookings)
+      .values({
+        sessionId: futureSessionId,
+        userId: parentUserId,
+        familyMemberId: childId,
+        status: "confirmed",
+        source: "auto_enrollment",
+        paymentMethod: "pack_credit",
+        amountPaidCents: 0,
+        creditGrantId: grant.id,
+      })
+      .returning({ id: dropInBookings.id });
+
+    // A PAID make-up on the same slot — voiding it here would destroy a real
+    // payment with no Stripe refund and no notification. Same boundary the
+    // slot change draws.
+    const paidSessionId = await createClassSession(hoursFromNow(96), originTemplateId);
+    const [paidBooking] = await db
+      .insert(dropInBookings)
+      .values({
+        sessionId: paidSessionId,
+        userId: parentUserId,
+        familyMemberId: childId,
+        status: "confirmed",
+        source: "online_booking",
+        paymentMethod: "card_online",
+        amountPaidCents: 2_500,
+        stripePaymentIntentId: `pi_test_block_${RUN}_endmakeup`,
+      })
+      .returning({ id: dropInBookings.id });
+
+    expect(
+      (await getCreditBalances(childId, organizationId)).find((b) => b.grantId === grant.id)
+        ?.remaining,
+    ).toBe(3);
+
+    // The dashboard learns "this seat is credit-backed, and here's the date"
+    // from the summary — that's what lets the end-enrollment confirm promise
+    // the float BEFORE the click commits. (Safe against summary.ts's
+    // MAX_CHILDREN cap: `childId` was created moments ago, and the cap keeps
+    // the NEWEST rows.)
+    const summaryRes = await apiFetch("/api/classes/summary", { cookie });
+    expect(summaryRes.status).toBe(200);
+    const summaryBody = await summaryRes.json();
+    const summaryRow = summaryBody.children.find((c: any) => c.familyMemberId === childId);
+    expect(summaryRow?.enrollment?.creditsExpireAt).toBe(grant.expiresAt.toISOString());
+
+    const res = await apiFetch(`/api/classes/enrollments/${enrollment.id}`, {
+      method: "DELETE",
+      cookie,
+    });
+    expect(res.status).toBe(200);
+    // `creditsFloated` is the balance AFTER the cancels — the released seat's
+    // credit is back, so all four are spendable again.
+    expect(await res.json()).toMatchObject({
+      ok: true,
+      creditsFloated: 4,
+      creditsExpireAt: grant.expiresAt.toISOString(),
+    });
+
+    // The grant floats: no template pin, same expiry as the day it was bought.
+    const [floated] = await db
+      .select({
+        slotTemplateId: classCreditGrants.slotTemplateId,
+        expiresAt: classCreditGrants.expiresAt,
+      })
+      .from(classCreditGrants)
+      .where(eq(classCreditGrants.id, grant.id));
+    expect(floated.slotTemplateId).toBeNull();
+    expect(floated.expiresAt.getTime()).toBe(grant.expiresAt.getTime());
+
+    const [after] = await db
+      .select({
+        status: dropInBookings.status,
+        cancellationReason: dropInBookings.cancellationReason,
+      })
+      .from(dropInBookings)
+      .where(eq(dropInBookings.id, booking.id));
+    expect(after.status).toBe("cancelled");
+    expect(after.cancellationReason).toBe("user_request");
+
+    const [paidAfter] = await db
+      .select({ status: dropInBookings.status, cancelledAt: dropInBookings.cancelledAt })
+      .from(dropInBookings)
+      .where(eq(dropInBookings.id, paidBooking.id));
+    expect(paidAfter.status).toBe("confirmed");
+    expect(paidAfter.cancelledAt).toBeNull();
+
+    const [ended] = await db
+      .select({ status: classEnrollments.status })
+      .from(classEnrollments)
+      .where(eq(classEnrollments.id, enrollment.id));
+    expect(ended.status).toBe("ended");
+
+    // "Usable on ANY class": the un-pinned grant is now selected for a
+    // template it was never bought against.
+    const elsewhereTemplateId = await createTemplate({
+      name: `Block-EndElsewhere-${RUN}`,
+      weekday: (templateWeekday + 3) % 7,
+      blockRateCents: BLOCK_RATE_CENTS,
+    });
+    const balances = await getCreditBalances(childId, organizationId);
+    expect(balances.find((b) => b.grantId === grant.id)?.remaining).toBe(4);
+    expect(
+      selectRedeemableGrant(balances, {
+        slotTemplateId: elsewhereTemplateId,
+        at: hoursFromNow(72),
+      })?.grantId,
+    ).toBe(grant.id);
+  });
+
+  it("floats credits stranded by an ABSORBED enrollment insert (grant-less enrollment)", async () => {
+    // The gap a grant-keyed un-pin leaves. Buying a block on a slot the child
+    // ALREADY holds is a supported flow (see "enrollment absorbed" above): the
+    // grant lands pinned, the duplicate enrollment insert is swallowed by the
+    // partial unique index, and the SURVIVING enrollment carries
+    // `creditGrantId: null`. Quitting then un-pinned nothing, stranding paid
+    // credits pinned to a slot the child no longer attends — unspendable
+    // anywhere. Keying the un-pin on (child, template) instead is the fix.
+    const db = getDb();
+    const childId = await createTestChild(parentUserId, `BlockStranded-${RUN}`);
+    const { tierId } = await resolveClassTestFixtures();
+    const membershipId = await createTestChildMembership({
+      userId: parentUserId,
+      familyMemberId: childId,
+      organizationId,
+      tierId,
+      idSuffix: `block_stranded_${RUN}`,
+    });
+    const strandedTemplateId = await createTemplate({
+      name: `Block-Stranded-${RUN}`,
+      weekday: templateWeekday,
+      blockRateCents: BLOCK_RATE_CENTS,
+    });
+    const [existing] = await db
+      .insert(classEnrollments)
+      .values({ slotTemplateId: strandedTemplateId, familyMemberId: childId, membershipId })
+      .returning({ id: classEnrollments.id });
+    createdEnrollmentIds.push(existing.id);
+
+    const checkoutSessionId = `cs_test_block_${RUN}_stranded`;
+    await handleClassBlockPurchaseComplete(
+      makeBlockCheckoutSession({
+        checkoutSessionId,
+        familyMemberId: childId,
+        slotTemplateId: strandedTemplateId,
+        sessionsGranted: 3,
+      }),
+    );
+    const [grant] = await grantsFor(checkoutSessionId);
+    expect(grant.slotTemplateId).toBe(strandedTemplateId);
+    // The precondition that makes this a distinct bug: no enrollment row
+    // points at this grant.
+    expect(await enrollmentsForGrant(grant.id)).toHaveLength(0);
+
+    const res = await apiFetch(`/api/classes/enrollments/${existing.id}`, {
+      method: "DELETE",
+      cookie,
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      ok: true,
+      creditsFloated: 3,
+      creditsExpireAt: grant.expiresAt.toISOString(),
+    });
+
+    const [floated] = await db
+      .select({
+        slotTemplateId: classCreditGrants.slotTemplateId,
+        expiresAt: classCreditGrants.expiresAt,
+      })
+      .from(classCreditGrants)
+      .where(eq(classCreditGrants.id, grant.id));
+    expect(floated.slotTemplateId).toBeNull();
+    expect(floated.expiresAt.getTime()).toBe(grant.expiresAt.getTime());
+  });
+});
+
 describe("template lookup sanity", () => {
   it("the fixture templates are all in the resolved org", async () => {
     const rows = await getDb()

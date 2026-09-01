@@ -1,0 +1,1 @@
+ALTER TABLE "registrations" ADD COLUMN IF NOT EXISTS "completed_at" timestamp;

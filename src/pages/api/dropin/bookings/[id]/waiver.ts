@@ -20,10 +20,12 @@
  * (or anywhere) refuses a booking or check-in over an unsigned waiver;
  * hosts can capture a signature on the spot via the roster surfaces.
  *
- * Annual waiver: a booking whose PARTICIPANT already has a valid liability
- * consent for the org is settled without asking — the endpoint stamps the
- * on-file attribution and reports `alreadySigned`. A signature that IS fresh
- * is recorded into the canonical `consents` log as well as onto the booking.
+ * Annual waiver: a covered participant is never ASKED (the session page
+ * suppresses the card), but a signature that arrives anyway is a real signing
+ * event and is recorded as one — dated, named, and appended to the canonical
+ * `consents` log alongside the booking's own columns. Coverage is therefore
+ * not consulted here at all; the only short-circuit is the per-row
+ * idempotency above.
  */
 import type { APIRoute } from "astro";
 import { eq } from "drizzle-orm";
@@ -31,12 +33,12 @@ import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
 import { familyMembers } from "@/lib/db/schema/registrations";
+import { recordLiabilityWaiver } from "@/lib/consents/liability";
 import {
-  WAIVER_ON_FILE_ATTRIBUTION,
-  hasValidLiabilityWaiver,
-  recordLiabilityWaiver,
-} from "@/lib/consents/liability";
-import { waiverConsentVariant } from "@/lib/consents/waiver-consent-language";
+  waiverConsentVariant,
+  waiverAssentSentence,
+  formatParticipantName,
+} from "@/lib/consents/waiver-consent-language";
 import { DROPIN_WAIVER_ACCEPT_LABEL } from "@/lib/dropin/waiver-text";
 import { getPostHogServer } from "@/lib/posthog-server";
 
@@ -86,15 +88,31 @@ export const POST: APIRoute = async ({
       status: dropInBookings.status,
       stripePaymentIntentId: dropInBookings.stripePaymentIntentId,
       waiverSigned: dropInBookings.waiverSigned,
+      // The DISCRIMINATOR for the replay guard below — `waiverSigned` alone
+      // conflates a real prior signature with the undated "on file" stamp
+      // that the paid door's fulfillment and the kiosk hold write.
+      waiverSignedAt: dropInBookings.waiverSignedAt,
       brand: dropInBookings.brand,
       organizationId: dropInSessions.organizationId,
       // The PARTICIPANT, present only on child bookings (the paid/free class
-      // make-up doors). Null for every adult drop-in — an adult booking has
-      // no `family_members` row, so it has no person-scoped annual waiver.
+      // make-up doors) — this COLUMN is null for every adult drop-in, since
+      // an adult booking has no `family_members` row of its own to key a
+      // person-scoped consent on. That no longer means an adult booker has
+      // NO person-scoped coverage: since task 5 (spec L), the booker's own
+      // SELF `family_members` row can carry a valid annual waiver, resolved
+      // through `userId` rather than this column — see the born-covered
+      // stamp in booking.ts / bookings/index.ts and the display-side
+      // derivation in sessions/[id].ts. This endpoint itself is unaffected
+      // by that: it never gates on coverage, only records whatever fresh
+      // signature actually arrives (see the file doc comment above).
       familyMemberId: dropInBookings.familyMemberId,
       // Non-null exactly when the participant is a dependent (the DB CHECK
       // makes parent/self an XOR), which is the guardian-variant signal.
       participantParentUserId: familyMembers.parentUserId,
+      // Only needed to render the guardian assent sentence's player name —
+      // null whenever familyMemberId is null (leftJoin finds no row).
+      participantFirstName: familyMembers.firstName,
+      participantLastName: familyMembers.lastName,
     })
     .from(dropInBookings)
     .innerJoin(dropInSessions, eq(dropInSessions.id, dropInBookings.sessionId))
@@ -122,55 +140,39 @@ export const POST: APIRoute = async ({
     return json({ error: "Booking not found" }, 404);
   }
 
-  // Idempotent no-op: the first signature stands.
-  if (row.waiverSigned) {
+  // Idempotent no-op: the first SIGNATURE stands.
+  //
+  // Both columns, not just the flag. `waiverSigned` alone is true on two very
+  // different rows: one a human signed, and one merely STAMPED from an annual
+  // waiver on file (the paid child door's fulfillment and walkin/start.ts
+  // both born-stamp `waiverSigned: true` with a NULL date). Only the dated one
+  // is a prior signing event, and only a prior signing event makes this
+  // request a replay. Treating the undated stamp as one turned a real
+  // signature into a silent no-op — the same conflation clause 3 of
+  // `recordLiabilityWaiver`'s caller contract exists to keep apart, and the
+  // date is the discriminator clause 4 names.
+  if (row.waiverSigned && row.waiverSignedAt !== null) {
     return json({ ok: true, alreadySigned: true }, 200);
   }
 
   const now = new Date();
 
-  // ANNUAL WAIVER, read side. The `waiverSigned` flag above is per-BOOKING,
-  // so it is false on every new booking even for a family who signed a
-  // fortnight ago at another door. The platform rule is per person, per org,
-  // for a year — so before treating this as an ask, check whether the
-  // participant is already covered.
-  if (row.familyMemberId) {
-    let covered = false;
-    try {
-      covered = await hasValidLiabilityWaiver(
-        row.familyMemberId,
-        row.organizationId,
-        db,
-      );
-    } catch (err) {
-      // Fail towards RECORDING the signature the user just typed — that is
-      // the safe direction here (worst case, one redundant consents row).
-      console.error("[dropin-waiver] waiver validity lookup failed", err);
-    }
-    if (covered) {
-      await db
-        .update(dropInBookings)
-        .set({
-          waiverSigned: true,
-          waiverSignedBy: WAIVER_ON_FILE_ATTRIBUTION,
-          // Written as an EXPLICIT null rather than merely omitted — this
-          // update can land on a row that already carries a date, and the
-          // invariant should enforce itself here instead of relying on the
-          // column happening to be empty. Load-bearing: this row is a
-          // derived copy of an earlier signature, not a signature, and
-          // hasValidLiabilityWaiver's legacy fallback accepts any DATED
-          // drop_in_bookings row — dating it would let each booking renew
-          // the very window it was derived from. Same rule as the paid
-          // door's fulfillment stamp and book-child.ts's on-file branch.
-          waiverSignedAt: null,
-          updatedAt: now,
-        })
-        .where(eq(dropInBookings.id, id));
-      // Nothing is appended to `consents`: this branch is a READ.
-      return json({ ok: true, alreadySigned: true }, 200);
-    }
-  }
-
+  // ANNUAL WAIVER — deliberately NOT consulted here.
+  //
+  // This endpoint cannot be reached without a typed name (`waiverName` is
+  // required by the schema above), so every request that gets this far is a
+  // human who just read the release and signed it. Coverage gates the ASK —
+  // the session page's WaiverCard is suppressed for a covered participant
+  // (see SessionDetail's `waiverCovered`) — and never the record: clause 3 of
+  // `recordLiabilityWaiver`'s caller contract. This branch used to overwrite
+  // the typed name with the on-file attribution, drop the date, and append
+  // nothing, which filed the signature as an event that did not happen the
+  // way it was written down.
+  //
+  // The idempotency that DOES survive is per-BOOKING-ROW ("the first
+  // signature stands", checked above) — orthogonal to coverage, because it
+  // separates one signing event delivered twice from two real ones.
+  //
   // A genuinely fresh signature. The guardian variant follows from the
   // participant being a dependent — the same `isMinor` signal resolveSigner
   // hands the self-serve WaiverCard, derived here from the person row
@@ -178,6 +180,18 @@ export const POST: APIRoute = async ({
   const consentVariant = waiverConsentVariant(
     row.participantParentUserId !== null,
   );
+  // What SessionDetail's WaiverCard ACTUALLY shows beside the checkbox: the
+  // generic accept line for an adult drop-in, or the guardian assent
+  // sentence (naming the child) for a booking with a `family_member_id` —
+  // this endpoint's own doc notes familyMemberId is only ever set on child
+  // bookings. Record what was on screen, nothing else (#398's rule).
+  const participantName = formatParticipantName(
+    row.participantFirstName,
+    row.participantLastName,
+  );
+  const consentText = row.familyMemberId
+    ? waiverAssentSentence(consentVariant, participantName)
+    : DROPIN_WAIVER_ACCEPT_LABEL;
 
   await db
     .update(dropInBookings)
@@ -186,10 +200,7 @@ export const POST: APIRoute = async ({
       waiverSignedAt: now,
       waiverSignedBy: waiverName,
       waiverConsentVariant: consentVariant,
-      // What this card ACTUALLY shows beside the checkbox — not the
-      // self-serve kiosk's adult/guardian sentence, which is a different
-      // screen. Record what was on screen, nothing else.
-      waiverConsentText: DROPIN_WAIVER_ACCEPT_LABEL,
+      waiverConsentText: consentText,
       updatedAt: now,
     })
     .where(eq(dropInBookings.id, id));
@@ -212,7 +223,7 @@ export const POST: APIRoute = async ({
           signedByUserId: row.userId,
           signedByName: waiverName,
           consentVariant,
-          consentText: DROPIN_WAIVER_ACCEPT_LABEL,
+          consentText,
           // From THIS request's context, never the body.
           ipAddress: clientAddress ?? null,
           userAgent: request.headers.get("user-agent"),

@@ -39,6 +39,10 @@ import { requireOrgAdminAccess } from "@/lib/auth/roles";
 import { callerCanActOnVenue } from "@/lib/admin/require-location-scope";
 import { resolveRate } from "@/lib/dropin/pricing";
 import {
+  CLASS_REQUIRES_CHILD,
+  CLASS_REQUIRES_CHILD_DESK_MESSAGE,
+} from "@/lib/classes/class-walkup";
+import {
   createConfirmedBookingFreePath,
   getActiveMembershipForUser,
 } from "@/lib/dropin/booking";
@@ -92,6 +96,35 @@ export const POST: APIRoute = async (context) => {
 
   if (session.status !== "scheduled") {
     return json({ error: "Session not open for booking" }, 409);
+  }
+
+  // CLASS sessions are not bookable through this door.
+  //
+  // This endpoint books the USER it is given (`userId` / `newAccount`) — it
+  // has no notion of a child participant, and neither does the Terminal
+  // PaymentIntent it mints nor the webhook that inserts the row
+  // (handle-dropin-walkup-payment.ts writes `user_id`, never
+  // `family_member_id`). A class, by contrast, is always a CHILD's seat: the
+  // online door refuses a childless class booking with `class_requires_child`
+  // and the kiosk walk-in refuses an adult-self class walk-in with the same
+  // code. Every request that could reach here is therefore an adult-self
+  // class attempt, which would ALSO have been priced off `resolveRate` +
+  // `drop_in_rate_card` — the adult pickup price list, which must never quote
+  // a kids' class (src/lib/classes/class-walkup.ts). Refuse before pricing.
+  //
+  // Front desk taking a class walk-up: use the kiosk walk-in flow
+  // (POST /api/kiosk/[locationSlug]/walkin/start with the child + parent),
+  // which creates the `family_members` row, prices the class properly, and
+  // hands over a pay link. Supporting a card-present class walk-up here needs
+  // `family_member_id` threaded through the walk-up PaymentIntent and its
+  // webhook first.
+  if (session.kind === "class") {
+    return json(
+      {
+        error: { code: CLASS_REQUIRES_CHILD, message: CLASS_REQUIRES_CHILD_DESK_MESSAGE },
+      },
+      422,
+    );
   }
 
   // Resolve user (existing or newly created stub).

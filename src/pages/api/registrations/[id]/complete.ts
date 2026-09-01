@@ -23,8 +23,10 @@ import {
 } from "@/lib/consents/liability";
 import { completionWaiverAssentText } from "@/lib/registrations/waiver-text";
 import { recordPhoneOptIn } from "@/lib/sms/opt-in";
+import { normalizeUsPhone } from "@/lib/sms/send";
 import { recordMarketingConsent } from "@/lib/consents/marketing";
 import { CONSENT_COPY } from "@/lib/consents/marketing-channels";
+import { phoneOptIns } from "@/lib/db/schema/phone-verifications";
 import { getPostHogServer } from "@/lib/posthog-server";
 import { SERVER_EVENTS } from "@/lib/analytics/events";
 
@@ -203,27 +205,65 @@ export const POST: APIRoute = async ({ request, params, locals, clientAddress, u
 
     const userAgent = request.headers.get("user-agent");
 
+    // The name a human typed on THIS request, or null when the submission
+    // carried no signature at all. The schema makes both fields optional so a
+    // covered participant can submit a DOB-only completion — so their presence,
+    // not the customer's coverage, is what tells a signing event apart from a
+    // bare form submission. Kept as `string | null` rather than a boolean so
+    // the branch chain below narrows it to a plain `string` for the
+    // fresh-signature branch.
+    const suppliedSignature: string | null =
+      data.waiverAccepted && data.waiverSignature ? data.waiverSignature : null;
+
     // Which of the three branches below ran. Drives the response shape and
     // suppresses the waiver_signed event for the two that took no signature.
     let alreadySigned = false;
 
-    if (registration.waiverSigned) {
-      // Idempotent: a row that already carries a signature (its own, or an
-      // "on file" stamp from creation) writes no consents on a repeat call.
+    if (registration.waiverSigned && registration.waiverSignedAt !== null) {
+      // Idempotent: a row that already carries a real, DATED signature of its
+      // own writes no consents on a repeat call.
+      //
+      // The date is load-bearing, not decoration. `waiverSigned` alone is also
+      // true for a row born with the undated "On file (annual waiver)" stamp
+      // (createRegistration's covered branch), where NOBODY signed this
+      // registration — and treating that as a prior signature swallowed any
+      // real signature that arrived afterwards. Such a row falls through: with
+      // no signature to the on-file branch below (which re-stamps it
+      // identically), and with one to the fresh-signature branch, which dates
+      // it and appends the canonical consent. Clause 3 of
+      // `recordLiabilityWaiver`'s caller contract; clause 4 names the date as
+      // the replay discriminator.
       // The DOB backfill above still ran — it is isNull-guarded, so repeating
       // it is a no-op, and it is the one thing this endpoint collects that a
       // waiver-satisfied registration can still be missing (the v2 flow defers
       // DOB and the waiver together, and only one of the two is settled by an
       // annual signature).
       alreadySigned = true;
+      // Backfill `completedAt` for a registration whose dated signature
+      // landed some other way (or before this column existed) — this really
+      // is the first time THIS ENDPOINT has completed it, and the phone/
+      // marketing gate below needs that to be true regardless of how the
+      // waiver itself got signed. Only ever fills a blank (registration.
+      // completedAt is the PRE-REQUEST value); a registration this endpoint
+      // already completed keeps its original timestamp.
       if (ageReviewNeeded && !registration.ageReviewNeeded) {
         await db
           .update(registrations)
-          .set({ ageReviewNeeded: true, updatedAt: new Date() })
+          .set({
+            ageReviewNeeded: true,
+            updatedAt: new Date(),
+            ...(registration.completedAt === null ? { completedAt: new Date() } : {}),
+          })
+          .where(eq(registrations.id, registration.id));
+      } else if (registration.completedAt === null) {
+        await db
+          .update(registrations)
+          .set({ completedAt: new Date(), updatedAt: new Date() })
           .where(eq(registrations.id, registration.id));
       }
     } else if (
       organizationId &&
+      suppliedSignature === null &&
       (await hasWaiverOnFile(familyMember.id, organizationId))
     ) {
       // ANNUAL WAIVER, read side. `registrations.waiverSigned` is
@@ -231,6 +271,15 @@ export const POST: APIRoute = async ({ request, params, locals, clientAddress, u
       // who signed a fortnight ago at another door of the same organization.
       // The platform rule is per person, per org, for a year — check that
       // before treating this submission as an ask.
+      //
+      // `suppliedSignature === null` is what makes this a READ, not a discard.
+      // Coverage decides whether an ASK was needed; it never decides whether a
+      // signature that DID arrive gets recorded (clause 3 of
+      // `recordLiabilityWaiver`'s caller contract). A covered family that
+      // still typed a name falls through to the fresh-signature branch below,
+      // which dates the row and appends the canonical consent. Evaluated
+      // before the predicate so the covered-and-signed case skips the lookup
+      // entirely.
       //
       // `waiverSignedAt` is written as an EXPLICIT null: this row is a derived
       // copy of an earlier signature, not a signature, and
@@ -272,13 +321,24 @@ export const POST: APIRoute = async ({ request, params, locals, clientAddress, u
             waiverSignedAt: null,
             ageReviewNeeded,
             updatedAt: new Date(),
+            // FIRST completion marker — see the file-level discriminator
+            // comment below. This branch (unlike the dated-signature one)
+            // does NOT date the row, so it can re-fire on a REPLAY of an
+            // already on-file-completed registration; preserving the
+            // original value (never overwriting with a later `new Date()`)
+            // keeps `completedAt` an honest first-completion timestamp AND
+            // keeps the phone/marketing gate correctly closed on that replay
+            // (it reads the PRE-REQUEST value captured before this branch
+            // ran).
+            completedAt: registration.completedAt ?? new Date(),
           })
           .where(eq(registrations.id, registration.id));
       });
-    } else if (!data.waiverAccepted || !data.waiverSignature) {
-      // A signature is genuinely owed here and none was supplied. The schema
-      // lets these through so a covered participant can submit a DOB-only
-      // completion; this is where they become mandatory again.
+    } else if (suppliedSignature === null) {
+      // A signature is genuinely owed here and none was supplied — the row is
+      // unsigned and (per the branch above) nothing covers this participant.
+      // The schema lets the fields through so a covered participant can submit
+      // a DOB-only completion; this is where they become mandatory again.
       return new Response(
         JSON.stringify({
           error: "Validation failed",
@@ -289,7 +349,7 @@ export const POST: APIRoute = async ({ request, params, locals, clientAddress, u
         { status: 400, headers: { "Content-Type": "application/json" } },
       );
     } else {
-      const waiverSignature = data.waiverSignature;
+      const waiverSignature = suppliedSignature;
       // Consent recording — copied from guest-checkout.ts's consent block
       // rather than paraphrased, so the semantics (personal-consent guard,
       // unconditional liability + media-auth writes) stay identical.
@@ -366,6 +426,11 @@ export const POST: APIRoute = async ({ request, params, locals, clientAddress, u
             waiverSignedBy: waiverSignature,
             ageReviewNeeded,
             updatedAt: new Date(),
+            // FIRST completion marker (see the on-file branch's identical
+            // comment above) — a covered family that signs anyway can reach
+            // this branch on a call AFTER an earlier on-file completion
+            // already set it; never overwrite with a later timestamp.
+            completedAt: registration.completedAt ?? new Date(),
           })
           .where(eq(registrations.id, registration.id));
       });
@@ -374,40 +439,101 @@ export const POST: APIRoute = async ({ request, params, locals, clientAddress, u
     // Best-effort side effects, kept outside the transaction — not
     // consistency-critical with the waiver signature/consent state above.
     //
-    // FIRST COMPLETION ONLY, and the discriminator is the PRE-REQUEST state
-    // (`registration.waiverSigned`, read before any branch ran) — not
-    // `alreadySigned`, which is also true for the waiver-on-file branch.
+    // FIRST COMPLETION ONLY, and the discriminator is `registrations.
+    // completedAt`, read PRE-REQUEST (before any branch ran) — a durable
+    // marker set the first time THIS ENDPOINT completes a registration (see
+    // every branch above), and ONLY by this endpoint. That is what makes it
+    // narrow enough; three weaker gates were tried and rejected in order:
     //
-    // Both halves of that matter:
-    //  - Gating it at all is load-bearing. Before this endpoint was
-    //    restructured the already-signed check returned early and this block
-    //    was unreachable on a repeat POST. Leaving it reachable let a replayed
-    //    submission re-run `recordMarketingConsent`, which promotes a channel
-    //    to opted_in — i.e. a repeat call could silently CLEAR an opt-out the
-    //    customer set afterwards.
-    //  - Gating it on `alreadySigned` was too wide. A covered family's FIRST
-    //    completion takes the on-file branch, and that form still renders and
-    //    posts the phone + consent boxes. This endpoint is the only capture
-    //    point for authed-flow phone opt-ins and for ALL WhatsApp marketing
-    //    consent, so skipping it there dropped the customer's answer on the
-    //    floor.
+    //  - Gating on nothing is load-bearing to reject first: before this
+    //    endpoint was restructured the already-signed check returned early
+    //    and this block was unreachable on a repeat POST. Leaving it
+    //    reachable let a replayed submission re-run `recordMarketingConsent`,
+    //    which promotes a channel to opted_in — i.e. a repeat call could
+    //    silently CLEAR an opt-out the customer set afterwards.
+    //  - Gating on `alreadySigned` was too wide: a covered family's FIRST
+    //    completion takes the on-file branch, and that form still renders
+    //    and posts the phone + consent boxes. This endpoint is the only
+    //    capture point for authed-flow phone opt-ins and for ALL WhatsApp
+    //    marketing consent, so skipping it there dropped the customer's
+    //    answer on the floor.
+    //  - Gating on the DATED bare flag (`waiverSigned && waiverSignedAt !==
+    //    null`) was ALSO too wide, for a subtler reason a review caught: the
+    //    on-file branch above does NOT date the row, so it can re-fire on a
+    //    REPLAY of an already on-file-completed registration (nothing about
+    //    that branch's own condition rules out running twice) — and each
+    //    re-fire read as a "first completion" under the dated-flag gate,
+    //    re-entering this block and re-promoting whatever channel state
+    //    existed, INCLUDING an opt-out/STOP the customer set in between. A
+    //    replayed completion resurrecting a carrier STOP is exactly the
+    //    outcome the very first bullet above exists to prevent.
     //
-    // Pre-request state separates the two exactly: it is false on every first
-    // completion (the on-file branch only runs when it is false) and true only
-    // on a replay. (The DOB backfill above is deliberately NOT gated at all:
-    // it is isNull-guarded, so it can only ever fill a blank.)
-    if (!registration.waiverSigned && data.phone && organizationId) {
-      try {
-        await recordPhoneOptIn({
-          db,
-          organizationId,
-          userId: user.id,
-          phone: data.phone,
-          consented: data.smsConsent ?? false,
-          source: "registration_form",
-        });
-      } catch (err) {
-        console.error("Failed to record phone opt-in:", err);
+    // `completedAt` closes that gap because it is written ONCE, by THIS
+    // endpoint, on the branch's own first pass (every branch above sets it
+    // only when it was previously null) — a second pass through ANY branch,
+    // including a replayed on-file completion, reads it as already set and
+    // skips this block entirely. (The DOB backfill above is deliberately NOT
+    // gated at all: it is isNull-guarded, so it can only ever fill a blank.)
+    if (registration.completedAt === null && data.phone && organizationId) {
+      // DEFENSE IN DEPTH, scoped to this endpoint only (never a global change
+      // to `recordPhoneOptIn`/`recordMarketingConsent` — see the open
+      // question this leaves for the issue tracker below). Even with
+      // `completedAt` closing the replay gap above, a web checkbox must
+      // never be the thing that resurrects a carrier-level STOP: 10DLC/Meta
+      // posture is that the only valid path back from STOP is the customer
+      // texting START, not re-ticking a form box. Look up any EXISTING
+      // opt-in row for this (org, phone) before writing anything, and skip
+      // a channel outright when its row is `opted_out` with
+      // `stopKeywordTriggered` set — a real carrier STOP, as opposed to some
+      // other opted_out path that never had one.
+      //
+      // Fails CLOSED: a lookup failure here is treated as "assume both
+      // channels are STOPped" and skips the writes below rather than risking
+      // the resurrection this guard exists to prevent. A missed courtesy
+      // opt-in on a blip is far cheaper than a compliance incident.
+      const normalizedPhone = normalizeUsPhone(data.phone);
+      let stoppedChannels: Set<string>;
+      if (!normalizedPhone) {
+        stoppedChannels = new Set();
+      } else {
+        try {
+          const existingRows = await db
+            .select({
+              channel: phoneOptIns.channel,
+              status: phoneOptIns.status,
+              stopKeywordTriggered: phoneOptIns.stopKeywordTriggered,
+            })
+            .from(phoneOptIns)
+            .where(
+              and(
+                eq(phoneOptIns.organizationId, organizationId),
+                eq(phoneOptIns.phone, normalizedPhone),
+              ),
+            );
+          stoppedChannels = new Set(
+            existingRows
+              .filter((r) => r.status === "opted_out" && r.stopKeywordTriggered !== null)
+              .map((r) => r.channel),
+          );
+        } catch (err) {
+          console.error("[registration-complete] STOP-guard lookup failed:", err);
+          stoppedChannels = new Set(["sms", "whatsapp"]);
+        }
+      }
+
+      if (!stoppedChannels.has("sms")) {
+        try {
+          await recordPhoneOptIn({
+            db,
+            organizationId,
+            userId: user.id,
+            phone: data.phone,
+            consented: data.smsConsent ?? false,
+            source: "registration_form",
+          });
+        } catch (err) {
+          console.error("Failed to record phone opt-in:", err);
+        }
       }
 
       // WhatsApp marketing consent — its own phone_opt_ins row (channel
@@ -419,7 +545,7 @@ export const POST: APIRoute = async ({ request, params, locals, clientAddress, u
       // status defaults to "opted_in" because this endpoint is authenticated
       // (locals.user is required above), so the account being changed is
       // provably the customer's — no OTP promotion step needed.
-      if (data.whatsappConsent) {
+      if (data.whatsappConsent && !stoppedChannels.has("whatsapp")) {
         try {
           await recordMarketingConsent({
             db,

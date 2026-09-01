@@ -224,6 +224,15 @@ export const POST: APIRoute = async (context) => {
       waiverSignedBy: waiverProvided ? data.waiverName : undefined,
       brand: brandFromHost(request.headers.get("host") ?? ""),
       referralSource: data.src,
+      // NEVER the born-covered on-file stamp here. `upsertGuestUser` above
+      // matches an EXISTING account purely by typed email — unverified
+      // (`emailVerified: false`), no session, no OTP. Anyone who knows (or
+      // guesses) a covered adult's email could otherwise book a session
+      // under that identity and have the liability signature ask silently
+      // suppressed on their behalf. The authed endpoint and the staff-
+      // operated walk-up desk both keep the stamp (default true); this is
+      // the one caller that must opt out.
+      allowWaiverOnFileStamp: false,
     });
     if (!result.ok) {
       const httpStatus = result.error.code === "session_not_found" ? 404 : 409;

@@ -5,12 +5,14 @@
  *
  * `POST /api/rentals/bookings` already answers this question authoritatively
  * (see its `waiverOnFile` block) and stamps a covered rental with the shared
- * on-file attribution, discarding whatever signature the client sent. Without
- * this probe the forms still RENDER the checkbox + typed-signature field and
- * make a covered renter fill them in for a value the server throws away.
- * This is the read that lets the form skip the ask; the endpoint remains the
- * authority, exactly like `ChildPicker`'s `waiverOnFile` flag on the classes
- * doors.
+ * on-file attribution when no signature arrives. Without this probe the forms
+ * still RENDER the checkbox + typed-signature field and make a covered renter
+ * sign a release they are already covered by — which the endpoint then dutifully
+ * records (a real signature is never discarded; see clause 3 of
+ * `recordLiabilityWaiver`'s caller contract), leaving the log fatter and the
+ * renter no better off. This is the read that lets the form skip the ask; the
+ * endpoint remains the authority, exactly like `ChildPicker`'s `waiverOnFile`
+ * flag on the classes doors.
  *
  * READ-ONLY on purpose. It deliberately does NOT call `resolvePerson`
  * (find-or-CREATE): this runs during page render, `family_members.self_user_id`

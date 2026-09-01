@@ -1,5 +1,13 @@
 import { test, expect } from "@playwright/test";
+import { and, desc, eq } from "drizzle-orm";
+import { getDb } from "@/lib/db";
+import { classCreditGrants } from "@/lib/db/schema/classes";
+import { familyMembers } from "@/lib/db/schema/registrations";
+import { ensureCustomerOrgMembership } from "@/lib/organization/ensure-membership";
 import { signInAsAdmin, waitForHydration } from "../utils/test-helpers";
+import { createTestChild } from "../utils/classes-helpers";
+import { resolveDefaultOrgForHttpTests } from "../utils/dropin-helpers";
+import { createTestUserWithPassword } from "../utils/host-helpers";
 
 /**
  * Person-360 E2E: search → person card
@@ -183,4 +191,95 @@ test("person card shows action bar and navigates to full profile", async ({ page
   await expect(
     page.getByText(/child|adult|parent/i).first()
   ).toBeVisible({ timeout: 10_000 });
+});
+
+/**
+ * Person 360 → full profile: admin "Issue credits" comp-grant form (Task 9
+ * fix-round follow-up — the two tests above are the only spec touching
+ * `/admin/people/[id]`, and neither exercised `ClassCreditsSection`, the
+ * form `src/pages/api/admin/classes/credits/grant.ts` sits behind).
+ *
+ * Deterministic fixture, NOT the search-driven guard-with-count() pattern
+ * above: the "Issue credits" form only needs one known child, and search
+ * results depend on whatever happens to already be in the shared staging
+ * DB. A brand-new throwaway user/child (same shape `class-pack-purchase.
+ * spec.ts` uses) is admin-*invisible* by default though — `buildPersonProfile`
+ * → `isUserInOrg` 404s the page unless the parent has a
+ * `user_organization_access` row, which "organic" registration/booking flows
+ * write via `ensureCustomerOrgMembership` but a bare fixture insert does not.
+ * Calling it directly in `beforeAll` is the minimal fix — mirrors what those
+ * flows already do, not a workaround.
+ */
+test.describe("Person 360 — admin issues class credits", () => {
+  test.setTimeout(90_000);
+
+  let organizationId: string;
+  let childId: string;
+
+  const suffix = Date.now();
+  const childFirstName = `Person360CreditsE2E-${suffix}`;
+
+  test.beforeAll(async () => {
+    ({ organizationId } = await resolveDefaultOrgForHttpTests());
+    const throwawayUser = await createTestUserWithPassword();
+    childId = await createTestChild(throwawayUser.userId, childFirstName);
+    await ensureCustomerOrgMembership(getDb(), throwawayUser.userId, organizationId);
+  });
+
+  test.afterAll(async () => {
+    const db = getDb();
+    await db.delete(classCreditGrants).where(eq(classCreditGrants.familyMemberId, childId));
+    await db.delete(familyMembers).where(eq(familyMembers.id, childId));
+  });
+
+  test("issuing credits (happy path) lands a comp grant in the ledger", async ({ page }) => {
+    await signInAsAdmin(page);
+
+    // Default `as=family_member` (the astro route's own default) is correct
+    // for a dependent — no query param needed.
+    await page.goto(`/admin/people/${childId}`, { waitUntil: "domcontentloaded" });
+    await waitForHydration(page, { timeout: 20_000 });
+
+    // Confirms the right person's profile loaded before touching the form.
+    await expect(page.getByText(childFirstName)).toBeVisible({ timeout: 20_000 });
+
+    const openButton = page.getByRole("button", { name: "+ Issue credits" });
+    await expect(openButton).toBeVisible({ timeout: 15_000 });
+    await openButton.click();
+
+    // `getByLabel` resolves via the wrapping <label> (span + input), same as
+    // the implicit-label pattern used elsewhere in this file.
+    await page.getByLabel("Sessions").fill("5");
+    await page.getByLabel("Note (optional)").fill("E2E happy-path grant");
+
+    // Exact match: the collapsed toggle button's text is "+ Issue credits",
+    // the submit button's is "Issue credits" — both would match a substring
+    // query.
+    const submit = page.getByRole("button", { name: "Issue credits", exact: true });
+    await expect(submit).toBeEnabled();
+    await submit.click();
+
+    await expect(page.getByText(/Issued 5 class credits/i)).toBeVisible({ timeout: 15_000 });
+
+    // Success collapses the form back to the toggle button (resetForm() +
+    // setOpen(false)) — confirms the UI actually completed, not just the
+    // toast.
+    await expect(page.getByRole("button", { name: "+ Issue credits" })).toBeVisible({
+      timeout: 10_000,
+    });
+
+    // The real assertion: a comp grant landed in the ledger, not just an
+    // optimistic client-side toast.
+    const db = getDb();
+    const [grant] = await db
+      .select()
+      .from(classCreditGrants)
+      .where(and(eq(classCreditGrants.familyMemberId, childId), eq(classCreditGrants.source, "comp")))
+      .orderBy(desc(classCreditGrants.createdAt))
+      .limit(1);
+    expect(grant).toBeTruthy();
+    expect(grant.sessionsGranted).toBe(5);
+    expect(grant.pricePaidCents).toBe(0);
+    expect(grant.stripeCheckoutSessionId).toBeNull();
+  });
 });

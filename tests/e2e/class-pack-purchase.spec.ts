@@ -348,6 +348,144 @@ test.describe("Class credits — family dashboard", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Scenario 9 — comp-credit dashboard line + book-with-credit (Task 9)
+// ---------------------------------------------------------------------------
+
+/**
+ * The admin-issued goodwill-credit twin of Scenario 1 above — same shape
+ * (seed a grant directly; only the admin comp-credit endpoint or a human
+ * writes these, and `source: "comp"` never goes through the Stripe webhook
+ * at all, so there's no itWithStripe gate to route around here), but
+ * asserting the DEDICATED "Class credit" label (`summary.ts`'s
+ * `GENERIC_CREDIT_LABEL.comp` — chosen specifically to not collide with the
+ * pre-existing "Account credit" dollar-credit widget on this same dashboard,
+ * per the F0 review carry-forward) rather than a pack product's name.
+ */
+test.describe("Class credits — comp grant (admin-issued)", () => {
+  test.setTimeout(120_000);
+
+  let organizationId: string;
+  let venueId: string;
+  let templateId: string;
+  let sessionId: string;
+  let parentEmail: string;
+  let parentPassword: string;
+  let childId: string;
+  let grantId: string;
+
+  const suffix = Date.now();
+  const childFirstName = `CompCreditsE2E-${suffix}`;
+  const templateName = `PackPurchaseE2E-CompCredits-${suffix}`;
+
+  test.beforeAll(async () => {
+    ({ organizationId, venueId } = await resolveDefaultOrgForHttpTests());
+
+    templateId = await createTestClassTemplate({
+      organizationId,
+      venueId,
+      name: templateName,
+      capacity: 12,
+    });
+    sessionId = await seedFutureClassSession({
+      organizationId,
+      venueId,
+      templateId,
+      capacity: 12,
+      sessionRateCents: null,
+      memberRateCents: null,
+    });
+
+    const throwawayUser = await createTestUserWithPassword();
+    parentEmail = throwawayUser.email;
+    parentPassword = throwawayUser.password;
+
+    childId = await createTestChild(throwawayUser.userId, childFirstName);
+    // source "comp", NULL checkout session id — the admin-grant shape,
+    // never written by the Stripe webhook (createTestCreditGrant defaults
+    // stripeCheckoutSessionId to null for this source; see its doc comment).
+    grantId = await createTestCreditGrant({
+      organizationId,
+      familyMemberId: childId,
+      sessionsGranted: 2,
+      source: "comp",
+      idSuffix: `comp-e2e-${suffix}`,
+    });
+  });
+
+  test.afterAll(async ({ request }) => {
+    const bookingId = await findActiveBookingIdForChild(childId);
+    if (bookingId) {
+      const cookie = (
+        await request.post("/api/auth/signin", {
+          data: { email: parentEmail, password: parentPassword },
+        })
+      ).headers()["set-cookie"];
+      if (cookie) {
+        await request.post(`/api/classes/bookings/${bookingId}/cancel`, { headers: { Cookie: cookie } });
+      }
+    }
+    const db = getDb();
+    await db.delete(classCreditGrants).where(eq(classCreditGrants.id, grantId));
+    if (sessionId) await deleteTestSession(sessionId);
+    if (templateId) await cleanupTestClassFixtures([templateId]);
+  });
+
+  test("shows the 'Class credit' line, books a session through it, and decrements on reload", async ({
+    page,
+  }) => {
+    await signIn(page, parentEmail, parentPassword);
+
+    await page.goto("/dashboard/family");
+    await waitForHydration(page);
+
+    const card = page.locator("div.flex.items-start.gap-3.rounded-xl.border.border-border.border-l-4.p-3").filter({ hasText: childFirstName });
+    await expect(card).toBeVisible({ timeout: 15_000 });
+    // Comp grants carry no product name — GENERIC_CREDIT_LABEL.comp is their
+    // PERMANENT label, not a fallback, and it must read "Class credit" (not
+    // "Account credit", which names an unrelated dollar-credit widget on
+    // this same page).
+    await expect(card.getByText(/2 sessions left.*Class credit/)).toBeVisible();
+
+    await card.getByRole("button", { name: "Book a session" }).click();
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByText(new RegExp(`Book a session for ${childFirstName}`))).toBeVisible({
+      timeout: 15_000,
+    });
+
+    await dialog
+      .locator("button.w-full.text-left.rounded-xl")
+      .filter({ hasText: templateName })
+      .click();
+
+    await expect(dialog.getByText("One more step: sign the guardian waiver")).toBeVisible({
+      timeout: 20_000,
+    });
+    await dialog.locator("#makeup-waiver-accept").click();
+    await dialog.locator("#makeup-waiver-signer-name").fill("Comp Credit E2E Parent");
+
+    const summaryRefetch = page.waitForResponse(
+      (res) => res.url().includes("/api/classes/summary") && res.request().method() === "GET",
+    );
+    await dialog.getByRole("button", { name: "Sign waiver & book class" }).click();
+
+    await expect(dialog.getByText("You're all set!")).toBeVisible({ timeout: 20_000 });
+    await expect(dialog.getByText(/1 credit used, 1 left\./)).toBeVisible();
+
+    await summaryRefetch;
+    await expect(dialog.getByText(/1 credit used, 1 left\./)).toBeVisible();
+
+    await dialog.getByRole("button", { name: "Close" }).first().click();
+
+    await page.reload();
+    await waitForHydration(page);
+    const cardAfter = page.locator("div.flex.items-start.gap-3.rounded-xl.border.border-border.border-l-4.p-3").filter({ hasText: childFirstName });
+    await expect(cardAfter.getByText(/1 session left/)).toBeVisible({ timeout: 15_000 });
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Scenario 2 — /youth/classes pack rung + signed-out redirect
 // ---------------------------------------------------------------------------
 
@@ -879,11 +1017,12 @@ test.describe("Drop-in door — annual liability waiver", () => {
  *     waiver fields on the wire (the same two assertions scenario 6 makes for
  *     the drop-in door).
  *
- * The covered half matters disproportionately on THIS door: unlike the
- * classes booking endpoint, `/api/dropin/bookings` consults
- * `hasValidLiabilityWaiver` only to decide the Stripe metadata STAMP — it
- * never refuses an unsigned paid make-up. The client is the only gate, so
- * there is no server backstop to catch a regression in either direction.
+ * The covered half matters disproportionately on THIS door. The endpoint now
+ * has a server gate of its own (an uncovered child path with no signature
+ * 422s `waiver_required` before Stripe), so a regression in the ASKING
+ * direction is caught server-side — but nothing server-side can catch the
+ * opposite regression, a client that asks a covered family every single time.
+ * That is what the covered half below pins.
  */
 test.describe("Make-up modal — paid 402 path is waiver-gated", () => {
   test.setTimeout(120_000);
@@ -1020,12 +1159,12 @@ test.describe("Make-up modal — paid 402 path is waiver-gated", () => {
 
     // 402 allotment_exhausted → the price-confirm step, quoting the session's
     // real memberRateCents (never the adult pickup rate card).
-    await expect(dialog.getByText("This month's classes are used up")).toBeVisible({
+    await expect(dialog.getByText("Book this class")).toBeVisible({
       timeout: 20_000,
     });
     // 1500 cents renders as "$15" — family-classes-card.tsx's `fmtDollars`
     // drops the fraction digits on a whole-dollar amount.
-    await expect(dialog.getByText(/Pay \$15 to make up this one class/)).toBeVisible();
+    await expect(dialog.getByText(/book it as a one-off for \$15/)).toBeVisible();
 
     return dialog;
   }
@@ -1093,6 +1232,208 @@ test.describe("Make-up modal — paid 402 path is waiver-gated", () => {
       dialog.getByText("One more step: sign the guardian waiver"),
     ).toHaveCount(0);
     expect(booking.postCount()).toBe(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Scenario 10 — the SERVER 422 gate drives the panel, not just the client
+// pre-check (Task 9)
+// ---------------------------------------------------------------------------
+
+/**
+ * Scenario 8's covered half proves the CLIENT pre-check
+ * (`child.hasWaiverOnFile === true` from the summary snapshot) sends a
+ * covered family straight to payment with no signature. This scenario proves
+ * the INDEPENDENT server-side gate in `POST /api/dropin/bookings` (see its
+ * `422 waiver_required` block) is what actually stands behind that check when
+ * the snapshot is wrong — not dead code the client never exercises.
+ *
+ * Fixture: seed the child with a LIVE liability signature, so the
+ * `/api/classes/summary` snapshot the dashboard loads on `beforeAll` says
+ * `hasWaiverOnFile: true` — `payOrCollectWaiver` takes the "covered" branch
+ * and calls `payForClass()` with NO waiver fields, same as scenario 8's
+ * covered half. Only after that snapshot is already in the client's hands
+ * (dialog open, price confirmed) does the test delete the consent row
+ * directly — invisible to the already-rendered page, exactly the staleness
+ * `payForClass`'s own doc comment names ("a waiver that lapsed between the
+ * dashboard load and this click"). The signature-less POST that follows is
+ * let through to the REAL endpoint (not stubbed), so the 422 asserted below
+ * is the server's own answer, not a fixture the test wrote for itself. Only
+ * the SECOND request — the resubmit carrying the just-collected signature —
+ * is stubbed, per this file's stubbed-POST pattern, so completion doesn't
+ * depend on Stripe.
+ */
+test.describe("Make-up modal — server 422 gate drives the panel", () => {
+  test.setTimeout(120_000);
+
+  let organizationId: string;
+  let venueId: string;
+  let templateId: string;
+  let sessionId: string;
+  let tierId: string;
+  let membershipId: string;
+  let parentEmail: string;
+  let parentPassword: string;
+  let parentUserId: string;
+  let childId: string;
+
+  const suffix = Date.now();
+  const childFirstName = `StaleWaiverGateE2E-${suffix}`;
+  const templateName = `PackPurchaseE2E-StaleGate-${suffix}`;
+
+  test.beforeAll(async () => {
+    ({ organizationId, venueId } = await resolveDefaultOrgForHttpTests());
+    const db = getDb();
+
+    templateId = await createTestClassTemplate({
+      organizationId,
+      venueId,
+      name: templateName,
+      capacity: 12,
+      sessionRateCents: 2500,
+      memberRateCents: 1500,
+    });
+    sessionId = await seedFutureClassSession({
+      organizationId,
+      venueId,
+      templateId,
+      capacity: 12,
+      sessionRateCents: 2500,
+      memberRateCents: 1500,
+    });
+
+    // Reuses the existing "Makeup Tier 1 - " prefix so the shared orphan
+    // sweep in classes-helpers already knows how to clean it up.
+    const [tier] = await db
+      .insert(membershipTiers)
+      .values({
+        organizationId,
+        name: `Makeup Tier 1 - e2e-stalegate-${suffix}`,
+        monthlyPriceCents: 5000,
+        benefits: { classes_per_month: 0 },
+        isActive: true,
+      })
+      .returning();
+    tierId = tier.id;
+
+    const throwawayUser = await createTestUserWithPassword();
+    parentEmail = throwawayUser.email;
+    parentPassword = throwawayUser.password;
+    parentUserId = throwawayUser.userId;
+
+    childId = await createTestChild(parentUserId, childFirstName);
+    membershipId = await createTestChildMembership({
+      userId: parentUserId,
+      familyMemberId: childId,
+      organizationId,
+      tierId,
+      idSuffix: `e2e-stalegate-${suffix}`,
+    });
+    // LIVE at dashboard-load time — this is what makes the client's own
+    // pre-check take the "covered" branch.
+    await seedLiabilityConsent({
+      familyMemberId: childId,
+      organizationId,
+      signedByUserId: parentUserId,
+      signedDaysAgo: 30,
+    });
+  });
+
+  test.afterAll(async () => {
+    const db = getDb();
+    // Already deleted mid-test, but idempotent — a run that fails before
+    // that point must not leak a GRANTED consents row on the shared DB.
+    await deleteConsentsFor([childId]);
+    if (membershipId) await db.delete(memberships).where(eq(memberships.id, membershipId));
+    if (tierId) await cleanupTestMembershipTiers([tierId]);
+    if (sessionId) await deleteTestSession(sessionId);
+    if (templateId) await cleanupTestClassFixtures([templateId]);
+  });
+
+  test("a stale client snapshot still gets refused server-side, and signing completes the payment", async ({
+    page,
+  }) => {
+    await signIn(page, parentEmail, parentPassword);
+
+    await page.goto("/dashboard/family");
+    await waitForHydration(page);
+
+    const card = page
+      .locator("div.flex.items-start.gap-3.rounded-xl.border.border-border.border-l-4.p-3")
+      .filter({ hasText: childFirstName });
+    await expect(card).toBeVisible({ timeout: 20_000 });
+    await card.getByRole("button", { name: "Book a make-up" }).click();
+
+    const dialog = page.getByRole("dialog");
+    await expect(
+      dialog.getByText(new RegExp(`Book a make-up class for ${childFirstName}`)),
+    ).toBeVisible({ timeout: 20_000 });
+
+    await dialog
+      .locator("button.w-full.text-left.rounded-xl")
+      .filter({ hasText: templateName })
+      .click();
+
+    // 402 allotment_exhausted → the price-confirm step. `child.hasWaiverOnFile`
+    // in this snapshot is `true` (the consent seeded above is still live at
+    // this point).
+    await expect(dialog.getByText("Book this class")).toBeVisible({
+      timeout: 20_000,
+    });
+    await expect(dialog.getByText(/book it as a one-off for \$15/)).toBeVisible();
+
+    // The snapshot the dashboard loaded with is now stale — the consent that
+    // made it true a moment ago is gone, invisible to the already-rendered
+    // page. `payOrCollectWaiver` still reads `child.hasWaiverOnFile === true`
+    // and will call `payForClass()` with NO signature.
+    await deleteConsentsFor([childId]);
+
+    // Only the SIGNED resubmit is stubbed — the first, signature-less
+    // request goes to the real endpoint so its 422 is a real server answer,
+    // not a fixture of this test.
+    await page.route("**/api/dropin/bookings", async (route) => {
+      const req = route.request();
+      if (req.method() !== "POST") return route.continue();
+      const body = JSON.parse(req.postData() ?? "{}") as Record<string, unknown>;
+      if (body.waiverAccepted === true) {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ bookingId: "e2e-stubbed-booking", paymentRequired: false }),
+        });
+        return;
+      }
+      return route.continue();
+    });
+
+    const firstAttempt = page.waitForResponse(
+      (res) => res.url().includes("/api/dropin/bookings") && res.request().method() === "POST",
+    );
+    await dialog.getByRole("button", { name: "Pay for this class" }).click();
+
+    const res = await firstAttempt;
+    expect(res.status()).toBe(422);
+    const body = (await res.json()) as { error?: string };
+    expect(body.error).toBe("waiver_required");
+
+    // THE ASSERTION: the panel is driven by that 422, not by the client's
+    // own (stale, true) pre-check — the pre-check would have sent no
+    // signature at all, and did.
+    await expect(dialog.getByText("One more step: sign the guardian waiver")).toBeVisible({
+      timeout: 20_000,
+    });
+    await expect(
+      dialog.getByRole("button", { name: "Sign waiver & continue to payment" }),
+    ).toBeVisible();
+
+    await dialog.locator("#makeup-waiver-accept").click();
+    await dialog.locator("#makeup-waiver-signer-name").fill("Stale Waiver E2E Parent");
+    await dialog.getByRole("button", { name: "Sign waiver & continue to payment" }).click();
+
+    // Signing resubmits `payForClass(signedBy)`, which the route stub above
+    // now answers — completing the flow entirely stub-side, no Stripe
+    // dependency.
+    await expect(dialog.getByText("You're all set!")).toBeVisible({ timeout: 20_000 });
   });
 });
 

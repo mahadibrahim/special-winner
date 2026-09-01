@@ -43,10 +43,11 @@ import { formatCents } from "@/lib/classes/ladder-model"
  *     carries `waiverOnFile` from the canonical org-scoped predicate, and a
  *     covered child goes straight to payment with NO waiver fields. The
  *     booking endpoint re-checks the same predicate server-side (the flag is
- *     a UX probe, never the authority) and stamps the resulting booking "On
- *     file (annual waiver)". Asking a covered family to re-sign on every
- *     single drop-in was the friction this removes — and each re-signature
- *     also appended a redundant row to the consents audit log.
+ *     a UX probe, never the authority — it REFUSES an uncovered unsigned
+ *     child booking with 422 `waiver_required`) and stamps the resulting
+ *     booking "On file (annual waiver)". Asking a covered family to re-sign
+ *     on every single drop-in was the friction this removes — and each
+ *     re-signature also appended a redundant row to the consents audit log.
  *  3. 402 `allotment_exhausted` (a member who has used this month up) → a
  *     confirm step showing the REAL `memberRateCents` from the response
  *     before taking the same paid path. Never charge a member a price they
@@ -63,6 +64,9 @@ import { formatCents } from "@/lib/classes/ladder-model"
  *     confirm-price → pay one.
  *  4. 422 `waiver_required` → guardian waiver panel; resubmitting carries the
  *     signature, which both books this class and puts the waiver on file.
+ *     BOTH doors emit it: the free classes endpoint (step 1) and the paid
+ *     child path of `/api/dropin/bookings` (steps 2/3), where it is the
+ *     server backstop for a stale `waiverOnFile` probe.
  *
  * Steps 2/3 reuse `family-classes-card.tsx`'s `payForClass` fetch shape and
  * its response-shape handling verbatim, including the two distinct error
@@ -314,8 +318,31 @@ export function ClassDropInModal({
       if (!res.ok) {
         // Two error shapes come off this endpoint: nested
         // `{ error: { code, message } }` and flat `{ error: "<code>", message }`
-        // (class_rate_not_configured). Read the human message from either.
-        const err = body.error as { message?: string } | string | undefined
+        // (class_rate_not_configured, waiver_required). Read the code and the
+        // human message from either.
+        const err = body.error as { message?: string; code?: string } | string | undefined
+        const code =
+          typeof err === "string"
+            ? err
+            : typeof err === "object" && typeof err?.code === "string"
+              ? err.code
+              : undefined
+
+        // The endpoint gates the CHILD path server-side: no valid annual
+        // waiver and no signature on the request → 422. `payOrCollectWaiver`
+        // sends no signature whenever `child.waiverOnFile` is true, and that
+        // flag comes off the ChildPicker's probe, which can be STALE — a
+        // waiver that lapsed between the page load and this click lands here.
+        // Route it to the panel the user can act on rather than a dead "could
+        // not start payment". `waiverPurpose` is "pay", so signing resubmits
+        // this same paid booking with the signature attached. (Same handling
+        // as family-classes-card.tsx's `payForClass`.)
+        if (code === "waiver_required") {
+          setWaiverPurpose("pay")
+          setPhase("waiver")
+          return
+        }
+
         const nestedMessage = typeof err === "object" && err?.message ? err.message : null
         const flatMessage =
           typeof err === "string" && typeof body.message === "string" ? body.message : null
@@ -489,10 +516,10 @@ export function ClassDropInModal({
 
             {phase === "confirm_paid" && (
               <>
-                <DialogTitle className="text-ink">This month's classes are used up</DialogTitle>
+                <DialogTitle className="text-ink">Book this class</DialogTitle>
                 <DialogDescription className="text-ink-2">
-                  {childName}'s monthly allotment is spent. Pay{" "}
-                  {formatCents(paidRateCents) ?? "the class rate"} for this one class instead?
+                  {childName}'s membership doesn't cover this class — book it as a one-off for{" "}
+                  {formatCents(paidRateCents) ?? "the class rate"}?
                 </DialogDescription>
                 <ErrorBanner message={flowError} />
                 <div className="flex gap-3">

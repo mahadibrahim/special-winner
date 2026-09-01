@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import {
   getParentCookie,
   getAuthCookie,
@@ -228,7 +228,7 @@ describe("POST /api/rentals/bookings — annual waiver on file", () => {
 
   it("(a) covered renter books WITHOUT waiverAccepted/waiverName → 200, row stamped on-file", async () => {
     const { userId, cookie } = await makeRenter("a");
-    await giveValidWaiver(userId);
+    const personId = await giveValidWaiver(userId);
 
     const res = await apiFetch("/api/rentals/bookings", {
       method: "POST",
@@ -254,6 +254,15 @@ describe("POST /api/rentals/bookings — annual waiver on file", () => {
     expect(row.waiverSignedBy).toBe(WAIVER_ON_FILE_ATTRIBUTION);
     // Load-bearing: a dated derived row would self-renew the legacy fallback.
     expect(row.waiverSignedAt).toBeNull();
+
+    // …and NOTHING was appended: the on-file branch is a READ. Only a real
+    // typed signature writes (see (d)); a submission with no signature fields
+    // must never grow the append-only log.
+    const rows = await getDb()
+      .select()
+      .from(consents)
+      .where(and(eq(consents.familyMemberId, personId), eq(consents.type, "liability")));
+    expect(rows).toHaveLength(1);
   });
 
   it("(b) renter with no valid waiver, no waiver fields → 422 exactly as today", async () => {
@@ -327,6 +336,61 @@ describe("POST /api/rentals/bookings — annual waiver on file", () => {
     expect(rows[0].expiresAt).not.toBeNull();
     // ip/UA come from THIS request's context, never the body.
     expect(rows[0].userAgent).toBe("annual-waiver-rentals-test/1.0");
+  });
+
+  it("(d) a COVERED renter who signs anyway has that real signature recorded, dated and appended", async () => {
+    // A stale client (or a page loaded before the coverage probe answered)
+    // still renders the checkbox, and a human really does type their name.
+    // Discarding that and stamping "On file" would file a false audit entry:
+    // the honest record is the signature, with its own date — and an appended
+    // consents row, since `consents` is the append-only log of what people
+    // actually signed. Same posture as the self-serve/kiosk endpoint.
+    const { userId, cookie } = await makeRenter("covered-signs");
+    const personId = await giveValidWaiver(userId);
+    expect(
+      (await getDb()
+        .select()
+        .from(consents)
+        .where(and(eq(consents.familyMemberId, personId), eq(consents.type, "liability")))),
+    ).toHaveLength(1);
+
+    const res = await apiFetch("/api/rentals/bookings", {
+      method: "POST",
+      cookie,
+      headers: { "User-Agent": "annual-waiver-rentals-covered/1.0" },
+      body: JSON.stringify({
+        venueId: E2E_RENTAL_VENUE_ID,
+        fieldNumber: 94,
+        ...slot(10, 1),
+        partySize: 2,
+        purpose: "practice",
+        waiverAccepted: true,
+        waiverName: "Covered Signer D",
+      }),
+    });
+    const body = await res.json();
+    expect(res.status, JSON.stringify(body)).toBe(200);
+
+    const [row] = await getDb()
+      .select()
+      .from(fieldRentals)
+      .where(eq(fieldRentals.id, body.rentalId));
+    // The typed name, not the on-file attribution…
+    expect(row.waiverSignedBy).toBe("Covered Signer D");
+    // …and a REAL date, because a real human really signed.
+    expect(row.waiverSignedAt).not.toBeNull();
+
+    // Exactly ONE row appended (2 total: the seeded grant + this signature).
+    const rows = await getDb()
+      .select()
+      .from(consents)
+      .where(and(eq(consents.familyMemberId, personId), eq(consents.type, "liability")))
+      .orderBy(desc(consents.signedAt));
+    expect(rows).toHaveLength(2);
+    expect(rows[0].signedByName).toBe("Covered Signer D");
+    // ip/UA come from THIS request's context, never the body.
+    expect(rows[0].userAgent).toBe("annual-waiver-rentals-covered/1.0");
+    expect(rows[0].ipAddress).toBeTruthy();
   });
 
   it("explicit waiverAccepted:false is still rejected even when the renter is covered", async () => {
