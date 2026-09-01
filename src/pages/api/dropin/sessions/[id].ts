@@ -28,6 +28,7 @@ import { resolveRate } from "@/lib/dropin/pricing";
 import { getActiveMembershipForUser } from "@/lib/dropin/booking";
 import { resolveClassWalkUpRate } from "@/lib/classes/class-walkup";
 import { reportClassRateNotConfigured } from "@/lib/classes/class-rate";
+import { formatParticipantName } from "@/lib/consents/waiver-consent-language";
 import { stripe } from "@/lib/stripe/client";
 import { getSignedGetUrl } from "@/lib/storage/r2";
 
@@ -325,20 +326,17 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
   // src/lib/classes/class-rate.ts documents for surfaces with no request to
   // fail).
   if (row.session.kind === "class") {
+    // Null familyMemberId (anonymous viewer, or an authed viewer with no
+    // known child on this session) skips the membership lookup inside the
+    // module entirely and resolves the plain public class rate — see
+    // resolveClassWalkUpRate's doc comment.
     const childForQuote = locals.user ? bookingFamilyMemberId : null;
-    if (childForQuote) {
-      const quote = await resolveClassWalkUpRate(row.session, childForQuote, db);
-      if (quote.ok) {
-        resolvedAmountCents = quote.amountCents;
-        resolvedPaymentMethod = "card_online";
-      } else {
-        reportUnpricedClassOnce(row.session, quote.need);
-      }
-    } else if (row.session.sessionRateCents !== null) {
-      resolvedAmountCents = row.session.sessionRateCents;
+    const quote = await resolveClassWalkUpRate(row.session, childForQuote, db);
+    if (quote.ok) {
+      resolvedAmountCents = quote.amountCents;
       resolvedPaymentMethod = "card_online";
     } else {
-      reportUnpricedClassOnce(row.session, "session");
+      reportUnpricedClassOnce(row.session, quote.need);
     }
   }
 
@@ -353,7 +351,7 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
       .from(familyMembers)
       .where(eq(familyMembers.id, bookingFamilyMemberId))
       .limit(1);
-    if (fm) bookingFamilyMemberName = `${fm.firstName} ${fm.lastName}`.trim();
+    if (fm) bookingFamilyMemberName = formatParticipantName(fm.firstName, fm.lastName) ?? null;
   }
 
   // ANNUAL WAIVER, display side. `bookingWaiverSigned` is a PER-BOOKING flag:

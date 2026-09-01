@@ -72,13 +72,20 @@ export type ClassWalkUpRateResult =
   | { ok: false; need: ClassRateNeed };
 
 /**
- * The price a class walk-up owes, derived from the SESSION only.
+ * The price a class walk-up (or a class session's public quote) owes,
+ * derived from the SESSION only.
  *
  * Member rate applies ONLY when the CHILD (`familyMemberId`) holds an
  * `active` membership — the same server-verified test as the online paid
  * make-up door, never a claim from the client and never the booking
  * parent's own adult membership. No active child membership → the plain
  * public class rate.
+ *
+ * `familyMemberId` is nullable: pass `null` when no participant is known
+ * yet (e.g. an anonymous or not-yet-booked viewer on the public session
+ * detail page) — the membership lookup is skipped entirely and the result
+ * is always the plain public class rate, the same answer as passing a
+ * childless family member would give, without the wasted query.
  *
  * There is deliberately no `?? rateCard.*` tail anywhere in here: see the
  * module doc and src/lib/classes/class-rate.ts.
@@ -89,14 +96,12 @@ export async function resolveClassWalkUpRate(
     sessionRateCents: number | null;
     memberRateCents: number | null;
   },
-  familyMemberId: string,
+  familyMemberId: string | null,
   dbOrTx?: DbClient,
 ): Promise<ClassWalkUpRateResult> {
-  const childMembership = await getActiveChildMembership(
-    familyMemberId,
-    session.organizationId,
-    dbOrTx,
-  );
+  const childMembership = familyMemberId
+    ? await getActiveChildMembership(familyMemberId, session.organizationId, dbOrTx)
+    : null;
   const activeChildMembership =
     childMembership && childMembership.status === "active" ? childMembership : null;
 

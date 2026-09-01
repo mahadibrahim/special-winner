@@ -39,6 +39,7 @@ import {
 import {
   waiverConsentVariant,
   waiverAssentSentence,
+  formatParticipantName,
 } from "@/lib/consents/waiver-consent-language";
 import { DROPIN_WAIVER_ACCEPT_LABEL } from "@/lib/dropin/waiver-text";
 import { getPostHogServer } from "@/lib/posthog-server";
@@ -190,10 +191,10 @@ export const POST: APIRoute = async ({
   // sentence (naming the child) for a booking with a `family_member_id` —
   // this endpoint's own doc notes familyMemberId is only ever set on child
   // bookings. Record what was on screen, nothing else (#398's rule).
-  const participantName =
-    row.participantFirstName && row.participantLastName
-      ? `${row.participantFirstName} ${row.participantLastName}`.trim()
-      : undefined;
+  const participantName = formatParticipantName(
+    row.participantFirstName,
+    row.participantLastName,
+  );
   const consentText = row.familyMemberId
     ? waiverAssentSentence(consentVariant, participantName)
     : DROPIN_WAIVER_ACCEPT_LABEL;

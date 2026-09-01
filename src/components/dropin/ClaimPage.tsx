@@ -7,6 +7,37 @@ import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import { toast } from "sonner";
 
+/**
+ * Shape-tolerant error extraction for /api/dropin/claim/:token's error
+ * bodies. Three shapes are in play on this endpoint:
+ *   - `{ error: { code, message } }` — the class-walkup guard's coded shape
+ *     (422 class_requires_child).
+ *   - `{ error: "slug", message: "friendly sentence" }` —
+ *     classRateNotConfigured's shape (409 class_rate_not_configured). Note
+ *     `error` here is a MACHINE slug, not prose — rendering it verbatim
+ *     would show "class_rate_not_configured" instead of the sentence.
+ *   - `{ error: "a friendly sentence" }` — every other refusal on this
+ *     endpoint (expired window, wrong user, Stripe not configured, …).
+ * Precedence matters: the nested object's `.message` wins first, then a
+ * top-level `message` (this is what catches the slug+message pair BEFORE
+ * its `error` string gets mistaken for the whole story), then the bare
+ * string, then the fallback. Doesn't reuse walk-up-error.ts's
+ * `walkUpErrorMessage` — that helper returns a bare string `error`
+ * immediately without checking a sibling `message`, which is exactly wrong
+ * for the slug+message shape this endpoint uses.
+ */
+function claimErrorMessage(json: unknown, fallback: string): string {
+  if (!json || typeof json !== "object") return fallback;
+  const body = json as { error?: unknown; message?: unknown };
+  if (body.error && typeof body.error === "object") {
+    const nested = (body.error as { message?: unknown }).message;
+    if (typeof nested === "string") return nested;
+  }
+  if (typeof body.message === "string") return body.message;
+  if (typeof body.error === "string") return body.error;
+  return fallback;
+}
+
 interface ClaimInfo {
   bookingId: string;
   sessionId: string;
@@ -44,7 +75,7 @@ export default function ClaimPage({ token, isAuthenticated }: ClaimPageProps) {
           setError(
             res.status === 410
               ? "This claim window has expired."
-              : (json.error ?? "Invalid claim"),
+              : claimErrorMessage(json, "Invalid claim"),
           );
           return;
         }
@@ -72,6 +103,13 @@ export default function ClaimPage({ token, isAuthenticated }: ClaimPageProps) {
   const remainingMin = Math.floor(remainingMs / 60000);
   const remainingSec = Math.floor((remainingMs % 60000) / 1000);
   const expired = remainingMs <= 0;
+  // A paid claim GET that can't resolve an amount (e.g. a class session
+  // missing its rate — see the report-only posture on
+  // GET /api/dropin/sessions/[id] and resolveAmountDueCents in
+  // claim/[token].ts) means the "pay" action is a guaranteed 422 — don't
+  // dangle a "Pay & confirm" button into that. Disable it with a note
+  // instead of letting the click round-trip to a refusal.
+  const priceUnavailable = info.paymentRequired && info.amountDueCents == null;
 
   const claim = async () => {
     setBusy(true);
@@ -79,7 +117,7 @@ export default function ClaimPage({ token, isAuthenticated }: ClaimPageProps) {
       const res = await fetch(`/api/dropin/claim/${token}`, { method: "POST" });
       const json = await res.json();
       if (!res.ok) {
-        toast.error(json.error ?? "Claim failed");
+        toast.error(claimErrorMessage(json, "Claim failed"));
         return;
       }
       toast.success("Spot confirmed");
@@ -103,7 +141,7 @@ export default function ClaimPage({ token, isAuthenticated }: ClaimPageProps) {
       });
       const json = await res.json();
       if (!res.ok) {
-        toast.error(json.error ?? "Could not start payment");
+        toast.error(claimErrorMessage(json, "Could not start payment"));
         setBusy(false);
         return;
       }
@@ -171,19 +209,25 @@ export default function ClaimPage({ token, isAuthenticated }: ClaimPageProps) {
         {isAuthenticated && (
           <Button
             onClick={info.paymentRequired ? payAndClaim : claim}
-            disabled={busy || expired}
+            disabled={busy || expired || priceUnavailable}
             className="w-full"
           >
             {busy
               ? "Working…"
               : expired
                 ? "Expired"
-                : info.paymentRequired
-                  ? info.amountDueCents != null
-                    ? `Pay $${(info.amountDueCents / 100).toFixed(2)} & confirm`
-                    : "Pay & confirm"
-                  : "Confirm my spot"}
+                : priceUnavailable
+                  ? "Pricing unavailable"
+                  : info.paymentRequired
+                    ? `Pay $${(info.amountDueCents! / 100).toFixed(2)} & confirm`
+                    : "Confirm my spot"}
           </Button>
+        )}
+        {isAuthenticated && priceUnavailable && !expired && (
+          <p className="text-xs text-amber-700 text-center">
+            We can't calculate what you owe right now — contact the front
+            desk to confirm this spot.
+          </p>
         )}
 
         <a
