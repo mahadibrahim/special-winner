@@ -516,10 +516,10 @@ export function ClassDropInModal({
 
             {phase === "confirm_paid" && (
               <>
-                <DialogTitle className="text-ink">This month's classes are used up</DialogTitle>
+                <DialogTitle className="text-ink">Book this class</DialogTitle>
                 <DialogDescription className="text-ink-2">
-                  {childName}'s monthly allotment is spent. Pay{" "}
-                  {formatCents(paidRateCents) ?? "the class rate"} for this one class instead?
+                  {childName}'s membership doesn't cover this class — book it as a one-off for{" "}
+                  {formatCents(paidRateCents) ?? "the class rate"}?
                 </DialogDescription>
                 <ErrorBanner message={flowError} />
                 <div className="flex gap-3">

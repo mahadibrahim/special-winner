@@ -1159,12 +1159,12 @@ test.describe("Make-up modal — paid 402 path is waiver-gated", () => {
 
     // 402 allotment_exhausted → the price-confirm step, quoting the session's
     // real memberRateCents (never the adult pickup rate card).
-    await expect(dialog.getByText("This month's classes are used up")).toBeVisible({
+    await expect(dialog.getByText("Book this class")).toBeVisible({
       timeout: 20_000,
     });
     // 1500 cents renders as "$15" — family-classes-card.tsx's `fmtDollars`
     // drops the fraction digits on a whole-dollar amount.
-    await expect(dialog.getByText(/Pay \$15 to make up this one class/)).toBeVisible();
+    await expect(dialog.getByText(/book it as a one-off for \$15/)).toBeVisible();
 
     return dialog;
   }
@@ -1377,10 +1377,10 @@ test.describe("Make-up modal — server 422 gate drives the panel", () => {
     // 402 allotment_exhausted → the price-confirm step. `child.hasWaiverOnFile`
     // in this snapshot is `true` (the consent seeded above is still live at
     // this point).
-    await expect(dialog.getByText("This month's classes are used up")).toBeVisible({
+    await expect(dialog.getByText("Book this class")).toBeVisible({
       timeout: 20_000,
     });
-    await expect(dialog.getByText(/Pay \$15 to make up this one class/)).toBeVisible();
+    await expect(dialog.getByText(/book it as a one-off for \$15/)).toBeVisible();
 
     // The snapshot the dashboard loaded with is now stale — the consent that
     // made it true a moment ago is gone, invisible to the already-rendered

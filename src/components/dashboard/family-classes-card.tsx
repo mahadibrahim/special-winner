@@ -1053,12 +1053,11 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
 
         {phase === "allotment_exhausted" && exhaustedOffer && (
           <>
-            <DialogTitle className="text-ink">This month's classes are used up</DialogTitle>
+            <DialogTitle className="text-ink">Book this class</DialogTitle>
             <DialogDescription className="text-ink-2">
-              {child.name}'s monthly allotment is used up for{" "}
-              {formatDateTime(exhaustedOffer.session.startsAt)}. Pay{" "}
-              {fmtDollars(exhaustedOffer.memberRateCents) ?? "the class rate"} to make up this one
-              class instead?
+              {child.name}'s membership doesn't cover{" "}
+              {formatDateTime(exhaustedOffer.session.startsAt)} — book it as a one-off for{" "}
+              {fmtDollars(exhaustedOffer.memberRateCents) ?? "the class rate"}?
             </DialogDescription>
             <ErrorBanner message={flowError} />
             <div className="flex gap-3">
