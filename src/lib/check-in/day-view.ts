@@ -3,12 +3,23 @@
  * for a (venueId, date) into a single time-ordered list of DayEvent rows
  * the manager dashboard renders. Each event has the same summary shape
  * regardless of source.
+ *
+ * `waiversOutstanding` is a WORK QUEUE, not a column read: a person counts
+ * only when they are BOTH unstamped on this row AND uncovered by the org's
+ * annual liability waiver (src/lib/consents/liability.ts). A family who signed
+ * three weeks ago at another door is covered — sending the desk after them is
+ * a false alarm, and a dashboard that cries wolf is one the desk stops
+ * reading. Coverage is resolved in ONE batch for the whole day view, not per
+ * row: this is a hot staff dashboard on a 5s poll.
  */
 import { and, eq, gt, gte, inArray, lt, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
 import { fieldRentals } from "@/lib/db/schema/field-rentals";
+import { locations } from "@/lib/db/schema/organizations";
 import { games, venues, teams, rosters } from "@/lib/db/schema/teams";
+import { hasValidLiabilityWaiverBatch } from "@/lib/consents/liability";
+import { findSelfPersonIds } from "@/lib/registrations/resolve-person";
 
 export type DayEventKind = "drop_in_session" | "game" | "field_rental";
 
@@ -34,9 +45,16 @@ export async function getVenueDayEvents(
 ): Promise<{ venueName: string; events: DayEvent[] } | null> {
   const db = getDb();
 
+  // The org comes from venue → location: waiver coverage is an ORG-scoped
+  // legal release, and the venue is the only handle this function is given.
   const [venue] = await db
-    .select({ id: venues.id, name: venues.name })
+    .select({
+      id: venues.id,
+      name: venues.name,
+      organizationId: locations.organizationId,
+    })
     .from(venues)
+    .innerJoin(locations, eq(locations.id, venues.locationId))
     .where(eq(venues.id, venueId))
     .limit(1);
   if (!venue) return null;
@@ -68,6 +86,12 @@ export async function getVenueDayEvents(
           status: dropInBookings.status,
           waiverSigned: dropInBookings.waiverSigned,
           checkedInAt: dropInBookings.checkedInAt,
+          // WHO the booking is for. familyMemberId is set only when the
+          // participant is not the booking's user (a kiosk walk-in for a
+          // minor); otherwise the booker IS the participant and their SELF
+          // person row is the one coverage hangs off.
+          familyMemberId: dropInBookings.familyMemberId,
+          userId: dropInBookings.userId,
         })
         .from(dropInBookings)
         .where(
@@ -78,11 +102,88 @@ export async function getVenueDayEvents(
         )
     : [];
 
+  // ── Field rentals overlapping the day ────────────────────────────────────
+  // Proper overlap: rental.startsAt < dayEnd AND rental.endsAt > dayStart
+  const rentalRows = await db
+    .select({
+      id: fieldRentals.id,
+      startsAt: fieldRentals.startsAt,
+      endsAt: fieldRentals.endsAt,
+      fieldNumber: fieldRentals.fieldNumber,
+      renterName: fieldRentals.renterName,
+      purpose: fieldRentals.purpose,
+      waiverSigned: fieldRentals.waiverSigned,
+      checkedInAt: fieldRentals.checkedInAt,
+      // Rentals carry no participant row — coverage hangs off the renter's
+      // SELF person. A guest rental (no account) has no person and so no
+      // coverage, which is correct: it also has no way to have signed before.
+      renterUserId: fieldRentals.renterUserId,
+    })
+    .from(fieldRentals)
+    .where(
+      and(
+        eq(fieldRentals.venueId, venueId),
+        eq(fieldRentals.status, "confirmed"),
+        lt(fieldRentals.startsAt, dayEnd),
+        gt(fieldRentals.endsAt, dayStart),
+      ),
+    );
+
+  // ── Annual-waiver coverage for everyone on the day, in one pass ──────────
+  // Two queries to name the people (self-person lookup for the account-only
+  // rows) plus the batch predicate's own three, for the WHOLE view — never
+  // per row. `isCovered` is consulted by both the drop-in and rental counts
+  // below, and answers false for anyone this pass could not resolve, which
+  // leaves them counted as outstanding.
+  const selfUserIds = [
+    ...sessionBookings.filter((b) => !b.familyMemberId).map((b) => b.userId),
+    ...rentalRows.map((r) => r.renterUserId),
+  ].filter((id): id is string => Boolean(id));
+
+  let coveredPersonIds = new Set<string>();
+  let selfPersonByUser = new Map<string, string>();
+  try {
+    selfPersonByUser = await findSelfPersonIds(db, selfUserIds);
+    const personIds = [
+      ...sessionBookings.map((b) => b.familyMemberId),
+      ...selfPersonByUser.values(),
+    ].filter((id): id is string => Boolean(id));
+    const verdicts = await hasValidLiabilityWaiverBatch(
+      personIds,
+      venue.organizationId,
+      db,
+    );
+    coveredPersonIds = new Set(
+      [...verdicts.entries()].filter(([, ok]) => ok).map(([id]) => id),
+    );
+  } catch (err) {
+    // Fail toward OUTSTANDING: an empty coverage set restores the old
+    // stamp-only count, i.e. the desk is sent after people who may already be
+    // covered. Overcounting wastes a question; undercounting misses a release.
+    console.error("[check-in/day-view] waiver coverage batch failed", err);
+  }
+
+  /** Coverage for a row, given its participant person or its account holder. */
+  const isCovered = (
+    familyMemberId: string | null,
+    userId: string | null,
+  ): boolean => {
+    const personId =
+      familyMemberId ?? (userId ? selfPersonByUser.get(userId) ?? null : null);
+    return personId !== null && coveredPersonIds.has(personId);
+  };
+
   const dropInEvents: DayEvent[] = sessions.map((s) => {
     const rows = sessionBookings.filter((b) => b.sessionId === s.id);
     const expected = rows.filter((b) => b.status === "confirmed").length;
+    // Outstanding = unstamped on this booking AND uncovered by the annual
+    // waiver. A covered-but-unstamped booking is a bookkeeping gap, not a
+    // missing release, and must not put the desk to work.
     const waiversOutstanding = rows.filter(
-      (b) => b.status === "confirmed" && !b.waiverSigned,
+      (b) =>
+        b.status === "confirmed" &&
+        !b.waiverSigned &&
+        !isCovered(b.familyMemberId, b.userId),
     ).length;
     const checkedIn = rows.filter((b) => b.checkedInAt != null).length;
     return {
@@ -97,29 +198,6 @@ export async function getVenueDayEvents(
     };
   });
 
-  // ── Field rentals overlapping the day ────────────────────────────────────
-  // Proper overlap: rental.startsAt < dayEnd AND rental.endsAt > dayStart
-  const rentalRows = await db
-    .select({
-      id: fieldRentals.id,
-      startsAt: fieldRentals.startsAt,
-      endsAt: fieldRentals.endsAt,
-      fieldNumber: fieldRentals.fieldNumber,
-      renterName: fieldRentals.renterName,
-      purpose: fieldRentals.purpose,
-      waiverSigned: fieldRentals.waiverSigned,
-      checkedInAt: fieldRentals.checkedInAt,
-    })
-    .from(fieldRentals)
-    .where(
-      and(
-        eq(fieldRentals.venueId, venueId),
-        eq(fieldRentals.status, "confirmed"),
-        lt(fieldRentals.startsAt, dayEnd),
-        gt(fieldRentals.endsAt, dayStart),
-      ),
-    );
-
   const rentalEvents: DayEvent[] = rentalRows.map((r) => ({
     kind: "field_rental",
     id: r.id,
@@ -130,7 +208,8 @@ export async function getVenueDayEvents(
     subtitle: r.purpose ?? null,
     counts: {
       expected: 1, // rental = one booking; party_size lives in the detail view
-      waiversOutstanding: r.waiverSigned ? 0 : 1,
+      waiversOutstanding:
+        r.waiverSigned || isCovered(null, r.renterUserId) ? 0 : 1,
       checkedIn: r.checkedInAt ? 1 : 0,
     },
   }));

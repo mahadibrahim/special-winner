@@ -13,6 +13,15 @@
  *                            is claimed by the customer.
  *   - field_rental    → single renter row
  *   - game            → combined roster from home + away teams
+ *
+ * `waiverSigned` on a row is a QUESTION ANSWERED FOR THE DESK ("is this person
+ * cleared to play?"), not a column dump: it is true when the row itself
+ * carries a signature OR when the person is covered by the org's annual
+ * liability waiver (src/lib/consents/liability.ts). The roll-call chip that
+ * renders it drives whether staff chase someone at the door, and chasing a
+ * family who signed three weeks ago at another door is a false alarm.
+ * Coverage is resolved in ONE batch per response — this endpoint is polled
+ * every 5s by PickupRollCall.
  */
 import type { APIRoute } from "astro";
 import { and, eq, inArray } from "drizzle-orm";
@@ -25,6 +34,9 @@ import { users } from "@/lib/db/schema/users";
 import { requireOrgAdminAccess } from "@/lib/auth/roles";
 import { requireSameOrgGame } from "@/lib/auth/require-resource-ownership";
 import { formatPhone } from "@/lib/phone";
+import { hasValidLiabilityWaiverBatch } from "@/lib/consents/liability";
+import { findSelfPersonIds } from "@/lib/registrations/resolve-person";
+import { renterWaiverOnFile } from "@/lib/rentals/waiver-on-file";
 
 export const prerender = false;
 const json = (b: unknown, s: number) =>
@@ -71,6 +83,11 @@ export const GET: APIRoute = async (context) => {
         phone: users.phone,
         avatarUrl: users.avatarUrl,
         waiverSigned: dropInBookings.waiverSigned,
+        // WHO the booking is for, for the coverage probe below. Set only when
+        // the participant is not the booking's user (a kiosk walk-in for a
+        // minor); otherwise the booker IS the participant and coverage hangs
+        // off their SELF person row.
+        familyMemberId: dropInBookings.familyMemberId,
         checkedInAt: dropInBookings.checkedInAt,
         amountPaidCents: dropInBookings.amountPaidCents,
         sessionRateCents: dropInSessions.sessionRateCents,
@@ -86,6 +103,29 @@ export const GET: APIRoute = async (context) => {
           inArray(dropInBookings.status, ["confirmed", "pending_payment", "pending_claim"]),
         ),
       );
+
+    // Annual-waiver coverage for the whole roster in one pass. Fails toward
+    // OUTSTANDING (empty set → the chip falls back to the row's own stamp):
+    // showing "waiver out" for someone already covered costs one question at
+    // the desk; the reverse waves through a person with no release.
+    let coveredPersonIds = new Set<string>();
+    let selfPersonByUser = new Map<string, string>();
+    try {
+      selfPersonByUser = await findSelfPersonIds(
+        db,
+        rows.filter((r) => !r.familyMemberId).map((r) => r.userId),
+      );
+      const personIds = [
+        ...rows.map((r) => r.familyMemberId),
+        ...selfPersonByUser.values(),
+      ].filter((id): id is string => Boolean(id));
+      const verdicts = await hasValidLiabilityWaiverBatch(personIds, orgId, db);
+      coveredPersonIds = new Set(
+        [...verdicts.entries()].filter(([, ok]) => ok).map(([id]) => id),
+      );
+    } catch (err) {
+      console.error("[check-in/event] waiver coverage batch failed", err);
+    }
 
     return json(
       {
@@ -105,13 +145,17 @@ export const GET: APIRoute = async (context) => {
             // free, so the booking is implicitly paid.
             const effectiveRate = r.walkUpRateCents ?? r.sessionRateCents ?? 0;
             const paid = r.amountPaidCents > 0 || effectiveRate === 0;
+            const personId =
+              r.familyMemberId ?? selfPersonByUser.get(r.userId) ?? null;
             return {
               rowKind: "drop_in_booking" as const,
               targetId: r.bookingId,
               name: `${r.firstName ?? ""} ${r.lastName ?? ""}`.trim() || r.email,
               subtitle: `adult · ${formatPhone(r.phone)}`,
               photoUrl: r.avatarUrl,
-              waiverSigned: r.waiverSigned,
+              waiverSigned:
+                r.waiverSigned ||
+                (personId !== null && coveredPersonIds.has(personId)),
               checkedInAt: r.checkedInAt ? r.checkedInAt.toISOString() : null,
               isMinor: false,
               familyMemberId: null,
@@ -142,6 +186,9 @@ export const GET: APIRoute = async (context) => {
     if (!row || row.rental.organizationId !== orgId) return json({ error: "Not found" }, 404);
 
     const r = row.rental;
+    // One renter, so the singular probe (which delegates to the same batch)
+    // is the right shape here. It already fails toward asking on any error.
+    const renterCovered = await renterWaiverOnFile(r.renterUserId, orgId, db);
     return json(
       {
         event: {
@@ -160,7 +207,7 @@ export const GET: APIRoute = async (context) => {
             name: r.renterName,
             subtitle: `${r.partySize}-person party · ${formatPhone(r.renterPhone)}`,
             photoUrl: null,
-            waiverSigned: r.waiverSigned,
+            waiverSigned: r.waiverSigned || renterCovered,
             checkedInAt: r.checkedInAt ? r.checkedInAt.toISOString() : null,
             isMinor: false,
             familyMemberId: null,

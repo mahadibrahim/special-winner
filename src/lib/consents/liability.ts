@@ -22,7 +22,7 @@
  * fallbacks age out on their own (every legacy signature is >365d old a year
  * after cutover, at which point the queries can be deleted).
  */
-import { and, desc, eq, gt, isNotNull, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNotNull } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { consents } from "@/lib/db/schema/consents";
 import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
@@ -208,11 +208,53 @@ export async function recordLiabilityWaiver(
  * Whether `familyMemberId` has a liability waiver on file for
  * `organizationId` that is still inside the 365-day window.
  *
- * Three indexed lookups, short-circuiting in order: the canonical consents
- * row first (the only one that will survive long-term, served by
- * `consents_liability_validity_idx`), then the two legacy signature
- * fallbacks (`drop_in_bookings_waiver_signature_idx`, and
- * `registrations_family_member_idx` for the registration join).
+ * A ONE-PERSON CALL OF `hasValidLiabilityWaiverBatch`, not a second
+ * implementation — read the rule there. Delegation is deliberate and is the
+ * whole point of the batch existing: two hand-written copies of a three-source
+ * predicate with a revocation asymmetry in the middle of it would fork the
+ * first time either was touched, and the surface that forked would be a staff
+ * dashboard silently disagreeing with the booking gate about who is covered.
+ *
+ * The delegate costs nothing: the batch short-circuits per stage exactly as
+ * this function used to, so a person covered by their consents row is still
+ * one indexed query.
+ */
+export async function hasValidLiabilityWaiver(
+  familyMemberId: string,
+  organizationId: string,
+  dbOrTx?: DbClient,
+): Promise<boolean> {
+  const verdicts = await hasValidLiabilityWaiverBatch(
+    [familyMemberId],
+    organizationId,
+    dbOrTx,
+  );
+  return verdicts.get(familyMemberId) ?? false;
+}
+
+/**
+ * The same predicate as `hasValidLiabilityWaiver`, resolved for MANY people in
+ * a fixed number of queries: `familyMemberId → is covered at this org`.
+ *
+ * THE RULE, per person, in order — each stage is one set-based query over the
+ * people still undecided after the stage before it:
+ *
+ * 1. The canonical consents row: the MOST RECENT `liability` row for this
+ *    (person, org), judged on its own. `consents` is an append-only log, so a
+ *    later revocation must win over the grant it supersedes — matching
+ *    `hasActiveConsent`. A non-granted latest row is an affirmative "not
+ *    covered" and STOPS here with no fall-through. An EXPIRED grant does fall
+ *    through: a legacy signature inside the window is a legitimate later
+ *    renewal of the same consent, not a contradiction of it. That asymmetry is
+ *    the subtlest thing in this file — it is why this must stay one function.
+ * 2. Legacy drop-in / class booking signature, org taken from the SESSION.
+ * 3. Legacy season/league/camp registration signature, org taken from
+ *    registrations → seasons → programs → locations.
+ *
+ * Both fallbacks read SIGNATURE rows only (`waiverSignedAt NOT NULL`): a row
+ * carrying `waiverSigned = true` with no timestamp is a derived copy of some
+ * other coverage (see `WAIVER_ON_FILE_ATTRIBUTION`) and has no date to anchor
+ * a window to.
  *
  * NOTE on booking/registration STATUS: the fallbacks deliberately do not
  * filter it. A cancelled or no-showed booking, or a withdrawn registration,
@@ -220,55 +262,72 @@ export async function recordLiabilityWaiver(
  * attendance does not retract the release. (Contrast the trial-uniqueness
  * check, which excludes cancelled rows on purpose: an unused trial should be
  * given back. Opposite question, opposite answer.)
+ *
+ * Returns a verdict for EVERY id passed in (duplicates collapse; ids matching
+ * no person answer `false`). Empty input answers an empty map without touching
+ * the database. THROWS on a query failure rather than degrading — callers
+ * decide which way to fail, and every current one fails toward ASKING for a
+ * signature (probe surfaces) or toward COUNTING the person as outstanding
+ * (staff surfaces).
  */
-export async function hasValidLiabilityWaiver(
-  familyMemberId: string,
+export async function hasValidLiabilityWaiverBatch(
+  familyMemberIds: string[],
   organizationId: string,
   dbOrTx?: DbClient,
-): Promise<boolean> {
+): Promise<Map<string, boolean>> {
+  const ids = Array.from(new Set(familyMemberIds.filter(Boolean)));
+  const verdicts = new Map<string, boolean>(ids.map((id) => [id, false]));
+  if (ids.length === 0) return verdicts;
+
   const db = dbOrTx ?? getDb();
   const now = new Date();
 
-  // 1. Canonical consents row. Served by consents_liability_validity_idx.
-  //    Read the MOST RECENT liability row for this (person, org) and judge
-  //    that one, rather than "any granted unexpired row" — a later
-  //    revocation must win over the grant it supersedes (consents is an
-  //    append-only log; this matches hasActiveConsent's semantics).
-  const [consent] = await db
-    .select({ status: consents.status, expiresAt: consents.expiresAt })
+  /** People not yet decided TRUE and not yet stopped by a revocation. */
+  const undecided = new Set(ids);
+
+  // 1. Canonical consents rows — one per person, the most recent. Served by
+  //    consents_liability_validity_idx.
+  const consentRows = await db
+    .selectDistinctOn([consents.familyMemberId], {
+      familyMemberId: consents.familyMemberId,
+      status: consents.status,
+      expiresAt: consents.expiresAt,
+    })
     .from(consents)
     .where(
       and(
-        eq(consents.familyMemberId, familyMemberId),
+        inArray(consents.familyMemberId, ids),
         eq(consents.organizationId, organizationId),
         eq(consents.type, "liability"),
       ),
     )
-    .orderBy(desc(consents.signedAt))
-    .limit(1);
-  if (consent && consent.status !== "granted") {
-    // A REVOCATION is an affirmative "this person is not covered" and is
-    // authoritative — it must not fall through to a legacy signature row
-    // that predates it. Note the asymmetry with the expired case below: an
-    // expired GRANT falls through on purpose, because a legacy signature
-    // inside the window is a legitimate later renewal of the same consent.
-    return false;
+    .orderBy(consents.familyMemberId, desc(consents.signedAt));
+
+  for (const row of consentRows) {
+    if (row.status !== "granted") {
+      // Revocation: authoritative, no fall-through to the legacy sources.
+      undecided.delete(row.familyMemberId);
+      continue;
+    }
+    if (row.expiresAt && row.expiresAt.getTime() > now.getTime()) {
+      verdicts.set(row.familyMemberId, true);
+      undecided.delete(row.familyMemberId);
+    }
+    // Expired grant → still undecided; the fallbacks may renew it.
   }
-  if (consent && consent.expiresAt && consent.expiresAt.getTime() > now.getTime()) {
-    return true;
-  }
+  if (undecided.size === 0) return verdicts;
 
   const cutoff = waiverWindowStart(now);
 
   // 2. Legacy drop-in / class booking signature. The org lives on the
   //    session, not the booking.
-  const [booking] = await db
-    .select({ one: sql<number>`1` })
+  const bookingRows = await db
+    .selectDistinct({ familyMemberId: dropInBookings.familyMemberId })
     .from(dropInBookings)
     .innerJoin(dropInSessions, eq(dropInBookings.sessionId, dropInSessions.id))
     .where(
       and(
-        eq(dropInBookings.familyMemberId, familyMemberId),
+        inArray(dropInBookings.familyMemberId, Array.from(undecided)),
         eq(dropInSessions.organizationId, organizationId),
         eq(dropInBookings.waiverSigned, true),
         // Redundant against `gt` in SQL three-valued logic, but it is the
@@ -276,30 +335,38 @@ export async function hasValidLiabilityWaiver(
         isNotNull(dropInBookings.waiverSignedAt),
         gt(dropInBookings.waiverSignedAt, cutoff),
       ),
-    )
-    .limit(1);
-  if (booking) return true;
+    );
+  for (const row of bookingRows) {
+    if (!row.familyMemberId) continue;
+    verdicts.set(row.familyMemberId, true);
+    undecided.delete(row.familyMemberId);
+  }
+  if (undecided.size === 0) return verdicts;
 
   // 3. Legacy season/league/camp registration signature. `seasons` has no
   //    organizationId — the real path is registrations → seasons → programs
   //    → locations.organizationId (same join the 0139 backfill uses).
-  const [registration] = await db
-    .select({ one: sql<number>`1` })
+  const registrationRows = await db
+    .selectDistinct({ familyMemberId: registrations.familyMemberId })
     .from(registrations)
     .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
     .innerJoin(programs, eq(seasons.programId, programs.id))
     .innerJoin(locations, eq(programs.locationId, locations.id))
     .where(
       and(
-        eq(registrations.familyMemberId, familyMemberId),
+        inArray(registrations.familyMemberId, Array.from(undecided)),
         eq(locations.organizationId, organizationId),
         eq(registrations.waiverSigned, true),
         isNotNull(registrations.waiverSignedAt),
         gt(registrations.waiverSignedAt, cutoff),
       ),
-    )
-    .limit(1);
-  return Boolean(registration);
+    );
+  for (const row of registrationRows) {
+    if (!row.familyMemberId) continue;
+    verdicts.set(row.familyMemberId, true);
+  }
+
+  return verdicts;
 }
 
 /**

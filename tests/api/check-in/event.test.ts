@@ -4,6 +4,9 @@ import { getDb } from "@/lib/db";
 import { dropInBookings } from "@/lib/db/schema/drop-in";
 import { fieldRentals } from "@/lib/db/schema/field-rentals";
 import { users } from "@/lib/db/schema/users";
+import { consents } from "@/lib/db/schema/consents";
+import { familyMembers } from "@/lib/db/schema/registrations";
+import { WAIVER_VALID_DAYS } from "@/lib/consents/liability";
 import {
   createTestDropInSession,
   resolveDefaultOrgForHttpTests,
@@ -222,6 +225,106 @@ describe("GET /api/admin/check-in/event", () => {
         { cookie },
       );
       expect(res.status).toBe(404);
+    });
+  });
+
+  // ── waiver chip: coverage, not just the row's own stamp ─────────────────────
+
+  /**
+   * `row.waiverSigned` drives the roll-call chip PickupRollCall renders
+   * ("waiver ✓" / "waiver out"), i.e. whether the desk chases someone at the
+   * door. It must answer COVERAGE — the row's own signature OR the org's
+   * annual liability waiver — not just the booking column, which is only
+   * stamped by the door the person happened to sign at.
+   */
+  describe("drop_in_session — waiver chip reflects annual coverage", () => {
+    it("reports waiverSigned for a covered booker whose booking row is unstamped", async () => {
+      const orgCtx = await resolveDefaultOrgForHttpTests();
+      const ctx = await createTestDropInSession({
+        organizationId: orgCtx.organizationId,
+        venueId: orgCtx.venueId,
+        sessionRateCents: 0,
+      });
+      const db = getDb();
+      const stamp = Date.now();
+
+      const [covered] = await db
+        .insert(users)
+        .values({
+          email: `event-waiver-covered-${stamp}@t.example`,
+          firstName: "Covered",
+          lastName: "Booker",
+        })
+        .returning();
+      const [uncovered] = await db
+        .insert(users)
+        .values({
+          email: `event-waiver-uncovered-${stamp}@t.example`,
+          firstName: "Uncovered",
+          lastName: "Booker",
+        })
+        .returning();
+
+      // Coverage for an adult booker hangs off their SELF person row.
+      const [coveredSelf] = await db
+        .insert(familyMembers)
+        .values({
+          selfUserId: covered.id,
+          firstName: "Covered",
+          lastName: "Booker",
+          birthDate: "1990-01-01",
+        })
+        .returning({ id: familyMembers.id });
+      await db.insert(familyMembers).values({
+        selfUserId: uncovered.id,
+        firstName: "Uncovered",
+        lastName: "Booker",
+        birthDate: "1990-01-01",
+      });
+
+      const signedAt = new Date(Date.now() - 86_400_000);
+      await db.insert(consents).values({
+        familyMemberId: coveredSelf.id,
+        organizationId: orgCtx.organizationId,
+        type: "liability",
+        status: "granted",
+        signedByUserId: covered.id,
+        signedByName: "Covered Booker",
+        signedAt,
+        expiresAt: new Date(signedAt.getTime() + WAIVER_VALID_DAYS * 86_400_000),
+      });
+
+      // Neither booking carries a signature of its own.
+      for (const u of [covered, uncovered]) {
+        await db.insert(dropInBookings).values({
+          sessionId: ctx.sessionId,
+          userId: u.id,
+          status: "confirmed",
+          source: "online_booking",
+          paymentMethod: "card_online",
+          amountPaidCents: 0,
+          waiverSigned: false,
+        });
+      }
+
+      const res = await apiFetch(
+        `/api/admin/check-in/event?kind=drop_in_session&id=${ctx.sessionId}`,
+        { cookie },
+      );
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      const coveredRow = body.rows.find((r: { name: string }) =>
+        r.name.includes("Covered Booker"),
+      );
+      const uncoveredRow = body.rows.find((r: { name: string }) =>
+        r.name.includes("Uncovered Booker"),
+      );
+
+      expect(coveredRow).toBeDefined();
+      expect(uncoveredRow).toBeDefined();
+      // Same unstamped column on both rows; the annual waiver is the difference.
+      expect(coveredRow.waiverSigned).toBe(true);
+      expect(uncoveredRow.waiverSigned).toBe(false);
     });
   });
 });

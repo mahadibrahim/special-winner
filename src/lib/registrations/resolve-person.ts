@@ -1,4 +1,4 @@
-import { eq, and, sql, asc } from "drizzle-orm";
+import { eq, and, sql, asc, inArray } from "drizzle-orm";
 import { familyMembers, roles, userRoles } from "@/lib/db/schema";
 import type { getDb } from "@/lib/db";
 import type { FamilyMember } from "@/lib/db/schema/registrations";
@@ -135,6 +135,47 @@ export async function findExistingDependent(
     .orderBy(asc(familyMembers.createdAt))
     .limit(1);
   return existing[0] ?? null;
+}
+
+/**
+ * The READ-ONLY, BATCHED half of the `kind:"self"` path: for each user id, the
+ * `family_members` row `resolvePerson` would return for them — or no entry at
+ * all when it would have to CREATE one.
+ *
+ * Exists for surfaces that hold a set of user ids and need the people behind
+ * them to answer a question about the person (annual waiver coverage, on the
+ * staff day view and the roll-call feed). Those are renders, not writes: they
+ * must never create rows. `family_members.self_user_id` carries no unique
+ * index, so a find-or-create on a polled GET would race duplicate self rows —
+ * the same hazard documented on `renterWaiverOnFile` and `resolveSigner`'s
+ * rental branch, both of which are plain selects for exactly this reason.
+ *
+ * A user with no self row yet is simply absent from the map, which every
+ * caller reads as "no person, therefore no coverage, therefore ask" — correct,
+ * because nothing can grant coverage to a person that does not exist.
+ *
+ * Oldest-first per user mirrors `resolvePerson`'s own self path, so this read
+ * and any later create/lookup agree on which row is canonical.
+ */
+export async function findSelfPersonIds(
+  db: Database,
+  userIds: string[],
+): Promise<Map<string, string>> {
+  const byUser = new Map<string, string>();
+  const ids = Array.from(new Set(userIds.filter(Boolean)));
+  if (ids.length === 0) return byUser;
+
+  const rows = await db
+    .select({ id: familyMembers.id, selfUserId: familyMembers.selfUserId })
+    .from(familyMembers)
+    .where(inArray(familyMembers.selfUserId, ids))
+    .orderBy(asc(familyMembers.createdAt));
+
+  for (const row of rows) {
+    if (!row.selfUserId || byUser.has(row.selfUserId)) continue;
+    byUser.set(row.selfUserId, row.id);
+  }
+  return byUser;
 }
 
 async function ensureParentRole(db: Database, userId: string): Promise<void> {

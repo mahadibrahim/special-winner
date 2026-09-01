@@ -21,6 +21,7 @@ import { organizations } from "@/lib/db/schema/organizations";
 import {
   WAIVER_VALID_DAYS,
   hasValidLiabilityWaiver,
+  hasValidLiabilityWaiverBatch,
   recordLiabilityWaiver,
 } from "@/lib/consents/liability";
 import { resolveActiveLiabilityWaiver } from "@/lib/consents/active-waiver";
@@ -305,6 +306,209 @@ describe("hasValidLiabilityWaiver — revocation is authoritative", () => {
     expect(await hasValidLiabilityWaiver(seeded.familyMemberId, seeded.organizationId)).toBe(
       true,
     );
+  });
+});
+
+/**
+ * The batch form is not a second implementation of the validity rule — the
+ * singular delegates to it. This suite is the executable proof of that: it
+ * seeds one person per branch of the rule (and per edge of each branch), then
+ * asserts, for THREE different organizations, that the batch map agrees with
+ * the singular predicate for every single person.
+ *
+ * Running it against three orgs is what covers the registration fallback and
+ * the cross-org isolation of all three sources at once: the same person is
+ * covered under one org, uncovered under the others, and both forms have to
+ * say so identically.
+ */
+describe("hasValidLiabilityWaiverBatch ≡ hasValidLiabilityWaiver", () => {
+  /** Every seeded person, plus the orgs the matrix has to be judged under. */
+  const matrixIds: string[] = [];
+  const matrixOrgIds: string[] = [];
+
+  beforeAll(async () => {
+    // ── consents branch ──────────────────────────────────────────────────
+    const fresh = await newChild("MxFresh");
+    await insertLiabilityConsent({ familyMemberId: fresh, organizationId, signedDaysAgo: 1 });
+
+    const expired = await newChild("MxExpired");
+    await insertLiabilityConsent({
+      familyMemberId: expired,
+      organizationId,
+      signedDaysAgo: WAIVER_VALID_DAYS + 10,
+    });
+
+    const revoked = await newChild("MxRevoked");
+    await insertLiabilityConsent({
+      familyMemberId: revoked,
+      organizationId,
+      signedDaysAgo: 30,
+    });
+    await insertLiabilityConsent({
+      familyMemberId: revoked,
+      organizationId,
+      signedDaysAgo: 0,
+      status: "revoked",
+    });
+
+    // Revoked-latest sitting ON TOP of a legacy booking that is itself inside
+    // the window — the revocation must win, with no fall-through, in both forms.
+    const revokedOverLegacy = await newChild("MxRevokedLegacy");
+    await insertLegacyBooking({
+      familyMemberId: revokedOverLegacy,
+      waiverSigned: true,
+      waiverSignedAt: new Date(Date.now() - 10 * DAY_MS),
+    });
+    await insertLiabilityConsent({
+      familyMemberId: revokedOverLegacy,
+      organizationId,
+      signedDaysAgo: 0,
+      status: "revoked",
+    });
+
+    const otherOrgOnly = await newChild("MxOtherOrg");
+    await insertLiabilityConsent({
+      familyMemberId: otherOrgOnly,
+      organizationId: otherOrganizationId,
+      signedDaysAgo: 1,
+    });
+
+    const orgNull = await newChild("MxOrgNull");
+    await insertLiabilityConsent({
+      familyMemberId: orgNull,
+      organizationId: null,
+      signedDaysAgo: 1,
+    });
+
+    const boundaryIn = await newChild("MxDay364");
+    await insertLiabilityConsent({
+      familyMemberId: boundaryIn,
+      organizationId,
+      signedDaysAgo: WAIVER_VALID_DAYS - 1,
+    });
+
+    // ── legacy drop-in booking branch ────────────────────────────────────
+    const bookingIn = await newChild("MxBookIn");
+    await insertLegacyBooking({
+      familyMemberId: bookingIn,
+      waiverSigned: true,
+      waiverSignedAt: new Date(Date.now() - 30 * DAY_MS),
+    });
+
+    const bookingOut = await newChild("MxBookOut");
+    await insertLegacyBooking({
+      familyMemberId: bookingOut,
+      waiverSigned: true,
+      waiverSignedAt: new Date(Date.now() - 400 * DAY_MS),
+    });
+
+    // Undated derived stamp: waiverSigned true with no signature date. Grants
+    // nothing — the exact row the classes engine's on-file branch writes.
+    const derived = await newChild("MxDerived");
+    await insertLegacyBooking({
+      familyMemberId: derived,
+      waiverSigned: true,
+      waiverSignedAt: null,
+    });
+
+    // Expired GRANT falling through to a dated booking inside the window —
+    // the asymmetry with the revoked case, exercised in both forms.
+    const expiredThenBooking = await newChild("MxExpiredThenBook");
+    await insertLiabilityConsent({
+      familyMemberId: expiredThenBooking,
+      organizationId,
+      signedDaysAgo: WAIVER_VALID_DAYS + 10,
+    });
+    await insertLegacyBooking({
+      familyMemberId: expiredThenBooking,
+      waiverSigned: true,
+      waiverSignedAt: new Date(Date.now() - 5 * DAY_MS),
+    });
+
+    // ── nothing at all ───────────────────────────────────────────────────
+    const bare = await newChild("MxNothing");
+
+    // ── legacy registration branch (its own org, seeded by the helper) ────
+    const seeded = await seedPaidRegistration(1000);
+    const seededRevoked = await seedPaidRegistration(1000);
+    borrowedConsentFamilyMemberIds.push(seededRevoked.familyMemberId);
+    await insertLiabilityConsent({
+      familyMemberId: seededRevoked.familyMemberId,
+      organizationId: seededRevoked.organizationId,
+      signedDaysAgo: 0,
+      status: "revoked",
+    });
+
+    matrixIds.push(
+      fresh,
+      expired,
+      revoked,
+      revokedOverLegacy,
+      otherOrgOnly,
+      orgNull,
+      boundaryIn,
+      bookingIn,
+      bookingOut,
+      derived,
+      expiredThenBooking,
+      bare,
+      seeded.familyMemberId,
+      seededRevoked.familyMemberId,
+    );
+    matrixOrgIds.push(organizationId, otherOrganizationId, seeded.organizationId);
+  });
+
+  it("agrees with the singular predicate for every person, under every org", async () => {
+    for (const orgId of matrixOrgIds) {
+      const batch = await hasValidLiabilityWaiverBatch(matrixIds, orgId);
+      const singular = new Map<string, boolean>(
+        await Promise.all(
+          matrixIds.map(
+            async (id) => [id, await hasValidLiabilityWaiver(id, orgId)] as const,
+          ),
+        ),
+      );
+
+      for (const id of matrixIds) {
+        expect(
+          batch.get(id) ?? false,
+          `person ${id} under org ${orgId}`,
+        ).toBe(singular.get(id));
+      }
+    }
+  });
+
+  it("covers both verdicts under at least one org (the matrix is not degenerate)", async () => {
+    const batch = await hasValidLiabilityWaiverBatch(matrixIds, organizationId);
+    const verdicts = matrixIds.map((id) => batch.get(id) ?? false);
+    expect(verdicts).toContain(true);
+    expect(verdicts).toContain(false);
+  });
+
+  it("returns an empty map for empty input", async () => {
+    expect(await hasValidLiabilityWaiverBatch([], organizationId)).toEqual(new Map());
+  });
+
+  it("is duplicate-tolerant — repeated ids collapse to one verdict", async () => {
+    const childId = await newChild("MxDupe");
+    await insertLiabilityConsent({ familyMemberId: childId, organizationId, signedDaysAgo: 1 });
+
+    const batch = await hasValidLiabilityWaiverBatch(
+      [childId, childId, childId],
+      organizationId,
+    );
+    expect(batch.size).toBe(1);
+    expect(batch.get(childId)).toBe(true);
+  });
+
+  it("answers false for an id that matches no person", async () => {
+    const unknown = "00000000-0000-0000-0000-000000000000";
+    const known = await newChild("MxKnown");
+    await insertLiabilityConsent({ familyMemberId: known, organizationId, signedDaysAgo: 1 });
+
+    const batch = await hasValidLiabilityWaiverBatch([unknown, known], organizationId);
+    expect(batch.get(unknown) ?? false).toBe(false);
+    expect(batch.get(known)).toBe(true);
   });
 });
 
