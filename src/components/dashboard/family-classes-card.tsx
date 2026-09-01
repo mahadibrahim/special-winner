@@ -113,7 +113,9 @@ interface SummaryNextSession {
 }
 
 interface SummaryCredit {
-  source: "pack" | "block"
+  /** "comp" = admin-issued goodwill credits; they render exactly like pack
+   *  credits, with the label the API supplies. */
+  source: "pack" | "block" | "comp"
   remaining: number
   expiresAt: string
   label: string

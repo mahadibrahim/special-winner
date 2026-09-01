@@ -44,6 +44,15 @@ const json = (body: unknown, status: number) =>
  *  exists to keep the per-child getActiveChildMembership fan-out finite. */
 const MAX_CHILDREN = 20;
 
+/** Fallback display label per grant source, used when the pack/block join
+ *  produced no name. Comp grants NEVER have one (they reference no product),
+ *  so this is their permanent label, not a fallback. */
+const GENERIC_CREDIT_LABEL: Record<"pack" | "block" | "comp", string> = {
+  pack: "Class pack",
+  block: "Block",
+  comp: "Credit from Aspire",
+};
+
 export const GET: APIRoute = async ({ locals }) => {
   if (!locals.user) return json({ error: "Unauthorized" }, 401);
   if (!locals.organization) return json({ error: "No organization context" }, 400);
@@ -209,7 +218,7 @@ export const GET: APIRoute = async ({ locals }) => {
         source: g.source,
         remaining: g.remaining,
         expiresAt: g.expiresAt.toISOString(),
-        label: g.packName ?? g.blockName ?? (g.source === "pack" ? "Class pack" : "Block"),
+        label: g.packName ?? g.blockName ?? GENERIC_CREDIT_LABEL[g.source],
       }));
     return {
       familyMemberId: c.id,
