@@ -406,11 +406,12 @@ export const POST: APIRoute = async ({ request, params, locals, clientAddress, u
     // Best-effort side effects, kept outside the transaction — not
     // consistency-critical with the waiver signature/consent state above.
     //
-    // FIRST COMPLETION ONLY, and the discriminator is the PRE-REQUEST state
-    // (`registration.waiverSigned`, read before any branch ran) — not
-    // `alreadySigned`, which is also true for the waiver-on-file branch.
+    // FIRST COMPLETION ONLY, and the discriminator is DATED PRE-REQUEST STATE
+    // (`registration.waiverSigned && registration.waiverSignedAt !== null`,
+    // read before any branch ran) — neither `alreadySigned` nor the bare
+    // pre-request flag alone is narrow enough.
     //
-    // Both halves of that matter:
+    // Three things this must tell apart:
     //  - Gating it at all is load-bearing. Before this endpoint was
     //    restructured the already-signed check returned early and this block
     //    was unreachable on a repeat POST. Leaving it reachable let a replayed
@@ -423,12 +424,28 @@ export const POST: APIRoute = async ({ request, params, locals, clientAddress, u
     //    point for authed-flow phone opt-ins and for ALL WhatsApp marketing
     //    consent, so skipping it there dropped the customer's answer on the
     //    floor.
+    //  - Gating it on the BARE pre-request flag is ALSO too wide, for a
+    //    different reason: a covered family's registration can be BORN
+    //    `waiverSigned: true` at creation (createRegistration's covered
+    //    branch stamps it before this endpoint is ever hit), with a NULL
+    //    date because nobody signed it. That family's genuine first
+    //    completion then reads `registration.waiverSigned === true` before
+    //    any branch here has run, and the bare-flag gate silently dropped
+    //    their phone and WhatsApp opt-ins on that very first request.
     //
-    // Pre-request state separates the two exactly: it is false on every first
-    // completion (the on-file branch only runs when it is false) and true only
-    // on a replay. (The DOB backfill above is deliberately NOT gated at all:
-    // it is isNull-guarded, so it can only ever fill a blank.)
-    if (!registration.waiverSigned && data.phone && organizationId) {
+    // The date is what separates a REAL prior signature (dated — set only by
+    // the fresh-signature branch below, or an earlier completion) from an
+    // undated born/on-file stamp: false on every first completion regardless
+    // of how the row got here, true only on a genuine replay. Same
+    // dated-vs-bare-flag discriminator this file already uses at the
+    // `alreadySigned` branch above, and the dropin waiver endpoint's replay
+    // guard. (The DOB backfill above is deliberately NOT gated at all: it is
+    // isNull-guarded, so it can only ever fill a blank.)
+    if (
+      !(registration.waiverSigned && registration.waiverSignedAt !== null) &&
+      data.phone &&
+      organizationId
+    ) {
       try {
         await recordPhoneOptIn({
           db,

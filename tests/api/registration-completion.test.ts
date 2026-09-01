@@ -672,6 +672,104 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
       expect(sms!.status).toBe("opted_in");
     });
 
+    // CARRIED FIX (F3 -> F5). Distinct from the case directly above: there,
+    // the consent lands AFTER the registration already exists, so the
+    // on-file branch runs INSIDE this endpoint and the PRE-REQUEST
+    // `waiverSigned` read is false. Here the family is covered BEFORE
+    // POST /api/registrations is ever called, so create-registration.ts's
+    // own covered branch BIRTHS the row already `waiverSigned: true` with a
+    // NULL date (see registrations-annual-waiver.test.ts case (a)). The bare
+    // pre-request flag gate used to read that born stamp as "already
+    // signed" on this family's very FIRST completion and silently drop
+    // their phone + WhatsApp answers — the date is the fix, mirroring the
+    // `alreadySigned` branch's own dated-vs-bare-flag discriminator above.
+    it("captures phone + WhatsApp consent on a FIRST completion of a registration BORN-STAMPED at creation", async () => {
+      const cookie = await getAuthCookie(
+        "parent@test.aspiresports.com",
+        "TestParent123!",
+      );
+      const stamp = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const db = getDb();
+
+      const meRes = await apiFetch("/api/auth/me", { cookie });
+      const parentUserId = (await meRes.json()).user?.id;
+      expect(parentUserId, "signed-in parent id").toBeTruthy();
+
+      const fmRes = await apiFetch("/api/family-members", {
+        method: "POST",
+        cookie,
+        body: JSON.stringify({
+          firstName: "BornStamped",
+          lastName: `Fixture${stamp}`,
+          birthDate: "2016-04-01",
+          parentalConsent: true,
+        }),
+      });
+      expect(fmRes.status).toBe(201);
+      const familyMemberId = (await fmRes.json()).familyMember.id;
+
+      // Coverage seeded BEFORE the registration is created — the precondition
+      // that makes create-registration.ts's covered branch fire at insert
+      // time, rather than the completion endpoint's own on-file branch.
+      await insertLiabilityConsent(familyMemberId, parentUserId);
+
+      const regRes = await apiFetch("/api/registrations", {
+        method: "POST",
+        cookie,
+        body: JSON.stringify({
+          seasonId: adultSeasonId,
+          familyMemberId,
+          registrationType: "full",
+          waiverSigned: false,
+        }),
+      });
+      expect(regRes.status).toBe(201);
+      const registrationId = (await regRes.json()).registration.id;
+
+      // Confirm the born-stamp actually landed — the precondition this test
+      // depends on, not the thing it's testing.
+      const [bornRow] = await db
+        .select({
+          waiverSigned: registrations.waiverSigned,
+          waiverSignedAt: registrations.waiverSignedAt,
+        })
+        .from(registrations)
+        .where(eq(registrations.id, registrationId));
+      expect(bornRow.waiverSigned).toBe(true);
+      expect(bornRow.waiverSignedAt).toBeNull();
+
+      const phone = `+1614559${String(Date.now()).slice(-4)}`;
+      const res = await apiFetch(`/api/registrations/${registrationId}/complete`, {
+        method: "POST",
+        cookie,
+        body: JSON.stringify({
+          phone,
+          smsConsent: true,
+          whatsappConsent: true,
+        }),
+      });
+      expect(res.status).toBe(200);
+      // The row was already covered — no signature was owed or taken — so
+      // this is the "we didn't need you" shape, same as the sibling case.
+      expect((await res.json()).alreadySigned).toBe(true);
+
+      const rows = await db
+        .select({ channel: phoneOptIns.channel, status: phoneOptIns.status })
+        .from(phoneOptIns)
+        .where(eq(phoneOptIns.phone, phone));
+
+      const whatsapp = rows.find((r) => r.channel === "whatsapp");
+      expect(
+        whatsapp,
+        "a born-stamped family's FIRST completion must still record the opt-in",
+      ).toBeTruthy();
+      expect(whatsapp!.status).toBe("opted_in");
+
+      const sms = rows.find((r) => r.channel === "sms");
+      expect(sms, "the ticked SMS box must be recorded too").toBeTruthy();
+      expect(sms!.status).toBe("opted_in");
+    });
+
     // ROUND-2 FINDING 2 (same class). recordDefaultMediaAuth only ran inside
     // the fresh-signature transaction, so a covered family's photo/video
     // opt-outs were presented and then thrown away.

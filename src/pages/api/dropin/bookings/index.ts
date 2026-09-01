@@ -81,6 +81,7 @@ import {
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
 import { collectAdAttribution } from "@/lib/analytics/parse-cookies";
 import { hasValidLiabilityWaiver } from "@/lib/consents/liability";
+import { findSelfPersonIds } from "@/lib/registrations/resolve-person";
 
 /** Stripe rejects a metadata VALUE longer than 500 characters, and it rejects
  *  the whole payment create — so an over-long user-agent would turn a real
@@ -470,9 +471,15 @@ export const POST: APIRoute = async ({ request, locals, url, clientAddress }) =>
   // either way: the booking row is inserted by the webhook, which cannot fire
   // for a payment that was never created.
   //
-  // Adult drop-in bookings (no familyMemberId) are untouched: the annual
-  // predicate is keyed on a `family_members` row, and the adult surface
-  // captures its waiver post-payment (sign before you PLAY).
+  // Adult drop-in bookings (no familyMemberId) are NOT gated — sign before
+  // you PLAY still applies, and this door never refuses the sale. But when
+  // the booker's own self `family_members` row already carries a valid
+  // annual waiver, the booking should be BORN covered rather than asking the
+  // customer again on the post-payment confirmation card — the same courtesy
+  // the child branch above gives, minus the refusal. `findSelfPersonIds` is
+  // read-only (never creates a self row on a booking write); a booker with
+  // none yet, or a lookup error, simply leaves the metadata unset and the
+  // booking unsigned, exactly as before this existed.
   const waiverMetadata: Record<string, string> = {};
   if (familyMemberId) {
     if (waiverProvided) {
@@ -510,6 +517,24 @@ export const POST: APIRoute = async ({ request, locals, url, clientAddress }) =>
           422,
         );
       }
+    }
+  } else if (!waiverProvided) {
+    // Adult path — no gate (see the block comment above), just a courtesy
+    // on-file check. Silent catch: a lookup blip here just means the
+    // customer is asked post-payment as usual, never a blocked sale.
+    try {
+      const selfPersonMap = await findSelfPersonIds(db, [locals.user.id]);
+      const selfPersonId = selfPersonMap.get(locals.user.id);
+      if (selfPersonId) {
+        const onFile = await hasValidLiabilityWaiver(
+          selfPersonId,
+          session.organizationId,
+          db,
+        );
+        if (onFile) waiverMetadata.waiver_on_file = "1";
+      }
+    } catch (err) {
+      console.error("[dropin] adult waiver on-file lookup failed", err);
     }
   }
 

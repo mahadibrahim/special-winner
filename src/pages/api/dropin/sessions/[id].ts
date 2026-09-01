@@ -24,6 +24,7 @@ import { users } from "@/lib/db/schema/users";
 import { hostProfiles } from "@/lib/db/schema/hosts";
 import { familyMembers } from "@/lib/db/schema/registrations";
 import { hasValidLiabilityWaiver } from "@/lib/consents/liability";
+import { findSelfPersonIds } from "@/lib/registrations/resolve-person";
 import { resolveRate } from "@/lib/dropin/pricing";
 import { getActiveMembershipForUser } from "@/lib/dropin/booking";
 import { resolveClassWalkUpRate } from "@/lib/classes/class-walkup";
@@ -195,6 +196,15 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
   // already covered by the annual waiver?" (bookingWaiverOnFile below) and
   // to render/record the guardian assent sentence on the waiver card.
   let bookingFamilyMemberId: string | null = null;
+  // The resolved booking's OWNER user id — needed to answer the same "is
+  // this person covered?" question for an ADULT booking (no
+  // bookingFamilyMemberId), through their own self `family_members` row.
+  // Populated from whichever branch below actually resolved the booking:
+  // `locals.user.id` for the signed-in owner, or the row's own `userId` for
+  // the two guest fallbacks (an inline-payment guest holds no login
+  // session, so `locals.user` is null there even though the booking has a
+  // real owning account).
+  let bookingUserId: string | null = null;
   if (row.session.kind !== "class" && rateCard) {
     const membership = locals.user
       ? await getActiveMembershipForUser(
@@ -232,6 +242,7 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
       bookingWaiverSigned = existing.waiverSigned;
       bookingFamilyMemberId = existing.familyMemberId;
       bookingPaymentMethod = existing.paymentMethod;
+      bookingUserId = locals.user.id;
     }
   }
 
@@ -252,6 +263,7 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
         waiverSigned: dropInBookings.waiverSigned,
         familyMemberId: dropInBookings.familyMemberId,
         paymentMethod: dropInBookings.paymentMethod,
+        userId: dropInBookings.userId,
       })
       .from(dropInBookings)
       .where(
@@ -267,6 +279,7 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
       bookingWaiverSigned = booked.waiverSigned;
       bookingFamilyMemberId = booked.familyMemberId;
       bookingPaymentMethod = booked.paymentMethod;
+      bookingUserId = booked.userId;
     }
   }
 
@@ -290,6 +303,7 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
             waiverSigned: dropInBookings.waiverSigned,
             familyMemberId: dropInBookings.familyMemberId,
             paymentMethod: dropInBookings.paymentMethod,
+            userId: dropInBookings.userId,
           })
           .from(dropInBookings)
           .where(
@@ -305,6 +319,7 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
           bookingWaiverSigned = booked.waiverSigned;
           bookingFamilyMemberId = booked.familyMemberId;
           bookingPaymentMethod = booked.paymentMethod;
+          bookingUserId = booked.userId;
         }
       }
     } catch {
@@ -363,11 +378,15 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
   // `alreadySigned` anyway. Answer the same question here so the page can
   // skip the ask instead of collecting a redundant signature.
   //
-  // Scoped to bookings that carry a PARTICIPANT (`family_member_id` — the
-  // child class/make-up doors), exactly like that endpoint's on-file branch.
-  // An adult drop-in has no `family_members` row, so there is no person for a
-  // person-scoped consent to hang on and nothing to skip; see the same
-  // limitation documented on the waiver endpoint.
+  // A booking that carries a PARTICIPANT (`family_member_id` — the child
+  // class/make-up doors) resolves coverage through that person, exactly like
+  // the waiver endpoint's on-file branch. An ADULT booking has no
+  // `family_members` row of its own, but the BOOKER might: resolve it
+  // through their own self person via `findSelfPersonIds` (read-only — a GET
+  // must never create one). A booker with no self row yet (most adults who
+  // haven't gone through a self-registration flow) simply has no entry in
+  // the map, which reads the same as "not covered" — correct, since nothing
+  // can grant coverage to a person that doesn't exist yet.
   //
   // Fails toward ASKING: any lookup error leaves this false, and the local
   // `waiverSigned` flag remains the only other input.
@@ -383,6 +402,20 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
         );
       } catch (err) {
         console.error("[dropin] waiver validity lookup failed", err);
+      }
+    } else if (bookingUserId) {
+      try {
+        const selfPersonMap = await findSelfPersonIds(db, [bookingUserId]);
+        const selfPersonId = selfPersonMap.get(bookingUserId);
+        if (selfPersonId) {
+          bookingWaiverOnFile = await hasValidLiabilityWaiver(
+            selfPersonId,
+            row.session.organizationId,
+            db,
+          );
+        }
+      } catch (err) {
+        console.error("[dropin] adult waiver validity lookup failed", err);
       }
     }
   }

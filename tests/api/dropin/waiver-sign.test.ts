@@ -21,7 +21,8 @@ import {
 } from "@/lib/consents/liability";
 import { waiverAssentSentence } from "@/lib/consents/waiver-consent-language";
 import { DROPIN_WAIVER_ACCEPT_LABEL } from "@/lib/dropin/waiver-text";
-import { apiFetch, expectJson, getParentCookie } from "../setup/test-helpers";
+import { hashPassword } from "@/lib/auth/password";
+import { apiFetch, expectJson, getParentCookie, getAuthCookie } from "../setup/test-helpers";
 import {
   createTestDropInSession,
   resolveDefaultOrgForHttpTests,
@@ -644,8 +645,27 @@ describe("POST /api/dropin/bookings/:id/waiver — annual liability waiver", () 
       expect(json.bookingPaymentMethod).toBe("pack_credit");
     });
 
-    it("reports false for an ADULT booking (no participant row to check)", async () => {
-      const cookie = await getParentCookie();
+    it("reports false for an ADULT booking with no self waiver on file", async () => {
+      // A DEDICATED, throwaway adult account — NOT the shared parent test
+      // account. The shared account is reused across many suites (including
+      // ones that self-register it as an adult), so it can carry a genuine,
+      // valid self liability consent by the time this runs — asserting
+      // "not covered" against it would pin an assumption about shared state
+      // rather than the behavior this case exists to check (spec L / task 5:
+      // adult coverage is now resolved through the booker's own self person,
+      // see waiver.test.ts... i.e. this endpoint's `bookingWaiverOnFile`
+      // derivation in sessions/[id].ts).
+      const db = getDb();
+      const email =
+        `dropin-waiver-uncovered-adult-${Date.now()}-${Math.random().toString(36).slice(2)}@t.example`.toLowerCase();
+      const password = "TestUncoveredAdult123!";
+      const passwordHash = await hashPassword(password);
+      const [user] = await db
+        .insert(users)
+        .values({ email, passwordHash, firstName: "Uncovered", lastName: "Adult", emailVerified: true })
+        .returning();
+      const cookie = await getAuthCookie(email, password);
+
       const ctx = await freeSessionInDefaultOrg();
       const res0 = await apiFetch("/api/dropin/bookings", {
         method: "POST",
@@ -656,11 +676,13 @@ describe("POST /api/dropin/bookings/:id/waiver — annual liability waiver", () 
 
       const res = await apiFetch(`/api/dropin/sessions/${ctx.sessionId}`, { cookie });
       const json = await expectJson(res, 200);
-      // An adult drop-in has no `family_members` row for a person-scoped
-      // consent to hang on — the same limitation the POST documents. The
-      // card keeps asking, exactly as before this field existed.
+      // A fresh account has no self `family_members` row at all — the card
+      // keeps asking, exactly as before adult coverage existed.
       expect(json.bookingWaiverSigned).toBe(false);
       expect(json.bookingWaiverOnFile).toBe(false);
+
+      await db.delete(dropInBookings).where(eq(dropInBookings.userId, user.id));
+      await db.delete(users).where(eq(users.id, user.id));
     });
   });
 });

@@ -33,6 +33,11 @@ import { awaitDispatch } from "@/lib/notifications/await-dispatch";
 import { getActiveMembershipForOrg } from "@/lib/memberships/get-active-membership";
 import { ensureDropInCustomerMembership } from "@/lib/organization/ensure-membership";
 import type { BrandId } from "@/lib/branding/themes";
+import { findSelfPersonIds } from "@/lib/registrations/resolve-person";
+import {
+  hasValidLiabilityWaiver,
+  WAIVER_ON_FILE_ATTRIBUTION,
+} from "@/lib/consents/liability";
 
 /** Allow-list referral tags (?src=) so junk/URLs never land in the column. */
 export function sanitizeReferralSource(raw: unknown): string | null {
@@ -252,6 +257,44 @@ export async function createConfirmedBookingFreePath(opts: {
     );
     const team = assignTeam(session, userSkill, existingForTeam);
 
+    // ANNUAL WAIVER, adult drop-in — born-covered stamp. Every row this
+    // orchestrator inserts is an ADULT (self) booking (see the file doc
+    // comment: the child paid make-up path never takes the free path). When
+    // the caller supplied no signature of their own (legacy pre-payment
+    // waiver capture — rare on the current UI), check whether the BOOKER's
+    // own self `family_members` row already carries a valid, org-scoped
+    // liability waiver via `findSelfPersonIds` (read-only — never creates
+    // one on a booking write) and, if so, stamp the row exactly like the
+    // child paid door's on-file branch: `waiverSigned: true`, the shared
+    // `WAIVER_ON_FILE_ATTRIBUTION`, and `waiverSignedAt` left NULL (a derived
+    // copy, not a signature — a dated one would let this booking renew the
+    // very window it was derived from). Fails toward asking: a lookup error
+    // or a booker with no self row yet leaves the booking unsigned, same as
+    // before this existed.
+    let waiverSigned = opts.waiverSigned ?? false;
+    let waiverSignedAt = opts.waiverSignedAt ?? null;
+    let waiverSignedBy = opts.waiverSignedBy ?? null;
+    if (!waiverSigned) {
+      try {
+        const selfPersonMap = await findSelfPersonIds(tx, [opts.userId]);
+        const selfPersonId = selfPersonMap.get(opts.userId);
+        if (selfPersonId) {
+          const onFile = await hasValidLiabilityWaiver(
+            selfPersonId,
+            session.organizationId,
+            tx,
+          );
+          if (onFile) {
+            waiverSigned = true;
+            waiverSignedBy = WAIVER_ON_FILE_ATTRIBUTION;
+            waiverSignedAt = null;
+          }
+        }
+      } catch (err) {
+        console.error("[dropin] adult waiver on-file lookup failed", err);
+      }
+    }
+
     const [booking] = await tx
       .insert(dropInBookings)
       .values({
@@ -263,9 +306,9 @@ export async function createConfirmedBookingFreePath(opts: {
         amountPaidCents: 0,
         membershipId: rate.membershipId,
         teamAssignment: team,
-        waiverSigned: opts.waiverSigned ?? false,
-        waiverSignedAt: opts.waiverSignedAt ?? null,
-        waiverSignedBy: opts.waiverSignedBy ?? null,
+        waiverSigned,
+        waiverSignedAt,
+        waiverSignedBy,
         brand: opts.brand ?? "aspire",
         referralSource: sanitizeReferralSource(opts.referralSource),
       })
