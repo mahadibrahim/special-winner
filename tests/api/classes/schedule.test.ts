@@ -261,6 +261,10 @@ describe("GET /api/classes/summary", () => {
       templateId,
       weekday,
       startTime: "16:00:00",
+      // Membership-backed: no grant behind the seat, so nothing would float
+      // if it ended — the dashboard's end-enrollment confirm must not promise
+      // credits here.
+      creditsExpireAt: null,
     });
     expect(row.nextSession).toBeNull();
     expect(typeof row.trialUsed).toBe("boolean");

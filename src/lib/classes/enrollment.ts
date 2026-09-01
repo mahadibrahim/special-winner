@@ -28,6 +28,7 @@ import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
 import { familyMembers } from "@/lib/db/schema/registrations";
 import { getActiveChildMembership } from "@/lib/memberships/get-child-membership";
 import { promoteNextWaitlister } from "@/lib/dropin/promotion";
+import { getCreditBalances } from "./credits";
 import { ageOnDate } from "./book-child";
 import type { DropInTx } from "@/lib/dropin/booking";
 
@@ -213,6 +214,16 @@ export async function enrollChild(opts: {
   });
 }
 
+export interface EndEnrollmentResult {
+  ended: boolean;
+  /** Credit-backed enrollments only: sessions left on the (now un-pinned)
+   *  grant, counted AFTER the releases below. 0 for membership-backed. */
+  creditsFloated: number;
+  /** The grant's UNCHANGED expiry — the date the floated credits die. Null
+   *  for membership-backed (nothing floated, nothing to date). */
+  creditsExpireAt: Date | null;
+}
+
 /**
  * Ends a standing enrollment (status → `ended`, `endedAt` stamped). Only
  * transitions a row currently `active` — calling it on an already-ended or
@@ -221,15 +232,138 @@ export async function enrollChild(opts: {
  * Ownership/org checks are the caller's responsibility (the endpoint joins
  * to `familyMembers.parentUserId` before calling), matching the
  * `processCancelRefund(bookingId)` convention in refund.ts.
+ *
+ * Two things happen alongside the status flip, both mirroring
+ * `changeEnrollmentSlot` (read its comments — this is deliberately the same
+ * machinery, minus the destination half):
+ *
+ *   1. The child's already-materialized FUTURE $0 seats on this template are
+ *      cancelled, identical scope and reason. A slot change and a quit strand
+ *      exactly the same bookings: the cron books HORIZON_DAYS ahead, so
+ *      leaving without this burns an allotment unit / paid credit per week on
+ *      a class nobody attends, and holds a seat a waitlisted family wants.
+ *      Waitlisters on the freed sessions are promoted post-commit.
+ *   2. A CREDIT-BACKED enrollment's grant is UN-pinned
+ *      (`slotTemplateId → NULL`), so the sessions the family already paid for
+ *      become credits spendable on any class until their unchanged
+ *      `expiresAt` — owner decision 2 ("quitting a block mid-run converts
+ *      remaining pinned credits to floating credits; no cash refunds").
+ *      `expiresAt` is deliberately never rewritten: these are the same
+ *      credits, bought for the same window, not a new grant.
+ *
+ * Membership-backed enrollments get (1) only — their freed allotment units
+ * return by the same count-derived arithmetic, and there is no grant to
+ * un-pin — and report `creditsFloated: 0 / creditsExpireAt: null`.
  */
-export async function endEnrollment(id: string): Promise<{ ended: boolean }> {
+export async function endEnrollment(id: string): Promise<EndEnrollmentResult> {
   const db = getDb();
-  const rows = await db
-    .update(classEnrollments)
-    .set({ status: "ended", endedAt: new Date() })
-    .where(and(eq(classEnrollments.id, id), eq(classEnrollments.status, "active")))
-    .returning({ id: classEnrollments.id });
-  return { ended: rows.length > 0 };
+  /** Sessions whose seat this end freed — promoted AFTER commit (below). */
+  const releasedSessionIds = new Set<string>();
+
+  const result = await db.transaction(async (tx): Promise<EndEnrollmentResult> => {
+    const [enrollment] = await tx
+      .select()
+      .from(classEnrollments)
+      .where(and(eq(classEnrollments.id, id), eq(classEnrollments.status, "active")))
+      .for("update");
+    if (!enrollment) return { ended: false, creditsFloated: 0, creditsExpireAt: null };
+
+    const now = new Date();
+
+    await tx
+      .update(classEnrollments)
+      .set({ status: "ended", endedAt: now })
+      .where(eq(classEnrollments.id, id));
+
+    // Release the future $0 seats this enrollment created. SCOPE BOUNDARY —
+    // `member_allotment` + `pack_credit` only; see the long note at the
+    // identical UPDATE in `changeEnrollmentSlot` for why paid make-ups,
+    // trials and live payment holds are all left strictly alone (this path
+    // cannot refund, notify, or honour a customer-facing pay link).
+    const released = await tx
+      .update(dropInBookings)
+      .set({ status: "cancelled", cancelledAt: now, cancellationReason: "user_request" })
+      .where(
+        and(
+          eq(dropInBookings.familyMemberId, enrollment.familyMemberId),
+          inArray(dropInBookings.status, ["confirmed", "waitlisted", "pending_claim"]),
+          inArray(dropInBookings.paymentMethod, ["member_allotment", "pack_credit"]),
+          inArray(
+            dropInBookings.sessionId,
+            tx
+              .select({ id: dropInSessions.id })
+              .from(dropInSessions)
+              .where(
+                and(
+                  eq(dropInSessions.classSlotTemplateId, enrollment.slotTemplateId),
+                  gt(dropInSessions.startsAt, now),
+                ),
+              ),
+          ),
+        ),
+      )
+      .returning({ sessionId: dropInBookings.sessionId });
+    for (const row of released) releasedSessionIds.add(row.sessionId);
+
+    if (!enrollment.creditGrantId) {
+      return { ended: true, creditsFloated: 0, creditsExpireAt: null };
+    }
+
+    // Un-pin, in the SAME transaction as the releases so the balance read
+    // below can never see a half-applied state. The predicate mirrors the
+    // re-pin's: only a grant still pointing at THIS template is un-pinned, so
+    // an already-floating grant is left exactly as it is.
+    await tx
+      .update(classCreditGrants)
+      .set({ slotTemplateId: null })
+      .where(
+        and(
+          eq(classCreditGrants.id, enrollment.creditGrantId),
+          eq(classCreditGrants.slotTemplateId, enrollment.slotTemplateId),
+        ),
+      );
+
+    // The grant's own org — `getCreditBalances` is org-scoped, and the
+    // enrollment row doesn't carry an organizationId of its own.
+    const [grantRow] = await tx
+      .select({ organizationId: classCreditGrants.organizationId })
+      .from(classCreditGrants)
+      .where(eq(classCreditGrants.id, enrollment.creditGrantId))
+      .limit(1);
+    if (!grantRow) return { ended: true, creditsFloated: 0, creditsExpireAt: null };
+
+    // Count-derived, like every other credit balance in this codebase — the
+    // cancels above returned their credits with no counter to decrement, so
+    // reading AFTER them is what makes `creditsFloated` the number the family
+    // can actually spend.
+    const balances = await getCreditBalances(
+      enrollment.familyMemberId,
+      grantRow.organizationId,
+      tx,
+    );
+    const grant = balances.find((b) => b.grantId === enrollment.creditGrantId);
+    return {
+      ended: true,
+      creditsFloated: grant?.remaining ?? 0,
+      creditsExpireAt: grant?.expiresAt ?? null,
+    };
+  });
+
+  // Waitlist promotion, POST-COMMIT and best-effort — same shape and same
+  // rationale as `changeEnrollmentSlot`'s loop below its transaction:
+  // `promoteNextWaitlister` opens its own transaction, and a promotion
+  // failure must never fail the cancellation the family asked for.
+  if (result.ended) {
+    for (const sessionId of releasedSessionIds) {
+      try {
+        await promoteNextWaitlister(sessionId);
+      } catch (err) {
+        console.error("[classes/enrollment] promote-next failed", { sessionId, err });
+      }
+    }
+  }
+
+  return result;
 }
 
 /**

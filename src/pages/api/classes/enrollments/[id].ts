@@ -91,14 +91,26 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
     return json({ error: "Enrollment not found" }, 404);
   }
 
-  const { ended } = await endEnrollment(id);
+  const { ended, creditsFloated, creditsExpireAt } = await endEnrollment(id);
   if (!ended) {
     // Ownership check above confirmed the row exists — a false here means a
     // concurrent end/change already flipped it since.
     return json({ error: "not_active", message: "Enrollment is not active" }, 409);
   }
 
-  return json({ ok: true }, 200);
+  // Owner decision 2: a credit-backed (block) family that quits mid-run keeps
+  // their remaining sessions as credits usable on ANY class until the block's
+  // original end date. These two fields are what the dashboard turns into that
+  // sentence; membership-backed ends report the honest `0 / null` rather than
+  // omitting them, so the client never has to guess which shape it got.
+  return json(
+    {
+      ok: true,
+      creditsFloated,
+      creditsExpireAt: creditsExpireAt ? creditsExpireAt.toISOString() : null,
+    },
+    200,
+  );
 };
 
 export const PUT: APIRoute = async ({ request, params, locals }) => {

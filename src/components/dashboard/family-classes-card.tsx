@@ -104,6 +104,12 @@ interface SummaryEnrollment {
   templateName: string
   weekday: number
   startTime: string
+  /** Credit-BACKED (block) enrollments with sessions still on the grant: the
+   *  date those credits expire. Ending the enrollment un-pins the grant so
+   *  they float to any class until exactly this date (owner decision 2) —
+   *  which is the whole reason the end-enrollment confirm can promise it.
+   *  Null for membership-backed seats and exhausted/lapsed grants. */
+  creditsExpireAt: string | null
 }
 
 interface SummaryNextSession {
@@ -307,6 +313,84 @@ function WaiverNudge({ onOpen }: { onOpen: () => void }) {
     >
       Sign this year's waiver to book classes →
     </button>
+  )
+}
+
+/**
+ * "End enrollment" — gives up the child's STANDING weekly seat (not a single
+ * booking; that's the `Cancel` action above, which targets `nextSession`).
+ *
+ * `DELETE /api/classes/enrollments/:id` releases the seat, cancels the child's
+ * already-booked future $0 sessions on that slot, and — for a credit-backed
+ * (block) seat — un-pins the backing grant so the sessions the family already
+ * paid for become credits spendable on ANY class until their unchanged expiry
+ * (owner decision 2; no cash refunds). The confirm says so BEFORE the click
+ * commits, using the expiry the summary supplies; the toast afterwards reports
+ * the exact count off the response, which is the only place it's knowable —
+ * the releases above hand credits BACK, so the post-end balance is higher than
+ * anything the dashboard could have computed up front. That's also why the
+ * confirm deliberately quotes no number.
+ *
+ * Shared by both card variants: a block family with no membership renders as
+ * `CreditChildCard`, and they are precisely the family this float exists for.
+ */
+function EndEnrollmentButton({
+  child,
+  onChanged,
+}: {
+  child: SummaryChild
+  onChanged: () => void
+}) {
+  const [ending, setEnding] = useState(false)
+  const enrollment = child.enrollment
+  if (!enrollment) return null
+
+  async function handleEnd() {
+    if (!enrollment) return
+    const creditsLine = enrollment.creditsExpireAt
+      ? ` The remaining sessions become credits you can use on any class until ${formatShortDate(enrollment.creditsExpireAt)}.`
+      : ""
+    const confirmed = window.confirm(
+      `End ${child.name}'s enrollment in ${enrollment.templateName}? Their weekly spot is ` +
+        `released and any classes already booked on it are cancelled.${creditsLine}`,
+    )
+    if (!confirmed) return
+
+    setEnding(true)
+    try {
+      const res = await fetch(`/api/classes/enrollments/${enrollment.id}`, { method: "DELETE" })
+      const body = await parseJson(res)
+      if (!res.ok) {
+        toast.error(
+          typeof body.message === "string"
+            ? body.message
+            : "Could not end this enrollment — please try again.",
+        )
+        return
+      }
+      const floated = typeof body.creditsFloated === "number" ? body.creditsFloated : 0
+      const expiresAt = typeof body.creditsExpireAt === "string" ? body.creditsExpireAt : null
+      if (floated > 0 && expiresAt) {
+        toast.success(
+          `Enrollment ended — ${floated} session${floated === 1 ? "" : "s"} ${
+            floated === 1 ? "is" : "are"
+          } now credits you can use on any class until ${formatShortDate(expiresAt)}.`,
+        )
+      } else {
+        toast.success(`${child.name}'s enrollment has ended.`)
+      }
+      onChanged()
+    } catch {
+      toast.error("Network error — please try again.")
+    } finally {
+      setEnding(false)
+    }
+  }
+
+  return (
+    <Button size="sm" variant="outline" disabled={ending} onClick={() => void handleEnd()}>
+      {ending ? "Ending…" : "End enrollment"}
+    </Button>
   )
 }
 
@@ -1110,6 +1194,7 @@ function MembershipChildCard({
                 </a>
               </Button>
             )}
+            <EndEnrollmentButton child={child} onChanged={onChanged} />
             {child.nextSession && (
               <Button size="sm" variant="outline" disabled={cancelling} onClick={() => void handleCancel()}>
                 {cancelling ? "Cancelling…" : "Cancel"}
@@ -1201,12 +1286,22 @@ function CreditChildCard({
         title={child.name}
         meta={creditLine(child.credits[0])}
         action={
-          <Button size="sm" onClick={() => setModalOpen(true)}>
-            Book a session
-          </Button>
+          <div className="flex flex-col items-end gap-1.5">
+            <Button size="sm" onClick={() => setModalOpen(true)}>
+              Book a session
+            </Button>
+            <EndEnrollmentButton child={child} onChanged={onChanged} />
+          </div>
         }
       >
         <div className="mt-1.5 space-y-1">
+          {child.enrollment && (
+            <p className="text-xs text-ink-2">
+              Home slot:{" "}
+              <span className="font-medium text-ink">{child.enrollment.templateName}</span> —{" "}
+              {formatDayTime(child.enrollment.weekday, child.enrollment.startTime)}
+            </p>
+          )}
           {child.credits.length > 1 && <CreditLines credits={child.credits.slice(1)} />}
           {showWaiverNudge && <WaiverNudge onOpen={() => setModalOpen(true)} />}
         </div>
