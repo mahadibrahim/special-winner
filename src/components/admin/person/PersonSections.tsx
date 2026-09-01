@@ -595,6 +595,152 @@ export function ConsentsSection({ consents, last }: ConsentsSectionProps) {
   );
 }
 
+// ─── ClassCreditsSection ─────────────────────────────────────────────────────
+
+interface ClassCreditsSectionProps {
+  /** family_members.id — the child this comp grant is issued to. */
+  familyMemberId: string;
+  last?: boolean;
+}
+
+const DEFAULT_EXPIRY_DAYS = 90;
+
+/**
+ * "Issue credits" — admin-only comp (goodwill) class-credit grant form.
+ * Calls `POST /api/admin/classes/credits/grant`. Comp credits float exactly
+ * like a purchased class pack (redeemable on any class session), so this is
+ * the ops lever for "give this family a free class" without touching
+ * Stripe. See src/pages/api/admin/classes/credits/grant.ts for the
+ * endpoint's full contract.
+ */
+export function ClassCreditsSection({ familyMemberId, last }: ClassCreditsSectionProps) {
+  const [open, setOpen] = useState(false);
+  const [sessions, setSessions] = useState("1");
+  const [expiresInDays, setExpiresInDays] = useState(String(DEFAULT_EXPIRY_DAYS));
+  const [note, setNote] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  function resetForm() {
+    setSessions("1");
+    setExpiresInDays(String(DEFAULT_EXPIRY_DAYS));
+    setNote("");
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const sessionsNum = Number(sessions);
+    const expiryNum = Number(expiresInDays);
+    if (!Number.isInteger(sessionsNum) || sessionsNum < 1 || sessionsNum > 50) {
+      toast.error("Sessions must be a whole number between 1 and 50");
+      return;
+    }
+    if (!Number.isInteger(expiryNum) || expiryNum < 1 || expiryNum > 3650) {
+      toast.error("Expiry must be a whole number of days between 1 and 3650");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/admin/classes/credits/grant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          familyMemberId,
+          sessions: sessionsNum,
+          expiresInDays: expiryNum,
+          ...(note.trim() ? { note: note.trim() } : {}),
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        toast.error(body.error ?? `Couldn't issue credits (${res.status})`);
+        return;
+      }
+      toast.success(`Issued ${sessionsNum} class credit${sessionsNum === 1 ? "" : "s"}`);
+      resetForm();
+      setOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Network error — couldn't issue credits");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <SectionShell title="Class credits" last={last}>
+      {!open ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="border border-[#e4ddcf] bg-[#f6f1e7] text-[#1c1a17] rounded-lg px-3 py-[7px] text-[12.5px] font-[700] cursor-pointer"
+        >
+          + Issue credits
+        </button>
+      ) : (
+        <form onSubmit={handleSubmit} className="flex flex-col gap-[9px]">
+          <div className="flex gap-[9px]">
+            <label className="flex-1 flex flex-col gap-1">
+              <span className="text-[11px] font-[700] text-[#8a8175]">Sessions</span>
+              <input
+                type="number"
+                min={1}
+                max={50}
+                step={1}
+                value={sessions}
+                onChange={(e) => setSessions(e.target.value)}
+                className="border border-[#e4ddcf] rounded-md px-2 py-1.5 text-[13px] bg-[#fffdf8]"
+              />
+            </label>
+            <label className="flex-1 flex flex-col gap-1">
+              <span className="text-[11px] font-[700] text-[#8a8175]">Expires in (days)</span>
+              <input
+                type="number"
+                min={1}
+                max={3650}
+                step={1}
+                value={expiresInDays}
+                onChange={(e) => setExpiresInDays(e.target.value)}
+                className="border border-[#e4ddcf] rounded-md px-2 py-1.5 text-[13px] bg-[#fffdf8]"
+              />
+            </label>
+          </div>
+          <label className="flex flex-col gap-1">
+            <span className="text-[11px] font-[700] text-[#8a8175]">Note (optional)</span>
+            <input
+              type="text"
+              maxLength={500}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Reason for this comp credit"
+              className="border border-[#e4ddcf] rounded-md px-2 py-1.5 text-[13px] bg-[#fffdf8]"
+            />
+          </label>
+          <div className="flex gap-[9px]">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex-1 border border-[#1c1a17] bg-[#1c1a17] text-[#fffdf8] rounded-lg px-3 py-[7px] text-[12.5px] font-[700] cursor-pointer disabled:opacity-50"
+            >
+              {submitting ? "Issuing…" : "Issue credits"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                resetForm();
+              }}
+              disabled={submitting}
+              className="flex-1 border border-[#e4ddcf] bg-[#fffdf8] text-[#1c1a17] rounded-lg px-3 py-[7px] text-[12.5px] font-[700] cursor-pointer disabled:opacity-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+    </SectionShell>
+  );
+}
+
 // ─── MembershipSection ───────────────────────────────────────────────────────
 
 interface MembershipSectionProps {

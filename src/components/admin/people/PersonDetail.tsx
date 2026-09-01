@@ -7,7 +7,7 @@
  * (max-w-3xl centered column) rather than a slide-over sheet.
  *
  * Sections rendered by type:
- *   child  → Today + Registrations + Payments + Consents
+ *   child  → Today + Registrations + Payments + Consents + Class credits
  *   adult  → Today + Registrations + Payments + Membership
  *   parent → Family + AccountBilling
  */
@@ -22,6 +22,7 @@ import {
   RegistrationsSection,
   PaymentsSection,
   ConsentsSection,
+  ClassCreditsSection,
   MembershipSection,
   FamilySection,
   AccountBillingSection,
@@ -108,7 +109,8 @@ export function PersonDetail({ personId, personAs }: Props) {
             />
             <RegistrationsSection registrations={profile.registrations} />
             <PaymentsSection payments={profile.payments} />
-            <ConsentsSection consents={profile.consents} last />
+            <ConsentsSection consents={profile.consents} />
+            <ClassCreditsSection familyMemberId={profile.id} last />
           </>
         )}
 

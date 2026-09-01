@@ -52,7 +52,11 @@ const MAX_CHILDREN = 20;
 const GENERIC_CREDIT_LABEL: Record<"pack" | "block" | "comp", string> = {
   pack: "Class pack",
   block: "Block",
-  comp: "Account credit",
+  // NOT "Account credit" — that name collides with the pre-existing
+  // dollar-credit widget on this same dashboard page (account_credits
+  // table, unrelated to class_credit_grants). "Class credit" is
+  // unambiguous next to it.
+  comp: "Class credit",
 };
 
 export const GET: APIRoute = async ({ locals }) => {

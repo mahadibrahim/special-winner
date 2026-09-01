@@ -129,7 +129,7 @@ async function createCreditGrant(opts: {
   familyMemberId: string;
   sessionsGranted: number;
   idSuffix: string;
-  source?: "pack" | "block";
+  source?: "pack" | "block" | "comp";
   slotTemplateId?: string | null;
   expiresAt?: Date;
 }): Promise<string> {
