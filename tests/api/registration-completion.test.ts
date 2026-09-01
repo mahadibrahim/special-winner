@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { apiFetch, getAuthCookie } from "./setup/test-helpers";
 import { getDb } from "@/lib/db";
 import {
@@ -16,7 +16,7 @@ import {
 } from "@/lib/consents/liability";
 import { completionWaiverAssentText } from "@/lib/registrations/waiver-text";
 import { familyMembers } from "@/lib/db/schema";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 
 // Same slug convention as registrations-self.test.ts / registrations-
 // membership.test.ts — the e2e seed catalog exports no fixture ids, so tests
@@ -396,6 +396,25 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
       });
     }
 
+    // The STOP-guard tests below mint their own `phone_opt_ins` rows outside
+    // any registration/family-member cleanup path, keyed on a fixture phone
+    // number. `Date.now()`'s last 4 digits repeat every 10s, so two runs
+    // (or two CI shards) within that window can collide on the (org, phone,
+    // channel) unique index — a direct insert throws a unique-violation, or
+    // a leftover STOP row from a prior run silently blocks THIS run's "must
+    // record the opt-in" assertion. Random suffixes make collision
+    // astronomically unlikely; the sweep below is belt-and-braces (a run
+    // that DOES collide still leaves no debris for the next one).
+    const stopGuardTestPhones: string[] = [];
+    function randomPhoneSuffix(): string {
+      return String(Math.floor(Math.random() * 10_000)).padStart(4, "0");
+    }
+
+    afterAll(async () => {
+      if (stopGuardTestPhones.length === 0) return;
+      await getDb().delete(phoneOptIns).where(inArray(phoneOptIns.phone, stopGuardTestPhones));
+    });
+
     it("a BORN-STAMPED registration is not a replay — the arriving signature is recorded", async () => {
       // createRegistration births a covered participant's row
       // `waiverSigned: true` with a NULL date and the on-file attribution.
@@ -747,7 +766,8 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
       expect(bornRow.waiverSigned).toBe(true);
       expect(bornRow.waiverSignedAt).toBeNull();
 
-      const phone = `+1614559${String(Date.now()).slice(-4)}`;
+      const phone = `+1614559${randomPhoneSuffix()}`;
+      stopGuardTestPhones.push(phone);
       const res = await apiFetch(`/api/registrations/${registrationId}/complete`, {
         method: "POST",
         cookie,
@@ -845,7 +865,8 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
     // override a carrier-level STOP on that number.
     it("the STOP guard blocks a genuinely FIRST completion too, when the phone already carries a STOP", async () => {
       const { registrationId, cookie } = await mintOwnedRegistration("1990-05-15");
-      const phone = `+1614560${String(Date.now()).slice(-4)}`;
+      const phone = `+1614560${randomPhoneSuffix()}`;
+      stopGuardTestPhones.push(phone);
       const db = getDb();
 
       const meRes = await apiFetch("/api/auth/me", { cookie });
