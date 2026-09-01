@@ -217,9 +217,20 @@ export const POST: APIRoute = async ({ request, params, locals, clientAddress, u
     // suppresses the waiver_signed event for the two that took no signature.
     let alreadySigned = false;
 
-    if (registration.waiverSigned) {
-      // Idempotent: a row that already carries a signature (its own, or an
-      // "on file" stamp from creation) writes no consents on a repeat call.
+    if (registration.waiverSigned && registration.waiverSignedAt !== null) {
+      // Idempotent: a row that already carries a real, DATED signature of its
+      // own writes no consents on a repeat call.
+      //
+      // The date is load-bearing, not decoration. `waiverSigned` alone is also
+      // true for a row born with the undated "On file (annual waiver)" stamp
+      // (createRegistration's covered branch), where NOBODY signed this
+      // registration — and treating that as a prior signature swallowed any
+      // real signature that arrived afterwards. Such a row falls through: with
+      // no signature to the on-file branch below (which re-stamps it
+      // identically), and with one to the fresh-signature branch, which dates
+      // it and appends the canonical consent. Clause 3 of
+      // `recordLiabilityWaiver`'s caller contract; clause 4 names the date as
+      // the replay discriminator.
       // The DOB backfill above still ran — it is isNull-guarded, so repeating
       // it is a no-op, and it is the one thing this endpoint collects that a
       // waiver-satisfied registration can still be missing (the v2 flow defers

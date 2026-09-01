@@ -347,6 +347,42 @@ describe("POST /api/dropin/bookings/:id/waiver — annual liability waiver", () 
     expect(newest.userAgent).toBe("covered-signs-dropin/1.0");
   });
 
+  it("(a1) a BORN-STAMPED booking is not a replay — the arriving signature is recorded", async () => {
+    // The paid child door's fulfillment (and walkin/start.ts) births a covered
+    // booking `waiverSigned: true` with a NULL date. Nobody signed it. A
+    // replay guard on the bare flag would answer "already signed" and swallow
+    // the real signature that arrives afterwards; only a DATED prior signature
+    // is a replay.
+    const cookie = await getParentCookie();
+    const childId = await newChild("BornStamped");
+    await insertLiabilityConsent(childId, 10);
+    const bookingId = await insertChildBooking(childId);
+    await getDb()
+      .update(dropInBookings)
+      .set({
+        waiverSigned: true,
+        waiverSignedBy: WAIVER_ON_FILE_ATTRIBUTION,
+        waiverSignedAt: null,
+      })
+      .where(eq(dropInBookings.id, bookingId));
+
+    const res = await apiFetch(`/api/dropin/bookings/${bookingId}/waiver`, {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({ waiverName: "Parent Test" }),
+    });
+    expect((await expectJson(res, 200)).alreadySigned).toBe(false);
+
+    const [row] = await getDb()
+      .select()
+      .from(dropInBookings)
+      .where(eq(dropInBookings.id, bookingId));
+    expect(row.waiverSignedBy).toBe("Parent Test");
+    expect(row.waiverSignedAt).not.toBeNull();
+    // The seeded grant plus exactly one append standing behind that new date.
+    expect(await liabilityRowsFor(childId)).toHaveLength(2);
+  });
+
   it("(a2) a REPLAY of an already-signed booking is still a no-op — per-row, not coverage", async () => {
     // The idempotency that survives is per BOOKING ROW ("the first signature
     // stands"), which is orthogonal to coverage: it distinguishes one signing

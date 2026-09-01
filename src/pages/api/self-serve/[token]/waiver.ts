@@ -120,29 +120,50 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
   // submissions there append two rows; for an append-only log of signing
   // events that is accurate rather than wrong, and the game-day link is
   // one-per-game.
+  // A DATED prior signature is the test, never the bare `waiverSigned` flag.
+  // That flag is equally true on a row nobody signed: the rentals door births
+  // a covered renter's booking stamped "On file (annual waiver)" with a NULL
+  // date, and walkin/start.ts does the same for a covered kiosk hold. Reading
+  // those as replays suppressed the append while the writes below went ahead
+  // and DATED the row — manufacturing exactly the dated-local-row-with-no-
+  // canonical-consent state this module calls a failure elsewhere. The date is
+  // the discriminator clause 4 of the caller contract names: it is present
+  // only when a human actually signed THIS row.
   let targetAlreadySigned = false;
   try {
     if (kind === "drop_in_booking" || kind === "walkin_session") {
       const [b] = await db
-        .select({ waiverSigned: dropInBookings.waiverSigned })
+        .select({
+          waiverSigned: dropInBookings.waiverSigned,
+          waiverSignedAt: dropInBookings.waiverSignedAt,
+        })
         .from(dropInBookings)
         .where(eq(dropInBookings.id, tok.targetId))
         .limit(1);
-      targetAlreadySigned = b?.waiverSigned === true;
+      targetAlreadySigned = b?.waiverSigned === true && b.waiverSignedAt !== null;
     } else if (kind === "field_rental") {
       const [r] = await db
-        .select({ waiverSigned: fieldRentals.waiverSigned })
+        .select({
+          waiverSigned: fieldRentals.waiverSigned,
+          waiverSignedAt: fieldRentals.waiverSignedAt,
+        })
         .from(fieldRentals)
         .where(eq(fieldRentals.id, tok.targetId))
         .limit(1);
-      targetAlreadySigned = r?.waiverSigned === true;
+      targetAlreadySigned = r?.waiverSigned === true && r.waiverSignedAt !== null;
     } else if (kind === "rental_player") {
+      // `fieldRentalPlayers` has no on-file stamp — a player row only reaches
+      // `signed` through this endpoint, which always dates it — but the date
+      // is asserted anyway so the three branches state one rule.
       const [p] = await db
-        .select({ status: fieldRentalPlayers.status })
+        .select({
+          status: fieldRentalPlayers.status,
+          signedAt: fieldRentalPlayers.signedAt,
+        })
         .from(fieldRentalPlayers)
         .where(eq(fieldRentalPlayers.id, tok.targetId))
         .limit(1);
-      targetAlreadySigned = p?.status === "signed";
+      targetAlreadySigned = p?.status === "signed" && p.signedAt !== null;
     }
   } catch (err) {
     // Fail towards RECORDING what the person just signed — a redundant
@@ -199,13 +220,21 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
     // A DATED signature, even for an already-covered participant. Reaching
     // that state means the ask was served from a stale page (or POSTed
     // directly): build-context suppresses the WaiverCard for a covered
-    // person, and walkin/start.ts births covered holds already stamped. A
-    // human really did read and sign, and recording that with its date is
-    // the honest audit entry — the canonical `consents` append below now
-    // matches it, so the two records agree. The cost is that this row
-    // extends the transitional legacy fallback window past the canonical
-    // consent's expiry; the fallback ages out on its own, and the
-    // alternative (discarding a real signature's date) is worse.
+    // person, and walkin/start.ts births covered holds already stamped
+    // (`waiverSigned: true`, date NULL). A human really did read and sign,
+    // and recording that with its date is the honest audit entry.
+    //
+    // The canonical `consents` append below runs for this same row — which is
+    // true only because the replay guard tests the DATE, not the bare flag. A
+    // guard on the flag alone would read that born-stamped hold as "already
+    // signed", skip the append, and leave the dated row this statement writes
+    // with no canonical consent behind it. The two records now agree by
+    // construction.
+    //
+    // The residual cost is that this dated row extends the transitional legacy
+    // fallback window past the canonical consent's expiry; the fallback ages
+    // out on its own, and the alternative (discarding a real signature's date)
+    // is worse.
     await db
       .update(dropInBookings)
       .set({

@@ -88,6 +88,10 @@ export const POST: APIRoute = async ({
       status: dropInBookings.status,
       stripePaymentIntentId: dropInBookings.stripePaymentIntentId,
       waiverSigned: dropInBookings.waiverSigned,
+      // The DISCRIMINATOR for the replay guard below — `waiverSigned` alone
+      // conflates a real prior signature with the undated "on file" stamp
+      // that the paid door's fulfillment and the kiosk hold write.
+      waiverSignedAt: dropInBookings.waiverSignedAt,
       brand: dropInBookings.brand,
       organizationId: dropInSessions.organizationId,
       // The PARTICIPANT, present only on child bookings (the paid/free class
@@ -128,8 +132,18 @@ export const POST: APIRoute = async ({
     return json({ error: "Booking not found" }, 404);
   }
 
-  // Idempotent no-op: the first signature stands.
-  if (row.waiverSigned) {
+  // Idempotent no-op: the first SIGNATURE stands.
+  //
+  // Both columns, not just the flag. `waiverSigned` alone is true on two very
+  // different rows: one a human signed, and one merely STAMPED from an annual
+  // waiver on file (the paid child door's fulfillment and walkin/start.ts
+  // both born-stamp `waiverSigned: true` with a NULL date). Only the dated one
+  // is a prior signing event, and only a prior signing event makes this
+  // request a replay. Treating the undated stamp as one turned a real
+  // signature into a silent no-op — the same conflation clause 3 of
+  // `recordLiabilityWaiver`'s caller contract exists to keep apart, and the
+  // date is the discriminator clause 4 names.
+  if (row.waiverSigned && row.waiverSignedAt !== null) {
     return json({ ok: true, alreadySigned: true }, 200);
   }
 

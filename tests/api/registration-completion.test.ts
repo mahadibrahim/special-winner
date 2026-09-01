@@ -396,6 +396,62 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
       });
     }
 
+    it("a BORN-STAMPED registration is not a replay — the arriving signature is recorded", async () => {
+      // createRegistration births a covered participant's row
+      // `waiverSigned: true` with a NULL date and the on-file attribution.
+      // Nobody signed it. The idempotency branch used to read that bare flag
+      // as "already has a signature" and no-op, silently dropping a real one.
+      const { registrationId, familyMemberId, cookie } =
+        await mintOwnedRegistration("2016-04-01");
+
+      const db = getDb();
+      const [reg] = await db
+        .select({ signerUserId: registrations.registeredByUserId })
+        .from(registrations)
+        .where(eq(registrations.id, registrationId));
+      await insertLiabilityConsent(familyMemberId, reg.signerUserId);
+      await db
+        .update(registrations)
+        .set({
+          waiverSigned: true,
+          waiverSignedBy: WAIVER_ON_FILE_ATTRIBUTION,
+          waiverSignedAt: null,
+        })
+        .where(eq(registrations.id, registrationId));
+
+      const res = await apiFetch(`/api/registrations/${registrationId}/complete`, {
+        method: "POST",
+        cookie,
+        body: JSON.stringify({
+          waiverAccepted: true,
+          waiverSignature: "Born Stamped Signer",
+        }),
+      });
+      expect(res.status).toBe(200);
+      expect((await res.json()).signed).toBe(true);
+
+      const [row] = await db
+        .select({
+          waiverSignedBy: registrations.waiverSignedBy,
+          waiverSignedAt: registrations.waiverSignedAt,
+        })
+        .from(registrations)
+        .where(eq(registrations.id, registrationId));
+      expect(row.waiverSignedBy).toBe("Born Stamped Signer");
+      expect(row.waiverSignedAt).toBeTruthy();
+
+      const liability = await db
+        .select({ id: consents.id })
+        .from(consents)
+        .where(
+          and(
+            eq(consents.familyMemberId, familyMemberId),
+            eq(consents.type, "liability"),
+          ),
+        );
+      expect(liability).toHaveLength(2);
+    });
+
     it("records the REAL signature when a covered family signs anyway", async () => {
       // Coverage gates the ASK, not the record (recordLiabilityWaiver's caller
       // contract, clause 4). This form still rendered the release — the client
