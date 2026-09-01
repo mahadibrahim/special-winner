@@ -3,17 +3,19 @@
  * `POST /api/admin/classes/credits/grant`, Task 7 of the
  * waiver-ladder-followups plan (spec F, owner decision 3).
  *
- * Covers: 401 non-admin, 404 cross-org child, validation (sessions bounds,
- * expiresInDays bounds), the happy-path grant row shape (source: 'comp',
- * no Checkout Session, grantedByUserId = the admin, $0 price, expiry =
- * now + N days), that the resulting grant actually BOOKS a class session
- * (redemption proof — comp credits float exactly like pack credits), and
- * that the parent dashboard summary surfaces it under the "Class credit"
- * label.
+ * Covers: 401 non-admin, 404 cross-org child, 404 adult self-registrant
+ * (no redemption path — see the "scope guards" describe block), 403
+ * location-scoped admin (comps are an org-wide trust action), validation
+ * (sessions bounds, expiresInDays bounds), the happy-path grant row shape
+ * (source: 'comp', no Checkout Session, grantedByUserId = the admin, $0
+ * price, expiry = now + N days), that the resulting grant actually BOOKS a
+ * class session (redemption proof — comp credits float exactly like pack
+ * credits), and that the parent dashboard summary surfaces it under the
+ * "Class credit" label.
  *
- * Fixtures are self-cleaning: every child/session/grant this file creates
- * is torn down in `afterAll` — the shared staging DB accumulates rows
- * across runs.
+ * Fixtures are self-cleaning: every child/session/grant/throwaway-user this
+ * file creates is torn down in `afterAll` — the shared staging DB
+ * accumulates rows across runs.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { eq, inArray } from "drizzle-orm";
@@ -21,6 +23,10 @@ import { getDb } from "@/lib/db";
 import { classCreditGrants } from "@/lib/db/schema/classes";
 import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
 import { consents } from "@/lib/db/schema/consents";
+import { familyMembers, users, userRoles, roles } from "@/lib/db/schema";
+import { userOrganizationAccess } from "@/lib/db/schema/organizations";
+import { venues } from "@/lib/db/schema/teams";
+import { hashPassword } from "@/lib/auth/password";
 import {
   resolveClassTestFixtures,
   createTestChild,
@@ -44,6 +50,10 @@ let parentCookie: string;
 const createdChildIds: string[] = [];
 const createdSessionIds: string[] = [];
 const createdGrantIds: string[] = [];
+// Scope-guard fixtures — a throwaway self-registrant family_members row
+// and a throwaway location-scoped admin user, both self-cleaning below.
+const createdSelfFamilyMemberIds: string[] = [];
+const createdScopeGuardUserIds: string[] = [];
 
 beforeAll(async () => {
   ({ organizationId, venueId, parentUserId } = await resolveClassTestFixtures());
@@ -64,6 +74,13 @@ afterAll(async () => {
   }
   if (createdGrantIds.length > 0) {
     await db.delete(classCreditGrants).where(inArray(classCreditGrants.id, createdGrantIds));
+  }
+  if (createdSelfFamilyMemberIds.length > 0) {
+    await db.delete(familyMembers).where(inArray(familyMembers.id, createdSelfFamilyMemberIds));
+  }
+  if (createdScopeGuardUserIds.length > 0) {
+    await db.delete(userRoles).where(inArray(userRoles.userId, createdScopeGuardUserIds));
+    await db.delete(users).where(inArray(users.id, createdScopeGuardUserIds));
   }
 });
 
@@ -144,6 +161,93 @@ describe("POST /api/admin/classes/credits/grant — auth & validation", () => {
     const childId = await newChild(`CompExpHigh-${RUN}`);
     const res = await grant({ familyMemberId: childId, sessions: 5, expiresInDays: 3651 });
     expect(res.status).toBe(422);
+  });
+});
+
+describe("POST /api/admin/classes/credits/grant — scope guards", () => {
+  it("404s when the target family member is an adult self-registrant (no redemption path)", async () => {
+    // A fresh throwaway user (family_members.self_user_id carries its own
+    // UNIQUE constraint, so this can't reuse the shared parentUserId
+    // fixture — it already owns a self row from another suite) with an
+    // explicit user_organization_access grant, so isUserInOrg's uoa
+    // fallback would happily accept it — proving the 404 comes from the
+    // parentUserId (children-only) guard, not from an org mismatch.
+    const db = getDb();
+    const suffix = `${RUN}-${Math.random().toString(36).slice(2, 6)}`;
+    const [selfUser] = await db
+      .insert(users)
+      .values({
+        email: `comp-self-guard-${suffix}@test.example`,
+        passwordHash: await hashPassword("TestSelfGuard123!"),
+        firstName: "CompSelfGuard",
+        lastName: "Test",
+        emailVerified: true,
+      })
+      .returning();
+    createdScopeGuardUserIds.push(selfUser.id);
+
+    await db.insert(userOrganizationAccess).values({
+      userId: selfUser.id,
+      organizationId,
+      role: "parent",
+    });
+
+    const [row] = await db
+      .insert(familyMembers)
+      .values({
+        selfUserId: selfUser.id,
+        firstName: `CompSelfGuard-${RUN}`,
+        lastName: "Test",
+        birthDate: "1990-01-01",
+      })
+      .returning({ id: familyMembers.id });
+    createdSelfFamilyMemberIds.push(row.id);
+
+    const res = await grant({ familyMemberId: row.id, sessions: 5 });
+    expect(res.status).toBe(404);
+  });
+
+  it("403s for a location-scoped admin (comps require an org-wide admin)", async () => {
+    const [venueRow] = await getDb()
+      .select({ locationId: venues.locationId })
+      .from(venues)
+      .where(eq(venues.id, venueId))
+      .limit(1);
+    expect(venueRow).toBeTruthy();
+
+    const [locAdminRole] = await getDb()
+      .select({ id: roles.id })
+      .from(roles)
+      .where(eq(roles.name, "location_admin"))
+      .limit(1);
+    expect(locAdminRole).toBeTruthy();
+
+    const suffix = `${RUN}-${Math.random().toString(36).slice(2, 6)}`;
+    const email = `comp-credits-loc-admin-${suffix}@test.example`;
+    const password = "TestLocAdmin123!";
+    const [locAdminUser] = await getDb()
+      .insert(users)
+      .values({
+        email,
+        passwordHash: await hashPassword(password),
+        firstName: "CompCredits",
+        lastName: "LocAdmin",
+        emailVerified: true,
+      })
+      .returning();
+    createdScopeGuardUserIds.push(locAdminUser.id);
+
+    await getDb().insert(userRoles).values({
+      userId: locAdminUser.id,
+      roleId: locAdminRole.id,
+      scopeType: "location",
+      scopeId: venueRow.locationId,
+    });
+
+    const locAdminCookie = await getAuthCookie(email, password);
+    const childId = await newChild(`CompLocAdminGuard-${RUN}`);
+    const res = await grant({ familyMemberId: childId, sessions: 5 }, locAdminCookie);
+    expect(res.status).toBe(403);
   });
 });
 

@@ -14,16 +14,35 @@
  *
  * Tenant-scoped the same way GET /api/admin/person/[id] pins a family
  * member to the caller's org: resolve the child's linked user
- * (parentUserId ?? selfUserId) and confirm that user is visible within the
- * admin's effective location scope. A family member that doesn't resolve —
- * wrong org, or no such row — 404s rather than leaking existence.
+ * (parentUserId) and confirm that user is visible within the admin's
+ * effective location scope. A family member that doesn't resolve — wrong
+ * org, no such row — 404s rather than leaking existence.
+ *
+ * CHILDREN ONLY: comp credits are consumed through the child booking path
+ * (createChildClassBooking / POST /api/classes/book), which is keyed on
+ * `familyMembers.parentUserId` — an adult self-registrant (`selfUserId`
+ * set, `parentUserId` null) has no route to redeem a class-credit grant at
+ * all, so minting one for a self row would be a dead, un-spendable credit.
+ * Guarded below by requiring `parentUserId` before anything else.
+ *
+ * ORG-WIDE ADMINS ONLY: this endpoint MINTS value (a $0 grant a family can
+ * spend), unlike the read endpoint it mirrors. Gated on
+ * `requireOrgWideAdminAccess` rather than `requireOrgAdminAccess` — per-
+ * location admins are deliberately excluded rather than trusted with the
+ * READ endpoint's location-scoping chain: `isUserInOrg`'s
+ * userOrganizationAccess fallback does not filter by location (a documented
+ * Phase-2 gap — see location-scoped-admins-phase2-pending in project
+ * memory), so a location-scoped admin routed through that same chain could
+ * mint comp credits for a child at a DIFFERENT location in the org. Comps
+ * are an org-level trust action; per-location admins get a flat 403 instead
+ * of inheriting that gap.
  */
 import type { APIRoute } from "astro";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { classCreditGrants, familyMembers, locations } from "@/lib/db/schema";
-import { requireOrgAdminAccess } from "@/lib/auth/roles";
+import { requireOrgWideAdminAccess } from "@/lib/auth/roles";
 import { getEffectiveLocationIds } from "@/lib/admin/active-venue";
 import { isUserInOrg } from "@/lib/person/build-person-profile";
 import { sendOpsPing } from "@/lib/ops/ping";
@@ -45,7 +64,7 @@ const grantInputSchema = z.object({
 });
 
 export const POST: APIRoute = async (context) => {
-  const auth = await requireOrgAdminAccess(context);
+  const auth = await requireOrgWideAdminAccess(context);
   if (!auth.authorized) return auth.response;
 
   let raw: unknown;
@@ -69,15 +88,18 @@ export const POST: APIRoute = async (context) => {
       firstName: familyMembers.firstName,
       lastName: familyMembers.lastName,
       parentUserId: familyMembers.parentUserId,
-      selfUserId: familyMembers.selfUserId,
     })
     .from(familyMembers)
     .where(eq(familyMembers.id, input.familyMemberId));
 
-  const linkedUserId = fm ? (fm.parentUserId ?? fm.selfUserId) : null;
-  if (!fm || !linkedUserId) {
+  // Children only (parentUserId set) — see the CHILDREN ONLY note above.
+  // An adult self-registrant (selfUserId set, parentUserId null) has no
+  // redemption path for a class-credit grant, so this 404s the same as a
+  // nonexistent/cross-org id rather than minting a dead credit.
+  if (!fm || !fm.parentUserId) {
     return json({ error: "Not found" }, 404);
   }
+  const linkedUserId = fm.parentUserId;
 
   const effectiveIds = await getEffectiveLocationIds({
     userId: auth.user.id,
@@ -125,6 +147,16 @@ export const POST: APIRoute = async (context) => {
   // just landed on a child's ledger) with amountCents: 0. The note (if any)
   // has nowhere else to live — classCreditGrants carries no note column —
   // so it's folded into the ping label here.
+  //
+  // Known cosmetic tradeoff (left as-is, not fixed): the rendered message
+  // still reads "... Class pack — Comp credit · ..., $0.00" — the trailing
+  // "$0.00" comes from formatOpsPingMessage's `"amountCents" in event`
+  // check, and `class_pack_purchased`'s type requires amountCents (it's
+  // not optional on that variant), so there's no way to omit it without
+  // either a type change to the shared OpsPingEvent union or a new enum
+  // kind — both bigger than this reuse is worth. The label leads with
+  // "Comp credit" precisely so a reader isn't confused by the trailing
+  // $0.00 into thinking a real pack sale happened.
   const childName = `${fm.firstName} ${fm.lastName}`;
   const noteSuffix = input.note ? ` — "${input.note}"` : "";
   await sendOpsPing(auth.organizationId, {
