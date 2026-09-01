@@ -30,6 +30,8 @@ import { recordPhoneOptIn } from "@/lib/sms/opt-in";
 import { sendMagicLinkLoginEmail } from "@/lib/email/send";
 import { awaitEmailSend } from "@/lib/notifications/await-dispatch";
 import { createMagicLink, buildMagicLinkUrl } from "@/lib/auth/magic-link";
+import { recordLiabilityWaiver } from "@/lib/consents/liability";
+import { wizardWaiverAssentText } from "@/lib/registrations/waiver-text";
 
 const guestRegistrantSchema = z.object({
   firstName: z.string().min(1),
@@ -372,13 +374,48 @@ export const POST: APIRoute = async (context) => {
           familyMemberRow.id,
           personalConsentType,
         ));
+        // ANNUAL WAIVER, write side. `waiverOnFile` means createRegistration
+        // stamped the row from an existing signature, so per its caller
+        // contract nothing is appended to the liability log here — that branch
+        // is a READ. Only a genuinely fresh signature writes. The org-less
+        // season case keeps the legacy `recordConsent` write (the org-scoped
+        // helper cannot be called without an org) so the audit row still exists.
+        const liabilityWrite = regResult.waiverOnFile
+          ? Promise.resolve()
+          : regResult.organizationId
+            ? recordLiabilityWaiver(
+                {
+                  familyMemberId: familyMemberRow.id,
+                  organizationId: regResult.organizationId,
+                  registrationId: regResult.registration.id,
+                  signedByUserId: userRow.id,
+                  signedByName: waiverSignedBy,
+                  consentVariant: personKind === "self" ? "adult" : "guardian",
+                  // The exact words waiver-step.tsx put on screen. This is the
+                  // GUEST endpoint, and the wizard's `isGuest` drives both the
+                  // screen variant and the endpoint choice — so a dependent
+                  // here always saw the guest+child checkbox (which names the
+                  // child and shows no body paragraph).
+                  consentText: wizardWaiverAssentText({
+                    variant: personKind === "self" ? "adult" : "guardian",
+                    participantName:
+                      `${familyMemberRow.firstName} ${familyMemberRow.lastName}`.trim(),
+                    isGuestChild: personKind !== "self",
+                  }),
+                  ipAddress: clientAddress ?? null,
+                  userAgent: userAgent ?? null,
+                },
+                db,
+              )
+            : recordConsent({ ...baseConsent, type: "liability" });
+
         // Independent inserts (different consent rows, no shared uniqueness
         // constraint) — run them concurrently.
         await Promise.all([
           needsPersonalConsent
             ? recordConsent({ ...baseConsent, type: personalConsentType })
             : Promise.resolve(),
-          recordConsent({ ...baseConsent, type: "liability" }),
+          liabilityWrite,
           recordDefaultMediaAuth({
             ...baseConsent,
             optOutScopes: mediaAuthOptOuts ?? [],
@@ -395,6 +432,15 @@ export const POST: APIRoute = async (context) => {
           JSON.stringify({
             waitlisted: true,
             registrationId: regResult.registration.id,
+            // Whether the participant's ANNUAL waiver already covers this
+            // registration. The confirm screen's completion form uses it to
+            // drop the waiver text and signature box (the server would
+            // discard that signature anyway).
+            waiverOnFile: regResult.waiverOnFile,
+            // Expiry of that waiver, ISO or null. Null just means there is no
+            // date to quote (legacy-signature coverage carries no consents row);
+            // the confirm screen falls back to date-free phrasing.
+            waiverValidUntil: regResult.waiverValidUntil?.toISOString() ?? null,
             wasNewUser,
           }),
           { status: 200, headers: { "Content-Type": "application/json" } },
@@ -413,6 +459,15 @@ export const POST: APIRoute = async (context) => {
           JSON.stringify({
             paid: true,
             registrationId: regResult.registration.id,
+            // Whether the participant's ANNUAL waiver already covers this
+            // registration. The confirm screen's completion form uses it to
+            // drop the waiver text and signature box (the server would
+            // discard that signature anyway).
+            waiverOnFile: regResult.waiverOnFile,
+            // Expiry of that waiver, ISO or null. Null just means there is no
+            // date to quote (legacy-signature coverage carries no consents row);
+            // the confirm screen falls back to date-free phrasing.
+            waiverValidUntil: regResult.waiverValidUntil?.toISOString() ?? null,
             wasNewUser,
           }),
           { status: 200, headers: { "Content-Type": "application/json" } },
@@ -453,6 +508,15 @@ export const POST: APIRoute = async (context) => {
             JSON.stringify({
               paid: true,
               registrationId: regResult.registration.id,
+              // Whether the participant's ANNUAL waiver already covers this
+              // registration. The confirm screen's completion form uses it to
+              // drop the waiver text and signature box (the server would
+              // discard that signature anyway).
+              waiverOnFile: regResult.waiverOnFile,
+              // Expiry of that waiver, ISO or null. Null just means there is no
+              // date to quote (legacy-signature coverage carries no consents row);
+              // the confirm screen falls back to date-free phrasing.
+              waiverValidUntil: regResult.waiverValidUntil?.toISOString() ?? null,
               wasNewUser,
               amountDueCents: regResult.registration.amountDueCents,
             }),
@@ -475,6 +539,15 @@ export const POST: APIRoute = async (context) => {
             // Lets the wizard record the client-confirmed payment signal
             // (webhook-lag bridge) against the right registration.
             registrationId: regResult.registration.id,
+            // Whether the participant's ANNUAL waiver already covers this
+            // registration. The confirm screen's completion form uses it to
+            // drop the waiver text and signature box (the server would
+            // discard that signature anyway).
+            waiverOnFile: regResult.waiverOnFile,
+            // Expiry of that waiver, ISO or null. Null just means there is no
+            // date to quote (legacy-signature coverage carries no consents row);
+            // the confirm screen falls back to date-free phrasing.
+            waiverValidUntil: regResult.waiverValidUntil?.toISOString() ?? null,
             amountDueCents: regResult.registration.amountDueCents,
           }),
           { status: 200, headers: { "Content-Type": "application/json" } },

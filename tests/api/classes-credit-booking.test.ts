@@ -15,6 +15,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { getDb } from "@/lib/db";
 import { dropInBookings, dropInRateCard, dropInSessions } from "@/lib/db/schema/drop-in";
+import { consents } from "@/lib/db/schema/consents";
 import { createChildClassBooking } from "@/lib/classes/book-child";
 import { eq, inArray } from "drizzle-orm";
 import { apiFetch, getAuthCookie } from "./setup/test-helpers";
@@ -43,6 +44,14 @@ let cancelWindowHours = 24;
  *  linger as the "earliest upcoming scheduled session" for a later run. */
 const createdSessionIds: string[] = [];
 
+/** Every child this file creates. Tracked so afterAll can clear the
+ *  `consents` rows their bookings write: a booking that supplies
+ *  `CLASS_TEST_WAIVER` is a FRESH signature, and the engine now records the
+ *  canonical annual liability consent for it (src/lib/consents/liability.ts).
+ *  Those rows are org-scoped and live 365 days by design, so a leaked one
+ *  would silently satisfy the waiver gate for its child on every later run. */
+const createdChildIds: string[] = [];
+
 beforeAll(async () => {
   const db = getDb();
   ({ organizationId, venueId, parentUserId, tierId } = await resolveClassTestFixtures());
@@ -58,16 +67,28 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  if (createdSessionIds.length === 0) return;
   const db = getDb();
-  await db
-    .update(dropInSessions)
-    .set({ status: "cancelled" })
-    .where(inArray(dropInSessions.id, createdSessionIds));
+  if (createdChildIds.length > 0) {
+    await db.delete(consents).where(inArray(consents.familyMemberId, createdChildIds));
+  }
+  if (createdSessionIds.length > 0) {
+    await db
+      .update(dropInSessions)
+      .set({ status: "cancelled" })
+      .where(inArray(dropInSessions.id, createdSessionIds));
+  }
 });
 
 function hoursFromNow(hours: number): Date {
   return new Date(Date.now() + hours * 3_600_000);
+}
+
+/** `createTestChild`, with the id recorded for teardown — see
+ *  `createdChildIds`. Every child in this file goes through here. */
+async function newChild(firstName: string): Promise<string> {
+  const id = await createTestChild(parentUserId, firstName);
+  createdChildIds.push(id);
+  return id;
 }
 
 /** A `kind='class'` session, optionally materialized-looking (pinned to a
@@ -135,7 +156,7 @@ async function book(
 describe("POST /api/classes/book — pack credit redemption", () => {
   it("books a membership-less child against a floating pack credit", async () => {
     const suffix = `${Date.now()}-c1`;
-    const childId = await createTestChild(parentUserId, `CreditFloat-${suffix}`);
+    const childId = await newChild(`CreditFloat-${suffix}`);
     const grantId = await createCreditGrant({
       familyMemberId: childId,
       sessionsGranted: 3,
@@ -171,7 +192,7 @@ describe("POST /api/classes/book — pack credit redemption", () => {
 
   it("403s no_membership once a membership-less child's credits run out", async () => {
     const suffix = `${Date.now()}-c2`;
-    const childId = await createTestChild(parentUserId, `CreditDrain-${suffix}`);
+    const childId = await newChild(`CreditDrain-${suffix}`);
     await createCreditGrant({ familyMemberId: childId, sessionsGranted: 2, idSuffix: suffix });
 
     for (let i = 0; i < 2; i++) {
@@ -192,7 +213,7 @@ describe("POST /api/classes/book — pack credit redemption", () => {
 
   it("falls through to credits when a member child's monthly allotment is used up", async () => {
     const suffix = `${Date.now()}-c3`;
-    const childId = await createTestChild(parentUserId, `CreditAfterAllotment-${suffix}`);
+    const childId = await newChild(`CreditAfterAllotment-${suffix}`);
     await createTestChildMembership({
       userId: parentUserId,
       familyMemberId: childId,
@@ -219,7 +240,7 @@ describe("POST /api/classes/book — pack credit redemption", () => {
 
   it("cancelling a credit booking returns the credit", async () => {
     const suffix = `${Date.now()}-c4`;
-    const childId = await createTestChild(parentUserId, `CreditCancel-${suffix}`);
+    const childId = await newChild(`CreditCancel-${suffix}`);
     await createCreditGrant({ familyMemberId: childId, sessionsGranted: 1, idSuffix: suffix });
 
     const firstSessionId = await createClassSession(hoursFromNow(cancelWindowHours + 48));
@@ -246,7 +267,7 @@ describe("POST /api/classes/book — pack credit redemption", () => {
 
   it("403s no_membership when the only grant has expired", async () => {
     const suffix = `${Date.now()}-c5`;
-    const childId = await createTestChild(parentUserId, `CreditExpired-${suffix}`);
+    const childId = await newChild(`CreditExpired-${suffix}`);
     await createCreditGrant({
       familyMemberId: childId,
       sessionsGranted: 5,
@@ -262,7 +283,7 @@ describe("POST /api/classes/book — pack credit redemption", () => {
 
   it("spends a pinned block grant only on its own slot template's sessions", async () => {
     const suffix = `${Date.now()}-c6`;
-    const childId = await createTestChild(parentUserId, `CreditPinned-${suffix}`);
+    const childId = await newChild(`CreditPinned-${suffix}`);
     // Created INACTIVE: these templates exist only as pin targets, and an
     // active template would be swept into materialization by the class cron.
     const templateA = await createTestClassTemplate({
@@ -307,7 +328,7 @@ describe("POST /api/classes/book — pack credit redemption", () => {
     // actually paid for. The grant here is live NOW and dead by the late
     // session, which is exactly that shape.
     const suffix = `${Date.now()}-c9`;
-    const childId = await createTestChild(parentUserId, `CreditPastExpiry-${suffix}`);
+    const childId = await newChild(`CreditPastExpiry-${suffix}`);
     const templateId = await createTestClassTemplate({
       organizationId,
       venueId,
@@ -356,7 +377,7 @@ describe("POST /api/classes/book — pack credit redemption", () => {
 describe("createChildClassBooking — background bookings and the credits ladder", () => {
   it("will NOT spend a floating pack credit on an auto_enrollment booking", async () => {
     const suffix = `${Date.now()}-c7`;
-    const childId = await createTestChild(parentUserId, `CreditCronFloat-${suffix}`);
+    const childId = await newChild(`CreditCronFloat-${suffix}`);
     await createCreditGrant({ familyMemberId: childId, sessionsGranted: 3, idSuffix: suffix });
     const sessionId = await createClassSession(hoursFromNow(5 * 24));
 
@@ -383,7 +404,7 @@ describe("createChildClassBooking — background bookings and the credits ladder
 
   it("DOES spend a pinned block grant on an auto_enrollment booking", async () => {
     const suffix = `${Date.now()}-c8`;
-    const childId = await createTestChild(parentUserId, `CreditCronPinned-${suffix}`);
+    const childId = await newChild(`CreditCronPinned-${suffix}`);
     const templateId = await createTestClassTemplate({
       organizationId,
       venueId,

@@ -26,8 +26,9 @@ import { formatCents } from "@/lib/classes/ladder-model"
  *     membership allotment OR a pack/block credit transparently (see
  *     src/lib/classes/credits.ts) and returns `paymentMethod`. A visitor with
  *     nothing to spend gets 403 `no_membership` — the ordinary case here.
- *  2. 403 `no_membership` → the GUARDIAN WAIVER, then the paid drop-in
- *     checkout, `POST /api/dropin/bookings { sessionId, familyMemberId,
+ *  2. 403 `no_membership` → the GUARDIAN WAIVER (unless one is already on
+ *     file — see below), then the paid drop-in checkout,
+ *     `POST /api/dropin/bookings { sessionId, familyMemberId,
  *     waiverAccepted, waiverName }` → redirect to `checkoutUrl`. The price
  *     needs no second confirmation (the button already advertised it) but the
  *     signature does: book-child.ts returns `no_membership` BEFORE its
@@ -36,14 +37,30 @@ import { formatCents } from "@/lib/classes/ladder-model"
  *     on record — landing `waiverSigned: false` and the adult self-waiver
  *     framing on the confirmation surface. This is the PRIMARY path for
  *     first-time families, so it is the one that must not skip consent.
- *     Re-signing a family who already has one on file is harmless: the
- *     endpoint just records a fresh signature.
+ *
+ *     A family who ALREADY holds a valid annual waiver skips the panel:
+ *     `ChildPicker` is mounted with `includeWaiverStatus`, so each child
+ *     carries `waiverOnFile` from the canonical org-scoped predicate, and a
+ *     covered child goes straight to payment with NO waiver fields. The
+ *     booking endpoint re-checks the same predicate server-side (the flag is
+ *     a UX probe, never the authority) and stamps the resulting booking "On
+ *     file (annual waiver)". Asking a covered family to re-sign on every
+ *     single drop-in was the friction this removes — and each re-signature
+ *     also appended a redundant row to the consents audit log.
  *  3. 402 `allotment_exhausted` (a member who has used this month up) → a
  *     confirm step showing the REAL `memberRateCents` from the response
  *     before taking the same paid path. Never charge a member a price they
- *     weren't shown. No waiver step: reaching `allotment_exhausted` means
- *     this child has already spent classes on this membership, which means a
- *     signature is on file.
+ *     weren't shown. Confirming then takes the SAME waiver decision as step 2,
+ *     on the same `waiverOnFile` flag.
+ *
+ *     This used to skip the waiver outright, reasoning that reaching
+ *     `allotment_exhausted` proved a signature was already on file. Waivers
+ *     EXPIRE now (365 days), so that no longer follows: a family enrolled 14
+ *     months ago has spent allotments every month AND has a lapsed waiver —
+ *     exactly the long-standing member the expiry rule exists to re-ask. They
+ *     are also the last people who should be charged with no live release on
+ *     record, so this is a confirm-price → sign → pay sequence, not a
+ *     confirm-price → pay one.
  *  4. 422 `waiver_required` → guardian waiver panel; resubmitting carries the
  *     signature, which both books this class and puts the waiver on file.
  *
@@ -221,15 +238,16 @@ export function ClassDropInModal({
       // button already advertised — no extra price confirmation. But this is
       // a MINOR's class and book-child.ts bails out here BEFORE its
       // waiver-on-file check, so the guardian release has to be captured
-      // now; otherwise we take money with no signature on record.
+      // now UNLESS one is already on file; otherwise we'd either take money
+      // with no signature on record, or make a covered family sign again
+      // every single time they book.
       if (waiver) {
         // Already signed a moment ago in this same flow (the 422 path came
         // first) — carry it through rather than asking twice.
         await payForClass(child, myGeneration, waiver.signedBy)
         return
       }
-      setWaiverPurpose("pay")
-      setPhase("waiver")
+      await payOrCollectWaiver(child, myGeneration)
       return
     }
     if (res.status === 402 && code === "allotment_exhausted") {
@@ -240,6 +258,29 @@ export function ClassDropInModal({
 
     setFlowError(humanizeBookError(code, body.message))
     setPhase("picking")
+  }
+
+  /**
+   * The ONE place the modal decides "straight to payment, or collect a
+   * guardian signature first?" — shared by both paid entry points (403
+   * `no_membership` and the 402 `allotment_exhausted` confirm step) so they
+   * can never drift into disagreeing about who has to sign.
+   *
+   * Covered → pay with NO waiver fields; the booking endpoint re-checks the
+   * same canonical predicate server-side and stamps the booking "On file
+   * (annual waiver)". The flag is a UX probe, never the authority.
+   *
+   * Only strict `true` skips. `undefined` (caller forgot `includeWaiverStatus`,
+   * or the probe never ran) and `false` both mean ASK — a missing answer must
+   * degrade to collecting consent, never to taking money without it.
+   */
+  async function payOrCollectWaiver(child: ChildPickerMember, myGeneration: number) {
+    if (child.waiverOnFile === true) {
+      await payForClass(child, myGeneration)
+      return
+    }
+    setWaiverPurpose("pay")
+    setPhase("waiver")
   }
 
   /** Paid drop-in checkout — same fetch + response handling as
@@ -369,6 +410,9 @@ export function ClassDropInModal({
                     onSelect={handleSelectChild}
                     disabled={phase === "booking"}
                     participantKind="dependent"
+                    // Drives the 403 branch's waiver-panel skip in
+                    // `attemptBook` — see the comment there.
+                    includeWaiverStatus
                   />
                   {phase === "booking" && (
                     <div
@@ -455,7 +499,12 @@ export function ClassDropInModal({
                   <Button
                     type="button"
                     onClick={() => {
-                      if (selectedChild) void payForClass(selectedChild, generationRef.current)
+                      // Price is confirmed; the waiver decision still applies
+                      // (an exhausted allotment no longer implies a live
+                      // signature — see step 3 in the header comment).
+                      if (selectedChild) {
+                        void payOrCollectWaiver(selectedChild, generationRef.current)
+                      }
                     }}
                   >
                     Pay for this class

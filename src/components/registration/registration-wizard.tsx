@@ -28,6 +28,7 @@ import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { parseApiError } from "@/lib/api/error-message"
 import { recordConfirmedPayment } from "@/lib/registrations/payment-confirmation-signal"
 import { readGuestDraft, clearGuestDraft, stashGuestDraft } from "@/lib/registrations/guest-draft"
+import { formatWaiverValidUntil } from "@/lib/registrations/waiver-text"
 import {
   trackRegistrationStepViewed,
   type RegVariant,
@@ -403,9 +404,26 @@ export default function RegistrationWizard({
   // calls onSuccess — so handlePaymentSuccess's closure would still read the
   // stale (null) state value. The ref is current immediately.
   const activeRegistrationIdRef = useRef<string | null>(null)
-  const rememberActiveRegistration = (id: string | null) => {
+  // Whether the row the confirm screen is about was born covered by the
+  // participant's ANNUAL waiver. Server-decided (both create endpoints return
+  // it); the confirm step's completion form uses it to skip a release the
+  // server would refuse to re-record anyway.
+  const [activeWaiverOnFile, setActiveWaiverOnFile] = useState(false)
+  // Expiry of that waiver, already formatted for display. Null whenever there
+  // is no date to quote — the confirm screen falls back to date-free phrasing
+  // rather than reading null as "not covered".
+  const [activeWaiverValidUntilLabel, setActiveWaiverValidUntilLabel] = useState<
+    string | null
+  >(null)
+  const rememberActiveRegistration = (
+    id: string | null,
+    waiverOnFile = false,
+    waiverValidUntilIso?: string | null,
+  ) => {
     activeRegistrationIdRef.current = id
     setActiveRegistrationId(id)
+    setActiveWaiverOnFile(waiverOnFile)
+    setActiveWaiverValidUntilLabel(formatWaiverValidUntil(waiverValidUntilIso))
   }
 
   // ── Draft-restore state (authed only) ────────────────────────────────────
@@ -1205,7 +1223,11 @@ export default function RegistrationWizard({
         const surchargeCents = data.surchargeCents ?? 0
         const finalValueCents = baseAfterDiscount + surchargeCents
 
-        rememberActiveRegistration(data.registrationId ?? null)
+        rememberActiveRegistration(
+          data.registrationId ?? null,
+          data.waiverOnFile === true,
+          data.waiverValidUntil ?? null,
+        )
         setAppliedSurchargeCents(surchargeCents)
         setPaymentValueCents(finalValueCents)
         setPaymentTypeForTracking(paymentOption === "deposit" && depositValid(season!) ? "deposit" : "full")
@@ -1419,7 +1441,11 @@ export default function RegistrationWizard({
           const surchargeCents = checkoutData.surchargeCents ?? 0
           const finalValueCents = baseAfterCredit + surchargeCents
 
-          rememberActiveRegistration(regData.registration.id)
+          rememberActiveRegistration(
+            regData.registration.id,
+            regData.waiverOnFile === true,
+            regData.waiverValidUntil ?? null,
+          )
           setAppliedSurchargeCents(surchargeCents)
           setAppliedCreditCents(creditCents)
           setMemberDiscountCents(memberDiscountAppliedCents)
@@ -1455,7 +1481,11 @@ export default function RegistrationWizard({
       // CompletionForm (v2's post-payment waiver capture) gates on
       // `registrationId` being present, and zero-due registrations never
       // pass through the clientSecret branch above that normally sets it.
-      rememberActiveRegistration(regData.registration.id)
+      rememberActiveRegistration(
+        regData.registration.id,
+        regData.waiverOnFile === true,
+        regData.waiverValidUntil ?? null,
+      )
       clearDraft()
       setRegistrationComplete(true)
       setCurrentStep(stepNumberOf("confirm"))
@@ -2177,6 +2207,8 @@ export default function RegistrationWizard({
             }
             isSelf={isGuest ? guestMode === "adult" : selectedKey === "self"}
             registrationId={activeRegistrationId}
+            waiverOnFile={activeWaiverOnFile}
+            waiverValidUntilLabel={activeWaiverValidUntilLabel}
             flow={regFlow}
             waiverSigned={flowVariant === "v1"}
             // Only the adult-self flow defers DOB to this post-payment step —

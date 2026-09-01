@@ -9,6 +9,8 @@ import { getPostHogServer } from "@/lib/posthog-server";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
 import { fireRegistrationCreatedConversion } from "@/lib/analytics/server-conversions";
 import { recordConsent, recordDefaultMediaAuth } from "@/lib/consents/record";
+import { recordLiabilityWaiver } from "@/lib/consents/liability";
+import { wizardWaiverAssentText } from "@/lib/registrations/waiver-text";
 
 // waiverSignedBy is only required when the client actually claims the
 // waiver was signed at checkout time (v2 solo checkout defers waiver
@@ -237,10 +239,45 @@ export const POST: APIRoute = async ({ request, clientAddress, locals }) => {
           ipAddress: clientAddress ?? null,
           userAgent: userAgent ?? null,
         };
+        // ANNUAL WAIVER, write side. `waiverOnFile` means the row was stamped
+        // from an existing signature, so per createRegistration's caller
+        // contract nothing is appended to the liability log here — that branch
+        // is a READ. Only a genuinely fresh signature writes.
+        //
+        // The org-less case (a season whose location carries no organization)
+        // can't go through the org-scoped helper at all; it keeps the legacy
+        // `recordConsent` write so the audit row still exists.
+        const liabilityWrite = result.waiverOnFile
+          ? Promise.resolve()
+          : result.organizationId
+            ? recordLiabilityWaiver(
+                {
+                  familyMemberId: familyMember.id,
+                  organizationId: result.organizationId,
+                  registrationId: result.registration.id,
+                  signedByUserId: user.id,
+                  signedByName: data.waiverSignedBy ?? "",
+                  consentVariant: data.registerSelf ? "adult" : "guardian",
+                  // The exact words waiver-step.tsx put on screen for THIS
+                  // variant — body sentence + checkbox label — not the generic
+                  // adult label. This endpoint is the authed path, which never
+                  // renders the guest+child checkbox variant.
+                  consentText: wizardWaiverAssentText({
+                    variant: data.registerSelf ? "adult" : "guardian",
+                    participantName:
+                      `${familyMember.firstName} ${familyMember.lastName}`.trim(),
+                  }),
+                  ipAddress: clientAddress ?? null,
+                  userAgent: userAgent ?? null,
+                },
+                db,
+              )
+            : recordConsent({ ...baseConsent, type: "liability" });
+
         // These are independent inserts (different consent rows, no shared
         // uniqueness constraint) — run them concurrently.
         await Promise.all([
-          recordConsent({ ...baseConsent, type: "liability" }),
+          liabilityWrite,
           recordDefaultMediaAuth({
             ...baseConsent,
             optOutScopes: data.mediaAuthOptOuts ?? [],
@@ -281,6 +318,13 @@ export const POST: APIRoute = async ({ request, clientAddress, locals }) => {
           registration: result.registration,
           requiresPayment: result.requiresPayment,
           amountDueCents: result.amountDueCents,
+          // Whether the participant's ANNUAL waiver already covers this row
+          // (the confirm screen's completion form drops the release when it
+          // does), and when it runs out. `waiverValidUntil` is null whenever
+          // there is no consents row to read an expiry from — never a signal
+          // that the participant is uncovered.
+          waiverOnFile: result.waiverOnFile,
+          waiverValidUntil: result.waiverValidUntil?.toISOString() ?? null,
           ...(result.kind === "resumed" ? { resumed: true } : {}),
           ...(result.kind === "waitlisted"
             ? { message: "Added to waitlist - season is at capacity" }

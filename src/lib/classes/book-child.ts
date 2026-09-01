@@ -42,6 +42,11 @@ import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
 import { familyMembers } from "@/lib/db/schema/registrations";
 import { classSlotTemplates } from "@/lib/db/schema/classes";
 import { getActiveChildMembership } from "@/lib/memberships/get-child-membership";
+import {
+  WAIVER_ON_FILE_ATTRIBUTION,
+  hasValidLiabilityWaiver,
+  recordLiabilityWaiver,
+} from "@/lib/consents/liability";
 import { getCreditBalances, selectRedeemableGrant } from "@/lib/classes/credits";
 import { checkSessionCapacityLocked, type DropInTx } from "@/lib/dropin/booking";
 import { ensureDropInCustomerMembership } from "@/lib/organization/ensure-membership";
@@ -133,7 +138,18 @@ export async function createChildClassBooking(opts: {
   familyMemberId: string;
   kind: ChildBookingKind;
   source?: "online_booking" | "auto_enrollment";
-  waiver?: { signedBy: string; consentText: string };
+  /** A signature captured in THIS request. `ipAddress`/`userAgent` are the
+   *  signing audit trail and must be supplied by the HTTP layer from the
+   *  request context (`clientAddress`, the `user-agent` header) — never read
+   *  off the request body, which the client controls. Both optional so the
+   *  cron and library callers (which never present a waiver) stay unchanged;
+   *  they land as NULL, same as any other unattributable signature. */
+  waiver?: {
+    signedBy: string;
+    consentText: string;
+    ipAddress?: string | null;
+    userAgent?: string | null;
+  };
   brand?: BrandId;
   /** Cron passes its own tx — see the CALLER CONTRACT note above the import block. */
   dbOrTx?: DropInTx;
@@ -315,23 +331,24 @@ export async function createChildClassBooking(opts: {
       paymentMethod = "trial";
     }
 
-    // Waiver-on-file: any prior signed booking for this child IN THIS ORG
-    // satisfies it — waivers are per-organization legal releases (distinct
-    // legal entities, organizations.legalName), so a signature on file at
-    // org A must not silently waive liability at org B. Org-scoped via the
-    // same join shape as the trial-uniqueness check above.
-    const [waiverOnFile] = await tx
-      .select({ id: dropInBookings.id })
-      .from(dropInBookings)
-      .innerJoin(dropInSessions, eq(dropInSessions.id, dropInBookings.sessionId))
-      .where(
-        and(
-          eq(dropInBookings.familyMemberId, opts.familyMemberId),
-          eq(dropInBookings.waiverSigned, true),
-          eq(dropInSessions.organizationId, session.organizationId),
-        ),
-      )
-      .limit(1);
+    // Waiver-on-file: the canonical ANNUAL predicate (src/lib/consents/
+    // liability.ts) — a granted, unexpired, org-scoped `consents` row, or a
+    // legacy signature row inside the same 365-day window. Waivers are
+    // per-organization legal releases (distinct legal entities,
+    // organizations.legalName), so a signature on file at org A must not
+    // silently waive liability at org B; the helper is org-scoped end to end.
+    //
+    // This replaced a local "any prior signed booking in this org" query with
+    // NO date bound — under which a family that signed once in 2024 was never
+    // asked again. Expiry is now the point: a lapsed veteran family re-signs,
+    // and the dashboard nudge (/api/classes/summary's `hasWaiverOnFile`,
+    // which calls this same helper) is what catches them before they hit
+    // this gate.
+    const waiverOnFile = await hasValidLiabilityWaiver(
+      opts.familyMemberId,
+      session.organizationId,
+      tx,
+    );
 
     let waiverSigned = false;
     let waiverSignedAt: Date | null = null;
@@ -340,12 +357,56 @@ export async function createChildClassBooking(opts: {
     let waiverConsentText: string | null = null;
     if (waiverOnFile) {
       waiverSigned = true;
+      // Say WHY the row is marked signed. The shared attribution (owned by
+      // consents/liability.ts) is the same one the paid drop-in door's webhook
+      // fulfillment stamps, so the identical semantic state — "covered by the
+      // annual waiver, nobody signed for this booking" — never renders two
+      // different ways across the free and paid doors.
+      //
+      // `waiverSignedAt` deliberately stays NULL: hasValidLiabilityWaiver's
+      // legacy fallbacks accept only DATED signature rows, so a dated derived
+      // copy would let each booking renew the very window it was derived from.
+      // `waiverConsentVariant`/`waiverConsentText` stay null too — no waiver
+      // text was shown here, so there is nothing to name.
+      waiverSignedBy = WAIVER_ON_FILE_ATTRIBUTION;
     } else if (opts.waiver) {
       waiverSigned = true;
       waiverSignedAt = new Date();
-      waiverSignedBy = opts.waiver.signedBy;
+      // The classes engine only ever books a CHILD (see this file's header),
+      // so the guardian variant is a correct hardcode here, not a default.
       waiverConsentVariant = "guardian";
+      waiverSignedBy = opts.waiver.signedBy;
       waiverConsentText = opts.waiver.consentText;
+
+      // …and the canonical consents row, written inside THIS tx so it lands
+      // with the booking. recordLiabilityWaiver is append-only and does NOT
+      // dedupe (consents is an audit log), so per its caller contract this
+      // call lives ONLY on this branch — the fresh-signature one. The
+      // on-file branch above must never reach it, or every subsequent
+      // booking would log a signature nobody gave.
+      //
+      // Deliberate: a `session_full` return below can still commit this row
+      // (an `err()` return resolves the tx rather than rolling it back). The
+      // human did sign the text they were shown, so logging that signature
+      // is correct on its own terms — consents records SIGNATURES, not
+      // bookings — and it spares them re-signing on the retry.
+      await recordLiabilityWaiver(
+        {
+          familyMemberId: opts.familyMemberId,
+          organizationId: session.organizationId,
+          signedByUserId: opts.parentUserId,
+          signedByName: opts.waiver.signedBy,
+          consentVariant: "guardian",
+          consentText: opts.waiver.consentText,
+          // The signing audit trail, captured by the HTTP layer (see the
+          // `waiver` field's doc comment). Once the legacy fallbacks age out
+          // this consents row is the ONLY record of the signature, so it
+          // carries the same ip/UA every other consent-writing surface does.
+          ipAddress: opts.waiver.ipAddress ?? null,
+          userAgent: opts.waiver.userAgent ?? null,
+        },
+        tx,
+      );
     } else {
       return err("waiver_required", "A signed guardian waiver is required");
     }

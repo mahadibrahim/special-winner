@@ -4,6 +4,11 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { WaiverText } from "./waiver-text"
+import {
+  REGISTRATION_WAIVER_ACCEPT_LABEL,
+  guestChildWaiverLabelParts,
+  wizardWaiverBodyParts,
+} from "@/lib/registrations/waiver-text"
 
 export interface WaiverStepProps {
   /** Whether the registrant is the parent/guardian (guest flow or dependent) vs. registering themselves */
@@ -39,6 +44,9 @@ export function WaiverStep({
 }: WaiverStepProps) {
   // In guest+adult mode the registrant is registering themselves
   const effectiveIsSelf = isGuest ? guestMode === "adult" : isSelf
+  const selfBodyParts = wizardWaiverBodyParts("adult")
+  const guardianBodyParts = wizardWaiverBodyParts("guardian")
+  const guestChildLabelParts = guestChildWaiverLabelParts()
   return (
     <div className="space-y-6">
       <div>
@@ -50,20 +58,25 @@ export function WaiverStep({
 
       <WaiverText />
 
-      {/* Branched waiver body: self vs dependent — applies to both authed and guest paths */}
+      {/* Branched waiver body: self vs dependent — applies to both authed and
+          guest paths. The sentence comes from the shared composer, split around
+          the name so it can be bolded here while the SERVER records the
+          identical plain string (wizardWaiverAssentText). Re-typing it in
+          either place is how the consent record and the screen drift apart. */}
       <div className="mb-2">
         {effectiveIsSelf ? (
           <p className="text-sm text-ink-muted">
-            I, <strong className="text-ink">{registrantName}</strong>, agree to participate in this
-            program and accept the terms of the participation waiver.
+            {selfBodyParts.before}
+            <strong className="text-ink">{registrantName}</strong>
+            {selfBodyParts.after}
           </p>
         ) : (
           // child / dependent path — don't render for pure authed-guest-child (handled by checkbox label below)
           !isGuest && (
             <p className="text-sm text-ink-muted">
-              I authorize <strong className="text-ink">{registrantName}</strong> to participate in this
-              program on my behalf as their parent or legal guardian, and accept the
-              terms of the participation waiver.
+              {guardianBodyParts.before}
+              <strong className="text-ink">{registrantName}</strong>
+              {guardianBodyParts.after}
             </p>
           )
         )}
@@ -80,11 +93,12 @@ export function WaiverStep({
           <Label htmlFor="waiver" className="text-sm text-ink-2 cursor-pointer">
             {isGuest && guestMode === "child" ? (
               <>
-                I have read, understand, and agree to the terms of this waiver on behalf of{" "}
-                <span className="text-ink font-medium">{guestChildFullName ?? ""}</span>.
+                {guestChildLabelParts.before}
+                <span className="text-ink font-medium">{guestChildFullName ?? ""}</span>
+                {guestChildLabelParts.after}
               </>
             ) : (
-              "I agree to the terms above."
+              REGISTRATION_WAIVER_ACCEPT_LABEL
             )}
           </Label>
         </div>

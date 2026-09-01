@@ -31,6 +31,14 @@ interface ConfirmationStepProps {
    *  the `/account/complete/[registrationId]` resume page, which can't know
    *  the original flow) fall through to `CompletionForm`'s own "solo" default. */
   flow?: RegFlow
+  /** True when the participant's ANNUAL liability waiver already covers this
+   *  registration, so the completion form should collect only what is still
+   *  outstanding (the birth date) instead of re-showing the release. Server
+   *  derived — the create endpoints return it alongside the registration id. */
+  waiverOnFile?: boolean
+  /** Human-readable expiry of that waiver, or null when there is none to
+   *  quote (legacy-signature coverage carries no consents row). */
+  waiverValidUntilLabel?: string | null
 }
 
 export function ConfirmationStep({
@@ -42,6 +50,8 @@ export function ConfirmationStep({
   waiverSigned = true,
   needsBirthDate = false,
   flow,
+  waiverOnFile = false,
+  waiverValidUntilLabel = null,
 }: ConfirmationStepProps) {
   return (
     <div className="text-center py-8">
@@ -82,6 +92,8 @@ export function ConfirmationStep({
             via="confirm_screen"
             isSelf={isSelf}
             participantName={registrantDisplayName}
+            waiverOnFile={waiverOnFile}
+            waiverValidUntilLabel={waiverValidUntilLabel}
             flow={flow}
           />
         </div>

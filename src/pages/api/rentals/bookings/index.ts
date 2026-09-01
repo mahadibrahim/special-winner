@@ -35,6 +35,16 @@ import {
 } from "@/lib/memberships/booking-window";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
+import { resolvePerson } from "@/lib/registrations/resolve-person";
+import {
+  WAIVER_ON_FILE_ATTRIBUTION,
+  hasValidLiabilityWaiver,
+  recordLiabilityWaiver,
+} from "@/lib/consents/liability";
+import {
+  waiverAssentSentence,
+  waiverConsentVariant,
+} from "@/lib/consents/waiver-consent-language";
 
 export const prerender = false;
 
@@ -155,7 +165,47 @@ export const POST: APIRoute = async ({ request, locals, clientAddress }) => {
     return json({ error: "Invalid JSON body" }, 400);
   }
 
-  const validationError = validateRentalBookingRequest(body);
+  const db = getDb();
+
+  // Annual liability waiver: only a signed-in renter can carry one — a
+  // guest has no account, so there is nothing for resolvePerson to key a
+  // family_members row off, and they keep today's "must accept + sign every
+  // time" behaviour untouched below. For an authed renter, resolvePerson
+  // supplies their own SELF family_members row (an adult renting a field
+  // signs for themselves — same "adults sign too" rule the design doc
+  // states for the paid drop-in door). Resolved unconditionally, before
+  // validation, so the validator can be handed a real verdict rather than
+  // guessing from the body.
+  let renterFamilyMemberId: string | null = null;
+  let waiverOnFile = false;
+  const orgIdForWaiverCheck = locals.organization?.id ?? null;
+  if (locals.user && orgIdForWaiverCheck) {
+    try {
+      const person = await resolvePerson(db, {
+        kind: "self",
+        user: {
+          id: locals.user.id,
+          firstName: locals.user.firstName ?? "",
+          lastName: locals.user.lastName ?? "",
+          birthDate: locals.user.birthDate,
+        },
+      });
+      renterFamilyMemberId = person.id;
+      waiverOnFile = await hasValidLiabilityWaiver(
+        person.id,
+        orgIdForWaiverCheck,
+        db,
+      );
+    } catch (err) {
+      // Fail towards ASKING: the validator below still requires
+      // waiverAccepted/waiverName whenever waiverOnFile stays false.
+      console.error("[rentals] waiver-on-file lookup failed", err);
+    }
+  }
+
+  // The validator stays pure (no DB access) — the API layer resolves the
+  // person + consults the helper above, then passes the verdict in.
+  const validationError = validateRentalBookingRequest(body, { waiverOnFile });
   if (validationError) return json({ error: validationError }, 422);
 
   const venueId = body.venueId as string;
@@ -164,7 +214,8 @@ export const POST: APIRoute = async ({ request, locals, clientAddress }) => {
   const endsAt = new Date(body.endsAt as string);
   const partySize = (body.partySize as number) ?? 1;
   const purpose = (body.purpose as string) ?? null;
-  const waiverName = (body.waiverName as string).trim();
+  const waiverNameRaw =
+    typeof body.waiverName === "string" ? body.waiverName.trim() : "";
 
   // Guest path: no session. Require contact fields; store renterUserId = null.
   let renterUserId: string | null = null;
@@ -173,10 +224,16 @@ export const POST: APIRoute = async ({ request, locals, clientAddress }) => {
   let renterPhone: string | null = null;
   if (locals.user) {
     renterUserId = locals.user.id;
-    renterName = waiverName; // signed-in: waiver name is the renter
+    // A covered renter may not have typed a name at all (the validator let
+    // the fields through empty) — fall back to the account's own name, the
+    // same one resolvePerson just used to find/create their self row.
+    renterName =
+      waiverNameRaw ||
+      `${locals.user.firstName ?? ""} ${locals.user.lastName ?? ""}`.trim() ||
+      locals.user.email;
     renterEmail = locals.user.email;
   } else {
-    const gName = (body.renterName as string | undefined)?.trim() || waiverName;
+    const gName = (body.renterName as string | undefined)?.trim() || waiverNameRaw;
     const gEmail = (body.renterEmail as string | undefined)?.trim() ?? "";
     if (!gName) return json({ error: "Your name is required" }, 422);
     if (!gEmail || gEmail.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(gEmail)) {
@@ -187,7 +244,6 @@ export const POST: APIRoute = async ({ request, locals, clientAddress }) => {
     renterPhone = (body.renterPhone as string | undefined)?.trim() || null;
   }
 
-  const db = getDb();
   const [venue] = await db
     .select()
     .from(venues)
@@ -285,6 +341,12 @@ export const POST: APIRoute = async ({ request, locals, clientAddress }) => {
 
   const bookingBrand = brandFromHost(request.headers.get("host") ?? "");
 
+  // Annual waiver: a covered renter's booking is BORN already stamped —
+  // the shared "on file" attribution, with `waiverSignedAt` left NULL (a
+  // dated derived row would self-renew the very legacy fallback window it
+  // was derived from — see consents/liability.ts). An uncovered renter's
+  // typed signature is a FRESH one and stays dated (the `undefined` default
+  // in booking.ts).
   const req = await createRentalRequest({
     organizationId: orgId,
     venueId,
@@ -302,10 +364,36 @@ export const POST: APIRoute = async ({ request, locals, clientAddress }) => {
     notes: null,
     createdByUserId: renterUserId,
     waiverSigned: true,
-    waiverSignedBy: waiverName,
+    waiverSignedBy: waiverOnFile ? WAIVER_ON_FILE_ATTRIBUTION : waiverNameRaw,
+    waiverSignedAt: waiverOnFile ? null : undefined,
     brand: bookingBrand,
   });
   if (!req.ok) return json({ error: req.error }, 409);
+
+  // A FRESH signature (not covered by an existing annual waiver) also
+  // writes the canonical org-scoped consents row, so this renter is
+  // covered platform-wide for the next year — not just on this booking.
+  // Best-effort: the local waiver* columns above are already the audit
+  // record, so a consents failure here must not fail an otherwise-good
+  // booking (mirrors the self-serve waiver endpoint's same tradeoff).
+  if (!waiverOnFile && renterUserId && renterFamilyMemberId) {
+    try {
+      const consentVariant = waiverConsentVariant(false); // renter signs for themselves
+      await recordLiabilityWaiver({
+        familyMemberId: renterFamilyMemberId,
+        organizationId: orgId,
+        signedByUserId: renterUserId,
+        signedByName: waiverNameRaw,
+        consentVariant,
+        consentText: waiverAssentSentence(consentVariant),
+        // Signing audit trail, from THIS request's context — never the body.
+        ipAddress: clientAddress ?? null,
+        userAgent: request.headers.get("user-agent"),
+      });
+    } catch (err) {
+      console.error("[rentals] consent record failed", err);
+    }
+  }
 
   // Fire-and-forget notifications — never fail the request over a send error.
   await dispatchRentalRequestReceived(req.rental.id).catch((e) =>

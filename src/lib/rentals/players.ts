@@ -28,6 +28,23 @@ export interface CreateRentalPlayerInput {
   createdByUserId: string | null;
 }
 
+/**
+ * LIMITATION (annual-waiver unification, Task 6): an invited player is NOT
+ * auto-marked signed even when `signerEmail` happens to match a person who
+ * already carries a valid annual liability waiver. `field_rental_players`
+ * has no `userId`/`family_members` linkage — only a typed `playerName` +
+ * `signerEmail` (see the table definition in
+ * src/lib/db/schema/field-rentals.ts) — so there is no reliable person to
+ * consult `hasValidLiabilityWaiver` about. Matching on email alone was
+ * considered and rejected: an email string is not a verified identity, and
+ * a false match would silently skip a real signature requirement for
+ * someone else's release. The renter's OWN roster row is the one exception
+ * — `addRequesterAsSignedPlayer` below signs it directly from the RENTAL's
+ * own (now annual-waiver-aware) `waiverSigned`/`waiverSignedBy` columns,
+ * because that identity is never in doubt: it's the same account that just
+ * booked. If `field_rental_players` ever gains a real linkage (e.g. an
+ * account claim flow for invited players), this is the function to revisit.
+ */
 export async function createRentalPlayer(
   input: CreateRentalPlayerInput,
 ): Promise<{ id: string }> {

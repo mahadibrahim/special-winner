@@ -39,13 +39,28 @@ import { waiverAssentSentence } from "@/lib/consents/waiver-consent-language"
  * there's no membership allotment to draw from first (see
  * src/lib/classes/credits.ts), so no separate booking UI is needed.
  *
- * WAIVER NUDGE: a child who has spendable credits but has NEVER been
- * through a booking flow (`!hasWaiverOnFile && !hasEverBooked`, both from
- * the summary endpoint) gets an amber nudge pointing at the same modal —
- * their first booking attempt is what actually surfaces the guardian
- * waiver step (see MakeUpModal's `waiver_required` handling below), so the
- * nudge only needs to explain what's coming and share the trigger, not
- * engineer a special modal entry state.
+ * WAIVER NUDGE: a child who has spendable credits but no VALID waiver
+ * (`!hasWaiverOnFile` from the summary endpoint, which is now the annual
+ * validity predicate — src/lib/consents/liability.ts) gets an amber nudge
+ * pointing at the same modal — their next booking attempt is what actually
+ * surfaces the guardian waiver step (see MakeUpModal's `waiver_required`
+ * handling below), so the nudge only needs to explain what's coming and
+ * share the trigger, not engineer a special modal entry state.
+ *
+ * The condition used to also require `!hasEverBooked` ("never been through a
+ * booking flow"), on the assumption that anyone who had booked was covered
+ * forever. With a 365-day waiver that assumption inverts: a veteran family
+ * whose signature lapsed is exactly who must be nudged, and they have years
+ * of booking history. Validity alone decides.
+ *
+ * PAID MAKE-UP (402 `allotment_exhausted`): confirming the price does NOT go
+ * straight to checkout. It runs `payOrCollectWaiver`, the same two-door
+ * decision class-dropin-modal.tsx makes — covered families pay with no waiver
+ * fields, uncovered ones sign first and the signature rides along with the
+ * paid booking. Reaching `allotment_exhausted` is not proof of a live
+ * signature: a family enrolled 14 months ago has spent an allotment every
+ * month AND has a lapsed waiver, and they are the last people who should be
+ * charged with no release on record.
  *
  * PACK SUCCESS (`?pack=success&child=…`): this island is also the consumer of
  * the pack-purchase Checkout return URL (see src/pages/api/classes/packs/
@@ -112,8 +127,9 @@ interface SummaryChild {
   nextSession: SummaryNextSession | null
   trialUsed: boolean
   credits: SummaryCredit[]
+  /** Annual validity, not "has ever signed" — a signature older than the
+   *  365-day window reads false here. */
   hasWaiverOnFile: boolean
-  hasEverBooked: boolean
 }
 
 interface ScheduleSlot {
@@ -269,13 +285,17 @@ function CreditLines({ credits }: { credits: SummaryCredit[] }) {
 }
 
 /** Amber "sign the waiver first" nudge — shown when a child has spendable
- *  credits but has never been through a booking flow (so no waiver is on
- *  file yet). Clicking it opens the same make-up modal `onOpen` opens for
- *  the "Book a session" CTA: the modal's own first booking attempt is what
- *  actually surfaces the waiver step (see MakeUpModal's `waiver_required`
- *  handling), so this nudge doesn't need to engineer a special modal entry
- *  state — it just explains what's about to happen and shares the trigger.
- */
+ *  credits but no waiver inside the annual window. Clicking it opens the same
+ *  make-up modal `onOpen` opens for the "Book a session" CTA: the modal's own
+ *  booking attempt is what actually surfaces the waiver step (see
+ *  MakeUpModal's `waiver_required` handling), so this nudge doesn't need to
+ *  engineer a special modal entry state — it just explains what's about to
+ *  happen and shares the trigger.
+ *
+ *  Copy is deliberately first-timer-neutral: waivers now expire yearly, so
+ *  this fires for lapsed veteran families too, and "activate bookings" read
+ *  like a one-time setup step they'd already done. "Annual" is also the
+ *  honest reason, which pre-empts the "but I signed already" reply. */
 function WaiverNudge({ onOpen }: { onOpen: () => void }) {
   return (
     <button
@@ -283,7 +303,7 @@ function WaiverNudge({ onOpen }: { onOpen: () => void }) {
       onClick={onOpen}
       className="block text-left text-xs font-medium text-amber-800 bg-amber-50/80 border border-amber-200 rounded-lg px-2.5 py-1.5 hover:bg-amber-100/80"
     >
-      Sign the waiver to activate bookings →
+      Sign this year's waiver to book classes →
     </button>
   )
 }
@@ -422,6 +442,13 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
 
   const [waiverAccepted, setWaiverAccepted] = useState(false)
   const [waiverSignerName, setWaiverSignerName] = useState("")
+  /** What happens once the guardian waiver is signed: re-attempt the FREE
+   *  booking (the `waiver_required` path, where the signature both books the
+   *  class and puts the waiver on file), or carry the signature into the PAID
+   *  drop-in checkout (the 402 `allotment_exhausted` path). Mirrors
+   *  class-dropin-modal.tsx's identically-named state — the two modals run
+   *  the same two-door decision and must not drift. */
+  const [waiverPurpose, setWaiverPurpose] = useState<"book" | "pay">("book")
 
   // Monotonic generation counter — see trial-booking.tsx's "Re-entrancy"
   // doc comment for the exact bug class this guards against (a booking
@@ -451,6 +478,7 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
     setCreditsLeftAfterSpend(null)
     setWaiverAccepted(false)
     setWaiverSignerName("")
+    setWaiverPurpose("book")
     try {
       const [scheduleRes, familyRes] = await Promise.all([
         fetch("/api/public/class-schedule"),
@@ -584,6 +612,7 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
 
     if (code === "waiver_required") {
       setPendingSession(session)
+      setWaiverPurpose("book")
       setPhase("waiver")
       return
     }
@@ -612,13 +641,58 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
     e.preventDefault()
     if (!pendingSession) return
     if (!waiverAccepted || waiverSignerName.trim().length === 0) return
+    const signedBy = waiverSignerName.trim()
+    if (waiverPurpose === "pay") {
+      // The allotment is spent and there is no live signature on file: the
+      // guardian release rides along with the PAID booking, so the row lands
+      // `waiverSigned: true` instead of taking money with nothing on record.
+      await payForClass(signedBy)
+      return
+    }
     await attemptBook(pendingSession, {
-      signedBy: waiverSignerName.trim(),
+      signedBy,
       consentText: DROPIN_WAIVER_TEXT,
     })
   }
 
-  async function payForClass() {
+  /**
+   * The ONE place this modal decides "straight to payment, or collect a
+   * guardian signature first?" — the twin of class-dropin-modal.tsx's
+   * function of the same name, kept deliberately identical in shape.
+   *
+   * Reaching `allotment_exhausted` used to be treated as proof that a
+   * signature existed: you cannot spend an allotment without having enrolled.
+   * Waivers EXPIRE now (365 days), so that no longer follows — a family
+   * enrolled 14 months ago has spent an allotment every month AND has a
+   * lapsed waiver. They are the last people who should be charged with no
+   * live release on record.
+   *
+   * Covered → pay with NO waiver fields. The booking endpoint re-checks the
+   * same canonical predicate, but be honest about what that check DOES:
+   * `/api/dropin/bookings` consults `hasValidLiabilityWaiver` only to decide
+   * the STAMP (it sets `waiver_on_file: "1"` in the Stripe metadata that
+   * fulfillment reads). It does NOT refuse an unsigned paid make-up. So for
+   * THIS door the client is the only gate, which is exactly why the skip must
+   * be conservative: only strict `true` skips, and `false`/`undefined`/a
+   * summary that never loaded all fall through to ASKING. Do not weaken this
+   * to a truthiness check on the assumption that the server would catch it.
+   */
+  async function payOrCollectWaiver() {
+    if (!exhaustedOffer) return
+    if (child.hasWaiverOnFile === true) {
+      await payForClass()
+      return
+    }
+    setPendingSession(exhaustedOffer.session)
+    setWaiverPurpose("pay")
+    setPhase("waiver")
+  }
+
+  /** Paid make-up checkout. `waiverSignedBy` is present only when a guardian
+   *  signature was just captured on the "pay" waiver step; omitting the
+   *  fields is what a covered family sends, and the endpoint stamps the
+   *  on-file attribution itself. */
+  async function payForClass(waiverSignedBy?: string) {
     if (!exhaustedOffer) return
     const myGeneration = generationRef.current
     setPhase("paying")
@@ -630,6 +704,9 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
         body: JSON.stringify({
           sessionId: exhaustedOffer.session.id,
           familyMemberId: child.familyMemberId,
+          ...(waiverSignedBy
+            ? { waiverAccepted: true, waiverName: waiverSignedBy }
+            : {}),
         }),
       })
       if (myGeneration !== generationRef.current) return
@@ -646,7 +723,31 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
         // either rather than swallowing a specific, actionable one ("This
         // class is missing its pricing — contact the front desk") behind the
         // generic retry copy.
-        const err = body.error as { message?: string } | string | undefined
+        const err = body.error as { message?: string; code?: string } | string | undefined
+        const code =
+          typeof err === "string"
+            ? err
+            : typeof err === "object" && typeof err?.code === "string"
+              ? err.code
+              : undefined
+
+        // The endpoint does not gate on the waiver TODAY (it consults the
+        // predicate only to stamp Stripe metadata — see payOrCollectWaiver's
+        // doc comment). But `payOrCollectWaiver` sends no signature whenever
+        // `hasWaiverOnFile` is true, and that flag comes off a summary
+        // snapshot that can be STALE — a waiver that lapsed between the
+        // dashboard load and this click, or a future server-side gate, would
+        // both surface here. Route it to the panel the user can actually act
+        // on instead of a dead "could not start payment". `waiverPurpose`
+        // stays "pay", so signing resubmits this same paid booking with the
+        // signature attached.
+        if (code === "waiver_required") {
+          setPendingSession(exhaustedOffer.session)
+          setWaiverPurpose("pay")
+          setPhase("waiver")
+          return
+        }
+
         const nestedMessage = typeof err === "object" && err?.message ? err.message : null
         const flatMessage =
           typeof err === "string" && typeof body.message === "string" ? body.message : null
@@ -814,6 +915,9 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
             <DialogDescription className="text-ink-2">
               {child.name} is booking {formatDateTime(pendingSession.startsAt)} — this covers
               every class they attend from here on.
+              {waiverPurpose === "pay"
+                ? " Sign it here and we'll take you straight to payment."
+                : ""}
             </DialogDescription>
 
             <p className="text-sm text-ink-2 leading-relaxed rounded-lg border border-amber-200 bg-amber-50/60 p-3">
@@ -849,7 +953,9 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
               disabled={!waiverAccepted || waiverSignerName.trim().length === 0}
               className="w-full sm:w-auto"
             >
-              Sign waiver & book class
+              {waiverPurpose === "pay"
+                ? "Sign waiver & continue to payment"
+                : "Sign waiver & book class"}
             </Button>
           </form>
         )}
@@ -865,7 +971,7 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
             </DialogDescription>
             <ErrorBanner message={flowError} />
             <div className="flex gap-3">
-              <Button type="button" onClick={() => void payForClass()}>
+              <Button type="button" onClick={() => void payOrCollectWaiver()}>
                 Pay for this class
               </Button>
               <Button type="button" variant="outline" onClick={() => setPhase("picking")}>
@@ -1045,7 +1151,7 @@ function MembershipChildCard({
             <p className="text-xs text-ink-muted">Payment processing…</p>
           )}
           <CreditLines credits={child.credits} />
-          {child.credits.length > 0 && !child.hasWaiverOnFile && !child.hasEverBooked && (
+          {child.credits.length > 0 && !child.hasWaiverOnFile && (
             <WaiverNudge onOpen={() => setModalOpen(true)} />
           )}
         </div>
@@ -1084,7 +1190,7 @@ function CreditChildCard({
   onChanged: () => void
 }) {
   const [modalOpen, setModalOpen] = useState(false)
-  const showWaiverNudge = child.credits.length > 0 && !child.hasWaiverOnFile && !child.hasEverBooked
+  const showWaiverNudge = child.credits.length > 0 && !child.hasWaiverOnFile
 
   return (
     <>

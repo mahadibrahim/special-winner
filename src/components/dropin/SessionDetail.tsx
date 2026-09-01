@@ -12,7 +12,10 @@ import { toast } from "sonner";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import { useBrandId } from "@/lib/hooks/use-brand-id";
 import { deriveDropInSuccessPhase } from "@/lib/dropin/success-phase";
-import { DROPIN_WAIVER_TEXT } from "@/lib/dropin/waiver-text";
+import {
+  DROPIN_WAIVER_TEXT,
+  DROPIN_WAIVER_ACCEPT_LABEL,
+} from "@/lib/dropin/waiver-text";
 import { BookButton } from "./BookButton";
 
 interface DetailResponse {
@@ -50,6 +53,15 @@ interface DetailResponse {
    *  resolved. Powers the post-payment "sign the waiver" card. */
   bookingId: string | null;
   bookingWaiverSigned: boolean | null;
+  /** Whether the resolved booking's PARTICIPANT is already covered by the
+   *  org's annual liability waiver. Only computed for an unsigned booking
+   *  (null otherwise) and only ever true for a booking that carries a
+   *  `family_member_id` — an adult drop-in has no person row to check.
+   *  Server-computed by the same predicate the waiver POST short-circuits on,
+   *  so the card and the endpoint can't disagree about who still has to sign.
+   *  Absent/undefined from an older response body reads as NOT covered — the
+   *  skip must fail toward asking. */
+  bookingWaiverOnFile?: boolean | null;
   host: { firstName: string; photoUrl: string | null; bio: string | null } | null;
 }
 
@@ -140,7 +152,7 @@ function WaiverCard({
           htmlFor="waiver-accept"
           className="text-sm leading-snug cursor-pointer"
         >
-          I accept the waiver above
+          {DROPIN_WAIVER_ACCEPT_LABEL}
         </Label>
       </div>
 
@@ -266,7 +278,12 @@ export default function SessionDetail({
     // Never glide away from an unsigned waiver — the sign-the-waiver card is
     // the whole point of this surface now. (Signing it here doesn't restart
     // the countdown; the player already chose to engage with this page.)
-    if (data.bookingWaiverSigned === false) return;
+    // A booking whose participant is already covered by the annual waiver has
+    // NO card to hold them for, so it must not hold the countdown either —
+    // otherwise the skip would trade one friction (a redundant signature) for
+    // another (a dead-ended success page).
+    if (data.bookingWaiverSigned === false && data.bookingWaiverOnFile !== true)
+      return;
     const phase = deriveDropInSuccessPhase({
       bannerKind,
       bookingStatus: data.alreadyBookedStatus,
@@ -305,12 +322,21 @@ export default function SessionDetail({
   const finalizing =
     successPhase === "finalizing" || successPhase === "finalizing-timed-out";
 
+  // ANNUAL WAIVER: the participant already signed within the window, so this
+  // booking's own `waiverSigned: false` is just an unstamped new row — the
+  // sign endpoint would short-circuit `alreadySigned` if we asked. Only
+  // strict `true` counts; undefined (older response shape) and false both
+  // mean ASK, because a missing answer must never suppress a real ask.
+  const waiverCovered = data.bookingWaiverOnFile === true;
+
   // Post-payment waiver capture: shown for any resolved, confirmed booking
-  // that hasn't signed yet — fresh success surface, a return visit, or the
-  // email backstop link (which carries ?payment_intent for guests).
+  // that hasn't signed yet AND isn't already covered — fresh success surface,
+  // a return visit, or the email backstop link (which carries
+  // ?payment_intent for guests).
   const waiverPending =
     data.bookingId !== null &&
     data.bookingWaiverSigned === false &&
+    !waiverCovered &&
     data.alreadyBookedStatus === "confirmed";
 
   return (
@@ -354,6 +380,19 @@ export default function SessionDetail({
         </div>
       )}
 
+      {waiverCovered &&
+        data.bookingWaiverSigned === false &&
+        data.alreadyBookedStatus === "confirmed" && (
+          <div
+            className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-900"
+            data-waiver-on-file
+          >
+            <p className="font-medium">Waiver on file ✓ — nothing to sign.</p>
+            <p className="mt-1 text-sm">
+              Your annual waiver covers this session. See you out there.
+            </p>
+          </div>
+        )}
       {waiverPending && !waiverJustSigned && (
         <WaiverCard
           bookingId={data.bookingId!}

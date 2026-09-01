@@ -110,13 +110,19 @@ describe("POST /api/cron/materialize-class-sessions", () => {
         tierId: tier1.id,
         idSuffix: `cronok-${suffix}`,
       });
-      // createChildClassBooking's waiver-on-file check applies to
-      // auto-enrollment bookings too, and the cron never supplies one (see
-      // materialize.ts's module doc comment — no waiver prompt on this
-      // path). In real usage a child only gets auto-enrolled after a
-      // waiver-establishing booking; simulate that here with a throwaway
-      // TRIAL booking (so it doesn't consume the member allotment being
-      // tested) that carries waiverSigned:true.
+      // createChildClassBooking's waiver check applies to auto-enrollment
+      // bookings too, and the cron never supplies one (see materialize.ts's
+      // module doc comment — no waiver prompt on this path). In real usage a
+      // child only gets auto-enrolled after a waiver-establishing booking;
+      // simulate that here with a throwaway TRIAL booking (so it doesn't
+      // consume the member allotment being tested).
+      //
+      // The signature FIELDS matter, not just the flag: the gate is now the
+      // annual predicate (src/lib/consents/liability.ts), which reads dated
+      // SIGNATURE rows only — a row carrying `waiverSigned: true` with no
+      // `waiverSignedAt` is a derived copy (which is exactly what the cron
+      // itself stamps on the sessions it auto-books) and can never establish
+      // validity, or every auto-booked row would renew its own waiver.
       const waiverCtx = await createTestDropInSession({ organizationId, venueId, kind: "class" });
       await db.insert(dropInBookings).values({
         sessionId: waiverCtx.sessionId,
@@ -127,6 +133,8 @@ describe("POST /api/cron/materialize-class-sessions", () => {
         paymentMethod: "trial",
         amountPaidCents: 0,
         waiverSigned: true,
+        waiverSignedAt: new Date(),
+        waiverSignedBy: "Parent Test",
       });
       const [okEnrollment] = await db
         .insert(classEnrollments)

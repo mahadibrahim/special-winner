@@ -1,10 +1,22 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { apiFetch, getAuthCookie } from "./setup/test-helpers";
 import { getDb } from "@/lib/db";
-import { seasons, registrations, consents } from "@/lib/db/schema";
+import {
+  seasons,
+  programs,
+  locations,
+  registrations,
+  consents,
+} from "@/lib/db/schema";
 import { phoneOptIns } from "@/lib/db/schema/phone-verifications";
 import { CONSENT_COPY } from "@/lib/consents/marketing-channels";
-import { eq } from "drizzle-orm";
+import {
+  WAIVER_ON_FILE_ATTRIBUTION,
+  WAIVER_VALID_DAYS,
+} from "@/lib/consents/liability";
+import { completionWaiverAssentText } from "@/lib/registrations/waiver-text";
+import { familyMembers } from "@/lib/db/schema";
+import { and, eq } from "drizzle-orm";
 
 // Same slug convention as registrations-self.test.ts / registrations-
 // membership.test.ts — the e2e seed catalog exports no fixture ids, so tests
@@ -19,21 +31,27 @@ const stripeConfigured = Boolean(process.env.STRIPE_SECRET_KEY);
 const itWithStripe = stripeConfigured ? it : it.skip;
 
 let adultSeasonId: string;
+/** Owning org of that season. Waivers are org-scoped legal releases, so the
+ *  annual-waiver cases below must seed their consents row against THIS org. */
+let adultSeasonOrgId: string;
 
 beforeAll(async () => {
   const db = getDb();
   const [season] = await db
-    .select({ id: seasons.id })
+    .select({ id: seasons.id, organizationId: locations.organizationId })
     .from(seasons)
+    .innerJoin(programs, eq(seasons.programId, programs.id))
+    .innerJoin(locations, eq(programs.locationId, locations.id))
     .where(eq(seasons.slug, ADULT_OPEN_SEASON_SLUG))
     .limit(1);
 
-  if (!season) {
+  if (!season?.organizationId) {
     throw new Error(
-      `Adult open soccer season not found (slug: ${ADULT_OPEN_SEASON_SLUG}) — re-run npm run db:seed:e2e`,
+      `Adult open soccer season (slug: ${ADULT_OPEN_SEASON_SLUG}) or its owning org not found — re-run npm run db:seed:e2e`,
     );
   }
   adultSeasonId = season.id;
+  adultSeasonOrgId = season.organizationId;
 });
 
 describe("guest-checkout v2 (deferred waiver/DOB)", () => {
@@ -110,6 +128,7 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
   async function mintOwnedRegistration(birthDate: string): Promise<{
     registrationId: string;
     familyMemberId: string;
+    participantName: string;
     cookie: string;
   }> {
     const cookie = await getAuthCookie(
@@ -146,7 +165,14 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
     expect(regRes.status).toBe(201);
     const regBody = await regRes.json();
     expect(regBody.registration?.id).toBeTruthy();
-    return { registrationId: regBody.registration.id, familyMemberId, cookie };
+    return {
+      registrationId: regBody.registration.id,
+      familyMemberId,
+      // Exactly what both surfaces pass CompletionForm as `participantName`,
+      // and what the server rebuilds to compose the recorded assent text.
+      participantName: `Complete Fixture${stamp}`,
+      cookie,
+    };
   }
 
   it("rejects an unauthenticated request with 401", async () => {
@@ -344,6 +370,348 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
       .from(phoneOptIns)
       .where(eq(phoneOptIns.phone, phone));
     expect(rows.some((r) => r.channel === "whatsapp")).toBe(false);
+  });
+
+  // ANNUAL WAIVER. `registrations.waiverSigned` is per-REGISTRATION, so it is
+  // false on every new row even for a family already covered at this org. The
+  // registration is normally born stamped (create-registration.ts), so the
+  // branch these two cover is the TRANSITION one: the row existed BEFORE the
+  // signature landed, which is why each mints the registration first and only
+  // then inserts the consent.
+  describe("annual waiver on file", () => {
+    async function insertLiabilityConsent(
+      familyMemberId: string,
+      signerUserId: string,
+    ): Promise<void> {
+      const signedAt = new Date(Date.now() - 30 * 86_400_000);
+      await getDb().insert(consents).values({
+        familyMemberId,
+        organizationId: adultSeasonOrgId,
+        type: "liability",
+        status: "granted",
+        signedByUserId: signerUserId,
+        signedByName: "Parent Test",
+        signedAt,
+        expiresAt: new Date(signedAt.getTime() + WAIVER_VALID_DAYS * 86_400_000),
+      });
+    }
+
+    it("short-circuits alreadySigned and stamps the row on-file, logging no new consent", async () => {
+      const { registrationId, familyMemberId, cookie } =
+        await mintOwnedRegistration("2016-04-01");
+
+      const db = getDb();
+      const [reg] = await db
+        .select({ signerUserId: registrations.registeredByUserId })
+        .from(registrations)
+        .where(eq(registrations.id, registrationId));
+      await insertLiabilityConsent(familyMemberId, reg.signerUserId);
+
+      const res = await apiFetch(`/api/registrations/${registrationId}/complete`, {
+        method: "POST",
+        cookie,
+        body: JSON.stringify({
+          waiverAccepted: true,
+          waiverSignature: "Redundant Signer",
+        }),
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.alreadySigned).toBe(true);
+      expect(body.signed).toBeUndefined();
+
+      const [row] = await db
+        .select({
+          waiverSigned: registrations.waiverSigned,
+          waiverSignedBy: registrations.waiverSignedBy,
+          waiverSignedAt: registrations.waiverSignedAt,
+        })
+        .from(registrations)
+        .where(eq(registrations.id, registrationId));
+      expect(row.waiverSigned).toBe(true);
+      expect(row.waiverSignedBy).toBe(WAIVER_ON_FILE_ATTRIBUTION);
+      // Load-bearing: hasValidLiabilityWaiver's legacy `registrations`
+      // fallback accepts any DATED signed row, so a dated derived copy would
+      // renew the very window it was derived from.
+      expect(row.waiverSignedAt).toBeNull();
+
+      // consents is append-only and does not dedupe — this branch is a READ.
+      const liability = await db
+        .select({ id: consents.id })
+        .from(consents)
+        .where(
+          and(
+            eq(consents.familyMemberId, familyMemberId),
+            eq(consents.type, "liability"),
+          ),
+        );
+      expect(liability).toHaveLength(1);
+    });
+
+    // FINDING 3 regression. Before the endpoint was restructured, an
+    // already-signed registration returned before the marketing block. The
+    // restructure made that block reachable on a replay, where
+    // recordMarketingConsent PROMOTES a channel to opted_in — i.e. a replayed
+    // POST could silently undo an opt-out the customer set afterwards.
+    it("a repeat POST on an already-signed registration cannot re-opt-in a channel the customer opted out of", async () => {
+      const { registrationId, cookie } = await mintOwnedRegistration("1990-05-15");
+      const phone = `+1614557${String(Date.now()).slice(-4)}`;
+      const db = getDb();
+
+      // 1. Real completion, WhatsApp ticked → an opted_in row exists.
+      const first = await apiFetch(`/api/registrations/${registrationId}/complete`, {
+        method: "POST",
+        cookie,
+        body: JSON.stringify({
+          waiverAccepted: true,
+          waiverSignature: "Opt Out Flow",
+          phone,
+          smsConsent: false,
+          whatsappConsent: true,
+        }),
+      });
+      expect((await first.json()).signed).toBe(true);
+
+      // 2. The customer opts out afterwards — the state the replay must not
+      //    clobber. Written directly: this asserts the endpoint's behaviour,
+      //    not the opt-out UI's.
+      await db
+        .update(phoneOptIns)
+        .set({ status: "opted_out", optedOutAt: new Date(), updatedAt: new Date() })
+        .where(
+          and(eq(phoneOptIns.phone, phone), eq(phoneOptIns.channel, "whatsapp")),
+        );
+
+      // 3. Replay the identical completion. The registration is already
+      //    signed, so this is the branch that must touch no consent state.
+      const replay = await apiFetch(`/api/registrations/${registrationId}/complete`, {
+        method: "POST",
+        cookie,
+        body: JSON.stringify({
+          waiverAccepted: true,
+          waiverSignature: "Opt Out Flow",
+          phone,
+          smsConsent: true,
+          whatsappConsent: true,
+        }),
+      });
+      expect((await replay.json()).alreadySigned).toBe(true);
+
+      const rows = await db
+        .select({ channel: phoneOptIns.channel, status: phoneOptIns.status })
+        .from(phoneOptIns)
+        .where(eq(phoneOptIns.phone, phone));
+      const whatsapp = rows.find((r) => r.channel === "whatsapp");
+      expect(
+        whatsapp!.status,
+        "a replayed completion must never resurrect an opt-out",
+      ).toBe("opted_out");
+      // The SMS tick on the replay must not have created an opted_in row
+      // either — same rule, same branch.
+      const sms = rows.find((r) => r.channel === "sms");
+      expect(sms?.status ?? "pending").not.toBe("opted_in");
+    });
+
+    // FINDING 4. A covered participant is shown no waiver text and no
+    // signature box, so its form submits only the outstanding items. The
+    // endpoint must accept that body and still backfill the DOB.
+    it("accepts a DOB-only submission (no waiver fields) and backfills the birth date", async () => {
+      const { registrationId, familyMemberId, cookie } =
+        await mintOwnedRegistration("2016-04-01");
+
+      const db = getDb();
+      // Clear the DOB so this registration is in the real state the DOB-only
+      // form exists for: waiver settled, birth date still owed.
+      await db
+        .update(familyMembers)
+        .set({ birthDate: null })
+        .where(eq(familyMembers.id, familyMemberId));
+      const [reg] = await db
+        .select({ signerUserId: registrations.registeredByUserId })
+        .from(registrations)
+        .where(eq(registrations.id, registrationId));
+      await insertLiabilityConsent(familyMemberId, reg.signerUserId);
+
+      const res = await apiFetch(`/api/registrations/${registrationId}/complete`, {
+        method: "POST",
+        cookie,
+        body: JSON.stringify({ birthDate: "2016-04-01" }),
+      });
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.alreadySigned).toBe(true);
+      expect(body.signed).toBeUndefined();
+      expect(body).toHaveProperty("ageReviewNeeded");
+
+      const [person] = await db
+        .select({ birthDate: familyMembers.birthDate })
+        .from(familyMembers)
+        .where(eq(familyMembers.id, familyMemberId));
+      expect(
+        person.birthDate,
+        "the DOB is the one thing this branch still has to collect",
+      ).toBe("2016-04-01");
+    });
+
+    // ROUND-2 FINDING 1 (regression). The F3 gate was keyed on `alreadySigned`,
+    // which is ALSO true on the waiver-on-file branch — so a covered family's
+    // FIRST completion silently dropped its phone and marketing answers. This
+    // endpoint is the only capture point for authed-flow phone opt-ins and for
+    // ALL WhatsApp marketing consent, so that was a real data loss, not a
+    // cosmetic one. The gate is now the PRE-REQUEST signature state.
+    it("captures phone + WhatsApp consent on a FIRST completion that takes the on-file branch", async () => {
+      const { registrationId, familyMemberId, cookie } =
+        await mintOwnedRegistration("2016-04-01");
+      const phone = `+1614558${String(Date.now()).slice(-4)}`;
+
+      const db = getDb();
+      const [reg] = await db
+        .select({ signerUserId: registrations.registeredByUserId })
+        .from(registrations)
+        .where(eq(registrations.id, registrationId));
+      // Covered BEFORE the completion, and the row itself still unsigned —
+      // exactly the state the on-file branch exists for.
+      await insertLiabilityConsent(familyMemberId, reg.signerUserId);
+
+      const res = await apiFetch(`/api/registrations/${registrationId}/complete`, {
+        method: "POST",
+        cookie,
+        body: JSON.stringify({
+          phone,
+          smsConsent: true,
+          whatsappConsent: true,
+        }),
+      });
+      expect(res.status).toBe(200);
+      expect((await res.json()).alreadySigned).toBe(true);
+
+      const rows = await db
+        .select({
+          channel: phoneOptIns.channel,
+          status: phoneOptIns.status,
+          textShown: phoneOptIns.consentTextShown,
+        })
+        .from(phoneOptIns)
+        .where(eq(phoneOptIns.phone, phone));
+
+      const whatsapp = rows.find((r) => r.channel === "whatsapp");
+      expect(
+        whatsapp,
+        "the on-file branch still shows the consent boxes — it must record the answer",
+      ).toBeTruthy();
+      expect(whatsapp!.status).toBe("opted_in");
+      expect(whatsapp!.textShown).toBe(CONSENT_COPY.whatsapp);
+
+      const sms = rows.find((r) => r.channel === "sms");
+      expect(sms, "the ticked SMS box must be recorded too").toBeTruthy();
+      expect(sms!.status).toBe("opted_in");
+    });
+
+    // ROUND-2 FINDING 2 (same class). recordDefaultMediaAuth only ran inside
+    // the fresh-signature transaction, so a covered family's photo/video
+    // opt-outs were presented and then thrown away.
+    it("honors media-auth opt-outs submitted on the on-file branch", async () => {
+      const { registrationId, familyMemberId, cookie } =
+        await mintOwnedRegistration("2016-04-01");
+
+      const db = getDb();
+      const [reg] = await db
+        .select({ signerUserId: registrations.registeredByUserId })
+        .from(registrations)
+        .where(eq(registrations.id, registrationId));
+      await insertLiabilityConsent(familyMemberId, reg.signerUserId);
+
+      const res = await apiFetch(`/api/registrations/${registrationId}/complete`, {
+        method: "POST",
+        cookie,
+        body: JSON.stringify({ mediaAuthOptOuts: ["public"] }),
+      });
+      expect(res.status).toBe(200);
+      expect((await res.json()).alreadySigned).toBe(true);
+
+      const media = await db
+        .select({ scope: consents.scope, signedByName: consents.signedByName })
+        .from(consents)
+        .where(
+          and(
+            eq(consents.familyMemberId, familyMemberId),
+            eq(consents.type, "media_authorization"),
+          ),
+        );
+      const scopes = media.map((m) => m.scope);
+      // Opt-out model: a row per scope the customer did NOT disable.
+      expect(scopes).toContain("internal");
+      expect(scopes).toContain("promotional");
+      expect(
+        scopes,
+        "the scope they opted out of must not be recorded as granted",
+      ).not.toContain("public");
+      // No signature was taken, so the shared on-file attribution stands in as
+      // the signer rather than a name nobody typed.
+      expect(media[0].signedByName).toBe(WAIVER_ON_FILE_ATTRIBUTION);
+    });
+
+    it("still rejects a missing signature when one is genuinely owed", async () => {
+      const { registrationId, cookie } = await mintOwnedRegistration("1990-05-15");
+
+      const res = await apiFetch(`/api/registrations/${registrationId}/complete`, {
+        method: "POST",
+        cookie,
+        body: JSON.stringify({ birthDate: "1990-05-15" }),
+      });
+      // Optional at the schema layer so the DOB-only body above parses —
+      // mandatory again on the branch that actually takes a signature.
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body.details?.waiverSignature).toBeTruthy();
+    });
+
+    it("writes an org-scoped, ip/UA-stamped consent for a genuinely fresh signature", async () => {
+      const { registrationId, familyMemberId, participantName, cookie } =
+        await mintOwnedRegistration("2016-04-01");
+      const signature = `Org Scoped ${Date.now()}`;
+
+      const res = await apiFetch(`/api/registrations/${registrationId}/complete`, {
+        method: "POST",
+        cookie,
+        body: JSON.stringify({
+          waiverAccepted: true,
+          waiverSignature: signature,
+        }),
+      });
+      expect(res.status).toBe(200);
+      expect((await res.json()).signed).toBe(true);
+
+      const [row] = await getDb()
+        .select()
+        .from(consents)
+        .where(
+          and(
+            eq(consents.familyMemberId, familyMemberId),
+            eq(consents.type, "liability"),
+          ),
+        );
+      // The org is what makes the annual predicate work — a NULL-org row
+      // satisfies nothing.
+      expect(row.organizationId).toBe(adultSeasonOrgId);
+      expect(row.signedByName).toBe(signature);
+      // The record must quote what the SCREEN showed. This fixture is a
+      // dependent, so completion-form.tsx rendered the accept label AND the
+      // guardian attestation — recording the bare adult label here was the
+      // misquote this assertion pins shut.
+      const expectedAssent = completionWaiverAssentText(
+        "guardian",
+        participantName,
+      );
+      expect(row.notes).toContain(expectedAssent);
+      expect(expectedAssent).toContain("parent or legal guardian");
+      expect(row.notes).toContain("variant=guardian");
+      // From THIS request's context, never the body.
+      expect(row.userAgent).toBeTruthy();
+      expect(row.expiresAt).toBeTruthy();
+      const expected = row.signedAt.getTime() + WAIVER_VALID_DAYS * 86_400_000;
+      expect(Math.abs((row.expiresAt?.getTime() ?? 0) - expected)).toBeLessThan(5000);
+    });
   });
 
   it("flags age review for a DOB outside the season's age group without blocking the sign", async () => {

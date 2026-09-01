@@ -47,12 +47,31 @@ export interface RentalHoldInput {
   createdByUserId: string | null;
   waiverSigned: boolean;
   waiverSignedBy: string | null;
+  /**
+   * Override for the row's `waiverSignedAt`. Omit (undefined) for the
+   * default — "now" when `waiverSigned` is true, else null, unchanged from
+   * before this field existed. Pass `null` explicitly for a derived
+   * "on file" stamp: `hasValidLiabilityWaiver`'s legacy fallback only
+   * accepts DATED signature rows, so a dated derived copy would let each
+   * booking renew the very annual window it was derived from (mirrors
+   * book-child.ts's on-file branch).
+   */
+  waiverSignedAt?: Date | null;
   brand?: BrandId;
 }
 
 export type RentalHoldResult =
   | { ok: true; rental: FieldRental }
   | { ok: false; error: string };
+
+/** Shared by all three insert sites — see `RentalHoldInput.waiverSignedAt`. */
+function resolveWaiverSignedAt(input: {
+  waiverSigned: boolean;
+  waiverSignedAt?: Date | null;
+}): Date | null {
+  if (!input.waiverSigned) return null;
+  return input.waiverSignedAt !== undefined ? input.waiverSignedAt : new Date();
+}
 
 /**
  * Write the rental's field-time-ledger block after creation. A ledger
@@ -114,7 +133,7 @@ export async function createRentalHold(
         notes: input.notes,
         createdByUserId: input.createdByUserId,
         waiverSigned: input.waiverSigned,
-        waiverSignedAt: input.waiverSigned ? new Date() : null,
+        waiverSignedAt: resolveWaiverSignedAt(input),
         waiverSignedBy: input.waiverSignedBy,
         brand: input.brand ?? "aspire",
       })
@@ -166,7 +185,7 @@ export async function createConfirmedRentalNonStripe(
         notes: input.notes,
         createdByUserId: input.createdByUserId,
         waiverSigned: input.waiverSigned,
-        waiverSignedAt: input.waiverSigned ? new Date() : null,
+        waiverSignedAt: resolveWaiverSignedAt(input),
         waiverSignedBy: input.waiverSignedBy,
         brand: input.brand ?? "aspire",
       })
@@ -194,6 +213,8 @@ export interface RentalRequestInput {
   createdByUserId: string | null;
   waiverSigned: boolean;
   waiverSignedBy: string | null;
+  /** See `RentalHoldInput.waiverSignedAt`. */
+  waiverSignedAt?: Date | null;
   brand?: BrandId;
 }
 
@@ -243,7 +264,7 @@ export async function createRentalRequest(
         notes: input.notes,
         createdByUserId: input.createdByUserId,
         waiverSigned: input.waiverSigned,
-        waiverSignedAt: input.waiverSigned ? new Date() : null,
+        waiverSignedAt: resolveWaiverSignedAt(input),
         waiverSignedBy: input.waiverSignedBy,
         brand: input.brand ?? "aspire",
       })

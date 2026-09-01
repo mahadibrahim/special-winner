@@ -1,7 +1,9 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { getDb } from "@/lib/db";
-import { dropInRateCard } from "@/lib/db/schema/drop-in";
-import { eq } from "drizzle-orm";
+import { dropInBookings, dropInRateCard, dropInSessions } from "@/lib/db/schema/drop-in";
+import { consents } from "@/lib/db/schema/consents";
+import { and, eq, inArray } from "drizzle-orm";
+import { WAIVER_VALID_DAYS } from "@/lib/consents/liability";
 import { apiFetch, getAuthCookie } from "../setup/test-helpers";
 import { createTestDropInSession } from "../../utils/dropin-helpers";
 import {
@@ -248,6 +250,249 @@ describe("POST /api/classes/book", () => {
     expect(res.status).toBe(422);
     const body = await res.json();
     expect(body.error).toBe("waiver_required");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Annual waiver validity
+// (docs/superpowers/specs/2026-08-31-annual-waiver-unification-design.md)
+//
+// The engine's on-file gate is `hasValidLiabilityWaiver` — a granted,
+// unexpired, org-scoped `consents` row, or a legacy signature row inside the
+// same 365-day window. Two consequences this block pins down: a signature
+// that has aged out must re-ask (the old query had NO date bound, so a
+// veteran family was never asked again), and a canonical consents row must
+// satisfy the gate on its own, with no booking history at all.
+// ---------------------------------------------------------------------------
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Children + sessions this block creates, so afterAll can clear the rows it
+ *  wrote. Consents rows in particular MUST be cleaned: they are org-scoped
+ *  and long-lived by design, so a leaked one would silently satisfy the
+ *  waiver gate for its child on every later run. */
+const waiverChildIds: string[] = [];
+const waiverSessionIds: string[] = [];
+
+afterAll(async () => {
+  const db = getDb();
+  if (waiverChildIds.length > 0) {
+    await db.delete(consents).where(inArray(consents.familyMemberId, waiverChildIds));
+    await db.delete(dropInBookings).where(inArray(dropInBookings.familyMemberId, waiverChildIds));
+  }
+  if (waiverSessionIds.length > 0) {
+    await db.delete(dropInBookings).where(inArray(dropInBookings.sessionId, waiverSessionIds));
+    await db.delete(dropInSessions).where(inArray(dropInSessions.id, waiverSessionIds));
+  }
+});
+
+async function newWaiverChild(label: string): Promise<string> {
+  const id = await createTestChild(parentUserId, `${label}-${Date.now()}`);
+  waiverChildIds.push(id);
+  return id;
+}
+
+/** A tracked class session — same helper as the rest of the file, but its id
+ *  is recorded for teardown. */
+async function createTrackedClassSession(hoursOut: number): Promise<string> {
+  const sessionId = await createClassSession(hoursFromNow(hoursOut));
+  waiverSessionIds.push(sessionId);
+  return sessionId;
+}
+
+/**
+ * A legacy, pre-unification signature row: `waiverSigned` + a real
+ * `waiverSignedAt`, on a session in THIS org. `paymentMethod: "card_online"`
+ * (never `"trial"`) deliberately — every test below reaches the waiver gate
+ * via `kind: "trial"`, which is the only kind a membership-less child can
+ * get past, and a prior `trial` row would short-circuit on
+ * `trial_already_used` before the waiver gate is ever consulted.
+ */
+async function insertLegacySignedBooking(familyMemberId: string, signedAt: Date): Promise<void> {
+  const db = getDb();
+  const sessionId = await createTrackedClassSession(3 * 24);
+  await db.insert(dropInBookings).values({
+    sessionId,
+    userId: parentUserId,
+    familyMemberId,
+    status: "confirmed",
+    source: "online_booking",
+    paymentMethod: "card_online",
+    amountPaidCents: 0,
+    waiverSigned: true,
+    waiverSignedAt: signedAt,
+    waiverSignedBy: "Parent Test",
+  });
+}
+
+async function liabilityConsentsFor(familyMemberId: string) {
+  return getDb()
+    .select()
+    .from(consents)
+    .where(and(eq(consents.familyMemberId, familyMemberId), eq(consents.type, "liability")));
+}
+
+describe("POST /api/classes/book — annual waiver validity", () => {
+  it("422s when the child's only signature is older than the annual window", async () => {
+    const childId = await newWaiverChild("WaiverStale");
+    // Signed, but 400 days ago — outside the 365-day window. Under the old
+    // forever-valid predicate this booked silently.
+    await insertLegacySignedBooking(childId, new Date(Date.now() - 400 * DAY_MS));
+
+    const sessionId = await createTrackedClassSession(7 * 24);
+    const res = await apiFetch("/api/classes/book", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({ sessionId, familyMemberId: childId, kind: "trial" }),
+    });
+
+    expect(res.status).toBe(422);
+    expect((await res.json()).error).toBe("waiver_required");
+  });
+
+  it("books waiver-free on a signature still inside the window", async () => {
+    // Control for the test above: same fixture shape, a signature 30 days
+    // old instead of 400, so the ONLY difference is the date.
+    const childId = await newWaiverChild("WaiverRecent");
+    await insertLegacySignedBooking(childId, new Date(Date.now() - 30 * DAY_MS));
+
+    const sessionId = await createTrackedClassSession(8 * 24);
+    const res = await apiFetch("/api/classes/book", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({ sessionId, familyMemberId: childId, kind: "trial" }),
+    });
+
+    expect(res.status).toBe(200);
+  });
+
+  it("books waiver-free on a fresh consents row with NO booking history", async () => {
+    const childId = await newWaiverChild("WaiverConsentOnly");
+    const db = getDb();
+    const signedAt = new Date();
+    await db.insert(consents).values({
+      familyMemberId: childId,
+      organizationId,
+      type: "liability",
+      status: "granted",
+      signedByUserId: parentUserId,
+      signedByName: "Parent Test",
+      signedAt,
+      expiresAt: new Date(signedAt.getTime() + WAIVER_VALID_DAYS * DAY_MS),
+    });
+
+    const sessionId = await createTrackedClassSession(9 * 24);
+    const res = await apiFetch("/api/classes/book", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({ sessionId, familyMemberId: childId, kind: "trial" }),
+    });
+
+    expect(res.status).toBe(200);
+  });
+
+  it("writes ONE org-scoped consents row for a fresh signature, and none on the on-file path", async () => {
+    const childId = await newWaiverChild("WaiverFreshSig");
+
+    const firstSessionId = await createTrackedClassSession(10 * 24);
+    const firstRes = await apiFetch("/api/classes/book", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({
+        sessionId: firstSessionId,
+        familyMemberId: childId,
+        kind: "trial",
+        waiver: CLASS_TEST_WAIVER,
+      }),
+    });
+    expect(firstRes.status).toBe(200);
+
+    const rows = await liabilityConsentsFor(childId);
+    expect(rows).toHaveLength(1);
+    const row = rows[0];
+    expect(row.organizationId).toBe(organizationId);
+    expect(row.status).toBe("granted");
+    expect(row.signedByUserId).toBe(parentUserId);
+    expect(row.signedByName).toBe(CLASS_TEST_WAIVER.signedBy);
+    // Variant is hardcoded "guardian" — the classes engine only ever books a
+    // child (see book-child.ts's header).
+    expect(row.notes).toContain("guardian");
+    // Signing audit trail, attached by the endpoint from the request context
+    // (clientAddress + the user-agent header), never from the body. Once the
+    // legacy signature fallbacks age out this row is the ONLY record of the
+    // signature, so it has to carry what every other consent-writing surface
+    // captures. Asserted as "present", not as a literal: the local address
+    // is ::1 or 127.0.0.1 depending on how the dev server bound, and the
+    // fetch client picks its own UA string.
+    expect(row.ipAddress).toBeTruthy();
+    expect(row.userAgent).toBeTruthy();
+    const expiresAt = row.expiresAt?.getTime() ?? 0;
+    const expected = row.signedAt.getTime() + WAIVER_VALID_DAYS * DAY_MS;
+    expect(Math.abs(expiresAt - expected)).toBeLessThan(5000);
+
+    // A SECOND booking now takes the ON-FILE path (the trial is spent, so
+    // give the child a membership to get past the kind gate).
+    // recordLiabilityWaiver is append-only with no dedupe, so the caller
+    // contract — call it ONLY on a fresh signature — is the only thing
+    // keeping the audit log from growing a duplicate row per booking. Assert
+    // the count, not just that the booking succeeded.
+    await createTestChildMembership({
+      userId: parentUserId,
+      familyMemberId: childId,
+      organizationId,
+      tierId,
+      idSuffix: `waiver-fresh-sig-${Date.now()}`,
+    });
+    const secondSessionId = await createTrackedClassSession(11 * 24);
+    const secondRes = await apiFetch("/api/classes/book", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({ sessionId: secondSessionId, familyMemberId: childId, kind: "member" }),
+    });
+    expect(secondRes.status).toBe(200);
+    const { bookingId } = await secondRes.json();
+    expect(await liabilityConsentsFor(childId)).toHaveLength(1);
+
+    // The on-file path still stamps the denormalized local flag, with no
+    // signature fields of its own (nobody signed anything on this request).
+    const [bookingRow] = await getDb()
+      .select({
+        waiverSigned: dropInBookings.waiverSigned,
+        waiverSignedAt: dropInBookings.waiverSignedAt,
+      })
+      .from(dropInBookings)
+      .where(eq(dropInBookings.id, bookingId))
+      .limit(1);
+    expect(bookingRow.waiverSigned).toBe(true);
+    expect(bookingRow.waiverSignedAt).toBeNull();
+  });
+
+  it("does not let a signature at another org satisfy this org's gate", async () => {
+    const childId = await newWaiverChild("WaiverOtherOrg");
+    const db = getDb();
+    const signedAt = new Date();
+    // Org-NULL is the shape the 0139 backfill leaves an unattributable legacy
+    // row in; it must never satisfy a specific org's gate.
+    await db.insert(consents).values({
+      familyMemberId: childId,
+      organizationId: null,
+      type: "liability",
+      status: "granted",
+      signedByUserId: parentUserId,
+      signedByName: "Parent Test",
+      signedAt,
+      expiresAt: new Date(signedAt.getTime() + WAIVER_VALID_DAYS * DAY_MS),
+    });
+
+    const sessionId = await createTrackedClassSession(12 * 24);
+    const res = await apiFetch("/api/classes/book", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({ sessionId, familyMemberId: childId, kind: "trial" }),
+    });
+
+    expect(res.status).toBe(422);
+    expect((await res.json()).error).toBe("waiver_required");
   });
 });
 

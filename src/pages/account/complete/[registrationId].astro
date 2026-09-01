@@ -1,8 +1,10 @@
 ---
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import { getDb } from '@/lib/db';
-import { registrations, familyMembers } from '@/lib/db/schema';
+import { registrations, familyMembers, seasons, programs, locations } from '@/lib/db/schema';
 import { and, eq } from 'drizzle-orm';
+import { liabilityWaiverValidUntil } from '@/lib/consents/liability';
+import { formatWaiverValidUntil } from '@/lib/registrations/waiver-text';
 import { CompletionForm } from '@/components/registration/completion-form';
 
 // /account routes are gated by middleware — signed-out visitors bounce
@@ -28,9 +30,13 @@ const [row] = await db
   .select({
     registration: registrations,
     familyMember: familyMembers,
+    organizationId: locations.organizationId,
   })
   .from(registrations)
   .innerJoin(familyMembers, eq(registrations.familyMemberId, familyMembers.id))
+  .innerJoin(seasons, eq(registrations.seasonId, seasons.id))
+  .innerJoin(programs, eq(seasons.programId, programs.id))
+  .innerJoin(locations, eq(programs.locationId, locations.id))
   .where(
     and(
       eq(registrations.id, registrationId),
@@ -45,19 +51,42 @@ if (!row) {
   return Astro.rewrite('/404');
 }
 
-const { registration, familyMember } = row;
+const { registration, familyMember, organizationId } = row;
 const needsBirthDate = familyMember.birthDate === null;
 const isSelf = familyMember.selfUserId !== null;
 const participantName = `${familyMember.firstName} ${familyMember.lastName}`.trim();
+
+// `waiverSigned` on the row is the authority here: it is true both for a
+// signature taken on this registration and for the "On file (annual waiver)"
+// stamp creation applies to a covered participant. Either way no signature is
+// owed, so the form drops the waiver text and signature box.
+const waiverOnFile = registration.waiverSigned;
+
+// Display only. Null whenever there is no canonical consents row to read an
+// expiry from — including participants covered by a LEGACY signature fallback,
+// who are genuinely covered but have no date to quote. The form renders a
+// date-free phrasing for null; it never reads as "not covered".
+const waiverValidUntil =
+  waiverOnFile && organizationId
+    ? await liabilityWaiverValidUntil(familyMember.id, organizationId)
+    : null;
+const waiverValidUntilLabel = formatWaiverValidUntil(waiverValidUntil);
 ---
 
 <BaseLayout title="Finish Your Registration — Aspire Sports">
   <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
     <div class="max-w-lg mx-auto">
       <div class="bg-paper border border-border rounded-2xl p-6">
-        {registration.waiverSigned ? (
+        {/* A registration can be waiver-satisfied without being COMPLETE: the
+            v2 flow defers the waiver AND the date of birth to this screen, and
+            an annual waiver on file settles only the first of the two (see
+            create-registration.ts's on-file stamp). So "nothing left to do"
+            requires both. When only the DOB is outstanding the form still
+            renders — its POST short-circuits on the signature and backfills
+            the DOB, so no duplicate consent row is written. */}
+        {registration.waiverSigned && !needsBirthDate ? (
           <div class="text-center py-6">
-            <h1 class="text-lg font-semibold text-ink mb-1">Already signed — see you at game 1.</h1>
+            <h1 class="text-lg font-semibold text-ink mb-1">All set — see you at game 1.</h1>
             <p class="text-ink-muted text-sm">There's nothing left to do here.</p>
           </div>
         ) : (
@@ -73,6 +102,8 @@ const participantName = `${familyMember.firstName} ${familyMember.lastName}`.tri
               via="email_link"
               isSelf={isSelf}
               participantName={participantName}
+              waiverOnFile={waiverOnFile}
+              waiverValidUntilLabel={waiverValidUntilLabel}
             />
           </>
         )}

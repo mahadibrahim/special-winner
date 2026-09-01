@@ -22,7 +22,15 @@ export const ALL_MEDIA_AUTH_SCOPES: ReadonlyArray<MediaAuthScope> = [
   "public",
 ];
 
-const LIABILITY_VALIDITY_DAYS = 365;
+/**
+ * How long one liability signature is good for. THE source of the number —
+ * `src/lib/consents/liability.ts` re-exports it as `WAIVER_VALID_DAYS` and
+ * derives its validity window from it, so the write-side expiry and the
+ * read-side predicate can never fork. Defined here rather than in
+ * liability.ts because liability.ts imports this module (the reverse would
+ * be circular).
+ */
+export const LIABILITY_VALIDITY_DAYS = 365;
 
 /** A transaction handle — callers wrap consent + related writes so they land as one. */
 export type ConsentTx = Parameters<Parameters<Database["transaction"]>[0]>[0];
@@ -99,6 +107,10 @@ export async function recordConsent(
     .insert(consents)
     .values({
       familyMemberId: input.familyMemberId,
+      // The owning organization of the legal release. Was accepted and used
+      // only to pick the waiver document; persisting it is what makes the
+      // org-scoped annual-liability predicate work (see ./liability.ts).
+      organizationId: input.organizationId ?? null,
       registrationId: input.registrationId ?? null,
       waiverId,
       type: input.type,

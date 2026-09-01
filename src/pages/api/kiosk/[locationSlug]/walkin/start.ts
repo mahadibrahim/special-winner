@@ -58,6 +58,10 @@ import { dropInSessions, dropInBookings, dropInRateCard } from "@/lib/db/schema/
 import { users } from "@/lib/db/schema/users";
 import { venues } from "@/lib/db/schema/teams";
 import { resolvePerson } from "@/lib/registrations/resolve-person";
+import {
+  WAIVER_ON_FILE_ATTRIBUTION,
+  hasValidLiabilityWaiver,
+} from "@/lib/consents/liability";
 import { requireKioskLocation } from "@/lib/check-in/kiosk-auth";
 import { mintToken } from "@/lib/check-in/tokens-db";
 import { resolveRate, DEFAULT_WALK_UP_RATE_CENTS } from "@/lib/dropin/pricing";
@@ -284,6 +288,41 @@ export const POST: APIRoute = async ({ params, request, clientAddress, locals })
     bookingFamilyMemberId = person.id;
   }
 
+  // --- Annual waiver: is this participant already covered? -------------
+  // A booking is BORN with the on-file shape when the person already has a
+  // valid liability consent for this org. Without it the row would sit at
+  // `waiverSigned: false` forever — the kiosk and self-serve surfaces skip
+  // the ask (build-context consults the same predicate), so nothing would
+  // ever flip the flag, and the STAFF surfaces that count it — the day
+  // view's `waiversOutstanding` (src/lib/check-in/day-view.ts:85) and the
+  // roll-call chip — would show a phantom outstanding waiver and reproduce
+  // the redundant ask at the desk.
+  //
+  // Only the MINOR path has a person today: adult walk-ins get a `users`
+  // row and no `family_members` row (see step 5 in the module doc), so
+  // `bookingFamilyMemberId` is null and this is skipped. Keyed on the id
+  // rather than on `isMinor` so it extends itself the day adults gain one.
+  //
+  // Read OUTSIDE the transaction on purpose: the tx below holds a row lock
+  // on the session and serializes every concurrent walk-in start on it, so
+  // an extra indexed read belongs before the lock, not inside it. The race
+  // it admits — a consent expiring in the microseconds between here and the
+  // insert — costs one redundant waiver ask.
+  let participantWaiverOnFile = false;
+  if (bookingFamilyMemberId) {
+    try {
+      participantWaiverOnFile = await hasValidLiabilityWaiver(
+        bookingFamilyMemberId,
+        location.organizationId,
+        db,
+      );
+    } catch (err) {
+      // Fail towards ASKING — a kiosk must never 500 over this, and a
+      // redundant signature is far cheaper than a missing release.
+      console.error("[walkin.start] waiver validity lookup failed", err);
+    }
+  }
+
   // --- Duplicate-hold guard + insert, atomically ---
   // See module-level comment: the DB unique index doesn't cover
   // pending_payment, so a second hold on the same session for the same
@@ -384,6 +423,18 @@ export const POST: APIRoute = async ({ params, request, clientAddress, locals })
           source: "walk_up",
           paymentMethod: "card_online",
           amountPaidCents: 0,
+          // Born covered by the person's ANNUAL waiver — see the lookup
+          // above. `waiverSignedAt` is deliberately left unset (NULL): this
+          // is a derived copy of an earlier signature, and
+          // hasValidLiabilityWaiver's legacy fallback accepts any DATED
+          // drop_in_bookings row, so dating it would let each new hold renew
+          // the very window it was derived from.
+          ...(participantWaiverOnFile
+            ? {
+                waiverSigned: true,
+                waiverSignedBy: WAIVER_ON_FILE_ATTRIBUTION,
+              }
+            : {}),
           promotionExpiresAt: new Date(Date.now() + WALK_IN_HOLD_TTL_MS),
           // At-facility kiosk: no brand host signal. Column default ("aspire") applies.
         })

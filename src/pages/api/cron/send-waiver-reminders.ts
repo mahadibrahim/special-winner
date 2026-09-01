@@ -9,6 +9,10 @@ import {
   locations,
   emailLogs,
 } from "@/lib/db/schema";
+import {
+  WAIVER_ON_FILE_ATTRIBUTION,
+  hasValidLiabilityWaiver,
+} from "@/lib/consents/liability";
 import { sendWaiverReminderEmail } from "@/lib/email/send";
 import {
   createMagicLink,
@@ -82,6 +86,31 @@ interface WindowResult {
 // started, and not a cancelled/refunded registration (paymentStatus is not
 // reset on cancel — without this a cancelled-but-paid registration would
 // keep getting reminded to sign a waiver for a season it's no longer in).
+//
+// ANNUAL WAIVER note: `registrations.waiverSigned = false` is ALSO the annual
+// exclusion for anything created after that change landed — every registration
+// write path now stamps the row `waiverSigned: true` at birth when the
+// participant already has a valid org-scoped signature
+// (create-registration.ts, walk-up-registration.ts), so covered families never
+// enter this candidate set in the first place. What this query cannot see is
+// the TRANSITION population: rows created before the stamp existed, and rows
+// whose family signed at another door after the registration was made. Those
+// are caught per-row by `stampIfWaiverOnFile` below rather than by a second
+// SQL predicate here — a correlated EXISTS would have to restate
+// hasValidLiabilityWaiver's rule (canonical consents row OR either legacy
+// signature fallback) in SQL, forking the one place that owns it.
+//
+// COST, honestly: only the COVERED rows are self-liquidating — each is stamped
+// once and never re-enters the candidate set. Every UNCOVERED candidate (the
+// majority, and the steady state once the transition population drains) pays
+// the lookup again on every window it matches, on every run, forever: up to 3
+// indexed queries each, and a row can match one age window plus the final
+// window. That is the price of not forking the predicate, and it is affordable
+// only because the candidate set is small by construction (paid AND unsigned
+// AND season not yet started AND not already emailed for that window). If that
+// set ever grows past the low hundreds, the fix is a batched
+// `hasValidLiabilityWaiver` variant taking many (person, org) pairs — NOT a
+// hand-written EXISTS here.
 function baseEligibility() {
   return and(
     eq(registrations.waiverSigned, false),
@@ -112,6 +141,7 @@ async function fetchRows(whereExtra: ReturnType<typeof and>) {
     .select({
       registrationId: registrations.id,
       registrationBrand: registrations.brand,
+      familyMemberId: registrations.familyMemberId,
       seasonId: registrations.seasonId,
       startDate: seasons.startDate,
       seasonName: seasons.name,
@@ -128,6 +158,55 @@ async function fetchRows(whereExtra: ReturnType<typeof and>) {
     .innerJoin(locations, eq(programs.locationId, locations.id))
     .innerJoin(users, eq(registrations.registeredByUserId, users.id))
     .where(and(baseEligibility(), whereExtra));
+}
+
+/**
+ * Transition backstop: a candidate row whose participant is ALREADY covered by
+ * a valid annual signature must not be chased. Stamps the row with the shared
+ * on-file attribution and reports true so the caller counts it as skipped
+ * instead of sending.
+ *
+ * The stamp bounds the cost only for rows that HIT: stamping takes them out of
+ * `baseEligibility` permanently, so a covered registration pays this lookup
+ * once, ever. Rows that MISS — the majority, and the whole steady state —
+ * re-pay it on every window they match on every run. See the cost note on
+ * `baseEligibility` above.
+ *
+ * `waiverSignedAt` stays NULL (written explicitly): the row is a derived copy
+ * of an earlier signature, and hasValidLiabilityWaiver's legacy `registrations`
+ * fallback accepts any DATED signed row — dating it would let the reminder cron
+ * renew the very window it just read.
+ *
+ * Errors resolve to "not covered" so a lookup blip degrades to today's
+ * behaviour (send the reminder) rather than silently suppressing it.
+ */
+async function stampIfWaiverOnFile(
+  row: Awaited<ReturnType<typeof fetchRows>>[number],
+): Promise<boolean> {
+  if (!row.locationOrgId) return false;
+  try {
+    const covered = await hasValidLiabilityWaiver(
+      row.familyMemberId,
+      row.locationOrgId,
+    );
+    if (!covered) return false;
+    await getDb()
+      .update(registrations)
+      .set({
+        waiverSigned: true,
+        waiverSignedBy: WAIVER_ON_FILE_ATTRIBUTION,
+        waiverSignedAt: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(registrations.id, row.registrationId));
+    return true;
+  } catch (err) {
+    console.error(
+      `[cron] waiver-on-file check failed for registration ${row.registrationId}:`,
+      err,
+    );
+    return false;
+  }
 }
 
 async function sendForRow(
@@ -242,6 +321,10 @@ export const POST: APIRoute = async ({ request }) => {
 
       for (const row of rows) {
         try {
+          if (await stampIfWaiverOnFile(row)) {
+            result.skipped += 1;
+            continue;
+          }
           await sendForRow(row, windowDef.type, windowDef.reminderNumber);
           result.sent += 1;
         } catch (rowErr) {
@@ -297,6 +380,10 @@ export const POST: APIRoute = async ({ request }) => {
 
       for (const row of rows) {
         try {
+          if (await stampIfWaiverOnFile(row)) {
+            result.skipped += 1;
+            continue;
+          }
           await sendForRow(row, "final", FINAL_REMINDER_NUMBER);
           result.sent += 1;
         } catch (rowErr) {

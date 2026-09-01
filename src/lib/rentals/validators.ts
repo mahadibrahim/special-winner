@@ -99,8 +99,31 @@ export interface RentalBookingRequestBody {
   waiverAccepted?: boolean;
 }
 
+export interface ValidateRentalBookingOpts {
+  /**
+   * True when the API layer has already resolved the renter's person and
+   * confirmed they carry a valid annual liability waiver for this org (see
+   * `hasValidLiabilityWaiver` in src/lib/consents/liability.ts). This
+   * validator stays pure/DB-free — the caller does the lookup and passes the
+   * verdict in.
+   *
+   * Relaxes the requirement whenever the renter is covered AND the client
+   * did not explicitly DECLINE (`waiverAccepted: false`) — that covers the
+   * fully-omitted case (a client that knows it's covered simply doesn't
+   * render the checkbox) and any partial submission (e.g. `waiverAccepted:
+   * true` with no name, or a name with no accepted flag): the endpoint
+   * ignores whatever the client sent for a covered renter and stamps the
+   * shared "on file" attribution regardless, so a partial value carries no
+   * more meaning than an omitted one. An explicit `waiverAccepted: false`
+   * is the one signal that overrides coverage — the box was shown and
+   * unchecked, which must not be silently ignored.
+   */
+  waiverOnFile?: boolean;
+}
+
 export function validateRentalBookingRequest(
   body: RentalBookingRequestBody,
+  opts: ValidateRentalBookingOpts = {},
 ): string | null {
   if (!body.venueId || !UUID_RX.test(body.venueId)) {
     return "venueId must be a valid id";
@@ -125,9 +148,16 @@ export function validateRentalBookingRequest(
   ) {
     return "partySize must be a positive integer";
   }
-  if (!body.waiverAccepted) return "waiver must be accepted to book";
-  if (!body.waiverName || body.waiverName.trim().length === 0) {
-    return "waiver signature name is required";
+  // A covered renter bypasses the ask entirely UNLESS they explicitly
+  // declined — any other value (omitted, partial, or true) is trusted to
+  // server-side coverage, since the endpoint ignores it either way. See
+  // ValidateRentalBookingOpts.waiverOnFile for the full rationale.
+  const explicitlyDeclined = body.waiverAccepted === false;
+  if (!(opts.waiverOnFile && !explicitlyDeclined)) {
+    if (!body.waiverAccepted) return "waiver must be accepted to book";
+    if (!body.waiverName || body.waiverName.trim().length === 0) {
+      return "waiver signature name is required";
+    }
   }
   return null;
 }

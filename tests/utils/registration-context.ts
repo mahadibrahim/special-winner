@@ -51,6 +51,130 @@ export interface SeedPaidRegistrationResult {
   childName: string;
 }
 
+export interface SeedWaiverReminderCandidateResult {
+  organizationId: string;
+  userId: string;
+  familyMemberId: string;
+  seasonId: string;
+  registrationId: string;
+}
+
+/**
+ * Seed a registration that `POST /api/cron/send-waiver-reminders` will pick up
+ * in its "1" age window: paid, waiver unsigned, not cancelled, season start
+ * well beyond the final-48h window, and created 2 days ago (the window is
+ * [1d, 4d)).
+ *
+ * Its own org/season graph, like `seedPaidRegistration` — the cron runs across
+ * the whole database, so a test asserting "this row was/wasn't chased" must own
+ * every row it asserts on.
+ */
+export async function seedWaiverReminderCandidate(opts: {
+  /** Days ago the registration was created. Default 2 → the "1" window. */
+  createdDaysAgo?: number;
+} = {}): Promise<SeedWaiverReminderCandidateResult> {
+  assertTestDatabase();
+  const db = getDb();
+  const suffix = Math.random().toString(36).slice(2, 10);
+  const createdAt = new Date(
+    Date.now() - (opts.createdDaysAgo ?? 2) * 24 * 60 * 60 * 1000,
+  );
+  // Far outside the final-48h window, so the row lands in exactly one age
+  // window and the assertions aren't split across two emails.
+  const startDate = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+
+  const [org] = await db
+    .insert(organizations)
+    .values({
+      name: `Waiver Cron Org ${suffix}`,
+      slug: `waiver-cron-org-${suffix}`,
+      organizationType: "headquarters",
+    })
+    .returning();
+
+  const [user] = await db
+    .insert(users)
+    .values({
+      // A password hash keeps the cron on its plain-link branch rather than
+      // minting a magic link — fewer moving parts in the assertion.
+      email: `waiver-cron-${suffix}@test.example`,
+      passwordHash: "x",
+      firstName: "Wanda",
+      lastName: "Waiver",
+    })
+    .returning();
+
+  const [sport] = await db
+    .insert(sports)
+    .values({ name: `Sport ${suffix}`, slug: `sport-${suffix}`, organizationId: org.id })
+    .returning();
+
+  const [location] = await db
+    .insert(locations)
+    .values({ name: `Loc ${suffix}`, slug: `loc-${suffix}`, organizationId: org.id })
+    .returning();
+
+  const [program] = await db
+    .insert(programs)
+    .values({
+      name: `Prog ${suffix}`,
+      slug: `prog-${suffix}`,
+      sportId: sport.id,
+      locationId: location.id,
+      programType: "league",
+    })
+    .returning();
+
+  const [season] = await db
+    .insert(seasons)
+    .values({
+      name: `Season ${suffix}`,
+      slug: `season-${suffix}`,
+      programId: program.id,
+      startDate,
+      endDate: startDate,
+      priceCents: 1000,
+      status: "open",
+    })
+    .returning();
+
+  const [member] = await db
+    .insert(familyMembers)
+    .values({
+      parentUserId: user.id,
+      firstName: "Kid",
+      lastName: `Waiver${suffix}`,
+      birthDate: "2015-01-01",
+    })
+    .returning();
+
+  const [registration] = await db
+    .insert(registrations)
+    .values({
+      seasonId: season.id,
+      familyMemberId: member.id,
+      registeredByUserId: user.id,
+      status: "confirmed",
+      paymentStatus: "paid",
+      amountPaidCents: 1000,
+      amountDueCents: 1000,
+      registrationType: "full",
+      waiverSigned: false,
+      createdAt,
+    })
+    .returning();
+
+  return {
+    organizationId: org.id,
+    userId: user.id,
+    familyMemberId: member.id,
+    seasonId: season.id,
+    registrationId: registration.id,
+  };
+}
+
 /**
  * Seed the minimum row graph needed to exercise payment/refund/credit logic.
  * Creates org → user → sport → location → program → season → familyMember

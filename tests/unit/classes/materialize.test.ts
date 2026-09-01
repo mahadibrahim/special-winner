@@ -277,6 +277,7 @@ describe("materializeClassSessions", () => {
       autoBooked: 1,
       skippedExhausted: 0,
       skippedPastDue: 0,
+      skippedNoWaiver: 0,
       failed: 0,
       enrollmentsEnded: 0,
     });
@@ -349,6 +350,7 @@ describe("materializeClassSessions", () => {
       autoBooked: 0,
       skippedExhausted: 1,
       skippedPastDue: 0,
+      skippedNoWaiver: 0,
       failed: 0,
       enrollmentsEnded: 0,
     });
@@ -371,6 +373,7 @@ describe("materializeClassSessions", () => {
       autoBooked: 0,
       skippedExhausted: 0,
       skippedPastDue: 1,
+      skippedNoWaiver: 0,
       failed: 0,
       enrollmentsEnded: 0,
     });
@@ -396,6 +399,7 @@ describe("materializeClassSessions", () => {
       autoBooked: 0,
       skippedExhausted: 0,
       skippedPastDue: 0,
+      skippedNoWaiver: 0,
       failed: 2,
       enrollmentsEnded: 0,
     });
@@ -425,6 +429,7 @@ describe("materializeClassSessions", () => {
       autoBooked: 1, // but the newly-enrolled child still got booked
       skippedExhausted: 0,
       skippedPastDue: 0,
+      skippedNoWaiver: 0,
       failed: 0,
       enrollmentsEnded: 0,
     });
@@ -450,6 +455,7 @@ describe("materializeClassSessions", () => {
       autoBooked: 0,
       skippedExhausted: 0,
       skippedPastDue: 0,
+      skippedNoWaiver: 0,
       failed: 0,
       enrollmentsEnded: 0,
     });
@@ -482,6 +488,7 @@ describe("materializeClassSessions", () => {
       autoBooked: 1,
       skippedExhausted: 0,
       skippedPastDue: 0,
+      skippedNoWaiver: 0,
       failed: 1,
       enrollmentsEnded: 0,
     });
@@ -501,6 +508,7 @@ describe("materializeClassSessions", () => {
       autoBooked: 0,
       skippedExhausted: 0,
       skippedPastDue: 0,
+      skippedNoWaiver: 0,
       failed: 0,
       enrollmentsEnded: 2,
     });
@@ -532,6 +540,7 @@ describe("materializeClassSessions", () => {
       autoBooked: 1,
       skippedExhausted: 0,
       skippedPastDue: 0,
+      skippedNoWaiver: 0,
       failed: 1,
       enrollmentsEnded: 0,
     });
@@ -554,6 +563,7 @@ describe("materializeClassSessions", () => {
       autoBooked: 0,
       skippedExhausted: 0,
       skippedPastDue: 0,
+      skippedNoWaiver: 0,
       failed: 0,
       enrollmentsEnded: 0,
     });

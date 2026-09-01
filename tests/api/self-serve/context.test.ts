@@ -8,6 +8,7 @@ import { venues } from "@/lib/db/schema/teams";
 import { locations } from "@/lib/db/schema/organizations";
 import { users } from "@/lib/db/schema/users";
 import { familyMembers } from "@/lib/db/schema/registrations";
+import { consents } from "@/lib/db/schema/consents";
 import { mintToken, consumeToken } from "@/lib/check-in/tokens-db";
 import { E2E_RENTAL_VENUE_ID, E2E_ORG_ID } from "@/lib/db/seeds/seed-e2e-tests";
 
@@ -78,8 +79,11 @@ describe("GET /api/self-serve/[token] (context)", () => {
     // on. No target → the photo step is never offered. It must not block, and
     // it must not 500.
     expect(body.outstanding.photo).toBe(false);
-    // field_rental resolves via renterUserId/renterName only — never a
-    // family_members row — so isMinor is always false on this path.
+    // field_rental is never a minor-signs-for-a-minor path — isMinor is
+    // always false. This fixture's renter has NO account (renterUserId
+    // null, admin-created), so it also resolves no family_members row; see
+    // the "annual waiver" describe below for the accounted-renter case,
+    // which DOES resolve one via resolvePerson.
     expect(body.isMinor).toBe(false);
     expect(body).toHaveProperty("expiresAt");
   });
@@ -496,6 +500,70 @@ describe("GET /api/self-serve/[token] (context) — walk-in MINOR", () => {
     expect(fm.parentUserId).toBe(booking.userId);
   });
 
+  // ANNUAL WAIVER: a person who signed elsewhere inside the 365-day window
+  // must not be asked again at the kiosk. The derivation used to read the
+  // booking row's own `waiverSigned` flag alone, which is per-target and
+  // therefore always false on a brand-new hold.
+  //
+  // The roster_entry half of this derivation — the branch that used to
+  // hardcode `outstanding.waiver = true` — is covered in
+  // tests/api/self-serve/waiver.test.ts, which owns the org→season→roster
+  // fixture chain that branch needs.
+  it("a child with a valid liability consent is not asked to sign again", async () => {
+    const { token, bookingId } = await startWalkIn({
+      contact: {
+        firstName: "Casey",
+        lastName: `Covered${SUFFIX.slice(-4)}`,
+        email: PARENT_EMAIL,
+        phone: "6145550011",
+        dob: "2015-06-01",
+      },
+      parent: {
+        firstName: PARENT_FIRST,
+        lastName: PARENT_LAST,
+        email: PARENT_EMAIL,
+        phone: "6145550011",
+      },
+    });
+
+    const [booking] = await getDb()
+      .select({
+        userId: dropInBookings.userId,
+        familyMemberId: dropInBookings.familyMemberId,
+      })
+      .from(dropInBookings)
+      .where(eq(dropInBookings.id, bookingId))
+      .limit(1);
+    expect(booking.familyMemberId).not.toBeNull();
+
+    // Before the consent exists, the kiosk asks.
+    const before = await fetch(`${BASE}/api/self-serve/${token}`);
+    expect((await before.json()).outstanding.waiver).toBe(true);
+
+    // A signature from a month ago, at THIS org — the canonical row shape.
+    const signedAt = new Date(Date.now() - 30 * 86_400_000);
+    await getDb()
+      .insert(consents)
+      .values({
+        familyMemberId: booking.familyMemberId!,
+        organizationId: E2E_ORG_ID,
+        type: "liability",
+        status: "granted",
+        signedByUserId: booking.userId,
+        signedByName: `${PARENT_FIRST} ${PARENT_LAST}`,
+        signedAt,
+        expiresAt: new Date(signedAt.getTime() + 365 * 86_400_000),
+      });
+
+    const after = await fetch(`${BASE}/api/self-serve/${token}`);
+    expect(after.status).toBe(200);
+    const body = await after.json();
+    expect(body.outstanding.waiver).toBe(false);
+    // Nothing else about the context changes — the photo is still owed.
+    expect(body.isMinor).toBe(true);
+    expect(body.outstanding.photo).toBe(true);
+  });
+
   it("adult walk-in still reports isMinor false and signs for themselves", async () => {
     const { token, bookingId } = await startWalkIn({
       contact: {
@@ -537,6 +605,19 @@ describe("GET /api/self-serve/[token] (context) — walk-in MINOR", () => {
         .where(inArray(users.email, [PARENT_EMAIL, ADULT_EMAIL]));
       const userIds = created.map((u) => u.id);
       if (userIds.length) {
+        // Liability consents reference family_members — drop them first, and
+        // so a leaked row can't silently satisfy a LATER run's
+        // "no waiver on file" fixture on the shared staging DB.
+        const kids = await db
+          .select({ id: familyMembers.id })
+          .from(familyMembers)
+          .where(inArray(familyMembers.parentUserId, userIds));
+        const kidIds = kids.map((k) => k.id);
+        if (kidIds.length) {
+          await db
+            .delete(consents)
+            .where(inArray(consents.familyMemberId, kidIds));
+        }
         await db
           .delete(familyMembers)
           .where(inArray(familyMembers.parentUserId, userIds));
@@ -557,5 +638,166 @@ describe("GET /api/self-serve/[token] (context) — walk-in MINOR", () => {
         }).catch(() => null);
       }
     }
+  });
+});
+
+// ── field_rental (accounted renter): the annual predicate narrows outstanding.waiver ──
+//
+// Every context.test.ts fixture above books the rental with NO renterUserId
+// (admin-created for a guest), so resolveSigner never had a family_members
+// row to consult. An ONLINE-booked rental has a renterUserId — Task 6 made
+// resolveSigner resolve that renter's own SELF row via resolvePerson, which
+// is what lets the shared annual-waiver pass in build-context.ts (the block
+// right above `if (outstanding.waiver && signer.familyMemberId)`) actually
+// run for this kind. Fresh accounts only: the annual waiver is a real,
+// persistent grant and must not leak across other suites' shared accounts.
+describe("GET /api/self-serve/[token] (context) — field_rental annual waiver", () => {
+  const SUFFIX = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const PASSWORD = "RentalWaiverCtx123!";
+  const createdUserIds: string[] = [];
+  const createdFamilyMemberIds: string[] = [];
+  const createdRentalIds: string[] = [];
+
+  async function makeAccountedRenter(label: string): Promise<string> {
+    const email = `ctx-rental-waiver-${label}-${SUFFIX}@test.aspiresports.com`;
+    const [user] = await getDb()
+      .insert(users)
+      .values({
+        email: email.toLowerCase(),
+        emailCanonical: email.toLowerCase(),
+        firstName: "Ctx",
+        lastName: `Renter${label}`,
+        emailVerified: true,
+      })
+      .returning();
+    createdUserIds.push(user.id);
+    return user.id;
+  }
+
+  async function giveValidWaiver(userId: string): Promise<void> {
+    const [person] = await getDb()
+      .insert(familyMembers)
+      .values({ selfUserId: userId, firstName: "Ctx", lastName: "Renter" })
+      .returning();
+    createdFamilyMemberIds.push(person.id);
+    const signedAt = new Date();
+    await getDb()
+      .insert(consents)
+      .values({
+        familyMemberId: person.id,
+        organizationId: E2E_ORG_ID,
+        type: "liability",
+        status: "granted",
+        signedByUserId: userId,
+        signedByName: "Ctx Renter",
+        signedAt,
+        expiresAt: new Date(signedAt.getTime() + 365 * 86_400_000),
+      });
+  }
+
+  async function mintRentalToken(userId: string, fieldNumber: number) {
+    const start = new Date(RUN_BASE_UTC + (13 + fieldNumber) * 3_600_000);
+    const [rental] = await getDb()
+      .insert(fieldRentals)
+      .values({
+        organizationId: E2E_ORG_ID,
+        venueId: E2E_RENTAL_VENUE_ID,
+        fieldNumber,
+        startsAt: start,
+        endsAt: new Date(start.getTime() + 3_600_000),
+        status: "confirmed",
+        source: "online_booking",
+        renterUserId: userId,
+        renterName: "Ctx Renter",
+        renterEmail: "ctx-renter@example.com",
+        paymentMethod: "card_online",
+        amountDueCents: 8000,
+        amountPaidCents: 8000,
+        paymentStatus: "paid",
+        waiverSigned: false,
+      })
+      .returning();
+    createdRentalIds.push(rental.id);
+    const tok = await mintToken({
+      kind: "field_rental",
+      targetId: rental.id,
+      organizationId: E2E_ORG_ID,
+      venueId: E2E_RENTAL_VENUE_ID,
+      sentVia: "qr",
+      recipientUserId: userId,
+      recipientEmail: "ctx-renter@example.com",
+      recipientPhone: null,
+      createdByUserId: null,
+    });
+    return tok.token;
+  }
+
+  afterAll(async () => {
+    const db = getDb();
+    if (createdFamilyMemberIds.length) {
+      await db
+        .delete(consents)
+        .where(inArray(consents.familyMemberId, createdFamilyMemberIds));
+    }
+    if (createdRentalIds.length) {
+      await db.delete(fieldRentals).where(inArray(fieldRentals.id, createdRentalIds));
+    }
+    if (createdFamilyMemberIds.length) {
+      await db
+        .delete(familyMembers)
+        .where(inArray(familyMembers.id, createdFamilyMemberIds));
+    }
+    if (createdUserIds.length) {
+      await db.delete(users).where(inArray(users.id, createdUserIds));
+    }
+  });
+
+  it("a covered renter's field_rental token reports outstanding.waiver false", async () => {
+    const userId = await makeAccountedRenter("covered");
+    await giveValidWaiver(userId);
+    const token = await mintRentalToken(userId, 60);
+
+    const res = await fetch(`${BASE}/api/self-serve/${token}`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.tokenKind).toBe("field_rental");
+    // The rental row itself is still unsigned (waiverSigned: false above) —
+    // it's the ANNUAL predicate, not the per-target column, that settles it.
+    expect(body.outstanding.waiver).toBe(false);
+  });
+
+  it("an uncovered accounted renter's field_rental token still asks", async () => {
+    const userId = await makeAccountedRenter("uncovered");
+    const token = await mintRentalToken(userId, 61);
+
+    const res = await fetch(`${BASE}/api/self-serve/${token}`);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.outstanding.waiver).toBe(true);
+  });
+
+  // Regression for a fix-round finding: resolve-signer.ts's field_rental
+  // branch used to call resolvePerson (find-or-CREATE) on every resolution
+  // — including THIS context GET, which the self-serve PayCard polls every
+  // ~2s. A read mutating the DB is wrong on its own, and with no unique
+  // index on family_members.self_user_id, concurrent polls could race
+  // duplicate self rows. The branch is now a read-only lookup; only the
+  // waiver POST (tested in waiver.test.ts) may create.
+  it("polling the context GET for a renter with NO person row creates no family_members row", async () => {
+    const userId = await makeAccountedRenter("never-signed");
+    const token = await mintRentalToken(userId, 62);
+
+    // Simulate a few PayCard polling cycles.
+    for (let i = 0; i < 3; i++) {
+      const res = await fetch(`${BASE}/api/self-serve/${token}`);
+      expect(res.status).toBe(200);
+      expect((await res.json()).outstanding.waiver).toBe(true);
+    }
+
+    const rows = await getDb()
+      .select({ id: familyMembers.id })
+      .from(familyMembers)
+      .where(eq(familyMembers.selfUserId, userId));
+    expect(rows).toHaveLength(0);
   });
 });

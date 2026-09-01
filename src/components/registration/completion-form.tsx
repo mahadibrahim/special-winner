@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { CheckCircle2 } from "lucide-react"
+import { CheckCircle2, ShieldCheck } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -15,6 +15,8 @@ import { MediaAuthStep, type MediaAuthScope } from "./media-auth-step"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { parseApiError } from "@/lib/api/error-message"
 import { trackRegistrationStepViewed, type RegFlow } from "@/lib/analytics/events"
+import { REGISTRATION_WAIVER_ACCEPT_LABEL } from "@/lib/registrations/waiver-text"
+import { waiverAssentSentence } from "@/lib/consents/waiver-consent-language"
 
 export interface CompletionFormProps {
   registrationId: string
@@ -46,6 +48,24 @@ export interface CompletionFormProps {
    *  way to know the original registration's flow. Wizard call sites should
    *  pass their own computed flow instead of relying on the default. */
   flow?: RegFlow
+  /**
+   * True when the participant's ANNUAL liability waiver already covers this
+   * registration, so no signature is owed. The form then collects only what is
+   * genuinely outstanding (the birth date) and shows a one-line "waiver on
+   * file" note in place of the waiver text, checkbox and signature box —
+   * showing a covered family the full release and taking a signature the
+   * server will discard is the redundant ask this whole change removes.
+   *
+   * Server-derived (`registrations.waiverSigned`), never guessed client-side.
+   */
+  waiverOnFile?: boolean
+  /**
+   * Human-readable date the waiver on file runs out ("March 3, 2027"), or null
+   * when it can't be determined — a person covered by one of the legacy
+   * signature fallbacks has no consents row to read an expiry from. Null
+   * renders a date-free phrasing; it never means "not covered".
+   */
+  waiverValidUntilLabel?: string | null
 }
 
 /**
@@ -98,6 +118,8 @@ export function CompletionForm({
   isSelf = false,
   participantName = "",
   flow = "solo",
+  waiverOnFile = false,
+  waiverValidUntilLabel = null,
 }: CompletionFormProps) {
   // Top-level island on the resume page; a harmless extra beacon set when
   // embedded inside the wizard (which already fires its own).
@@ -124,10 +146,13 @@ export function CompletionForm({
 
   // One string, not interpolated JSX, so the sentence a customer sees is the
   // sentence stored/compared verbatim (SSR splits `{" "}` with comment nodes).
-  // Wording mirrors the self-serve waiver's guardian line exactly.
-  const guardianAttestation = `I am the parent or legal guardian of ${
-    participantName.trim() || "this player"
-  } and accept these terms on their behalf.`
+  // Straight from the shared source rather than re-typed: the server records
+  // this exact sentence onto the consent row (completionWaiverAssentText), and
+  // two hand-kept copies is how the record stops matching the screen.
+  const guardianAttestation = waiverAssentSentence(
+    "guardian",
+    participantName.trim() || "this player",
+  )
 
   useEffect(() => {
     trackRegistrationStepViewed({
@@ -142,13 +167,17 @@ export function CompletionForm({
   const handleSubmit = async () => {
     setError(null)
 
-    if (!waiverAccepted) {
-      setError("Please confirm you agree to the waiver terms.")
-      return
-    }
-    if (waiverSignature.trim().length < 2) {
-      setError("Please type your full legal name as your signature.")
-      return
+    // Only demanded when a signature is genuinely owed. A covered participant
+    // is shown neither control, so validating them would deadlock the form.
+    if (!waiverOnFile) {
+      if (!waiverAccepted) {
+        setError("Please confirm you agree to the waiver terms.")
+        return
+      }
+      if (waiverSignature.trim().length < 2) {
+        setError("Please type your full legal name as your signature.")
+        return
+      }
     }
 
     let birthDate: string | undefined
@@ -171,8 +200,15 @@ export function CompletionForm({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            waiverAccepted: true,
-            waiverSignature: waiverSignature.trim(),
+            // Omitted entirely when the waiver is already on file: the server
+            // discards the signature on that branch, and inventing one would
+            // put a name nobody typed into a request about a legal release.
+            ...(waiverOnFile
+              ? {}
+              : {
+                  waiverAccepted: true as const,
+                  waiverSignature: waiverSignature.trim(),
+                }),
             birthDate,
             phone: trimmedPhone || undefined,
             smsConsent: trimmedPhone ? smsConsent : undefined,
@@ -209,7 +245,9 @@ export function CompletionForm({
         </div>
         <h3 className="text-lg font-semibold text-ink mb-1">You're all set for game 1.</h3>
         <p className="text-ink-muted text-sm">
-          Your waiver is signed and your details are saved.
+          {waiverOnFile
+            ? "Your details are saved — your waiver was already on file."
+            : "Your waiver is signed and your details are saved."}
         </p>
       </div>
     )
@@ -219,7 +257,26 @@ export function CompletionForm({
     <div className="space-y-6">
       <ErrorBanner message={error} onDismiss={() => setError(null)} />
 
-      <WaiverText />
+      {/* Waiver block — shown only when a signature is genuinely owed. A
+          participant whose ANNUAL waiver already covers this registration gets
+          the one-line note below instead: re-reading the full release and
+          typing a signature the server discards is exactly the redundant ask
+          this change removes. */}
+      {!waiverOnFile && <WaiverText />}
+
+      {waiverOnFile && (
+        <div className="rounded-xl bg-cream-2 border border-border px-4 py-3 flex items-start gap-2">
+          <ShieldCheck className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-ink-2">
+            Waiver on file{" "}
+            <span className="text-ink-muted">
+              {waiverValidUntilLabel
+                ? `— valid through ${waiverValidUntilLabel}.`
+                : "— valid this year."}
+            </span>
+          </p>
+        </div>
+      )}
 
       {needsBirthDate && (
         <div className="space-y-2">
@@ -262,41 +319,45 @@ export function CompletionForm({
         </div>
       )}
 
-      <div className="flex items-start gap-3">
-        <Checkbox
-          id="completion-waiver-accept"
-          checked={waiverAccepted}
-          onCheckedChange={(checked) => setWaiverAccepted(checked === true)}
-          className="mt-1 border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-        />
-        <Label htmlFor="completion-waiver-accept" className="text-sm text-ink-2 cursor-pointer">
-          I agree to the terms above.
-        </Label>
-      </div>
+      {!waiverOnFile && (
+        <>
+          <div className="flex items-start gap-3">
+            <Checkbox
+              id="completion-waiver-accept"
+              checked={waiverAccepted}
+              onCheckedChange={(checked) => setWaiverAccepted(checked === true)}
+              className="mt-1 border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+            />
+            <Label htmlFor="completion-waiver-accept" className="text-sm text-ink-2 cursor-pointer">
+              {REGISTRATION_WAIVER_ACCEPT_LABEL}
+            </Label>
+          </div>
 
-      {/* Guardian attestation. The WaiverText body above is shared and
-          participant-agnostic, so for a dependent this sentence is what
-          carries the "signing on someone else's behalf" context — the same
-          job the self-serve waiver's isMinor line does (WaiverCard.tsx:86-88),
-          worded identically on purpose. */}
-      {!isSelf && (
-        <p className="text-sm text-ink-2">{guardianAttestation}</p>
+          {/* Guardian attestation. The WaiverText body above is shared and
+              participant-agnostic, so for a dependent this sentence is what
+              carries the "signing on someone else's behalf" context — the same
+              job the self-serve waiver's isMinor line does (WaiverCard.tsx:86-88),
+              worded identically on purpose. */}
+          {!isSelf && (
+            <p className="text-sm text-ink-2">{guardianAttestation}</p>
+          )}
+
+          <div className="space-y-2">
+            <Label className="text-ink-muted">
+              {isSelf ? "Digital Signature *" : "Parent/guardian signature *"}
+            </Label>
+            <Input
+              value={waiverSignature}
+              onChange={(e) => setWaiverSignature(e.target.value)}
+              placeholder="Type your full legal name"
+              className="bg-cream-2 border-border text-ink focus:border-primary placeholder:text-ink-faint"
+            />
+            <p className="text-xs text-ink-muted">
+              By typing your name above, you agree that this constitutes a legal signature.
+            </p>
+          </div>
+        </>
       )}
-
-      <div className="space-y-2">
-        <Label className="text-ink-muted">
-          {isSelf ? "Digital Signature *" : "Parent/guardian signature *"}
-        </Label>
-        <Input
-          value={waiverSignature}
-          onChange={(e) => setWaiverSignature(e.target.value)}
-          placeholder="Type your full legal name"
-          className="bg-cream-2 border-border text-ink focus:border-primary placeholder:text-ink-faint"
-        />
-        <p className="text-xs text-ink-muted">
-          By typing your name above, you agree that this constitutes a legal signature.
-        </p>
-      </div>
 
       {/* Collapsed by default (#459, owner decision 2026-08-22). Opt-out
           boxes inside are never pre-checked either way — collapsing changes
@@ -346,7 +407,9 @@ export function CompletionForm({
         disabled={isSubmitting}
         className="w-full bg-primary hover:bg-primary/90"
       >
-        {isSubmitting ? "Saving…" : "Sign & Finish"}
+        {/* Nothing is being signed on the on-file path — the screen shows no
+            release and no signature box — so the button must not claim it. */}
+        {isSubmitting ? "Saving…" : waiverOnFile ? "Finish" : "Sign & Finish"}
       </Button>
     </div>
   )

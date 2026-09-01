@@ -10,6 +10,11 @@ import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import { zonedHourToUtc } from "@/lib/activity-tracking/tz-day";
 import { fieldInfoForName, fieldColorForName } from "@/lib/soccerone/field-info";
 import { fetchRentalAvailability } from "@/lib/rentals/fetch-availability";
+import {
+  rentalWaiverBlocksSubmit,
+  rentalWaiverCovered,
+  rentalWaiverRequestFields,
+} from "@/lib/rentals/waiver-fields";
 import { dateInTimeZone } from "@/lib/time/format-date";
 
 // --- Live availability types ---
@@ -214,6 +219,16 @@ export interface FieldCalendarProps {
    * endpoint accepts either way.
    */
   signedIn?: boolean;
+  /**
+   * Whether this signed-in renter already holds a valid annual liability
+   * waiver for the org (server-resolved by this page's own frontmatter via
+   * `src/lib/rentals/waiver-on-file.ts`). When true the waiver block becomes a
+   * short "waiver on file" note and NO waiver fields are sent — POST
+   * /api/rentals/bookings re-checks the same predicate and stamps the booking
+   * "On file (annual waiver)". Defaults to false and only strict `true`
+   * skips: guests, un-prop'd callers and failed probes all ASK.
+   */
+  waiverOnFile?: boolean;
 }
 
 export function FieldCalendar({
@@ -223,7 +238,12 @@ export function FieldCalendar({
   bookingWindowDays = 7,
   minLeadTimeHours = 48,
   signedIn = false,
+  waiverOnFile = false,
 }: FieldCalendarProps) {
+  // Shared with the Aspire /rentals form — see
+  // src/lib/rentals/waiver-fields.ts for the fail-toward-asking rules and why
+  // both brands run one implementation.
+  const waiverCovered = rentalWaiverCovered({ signedIn, waiverOnFile });
   // Top-level client:load island on /rent; set the hydration beacon so e2e
   // waitForHydration() resolves (per CLAUDE.md Playwright conventions).
   useHydrationBeacon();
@@ -388,8 +408,10 @@ export function FieldCalendar({
           startsAt: startsAt.toISOString(),
           endsAt: endsAt.toISOString(),
           partySize,
-          waiverName: waiverName.trim(),
-          waiverAccepted: true,
+          // Covered renters send NO waiver fields — the validator accepts
+          // their absence only when the server independently agrees, and the
+          // endpoint stamps the on-file attribution itself.
+          ...rentalWaiverRequestFields(waiverCovered, waiverName),
           ...(!signedIn && {
             renterName: waiverName.trim(),
             renterEmail: guestEmail.trim(),
@@ -767,7 +789,25 @@ export function FieldCalendar({
                   )}
 
                   {/* Waiver — required by POST /api/rentals/bookings, same as
-                      the Aspire rentals flow. */}
+                      the Aspire rentals flow, and skipped identically for a
+                      renter already covered by the annual waiver. Styled with
+                      this island's OWN classes: Astro scoped styles don't
+                      reach React islands, and the shared cream Tailwind
+                      palette inverts illegibly on the SoccerOne navy skin. */}
+                  {waiverCovered ? (
+                    <div className="panel-addons" data-waiver-on-file>
+                      <h4 className="addons-heading">Waiver on file ✓</h4>
+                      <p className="waiver-requirement-note waiver-onfile-note">
+                        Your annual liability waiver covers this rental —
+                        nothing to sign.
+                      </p>
+                      <p className="waiver-requirement-note">
+                        Every player must still have a signed waiver on file to
+                        play. You&apos;ll confirm your roster and waivers after
+                        your request is approved.
+                      </p>
+                    </div>
+                  ) : (
                   <div className="panel-addons">
                     <h4 className="addons-heading">Liability waiver</h4>
                     <label className="addon-row">
@@ -797,6 +837,7 @@ export function FieldCalendar({
                       confirm your roster and waivers after your request is approved.
                     </p>
                   </div>
+                  )}
 
                   <p className="panel-note">Final price confirmed once approved · your slot is held while we review</p>
 
@@ -805,8 +846,11 @@ export function FieldCalendar({
                     onClick={handleBook}
                     disabled={
                       submitting ||
-                      !waiverAccepted ||
-                      !waiverName.trim() ||
+                      rentalWaiverBlocksSubmit({
+                        covered: waiverCovered,
+                        waiverAccepted,
+                        waiverName,
+                      }) ||
                       (!signedIn && !guestEmail.trim())
                     }
                   >
@@ -1361,6 +1405,14 @@ export function FieldCalendar({
           color: rgba(255,255,255,0.55);
           line-height: 1.5;
           margin: 0.625rem 0 0;
+        }
+        /* The confirming line of the "waiver on file" panel — brighter than
+           the muted requirement note beneath it, on the brand's own yellow
+           accent rather than the shared cream palette's emerald (which reads
+           as near-black against this navy skin). */
+        .waiver-onfile-note {
+          color: #facc15;
+          margin-top: 0;
         }
         .panel-error {
           font-size: 0.8125rem;

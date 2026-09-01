@@ -9,6 +9,7 @@ import { RENTAL_RATE_SCHEDULE } from '@/lib/rentals/soccerone-pricing';
 import { DEFAULT_BOOKING_WINDOW_DAYS } from '@/lib/memberships/booking-window';
 import { breadcrumbJsonLd } from '@/lib/seo/breadcrumbs';
 import { SOCCERONE_CONTACT_PHONE, SOCCERONE_CONTACT_PHONE_TEL } from '@/lib/soccerone/contact';
+import { renterWaiverOnFile } from '@/lib/rentals/waiver-on-file';
 
 const facility = Astro.url.searchParams.get('facility') || 'worthington';
 const facilityLabel = facility === 'downtown' ? 'Downtown' : 'Worthington';
@@ -28,6 +29,15 @@ const calendarVenues = venueList.map((v) => ({ id: v.id, name: v.name }));
 const bookingWindowDays = DEFAULT_BOOKING_WINDOW_DAYS;
 
 const orgTimeZone = Astro.locals.organization?.timezone ?? "America/New_York";
+
+// Annual liability waiver — same server-side, read-only probe the Aspire
+// /rentals page runs. POST /api/rentals/bookings already stamps a covered
+// renter's booking "On file (annual waiver)" and discards the typed signature;
+// this is what lets the panel stop asking for one. Fails toward asking.
+const waiverOnFile = await renterWaiverOnFile(
+  Astro.locals.user?.id,
+  organizationId,
+);
 
 const PLAY_FACTS = [
   {
@@ -181,7 +191,7 @@ const breadcrumbSchema = breadcrumbJsonLd([
           <span>Field rental availability is very limited on weekends between November and March, and on weekdays after 6 PM.</span>
         </div>
 
-        <FieldCalendar client:load venues={calendarVenues} timeZone={orgTimeZone} bookingWindowDays={bookingWindowDays} signedIn={!!Astro.locals.user} />
+        <FieldCalendar client:load venues={calendarVenues} timeZone={orgTimeZone} bookingWindowDays={bookingWindowDays} signedIn={!!Astro.locals.user} waiverOnFile={waiverOnFile} />
 
         <!-- Cancellation policy -->
         <p class="cancel-policy">Cancel 14+ days out for a full refund. Within 14 days, bookings are final.</p>

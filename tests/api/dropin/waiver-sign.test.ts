@@ -8,16 +8,26 @@
  *   - already-signed → 200 no-op, first signature stands
  *   - strangers (no session, wrong/absent PI) → 404, no data leak
  */
-import { describe, it, expect, beforeAll } from "vitest";
-import { eq } from "drizzle-orm";
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { users } from "@/lib/db/schema/users";
 import { dropInBookings } from "@/lib/db/schema/drop-in";
+import { consents } from "@/lib/db/schema/consents";
+import { familyMembers } from "@/lib/db/schema/registrations";
+import {
+  WAIVER_ON_FILE_ATTRIBUTION,
+  WAIVER_VALID_DAYS,
+} from "@/lib/consents/liability";
 import { apiFetch, expectJson, getParentCookie } from "../setup/test-helpers";
 import {
   createTestDropInSession,
   resolveDefaultOrgForHttpTests,
 } from "../../utils/dropin-helpers";
+import {
+  createTestChild,
+  CLASS_TEST_PARENT_EMAIL,
+} from "../../utils/classes-helpers";
 
 // HTTP requests to localhost resolve the DEFAULT org via the domain
 // resolver; fixtures must live under it or the endpoint's multi-tenant
@@ -178,5 +188,276 @@ describe("POST /api/dropin/bookings/:id/waiver", () => {
       body: JSON.stringify({ waiverName: "   ", paymentIntentId }),
     });
     expect(res.status).toBe(400);
+  });
+});
+
+/**
+ * ANNUAL WAIVER on the post-payment WaiverCard endpoint.
+ *
+ * Two halves, mirroring the paid drop-in door (tests/api/classes/
+ * paid-makeup.test.ts):
+ *
+ *   (a) the participant already has a valid liability consent → the endpoint
+ *       must NOT ask again. It short-circuits `alreadySigned: true` and
+ *       stamps the booking with the shared on-file attribution. The stamp
+ *       carries NO signature date on purpose: `hasValidLiabilityWaiver`'s
+ *       legacy fallback accepts DATED drop_in_bookings rows, so a dated
+ *       derived copy would let each booking renew the very window it was
+ *       derived from.
+ *   (b) no valid consent → the typed signature is a FRESH one and must land
+ *       in the canonical `consents` log, org-scoped, with the ip/UA of the
+ *       request that carried it.
+ *
+ * Adult bookings (no `family_member_id`) are covered by the suite above and
+ * are deliberately unchanged — an adult drop-in has no `family_members` row
+ * to hang a person-scoped consent on.
+ */
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+describe("POST /api/dropin/bookings/:id/waiver — annual liability waiver", () => {
+  let parentUserId: string;
+  const childIds: string[] = [];
+
+  beforeAll(async () => {
+    const [parent] = await getDb()
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, CLASS_TEST_PARENT_EMAIL))
+      .limit(1);
+    if (!parent) {
+      throw new Error(
+        `${CLASS_TEST_PARENT_EMAIL} is not seeded — run npm run db:seed:e2e first`,
+      );
+    }
+    parentUserId = parent.id;
+  });
+
+  // The staging DB is shared across runs; a leaked consents row would
+  // silently satisfy a LATER run's "no waiver on file" fixture.
+  afterAll(async () => {
+    if (childIds.length === 0) return;
+    const db = getDb();
+    await db.delete(consents).where(inArray(consents.familyMemberId, childIds));
+    await db
+      .delete(dropInBookings)
+      .where(inArray(dropInBookings.familyMemberId, childIds));
+    await db.delete(familyMembers).where(inArray(familyMembers.id, childIds));
+  });
+
+  async function newChild(label: string): Promise<string> {
+    const id = await createTestChild(
+      parentUserId,
+      `${label}${Date.now()}${Math.floor(Math.random() * 1000)}`,
+    );
+    childIds.push(id);
+    return id;
+  }
+
+  /** A confirmed, unsigned booking whose PARTICIPANT is the given child —
+   *  the shape the paid child make-up door fulfills. */
+  async function insertChildBooking(familyMemberId: string): Promise<string> {
+    const ctx = await freeSessionInDefaultOrg();
+    const [booking] = await getDb()
+      .insert(dropInBookings)
+      .values({
+        sessionId: ctx.sessionId,
+        userId: parentUserId,
+        familyMemberId,
+        status: "confirmed",
+        source: "online_booking",
+        paymentMethod: "card_online",
+        amountPaidCents: 0,
+        waiverSigned: false,
+      })
+      .returning();
+    return booking.id;
+  }
+
+  /** Direct `consents` insert — the row shape a real signature produces. */
+  async function insertLiabilityConsent(
+    familyMemberId: string,
+    signedDaysAgo: number,
+  ): Promise<void> {
+    const signedAt = new Date(Date.now() - signedDaysAgo * DAY_MS);
+    await getDb()
+      .insert(consents)
+      .values({
+        familyMemberId,
+        organizationId: defaultOrg.organizationId,
+        type: "liability",
+        status: "granted",
+        signedByUserId: parentUserId,
+        signedByName: "Parent Test",
+        signedAt,
+        expiresAt: new Date(signedAt.getTime() + WAIVER_VALID_DAYS * DAY_MS),
+      });
+  }
+
+  function liabilityRowsFor(familyMemberId: string) {
+    return getDb()
+      .select()
+      .from(consents)
+      .where(
+        and(
+          eq(consents.familyMemberId, familyMemberId),
+          eq(consents.type, "liability"),
+        ),
+      );
+  }
+
+  it("(a) waiver on file → alreadySigned, row stamped 'On file', NO signature date, NO new consent", async () => {
+    const cookie = await getParentCookie();
+    const childId = await newChild("OnFile");
+    await insertLiabilityConsent(childId, 30);
+    const bookingId = await insertChildBooking(childId);
+
+    const res = await apiFetch(`/api/dropin/bookings/${bookingId}/waiver`, {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({ waiverName: "Parent Test" }),
+    });
+    const json = await expectJson(res, 200);
+    expect(json.ok).toBe(true);
+    expect(json.alreadySigned).toBe(true);
+
+    const [row] = await getDb()
+      .select()
+      .from(dropInBookings)
+      .where(eq(dropInBookings.id, bookingId));
+    expect(row.waiverSigned).toBe(true);
+    expect(row.waiverSignedBy).toBe(WAIVER_ON_FILE_ATTRIBUTION);
+    // Load-bearing: a dated derived row would self-renew the legacy window.
+    expect(row.waiverSignedAt).toBeNull();
+
+    // The on-file branch is a READ — it appends nothing to the audit log.
+    expect(await liabilityRowsFor(childId)).toHaveLength(1);
+  });
+
+  it("(b) no waiver on file → fresh signature writes the canonical org-scoped consents row", async () => {
+    const cookie = await getParentCookie();
+    const childId = await newChild("Fresh");
+    const bookingId = await insertChildBooking(childId);
+
+    const res = await apiFetch(`/api/dropin/bookings/${bookingId}/waiver`, {
+      method: "POST",
+      cookie,
+      headers: { "User-Agent": "annual-waiver-dropin-test/1.0" },
+      body: JSON.stringify({ waiverName: "Parent Test" }),
+    });
+    const json = await expectJson(res, 200);
+    expect(json.alreadySigned).toBe(false);
+
+    const [row] = await getDb()
+      .select()
+      .from(dropInBookings)
+      .where(eq(dropInBookings.id, bookingId));
+    expect(row.waiverSigned).toBe(true);
+    expect(row.waiverSignedBy).toBe("Parent Test");
+    // A REAL signature is dated — only derived on-file copies are not.
+    expect(row.waiverSignedAt).not.toBeNull();
+
+    const rows = await liabilityRowsFor(childId);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].organizationId).toBe(defaultOrg.organizationId);
+    expect(rows[0].signedByUserId).toBe(parentUserId);
+    expect(rows[0].signedByName).toBe("Parent Test");
+    expect(rows[0].status).toBe("granted");
+    expect(rows[0].expiresAt).not.toBeNull();
+    // ip/UA come from THIS request's context, never the body.
+    expect(rows[0].userAgent).toBe("annual-waiver-dropin-test/1.0");
+
+    // ...and the row it just wrote now satisfies the annual predicate. Clear
+    // the booking's local flag so the request gets PAST the per-row
+    // idempotency check: what stops a second audit row here is the annual
+    // gate (`recordLiabilityWaiver` is append-only and does not dedupe), and
+    // that is what this half asserts.
+    await getDb()
+      .update(dropInBookings)
+      .set({ waiverSigned: false, waiverSignedAt: null, waiverSignedBy: null })
+      .where(eq(dropInBookings.id, bookingId));
+
+    const again = await apiFetch(`/api/dropin/bookings/${bookingId}/waiver`, {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({ waiverName: "Parent Test" }),
+    });
+    expect((await expectJson(again, 200)).alreadySigned).toBe(true);
+    expect(await liabilityRowsFor(childId)).toHaveLength(1);
+  });
+
+  /**
+   * DISPLAY side of the same rule. `GET /api/dropin/sessions/:id` powers the
+   * session page's "one more step before you play" WaiverCard, which keyed
+   * only off the per-BOOKING `waiverSigned` flag — false on every new row,
+   * including one whose participant signed a fortnight ago at another door.
+   * The card therefore asked a covered family for a signature the POST above
+   * would immediately short-circuit. `bookingWaiverOnFile` is the endpoint
+   * answering the SAME predicate so the two surfaces cannot disagree.
+   */
+  describe("GET /api/dropin/sessions/:id — bookingWaiverOnFile", () => {
+    /** The session id an inserted child booking belongs to (the detail
+     *  endpoint is per-session, so the test needs both ids). */
+    async function insertChildBookingWithSession(
+      familyMemberId: string,
+    ): Promise<{ bookingId: string; sessionId: string }> {
+      const ctx = await freeSessionInDefaultOrg();
+      const [booking] = await getDb()
+        .insert(dropInBookings)
+        .values({
+          sessionId: ctx.sessionId,
+          userId: parentUserId,
+          familyMemberId,
+          status: "confirmed",
+          source: "online_booking",
+          paymentMethod: "card_online",
+          amountPaidCents: 0,
+          waiverSigned: false,
+        })
+        .returning();
+      return { bookingId: booking.id, sessionId: ctx.sessionId };
+    }
+
+    it("reports true for an unsigned booking whose participant is covered", async () => {
+      const cookie = await getParentCookie();
+      const childId = await newChild("DisplayOnFile");
+      await insertLiabilityConsent(childId, 30);
+      const { sessionId } = await insertChildBookingWithSession(childId);
+
+      const res = await apiFetch(`/api/dropin/sessions/${sessionId}`, { cookie });
+      const json = await expectJson(res, 200);
+      expect(json.bookingWaiverSigned).toBe(false);
+      expect(json.bookingWaiverOnFile).toBe(true);
+    });
+
+    it("reports false for an unsigned booking whose participant is NOT covered", async () => {
+      const cookie = await getParentCookie();
+      const childId = await newChild("DisplayAsk");
+      const { sessionId } = await insertChildBookingWithSession(childId);
+
+      const res = await apiFetch(`/api/dropin/sessions/${sessionId}`, { cookie });
+      const json = await expectJson(res, 200);
+      expect(json.bookingWaiverSigned).toBe(false);
+      // Fails toward ASKING — the card still renders.
+      expect(json.bookingWaiverOnFile).toBe(false);
+    });
+
+    it("reports false for an ADULT booking (no participant row to check)", async () => {
+      const cookie = await getParentCookie();
+      const ctx = await freeSessionInDefaultOrg();
+      const res0 = await apiFetch("/api/dropin/bookings", {
+        method: "POST",
+        cookie,
+        body: JSON.stringify({ sessionId: ctx.sessionId }),
+      });
+      await expectJson(res0, 200);
+
+      const res = await apiFetch(`/api/dropin/sessions/${ctx.sessionId}`, { cookie });
+      const json = await expectJson(res, 200);
+      // An adult drop-in has no `family_members` row for a person-scoped
+      // consent to hang on — the same limitation the POST documents. The
+      // card keeps asking, exactly as before this field existed.
+      expect(json.bookingWaiverSigned).toBe(false);
+      expect(json.bookingWaiverOnFile).toBe(false);
+    });
   });
 });
