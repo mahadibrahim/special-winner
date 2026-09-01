@@ -17,7 +17,7 @@
  * symmetric in their failure modes, and getting either wrong is expensive:
  *
  *   - Skip the block but SEND a signature → harmless, but dishonest: the
- *     endpoint RECORDS every real typed signature (clause 4 of
+ *     endpoint RECORDS every real typed signature (clause 3 of
  *     `recordLiabilityWaiver`'s caller contract), so this logs a signing event
  *     that never appeared on anyone's screen.
  *   - Skip the block and the server DISAGREES about coverage →

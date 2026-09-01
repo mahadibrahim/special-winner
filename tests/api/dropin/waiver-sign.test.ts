@@ -307,7 +307,13 @@ describe("POST /api/dropin/bookings/:id/waiver — annual liability waiver", () 
       );
   }
 
-  it("(a) waiver on file → alreadySigned, row stamped 'On file', NO signature date, NO new consent", async () => {
+  it("(a) covered participant who signs anyway → the REAL signature is dated, named, and appended", async () => {
+    // This endpoint cannot be reached without a typed name (the schema
+    // requires `waiverName`), so EVERY request here is a human signing.
+    // Coverage gates the ASK — the session page suppresses the card for a
+    // covered participant — not the record. A signature that arrives despite
+    // that is a real signing event and is filed as one (caller contract,
+    // clause 4).
     const cookie = await getParentCookie();
     const childId = await newChild("OnFile");
     await insertLiabilityConsent(childId, 30);
@@ -316,22 +322,53 @@ describe("POST /api/dropin/bookings/:id/waiver — annual liability waiver", () 
     const res = await apiFetch(`/api/dropin/bookings/${bookingId}/waiver`, {
       method: "POST",
       cookie,
+      headers: { "User-Agent": "covered-signs-dropin/1.0" },
       body: JSON.stringify({ waiverName: "Parent Test" }),
     });
     const json = await expectJson(res, 200);
     expect(json.ok).toBe(true);
-    expect(json.alreadySigned).toBe(true);
+    expect(json.alreadySigned).toBe(false);
 
     const [row] = await getDb()
       .select()
       .from(dropInBookings)
       .where(eq(dropInBookings.id, bookingId));
     expect(row.waiverSigned).toBe(true);
-    expect(row.waiverSignedBy).toBe(WAIVER_ON_FILE_ATTRIBUTION);
-    // Load-bearing: a dated derived row would self-renew the legacy window.
-    expect(row.waiverSignedAt).toBeNull();
+    expect(row.waiverSignedBy).toBe("Parent Test");
+    expect(row.waiverSignedAt).not.toBeNull();
 
-    // The on-file branch is a READ — it appends nothing to the audit log.
+    // Exactly ONE row appended: the seeded grant plus this signature.
+    const rows = await liabilityRowsFor(childId);
+    expect(rows).toHaveLength(2);
+    const newest = [...rows].sort(
+      (a, b) => b.signedAt.getTime() - a.signedAt.getTime(),
+    )[0];
+    expect(newest.signedByName).toBe("Parent Test");
+    expect(newest.userAgent).toBe("covered-signs-dropin/1.0");
+  });
+
+  it("(a2) a REPLAY of an already-signed booking is still a no-op — per-row, not coverage", async () => {
+    // The idempotency that survives is per BOOKING ROW ("the first signature
+    // stands"), which is orthogonal to coverage: it distinguishes one signing
+    // event delivered twice from two real signing events.
+    const cookie = await getParentCookie();
+    const childId = await newChild("Replay");
+    const bookingId = await insertChildBooking(childId);
+
+    const first = await apiFetch(`/api/dropin/bookings/${bookingId}/waiver`, {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({ waiverName: "Parent Test" }),
+    });
+    expect((await expectJson(first, 200)).alreadySigned).toBe(false);
+    expect(await liabilityRowsFor(childId)).toHaveLength(1);
+
+    const replay = await apiFetch(`/api/dropin/bookings/${bookingId}/waiver`, {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({ waiverName: "Parent Test" }),
+    });
+    expect((await expectJson(replay, 200)).alreadySigned).toBe(true);
     expect(await liabilityRowsFor(childId)).toHaveLength(1);
   });
 
@@ -369,10 +406,11 @@ describe("POST /api/dropin/bookings/:id/waiver — annual liability waiver", () 
     expect(rows[0].userAgent).toBe("annual-waiver-dropin-test/1.0");
 
     // ...and the row it just wrote now satisfies the annual predicate. Clear
-    // the booking's local flag so the request gets PAST the per-row
-    // idempotency check: what stops a second audit row here is the annual
-    // gate (`recordLiabilityWaiver` is append-only and does not dedupe), and
-    // that is what this half asserts.
+    // the booking's local flag so a second request gets PAST the per-row
+    // idempotency check — i.e. a genuinely SECOND signing event on a row that
+    // carries no signature, by a person who is now covered. That is the case
+    // the annual gate used to swallow; it is now recorded, because the record
+    // follows the signature and not the coverage.
     await getDb()
       .update(dropInBookings)
       .set({ waiverSigned: false, waiverSignedAt: null, waiverSignedBy: null })
@@ -381,10 +419,17 @@ describe("POST /api/dropin/bookings/:id/waiver — annual liability waiver", () 
     const again = await apiFetch(`/api/dropin/bookings/${bookingId}/waiver`, {
       method: "POST",
       cookie,
-      body: JSON.stringify({ waiverName: "Parent Test" }),
+      body: JSON.stringify({ waiverName: "Parent Test Again" }),
     });
-    expect((await expectJson(again, 200)).alreadySigned).toBe(true);
-    expect(await liabilityRowsFor(childId)).toHaveLength(1);
+    expect((await expectJson(again, 200)).alreadySigned).toBe(false);
+    expect(await liabilityRowsFor(childId)).toHaveLength(2);
+
+    const [reRow] = await getDb()
+      .select()
+      .from(dropInBookings)
+      .where(eq(dropInBookings.id, bookingId));
+    expect(reRow.waiverSignedBy).toBe("Parent Test Again");
+    expect(reRow.waiverSignedAt).not.toBeNull();
   });
 
   /**

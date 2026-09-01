@@ -566,8 +566,16 @@ describe("Paid child door — annual waiver stamping at the booking endpoint", (
       cookie,
       body: JSON.stringify({ sessionId: pickup.sessionId, paymentFlow: "embedded" }),
     });
-    expect(res.status).not.toBe(422);
-    expect((await res.json()).error).not.toBe("waiver_required");
+    const body = await res.json();
+    // The EXACT pre-change outcome, not merely "not 422": an adult pickup with
+    // no waiver fields mints a PaymentIntent and returns the priced 200. A
+    // weaker assertion would still pass if the gate leaked into this path and
+    // turned it into some other error.
+    expect(res.status, JSON.stringify(body)).toBe(200);
+    expect(body.paymentRequired).toBe(true);
+    expect(typeof body.clientSecret).toBe("string");
+    expect(body.amountCents).toBe(MEMBER_RATE_CENTS);
+    expect(body.error).toBeUndefined();
   });
 
   itWithStripe(

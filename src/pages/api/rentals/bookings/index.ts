@@ -222,7 +222,7 @@ export const POST: APIRoute = async ({ request, locals, clientAddress }) => {
   // partials (an accepted box and no name, or vice versa), and a partial is
   // not a signature. This, not `waiverOnFile`, is what decides between
   // recording a real signature and stamping the derived on-file attribution:
-  // see clause 4 of `recordLiabilityWaiver`'s caller contract.
+  // see clause 3 of `recordLiabilityWaiver`'s caller contract.
   //
   // Acceptance is tested by TRUTHINESS, deliberately mirroring the
   // validator's own `if (!body.waiverAccepted)` rather than narrowing to
@@ -394,7 +394,7 @@ export const POST: APIRoute = async ({ request, locals, clientAddress }) => {
   // so this renter is covered platform-wide for the next year — not just on
   // this booking. Keyed on the SIGNATURE, not on coverage: a covered renter
   // who was still shown the form and typed their name really signed, and
-  // clause 4 of the caller contract says that gets recorded with its own
+  // clause 3 of the caller contract says that gets recorded with its own
   // date rather than collapsed into the on-file stamp. A submission with no
   // signature fields writes nothing — that branch is a pure read.
   //
@@ -405,6 +405,17 @@ export const POST: APIRoute = async ({ request, locals, clientAddress }) => {
   // Best-effort: the local waiver* columns above are already the audit
   // record, so a consents failure here must not fail an otherwise-good
   // booking (mirrors the self-serve waiver endpoint's same tradeoff).
+  //
+  // ACCEPTED FAILURE MODE: the rental row is committed and DATED before this
+  // runs, so a silently-failed append leaves a dated local signature with no
+  // canonical consent behind it. That row then satisfies
+  // `hasValidLiabilityWaiver`'s legacy `drop_in_bookings`/`registrations`
+  // fallbacks for a year off a signature the consents log never saw — the
+  // person is treated as covered on the strength of the local copy alone. The
+  // alternative (failing the booking over an audit-row blip, or writing the
+  // consent first and orphaning it when the booking 409s on a slot conflict)
+  // is worse for both the customer and the log, and the error is logged for
+  // ops either way.
   if (signatureSupplied && renterUserId && renterFamilyMemberId) {
     try {
       const consentVariant = waiverConsentVariant(false); // renter signs for themselves

@@ -22,10 +22,7 @@ import { verifyToken } from "@/lib/check-in/tokens-db";
 import { resolveSigner, asSelfServiceKind } from "@/lib/check-in/resolve-signer";
 import { resolvePerson } from "@/lib/registrations/resolve-person";
 import { resolveActiveLiabilityWaiver } from "@/lib/consents/active-waiver";
-import {
-  hasValidLiabilityWaiver,
-  recordLiabilityWaiver,
-} from "@/lib/consents/liability";
+import { recordLiabilityWaiver } from "@/lib/consents/liability";
 import {
   waiverConsentVariant,
   waiverAssentSentence,
@@ -98,30 +95,59 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
     signer?.displayName ?? undefined,
   );
 
-  // Caller contract clause 3 for `recordLiabilityWaiver`: gate on the READ
-  // helper. It is append-only and does not dedupe, so without this a double
-  // submit (or a refreshed self-serve link) would append a second audit row
-  // for the same person-year.
+  // REPLAY GUARD — per TARGET ROW, not per person-year.
   //
-  // Evaluated HERE, before the local row writes below, and NOT next to the
-  // consent write further down: `hasValidLiabilityWaiver`'s transitional
-  // fallback accepts a dated, signed `drop_in_bookings` row inside the
-  // window — which is exactly what the drop-in branch is about to write. Ask
-  // afterwards and every kiosk signature reports itself as already covered
-  // and writes nothing.
-  let waiverAlreadyOnFile = false;
-  if (signer?.familyMemberId) {
-    try {
-      waiverAlreadyOnFile = await hasValidLiabilityWaiver(
-        signer.familyMemberId,
-        tok.organizationId,
-        db,
-      );
-    } catch (err) {
-      // Fail towards RECORDING what the person just signed — a redundant
-      // consents row is harmless; a lost release is not.
-      console.error("[self-serve.waiver] waiver validity lookup failed", err);
+  // This used to gate on `hasValidLiabilityWaiver`, i.e. on COVERAGE, which
+  // threw away every signature by an already-covered person: a renter's second
+  // visit, a kiosk minor's second session. Coverage gates the ASK (the
+  // self-serve page suppresses the card for a covered person via
+  // build-context); it must never decide whether a signature that DID happen
+  // is recorded — clause 3 of `recordLiabilityWaiver`'s caller contract.
+  //
+  // What genuinely must not double-append is ONE signing event delivered
+  // twice: this endpoint does not consume its token, so a double submit or a
+  // refreshed link re-POSTs the same form. That is a property of the TARGET
+  // ROW ("this booking/rental already carries a signature"), the same
+  // idempotency `/api/dropin/bookings/[id]/waiver` applies, and it stays true
+  // no matter how many other doors the person has signed at.
+  //
+  // Read BEFORE the local writes below, which are what would otherwise make
+  // this answer itself yes.
+  //
+  // `roster_entry` has no local waiver columns at all (the registration-time
+  // signature lives on `registrations` — see the LIMITATION note below), so
+  // it has no row state to be idempotent against and always records. Two
+  // submissions there append two rows; for an append-only log of signing
+  // events that is accurate rather than wrong, and the game-day link is
+  // one-per-game.
+  let targetAlreadySigned = false;
+  try {
+    if (kind === "drop_in_booking" || kind === "walkin_session") {
+      const [b] = await db
+        .select({ waiverSigned: dropInBookings.waiverSigned })
+        .from(dropInBookings)
+        .where(eq(dropInBookings.id, tok.targetId))
+        .limit(1);
+      targetAlreadySigned = b?.waiverSigned === true;
+    } else if (kind === "field_rental") {
+      const [r] = await db
+        .select({ waiverSigned: fieldRentals.waiverSigned })
+        .from(fieldRentals)
+        .where(eq(fieldRentals.id, tok.targetId))
+        .limit(1);
+      targetAlreadySigned = r?.waiverSigned === true;
+    } else if (kind === "rental_player") {
+      const [p] = await db
+        .select({ status: fieldRentalPlayers.status })
+        .from(fieldRentalPlayers)
+        .where(eq(fieldRentalPlayers.id, tok.targetId))
+        .limit(1);
+      targetAlreadySigned = p?.status === "signed";
     }
+  } catch (err) {
+    // Fail towards RECORDING what the person just signed — a redundant
+    // consents row is harmless; a lost release is not.
+    console.error("[self-serve.waiver] replay lookup failed", err);
   }
 
   // field_rental, first-time accounted renter: resolve-signer.ts's
@@ -132,8 +158,7 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
   // here is a one-shot, real signature event, so THIS is where a
   // never-rented-before renter's self row gets created. `familyMemberId`
   // being null here (with an account present) can ONLY mean "no row yet" —
-  // if one existed, resolveSigner's read would have found it and
-  // `waiverAlreadyOnFile` above would already be authoritative.
+  // if one existed, resolveSigner's read would have found it.
   if (
     tok.kind === "field_rental" &&
     signer &&
@@ -171,16 +196,16 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
   }
 
   if (tok.kind === "drop_in_booking" || tok.kind === "walkin_session") {
-    // NOTE — this stamps a DATED signature even when `waiverAlreadyOnFile`
-    // is true. Reaching that state means the ask was served from a stale
-    // page (or POSTed directly): build-context suppresses the WaiverCard for
-    // a covered person, and walkin/start.ts now births covered holds already
-    // stamped. It is an accepted narrow path, deliberately not collapsed
-    // into the on-file shape — a human really did read and sign, and
-    // recording that with its date is the honest audit entry. The cost is
-    // that this row extends the transitional legacy fallback window past
-    // the canonical consent's expiry; the fallback ages out on its own, and
-    // the alternative (discarding a real signature's date) is worse.
+    // A DATED signature, even for an already-covered participant. Reaching
+    // that state means the ask was served from a stale page (or POSTed
+    // directly): build-context suppresses the WaiverCard for a covered
+    // person, and walkin/start.ts births covered holds already stamped. A
+    // human really did read and sign, and recording that with its date is
+    // the honest audit entry — the canonical `consents` append below now
+    // matches it, so the two records agree. The cost is that this row
+    // extends the transitional legacy fallback window past the canonical
+    // consent's expiry; the fallback ages out on its own, and the
+    // alternative (discarding a real signature's date) is worse.
     await db
       .update(dropInBookings)
       .set({
@@ -246,8 +271,13 @@ export const POST: APIRoute = async ({ params, request, clientAddress }) => {
   //   the LIMITATION comment on createRentalPlayer in
   //   src/lib/rentals/players.ts). Those signatures are skipped here,
   //   silently: the local waiver* columns remain their audit record.
+  //
+  // Written for EVERY signature this endpoint accepts, including one from a
+  // person already covered by an earlier one — `targetAlreadySigned` is the
+  // only suppressor, and it means "this same row was already signed", i.e. a
+  // replay, not a second signing event.
   try {
-    if (signer?.familyMemberId && !waiverAlreadyOnFile) {
+    if (signer?.familyMemberId && !targetAlreadySigned) {
       await recordLiabilityWaiver(
         {
           familyMemberId: signer.familyMemberId,

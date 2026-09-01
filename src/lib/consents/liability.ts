@@ -47,9 +47,9 @@ export const WAIVER_VALID_DAYS = LIABILITY_VALIDITY_DAYS;
  * signature taken at that moment — the wording clause 3 of
  * `recordLiabilityWaiver`'s caller contract prescribes.
  *
- * Only for submissions that carry NO signature of their own. When a human
- * really typed a name on the request, clause 4 applies instead and the row
- * keeps that signature and its date.
+ * ONLY for submissions that carry no signature of their own. A row that a
+ * human really signed keeps the name they typed and the date they typed it,
+ * whether or not they were already covered — see the table in clause 3.
  *
  * Lives here, with the contract it belongs to, because SEVERAL surfaces stamp
  * it (the classes engine's on-file branch in book-child.ts, the paid drop-in
@@ -123,29 +123,44 @@ export function waiverWindowStart(now: Date = new Date()): Date {
  * 2. Therefore: call it ONCE PER FRESH SIGNATURE — i.e. only on the branch
  *    where a human actually just agreed to the waiver text. Never call it
  *    unconditionally on every booking/registration write.
- * 3. Gate on `hasValidLiabilityWaiver(familyMemberId, organizationId)`
- *    FIRST. If it returns true, the person is covered: skip the ask, skip
- *    this call, and stamp your local `waiverSigned: true` with an "On file
- *    (annual waiver)" attribution. Only when it returns false do you show
- *    the waiver, collect the signature, and call this.
- * 4. EXCEPTION to clause 3 — a signature that ACTUALLY HAPPENED is always
- *    recorded, even when the person was already covered. Clause 3 gates the
- *    ASK, not the record: if a stale client still rendered the waiver and a
- *    human really typed their name and assented, the honest audit entry is
- *    that signature, dated, with its own row — overwriting it with an
- *    undated "On file" stamp would file a legal record of an event that did
- *    not happen the way it is written down. The rentals booking door and the
- *    registration create path (through both its API callers) take this
- *    branch. The self-serve / kiosk waiver endpoint is where the posture was
- *    first argued (see the NOTE on its `drop_in_booking` update) — it dates
- *    the local columns for a covered signer but still skips the append, so it
- *    is the one surface yet to adopt the whole clause.
+ * 3. THE RULE: call this whenever — and only when — a human actually signed
+ *    on THIS request. Not "when the person is uncovered". Coverage
+ *    (`hasValidLiabilityWaiver`) decides whether to ASK; the signature
+ *    decides what to RECORD. The two questions are independent, and every
+ *    surface answers both:
  *
- *    The distinction is "did a human sign on THIS request", NOT "does the
- *    payload mention a waiver": a submission carrying no signature fields is
- *    a pure read and must keep the undated on-file stamp (clause 3), because
- *    a dated derived copy would let `hasValidLiabilityWaiver`'s legacy
- *    fallbacks renew the very window they were derived from.
+ *      signed on this request?   covered?    what you write
+ *      ───────────────────────   ────────    ─────────────────────────────
+ *      yes                       either      dated local columns naming the
+ *                                            signer + ONE call to this
+ *                                            function, ip/UA from the
+ *                                            request context
+ *      no                        yes         local `waiverSigned: true` with
+ *                                            the WAIVER_ON_FILE_ATTRIBUTION
+ *                                            stamp and `waiverSignedAt` NULL
+ *                                            — a pure READ, no call here
+ *      no                        no          nothing signed and nothing to
+ *                                            stamp: ask, or refuse
+ *
+ *    Recording a signature the person did not need is right, not redundant:
+ *    they read the release and typed their name, and overwriting that with an
+ *    undated "On file" stamp files a legal record of an event that did not
+ *    happen the way it is written down. Conversely the undated stamp on the
+ *    no-signature row is load-bearing — a dated derived copy would let
+ *    `hasValidLiabilityWaiver`'s legacy fallbacks renew the very window it
+ *    was derived from.
+ *
+ *    Every surface that can receive a signature follows this: the rentals
+ *    booking door, `create-registration` (via both API callers), the
+ *    post-payment drop-in capture, registration completion, the admin walk-up
+ *    desk, and the self-serve / kiosk endpoint. There are no exceptions left
+ *    to remember.
+ * 4. The one legitimate reason to skip a call is a REPLAY — the same signing
+ *    event delivered twice (a double submit, a refreshed self-serve link, a
+ *    retried POST). Detect it per TARGET ROW ("this booking already carries a
+ *    signature"), never by asking whether the person is covered: coverage
+ *    cannot tell a replay from a second real signature at a second door, and
+ *    using it there is exactly the bug clause 3 exists to prevent.
  * 5. Pass your transaction handle as `dbOrTx` so the consent lands or rolls
  *    back with the booking/registration it belongs to.
  *

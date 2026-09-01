@@ -43,8 +43,12 @@ interface Props {
    * `src/lib/rentals/waiver-on-file.ts`). When true the waiver block is
    * replaced by a short "waiver on file" note and NO waiver fields are sent —
    * POST /api/rentals/bookings re-checks the same predicate and stamps the
-   * booking "On file (annual waiver)", discarding any signature a covered
-   * renter typed anyway.
+   * booking "On file (annual waiver)".
+   *
+   * The skip is a COURTESY, not a correctness requirement: a signature that
+   * IS sent gets recorded honestly (dated columns + a canonical consents row),
+   * because coverage gates the ask and never the record. What the skip buys is
+   * that a covered renter isn't made to re-sign a release they already hold.
    *
    * Defaults to false, and only strict `true` skips: an un-prop'd caller, a
    * guest, or a failed probe all ASK. A missing answer must never suppress a
@@ -164,8 +168,9 @@ export default function RentalBooking({
           // A covered renter sends NO waiver fields at all — the validator
           // accepts their absence only when the server independently agrees
           // they're covered, and the endpoint then stamps the on-file
-          // attribution. Sending a signature it would discard is what this
-          // skip exists to stop.
+          // attribution. Sending a signature instead is not dangerous (the
+          // endpoint records every real one), just dishonest: it would log a
+          // signing event for a form this renter was never shown.
           ...rentalWaiverRequestFields(waiverCovered, waiverName),
           ...(!signedIn && {
             renterName: waiverName.trim(),

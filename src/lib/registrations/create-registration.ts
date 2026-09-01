@@ -360,12 +360,16 @@ interface WaiverColumns {
  * The derived stamp for a person covered by their annual waiver who signed
  * nothing on this request. Shared by `resolveWaiverColumns` and the resumed
  * -draft catch-up below so the two can't spell it differently.
+ *
+ * Frozen because it is returned BY REFERENCE as `waiverState.columns` and then
+ * spread into inserts/updates by three call sites — a stray mutation on any of
+ * them would silently re-point every later caller in the same process.
  */
-const ON_FILE_WAIVER_COLUMNS: WaiverColumns = {
+const ON_FILE_WAIVER_COLUMNS: Readonly<WaiverColumns> = Object.freeze({
   waiverSigned: true,
   waiverSignedBy: WAIVER_ON_FILE_ATTRIBUTION,
   waiverSignedAt: null,
-};
+});
 
 /**
  * Decide the registration row's waiver columns, ANNUAL waiver first.
@@ -395,6 +399,17 @@ const ON_FILE_WAIVER_COLUMNS: WaiverColumns = {
  *    it, so the legacy fallback renews nothing that wasn't renewed anyway.
  *  - FRESH SIGNATURE, nothing on file → identical columns; the ordinary path.
  *  - NEITHER → unsigned; the post-payment completion step is the backstop.
+ *
+ * ACCEPTED FAILURE MODE on both signature branches: this helper writes the
+ * DATED local columns, and its API callers append the consents row afterwards,
+ * best-effort. If that append fails silently the registration carries a dated
+ * signature with no canonical consent behind it — and
+ * `hasValidLiabilityWaiver`'s legacy `registrations` fallback will honour that
+ * local row for a year. Accepted for the same reason the rentals door accepts
+ * it: refusing a paid registration over an audit-row blip is worse, and the
+ * failure is logged. It is also the reason the RESUMED branch must never stamp
+ * a date (its callers skip the append by design, so the gap would be
+ * guaranteed rather than exceptional).
  *
  * Fails towards ASKING: a lookup error must never mark a registration signed
  * on the strength of a waiver we could not read.

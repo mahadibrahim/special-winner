@@ -203,6 +203,16 @@ export const POST: APIRoute = async ({ request, params, locals, clientAddress, u
 
     const userAgent = request.headers.get("user-agent");
 
+    // The name a human typed on THIS request, or null when the submission
+    // carried no signature at all. The schema makes both fields optional so a
+    // covered participant can submit a DOB-only completion — so their presence,
+    // not the customer's coverage, is what tells a signing event apart from a
+    // bare form submission. Kept as `string | null` rather than a boolean so
+    // the branch chain below narrows it to a plain `string` for the
+    // fresh-signature branch.
+    const suppliedSignature: string | null =
+      data.waiverAccepted && data.waiverSignature ? data.waiverSignature : null;
+
     // Which of the three branches below ran. Drives the response shape and
     // suppresses the waiver_signed event for the two that took no signature.
     let alreadySigned = false;
@@ -224,6 +234,7 @@ export const POST: APIRoute = async ({ request, params, locals, clientAddress, u
       }
     } else if (
       organizationId &&
+      suppliedSignature === null &&
       (await hasWaiverOnFile(familyMember.id, organizationId))
     ) {
       // ANNUAL WAIVER, read side. `registrations.waiverSigned` is
@@ -231,6 +242,15 @@ export const POST: APIRoute = async ({ request, params, locals, clientAddress, u
       // who signed a fortnight ago at another door of the same organization.
       // The platform rule is per person, per org, for a year — check that
       // before treating this submission as an ask.
+      //
+      // `suppliedSignature === null` is what makes this a READ, not a discard.
+      // Coverage decides whether an ASK was needed; it never decides whether a
+      // signature that DID arrive gets recorded (clause 3 of
+      // `recordLiabilityWaiver`'s caller contract). A covered family that
+      // still typed a name falls through to the fresh-signature branch below,
+      // which dates the row and appends the canonical consent. Evaluated
+      // before the predicate so the covered-and-signed case skips the lookup
+      // entirely.
       //
       // `waiverSignedAt` is written as an EXPLICIT null: this row is a derived
       // copy of an earlier signature, not a signature, and
@@ -275,10 +295,11 @@ export const POST: APIRoute = async ({ request, params, locals, clientAddress, u
           })
           .where(eq(registrations.id, registration.id));
       });
-    } else if (!data.waiverAccepted || !data.waiverSignature) {
-      // A signature is genuinely owed here and none was supplied. The schema
-      // lets these through so a covered participant can submit a DOB-only
-      // completion; this is where they become mandatory again.
+    } else if (suppliedSignature === null) {
+      // A signature is genuinely owed here and none was supplied — the row is
+      // unsigned and (per the branch above) nothing covers this participant.
+      // The schema lets the fields through so a covered participant can submit
+      // a DOB-only completion; this is where they become mandatory again.
       return new Response(
         JSON.stringify({
           error: "Validation failed",
@@ -289,7 +310,7 @@ export const POST: APIRoute = async ({ request, params, locals, clientAddress, u
         { status: 400, headers: { "Content-Type": "application/json" } },
       );
     } else {
-      const waiverSignature = data.waiverSignature;
+      const waiverSignature = suppliedSignature;
       // Consent recording — copied from guest-checkout.ts's consent block
       // rather than paraphrased, so the semantics (personal-consent guard,
       // unconditional liability + media-auth writes) stay identical.

@@ -241,7 +241,7 @@ export const POST: APIRoute = async ({ request, clientAddress, locals }) => {
         };
         // ANNUAL WAIVER, write side. Keyed on `waiverSignatureCaptured` — did
         // a human sign on THIS request — not on `waiverOnFile`. A covered
-        // family shown a stale form still really signs, and clause 4 of
+        // family shown a stale form still really signs, and clause 3 of
         // `recordLiabilityWaiver`'s caller contract records that; only the
         // no-signature branch (which never reaches here — this whole block is
         // gated on `data.waiverSigned`) is a pure READ. The `resumed` kind is

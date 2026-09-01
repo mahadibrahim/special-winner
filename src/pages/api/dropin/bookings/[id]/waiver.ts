@@ -20,10 +20,12 @@
  * (or anywhere) refuses a booking or check-in over an unsigned waiver;
  * hosts can capture a signature on the spot via the roster surfaces.
  *
- * Annual waiver: a booking whose PARTICIPANT already has a valid liability
- * consent for the org is settled without asking — the endpoint stamps the
- * on-file attribution and reports `alreadySigned`. A signature that IS fresh
- * is recorded into the canonical `consents` log as well as onto the booking.
+ * Annual waiver: a covered participant is never ASKED (the session page
+ * suppresses the card), but a signature that arrives anyway is a real signing
+ * event and is recorded as one — dated, named, and appended to the canonical
+ * `consents` log alongside the booking's own columns. Coverage is therefore
+ * not consulted here at all; the only short-circuit is the per-row
+ * idempotency above.
  */
 import type { APIRoute } from "astro";
 import { eq } from "drizzle-orm";
@@ -31,11 +33,7 @@ import { z } from "zod";
 import { getDb } from "@/lib/db";
 import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
 import { familyMembers } from "@/lib/db/schema/registrations";
-import {
-  WAIVER_ON_FILE_ATTRIBUTION,
-  hasValidLiabilityWaiver,
-  recordLiabilityWaiver,
-} from "@/lib/consents/liability";
+import { recordLiabilityWaiver } from "@/lib/consents/liability";
 import {
   waiverConsentVariant,
   waiverAssentSentence,
@@ -137,48 +135,22 @@ export const POST: APIRoute = async ({
 
   const now = new Date();
 
-  // ANNUAL WAIVER, read side. The `waiverSigned` flag above is per-BOOKING,
-  // so it is false on every new booking even for a family who signed a
-  // fortnight ago at another door. The platform rule is per person, per org,
-  // for a year — so before treating this as an ask, check whether the
-  // participant is already covered.
-  if (row.familyMemberId) {
-    let covered = false;
-    try {
-      covered = await hasValidLiabilityWaiver(
-        row.familyMemberId,
-        row.organizationId,
-        db,
-      );
-    } catch (err) {
-      // Fail towards RECORDING the signature the user just typed — that is
-      // the safe direction here (worst case, one redundant consents row).
-      console.error("[dropin-waiver] waiver validity lookup failed", err);
-    }
-    if (covered) {
-      await db
-        .update(dropInBookings)
-        .set({
-          waiverSigned: true,
-          waiverSignedBy: WAIVER_ON_FILE_ATTRIBUTION,
-          // Written as an EXPLICIT null rather than merely omitted — this
-          // update can land on a row that already carries a date, and the
-          // invariant should enforce itself here instead of relying on the
-          // column happening to be empty. Load-bearing: this row is a
-          // derived copy of an earlier signature, not a signature, and
-          // hasValidLiabilityWaiver's legacy fallback accepts any DATED
-          // drop_in_bookings row — dating it would let each booking renew
-          // the very window it was derived from. Same rule as the paid
-          // door's fulfillment stamp and book-child.ts's on-file branch.
-          waiverSignedAt: null,
-          updatedAt: now,
-        })
-        .where(eq(dropInBookings.id, id));
-      // Nothing is appended to `consents`: this branch is a READ.
-      return json({ ok: true, alreadySigned: true }, 200);
-    }
-  }
-
+  // ANNUAL WAIVER — deliberately NOT consulted here.
+  //
+  // This endpoint cannot be reached without a typed name (`waiverName` is
+  // required by the schema above), so every request that gets this far is a
+  // human who just read the release and signed it. Coverage gates the ASK —
+  // the session page's WaiverCard is suppressed for a covered participant
+  // (see SessionDetail's `waiverCovered`) — and never the record: clause 3 of
+  // `recordLiabilityWaiver`'s caller contract. This branch used to overwrite
+  // the typed name with the on-file attribution, drop the date, and append
+  // nothing, which filed the signature as an event that did not happen the
+  // way it was written down.
+  //
+  // The idempotency that DOES survive is per-BOOKING-ROW ("the first
+  // signature stands", checked above) — orthogonal to coverage, because it
+  // separates one signing event delivered twice from two real ones.
+  //
   // A genuinely fresh signature. The guardian variant follows from the
   // participant being a dependent — the same `isMinor` signal resolveSigner
   // hands the self-serve WaiverCard, derived here from the person row

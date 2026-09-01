@@ -40,8 +40,9 @@ if (org) {
 }
 
 // Annual liability waiver: a signed-in renter already covered for this org
-// should not be asked to re-sign — POST /api/rentals/bookings already ignores
-// whatever signature they'd type and stamps the on-file attribution instead.
+// should not be asked to re-sign — POST /api/rentals/bookings stamps the
+// on-file attribution when no signature arrives (and records one honestly if
+// it does, which is precisely what asking again would pointlessly produce).
 // Resolved here (server-side, read-only) rather than by a client probe so the
 // form never flashes a checkbox it is about to remove. Guests are never
 // covered (no account, no person row), so this is false for them by

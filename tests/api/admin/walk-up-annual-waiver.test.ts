@@ -13,6 +13,9 @@
  *  2. Second registration for the same person, waiver NOT re-taken → the row
  *     is born on-file with a NULL signature date, and nothing further is
  *     appended to the append-only consents log.
+ *  3. A SECOND child whose covered registration DOES take a fresh desk
+ *     signature → dated, named, and one more consent appended. Coverage gates
+ *     the ask, not the record.
  *
  * The second call deliberately reuses the parent email + child name + DOB so
  * `resolvePerson` dedupes to the same `family_members` row — the linkage the
@@ -50,9 +53,19 @@ const kid = {
   lastName: `Waiver${suffix}`,
   birthDate: "2015-06-01",
 };
+/** A SECOND child under the same parent, for the covered-and-re-signed case.
+ *  Distinct from `kid` because `registrations_member_season_active_uniq`
+ *  allows each person only one live row per season, and that case needs both
+ *  seasons for one person. */
+const kid2 = {
+  firstName: "WalkUpAgain",
+  lastName: `Waiver${suffix}`,
+  birthDate: "2014-03-02",
+};
 
 const createdRegistrationIds: string[] = [];
 let createdFamilyMemberId: string | null = null;
+const createdFamilyMemberIds: string[] = [];
 
 beforeAll(async () => {
   adminCookie = await getAdminCookie();
@@ -86,15 +99,21 @@ afterAll(async () => {
       .delete(registrations)
       .where(inArray(registrations.id, createdRegistrationIds));
   }
-  if (createdFamilyMemberId) {
-    await db
-      .delete(consents)
-      .where(eq(consents.familyMemberId, createdFamilyMemberId));
-    await db.delete(familyMembers).where(eq(familyMembers.id, createdFamilyMemberId));
+  const personIds = [
+    ...new Set([...createdFamilyMemberIds, createdFamilyMemberId].filter(Boolean)),
+  ] as string[];
+  if (personIds.length > 0) {
+    await db.delete(consents).where(inArray(consents.familyMemberId, personIds));
+    await db.delete(familyMembers).where(inArray(familyMembers.id, personIds));
   }
 });
 
-async function walkUp(seasonId: string, waiverSigned: boolean, waiverSignedBy?: string) {
+async function walkUp(
+  seasonId: string,
+  waiverSigned: boolean,
+  waiverSignedBy?: string,
+  who: typeof kid = kid,
+) {
   return apiFetch("/api/admin/walk-up-registration", {
     method: "POST",
     cookie: adminCookie,
@@ -105,7 +124,7 @@ async function walkUp(seasonId: string, waiverSigned: boolean, waiverSignedBy?: 
         email: parentEmail,
         phone: "6145550142",
       },
-      kid,
+      kid: who,
       seasonId,
       paymentStatus: "paid",
       waiverSigned,
@@ -188,5 +207,40 @@ describe("walk-up desk — annual liability waiver", () => {
 
     // consents is append-only and does not dedupe — this branch is a READ.
     expect(await liabilityConsents(createdFamilyMemberId!)).toHaveLength(1);
+  });
+
+  it("records the REAL signature when the desk takes one from a COVERED person", async () => {
+    // The desk collected a fresh in-person acceptance even though the person
+    // was already covered. Coverage gates the ASK, not the record (caller
+    // contract, clause 4) — stamping "On file (annual waiver)" over a
+    // signature staff actually took would file a false audit entry, and the
+    // desk's `walk-up: admin=<id>` provenance would be lost with it.
+    const signature = `Desk Parent${suffix}`;
+
+    const first = await walkUp(seasonAId, true, signature, kid2);
+    const firstBody = await first.json();
+    expect(first.status, JSON.stringify(firstBody)).toBe(200);
+    createdRegistrationIds.push(firstBody.registrationId);
+    const personId = firstBody.familyMemberId as string;
+    createdFamilyMemberIds.push(personId);
+    expect(await liabilityConsents(personId)).toHaveLength(1);
+
+    // Same person, second season, waiver taken AGAIN at the desk.
+    const second = await walkUp(seasonBId, true, signature, kid2);
+    const secondBody = await second.json();
+    expect(second.status, JSON.stringify(secondBody)).toBe(200);
+    expect(secondBody.familyMemberId).toBe(personId);
+    createdRegistrationIds.push(secondBody.registrationId);
+
+    const row = await waiverColumns(secondBody.registrationId);
+    expect(row.waiverSigned).toBe(true);
+    expect(row.waiverSignedBy).toBe(signature);
+    // A REAL signature is dated — only derived on-file copies are not.
+    expect(row.waiverSignedAt).toBeTruthy();
+
+    // Exactly ONE row appended.
+    const liability = await liabilityConsents(personId);
+    expect(liability).toHaveLength(2);
+    expect(liability.every((c) => c.notes?.includes("walk-up: admin="))).toBe(true);
   });
 });

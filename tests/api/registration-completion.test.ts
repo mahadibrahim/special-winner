@@ -16,7 +16,7 @@ import {
 } from "@/lib/consents/liability";
 import { completionWaiverAssentText } from "@/lib/registrations/waiver-text";
 import { familyMembers } from "@/lib/db/schema";
-import { and, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 
 // Same slug convention as registrations-self.test.ts / registrations-
 // membership.test.ts — the e2e seed catalog exports no fixture ids, so tests
@@ -396,7 +396,12 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
       });
     }
 
-    it("short-circuits alreadySigned and stamps the row on-file, logging no new consent", async () => {
+    it("records the REAL signature when a covered family signs anyway", async () => {
+      // Coverage gates the ASK, not the record (recordLiabilityWaiver's caller
+      // contract, clause 4). This form still rendered the release — the client
+      // only drops it when the CREATE response said `waiverOnFile` — so a name
+      // typed here is a genuine signing event and is filed as one: dated,
+      // named, and appended to the canonical log.
       const { registrationId, familyMemberId, cookie } =
         await mintOwnedRegistration("2016-04-01");
 
@@ -410,6 +415,7 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
       const res = await apiFetch(`/api/registrations/${registrationId}/complete`, {
         method: "POST",
         cookie,
+        headers: { "User-Agent": "covered-signs-completion/1.0" },
         body: JSON.stringify({
           waiverAccepted: true,
           waiverSignature: "Redundant Signer",
@@ -417,8 +423,10 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
       });
       expect(res.status).toBe(200);
       const body = await res.json();
-      expect(body.alreadySigned).toBe(true);
-      expect(body.signed).toBeUndefined();
+      // A real signature was taken, so this is the fresh-signature response —
+      // not the "we didn't need you" shape.
+      expect(body.signed).toBe(true);
+      expect(body.alreadySigned).toBeUndefined();
 
       const [row] = await db
         .select({
@@ -429,23 +437,24 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
         .from(registrations)
         .where(eq(registrations.id, registrationId));
       expect(row.waiverSigned).toBe(true);
-      expect(row.waiverSignedBy).toBe(WAIVER_ON_FILE_ATTRIBUTION);
-      // Load-bearing: hasValidLiabilityWaiver's legacy `registrations`
-      // fallback accepts any DATED signed row, so a dated derived copy would
-      // renew the very window it was derived from.
-      expect(row.waiverSignedAt).toBeNull();
+      expect(row.waiverSignedBy).toBe("Redundant Signer");
+      expect(row.waiverSignedAt).toBeTruthy();
 
-      // consents is append-only and does not dedupe — this branch is a READ.
+      // Exactly ONE row appended: the seeded grant plus this signature.
       const liability = await db
-        .select({ id: consents.id })
+        .select()
         .from(consents)
         .where(
           and(
             eq(consents.familyMemberId, familyMemberId),
             eq(consents.type, "liability"),
           ),
-        );
-      expect(liability).toHaveLength(1);
+        )
+        .orderBy(desc(consents.signedAt));
+      expect(liability).toHaveLength(2);
+      expect(liability[0].signedByName).toBe("Redundant Signer");
+      // ip/UA from THIS request's context, never the body.
+      expect(liability[0].userAgent).toBe("covered-signs-completion/1.0");
     });
 
     // FINDING 3 regression. Before the endpoint was restructured, an

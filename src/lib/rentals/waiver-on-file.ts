@@ -8,7 +8,7 @@
  * on-file attribution when no signature arrives. Without this probe the forms
  * still RENDER the checkbox + typed-signature field and make a covered renter
  * sign a release they are already covered by — which the endpoint then dutifully
- * records (a real signature is never discarded; see clause 4 of
+ * records (a real signature is never discarded; see clause 3 of
  * `recordLiabilityWaiver`'s caller contract), leaving the log fatter and the
  * renter no better off. This is the read that lets the form skip the ask; the
  * endpoint remains the authority, exactly like `ChildPicker`'s `waiverOnFile`

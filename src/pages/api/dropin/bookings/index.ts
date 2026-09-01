@@ -480,16 +480,36 @@ export const POST: APIRoute = async ({ request, locals, url, clientAddress }) =>
       const ua = request.headers.get("user-agent") ?? "";
       if (ip) waiverMetadata.waiver_ip = ip.slice(0, STRIPE_METADATA_VALUE_MAX);
       if (ua) waiverMetadata.waiver_ua = ua.slice(0, STRIPE_METADATA_VALUE_MAX);
-    } else if (await hasValidLiabilityWaiver(familyMemberId, session.organizationId, db)) {
-      waiverMetadata.waiver_on_file = "1";
     } else {
-      return json(
-        {
-          error: "waiver_required",
-          message: "A signed guardian waiver is required",
-        },
-        422,
-      );
+      // FAILS TOWARD ASKING. A lookup blip must not be read as coverage: this
+      // predicate is the only thing standing between an unsigned minor and a
+      // completed sale, so an error here is treated as UNCOVERED and the
+      // customer is sent to the waiver panel (which they can act on) rather
+      // than sold a class with no release on record. The same direction
+      // `createRegistration` and `resolveWalkUpWaiver` take, and the OPPOSITE
+      // of the signature-capture endpoints — those fail toward RECORDING,
+      // because there the cheap wrong answer is a redundant consents row.
+      let onFile = false;
+      try {
+        onFile = await hasValidLiabilityWaiver(
+          familyMemberId,
+          session.organizationId,
+          db,
+        );
+      } catch (err) {
+        console.error("[dropin] waiver validity lookup failed", err);
+      }
+      if (onFile) {
+        waiverMetadata.waiver_on_file = "1";
+      } else {
+        return json(
+          {
+            error: "waiver_required",
+            message: "A signed guardian waiver is required",
+          },
+          422,
+        );
+      }
     }
   }
 

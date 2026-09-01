@@ -31,9 +31,11 @@ const bookingWindowDays = DEFAULT_BOOKING_WINDOW_DAYS;
 const orgTimeZone = Astro.locals.organization?.timezone ?? "America/New_York";
 
 // Annual liability waiver — same server-side, read-only probe the Aspire
-// /rentals page runs. POST /api/rentals/bookings already stamps a covered
-// renter's booking "On file (annual waiver)" and discards the typed signature;
-// this is what lets the panel stop asking for one. Fails toward asking.
+// /rentals page runs. POST /api/rentals/bookings stamps a covered renter's
+// booking "On file (annual waiver)" when no signature arrives; this is what
+// lets the panel stop asking for one. A signature that IS sent is recorded
+// honestly rather than discarded, so the skip is a courtesy to the renter, not
+// a guard against bad data. Fails toward asking.
 const waiverOnFile = await renterWaiverOnFile(
   Astro.locals.user?.id,
   organizationId,
