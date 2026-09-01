@@ -107,8 +107,9 @@ async function grantRow(grantId: string) {
 
 /** A fresh template + child + credit grant + active credit-backed
  *  enrollment — the base "skippedNoWaiver" shape the nudge targets, before
- *  any test-specific twist (a booking, a waiver, a membership swap). */
-async function makeCreditBackedFixture(suffix: string) {
+ *  any test-specific twist (a booking, a waiver, a membership swap, an
+ *  expired grant). */
+async function makeCreditBackedFixture(suffix: string, opts: { expiresAt?: Date } = {}) {
   const templateId = await createTestClassTemplate({
     organizationId,
     venueId,
@@ -127,6 +128,7 @@ async function makeCreditBackedFixture(suffix: string) {
     idSuffix: suffix,
     source: "block",
     slotTemplateId: templateId,
+    expiresAt: opts.expiresAt,
   });
 
   const [enrollment] = await getDb()
@@ -221,6 +223,24 @@ describe("POST /api/cron/block-nudge-emails", () => {
       waiverSigned: true,
       waiverSignedAt: new Date(),
       waiverSignedBy: "Parent Test",
+    });
+
+    await triggerSweep();
+
+    const messages = await messagesForChild(fixture.childFirstName);
+    expect(messages.length).toBe(0);
+
+    const grant = await grantRow(fixture.grantId);
+    expect(grant.nudgeSentAt).toBeNull();
+  });
+
+  it("excludes a family whose credit grant has already expired", async () => {
+    if (!CRON_SECRET || !mockReady) return;
+    const suffix = `expired-${Date.now()}`;
+    // Already expired 1 day ago — no weeks left for "pick up your booked
+    // weeks" to promise.
+    const fixture = await makeCreditBackedFixture(suffix, {
+      expiresAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
     });
 
     await triggerSweep();

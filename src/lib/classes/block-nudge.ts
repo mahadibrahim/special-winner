@@ -26,6 +26,13 @@
  *   - the backing `class_credit_grants.nudge_sent_at IS NULL` — the one-shot
  *     gate, on the GRANT (not the enrollment): see the schema doc comment
  *     on `nudgeSentAt` for why the grant is the right home.
+ *   - `class_credit_grants.expires_at > now` — a grant whose credits already
+ *     expired has no weeks left for "pick up your booked weeks" to promise;
+ *     nudging a dead grant would send a parent to sign a waiver for classes
+ *     that no longer exist. (The enrollment itself isn't independently
+ *     ended by expiry until the NEXT materialize-cron pass 0 sweep, so this
+ *     can't be folded into the `status = 'active'` check above — it's a
+ *     genuinely separate condition on the grant.)
  *   - NO `drop_in_bookings` row exists, in ANY status, for (this child, any
  *     session of this enrollment's template) — a booking row can only ever
  *     exist if a waiver was already established at booking time (fresh
@@ -55,7 +62,7 @@
  * (mirrors `runTrialConvertEmails`) so one child's unexpected failure never
  * stops the rest of the batch.
  */
-import { and, eq, inArray, isNull, notExists, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull, notExists, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { classCreditGrants, classEnrollments, classSlotTemplates } from "@/lib/db/schema/classes";
 import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
@@ -83,7 +90,9 @@ export interface BlockNudgeCandidate {
  * check, and `nudge_sent_at IS NULL` is the one-shot gate. The waiver
  * predicate itself is applied by the caller, batched per organization.
  */
-export async function scanBlockNudgeCandidates(): Promise<BlockNudgeCandidate[]> {
+export async function scanBlockNudgeCandidates(
+  now: Date = new Date(),
+): Promise<BlockNudgeCandidate[]> {
   const db = getDb();
 
   const rows = await db
@@ -111,6 +120,7 @@ export async function scanBlockNudgeCandidates(): Promise<BlockNudgeCandidate[]>
       and(
         eq(classEnrollments.status, "active"),
         isNull(classCreditGrants.nudgeSentAt),
+        gt(classCreditGrants.expiresAt, now),
         notExists(
           db
             .select({ one: sql`1` })
@@ -144,7 +154,7 @@ export interface BlockNudgeResult {
  */
 export async function runBlockNudgeEmails(now: Date = new Date()): Promise<BlockNudgeResult> {
   const counters: BlockNudgeResult = { scanned: 0, sent: 0, skipped: 0 };
-  const candidates = await scanBlockNudgeCandidates();
+  const candidates = await scanBlockNudgeCandidates(now);
   counters.scanned = candidates.length;
   if (candidates.length === 0) return counters;
 
