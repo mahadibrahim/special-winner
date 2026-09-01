@@ -1,0 +1,1 @@
+ALTER TABLE "class_credit_grants" ADD COLUMN "nudge_sent_at" timestamp with time zone;

@@ -30,6 +30,7 @@ import { FeedbackDetractorAlertEmail } from "./templates/feedback-detractor-aler
 import { FeedbackRefereeRatingEmail } from "./templates/feedback-referee-rating";
 import { FirstGameRecapEmail } from "./templates/first-game-recap";
 import { TrialConvertEmail } from "./templates/trial-convert";
+import { ClassBlockNudgeEmail } from "./templates/class-block-nudge";
 import { resolveGoogleReviewUrl } from "@/lib/feedback/review-url";
 import {
   CAPTURE_INCENTIVE,
@@ -1625,6 +1626,103 @@ export async function sendTrialConvertEmail(
       className: params.className,
       tiers: params.tiers,
       ctaUrl: `${appUrl}/youth/classes#pricing`,
+    }),
+  );
+
+  const result = await sendEmail({
+    to: params.parentEmail,
+    subject,
+    html,
+    text,
+    from: fromForBrand("aspire"),
+  });
+
+  await logEmail({
+    userId: params.parentUserId,
+    emailType,
+    recipientEmail: params.parentEmail,
+    subject,
+    resendMessageId: result.messageId,
+    status: result.success ? "sent" : "failed",
+    metadata,
+  });
+
+  return result;
+}
+
+// ---- Block-abandon nudge (youth classes cron) ----
+
+export interface SendClassBlockNudgeParams {
+  parentUserId: string;
+  parentEmail: string;
+  parentFirstName: string | null;
+  childFirstName: string;
+  /** Identifies the CHILD, not the grant — matches the `child=` query param
+   *  choose-slot.astro reads (see src/lib/classes/block-nudge.ts). */
+  familyMemberId: string;
+  /** The enrollment's slot template — the `slot=` query param that puts
+   *  choose-slot.astro's island into BLOCK MODE. */
+  slotTemplateId: string;
+  className: string;
+}
+
+/**
+ * Block-abandon nudge — fired by /api/cron/block-nudge-emails for a
+ * credit-backed (block/pack) class enrollment that the materialization
+ * cron has never been able to auto-book because no guardian waiver is on
+ * file yet (the `skippedNoWaiver` cohort — see materialize.ts). One per
+ * grant EVER.
+ *
+ * Unlike sendTrialConvertEmail, this function does NOT itself gate on a
+ * dedupe check: the caller (runBlockNudgeEmails) already claims the
+ * one-shot stamp — an atomic `UPDATE ... WHERE nudge_sent_at IS NULL
+ * RETURNING` on class_credit_grants — BEFORE calling this function, so by
+ * the time this runs the send is already the winning claim. This function's
+ * only job is to render, send, and log — same as
+ * dispatchPaymentReminder/dispatchBookingConfirmation's shape for other
+ * stamp-then-send crons.
+ */
+export async function sendClassBlockNudgeEmail(
+  params: SendClassBlockNudgeParams,
+): Promise<{ success: boolean; error?: string }> {
+  const emailType = "class_block_nudge";
+  const subject = `Finish setting up ${params.childFirstName}'s class`;
+  const metadata = {
+    familyMemberId: params.familyMemberId,
+    slotTemplateId: params.slotTemplateId,
+  };
+
+  if (!isEmailConfigured()) {
+    console.warn("Email not configured, skipping class block-nudge email");
+    // Record the attempt anyway — the grant's nudgeSentAt stamp is already
+    // claimed by the caller regardless, so this is purely for observability
+    // (same pattern as sendTrialConvertEmail/sendWelcomeSeriesEmail).
+    await logEmail({
+      userId: params.parentUserId,
+      emailType,
+      recipientEmail: params.parentEmail,
+      subject,
+      status: "skipped",
+      metadata,
+    });
+    return { success: false, error: "Email not configured" };
+  }
+
+  // Classes are an Aspire-only product (no SoccerOne equivalent), so
+  // originForBrand("aspire") always returns null here — but computing it
+  // this way (instead of hardcoding the prod host) matches every sibling
+  // send*Email function's appUrl convention: it falls through to
+  // env.PUBLIC_APP_URL, which is the LOCAL/staging origin outside prod. A
+  // hardcoded prod URL would have emailed parents a production link from a
+  // staging or preview cron run (the bee1b4f9 lesson).
+  const appUrl = originForBrand("aspire") ?? env.PUBLIC_APP_URL;
+
+  const { html, text } = await renderEmail(
+    ClassBlockNudgeEmail({
+      parentFirstName: params.parentFirstName ?? "there",
+      childFirstName: params.childFirstName,
+      className: params.className,
+      ctaUrl: `${appUrl}/dashboard/family/choose-slot?child=${params.familyMemberId}&block=success&slot=${params.slotTemplateId}`,
     }),
   );
 

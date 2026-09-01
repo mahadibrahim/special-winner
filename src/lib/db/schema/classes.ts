@@ -192,6 +192,19 @@ export const classCreditGrants = pgTable(
     grantedByUserId: uuid("granted_by_user_id").references(() => users.id, {
       onDelete: "set null",
     }),
+    /**
+     * Stamp-then-send marker for the block-abandon nudge
+     * (src/lib/classes/block-nudge.ts): set the instant the ONE-EVER nudge
+     * email fires for this grant's enrollment, so a crashed send can't
+     * double-fire and a second cron tick can't re-claim an already-claimed
+     * grant. NULL = not yet nudged. Lives here (not on class_enrollments)
+     * because the grant, not the enrollment, is the thing that is "one per
+     * ever" scoped — an enrollment can end and a new one start against the
+     * same grant's leftover credits (see the end-enrollment float), and the
+     * nudge should not re-fire just because a fresh enrollment row exists
+     * for credits that already got their one nudge.
+     */
+    nudgeSentAt: timestamp("nudge_sent_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
