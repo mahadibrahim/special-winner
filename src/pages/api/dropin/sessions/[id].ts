@@ -22,9 +22,12 @@ import {
 import { venues } from "@/lib/db/schema/teams";
 import { users } from "@/lib/db/schema/users";
 import { hostProfiles } from "@/lib/db/schema/hosts";
+import { familyMembers } from "@/lib/db/schema/registrations";
 import { hasValidLiabilityWaiver } from "@/lib/consents/liability";
 import { resolveRate } from "@/lib/dropin/pricing";
 import { getActiveMembershipForUser } from "@/lib/dropin/booking";
+import { resolveClassWalkUpRate } from "@/lib/classes/class-walkup";
+import { reportClassRateNotConfigured } from "@/lib/classes/class-rate";
 import { stripe } from "@/lib/stripe/client";
 import { getSignedGetUrl } from "@/lib/storage/r2";
 
@@ -34,6 +37,27 @@ export const prerender = false;
 // already holds a walk-in hold sees "already booked" instead of a duplicate
 // "Book now" CTA on the public session page — see BookButton.tsx.
 const ACTIVE_BOOKING_STATUSES = ["confirmed", "waitlisted", "pending_payment", "pending_claim"];
+
+// Per-process dedupe for the "unpriced class" ops report. This endpoint is
+// polled every ~1.5s for up to 20s after a fresh paid booking (see
+// SessionDetail's success poll), so without this a single misconfigured
+// class session could file the same config-error report dozens of times per
+// visitor. Mirrors GET /api/kiosk/[locationSlug]/sessions's identical
+// per-session dedupe. Keyed by `${sessionId}:${need}` since the "session"
+// and "member" rate needs are independent config gaps.
+const reportedUnpricedClassNeeds = new Set<string>();
+
+function reportUnpricedClassOnce(
+  session: { id: string; organizationId: string },
+  need: "session" | "member",
+) {
+  const key = `${session.id}:${need}`;
+  if (reportedUnpricedClassNeeds.has(key)) return;
+  reportedUnpricedClassNeeds.add(key);
+  reportClassRateNotConfigured(session, need, {
+    component: "api/dropin/sessions/[id]",
+  });
+}
 
 const json = (body: unknown, status: number) =>
   new Response(JSON.stringify(body), {
@@ -146,6 +170,12 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
   // rate (resolveRate with no user/membership) so the guest booking CTA
   // can show a real price; for authenticated users it's their personal
   // (possibly member) rate.
+  //
+  // CLASS sessions ('kind' === "class") are priced from the SESSION's own
+  // rates via the shared class-walkup module below, never resolveRate + this
+  // rate card — that card is the ADULT PICKUP price list, and a parent's own
+  // adult membership (including unlimited_pickup) must never discount or
+  // zero out their kid's class. See src/lib/classes/class-walkup.ts.
   let resolvedAmountCents: number | null = null;
   let resolvedPaymentMethod: string | null = null;
   let alreadyBookedStatus: string | null = null;
@@ -154,10 +184,17 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
   // payment; see /api/dropin/bookings/[id]/waiver).
   let bookingId: string | null = null;
   let bookingWaiverSigned: boolean | null = null;
-  // The resolved booking's PARTICIPANT, needed only to answer "is this person
-  // already covered by the annual waiver?" — see bookingWaiverOnFile below.
+  // The resolved booking's actual paymentMethod — e.g. "pack_credit" when a
+  // class session was paid from a purchased credit grant. Powers the "Paid
+  // with class credit" badge; this is what ACTUALLY happened, distinct from
+  // resolvedAmountCents/resolvedPaymentMethod above (which quote what a NEW
+  // booking would cost right now).
+  let bookingPaymentMethod: string | null = null;
+  // The resolved booking's PARTICIPANT, needed to answer "is this person
+  // already covered by the annual waiver?" (bookingWaiverOnFile below) and
+  // to render/record the guardian assent sentence on the waiver card.
   let bookingFamilyMemberId: string | null = null;
-  if (rateCard) {
+  if (row.session.kind !== "class" && rateCard) {
     const membership = locals.user
       ? await getActiveMembershipForUser(
           locals.user.id,
@@ -177,6 +214,7 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
         status: dropInBookings.status,
         waiverSigned: dropInBookings.waiverSigned,
         familyMemberId: dropInBookings.familyMemberId,
+        paymentMethod: dropInBookings.paymentMethod,
       })
       .from(dropInBookings)
       .where(
@@ -192,6 +230,7 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
       bookingId = existing.id;
       bookingWaiverSigned = existing.waiverSigned;
       bookingFamilyMemberId = existing.familyMemberId;
+      bookingPaymentMethod = existing.paymentMethod;
     }
   }
 
@@ -211,6 +250,7 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
         status: dropInBookings.status,
         waiverSigned: dropInBookings.waiverSigned,
         familyMemberId: dropInBookings.familyMemberId,
+        paymentMethod: dropInBookings.paymentMethod,
       })
       .from(dropInBookings)
       .where(
@@ -225,6 +265,7 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
       bookingId = booked.id;
       bookingWaiverSigned = booked.waiverSigned;
       bookingFamilyMemberId = booked.familyMemberId;
+      bookingPaymentMethod = booked.paymentMethod;
     }
   }
 
@@ -247,6 +288,7 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
             status: dropInBookings.status,
             waiverSigned: dropInBookings.waiverSigned,
             familyMemberId: dropInBookings.familyMemberId,
+            paymentMethod: dropInBookings.paymentMethod,
           })
           .from(dropInBookings)
           .where(
@@ -261,12 +303,57 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
           bookingId = booked.id;
           bookingWaiverSigned = booked.waiverSigned;
           bookingFamilyMemberId = booked.familyMemberId;
+          bookingPaymentMethod = booked.paymentMethod;
         }
       }
     } catch {
       // Non-fatal: a bad/expired checkout id just leaves the status null and
       // the page falls back to its normal polling/timeout behavior.
     }
+  }
+
+  // CLASS quote, resolved now that bookingFamilyMemberId (if any) is known.
+  // An anonymous viewer, or an authed viewer with no known child on this
+  // session, has no participant to look up a child membership for — they
+  // see the PUBLIC session rate, taken directly off the session row (never
+  // the rate card). An AUTHED viewer whose existing booking on this session
+  // names a child may see the discounted member rate instead, exactly like
+  // the paid make-up door — server-verified via the child's own membership,
+  // never the booking parent's adult membership. A null rate on the session
+  // is a configuration error: report it for ops visibility and OMIT the
+  // quote fields rather than 409ing a public page (the report-only posture
+  // src/lib/classes/class-rate.ts documents for surfaces with no request to
+  // fail).
+  if (row.session.kind === "class") {
+    const childForQuote = locals.user ? bookingFamilyMemberId : null;
+    if (childForQuote) {
+      const quote = await resolveClassWalkUpRate(row.session, childForQuote, db);
+      if (quote.ok) {
+        resolvedAmountCents = quote.amountCents;
+        resolvedPaymentMethod = "card_online";
+      } else {
+        reportUnpricedClassOnce(row.session, quote.need);
+      }
+    } else if (row.session.sessionRateCents !== null) {
+      resolvedAmountCents = row.session.sessionRateCents;
+      resolvedPaymentMethod = "card_online";
+    } else {
+      reportUnpricedClassOnce(row.session, "session");
+    }
+  }
+
+  // The resolved booking's participant name — only needed to render/record
+  // the guardian assent sentence on the post-payment waiver card ("I am the
+  // parent or legal guardian of {name}…"). One follow-up lookup rather than
+  // joining familyMembers into every booking-lookup block above.
+  let bookingFamilyMemberName: string | null = null;
+  if (bookingFamilyMemberId) {
+    const [fm] = await db
+      .select({ firstName: familyMembers.firstName, lastName: familyMembers.lastName })
+      .from(familyMembers)
+      .where(eq(familyMembers.id, bookingFamilyMemberId))
+      .limit(1);
+    if (fm) bookingFamilyMemberName = `${fm.firstName} ${fm.lastName}`.trim();
   }
 
   // ANNUAL WAIVER, display side. `bookingWaiverSigned` is a PER-BOOKING flag:
@@ -315,6 +402,15 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
       bookingId,
       bookingWaiverSigned,
       bookingWaiverOnFile,
+      // The booking's ACTUAL paymentMethod (e.g. "pack_credit") — distinct
+      // from resolvedPaymentMethod above, which quotes what a NEW booking
+      // would cost right now. Powers the "Paid with class credit" badge.
+      bookingPaymentMethod,
+      // The booking's PARTICIPANT id/name — powers the guardian assent
+      // sentence on the waiver card ("I am the parent or legal guardian of
+      // {name}…"). Null for an adult drop-in (no family_members row).
+      bookingFamilyMemberId,
+      bookingFamilyMemberName,
       host,
     },
     200,

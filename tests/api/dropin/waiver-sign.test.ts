@@ -19,6 +19,8 @@ import {
   WAIVER_ON_FILE_ATTRIBUTION,
   WAIVER_VALID_DAYS,
 } from "@/lib/consents/liability";
+import { waiverAssentSentence } from "@/lib/consents/waiver-consent-language";
+import { DROPIN_WAIVER_ACCEPT_LABEL } from "@/lib/dropin/waiver-text";
 import { apiFetch, expectJson, getParentCookie } from "../setup/test-helpers";
 import {
   createTestDropInSession,
@@ -386,6 +388,84 @@ describe("POST /api/dropin/bookings/:id/waiver — annual liability waiver", () 
   });
 
   /**
+   * GUARDIAN ASSENT SENTENCE (spec M). A booking with a `family_member_id`
+   * is a CHILD booking, so the waiver card must show — and the record must
+   * quote — the guardian sentence naming the child, not the generic adult
+   * accept line. The consents row's `notes` folds `consentText` in as
+   * `text=<sentence>` (see recordLiabilityWaiver); asserting the substring
+   * there proves the canonical audit log agrees with the booking's own
+   * denormalized copy, not just one or the other.
+   */
+  it("(c) records the guardian assent sentence naming the child — matches what the card renders", async () => {
+    const cookie = await getParentCookie();
+    const childId = await newChild("GuardianSentence");
+    const bookingId = await insertChildBooking(childId);
+
+    const [child] = await getDb()
+      .select({ firstName: familyMembers.firstName, lastName: familyMembers.lastName })
+      .from(familyMembers)
+      .where(eq(familyMembers.id, childId));
+    const expectedText = waiverAssentSentence(
+      "guardian",
+      `${child.firstName} ${child.lastName}`.trim(),
+    );
+
+    const res = await apiFetch(`/api/dropin/bookings/${bookingId}/waiver`, {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({ waiverName: "Parent Test" }),
+    });
+    const json = await expectJson(res, 200);
+    expect(json.alreadySigned).toBe(false);
+
+    const [row] = await getDb()
+      .select()
+      .from(dropInBookings)
+      .where(eq(dropInBookings.id, bookingId));
+    expect(row.waiverConsentVariant).toBe("guardian");
+    expect(row.waiverConsentText).toBe(expectedText);
+    // Never the generic adult line — that would be quoting words the child
+    // booking's card never showed.
+    expect(row.waiverConsentText).not.toBe(DROPIN_WAIVER_ACCEPT_LABEL);
+
+    const rows = await liabilityRowsFor(childId);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].notes).toContain(`text=${expectedText}`);
+    expect(rows[0].notes).toContain("variant=guardian");
+  });
+
+  /**
+   * ADULT regression: an adult drop-in booking (no `family_member_id`) keeps
+   * the generic accept line unchanged — this endpoint's own doc says
+   * familyMemberId is only ever set on child bookings, so this is the
+   * "everyone else" branch the guardian sentence must not have touched.
+   */
+  it("(d) an ADULT booking (no family_member_id) still records the generic accept line", async () => {
+    const cookie = await getParentCookie();
+    const ctx = await freeSessionInDefaultOrg();
+    const bookRes = await apiFetch("/api/dropin/bookings", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({ sessionId: ctx.sessionId }),
+    });
+    const bookJson = await expectJson(bookRes, 200);
+
+    const res = await apiFetch(`/api/dropin/bookings/${bookJson.bookingId}/waiver`, {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({ waiverName: "Parent Test" }),
+    });
+    await expectJson(res, 200);
+
+    const [row] = await getDb()
+      .select()
+      .from(dropInBookings)
+      .where(eq(dropInBookings.id, bookJson.bookingId));
+    expect(row.waiverConsentVariant).toBe("adult");
+    expect(row.waiverConsentText).toBe(DROPIN_WAIVER_ACCEPT_LABEL);
+  });
+
+  /**
    * DISPLAY side of the same rule. `GET /api/dropin/sessions/:id` powers the
    * session page's "one more step before you play" WaiverCard, which keyed
    * only off the per-BOOKING `waiverSigned` flag — false on every new row,
@@ -439,6 +519,48 @@ describe("POST /api/dropin/bookings/:id/waiver — annual liability waiver", () 
       expect(json.bookingWaiverSigned).toBe(false);
       // Fails toward ASKING — the card still renders.
       expect(json.bookingWaiverOnFile).toBe(false);
+    });
+
+    it("returns the participant id + name for a child booking (powers the guardian sentence)", async () => {
+      const cookie = await getParentCookie();
+      const childId = await newChild("DisplayName");
+      const { sessionId } = await insertChildBookingWithSession(childId);
+
+      const [child] = await getDb()
+        .select({ firstName: familyMembers.firstName, lastName: familyMembers.lastName })
+        .from(familyMembers)
+        .where(eq(familyMembers.id, childId));
+
+      const res = await apiFetch(`/api/dropin/sessions/${sessionId}`, { cookie });
+      const json = await expectJson(res, 200);
+      expect(json.bookingFamilyMemberId).toBe(childId);
+      expect(json.bookingFamilyMemberName).toBe(
+        `${child.firstName} ${child.lastName}`.trim(),
+      );
+    });
+
+    it("reports the ACTUAL bookingPaymentMethod (e.g. pack_credit) distinct from the live quote", async () => {
+      const cookie = await getParentCookie();
+      const childId = await newChild("PackCreditBadge");
+      const ctx = await freeSessionInDefaultOrg();
+      const [booking] = await getDb()
+        .insert(dropInBookings)
+        .values({
+          sessionId: ctx.sessionId,
+          userId: parentUserId,
+          familyMemberId: childId,
+          status: "confirmed",
+          source: "online_booking",
+          paymentMethod: "pack_credit",
+          amountPaidCents: 0,
+          waiverSigned: false,
+        })
+        .returning();
+
+      const res = await apiFetch(`/api/dropin/sessions/${ctx.sessionId}`, { cookie });
+      const json = await expectJson(res, 200);
+      expect(json.bookingId).toBe(booking.id);
+      expect(json.bookingPaymentMethod).toBe("pack_credit");
     });
 
     it("reports false for an ADULT booking (no participant row to check)", async () => {

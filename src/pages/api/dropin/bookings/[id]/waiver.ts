@@ -36,7 +36,10 @@ import {
   hasValidLiabilityWaiver,
   recordLiabilityWaiver,
 } from "@/lib/consents/liability";
-import { waiverConsentVariant } from "@/lib/consents/waiver-consent-language";
+import {
+  waiverConsentVariant,
+  waiverAssentSentence,
+} from "@/lib/consents/waiver-consent-language";
 import { DROPIN_WAIVER_ACCEPT_LABEL } from "@/lib/dropin/waiver-text";
 import { getPostHogServer } from "@/lib/posthog-server";
 
@@ -95,6 +98,10 @@ export const POST: APIRoute = async ({
       // Non-null exactly when the participant is a dependent (the DB CHECK
       // makes parent/self an XOR), which is the guardian-variant signal.
       participantParentUserId: familyMembers.parentUserId,
+      // Only needed to render the guardian assent sentence's player name —
+      // null whenever familyMemberId is null (leftJoin finds no row).
+      participantFirstName: familyMembers.firstName,
+      participantLastName: familyMembers.lastName,
     })
     .from(dropInBookings)
     .innerJoin(dropInSessions, eq(dropInSessions.id, dropInBookings.sessionId))
@@ -178,6 +185,18 @@ export const POST: APIRoute = async ({
   const consentVariant = waiverConsentVariant(
     row.participantParentUserId !== null,
   );
+  // What SessionDetail's WaiverCard ACTUALLY shows beside the checkbox: the
+  // generic accept line for an adult drop-in, or the guardian assent
+  // sentence (naming the child) for a booking with a `family_member_id` —
+  // this endpoint's own doc notes familyMemberId is only ever set on child
+  // bookings. Record what was on screen, nothing else (#398's rule).
+  const participantName =
+    row.participantFirstName && row.participantLastName
+      ? `${row.participantFirstName} ${row.participantLastName}`.trim()
+      : undefined;
+  const consentText = row.familyMemberId
+    ? waiverAssentSentence(consentVariant, participantName)
+    : DROPIN_WAIVER_ACCEPT_LABEL;
 
   await db
     .update(dropInBookings)
@@ -186,10 +205,7 @@ export const POST: APIRoute = async ({
       waiverSignedAt: now,
       waiverSignedBy: waiverName,
       waiverConsentVariant: consentVariant,
-      // What this card ACTUALLY shows beside the checkbox — not the
-      // self-serve kiosk's adult/guardian sentence, which is a different
-      // screen. Record what was on screen, nothing else.
-      waiverConsentText: DROPIN_WAIVER_ACCEPT_LABEL,
+      waiverConsentText: consentText,
       updatedAt: now,
     })
     .where(eq(dropInBookings.id, id));
@@ -212,7 +228,7 @@ export const POST: APIRoute = async ({
           signedByUserId: row.userId,
           signedByName: waiverName,
           consentVariant,
-          consentText: DROPIN_WAIVER_ACCEPT_LABEL,
+          consentText,
           // From THIS request's context, never the body.
           ipAddress: clientAddress ?? null,
           userAgent: request.headers.get("user-agent"),

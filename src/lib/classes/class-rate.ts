@@ -28,6 +28,9 @@
  *   - POST /api/dropin/bookings                    (409)
  *   - POST /api/kiosk/[locationSlug]/walkin/start  (409)
  *   - POST /api/kiosk/[locationSlug]/walkin/payment(409)
+ *   - POST /api/dropin/claim/[token]               (409, "pay" action only)
+ *   - GET  /api/dropin/sessions/[id]               (report only — the quote
+ *                                                   fields are omitted)
  *   - GET  /api/kiosk/[locationSlug]/sessions      (report only — the
  *                                                   session is dropped from
  *                                                   the listing)

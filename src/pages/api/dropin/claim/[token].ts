@@ -34,11 +34,17 @@ import { getDb } from "@/lib/db";
 import { dropInBookings, dropInSessions, dropInRateCard } from "@/lib/db/schema/drop-in";
 import { findClaimByToken } from "@/lib/dropin/promotion";
 import { assignTeam } from "@/lib/dropin/team-assignment";
-import { resolveRate } from "@/lib/dropin/pricing";
+import { resolveRate, type ResolvedRate } from "@/lib/dropin/pricing";
 import { getActiveMembershipForUser } from "@/lib/dropin/booking";
 import { createDropInCheckoutSession } from "@/lib/dropin/create-checkout";
 import { computeSurchargeCents } from "@/lib/payments/surcharge";
 import { stripe } from "@/lib/stripe/client";
+import {
+  resolveClassWalkUpRate,
+  CLASS_REQUIRES_CHILD,
+  CLASS_REQUIRES_CHILD_MESSAGE,
+} from "@/lib/classes/class-walkup";
+import { classRateNotConfigured } from "@/lib/classes/class-rate";
 
 export const prerender = false;
 
@@ -79,13 +85,26 @@ function claimRequiresPayment(row: { stripeRefundId: string | null }): boolean {
  *  math to the checkout the pay action mints. A $0 rate means no card
  *  charge happens at all, so the flat card surcharge doesn't apply.
  *  Takes the already-loaded session row (see loadClaimWithSession) instead
- *  of re-fetching it. */
+ *  of re-fetching it.
+ *
+ *  CLASS sessions are priced from the session's own rates via the shared
+ *  class-walkup module, keyed to the booking's PARTICIPANT
+ *  (`familyMemberId`) — never `resolveRate` + the org rate card, which is
+ *  the ADULT PICKUP price list (see src/lib/classes/class-walkup.ts). A
+ *  null configured rate returns null here (display-only; the caller omits
+ *  `amountDueCents` rather than 409ing this GET). */
 async function resolveAmountDueCents(
-  row: { sessionId: string; userId: string },
+  row: { sessionId: string; userId: string; familyMemberId: string | null },
   session: typeof dropInSessions.$inferSelect | null,
 ): Promise<number | null> {
   if (!session) return null;
   const db = getDb();
+  if (session.kind === "class") {
+    if (!row.familyMemberId) return null;
+    const quote = await resolveClassWalkUpRate(session, row.familyMemberId, db);
+    if (!quote.ok) return null;
+    return totalDueCents(quote.amountCents);
+  }
   const [rateCard] = await db
     .select()
     .from(dropInRateCard)
@@ -186,18 +205,45 @@ export const POST: APIRoute = async ({ params, request, locals, url }) => {
     // Stripe and must work even when no Stripe client is configured.
     const db = getDb();
     if (!session) return json({ error: "Session not found" }, 404);
-    const [rateCard] = await db
-      .select()
-      .from(dropInRateCard)
-      .where(eq(dropInRateCard.organizationId, session.organizationId))
-      .limit(1);
-    if (!rateCard) return json({ error: "Rate card not configured" }, 500);
 
-    const membership = await getActiveMembershipForUser(
-      locals.user.id,
-      session.organizationId,
-    );
-    const rate = resolveRate(session, locals.user, membership, rateCard);
+    // CLASS sessions are priced from the session's own rates via the shared
+    // class-walkup module, keyed to the booking's PARTICIPANT — never
+    // `resolveRate` + the org rate card, which is the ADULT PICKUP price
+    // list (see src/lib/classes/class-walkup.ts). This mirrors the paid
+    // make-up door (POST /api/dropin/bookings) exactly.
+    let rate: ResolvedRate;
+    if (session.kind === "class") {
+      if (!row.familyMemberId) {
+        return json(
+          { error: { code: CLASS_REQUIRES_CHILD, message: CLASS_REQUIRES_CHILD_MESSAGE } },
+          422,
+        );
+      }
+      const quote = await resolveClassWalkUpRate(session, row.familyMemberId, db);
+      if (!quote.ok) {
+        return classRateNotConfigured(session, quote.need, {
+          component: "api/dropin/claim",
+        });
+      }
+      rate = {
+        amountCents: quote.amountCents,
+        paymentMethod: "card_online",
+        membershipId: quote.membershipId,
+      };
+    } else {
+      const [rateCard] = await db
+        .select()
+        .from(dropInRateCard)
+        .where(eq(dropInRateCard.organizationId, session.organizationId))
+        .limit(1);
+      if (!rateCard) return json({ error: "Rate card not configured" }, 500);
+
+      const membership = await getActiveMembershipForUser(
+        locals.user.id,
+        session.organizationId,
+      );
+      rate = resolveRate(session, locals.user, membership, rateCard);
+    }
     const totalCents = totalDueCents(rate.amountCents);
 
     // Zero-due claim: the claimant's CURRENT rate resolves to $0 (e.g. they
