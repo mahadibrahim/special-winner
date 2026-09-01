@@ -217,6 +217,26 @@ export const POST: APIRoute = async ({ request, locals, clientAddress }) => {
   const waiverNameRaw =
     typeof body.waiverName === "string" ? body.waiverName.trim() : "";
 
+  // Did a human actually sign on THIS request? Both fields, genuinely filled
+  // in — the validator's relaxation lets a covered renter through with
+  // partials (an accepted box and no name, or vice versa), and a partial is
+  // not a signature. This, not `waiverOnFile`, is what decides between
+  // recording a real signature and stamping the derived on-file attribution:
+  // see clause 4 of `recordLiabilityWaiver`'s caller contract.
+  //
+  // Acceptance is tested by TRUTHINESS, deliberately mirroring the
+  // validator's own `if (!body.waiverAccepted)` rather than narrowing to
+  // `=== true`: a payload the validator accepted as signed must not then be
+  // treated here as unsigned, or a real signature would land in the local
+  // columns with no consents row behind it.
+  //
+  // For an UNCOVERED renter the validator has already guaranteed this is
+  // true, so the pre-existing behaviour is unchanged; the flag only adds a
+  // branch for the covered-and-signed case (a stale form, or one rendered
+  // before the coverage probe answered).
+  const signatureSupplied = Boolean(body.waiverAccepted) && waiverNameRaw.length > 0;
+  const stampOnFile = waiverOnFile && !signatureSupplied;
+
   // Guest path: no session. Require contact fields; store renterUserId = null.
   let renterUserId: string | null = null;
   let renterName: string;
@@ -341,12 +361,12 @@ export const POST: APIRoute = async ({ request, locals, clientAddress }) => {
 
   const bookingBrand = brandFromHost(request.headers.get("host") ?? "");
 
-  // Annual waiver: a covered renter's booking is BORN already stamped —
-  // the shared "on file" attribution, with `waiverSignedAt` left NULL (a
-  // dated derived row would self-renew the very legacy fallback window it
-  // was derived from — see consents/liability.ts). An uncovered renter's
-  // typed signature is a FRESH one and stays dated (the `undefined` default
-  // in booking.ts).
+  // Annual waiver: a covered renter who signed NOTHING gets a booking BORN
+  // already stamped — the shared "on file" attribution, with
+  // `waiverSignedAt` left NULL (a dated derived row would self-renew the very
+  // legacy fallback window it was derived from — see consents/liability.ts).
+  // Any REAL typed signature, covered or not, stays dated (the `undefined`
+  // default in booking.ts) and keeps the name the human typed.
   const req = await createRentalRequest({
     organizationId: orgId,
     venueId,
@@ -364,19 +384,28 @@ export const POST: APIRoute = async ({ request, locals, clientAddress }) => {
     notes: null,
     createdByUserId: renterUserId,
     waiverSigned: true,
-    waiverSignedBy: waiverOnFile ? WAIVER_ON_FILE_ATTRIBUTION : waiverNameRaw,
-    waiverSignedAt: waiverOnFile ? null : undefined,
+    waiverSignedBy: stampOnFile ? WAIVER_ON_FILE_ATTRIBUTION : waiverNameRaw,
+    waiverSignedAt: stampOnFile ? null : undefined,
     brand: bookingBrand,
   });
   if (!req.ok) return json({ error: req.error }, 409);
 
-  // A FRESH signature (not covered by an existing annual waiver) also
-  // writes the canonical org-scoped consents row, so this renter is
-  // covered platform-wide for the next year — not just on this booking.
+  // Every real signature also writes the canonical org-scoped consents row,
+  // so this renter is covered platform-wide for the next year — not just on
+  // this booking. Keyed on the SIGNATURE, not on coverage: a covered renter
+  // who was still shown the form and typed their name really signed, and
+  // clause 4 of the caller contract says that gets recorded with its own
+  // date rather than collapsed into the on-file stamp. A submission with no
+  // signature fields writes nothing — that branch is a pure read.
+  //
+  // (Guests are excluded by `renterUserId`: with no account there is no
+  // `family_members` row for a person-scoped consent to hang on. Their local
+  // waiver* columns stay the audit record, unchanged.)
+  //
   // Best-effort: the local waiver* columns above are already the audit
   // record, so a consents failure here must not fail an otherwise-good
   // booking (mirrors the self-serve waiver endpoint's same tradeoff).
-  if (!waiverOnFile && renterUserId && renterFamilyMemberId) {
+  if (signatureSupplied && renterUserId && renterFamilyMemberId) {
     try {
       const consentVariant = waiverConsentVariant(false); // renter signs for themselves
       await recordLiabilityWaiver({

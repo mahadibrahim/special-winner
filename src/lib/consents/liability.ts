@@ -47,6 +47,10 @@ export const WAIVER_VALID_DAYS = LIABILITY_VALIDITY_DAYS;
  * signature taken at that moment — the wording clause 3 of
  * `recordLiabilityWaiver`'s caller contract prescribes.
  *
+ * Only for submissions that carry NO signature of their own. When a human
+ * really typed a name on the request, clause 4 applies instead and the row
+ * keeps that signature and its date.
+ *
  * Lives here, with the contract it belongs to, because SEVERAL surfaces stamp
  * it (the classes engine's on-file branch in book-child.ts, the paid drop-in
  * door's webhook fulfillment, and further doors as they migrate). Two
@@ -124,7 +128,25 @@ export function waiverWindowStart(now: Date = new Date()): Date {
  *    this call, and stamp your local `waiverSigned: true` with an "On file
  *    (annual waiver)" attribution. Only when it returns false do you show
  *    the waiver, collect the signature, and call this.
- * 4. Pass your transaction handle as `dbOrTx` so the consent lands or rolls
+ * 4. EXCEPTION to clause 3 — a signature that ACTUALLY HAPPENED is always
+ *    recorded, even when the person was already covered. Clause 3 gates the
+ *    ASK, not the record: if a stale client still rendered the waiver and a
+ *    human really typed their name and assented, the honest audit entry is
+ *    that signature, dated, with its own row — overwriting it with an
+ *    undated "On file" stamp would file a legal record of an event that did
+ *    not happen the way it is written down. The rentals booking door and the
+ *    registration create path (through both its API callers) take this
+ *    branch. The self-serve / kiosk waiver endpoint is where the posture was
+ *    first argued (see the NOTE on its `drop_in_booking` update) — it dates
+ *    the local columns for a covered signer but still skips the append, so it
+ *    is the one surface yet to adopt the whole clause.
+ *
+ *    The distinction is "did a human sign on THIS request", NOT "does the
+ *    payload mention a waiver": a submission carrying no signature fields is
+ *    a pure read and must keep the undated on-file stamp (clause 3), because
+ *    a dated derived copy would let `hasValidLiabilityWaiver`'s legacy
+ *    fallbacks renew the very window they were derived from.
+ * 5. Pass your transaction handle as `dbOrTx` so the consent lands or rolls
  *    back with the booking/registration it belongs to.
  *
  * The `book-child.ts` fresh-signature branch is the reference shape: it

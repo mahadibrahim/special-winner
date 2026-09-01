@@ -670,14 +670,15 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
    * live release on record.
    *
    * Covered → pay with NO waiver fields. The booking endpoint re-checks the
-   * same canonical predicate, but be honest about what that check DOES:
-   * `/api/dropin/bookings` consults `hasValidLiabilityWaiver` only to decide
-   * the STAMP (it sets `waiver_on_file: "1"` in the Stripe metadata that
-   * fulfillment reads). It does NOT refuse an unsigned paid make-up. So for
-   * THIS door the client is the only gate, which is exactly why the skip must
-   * be conservative: only strict `true` skips, and `false`/`undefined`/a
-   * summary that never loaded all fall through to ASKING. Do not weaken this
-   * to a truthiness check on the assumption that the server would catch it.
+   * same canonical predicate: it sets `waiver_on_file: "1"` in the Stripe
+   * metadata fulfillment reads when the child IS covered, and refuses with
+   * 422 `waiver_required` when the child is not and no signature came with
+   * the request. That server gate is a backstop, not a licence to loosen this
+   * one — `child.hasWaiverOnFile` comes off a summary snapshot that can be
+   * stale, and the difference between the two decisions is a dead-end error
+   * versus a panel the parent can act on. Only strict `true` skips;
+   * `false`/`undefined`/a summary that never loaded all fall through to
+   * ASKING. Do not weaken this to a truthiness check.
    */
   async function payOrCollectWaiver() {
     if (!exhaustedOffer) return
@@ -733,16 +734,14 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
               ? err.code
               : undefined
 
-        // The endpoint does not gate on the waiver TODAY (it consults the
-        // predicate only to stamp Stripe metadata — see payOrCollectWaiver's
-        // doc comment). But `payOrCollectWaiver` sends no signature whenever
-        // `hasWaiverOnFile` is true, and that flag comes off a summary
-        // snapshot that can be STALE — a waiver that lapsed between the
-        // dashboard load and this click, or a future server-side gate, would
-        // both surface here. Route it to the panel the user can actually act
-        // on instead of a dead "could not start payment". `waiverPurpose`
-        // stays "pay", so signing resubmits this same paid booking with the
-        // signature attached.
+        // The endpoint gates the child path server-side: no valid annual
+        // waiver and no signature on the request → 422. `payOrCollectWaiver`
+        // sends no signature whenever `hasWaiverOnFile` is true, and that flag
+        // comes off a summary snapshot that can be STALE — a waiver that
+        // lapsed between the dashboard load and this click lands exactly here.
+        // Route it to the panel the user can actually act on instead of a dead
+        // "could not start payment". `waiverPurpose` stays "pay", so signing
+        // resubmits this same paid booking with the signature attached.
         if (code === "waiver_required") {
           setPendingSession(exhaustedOffer.session)
           setWaiverPurpose("pay")

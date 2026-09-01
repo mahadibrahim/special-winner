@@ -16,8 +16,10 @@
  * Extracted rather than inlined twice because the two branches are not
  * symmetric in their failure modes, and getting either wrong is expensive:
  *
- *   - Skip the block but SEND a signature → harmless (the endpoint discards
- *     it for a covered renter), but pointless.
+ *   - Skip the block but SEND a signature → harmless, but dishonest: the
+ *     endpoint RECORDS every real typed signature (clause 4 of
+ *     `recordLiabilityWaiver`'s caller contract), so this logs a signing event
+ *     that never appeared on anyone's screen.
  *   - Skip the block and the server DISAGREES about coverage →
  *     `validateRentalBookingRequest` doesn't apply its relaxation and the
  *     renter hard-422s "waiver must be accepted to book" with no checkbox on

@@ -32,10 +32,14 @@
  * normal adult drop-in booking) → behavior is unchanged from before this
  * field existed.
  *
- * The child path is also the ANNUAL-WAIVER door: before minting the payment
+ * The child path is also the ANNUAL-WAIVER GATE: before minting the payment
  * this endpoint consults `hasValidLiabilityWaiver` and stamps the outcome
  * into the checkout metadata (`waiver_on_file`, or `waiver_ip`/`waiver_ua`
- * for a fresh signature) — see the block at the metadata site below.
+ * for a fresh signature) — and, when neither holds, refuses with
+ * `422 { error: "waiver_required" }` rather than selling a minor's class with
+ * no guardian release on record. See the block at the metadata site below.
+ * The ADULT path is deliberately not gated: sign before you PLAY, captured on
+ * the confirmation surface.
  *
  * Price for the child path is NOT taken from the client (the 402 quote is
  * informational only, from an unrelated request) and NOT from the parent's
@@ -424,15 +428,11 @@ export const POST: APIRoute = async ({ request, locals, url, clientAddress }) =>
     );
   }
 
-  if (!stripe) {
-    return json({ error: "Stripe not configured" }, 500);
-  }
-
   // ANNUAL WAIVER (src/lib/consents/liability.ts) — the CHILD paid door.
   //
-  // Two mutually exclusive outcomes, both encoded as checkout metadata so the
+  // Three outcomes. The first two are encoded as checkout metadata so the
   // webhook (which inserts the row, and has no request context of its own)
-  // can act on them:
+  // can act on them; the third refuses the sale outright:
   //
   //   waiver_on_file="1"  The child already holds a valid, org-scoped,
   //                       unexpired liability consent. Nobody signs anything
@@ -452,9 +452,27 @@ export const POST: APIRoute = async ({ request, locals, url, clientAddress }) =>
   //                       `recordLiabilityWaiver` runs at fulfillment, in a
   //                       webhook with no request to read.
   //
+  //   422 waiver_required Neither: no valid annual waiver AND no signature.
+  //                       A minor's class must not be SOLD with no guardian
+  //                       release on record — the door used to take the money
+  //                       and leave `waiverSigned: false`, making the client
+  //                       the only gate (and a stale `waiverOnFile` probe, or
+  //                       a direct POST, enough to slip past it). Same flat
+  //                       `{ error, message }` envelope and 422 the FREE door
+  //                       (/api/classes/book) already emits for this code, so
+  //                       the clients' single `waiver_required` branch —
+  //                       which re-submits WITH the signature — covers both.
+  //
+  // Placed AFTER pricing and the duplicate check (a misconfigured class or an
+  // existing booking is a more specific answer than "go sign"), and BEFORE
+  // Stripe is touched at all — including the `!stripe` guard below, so a
+  // Stripe-less environment still reports the real reason. Nothing is written
+  // either way: the booking row is inserted by the webhook, which cannot fire
+  // for a payment that was never created.
+  //
   // Adult drop-in bookings (no familyMemberId) are untouched: the annual
   // predicate is keyed on a `family_members` row, and the adult surface
-  // captures its waiver post-payment.
+  // captures its waiver post-payment (sign before you PLAY).
   const waiverMetadata: Record<string, string> = {};
   if (familyMemberId) {
     if (waiverProvided) {
@@ -464,7 +482,19 @@ export const POST: APIRoute = async ({ request, locals, url, clientAddress }) =>
       if (ua) waiverMetadata.waiver_ua = ua.slice(0, STRIPE_METADATA_VALUE_MAX);
     } else if (await hasValidLiabilityWaiver(familyMemberId, session.organizationId, db)) {
       waiverMetadata.waiver_on_file = "1";
+    } else {
+      return json(
+        {
+          error: "waiver_required",
+          message: "A signed guardian waiver is required",
+        },
+        422,
+      );
     }
+  }
+
+  if (!stripe) {
+    return json({ error: "Stripe not configured" }, 500);
   }
 
   // Inline deferred Payment Element (current UI): mint a bare PaymentIntent

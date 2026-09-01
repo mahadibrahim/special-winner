@@ -879,11 +879,12 @@ test.describe("Drop-in door — annual liability waiver", () => {
  *     waiver fields on the wire (the same two assertions scenario 6 makes for
  *     the drop-in door).
  *
- * The covered half matters disproportionately on THIS door: unlike the
- * classes booking endpoint, `/api/dropin/bookings` consults
- * `hasValidLiabilityWaiver` only to decide the Stripe metadata STAMP — it
- * never refuses an unsigned paid make-up. The client is the only gate, so
- * there is no server backstop to catch a regression in either direction.
+ * The covered half matters disproportionately on THIS door. The endpoint now
+ * has a server gate of its own (an uncovered child path with no signature
+ * 422s `waiver_required` before Stripe), so a regression in the ASKING
+ * direction is caught server-side — but nothing server-side can catch the
+ * opposite regression, a client that asks a covered family every single time.
+ * That is what the covered half below pins.
  */
 test.describe("Make-up modal — paid 402 path is waiver-gated", () => {
   test.setTimeout(120_000);
