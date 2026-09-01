@@ -132,7 +132,17 @@ export function WalkInWizard({ locationSlug, onToken, onBack }: Props) {
       });
       const body = await res.json();
       if (!res.ok) {
-        setError(body.error ?? `Could not start booking (${res.status})`);
+        // `error` is a machine code on some responses (the class-rate guard's
+        // 409 `class_rate_not_configured`, src/lib/classes/class-rate.ts),
+        // which carry the human sentence in `message`. Prefer that, and never
+        // render an object.
+        const human =
+          typeof body.message === "string"
+            ? body.message
+            : typeof body.error === "string"
+              ? body.error
+              : null;
+        setError(human ?? `Could not start booking (${res.status})`);
         setBusy(false);
         return;
       }

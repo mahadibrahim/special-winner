@@ -22,6 +22,8 @@ import { resolveSigner, asSelfServiceKind } from "@/lib/check-in/resolve-signer"
 import { resolvePhotoTarget, hasPhotoOnFile } from "@/lib/check-in/photo-target";
 import { hasValidLiabilityWaiver } from "@/lib/consents/liability";
 import { resolveRate, DEFAULT_WALK_UP_RATE_CENTS } from "@/lib/dropin/pricing";
+import { reportClassRateNotConfigured } from "@/lib/classes/class-rate";
+import { resolveClassWalkUpRate } from "@/lib/classes/class-walkup";
 import { formatEmailDateTime, DEFAULT_TIMEZONE } from "@/lib/email/format";
 
 export interface SelfServeContextBody {
@@ -107,6 +109,11 @@ export async function buildSelfServeContext(
         status: dropInBookings.status,
         waiverSigned: dropInBookings.waiverSigned,
         stripeRefundId: dropInBookings.stripeRefundId,
+        // The CHILD on the booking (null for adult participants) — a class is
+        // priced for the child, not the booker. See the payment branch below.
+        familyMemberId: dropInBookings.familyMemberId,
+        sessionId: dropInSessions.id,
+        kind: dropInSessions.kind,
         startsAt: dropInSessions.startsAt,
         venueName: venues.name,
         timezone: locations.timezone,
@@ -142,21 +149,48 @@ export async function buildSelfServeContext(
       outstanding.payment = b.status === "pending_payment";
       if (outstanding.payment) {
         // Amount must match what /api/kiosk/[locationSlug]/walkin/payment
-        // will actually charge — the SAME resolveRate(..., "walk_up") path
-        // (pricing.ts), NOT check-in/event.ts's walkUp ?? session fallback
-        // chain: the two diverge when the session has no walk-up override
-        // (resolveRate falls back to the rate card's default walk-up rate,
-        // not the session rate). Read-only here — payment.ts upserts the
-        // rate card on demand; a GET shouldn't write, so mirror its
-        // missing-card fallback constant instead.
-        const [rateCard] = await db
-          .select()
-          .from(dropInRateCard)
-          .where(eq(dropInRateCard.organizationId, b.organizationId))
-          .limit(1);
-        amountDueCents = rateCard
-          ? resolveRate(b, null, null, rateCard, "walk_up").amountCents
-          : DEFAULT_WALK_UP_RATE_CENTS;
+        // will actually charge — same two branches, same order.
+        if (b.kind === "class") {
+          // CLASS: the session's own class rates, member rate only when the
+          // CHILD holds an active membership. Never the org drop_in_rate_card
+          // (adult pickup pricing) — see src/lib/classes/class-walkup.ts.
+          // A class hold always names a child (walkin/start refuses
+          // otherwise); a legacy row without one, or a session missing its
+          // rate, is a config error rather than a price we may invent —
+          // surface it as a 409 (the same code the pay endpoint returns) with
+          // the same ops visibility, instead of quoting $0 or an adult rate.
+          const quote = b.familyMemberId
+            ? await resolveClassWalkUpRate(b, b.familyMemberId, db)
+            : ({ ok: false, need: "session" } as const);
+          if (!quote.ok) {
+            return {
+              ok: false,
+              status: 409,
+              body: reportClassRateNotConfigured(
+                { id: b.sessionId, organizationId: b.organizationId },
+                quote.need,
+                { component: "lib/self-serve/build-context" },
+              ),
+            };
+          }
+          amountDueCents = quote.amountCents;
+        } else {
+          // PICKUP: the SAME resolveRate(..., "walk_up") path (pricing.ts),
+          // NOT check-in/event.ts's walkUp ?? session fallback chain: the two
+          // diverge when the session has no walk-up override (resolveRate
+          // falls back to the rate card's default walk-up rate, not the
+          // session rate). Read-only here — payment.ts upserts the rate card
+          // on demand; a GET shouldn't write, so mirror its missing-card
+          // fallback constant instead.
+          const [rateCard] = await db
+            .select()
+            .from(dropInRateCard)
+            .where(eq(dropInRateCard.organizationId, b.organizationId))
+            .limit(1);
+          amountDueCents = rateCard
+            ? resolveRate(b, null, null, rateCard, "walk_up").amountCents
+            : DEFAULT_WALK_UP_RATE_CENTS;
+        }
         locationSlug = b.locationSlug;
       }
     }

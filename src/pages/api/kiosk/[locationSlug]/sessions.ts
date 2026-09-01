@@ -5,6 +5,11 @@
  * drop-in sessions that HAVE NOT ENDED YET, across every space in this
  * facility, with computed available capacity (capacity minus confirmed
  * bookings). A finished session is not something a walk-in can pay to join.
+ *
+ * Class sessions (`kind='class'`) appear here too — the desk can walk a child
+ * into one — but only when the session carries its own `sessionRateCents`.
+ * An unpriced class has no honest price to offer at the kiosk; see the filter
+ * below.
  */
 import type { APIRoute } from "astro";
 import { and, eq, gt, gte, inArray, lt, sql } from "drizzle-orm";
@@ -12,6 +17,7 @@ import { getDb } from "@/lib/db";
 import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
 import { venues } from "@/lib/db/schema/teams";
 import { requireKioskLocation } from "@/lib/check-in/kiosk-auth";
+import { reportClassRateNotConfigured } from "@/lib/classes/class-rate";
 import { dayBoundsInTz } from "@/lib/time/day-bounds";
 
 export const prerender = false;
@@ -37,6 +43,8 @@ export const GET: APIRoute = async ({ params, locals }) => {
   const sessions = await getDb()
     .select({
       id: dropInSessions.id,
+      organizationId: dropInSessions.organizationId,
+      kind: dropInSessions.kind,
       startsAt: dropInSessions.startsAt,
       endsAt: dropInSessions.endsAt,
       title: dropInSessions.sportOrClassLabel,
@@ -62,7 +70,25 @@ export const GET: APIRoute = async ({ params, locals }) => {
     )
     .orderBy(dropInSessions.startsAt);
 
-  const ids = sessions.map((s) => s.id);
+  // A CLASS session with no `sessionRateCents` of its own has no price the
+  // kiosk may quote — the org `drop_in_rate_card` is the ADULT PICKUP price
+  // list and must never stand in for a kids' class (see
+  // src/lib/classes/class-rate.ts). /walkin/start 409s such a session, so
+  // offering it here would only ever produce a dead end at the desk: drop it
+  // from the list, and report the config error so a half-configured template
+  // surfaces in ops rather than as a puzzled attendant. Pickup sessions are
+  // untouched — an unpriced pickup legitimately falls back to that card.
+  const bookable = sessions.filter((s) => {
+    if (s.kind !== "class" || s.sessionRateCents !== null) return true;
+    reportClassRateNotConfigured(
+      { id: s.id, organizationId: s.organizationId },
+      "session",
+      { component: "api/kiosk/sessions" },
+    );
+    return false;
+  });
+
+  const ids = bookable.map((s) => s.id);
   const counts =
     ids.length > 0
       ? await getDb()
@@ -85,7 +111,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
 
   return json(
     {
-      sessions: sessions.map((s) => ({
+      sessions: bookable.map((s) => ({
         id: s.id,
         startsAt: s.startsAt.toISOString(),
         endsAt: s.endsAt.toISOString(),

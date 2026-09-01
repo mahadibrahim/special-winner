@@ -24,7 +24,13 @@
  *      selfUserId, never birthDate, so this endpoint intentionally skips it
  *      for the adult walk-in path rather than needing a sentinel DOB like
  *      add-walkup-to-pickup.ts's ADULT_SENTINEL_DOB).
- *   6. Resolve amountDueCents from session override or org rate card
+ *   6. Resolve amountDueCents. PICKUP: session override or org rate card
+ *      (walk-up channel). CLASS (`kind='class'`): the session's own class
+ *      rates only — member rate when the CHILD holds an active membership,
+ *      otherwise the public class rate; never the rate card (that card is the
+ *      adult pickup price list). A class also REQUIRES a child participant
+ *      and must pass the class-slot template's age gate — both enforced
+ *      before any row is written. See src/lib/classes/class-walkup.ts.
  *   7. Inside one transaction: reject (409) if the session is already at
  *      capacity (checkSessionCapacityLocked — confirmed + pending_payment +
  *      pending_claim all count as occupying a seat, so a kiosk attendant
@@ -66,6 +72,15 @@ import { requireKioskLocation } from "@/lib/check-in/kiosk-auth";
 import { mintToken } from "@/lib/check-in/tokens-db";
 import { resolveRate, DEFAULT_WALK_UP_RATE_CENTS } from "@/lib/dropin/pricing";
 import { checkSessionCapacityLocked } from "@/lib/dropin/booking";
+import { classRateNotConfigured } from "@/lib/classes/class-rate";
+import {
+  CLASS_AGE_INELIGIBLE,
+  CLASS_AGE_INELIGIBLE_MESSAGE,
+  CLASS_REQUIRES_CHILD,
+  CLASS_REQUIRES_CHILD_DESK_MESSAGE,
+  isClassWalkUpAgeIneligible,
+  resolveClassWalkUpRate,
+} from "@/lib/classes/class-walkup";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
 
 export const prerender = false;
@@ -211,28 +226,43 @@ export const POST: APIRoute = async ({ params, request, clientAddress, locals })
     return json({ error: "That session has already ended. Please pick another." }, 422);
   }
 
-  // --- Resolve rate ---
-  let [rateCard] = await db
-    .select()
-    .from(dropInRateCard)
-    .where(eq(dropInRateCard.organizationId, location.organizationId))
-    .limit(1);
-  if (!rateCard) {
-    // Ensure a rate card exists (upsert)
-    await db
-      .insert(dropInRateCard)
-      .values({ organizationId: location.organizationId })
-      .onConflictDoNothing();
-    [rateCard] = await db
-      .select()
-      .from(dropInRateCard)
-      .where(eq(dropInRateCard.organizationId, location.organizationId))
-      .limit(1);
+  // --- CLASS eligibility (kind='class' only) -----------------------------
+  // A class is a kids' product: every class booking path (allotment, trial,
+  // credit, paid make-up) is keyed to a `family_members` row, and the online
+  // door refuses a bare adult booking with `class_requires_child`. The desk
+  // must refuse it too — otherwise an adult could walk themselves into a
+  // children's class at the kiosk, priced (before this change) off the adult
+  // pickup rate card. At this endpoint the child is signalled by minor
+  // status: a minor contact carries a `parent` payload and gets the
+  // `family_members` row created below; an adult contact never does.
+  if (session.kind === "class") {
+    if (!isMinor) {
+      return json(
+        { error: CLASS_REQUIRES_CHILD_DESK_MESSAGE, code: CLASS_REQUIRES_CHILD },
+        422,
+      );
+    }
+    // Age gate against the class-slot template, anchored on the session the
+    // walk-up is buying. `contactDob` is always present for a minor (checked
+    // above). A template with no min/max, or a session with no template,
+    // skips the gate — see isClassWalkUpAgeIneligible.
+    if (await isClassWalkUpAgeIneligible(session, contactDob!, db)) {
+      return json(
+        { error: CLASS_AGE_INELIGIBLE_MESSAGE, code: CLASS_AGE_INELIGIBLE },
+        422,
+      );
+    }
+    // Cheap pre-check, before any row is written: a class carrying NEITHER
+    // rate can't be priced for anybody, member or not. The real, membership-
+    // sensitive decision happens once the person exists (see "Resolve rate"
+    // below) — this only spares a doomed request the user + family_members
+    // rows it would otherwise leave behind on its way to the same 409.
+    if (session.sessionRateCents === null && session.memberRateCents === null) {
+      return classRateNotConfigured(session, "session", {
+        component: "api/kiosk/walkin/start",
+      });
+    }
   }
-  // Kiosk walk-ins always pay the walk-up rate (no membership lookup here).
-  const amountDueCents = rateCard
-    ? resolveRate(session, null, null, rateCard, "walk_up").amountCents
-    : DEFAULT_WALK_UP_RATE_CENTS;
 
   // --- Create or find booker user ---
   // For adults: contact IS the booker.
@@ -286,6 +316,53 @@ export const POST: APIRoute = async ({ params, request, clientAddress, locals })
       birthDate: contactDob!,
     });
     bookingFamilyMemberId = person.id;
+  }
+
+  // --- Resolve rate ------------------------------------------------------
+  // Deliberately AFTER the person resolution above: a class is priced for the
+  // CHILD (their membership, not the booker's), so the price can't be quoted
+  // until the `family_members` row exists.
+  let amountDueCents: number;
+  if (session.kind === "class") {
+    // CLASS: the price comes from the session (copied down from its
+    // class-slot template) and from the CHILD's own membership — never from
+    // `resolveRate` + the org `drop_in_rate_card`, which is the ADULT PICKUP
+    // price list. See src/lib/classes/class-walkup.ts. The rate-card
+    // read/upsert below is skipped entirely on this branch: there is nothing
+    // in that card a class may consult, including its DEFAULT_WALK_UP_RATE_CENTS
+    // fallback. A class with no rate configured is a config error → 409,
+    // before any hold is created.
+    // bookingFamilyMemberId is non-null here: `session.kind === "class"`
+    // required isMinor above, and every minor gets a person row.
+    const quote = await resolveClassWalkUpRate(session, bookingFamilyMemberId!, db);
+    if (!quote.ok) {
+      return classRateNotConfigured(session, quote.need, {
+        component: "api/kiosk/walkin/start",
+      });
+    }
+    amountDueCents = quote.amountCents;
+  } else {
+    let [rateCard] = await db
+      .select()
+      .from(dropInRateCard)
+      .where(eq(dropInRateCard.organizationId, location.organizationId))
+      .limit(1);
+    if (!rateCard) {
+      // Ensure a rate card exists (upsert)
+      await db
+        .insert(dropInRateCard)
+        .values({ organizationId: location.organizationId })
+        .onConflictDoNothing();
+      [rateCard] = await db
+        .select()
+        .from(dropInRateCard)
+        .where(eq(dropInRateCard.organizationId, location.organizationId))
+        .limit(1);
+    }
+    // Kiosk walk-ins always pay the walk-up rate (no membership lookup here).
+    amountDueCents = rateCard
+      ? resolveRate(session, null, null, rateCard, "walk_up").amountCents
+      : DEFAULT_WALK_UP_RATE_CENTS;
   }
 
   // --- Annual waiver: is this participant already covered? -------------

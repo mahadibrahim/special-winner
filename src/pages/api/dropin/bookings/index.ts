@@ -63,6 +63,10 @@ import { resolveRate } from "@/lib/dropin/pricing";
 import { getActiveChildMembership } from "@/lib/memberships/get-child-membership";
 import { classRateNotConfigured } from "@/lib/classes/class-rate";
 import {
+  CLASS_REQUIRES_CHILD,
+  CLASS_REQUIRES_CHILD_MESSAGE,
+} from "@/lib/classes/class-walkup";
+import {
   createConfirmedBookingFreePath,
   getActiveMembershipForUser,
 } from "@/lib/dropin/booking";
@@ -262,8 +266,11 @@ export const POST: APIRoute = async ({ request, locals, url, clientAddress }) =>
     return json(
       {
         error: {
-          code: "class_requires_child",
-          message: "Class sessions must be booked for a child (familyMemberId required)",
+          // Same code + copy the WALK-UP surfaces refuse an adult-self class
+          // attempt with (src/lib/classes/class-walkup.ts) — one vocabulary
+          // across both doors.
+          code: CLASS_REQUIRES_CHILD,
+          message: CLASS_REQUIRES_CHILD_MESSAGE,
         },
       },
       422,
