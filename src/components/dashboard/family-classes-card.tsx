@@ -350,9 +350,15 @@ function EndEnrollmentButton({
     const creditsLine = enrollment.creditsExpireAt
       ? ` The remaining sessions become credits you can use on any class until ${formatShortDate(enrollment.creditsExpireAt)}.`
       : ""
+    // "with your membership or block credits" is load-bearing, not padding:
+    // the release deliberately spares PAID make-ups (see the scope boundary in
+    // `releaseFutureEnrollmentSeats`), so a flat "any classes already booked
+    // are cancelled" would tell a family their paid session is gone when it
+    // is still theirs to attend.
     const confirmed = window.confirm(
       `End ${child.name}'s enrollment in ${enrollment.templateName}? Their weekly spot is ` +
-        `released and any classes already booked on it are cancelled.${creditsLine}`,
+        `released and any classes already booked on it with your membership or block ` +
+        `credits are cancelled — classes you paid for separately are unaffected.${creditsLine}`,
     )
     if (!confirmed) return
 

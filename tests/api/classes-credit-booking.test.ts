@@ -386,6 +386,58 @@ describe("POST /api/classes/book — pack credit redemption", () => {
     expect((await afterRes.json()).paymentMethod).toBe("pack_credit");
   });
 
+  it("reports NO floated credits when the backing grant has already expired", async () => {
+    // The toast built from this response promises credits "you can use on any
+    // class until <date>". A family quitting in the window between their
+    // block's expiry and the cron's sweep still has a grant with a real
+    // count-derived balance on it — and not one session of it is bookable
+    // (`selectRedeemableGrant` refuses `expiresAt <= at`). Reporting that
+    // balance would promise credits, in the past tense, that nothing can
+    // spend. The spendability filter (`remaining > 0 && expiresAt > now`) is
+    // the same one /api/classes/summary applies to the credits it renders.
+    const db = getDb();
+    const suffix = `${Date.now()}-c11`;
+    const childId = await newChild(`CreditExpiredEnd-${suffix}`);
+    const templateId = await createTestClassTemplate({
+      organizationId,
+      venueId,
+      name: `Credit-ExpiredEnd-${suffix}`,
+      capacity: 10,
+      active: false,
+    });
+    const grantId = await createCreditGrant({
+      familyMemberId: childId,
+      sessionsGranted: 3,
+      idSuffix: suffix,
+      source: "block",
+      slotTemplateId: templateId,
+      expiresAt: hoursFromNow(-1), // lapsed an hour ago; sweep hasn't run
+    });
+    const [enrollment] = await db
+      .insert(classEnrollments)
+      .values({ slotTemplateId: templateId, familyMemberId: childId, creditGrantId: grantId })
+      .returning({ id: classEnrollments.id });
+
+    const res = await apiFetch(`/api/classes/enrollments/${enrollment.id}`, {
+      method: "DELETE",
+      cookie,
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      ok: true,
+      creditsFloated: 0,
+      creditsExpireAt: null,
+    });
+
+    // A dead grant is left pinned: floating it changes nothing anyone can
+    // spend, and leaving the pin is the smaller write.
+    const [after] = await db
+      .select({ slotTemplateId: classCreditGrants.slotTemplateId })
+      .from(classCreditGrants)
+      .where(eq(classCreditGrants.id, grantId));
+    expect(after.slotTemplateId).toBe(templateId);
+  });
+
   it("will NOT spend a grant on a session that starts after the grant expires", async () => {
     // Redeemability is judged against the SESSION START, not the wall clock
     // (`selectRedeemableGrant`'s `at` opt). A block grant expires at the end

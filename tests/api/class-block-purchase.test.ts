@@ -1298,6 +1298,72 @@ describe("DELETE /api/classes/enrollments/:id on a credit-backed enrollment", ()
       })?.grantId,
     ).toBe(grant.id);
   });
+
+  it("floats credits stranded by an ABSORBED enrollment insert (grant-less enrollment)", async () => {
+    // The gap a grant-keyed un-pin leaves. Buying a block on a slot the child
+    // ALREADY holds is a supported flow (see "enrollment absorbed" above): the
+    // grant lands pinned, the duplicate enrollment insert is swallowed by the
+    // partial unique index, and the SURVIVING enrollment carries
+    // `creditGrantId: null`. Quitting then un-pinned nothing, stranding paid
+    // credits pinned to a slot the child no longer attends — unspendable
+    // anywhere. Keying the un-pin on (child, template) instead is the fix.
+    const db = getDb();
+    const childId = await createTestChild(parentUserId, `BlockStranded-${RUN}`);
+    const { tierId } = await resolveClassTestFixtures();
+    const membershipId = await createTestChildMembership({
+      userId: parentUserId,
+      familyMemberId: childId,
+      organizationId,
+      tierId,
+      idSuffix: `block_stranded_${RUN}`,
+    });
+    const strandedTemplateId = await createTemplate({
+      name: `Block-Stranded-${RUN}`,
+      weekday: templateWeekday,
+      blockRateCents: BLOCK_RATE_CENTS,
+    });
+    const [existing] = await db
+      .insert(classEnrollments)
+      .values({ slotTemplateId: strandedTemplateId, familyMemberId: childId, membershipId })
+      .returning({ id: classEnrollments.id });
+    createdEnrollmentIds.push(existing.id);
+
+    const checkoutSessionId = `cs_test_block_${RUN}_stranded`;
+    await handleClassBlockPurchaseComplete(
+      makeBlockCheckoutSession({
+        checkoutSessionId,
+        familyMemberId: childId,
+        slotTemplateId: strandedTemplateId,
+        sessionsGranted: 3,
+      }),
+    );
+    const [grant] = await grantsFor(checkoutSessionId);
+    expect(grant.slotTemplateId).toBe(strandedTemplateId);
+    // The precondition that makes this a distinct bug: no enrollment row
+    // points at this grant.
+    expect(await enrollmentsForGrant(grant.id)).toHaveLength(0);
+
+    const res = await apiFetch(`/api/classes/enrollments/${existing.id}`, {
+      method: "DELETE",
+      cookie,
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      ok: true,
+      creditsFloated: 3,
+      creditsExpireAt: grant.expiresAt.toISOString(),
+    });
+
+    const [floated] = await db
+      .select({
+        slotTemplateId: classCreditGrants.slotTemplateId,
+        expiresAt: classCreditGrants.expiresAt,
+      })
+      .from(classCreditGrants)
+      .where(eq(classCreditGrants.id, grant.id));
+    expect(floated.slotTemplateId).toBeNull();
+    expect(floated.expiresAt.getTime()).toBe(grant.expiresAt.getTime());
+  });
 });
 
 describe("template lookup sanity", () => {
