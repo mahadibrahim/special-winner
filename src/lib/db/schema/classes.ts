@@ -23,7 +23,11 @@ export const classEnrollmentStatusEnum = pgEnum("class_enrollment_status", [
   "ended",
 ]);
 
-export const classCreditSourceEnum = pgEnum("class_credit_source", ["pack", "block"]);
+// "comp" = admin-issued goodwill credits (service recovery, a missed class we
+// owe back). No Stripe Checkout Session behind them — hence the nullable
+// stripe_checkout_session_id and the grantedByUserId attribution column on
+// class_credit_grants below.
+export const classCreditSourceEnum = pgEnum("class_credit_source", ["pack", "block", "comp"]);
 
 /**
  * A recurring weekly class slot ("Soccer Skills 6–8, Tue 17:00, cap 12").
