@@ -549,10 +549,16 @@ describe("Paid child door — annual waiver stamping at the booking endpoint", (
     expect(await bookingForSession(sessionId)).toBeUndefined();
   });
 
-  it("does NOT gate the ADULT pickup door — sign-before-you-play stays post-payment", async () => {
-    // The gate is keyed to the CHILD path (`familyMemberId`). An adult pickup
-    // booking with no waiver fields must still reach payment, exactly as it
-    // did before — its waiver is captured on the confirmation surface.
+  // No Stripe needed: the waiver gate is keyed to the CHILD path
+  // (`familyMemberId`) and fires (or doesn't) BEFORE any Stripe call — see
+  // bookings/index.ts, where the `waiver_required` 422 is returned well
+  // ahead of the PaymentIntent mint. That's the actual regression this test
+  // pins (an adult pickup booking must never be treated as needing a
+  // waiver), so it must run unconditionally on CI, which has no Stripe keys
+  // (see ci-api-tests-have-no-stripe). The exact success shape — 200 with a
+  // real clientSecret, which DOES require Stripe — is asserted separately
+  // below under itWithStripe.
+  it("does NOT gate the ADULT pickup door — sign-before-you-play stays post-payment (waiver invariance)", async () => {
     const pickup = await createTestDropInSession({
       organizationId,
       venueId,
@@ -567,16 +573,42 @@ describe("Paid child door — annual waiver stamping at the booking endpoint", (
       body: JSON.stringify({ sessionId: pickup.sessionId, paymentFlow: "embedded" }),
     });
     const body = await res.json();
-    // The EXACT pre-change outcome, not merely "not 422": an adult pickup with
-    // no waiver fields mints a PaymentIntent and returns the priced 200. A
-    // weaker assertion would still pass if the gate leaked into this path and
-    // turned it into some other error.
-    expect(res.status, JSON.stringify(body)).toBe(200);
-    expect(body.paymentRequired).toBe(true);
-    expect(typeof body.clientSecret).toBe("string");
-    expect(body.amountCents).toBe(MEMBER_RATE_CENTS);
-    expect(body.error).toBeUndefined();
+    expect(res.status, JSON.stringify(body)).not.toBe(422);
+    expect(body.error).not.toBe("waiver_required");
   });
+
+  itWithStripe(
+    "adult pickup with no waiver fields mints a PaymentIntent and returns the priced 200",
+    async () => {
+      // The gate is keyed to the CHILD path (`familyMemberId`). An adult
+      // pickup booking with no waiver fields must still reach payment,
+      // exactly as it did before — its waiver is captured on the
+      // confirmation surface.
+      const pickup = await createTestDropInSession({
+        organizationId,
+        venueId,
+        kind: "pickup",
+        capacity: 10,
+        startsAt: hoursFromNow(17.5 * 24),
+        sessionRateCents: MEMBER_RATE_CENTS,
+      });
+      const res = await apiFetch("/api/dropin/bookings", {
+        method: "POST",
+        cookie,
+        body: JSON.stringify({ sessionId: pickup.sessionId, paymentFlow: "embedded" }),
+      });
+      const body = await res.json();
+      // The EXACT pre-change outcome, not merely "not 422": an adult pickup
+      // with no waiver fields mints a PaymentIntent and returns the priced
+      // 200. A weaker assertion would still pass if the gate leaked into
+      // this path and turned it into some other error.
+      expect(res.status, JSON.stringify(body)).toBe(200);
+      expect(body.paymentRequired).toBe(true);
+      expect(typeof body.clientSecret).toBe("string");
+      expect(body.amountCents).toBe(MEMBER_RATE_CENTS);
+      expect(body.error).toBeUndefined();
+    },
+  );
 
   itWithStripe(
     "a covered child with no waiver fields still reaches checkout (the gate is not a blanket ask)",
