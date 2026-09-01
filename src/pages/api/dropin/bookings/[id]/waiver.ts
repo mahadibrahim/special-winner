@@ -95,8 +95,16 @@ export const POST: APIRoute = async ({
       brand: dropInBookings.brand,
       organizationId: dropInSessions.organizationId,
       // The PARTICIPANT, present only on child bookings (the paid/free class
-      // make-up doors). Null for every adult drop-in — an adult booking has
-      // no `family_members` row, so it has no person-scoped annual waiver.
+      // make-up doors) — this COLUMN is null for every adult drop-in, since
+      // an adult booking has no `family_members` row of its own to key a
+      // person-scoped consent on. That no longer means an adult booker has
+      // NO person-scoped coverage: since task 5 (spec L), the booker's own
+      // SELF `family_members` row can carry a valid annual waiver, resolved
+      // through `userId` rather than this column — see the born-covered
+      // stamp in booking.ts / bookings/index.ts and the display-side
+      // derivation in sessions/[id].ts. This endpoint itself is unaffected
+      // by that: it never gates on coverage, only records whatever fresh
+      // signature actually arrives (see the file doc comment above).
       familyMemberId: dropInBookings.familyMemberId,
       // Non-null exactly when the participant is a dependent (the DB CHECK
       // makes parent/self an XOR), which is the guardian-variant signal.

@@ -672,18 +672,27 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
       expect(sms!.status).toBe("opted_in");
     });
 
-    // CARRIED FIX (F3 -> F5). Distinct from the case directly above: there,
-    // the consent lands AFTER the registration already exists, so the
-    // on-file branch runs INSIDE this endpoint and the PRE-REQUEST
-    // `waiverSigned` read is false. Here the family is covered BEFORE
-    // POST /api/registrations is ever called, so create-registration.ts's
-    // own covered branch BIRTHS the row already `waiverSigned: true` with a
-    // NULL date (see registrations-annual-waiver.test.ts case (a)). The bare
-    // pre-request flag gate used to read that born stamp as "already
-    // signed" on this family's very FIRST completion and silently drop
-    // their phone + WhatsApp answers — the date is the fix, mirroring the
-    // `alreadySigned` branch's own dated-vs-bare-flag discriminator above.
-    it("captures phone + WhatsApp consent on a FIRST completion of a registration BORN-STAMPED at creation", async () => {
+    // CARRIED FIX (F3 -> F5), corrected after review (F5 fix round 1).
+    //
+    // Distinct from the case directly above: there, the consent lands AFTER
+    // the registration already exists, so the on-file branch runs INSIDE
+    // this endpoint and the PRE-REQUEST `waiverSigned` read is false. Here
+    // the family is covered BEFORE POST /api/registrations is ever called,
+    // so create-registration.ts's own covered branch BIRTHS the row already
+    // `waiverSigned: true` with a NULL date (see registrations-annual-
+    // waiver.test.ts case (a)).
+    //
+    // The original fix gated the phone/marketing block on the DATED bare
+    // flag (`waiverSigned && waiverSignedAt !== null`) — that fixed the
+    // FIRST-completion drop this test starts by proving, but review found it
+    // reopened a worse hole: the on-file branch never dates the row, so it
+    // can re-fire on a REPLAY, and each re-fire read as "first completion"
+    // under that gate — re-promoting whatever channel state existed,
+    // including an opt-out/STOP the customer set in between. This test now
+    // proves BOTH halves: the first-completion capture (the original bug)
+    // AND that a replay after a STOP does not resurrect it (the review
+    // finding), via the real `registrations.completedAt` marker.
+    it("captures phone + WhatsApp consent on a FIRST completion of a registration BORN-STAMPED at creation, and a REPLAY after a STOP does not resurrect it", async () => {
       const cookie = await getAuthCookie(
         "parent@test.aspiresports.com",
         "TestParent123!",
@@ -768,6 +777,118 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
       const sms = rows.find((r) => r.channel === "sms");
       expect(sms, "the ticked SMS box must be recorded too").toBeTruthy();
       expect(sms!.status).toBe("opted_in");
+
+      // completedAt is the real first-completion marker this fix introduces
+      // — it must be set now, by THIS call, even though `waiverSigned` was
+      // already true before the request ever landed.
+      const [afterFirst] = await db
+        .select({ completedAt: registrations.completedAt })
+        .from(registrations)
+        .where(eq(registrations.id, registrationId));
+      expect(afterFirst.completedAt).toBeTruthy();
+
+      // The customer replies STOP on both channels sometime after this
+      // first completion — the real-world event the review finding is about.
+      await db
+        .update(phoneOptIns)
+        .set({
+          status: "opted_out",
+          optedOutAt: new Date(),
+          stopKeywordTriggered: "STOP",
+          updatedAt: new Date(),
+        })
+        .where(eq(phoneOptIns.phone, phone));
+
+      // REPLAY: the exact same completion POST lands again (a resubmit, a
+      // retried request, a stale tab) — same phone, same boxes still ticked
+      // client-side. Because `completedAt` is now set, this must be
+      // recognized as a replay and never re-enter the phone/marketing block
+      // at all, regardless of the STOP guard's own logic.
+      const replay = await apiFetch(`/api/registrations/${registrationId}/complete`, {
+        method: "POST",
+        cookie,
+        body: JSON.stringify({
+          phone,
+          smsConsent: true,
+          whatsappConsent: true,
+        }),
+      });
+      expect(replay.status).toBe(200);
+      expect((await replay.json()).alreadySigned).toBe(true);
+
+      const afterReplay = await db
+        .select({
+          channel: phoneOptIns.channel,
+          status: phoneOptIns.status,
+          stopKeywordTriggered: phoneOptIns.stopKeywordTriggered,
+        })
+        .from(phoneOptIns)
+        .where(eq(phoneOptIns.phone, phone));
+
+      const whatsappAfter = afterReplay.find((r) => r.channel === "whatsapp");
+      const smsAfter = afterReplay.find((r) => r.channel === "sms");
+      expect(
+        whatsappAfter?.status,
+        "a replayed completion must never resurrect a STOP",
+      ).toBe("opted_out");
+      expect(whatsappAfter?.stopKeywordTriggered).toBe("STOP");
+      expect(smsAfter?.status, "same for the SMS channel").toBe("opted_out");
+      expect(smsAfter?.stopKeywordTriggered).toBe("STOP");
+    });
+
+    // The STOP guard is DEFENSE IN DEPTH — it must also hold on its own,
+    // independent of the completedAt replay-closure above. This drives a
+    // registration whose completedAt is NOT yet set (a genuine first
+    // completion) but whose phone number ALREADY carries a STOP from some
+    // earlier, unrelated interaction (e.g. a different registration, a
+    // drop-in booking) — the checkbox on THIS form must not be able to
+    // override a carrier-level STOP on that number.
+    it("the STOP guard blocks a genuinely FIRST completion too, when the phone already carries a STOP", async () => {
+      const { registrationId, cookie } = await mintOwnedRegistration("1990-05-15");
+      const phone = `+1614560${String(Date.now()).slice(-4)}`;
+      const db = getDb();
+
+      const meRes = await apiFetch("/api/auth/me", { cookie });
+      const orgRow = await db
+        .select({ organizationId: locations.organizationId })
+        .from(seasons)
+        .innerJoin(programs, eq(seasons.programId, programs.id))
+        .innerJoin(locations, eq(programs.locationId, locations.id))
+        .where(eq(seasons.id, adultSeasonId));
+      const organizationId = orgRow[0]?.organizationId;
+      expect(organizationId, "adult season org").toBeTruthy();
+      void meRes;
+
+      // Pre-existing STOP on this number, unrelated to this registration.
+      await db.insert(phoneOptIns).values({
+        organizationId: organizationId!,
+        phone,
+        channel: "sms",
+        status: "opted_out",
+        optedOutAt: new Date(),
+        stopKeywordTriggered: "STOP",
+        optInSource: "unrelated_prior_interaction",
+      });
+
+      const res = await apiFetch(`/api/registrations/${registrationId}/complete`, {
+        method: "POST",
+        cookie,
+        body: JSON.stringify({
+          waiverAccepted: true,
+          waiverSignature: "Stop Guard Fixture",
+          phone,
+          smsConsent: true,
+        }),
+      });
+      expect(res.status).toBe(200);
+      expect((await res.json()).signed).toBe(true);
+
+      const [row] = await db
+        .select({ status: phoneOptIns.status, stopKeywordTriggered: phoneOptIns.stopKeywordTriggered })
+        .from(phoneOptIns)
+        .where(and(eq(phoneOptIns.phone, phone), eq(phoneOptIns.channel, "sms")));
+      expect(row.status, "the STOP must survive this FIRST completion too").toBe("opted_out");
+      expect(row.stopKeywordTriggered).toBe("STOP");
     });
 
     // ROUND-2 FINDING 2 (same class). recordDefaultMediaAuth only ran inside
