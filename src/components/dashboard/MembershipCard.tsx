@@ -33,6 +33,7 @@ export default function MembershipCard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [acting, setActing] = useState<"pause" | "cancel" | null>(null);
+  const [openingPortal, setOpeningPortal] = useState(false);
 
   useEffect(() => {
     void load();
@@ -82,6 +83,49 @@ export default function MembershipCard() {
       toast.error(err instanceof Error ? err.message : "Could not pause");
     } finally {
       setActing(null);
+    }
+  }
+
+  // Self-serve Stripe billing portal (POST /api/memberships/billing-portal,
+  // returnPath "/dashboard" — this card's own page). past_due gets a
+  // prominent button so a failing card is actually fixable; active gets a
+  // low-key "Manage billing" link for receipts/self-cancel. paused/
+  // incomplete get neither — nothing actionable to click. The endpoint's
+  // 404 `no_billing_account` carries a real `message` worth showing
+  // verbatim rather than a generic retry line, so the body is read even on
+  // non-OK responses.
+  async function openBillingPortal() {
+    setOpeningPortal(true);
+    try {
+      const res = await fetch("/api/memberships/billing-portal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ returnPath: "/dashboard" }),
+      });
+      let body: { url?: unknown; message?: unknown } = {};
+      try {
+        body = await res.json();
+      } catch {
+        body = {};
+      }
+      if (!res.ok) {
+        toast.error(
+          typeof body.message === "string"
+            ? body.message
+            : "Could not open billing — please try again.",
+        );
+        return;
+      }
+      const url = typeof body.url === "string" ? body.url : null;
+      if (!url) {
+        toast.error("Could not open billing — please try again.");
+        return;
+      }
+      window.location.assign(url);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Network error — please try again.");
+    } finally {
+      setOpeningPortal(false);
     }
   }
 
@@ -135,8 +179,24 @@ export default function MembershipCard() {
               </Button>
             </>
           )}
+          {membership.status === "past_due" && (
+            <Button size="sm" onClick={() => void openBillingPortal()} disabled={openingPortal}>
+              {openingPortal ? "Opening…" : "Update payment method"}
+            </Button>
+          )}
         </div>
       }
-    />
+    >
+      {membership.status === "active" && (
+        <button
+          type="button"
+          onClick={() => void openBillingPortal()}
+          disabled={openingPortal}
+          className="mt-1.5 block text-left text-xs text-ink-muted hover:text-ink hover:underline disabled:opacity-60"
+        >
+          {openingPortal ? "Opening…" : "Manage billing →"}
+        </button>
+      )}
+    </DashboardCard>
   );
 }
