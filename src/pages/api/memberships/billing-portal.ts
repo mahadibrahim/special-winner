@@ -8,14 +8,16 @@
  *
  * Customer resolution is `resolveBillingPortalCustomerId`
  * (src/lib/memberships/customer.ts): the newest `past_due` membership's
- * customer if there is one, else the newest customer on any row. Preferring
- * past_due is not cosmetic — historical rows fan out across several Stripe
- * customers (the 24h idempotency-key window on `getOrCreateStripeCustomer`
- * meant a second child subscribed a day later got a new customer), so the
- * NEWEST row's customer may hold no failing subscription and would drop the
- * parent into a portal showing nothing to fix — the exact dead-end this
- * endpoint exists to remove. New purchases converge on one customer per
- * parent via `findMembershipStripeCustomerId`, but old divergence stays.
+ * customer if there is one; else the newest customer among LIVE-status rows
+ * (active/paused/past_due/incomplete); else the newest customer on any row.
+ * Preferring past_due, then live-over-dead, is not cosmetic — historical
+ * rows fan out across several Stripe customers (the 24h idempotency-key
+ * window on `getOrCreateStripeCustomer` meant a second child subscribed a
+ * day later got a new customer), so the NEWEST row's customer may be an
+ * unrelated `cancelled` row and would drop the parent into a portal showing
+ * nothing to fix — the exact dead-end this endpoint exists to remove. New
+ * purchases converge on one customer per parent via
+ * `findMembershipStripeCustomerId`, but old divergence stays.
  *
  * Ordering matters here:
  *   1. auth → 401

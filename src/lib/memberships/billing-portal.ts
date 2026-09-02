@@ -64,7 +64,11 @@ import { membershipsStripe } from "./stripe";
 export const BILLING_PORTAL_CONFIG_VERSION = "v1";
 
 /** The only paths a portal session may return to. Index 0 is the default. */
-export const BILLING_RETURN_PATHS = ["/dashboard/family", "/dashboard"] as const;
+export const BILLING_RETURN_PATHS = [
+  "/dashboard/family",
+  "/dashboard",
+  "/dashboard/play",
+] as const;
 
 export type BillingReturnPath = (typeof BILLING_RETURN_PATHS)[number];
 

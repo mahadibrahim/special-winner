@@ -87,20 +87,20 @@ export default function MembershipCard() {
   }
 
   // Self-serve Stripe billing portal (POST /api/memberships/billing-portal,
-  // returnPath "/dashboard" — this card's own page). past_due gets a
-  // prominent button so a failing card is actually fixable; active gets a
-  // low-key "Manage billing" link for receipts/self-cancel. paused/
-  // incomplete get neither — nothing actionable to click. The endpoint's
-  // 404 `no_billing_account` carries a real `message` worth showing
-  // verbatim rather than a generic retry line, so the body is read even on
-  // non-OK responses.
+  // returnPath "/dashboard/play" — this card renders on /dashboard/play, not
+  // /dashboard). past_due gets a prominent button so a failing card is
+  // actually fixable; active gets a low-key "Manage billing" link for
+  // receipts/self-cancel. paused/incomplete get neither — nothing actionable
+  // to click. The endpoint's 404 `no_billing_account` carries a real
+  // `message` worth showing verbatim rather than a generic retry line, so
+  // the body is read even on non-OK responses.
   async function openBillingPortal() {
     setOpeningPortal(true);
     try {
       const res = await fetch("/api/memberships/billing-portal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ returnPath: "/dashboard" }),
+        body: JSON.stringify({ returnPath: "/dashboard/play" }),
       });
       let body: { url?: unknown; message?: unknown } = {};
       try {

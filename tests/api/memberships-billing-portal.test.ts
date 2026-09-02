@@ -341,6 +341,123 @@ describe("billing customer resolution", () => {
   });
 });
 
+/**
+ * A DIFFERENT fan-out shape than the past_due fixture above: no past_due row
+ * at all, an older LIVE (`active`) row on a real customer, and a newer
+ * `cancelled` row on a bogus customer. A newest-status-blind "newest row
+ * wins" fallback would hand Stripe the bogus cancelled-row customer here —
+ * so this is its own throwaway parent (not the PARENT_EMAIL fixture, which
+ * always carries a past_due row) to keep the "no past_due present"
+ * precondition true regardless of describe-block ordering.
+ */
+describe("billing customer resolution — live status beats newest-any", () => {
+  const LIVE_SUFFIX = `${RUN}_live`;
+  const liveMembershipIds: string[] = [];
+  const liveCancelledCustomerId = `${SPEC_BOGUS_CUSTOMER_PREFIX}livecancelled_${LIVE_SUFFIX}`;
+  let liveParentUserId: string | undefined;
+  let liveActiveCustomerId: string | undefined;
+  let liveRealStripeCustomerId: string | undefined;
+  let liveFixturesReady = false;
+
+  beforeAll(async () => {
+    const db = getDb();
+    const [aspireOrg] = await db
+      .select({ id: organizations.id })
+      .from(organizations)
+      .where(eq(organizations.slug, "aspire-sports"))
+      .limit(1);
+    if (!aspireOrg) return;
+    const [tier] = await db
+      .select({ id: membershipTiers.id })
+      .from(membershipTiers)
+      .where(eq(membershipTiers.organizationId, aspireOrg.id))
+      .orderBy(asc(membershipTiers.createdAt))
+      .limit(1);
+    if (!tier) return;
+
+    const [user] = await db
+      .insert(users)
+      .values({
+        email: `billingportal.live.${LIVE_SUFFIX}@test.aspiresports.com`,
+        emailVerified: true,
+        firstName: "BillingPortalLive",
+        lastName: "Spec",
+      })
+      .returning({ id: users.id });
+    if (!user) return;
+    liveParentUserId = user.id;
+
+    // Real customer only when Stripe is configured; otherwise a placeholder
+    // (the resolver never calls Stripe, so a bogus id is harmless here).
+    if (stripeConfigured) {
+      const customer = await membershipsStripe().customers.create({
+        email: `billingportal.live.${LIVE_SUFFIX}@test.aspiresports.com`,
+        name: "Billing Portal Live Spec",
+        metadata: { aspire_test_fixture: "memberships-billing-portal-live" },
+      });
+      liveRealStripeCustomerId = customer.id;
+      liveActiveCustomerId = customer.id;
+    } else {
+      liveActiveCustomerId = `${SPEC_BOGUS_CUSTOMER_PREFIX}liveactive_${LIVE_SUFFIX}`;
+    }
+
+    // OLDER row: active, real customer, adult-self shape (no family member).
+    const [activeRow] = await db
+      .insert(memberships)
+      .values({
+        userId: liveParentUserId,
+        organizationId: aspireOrg.id,
+        tierId: tier.id,
+        status: "active",
+        billingInterval: "month",
+        stripeCustomerId: liveActiveCustomerId,
+      })
+      .returning({ id: memberships.id });
+    if (activeRow) liveMembershipIds.push(activeRow.id);
+
+    // NEWER row: cancelled, bogus customer — the decoy a newest-any resolver
+    // would pick with no past_due row to short-circuit first.
+    const [cancelledRow] = await db
+      .insert(memberships)
+      .values({
+        userId: liveParentUserId,
+        organizationId: aspireOrg.id,
+        tierId: tier.id,
+        status: "cancelled",
+        billingInterval: "month",
+        stripeCustomerId: liveCancelledCustomerId,
+      })
+      .returning({ id: memberships.id });
+    if (cancelledRow) liveMembershipIds.push(cancelledRow.id);
+
+    liveFixturesReady = liveMembershipIds.length === 2;
+  });
+
+  afterAll(async () => {
+    const db = getDb();
+    if (liveMembershipIds.length > 0) {
+      await db.delete(memberships).where(inArray(memberships.id, liveMembershipIds));
+    }
+    if (liveParentUserId) {
+      await db.delete(users).where(eq(users.id, liveParentUserId));
+    }
+    if (liveRealStripeCustomerId) {
+      try {
+        await membershipsStripe().customers.del(liveRealStripeCustomerId);
+      } catch {
+        // Best-effort — a leftover test-mode customer is harmless.
+      }
+    }
+  });
+
+  it("targets the newest LIVE-status row's customer, not the newer cancelled row", async (ctx) => {
+    if (!liveFixturesReady || !liveParentUserId) return ctx.skip();
+    await expect(resolveBillingPortalCustomerId(liveParentUserId)).resolves.toBe(
+      liveActiveCustomerId,
+    );
+  });
+});
+
 describe("billing-portal library", () => {
   it("rejects an off-list returnPath before touching Stripe", async () => {
     await expect(
@@ -352,8 +469,12 @@ describe("billing-portal library", () => {
     ).rejects.toThrow(/returnPath/i);
   });
 
-  it("allow-lists exactly the two dashboard paths, family first", () => {
-    expect([...BILLING_RETURN_PATHS]).toEqual(["/dashboard/family", "/dashboard"]);
+  it("allow-lists exactly the three dashboard paths, family first", () => {
+    expect([...BILLING_RETURN_PATHS]).toEqual([
+      "/dashboard/family",
+      "/dashboard",
+      "/dashboard/play",
+    ]);
   });
 
   itWithStripe(
