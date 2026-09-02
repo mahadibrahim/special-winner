@@ -1115,6 +1115,7 @@ function MembershipChildCard({
   const membership = child.membership!
   const [modalOpen, setModalOpen] = useState(false)
   const [cancelling, setCancelling] = useState(false)
+  const [openingPortal, setOpeningPortal] = useState(false)
 
   async function handleCancel() {
     const nextSession = child.nextSession
@@ -1158,19 +1159,46 @@ function MembershipChildCard({
 
   const badge = statusBadge(membership.status)
   const isActive = membership.status === "active"
-  // No billing portal exists in this repo yet (tracked platform gap — see
-  // task-7-report.md). /dashboard/payments is a dead stub, so past_due's
-  // CTA is an honest mailto to support rather than a link to nowhere.
-  // paused/incomplete get NO payment CTA at all — there's nothing actionable
-  // for the parent to click (paused was a deliberate pause; incomplete is
-  // mid-processing), just a neutral status line below.
-  const updatePaymentMailto =
-    "mailto:hello@aspiresportsohio.com?subject=" +
-    encodeURIComponent("Update payment method") +
-    "&body=" +
-    encodeURIComponent(
-      `Hi Aspire team,\n\nI need to update the payment method for ${child.name}'s class membership.\n\nThanks!`,
-    )
+
+  // Self-serve Stripe billing portal (POST /api/memberships/billing-portal,
+  // returnPath "/dashboard/family" — this card's own page in the return-path
+  // allow-list). past_due gets a prominent button so a failing card is
+  // actually fixable instead of a mailto dead-end; active gets a low-key
+  // "Manage billing" link for receipts/self-cancel. paused/incomplete get
+  // NEITHER — nothing actionable for the parent to click (paused was a
+  // deliberate pause; incomplete is mid-processing), just the neutral status
+  // line below. Error handling reuses parseJson's shape-tolerant read: the
+  // endpoint's 404 `no_billing_account` carries a real `message` worth
+  // showing verbatim rather than a generic retry line.
+  async function openBillingPortal() {
+    setOpeningPortal(true)
+    try {
+      const res = await fetch("/api/memberships/billing-portal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ returnPath: "/dashboard/family" }),
+      })
+      const body = await parseJson(res)
+      if (!res.ok) {
+        toast.error(
+          typeof body.message === "string"
+            ? body.message
+            : "Could not open billing — please try again.",
+        )
+        return
+      }
+      const url = typeof body.url === "string" ? body.url : null
+      if (!url) {
+        toast.error("Could not open billing — please try again.")
+        return
+      }
+      window.location.assign(url)
+    } catch {
+      toast.error("Network error — please try again.")
+    } finally {
+      setOpeningPortal(false)
+    }
+  }
 
   return (
     <>
@@ -1188,8 +1216,8 @@ function MembershipChildCard({
               </Button>
             )}
             {membership.status === "past_due" && (
-              <Button asChild size="sm" variant="outline">
-                <a href={updatePaymentMailto}>Contact us to update payment</a>
+              <Button size="sm" disabled={openingPortal} onClick={() => void openBillingPortal()}>
+                {openingPortal ? "Opening…" : "Update payment method"}
               </Button>
             )}
             {child.enrollment && (
@@ -1240,6 +1268,16 @@ function MembershipChildCard({
           )}
           {membership.status === "incomplete" && (
             <p className="text-xs text-ink-muted">Payment processing…</p>
+          )}
+          {isActive && (
+            <button
+              type="button"
+              onClick={() => void openBillingPortal()}
+              disabled={openingPortal}
+              className="block text-left text-xs text-ink-muted hover:text-ink hover:underline disabled:opacity-60"
+            >
+              {openingPortal ? "Opening…" : "Manage billing →"}
+            </button>
           )}
           <CreditLines credits={child.credits} />
           {child.credits.length > 0 && !child.hasWaiverOnFile && (

@@ -110,14 +110,26 @@ export async function seedTeamPaymentContext(): Promise<TeamPaymentContext> {
       programType: "league",
     })
     .returning();
+  // Anchored to NOW rather than a fixed calendar date — a hardcoded past
+  // date trips isRegistrationClosed() (src/lib/programs/registration-window.ts)
+  // once real time passes it, closing registration for every test that uses
+  // this fixture. See docs note: session/date fixtures must anchor to now.
+  const now = new Date();
+  const startDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+  const endDate = new Date(now.getTime() + 120 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+
   const [season] = await db
     .insert(seasons)
     .values({
       name: `Season ${suffix}`,
       slug: `season-${suffix}`,
       programId: program.id,
-      startDate: "2026-09-01",
-      endDate: "2026-12-01",
+      startDate,
+      endDate,
       priceCents: 12000,
       status: "open",
     })

@@ -1437,3 +1437,201 @@ test.describe("Make-up modal — server 422 gate drives the panel", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Scenario 11 — billing-portal self-serve entry points (billing-portal Task 2)
+// ---------------------------------------------------------------------------
+
+/**
+ * Closes the "Manage billing" component-coverage gap left by BP1
+ * (`family-classes-card.tsx`'s `MembershipChildCard`, `POST /api/memberships/
+ * billing-portal`). Two halves sharing one throwaway parent + one zero-benefit
+ * tier (same "Makeup Tier 1 - " prefix as scenarios 8/10, so the shared
+ * orphan sweep in classes-helpers already knows how to clean it up), each
+ * child on its own membership row so the ONLY variable between the two is
+ * status:
+ *
+ *  - past_due: the amber "Update your payment method to keep classes active."
+ *    line + the prominent "Update payment method" button.
+ *  - active: the low-key "Manage billing →" link, no amber line.
+ *
+ * Real Stripe is never driven — a real customer id isn't needed either,
+ * since `POST /api/memberships/billing-portal` itself is stubbed (this
+ * file's stubbed-POST pattern, `stubPaidBooking`'s sibling). The stub
+ * answers with a fake `billing.stripe.com` URL; the click's
+ * `window.location.assign(url)` is what proves the "redirect attempt" —
+ * asserted via `page.waitForURL`, with the target URL ALSO intercepted
+ * (`page.route`) so that navigation resolves against a local fulfillment
+ * rather than ever reaching Stripe's actual domain.
+ */
+function stubBillingPortal(
+  page: import("@playwright/test").Page,
+  portalUrl = "https://billing.stripe.com/test-stub",
+) {
+  const bodies: (string | null)[] = [];
+
+  void page.route("**/api/memberships/billing-portal", async (route) => {
+    const req = route.request();
+    if (req.method() !== "POST") return route.continue();
+    bodies.push(req.postData());
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ url: portalUrl }),
+    });
+  });
+
+  // The redirect target itself — fulfilled locally so the browser's
+  // `window.location.assign(url)` navigation never leaves the test harness,
+  // let alone reaches Stripe's real domain.
+  void page.route(`${portalUrl}**`, async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "text/html",
+      body: "<html><body>stubbed billing portal</body></html>",
+    });
+  });
+
+  return {
+    portalUrl,
+    /** The single POST body, parsed. Throws (rather than returning `{}`) if
+     *  no request was made, matching `stubPaidBooking`'s convention above. */
+    sentBody: (): Record<string, unknown> => {
+      if (bodies.length !== 1) {
+        throw new Error(
+          `expected exactly 1 POST /api/memberships/billing-portal, saw ${bodies.length}`,
+        );
+      }
+      return JSON.parse(bodies[0] ?? "{}") as Record<string, unknown>;
+    },
+  };
+}
+
+test.describe("Family dashboard — billing portal self-serve entry points", () => {
+  test.setTimeout(120_000);
+
+  let organizationId: string;
+  let tierId: string;
+  let parentEmail: string;
+  let parentPassword: string;
+  let parentUserId: string;
+  let pastDueChildId: string;
+  let pastDueMembershipId: string;
+  let activeChildId: string;
+  let activeMembershipId: string;
+
+  const suffix = Date.now();
+  const pastDueChildFirstName = `BillingPortalPastDueE2E-${suffix}`;
+  const activeChildFirstName = `BillingPortalActiveE2E-${suffix}`;
+
+  test.beforeAll(async () => {
+    ({ organizationId } = await resolveDefaultOrgForHttpTests());
+    const db = getDb();
+
+    // Reuses the existing "Makeup Tier 1 - " prefix so the shared orphan
+    // sweep in classes-helpers already knows how to clean it up.
+    const [tier] = await db
+      .insert(membershipTiers)
+      .values({
+        organizationId,
+        name: `Makeup Tier 1 - e2e-billingportal-${suffix}`,
+        monthlyPriceCents: 5000,
+        benefits: { classes_per_month: 4 },
+        isActive: true,
+      })
+      .returning();
+    tierId = tier.id;
+
+    const throwawayUser = await createTestUserWithPassword();
+    parentEmail = throwawayUser.email;
+    parentPassword = throwawayUser.password;
+    parentUserId = throwawayUser.userId;
+
+    pastDueChildId = await createTestChild(parentUserId, pastDueChildFirstName);
+    pastDueMembershipId = await createTestChildMembership({
+      userId: parentUserId,
+      familyMemberId: pastDueChildId,
+      organizationId,
+      tierId,
+      idSuffix: `e2e-billingportal-pastdue-${suffix}`,
+      status: "past_due",
+    });
+
+    activeChildId = await createTestChild(parentUserId, activeChildFirstName);
+    activeMembershipId = await createTestChildMembership({
+      userId: parentUserId,
+      familyMemberId: activeChildId,
+      organizationId,
+      tierId,
+      // memberships.stripe_subscription_id carries a DB unique constraint —
+      // the suffix must differ from the sibling above.
+      idSuffix: `e2e-billingportal-active-${suffix}`,
+      status: "active",
+    });
+  });
+
+  test.afterAll(async () => {
+    const db = getDb();
+    const membershipIds = [pastDueMembershipId, activeMembershipId].filter(Boolean);
+    if (membershipIds.length > 0) {
+      await db.delete(memberships).where(inArray(memberships.id, membershipIds));
+    }
+    if (tierId) await cleanupTestMembershipTiers([tierId]);
+  });
+
+  test("past_due membership shows the banner and 'Update payment method' opens the portal", async ({
+    page,
+  }) => {
+    const portal = stubBillingPortal(page);
+
+    await signIn(page, parentEmail, parentPassword);
+    await page.goto("/dashboard/family");
+    await waitForHydration(page);
+
+    const card = page
+      .locator("div.flex.items-start.gap-3.rounded-xl.border.border-border.border-l-4.p-3")
+      .filter({ hasText: pastDueChildFirstName });
+    await expect(card).toBeVisible({ timeout: 20_000 });
+    await expect(
+      card.getByText("Update your payment method to keep classes active."),
+    ).toBeVisible();
+
+    const updateButton = card.getByRole("button", { name: /Update payment method/ });
+    await expect(updateButton).toBeVisible();
+    await updateButton.click();
+
+    // The redirect attempt: window.location.assign(url) actually navigates
+    // the page to the (locally-fulfilled) stub URL.
+    await page.waitForURL(portal.portalUrl, { timeout: 15_000 });
+
+    const sent = portal.sentBody();
+    expect(sent.returnPath).toBe("/dashboard/family");
+  });
+
+  test("active membership shows 'Manage billing' and opens the portal on click", async ({ page }) => {
+    const portal = stubBillingPortal(page);
+
+    await signIn(page, parentEmail, parentPassword);
+    await page.goto("/dashboard/family");
+    await waitForHydration(page);
+
+    const card = page
+      .locator("div.flex.items-start.gap-3.rounded-xl.border.border-border.border-l-4.p-3")
+      .filter({ hasText: activeChildFirstName });
+    await expect(card).toBeVisible({ timeout: 20_000 });
+    // No past_due-only affordances on an active membership.
+    await expect(
+      card.getByText("Update your payment method to keep classes active."),
+    ).toHaveCount(0);
+    await expect(card.getByRole("button", { name: /Update payment method/ })).toHaveCount(0);
+
+    const manageBillingButton = card.getByRole("button", { name: /Manage billing/ });
+    await expect(manageBillingButton).toBeVisible();
+    await manageBillingButton.click();
+
+    await page.waitForURL(portal.portalUrl, { timeout: 15_000 });
+
+    const sent = portal.sentBody();
+    expect(sent.returnPath).toBe("/dashboard/family");
+  });
+});
+

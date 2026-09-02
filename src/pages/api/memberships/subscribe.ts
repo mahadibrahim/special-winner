@@ -31,6 +31,7 @@ import {
   getOrCreateStripeCustomer,
   createSubscriptionCheckoutSession,
 } from "@/lib/memberships/stripe";
+import { findMembershipStripeCustomerId } from "@/lib/memberships/customer";
 import { getSiblingCouponId } from "@/lib/memberships/sibling-discount";
 import { getActiveChildMembership } from "@/lib/memberships/get-child-membership";
 import { getActiveMembershipForOrg } from "@/lib/memberships/get-active-membership";
@@ -208,6 +209,13 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
       userId: locals.user.id,
       email: userRow.email,
       name: userRow.firstName,
+      // Reuse the customer the parent already has. The get-or-create's
+      // idempotency key expires after 24h, so WITHOUT this a second child
+      // subscribed a day later mints a second Stripe customer and the
+      // family's subscriptions fan out — which then splits the billing
+      // portal (it can only open one customer at a time). Same reuse
+      // pattern as /api/drop/subscribe.
+      existingCustomerId: await findMembershipStripeCustomerId(locals.user.id),
     });
   } catch (err) {
     console.error("[memberships/subscribe] customer create failed", err);

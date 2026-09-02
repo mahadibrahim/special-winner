@@ -34,6 +34,7 @@ import { users } from "@/lib/db/schema/users";
 import { familyMembers } from "@/lib/db/schema/registrations";
 import { blockOccurrenceInstants } from "@/lib/classes/block-occurrences";
 import { isAgeIneligible } from "@/lib/classes/enrollment";
+import { findMembershipStripeCustomerId } from "@/lib/memberships/customer";
 import { getOrCreateStripeCustomer } from "@/lib/memberships/stripe";
 import { stripe } from "@/lib/stripe/client";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
@@ -270,6 +271,10 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
       userId: locals.user.id,
       email: userRow.email,
       name: userRow.firstName,
+      // Reuse the parent's existing customer — see the identical note in
+      // classes/packs/purchase.ts and src/lib/memberships/customer.ts: the
+      // 24h idempotency window is not de-duplication across days.
+      existingCustomerId: await findMembershipStripeCustomerId(locals.user.id),
     });
   } catch (err) {
     console.error("[classes/blocks/purchase] customer create failed", err);

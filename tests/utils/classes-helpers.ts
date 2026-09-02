@@ -113,10 +113,12 @@ export async function createTestChild(
 }
 
 /**
- * Inserts an ACTIVE membership row for a child directly, bypassing Stripe
- * Checkout entirely — same shorthand tests/api/memberships-child-subscribe.test.ts
+ * Inserts a membership row for a child directly, bypassing Stripe Checkout
+ * entirely — same shorthand tests/api/memberships-child-subscribe.test.ts
  * uses for its "AlreadyMemberChild" fixture. `idSuffix` must be unique per
  * call: `memberships.stripeSubscriptionId` carries a DB unique constraint.
+ * `status` defaults to "active"; pass "past_due" etc. for status-gated
+ * fixtures (e.g. the billing-portal E2E coverage).
  */
 export async function createTestChildMembership(opts: {
   userId: string;
@@ -124,6 +126,7 @@ export async function createTestChildMembership(opts: {
   organizationId: string;
   tierId: string;
   idSuffix: string;
+  status?: "active" | "paused" | "past_due" | "incomplete" | "cancelled";
 }): Promise<string> {
   const db = getDb();
   const [membership] = await db
@@ -133,7 +136,7 @@ export async function createTestChildMembership(opts: {
       familyMemberId: opts.familyMemberId,
       organizationId: opts.organizationId,
       tierId: opts.tierId,
-      status: "active",
+      status: opts.status ?? "active",
       billingInterval: "month",
       stripeSubscriptionId: `sub_test_classes_${opts.idSuffix}`,
       stripeCustomerId: `cus_test_classes_${opts.idSuffix}`,
