@@ -6,11 +6,16 @@
  * remove) or self-cancel at period end. Body: `{ returnPath? }`, restricted
  * to the dashboard allow-list in `@/lib/memberships/billing-portal`.
  *
- * Customer resolution: the NEWEST `memberships` row for the caller that
- * carries a `stripeCustomerId`, with an explicit `orderBy(desc(createdAt))`
- * — one Stripe customer covers a parent's adult membership AND every
- * per-child subscription, and an unordered "pick a row" would drift on the
- * shared CI/staging DB (the standing multi-tenant query hazard).
+ * Customer resolution is `resolveBillingPortalCustomerId`
+ * (src/lib/memberships/customer.ts): the newest `past_due` membership's
+ * customer if there is one, else the newest customer on any row. Preferring
+ * past_due is not cosmetic — historical rows fan out across several Stripe
+ * customers (the 24h idempotency-key window on `getOrCreateStripeCustomer`
+ * meant a second child subscribed a day later got a new customer), so the
+ * NEWEST row's customer may hold no failing subscription and would drop the
+ * parent into a portal showing nothing to fix — the exact dead-end this
+ * endpoint exists to remove. New purchases converge on one customer per
+ * parent via `findMembershipStripeCustomerId`, but old divergence stays.
  *
  * Ordering matters here:
  *   1. auth → 401
@@ -23,16 +28,12 @@
  * no STRIPE_SECRET_KEY, a 503 would mask the real answer.
  */
 import type { APIRoute } from "astro";
-import { desc, and, eq, isNotNull } from "drizzle-orm";
-import { getDb } from "@/lib/db";
-import { memberships } from "@/lib/db/schema/memberships";
-import { env } from "@/lib/env";
 import {
   createBillingPortalSession,
   isBillingReturnPath,
   BILLING_RETURN_PATHS,
 } from "@/lib/memberships/billing-portal";
-import { originForBrand } from "@/lib/organization/soccerone-routing";
+import { resolveBillingPortalCustomerId } from "@/lib/memberships/customer";
 import { stripe } from "@/lib/stripe/client";
 
 export const prerender = false;
@@ -43,7 +44,7 @@ const json = (body: unknown, status: number) =>
     headers: { "Content-Type": "application/json" },
   });
 
-export const POST: APIRoute = async ({ request, locals }) => {
+export const POST: APIRoute = async ({ request, url, locals }) => {
   if (!locals.user) return json({ error: "Unauthorized" }, 401);
 
   let body: unknown = {};
@@ -59,19 +60,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return json({ error: "Unsupported returnPath" }, 422);
   }
 
-  const [row] = await getDb()
-    .select({ stripeCustomerId: memberships.stripeCustomerId })
-    .from(memberships)
-    .where(
-      and(
-        eq(memberships.userId, locals.user.id),
-        isNotNull(memberships.stripeCustomerId),
-      ),
-    )
-    .orderBy(desc(memberships.createdAt))
-    .limit(1);
+  const customerId = await resolveBillingPortalCustomerId(locals.user.id);
 
-  if (!row?.stripeCustomerId) {
+  if (!customerId) {
     return json(
       {
         error: "no_billing_account",
@@ -83,18 +74,21 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   if (!stripe) return json({ error: "Stripe not configured" }, 503);
 
-  // Env-aware origin, never a hardcoded host: SoccerOne resolves to its
-  // canonical origin, every other brand falls through to PUBLIC_APP_URL
-  // (localhost in dev, the staging host on staging).
-  const origin = originForBrand(locals.brandId) ?? env.PUBLIC_APP_URL;
+  // REQUEST origin, exactly like the Checkout redirects in
+  // memberships/subscribe.ts: the parent must come back to the host they
+  // left from. A brand-mapped canonical origin would bounce a dev or e2e
+  // SoccerOne-host session out to production; PUBLIC_APP_URL would strand a
+  // SoccerOne customer on the Aspire host. The PATH is still allow-listed,
+  // so nothing here is client-controlled.
+  const origin = url.origin;
 
   try {
-    const { url } = await createBillingPortalSession({
-      customerId: row.stripeCustomerId,
+    const session = await createBillingPortalSession({
+      customerId,
       returnPath,
       origin,
     });
-    return json({ url }, 200);
+    return json({ url: session.url }, 200);
   } catch (err) {
     console.error("[memberships/billing-portal] session create failed", err);
     return json({ error: "Could not open the billing portal" }, 502);

@@ -1,33 +1,37 @@
 /**
- * Stripe Customer Portal — `POST /api/memberships/billing-portal` plus the
- * library it wraps (`src/lib/memberships/billing-portal.ts`).
+ * Stripe Customer Portal — `POST /api/memberships/billing-portal`, the
+ * library it wraps (`src/lib/memberships/billing-portal.ts`), and the
+ * customer-resolution rules it depends on (`src/lib/memberships/customer.ts`).
  *
  * Split the same way as tests/api/class-pack-purchase.test.ts: everything
  * that can be asserted without Stripe (auth, the return-path allow-list, the
- * no-customer 404) runs everywhere; every assertion whose shape comes back
- * FROM Stripe is `itWithStripe`-gated, because CI has no STRIPE_SECRET_KEY
- * (the standing CI-has-no-Stripe lesson).
+ * no-customer 404, which customer wins) runs everywhere; every assertion
+ * whose shape comes back FROM Stripe is `itWithStripe`-gated, because CI has
+ * no STRIPE_SECRET_KEY (the standing CI-has-no-Stripe lesson).
  *
- * The happy path needs a REAL Stripe customer — the seeded fixtures carry
- * fake `cus_test_seeded_*` ids that Stripe would reject — so it mints one in
- * `beforeAll` and pins it to a freshly inserted `memberships` row for the
- * test parent. That row is deliberately `status: 'cancelled'`: the endpoint
- * resolves the customer by "newest row with a stripeCustomerId" regardless
- * of status, and a cancelled row sits outside BOTH partial unique indexes
- * (`memberships_one_active_per_user_org` / `..._per_child_org`), so this
- * spec can never collide with a live fixture membership on the shared
- * staging DB. Row + Stripe customer are both torn down in `afterAll`.
- *
- * The configuration test asserts the find-before-create contract ACROSS
- * processes: the happy-path request above made the dev server's process
- * bootstrap a configuration, and this process bootstraps its own — if the
- * lookup-by-metadata leg were missing, the list would show two.
+ * FIXTURE SHAPE — it encodes the customer-fan-out bug this endpoint has to
+ * survive. Two membership rows are seeded for the test parent:
+ *   1. older, `past_due`, pinned to a REAL Stripe customer minted here (the
+ *      seeded `cus_test_seeded_*` ids are fake and Stripe rejects them). It
+ *      hangs off a throwaway child, so it lands in the per-child partial
+ *      unique index on a brand-new key and can never collide with a live
+ *      fixture membership on the shared staging DB.
+ *   2. newer, `cancelled`, pinned to a DELIBERATELY BOGUS customer id.
+ *      `cancelled` sits outside both partial unique indexes, so this row is
+ *      collision-proof too.
+ * A "newest row wins" resolver would hand Stripe the bogus id and the
+ * endpoint would 502 — so the happy path returning 200 is itself the proof
+ * that past_due targeting works end to end, on top of the direct resolver
+ * assertions below. Everything is torn down in `afterAll`, and `beforeAll`
+ * also purges leftovers from a previously crashed run.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, like } from "drizzle-orm";
+import type Stripe from "stripe";
 import { getDb } from "@/lib/db";
 import { memberships, membershipTiers } from "@/lib/db/schema/memberships";
 import { organizations } from "@/lib/db/schema/organizations";
+import { familyMembers } from "@/lib/db/schema/registrations";
 import { users } from "@/lib/db/schema/users";
 import {
   BILLING_PORTAL_CONFIG_VERSION,
@@ -35,6 +39,10 @@ import {
   createBillingPortalSession,
   ensureBillingPortalConfiguration,
 } from "@/lib/memberships/billing-portal";
+import {
+  findMembershipStripeCustomerId,
+  resolveBillingPortalCustomerId,
+} from "@/lib/memberships/customer";
 import { membershipsStripe } from "@/lib/memberships/stripe";
 import { getAuthCookie } from "./setup/test-helpers";
 
@@ -44,6 +52,11 @@ const itWithStripe = stripeConfigured ? it : it.skip;
 
 const PARENT_EMAIL = "parent@test.aspiresports.com";
 const PARENT_PASSWORD = "TestParent123!";
+
+/** Marks every row this spec creates, so a crashed run self-heals. */
+const SPEC_CHILD_PREFIX = "BillingPortalSpecChild";
+const SPEC_BOGUS_CUSTOMER_PREFIX = "cus_spec_billingportal_";
+const RUN = `${Date.now()}`;
 
 /** Accounts that plausibly hold NO membership with a Stripe customer id.
  *  The first one that actually qualifies (checked against the DB, since the
@@ -55,10 +68,18 @@ const NO_BILLING_CANDIDATES = [
 ];
 
 let noBillingAccount: { email: string; password: string } | undefined;
-/** memberships.id inserted by this spec — deleted in afterAll. */
-let seededMembershipId: string | undefined;
-/** Real Stripe customer minted by this spec — deleted in afterAll. */
-let stripeCustomerId: string | undefined;
+let parentUserId: string | undefined;
+/** Rows + child inserted by this spec — all deleted in afterAll. */
+const seededMembershipIds: string[] = [];
+let seededChildId: string | undefined;
+/** Customer on the OLDER past_due row (real when Stripe is configured). */
+let pastDueCustomerId: string | undefined;
+/** Customer on the NEWER cancelled row — always bogus, never valid at Stripe. */
+const newestCustomerId = `${SPEC_BOGUS_CUSTOMER_PREFIX}${RUN}`;
+/** Only set when we actually minted a customer at Stripe (cleanup key). */
+let realStripeCustomerId: string | undefined;
+/** True once both fixture rows exist. */
+let fixturesReady = false;
 
 async function postPortal(opts: {
   cookie?: string;
@@ -72,6 +93,46 @@ async function postPortal(opts: {
     },
     body: JSON.stringify(opts.body ?? {}),
   });
+}
+
+/** The feature set the spec mandates — asserted on EVERY configuration
+ *  carrying our metadata, not just the resolved one (see the "created once"
+ *  test for why uniqueness itself can't be asserted). */
+function expectSpecFeatures(config: Stripe.BillingPortal.Configuration) {
+  expect(config.features.payment_method_update.enabled).toBe(true);
+  expect(config.features.invoice_history.enabled).toBe(true);
+  expect(config.features.subscription_cancel.enabled).toBe(true);
+  expect(config.features.subscription_cancel.mode).toBe("at_period_end");
+  expect(config.features.subscription_update.enabled).toBe(false);
+  expect(config.business_profile.headline).toBeTruthy();
+}
+
+/** Delete every membership row + child this spec has ever created for the
+ *  test parent — this run's and any orphaned by a crashed earlier run. */
+async function purgeSpecFixtures(userId: string) {
+  const db = getDb();
+  const children = await db
+    .select({ id: familyMembers.id })
+    .from(familyMembers)
+    .where(
+      and(
+        eq(familyMembers.parentUserId, userId),
+        like(familyMembers.firstName, `${SPEC_CHILD_PREFIX}%`),
+      ),
+    );
+  const childIds = children.map((c) => c.id);
+  if (childIds.length > 0) {
+    await db.delete(memberships).where(inArray(memberships.familyMemberId, childIds));
+    await db.delete(familyMembers).where(inArray(familyMembers.id, childIds));
+  }
+  await db
+    .delete(memberships)
+    .where(
+      and(
+        eq(memberships.userId, userId),
+        like(memberships.stripeCustomerId, `${SPEC_BOGUS_CUSTOMER_PREFIX}%`),
+      ),
+    );
 }
 
 beforeAll(async () => {
@@ -110,7 +171,7 @@ beforeAll(async () => {
     }
   }
 
-  if (!stripeConfigured || !aspireOrg) return;
+  if (!aspireOrg) return;
 
   const [parentUser] = await db
     .select({ id: users.id })
@@ -124,15 +185,53 @@ beforeAll(async () => {
     .orderBy(asc(membershipTiers.createdAt))
     .limit(1);
   if (!parentUser || !tier) return;
+  parentUserId = parentUser.id;
 
-  const customer = await membershipsStripe().customers.create({
-    email: PARENT_EMAIL,
-    name: "Billing Portal Spec",
-    metadata: { aspire_test_fixture: "memberships-billing-portal" },
-  });
-  stripeCustomerId = customer.id;
+  await purgeSpecFixtures(parentUser.id);
 
-  const [row] = await db
+  // Real customer only when Stripe is configured; otherwise a placeholder,
+  // so the DB-level resolver assertions still run on CI.
+  if (stripeConfigured) {
+    const customer = await membershipsStripe().customers.create({
+      email: PARENT_EMAIL,
+      name: "Billing Portal Spec",
+      metadata: { aspire_test_fixture: "memberships-billing-portal" },
+    });
+    realStripeCustomerId = customer.id;
+    pastDueCustomerId = customer.id;
+  } else {
+    pastDueCustomerId = `${SPEC_BOGUS_CUSTOMER_PREFIX}pastdue_${RUN}`;
+  }
+
+  const [child] = await db
+    .insert(familyMembers)
+    .values({
+      parentUserId: parentUser.id,
+      firstName: `${SPEC_CHILD_PREFIX}-${RUN}`,
+      lastName: "Test",
+      birthDate: "2016-05-02",
+    })
+    .returning({ id: familyMembers.id });
+  seededChildId = child?.id;
+
+  // OLDER row: past_due, real customer, child-scoped.
+  const [pastDueRow] = await db
+    .insert(memberships)
+    .values({
+      userId: parentUser.id,
+      familyMemberId: seededChildId,
+      organizationId: aspireOrg.id,
+      tierId: tier.id,
+      status: "past_due",
+      billingInterval: "month",
+      stripeCustomerId: pastDueCustomerId,
+    })
+    .returning({ id: memberships.id });
+  if (pastDueRow) seededMembershipIds.push(pastDueRow.id);
+
+  // NEWER row: cancelled, bogus customer — the decoy a newest-wins resolver
+  // would pick.
+  const [newestRow] = await db
     .insert(memberships)
     .values({
       userId: parentUser.id,
@@ -140,21 +239,27 @@ beforeAll(async () => {
       tierId: tier.id,
       status: "cancelled",
       billingInterval: "month",
-      stripeCustomerId: customer.id,
+      stripeCustomerId: newestCustomerId,
     })
     .returning({ id: memberships.id });
-  seededMembershipId = row?.id;
+  if (newestRow) seededMembershipIds.push(newestRow.id);
+
+  fixturesReady = seededMembershipIds.length === 2;
 });
 
 afterAll(async () => {
-  if (seededMembershipId) {
-    await getDb().delete(memberships).where(eq(memberships.id, seededMembershipId));
+  const db = getDb();
+  if (seededMembershipIds.length > 0) {
+    await db.delete(memberships).where(inArray(memberships.id, seededMembershipIds));
   }
-  if (stripeCustomerId) {
+  if (seededChildId) {
+    await db.delete(familyMembers).where(eq(familyMembers.id, seededChildId));
+  }
+  if (realStripeCustomerId) {
     try {
-      await membershipsStripe().customers.del(stripeCustomerId);
+      await membershipsStripe().customers.del(realStripeCustomerId);
     } catch {
-      // Best-effort cleanup — a leftover test-mode customer is harmless.
+      // Best-effort — a leftover test-mode customer is harmless.
     }
   }
 });
@@ -196,22 +301,43 @@ describe("POST /api/memberships/billing-portal", () => {
     expect(typeof body.message).toBe("string");
   });
 
-  itWithStripe("returns a hosted portal URL for the caller", async (ctx) => {
-    if (!seededMembershipId) return ctx.skip();
-    const cookie = await getAuthCookie(PARENT_EMAIL, PARENT_PASSWORD);
-    const res = await postPortal({ cookie, body: { returnPath: "/dashboard" } });
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.url).toMatch(/^https:\/\/billing\.stripe\.com\//);
-  });
+  itWithStripe(
+    "returns a hosted portal URL, targeting the past_due customer",
+    async (ctx) => {
+      if (!fixturesReady) return ctx.skip();
+      const cookie = await getAuthCookie(PARENT_EMAIL, PARENT_PASSWORD);
+      const res = await postPortal({ cookie, body: { returnPath: "/dashboard" } });
+      // A newest-row-wins resolver would send Stripe the bogus customer on
+      // the newer row and this would be a 502.
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body.url).toMatch(/^https:\/\/billing\.stripe\.com\//);
+    },
+  );
 
   itWithStripe("defaults the returnPath when the body omits it", async (ctx) => {
-    if (!seededMembershipId) return ctx.skip();
+    if (!fixturesReady) return ctx.skip();
     const cookie = await getAuthCookie(PARENT_EMAIL, PARENT_PASSWORD);
     const res = await postPortal({ cookie });
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.url).toMatch(/^https:\/\/billing\.stripe\.com\//);
+  });
+});
+
+describe("billing customer resolution", () => {
+  it("opens the portal on the past_due customer, not the newest row", async (ctx) => {
+    if (!fixturesReady || !parentUserId) return ctx.skip();
+    await expect(resolveBillingPortalCustomerId(parentUserId)).resolves.toBe(
+      pastDueCustomerId,
+    );
+  });
+
+  it("feeds purchases the newest customer, so new charges converge", async (ctx) => {
+    if (!fixturesReady || !parentUserId) return ctx.skip();
+    await expect(findMembershipStripeCustomerId(parentUserId)).resolves.toBe(
+      newestCustomerId,
+    );
   });
 });
 
@@ -230,33 +356,34 @@ describe("billing-portal library", () => {
     expect([...BILLING_RETURN_PATHS]).toEqual(["/dashboard/family", "/dashboard"]);
   });
 
-  itWithStripe("creates the configuration once and reuses it", async () => {
-    const first = await ensureBillingPortalConfiguration();
-    const second = await ensureBillingPortalConfiguration();
-    expect(second).toBe(first);
+  itWithStripe(
+    "resolves one configuration per process and every match carries the spec's features",
+    async () => {
+      const first = await ensureBillingPortalConfiguration();
+      const second = await ensureBillingPortalConfiguration();
+      expect(second).toBe(first);
 
-    const s = membershipsStripe();
-    const matching: string[] = [];
-    for await (const config of s.billingPortal.configurations.list({ limit: 100 })) {
-      if (config.metadata?.aspire_config === BILLING_PORTAL_CONFIG_VERSION) {
-        matching.push(config.id);
+      const s = membershipsStripe();
+      const matches: Stripe.BillingPortal.Configuration[] = [];
+      for await (const config of s.billingPortal.configurations.list({ limit: 100 })) {
+        if (config.metadata?.aspire_config === BILLING_PORTAL_CONFIG_VERSION) {
+          matches.push(config);
+        }
       }
-    }
-    // Exactly one across BOTH processes (this one and the dev server's) —
-    // the find-before-create leg is what keeps this from being two.
-    expect(matching).toEqual([first]);
-  });
 
-  itWithStripe("configures the features the spec calls for", async () => {
+      // NOT "exactly one": find-before-create isn't atomic across processes,
+      // and the stable idempotency key on create only collapses bursts
+      // inside Stripe's 24h window. What must hold is that the id we resolve
+      // is one of ours and that any duplicate is behaviourally identical.
+      expect(matches.map((c) => c.id)).toContain(first);
+      for (const config of matches) expectSpecFeatures(config);
+    },
+  );
+
+  itWithStripe("configures the resolved configuration per the spec", async () => {
     const configId = await ensureBillingPortalConfiguration();
-    const config = await membershipsStripe().billingPortal.configurations.retrieve(
-      configId,
+    expectSpecFeatures(
+      await membershipsStripe().billingPortal.configurations.retrieve(configId),
     );
-    expect(config.features.payment_method_update.enabled).toBe(true);
-    expect(config.features.invoice_history.enabled).toBe(true);
-    expect(config.features.subscription_cancel.enabled).toBe(true);
-    expect(config.features.subscription_cancel.mode).toBe("at_period_end");
-    expect(config.features.subscription_update.enabled).toBe(false);
-    expect(config.business_profile.headline).toBeTruthy();
   });
 });

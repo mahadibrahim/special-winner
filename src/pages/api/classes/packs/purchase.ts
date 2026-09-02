@@ -20,6 +20,7 @@ import { classPackProducts } from "@/lib/db/schema/classes";
 import { organizations } from "@/lib/db/schema/organizations";
 import { users } from "@/lib/db/schema/users";
 import { familyMembers } from "@/lib/db/schema/registrations";
+import { findMembershipStripeCustomerId } from "@/lib/memberships/customer";
 import { getOrCreateStripeCustomer } from "@/lib/memberships/stripe";
 import { stripe } from "@/lib/stripe/client";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
@@ -123,6 +124,12 @@ export const POST: APIRoute = async ({ request, locals, url }) => {
       userId: locals.user.id,
       email: userRow.email,
       name: userRow.firstName,
+      // Reuse the parent's existing customer — the get-or-create's
+      // idempotency key expires after 24h, so purchases more than a day
+      // apart would otherwise each mint a new Stripe customer and fan the
+      // family's billing out across several (which splits the billing
+      // portal). See src/lib/memberships/customer.ts.
+      existingCustomerId: await findMembershipStripeCustomerId(locals.user.id),
     });
   } catch (err) {
     console.error("[classes/packs/purchase] customer create failed", err);
