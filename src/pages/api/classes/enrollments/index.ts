@@ -22,6 +22,20 @@ export const prerender = false;
 const UUID_RX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/**
+ * Jersey sizes for the class-membership annual fee (which includes a
+ * jersey — Task 8 of the class-pricing technical band). Single
+ * server-side consumer, so the fixed list lives here rather than a shared
+ * constants module; choose-slot.tsx keeps its own display copy of the same
+ * seven values for its Select (an island can't import this server file).
+ */
+const KIT_SIZES = ["YS", "YM", "YL", "AS", "AM", "AL", "AXL"] as const;
+type KitSize = (typeof KIT_SIZES)[number];
+
+function isKitSize(value: unknown): value is KitSize {
+  return typeof value === "string" && (KIT_SIZES as readonly string[]).includes(value);
+}
+
 const json = (body: unknown, status: number) =>
   new Response(JSON.stringify(body), {
     status,
@@ -61,6 +75,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     slotTemplateId?: unknown;
     familyMemberId?: unknown;
     acknowledgeTechnicalPremium?: unknown;
+    kitSize?: unknown;
   };
   try {
     body = await request.json();
@@ -80,6 +95,19 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return json({ error: "familyMemberId is required" }, 422);
   }
 
+  // Jersey size is optional (a parent may skip it and set it later from
+  // their dashboard), but if present it must be one of the fixed sizes —
+  // never free text that a roster export would have to sanitize.
+  const kitSize =
+    body.kitSize == null
+      ? null
+      : isKitSize(body.kitSize)
+        ? body.kitSize
+        : undefined;
+  if (kitSize === undefined) {
+    return json({ error: "invalid_kit_size", message: "kitSize must be one of: " + KIT_SIZES.join(", ") }, 422);
+  }
+
   const result = await enrollChild({
     slotTemplateId,
     familyMemberId,
@@ -91,6 +119,21 @@ export const POST: APIRoute = async ({ request, locals }) => {
   if (!result.ok) {
     const { code, message, technicalMonthlyCents } = result.error;
     return json({ error: code, message, technicalMonthlyCents }, ERROR_STATUS[code] ?? 400);
+  }
+
+  // Persisted AFTER the enroll transaction — a size write must never roll
+  // back a seat. Ownership was already proven inside `enrollChild`; the
+  // where-clause re-check here is belt-and-braces, not the source of truth.
+  if (kitSize) {
+    await getDb()
+      .update(familyMembers)
+      .set({ kitSize })
+      .where(
+        and(
+          eq(familyMembers.id, familyMemberId),
+          eq(familyMembers.parentUserId, locals.user.id),
+        ),
+      );
   }
 
   return json({ ok: true, enrollmentId: result.enrollmentId }, 200);

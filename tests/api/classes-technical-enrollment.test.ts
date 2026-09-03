@@ -435,3 +435,71 @@ describe("booking gate on member allotment (POST /api/classes/book)", () => {
     expect(body.paymentMethod).toBe("member_allotment");
   });
 });
+
+/**
+ * Task 8 — jersey size capture at enrollment. The $50 annual membership fee
+ * includes a jersey; the size is captured on the enrollment POST (not inside
+ * the enroll transaction — see enrollments/index.ts) and must round-trip to
+ * the admin roster so staff know what to order.
+ */
+describe("jersey size capture at enrollment (POST /api/classes/enrollments)", () => {
+  it("round-trips kitSize to the admin roster", async () => {
+    const suffix = Date.now();
+    const childId = await createTestChild(parentUserId, `TechKit-${suffix}`);
+    await createTestChildMembership({
+      userId: parentUserId,
+      familyMemberId: childId,
+      organizationId,
+      tierId: techTierId,
+      idSuffix: `techkit-${suffix}`,
+    });
+
+    const res = await parentFetch("/api/classes/enrollments", {
+      method: "POST",
+      body: JSON.stringify({
+        slotTemplateId: standardTemplateId,
+        familyMemberId: childId,
+        kitSize: "YM",
+      }),
+    });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    createdEnrollmentIds.push(body.enrollmentId);
+
+    const rosterRes = await adminFetch(`/api/admin/classes/templates/${standardTemplateId}/roster`);
+    expect(rosterRes.status).toBe(200);
+    const rosterBody = await rosterRes.json();
+    const row = rosterBody.enrollments.find((e: any) => e.familyMemberId === childId);
+    expect(row).toBeTruthy();
+    expect(row.kitSize).toBe("YM");
+  });
+
+  it("rejects an invalid kitSize with 422 and does not create the enrollment", async () => {
+    const suffix = Date.now();
+    const childId = await createTestChild(parentUserId, `TechKitBad-${suffix}`);
+    await createTestChildMembership({
+      userId: parentUserId,
+      familyMemberId: childId,
+      organizationId,
+      tierId: techTierId,
+      idSuffix: `techkitbad-${suffix}`,
+    });
+
+    const res = await parentFetch("/api/classes/enrollments", {
+      method: "POST",
+      body: JSON.stringify({
+        slotTemplateId: standardTemplateId,
+        familyMemberId: childId,
+        kitSize: "XXL",
+      }),
+    });
+    expect(res.status).toBe(422);
+
+    const stillActiveRes = await parentFetch("/api/classes/enrollments", { method: "GET" });
+    expect(stillActiveRes.status).toBe(200);
+    const stillActiveBody = await stillActiveRes.json();
+    expect(
+      stillActiveBody.enrollments.some((e: any) => e.familyMemberId === childId),
+    ).toBe(false);
+  });
+});

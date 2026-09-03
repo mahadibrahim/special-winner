@@ -48,6 +48,7 @@ export const GET: APIRoute = async (context) => {
       childFirstName: familyMembers.firstName,
       childLastName: familyMembers.lastName,
       birthDate: familyMembers.birthDate,
+      kitSize: familyMembers.kitSize,
       startedAt: classEnrollments.startedAt,
     })
     .from(classEnrollments)
@@ -60,6 +61,7 @@ export const GET: APIRoute = async (context) => {
     familyMemberId: row.familyMemberId,
     childName: `${row.childFirstName} ${row.childLastName}`,
     age: row.birthDate ? ageOnDate(row.birthDate, now) : null,
+    kitSize: row.kitSize,
     startedAt: row.startedAt,
   }));
 

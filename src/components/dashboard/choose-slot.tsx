@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
@@ -119,7 +120,25 @@ interface ScheduleSession {
 interface FamilyMemberRow {
   id: string;
   birthDate: string | null;
+  kitSize: string | null;
 }
+
+/**
+ * Jersey sizes for the class-membership annual fee (which includes a
+ * jersey). Mirrors the fixed list validated server-side in
+ * src/pages/api/classes/enrollments/index.ts's `KIT_SIZES` — duplicated
+ * rather than imported because this island can't pull in that server route
+ * file (same reasoning as `ageOnDate`/`isAgeEligible` above).
+ */
+const KIT_SIZE_OPTIONS: { value: string; label: string }[] = [
+  { value: "YS", label: "Youth Small" },
+  { value: "YM", label: "Youth Medium" },
+  { value: "YL", label: "Youth Large" },
+  { value: "AS", label: "Adult Small" },
+  { value: "AM", label: "Adult Medium" },
+  { value: "AL", label: "Adult Large" },
+  { value: "AXL", label: "Adult X-Large" },
+];
 
 type Phase =
   | "loading"
@@ -290,6 +309,15 @@ export function ChooseSlot() {
   const [pendingSession, setPendingSession] = useState<ScheduleSession | null>(null);
   const [successInfo, setSuccessInfo] = useState<SuccessInfo | null>(null);
 
+  // Jersey size (Task 8) — the $50 annual membership fee includes a jersey.
+  // `kitSize` is pre-filled from /api/family-members if the child already has
+  // one on file; `pendingEnrollSlot` gates a FIRST membership-backed
+  // enrollment behind a confirm panel so the parent picks a size before the
+  // standing seat is created (a slot switch on an EXISTING enrollment skips
+  // this — see requestSelectSlot).
+  const [kitSize, setKitSize] = useState<string>("");
+  const [pendingEnrollSlot, setPendingEnrollSlot] = useState<ScheduleSlot | null>(null);
+
   const [waiverAccepted, setWaiverAccepted] = useState(false);
   const [waiverSignerName, setWaiverSignerName] = useState("");
   const [waiverSubmitting, setWaiverSubmitting] = useState(false);
@@ -337,6 +365,7 @@ export function ChooseSlot() {
 
       setChildSummary(child);
       setChildAge(age);
+      if (familyRow?.kitSize) setKitSize(familyRow.kitSize);
       setSlots(scheduleBody.slots);
       setSessions(scheduleBody.sessions);
 
@@ -409,6 +438,11 @@ export function ChooseSlot() {
     /** Set once the parent has confirmed the technical-premium dialog, so
      *  the recursive re-POST/PUT below carries it through. */
     acknowledgeTechnicalPremium = false,
+    /** Jersey size, sent ONLY on the POST (new-enrollment) branch — a slot
+     *  CHANGE via PUT doesn't create a new seat, so there's nothing new to
+     *  size (the child's existing kitSize on file stands). Comes from the
+     *  confirm panel in requestSelectSlot, defaulted from state. */
+    kitSizeToSend?: string,
   ): Promise<{ ok: true } | { ok: false; message: string }> {
     const currentEnrollment = childSummary?.enrollment;
 
@@ -434,6 +468,7 @@ export function ChooseSlot() {
               slotTemplateId: slot.templateId,
               familyMemberId: childId,
               acknowledgeTechnicalPremium,
+              ...(kitSizeToSend ? { kitSize: kitSizeToSend } : {}),
             }),
           });
     } catch {
@@ -460,7 +495,7 @@ export function ChooseSlot() {
         confirmLabel: "Add it",
       });
       if (!confirmed) return { ok: false, message: "" };
-      return enrollOrChangeWithRetry(slot, attempt, true);
+      return enrollOrChangeWithRetry(slot, attempt, true, kitSizeToSend);
     }
 
     if (code === "no_membership") {
@@ -468,7 +503,7 @@ export function ChooseSlot() {
         setPhase("payment_settling");
         setSettlingAttempt(attempt + 1);
         await sleep(NO_MEMBERSHIP_RETRY_DELAYS_MS[attempt]);
-        return enrollOrChangeWithRetry(slot, attempt + 1, acknowledgeTechnicalPremium);
+        return enrollOrChangeWithRetry(slot, attempt + 1, acknowledgeTechnicalPremium, kitSizeToSend);
       }
       return {
         ok: false,
@@ -642,18 +677,27 @@ export function ChooseSlot() {
       setConfirmSwitchSlot(slot);
       return;
     }
+    // First-time enrollment for a membership-backed child (no standing seat
+    // yet, so this is a POST, not a slot-change PUT): confirm the jersey
+    // size before creating the seat — the annual fee includes a jersey, and
+    // the roster needs a size to order against.
+    if (!currentEnrollment && childSummary?.membership) {
+      setPendingEnrollSlot(slot);
+      return;
+    }
     void handleSelectSlot(slot);
   }
 
-  async function handleSelectSlot(slot: ScheduleSlot) {
+  async function handleSelectSlot(slot: ScheduleSlot, kitSizeToSend?: string) {
     if (phase === "enrolling" || phase === "payment_settling" || phase === "booking") return;
     setConfirmSwitchSlot(null);
+    setPendingEnrollSlot(null);
     setSelectedTemplateId(slot.templateId);
     setFlowError(null);
     setSettlingAttempt(0);
     setPhase("enrolling");
 
-    const enrollResult = await enrollOrChangeWithRetry(slot);
+    const enrollResult = await enrollOrChangeWithRetry(slot, 0, false, kitSizeToSend);
     if (!enrollResult.ok) {
       setPhase("picking");
       setFlowError(enrollResult.message);
@@ -866,7 +910,44 @@ export function ChooseSlot() {
 
       <ErrorBanner message={flowError} />
 
-      {confirmSwitchSlot ? (
+      {pendingEnrollSlot ? (
+        <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-5 space-y-4">
+          <p className="text-sm text-ink-2">
+            Enroll {childSummary?.name ?? "your child"} in{" "}
+            <strong>{pendingEnrollSlot.name}</strong> (
+            {formatDayTime(pendingEnrollSlot.weekday, pendingEnrollSlot.startTime)})?
+          </p>
+          <div className="space-y-1.5">
+            <Label htmlFor="kit-size" className="text-sm">
+              Jersey size (included with your membership)
+            </Label>
+            <Select value={kitSize} onValueChange={setKitSize}>
+              <SelectTrigger id="kit-size" className="bg-cream-2 border-border text-ink w-full sm:w-64">
+                <SelectValue placeholder="Select a size" />
+              </SelectTrigger>
+              <SelectContent className="bg-cream border-border">
+                {KIT_SIZE_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value} className="text-ink-2">
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex gap-3">
+            <Button
+              type="button"
+              disabled={kitSize.length === 0}
+              onClick={() => void handleSelectSlot(pendingEnrollSlot, kitSize)}
+            >
+              Confirm enrollment
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setPendingEnrollSlot(null)}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : confirmSwitchSlot ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-5 space-y-4">
           <p className="text-sm text-ink-2">
             Switch {childSummary?.name ?? "your child"}'s home class to{" "}
