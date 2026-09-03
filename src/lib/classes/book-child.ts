@@ -40,8 +40,9 @@ import { and, eq, inArray, ne } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
 import { familyMembers } from "@/lib/db/schema/registrations";
-import { classSlotTemplates } from "@/lib/db/schema/classes";
+import { classSlotTemplates, classEnrollments } from "@/lib/db/schema/classes";
 import { getActiveChildMembership } from "@/lib/memberships/get-child-membership";
+import { requiresTechnicalPremium } from "./technical-premium";
 import {
   WAIVER_ON_FILE_ATTRIBUTION,
   hasValidLiabilityWaiver,
@@ -67,6 +68,7 @@ export interface ChildBookingError {
     | "already_booked"
     | "no_membership"
     | "allotment_exhausted"
+    | "technical_not_included"
     | "trial_already_used"
     | "member_child_no_trial"
     | "age_ineligible"
@@ -130,6 +132,40 @@ export function ageOnDate(birthDate: string, onDate: Date): number {
 
 function err(code: ChildBookingError["code"], message: string): ChildBookingResult {
   return { ok: false, error: { code, message } };
+}
+
+/**
+ * Whether the child already holds ANY active `class_enrollments` row on a
+ * technical template backed by THIS SAME membership — the definition of
+ * "entitled to the technical add-on" for the per-session booking gate
+ * (requiresTechnicalPremium decides whether the gate applies at all; this
+ * decides whether it's already been paid for). One query, limit 1: an
+ * enrollment implies entitlement by construction — `enrollChild` /
+ * `changeEnrollmentSlot` already required `acknowledgeTechnicalPremium`
+ * before creating or moving a technical-backed row, and the cron's
+ * auto-materialized bookings (`source: "auto_enrollment"`) always come from
+ * an existing enrollment, so this same check is what keeps that background
+ * path unblocked for entitled kids without special-casing it here.
+ */
+async function hasActiveTechnicalEnrollment(
+  tx: DropInTx,
+  familyMemberId: string,
+  membershipId: string,
+): Promise<boolean> {
+  const [row] = await tx
+    .select({ id: classEnrollments.id })
+    .from(classEnrollments)
+    .innerJoin(classSlotTemplates, eq(classSlotTemplates.id, classEnrollments.slotTemplateId))
+    .where(
+      and(
+        eq(classEnrollments.familyMemberId, familyMemberId),
+        eq(classEnrollments.membershipId, membershipId),
+        eq(classEnrollments.status, "active"),
+        eq(classSlotTemplates.isTechnical, true),
+      ),
+    )
+    .limit(1);
+  return !!row;
 }
 
 export async function createChildClassBooking(opts: {
@@ -229,12 +265,51 @@ export async function createChildClassBooking(opts: {
     let membershipId: string | null = null;
     let creditGrantId: string | null = null;
     if (opts.kind === "member") {
+      // The session's own band — technical slots need the gate below, a
+      // one-off session with no template (classSlotTemplateId null) is
+      // always standard. Kept as its own tiny lookup (rather than folded
+      // into the age-gate select above) because that select only runs when
+      // the child has a DOB on file; the technical band must be known
+      // regardless.
+      const isTechnicalSlot = session.classSlotTemplateId
+        ? ((
+            await tx
+              .select({ isTechnical: classSlotTemplates.isTechnical })
+              .from(classSlotTemplates)
+              .where(eq(classSlotTemplates.id, session.classSlotTemplateId))
+              .limit(1)
+          )[0]?.isTechnical ?? false)
+        : false;
+
       const membership = await getActiveChildMembership(
         opts.familyMemberId,
         session.organizationId,
         tx,
       );
-      if (membership && membership.status === "active" && membership.classAllotmentRemaining !== 0) {
+
+      // Closes the leak this file exists to prevent: a member's monthly
+      // allotment must never book a technical slot for free unless the tier
+      // includes it (requiresTechnicalPremium's unlimited/no-premium
+      // short-circuits) or the child already holds the paid-for add-on
+      // (hasActiveTechnicalEnrollment). This does NOT block the credit
+      // fallthrough below — a family that bought pinned block credits for
+      // this exact technical slot still spends them normally; only the
+      // ALLOTMENT path is gated.
+      const technicalBlocked =
+        membership !== null &&
+        requiresTechnicalPremium({
+          isTechnicalSlot,
+          benefits: membership.benefits,
+          technicalMonthlyCents: membership.technicalMonthlyCents,
+        }) &&
+        !(await hasActiveTechnicalEnrollment(tx, opts.familyMemberId, membership.id));
+
+      if (
+        membership &&
+        membership.status === "active" &&
+        membership.classAllotmentRemaining !== 0 &&
+        !technicalBlocked
+      ) {
         paymentMethod = "member_allotment";
         membershipId = membership.id;
       } else {
@@ -277,8 +352,18 @@ export async function createChildClassBooking(opts: {
           creditGrantId = grant.grantId;
         } else if (!membership || membership.status !== "active") {
           return err("no_membership", "Child has no active membership");
-        } else {
+        } else if (membership.classAllotmentRemaining === 0) {
           return err("allotment_exhausted", "Child's monthly class allotment is used up");
+        } else {
+          // Reaching here means membership is active AND the allotment is
+          // available (classAllotmentRemaining !== 0) — the only way the
+          // first `if` above still didn't take this branch is
+          // `technicalBlocked`. Distinct code so the client routes to the
+          // membership-supplement upsell rather than a paid make-up quote.
+          return err(
+            "technical_not_included",
+            "Technical classes need the technical supplement on the membership",
+          );
         }
       }
     } else {
