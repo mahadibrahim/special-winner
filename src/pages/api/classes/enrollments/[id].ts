@@ -48,6 +48,9 @@ const ERROR_STATUS: Record<EnrollmentError["code"], number> = {
   // Destination slot is priced above the block the family paid for — a
   // conflict with the purchase, not a malformed request.
   rate_mismatch: 409,
+  // Destination slot is technical with a configured supplement the parent
+  // hasn't acknowledged yet.
+  technical_premium_required: 409,
 };
 
 /**
@@ -120,7 +123,7 @@ export const PUT: APIRoute = async ({ request, params, locals }) => {
   const id = params.id;
   if (!id) return json({ error: "Enrollment id required" }, 400);
 
-  let body: { newSlotTemplateId?: unknown };
+  let body: { newSlotTemplateId?: unknown; acknowledgeTechnicalPremium?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -136,10 +139,12 @@ export const PUT: APIRoute = async ({ request, params, locals }) => {
     return json({ error: "Enrollment not found" }, 404);
   }
 
-  const result = await changeEnrollmentSlot(id, newSlotTemplateId);
+  const result = await changeEnrollmentSlot(id, newSlotTemplateId, {
+    acknowledgeTechnicalPremium: body.acknowledgeTechnicalPremium === true,
+  });
   if (!result.ok) {
-    const { code, message } = result.error;
-    return json({ error: code, message }, ERROR_STATUS[code] ?? 400);
+    const { code, message, technicalMonthlyCents } = result.error;
+    return json({ error: code, message, technicalMonthlyCents }, ERROR_STATUS[code] ?? 400);
   }
 
   return json({ ok: true, enrollmentId: result.enrollmentId }, 200);

@@ -28,8 +28,10 @@ import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
 import { familyMembers } from "@/lib/db/schema/registrations";
 import { getActiveChildMembership } from "@/lib/memberships/get-child-membership";
 import { promoteNextWaitlister } from "@/lib/dropin/promotion";
+import { syncTechnicalAddonQuantity } from "@/lib/memberships/technical-addon";
 import { getCreditBalances } from "./credits";
 import { ageOnDate } from "./book-child";
+import { requiresTechnicalPremium } from "./technical-premium";
 import type { DropInTx } from "@/lib/dropin/booking";
 
 export interface EnrollmentError {
@@ -47,16 +49,28 @@ export interface EnrollmentError {
     // changeEnrollmentSlot-only, CREDIT-BACKED enrollments only: the
     // destination slot costs more per session than the one the family paid
     // for. See the policy note at the check.
-    | "rate_mismatch";
+    | "rate_mismatch"
+    // The destination/new slot is a technical-training slot and the
+    // membership's tier carries a configured supplement the parent hasn't
+    // acknowledged yet. See requiresTechnicalPremium and the gate below.
+    | "technical_premium_required";
   message: string;
+  /** Set only on `technical_premium_required` — the monthly supplement
+   *  amount so the client can render the "+$X/month" copy without a
+   *  second round trip. */
+  technicalMonthlyCents?: number;
 }
 
 export type EnrollmentResult =
   | { ok: true; enrollmentId: string }
   | { ok: false; error: EnrollmentError };
 
-function err(code: EnrollmentError["code"], message: string): EnrollmentResult {
-  return { ok: false, error: { code, message } };
+function err(
+  code: EnrollmentError["code"],
+  message: string,
+  technicalMonthlyCents?: number,
+): EnrollmentResult {
+  return { ok: false, error: { code, message, technicalMonthlyCents } };
 }
 
 /**
@@ -133,9 +147,19 @@ export async function enrollChild(opts: {
   familyMemberId: string;
   parentUserId: string;
   organizationId: string;
+  /** Parent has confirmed the "+$X/month" technical supplement copy — see
+   *  the gate below. Ignored (and unnecessary) for non-technical slots. */
+  acknowledgeTechnicalPremium?: boolean;
 }): Promise<EnrollmentResult> {
   const db = getDb();
-  return db.transaction(async (tx) => {
+  // Set inside the transaction on a successful, membership-backed insert —
+  // read after commit to fire the (best-effort) Stripe add-on sync. Every
+  // enrollChild-created enrollment is membership-backed (the credit-backed
+  // path only exists via changeEnrollmentSlot / the block-purchase webhook),
+  // so this is set whenever the result is ok.
+  let membershipIdForSync: string | null = null;
+
+  const result = await db.transaction(async (tx): Promise<EnrollmentResult> => {
     // Lock the template row, org-scoped.
     const [template] = await tx
       .select()
@@ -179,6 +203,25 @@ export async function enrollChild(opts: {
       return err("no_membership", "Child has no active membership with a class benefit");
     }
 
+    // Technical supplement gate — the premium must never attach silently.
+    // The client re-submits with acknowledgeTechnicalPremium after the
+    // parent confirms the "+$X/month" copy. Unlimited tiers and tiers with
+    // no configured premium skip (requiresTechnicalPremium).
+    if (
+      requiresTechnicalPremium({
+        isTechnicalSlot: template.isTechnical,
+        benefits: membership.benefits,
+        technicalMonthlyCents: membership.technicalMonthlyCents,
+      }) &&
+      !opts.acknowledgeTechnicalPremium
+    ) {
+      return err(
+        "technical_premium_required",
+        "This is a technical training class — it adds a monthly supplement to the membership",
+        membership.technicalMonthlyCents ?? undefined,
+      );
+    }
+
     // Already-enrolled pre-check for a clean error code — the partial
     // unique index (class_enrollments_one_active_per_child_template)
     // backstops this against a concurrent duplicate insert.
@@ -210,8 +253,18 @@ export async function enrollChild(opts: {
       })
       .returning();
 
+    membershipIdForSync = membership.id;
     return { ok: true, enrollmentId: enrollment.id };
   });
+
+  // POST-COMMIT, best-effort — same rule as every other Stripe/side-effect
+  // call in this file (promoteReleasedSessions, etc.). Never affects the
+  // result already returned to the caller.
+  if (result.ok && membershipIdForSync) {
+    await syncTechnicalAddonQuantity(membershipIdForSync);
+  }
+
+  return result;
 }
 
 /**
@@ -366,6 +419,11 @@ export async function endEnrollment(id: string): Promise<EndEnrollmentResult> {
   const db = getDb();
   /** Sessions whose seat this end freed — promoted AFTER commit (below). */
   const releasedSessionIds = new Set<string>();
+  /** Set when the ended enrollment was membership-backed — read after
+   *  commit to fire the (best-effort) Stripe add-on sync. Stays null for
+   *  credit-backed (block) ends, which have no subscription to adjust, and
+   *  for a no-op end (`!enrollment`). */
+  let membershipIdForSync: string | null = null;
 
   const result = await db.transaction(async (tx): Promise<EndEnrollmentResult> => {
     const [enrollment] = await tx
@@ -374,6 +432,8 @@ export async function endEnrollment(id: string): Promise<EndEnrollmentResult> {
       .where(and(eq(classEnrollments.id, id), eq(classEnrollments.status, "active")))
       .for("update");
     if (!enrollment) return { ended: false, creditsFloated: 0, creditsExpireAt: null };
+
+    membershipIdForSync = enrollment.membershipId;
 
     const now = new Date();
 
@@ -484,6 +544,13 @@ export async function endEnrollment(id: string): Promise<EndEnrollmentResult> {
 
   if (result.ended) await promoteReleasedSessions(releasedSessionIds);
 
+  // Stripe add-on quantity sync, POST-COMMIT and best-effort — same rule as
+  // the promotion above. Only membership-backed ends have a subscription to
+  // adjust; credit-backed (block) ends leave membershipIdForSync null.
+  if (result.ended && membershipIdForSync) {
+    await syncTechnicalAddonQuantity(membershipIdForSync);
+  }
+
   return result;
 }
 
@@ -578,11 +645,16 @@ export async function endEnrollmentsForMembership(
 export async function changeEnrollmentSlot(
   id: string,
   newSlotTemplateId: string,
+  opts?: { acknowledgeTechnicalPremium?: boolean },
 ): Promise<EnrollmentResult> {
   const db = getDb();
   /** Old-slot sessions whose seat this move freed — promoted AFTER the
    *  transaction commits (see the loop below the transaction). */
   const releasedSessionIds = new Set<string>();
+  /** Set on a successful, membership-backed move — read after commit to
+   *  fire the (best-effort) Stripe add-on sync. Stays null for credit-backed
+   *  (block) moves, which have no subscription to adjust. */
+  let membershipIdForSync: string | null = null;
 
   // Explicit annotation: without it the callback's inferred return widens
   // `ok` to `boolean` and no longer satisfies the discriminated union.
@@ -627,6 +699,35 @@ export async function changeEnrollmentSlot(
       .limit(1);
     if (isAgeIneligible(newTemplate, child?.birthDate ?? null, new Date())) {
       return err("age_ineligible", "Child is outside the new class's age range");
+    }
+
+    // Technical supplement gate — only when the move CHANGES technical
+    // status (origin not technical, destination technical). A tech->tech
+    // move doesn't change the add-on quantity, so no re-acknowledgement is
+    // needed; see requiresTechnicalPremium and enrollChild's identical gate.
+    // Credit-backed (block) enrollments have no membership to gate — the
+    // membershipId check below skips them.
+    if (enrollment.membershipId && newTemplate.isTechnical && !oldTemplate.isTechnical) {
+      const membership = await getActiveChildMembership(
+        enrollment.familyMemberId,
+        oldTemplate.organizationId,
+        tx,
+      );
+      if (
+        membership &&
+        requiresTechnicalPremium({
+          isTechnicalSlot: true,
+          benefits: membership.benefits,
+          technicalMonthlyCents: membership.technicalMonthlyCents,
+        }) &&
+        !opts?.acknowledgeTechnicalPremium
+      ) {
+        return err(
+          "technical_premium_required",
+          "This is a technical training class — it adds a monthly supplement to the membership",
+          membership.technicalMonthlyCents ?? undefined,
+        );
+      }
     }
 
     // PRICE GUARD, credit-backed (block) enrollments only.
@@ -734,6 +835,7 @@ export async function changeEnrollmentSlot(
         );
     }
 
+    if (enrollment.membershipId) membershipIdForSync = enrollment.membershipId;
     return { ok: true, enrollmentId: created.id };
   });
 
@@ -741,6 +843,13 @@ export async function changeEnrollmentSlot(
   // `promoteReleasedSessions` (same shape, and the same try/catch rationale,
   // as `processCancelRefund` in src/lib/dropin/refund.ts).
   if (result.ok) await promoteReleasedSessions(releasedSessionIds);
+
+  // Stripe add-on quantity sync, POST-COMMIT and best-effort — same rule.
+  // Never touches credit-backed (block) moves: membershipIdForSync stays
+  // null when the enrollment carries no membershipId.
+  if (result.ok && membershipIdForSync) {
+    await syncTechnicalAddonQuantity(membershipIdForSync);
+  }
 
   return result;
 }

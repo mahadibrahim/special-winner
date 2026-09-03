@@ -47,13 +47,21 @@ const ERROR_STATUS: Record<EnrollmentError["code"], number> = {
   enrollment_not_found: 404,
   // Destination slot is priced above the block the family paid for.
   rate_mismatch: 409,
+  // Technical slot with a configured supplement the parent hasn't
+  // acknowledged yet — a conflict with the membership's current terms, not
+  // a malformed request.
+  technical_premium_required: 409,
 };
 
 export const POST: APIRoute = async ({ request, locals }) => {
   if (!locals.user) return json({ error: "Unauthorized" }, 401);
   if (!locals.organization) return json({ error: "No organization context" }, 400);
 
-  let body: { slotTemplateId?: unknown; familyMemberId?: unknown };
+  let body: {
+    slotTemplateId?: unknown;
+    familyMemberId?: unknown;
+    acknowledgeTechnicalPremium?: unknown;
+  };
   try {
     body = await request.json();
   } catch {
@@ -77,11 +85,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
     familyMemberId,
     parentUserId: locals.user.id,
     organizationId: locals.organization.id,
+    acknowledgeTechnicalPremium: body.acknowledgeTechnicalPremium === true,
   });
 
   if (!result.ok) {
-    const { code, message } = result.error;
-    return json({ error: code, message }, ERROR_STATUS[code] ?? 400);
+    const { code, message, technicalMonthlyCents } = result.error;
+    return json({ error: code, message, technicalMonthlyCents }, ERROR_STATUS[code] ?? 400);
   }
 
   return json({ ok: true, enrollmentId: result.enrollmentId }, 200);
