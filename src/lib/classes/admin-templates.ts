@@ -43,6 +43,9 @@ export const templateInputSchema = z.object({
    *  to sessionRateDollars at quote time — see classSlotTemplates.blockRateCents. */
   blockRateDollars: z.number().positive().nullable().default(null),
   active: z.boolean().default(true),
+  /** Technical-training band — drives the membership supplement gate and
+   *  display chips. See classSlotTemplates.isTechnical. */
+  isTechnical: z.boolean().default(false),
 });
 
 export type TemplateInput = z.infer<typeof templateInputSchema>;

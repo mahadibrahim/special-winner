@@ -97,6 +97,7 @@ export const PUT: APIRoute = async (context) => {
       memberRateCents: nextMemberRateCents,
       blockRateCents: dollarsToCents(input.blockRateDollars),
       active: input.active,
+      isTechnical: input.isTechnical,
       updatedAt: new Date(),
     })
     .where(eq(classSlotTemplates.id, existing.id))
