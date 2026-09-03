@@ -406,6 +406,19 @@ test.describe("Youth classes — choose-slot standalone enroll + first booking",
 
     await page.getByRole("button", { name: /Test Class Slot/ }).click();
 
+    // Technical band Task 8: a first-time membership-backed enrollment
+    // (no standing seat yet, membership already active — exactly this
+    // fixture) gates behind a jersey-size confirm panel before the POST
+    // /api/classes/enrollments call — the $50 annual fee includes a jersey,
+    // and the roster needs a size to order against. A slot SWITCH on an
+    // existing enrollment skips this, but that's not this test's path.
+    await expect(page.getByText("Jersey size (included with your membership)")).toBeVisible({
+      timeout: 15_000,
+    });
+    await page.locator("#kit-size").click();
+    await page.getByRole("option", { name: "Youth Medium" }).click();
+    await page.getByRole("button", { name: "Confirm enrollment" }).click();
+
     // Fresh child, no waiver on file — the immediate (unwaivered) booking
     // attempt always comes back waiver_required.
     await expect(page.getByText("One more step: sign the guardian waiver")).toBeVisible({
