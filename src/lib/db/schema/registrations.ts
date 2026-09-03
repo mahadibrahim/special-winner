@@ -74,6 +74,9 @@ export const familyMembers = pgTable(
     emergencyContactName: varchar("emergency_contact_name", { length: 200 }),
     emergencyContactPhone: varchar("emergency_contact_phone", { length: 20 }),
     photoUrl: text("photo_url"),
+    /** Jersey size captured at class-membership enrollment (annual fee
+     *  includes a jersey). Free-text from a fixed select: YS/YM/YL/AS/AM/AL/AXL. */
+    kitSize: text("kit_size"),
     // COPPA: verifiable parental consent audit trail. Required because a
     // parent's account-level ToS click does not, on its own, constitute the
     // separate affirmative consent COPPA requires for each child whose

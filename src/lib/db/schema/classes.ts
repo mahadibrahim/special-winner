@@ -91,6 +91,11 @@ export const classSlotTemplates = pgTable(
     /** Per-session rate for BLOCK purchases of this template. Null falls
      *  back to sessionRateCents at quote time. */
     blockRateCents: integer("block_rate_cents"),
+    /** Technical-training band: extra coaching, priced ~$2/class above
+     *  standard. Drives the membership supplement gate (enrollment.ts /
+     *  book-child.ts) and display chips. Drop-in/block pricing stays on the
+     *  per-slot rate columns above — this flag does not change those. */
+    isTechnical: boolean("is_technical").notNull().default(false),
     active: boolean("active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

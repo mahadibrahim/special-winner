@@ -67,6 +67,10 @@ export const membershipTiers = pgTable(
     stripePriceIdMonthly: text("stripe_price_id_monthly"),
     stripePriceIdAnnual: text("stripe_price_id_annual"),
     stripePriceIdFee: text("stripe_price_id_fee"),
+    /** Monthly technical-training supplement (+$9/mo per weekly technical
+     *  slot). Null/0 = tier has no premium (adult tiers, unlimited). */
+    technicalMonthlyCents: integer("technical_monthly_cents"),
+    stripePriceIdTechnical: text("stripe_price_id_technical"),
     stripeProductId: text("stripe_product_id"),
     displayOrder: integer("display_order").notNull().default(0),
     isActive: boolean("is_active").notNull().default(true),
