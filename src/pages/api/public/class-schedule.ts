@@ -68,6 +68,7 @@ export const GET: APIRoute = async ({ locals }) => {
       // src/lib/classes/class-rate.ts). Null means "not configured", and
       // every consumer must treat that as "no drop-in offer", not "free".
       sessionRateCents: classSlotTemplates.sessionRateCents,
+      isTechnical: classSlotTemplates.isTechnical,
       venueName: venues.name,
       locationName: locations.name,
     })
@@ -112,6 +113,7 @@ export const GET: APIRoute = async ({ locals }) => {
       venueName: t.venueName,
       capacity: t.capacity,
       sessionRateCents: t.sessionRateCents,
+      isTechnical: t.isTechnical,
       enrolledCount,
       spotsLeft: Math.max(t.capacity - enrolledCount, 0),
     };
@@ -128,8 +130,16 @@ export const GET: APIRoute = async ({ locals }) => {
       startsAt: dropInSessions.startsAt,
       endsAt: dropInSessions.endsAt,
       capacity: dropInSessions.capacity,
+      // leftJoin — a materialized "class" session should always carry a
+      // template link, but this must not 500 (or silently mis-flag) a
+      // session that somehow doesn't. Null resolves to false below.
+      isTechnical: classSlotTemplates.isTechnical,
     })
     .from(dropInSessions)
+    .leftJoin(
+      classSlotTemplates,
+      eq(classSlotTemplates.id, dropInSessions.classSlotTemplateId),
+    )
     .where(
       and(
         eq(dropInSessions.organizationId, organization.id),
@@ -164,6 +174,7 @@ export const GET: APIRoute = async ({ locals }) => {
       startsAt: s.startsAt,
       endsAt: s.endsAt,
       capacity: s.capacity,
+      isTechnical: s.isTechnical ?? false,
       bookedCount,
       spotsLeft: Math.max(s.capacity - bookedCount, 0),
     };

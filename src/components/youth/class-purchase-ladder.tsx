@@ -490,7 +490,17 @@ export default function ClassPurchaseLadder() {
             )
           }
 
-          case "membership":
+          case "membership": {
+            // Lowest configured technical supplement across the rendered
+            // tiers — some tiers may have no supplement configured (null/0),
+            // which must never render a $0 line, so those are excluded from
+            // the min rather than treated as the cheapest option.
+            const technicalCandidates = rung.tiers
+              .map((t) => t.technicalMonthlyCents ?? 0)
+              .filter((cents) => cents > 0)
+            const minTechnicalCents =
+              technicalCandidates.length > 0 ? Math.min(...technicalCandidates) : null
+
             return (
               <Rung
                 key="membership"
@@ -499,8 +509,15 @@ export default function ClassPurchaseLadder() {
                 lede="A set number of classes every month, plus member pricing on everything else. Cancel any time."
               >
                 <ClassTiers tiers={rung.tiers} renderFallback={false} />
+                {minTechnicalCents !== null && (
+                  <p className="text-[13px] text-ink-muted mt-3">
+                    Technical training classes: +{formatCents(minTechnicalCents)}/month per weekly
+                    class — smaller groups, extra coaching. Unlimited includes technical.
+                  </p>
+                )}
               </Rung>
             )
+          }
         }
       })}
 

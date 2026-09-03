@@ -204,6 +204,16 @@ describe("assembleLadder", () => {
     expect(rung.tiers.map((t) => t.id)).toEqual(["keep"]);
   });
 
+  it("passes technicalMonthlyCents through a membership tier unchanged", () => {
+    const model = assembleLadder({
+      ...EMPTY,
+      tiers: [tier({ technicalMonthlyCents: 900 })],
+    });
+    const rung = model.rungs[0];
+    if (rung.kind !== "membership") throw new Error("expected a membership rung");
+    expect(rung.tiers[0].technicalMonthlyCents).toBe(900);
+  });
+
   it("sorts membership tiers by displayOrder", () => {
     const model = assembleLadder({
       ...EMPTY,

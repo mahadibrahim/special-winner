@@ -2,15 +2,18 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { EmptyState } from "@/components/ui/empty-state";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
+import { useConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import { DROPIN_WAIVER_TEXT } from "@/lib/dropin/waiver-text";
 import { waiverAssentSentence } from "@/lib/consents/waiver-consent-language";
+import { formatCents } from "@/lib/classes/ladder-model";
 
 /**
  * Post-checkout home-slot picker — where a freshly-subscribed child's
@@ -100,6 +103,7 @@ interface ScheduleSlot {
   capacity: number;
   enrolledCount: number;
   spotsLeft: number;
+  isTechnical: boolean;
 }
 
 interface ScheduleSession {
@@ -229,6 +233,14 @@ async function parseJson(res: Response): Promise<Record<string, unknown>> {
 
 export function ChooseSlot() {
   useHydrationBeacon();
+
+  // Confirm-before-add for the technical premium (see enrollOrChangeWithRetry's
+  // `technical_premium_required` branch). The AlertDialog it renders is a
+  // portal, but its OPEN STATE lives in this hook instance — the returned
+  // `dialog` element still has to be mounted in every phase branch below or
+  // the confirm() promise the enrollment flow is awaiting would never
+  // resolve visibly (see the render section's `{technicalConfirmDialog}`).
+  const { confirm: confirmTechnicalPremium, dialog: technicalConfirmDialog } = useConfirmDialog();
 
   // window is unavailable during this island's server render — read the
   // query param lazily so the SSR pass doesn't throw, matching the
@@ -394,6 +406,9 @@ export function ChooseSlot() {
   async function enrollOrChangeWithRetry(
     slot: ScheduleSlot,
     attempt = 0,
+    /** Set once the parent has confirmed the technical-premium dialog, so
+     *  the recursive re-POST/PUT below carries it through. */
+    acknowledgeTechnicalPremium = false,
   ): Promise<{ ok: true } | { ok: false; message: string }> {
     const currentEnrollment = childSummary?.enrollment;
 
@@ -407,12 +422,19 @@ export function ChooseSlot() {
         ? await fetch(`/api/classes/enrollments/${currentEnrollment.id}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ newSlotTemplateId: slot.templateId }),
+            body: JSON.stringify({
+              newSlotTemplateId: slot.templateId,
+              acknowledgeTechnicalPremium,
+            }),
           })
         : await fetch("/api/classes/enrollments", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ slotTemplateId: slot.templateId, familyMemberId: childId }),
+            body: JSON.stringify({
+              slotTemplateId: slot.templateId,
+              familyMemberId: childId,
+              acknowledgeTechnicalPremium,
+            }),
           });
     } catch {
       return { ok: false, message: "Network error — please try again." };
@@ -424,12 +446,29 @@ export function ChooseSlot() {
 
     if (code === "already_enrolled") return { ok: true };
 
+    // Technical slot with a configured monthly supplement the parent hasn't
+    // seen yet — ask, then re-POST/PUT with the acknowledgement rather than
+    // just failing. Declining does NOT enroll (a plain cancel, no error
+    // banner — the empty message is intentionally falsy so ErrorBanner
+    // renders nothing).
+    if (code === "technical_premium_required") {
+      const technicalMonthlyCents =
+        typeof body.technicalMonthlyCents === "number" ? body.technicalMonthlyCents : null;
+      const confirmed = await confirmTechnicalPremium({
+        title: "Technical training class",
+        description: `This class adds ${formatCents(technicalMonthlyCents) ?? "a fee"}/month to your membership — smaller groups, extra coaching. Add it?`,
+        confirmLabel: "Add it",
+      });
+      if (!confirmed) return { ok: false, message: "" };
+      return enrollOrChangeWithRetry(slot, attempt, true);
+    }
+
     if (code === "no_membership") {
       if (attempt < NO_MEMBERSHIP_RETRY_DELAYS_MS.length) {
         setPhase("payment_settling");
         setSettlingAttempt(attempt + 1);
         await sleep(NO_MEMBERSHIP_RETRY_DELAYS_MS[attempt]);
-        return enrollOrChangeWithRetry(slot, attempt + 1);
+        return enrollOrChangeWithRetry(slot, attempt + 1, acknowledgeTechnicalPremium);
       }
       return {
         ok: false,
@@ -787,6 +826,10 @@ export function ChooseSlot() {
                 : "Enrolling…"}
           </p>
         </div>
+        {/* Mounted here (not just in "picking" below) because the technical-
+            premium confirm can open WHILE this spinner phase is on screen —
+            enrollOrChangeWithRetry awaits it after setPhase("enrolling"). */}
+        {technicalConfirmDialog}
       </div>
     );
   }
@@ -875,7 +918,14 @@ export function ChooseSlot() {
                       : "border-border hover:border-ochre/50"
                 }`}
               >
-                <div className="font-semibold text-ink">{slot.name}</div>
+                <div className="font-semibold text-ink flex items-center gap-2">
+                  {slot.name}
+                  {slot.isTechnical && (
+                    <Badge variant="outline" className="text-[10px] font-normal">
+                      Technical
+                    </Badge>
+                  )}
+                </div>
                 <div className="text-sm text-ink-muted mt-0.5">
                   {formatDayTime(slot.weekday, slot.startTime)} · {slot.durationMins} min
                 </div>
@@ -896,6 +946,7 @@ export function ChooseSlot() {
           })}
         </div>
       )}
+      {technicalConfirmDialog}
     </div>
   );
 }

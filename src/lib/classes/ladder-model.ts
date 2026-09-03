@@ -80,6 +80,10 @@ export interface LadderTier {
   annualFeeCents: number | null;
   benefits: LadderTierBenefits;
   displayOrder: number;
+  /** Monthly supplement for technical-band classes under this tier, cents.
+   *  Null/undefined = no technical supplement configured — never render a
+   *  $0 line for that case. */
+  technicalMonthlyCents?: number | null;
 }
 
 /** The only field of `GET /api/public/class-schedule` → `slots[]` the ladder
