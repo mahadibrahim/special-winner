@@ -30,6 +30,8 @@ export const tierInputSchema = z
     monthlyDollars: z.number().positive().nullable(),
     annualDollars: z.number().positive().nullable(),
     annualFeeDollars: z.number().positive().nullable().default(null),
+    /** Monthly technical-training supplement (+$/mo per weekly technical slot). */
+    technicalMonthlyDollars: z.number().positive().nullable().default(null),
     tagline: z.string().trim().max(120).nullable().default(null),
     benefits: benefitsSchema,
     displayOrder: z.number().int().default(0),

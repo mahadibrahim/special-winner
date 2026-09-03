@@ -43,10 +43,18 @@ export const POST: APIRoute = async (context) => {
   const monthlyCents = dollarsToCents(input.monthlyDollars);
   const annualCents = dollarsToCents(input.annualDollars);
   const annualFeeCents = dollarsToCents(input.annualFeeDollars);
+  const technicalMonthlyCents = dollarsToCents(input.technicalMonthlyDollars);
 
   let refs;
   try {
-    refs = await createTierStripeObjects({ orgId, name: input.name, monthlyCents, annualCents, annualFeeCents });
+    refs = await createTierStripeObjects({
+      orgId,
+      name: input.name,
+      monthlyCents,
+      annualCents,
+      annualFeeCents,
+      technicalMonthlyCents,
+    });
   } catch (e) {
     console.error("[admin/tiers] stripe create failed", e);
     return json({ error: "Could not create Stripe price" }, 502);
@@ -61,6 +69,7 @@ export const POST: APIRoute = async (context) => {
       monthlyPriceCents: monthlyCents,
       annualPriceCents: annualCents,
       annualFeeCents,
+      technicalMonthlyCents,
       tagline: input.tagline,
       benefits: input.benefits,
       displayOrder: input.displayOrder,
@@ -69,6 +78,7 @@ export const POST: APIRoute = async (context) => {
       stripePriceIdMonthly: refs.monthlyPriceId,
       stripePriceIdAnnual: refs.annualPriceId,
       stripePriceIdFee: refs.feePriceId,
+      stripePriceIdTechnical: refs.technicalPriceId,
     })
     .returning();
   return json({ tier }, 201);

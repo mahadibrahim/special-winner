@@ -1,5 +1,5 @@
 import { stripe } from "@/lib/stripe/client";
-import { diffTierPrices, type Interval } from "@/lib/memberships/tier-price-diff";
+import { diffTierPrices, diffSupplementPrice, type Interval } from "@/lib/memberships/tier-price-diff";
 
 function s() {
   if (!stripe) throw new Error("Stripe not configured");
@@ -11,6 +11,7 @@ export type StripeTierRefs = {
   monthlyPriceId: string | null;
   annualPriceId: string | null;
   feePriceId: string | null;
+  technicalPriceId: string | null;
 };
 
 async function createPrice(productId: string, interval: Interval, amountCents: number): Promise<string> {
@@ -37,6 +38,23 @@ export async function createFeePrice(
   return price.id;
 }
 
+/** Recurring monthly Price for the technical-training supplement — rides
+ *  the subscription forever, like the tier's own monthly price, layered on
+ *  top of it as a separate subscription item. */
+export async function createTechnicalPrice(
+  productId: string,
+  unitAmountCents: number,
+): Promise<string> {
+  const price = await s().prices.create({
+    product: productId,
+    unit_amount: unitAmountCents,
+    currency: "usd",
+    recurring: { interval: "month" },
+    nickname: "Technical training supplement",
+  });
+  return price.id;
+}
+
 /** Create a Product + recurring Prices for a brand-new tier. */
 export async function createTierStripeObjects(opts: {
   orgId: string;
@@ -44,6 +62,7 @@ export async function createTierStripeObjects(opts: {
   monthlyCents: number | null;
   annualCents: number | null;
   annualFeeCents: number | null;
+  technicalMonthlyCents: number | null;
 }): Promise<StripeTierRefs> {
   const product = await s().products.create({
     name: opts.name,
@@ -55,7 +74,11 @@ export async function createTierStripeObjects(opts: {
     opts.annualFeeCents != null
       ? await createFeePrice(product.id, opts.annualFeeCents)
       : null;
-  return { productId: product.id, monthlyPriceId, annualPriceId, feePriceId };
+  const technicalPriceId =
+    opts.technicalMonthlyCents != null
+      ? await createTechnicalPrice(product.id, opts.technicalMonthlyCents)
+      : null;
+  return { productId: product.id, monthlyPriceId, annualPriceId, feePriceId, technicalPriceId };
 }
 
 /** Apply edits: rename product, create/archive/replace prices. Grandfathers existing subs. */
@@ -69,9 +92,21 @@ export async function applyTierStripeEdits(opts: {
     annualPriceId: string | null;
     feeCents: number | null;
     feePriceId: string | null;
+    technicalCents: number | null;
+    technicalPriceId: string | null;
   };
-  next: { monthlyCents: number | null; annualCents: number | null; feeCents: number | null };
-}): Promise<{ monthlyPriceId: string | null; annualPriceId: string | null; feePriceId: string | null }> {
+  next: {
+    monthlyCents: number | null;
+    annualCents: number | null;
+    feeCents: number | null;
+    technicalCents: number | null;
+  };
+}): Promise<{
+  monthlyPriceId: string | null;
+  annualPriceId: string | null;
+  feePriceId: string | null;
+  technicalPriceId: string | null;
+}> {
   if (opts.nameChangedTo) {
     await s().products.update(opts.productId, { name: opts.nameChangedTo });
   }
@@ -94,21 +129,37 @@ export async function applyTierStripeEdits(opts: {
   }
 
   let feePriceId = opts.old.feePriceId;
-  if (opts.old.feeCents !== opts.next.feeCents) {
-    if (opts.next.feeCents != null) {
-      // Create-then-archive, matching the interval-price "replace" branch
-      // above — never leave stripePriceIdFee pointing at an archived Price
-      // if createFeePrice throws.
-      const newFeePriceId = await createFeePrice(opts.productId, opts.next.feeCents);
-      if (opts.old.feePriceId) {
-        await s().prices.update(opts.old.feePriceId, { active: false });
-      }
-      feePriceId = newFeePriceId;
-    } else if (opts.old.feePriceId) {
-      await s().prices.update(opts.old.feePriceId, { active: false });
-      feePriceId = null;
-    }
+  const feeAction = diffSupplementPrice(opts.old.feeCents, opts.old.feePriceId, opts.next.feeCents);
+  if (feeAction.action === "create") {
+    feePriceId = await createFeePrice(opts.productId, feeAction.amountCents);
+  } else if (feeAction.action === "archive") {
+    await s().prices.update(feeAction.oldPriceId, { active: false });
+    feePriceId = null;
+  } else if (feeAction.action === "replace") {
+    // Create-then-archive — never leave stripePriceIdFee pointing at an
+    // archived Price if createFeePrice throws.
+    const newFeePriceId = await createFeePrice(opts.productId, feeAction.amountCents);
+    await s().prices.update(feeAction.oldPriceId, { active: false });
+    feePriceId = newFeePriceId;
   }
 
-  return { monthlyPriceId, annualPriceId, feePriceId };
+  let technicalPriceId = opts.old.technicalPriceId;
+  const technicalAction = diffSupplementPrice(
+    opts.old.technicalCents,
+    opts.old.technicalPriceId,
+    opts.next.technicalCents,
+  );
+  if (technicalAction.action === "create") {
+    technicalPriceId = await createTechnicalPrice(opts.productId, technicalAction.amountCents);
+  } else if (technicalAction.action === "archive") {
+    await s().prices.update(technicalAction.oldPriceId, { active: false });
+    technicalPriceId = null;
+  } else if (technicalAction.action === "replace") {
+    // Create-then-archive, same ordering as the fee price above.
+    const newTechnicalPriceId = await createTechnicalPrice(opts.productId, technicalAction.amountCents);
+    await s().prices.update(technicalAction.oldPriceId, { active: false });
+    technicalPriceId = newTechnicalPriceId;
+  }
+
+  return { monthlyPriceId, annualPriceId, feePriceId, technicalPriceId };
 }
