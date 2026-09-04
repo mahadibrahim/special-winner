@@ -1,33 +1,42 @@
 ---
 import BaseLayout from '@/layouts/BaseLayout.astro';
+import DashboardShell from '@/components/dashboard/shell/DashboardShell.astro';
+import DashboardSection from '@/components/dashboard/shell/DashboardSection.astro';
 import FullSchedule from '../../components/dashboard/full-schedule';
+import { currentBusinessHour } from '@/lib/time/business-timezone';
+import { getDashboardDestinations } from '@/lib/dashboard/persona';
 
 // Middleware guarantees user is authenticated for /dashboard routes.
 const user = Astro.locals.user!;
+
+// Greeting hour in the business timezone — this page renders server-side.
+const hour = currentBusinessHour();
+let greeting = "Good morning";
+if (hour >= 12 && hour < 17) greeting = "Good afternoon";
+else if (hour >= 17) greeting = "Good evening";
+
+// Destination tabs visibility — schedule is a family-scoped sub-page.
+const { hasFamily, hasPlay } = await getDashboardDestinations(user.id);
 ---
 
 <BaseLayout title="Schedule — Aspire Sports">
-  <Fragment slot="head">
-    <style>
-      /* Background pattern */
-      .schedule-bg {
-        background-image:
-          radial-gradient(ellipse 60% 40% at 50% 0%, rgba(204, 68, 44, 0.06), transparent),
-          radial-gradient(circle at 90% 80%, rgba(147, 51, 234, 0.04), transparent);
-      }
-    </style>
-  </Fragment>
-
-  <main id="main-content" class="flex-1 pt-24 pb-16 px-4 schedule-bg">
-    <div class="max-w-6xl mx-auto fade-in">
-      <!-- Breadcrumb -->
-      <nav class="flex items-center gap-2 text-sm text-ink-faint mb-6">
-        <a href="/dashboard" class="hover:text-ink transition-colors">Dashboard</a>
-        <span>/</span>
-        <span class="text-ink">Schedule</span>
-      </nav>
-
-      <FullSchedule client:load />
+  <main id="main-content" class="flex-1 pt-24 pb-16 px-4">
+    <div class="max-w-6xl mx-auto">
+      <DashboardShell
+        user={user}
+        greeting={greeting}
+        active="family"
+        hasFamily={hasFamily}
+        hasPlay={hasPlay}
+      >
+        <div class="mt-8">
+          <DashboardSection title="Schedule" icon="calendar" accent="default">
+            <div class="mt-1">
+              <FullSchedule client:load />
+            </div>
+          </DashboardSection>
+        </div>
+      </DashboardShell>
     </div>
   </main>
 </BaseLayout>

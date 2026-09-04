@@ -7,9 +7,8 @@ import { ChooseSlot } from "@/components/dashboard/choose-slot";
 // the same authed session, so no server-side data is threaded as props.
 
 // Lighter, single-purpose page (no DashboardShell chrome) — this is a
-// one-shot post-checkout landing, not a dashboard tab. Mirrors the
-// children/[id].astro pattern: BaseLayout + one client:load island that
-// owns its own loading/error states.
+// one-shot post-checkout landing, not a dashboard tab: BaseLayout + one
+// client:load island that owns its own loading/error states.
 //
 // TWO landings share this page, both driven by query params the island reads
 // client-side (never here — see below):
