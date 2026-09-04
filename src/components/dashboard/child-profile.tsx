@@ -145,6 +145,7 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
                   credits: summaryChild.credits ?? [],
                   kitSize: summaryChild.kitSize ?? null,
                   hasWaiverOnFile: summaryChild.hasWaiverOnFile ?? false,
+                  trialUsed: summaryChild.trialUsed ?? false,
                 })
               : null,
           )
@@ -322,28 +323,32 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
                     </Button>
                   </div>
 
-                  <div className="space-y-2">
-                    {classesSection.tierLine && (
-                      <p className="text-sm text-ink">{classesSection.tierLine}</p>
-                    )}
-                    {classesSection.homeSlotLine && (
-                      <div className="flex items-center gap-2 text-sm text-ink-muted">
-                        <Clock className="w-3.5 h-3.5" />
-                        {classesSection.homeSlotLine}
-                      </div>
-                    )}
-                    {classesSection.renewsAt && (
-                      <div className="flex items-center gap-2 text-sm text-ink-muted">
-                        <RefreshCw className="w-3.5 h-3.5" />
-                        Renews{" "}
-                        {new Date(classesSection.renewsAt).toLocaleDateString("en-US", {
-                          month: "long",
-                          day: "numeric",
-                        })}
-                        {classesSection.cancelAtPeriodEnd ? " (cancels at period end)" : ""}
-                      </div>
-                    )}
-                  </div>
+                  {classesSection.trialOnly ? (
+                    <p className="text-sm text-ink-muted">Free trial class used</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {classesSection.tierLine && (
+                        <p className="text-sm text-ink">{classesSection.tierLine}</p>
+                      )}
+                      {classesSection.homeSlotLine && (
+                        <div className="flex items-center gap-2 text-sm text-ink-muted">
+                          <Clock className="w-3.5 h-3.5" />
+                          {classesSection.homeSlotLine}
+                        </div>
+                      )}
+                      {classesSection.renewsAt && (
+                        <div className="flex items-center gap-2 text-sm text-ink-muted">
+                          <RefreshCw className="w-3.5 h-3.5" />
+                          Renews{" "}
+                          {new Date(classesSection.renewsAt).toLocaleDateString("en-US", {
+                            month: "long",
+                            day: "numeric",
+                          })}
+                          {classesSection.cancelAtPeriodEnd ? " (cancels at period end)" : ""}
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <div className="flex flex-wrap items-center gap-2 mt-3">
                     {classesSection.kitSize && (

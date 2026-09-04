@@ -194,6 +194,9 @@ export interface ClassesSectionInput {
   credits: ClassesSectionCredit[]
   kitSize: string | null
   hasWaiverOnFile: boolean
+  /** Optional (defaults to false) so the brief's original two verbatim test
+   *  cases, which predate this field, still type-check unchanged. */
+  trialUsed?: boolean
 }
 
 export interface ClassesSection {
@@ -209,19 +212,28 @@ export interface ClassesSection {
   renewsAt: string | null
   cancelAtPeriodEnd: boolean
   hasWaiverOnFile: boolean
+  /** True when the ORG TRIAL is the child's only class touchpoint — no
+   *  membership, no standing enrollment, no spendable credits. The caller
+   *  renders a single "Free trial class used" line instead of the
+   *  tier/home-slot/kit-size body, which would otherwise all be null. */
+  trialOnly: boolean
 }
 
 /**
  * Assembles the profile's "Classes" card from one child's slice of
  * GET /api/classes/summary. Returns null when the child has no class
- * touchpoint at all (no membership, no standing enrollment, no spendable
- * credits) — the caller renders nothing rather than an empty card, mirroring
- * `FamilyClassesCard`'s qualifying predicate.
+ * touchpoint at all — no membership, no standing enrollment, no spendable
+ * credits, and no used trial — the caller renders nothing rather than an
+ * empty card. Mirrors `FamilyClassesCard`'s qualifying predicate exactly:
+ * `membership !== null || trialUsed || credits.length > 0 || enrollment !== null`
+ * — a trial-only child (used the org trial, nothing else) gets a card here
+ * exactly as they do on `/dashboard/family`.
  */
 export function buildClassesSection(input: ClassesSectionInput): ClassesSection | null {
-  const { membership, enrollment, credits, kitSize, hasWaiverOnFile } = input
+  const { membership, enrollment, credits, kitSize, hasWaiverOnFile, trialUsed = false } = input
 
-  if (!membership && !enrollment && credits.length === 0) return null
+  const hasOtherTouchpoint = membership !== null || enrollment !== null || credits.length > 0
+  if (!hasOtherTouchpoint && !trialUsed) return null
 
   return {
     tierLine: membership
@@ -235,5 +247,6 @@ export function buildClassesSection(input: ClassesSectionInput): ClassesSection 
     renewsAt: membership?.renewsAt ?? null,
     cancelAtPeriodEnd: membership?.cancelAtPeriodEnd ?? false,
     hasWaiverOnFile,
+    trialOnly: !hasOtherTouchpoint && trialUsed,
   }
 }

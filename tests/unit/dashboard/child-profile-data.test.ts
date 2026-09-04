@@ -137,6 +137,19 @@ describe("buildClassesSection", () => {
   });
   it("returns null when the child has no class touchpoints", () => {
     expect(buildClassesSection({ membership: null, enrollment: null, credits: [],
-      kitSize: null, hasWaiverOnFile: false })).toBeNull();
+      kitSize: null, hasWaiverOnFile: false, trialUsed: false })).toBeNull();
+  });
+
+  it("returns a trial-only section when the child used the trial but holds no membership/enrollment/credits", () => {
+    const section = buildClassesSection({
+      membership: null, enrollment: null, credits: [],
+      kitSize: null, hasWaiverOnFile: true, trialUsed: true,
+    });
+    expect(section).toMatchObject({ trialOnly: true, tierLine: null, homeSlotLine: null });
+  });
+
+  it("still returns null when trialUsed is false and every other field is empty", () => {
+    expect(buildClassesSection({ membership: null, enrollment: null, credits: [],
+      kitSize: null, hasWaiverOnFile: false, trialUsed: false })).toBeNull();
   });
 });
