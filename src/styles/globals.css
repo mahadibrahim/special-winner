@@ -605,10 +605,19 @@
    light bands → --primary-text, hover darkens to ink (brightening a
    light-surface link lowers contrast; --primary-bright is 3.32:1 on
    paper). Ink bands invert: --primary-bright link, cream hover. */
-.band-sand a, .band-paper a { color: var(--primary-text); }
-.band-sand a:hover, .band-paper a:hover { color: var(--ink); }
-.band-ink a, .band-ink-lift a { color: var(--primary-bright); }
-.band-ink a:hover, .band-ink-lift a:hover { color: var(--on-ink); }
+/* The :not() list exempts component-shaped anchors that set their own
+   colour: `.btn--primary`, `.chip`, `.table__action` are each ONE class —
+   specificity (0,1,0) — so a bare `.band-* a` at (0,1,1) (or this rule's
+   own boosted specificity) would silently repaint their labels
+   (orange-on-orange buttons on ink bands, orange chips on paper). */
+.band-sand a:not(.btn, .chip, .table__action),
+.band-paper a:not(.btn, .chip, .table__action) { color: var(--primary-text); }
+.band-sand a:not(.btn, .chip, .table__action):hover,
+.band-paper a:not(.btn, .chip, .table__action):hover { color: var(--ink); }
+.band-ink a:not(.btn, .chip, .table__action),
+.band-ink-lift a:not(.btn, .chip, .table__action) { color: var(--primary-bright); }
+.band-ink a:not(.btn, .chip, .table__action):hover,
+.band-ink-lift a:not(.btn, .chip, .table__action):hover { color: var(--on-ink); }
 
 /* THE NUMERAL RULE (stated identically in docs/design-system.md):
    a number earns its place only where the count itself is the

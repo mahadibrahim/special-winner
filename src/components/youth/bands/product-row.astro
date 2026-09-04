@@ -1,0 +1,42 @@
+---
+// Youth product row — Broadsheet ink-lift band under the site header:
+// Classes / Camps / Leagues, active item marked with the orange inset bar.
+// Extracted from the classes page (canvas 2a "youth product row") so the
+// three youth product pages render one identical strip.
+interface Props {
+  active: "classes" | "camps" | "leagues"
+  /** Pass when this row is the page's FIRST flow element: pads past the
+   *  fixed site header (h-16 lg:h-20), which BaseLayout does not spacer. */
+  clearsHeader?: boolean
+}
+const { active, clearsHeader = false } = Astro.props
+
+const ITEMS = [
+  { key: "classes", href: "/youth/classes", label: "Classes", sub: "Weekly training, all year · 18mo–19" },
+  { key: "camps", href: "/youth/camps", label: "Camps", sub: "School breaks & summer weeks" },
+  { key: "leagues", href: "/youth/leagues", label: "Leagues", sub: "Game-day seasons · U6–U19" },
+] as const
+---
+
+<nav
+  aria-label="Youth programs"
+  class:list={["band-ink-lift border-b border-rule-on-ink", clearsHeader && "pt-16 lg:pt-20"]}
+>
+  <div class="grid grid-cols-3 gap-px bg-rule-on-ink">
+    {
+      ITEMS.map((p) => (
+        <a
+          href={p.href}
+          aria-current={p.key === active ? "page" : undefined}
+          class:list={[
+            "flex flex-col gap-0.5 px-5 sm:px-10 py-[15px] no-underline",
+            p.key === active ? "bg-ink-lift shadow-[inset_0_-3px_0_var(--primary)]" : "bg-ink",
+          ]}
+        >
+          <span class="label text-on-ink">{p.label}</span>
+          <span class="hidden sm:block text-[13px] text-on-ink-muted">{p.sub}</span>
+        </a>
+      ))
+    }
+  </div>
+</nav>
