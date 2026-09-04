@@ -313,9 +313,14 @@ function CreditLines({ credits }: { credits: SummaryCredit[] }) {
   )
 }
 
-/** Amber "sign the waiver first" nudge — shown when a child has spendable
- *  credits but no waiver inside the annual window. Clicking it opens the same
- *  make-up modal `onOpen` opens for the "Book a session" CTA: the modal's own
+/** Amber "sign the waiver first" nudge — shown for `CreditChildCard` whenever
+ *  a child has spendable credits but no waiver inside the annual window, and
+ *  for `MembershipChildCard` whenever the child has a membership or home-slot
+ *  enrollment but no waiver inside the annual window (Task 3: previously
+ *  gated on credits there too, so a membership child sitting on zero leftover
+ *  pack/block credits got no warning until a real booking 422s
+ *  `waiver_required`). Clicking it opens the same make-up modal `onOpen`
+ *  opens for the "Book a session"/"Book a make-up" CTA: the modal's own
  *  booking attempt is what actually surfaces the waiver step (see
  *  MakeUpModal's `waiver_required` handling), so this nudge doesn't need to
  *  engineer a special modal entry state — it just explains what's about to
@@ -329,6 +334,7 @@ function WaiverNudge({ onOpen }: { onOpen: () => void }) {
   return (
     <button
       type="button"
+      data-testid="waiver-attention"
       onClick={onOpen}
       className="block text-left text-xs font-medium text-amber-800 bg-amber-50/80 border border-amber-200 rounded-lg px-2.5 py-1.5 hover:bg-amber-100/80"
     >
@@ -1338,7 +1344,7 @@ function MembershipChildCard({
             </button>
           )}
           <CreditLines credits={child.credits} />
-          {child.credits.length > 0 && !child.hasWaiverOnFile && (
+          {!child.hasWaiverOnFile && (child.membership || child.enrollment) && (
             <WaiverNudge onOpen={() => setModalOpen(true)} />
           )}
         </div>

@@ -176,3 +176,91 @@ test.describe("Family dashboard — upcoming class sessions", () => {
     await expect(rows).toHaveCount(1);
   });
 });
+
+/**
+ * Task 3 of the classes-dashboard-launch plan.
+ *
+ * `WaiverNudge` used to be gated on `credits.length > 0` (both card
+ * variants) — a membership child with zero leftover pack/block credits and
+ * no valid annual waiver on file got no warning on the dashboard at all,
+ * only discovering the problem when a real booking attempt 422s
+ * `waiver_required`. `MembershipChildCard` must show the nudge whenever the
+ * child has no valid waiver AND either a membership or a home-slot
+ * enrollment — independent of credits.
+ *
+ * Fixture: a throwaway parent + child with an active DB-minted membership
+ * (same shorthand as the suite above) and NO `class_credit_grants` rows and
+ * NO `consents` row — a freshly-created child simply has no waiver signature
+ * on file, so `hasWaiverOnFile` (summary.ts's annual-validity predicate)
+ * comes back false with no special staging needed (see
+ * class-pack-purchase.spec.ts's annual-waiver suites for the lapsed-
+ * signature variant, which this scenario doesn't need — absent is enough).
+ */
+test.describe("Family dashboard — waiver nudge for membership children", () => {
+  test.setTimeout(120_000);
+
+  let organizationId: string;
+  let tierId: string;
+  let membershipId: string;
+  let parentEmail: string;
+  let parentPassword: string;
+  let parentUserId: string;
+  let childId: string;
+
+  const suffix = Date.now();
+  const childFirstName = `DashboardWaiverE2E-${suffix}`;
+
+  test.beforeAll(async () => {
+    ({ organizationId } = await resolveDefaultOrgForHttpTests());
+    const db = getDb();
+
+    const [tier] = await db
+      .insert(membershipTiers)
+      .values({
+        organizationId,
+        name: `Makeup Tier 1 - e2e-dashboard-waiver-${suffix}`,
+        monthlyPriceCents: 4900,
+        benefits: { classes_per_month: 4 },
+        isActive: true,
+      })
+      .returning();
+    tierId = tier.id;
+
+    const throwawayUser = await createTestUserWithPassword();
+    parentEmail = throwawayUser.email;
+    parentPassword = throwawayUser.password;
+    parentUserId = throwawayUser.userId;
+
+    childId = await createTestChild(parentUserId, childFirstName);
+    membershipId = await createTestChildMembership({
+      userId: parentUserId,
+      familyMemberId: childId,
+      organizationId,
+      tierId,
+      idSuffix: `e2e-dashboard-waiver-${suffix}`,
+    });
+  });
+
+  test.afterAll(async () => {
+    const db = getDb();
+    if (membershipId) {
+      await db.delete(memberships).where(eq(memberships.id, membershipId));
+    }
+    if (tierId) await cleanupTestMembershipTiers([tierId]);
+  });
+
+  test("membership child with no valid waiver and no credits still gets the waiver nudge", async ({
+    page,
+  }) => {
+    await signIn(page, parentEmail, parentPassword);
+    await page.goto("/dashboard/family");
+    await waitForHydration(page);
+
+    const card = page
+      .locator("div.flex.items-start.gap-3.rounded-xl.border.border-border.border-l-4.p-3")
+      .filter({ hasText: childFirstName });
+    await expect(card).toBeVisible({ timeout: 15_000 });
+
+    await expect(card.getByTestId("waiver-attention")).toBeVisible();
+  });
+});
