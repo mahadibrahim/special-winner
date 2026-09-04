@@ -28,6 +28,7 @@ import {
   cancelFutureTemplateSessions,
   notifyFamiliesOfScheduleChange,
   propagateTemplateRatesToFutureSessions,
+  hasActiveEnrollments,
 } from "@/lib/classes/admin-templates";
 
 export const prerender = false;
@@ -68,6 +69,22 @@ export const PUT: APIRoute = async (context) => {
   const venueCheck = await requireSameOrgVenue(orgId, input.venueId);
   if (!venueCheck.ok) return json({ error: "Venue not found" }, 404);
 
+  // The technical-training supplement gate reads the template's CURRENT
+  // isTechnical value, not a snapshot from enrollment time — so flipping it
+  // on a template with active enrollments would silently re-price those
+  // families' memberships (either newly charging them, or newly waiving a
+  // charge they agreed to). Block the flip until enrollments are ended.
+  if (input.isTechnical !== existing.isTechnical && (await hasActiveEnrollments(existing.id))) {
+    return json(
+      {
+        error: "technical_flip_blocked",
+        message:
+          "This class has enrolled children — the technical setting can't be changed while enrollments are active.",
+      },
+      409,
+    );
+  }
+
   const scheduleChanged =
     input.weekday !== existing.weekday ||
     normalizeStartTime(input.startTime) !== normalizeStartTime(existing.startTime);
@@ -97,6 +114,7 @@ export const PUT: APIRoute = async (context) => {
       memberRateCents: nextMemberRateCents,
       blockRateCents: dollarsToCents(input.blockRateDollars),
       active: input.active,
+      isTechnical: input.isTechnical,
       updatedAt: new Date(),
     })
     .where(eq(classSlotTemplates.id, existing.id))

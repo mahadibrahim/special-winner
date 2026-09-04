@@ -66,6 +66,7 @@ export const POST: APIRoute = async (context) => {
       memberRateCents: dollarsToCents(input.memberRateDollars),
       blockRateCents: dollarsToCents(input.blockRateDollars),
       active: input.active,
+      isTechnical: input.isTechnical,
     })
     .returning();
   return json({ template }, 201);

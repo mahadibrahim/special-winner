@@ -18,6 +18,11 @@ describe("GET /api/public/membership-tiers", () => {
     for (const tier of body.tiers) {
       expect(typeof tier.id).toBe("string");
       expect(typeof tier.name).toBe("string");
+      // Technical band (Task 1): null when unconfigured, a number when set —
+      // never absent from the payload entirely.
+      expect(
+        tier.technicalMonthlyCents === null || typeof tier.technicalMonthlyCents === "number",
+      ).toBe(true);
     }
   });
 });

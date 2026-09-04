@@ -34,6 +34,14 @@
  *              exhausted but the session carries no class member rate, so
  *              there is nothing honest to quote (see class-rate.ts: the
  *              adult pickup rate card is NOT a fallback here) |
+ *          409 `{ error: "technical_not_included" }` — the allotment has
+ *              room, but the session is a technical slot and the
+ *              membership's tier owes the technical supplement that this
+ *              child hasn't paid for (no active technical enrollment on this
+ *              membership — see requiresTechnicalPremium /
+ *              hasActiveTechnicalEnrollment in book-child.ts). The seat is
+ *              NOT granted from the allotment; a redeemable class credit
+ *              (pack/block) still books normally regardless of this gate |
  *          4xx mapped from `ChildBookingError.code` (see ERROR_STATUS below).
  */
 import type { APIRoute } from "astro";
@@ -80,6 +88,11 @@ const ERROR_STATUS: Record<Exclude<ChildBookingError["code"], "allotment_exhaust
   member_child_no_trial: 409,
   age_ineligible: 422,
   waiver_required: 422,
+  // The allotment/credit gates are otherwise satisfied, but this is a
+  // technical slot and the membership's tier owes the supplement — a state
+  // conflict (409), distinct from allotment_exhausted so the client routes
+  // to the membership add-on upsell rather than the paid make-up quote.
+  technical_not_included: 409,
 };
 
 export const POST: APIRoute = async ({ request, locals, clientAddress }) => {

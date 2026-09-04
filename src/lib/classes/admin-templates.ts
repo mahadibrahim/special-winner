@@ -43,6 +43,9 @@ export const templateInputSchema = z.object({
    *  to sessionRateDollars at quote time — see classSlotTemplates.blockRateCents. */
   blockRateDollars: z.number().positive().nullable().default(null),
   active: z.boolean().default(true),
+  /** Technical-training band — drives the membership supplement gate and
+   *  display chips. See classSlotTemplates.isTechnical. */
+  isTechnical: z.boolean().default(false),
 });
 
 export type TemplateInput = z.infer<typeof templateInputSchema>;
@@ -62,6 +65,23 @@ export type TemplateUpdateInput = z.infer<typeof templateUpdateSchema>;
  *  "HH:MM" so the two are comparable regardless of source. */
 export function normalizeStartTime(t: string): string {
   return t.slice(0, 5);
+}
+
+/**
+ * True when `templateId` has at least one `active` enrollment. Used to
+ * block an `isTechnical` flip on a template that already has enrolled
+ * children — flipping it silently re-prices a live membership (the
+ * technical-training supplement gate reads the template's CURRENT
+ * `isTechnical` value, not the value at enrollment time), violating "the
+ * premium never attaches silently."
+ */
+export async function hasActiveEnrollments(templateId: string): Promise<boolean> {
+  const [row] = await getDb()
+    .select({ id: classEnrollments.id })
+    .from(classEnrollments)
+    .where(and(eq(classEnrollments.slotTemplateId, templateId), eq(classEnrollments.status, "active")))
+    .limit(1);
+  return row != null;
 }
 
 // ---------------------------------------------------------------------------

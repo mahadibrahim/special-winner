@@ -50,11 +50,13 @@ export const PUT: APIRoute = async (context) => {
   const nextMonthly = dollarsToCents(input.monthlyDollars);
   const nextAnnual = dollarsToCents(input.annualDollars);
   const nextFee = dollarsToCents(input.annualFeeDollars);
+  const nextTechnical = dollarsToCents(input.technicalMonthlyDollars);
 
   let priceIds = {
     monthlyPriceId: existing.stripePriceIdMonthly,
     annualPriceId: existing.stripePriceIdAnnual,
     feePriceId: existing.stripePriceIdFee,
+    technicalPriceId: existing.stripePriceIdTechnical,
   };
   if (existing.stripeProductId) {
     try {
@@ -68,8 +70,15 @@ export const PUT: APIRoute = async (context) => {
           annualPriceId: existing.stripePriceIdAnnual,
           feeCents: existing.annualFeeCents,
           feePriceId: existing.stripePriceIdFee,
+          technicalCents: existing.technicalMonthlyCents,
+          technicalPriceId: existing.stripePriceIdTechnical,
         },
-        next: { monthlyCents: nextMonthly, annualCents: nextAnnual, feeCents: nextFee },
+        next: {
+          monthlyCents: nextMonthly,
+          annualCents: nextAnnual,
+          feeCents: nextFee,
+          technicalCents: nextTechnical,
+        },
       });
     } catch (e) {
       console.error("[admin/tiers] stripe edit failed", e);
@@ -85,6 +94,7 @@ export const PUT: APIRoute = async (context) => {
       monthlyPriceCents: nextMonthly,
       annualPriceCents: nextAnnual,
       annualFeeCents: nextFee,
+      technicalMonthlyCents: nextTechnical,
       tagline: input.tagline,
       benefits: input.benefits,
       displayOrder: input.displayOrder,
@@ -92,6 +102,7 @@ export const PUT: APIRoute = async (context) => {
       stripePriceIdMonthly: priceIds.monthlyPriceId,
       stripePriceIdAnnual: priceIds.annualPriceId,
       stripePriceIdFee: priceIds.feePriceId,
+      stripePriceIdTechnical: priceIds.technicalPriceId,
       updatedAt: new Date(),
     })
     .where(eq(membershipTiers.id, existing.id))

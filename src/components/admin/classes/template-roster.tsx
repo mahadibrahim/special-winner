@@ -11,6 +11,7 @@ interface Enrollment {
   familyMemberId: string;
   childName: string;
   age: number | null;
+  kitSize: string | null;
   startedAt: string;
 }
 
@@ -114,6 +115,7 @@ export default function TemplateRoster({ templateId }: TemplateRosterProps) {
                 <tr className="text-left">
                   <th className="px-4 py-2 font-medium text-ink-muted">Child</th>
                   <th className="px-4 py-2 font-medium text-ink-muted">Age</th>
+                  <th className="px-4 py-2 font-medium text-ink-muted">Jersey</th>
                   <th className="px-4 py-2 font-medium text-ink-muted">Enrolled since</th>
                 </tr>
               </thead>
@@ -122,6 +124,7 @@ export default function TemplateRoster({ templateId }: TemplateRosterProps) {
                   <tr key={e.enrollmentId} className="border-t border-border">
                     <td className="px-4 py-3 font-medium text-ink">{e.childName}</td>
                     <td className="px-4 py-3 text-ink-muted">{e.age ?? "—"}</td>
+                    <td className="px-4 py-3 text-ink-muted">{e.kitSize ?? "—"}</td>
                     <td className="px-4 py-3 text-ink-muted">{formatDate(e.startedAt)}</td>
                   </tr>
                 ))}

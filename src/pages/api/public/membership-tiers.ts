@@ -37,6 +37,7 @@ export const GET: APIRoute = async ({ locals }) => {
       annualFeeCents: membershipTiers.annualFeeCents,
       benefits: membershipTiers.benefits,
       displayOrder: membershipTiers.displayOrder,
+      technicalMonthlyCents: membershipTiers.technicalMonthlyCents,
     })
     .from(membershipTiers)
     .where(

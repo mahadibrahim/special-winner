@@ -78,7 +78,14 @@ export default function TemplatesList({ templates }: TemplatesListProps) {
             <tbody>
               {templates.map((template) => (
                 <tr key={template.id} className="border-t border-border hover:bg-cream/60">
-                  <td className="px-4 py-3 font-medium text-ink">{template.name}</td>
+                  <td className="px-4 py-3 font-medium text-ink">
+                    {template.name}
+                    {template.isTechnical && (
+                      <Badge variant="outline" className="ml-2">
+                        Technical
+                      </Badge>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-ink-muted">
                     {formatDayTime(template.weekday, template.startTime)}
                   </td>

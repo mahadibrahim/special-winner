@@ -175,6 +175,9 @@ export async function createTestClassTemplate(opts: {
   /** Age range for the age-gate scenarios; both null (the default) = no gate. */
   minAge?: number;
   maxAge?: number;
+  /** Technical band flag (Task 1) — surfaces as `isTechnical` on the public
+   *  schedule and drives the enrollment engine's supplement gate. */
+  isTechnical?: boolean;
 }): Promise<string> {
   const db = getDb();
   // Materialization horizon is 8 days (HORIZON_DAYS in
@@ -198,6 +201,7 @@ export async function createTestClassTemplate(opts: {
       minAge: opts.minAge ?? null,
       maxAge: opts.maxAge ?? null,
       active: opts.active ?? true,
+      isTechnical: opts.isTechnical ?? false,
     })
     .returning();
   return row.id;

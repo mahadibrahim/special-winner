@@ -24,6 +24,9 @@ export default function TierForm({ tier }: TierFormProps) {
   const [annualFee, setAnnualFee] = useState<string>(
     tier?.annualFeeCents != null ? String(tier.annualFeeCents / 100) : "",
   );
+  const [technicalMonthly, setTechnicalMonthly] = useState<string>(
+    tier?.technicalMonthlyCents != null ? String(tier.technicalMonthlyCents / 100) : "",
+  );
 
   // Core fields
   const [name, setName] = useState(tier?.name ?? "");
@@ -111,6 +114,7 @@ export default function TierForm({ tier }: TierFormProps) {
           monthlyDollars: monthly === "" ? null : Number(monthly),
           annualDollars: annual === "" ? null : Number(annual),
           annualFeeDollars: annualFee === "" ? null : Number(annualFee),
+          technicalMonthlyDollars: technicalMonthly === "" ? null : Number(technicalMonthly),
           tagline: tagline.trim() === "" ? null : tagline.trim(),
           benefits: buildBenefits(),
           displayOrder: Number(displayOrder) || 0,
@@ -220,6 +224,26 @@ export default function TierForm({ tier }: TierFormProps) {
               onChange={(e) => setTagline(e.target.value)}
               placeholder="e.g. 8 classes a month"
             />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="technical-monthly">Technical supplement ($/month)</Label>
+            <Input
+              id="technical-monthly"
+              type="number"
+              min="0"
+              step="0.01"
+              value={technicalMonthly}
+              onChange={(e) => setTechnicalMonthly(e.target.value)}
+              placeholder="e.g. 9"
+            />
+            <p className="text-xs text-ink-muted mt-1">
+              Extra monthly charge added per child enrolled in a technical-training
+              class slot. Leave blank if this tier doesn&apos;t offer technical
+              classes.
+            </p>
           </div>
         </div>
 

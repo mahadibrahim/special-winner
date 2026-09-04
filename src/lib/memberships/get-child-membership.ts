@@ -33,6 +33,14 @@ export interface ChildMembership {
   status: (typeof LIVE_STATUSES)[number];
   benefits: Record<string, unknown>;
   classAllotmentRemaining: number | "unlimited";
+  /** Monthly technical-training supplement configured on the tier — null/0
+   *  means the tier has no premium configured. Used by requiresTechnicalPremium
+   *  (src/lib/classes/technical-premium.ts). */
+  technicalMonthlyCents: number | null;
+  /** The membership's live Stripe subscription id — null for a membership
+   *  that predates Stripe wiring or was seeded directly (tests). Used by
+   *  syncTechnicalAddonQuantity to find the subscription to adjust. */
+  stripeSubscriptionId: string | null;
 }
 
 export async function getActiveChildMembership(
@@ -94,5 +102,7 @@ export async function getActiveChildMembership(
     status: row.m.status as ChildMembership["status"],
     benefits,
     classAllotmentRemaining,
+    technicalMonthlyCents: row.t.technicalMonthlyCents,
+    stripeSubscriptionId: row.m.stripeSubscriptionId,
   };
 }

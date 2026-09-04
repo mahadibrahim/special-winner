@@ -96,6 +96,7 @@ describe("GET /api/public/class-schedule", () => {
     expect(typeof slot.locationName).toBe("string");
     expect(typeof slot.enrolledCount).toBe("number");
     expect(slot.spotsLeft).toBeGreaterThanOrEqual(0);
+    expect(typeof slot.isTechnical).toBe("boolean");
   });
 
   it("is reachable anonymously and reflects a slot's enrolledCount/spotsLeft", async () => {
@@ -195,6 +196,65 @@ describe("GET /api/public/class-schedule", () => {
     const found2 = body2.sessions.find((s: any) => s.id === session.id);
     expect(found2.bookedCount).toBe(1);
     expect(found2.spotsLeft).toBe(5);
+  });
+
+  it("carries isTechnical through to both slots and materialized sessions", async () => {
+    const suffix = Date.now();
+    const weekday = new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).getUTCDay();
+    const technicalTemplateId = await createTestClassTemplate({
+      organizationId,
+      venueId,
+      name: `Schedule-Technical-${suffix}`,
+      capacity: 6,
+      weekday,
+      startTime: "15:00:00",
+      isTechnical: true,
+    });
+    const regularTemplateId = await createTestClassTemplate({
+      organizationId,
+      venueId,
+      name: `Schedule-Regular-${suffix}`,
+      capacity: 6,
+      weekday,
+      startTime: "15:30:00",
+    });
+    createdTemplateIds.push(technicalTemplateId, regularTemplateId);
+
+    const db = getDb();
+    const startsAt = new Date(Date.now() + 4 * 24 * 60 * 60 * 1000);
+    const [technicalSession] = await db
+      .insert(dropInSessions)
+      .values({
+        organizationId,
+        venueId,
+        classSlotTemplateId: technicalTemplateId,
+        kind: "class",
+        sportOrClassLabel: "Soccer",
+        formatLabel: `Schedule-TechSession-${suffix}`,
+        startsAt,
+        endsAt: new Date(startsAt.getTime() + 55 * 60_000),
+        capacity: 6,
+        audience: "youth",
+        status: "scheduled",
+      })
+      .returning();
+    createdSummarySessionIds.push(technicalSession.id);
+
+    const res = await apiFetch("/api/public/class-schedule");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+
+    const techSlot = body.slots.find((s: any) => s.templateId === technicalTemplateId);
+    expect(techSlot).toBeTruthy();
+    expect(techSlot.isTechnical).toBe(true);
+
+    const regularSlot = body.slots.find((s: any) => s.templateId === regularTemplateId);
+    expect(regularSlot).toBeTruthy();
+    expect(regularSlot.isTechnical).toBe(false);
+
+    const techSession = body.sessions.find((s: any) => s.id === technicalSession.id);
+    expect(techSession).toBeTruthy();
+    expect(techSession.isTechnical).toBe(true);
   });
 });
 

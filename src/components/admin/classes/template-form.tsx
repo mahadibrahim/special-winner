@@ -65,6 +65,7 @@ export default function TemplateForm({ template, venues }: TemplateFormProps) {
   );
 
   const [active, setActive] = useState(template?.active ?? true);
+  const [isTechnical, setIsTechnical] = useState(template?.isTechnical ?? false);
 
   // Deactivate-with-teeth: unchecking "active" on a template that was active
   // checks whether it has upcoming materialized sessions and, if so, offers
@@ -155,6 +156,7 @@ export default function TemplateForm({ template, venues }: TemplateFormProps) {
         memberRateDollars: memberRate === "" ? null : Number(memberRate),
         blockRateDollars: blockRate === "" ? null : Number(blockRate),
         active,
+        isTechnical,
       };
       if (isEdit && !active) {
         body.cancelFutureSessions = cancelFutureSessions;
@@ -364,6 +366,20 @@ export default function TemplateForm({ template, venues }: TemplateFormProps) {
             />
           </div>
         </div>
+
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={isTechnical}
+            onChange={(e) => setIsTechnical(e.target.checked)}
+          />
+          <span>
+            Technical training class
+            <span className="block text-xs text-ink-muted">
+              Smaller groups, extra coaching — members pay the monthly technical supplement.
+            </span>
+          </span>
+        </label>
       </div>
 
       <div className="space-y-5">
