@@ -320,6 +320,116 @@ function CreditLines({ credits }: { credits: SummaryCredit[] }) {
   )
 }
 
+/**
+ * Every upcoming booked session for a child, each with its own cancel
+ * button (testids `upcoming-session-row` / `cancel-session`) — shared
+ * between `MembershipChildCard` and `CreditChildCard` (F4, final-review
+ * wave). A comp-credit/pack/block child can book sessions exactly like a
+ * membership child (both go through the same `MakeUpModal` /
+ * `POST /api/classes/book`), so they need the same visibility into what's
+ * booked and the same ability to cancel a single row — this used to exist
+ * only on the membership card, leaving credit-only families with no way to
+ * see or cancel a booked session short of the destructive "End enrollment"
+ * button. The list is pure rendering; both callers own their own
+ * cancel-in-flight state and pass it in via `cancellingBookingId`/`onCancel`
+ * so neither card's booking logic has to live here.
+ */
+function UpcomingSessionsList({
+  sessions,
+  cancellingBookingId,
+  onCancel,
+}: {
+  sessions: SummaryUpcomingSession[]
+  cancellingBookingId: string | null
+  onCancel: (bookingId: string, startsAt: string) => void
+}) {
+  if (sessions.length === 0) return null
+  return (
+    <ul className="space-y-0.5">
+      {sessions.map((session) => (
+        <li
+          key={session.sessionId}
+          data-testid="upcoming-session-row"
+          className="flex items-center justify-between gap-2 text-xs text-ink-2"
+        >
+          <span>{formatDateTime(session.startsAt)}</span>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            disabled={cancellingBookingId === session.bookingId}
+            onClick={() => onCancel(session.bookingId, session.startsAt)}
+            data-testid="cancel-session"
+            className="h-auto px-2 py-0.5 text-xs"
+          >
+            {cancellingBookingId === session.bookingId ? "Cancelling…" : "Cancel"}
+          </Button>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/**
+ * Shared per-session cancel plumbing behind `UpcomingSessionsList` — same
+ * confirm-then-POST-then-toast flow for both card variants (F4). Pulled out
+ * of `MembershipChildCard` so `CreditChildCard` doesn't duplicate it.
+ *
+ * The confirm dialog now names WHICH class is being cancelled (F2,
+ * final-review wave): it used to say only "Cancelling less than N hours
+ * before start forfeits the session," with no date, so a parent cancelling
+ * the wrong row out of several upcoming sessions had no way to double-check
+ * from the dialog alone.
+ */
+function useSessionCancel(
+  childName: string,
+  cancelWindowHours: number,
+  onChanged: () => void,
+) {
+  const [cancellingBookingId, setCancellingBookingId] = useState<string | null>(null)
+  const { confirm: confirmCancel, dialog: cancelDialog } = useConfirmDialog()
+
+  async function handleCancel(bookingId: string, startsAt: string) {
+    const confirmed = await confirmCancel({
+      title: "Cancel this class?",
+      description: `This cancels ${childName}'s class on ${formatDateTime(startsAt)}. Cancelling less than ${cancelWindowHours} hours before start forfeits the session.`,
+      confirmLabel: "Cancel this class",
+      destructive: true,
+    })
+    if (!confirmed) return
+
+    setCancellingBookingId(bookingId)
+    try {
+      const res = await fetch(`/api/classes/bookings/${bookingId}/cancel`, { method: "POST" })
+      const body = await parseJson(res)
+      if (!res.ok) {
+        if (body.error === "inside_cutoff") {
+          toast.error("Too close to class time to cancel — you're inside the cancellation window.")
+        } else {
+          toast.error(
+            typeof body.message === "string" ? body.message : "Could not cancel — please try again.",
+          )
+        }
+        return
+      }
+      if (body.creditFreed) {
+        toast.success("Cancelled — the class credit was freed.")
+      } else if (body.refunded) {
+        toast.success("Cancelled — refund issued.")
+      } else {
+        toast.success("Cancelled.")
+      }
+      onChanged()
+    } catch {
+      toast.error("Network error — please try again.")
+    } finally {
+      setCancellingBookingId(null)
+    }
+  }
+
+  return { cancellingBookingId, handleCancel, cancelDialog }
+}
+
 /** Amber "sign the waiver first" nudge — shown for `CreditChildCard` whenever
  *  a child has spendable credits but no waiver inside the annual window, and
  *  for `MembershipChildCard` whenever the child has a membership or home-slot
@@ -1206,51 +1316,12 @@ function MembershipChildCard({
 }) {
   const membership = child.membership!
   const [modalOpen, setModalOpen] = useState(false)
-  const [cancellingBookingId, setCancellingBookingId] = useState<string | null>(null)
   const [openingPortal, setOpeningPortal] = useState(false)
-  const { confirm: confirmCancel, dialog: cancelDialog } = useConfirmDialog()
-
-  /** Cancels ONE specific upcoming session, identified by its bookingId —
-   *  no longer implicitly "the next session" (`child.nextSession`), since a
-   *  child can have several upcoming sessions listed and each row's own
-   *  cancel button targets its own booking. */
-  async function handleCancel(bookingId: string) {
-    const confirmed = await confirmCancel({
-      title: "Cancel this class?",
-      description: `Cancelling less than ${cancelWindowHours} hours before start forfeits the session.`,
-      confirmLabel: "Cancel this class",
-      destructive: true,
-    })
-    if (!confirmed) return
-
-    setCancellingBookingId(bookingId)
-    try {
-      const res = await fetch(`/api/classes/bookings/${bookingId}/cancel`, { method: "POST" })
-      const body = await parseJson(res)
-      if (!res.ok) {
-        if (body.error === "inside_cutoff") {
-          toast.error("Too close to class time to cancel — you're inside the cancellation window.")
-        } else {
-          toast.error(
-            typeof body.message === "string" ? body.message : "Could not cancel — please try again.",
-          )
-        }
-        return
-      }
-      if (body.creditFreed) {
-        toast.success("Cancelled — the class credit was freed.")
-      } else if (body.refunded) {
-        toast.success("Cancelled — refund issued.")
-      } else {
-        toast.success("Cancelled.")
-      }
-      onChanged()
-    } catch {
-      toast.error("Network error — please try again.")
-    } finally {
-      setCancellingBookingId(null)
-    }
-  }
+  const { cancellingBookingId, handleCancel, cancelDialog } = useSessionCancel(
+    child.name,
+    cancelWindowHours,
+    onChanged,
+  )
 
   const badge = statusBadge(membership.status)
   const isActive = membership.status === "active"
@@ -1342,28 +1413,11 @@ function MembershipChildCard({
             </a>
           )}
           {child.upcomingSessions.length > 0 ? (
-            <ul className="space-y-0.5">
-              {child.upcomingSessions.map((session) => (
-                <li
-                  key={session.sessionId}
-                  data-testid="upcoming-session-row"
-                  className="flex items-center justify-between gap-2 text-xs text-ink-2"
-                >
-                  <span>{formatDateTime(session.startsAt)}</span>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    disabled={cancellingBookingId === session.bookingId}
-                    onClick={() => void handleCancel(session.bookingId)}
-                    data-testid="cancel-session"
-                    className="h-auto px-2 py-0.5 text-xs"
-                  >
-                    {cancellingBookingId === session.bookingId ? "Cancelling…" : "Cancel"}
-                  </Button>
-                </li>
-              ))}
-            </ul>
+            <UpcomingSessionsList
+              sessions={child.upcomingSessions}
+              cancellingBookingId={cancellingBookingId}
+              onCancel={(bookingId, startsAt) => void handleCancel(bookingId, startsAt)}
+            />
           ) : child.enrollment ? (
             <p className="text-xs text-ink-muted">No upcoming class scheduled yet.</p>
           ) : null}
@@ -1423,13 +1477,24 @@ function MembershipChildCard({
  *  separate booking UI is needed here. */
 function CreditChildCard({
   child,
+  cancelWindowHours,
   onChanged,
 }: {
   child: SummaryChild
+  /** Org's real cancellation cutoff — same prop `MembershipChildCard` takes
+   *  (F4, final-review wave): a credit-only child can book and cancel
+   *  sessions exactly like a membership child, so the confirm dialog needs
+   *  the same real number rather than a hardcoded default. */
+  cancelWindowHours: number
   onChanged: () => void
 }) {
   const [modalOpen, setModalOpen] = useState(false)
   const showWaiverNudge = child.credits.length > 0 && !child.hasWaiverOnFile
+  const { cancellingBookingId, handleCancel, cancelDialog } = useSessionCancel(
+    child.name,
+    cancelWindowHours,
+    onChanged,
+  )
 
   return (
     <>
@@ -1460,6 +1525,13 @@ function CreditChildCard({
               {formatDayTime(child.enrollment.weekday, child.enrollment.startTime)}
             </p>
           )}
+          {child.upcomingSessions.length > 0 && (
+            <UpcomingSessionsList
+              sessions={child.upcomingSessions}
+              cancellingBookingId={cancellingBookingId}
+              onCancel={(bookingId, startsAt) => void handleCancel(bookingId, startsAt)}
+            />
+          )}
           {child.credits.length > 1 && <CreditLines credits={child.credits.slice(1)} />}
           {showWaiverNudge && <WaiverNudge onOpen={() => setModalOpen(true)} />}
         </div>
@@ -1471,6 +1543,7 @@ function CreditChildCard({
         onClose={() => setModalOpen(false)}
         onBooked={onChanged}
       />
+      {cancelDialog}
     </>
   )
 }
@@ -1479,12 +1552,22 @@ function CreditChildCard({
 // Per-child card — no membership, trial used → convert CTA
 // ---------------------------------------------------------------------------
 
+/**
+ * `/youth/classes#pricing` is Aspire's youth funnel — same fail-closed gate
+ * `DiscoverCard`/`FamilyClassesCardProps.brandId` already document (F3,
+ * final-review wave): this card used to link there unconditionally, leaking
+ * an Aspire-only CTA onto a SoccerOne family's dashboard. A non-Aspire brand
+ * still gets the trial-used status line, just with no CTA to click through
+ * on — there's nowhere on SoccerOne for it to send them.
+ */
 function ConvertCard({
   child,
   cheapestMonthlyCents,
+  brandId,
 }: {
   child: SummaryChild
   cheapestMonthlyCents: number | null
+  brandId?: "aspire" | "soccerone"
 }) {
   const priceLabel = fmtDollars(cheapestMonthlyCents)
   return (
@@ -1494,11 +1577,13 @@ function ConvertCard({
       title={child.name}
       meta="Loved the trial?"
       action={
-        <Button asChild size="sm">
-          <a href="/youth/classes#pricing">
-            {priceLabel ? `Join from ${priceLabel}/mo` : "See membership pricing"}
-          </a>
-        </Button>
+        brandId === "aspire" ? (
+          <Button asChild size="sm">
+            <a href="/youth/classes#pricing">
+              {priceLabel ? `Join from ${priceLabel}/mo` : "See membership pricing"}
+            </a>
+          </Button>
+        ) : undefined
       }
     />
   )
@@ -1802,6 +1887,7 @@ export default function FamilyClassesCard({ brandId }: FamilyClassesCardProps = 
           <CreditChildCard
             key={c.familyMemberId}
             child={c}
+            cancelWindowHours={cancelWindowHours}
             onChanged={() => setReloadKey((k) => k + 1)}
           />
         ) : (
@@ -1809,6 +1895,7 @@ export default function FamilyClassesCard({ brandId }: FamilyClassesCardProps = 
             key={c.familyMemberId}
             child={c}
             cheapestMonthlyCents={cheapestMonthlyCents}
+            brandId={brandId}
           />
         ),
       )}

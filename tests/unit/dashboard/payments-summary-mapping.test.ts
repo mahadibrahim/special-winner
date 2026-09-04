@@ -16,6 +16,7 @@ function row(overrides: Partial<HistoryPaymentRow> = {}): HistoryPaymentRow {
     season: { name: "Fall Classes 2026" },
     program: { name: "Youth Classes" },
     sport: { name: "Soccer", icon: null, color: null },
+    membership: null,
     ...overrides,
   };
 }
@@ -55,6 +56,26 @@ describe("mapHistoryToSummary", () => {
     const newer = row({ id: "pay_new", createdAt: "2026-08-15T00:00:00.000Z" });
     const result = mapHistoryToSummary([older, newer]);
     expect(result.map((r) => r.id)).toEqual(["pay_new", "pay_old"]);
+  });
+
+  it("falls back to the membership tier name when season is null (F1: membership charge row)", () => {
+    const result = mapHistoryToSummary([
+      row({
+        season: null,
+        program: null,
+        sport: null,
+        paymentType: "membership",
+        membership: { tierName: "Academy" },
+      }),
+    ]);
+    expect(result[0].description).toBe("Academy Membership");
+  });
+
+  it("falls back to a generic label when both season and membership are null", () => {
+    const result = mapHistoryToSummary([
+      row({ season: null, program: null, sport: null, membership: null }),
+    ]);
+    expect(result[0].description).toBe("Payment");
   });
 
   it("caps the result at 3 rows, keeping only the most recent", () => {

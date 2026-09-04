@@ -22,17 +22,23 @@ interface Payment {
   team: {
     name: string
   } | null
+  // Null for class-membership subscription charges (F1) — those rows have
+  // no registration, so no season/program/sport chain. Render
+  // `membership.tierName` instead when this is null.
   season: {
     name: string
-  }
+  } | null
   program: {
     name: string
-  }
+  } | null
   sport: {
     name: string
     icon: string | null
     color: string | null
-  }
+  } | null
+  membership: {
+    tierName: string
+  } | null
 }
 
 const statusConfig: Record<string, { label: string; icon: typeof CheckCircle2; className: string }> = {
@@ -64,6 +70,7 @@ const paymentTypeLabels: Record<string, string> = {
   balance: "Balance",
   refund: "Refund",
   installment: "Installment",
+  membership: "Membership",
 }
 
 const fallbackIcons: Record<string, string> = {
@@ -196,10 +203,16 @@ export default function PaymentHistory() {
             {payments.map((payment) => {
               const status = statusConfig[payment.status] || statusConfig.pending
               const StatusIcon = status.icon
+              // Membership charges (F1) carry no sport/season — fall back to
+              // a generic icon/color and the tier name instead.
               const sportIcon =
-                payment.sport.icon ||
-                fallbackIcons[payment.sport.name.toLowerCase()] ||
+                payment.sport?.icon ||
+                (payment.sport ? fallbackIcons[payment.sport.name.toLowerCase()] : undefined) ||
                 "🏃"
+              const sportColor = payment.sport?.color || "#6b7280"
+              const title =
+                payment.season?.name ??
+                (payment.membership ? `${payment.membership.tierName} Membership` : "Payment")
 
               return (
                 <div key={payment.id} className="p-6 hover:bg-paper transition-colors">
@@ -208,8 +221,8 @@ export default function PaymentHistory() {
                     <div
                       className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
                       style={{
-                        backgroundColor: `${payment.sport.color || "#6b7280"}15`,
-                        border: `1px solid ${payment.sport.color || "#6b7280"}30`,
+                        backgroundColor: `${sportColor}15`,
+                        border: `1px solid ${sportColor}30`,
                       }}
                     >
                       {sportIcon}
@@ -218,7 +231,7 @@ export default function PaymentHistory() {
                     {/* Details */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-medium text-ink truncate">{payment.season.name}</h3>
+                        <h3 className="font-medium text-ink truncate">{title}</h3>
                         <Badge variant="outline" className="text-xs text-ink-muted border-border">
                           {paymentTypeLabels[payment.paymentType] || payment.paymentType}
                         </Badge>

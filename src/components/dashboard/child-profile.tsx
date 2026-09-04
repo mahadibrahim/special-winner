@@ -339,12 +339,12 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
                       {classesSection.renewsAt && (
                         <div className="flex items-center gap-2 text-sm text-ink-muted">
                           <RefreshCw className="w-3.5 h-3.5" />
-                          Renews{" "}
+                          {classesSection.cancelAtPeriodEnd ? "Ends" : "Renews"}{" "}
                           {new Date(classesSection.renewsAt).toLocaleDateString("en-US", {
                             month: "long",
                             day: "numeric",
+                            year: "numeric",
                           })}
-                          {classesSection.cancelAtPeriodEnd ? " (cancels at period end)" : ""}
                         </div>
                       )}
                     </div>

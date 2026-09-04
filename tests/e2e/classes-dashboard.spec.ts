@@ -173,12 +173,27 @@ test.describe("Family dashboard — upcoming class sessions", () => {
     const rows = card.getByTestId("upcoming-session-row");
     await expect(rows).toHaveCount(2);
 
+    // F2 (final-review wave): the confirm dialog must name WHICH class is
+    // being cancelled — capture the target row's own rendered date text (the
+    // same `formatDateTime` string the row and the dialog both derive from)
+    // and require the dialog to echo it, so a regression back to the old
+    // date-free copy fails this assertion instead of only "the count went
+    // down" (which can't tell a right-row cancel from a wrong-row one).
+    const targetRowDate = await rows.nth(1).locator("span").first().innerText();
+
     await rows.nth(1).getByTestId("cancel-session").click();
-    // useConfirmDialog renders an AlertDialog with the REAL window number:
-    await expect(page.getByRole("alertdialog")).toContainText(/\d+ hours/);
+    // useConfirmDialog renders an AlertDialog with the REAL window number
+    // AND the session's own date/time:
+    const dialog = page.getByRole("alertdialog");
+    await expect(dialog).toContainText(/\d+ hours/);
+    await expect(dialog).toContainText(targetRowDate);
     await page.getByRole("button", { name: "Cancel this class" }).click();
 
     await expect(rows).toHaveCount(1);
+    // The row that remains is the OTHER session, not the one just cancelled
+    // (the deferred minor this scenario also fixes) — confirm by date text
+    // rather than trusting the count alone.
+    await expect(rows.first()).not.toContainText(targetRowDate);
   });
 });
 
@@ -735,7 +750,10 @@ test.describe("Family dashboard — class discovery entry points stay OFF on Soc
     await expect(page.locator("html")).toHaveAttribute("data-brand", "soccerone");
 
     await expect(page.getByTestId("discover-classes")).toHaveCount(0);
-    await expect(page.locator('main a[href="/youth/classes"]')).toHaveCount(0);
+    // Prefix match (F3, final-review wave), not an exact-href match: a
+    // ConvertCard's link is `/youth/classes#pricing`, a fragment variant an
+    // exact `a[href="/youth/classes"]` selector would silently miss.
+    await expect(page.locator('main a[href^="/youth/classes"]')).toHaveCount(0);
   });
 
   test("SoccerOne /dashboard/start has no door linking to /youth/classes", async ({ page }) => {
@@ -743,7 +761,7 @@ test.describe("Family dashboard — class discovery entry points stay OFF on Soc
     await page.goto(`${SOCCERONE_BASE}/dashboard/start`, { waitUntil: "domcontentloaded" });
 
     await expect(page.locator("html")).toHaveAttribute("data-brand", "soccerone");
-    await expect(page.locator('main a[href="/youth/classes"]')).toHaveCount(0);
+    await expect(page.locator('main a[href^="/youth/classes"]')).toHaveCount(0);
   });
 });
 

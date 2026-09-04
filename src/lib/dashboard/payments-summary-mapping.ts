@@ -28,17 +28,27 @@ export interface HistoryPaymentRow {
   team: {
     name: string;
   } | null;
+  /** Null for class-membership subscription charges (F1: those rows have no
+   *  registration, so no season/program/sport chain — see the API's own
+   *  header comment on the join). */
   season: {
     name: string;
-  };
+  } | null;
   program: {
     name: string;
-  };
+  } | null;
   sport: {
     name: string;
     icon: string | null;
     color: string | null;
-  };
+  } | null;
+  /** Present for membership-subscription rows (`paymentType === "membership"`)
+   *  — the tier the charge belongs to, since there's no season name to fall
+   *  back on for those. Still nullable even then (a since-deleted membership
+   *  leaves a historical payment row with neither). */
+  membership: {
+    tierName: string;
+  } | null;
 }
 
 export interface PaymentSummaryRow {
@@ -63,6 +73,18 @@ function personLabel(row: HistoryPaymentRow): string {
   return "—";
 }
 
+/** What this charge was for. Season name for registration/team payments;
+ *  for a membership-subscription row (no season) the tier name instead, so
+ *  a class-only family's "No payments yet" empty state (F1) is replaced by
+ *  an honest description rather than a crash on `row.season.name`. Falls
+ *  back to a generic label in the (should-be-rare) case neither is present —
+ *  e.g. a since-deleted membership on a historical row. */
+function description(row: HistoryPaymentRow): string {
+  if (row.season) return row.season.name;
+  if (row.membership) return `${row.membership.tierName} Membership`;
+  return "Payment";
+}
+
 /**
  * Sorts newest-first (defensive — the API already orders by
  * `desc(payments.createdAt)`, but this function should not silently trust
@@ -74,7 +96,7 @@ export function mapHistoryToSummary(rows: HistoryPaymentRow[]): PaymentSummaryRo
     .slice(0, MAX_SUMMARY_ROWS)
     .map((row) => ({
       id: row.id,
-      description: row.season.name,
+      description: description(row),
       personLabel: personLabel(row),
       amountCents: row.amountCents,
       status: row.status,
