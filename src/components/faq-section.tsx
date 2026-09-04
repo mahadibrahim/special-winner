@@ -85,34 +85,14 @@ export default function FAQSection() {
 
       <div className="relative container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="max-w-3xl mx-auto">
-          {/* Section header */}
+          {/* Section header — Broadsheet: no eyebrow, no gradient text. */}
           <div className="text-center mb-12 lg:mb-16">
-            <div
-              className={`inline-flex items-center gap-3 mb-6 transition-all duration-700 ${
-                isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-              }`}
-            >
-              <span className="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary">
-                Got Questions?
-              </span>
-            </div>
-
             <h2
-              className={`text-3xl sm:text-4xl lg:text-5xl font-display font-bold text-ink mb-6 transition-all duration-700 delay-100 ${
+              className={`display-l text-ink mb-4 transition-all duration-700 delay-100 ${
                 isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'
               }`}
             >
-              Frequently Asked{" "}
-              <span
-                style={{
-                  background: 'linear-gradient(135deg, oklch(0.7 0.2 35), oklch(0.58 0.18 35))',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  backgroundClip: 'text'
-                }}
-              >
-                Questions
-              </span>
+              Frequently asked questions
             </h2>
 
             <p
@@ -148,7 +128,7 @@ export default function FAQSection() {
               Still have questions?{" "}
               <a
                 href="mailto:hello@aspiresportsohio.com"
-                className="text-primary hover:text-primary/80 font-medium underline underline-offset-4 decoration-primary/30 hover:decoration-primary/60 transition-colors"
+                className="text-primary-text hover:text-ink font-medium underline underline-offset-4 transition-colors"
               >
                 Email us
               </a>
@@ -198,17 +178,8 @@ function FAQItem({ faq, index, isOpen, onToggle, isVisible }: FAQItemProps) {
           onClick={onToggle}
           className="w-full flex items-center gap-4 p-5 sm:p-6 text-left"
         >
-          {/* Number */}
-          <span
-            className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold transition-all duration-300 ${
-              isOpen
-                ? 'bg-primary-bright text-primary-foreground'
-                : 'bg-cream-3 text-ink-muted group-hover:text-ink-2'
-            }`}
-          >
-            {String(index + 1).padStart(2, '0')}
-          </span>
-
+          {/* No number chip — the numeral rule: an ordered FAQ list has no
+              information in its numbers. The question anchors the row. */}
           {/* Question text */}
           <span
             className={`flex-1 font-medium text-base sm:text-lg transition-colors duration-300 ${
@@ -239,7 +210,7 @@ function FAQItem({ faq, index, isOpen, onToggle, isVisible }: FAQItemProps) {
           className="overflow-hidden transition-all duration-300 ease-out"
           style={{ height }}
         >
-          <div ref={contentRef} className="px-5 sm:px-6 pb-5 sm:pb-6 pl-[4.25rem] sm:pl-[4.75rem]">
+          <div ref={contentRef} className="px-5 sm:px-6 pb-5 sm:pb-6">
             <p className="text-ink-muted leading-relaxed">
               {faq.answer}
             </p>

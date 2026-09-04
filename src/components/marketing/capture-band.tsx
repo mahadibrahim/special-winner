@@ -38,11 +38,11 @@ export default function CaptureBand() {
   }
 
   return (
-    <section className="bg-navy-deep text-cream">
+    <section className="band-ink">
       <div className="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16 py-12 lg:py-14 flex flex-col md:flex-row md:items-center gap-6">
         <div className="flex-1">
-          <h2 className="font-display italic text-2xl lg:text-3xl">
-            Take {amount} off your first season.
+          <h2 className="display-m">
+            Take {amount} off your first season
           </h2>
           <p className="text-cream/70 mt-2 text-sm">
             Drop your email and we'll send the code straight to your inbox —

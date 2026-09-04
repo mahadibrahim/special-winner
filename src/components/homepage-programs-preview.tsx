@@ -130,20 +130,11 @@ export default function HomepageProgramsPreview() {
         {/* Section header — always present so the homepage's #programs
             anchor has visible content even before the fetch resolves
             or when zero programs are currently open. */}
+        {/* No eyebrow above the headline (the no-eyebrow rule) — "open for
+            registration" is what the facts lines under each row already say. */}
         <div className="flex items-end justify-between mb-12">
-          <div>
-            <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-primary mb-3 flex items-center gap-3">
-              <span className="inline-block w-8 h-px bg-primary" />
-              Open for registration
-            </p>
-            <h2
-              className="font-display text-ink leading-tight"
-              style={{ fontSize: "clamp(2rem, 5vw, 3.25rem)", letterSpacing: "-0.025em" }}
-            >
-              Pick your season.
-            </h2>
-          </div>
-          <a href="/programs" className="text-sm font-medium text-primary hover:underline">
+          <h2 className="display-l text-ink">Pick your season</h2>
+          <a href="/programs" className="text-sm font-medium text-primary-text hover:underline">
             All programs →
           </a>
         </div>
@@ -197,14 +188,14 @@ function AudienceRow({
       {/* Row header: audience title + mono facts line, row link right */}
       <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 mb-5">
         <div className="min-w-0">
-          <h3 className="font-display text-xl text-ink">{title}</h3>
+          <h3 className="display-s text-ink">{title}</h3>
           {!loading && facts && (
             <p className="font-mono text-[11px] tracking-[0.02em] text-ink-muted mt-1.5">
               {facts}
             </p>
           )}
         </div>
-        <a href={linkHref} className="text-sm font-medium text-primary hover:underline">
+        <a href={linkHref} className="text-sm font-medium text-primary-text hover:underline">
           {linkLabel}
         </a>
       </div>

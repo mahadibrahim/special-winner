@@ -43,20 +43,17 @@ export function DualCtaHero({ announcement }: DualCtaHeroProps) {
       />
       <div className="graded-content max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16 pt-20 lg:pt-32 pb-16 lg:pb-24 flex flex-col lg:flex-row lg:items-end gap-10">
         <div className="flex-1 max-w-4xl">
+          {/* Broadsheet display voice — the emphasis moves from a serif
+              italic to the orange (large display text clears the 3:1 floor
+              at --primary-bright with room to spare). */}
           <h1
-            className={`font-display transition-all duration-700 delay-100 ${
+            className={`display-xl transition-all duration-700 delay-100 ${
               mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
             }`}
-            style={{
-              fontSize: "clamp(2.75rem, 7vw, 6.5rem)",
-              lineHeight: 0.98,
-              letterSpacing: "-0.03em",
-            }}
+            style={{ fontSize: "clamp(2.75rem, 6.5vw, 6rem)" }}
           >
             The best part of your week{" "}
-            <span className="italic text-[#ffb38a]" style={{ fontWeight: 400 }}>
-              happens here.
-            </span>
+            <span className="text-primary-bright">happens here.</span>
           </h1>
 
           <p
@@ -100,7 +97,7 @@ export function DualCtaHero({ announcement }: DualCtaHeroProps) {
             <div className="bg-paper px-4 py-3.5 shadow-[0_10px_28px_rgba(0,0,0,0.4)] max-w-xs">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-primary animate-pulse" aria-hidden="true" />
-                <span className="text-[10px] font-bold tracking-[0.16em] uppercase text-primary">Next up</span>
+                <span className="text-[10px] font-bold tracking-[0.16em] uppercase text-primary-text">Next up</span>
               </div>
               <p className="font-display text-lg text-ink mt-1.5 leading-snug">{announcement.title}</p>
               {announcement.detail && (
@@ -110,7 +107,7 @@ export function DualCtaHero({ announcement }: DualCtaHeroProps) {
                 <a
                   href={announcement.linkUrl}
                   data-landing-cta="next-up-card"
-                  className="block text-sm font-semibold text-primary mt-2.5 pt-2.5 border-t border-border hover:underline"
+                  className="block text-sm font-semibold text-primary-text mt-2.5 pt-2.5 border-t border-border hover:underline"
                 >
                   {announcement.linkLabel || "Learn more"} →
                 </a>

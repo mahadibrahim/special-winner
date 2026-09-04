@@ -47,8 +47,10 @@ export default function BenefitTrio({
     <section className="bg-paper border-y border-border">
       <div className="max-w-[1400px] mx-auto px-6 sm:px-10 lg:px-16 py-12 lg:py-16 grid grid-cols-1 md:grid-cols-3 gap-8">
         {benefits.map((b) => (
-          <div key={b.title} className={`border-t-[3px] ${b.accent} pt-5`}>
-            <h2 className="font-display italic text-2xl text-ink">{b.title}</h2>
+          // Broadsheet step-card grammar: 5px accent bar, condensed-caps
+          // title. The per-audience accent colors keep their documented roles.
+          <div key={b.title} className={`border-t-[5px] ${b.accent} pt-5`}>
+            <h2 className="display-s text-ink" style={{ fontSize: "1.375rem" }}>{b.title}</h2>
             <p className="text-ink-muted mt-2 leading-relaxed">{b.body}</p>
           </div>
         ))}
