@@ -1,6 +1,7 @@
 ---
 // src/components/landing/category-card.astro
-// Colored, animated hub door card. Each category owns a palette ("leagues" |
+// Colored, animated hub door card — SQUARE under Broadsheet; the aurora
+// palettes stay (owner-approved bold-catalog wayfinding, like sportColor). Each category owns a palette ("leagues" |
 // "pickup" | "tournaments"); a slow aurora gradient drifts behind it and the
 // arrow slides on hover. Honors prefers-reduced-motion.
 //
@@ -27,7 +28,7 @@ interface Props {
 const { href, cta, palette, title, blurb, statusLabel, live = false, ctaLabel, factsAudience, factsAuthored } = Astro.props
 ---
 
-<a href={href} data-landing-cta={cta} class={`door door-${palette} relative rounded-[22px] overflow-hidden min-h-[250px] flex flex-col justify-end p-6 text-cream no-underline`} style="isolation:isolate">
+<a href={href} data-landing-cta={cta} class={`door door-${palette} relative overflow-hidden min-h-[250px] flex flex-col justify-end p-6 text-cream no-underline`} style="isolation:isolate">
   <div class="aurora absolute inset-[-40%] z-0" style="filter:blur(8px);opacity:.95"></div>
   <div class="absolute inset-0 z-[1]" style="background:linear-gradient(180deg,transparent,oklch(0.16 0.06 280/0.55))"></div>
   <div class="relative z-[2]">
@@ -35,7 +36,7 @@ const { href, cta, palette, title, blurb, statusLabel, live = false, ctaLabel, f
       {live && <span class="dot inline-block w-[7px] h-[7px] rounded-full bg-cream"></span>}
       {statusLabel}
     </div>
-    <h2 class="font-display font-semibold text-[28px] mt-2">{title}</h2>
+    <h2 class="display-s mt-2" style="font-size:1.75rem">{title}</h2>
     <p class="text-[13px] text-cream/90 mt-1.5 max-w-[30ch]">{blurb}</p>
     {factsAudience && <TileFactsLine client:visible audience={factsAudience} authoredFact={factsAuthored} />}
     <span class="go inline-flex items-center gap-2 mt-4 text-xs font-bold tracking-wide">{ctaLabel} <span class="arrow">→</span></span>
