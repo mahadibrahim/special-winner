@@ -1,0 +1,23 @@
+---
+// Broadsheet in-page nav — the orange anchor band (canvas 2a; contrast
+// rules in docs/design-system.md "The orange contrast rule"). Sticks just
+// below the fixed site header. Each section anchor carries
+// [data-jump-link] (e2e-asserted); the optional right-pushed CTA does not —
+// it is a call to action, not a jump link.
+interface Props {
+  items: { href: string; label: string }[]
+  cta?: { href: string; label: string; youthCta: string }
+}
+const { items, cta } = Astro.props
+---
+
+<nav aria-label="On this page" class="inpage-nav sticky top-16 lg:top-20 z-40 overflow-x-auto px-2 sm:px-6">
+  {items.map((item) => <a href={item.href} data-jump-link class="no-underline text-ink hover:text-ink">{item.label}</a>)}
+  {
+    cta && (
+      <a href={cta.href} data-youth-cta={cta.youthCta} class="ml-auto font-extrabold no-underline text-ink hover:text-ink">
+        {cta.label}
+      </a>
+    )
+  }
+</nav>

@@ -36,18 +36,15 @@ import LandingFaq, { type LandingFaqItem } from "@/components/landing/landing-fa
 import ClassSchedule from "@/components/youth/class-schedule"
 import TrialBooking from "@/components/youth/trial-booking"
 import ClassPurchaseLadder from "@/components/youth/class-purchase-ladder"
-import { PATHWAY, COACH, SPORTS } from "@/lib/youth/landing-content"
+import ProductRow from "@/components/youth/bands/product-row.astro"
+import InpageNav from "@/components/youth/bands/inpage-nav.astro"
+import CoachBand from "@/components/youth/bands/coach-band.astro"
+import { PATHWAY } from "@/lib/youth/landing-content"
 import { faqPageJsonLd } from "@/lib/seo/faq-jsonld"
 import { setMarketingEdgeCache } from "@/lib/http/edge-cache"
 
 const HERO_IMAGE = "/images/stock/youth-training.jpg"
 setMarketingEdgeCache(Astro)
-
-// Split COACH.quote on the emphasis phrase so it can carry the canvas's
-// orange <em> — same approach as youth-coach-section.astro (which camps
-// still renders; this page carries its own Broadsheet coaching band).
-const EMPHASIS = "full potential"
-const quoteParts = COACH.quote.split(EMPHASIS)
 
 const NAV_ITEMS = [
   { href: "#pathway", label: "Pathway" },
@@ -139,11 +136,6 @@ const faqs: LandingFaqItem[] = [
   },
 ]
 
-const PRODUCT_ROW = [
-  { href: "/youth/classes", label: "Classes", sub: "Weekly training, all year · 18mo–19", active: true },
-  { href: "/youth/camps", label: "Camps", sub: "School breaks & summer weeks", active: false },
-  { href: "/youth/leagues", label: "Leagues", sub: "Game-day seasons · U6–U19", active: false },
-]
 ---
 
 <BaseLayout
@@ -157,28 +149,7 @@ const PRODUCT_ROW = [
   </Fragment>
 
   <main id="main-content" class="flex-1">
-    {/* ---------- Youth product row — ink-lift band under the header ------ */}
-    {/* pt clears the fixed site header (h-16 lg:h-20) — this band is the
-        page's first content and would otherwise start underneath it. */}
-    <nav aria-label="Youth programs" class="band-ink-lift border-b border-rule-on-ink pt-16 lg:pt-20">
-      <div class="grid grid-cols-3 gap-px bg-rule-on-ink">
-        {
-          PRODUCT_ROW.map((p) => (
-            <a
-              href={p.href}
-              aria-current={p.active ? "page" : undefined}
-              class:list={[
-                "flex flex-col gap-0.5 px-5 sm:px-10 py-[15px] no-underline",
-                p.active ? "bg-ink-lift shadow-[inset_0_-3px_0_var(--primary)]" : "bg-ink",
-              ]}
-            >
-              <span class="label text-on-ink">{p.label}</span>
-              <span class="hidden sm:block text-[13px] text-on-ink-muted">{p.sub}</span>
-            </a>
-          ))
-        }
-      </div>
-    </nav>
+    <ProductRow active="classes" clearsHeader />
 
     {/* ---------- Hero — photo, ink scrim, display-xl ---------------------- */}
     <section class="relative bg-ink-deep overflow-hidden">
@@ -207,13 +178,10 @@ const PRODUCT_ROW = [
     </section>
 
     {/* ---------- In-page nav — the orange band, sticky ------------------- */}
-    {/* Sticks just below the fixed site header (h-16 lg:h-20). */}
-    <nav aria-label="On this page" class="inpage-nav sticky top-16 lg:top-20 z-40 overflow-x-auto px-2 sm:px-6">
-      {NAV_ITEMS.map((item) => <a href={item.href} data-jump-link class="no-underline text-ink hover:text-ink">{item.label}</a>)}
-      <a href="#schedule" data-youth-cta="nav-free-trial" class="ml-auto font-extrabold no-underline text-ink hover:text-ink">
-        First class free ↗
-      </a>
-    </nav>
+    <InpageNav
+      items={NAV_ITEMS}
+      cta={{ href: "#schedule", label: "First class free ↗", youthCta: "nav-free-trial" }}
+    />
 
     {/* ---------- Pathway — five locked steps, step cards ------------------ */}
     <section id="pathway" class="band-sand scroll-mt-36 px-6 sm:px-12 py-[60px]">
@@ -288,56 +256,9 @@ const PRODUCT_ROW = [
       </div>
     </section>
 
-    {/* ---------- Coaching — ink band, DoC. The quote is owner-commissioned
-        (2026-08-18, COACH.quote) and renders as a real quotation. Camps
-        still renders the shared YouthCoachSection; this page carries its
-        own Broadsheet composition of the same COACH source. ---------------- */}
-    <section id="coach" class="band-ink scroll-mt-36 px-6 sm:px-12 py-16" aria-labelledby="classes-coach-h">
-      <div class="max-w-[1080px] mx-auto grid gap-12 lg:grid-cols-[0.62fr_1fr] items-start">
-        <div class="flex flex-col">
-          <img
-            src="/images/staff/saad-abdul-salaam.webp"
-            alt={`${COACH.name}, ${COACH.role}`}
-            class="w-full h-[380px] object-cover object-top"
-            style="filter:grayscale(1) contrast(1.08) brightness(.96)"
-            loading="lazy"
-          />
-          <div class="bg-primary-bright px-5 py-4 flex flex-col gap-0.5">
-            <div class="display-s text-ink">{COACH.name}</div>
-            <div class="text-[13px] font-bold text-ink/70">
-              {COACH.role}{SPORTS.length > 1 ? ` — ${COACH.sport}` : ""}
-            </div>
-          </div>
-        </div>
-        <div class="flex flex-col gap-6">
-          <h2 id="classes-coach-h" class="display-l">How we coach</h2>
-          <blockquote class="text-2xl leading-snug font-medium text-on-ink m-0" style="text-wrap:pretty">
-            “{quoteParts.length === 2 ? (
-              <>
-                {quoteParts[0]}<em class="text-primary-bright">{EMPHASIS}</em>{quoteParts[1]}
-              </>
-            ) : (
-              COACH.quote
-            )}”
-          </blockquote>
-          {/* Credential grid — the one numeral-bearing block on the page:
-              these counts ARE the information (the numeral rule's carve-out). */}
-          <div class="quadrants grid-cols-2 sm:grid-cols-4">
-            {
-              COACH.credits.map((c) => (
-                <div class="flex flex-col gap-1 p-4">
-                  <div class="font-black text-[32px] leading-none text-primary-bright whitespace-nowrap" style="font-stretch:78%">
-                    {c.value}
-                  </div>
-                  <div class="label text-on-ink-muted" style="font-size:0.6875rem">{c.label}</div>
-                </div>
-              ))
-            }
-          </div>
-          <p class="text-[15px] leading-relaxed text-on-ink-muted" style="text-wrap:pretty">{COACH.bio}</p>
-        </div>
-      </div>
-    </section>
+    {/* ---------- Coaching — shared Broadsheet band (owner split: DoC is
+        prominent on classes and camps, never league pages). ---------------- */}
+    <CoachBand headingId="classes-coach-h" />
 
     {/* ---------- Pricing — the purchase ladder, rate-card-driven ----------
         Owner-decided contract (2026-08-18): this band is rate-card-driven,
