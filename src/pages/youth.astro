@@ -1,13 +1,16 @@
 ---
-// Youth hub — SPORT-FIRST. SSR + edge-cached; live facts on the tiles are
-// client-side (TileFactsLine) so the CDN copy never freezes stale inventory.
+// Youth hub — SPORT-FIRST, in the Broadsheet (v2) band language. SSR +
+// edge-cached; live facts on the tiles are client-side (TileFactsLine) so
+// the CDN copy never freezes stale inventory.
 //
 // A parent's first decision is the sport, so the hero tiles are sports
-// (YOUTH_SPORT_PAGES registry) — the adult-leagues hero grammar, sport-color
-// tiles and all. The hub's remaining job is to sell Aspire (benefit trio with
-// the coaching proof) and route; everything an offering needs to explain
-// lives on the sport pages (/youth/soccer, /youth/futsal) and the offering
-// pages below them. Shape per docs/adult-design-reference.md.
+// (YOUTH_SPORT_PAGES registry), tinted with the sport's canonical color —
+// sport tint answers "which game" (sport-colors.ts) and survives the v2
+// conversion; the band chrome around it is Broadsheet ink/sand/orange.
+// The hub's remaining job is to sell Aspire (benefit trio with the
+// coaching proof) and route; everything an offering needs to explain lives
+// on the sport pages (/youth/soccer, /youth/futsal) and the offering pages
+// below them.
 import BaseLayout from "@/layouts/BaseLayout.astro";
 import NextUpCard from "@/components/marketing/next-up-card.astro";
 import BenefitTrio from "@/components/marketing/benefit-trio";
@@ -56,8 +59,6 @@ const faqs: LandingFaqItem[] = [
   },
 ];
 
-// Brand-graded hero. Marketing photography never appears raw — the emerald
-// grade is the youth variant. See docs/design-system.md "Graded imagery".
 const HERO_IMAGE = "/images/stock/youth-training.jpg";
 ---
 
@@ -68,63 +69,59 @@ const HERO_IMAGE = "/images/stock/youth-training.jpg";
 
   <main id="main-content" class="flex-1">
     {/* ---------- Hero: pick your sport ------------------------------------
-        The adult working-hero formula: the fold answers "what can my kid do
-        right now". One tile per sport in the registry, tinted with the
-        sport's canonical color (sport-colors.ts); live facts line computed
-        client-side. `graded--fill` because `.graded` is unlayered CSS and
-        beats Tailwind's `absolute` utility; bg-navy-deep is the fallback
-        ground so cream text never lands on cream. */}
-    <section class="relative text-cream px-6 sm:px-9 pt-16 pb-10 overflow-hidden bg-navy-deep">
-      <div class="graded graded--emerald graded--fill z-0" aria-hidden="true">
-        <img src={HERO_IMAGE} alt="" />
-      </div>
-      <div class="relative z-10 max-w-[1080px] mx-auto">
-        <h1
-          class="font-display font-semibold tracking-tight"
-          style="font-size:clamp(2.5rem,6vw,4rem);line-height:.95"
-        >
-          {HERO.title}
-        </h1>
-        <p class="mt-3 text-base text-cream/90 max-w-[520px]">
-          {HERO.subhead}
-        </p>
+        The fold answers "what can my kid do right now". One tile per sport
+        in the registry, tinted with the sport's canonical color
+        (sport-colors.ts — never inline a sport color); live facts computed
+        client-side. Tiles keep explicit text utilities so the band link
+        rule never repaints them. */}
+    <section class="band-ink relative overflow-hidden">
+      <img
+        src={HERO_IMAGE}
+        alt=""
+        class="absolute inset-0 w-full h-full object-cover object-[center_30%]"
+        style="filter:grayscale(1) contrast(1.08) brightness(.96)"
+      />
+      <div class="hero-scrim absolute inset-0" aria-hidden="true"></div>
+      <div class="relative max-w-[1080px] mx-auto px-6 sm:px-12 pt-28 lg:pt-32 pb-12 flex flex-col gap-5">
+        <h1 class="display-xl text-on-ink max-w-[760px]">{HERO.title}</h1>
+        <p class="body-l text-on-ink-2 max-w-[520px]" style="text-wrap:pretty">{HERO.subhead}</p>
 
-        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-6">
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3.5 pt-2">
           {sports.map((s) => (
             <a
               href={`/youth/${s.slug}`}
               data-landing-cta={`youth-hub-${s.slug}`}
-              class="relative rounded-2xl p-4 text-ink overflow-hidden"
+              class="relative p-5 text-ink overflow-hidden no-underline block"
               style={`background:${sportColor({ slug: s.slug })}`}
             >
-              <div class="font-mono text-[9px] tracking-widest uppercase opacity-80">● {s.statusLabel}</div>
-              <div class="font-display font-semibold text-2xl mt-1.5">{s.name}</div>
-              <div class="font-mono text-xs">{s.tileMeta}</div>
+              <div class="data text-ink/80">● {s.statusLabel}</div>
+              <div class="display-s text-ink mt-1.5" style="font-size:1.5rem">{s.name}</div>
+              <div class="font-mono text-xs text-ink mt-1">{s.tileMeta}</div>
               <TileFactsLine client:visible audience="youth" sport={s.slug} tone="ink" />
-              <span class="absolute right-4 bottom-4 font-semibold text-lg">→</span>
+              <span class="absolute right-4 bottom-4 font-bold text-lg text-ink" aria-hidden="true">→</span>
             </a>
           ))}
         </div>
 
-        <p class="mt-5 text-sm text-cream/70">
+        <p class="text-sm text-on-ink-muted">
           Or browse by programme:
-          <a href="/youth/leagues" class="underline underline-offset-2 hover:text-cream transition-colors">Leagues</a>
+          <a href="/youth/leagues" class="text-primary-bright underline underline-offset-2">Leagues</a>
           ·
-          <a href="/youth/classes" class="underline underline-offset-2 hover:text-cream transition-colors">Classes</a>
+          <a href="/youth/classes" class="text-primary-bright underline underline-offset-2">Classes</a>
           ·
-          <a href="/youth/camps" class="underline underline-offset-2 hover:text-cream transition-colors">Camps</a>
+          <a href="/youth/camps" class="text-primary-bright underline underline-offset-2">Camps</a>
         </p>
-        <p class="mt-2 text-sm text-cream/70">
+        <p class="text-sm text-on-ink-muted -mt-3">
           Playing yourself?
-          <a href="/adult" class="underline underline-offset-2 hover:text-cream transition-colors">See adult programs →</a>
+          <a href="/adult" class="text-primary-bright underline underline-offset-2">See adult programs →</a>
         </p>
       </div>
     </section>
 
     {/* ---------- Crawlable intro — the hub's one prose block --------------- */}
-    <section class="px-6 sm:px-9 py-10 border-b border-border" aria-label="About Aspire youth sports">
+    <section class="band-sand border-b border-rule px-6 sm:px-12 py-10" aria-label="About Aspire youth sports">
       <div class="max-w-[1080px] mx-auto">
-        <p class="max-w-[640px] text-[15px] text-ink-2 leading-relaxed">{INTRO}</p>
+        <p class="body-copy text-on-sand-2 max-w-[640px]">{INTRO}</p>
       </div>
     </section>
 
@@ -132,51 +129,51 @@ const HERO_IMAGE = "/images/stock/youth-training.jpg";
     <BenefitTrio benefits={BENEFITS} />
 
     {announcement && (
-      <div class="max-w-[1080px] mx-auto px-6 sm:px-9 py-6">
+      <div class="max-w-[1080px] mx-auto px-6 sm:px-12 py-6">
         <NextUpCard announcement={announcement} />
       </div>
     )}
 
-    {/* ---------- One pathway — the differentiator, compact ----------------
+    {/* ---------- One pathway — the differentiator, on ink ------------------
         Answers "is there something for my kid's age" in one glance. Names
-        only (blurbs live on the sport pages) — a strip, not a section. */}
-    <section class="px-6 sm:px-9 py-12 border-b border-border" aria-labelledby="youth-pathway-strip-h">
-      <div class="max-w-[1080px] mx-auto">
-        <div class="h-[3px] w-11 rounded-sm mb-4 bg-emerald"></div>
-        <h2 id="youth-pathway-strip-h" class="font-display text-3xl text-ink tracking-tight">
-          One pathway, eighteen months to nineteen years.
-        </h2>
-        <p class="text-[13.5px] text-ink-2 leading-relaxed mt-2 max-w-[520px]">
-          Five named steps, so nobody starts over and nobody stands still.
-        </p>
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mt-6">
+        only (blurbs live on the sport pages). Colour arrives through the
+        structure: the quadrant grid's rules go orange. */}
+    <section class="band-ink px-6 sm:px-12 py-14" aria-labelledby="youth-pathway-strip-h">
+      <div class="max-w-[1080px] mx-auto flex flex-col gap-8">
+        <div class="flex flex-col gap-2.5 max-w-[620px]">
+          <h2 id="youth-pathway-strip-h" class="display-l">
+            One pathway, eighteen months to nineteen years
+          </h2>
+          <p class="body-s text-on-ink-2">
+            Five named steps, so nobody starts over and nobody stands still.
+          </p>
+        </div>
+        <div class="quadrants quadrants--accent grid-cols-2 sm:grid-cols-3 lg:grid-cols-5">
           {PATHWAY.map((s) => (
-            <div class="rounded-xl border border-border bg-paper px-4 py-3.5">
-              <p class="font-mono text-[10px] tracking-widest uppercase text-ink-2">{s.ages}</p>
-              <p class="font-display text-[16px] text-ink mt-1 leading-tight">{s.name}</p>
+            <div class="flex flex-col gap-1.5 p-4">
+              <p class="display-s text-on-ink m-0" style="font-size:1.125rem">{s.name.replace("Aspire ", "")}</p>
+              <p class="data text-on-ink-muted m-0">{s.ages}</p>
             </div>
           ))}
         </div>
-        <a
-          href="/youth/classes"
-          data-youth-cta="pathway"
-          class="inline-block mt-6 font-sans font-semibold text-[13px] bg-navy-deep text-cream px-4 py-2.5 rounded-lg"
-        >
-          See the pathway →
-        </a>
+        <div>
+          <a href="/youth/classes" data-youth-cta="pathway" class="btn btn--on-ink no-underline">
+            See the pathway
+          </a>
+        </div>
       </div>
     </section>
 
     {/* ---------- Testimonials — renders only when we have real ones ------- */}
     {TESTIMONIALS.length > 0 && (
-      <section class="px-6 sm:px-9 py-12" aria-labelledby="youth-parents-h">
-        <div class="max-w-[1080px] mx-auto">
-          <h2 id="youth-parents-h" class="font-display text-3xl text-ink tracking-tight">What parents say</h2>
-          <div class="grid md:grid-cols-3 gap-3 mt-6">
+      <section class="band-sand px-6 sm:px-12 py-14" aria-labelledby="youth-parents-h">
+        <div class="max-w-[1080px] mx-auto flex flex-col gap-8">
+          <h2 id="youth-parents-h" class="display-l">What parents say</h2>
+          <div class="grid md:grid-cols-3 gap-3.5">
             {TESTIMONIALS.map((t) => (
-              <figure class="rounded-xl border border-border bg-paper p-5 m-0">
-                <blockquote class="text-[13px] text-ink-2 leading-relaxed">{t.quote}</blockquote>
-                <figcaption class="font-mono text-[10.5px] tracking-wide uppercase text-ink-2 mt-3">
+              <figure class="bg-paper border border-rule p-5 m-0">
+                <blockquote class="body-s text-on-sand-2 m-0">{t.quote}</blockquote>
+                <figcaption class="label text-on-sand-muted mt-3" style="font-size:0.65rem">
                   {t.attribution}
                 </figcaption>
               </figure>
@@ -186,34 +183,28 @@ const HERO_IMAGE = "/images/stock/youth-training.jpg";
       </section>
     )}
 
-    {/* ---------- FAQs — objection handling, adult-leagues idiom ----------- */}
-    <LandingFaq client:visible accent="emerald" id="faq" heading="Youth program FAQs" items={faqs} />
+    {/* ---------- FAQs — objection handling --------------------------------- */}
+    <LandingFaq client:visible id="faq" heading="Youth program FAQs" items={faqs} />
 
-    {/* ---------- Close: the page's one accent flood (youth = emerald) -----
-        The adult pages close with the orange CTA banner; a shared banner
-        would self-link "For Kids" back here, so the hub closes with its own
-        emerald band routing into the sport pages. Gradient stops are
-        token-derived (emerald → navy-deep mix), no new colors. */}
-    <section
-      class="relative text-cream px-6 sm:px-9 py-16 sm:py-20 overflow-hidden"
-      style="background:linear-gradient(135deg, var(--emerald), color-mix(in oklch, var(--emerald), var(--navy-deep) 55%))"
-      aria-labelledby="youth-close-h"
-    >
-      <div class="max-w-[1080px] mx-auto text-center">
-        <h2 id="youth-close-h" class="font-display font-semibold tracking-tight" style="font-size:clamp(2rem,4.5vw,3rem)">
-          Ready when they are.
-        </h2>
-        <p class="mt-3 text-base text-cream/90 max-w-[480px] mx-auto">
-          Pick the sport and see what's open — registration takes a few minutes.
-        </p>
-        <div class="flex flex-wrap justify-center gap-3 mt-7">
+    {/* ---------- Closer — the orange band, routing into the sport pages ---- */}
+    <section class="band-orange px-6 sm:px-12 py-16" aria-labelledby="youth-close-h">
+      <div class="max-w-[1080px] mx-auto flex flex-wrap items-center justify-between gap-8">
+        <div class="flex flex-col gap-2.5">
+          <h2 id="youth-close-h" class="display-xl" style="font-size:clamp(2.5rem,5vw,4rem)">
+            Ready when they are.
+          </h2>
+          <p class="body-l font-medium text-ink">
+            Pick the sport and see what's open — registration takes a few minutes.
+          </p>
+        </div>
+        <div class="flex flex-wrap gap-3">
           {sports.map((s) => (
             <a
               href={`/youth/${s.slug}`}
               data-landing-cta={`youth-close-${s.slug}`}
-              class="font-sans font-semibold text-[14px] bg-cream text-ink px-5 py-3 rounded-lg"
+              class="btn btn--ink no-underline whitespace-nowrap !text-primary-bright hover:!text-ink"
             >
-              Youth {s.name.toLowerCase()} →
+              Youth {s.name.toLowerCase()}
             </a>
           ))}
         </div>
@@ -234,14 +225,11 @@ const HERO_IMAGE = "/images/stock/youth-training.jpg";
   const hash = location.hash.slice(1);
   if (Object.hasOwn(anchorMap, hash)) location.replace(anchorMap[hash]);
 
-  document.querySelectorAll<HTMLAnchorElement>("[data-landing-cta]").forEach((el) => {
-    el.addEventListener("click", () => {
-      track("landing_hero_cta_click", { cta: el.dataset.landingCta ?? "" });
-    });
-  });
-  document.querySelectorAll<HTMLAnchorElement>("[data-youth-cta]").forEach((el) => {
-    el.addEventListener("click", () =>
-      track("youth_hub_section_cta_clicked", { section: el.dataset.youthCta ?? "" }),
-    );
+  // Delegated so island-hydrated CTAs still get tracked (classes precedent).
+  document.addEventListener("click", (e) => {
+    const el = e.target instanceof Element ? e.target.closest<HTMLElement>("[data-landing-cta], [data-youth-cta]") : null;
+    if (!el) return;
+    if (el.dataset.landingCta) track("landing_hero_cta_click", { cta: el.dataset.landingCta });
+    else track("youth_hub_section_cta_clicked", { section: el.dataset.youthCta ?? "" });
   });
 </script>
