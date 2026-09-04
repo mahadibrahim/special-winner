@@ -19,8 +19,10 @@ Table.displayName = "Table"
 const TableHeader = React.forwardRef<
   HTMLTableSectionElement,
   React.HTMLAttributes<HTMLTableSectionElement>
+// Broadsheet data-table grammar: ink header band; heads are labels
+// (Archivo 800 tracked caps in --on-ink-2), never mono.
 >(({ className, ...props }, ref) => (
-  <thead ref={ref} className={cn("[&_tr]:border-b", className)} {...props} />
+  <thead ref={ref} className={cn("bg-ink [&_tr]:border-b-0 [&_tr:hover]:bg-ink", className)} {...props} />
 ))
 TableHeader.displayName = "TableHeader"
 
@@ -73,7 +75,7 @@ const TableHead = React.forwardRef<
   <th
     ref={ref}
     className={cn(
-      "h-10 px-2 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
+      "h-10 px-2 text-left align-middle text-[11px] font-extrabold tracking-[0.1em] uppercase text-on-ink-2 [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
       className
     )}
     {...props}
