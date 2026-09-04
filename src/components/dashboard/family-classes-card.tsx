@@ -26,11 +26,15 @@ import { formatCents } from "@/lib/classes/ladder-model"
  * Fetches `/api/classes/summary` once and renders one `DashboardCard` per
  * child who holds a class membership, has active pack/block credits
  * (`credits`, Task 12 — the class-purchase-ladder's non-membership rungs),
- * OR has used their org trial (`trialUsed`). Children with none of the
- * three render nothing — `ChildrenOverview` already covers the plain "no
- * classes yet" case, so duplicating that here would be noise. The whole
- * component renders `null` when zero children qualify (no empty section, no
- * dangling heading).
+ * has used their org trial (`trialUsed`), OR holds a standing `enrollment`
+ * (Task 5, issue #601 F6: the TAIL of a credit-backed block — the backing
+ * grant's last purchased session is already booked, so `credits` filters it
+ * to `[]` even though the enrollment is still active until that session
+ * happens; without this the child rendered no card at all and no way to end
+ * it). Children with none of the four render nothing — `ChildrenOverview`
+ * already covers the plain "no classes yet" case, so duplicating that here
+ * would be noise. The whole component renders `null` when zero children
+ * qualify (no empty section, no dangling heading).
  *
  * CREDITS: every qualifying child's card also shows its active credit
  * grants inline (`CreditLines`) — a MEMBER can be sitting on leftover pack/
@@ -1442,7 +1446,12 @@ function CreditChildCard({
         type="class"
         eyebrow="Class credits"
         title={child.name}
-        meta={creditLine(child.credits[0])}
+        // Tail-of-block shape (issue #601, F6): the backing grant's last
+        // session is already booked, so `credits` (spendable balances only)
+        // is empty even though the enrollment itself is still active until
+        // that last session happens. `creditLine` assumes a real credit —
+        // guard the empty case rather than indexing `child.credits[0]`.
+        meta={child.credits.length > 0 ? creditLine(child.credits[0]) : "No sessions left to book"}
         action={
           <div className="flex flex-col items-end gap-1.5">
             <Button size="sm" onClick={() => setModalOpen(true)}>
@@ -1703,8 +1712,15 @@ export default function FamilyClassesCard() {
     )
   }
 
+  // `enrollment !== null` also qualifies on its own — the tail of a
+  // credit-backed (block) enrollment (issue #601, F6): the backing grant's
+  // last purchased session is already spent (booked), so `credits` filters
+  // it out entirely (spendable balances only) and there's no membership or
+  // trial-used flag either. Without this the child rendered NO card at
+  // all — no visible way to end the enrollment before the block quietly
+  // lapses. See CreditChildCard below, which renders for this shape too.
   const qualifying = children.filter(
-    (c) => c.membership !== null || c.trialUsed || c.credits.length > 0,
+    (c) => c.membership !== null || c.trialUsed || c.credits.length > 0 || c.enrollment !== null,
   )
   if (qualifying.length === 0) return packBanner
 
@@ -1719,7 +1735,7 @@ export default function FamilyClassesCard() {
             cancelWindowHours={cancelWindowHours}
             onChanged={() => setReloadKey((k) => k + 1)}
           />
-        ) : c.credits.length > 0 ? (
+        ) : c.credits.length > 0 || c.enrollment !== null ? (
           <CreditChildCard
             key={c.familyMemberId}
             child={c}

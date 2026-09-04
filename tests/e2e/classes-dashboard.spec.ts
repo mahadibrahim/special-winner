@@ -25,6 +25,7 @@ import { test, expect } from "@playwright/test";
 import { eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { membershipTiers, memberships } from "@/lib/db/schema/memberships";
+import { classEnrollments } from "@/lib/db/schema/classes";
 import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
 import { createTestDropInSession, resolveDefaultOrgForHttpTests } from "../utils/dropin-helpers";
 import {
@@ -32,6 +33,7 @@ import {
   createTestChildMembership,
   cleanupTestMembershipTiers,
   createTestClassTemplate,
+  createTestCreditGrant,
   cleanupTestClassFixtures,
 } from "../utils/classes-helpers";
 import { createTestUserWithPassword } from "../utils/host-helpers";
@@ -408,5 +410,129 @@ test.describe("Family dashboard — technical make-up 409 routes to upsell", () 
 
     await modal.getByRole("button", { name: "Not now" }).click();
     await expect(modal).toBeHidden();
+  });
+});
+
+/**
+ * Task 5 of the classes-dashboard-launch plan (issue #601, F6 item).
+ *
+ * The tail of a block: the credit grant backing a child's enrollment has
+ * `remaining: 0` (every purchased session is already spent) but one of
+ * those spends is a still-upcoming CONFIRMED session — the family hasn't
+ * actually attended their last class yet. `GET /api/classes/summary`'s
+ * `credits` array is filtered to spendable balances only (`remaining > 0`),
+ * so it comes back `[]`; with no membership and no trial use either, the
+ * qualifying predicate used to drop this child entirely — no card, no
+ * End-enrollment control, no explicit way to give up the seat before the
+ * block quietly lapses.
+ *
+ * Fixture: a throwaway parent + child, an INACTIVE (pin-only) class-slot
+ * template, a `source: "block"` credit grant with `sessionsGranted: 1`
+ * pinned to that template, a `class_enrollments` row pointing at the grant
+ * (mirrors classes-credit-booking.test.ts's `CreditFloatOnEnd` fixture,
+ * `classes-credit-booking.test.ts:330-361`), and ONE future
+ * `drop_in_sessions` row with a `confirmed` `pack_credit` booking that spends
+ * the grant's only session — `getCreditBalances` counts it against
+ * `sessionsGranted`, so the grant reads `remaining: 0` even though the
+ * session itself hasn't happened yet.
+ */
+test.describe("Family dashboard — tail-of-block End-enrollment control", () => {
+  test.setTimeout(120_000);
+
+  let organizationId: string;
+  let venueId: string;
+  let templateId: string;
+  let grantId: string;
+  let tailSessionId: string;
+  let parentEmail: string;
+  let parentPassword: string;
+  let parentUserId: string;
+  let childId: string;
+  let enrollmentId: string;
+
+  const suffix = Date.now();
+  const childFirstName = `DashboardTailBlockE2E-${suffix}`;
+  const templateName = `Credit-DashboardTailBlock-${suffix}`;
+
+  test.beforeAll(async () => {
+    ({ organizationId, venueId } = await resolveDefaultOrgForHttpTests());
+    const db = getDb();
+
+    const throwawayUser = await createTestUserWithPassword();
+    parentEmail = throwawayUser.email;
+    parentPassword = throwawayUser.password;
+    parentUserId = throwawayUser.userId;
+
+    childId = await createTestChild(parentUserId, childFirstName);
+
+    templateId = await createTestClassTemplate({
+      organizationId,
+      venueId,
+      name: templateName,
+      capacity: 10,
+      active: false, // pin target only, never materialized by the class cron
+    });
+
+    grantId = await createTestCreditGrant({
+      organizationId,
+      familyMemberId: childId,
+      sessionsGranted: 1,
+      idSuffix: `e2e-dashboard-tail-${suffix}`,
+      source: "block",
+      slotTemplateId: templateId,
+    });
+
+    const [enrollment] = await db
+      .insert(classEnrollments)
+      .values({ slotTemplateId: templateId, familyMemberId: childId, creditGrantId: grantId })
+      .returning({ id: classEnrollments.id });
+    enrollmentId = enrollment.id;
+
+    const ctx = await createTestDropInSession({
+      organizationId,
+      venueId,
+      kind: "class",
+      capacity: 10,
+      startsAt: new Date(Date.now() + 3 * 86_400_000),
+    });
+    tailSessionId = ctx.sessionId;
+
+    await db.insert(dropInBookings).values({
+      sessionId: tailSessionId,
+      userId: parentUserId,
+      familyMemberId: childId,
+      status: "confirmed",
+      source: "online_booking",
+      paymentMethod: "pack_credit",
+      creditGrantId: grantId,
+      amountPaidCents: 0,
+    });
+  });
+
+  test.afterAll(async () => {
+    const db = getDb();
+    if (tailSessionId) {
+      await db.delete(dropInBookings).where(eq(dropInBookings.sessionId, tailSessionId));
+      await db
+        .update(dropInSessions)
+        .set({ status: "cancelled" })
+        .where(eq(dropInSessions.id, tailSessionId));
+    }
+    if (templateId) await cleanupTestClassFixtures([templateId], enrollmentId ? [enrollmentId] : []);
+  });
+
+  test("child at the tail of a block still renders a card with the End-enrollment control", async ({
+    page,
+  }) => {
+    await signIn(page, parentEmail, parentPassword);
+    await page.goto("/dashboard/family");
+    await waitForHydration(page);
+
+    const card = page
+      .locator("div.flex.items-start.gap-3.rounded-xl.border.border-border.border-l-4.p-3")
+      .filter({ hasText: childFirstName });
+    await expect(card).toBeVisible({ timeout: 15_000 });
+
+    await expect(card.getByTestId("end-enrollment")).toBeVisible();
   });
 });
