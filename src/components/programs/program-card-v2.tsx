@@ -414,7 +414,7 @@ export default function ProgramCardV2({
                         <a
                           key="team-cta"
                           href={`/register/${season.id}?mode=team`}
-                          className={`inline-flex items-center justify-center gap-1.5 text-xs font-semibold tracking-wide uppercase bg-ink text-cream hover:bg-primary px-3 py-2 rounded-md transition-colors ${teamFirst ? STRETCHED_LINK_CLASSES : "relative z-10"}`}
+                          className={`inline-flex items-center justify-center gap-1.5 text-xs font-semibold tracking-wide uppercase bg-ink text-cream hover:bg-primary-bright hover:text-primary-foreground px-3 py-2 rounded-md transition-colors ${teamFirst ? STRETCHED_LINK_CLASSES : "relative z-10"}`}
                         >
                           <Users className="w-3.5 h-3.5" />
                           {teamCta}
@@ -441,7 +441,7 @@ export default function ProgramCardV2({
                     {!soldOut && (
                       <a
                         href={teamOnly ? `/register/${season.id}?mode=team` : `/register/${season.id}`}
-                        className={`inline-flex items-center gap-1.5 text-xs font-semibold tracking-wide uppercase bg-ink text-cream px-3 py-2 rounded-md group-hover:bg-primary transition-colors ${STRETCHED_LINK_CLASSES}`}
+                        className={`inline-flex items-center gap-1.5 text-xs font-semibold tracking-wide uppercase bg-ink text-cream px-3 py-2 rounded-md group-hover:bg-primary-bright group-hover:text-primary-foreground transition-colors ${STRETCHED_LINK_CLASSES}`}
                       >
                         {teamOnly ? teamCta : soloCta}
                         <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />

@@ -72,7 +72,7 @@ export function EmptyNotifyForm({ audience, source }: EmptyNotifyFormProps) {
         <button
           type="submit"
           disabled={status === "submitting"}
-          className="px-5 py-2.5 bg-ink text-cream text-sm font-medium tracking-wide uppercase rounded-lg hover:bg-primary transition-colors disabled:opacity-60"
+          className="px-5 py-2.5 bg-ink text-cream text-sm font-medium tracking-wide uppercase rounded-lg hover:bg-primary-bright hover:text-primary-foreground transition-colors disabled:opacity-60"
           style={{ letterSpacing: "0.08em" }}
         >
           {status === "submitting" ? "Saving…" : "Notify me"}

@@ -85,6 +85,26 @@ const soccerone: BrandTheme = {
   fontsHref:
     "https://fonts.googleapis.com/css2?family=Anton&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap",
   cssVars: {
+    // —— Broadsheet v2 primitives ——
+    // The v2 semantic vars (--background, --card, --primary…) resolve
+    // through these primitive names, NOT through the v1 aliases below —
+    // so the inversion must pin both sets. Values identical to the v1
+    // entries they mirror.
+    "--sand": "#0a0a0d", // --so-ink: page background
+    "--sand-inset": "#131316",
+    "--sand-deep": "#1a1a1f",
+    "--on-sand": "#ffffff",
+    "--on-sand-2": "#e4e4e7",
+    "--on-sand-muted": "#b8b8bf",
+    "--on-sand-faint": "#8c8c95",
+    "--primary": "#a3e635", // --so-lime
+    "--primary-bright": "#bef264", // --so-lime-bright
+    "--primary-soft": "rgba(163, 230, 53, 0.12)", // --so-lime-a12
+    "--primary-text": "#a3e635", // links on dark surfaces: lime, not dark orange
+    "--primary-hover": "#d9f99d", // orange-fill hover seam; lighter lime
+    "--primary-foreground": "#0a0a0d", // dark text on lime (v2 default is --ink → white here)
+    "--secondary": "#0a1929", // v2 default is var(--ink) → white here; keep v1's navy
+    "--rule-color": "rgba(255, 255, 255, 0.14)", // v2 --border/--input resolve through this
     // —— Editorial palette inversion (values from soccerone-tokens.css) ——
     // Entries without a --so- comment are seam-only values with no soccerone-tokens.css source.
     "--cream": "#0a0a0d", // --so-ink: page background

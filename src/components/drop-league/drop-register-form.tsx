@@ -262,7 +262,7 @@ export function DropRegisterForm({
       <button
         type="submit"
         disabled={status === "submitting" || !form.consent}
-        className="rounded-md bg-primary-orange px-4 py-2.5 text-sm font-semibold text-cream disabled:opacity-60 transition-opacity hover:opacity-90"
+        className="rounded-md bg-primary-bright px-4 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-60 transition-opacity hover:opacity-90"
       >
         {status === "submitting" ? "Registering…" : `Register for ${division === "mens" ? "Men's" : "Women's"} — ${seasonName}`}
       </button>

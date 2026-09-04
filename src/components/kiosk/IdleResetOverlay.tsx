@@ -38,7 +38,7 @@ export function IdleResetOverlay({
         <button
           type="button"
           onClick={onStay}
-          className="w-full min-h-[60px] rounded-xl bg-primary px-6 py-4 text-base font-medium text-cream transition-all hover:bg-primary/90 active:scale-[0.99]"
+          className="w-full min-h-[60px] rounded-xl bg-primary-bright px-6 py-4 text-base font-medium text-primary-foreground transition-all hover:bg-primary-hover active:scale-[0.99]"
         >
           I'm still here
         </button>

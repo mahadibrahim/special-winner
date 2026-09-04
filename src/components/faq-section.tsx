@@ -202,7 +202,7 @@ function FAQItem({ faq, index, isOpen, onToggle, isVisible }: FAQItemProps) {
           <span
             className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold transition-all duration-300 ${
               isOpen
-                ? 'bg-primary text-cream'
+                ? 'bg-primary-bright text-primary-foreground'
                 : 'bg-cream-3 text-ink-muted group-hover:text-ink-2'
             }`}
           >

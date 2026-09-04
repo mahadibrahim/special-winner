@@ -497,7 +497,7 @@ export default function ProgramsCatalog({ initialAudience, initialType, initialA
                 <button
                   type="button"
                   onClick={() => setVisibleCount((n) => Math.min(n + 12, sorted.length))}
-                  className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-ink text-cream text-sm font-medium tracking-wide uppercase hover:bg-primary transition-colors w-full sm:w-auto"
+                  className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-ink text-cream text-sm font-medium tracking-wide uppercase hover:bg-primary-bright hover:text-primary-foreground transition-colors w-full sm:w-auto"
                   style={{ letterSpacing: "0.08em" }}
                 >
                   Show {Math.min(12, sorted.length - visibleCount)} more

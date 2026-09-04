@@ -311,7 +311,7 @@ The CI database is shared across runs and accumulates orgs, users, sessions, etc
 
 ## Design System
 
-See `docs/design-system.md` for the full editorial cream design system reference (colors, typography, components, layout patterns).
+See `docs/design-system.md` for the full Broadsheet (v2) design system reference — condensed Archivo capitals, ink/sand bands, the three-orange contrast rule, components, layout patterns. v1 token names (`--cream`, `--ink-muted`, `--primary-orange`…) are aliased, not removed.
 
 ## Disabled Skills
 

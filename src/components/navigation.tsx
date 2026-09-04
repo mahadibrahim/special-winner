@@ -218,7 +218,7 @@ export default function Navigation({ initialUser }: NavigationProps) {
                   Dashboard
                   {pendingCount > 0 && (
                     <span
-                      className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-primary text-cream text-xs font-semibold"
+                      className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-primary-bright text-primary-foreground text-xs font-semibold"
                       aria-label={`${pendingCount} registration${pendingCount === 1 ? "" : "s"} awaiting payment`}
                     >
                       {pendingCount}
@@ -230,7 +230,7 @@ export default function Navigation({ initialUser }: NavigationProps) {
                     <button
                       type="button"
                       aria-label={`${user.firstName ?? user.email}${user.lastName ? ` ${user.lastName}` : ""} — open account menu`}
-                      className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-primary text-cream text-sm font-semibold shadow-sm shadow-primary/15 hover:bg-primary/90 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                      className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-primary-bright text-primary-foreground text-sm font-semibold shadow-sm shadow-primary/15 hover:bg-primary-hover transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                     >
                       {initials}
                     </button>
@@ -267,7 +267,7 @@ export default function Navigation({ initialUser }: NavigationProps) {
                 </a>
                 <a
                   href="/programs"
-                  className="group inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium bg-primary text-cream rounded-lg hover:bg-primary/90 shadow-sm shadow-primary/15 transition-all"
+                  className="group inline-flex items-center gap-2 px-5 py-2.5 text-sm font-medium bg-primary-bright text-primary-foreground rounded-lg hover:bg-primary-hover shadow-sm shadow-primary/15 transition-all"
                 >
                   Programs
                   <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
@@ -348,7 +348,7 @@ export default function Navigation({ initialUser }: NavigationProps) {
                   {user ? (
                     <>
                       <Button
-                        className="w-full bg-primary hover:bg-primary/90 text-cream"
+                        className="w-full bg-primary-bright hover:bg-primary-hover text-primary-foreground"
                         asChild
                       >
                         <a
@@ -405,7 +405,7 @@ export default function Navigation({ initialUser }: NavigationProps) {
                         </a>
                       </Button>
                       <Button
-                        className="w-full bg-primary hover:bg-primary/90 text-cream"
+                        className="w-full bg-primary-bright hover:bg-primary-hover text-primary-foreground"
                         asChild
                       >
                         <a

@@ -192,7 +192,7 @@ export function DayPlanner({
               type="button"
               onClick={save}
               disabled={saving}
-              className="text-xs font-semibold tracking-wide uppercase bg-ink text-cream hover:bg-primary px-3 py-2 rounded-md transition-colors disabled:opacity-50"
+              className="text-xs font-semibold tracking-wide uppercase bg-ink text-cream hover:bg-primary-bright hover:text-primary-foreground px-3 py-2 rounded-md transition-colors disabled:opacity-50"
             >
               {saving ? "Saving…" : "Save"}
             </button>

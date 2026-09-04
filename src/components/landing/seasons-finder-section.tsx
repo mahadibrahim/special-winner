@@ -378,7 +378,7 @@ export function SeasonsFinderSection({
                       <button
                         type="button"
                         onClick={() => setVisible((n) => n + PAGE_SIZE)}
-                        className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-ink text-cream text-sm font-medium tracking-wide uppercase hover:bg-primary transition-colors"
+                        className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-ink text-cream text-sm font-medium tracking-wide uppercase hover:bg-primary-bright hover:text-primary-foreground transition-colors"
                         style={{ letterSpacing: "0.08em" }}
                       >
                         Show {Math.min(PAGE_SIZE, filtered.length - visible)} more

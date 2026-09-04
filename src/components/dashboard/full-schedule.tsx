@@ -513,7 +513,7 @@ function MonthCalendar({
                   <div className={cn(
                     "w-7 h-7 rounded-full flex items-center justify-center text-sm mb-1",
                     isToday(day)
-                      ? "bg-primary text-white font-bold"
+                      ? "bg-primary-bright text-primary-foreground font-bold"
                       : "text-ink-muted"
                   )}>
                     {day}

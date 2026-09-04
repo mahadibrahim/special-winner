@@ -344,7 +344,7 @@ function Landing({
         <button
           type="button"
           onClick={onFind}
-          className="group w-full min-h-[60px] px-6 py-7 rounded-xl bg-primary text-cream text-left transition-all hover:bg-primary/90 active:scale-[0.99] shadow-sm"
+          className="group w-full min-h-[60px] px-6 py-7 rounded-xl bg-primary-bright text-primary-foreground text-left transition-all hover:bg-primary-hover active:scale-[0.99] shadow-sm"
         >
           <div className="flex items-center justify-between gap-4">
             <div>

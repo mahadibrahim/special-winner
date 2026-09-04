@@ -217,7 +217,7 @@ function CaptureSheet({
           data-testid="capture-save"
           disabled={!note.trim()}
           onClick={() => save("observation", note.trim())}
-          className="min-h-11 w-full rounded-lg bg-primary font-medium text-white disabled:opacity-40"
+          className="min-h-11 w-full rounded-lg bg-primary-bright font-medium text-primary-foreground disabled:opacity-40"
         >
           Save note
         </button>
@@ -273,7 +273,7 @@ function AttendanceSheet({
           for (const r of roster) if (!statusFor(r.rosterId)) onMark(r.rosterId, "present");
           onDone();
         }}
-        className="mt-4 min-h-14 w-full rounded-xl bg-primary font-semibold text-white"
+        className="mt-4 min-h-14 w-full rounded-xl bg-primary-bright font-semibold text-primary-foreground"
       >
         Done
       </button>

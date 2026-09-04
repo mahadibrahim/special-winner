@@ -225,7 +225,7 @@ export function PickupNotifyBanner({ signedIn: signedInProp }: { signedIn?: bool
   const inputClass =
     "w-full px-3.5 py-2.5 rounded-lg bg-paper border border-border text-sm text-ink placeholder:text-ink-faint focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/15 transition-colors";
   const ctaClass =
-    "w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-lg bg-ink text-cream text-sm font-semibold uppercase tracking-[0.06em] hover:bg-primary transition-colors disabled:opacity-60 disabled:pointer-events-none";
+    "w-full inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-lg bg-ink text-cream text-sm font-semibold uppercase tracking-[0.06em] hover:bg-primary-bright hover:text-primary-foreground transition-colors disabled:opacity-60 disabled:pointer-events-none";
   const accent = { accentColor: "oklch(0.66 0.21 35)" } as const;
 
   return (
@@ -298,7 +298,7 @@ export function PickupNotifyBanner({ signedIn: signedInProp }: { signedIn?: bool
               reads as an invitation, not a settings form. */}
           <div className="bg-cream px-6 pt-6 pb-5 border-b border-border">
             <div className="flex items-start gap-3.5">
-              <span className="flex-shrink-0 grid place-items-center w-11 h-11 rounded-full bg-primary text-cream">
+              <span className="flex-shrink-0 grid place-items-center w-11 h-11 rounded-full bg-primary-bright text-primary-foreground">
                 <BellRing className="w-5 h-5" aria-hidden="true" />
               </span>
               <div>

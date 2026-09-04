@@ -155,7 +155,7 @@ function DivisionRow({ d, term, showLevels }: { d: Division; term: string; showL
   const soloHref = registerHref(d, "individual");
   const ctaClass = (primary: boolean) =>
     cn("font-sans font-semibold text-xs px-3.5 py-2 rounded-md whitespace-nowrap text-center sm:text-left",
-      primary ? "text-cream bg-primary" : "text-primary border border-primary");
+      primary ? "text-primary-foreground bg-primary-bright" : "text-primary border border-primary");
   return (
     <>
       <div className={cn("flex flex-col gap-1.5 sm:grid sm:items-center sm:gap-3.5 py-3 px-2 border-b border-cream-2 hover:bg-paper",
