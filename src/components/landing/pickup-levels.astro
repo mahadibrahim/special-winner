@@ -4,13 +4,13 @@ import { SKILL_LEVEL_TIERS } from "@/lib/landing/skill-levels"
 ---
 
 <section class="max-w-[1080px] mx-auto px-9 pt-12 pb-3">
-  <h2 class="font-display font-semibold text-[28px] text-ink">Find your level</h2>
+  <h2 class="display-m text-ink">Find your level</h2>
   <p class="text-ink-muted mt-1.5 text-sm">Every session is tagged so you know what you're walking into. Show up where you'll have the best time.</p>
   <div class="grid sm:grid-cols-3 gap-3.5 mt-5">
     {SKILL_LEVEL_TIERS.map((t) => (
       <div class="border border-border rounded-2xl p-5 bg-paper">
         <span class={`inline-block text-[10px] font-bold tracking-wide uppercase px-2.5 py-1 rounded-full ${t.display.badgeClass}`}>{t.display.label}</span>
-        <h3 class="font-display font-semibold text-[18px] mt-2.5 text-ink">{t.headline}</h3>
+        <h3 class="display-s mt-2.5 text-ink" style="font-size:1.125rem">{t.headline}</h3>
         <p class="text-[13px] text-ink-muted mt-1.5 leading-relaxed">{t.blurb}</p>
       </div>
     ))}
