@@ -281,7 +281,7 @@ v1 reserved dark for immersive reading. In v2 ink is already a default surface, 
 3. ✅ `--primary-foreground` flipped to ink; every same-line `bg-primary* + text-cream/text-white` combo audited and moved to `bg-primary-bright text-primary-foreground` (incl. the shadcn Button default variant).
 4. Convert marketing pages to band rhythm — highest visible return. Reference page: `Aspire Classes & Camps.dc.html` option 2a.
 5. App chrome: sidebar to ink, tables to ink headers.
-6. Minibooks last, and their prose stays body copy — only headings take the display voice.
+6. ~~Minibooks last~~ — **resolved as out of scope (2026-09-04)**: the minibooks and print guides are print-first KDP/Lulu **products** with their own documented design system (`src/data/minibooks/DESIGN-SYSTEM.md` — Crimson Pro / Source Serif 4, fonts vendored as static files specifically for print-to-PDF embedding quality, 6×9" trim). Restyling them changes sellable physical books; that is a product decision for the owner, not part of the web migration. Transactional **emails** did convert (Archivo stacks + weight-800 headings in `email-theme.tsx`, with grotesque fallbacks so stripped-webfont clients keep the voice); the **training decks** await vendored Archivo woff2 assets (tracked).
 7. Optional cleanup: codemod `bg-cream`→`bg-sand`, `text-ink-muted`→`text-on-sand-muted`, `text-primary-orange`→`text-primary`, then delete the alias block. Do this after everything else is stable.
 
 ---
