@@ -71,12 +71,12 @@ export function PortalLayout({
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 w-64 md:w-12 lg:w-64 bg-navy-deep transform transition-transform duration-200 ease-in-out md:translate-x-0",
+          "fixed inset-y-0 left-0 z-50 w-64 md:w-12 lg:w-64 bg-sidebar transform transition-transform duration-200 ease-in-out md:translate-x-0",
           sidebarOpen ? "translate-x-0 w-64" : "-translate-x-full"
         )}
       >
         <div className="flex flex-col h-full">
-          <div className="flex items-center justify-between h-16 px-3 lg:px-4 bg-navy">
+          <div className="flex items-center justify-between h-16 px-3 lg:px-4 bg-sidebar-accent">
             <a href={homeHref} className="flex items-center gap-3 min-w-0">
               <img src="/images/logo.svg" alt="Aspire Sports" className="h-8 w-auto flex-shrink-0" />
               <span className={cn(
@@ -117,8 +117,8 @@ export function PortalLayout({
                         className={cn(
                           "flex items-center gap-3 px-2 lg:px-3 py-2 rounded-lg text-sm font-medium transition-colors min-h-[44px]",
                           isActive
-                            ? "bg-navy text-cream"
-                            : "text-cream/60 hover:bg-navy hover:text-cream"
+                            ? "bg-sidebar-accent text-cream"
+                            : "text-cream/60 hover:bg-sidebar-accent hover:text-cream"
                         )}
                       >
                         <item.icon className="h-5 w-5 flex-shrink-0" />
@@ -142,12 +142,12 @@ export function PortalLayout({
             ))}
           </nav>
 
-          <div className="p-2 lg:p-4 border-t border-cream/10">
+          <div className="p-2 lg:p-4 border-t border-sidebar-border">
             {showPortalSwitch && (
               <a
                 href="/portal"
                 title="Switch portal"
-                className="flex items-center gap-3 px-2 lg:px-3 py-2 mb-2 rounded-lg text-sm font-medium text-cream/60 hover:bg-navy hover:text-cream min-h-[44px]"
+                className="flex items-center gap-3 px-2 lg:px-3 py-2 mb-2 rounded-lg text-sm font-medium text-cream/60 hover:bg-sidebar-accent hover:text-cream min-h-[44px]"
               >
                 <LayoutGrid className="h-5 w-5 flex-shrink-0" />
                 <span className={cn(sidebarOpen ? "inline" : "hidden lg:inline")}>
@@ -156,7 +156,7 @@ export function PortalLayout({
               </a>
             )}
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-full bg-navy flex items-center justify-center text-cream font-medium flex-shrink-0">
+              <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-full bg-sidebar-accent flex items-center justify-center text-cream font-medium flex-shrink-0">
                 {user?.firstName?.[0] || user?.email[0].toUpperCase()}
               </div>
               <div className={cn(
@@ -177,7 +177,7 @@ export function PortalLayout({
                 variant="ghost"
                 size="sm"
                 title="Sign out"
-                className="w-full justify-start text-cream/60 hover:text-cream hover:bg-navy min-h-[44px]"
+                className="w-full justify-start text-cream/60 hover:text-cream hover:bg-sidebar-accent min-h-[44px]"
               >
                 <LogOut className="h-4 w-4 mr-2 flex-shrink-0" />
                 <span className={cn(sidebarOpen ? "inline" : "hidden lg:inline")}>

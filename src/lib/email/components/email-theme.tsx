@@ -44,9 +44,9 @@ export interface EmailTheme {
   tokens: EmailTokens;
   fonts: { display: string; body: string; mono: string };
   fontsHref: string;
-  /** Weight for display/heading text (H1/H2). Aspire's Newsreader reads as a
-   *  medium (500); SoccerOne's email headings are bold DM Sans (700) since
-   *  Anton can't be relied on to load in mail clients — see fonts.display. */
+  /** Weight for display/heading text (H1/H2). Aspire's Broadsheet voice is
+   *  heavy Archivo (800); SoccerOne's email headings are bold DM Sans (700)
+   *  since Anton can't be relied on to load in mail clients. */
   displayWeight: number;
   /**
    * Header lockup. Both brands render an <Img>: a text wordmark would fall
@@ -92,13 +92,17 @@ export const ASPIRE_EMAIL_THEME: EmailTheme = {
     deniedFg: "#CC442C",
   },
   fonts: {
-    display: '"Newsreader", Georgia, "Times New Roman", serif',
-    body: '"IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, sans-serif',
+    // Broadsheet (v2): Archivo carries display AND body; clients that strip
+    // web fonts fall back to a plain grotesque, which still reads on-brand
+    // at the heavy display weight (unlike the old serif → Georgia fall-back,
+    // there is no voice flip when the web font is stripped).
+    display: '"Archivo", "Helvetica Neue", Arial, sans-serif',
+    body: '"Archivo", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, sans-serif',
     mono: '"IBM Plex Mono", "SF Mono", Menlo, Monaco, Consolas, monospace',
   },
   fontsHref:
-    "https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap",
-  displayWeight: 500,
+    "https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;800&family=IBM+Plex+Mono:wght@400&display=swap",
+  displayWeight: 800,
   logo: {
     kind: "img",
     path: "/images/logo-black.png",
