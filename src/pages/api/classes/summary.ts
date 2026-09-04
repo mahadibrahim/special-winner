@@ -27,7 +27,7 @@ import { and, asc, desc, eq, gt, inArray, ne } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { familyMembers } from "@/lib/db/schema/registrations";
 import { classEnrollments, classSlotTemplates } from "@/lib/db/schema/classes";
-import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
+import { dropInBookings, dropInSessions, dropInRateCard } from "@/lib/db/schema/drop-in";
 import { getActiveChildMembership } from "@/lib/memberships/get-child-membership";
 import { getCreditBalances } from "@/lib/classes/credits";
 import { hasValidLiabilityWaiverBatch } from "@/lib/consents/liability";
@@ -66,6 +66,17 @@ export const GET: APIRoute = async ({ locals }) => {
   const organizationId = locals.organization.id;
   const db = getDb();
 
+  // Org-wide cancel-window policy — same rate-card lookup as
+  // src/lib/dropin/refund.ts. `.limit(1)` without orderBy is acceptable
+  // here ONLY because `dropInRateCard.organizationId` carries a DB unique
+  // constraint, so there's never more than one row to pick between.
+  const [rateCard] = await db
+    .select({ cancelWindowHours: dropInRateCard.cancelWindowHours })
+    .from(dropInRateCard)
+    .where(eq(dropInRateCard.organizationId, organizationId))
+    .limit(1);
+  const cancelWindowHours = rateCard?.cancelWindowHours ?? 24;
+
   // Most-recently-added first, not oldest-first: this endpoint's own doc
   // comment says its main consumer is the POST-CHECKOUT slot picker for a
   // "freshly-subscribed child" (see ChooseSlot's header comment) — for any
@@ -76,14 +87,19 @@ export const GET: APIRoute = async ({ locals }) => {
   // has accumulated 400+ family_members rows across the test suite's
   // history, well past the old cap.
   const children = await db
-    .select({ id: familyMembers.id, firstName: familyMembers.firstName, lastName: familyMembers.lastName })
+    .select({
+      id: familyMembers.id,
+      firstName: familyMembers.firstName,
+      lastName: familyMembers.lastName,
+      kitSize: familyMembers.kitSize,
+    })
     .from(familyMembers)
     .where(eq(familyMembers.parentUserId, locals.user.id))
     .orderBy(desc(familyMembers.createdAt))
     .limit(MAX_CHILDREN);
 
   if (children.length === 0) {
-    return json({ children: [] }, 200);
+    return json({ children: [], cancelWindowHours }, 200);
   }
 
   const childIds = children.map((c) => c.id);
@@ -185,6 +201,17 @@ export const GET: APIRoute = async ({ locals }) => {
     }
   }
 
+  // Same rows, but keeping up to 10 per child (soonest-first, since
+  // nextSessionRows is already ordered asc(startsAt)) instead of just the
+  // first — the choose-slot next-session shape above stays untouched.
+  const upcomingSessionsByChild = new Map<string, typeof nextSessionRows>();
+  for (const row of nextSessionRows) {
+    if (!row.familyMemberId) continue;
+    const list = upcomingSessionsByChild.get(row.familyMemberId) ?? [];
+    if (list.length < 10) list.push(row);
+    upcomingSessionsByChild.set(row.familyMemberId, list);
+  }
+
   // Trial-used: any non-cancelled trial-method booking in this org.
   const trialRows = await db
     .select({ familyMemberId: dropInBookings.familyMemberId })
@@ -225,11 +252,15 @@ export const GET: APIRoute = async ({ locals }) => {
     return {
       familyMemberId: c.id,
       name: `${c.firstName} ${c.lastName}`,
+      kitSize: c.kitSize ?? null,
       membership: membership
         ? {
             tierName: membership.tierName,
             status: membership.status,
             classAllotmentRemaining: membership.classAllotmentRemaining,
+            renewsAt: membership.currentPeriodEnd?.toISOString() ?? null,
+            cancelAtPeriodEnd: membership.cancelAtPeriodEnd,
+            technicalMonthlyCents: membership.technicalMonthlyCents,
           }
         : null,
       enrollment: enrollment
@@ -278,6 +309,11 @@ export const GET: APIRoute = async ({ locals }) => {
             bookingId: nextSession.bookingId,
           }
         : null,
+      upcomingSessions: (upcomingSessionsByChild.get(c.id) ?? []).map((r) => ({
+        sessionId: r.sessionId,
+        bookingId: r.bookingId,
+        startsAt: r.startsAt.toISOString(),
+      })),
       trialUsed: trialUsedSet.has(c.id),
       credits,
       // Named "on file" for continuity with the client, but the question it
@@ -286,5 +322,5 @@ export const GET: APIRoute = async ({ locals }) => {
     };
   });
 
-  return json({ children: result }, 200);
+  return json({ children: result, cancelWindowHours }, 200);
 };
