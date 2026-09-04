@@ -304,7 +304,10 @@ export default function Footer() {
                 className="flex items-center gap-3 text-cream/50 hover:text-primary text-sm transition-colors group"
               >
                 <Mail className="w-4 h-4 flex-shrink-0" />
-                hello@aspiresportsohio.com
+                {/* break-all: the address is one unbreakable token; in this
+                    narrow (2/16) column it otherwise overflows the grid and
+                    forces page-level horizontal scroll at ~1100px viewports. */}
+                <span className="break-all">hello@aspiresportsohio.com</span>
               </a>
               {locations.length > 0 && (
                 <div className="flex items-center gap-3 text-cream/40 text-sm">

@@ -1,136 +1,107 @@
 ---
-// Youth classes v2 — the home of the training pathway. Where the league
-// pages are facts pages (which group, what's open, when, where), this page
-// sells coaching, because in a class the coaching IS the product. That split
-// is an explicit owner decision: the Director of Coaching is prominent here
-// and on camps, never on league surfaces.
+// Youth classes — Broadsheet (v2) band conversion. The home of the training
+// pathway: where the league pages are facts pages (which group, what's open,
+// when, where), this page sells coaching, because in a class the coaching IS
+// the product. That split is an explicit owner decision: the Director of
+// Coaching is prominent here and on camps, never on league surfaces.
 //
-// Band composition follows the owner-approved mockup verbatim —
-// docs/superpowers/specs/2026-08-18-youth-classes-v2-mockup.html — with the
-// copy exceptions called out inline below (camps cross-promo, coach section,
-// pricing band, FAQ additions). See docs/design-system.md "Youth band
-// grammar" for the shared primitive inventory this page composes.
+// Band composition follows the design canvas "Aspire Classes & Camps",
+// option 2a (the reference page that produced the Broadsheet system — see
+// docs/design-system.md "Band rhythm"): product row (ink-lift) → hero
+// (photo + scrim) → in-page nav (orange) → pathway (sand) → philosophy
+// (ink) → what it's like (sand) → coaching (ink) → pricing (sand) →
+// schedule (paper) → open classes (sand) → FAQs → cross-links (ink-lift) →
+// closer (orange). Deviations from the canvas, on purpose:
+//   - Pricing and schedule stay LIVE ISLANDS (ClassPurchaseLadder /
+//     ClassSchedule) — the canvas's static membership band carries
+//     placeholder rates, and the owner-decided contract (2026-08-18) is
+//     rate-card-driven, never invented figures. The page is edge-cached
+//     marketing HTML (setMarketingEdgeCache), so live pricing/capacity can
+//     only live in the client.
+//   - FAQs keep the LandingFaq accordion (a11y + interaction already built,
+//     and the canvas's decorative FAQ numerals lose to the doc's numeral
+//     rule anyway). Its light band keeps the rhythm legal: sand → sand →
+//     ink-lift → orange.
+//   - The canvas's per-step detail bands are dropped — 2a carries the
+//     pathway in the step cards alone.
 //
 // Copy rules (owner-directed): no oppositional language, facility not a
-// selling point, pricing indicative only except where a card explicitly
-// states today's true model. Pathway names are locked — see
+// selling point, no format claims, pricing indicative only except where a
+// card states today's true model. Pathway names are locked — see
 // docs/superpowers/specs/2026-08-17-youth-pathway-naming-decision.md.
 import BaseLayout from "@/layouts/BaseLayout.astro"
 import CategoryFinder from "@/components/landing/category-finder.tsx"
 import TileFactsLine from "@/components/landing/tile-facts-line"
-import YouthCoachSection from "@/components/youth/youth-coach-section.astro"
 import LandingFaq, { type LandingFaqItem } from "@/components/landing/landing-faq.tsx"
-import SectionJumpBar from "@/components/youth/bands/section-jump-bar.astro"
-import FeatureBand from "@/components/youth/bands/feature-band.astro"
-import StatementCards from "@/components/youth/bands/statement-cards.astro"
-import SlotGraphic from "@/components/youth/bands/slot-graphic.astro"
 import ClassSchedule from "@/components/youth/class-schedule"
 import TrialBooking from "@/components/youth/trial-booking"
 import ClassPurchaseLadder from "@/components/youth/class-purchase-ladder"
-import { PATHWAY, PATHWAY_DETAILS } from "@/lib/youth/landing-content"
+import { PATHWAY, COACH, SPORTS } from "@/lib/youth/landing-content"
 import { faqPageJsonLd } from "@/lib/seo/faq-jsonld"
 import { setMarketingEdgeCache } from "@/lib/http/edge-cache"
 
 const HERO_IMAGE = "/images/stock/youth-training.jpg"
 setMarketingEdgeCache(Astro)
 
-// "Aspire Micros" -> "micros" — same slug rule as youth-sport-page.astro's
-// stepSlug, and the suffix of every `id="step-<slug>"` band on this page.
-const stepSlug = (name: string) => name.replace(/^Aspire /, "").toLowerCase()
-const detailFor = (name: string) => PATHWAY_DETAILS.find((d) => d.slug === stepSlug(name))
+// Split COACH.quote on the emphasis phrase so it can carry the canvas's
+// orange <em> — same approach as youth-coach-section.astro (which camps
+// still renders; this page carries its own Broadsheet coaching band).
+const EMPHASIS = "full potential"
+const quoteParts = COACH.quote.split(EMPHASIS)
 
-// Token-derived gradients for the pathway-card photo slots (mockup `.lvl .ph`
-// per-child backgrounds). No literal oklch() — composed from CSS custom
-// properties via color-mix, mirroring feature-band.astro's TONE.photo
-// approach so the two card shapes read as one system.
-const CARD_PHOTO: Record<string, string> = {
-  micros: "linear-gradient(135deg, var(--royal), var(--navy-deep))",
-  minis:
-    "linear-gradient(135deg, color-mix(in oklch, var(--emerald), var(--navy-deep) 15%), var(--navy-deep))",
-  juniors:
-    "linear-gradient(135deg, color-mix(in oklch, var(--brand-red), var(--navy-deep) 8%), var(--navy-deep))",
-  academy:
-    "linear-gradient(135deg, color-mix(in oklch, var(--ochre), var(--navy-deep) 8%), var(--navy-deep))",
-  select:
-    "linear-gradient(135deg, var(--royal-bright), color-mix(in oklch, var(--navy-deep), var(--royal) 25%))",
-}
-
-// Step-band tone per pathway slug (mockup `.srow.micros/minis/juniors/
-// academy/sel`). Declared in the frontmatter, not inline inside the
-// PATHWAY.map() template callback below — Astro's compiler misparses a `<`
-// starting a TS generic/union type annotation inside a `{...}` JSX
-// expression as the start of a tag.
-const TONE_BY_SLUG: Record<string, "royal" | "emerald" | "red" | "amber" | "navy"> = {
-  micros: "royal",
-  minis: "emerald",
-  juniors: "red",
-  academy: "amber",
-  select: "navy",
-}
-
-const JUMP_ITEMS = [
-  { href: "#pathway", label: "The pathway" },
+const NAV_ITEMS = [
+  { href: "#pathway", label: "Pathway" },
   { href: "#philosophy", label: "Philosophy" },
   { href: "#feel", label: "What it's like" },
   { href: "#coach", label: "Coaching" },
   { href: "#pricing", label: "Pricing" },
   { href: "#schedule", label: "Schedule" },
-  { href: "#open", label: "Book now" },
+  { href: "#open", label: "Book" },
   { href: "#faqs", label: "FAQs" },
 ]
 
-// Development-loop steps (mockup `.philo .loop .step`) — page-specific copy,
-// not reused elsewhere, so authored here rather than in landing-content.ts.
-const LOOP_STEPS = [
+// Philosophy quadrants (canvas 2a / quadrant grid). No numerals — the
+// design system's numeral rule retires the numbered loop-step cards.
+const QUADRANTS = [
   {
-    num: "1",
-    numClass: "text-royal-bright",
-    title: "It's written down.",
+    title: "It's written down",
     body: "Every group's sessions come from one curriculum, authored by our Director of Coaching — not whatever tonight's coach feels like running.",
   },
   {
-    num: "2",
-    numClass: "text-emerald-bright",
-    title: "Coaches train on it.",
+    title: "Coaches train on it",
     body: "Your kid's coach is trained on that curriculum, so a session means the same thing whichever night you come.",
   },
   {
-    num: "3",
-    numClass: "text-brand-red",
-    title: "Kids stay in the game.",
+    title: "Kids stay in the game",
     body: "Small groups and small-sided play — the whole session is touches and decisions, not waiting in line.",
   },
   {
-    num: "4",
-    numClass: "text-ochre",
-    title: "You see the progress.",
-    // Mockup-verbatim — reflects the shipped coach-notes feature.
+    title: "You see the progress",
     body: "After sessions, coaches share what clicked and what's next — so progress is something you watch, not something you take on faith.",
   },
 ]
 
-// "What a class here feels like" (mockup `.why .facts`).
+// "What a class here feels like" (canvas 2a three-up).
 const FEEL_CARDS = [
   {
     label: "The group",
-    statement: "Small enough that nobody waits.",
+    statement: "Small enough that nobody waits",
     body: "Small groups and small-sided play — the whole session is touches, not lines.",
   },
   {
     label: "The coaching",
-    statement: "Explained while it happens.",
+    statement: "Explained while it happens",
     body: "Coaches talk kids through the game in the moment, not just at the end.",
   },
   {
     label: "The feedback",
-    statement: "Praised for the right things.",
+    statement: "Praised for the right things",
     body: "Specific praise for real effort — confidence built on what they can actually do.",
   },
 ]
 
-// FAQ — mockup's five plus "Where are classes held?" (added per brief); the
-// cost answer is overridden to describe the real block-pricing model instead
-// of the mockup's unshipped annual-fee/per-session sample.
+// FAQ copy carried over unchanged — the cost answer describes the real
+// block-pricing model, not the canvas's placeholder annual-fee sample.
 const faqs: LandingFaqItem[] = [
   {
     question: "What age can my kid start?",
@@ -167,6 +138,12 @@ const faqs: LandingFaqItem[] = [
       "No — a block is one option, never the only one. Plenty of families are on a monthly membership instead, and the pricing section on this page shows every way in that's open right now. If you do join a block part-way through, you only pay for the weeks that are left.",
   },
 ]
+
+const PRODUCT_ROW = [
+  { href: "/youth/classes", label: "Classes", sub: "Weekly training, all year · 18mo–19", active: true },
+  { href: "/youth/camps", label: "Camps", sub: "School breaks & summer weeks", active: false },
+  { href: "/youth/leagues", label: "Leagues", sub: "Game-day seasons · U6–U19", active: false },
+]
 ---
 
 <BaseLayout
@@ -180,87 +157,85 @@ const faqs: LandingFaqItem[] = [
   </Fragment>
 
   <main id="main-content" class="flex-1">
-    {/* ---------- Hero -------------------------------------------------- */}
-    <section class="relative text-cream px-6 sm:px-9 py-20 sm:py-[88px] overflow-hidden bg-navy-deep">
-      <div class="graded graded--emerald graded--fill z-0" aria-hidden="true">
-        <img src={HERO_IMAGE} alt="" />
+    {/* ---------- Youth product row — ink-lift band under the header ------ */}
+    {/* pt clears the fixed site header (h-16 lg:h-20) — this band is the
+        page's first content and would otherwise start underneath it. */}
+    <nav aria-label="Youth programs" class="band-ink-lift border-b border-rule-on-ink pt-16 lg:pt-20">
+      <div class="grid grid-cols-3 gap-px bg-rule-on-ink">
+        {
+          PRODUCT_ROW.map((p) => (
+            <a
+              href={p.href}
+              aria-current={p.active ? "page" : undefined}
+              class:list={[
+                "flex flex-col gap-0.5 px-5 sm:px-10 py-[15px] no-underline",
+                p.active ? "bg-ink-lift shadow-[inset_0_-3px_0_var(--primary)]" : "bg-ink",
+              ]}
+            >
+              <span class="label text-on-ink">{p.label}</span>
+              <span class="hidden sm:block text-[13px] text-on-ink-muted">{p.sub}</span>
+            </a>
+          ))
+        }
       </div>
-      <div class="relative z-10 max-w-[1080px] mx-auto">
-        <h1
-          class="font-display font-semibold tracking-tight max-w-[14ch]"
-          style="font-size:clamp(3rem,6.5vw,4.6rem);line-height:.98;letter-spacing:-0.015em"
-        >
+    </nav>
+
+    {/* ---------- Hero — photo, ink scrim, display-xl ---------------------- */}
+    <section class="relative bg-ink-deep overflow-hidden">
+      <img
+        src={HERO_IMAGE}
+        alt=""
+        class="absolute inset-0 w-full h-full object-cover object-[center_30%]"
+        style="filter:grayscale(1) contrast(1.08) brightness(.96)"
+      />
+      <div class="hero-scrim absolute inset-0" aria-hidden="true"></div>
+      <div class="relative max-w-[1080px] mx-auto px-6 sm:px-12 py-20 sm:py-[88px] flex flex-col gap-5">
+        <h1 class="display-xl text-on-ink max-w-[760px]">
           Their first coach is the one that counts.
         </h1>
-        <p class="mt-[18px] text-[17.5px] text-cream/92 max-w-[540px]">
-          Small-group classes from <b class="font-bold text-cream">18 months to nineteen years</b> — a
-          coach who explains, and one pathway so your kid never has to start over.
+        <p class="body-l text-on-ink-2 max-w-[520px]" style="text-wrap:pretty">
+          Small-group classes from <strong class="font-bold text-on-ink">18 months to nineteen years</strong>
+          — a coach who explains, and one pathway so your kid never has to start over.
         </p>
-        <div class="flex flex-wrap gap-3 mt-[30px]">
-          <a
-            href="#open"
-            data-youth-cta="hero-open"
-            class="inline-block font-semibold text-[14.5px] px-[22px] py-[13px] rounded-[10px] bg-brand-red text-cream no-underline"
-          >
-            See what's open →
-          </a>
-          <a
-            href="#philosophy"
-            data-youth-cta="hero-philosophy"
-            class="inline-block font-semibold text-[14.5px] px-[22px] py-[13px] rounded-[10px] border-[1.5px] border-cream/50 text-cream no-underline"
-          >
+        <div class="flex flex-wrap gap-3 pt-2">
+          <a href="#open" data-youth-cta="hero-open" class="btn btn--primary no-underline">See what's open</a>
+          <a href="#philosophy" data-youth-cta="hero-philosophy" class="btn btn--on-ink no-underline">
             How we develop players
           </a>
         </div>
       </div>
     </section>
 
-    <SectionJumpBar items={JUMP_ITEMS} />
+    {/* ---------- In-page nav — the orange band, sticky ------------------- */}
+    {/* Sticks just below the fixed site header (h-16 lg:h-20). */}
+    <nav aria-label="On this page" class="inpage-nav sticky top-16 lg:top-20 z-40 overflow-x-auto px-2 sm:px-6">
+      {NAV_ITEMS.map((item) => <a href={item.href} data-jump-link class="no-underline text-ink hover:text-ink">{item.label}</a>)}
+      <a href="#schedule" data-youth-cta="nav-free-trial" class="ml-auto font-extrabold no-underline text-ink hover:text-ink">
+        First class free ↗
+      </a>
+    </nav>
 
-    {/* ---------- The pathway — five locked steps ------------------------ */}
-    <section id="pathway" class="px-6 sm:px-9 py-[76px] pb-[68px]">
-      <div class="max-w-[1080px] mx-auto">
-        <h2 class="font-display font-semibold tracking-tight text-ink" style="font-size:clamp(2.1rem,3.8vw,2.9rem);letter-spacing:-0.015em">
-          Five steps, <span class="text-brand-red">one pathway.</span>
-        </h2>
-        <p class="text-[15.5px] text-ink-2 max-w-[580px] mt-3">
-          Every kid enters where they are and moves up when they're ready — on their coach's word, not
-          a tryout's.
-        </p>
-
-        <div class="grid gap-[18px] mt-[38px]" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
+    {/* ---------- Pathway — five locked steps, step cards ------------------ */}
+    <section id="pathway" class="band-sand scroll-mt-36 px-6 sm:px-12 py-[60px]">
+      <div class="max-w-[1080px] mx-auto flex flex-col gap-8">
+        <div class="flex flex-col gap-2.5 max-w-[600px]">
+          <h2 class="display-l">Five steps, one pathway</h2>
+          <p class="body-copy text-on-sand-2">
+            Every kid enters where they are and moves up when they're ready — on their coach's word,
+            not a tryout's.
+          </p>
+        </div>
+        <div class="grid gap-3.5" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">
           {
             PATHWAY.map((step, i) => {
-              const slug = stepSlug(step.name)
+              const invert = i === PATHWAY.length - 1
               return (
-                <div
-                  class={`bg-navy-deep text-cream rounded-[18px] overflow-hidden flex flex-col ${
-                    slug === "select" ? "outline outline-[1.5px] -outline-offset-[1.5px] outline-emerald-bright" : ""
-                  }`}
-                >
-                  <div
-                    class="relative overflow-hidden h-[150px]"
-                    style={`background:${CARD_PHOTO[slug]}`}
-                  >
-                    <SlotGraphic variant={i} />
+                <div class:list={["step-card flex flex-col gap-2.5", invert && "step-card--invert"]}>
+                  <h3 class="display-s">{step.name.replace("Aspire ", "")}</h3>
+                  <div class:list={["data", invert ? "text-primary-bright" : "text-primary-text"]}>
+                    {step.ages}
                   </div>
-                  <div class="px-6 pt-[22px] pb-6 flex-1 flex flex-col">
-                    <h3 class="font-display font-semibold text-[26px]">{step.name}</h3>
-                    <div class="font-mono text-[10.5px] tracking-[0.16em] uppercase text-emerald-bright mt-1.5">
-                      {step.ages}
-                    </div>
-                    <div class="font-semibold text-[14.5px] text-emerald-bright mt-2.5">{step.hook}</div>
-                    <p class="text-[13.5px] text-cream/85 mt-2 flex-1">{step.blurb}</p>
-                    <div class="mt-[18px]">
-                      <a
-                        href={`#step-${slug}`}
-                        data-youth-cta={`pathway-${slug}`}
-                        class="inline-block bg-cream text-ink font-semibold text-[13px] px-4 py-[9px] rounded-[8px] no-underline"
-                      >
-                        More about {step.name.replace("Aspire ", "")} ↓
-                      </a>
-                    </div>
-                  </div>
+                  <p class:list={["body-s", invert ? "text-on-ink-2" : "text-on-sand-2"]}>{step.blurb}</p>
                 </div>
               )
             })
@@ -269,156 +244,151 @@ const faqs: LandingFaqItem[] = [
       </div>
     </section>
 
-    {/* ---------- Philosophy — the loop, not a vibe ---------------------- */}
-    <section id="philosophy" class="bg-navy-deep text-cream px-6 sm:px-9 py-[76px]">
-      <div class="max-w-[1080px] mx-auto">
-        <h2
-          class="font-display font-semibold tracking-tight max-w-[22ch]"
-          style="font-size:clamp(2.1rem,3.8vw,2.9rem);letter-spacing:-0.015em"
-        >
-          Development here is a <span class="text-emerald-bright">system</span>, not a vibe.
-        </h2>
-        <p class="text-cream/85 text-[15.5px] max-w-[60ch] mt-[14px]">
-          The same written curriculum runs every group on the pathway, so what your kid learns on
-          Tuesday builds on what they learned last month — and follows them up every step.
-        </p>
-
-        <div class="grid gap-[14px] mt-10" style="grid-template-columns:repeat(auto-fit,minmax(230px,1fr))">
+    {/* ---------- Philosophy — ink band, accent quadrant grid -------------- */}
+    <section id="philosophy" class="band-ink scroll-mt-36 px-6 sm:px-12 py-16">
+      <div class="max-w-[1080px] mx-auto grid gap-12 lg:grid-cols-[0.8fr_1.2fr]">
+        <div class="flex flex-col gap-4">
+          <h2 class="display-l">Development here is a system, not a vibe</h2>
+          <p class="body-copy text-on-ink-2">
+            The same written curriculum runs every group on the pathway, so what your kid learns on
+            Tuesday builds on what they learned last month — and follows them up every step.
+          </p>
+          <a href="/youth/philosophy" data-youth-cta="philosophy-full" class="label no-underline pt-1.5">
+            Read the full development philosophy →
+          </a>
+        </div>
+        <div class="quadrants quadrants--accent grid-cols-1 sm:grid-cols-2">
           {
-            LOOP_STEPS.map((s) => (
-              <div class="rounded-[14px] p-6" style="background:color-mix(in oklch, var(--navy-deep), var(--royal) 12%)">
-                <div class={`font-display font-semibold text-[44px] leading-none ${s.numClass}`}>{s.num}</div>
-                <h4 class="font-display font-semibold text-[19px] mt-2.5">{s.title}</h4>
-                <p class="text-[13.5px] text-cream/85 mt-2">{s.body}</p>
+            QUADRANTS.map((q) => (
+              <div class="flex flex-col gap-2 p-6">
+                <div class="font-black text-[19px] uppercase" style="font-stretch:84%">{q.title}</div>
+                <p class="body-s text-on-ink-muted">{q.body}</p>
               </div>
             ))
           }
         </div>
+      </div>
+    </section>
 
-        <div class="mt-[34px]">
-          <a
-            href="/youth/philosophy"
-            data-youth-cta="philosophy-full"
-            class="inline-block border-[1.5px] border-cream/50 text-cream font-semibold text-[14px] px-5 py-3 rounded-[10px] no-underline"
-          >
-            Read the full development philosophy →
-          </a>
+    {/* ---------- What it's like — sand band, three ruled cards ------------ */}
+    <section id="feel" class="band-sand scroll-mt-36 px-6 sm:px-12 py-[60px]">
+      <div class="max-w-[1080px] mx-auto flex flex-col gap-8">
+        <h2 class="display-l max-w-[620px]">What a class here feels like</h2>
+        <div class="grid gap-3.5" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
+          {
+            FEEL_CARDS.map((c) => (
+              <div class="bg-paper border-l-[5px] border-ink px-6 py-7 flex flex-col gap-2.5">
+                <div class="label text-primary-text">{c.label}</div>
+                <div class="display-s" style="font-size:1.5rem">{c.statement}</div>
+                <p class="text-[15px] leading-relaxed text-on-sand-2">{c.body}</p>
+              </div>
+            ))
+          }
         </div>
       </div>
     </section>
 
-    {/* ---------- What it's like ------------------------------------------ */}
-    <section id="feel" class="px-6 sm:px-9 py-[76px]">
-      <div class="max-w-[1080px] mx-auto">
-        <h2 class="font-display font-semibold tracking-tight text-ink" style="font-size:clamp(2.1rem,3.8vw,2.9rem);letter-spacing:-0.015em">
-          What a class here <span class="text-brand-red">feels like.</span>
-        </h2>
-        <div class="mt-[38px]">
-          <StatementCards cards={FEEL_CARDS} />
+    {/* ---------- Coaching — ink band, DoC. The quote is owner-commissioned
+        (2026-08-18, COACH.quote) and renders as a real quotation. Camps
+        still renders the shared YouthCoachSection; this page carries its
+        own Broadsheet composition of the same COACH source. ---------------- */}
+    <section id="coach" class="band-ink scroll-mt-36 px-6 sm:px-12 py-16" aria-labelledby="classes-coach-h">
+      <div class="max-w-[1080px] mx-auto grid gap-12 lg:grid-cols-[0.62fr_1fr] items-start">
+        <div class="flex flex-col">
+          <img
+            src="/images/staff/saad-abdul-salaam.webp"
+            alt={`${COACH.name}, ${COACH.role}`}
+            class="w-full h-[380px] object-cover object-top"
+            style="filter:grayscale(1) contrast(1.08) brightness(.96)"
+            loading="lazy"
+          />
+          <div class="bg-primary-bright px-5 py-4 flex flex-col gap-0.5">
+            <div class="display-s text-ink">{COACH.name}</div>
+            <div class="text-[13px] font-bold text-ink/70">
+              {COACH.role}{SPORTS.length > 1 ? ` — ${COACH.sport}` : ""}
+            </div>
+          </div>
+        </div>
+        <div class="flex flex-col gap-6">
+          <h2 id="classes-coach-h" class="display-l">How we coach</h2>
+          <blockquote class="text-2xl leading-snug font-medium text-on-ink m-0" style="text-wrap:pretty">
+            “{quoteParts.length === 2 ? (
+              <>
+                {quoteParts[0]}<em class="text-primary-bright">{EMPHASIS}</em>{quoteParts[1]}
+              </>
+            ) : (
+              COACH.quote
+            )}”
+          </blockquote>
+          {/* Credential grid — the one numeral-bearing block on the page:
+              these counts ARE the information (the numeral rule's carve-out). */}
+          <div class="quadrants grid-cols-2 sm:grid-cols-4">
+            {
+              COACH.credits.map((c) => (
+                <div class="flex flex-col gap-1 p-4">
+                  <div class="font-black text-[32px] leading-none text-primary-bright whitespace-nowrap" style="font-stretch:78%">
+                    {c.value}
+                  </div>
+                  <div class="label text-on-ink-muted" style="font-size:0.6875rem">{c.label}</div>
+                </div>
+              ))
+            }
+          </div>
+          <p class="text-[15px] leading-relaxed text-on-ink-muted" style="text-wrap:pretty">{COACH.bio}</p>
         </div>
       </div>
     </section>
 
-    {/* ---------- Coaching — YouthCoachSection is settled, just placed ---- */}
-    <div id="coach">
-      <YouthCoachSection headingId="classes-coach-h" />
-    </div>
-
-    {/* ---------- Pricing — the four-rung purchase ladder --------------------
+    {/* ---------- Pricing — the purchase ladder, rate-card-driven ----------
         Owner-decided contract (2026-08-18): this band is rate-card-driven,
-        never invented figures. ClassPurchaseLadder (Task 11) fetches the
-        packs / block / tiers / schedule catalogs client-side and renders one
-        rung per way into a class — drop-in, pack, block, membership — each
-        with its own wired checkout. It replaces the membership-only
-        ClassTiers band, which quietly implied a monthly membership was the
-        only door; ClassTiers is still the membership rung's engine, embedded
-        by the ladder. Rungs whose catalog is empty don't render, and an org
-        with nothing sellable falls back to the same figure-free default this
-        band used to render statically. Must be an island, not
-        frontmatter-computed: the enclosing page is edge-cached marketing HTML
-        (setMarketingEdgeCache above), so live pricing can only live in the
-        client. */}
-    <section id="pricing" class="px-6 sm:px-9 py-[76px]">
-      <div class="max-w-[1080px] mx-auto">
-        {/* Neutral by design: the header must not COUNT or NAME the doors.
-            Three of the ladder's four rungs (drop-in, packs, block) only
-            exist when the catalog carries them, so a static "four ways in"
-            would promise four options above a band rendering two. The
-            island prints the real enumeration under this lede via
-            ladderSummarySentence(). */}
-        <h2 class="font-display font-semibold tracking-tight text-ink" style="font-size:clamp(2.1rem,3.8vw,2.9rem);letter-spacing:-0.015em">
-          Pick your <span class="text-brand-red">commitment.</span>
-        </h2>
-        <p class="text-[15.5px] text-ink-2 mt-3">
-          Start wherever it suits you and change your mind later — every option below carries its
-          own price on the card, before you book.
-        </p>
-        <div class="mt-[38px]">
-          <ClassPurchaseLadder client:load />
+        never invented figures — which is also why the canvas's static
+        membership band (placeholder rates) is NOT reproduced here.
+        ClassPurchaseLadder fetches the packs / block / tiers / schedule
+        catalogs client-side and renders one rung per way into a class, each
+        with its own wired checkout. Must be an island: the page is
+        edge-cached marketing HTML (setMarketingEdgeCache above). */}
+    <section id="pricing" class="band-sand scroll-mt-36 px-6 sm:px-12 py-[60px]">
+      <div class="max-w-[1080px] mx-auto flex flex-col gap-8">
+        <div class="flex flex-col gap-2.5 max-w-[640px]">
+          {/* Neutral by design: the header must not COUNT or NAME the doors —
+              rungs only exist when the catalog carries them. The island
+              prints the real enumeration under this lede. */}
+          <h2 class="display-l">Pick your commitment</h2>
+          <p class="body-copy text-on-sand-2">
+            Start wherever it suits you and change your mind later — every option below carries its
+            own price on the card, before you book.
+          </p>
         </div>
+        <ClassPurchaseLadder client:load />
       </div>
     </section>
 
-    {/* ---------- This week's classes — live schedule ---------------------
-        This page is edge-cached marketing HTML (setMarketingEdgeCache
-        above), so the live slot/capacity data must live in the island, not
-        the frontmatter — see ClassSchedule's doc comment. */}
-    <section id="schedule" class="px-6 sm:px-9 py-[76px]">
-      <div class="max-w-[1080px] mx-auto">
-        <h2 class="font-display font-semibold tracking-tight text-ink" style="font-size:clamp(2.1rem,3.8vw,2.9rem);letter-spacing:-0.015em">
-          This week's <span class="text-brand-red">classes.</span>
-        </h2>
-        <p class="text-[15.5px] text-ink-2 mt-3">
-          Every open slot for the week, with what's left to book — pick one below.
-        </p>
-        <div class="mt-[38px]">
-          <ClassSchedule client:load />
+    {/* ---------- This week's classes — live schedule ----------------------
+        Live slot/capacity data must live in the island, not the frontmatter
+        (edge-cached page) — see ClassSchedule's doc comment. --------------- */}
+    <section id="schedule" class="band-paper scroll-mt-36 border-t border-rule px-6 sm:px-12 py-[60px]">
+      <div class="max-w-[1080px] mx-auto flex flex-col gap-8">
+        <div class="flex flex-col gap-2.5 max-w-[560px]">
+          <h2 class="display-l">This week's classes</h2>
+          <p class="body-copy text-on-sand-2">
+            Every open slot for the week, with what's left to book — pick one below.
+          </p>
         </div>
+        <ClassSchedule client:load />
       </div>
     </section>
 
-    {/* ---------- Book it right here — red flood + overlapping finder ----- */}
-    <section id="open" class="bg-brand-red text-cream text-center px-6 sm:px-9 pt-16 pb-[140px]">
-      <div class="max-w-[1080px] mx-auto">
-        <h2 class="font-display font-semibold tracking-tight" style="font-size:clamp(2.2rem,4.5vw,3.2rem);letter-spacing:-0.015em">
-          Book it right here.
-        </h2>
-        {/*
-          Mockup's .liveline ("FALL BLOCK · ENROLLING NOW · CLOSES SEP 2 —
-          live from the catalog") — this page is edge-cached marketing HTML
-          (setMarketingEdgeCache above), so the status line must be computed
-          client-side from live catalog data rather than baked in at build
-          time. Reuses the same island the category/youth hub tiles use;
-          scoped to this page's open-classes query (training + clinic) so the
-          line always agrees with the finder section right below it.
-        */}
-        <TileFactsLine
-          client:visible
-          audience="youth"
-          programTypes={["training", "clinic"]}
-          tone="cream"
-        />
-      </div>
-    </section>
-    <div class="-mt-[88px] pb-[76px] px-6 sm:px-9">
-      {/*
-        The overlap element is a paper SHEET, not the bare finder — the
-        finder's own ink heading would otherwise straddle the red/cream
-        boundary (owner-flagged). The sheet floats out of the red band the
-        way the mockup's booking cards do, and everything inside it (heading
-        included) sits on paper.
-
-        CategoryFinder's SeasonsFinderSection always renders a real <h2> —
-        there's no visually-hidden-title mode in its Props. Rather than
-        duplicate "Book it right here." (the red band's h2, immediately
-        above) or leave it blank, this passes a short, distinct heading so
-        the section still makes sense on its own if landed on directly
-        (e.g. from a shared #open-classes link) or read by a screen reader
-        jumping headings. sectionId is "open-classes", not "open" — the red
-        band above already owns id="open" for the jump bar / hero CTA
-        anchor, and duplicate ids are invalid HTML.
-      */}
-      <div class="max-w-[1080px] mx-auto bg-paper border border-cream-3 rounded-2xl shadow-xl">
+    {/* ---------- Open classes — sand band, live finder -------------------- */}
+    <section id="open" class="band-sand scroll-mt-36 px-6 sm:px-12 py-[60px]">
+      <div class="max-w-[1080px] mx-auto flex flex-col gap-6">
+        <div class="flex flex-col gap-2.5 max-w-[600px]">
+          <h2 class="display-l">Open classes</h2>
+          <p class="body-copy text-on-sand-2">Every class shows its dates, venue and price on the card.</p>
+          {/* Live status line, computed client-side from the catalog (edge-
+              cached page); scoped to this page's open-classes query so it
+              always agrees with the finder below. */}
+          <TileFactsLine client:visible audience="youth" programTypes={["training", "clinic"]} tone="ink" />
+        </div>
         <CategoryFinder
           client:load
           audience="youth"
@@ -431,80 +401,60 @@ const faqs: LandingFaqItem[] = [
           headerHidden
         />
       </div>
-    </div>
+    </section>
 
-    {/* ---------- FAQs ------------------------------------------------------ */}
-    <LandingFaq client:visible accent="emerald" id="faqs" heading="Questions parents ask." items={faqs} />
+    {/* ---------- FAQs — LandingFaq accordion (kept over the canvas's static
+        numbered list: interaction + a11y already built, and the decorative
+        numerals lose to the numeral rule). Orange accent per the canvas —
+        the Broadsheet page accent. -------------------------------------- */}
+    <LandingFaq client:visible id="faqs" heading="Questions parents ask." items={faqs} />
 
-    {/* ---------- Step detail bands — full-bleed, one per pathway step ----- */}
-    {
-      PATHWAY.map((step, i) => {
-        const slug = stepSlug(step.name)
-        const detail = detailFor(step.name)
-        return (
-          <FeatureBand
-            id={`step-${slug}`}
-            tone={TONE_BY_SLUG[slug]}
-            graphicVariant={i}
-            title={step.name}
-            hook={step.ages}
-            body={detail?.body ?? step.blurb}
-            cta={{ href: "#open", label: detail?.ctaLabel ?? "Book now →" }}
-          />
-        )
-      })
-    }
-
-    {/* ---------- Cross-promo: leagues -------------------------------------- */}
-    <FeatureBand
-      tone="emerald"
-      graphicVariant={2}
-      kicker="Also at Aspire"
-      title="Ready for game day?"
-      body="Youth leagues run by age group from U6 to U19 — developmental seasons where we build the teams, and competitive winter play."
-      cta={{ href: "/youth/leagues", label: "See youth leagues →" }}
-    />
-
-    {/* ---------- Cross-promo: camps (generalized copy, per brief) ---------- */}
-    <FeatureBand
-      tone="red"
-      graphicVariant={4}
-      kicker="Also at Aspire"
-      title="Camps, all year long."
-      body="Day camps on school breaks, plus specialty camps through the year — coached rather than supervised, by the same people they see all year."
-      cta={{ href: "/youth/camps", label: "See camp dates →" }}
-    />
-
-    {/* ---------- Close ------------------------------------------------------ */}
-    <section class="bg-navy-deep text-cream text-center px-6 sm:px-9 py-20" aria-labelledby="youth-classes-close-h">
-      <div class="max-w-[1080px] mx-auto">
-        <h2
-          id="youth-classes-close-h"
-          class="font-display font-semibold tracking-tight"
-          style="font-size:clamp(2rem,4vw,2.8rem)"
-        >
-          Ready when <span class="text-emerald-bright">they</span> are.
-        </h2>
-        <p class="mt-2.5 text-cream/90">Find their group and book — it takes a few minutes.</p>
-        <div class="flex justify-center gap-3 mt-6">
-          <a
-            href="#open"
-            data-youth-cta="close-book"
-            class="inline-block font-semibold text-[14.5px] px-[22px] py-[13px] rounded-[10px] bg-brand-red text-cream no-underline"
-          >
-            Book a class →
+    {/* ---------- Cross-links — ink-lift pair ------------------------------ */}
+    <section class="band-ink-lift border-t border-rule-on-ink" aria-label="More at Aspire">
+      <div class="grid sm:grid-cols-2 gap-px bg-rule-on-ink">
+        <div class="bg-ink-lift px-6 sm:px-12 py-11 flex flex-col gap-3">
+          <h2 class="display-m">Ready for game day?</h2>
+          <p class="body-s text-on-ink-muted max-w-[420px]">
+            Youth leagues run by age group from U6 to U19 — developmental seasons where we build the
+            teams, and competitive winter play.
+          </p>
+          <a href="/youth/leagues" data-youth-cta="crosslink-leagues" class="label no-underline pt-1">
+            See youth leagues →
+          </a>
+        </div>
+        <div class="bg-ink-lift px-6 sm:px-12 py-11 flex flex-col gap-3">
+          <h2 class="display-m">Camps, all year long</h2>
+          <p class="body-s text-on-ink-muted max-w-[420px]">
+            Day camps on school breaks, plus specialty camps through the year — coached rather than
+            supervised, by the same people they see all year.
+          </p>
+          <a href="/youth/camps" data-youth-cta="crosslink-camps" class="label no-underline pt-1">
+            See camp dates →
           </a>
         </div>
       </div>
     </section>
 
+    {/* ---------- Closer — the orange band --------------------------------- */}
+    <section class="band-orange px-6 sm:px-12 py-16" aria-labelledby="youth-classes-close-h">
+      <div class="max-w-[1080px] mx-auto flex flex-wrap items-center justify-between gap-8">
+        <div class="flex flex-col gap-2.5">
+          <h2 id="youth-classes-close-h" class="display-xl" style="font-size:clamp(2.5rem,5vw,4rem)">
+            Ready when they are.
+          </h2>
+          <p class="body-l font-medium text-ink">Find their group and book — it takes a few minutes.</p>
+        </div>
+        <a href="#open" data-youth-cta="close-book" class="btn btn--ink no-underline whitespace-nowrap !text-primary-bright hover:!text-ink">
+          Book a class
+        </a>
+      </div>
+    </section>
+
     {/* ---------- Free trial booking modal --------------------------------
-        Its own island, mounted once at the page level (not nested inside
-        the #schedule section) — it listens for the `youth:trial-requested`
-        CustomEvent that ClassSchedule's "Book a free trial" CTAs dispatch
-        on window rather than receiving props, so where it mounts in the DOM
-        doesn't matter; it renders nothing until that event fires. See
-        trial-booking.tsx's header comment for the full contract. */}
+        Its own island, mounted once at the page level — it listens for the
+        `youth:trial-requested` CustomEvent that ClassSchedule's "Book a
+        free trial" CTAs dispatch on window, so where it mounts doesn't
+        matter; it renders nothing until that event fires. ----------------- */}
     <TrialBooking client:load />
   </main>
 </BaseLayout>
@@ -514,9 +464,7 @@ const faqs: LandingFaqItem[] = [
 
   // Delegated on document (not a one-time querySelectorAll) so CTAs that
   // land in the DOM after this script runs — e.g. a client:load island's
-  // async-hydrated markup — still get tracked. Static data-youth-cta
-  // elements worked with the old per-element-listener approach only
-  // because they're always present at parse time; islands aren't.
+  // async-hydrated markup — still get tracked.
   document.addEventListener("click", (e) => {
     const el = e.target instanceof Element ? e.target.closest<HTMLElement>("[data-youth-cta]") : null
     if (!el) return
