@@ -1,15 +1,17 @@
 ---
 // Youth SPORT landing page body (/youth/soccer, /youth/futsal) — the second
-// step of the sport-first youth funnel. The hub routes a parent to a sport;
-// this page shows everything Aspire runs in that sport — leagues, classes,
-// camps — and carries the coaching story, which is sport-specific evidence.
+// step of the sport-first youth funnel, in the Broadsheet (v2) band
+// language. The hub routes a parent to a sport; this page shows everything
+// Aspire runs in that sport — leagues, classes, camps — and carries the
+// coaching story, which is sport-specific evidence.
 //
-// Shape follows the adult category page (docs/adult-design-reference.md):
-// working hero with in-hero offering tiles (tinted with the SPORT color —
-// sport answers "which game", emerald stays the youth accent on rules), then
-// one band per offering, coach, indicative pricing.
+// Band order: hero (photo + scrim, offering tiles tinted with the SPORT
+// color — sport answers "which game", sport-colors.ts) → intro (sand) →
+// leagues (ink, accent quadrant pair) → classes (sand, step cards with the
+// age anchors) → camps (ink) → FAQs → coaching (shared CoachBand) →
+// pricing (sand) → closer (orange).
 import LandingFaq from "@/components/landing/landing-faq.tsx";
-import YouthCoachSection from "@/components/youth/youth-coach-section.astro";
+import CoachBand from "@/components/youth/bands/coach-band.astro";
 import { sportColor } from "@/lib/design/sport-colors";
 import type { YouthSportPage } from "@/lib/youth/sport-pages";
 import { LEAGUE_KINDS, PATHWAY, CAMPS, PRICING } from "@/lib/youth/landing-content";
@@ -20,7 +22,6 @@ interface Props {
 const { sport } = Astro.props;
 const tint = sportColor({ slug: sport.slug });
 
-// Brand-graded hero — the emerald grade is the youth treatment.
 const HERO_IMAGE = "/images/stock/youth-training.jpg";
 
 // "Aspire Micros" -> "micros" — stable anchor for age-query landings
@@ -57,87 +58,87 @@ const tiles = [
 ---
 
 <main id="main-content" class="flex-1">
-  {/* ---------- Working hero: what can my kid do in this sport, right now */}
-  <section class="relative text-cream px-6 sm:px-9 pt-16 pb-10 overflow-hidden bg-navy-deep">
-    <div class="graded graded--emerald graded--fill z-0" aria-hidden="true">
-      <img src={HERO_IMAGE} alt="" />
-    </div>
-    <div class="relative z-10 max-w-[1080px] mx-auto">
-      <h1
-        class="font-display font-semibold tracking-tight"
-        style="font-size:clamp(2.5rem,6vw,4rem);line-height:.95"
-      >
-        {sport.heroTitle}
-      </h1>
-      <p class="mt-3 text-base text-cream/90 max-w-[520px]">{sport.heroSubhead}</p>
+  {/* ---------- Hero: what can my kid do in this sport, right now --------- */}
+  <section class="band-ink relative overflow-hidden">
+    <img
+      src={HERO_IMAGE}
+      alt=""
+      class="absolute inset-0 w-full h-full object-cover object-[center_30%]"
+      style="filter:grayscale(1) contrast(1.08) brightness(.96)"
+    />
+    <div class="hero-scrim absolute inset-0" aria-hidden="true"></div>
+    <div class="relative max-w-[1080px] mx-auto px-6 sm:px-12 pt-28 lg:pt-32 pb-12 flex flex-col gap-5">
+      <h1 class="display-xl text-on-ink max-w-[760px]">{sport.heroTitle}</h1>
+      <p class="body-l text-on-ink-2 max-w-[520px]" style="text-wrap:pretty">{sport.heroSubhead}</p>
 
-      <div class="grid sm:grid-cols-3 gap-3 mt-6">
+      <div class="grid sm:grid-cols-3 gap-3.5 pt-2">
         {tiles.map((t) =>
           t.open ? (
             <a
               href={t.href}
               data-landing-cta={t.cta}
-              class="relative rounded-2xl p-4 text-ink overflow-hidden"
+              class="relative p-5 text-ink overflow-hidden no-underline block"
               style={`background:${tint}`}
             >
-              <div class="font-mono text-[9px] tracking-widest uppercase opacity-80">● {t.statusLabel}</div>
-              <div class="font-display font-semibold text-2xl mt-1.5">{t.label}</div>
-              <div class="font-mono text-xs">{t.meta}</div>
-              <span class="absolute right-4 bottom-4 font-semibold text-lg">→</span>
+              <div class="data text-ink/80">● {t.statusLabel}</div>
+              <div class="display-s text-ink mt-1.5" style="font-size:1.5rem">{t.label}</div>
+              <div class="font-mono text-xs text-ink mt-1">{t.meta}</div>
+              <span class="absolute right-4 bottom-4 font-bold text-lg text-ink" aria-hidden="true">→</span>
             </a>
           ) : (
             <a
               href={t.href}
               data-landing-cta={t.cta}
-              class="relative rounded-2xl p-4 border border-cream/25 text-cream/80 bg-navy-deep/70"
+              class="relative p-5 bg-ink-lift border border-rule-on-ink no-underline block"
             >
-              <div class="font-mono text-[9px] tracking-widest uppercase opacity-80">{t.statusLabel}</div>
-              <div class="font-display font-semibold text-2xl mt-1.5">{t.label}</div>
-              <div class="font-mono text-xs">{t.meta}</div>
-              <span class="absolute right-4 bottom-4 font-semibold text-lg">→</span>
+              <div class="data text-on-ink-muted">{t.statusLabel}</div>
+              <div class="display-s text-on-ink mt-1.5" style="font-size:1.5rem">{t.label}</div>
+              <div class="font-mono text-xs text-on-ink-2 mt-1">{t.meta}</div>
+              <span class="absolute right-4 bottom-4 font-bold text-lg text-on-ink-2" aria-hidden="true">→</span>
             </a>
           ),
         )}
       </div>
 
-      <p class="mt-5 text-sm text-cream/70">
+      <p class="text-sm text-on-ink-muted">
         Different sport?
-        <a href="/youth" class="underline underline-offset-2 hover:text-cream transition-colors">Back to youth sports →</a>
+        <a href="/youth" class="text-primary-bright underline underline-offset-2">Back to youth sports →</a>
       </p>
     </div>
   </section>
 
   {/* ---------- Editorial intro — the crawlable substance ------------------ */}
-  <section class="px-6 sm:px-9 py-10 border-b border-border" aria-label={`About youth ${sport.name.toLowerCase()}`}>
+  <section class="band-sand border-b border-rule px-6 sm:px-12 py-10" aria-label={`About youth ${sport.name.toLowerCase()}`}>
     <div class="max-w-[1080px] mx-auto">
-      <div class="max-w-[640px] space-y-4">
+      <div class="max-w-[680px] space-y-4">
         {sport.intro.map((p) => (
-          <p class="text-[15px] text-ink-2 leading-relaxed">{p}</p>
+          <p class="body-copy text-on-sand-2">{p}</p>
         ))}
       </div>
     </div>
   </section>
 
   {/* ---------- Leagues — two kinds, then into the sport's league pages ---- */}
-  <section class="px-6 sm:px-9 py-12 border-b border-border" aria-labelledby={`youth-${sport.slug}-leagues-h`}>
-    <div class="max-w-[1080px] mx-auto">
-      <div class="h-[3px] w-11 rounded-sm mb-4 bg-emerald"></div>
-      <h2 id={`youth-${sport.slug}-leagues-h`} class="font-display text-3xl text-ink tracking-tight">Leagues</h2>
-      <p class="text-[13.5px] text-ink-2 leading-relaxed mt-2 max-w-[520px]">
-        Two kinds, depending on the time of year and what your player needs.
-      </p>
+  <section class="band-ink px-6 sm:px-12 py-14" aria-labelledby={`youth-${sport.slug}-leagues-h`}>
+    <div class="max-w-[1080px] mx-auto flex flex-col gap-8">
+      <div class="flex flex-col gap-2.5 max-w-[560px]">
+        <h2 id={`youth-${sport.slug}-leagues-h`} class="display-l">Leagues</h2>
+        <p class="body-s text-on-ink-2">
+          Two kinds, depending on the time of year and what your player needs.
+        </p>
+      </div>
 
-      <div class="grid md:grid-cols-2 gap-3 mt-6">
+      <div class="quadrants quadrants--accent grid-cols-1 md:grid-cols-2">
         {LEAGUE_KINDS.map((k) => (
-          <div class="rounded-xl border border-border bg-paper p-5">
-            <p class="font-mono text-[10px] tracking-widest uppercase text-ink-2">{k.when}</p>
-            <h3 class="font-display text-xl text-ink mt-1.5">{k.name}</h3>
-            <p class="text-[13px] text-ink-2 leading-relaxed mt-2">{k.body}</p>
-            <dl class="flex gap-6 mt-4 pt-3 border-t border-cream-2 text-[12px]">
+          <div class="flex flex-col gap-2.5 p-6">
+            <h3 class="display-s m-0">{k.name}</h3>
+            <p class="data text-on-ink-muted m-0">{k.when}</p>
+            <p class="body-s text-on-ink-2 m-0">{k.body}</p>
+            <dl class="flex gap-8 mt-2 pt-3 border-t border-rule-on-ink m-0">
               {k.facts.map((f) => (
                 <div>
-                  <dt class="text-ink-2">{f.label}</dt>
-                  <dd class="text-ink font-semibold mt-0.5">{f.value}</dd>
+                  <dt class="label text-on-ink-muted" style="font-size:0.65rem">{f.label}</dt>
+                  <dd class="text-on-ink font-semibold text-[14px] mt-0.5 ml-0">{f.value}</dd>
                 </div>
               ))}
             </dl>
@@ -145,64 +146,69 @@ const tiles = [
         ))}
       </div>
 
-      <a
-        href={`/youth/leagues/${sport.slug}`}
-        data-youth-cta={`${sport.slug}-leagues`}
-        class="inline-block mt-6 font-sans font-semibold text-[13px] bg-navy-deep text-cream px-4 py-2.5 rounded-lg"
-      >
-        See {sport.name.toLowerCase()} age groups →
-      </a>
+      <div>
+        <a
+          href={`/youth/leagues/${sport.slug}`}
+          data-youth-cta={`${sport.slug}-leagues`}
+          class="btn btn--primary no-underline"
+        >
+          See {sport.name.toLowerCase()} age groups
+        </a>
+      </div>
     </div>
   </section>
 
   {/* ---------- Classes — the pathway, rendered as the five steps ---------- */}
-  <section class="px-6 sm:px-9 py-12 border-b border-border" aria-labelledby={`youth-${sport.slug}-classes-h`}>
-    <div class="max-w-[1080px] mx-auto">
-      <div class="h-[3px] w-11 rounded-sm mb-4 bg-emerald"></div>
-      <h2 id={`youth-${sport.slug}-classes-h`} class="font-display text-3xl text-ink tracking-tight">Classes</h2>
-      <p class="text-[13.5px] text-ink-2 leading-relaxed mt-2 max-w-[520px]">
-        Training in small groups — one pathway that starts with your toddler on the floor beside you and runs to an invitation-only group.
-      </p>
+  <section class="band-sand px-6 sm:px-12 py-14" aria-labelledby={`youth-${sport.slug}-classes-h`}>
+    <div class="max-w-[1080px] mx-auto flex flex-col gap-8">
+      <div class="flex flex-col gap-2.5 max-w-[620px]">
+        <h2 id={`youth-${sport.slug}-classes-h`} class="display-l">Classes</h2>
+        <p class="body-s text-on-sand-2">
+          Training in small groups — one pathway that starts with your toddler on the floor beside
+          you and runs to an invitation-only group.
+        </p>
+      </div>
 
-      <div class="grid sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-6">
-        {PATHWAY.map((s) => (
-          <div id={stepSlug(s.name)} class="rounded-xl border border-border bg-paper p-4 scroll-mt-28">
-            <h3 class="font-display text-[17px] text-ink leading-tight">{s.name}</h3>
-            <p class="font-mono text-[10px] tracking-widest uppercase text-ink-2 mt-1.5">{s.ages}</p>
-            <p class="text-[12.5px] text-ink-2 leading-relaxed mt-2">{s.blurb}</p>
+      <div class="grid gap-3.5" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">
+        {PATHWAY.map((s, i) => (
+          <div
+            id={stepSlug(s.name)}
+            class:list={["step-card flex flex-col gap-2 scroll-mt-28", i === PATHWAY.length - 1 && "step-card--invert"]}
+          >
+            <h3 class="display-s m-0">{s.name.replace("Aspire ", "")}</h3>
+            <p class:list={["data m-0", i === PATHWAY.length - 1 ? "text-primary-bright" : "text-primary-text"]}>
+              {s.ages}
+            </p>
+            <p class:list={["body-s m-0", i === PATHWAY.length - 1 ? "text-on-ink-2" : "text-on-sand-2"]}>
+              {s.blurb}
+            </p>
           </div>
         ))}
       </div>
 
-      <a
-        href="/youth/classes"
-        data-youth-cta={`${sport.slug}-classes`}
-        class="inline-block mt-6 font-sans font-semibold text-[13px] bg-navy-deep text-cream px-4 py-2.5 rounded-lg"
-      >
-        See the pathway →
-      </a>
+      <div>
+        <a href="/youth/classes" data-youth-cta={`${sport.slug}-classes`} class="btn btn--outline no-underline">
+          See the pathway
+        </a>
+      </div>
     </div>
   </section>
 
   {/* ---------- Camps ----------------------------------------------------- */}
-  <section class="px-6 sm:px-9 py-12 border-b border-border" aria-labelledby={`youth-${sport.slug}-camps-h`}>
-    <div class="max-w-[1080px] mx-auto">
-      <div class="h-[3px] w-11 rounded-sm mb-4 bg-emerald"></div>
-      <h2 id={`youth-${sport.slug}-camps-h`} class="font-display text-3xl text-ink tracking-tight">Camps</h2>
-      <p class="text-[13.5px] text-ink-2 leading-relaxed mt-2 max-w-[520px]">{CAMPS.lede}</p>
-      <a
-        href="/youth/camps"
-        data-youth-cta={`${sport.slug}-camps`}
-        class="inline-block mt-6 font-sans font-semibold text-[13px] bg-navy-deep text-cream px-4 py-2.5 rounded-lg"
-      >
-        See camp dates →
-      </a>
+  <section class="band-ink px-6 sm:px-12 py-14" aria-labelledby={`youth-${sport.slug}-camps-h`}>
+    <div class="max-w-[1080px] mx-auto flex flex-col gap-5">
+      <h2 id={`youth-${sport.slug}-camps-h`} class="display-l">Camps</h2>
+      <p class="body-copy text-on-ink-2 max-w-[620px]">{CAMPS.lede}</p>
+      <div>
+        <a href="/youth/camps" data-youth-cta={`${sport.slug}-camps`} class="btn btn--on-ink no-underline">
+          See camp dates
+        </a>
+      </div>
     </div>
   </section>
 
   {/* ---------- Sport FAQs — no JSON-LD (owned by the SEO branch) ---------- */}
   <LandingFaq
-    accent="emerald"
     client:visible
     id={`${sport.slug}-faq`}
     heading={`Youth ${sport.name.toLowerCase()} FAQs`}
@@ -210,13 +216,34 @@ const tiles = [
   />
 
   {/* ---------- The coaching story — sport-specific evidence --------------- */}
-  {sport.hasCoach && <YouthCoachSection headingId={`youth-${sport.slug}-coach-h`} />}
+  {sport.hasCoach && <CoachBand headingId={`youth-${sport.slug}-coach-h`} />}
 
   {/* ---------- Pricing — indicative only ---------------------------------- */}
-  <section class="px-6 sm:px-9 py-12" aria-labelledby={`youth-${sport.slug}-cost-h`}>
-    <div class="max-w-[1080px] mx-auto">
-      <h2 id={`youth-${sport.slug}-cost-h`} class="font-display text-3xl text-ink tracking-tight">{PRICING.heading}</h2>
-      <p class="text-[13.5px] text-ink-2 leading-relaxed mt-2 max-w-[560px]">{PRICING.body}</p>
+  <section class="band-sand px-6 sm:px-12 py-14" aria-labelledby={`youth-${sport.slug}-cost-h`}>
+    <div class="max-w-[1080px] mx-auto flex flex-col gap-2.5">
+      <h2 id={`youth-${sport.slug}-cost-h`} class="display-l">{PRICING.heading}</h2>
+      <p class="body-copy text-on-sand-2 max-w-[640px]">{PRICING.body}</p>
+    </div>
+  </section>
+
+  {/* ---------- Closer — the orange band ----------------------------------- */}
+  <section class="band-orange px-6 sm:px-12 py-16" aria-labelledby={`youth-${sport.slug}-close-h`}>
+    <div class="max-w-[1080px] mx-auto flex flex-wrap items-center justify-between gap-8">
+      <div class="flex flex-col gap-2.5">
+        <h2 id={`youth-${sport.slug}-close-h`} class="display-xl" style="font-size:clamp(2.5rem,5vw,4rem)">
+          Ready when they are.
+        </h2>
+        <p class="body-l font-medium text-ink">
+          See what's open in {sport.name.toLowerCase()} — registration takes a few minutes.
+        </p>
+      </div>
+      <a
+        href={`/youth/leagues/${sport.slug}`}
+        data-youth-cta={`${sport.slug}-close`}
+        class="btn btn--ink no-underline whitespace-nowrap !text-primary-bright hover:!text-ink"
+      >
+        See what's open
+      </a>
     </div>
   </section>
 </main>
@@ -224,14 +251,11 @@ const tiles = [
 <script>
   import { track } from "@/lib/analytics/track";
 
-  document.querySelectorAll<HTMLAnchorElement>("[data-landing-cta]").forEach((el) => {
-    el.addEventListener("click", () =>
-      track("landing_hero_cta_click", { cta: el.dataset.landingCta ?? "" }),
-    );
-  });
-  document.querySelectorAll<HTMLAnchorElement>("[data-youth-cta]").forEach((el) => {
-    el.addEventListener("click", () =>
-      track("youth_hub_section_cta_clicked", { section: el.dataset.youthCta ?? "" }),
-    );
+  // Delegated so island-hydrated CTAs still get tracked (classes precedent).
+  document.addEventListener("click", (e) => {
+    const el = e.target instanceof Element ? e.target.closest<HTMLElement>("[data-landing-cta], [data-youth-cta]") : null;
+    if (!el) return;
+    if (el.dataset.landingCta) track("landing_hero_cta_click", { cta: el.dataset.landingCta });
+    else track("youth_hub_section_cta_clicked", { section: el.dataset.youthCta ?? "" });
   });
 </script>
