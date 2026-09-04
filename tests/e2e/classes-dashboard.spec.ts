@@ -745,3 +745,169 @@ test.describe("Family dashboard — class discovery entry points stay OFF on Soc
     await expect(page.locator('main a[href="/youth/classes"]')).toHaveCount(0);
   });
 });
+
+/**
+ * Task 9 of the classes-dashboard-launch plan.
+ *
+ * `full-schedule.tsx` (the `/dashboard/schedule` page's top-level
+ * `client:load` island) used to be wired to hardcoded empty arrays
+ * (`mockEvents`/`mockChildren`) behind a 120-line unused mock generator —
+ * the page always rendered its empty state regardless of what the family
+ * actually had booked. This wires it to the real `GET /api/dashboard/schedule`
+ * endpoint (built in the previous task — see `src/lib/dashboard/schedule-
+ * events.ts`'s module doc comment for the booked-vs-projected merge it
+ * performs).
+ *
+ * Fixture: a throwaway parent + child (same shorthand as every suite above),
+ * an active membership + active `class_enrollments` row on a fresh template
+ * (drives the PROJECTED weekly-recurrence half of the endpoint, out to the
+ * 60-day horizon), plus a separately-booked CONFIRMED session on an
+ * unrelated ad-hoc `drop_in_sessions` row (drives the FIRM/booked half). The
+ * booked session's title ("Class", the endpoint's fallback when
+ * `formatLabel` is unset) is deliberately a different string than the
+ * enrollment's template name, so the two can never collide under
+ * `buildClassScheduleEvents`'s childId+templateName suppression key — both
+ * are guaranteed to render as distinct events.
+ */
+test.describe("Family dashboard — full schedule page renders real class sessions", () => {
+  test.setTimeout(120_000);
+
+  let organizationId: string;
+  let venueId: string;
+  let tierId: string;
+  let templateId: string;
+  let membershipId: string;
+  let enrollmentId: string;
+  let bookedSessionId: string;
+  let parentEmail: string;
+  let parentPassword: string;
+  let parentUserId: string;
+  let childId: string;
+
+  const suffix = Date.now();
+  const childFirstName = `DashboardFullScheduleE2E-${suffix}`;
+  const templateName = `Schedule-Slot-DashboardFull-${suffix}`;
+
+  test.beforeAll(async () => {
+    ({ organizationId, venueId } = await resolveDefaultOrgForHttpTests());
+    const db = getDb();
+
+    const [tier] = await db
+      .insert(membershipTiers)
+      .values({
+        organizationId,
+        name: `Makeup Tier 1 - e2e-dashboard-fullschedule-${suffix}`,
+        monthlyPriceCents: 4900,
+        benefits: { classes_per_month: 4 },
+        isActive: true,
+      })
+      .returning();
+    tierId = tier.id;
+
+    templateId = await createTestClassTemplate({
+      organizationId,
+      venueId,
+      name: templateName,
+      capacity: 10,
+    });
+
+    const throwawayUser = await createTestUserWithPassword();
+    parentEmail = throwawayUser.email;
+    parentPassword = throwawayUser.password;
+    parentUserId = throwawayUser.userId;
+
+    childId = await createTestChild(parentUserId, childFirstName);
+    membershipId = await createTestChildMembership({
+      userId: parentUserId,
+      familyMemberId: childId,
+      organizationId,
+      tierId,
+      idSuffix: `e2e-dashboard-fullschedule-${suffix}`,
+    });
+
+    const [enrollment] = await db
+      .insert(classEnrollments)
+      .values({ slotTemplateId: templateId, familyMemberId: childId, membershipId })
+      .returning({ id: classEnrollments.id });
+    enrollmentId = enrollment.id;
+
+    const ctx = await createTestDropInSession({
+      organizationId,
+      venueId,
+      kind: "class",
+      capacity: 10,
+      startsAt: new Date(Date.now() + 2 * 86_400_000),
+    });
+    bookedSessionId = ctx.sessionId;
+    await db.insert(dropInBookings).values({
+      sessionId: bookedSessionId,
+      userId: parentUserId,
+      familyMemberId: childId,
+      status: "confirmed",
+      source: "online_booking",
+      paymentMethod: "member_allotment",
+      amountPaidCents: 0,
+    });
+  });
+
+  test.afterAll(async () => {
+    const db = getDb();
+    if (bookedSessionId) {
+      await db.delete(dropInBookings).where(eq(dropInBookings.sessionId, bookedSessionId));
+      await db
+        .update(dropInSessions)
+        .set({ status: "cancelled" })
+        .where(eq(dropInSessions.id, bookedSessionId));
+    }
+    // Order matters: class_enrollments.membershipId is ON DELETE RESTRICT —
+    // ending the enrollment (cleanupTestClassFixtures) leaves the row (and
+    // its FK reference) in place, so the enrollment must be DELETED outright
+    // before the membership it points at can be deleted.
+    if (enrollmentId) {
+      await db.delete(classEnrollments).where(eq(classEnrollments.id, enrollmentId));
+    }
+    if (membershipId) {
+      await db.delete(memberships).where(eq(memberships.id, membershipId));
+    }
+    if (templateId) await cleanupTestClassFixtures([templateId]);
+    if (tierId) await cleanupTestMembershipTiers([tierId]);
+  });
+
+  test("list view shows booked + projected class events, the child in the filter, and opens the detail modal", async ({
+    page,
+  }) => {
+    await signIn(page, parentEmail, parentPassword);
+    await page.goto("/dashboard/schedule");
+    await waitForHydration(page);
+
+    // Month view only shows the current calendar month; the 60-day projected
+    // recurrence and the far-future booked session may land outside it, so
+    // switch to list view (element click — hydration-safe per repo
+    // convention) before asserting on event counts.
+    await page.getByTitle("List view").click();
+
+    const typeBadges = page.getByTestId("event-type-badge");
+    await expect(typeBadges.first()).toBeVisible({ timeout: 15_000 });
+    expect(await typeBadges.count()).toBeGreaterThanOrEqual(2);
+    for (const text of await typeBadges.allTextContents()) {
+      expect(text).toBe("Class");
+    }
+
+    // At least one projected (enrollment-recurrence) row carries the
+    // "planned" marker, and at least one row is the firm booked session
+    // without it.
+    await expect(page.getByTestId("planned-chip").first()).toBeVisible();
+    const bookedCard = page.locator('[data-testid="schedule-event-card"][data-projected="false"]').first();
+    await expect(bookedCard).toBeVisible();
+
+    // Child filter dropdown lists this family's child by name.
+    const childFilter = page.locator("select").first();
+    await expect(childFilter.locator("option", { hasText: childFirstName })).toHaveCount(1);
+
+    // Clicking the booked (non-projected) event opens the detail modal.
+    await bookedCard.click();
+    const modal = page.getByTestId("event-detail-modal");
+    await expect(modal).toBeVisible();
+    await expect(modal.getByRole("button", { name: "Add to Calendar" })).toBeVisible();
+  });
+});
