@@ -31,6 +31,8 @@ import {
   createTestChild,
   createTestChildMembership,
   cleanupTestMembershipTiers,
+  createTestClassTemplate,
+  cleanupTestClassFixtures,
 } from "../utils/classes-helpers";
 import { createTestUserWithPassword } from "../utils/host-helpers";
 import { signIn, waitForHydration } from "../utils/test-helpers";
@@ -262,5 +264,149 @@ test.describe("Family dashboard — waiver nudge for membership children", () =>
     await expect(card).toBeVisible({ timeout: 15_000 });
 
     await expect(card.getByTestId("waiver-attention")).toBeVisible();
+  });
+});
+
+/**
+ * Task 4 of the classes-dashboard-launch plan (closes #608).
+ *
+ * `POST /api/classes/book` returns 409 `technical_not_included` when a
+ * member's monthly allotment can't book a technical session (the tier owes
+ * the technical supplement and the child holds no active technical
+ * enrollment — src/lib/classes/technical-premium.ts). `MakeUpModal` used to
+ * dump that raw error code into the generic `ErrorBanner`, leaving the
+ * parent with no path forward. It must instead show an info-tone upsell
+ * panel quoting the tier's real `technicalMonthlyCents` (Task 1 of this plan
+ * widened `GET /api/classes/summary` to return it per child) and link to the
+ * choose-slot flow, which already owns the `acknowledgeTechnicalPremium` PUT.
+ *
+ * Fixture: a throwaway parent + child (same shorthand as the suites above)
+ * on a DB-minted membership tier with a LIMITED (non-unlimited) class
+ * benefit and `technicalMonthlyCents: 900` — both conditions
+ * `requiresTechnicalPremium` needs to fire — and a materialized
+ * `drop_in_sessions` row pinned to a fresh `isTechnical: true`
+ * `class_slot_templates` row (mirrors `tests/api/classes-technical-
+ * enrollment.test.ts`'s booking-gate fixture). The child has NO active
+ * technical enrollment, so the allotment gate refuses the booking.
+ */
+test.describe("Family dashboard — technical make-up 409 routes to upsell", () => {
+  test.setTimeout(120_000);
+
+  let organizationId: string;
+  let venueId: string;
+  let tierId: string;
+  let templateId: string;
+  let membershipId: string;
+  let parentEmail: string;
+  let parentPassword: string;
+  let parentUserId: string;
+  let childId: string;
+  let technicalSessionId: string;
+
+  const suffix = Date.now();
+  const childFirstName = `DashboardTechUpsellE2E-${suffix}`;
+  const templateName = `Enroll-DashboardTechUpsell-${suffix}`;
+
+  test.beforeAll(async () => {
+    ({ organizationId, venueId } = await resolveDefaultOrgForHttpTests());
+    const db = getDb();
+
+    const [tier] = await db
+      .insert(membershipTiers)
+      .values({
+        organizationId,
+        name: `Makeup Tier 1 - e2e-dashboard-tech-${suffix}`,
+        monthlyPriceCents: 4900,
+        benefits: { classes_per_month: 4 },
+        technicalMonthlyCents: 900,
+        isActive: true,
+      })
+      .returning();
+    tierId = tier.id;
+
+    templateId = await createTestClassTemplate({
+      organizationId,
+      venueId,
+      name: templateName,
+      capacity: 10,
+      isTechnical: true,
+    });
+
+    const throwawayUser = await createTestUserWithPassword();
+    parentEmail = throwawayUser.email;
+    parentPassword = throwawayUser.password;
+    parentUserId = throwawayUser.userId;
+
+    childId = await createTestChild(parentUserId, childFirstName);
+    membershipId = await createTestChildMembership({
+      userId: parentUserId,
+      familyMemberId: childId,
+      organizationId,
+      tierId,
+      idSuffix: `e2e-dashboard-tech-${suffix}`,
+    });
+
+    // A materialized technical session, pinned to the template above — same
+    // shorthand as classes-technical-enrollment.test.ts's `createClassSession`
+    // (no need to wait on the real cron materialization for a booking-gate
+    // scenario).
+    const { sessionId } = await createTestDropInSession({
+      organizationId,
+      venueId,
+      kind: "class",
+      capacity: 10,
+      startsAt: new Date(Date.now() + 3 * 86_400_000),
+    });
+    technicalSessionId = sessionId;
+    await db
+      .update(dropInSessions)
+      .set({ classSlotTemplateId: templateId })
+      .where(eq(dropInSessions.id, technicalSessionId));
+  });
+
+  test.afterAll(async () => {
+    const db = getDb();
+    if (technicalSessionId) {
+      await db.delete(dropInBookings).where(eq(dropInBookings.sessionId, technicalSessionId));
+      await db
+        .update(dropInSessions)
+        .set({ status: "cancelled" })
+        .where(eq(dropInSessions.id, technicalSessionId));
+    }
+    if (membershipId) {
+      await db.delete(memberships).where(eq(memberships.id, membershipId));
+    }
+    if (templateId) await cleanupTestClassFixtures([templateId]);
+    if (tierId) await cleanupTestMembershipTiers([tierId]);
+  });
+
+  test("technical_not_included 409 shows the supplement upsell, not an ErrorBanner", async ({
+    page,
+  }) => {
+    await signIn(page, parentEmail, parentPassword);
+    await page.goto("/dashboard/family");
+    await waitForHydration(page);
+
+    const card = page
+      .locator("div.flex.items-start.gap-3.rounded-xl.border.border-border.border-l-4.p-3")
+      .filter({ hasText: childFirstName });
+    await expect(card).toBeVisible({ timeout: 15_000 });
+
+    await card.getByRole("button", { name: "Book a make-up" }).click();
+
+    const modal = page.getByRole("dialog");
+    await expect(modal.getByText(templateName)).toBeVisible({ timeout: 15_000 });
+    await modal.getByRole("button", { name: new RegExp(templateName) }).click();
+
+    const upsell = modal.getByTestId("technical-upsell");
+    await expect(upsell).toBeVisible({ timeout: 15_000 });
+    await expect(upsell).toContainText("$9");
+    await expect(modal.getByRole("alert")).toHaveCount(0);
+    await expect(
+      upsell.getByRole("link", { name: /add|technical|supplement/i }),
+    ).toBeVisible();
+
+    await modal.getByRole("button", { name: "Not now" }).click();
+    await expect(modal).toBeHidden();
   });
 });

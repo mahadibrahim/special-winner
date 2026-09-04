@@ -16,6 +16,7 @@ import type { StatusTone } from "@/lib/dashboard/dashboard-ui"
 import { DROPIN_WAIVER_TEXT } from "@/lib/dropin/waiver-text"
 import { waiverAssentSentence } from "@/lib/consents/waiver-consent-language"
 import { useConfirmDialog } from "@/components/ui/confirm-dialog"
+import { formatCents } from "@/lib/classes/ladder-model"
 
 /**
  * Family dashboard — per-child class membership card (Task 7 of the youth
@@ -99,6 +100,12 @@ interface SummaryMembership {
   tierName: string
   status: "active" | "paused" | "past_due" | "incomplete"
   classAllotmentRemaining: number | "unlimited"
+  /** The tier's monthly technical-band supplement, in cents — null/undefined
+   *  when the tier has none configured. Surfaced so the make-up modal's
+   *  `technical_not_included` upsell (see MakeUpModal below) can quote the
+   *  real price without a second round trip; `POST /api/classes/book`'s 409
+   *  body carries no price of its own (src/pages/api/classes/book.ts). */
+  technicalMonthlyCents?: number | null
 }
 
 interface SummaryEnrollment {
@@ -525,6 +532,7 @@ type ModalPhase =
   | "booking"
   | "waiver"
   | "allotment_exhausted"
+  | "technical_upsell"
   | "paying"
   | "success"
 
@@ -740,6 +748,20 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
       const memberRateCents = typeof body.memberRateCents === "number" ? body.memberRateCents : 0
       setExhaustedOffer({ session, memberRateCents })
       setPhase("allotment_exhausted")
+      return
+    }
+
+    // Allotment has room, but this is a technical slot and the tier owes the
+    // technical supplement the child hasn't paid for (no active technical
+    // enrollment on this membership — see requiresTechnicalPremium /
+    // hasActiveTechnicalEnrollment in book-child.ts). The 409 body carries no
+    // price (src/pages/api/classes/book.ts) — quote the tier's real
+    // technicalMonthlyCents off the summary snapshot instead of a dead-end
+    // ErrorBanner dump, and route the parent to the choose-slot flow, which
+    // already owns the `acknowledgeTechnicalPremium` PUT (see choose-slot.tsx's
+    // `technical_premium_required` handling).
+    if (code === "technical_not_included") {
+      setPhase("technical_upsell")
       return
     }
 
@@ -1109,6 +1131,34 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
                 Back
               </Button>
             </div>
+          </>
+        )}
+
+        {phase === "technical_upsell" && (
+          <>
+            <DialogTitle className="text-ink">Book this class</DialogTitle>
+            <DialogDescription className="sr-only">
+              This class requires the technical training supplement.
+            </DialogDescription>
+            <div
+              data-testid="technical-upsell"
+              className="rounded-lg border border-sky-200 bg-sky-50 p-3 space-y-2"
+            >
+              <h3 className="font-semibold text-sky-900 text-sm">This is a technical class</h3>
+              <p className="text-sm text-sky-800">
+                Technical sessions run in smaller groups with extra coaching. Add the technical
+                supplement — {formatCents(child.membership?.technicalMonthlyCents) ?? "a monthly amount"}
+                /month — to book them with your membership.
+              </p>
+              <Button asChild size="sm">
+                <a href={`/dashboard/family/choose-slot?child=${child.familyMemberId}`}>
+                  Add technical supplement
+                </a>
+              </Button>
+            </div>
+            <Button type="button" variant="outline" onClick={handleClose}>
+              Not now
+            </Button>
           </>
         )}
 
