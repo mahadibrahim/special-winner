@@ -1,12 +1,20 @@
 ---
-// Shared body for every youth sport league landing page (/youth/leagues/<sport>).
+// Shared body for every youth sport league landing page (/youth/leagues/<sport>),
+// in the Broadsheet (v2) band language.
 //
 // Two-path composition (2026-08-18): the page's job is to route a visitor into
 // ONE of two doors — a club team entering whole (competitive, winter), or one
 // kid signing up alone (developmental, the rest of the year) — and then let
 // either book without leaving the page. Every band below serves that.
 // Design: docs/superpowers/specs/2026-08-18-youth-leagues-two-path-design.md
-// Visual source of truth: …/2026-08-18-youth-leagues-two-path-mockup.html
+//
+// The ROYAL/EMERALD pair survives the v2 conversion on the hero tiles and the
+// #types cards: it is the two-door wayfinding coding (the door you tap is
+// visibly the door you land on), semantic like sportColor — not band chrome.
+// Everything around it converts: ochre deadline banner (tertiary-highlight
+// role), photo hero + scrim, sticky orange in-page nav, sand/ink/paper band
+// alternation, orange closer. The "how it works" numerals retire (the numeral
+// rule) — the quadrant grid carries the three steps.
 //
 // Soccer and futsal differ only in slug, display name and hero title — the
 // lookup, table, calendar, venues and FAQs are identical, because they are
@@ -19,8 +27,7 @@ import CategoryFinder from "@/components/landing/category-finder.tsx"
 import TileFactsLine from "@/components/landing/tile-facts-line"
 import SeasonCalendarBand, { type CalendarTermConfig } from "@/components/landing/season-calendar-band.tsx"
 import LandingFaq, { type LandingFaqItem } from "@/components/landing/landing-faq.tsx"
-import SectionJumpBar from "@/components/youth/bands/section-jump-bar.astro"
-import FeatureBand from "@/components/youth/bands/feature-band.astro"
+import InpageNav from "@/components/youth/bands/inpage-nav.astro"
 import AgeLookupInline from "@/components/youth/age-lookup-inline.astro"
 import { getVenueFacts, VENUE_SLUGS } from "@/lib/locations/venue-facts"
 import { type DivisionRowModel } from "@/lib/leagues/division-row-model"
@@ -90,9 +97,7 @@ const bannerMessage = [
   .filter(Boolean)
   .join(" · ")
 
-// Brand-graded hero. Marketing photography never appears raw — the emerald
-// grade is the youth variant (docs/design-system.md "Graded imagery"). A
-// different image from the hub's so the two pages don't read as one repeated.
+// A different image from the hub's so the two pages don't read as one repeated.
 const HERO_IMAGE = "/images/stock/five-aside-turf.jpg"
 
 // Which venues render is derived from `offerings.youth`, never a hardcoded
@@ -145,10 +150,8 @@ const venuesLede = [
 // and futsal points back — derived from the registry, never hardcoded.
 const otherSport = Object.values(YOUTH_LEAGUE_SPORTS).find((s) => s.slug !== sportSlug)
 
-// The public org address. There is no shared constant for it (SoccerOne has
-// SOCCERONE_CONTACT_EMAIL; Aspire's equivalent does not exist) — this is the
-// same address footer.tsx, /privacy, /terms and /refund-policy all render, not
-// a new one invented here.
+// The public org address. Same address footer.tsx, /privacy, /terms and
+// /refund-policy all render, not a new one invented here.
 const CONTACT_EMAIL = "hello@aspiresportsohio.com"
 
 // Each card shows ONE door of a row: the competitive card sells the team
@@ -181,6 +184,7 @@ const rowMeta = (r: DivisionRowModel, key: CardKey) =>
     .filter(Boolean)
     .join(" · ")
 
+// Royal/emerald = the two-door wayfinding pair (see header comment).
 const TYPE_CARDS = [
   {
     key: "competitive" as const,
@@ -218,29 +222,24 @@ const INFO_CARDS = [
   },
 ]
 
+// No numerals (the numeral rule) — sequence is carried by document order.
 const HOW_STEPS = [
   {
-    num: "1",
-    numClass: "text-royal-bright",
-    title: "Pick the age group.",
+    title: "Pick the age group",
     body: "Every division shows its ages right on the row — or use the birthday lookup above.",
   },
   {
-    num: "2",
-    numClass: "text-emerald-bright",
-    title: "Three-minute signup.",
+    title: "Three-minute signup",
     body: "Register your kid and pay online — no account or password needed up front.",
   },
   {
-    num: "3",
-    numClass: "text-brand-red",
-    title: "You're set.",
+    title: "You're set",
     body: "Schedule, coach intro, and any updates land by email and text before week 1.",
   },
 ]
 
 const hasSeasonLinks = Boolean(currentTerm || upcomingTerms.length > 0 || pastTerms.length > 0)
-const JUMP_ITEMS = [
+const NAV_ITEMS = [
   { href: "#types", label: "League types" },
   { href: "#open", label: "Book now" },
   { href: "#commitment", label: "The commitment" },
@@ -254,28 +253,22 @@ const JUMP_ITEMS = [
 
 <main id="main-content" class="flex-1">
   {/* ---------- Deadline banner — live term + the act-by date -------------
-      Replaces the old in-hero "Now Registering" banner. It keeps that
-      element's testid and analytics hooks, but points at on-page booking
-      (#open) rather than the term page — the term links now live in
-      #calendar, where the crawlable-archive contract is satisfied.
-
-      pt-16 lg:pt-20 clears the site nav. Navigation is `fixed top-0` at
-      h-16/h-20 (navigation.tsx) and BaseLayout renders no spacer — <slot />
-      flows straight from y=0 — so every other page absorbs the overlap inside
-      a tall hero's top padding. This banner is the FIRST flow element on the
-      page, so without the pad only its bottom strip cleared the nav. The red
-      paint that lands under the fixed nav is invisible; with the registration
-      ribbon in flow above it, the extra band reads as banner weight. */}
+      Ochre = the tertiary-highlight role (camps precedent); the orange band
+      budget belongs to the in-page nav and the closer. Keeps the testid and
+      analytics hooks; points at on-page booking (#open) — the term links
+      live in #calendar, where the crawlable-archive contract is satisfied.
+      pt clears the fixed site header: this banner is the FIRST flow element
+      on the page. */}
   {openRows.length > 0 && (
-    <div class="bg-brand-red text-cream px-6 sm:px-9 pt-16 lg:pt-20" data-testid="now-registering">
+    <div class="bg-ochre text-ink px-6 sm:px-12 pt-16 lg:pt-20" data-testid="now-registering">
       <div class="max-w-[1080px] mx-auto flex items-center justify-between gap-4 flex-wrap py-3">
-        <span class="font-mono text-[11.5px] tracking-[0.12em] uppercase">● {bannerMessage}</span>
+        <span class="text-[13.5px] font-semibold">● {bannerMessage}</span>
         <a
           href="#open"
           data-hero-banner-cta
           data-term={bannerTermSlug ?? ""}
           data-youth-cta="league-deadline-banner"
-          class="bg-cream text-brand-red font-mono text-[11px] tracking-[0.1em] uppercase rounded-lg px-4 py-[9px] no-underline whitespace-nowrap"
+          class="label no-underline text-ink border-b-2 border-ink pb-0.5 whitespace-nowrap"
         >
           {DEADLINE_BANNER.cta}
         </a>
@@ -284,49 +277,46 @@ const JUMP_ITEMS = [
   )}
 
   {/* ---------- Hero — the two doors, above the fold ---------------------- */}
-  <section class="relative text-cream px-6 sm:px-9 pt-16 pb-14 sm:pb-[52px] overflow-hidden bg-navy-deep">
-    <div class="graded graded--emerald graded--fill z-0" aria-hidden="true">
-      <img src={HERO_IMAGE} alt="" />
-    </div>
-    <div class="relative z-10 max-w-[1080px] mx-auto">
-      <h1
-        class="font-display font-semibold tracking-tight max-w-[16ch]"
-        style="font-size:clamp(2.8rem,6vw,4.2rem);line-height:.98;letter-spacing:-0.015em"
-      >
-        {heroTitle}
-      </h1>
-      <p class="mt-[18px] text-[17.5px] text-cream/92">
-        U6 to U19, all year — <b class="font-bold text-cream">competitive winter leagues for club
-        teams</b>, and <b class="font-bold text-cream">developmental leagues</b> where individual
-        players sign up and we build the teams.
+  <section class="band-ink relative overflow-hidden">
+    <img
+      src={HERO_IMAGE}
+      alt=""
+      class="absolute inset-0 w-full h-full object-cover object-[center_30%]"
+      style="filter:grayscale(1) contrast(1.08) brightness(.96)"
+    />
+    <div class="hero-scrim absolute inset-0" aria-hidden="true"></div>
+    <div class:list={["relative max-w-[1080px] mx-auto px-6 sm:px-12 pb-14 flex flex-col gap-5", openRows.length > 0 ? "pt-16" : "pt-28 lg:pt-32"]}>
+      <h1 class="display-xl text-on-ink max-w-[760px]">{heroTitle}</h1>
+      <p class="body-l text-on-ink-2 max-w-[560px]" style="text-wrap:pretty">
+        U6 to U19, all year — <strong class="font-bold text-on-ink">competitive winter leagues for
+        club teams</strong>, and <strong class="font-bold text-on-ink">developmental leagues</strong>
+        where individual players sign up and we build the teams.
       </p>
 
       {/* The two path tiles. Same royal/emerald tones as the #types cards
           they scroll to, so the door you tap is visibly the door you land on. */}
-      <div class="grid gap-3.5 mt-[30px]" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
+      <div class="grid gap-3.5 pt-2" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">
         <a
           href="#types"
           data-youth-cta="league-path-competitive"
-          class="relative block bg-royal text-cream rounded-2xl px-[22px] pt-5 pb-[18px] no-underline"
+          class="relative block bg-royal text-cream px-5 pt-4 pb-4 no-underline"
         >
-          <div class="font-mono text-[9.5px] tracking-[0.16em] uppercase text-cream/80">For club teams</div>
-          <h2 class="font-display font-semibold text-2xl mt-1.5">Competitive leagues</h2>
-          <div class="font-mono text-[11px] mt-1.5 text-cream/85">Winter · Nov – late Mar · enter your full team</div>
-          <span class="absolute right-[18px] bottom-3.5 font-semibold text-lg" aria-hidden="true">→</span>
+          <h2 class="display-s text-cream m-0" style="font-size:1.5rem">Competitive leagues</h2>
+          <div class="data text-cream/85 mt-1.5">For club teams · Winter · Nov – late Mar</div>
+          <span class="absolute right-4 bottom-3 font-bold text-lg text-cream" aria-hidden="true">→</span>
         </a>
         <a
           href="#types"
           data-youth-cta="league-path-developmental"
-          class="relative block bg-emerald text-cream rounded-2xl px-[22px] pt-5 pb-[18px] no-underline"
+          class="relative block bg-emerald text-cream px-5 pt-4 pb-4 no-underline"
         >
-          <div class="font-mono text-[9.5px] tracking-[0.16em] uppercase text-cream/80">For individual players</div>
-          <h2 class="font-display font-semibold text-2xl mt-1.5">Developmental leagues</h2>
-          <div class="font-mono text-[11px] mt-1.5 text-cream/85">Spring, summer &amp; fall · we build the teams</div>
-          <span class="absolute right-[18px] bottom-3.5 font-semibold text-lg" aria-hidden="true">→</span>
+          <h2 class="display-s text-cream m-0" style="font-size:1.5rem">Developmental leagues</h2>
+          <div class="data text-cream/85 mt-1.5">For individual players · Spring, summer &amp; fall</div>
+          <span class="absolute right-4 bottom-3 font-bold text-lg text-cream" aria-hidden="true">→</span>
         </a>
       </div>
 
-      <p class="mt-[22px] text-[13.5px] text-cream/70">
+      <p class="text-[13.5px] text-on-ink-muted">
         Every game indoors, one game a week, Saturdays &amp; Sundays.
         {otherSport && (
           <Fragment>
@@ -334,7 +324,7 @@ const JUMP_ITEMS = [
             <a
               href={`/youth/leagues/${otherSport.slug}`}
               data-youth-cta={`league-crosslink-${otherSport.slug}`}
-              class="text-cream/90 underline underline-offset-2"
+              class="text-primary-bright underline underline-offset-2"
             >
               youth {otherSport.name.toLowerCase()} →
             </a>
@@ -344,36 +334,30 @@ const JUMP_ITEMS = [
     </div>
   </section>
 
-  <SectionJumpBar items={JUMP_ITEMS} />
+  <InpageNav items={NAV_ITEMS} />
 
   {/* ---------- League types — divisions bookable INSIDE the cards --------
       The whole two-path thesis: the card that explains a door also contains
       the live rows for that door, so understanding and booking are one
       motion instead of two scroll positions. */}
-  <section id="types" class="px-6 sm:px-9 pt-[72px] pb-16" aria-labelledby={`youth-${sportSlug}-types`}>
-    <div class="max-w-[1080px] mx-auto">
-      <h2
-        id={`youth-${sportSlug}-types`}
-        class="font-display font-semibold tracking-tight text-ink"
-        style="font-size:clamp(2.1rem,3.8vw,2.9rem);letter-spacing:-0.015em"
-      >
-        Two kinds of league. <span class="text-brand-red">Book from right here.</span>
-      </h2>
-      <p class="text-[15.5px] text-ink-2 mt-3">
-        Same indoor turf, same weekend game days — a different door depending on whether a whole team
-        is coming, or one kid is.
-      </p>
+  <section id="types" class="band-sand scroll-mt-36 px-6 sm:px-12 py-16" aria-labelledby={`youth-${sportSlug}-types`}>
+    <div class="max-w-[1080px] mx-auto flex flex-col gap-8">
+      <div class="flex flex-col gap-2.5 max-w-[640px]">
+        <h2 id={`youth-${sportSlug}-types`} class="display-l">Two kinds of league</h2>
+        <p class="body-copy text-on-sand-2">
+          Same indoor turf, same weekend game days — a different door depending on whether a whole
+          team is coming, or one kid is. Book from right here.
+        </p>
+      </div>
 
-      <div class="grid gap-4 mt-[38px]" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr))">
+      <div class="grid gap-4" style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr))">
         {TYPE_CARDS.map((card) => (
-          <div class={`${card.tone} text-cream rounded-2xl px-7 pt-7 pb-[26px] flex flex-col`}>
-            <p class="font-mono text-[10px] tracking-[0.16em] uppercase text-cream/75">{card.copy.kicker}</p>
-            <h3 class="font-display font-semibold text-[25px] leading-[1.2] tracking-[-0.01em] mt-2.5">
-              {card.copy.heading}
-            </h3>
-            <p class="text-[13.5px] text-cream/90 mt-2.5">{card.copy.body}</p>
+          <div class={`${card.tone} text-cream px-7 pt-7 pb-[26px] flex flex-col`}>
+            <h3 class="display-s m-0" style="font-size:1.5rem">{card.copy.heading}</h3>
+            <p class="data text-cream/85 mt-2">{card.copy.kicker}</p>
+            <p class="body-s text-cream/90 mt-2.5">{card.copy.body}</p>
             {card.copy.urgency && (
-              <span class="self-start font-mono text-[10.5px] tracking-[0.1em] uppercase bg-cream/15 rounded-lg px-3 py-2 mt-3.5">
+              <span class="self-start data bg-cream/15 px-3 py-2 mt-3.5">
                 {card.copy.urgency}
               </span>
             )}
@@ -381,8 +365,8 @@ const JUMP_ITEMS = [
             <dl class="flex flex-wrap gap-x-8 gap-y-3 mt-5 pt-4 border-t border-cream/25 text-[12.5px]">
               {card.copy.facts.map((f) => (
                 <div>
-                  <dt class="text-cream/70">{f.label}</dt>
-                  <dd class="font-semibold mt-0.5">{f.value}</dd>
+                  <dt class="label text-cream/70" style="font-size:0.65rem">{f.label}</dt>
+                  <dd class="font-semibold mt-0.5 ml-0">{f.value}</dd>
                 </div>
               ))}
             </dl>
@@ -411,7 +395,7 @@ const JUMP_ITEMS = [
                         <span class="font-mono text-[10.5px] text-cream/80">{rowMeta(row, card.key)}</span>
                       </span>
                       <span
-                        class={`font-mono text-[10px] tracking-[0.1em] uppercase rounded-[7px] px-3 py-[7px] whitespace-nowrap ${
+                        class={`font-mono text-[10px] tracking-[0.1em] uppercase px-3 py-[7px] whitespace-nowrap ${
                           row.soldOut || !path ? "bg-cream/20 text-cream/70" : "bg-cream text-ink"
                         }`}
                       >
@@ -438,69 +422,55 @@ const JUMP_ITEMS = [
     </div>
   </section>
 
-  {/* ---------- Book — red flood + the overlapping division table --------- */}
-  <section id="open" class="bg-brand-red text-cream text-center px-6 sm:px-9 pt-16 pb-[140px]">
-    <div class="max-w-[1080px] mx-auto">
-      <h2
-        class="font-display font-semibold tracking-tight"
-        style="font-size:clamp(2.2rem,4.5vw,3.2rem);letter-spacing:-0.015em"
-      >
-        Every open division.
-      </h2>
-      {/* Live status line, computed client-side — this page opts into edge
-          caching (setMarketingEdgeCache, called by the route's frontmatter), so
-          the line must not bake in at render time. Sport-scoped to agree with
-          the table below. */}
-      <TileFactsLine client:visible audience="youth" programTypes={["league"]} sport={sportSlug} tone="cream" />
+  {/* ---------- Book — paper band, birthday lookup + the division table --- */}
+  <section id="open" class="band-paper scroll-mt-36 border-y border-rule px-6 sm:px-12 py-16">
+    <div class="max-w-[1080px] mx-auto flex flex-col gap-6">
+      <div class="flex flex-col gap-2.5 max-w-[560px]">
+        <h2 class="display-l">Every open division</h2>
+        {/* Live status line, computed client-side — this page opts into edge
+            caching (setMarketingEdgeCache, called by the route's frontmatter),
+            so the line must not bake in at render time. Sport-scoped to agree
+            with the table below. */}
+        <TileFactsLine client:visible audience="youth" programTypes={["league"]} sport={sportSlug} tone="ink" />
+      </div>
+      <div>
+        <AgeLookupInline finderId={FINDER_ID} sportKey={sportSlug} />
+        <CategoryFinder
+          client:load
+          audience="youth"
+          programTypes={["league"]}
+          sport={sportSlug}
+          title="Open divisions"
+          descriptor="Every open division, one click to checkout."
+          sectionId={FINDER_ID}
+          layout="table"
+          levelChips
+          ageChips
+          cardVariant="youth-band"
+          headerHidden
+        />
+      </div>
     </div>
   </section>
-  <div class="-mt-[88px] pb-[76px] px-6 sm:px-9">
-    {/* Paper SHEET overlap — the finder's ink heading must never straddle
-        the red/cream boundary (owner-flagged contract from classes v2). The
-        birthday lookup sits inside the sheet, above the table it filters. */}
-    <div class="max-w-[1080px] mx-auto bg-paper border border-cream-3 rounded-2xl shadow-xl px-1.5 sm:px-7 pt-2.5 pb-6">
-      <AgeLookupInline finderId={FINDER_ID} sportKey={sportSlug} />
-      <CategoryFinder
-        client:load
-        audience="youth"
-        programTypes={["league"]}
-        sport={sportSlug}
-        title="Open divisions"
-        descriptor="Every open division, one click to checkout."
-        sectionId={FINDER_ID}
-        layout="table"
-        levelChips
-        ageChips
-        cardVariant="youth-band"
-        headerHidden
-      />
-    </div>
-  </div>
 
   {/* ---------- The commitment — what a season actually asks of a family -- */}
-  <section id="commitment" class="bg-paper border-y border-cream-3 px-6 sm:px-9 pt-14 pb-15" aria-labelledby={`youth-${sportSlug}-commitment`}>
-    <div class="max-w-[1080px] mx-auto">
-      <h2
-        id={`youth-${sportSlug}-commitment`}
-        class="font-display font-semibold tracking-tight text-ink"
-        style="font-size:clamp(2.1rem,3.8vw,2.9rem);letter-spacing:-0.015em"
-      >
-        The commitment, <span class="text-brand-red">up front.</span>
-      </h2>
-      <dl class="grid gap-x-8 gap-y-[26px] mt-[34px]" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">
+  <section id="commitment" class="band-sand scroll-mt-36 px-6 sm:px-12 py-16" aria-labelledby={`youth-${sportSlug}-commitment`}>
+    <div class="max-w-[1080px] mx-auto flex flex-col gap-8">
+      <h2 id={`youth-${sportSlug}-commitment`} class="display-l">The commitment, up front</h2>
+      <dl class="grid gap-x-8 gap-y-[26px] m-0" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">
         {COMMITMENT_FACTS.map((f) => (
           <div>
-            <dt class="font-mono text-[10.5px] tracking-[0.15em] uppercase text-ink-muted">{f.label}</dt>
-            <dd class="font-display font-semibold text-[21px] leading-[1.25] text-ink mt-1.5">
+            <dt class="label text-on-sand-muted">{f.label}</dt>
+            <dd class="font-semibold text-[16px] leading-snug text-on-sand mt-1.5 ml-0">
               {f.value}
-              {f.sub && <span class="block font-sans font-normal text-[11px] text-ink-muted">{f.sub}</span>}
+              {f.sub && <span class="block font-normal text-[11px] text-on-sand-muted">{f.sub}</span>}
             </dd>
           </div>
         ))}
         {venueSlugs.length > 0 && (
           <div class="sm:col-span-2">
-            <dt class="font-mono text-[10.5px] tracking-[0.15em] uppercase text-ink-muted">Where</dt>
-            <dd class="font-display font-semibold text-[21px] leading-[1.25] text-ink mt-1.5">
+            <dt class="label text-on-sand-muted">Where</dt>
+            <dd class="font-semibold text-[16px] leading-snug text-on-sand mt-1.5 ml-0">
               {venueSlugs.map((slug, i) => (
                 <Fragment>
                   {i > 0 && " or "}
@@ -517,83 +487,63 @@ const JUMP_ITEMS = [
           </div>
         )}
       </dl>
-      <p class="mt-[26px] text-[13px] text-ink-muted">{commitmentNote}</p>
+      <p class="text-[13px] text-on-sand-muted m-0">{commitmentNote}</p>
     </div>
   </section>
 
   {/* ---------- Club teams — the second door, spelled out ----------------- */}
-  <section id="teams" class="bg-cream-2 border-b border-cream-3 px-6 sm:px-9 py-16" aria-labelledby={`youth-${sportSlug}-teams`}>
-    <div class="max-w-[1080px] mx-auto">
-      <h2
-        id={`youth-${sportSlug}-teams`}
-        class="font-display font-semibold tracking-tight text-ink"
-        style="font-size:clamp(2.1rem,3.8vw,2.9rem);letter-spacing:-0.015em"
-      >
-        Bringing a <span class="text-brand-red">whole team?</span>
-      </h2>
-      <div class="grid md:grid-cols-[1.4fr_1fr] gap-11 items-start mt-1.5">
-        <div>
-          <p class="text-[15px] text-ink-2 mt-3.5">
-            Winter entry is built for club teams — keep your squad together and playing through the
-            cold months without giving your coaches another admin job.
-          </p>
-          <ul class="mt-4 list-none pl-0">
-            {CLUB_TEAM_PROMISES.map((promise) => (
-              <li class="relative pl-[22px] mt-2 text-sm text-ink-2">
-                <span class="absolute left-0 text-brand-red font-semibold" aria-hidden="true">—</span>
-                {promise}
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div class="bg-navy-deep text-cream rounded-2xl p-[26px]">
-          <p class="font-mono text-[10px] tracking-[0.16em] uppercase text-emerald-bright">
-            Competitive entry · Nov – late Mar
-          </p>
-          <h3 class="font-display font-semibold text-[22px] mt-2">{CLUB_CARD.heading}</h3>
-          <p class="text-[13.5px] text-cream/85 mt-2">{CLUB_CARD.body}</p>
-          <div class="flex flex-col gap-2.5 mt-[18px]">
-            <a
-              href="#open"
-              data-youth-cta="league-club-enter"
-              class="text-center font-semibold text-[14.5px] px-[22px] py-[13px] rounded-[10px] bg-brand-red text-cream no-underline"
-            >
-              {CLUB_CARD.enterCta}
-            </a>
-            <a
-              href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(`Winter team entry — youth ${sportSlug}`)}`}
-              data-youth-cta="league-club-email"
-              class="text-center font-semibold text-sm px-5 py-3 rounded-[10px] border-[1.5px] border-cream/40 text-cream no-underline"
-            >
-              {CLUB_CARD.emailCta}
-            </a>
-          </div>
+  <section id="teams" class="band-ink scroll-mt-36 px-6 sm:px-12 py-16" aria-labelledby={`youth-${sportSlug}-teams`}>
+    <div class="max-w-[1080px] mx-auto grid md:grid-cols-[1.4fr_1fr] gap-11 items-start">
+      <div>
+        <h2 id={`youth-${sportSlug}-teams`} class="display-l">Bringing a whole team?</h2>
+        <p class="body-copy text-on-ink-2 mt-3.5">
+          Winter entry is built for club teams — keep your squad together and playing through the
+          cold months without giving your coaches another admin job.
+        </p>
+        <ul class="mt-4 list-none pl-0">
+          {CLUB_TEAM_PROMISES.map((promise) => (
+            <li class="relative pl-[22px] mt-2 text-sm text-on-ink-2">
+              <span class="absolute left-0 text-primary-bright font-semibold" aria-hidden="true">—</span>
+              {promise}
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div class="bg-ink-lift border border-rule-on-ink p-[26px]">
+        <h3 class="display-s text-on-ink m-0">{CLUB_CARD.heading}</h3>
+        <p class="data text-primary-bright mt-1.5">Competitive entry · Nov – late Mar</p>
+        <p class="body-s text-on-ink-2 mt-2">{CLUB_CARD.body}</p>
+        <div class="flex flex-col gap-2.5 mt-[18px]">
+          <a href="#open" data-youth-cta="league-club-enter" class="btn btn--primary no-underline justify-center">
+            {CLUB_CARD.enterCta}
+          </a>
+          <a
+            href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(`Winter team entry — youth ${sportSlug}`)}`}
+            data-youth-cta="league-club-email"
+            class="btn btn--on-ink no-underline justify-center"
+          >
+            {CLUB_CARD.emailCta}
+          </a>
         </div>
       </div>
     </div>
   </section>
 
   {/* ---------- League info ------------------------------------------------ */}
-  <section id="info" class="px-6 sm:px-9 py-[72px]" aria-labelledby={`youth-${sportSlug}-info`}>
-    <div class="max-w-[1080px] mx-auto">
-      <h2
-        id={`youth-${sportSlug}-info`}
-        class="font-display font-semibold tracking-tight text-ink"
-        style="font-size:clamp(2.1rem,3.8vw,2.9rem);letter-spacing:-0.015em"
-      >
-        League info, <span class="text-brand-red">all of it.</span>
-      </h2>
-      <div class="grid gap-3.5 mt-[34px]" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">
+  <section id="info" class="band-sand scroll-mt-36 px-6 sm:px-12 py-16" aria-labelledby={`youth-${sportSlug}-info`}>
+    <div class="max-w-[1080px] mx-auto flex flex-col gap-8">
+      <h2 id={`youth-${sportSlug}-info`} class="display-l">League info, all of it</h2>
+      <div class="grid gap-3.5" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr))">
         {INFO_CARDS.map((card) => (
           <a
             href={card.href}
             data-youth-cta={card.cta}
-            class="block bg-paper border border-cream-3 rounded-[14px] p-[22px] text-ink no-underline"
+            class="block bg-paper border border-rule p-[22px] no-underline"
           >
-            <div class="font-mono text-[9.5px] tracking-[0.15em] uppercase text-ink-muted">{card.kicker}</div>
-            <h3 class="font-display font-semibold text-xl mt-2">{card.title}</h3>
-            <p class="text-[13px] text-ink-2 mt-1.5">{card.body}</p>
-            <span class="inline-block text-[12.5px] font-semibold text-brand-red mt-3">{card.go}</span>
+            <div class="label text-on-sand-muted" style="font-size:0.65rem">{card.kicker}</div>
+            <h3 class="display-s text-on-sand mt-2 m-0">{card.title}</h3>
+            <p class="body-s text-on-sand-2 mt-1.5">{card.body}</p>
+            <span class="inline-block label text-primary-text mt-3">{card.go}</span>
           </a>
         ))}
       </div>
@@ -601,35 +551,31 @@ const JUMP_ITEMS = [
   </section>
 
   {/* ---------- Venues ---------------------------------------------------- */}
-  <section id="venues" class="bg-cream-2 border-t border-ink/10 py-[76px] px-6 sm:px-9" aria-labelledby={`youth-${sportSlug}-venues`}>
-    <div class="max-w-[1080px] mx-auto">
-      <h2
-        id={`youth-${sportSlug}-venues`}
-        class="font-display font-semibold tracking-tight text-ink"
-        style="font-size:clamp(2.1rem,3.8vw,2.9rem);letter-spacing:-0.015em"
-      >
-        Where you'll <span class="text-brand-red">play.</span>
-      </h2>
-      <p class="text-[15.5px] text-ink-2 mt-3">{venuesLede}</p>
-      <div class="grid gap-5 md:grid-cols-2 mt-[38px]">
+  <section id="venues" class="band-paper scroll-mt-36 border-y border-rule px-6 sm:px-12 py-16" aria-labelledby={`youth-${sportSlug}-venues`}>
+    <div class="max-w-[1080px] mx-auto flex flex-col gap-8">
+      <div class="flex flex-col gap-2.5 max-w-[640px]">
+        <h2 id={`youth-${sportSlug}-venues`} class="display-l">Where you'll play</h2>
+        <p class="body-copy text-on-sand-2">{venuesLede}</p>
+      </div>
+      <div class="grid gap-5 md:grid-cols-2">
         {venueSlugs.map((slug) => {
           const vf = getVenueFacts(slug)
           return vf ? (
             <a
               href={`/locations/${slug}`}
               data-youth-cta={`league-venue-${slug}`}
-              class="group rounded-2xl border border-border bg-paper overflow-hidden flex flex-col sm:flex-row no-underline"
+              class="group border border-rule bg-sand overflow-hidden flex flex-col sm:flex-row no-underline"
             >
               {vf.photos[0] && (
-                <img src={vf.photos[0].src} alt={vf.photos[0].alt} loading="lazy" class="sm:w-44 h-32 sm:h-auto object-cover" />
+                <img src={vf.photos[0].src} alt={vf.photos[0].alt} loading="lazy" class="sm:w-44 h-32 sm:h-auto object-cover" style="filter:grayscale(1) contrast(1.08) brightness(.96)" />
               )}
               <div class="p-5">
-                <div class="font-display font-semibold text-xl text-ink group-hover:text-brand-red">{VENUE_DISPLAY_NAMES[slug] ?? slug}</div>
+                <div class="display-s text-on-sand group-hover:text-primary-text">{VENUE_DISPLAY_NAMES[slug] ?? slug}</div>
                 {vf.highwayAccess && (
-                  <div class="font-mono text-[11px] text-ink-muted mt-1">{vf.highwayAccess}</div>
+                  <div class="font-mono text-[11px] text-on-sand-muted mt-1">{vf.highwayAccess}</div>
                 )}
-                <p class="text-[13px] text-ink-2 mt-1">{vf.tagline}</p>
-                <span class="inline-block text-xs font-semibold text-brand-red mt-2.5">Venue details &amp; directions →</span>
+                <p class="body-s text-on-sand-2 mt-1">{vf.tagline}</p>
+                <span class="inline-block label text-primary-text mt-2.5" style="font-size:0.65rem">Venue details &amp; directions →</span>
               </div>
             </a>
           ) : null
@@ -638,22 +584,15 @@ const JUMP_ITEMS = [
     </div>
   </section>
 
-  {/* ---------- How it works ---------------------------------------------- */}
-  <section class="bg-navy-deep text-cream px-6 sm:px-9 py-[72px]" aria-labelledby={`youth-${sportSlug}-how`}>
-    <div class="max-w-[1080px] mx-auto">
-      <h2
-        id={`youth-${sportSlug}-how`}
-        class="font-display font-semibold tracking-tight"
-        style="font-size:clamp(2.1rem,3.8vw,2.9rem);letter-spacing:-0.015em"
-      >
-        How it works, <span class="text-emerald-bright">for parents.</span>
-      </h2>
-      <div class="grid gap-3.5 mt-10" style="grid-template-columns:repeat(auto-fit,minmax(230px,1fr))">
+  {/* ---------- How it works — quadrant grid, no numerals ----------------- */}
+  <section class="band-ink px-6 sm:px-12 py-16" aria-labelledby={`youth-${sportSlug}-how`}>
+    <div class="max-w-[1080px] mx-auto flex flex-col gap-8">
+      <h2 id={`youth-${sportSlug}-how`} class="display-l">How it works, for parents</h2>
+      <div class="quadrants quadrants--accent grid-cols-1 sm:grid-cols-3">
         {HOW_STEPS.map((s) => (
-          <div class="rounded-[14px] p-6" style="background:color-mix(in oklch, var(--navy-deep), var(--royal) 12%)">
-            <div class={`font-display font-semibold text-[44px] leading-none ${s.numClass}`}>{s.num}</div>
-            <h3 class="font-display font-semibold text-[19px] mt-2.5">{s.title}</h3>
-            <p class="text-[13.5px] text-cream/85 mt-2">{s.body}</p>
+          <div class="flex flex-col gap-2 p-6">
+            <div class="font-black text-[19px] uppercase" style="font-stretch:84%">{s.title}</div>
+            <p class="body-s text-on-ink-muted m-0">{s.body}</p>
           </div>
         ))}
       </div>
@@ -666,32 +605,32 @@ const JUMP_ITEMS = [
       division page beneath them, their Event JSON-LD and the completed-term
       standings archive. Islands render nothing into the HTML, so this list
       cannot move inside one. */}
-  <div id="calendar">
+  <div id="calendar" class="scroll-mt-36">
     {hasSeasonLinks && (
-      <section class="px-6 sm:px-9 pt-[72px]" aria-labelledby={`youth-${sportSlug}-seasons`}>
+      <section class="band-sand px-6 sm:px-12 pt-16" aria-labelledby={`youth-${sportSlug}-seasons`}>
         <div class="max-w-[1080px] mx-auto">
-          <h2 id={`youth-${sportSlug}-seasons`} class="font-mono text-[9.5px] tracking-[0.15em] uppercase text-ink-muted">
+          <h2 id={`youth-${sportSlug}-seasons`} class="label text-on-sand-muted">
             All seasons
           </h2>
           <ul class="flex flex-wrap gap-x-6 gap-y-2 text-[14px] mt-2.5 list-none pl-0">
             {currentTerm && (
               <li>
-                <a href={`${basePath}/${currentTerm.slug}`} class="text-ink hover:text-brand-red font-semibold">
-                  {currentTerm.label} <span class="font-mono text-[9.5px] tracking-widest uppercase text-brand-red ml-1">Open now</span>
+                <a href={`${basePath}/${currentTerm.slug}`} class="text-ink hover:text-primary-text font-semibold no-underline">
+                  {currentTerm.label} <span class="data text-primary-text ml-1" style="font-size:0.6rem">Open now</span>
                 </a>
               </li>
             )}
             {upcomingTerms.map((t) => (
               <li>
-                <a href={`${basePath}/${t.slug}`} class="text-ink-2 hover:text-brand-red">
-                  {t.label} <span class="font-mono text-[9.5px] tracking-widest uppercase text-ink-2 ml-1">Coming up</span>
+                <a href={`${basePath}/${t.slug}`} class="text-on-sand-2 hover:text-primary-text no-underline">
+                  {t.label} <span class="data text-on-sand-muted ml-1" style="font-size:0.6rem">Coming up</span>
                 </a>
               </li>
             ))}
             {pastTerms.map((t) => (
               <li>
-                <a href={`${basePath}/${t.slug}`} class="text-ink-2 hover:text-brand-red">
-                  {t.label} <span class="font-mono text-[9.5px] tracking-widest uppercase text-ink-2 ml-1">Final standings</span>
+                <a href={`${basePath}/${t.slug}`} class="text-on-sand-2 hover:text-primary-text no-underline">
+                  {t.label} <span class="data text-on-sand-muted ml-1" style="font-size:0.6rem">Final standings</span>
                 </a>
               </li>
             ))}
@@ -711,51 +650,51 @@ const JUMP_ITEMS = [
     />
   </div>
 
-  {/* ---------- FAQs ------------------------------------------------------ */}
-  <LandingFaq client:visible accent="emerald" id="faq" heading="Questions parents ask." items={faqs} />
+  {/* ---------- FAQs — orange accent per the Broadsheet page accent ------- */}
+  <LandingFaq client:visible id="faq" heading="Questions parents ask." items={faqs} />
 
-  {/* ---------- Cross-promo: classes & camps ------------------------------ */}
-  <FeatureBand
-    tone="emerald"
-    graphicVariant={1}
-    kicker="Also at Aspire"
-    title="Training between seasons."
-    body="Small-group classes from 18 months to nineteen years — a coach who explains, and one pathway so your kid never has to start over."
-    cta={{ href: "/youth/classes", label: "See youth classes →" }}
-  />
-  <FeatureBand
-    tone="red"
-    graphicVariant={4}
-    kicker="Also at Aspire"
-    title="Camps, all year long."
-    body="Day camps on school breaks, plus specialty camps through the year — coached rather than supervised, by the same people they see all year."
-    cta={{ href: "/youth/camps", label: "See camp dates →" }}
-  />
-
-  {/* ---------- Close ------------------------------------------------------ */}
-  <section class="bg-navy-deep text-cream text-center px-6 sm:px-9 py-[76px]" aria-labelledby={`youth-${sportSlug}-close-h`}>
-    <div class="max-w-[1080px] mx-auto">
-      <h2
-        id={`youth-${sportSlug}-close-h`}
-        class="font-display font-semibold tracking-tight"
-        style="font-size:clamp(2rem,4vw,2.8rem)"
-      >
-        See you on <span class="text-emerald-bright">game day.</span>
-      </h2>
-      <p class="mt-2.5 text-cream/90">Whole team or one kid — book straight from this page in a few minutes.</p>
-      <div class="flex justify-center flex-wrap gap-3 mt-6">
-        <a
-          href="#open"
-          data-youth-cta="league-close-book"
-          class="inline-block font-semibold text-[14.5px] px-[22px] py-[13px] rounded-[10px] bg-brand-red text-cream no-underline"
-        >
-          Book now →
+  {/* ---------- Cross-links — ink-lift pair ------------------------------- */}
+  <section class="band-ink-lift border-t border-rule-on-ink" aria-label="More at Aspire">
+    <div class="grid sm:grid-cols-2 gap-px bg-rule-on-ink">
+      <div class="bg-ink-lift px-6 sm:px-12 py-11 flex flex-col gap-3">
+        <h2 class="display-m">Training between seasons</h2>
+        <p class="body-s text-on-ink-muted max-w-[420px]">
+          Small-group classes from 18 months to nineteen years — a coach who explains, and one
+          pathway so your kid never has to start over.
+        </p>
+        <a href="/youth/classes" data-youth-cta="crosslink-classes" class="label no-underline pt-1">
+          See youth classes →
         </a>
-        <a
-          href="#teams"
-          data-youth-cta="league-close-team"
-          class="inline-block font-semibold text-[14.5px] px-[22px] py-[13px] rounded-[10px] border-[1.5px] border-cream/50 text-cream no-underline"
-        >
+      </div>
+      <div class="bg-ink-lift px-6 sm:px-12 py-11 flex flex-col gap-3">
+        <h2 class="display-m">Camps, all year long</h2>
+        <p class="body-s text-on-ink-muted max-w-[420px]">
+          Day camps on school breaks, plus specialty camps through the year — coached rather than
+          supervised, by the same people they see all year.
+        </p>
+        <a href="/youth/camps" data-youth-cta="crosslink-camps" class="label no-underline pt-1">
+          See camp dates →
+        </a>
+      </div>
+    </div>
+  </section>
+
+  {/* ---------- Closer — the orange band ----------------------------------- */}
+  <section class="band-orange px-6 sm:px-12 py-16" aria-labelledby={`youth-${sportSlug}-close-h`}>
+    <div class="max-w-[1080px] mx-auto flex flex-wrap items-center justify-between gap-8">
+      <div class="flex flex-col gap-2.5">
+        <h2 id={`youth-${sportSlug}-close-h`} class="display-xl" style="font-size:clamp(2.5rem,5vw,4rem)">
+          See you on game day.
+        </h2>
+        <p class="body-l font-medium text-ink">
+          Whole team or one kid — book straight from this page in a few minutes.
+        </p>
+      </div>
+      <div class="flex flex-col items-start sm:items-end gap-3">
+        <a href="#open" data-youth-cta="league-close-book" class="btn btn--ink no-underline whitespace-nowrap !text-primary-bright hover:!text-ink">
+          Book now
+        </a>
+        <a href="#teams" data-youth-cta="league-close-team" class="label no-underline text-ink border-b-2 border-ink pb-0.5">
           Competitive team entry →
         </a>
       </div>
@@ -773,10 +712,11 @@ const JUMP_ITEMS = [
     el.addEventListener("click", () => trackLandingCtaClicked({ term: el.dataset.term ?? "" }))
   })
 
-  // Band CTAs fire the shared youth-section event, same as classes/hub.
-  document.querySelectorAll<HTMLAnchorElement>("[data-youth-cta]").forEach((el) => {
-    el.addEventListener("click", () =>
-      track("youth_hub_section_cta_clicked", { section: el.dataset.youthCta ?? "" }),
-    )
+  // Band CTAs fire the shared youth-section event — delegated so
+  // island-hydrated CTAs still get tracked (classes precedent).
+  document.addEventListener("click", (e) => {
+    const el = e.target instanceof Element ? e.target.closest<HTMLElement>("[data-youth-cta]") : null
+    if (!el) return
+    track("youth_hub_section_cta_clicked", { section: el.dataset.youthCta ?? "" })
   })
 </script>
