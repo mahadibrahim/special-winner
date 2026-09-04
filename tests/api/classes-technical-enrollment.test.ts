@@ -5,9 +5,13 @@
  * Mirrors tests/api/classes/enrollments.test.ts's harness (apiFetch/getAuthCookie
  * + tests/utils/classes-helpers.ts fixtures) for the parent-side enrollment
  * calls, and tests/api/admin-class-templates-technical.test.ts's standalone
- * admin signin block for provisioning the technical template + tier through
- * the admin APIs (Task 3 / Task 4), since only those endpoints can set
- * `isTechnical` / `technicalMonthlyDollars`.
+ * admin signin block for provisioning the technical TEMPLATE through the
+ * admin API (Task 3), since only that endpoint can set `isTechnical`. The
+ * technical TIER is a direct `membershipTiers` insert instead of the admin
+ * tier endpoint (Task 4) — that endpoint mints Stripe prices and 502s on CI
+ * (no STRIPE_SECRET_KEY there); the endpoint's own Stripe round-trip is
+ * covered separately, itWithStripe-gated, by
+ * tests/api/admin/membership-tiers.test.ts.
  *
  * Stripe-less-safe: the gate fires before any Stripe call (pure DB read +
  * `requiresTechnicalPremium`), and `syncTechnicalAddonQuantity` is
@@ -18,8 +22,9 @@
  * try/catch. No assertion here depends on the sync actually reaching Stripe.
  *
  * Self-cleaning: the tier and templates this file creates are named with
- * unique run-scoped suffixes and torn down in afterAll (tier deactivated,
- * templates deactivated via cleanupTestClassFixtures, enrollments ended).
+ * unique run-scoped suffixes and torn down in afterAll (tier deactivated via
+ * cleanupTestMembershipTiers, templates deactivated via
+ * cleanupTestClassFixtures, enrollments ended).
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { and, eq, inArray } from "drizzle-orm";
@@ -36,6 +41,7 @@ import {
   createTestChildMembership,
   createTestClassTemplate,
   cleanupTestClassFixtures,
+  cleanupTestMembershipTiers,
   CLASS_TEST_PARENT_EMAIL,
   CLASS_TEST_PARENT_PASSWORD,
   CLASS_TEST_WAIVER,
@@ -94,25 +100,31 @@ beforeAll(async () => {
 
   // A dedicated tier with a configured technical supplement and a LIMITED
   // (non-unlimited) class benefit — requiresTechnicalPremium only fires when
-  // both hold. Created via the admin tier endpoint (Task 4) so
-  // technicalMonthlyDollars actually round-trips to technicalMonthlyCents.
-  const tierRes = await adminFetch("/api/admin/memberships/tiers", {
-    method: "POST",
-    body: JSON.stringify({
+  // both hold (src/lib/classes/technical-premium.ts). Direct DB insert
+  // rather than the admin tier endpoint (Task 4): that endpoint calls
+  // Stripe to mint the tier's prices (createTierStripeObjects,
+  // src/pages/api/admin/memberships/tiers/index.ts), which 502s on CI — CI
+  // carries no STRIPE_SECRET_KEY (the standing CI-has-no-Stripe lesson).
+  // None of this suite's assertions read `stripePriceIdTechnical` or the
+  // admin endpoint's response shape — the gate/booking code below only
+  // reads `technicalMonthlyCents`, so a Stripe-free row is equivalent.
+  // Mirrors cron-materialize.test.ts's direct `membershipTiers` insert.
+  // The admin endpoint's OWN Stripe-minting contract (technicalMonthlyDollars
+  // round-tripping to technicalMonthlyCents on a real 201) is already
+  // covered, itWithStripe-gated, by tests/api/admin/membership-tiers.test.ts
+  // — no need to duplicate that coverage here.
+  const db = getDb();
+  const [tier] = await db
+    .insert(membershipTiers)
+    .values({
+      organizationId,
       name: `Technical-Test-Tier-${suffix}`,
-      monthlyDollars: 49,
-      annualDollars: null,
+      monthlyPriceCents: 4900,
       benefits: { classes_per_month: 4 },
-      technicalMonthlyDollars: 9,
+      technicalMonthlyCents: TECHNICAL_MONTHLY_CENTS,
       isActive: true,
-    }),
-  });
-  if (tierRes.status !== 201) {
-    throw new Error(
-      `tier fixture creation failed: ${tierRes.status} ${await tierRes.text()}`,
-    );
-  }
-  const { tier } = await tierRes.json();
+    })
+    .returning();
   techTierId = tier.id;
   createdTierIds.push(techTierId);
   expect(tier.technicalMonthlyCents).toBe(TECHNICAL_MONTHLY_CENTS);
@@ -153,12 +165,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await cleanupTestClassFixtures(createdTemplateIds, createdEnrollmentIds);
-  if (createdTierIds.length > 0) {
-    const db = getDb();
-    for (const id of createdTierIds) {
-      await db.update(membershipTiers).set({ isActive: false }).where(eq(membershipTiers.id, id));
-    }
-  }
+  await cleanupTestMembershipTiers(createdTierIds);
   if (createdSessionIds.length > 0) {
     const db = getDb();
     await db
