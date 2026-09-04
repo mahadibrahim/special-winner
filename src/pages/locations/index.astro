@@ -82,9 +82,9 @@ setMarketingEdgeCache(Astro);
                   </div>
                   <div class="flex flex-wrap gap-2.5 mt-5">
                     {loc.league ? (
-                      <a href={loc.league.termHref} class="font-sans font-semibold text-xs bg-primary text-cream px-4 py-2.5 rounded-md">Adult leagues →</a>
+                      <a href={loc.league.termHref} class="font-sans font-semibold text-xs bg-primary-bright text-primary-foreground px-4 py-2.5 rounded-md">Adult leagues →</a>
                     ) : loc.facts?.offerings.pickup ? (
-                      <a href="/adult/pickup" class="font-sans font-semibold text-xs bg-primary text-cream px-4 py-2.5 rounded-md">Play pickup →</a>
+                      <a href="/adult/pickup" class="font-sans font-semibold text-xs bg-primary-bright text-primary-foreground px-4 py-2.5 rounded-md">Play pickup →</a>
                     ) : null}
                     <a href={`/locations/${loc.slug}`} class="font-sans font-semibold text-xs border border-border text-ink px-4 py-2.5 rounded-md hover:border-primary/40">Venue page</a>
                   </div>

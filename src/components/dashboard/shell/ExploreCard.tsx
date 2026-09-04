@@ -47,7 +47,7 @@ export function ExploreCard({
 
   const tileCls = cn(
     "w-[30px] h-[30px] rounded-lg flex items-center justify-center mb-2 shrink-0",
-    isCrossSell ? "bg-sage text-cream" : "bg-primary text-cream",
+    isCrossSell ? "bg-sage text-cream" : "bg-primary-bright text-primary-foreground",
   );
 
   const titleCls = cn(

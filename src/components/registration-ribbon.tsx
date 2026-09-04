@@ -106,7 +106,7 @@ export default function RegistrationRibbon() {
   }
 
   return (
-    <div className="relative bg-primary-orange text-cream">
+    <div className="relative bg-primary-bright text-primary-foreground">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between gap-3 py-2.5">
           <a

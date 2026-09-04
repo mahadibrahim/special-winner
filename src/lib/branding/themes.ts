@@ -85,6 +85,47 @@ const soccerone: BrandTheme = {
   fontsHref:
     "https://fonts.googleapis.com/css2?family=Anton&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap",
   cssVars: {
+    // —— Broadsheet v2 primitives ——
+    // The v2 semantic vars (--background, --card, --primary…) resolve
+    // through these primitive names, NOT through the v1 aliases below —
+    // so the inversion must pin both sets. Values identical to the v1
+    // entries they mirror.
+    "--sand": "#0a0a0d", // --so-ink: page background
+    "--sand-inset": "#131316",
+    "--sand-deep": "#1a1a1f",
+    "--on-sand": "#ffffff",
+    "--on-sand-2": "#e4e4e7",
+    "--on-sand-muted": "#b8b8bf",
+    "--on-sand-faint": "#8c8c95",
+    "--primary": "#a3e635", // --so-lime
+    // v2's audited CTAs render bg-primary-bright at rest with
+    // hover:bg-primary-hover. Mapping bright→lime and hover→lime-bright
+    // reproduces v1's exact SoccerOne button behaviour (rest #a3e635,
+    // hover #bef264); utilities on the old alias names keep the true
+    // bright value via --primary-orange-bright below.
+    "--primary-bright": "#a3e635",
+    "--primary-hover": "#bef264",
+    "--primary-soft": "rgba(163, 230, 53, 0.12)", // --so-lime-a12
+    "--primary-text": "#a3e635", // links on dark surfaces: lime, not dark orange
+    "--primary-foreground": "#0a0a0d", // dark text on lime (v2 default is --ink → white here)
+    "--secondary": "#0a1929", // v2 default is var(--ink) → white here; keep v1's navy
+    "--rule-color": "rgba(255, 255, 255, 0.14)", // v2 --border/--input resolve through this
+    // —— Broadsheet opt-outs: v2 is the ASPIRE look only ——
+    // Display voice back to v1 rendering (Anton has one 400 face; the
+    // Aspire default of 900 would synthetic-bold every heading).
+    "--brand-display-weight": "500",
+    "--brand-display-leading": "1.05",
+    "--brand-display-tracking": "-0.02em",
+    // Radius scale back to what v1 rendered (v1 mapped sm/md/lg/xl off
+    // --radius: 0.5rem; xs/2xl/3xl/4xl were Tailwind defaults).
+    "--radius-scale-xs": "0.125rem",
+    "--radius-scale-sm": "0.375rem",
+    "--radius-scale-md": "0.5rem",
+    "--radius-scale-lg": "0.75rem",
+    "--radius-scale-xl": "1rem",
+    "--radius-scale-2xl": "1rem",
+    "--radius-scale-3xl": "1.5rem",
+    "--radius-scale-4xl": "2rem",
     // —— Editorial palette inversion (values from soccerone-tokens.css) ——
     // Entries without a --so- comment are seam-only values with no soccerone-tokens.css source.
     "--cream": "#0a0a0d", // --so-ink: page background

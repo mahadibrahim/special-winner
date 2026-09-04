@@ -2,162 +2,283 @@
 @import "tw-animate-css";
 
 /* ============================================================
-   Aspire Sports — Editorial Design System (2026-04-15)
+   Aspire Sports — Broadsheet Design System (v2, 2026-09-03)
    ============================================================
-   A warm off-white foundation with confident editorial
-   typography and a single hot-spot accent. The feel is
-   *The Athletic* meets *Tracksmith*, not a SaaS dashboard.
+   Supersedes the Editorial system (Newsreader + cream, v1 2026-04).
+   Full reference: docs/design-system.md.
 
-   Fonts (loaded via <link> tags in page heads):
-   - Newsreader     → display / headlines (especially italic)
-   - IBM Plex Sans  → body + UI
+   A match programme, not a magazine: heavy condensed capitals, ink
+   and sand bands alternating down the page, orange carrying real
+   surface for the first time.
 
-   Do not use: Inter, Roboto, Arial, system fonts.
+   Fonts (loaded via <link> in BaseLayout):
+   - Archivo (variable, wdth 62..125 / wght 100..900)
+        → display AND body. One family, two voices.
+   - IBM Plex Mono → two jobs, both narrow:
+       (1) discrete data values — times, ages, counts, statuses, prices
+       (2) technical annotation — token names, code, spec-sheet
+           metadata (documentation surfaces only, never product UI)
+     NOT keys, column heads, nav items, names or categories.
+
+   Do not use: Newsreader, Inter, Roboto, Arial, system fonts.
+
+   TENANT SCOPE — READ THIS
+   This sheet is the ASPIRE brand only. SoccerOne has its own locked
+   token set (src/styles/soccerone-tokens.css — Anton / DM Sans, lime
+   on near-black, its own radius scale) pinned to observed production
+   values by founder decision. v2 does not touch it. The
+   --brand-font-* seams below exist precisely so html[data-brand]
+   can override families per tenant; SoccerOne surfaces continue to
+   resolve through --so-* and the cssVars overrides in
+   src/lib/branding/themes.ts (which now pins the v2 primitives —
+   --sand, --on-sand, --primary — as well as the v1 alias names).
+
+   v1 TOKEN NAMES ARE ALIASED, NOT REMOVED
+   --cream, --ink-2, --ink-muted, --primary-orange and friends still
+   resolve, so bg-cream / text-ink-muted / text-primary-orange keep
+   working across the app. Migrate at your own pace; the aliases are
+   the compatibility layer, not the target.
 ============================================================ */
 
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* ——————————— Core palette ——————————— */
-  /* Cream — warm off-white, the foundation */
-  --cream: oklch(0.972 0.008 80);
-  --cream-2: oklch(0.955 0.012 78);
-  --cream-3: oklch(0.935 0.018 76);
+  /* ——————————— Ink · the new structural base ———————————
+     Bands of ink are now a primary surface, not an accent.
+     --ink is a page background as often as it is a text color. */
+  --ink: oklch(0.20 0.021 245);
+  --ink-lift: oklch(0.25 0.025 248);   /* raised panels ON ink */
+  --ink-deep: oklch(0.16 0.020 245);   /* footer, overlay floors */
 
-  /* Charcoal — primary text ink, never pure black */
-  --ink: oklch(0.18 0.008 260);
-  --ink-2: oklch(0.26 0.012 260);
-  --ink-muted: oklch(0.42 0.01 260);
-  --ink-faint: oklch(0.50 0.008 260); /* WCAG AA on cream: 5.53:1 */
+  /* Text on ink */
+  --on-ink: oklch(0.972 0.008 80);
+  --on-ink-2: oklch(0.80 0.014 80);
+  --on-ink-muted: oklch(0.655 0.013 80);
 
-  /* Heritage navy — gravitas, depth, quote marks, dividers */
-  --navy: oklch(0.24 0.06 260);
-  --navy-deep: oklch(0.18 0.07 262);
+  /* ——————————— Sand · the relief surface ———————————
+     Values carried over from v1's cream ramp unchanged, so existing
+     light surfaces need no recolor. */
+  --sand: oklch(0.972 0.008 80);
+  --sand-inset: oklch(0.955 0.012 78);
+  --sand-deep: oklch(0.935 0.018 76);
+  --paper: oklch(0.99 0.003 80);
+  --paper-shadow: oklch(0.82 0.015 78 / 0.45);
 
-  /* Primary — the Aspire red-orange, hot spot accent */
-  --primary-orange: oklch(0.58 0.19 35);
-  --primary-orange-bright: oklch(0.66 0.21 35);
-  --primary-orange-soft: oklch(0.92 0.035 50);
+  /* Text on sand */
+  --on-sand: oklch(0.20 0.021 245);
+  --on-sand-2: oklch(0.38 0.010 80);
+  --on-sand-muted: oklch(0.48 0.012 80);
+  --on-sand-faint: oklch(0.56 0.010 80);
 
-  /* Ochre — warm secondary accent for subtle highlights */
-  --ochre: oklch(0.75 0.12 75);
+  /* ——————————— Accents ———————————
+     Orange is unchanged in value and vastly expanded in surface: it is
+     now legitimate as a full-bleed band, a nav bar, and a primary fill.
+     Emerald / ochre / navy keep their v1 roles.
 
-  /* Sage — success, subtle positive states */
-  --sage: oklch(0.52 0.08 155);
+     ⚠ CONTRAST RULE — measured, not estimated. Three orange values,
+     one job each:
 
-  /* Emerald — the youth accent family (design-system.md assigns emerald to
-     youth; these make it a real token). Mirrors the primary-orange structure:
-     anchor for rules/text on cream, -bright for tiles/text on navy, -soft
-     for tinted chips. */
+       --primary        surfaces + non-text. With ink, either
+                        direction, = 3.85:1 → large text only
+                        (≥24px, or ≥18.66px bold)
+       --primary-bright small text on/against INK, either direction,
+                        = 5.30:1 → safe at any size
+       --primary-text   small orange TEXT on light surfaces:
+                        5.92:1 on --paper, 5.60:1 on --sand,
+                        5.32:1 on --sand-inset
+                        (never on ink — only 2.98:1 there)
+
+     Why the third value exists: --primary as text ranges from 4.58:1
+     on --paper down to 4.12:1 on --sand-inset, so "orange text on
+     light surfaces" cannot be one rule at one value. --primary-text
+     clears 4.5:1 on all three light surfaces.
+
+     ⚠ An ink wash cannot be an active state on an orange band: a 10%
+     ink wash over --primary-bright darkens it enough to pull ink text
+     BELOW the 4.5:1 floor (~4.4). Use a CREAM wash, which lightens the
+     band and holds above 5.7:1 at 10% and 6.1:1 at 16%.
+
+     Solid-on-solid figures above are exact — computed by compositing
+     the token values and applying the WCAG formula. Figures for
+     ALPHA washes are approximate by nature (they vary with compositing
+     rounding), so they are quoted as thresholds, not decimals.
+     Re-measure rather than reason if you change a value. */
+  --primary: oklch(0.58 0.19 35);
+  --primary-bright: oklch(0.66 0.21 35);
+  --primary-text: oklch(0.52 0.19 33);
+  --primary-soft: oklch(0.92 0.035 50);
+  /* Hover for orange fills — lighter, so ink text GAINS contrast on
+     hover (darkening toward --primary would drop it to 3.85:1). Used
+     by .btn--primary and by hover:bg-primary-hover utility sites. */
+  --primary-hover: oklch(0.70 0.17 40);
+
+  /* Emerald — the youth accent family. KEPT AT v1 VALUES: the design
+     sheet's swatch reads 0.52 0.08 155, but that is v1's --sage value
+     and design-system.md declares emerald "unchanged" — live youth
+     pages (PR #566 onward) depend on this trio. Mirrors the primary
+     structure: anchor for rules/text on sand, -bright for tiles/text
+     on navy, -soft for tinted chips. */
   --emerald: oklch(0.55 0.12 160);
   --emerald-bright: oklch(0.72 0.14 158);
   --emerald-soft: oklch(0.93 0.04 160);
 
-  /* Logo-derived brand extensions (2026-08-18 youth redesign): the script
-     logo's red and a bright structural blue between navy and white. Youth
-     surfaces: red = hot CTA/flood, royal = structural (jump bar, discs). */
+  /* Sage — success states. Kept as its own value (not an emerald
+     alias) so no rendered value changes in the v1 → v2 swap. */
+  --sage: oklch(0.52 0.08 155);
+
+  --ochre: oklch(0.75 0.12 75);
+  --navy: oklch(0.24 0.06 260);
+  --navy-deep: oklch(0.18 0.07 262);
+
+  /* Logo-derived brand extensions (2026-08-18 youth redesign): the
+     script logo's red and a bright structural blue between navy and
+     white. Youth surfaces: red = hot CTA/flood, royal = structural
+     (jump bar, discs). Retained from v1 — youth pages use them. */
   --brand-red: oklch(0.52 0.19 27);
   --royal: oklch(0.50 0.16 260);
   --royal-bright: oklch(0.62 0.15 258);
 
-  /* Paper — card surfaces that lift off the cream background */
-  --paper: oklch(0.99 0.003 80);
-  --paper-shadow: oklch(0.82 0.015 78 / 0.45);
+  /* ——————————— Lines ———————————
+     Rules are structural in v2 — they replace most card shadows. */
+  --rule-color: oklch(0.88 0.015 75);
+  --rule-on-ink: oklch(0.972 0.008 80 / 0.16);
 
-  /* ——————————— Semantic tokens (Tailwind shadcn bridge) ——————————— */
-  --background: var(--cream);
-  --foreground: var(--ink);
+  /* ——————————— Geometry ———————————
+     v2 is square. Radius survives only on pills and status chips.
+     The per-step vars exist as BRAND SEAMS: on Aspire they all resolve
+     through --radius (0), collapsing the Tailwind scale; SoccerOne's
+     cssVars (themes.ts) override them back to the v1-rendered values so
+     its shared flows (auth, checkout, dashboard) keep their rounding.
+     Broadsheet is the Aspire brand only. */
+  --radius: 0rem;
+  --radius-pill: 999px;
+  --accent-bar: 5px;
+  --radius-scale-xs: var(--radius);
+  --radius-scale-sm: var(--radius);
+  --radius-scale-md: var(--radius);
+  --radius-scale-lg: var(--radius);
+  --radius-scale-xl: var(--radius);
+  --radius-scale-2xl: var(--radius);
+  --radius-scale-3xl: var(--radius);
+  --radius-scale-4xl: var(--radius);
+
+  /* ——————————— v1 ALIASES · compatibility layer ———————————
+     Same values, old names. Every bg-cream / text-ink-muted /
+     text-primary-orange in the codebase keeps resolving. */
+  --cream: var(--sand);
+  --cream-2: var(--sand-inset);
+  --cream-3: var(--sand-deep);
+  --ink-2: var(--on-sand-2);
+  --ink-muted: var(--on-sand-muted);
+  --ink-faint: var(--on-sand-faint);
+  --primary-orange: var(--primary);
+  --primary-orange-bright: var(--primary-bright);
+  --primary-orange-soft: var(--primary-soft);
+
+  /* ——————————— Semantic bridge (shadcn) ——————————— */
+  --background: var(--sand);
+  --foreground: var(--on-sand);
   --card: var(--paper);
-  --card-foreground: var(--ink);
+  --card-foreground: var(--on-sand);
   --popover: var(--paper);
-  --popover-foreground: var(--ink);
-  --primary: var(--primary-orange);
-  --primary-foreground: var(--cream);
-  --secondary: var(--navy);
-  --secondary-foreground: var(--cream);
-  --muted: var(--cream-2);
-  --muted-foreground: var(--ink-muted);
-  --accent: var(--primary-orange-soft);
-  --accent-foreground: var(--ink);
+  --popover-foreground: var(--on-sand);
+  --primary-foreground: var(--ink);   /* ⚠ ink on orange, not cream */
+  --secondary: var(--ink);
+  --secondary-foreground: var(--on-ink);
+  --muted: var(--sand-inset);
+  --muted-foreground: var(--on-sand-muted);
+  --accent: var(--primary-soft);
+  --accent-foreground: var(--on-sand);
   --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: var(--cream);
-  --border: oklch(0.88 0.015 75);
-  --input: oklch(0.88 0.015 75);
-  --ring: var(--primary-orange);
-  --chart-1: var(--primary-orange);
-  --chart-2: var(--navy);
-  --chart-3: var(--sage);
+  --destructive-foreground: var(--on-ink);
+  --border: var(--rule-color);
+  --input: var(--rule-color);
+  --ring: var(--primary);
+  --chart-1: var(--primary);
+  --chart-2: var(--ink);
+  --chart-3: var(--emerald);
   --chart-4: var(--ochre);
-  --chart-5: oklch(0.55 0.05 260);
-  --radius: 0.5rem; /* tighter, more editorial */
-  --sidebar: var(--cream-2);
-  --sidebar-foreground: var(--ink);
-  --sidebar-primary: var(--primary-orange);
-  --sidebar-primary-foreground: var(--cream);
-  --sidebar-accent: var(--cream-3);
-  --sidebar-accent-foreground: var(--ink);
-  --sidebar-border: oklch(0.88 0.015 75);
-  --sidebar-ring: var(--primary-orange);
+  --chart-5: var(--navy);
+  --sidebar: var(--ink);
+  --sidebar-foreground: var(--on-ink);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--ink);
+  --sidebar-accent: var(--ink-lift);
+  --sidebar-accent-foreground: var(--on-ink);
+  --sidebar-border: var(--rule-on-ink);
+  --sidebar-ring: var(--primary);
   --success: var(--sage);
   --warning: var(--ochre);
 
-  /* ——————————— Brand font seams ——————————— */
-  /* Tailwind's font utilities resolve through these at runtime so a
-     brand override (html[data-brand]) can swap families. Values are
-     the original Aspire stacks, unchanged. */
-  --brand-font-sans: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif;
-  --brand-font-display: "Newsreader", "Source Serif 4", Georgia, serif;
-  --brand-font-serif: "Newsreader", "Source Serif 4", Georgia, serif;
+  /* ——————————— Brand font seams ———————————
+     One family covers display and body; the display voice is a width +
+     weight setting, not a different font file. --brand-font-serif is
+     retained as an alias so any remaining `font-serif` usage resolves
+     to the display face instead of falling back to Georgia. */
+  --brand-font-sans: "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --brand-font-display: "Archivo", ui-sans-serif, system-ui, sans-serif;
+  --brand-font-serif: var(--brand-font-display);
   --brand-font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+  /* Mono has one job: discrete data values (times, ages, counts,
+     statuses, prices). Keys and column heads are .label, not mono. */
+
+  /* Display-voice seams — Broadsheet's heavy headings are ASPIRE ONLY.
+     Archivo takes weight 900; Anton (SoccerOne) has a single 400 face,
+     so an unconditional 900 would synthetic-bold every SoccerOne
+     heading. themes.ts overrides these back to the v1-rendered values
+     (500 / 1.05 / -0.02em). font-stretch needs no seam: it only acts
+     on fonts with a wdth axis (Archivo), and is inert on Anton and
+     DM Sans. */
+  --brand-display-weight: 900;
+  --brand-display-leading: 1.02;
+  --brand-display-tracking: -0.015em;
 }
 
-/* ——————————— Dark mode (minibooks, coach resources,
-   anywhere we want "serious study mode") ——————————— */
+/* ——————————— Dark mode ———————————
+   v1 reserved dark for immersive reading. In v2 ink is already a default
+   surface, so dark mode is only a deepening: sand relief bands become
+   ink-lift and orange brightens to hold contrast. */
 .dark {
-  --background: oklch(0.15 0.01 260);
-  --foreground: oklch(0.97 0.005 80);
-  --card: oklch(0.18 0.012 260);
-  --card-foreground: oklch(0.97 0.005 80);
-  --popover: oklch(0.18 0.012 260);
-  --popover-foreground: oklch(0.97 0.005 80);
+  --background: var(--ink-deep);
+  --foreground: var(--on-ink);
+  --card: var(--ink-lift);
+  --card-foreground: var(--on-ink);
+  --popover: var(--ink-lift);
+  --popover-foreground: var(--on-ink);
   --primary: oklch(0.66 0.21 35);
-  --primary-foreground: oklch(0.15 0.01 260);
-  --secondary: oklch(0.35 0.07 260);
-  --secondary-foreground: oklch(0.97 0.005 80);
-  --muted: oklch(0.22 0.012 260);
-  --muted-foreground: oklch(0.72 0.015 80);
+  --primary-foreground: var(--ink);
+  --secondary: var(--ink-lift);
+  --secondary-foreground: var(--on-ink);
+  --muted: var(--ink-lift);
+  --muted-foreground: var(--on-ink-muted);
   --accent: oklch(0.25 0.04 30);
-  --accent-foreground: oklch(0.97 0.005 80);
+  --accent-foreground: var(--on-ink);
   --destructive: oklch(0.55 0.2 27);
-  --destructive-foreground: oklch(0.97 0.005 80);
-  --border: oklch(0.25 0.015 260);
-  --input: oklch(0.25 0.015 260);
+  --destructive-foreground: var(--on-ink);
+  --border: var(--rule-on-ink);
+  --input: var(--rule-on-ink);
   --ring: oklch(0.66 0.21 35);
-  --chart-1: oklch(0.66 0.21 35);
-  --chart-2: oklch(0.65 0.15 240);
-  --chart-3: oklch(0.65 0.2 140);
-  --chart-4: oklch(0.7 0.15 300);
-  --chart-5: oklch(0.75 0.1 80);
-  --sidebar: oklch(0.18 0.012 260);
-  --sidebar-foreground: oklch(0.97 0.005 80);
-  --sidebar-primary: oklch(0.66 0.21 35);
-  --sidebar-primary-foreground: oklch(0.15 0.01 260);
-  --sidebar-accent: oklch(0.22 0.012 260);
-  --sidebar-accent-foreground: oklch(0.97 0.005 80);
-  --sidebar-border: oklch(0.25 0.015 260);
-  --sidebar-ring: oklch(0.66 0.21 35);
-  --success: oklch(0.65 0.2 140);
-  --warning: oklch(0.8 0.18 80);
+
+  /* Surface + text aliases invert together so utilities stay correct */
+  --sand: var(--ink-lift);
+  --sand-inset: var(--ink);
+  --sand-deep: var(--ink-deep);
+  --paper: var(--ink-lift);
+  --on-sand: var(--on-ink);
+  --on-sand-2: var(--on-ink-2);
+  --on-sand-muted: var(--on-ink-muted);
+  --on-sand-faint: var(--on-ink-muted);
+  --rule-color: var(--rule-on-ink);
 }
 
 @theme inline {
-  /* Typography — editorial pairing */
+  /* Typography */
   --font-sans: var(--brand-font-sans);
   --font-display: var(--brand-font-display);
   --font-serif: var(--brand-font-serif);
   --font-mono: var(--brand-font-mono);
 
-  /* Colors */
+  /* Semantic colors */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -183,33 +304,49 @@
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
 
-  /* Named semantic colors — shortcuts for the editorial palette */
-  --color-cream: var(--cream);
-  --color-cream-2: var(--cream-2);
-  --color-cream-3: var(--cream-3);
+  /* Named v2 colors */
   --color-ink: var(--ink);
-  --color-ink-2: var(--ink-2);
-  --color-ink-muted: var(--ink-muted);
-  --color-ink-faint: var(--ink-faint);
-  --color-navy: var(--navy);
-  --color-navy-deep: var(--navy-deep);
-  --color-primary-orange: var(--primary-orange);
-  --color-primary-orange-bright: var(--primary-orange-bright);
-  --color-primary-orange-soft: var(--primary-orange-soft);
-  --color-ochre: var(--ochre);
-  --color-sage: var(--sage);
+  --color-ink-lift: var(--ink-lift);
+  --color-ink-deep: var(--ink-deep);
+  --color-on-ink: var(--on-ink);
+  --color-on-ink-2: var(--on-ink-2);
+  --color-on-ink-muted: var(--on-ink-muted);
+  --color-sand: var(--sand);
+  --color-sand-inset: var(--sand-inset);
+  --color-sand-deep: var(--sand-deep);
+  --color-paper: var(--paper);
+  --color-on-sand: var(--on-sand);
+  --color-on-sand-2: var(--on-sand-2);
+  --color-on-sand-muted: var(--on-sand-muted);
+  --color-on-sand-faint: var(--on-sand-faint);
+  --color-primary-bright: var(--primary-bright);
+  --color-primary-text: var(--primary-text);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-hover: var(--primary-hover);
   --color-emerald: var(--emerald);
   --color-emerald-bright: var(--emerald-bright);
   --color-emerald-soft: var(--emerald-soft);
+  --color-ochre: var(--ochre);
+  --color-navy: var(--navy);
+  --color-navy-deep: var(--navy-deep);
   --color-brand-red: var(--brand-red);
   --color-royal: var(--royal);
   --color-royal-bright: var(--royal-bright);
-  --color-paper: var(--paper);
+  --color-rule: var(--rule-color);
+  --color-rule-on-ink: var(--rule-on-ink);
 
-  --radius-sm: calc(var(--radius) - 2px);
-  --radius-md: var(--radius);
-  --radius-lg: calc(var(--radius) + 4px);
-  --radius-xl: calc(var(--radius) + 8px);
+  /* v1 named colors — aliased so existing utilities keep resolving */
+  --color-cream: var(--cream);
+  --color-cream-2: var(--cream-2);
+  --color-cream-3: var(--cream-3);
+  --color-ink-2: var(--ink-2);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  --color-primary-orange: var(--primary-orange);
+  --color-primary-orange-bright: var(--primary-orange-bright);
+  --color-primary-orange-soft: var(--primary-orange-soft);
+  --color-sage: var(--sage);
+
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -220,6 +357,20 @@
   --color-sidebar-ring: var(--sidebar-ring);
   --color-success: var(--success);
   --color-warning: var(--warning);
+
+  /* Radius — square on Aspire. Every step resolves through the
+     --radius-scale-* seams (all var(--radius) = 0 by default) so the
+     whole scale collapses at once while rounded-full / pills survive,
+     and a brand override (SoccerOne) can restore per-step values. */
+  --radius-xs: var(--radius-scale-xs);
+  --radius-sm: var(--radius-scale-sm);
+  --radius-md: var(--radius-scale-md);
+  --radius-lg: var(--radius-scale-lg);
+  --radius-xl: var(--radius-scale-xl);
+  --radius-2xl: var(--radius-scale-2xl);
+  --radius-3xl: var(--radius-scale-3xl);
+  --radius-4xl: var(--radius-scale-4xl);
+  --radius-pill: var(--radius-pill);
 }
 
 @layer base {
@@ -229,7 +380,7 @@
 
   html {
     font-family: var(--font-sans);
-    font-feature-settings: "kern", "liga", "clig", "calt", "ss01", "ss02";
+    font-feature-settings: "kern", "liga", "clig", "calt";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
@@ -240,33 +391,50 @@
     font-family: var(--font-sans);
     font-size: 16px;
     line-height: 1.6;
-    letter-spacing: -0.005em;
+    letter-spacing: 0;
   }
 
-  /* ——————————— Editorial display typography ——————————— */
-  /* Apply these classes to opt into the display family */
+  /* Headings take the display FAMILY and weight, but not uppercase.
+     Shouting every dashboard heading would wreck app density — the
+     condensed capital voice is opt-in via .display-* below. Weight,
+     leading and tracking route through the display-voice seams so the
+     SoccerOne brand override renders these exactly as v1 did. */
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    font-weight: var(--brand-display-weight);
+    font-stretch: 84%;
+    letter-spacing: var(--brand-display-tracking);
+    line-height: var(--brand-display-leading);
+  }
+  h1 { font-stretch: 80%; }
+
   .font-display,
   .display {
     font-family: var(--font-display);
-    font-feature-settings: "kern", "liga", "dlig", "onum";
-    letter-spacing: -0.02em;
+    font-weight: var(--brand-display-weight);
+    font-stretch: 84%;
+    letter-spacing: var(--brand-display-tracking);
   }
 
+  /* v1 compatibility: `.font-serif` / `.serif` resolved to Newsreader.
+     Newsreader is gone; these now resolve to the display face. */
   .font-serif,
   .serif {
     font-family: var(--font-serif);
+    font-weight: var(--brand-display-weight);
+    font-stretch: 84%;
+    letter-spacing: var(--brand-display-tracking);
   }
 
-  /* ——————————— Small caps label ——————————— */
+  /* v1's tracked small-caps label. Retained; see .label for the v2 one. */
   .label-sm {
     font-family: var(--font-sans);
     font-size: 11px;
-    font-weight: 500;
-    letter-spacing: 0.14em;
+    font-weight: 700;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
   }
 
-  /* ——————————— Rule lines for editorial section breaks ——————————— */
   .rule {
     border: none;
     border-top: 1px solid var(--border);
@@ -279,19 +447,21 @@
     margin: 0;
   }
 
-  /* ——————————— Drop cap for editorial content ——————————— */
+  /* Drop cap — retained from v1 for long-form (guides, minibooks).
+     Now a condensed capital rather than a serif. */
   .drop-cap::first-letter {
     font-family: var(--font-display);
-    font-size: 5.5rem;
-    font-weight: 500;
-    line-height: 0.85;
+    font-size: 5rem;
+    font-weight: 900;
+    font-stretch: 78%;
+    line-height: 0.82;
     float: left;
-    margin-right: 0.5rem;
-    margin-top: 0.25rem;
-    color: var(--primary-orange);
+    margin-right: 0.4rem;
+    margin-top: 0.3rem;
+    color: var(--primary);
   }
 
-  /* ——————————— Cream paper texture (very subtle) ——————————— */
+  /* Retained from v1 — subtle warm texture for long-form sand surfaces. */
   .paper-grain {
     background-image:
       radial-gradient(at 40% 20%, oklch(0.98 0.01 75 / 0.4) 0, transparent 50%),
@@ -299,44 +469,47 @@
       radial-gradient(at 0% 100%, oklch(0.94 0.025 50 / 0.3) 0, transparent 45%);
   }
 
-  /* ——————————— Focus ring — crisp, editorial ——————————— */
   :focus-visible {
-    outline: 2px solid var(--primary-orange);
+    outline: 2px solid var(--primary);
     outline-offset: 3px;
-    border-radius: 2px;
+    border-radius: 0;
   }
 
-  /* ——————————— Selection ——————————— */
   ::selection {
-    background: var(--primary-orange);
-    color: var(--cream);
+    background: var(--primary);
+    /* --primary-foreground, not --ink: resolves to ink on Aspire and to
+       dark-on-lime under the SoccerOne brand override. */
+    color: var(--primary-foreground);
   }
 
-  /* ——————————— Headings — editorial cadence ——————————— */
-  h1, h2, h3 {
-    font-family: var(--font-display);
-    letter-spacing: -0.02em;
-    line-height: 1.05;
+  /* ── Mobile tap responsiveness ────────────────────────────────────
+     ~80% of paid traffic is mobile; session replays showed double/triple-
+     taps on CTAs. touch-action kills the double-tap-zoom wait heuristic on
+     interactive elements; the pressed state gives instant feedback so a
+     slow navigation doesn't read as a dead tap. Opacity only — no
+     transform, so nothing shifts and prefers-reduced-motion needs no
+     carve-out. Element-selector defaults → base layer, so any utility can
+     override. */
+  a,
+  button,
+  [role="button"],
+  input,
+  select,
+  textarea,
+  label {
+    touch-action: manipulation;
   }
-
-  h1 {
-    font-weight: 500;
-  }
-
-  h2 {
-    font-weight: 500;
-  }
-
-  h3 {
-    font-weight: 500;
-    letter-spacing: -0.015em;
-    line-height: 1.15;
+  @media (hover: none) {
+    a:active,
+    button:not(:disabled):active,
+    [role="button"]:active {
+      opacity: 0.75;
+    }
   }
 }
 
 /* ============================================================
-   Editorial reveal animations
-   — stagger fade-up for dashboard sections, page entries, etc.
+   Broadsheet components + display voice
 
    Everything below lives in @layer components so Tailwind
    utilities (emitted in the later `utilities` layer) always win
@@ -346,6 +519,274 @@
 ============================================================ */
 
 @layer components {
+
+/* ——————————— Display voice ———————————
+   Condensed capitals. The width axis does the work — never
+   letter-space a display line, never set display type below 19px,
+   and never use it for a run over ~12 words. */
+.display-xl,
+.display-l,
+.display-m,
+.display-s {
+  font-family: var(--font-display);
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+.display-xl { font-size: clamp(3rem, 7vw, 5.5rem); line-height: 0.92; font-stretch: 78%; }
+.display-l  { font-size: clamp(2.25rem, 4vw, 3.25rem); line-height: 0.98; font-stretch: 80%; }
+.display-m  { font-size: 1.875rem; line-height: 1.02; font-stretch: 82%; }
+.display-s  { font-size: 1.25rem; line-height: 1.05; font-stretch: 84%; letter-spacing: 0; }
+
+/* Structural label — a navigational/tabular device, NOT an eyebrow.
+   Legal inside key-value blocks, table headers, and card chrome.
+   Illegal directly above a headline. */
+.label {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Data label — discrete data VALUES only: times, dates, ages, counts,
+   statuses, prices. Never keys, column heads, nav items or section
+   labels — those are .label. Never NAMES or CATEGORIES either
+   ("Saturday Micros", "Worthington Fieldhouse", "Foundation") — those
+   are sans. A value is measured or counted; a name is not. If you can't
+   read the content aloud as a value, it isn't mono.
+
+   Mono's second job — technical annotation (token names, code, spec
+   captions) — belongs to DOCUMENTATION surfaces: the design-system
+   sheet, coaching guides' code samples. It is not licence to annotate
+   product UI in mono.
+
+   Tune it for the editorial register: where a mono VALUE sits beside
+   sans, match the surrounding size, keep weight 400, and use the same
+   colour as the adjacent sans. Never add tracking to a mono value —
+   mono marks the value, it shouldn't announce it.
+
+   Exception: inline token/code spans inside prose (job 2) sit one step
+   DOWN — 12px in 14px copy, 13px in 15px — because Plex Mono's x-height
+   runs larger than Archivo's and a matched size reads oversized
+   mid-sentence. Annotation only, never a value in a table or card.
+
+   Standalone annotation (band captions, swatch readouts, diagram tags)
+   is its own element, not a span in a sentence, so it sets its own size
+   rather than stepping down from a parent. */
+.data {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.body-l { font-size: 1.125rem; line-height: 1.55; }
+.body-copy { font-size: 1rem; line-height: 1.6; }
+.body-s { font-size: 0.875rem; line-height: 1.55; }
+
+/* ——————————— Band rhythm ———————————
+   A page is a stack of full-bleed bands alternating ink and sand.
+   Never two ink bands adjacent unless one is orange or a photo
+   scrim. Orange appears at most twice per page. */
+.band-ink { background: var(--ink); color: var(--on-ink); }
+.band-ink-lift { background: var(--ink-lift); color: var(--on-ink); }
+.band-sand { background: var(--sand); color: var(--on-sand); }
+.band-paper { background: var(--paper); color: var(--on-sand); }
+.band-orange { background: var(--primary-bright); color: var(--ink); }
+
+/* Links — SCOPED to band surfaces, deliberately not a bare `a` rule.
+   The canvas styles every anchor --primary-text, but legacy pages have
+   unclassed links that inherit their surface colour (e.g. cream links
+   on graded heroes) — a global rule painted those dark orange on dark
+   photos (~2.9:1, measured on /youth). Until the band conversion lands,
+   only surfaces the system controls get the link colours:
+   light bands → --primary-text, hover darkens to ink (brightening a
+   light-surface link lowers contrast; --primary-bright is 3.32:1 on
+   paper). Ink bands invert: --primary-bright link, cream hover. */
+.band-sand a, .band-paper a { color: var(--primary-text); }
+.band-sand a:hover, .band-paper a:hover { color: var(--ink); }
+.band-ink a, .band-ink-lift a { color: var(--primary-bright); }
+.band-ink a:hover, .band-ink-lift a:hover { color: var(--on-ink); }
+
+/* THE NUMERAL RULE (stated identically in docs/design-system.md):
+   a number earns its place only where the count itself is the
+   information — a price, a spot count, a tier label, a table value,
+   a filter-chip count. It is never a decorative anchor, and "ordered"
+   is not an exemption: an ordered rule list still has no information
+   in its numbers.
+
+   A card that loses its numeral needs nothing in its place. The title
+   anchors it and the hairline grid separates it — don't substitute a
+   decorative bar for a decorative numeral. */
+
+/* Hairline grid — children carry their own padding; the gap IS the rule,
+   so colouring the gap is the cheapest way to bring accent into a
+   text-only band. .quadrants--accent turns the rules orange; pair it
+   with --primary-bright titles (5.30:1 on ink). Colour through
+   structure, never through added ornament. */
+.quadrants { display: grid; gap: 1px; background: var(--rule-on-ink); }
+.quadrants > * { background: var(--ink); }
+.quadrants--accent { background: var(--primary); }
+.quadrants--accent > * > :first-child { color: var(--primary-bright); }
+
+/* Step card — orange bar on top. NO numeral: the border-top anchors the
+   card, and sequence is carried by document order plus the age band each
+   card names. See the numeral rule above .quadrants. */
+.step-card {
+  background: var(--paper);
+  border-top: var(--accent-bar) solid var(--primary);
+  padding: 22px 20px;
+}
+.step-card--invert { background: var(--ink); color: var(--on-ink); }
+
+/* Fixture card — the ink cap bar carries category + status, so no label
+   sits above the card's headline. Per the mono rule the cap bar is
+   MIXED: the category is a name (sans, .label) and the age band is a
+   value (mono). Don't set the whole bar in one face. */
+.fixture { background: var(--paper); border: 1px solid var(--border); }
+.fixture__cap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: var(--ink);
+  color: var(--on-ink);
+}
+.fixture__chip {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  background: var(--primary-bright);
+  color: var(--ink);
+}
+.fixture__chip--wait { background: var(--ochre); }
+.fixture__chip--quiet { background: none; color: var(--on-ink-muted); padding-left: 0; padding-right: 0; }
+
+/* Data table — ink header, hairline rows, paper zebra. The action column
+   must be a fixed width, never `auto`, or headers drift off their data.
+   Column heads are LABELS (Archivo 800), not mono — mono belongs to the
+   data in the cells. --on-ink-2, not --on-ink-muted: the muted value
+   passes at 5.70:1 but reads faint at 11px with 0.1em tracking. */
+.table__head {
+  background: var(--ink);
+  color: var(--on-ink-2);
+  font-family: var(--font-sans);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.table__row + .table__row { border-top: 1px solid var(--border); }
+.table__row:nth-child(even) { background: var(--paper); }
+/* Row action — a button, not a data label: Archivo 800, never mono.
+   Mono is for values the row reports; the CTA is something you click. */
+.table__action {
+  font-family: var(--font-sans);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: center;
+  padding: 7px 12px;
+  background: var(--primary-bright);
+  color: var(--ink);
+}
+.table__action--outline {
+  background: none;
+  border: 1.5px solid var(--ink);
+  color: var(--ink);
+  padding: 5.5px 12px;
+}
+
+/* Buttons — square, uppercase, tracked. */
+.btn {
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 13px 22px;
+  border-radius: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background-color 200ms ease, color 200ms ease;
+}
+.btn--primary { background: var(--primary-bright); color: var(--ink); }
+.btn--primary:hover { background: var(--primary-hover); }
+.btn--ink { background: var(--ink); color: var(--on-ink); }
+.btn--ink:hover { background: var(--primary); color: var(--ink); }
+.btn--outline { border: 1.5px solid var(--ink); color: var(--ink); padding: 11.5px 22px; }
+.btn--outline:hover { background: var(--ink); color: var(--on-ink); }
+.btn--on-ink { border: 1.5px solid oklch(0.972 0.008 80 / 0.4); color: var(--on-ink); padding: 11.5px 22px; }
+/* Ghost buttons follow the link rule: --primary-text on light surfaces,
+   hover darkens to ink. */
+.btn--ghost { color: var(--primary-text); padding: 13px 4px; }
+.btn--ghost:hover { color: var(--ink); }
+
+/* Chips — the one place radius survives.
+   Font follows the CONTENT, per the mono rule: a chip whose label is a
+   measured value (an age band) is mono; a chip whose label is a name or
+   category ("Classes", "Worthington Fieldhouse") is sans. The trailing
+   count is always mono, because a count is always a value. */
+.chip {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--paper);
+  color: var(--on-sand-2);
+  transition: border-color 200ms ease;
+}
+.chip--value { font-family: var(--font-mono); font-weight: 400; }
+.chip__count { font-family: var(--font-mono); opacity: 0.5; margin-left: 4px; }
+.chip:hover { border-color: var(--on-sand-muted); }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+
+/* In-page nav — full-strength ink at weight 600 on --primary-bright.
+   Measured: ink on --primary is 3.85:1, under the 4.5:1 floor for 12px
+   text (and 12px/700 does not reach WCAG's large-text threshold of
+   18.66px bold, so weight can't rescue it). Ink on --primary-bright is
+   5.30:1.
+
+   The active/hover wash is CREAM, not ink: a 10% ink wash darkens the
+   band and drags the same text below the 4.5:1 floor (~4.4), undoing
+   the fix it sits inside. Cream lightens the band instead and holds
+   above 5.7:1.
+
+   Items are Archivo 600, not mono: a nav item is a label, not a value.
+   Weight 600 compensates for Archivo reading lighter than mono at the
+   same size; the colour is unchanged, so 5.30:1 still holds. */
+.inpage-nav {
+  display: flex;
+  align-items: center;
+  background: var(--primary-bright);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.inpage-nav > * { padding: 14px 18px; white-space: nowrap; transition: background-color 160ms ease; }
+.inpage-nav > *:hover { background: oklch(0.972 0.008 80 / 0.1); }
+.inpage-nav > [aria-current] {
+  font-weight: 700;
+  background: oklch(0.972 0.008 80 / 0.16);
+  box-shadow: inset 0 -3px 0 var(--ink);
+}
+.inpage-nav > [aria-current]:hover { background: oklch(0.972 0.008 80 / 0.16); }
+
+/* ============================================================
+   Editorial reveal animations — carried over from v1 unchanged
+============================================================ */
 
 /* Primary reveal: 12px travel, 0.5s — dashboard section stagger */
 @keyframes fade-slide-in {
@@ -414,7 +855,7 @@
 .fade-up:nth-child(4) { animation-delay: 240ms; }
 .fade-up:nth-child(5) { animation-delay: 320ms; }
 
-/* Guide card hover interactions */
+/* Guide card hover interactions — retained, ink/orange pairing */
 .guide-card {
   transition: border-color 400ms ease, background-color 400ms ease;
 }
@@ -425,7 +866,7 @@
   transform: translateX(6px);
 }
 .guide-card:hover .guide-number {
-  color: var(--primary-orange);
+  color: var(--primary);
 }
 .guide-arrow {
   transition: transform 400ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -453,7 +894,8 @@
 
 /* ============================================================
    Brand grade — photography never appears raw on marketing
-   surfaces. See docs/design-system.md "Graded imagery".
+   surfaces. Same recipe as v1, rebased from navy to ink.
+   See docs/design-system.md "Graded imagery".
 ============================================================ */
 .graded {
   position: relative;
@@ -483,12 +925,12 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(29, 45, 68, 0.78), rgba(232, 78, 27, 0.32));
+  background: linear-gradient(135deg, oklch(0.20 0.021 245 / 0.82), oklch(0.58 0.19 35 / 0.34));
   mix-blend-mode: multiply;
   pointer-events: none;
 }
 .graded--emerald::after {
-  background: linear-gradient(135deg, rgba(14, 82, 60, 0.74), rgba(232, 78, 27, 0.28));
+  background: linear-gradient(135deg, oklch(0.20 0.021 245 / 0.82), oklch(0.52 0.08 155 / 0.34));
 }
 /* Content layered above the grade inside a .graded container */
 .graded > .graded-content {
@@ -496,30 +938,13 @@
   z-index: 1;
 }
 
-} /* end @layer components */
-
-/* ── Mobile tap responsiveness ──────────────────────────────────────────
-   ~80% of paid traffic is mobile; session replays showed double/triple-taps
-   on CTAs. touch-action kills the double-tap-zoom wait heuristic on
-   interactive elements; the pressed state gives instant feedback so a slow
-   navigation doesn't read as a dead tap. Opacity only — no transform, so
-   nothing shifts and prefers-reduced-motion needs no carve-out.
-   Element-selector defaults → base layer, so any utility can override. */
-@layer base {
-  a,
-  button,
-  [role="button"],
-  input,
-  select,
-  textarea,
-  label {
-    touch-action: manipulation;
-  }
-  @media (hover: none) {
-    a:active,
-    button:not(:disabled):active,
-    [role="button"]:active {
-      opacity: 0.75;
-    }
-  }
+/* Hero scrim — a diagonal ink wash so display capitals stay legible
+   over any photograph. */
+.hero-scrim {
+  background: linear-gradient(78deg,
+    oklch(0.20 0.021 245 / 0.94) 0%,
+    oklch(0.20 0.021 245 / 0.82) 44%,
+    oklch(0.20 0.021 245 / 0.15) 100%);
 }
+
+} /* end @layer components */

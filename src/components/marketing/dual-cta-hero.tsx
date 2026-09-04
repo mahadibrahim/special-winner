@@ -86,7 +86,7 @@ export function DualCtaHero({ announcement }: DualCtaHeroProps) {
             <a
               href="/adult/leagues"
               data-landing-cta="homepage-hero-adult"
-              className="group inline-flex items-center gap-3 bg-primary text-cream px-7 py-4 text-sm font-medium tracking-wide uppercase hover:bg-primary/90 transition-colors duration-300"
+              className="group inline-flex items-center gap-3 bg-primary-bright text-primary-foreground px-7 py-4 text-sm font-medium tracking-wide uppercase hover:bg-primary-hover transition-colors duration-300"
               style={{ letterSpacing: "0.08em" }}
             >
               For Adults

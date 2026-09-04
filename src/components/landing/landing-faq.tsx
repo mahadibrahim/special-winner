@@ -54,7 +54,7 @@ const ACCENTS: Record<LandingFaqAccent, AccentClasses> = {
   orange: {
     openBorder: "border-primary/20",
     hoverBorder: "hover:border-primary/10",
-    numOpen: "bg-primary text-cream",
+    numOpen: "bg-primary-bright text-primary-foreground",
     toggleOpen: "bg-primary/20 text-primary",
     rule: "bg-primary",
   },

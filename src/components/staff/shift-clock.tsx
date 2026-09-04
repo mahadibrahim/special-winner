@@ -216,7 +216,7 @@ export function ShiftClock({ venues }: { venues: ShiftVenueOption[] }) {
               type="button"
               onClick={acknowledgeConsent}
               disabled={ackSubmitting}
-              className={`${buttonClass} bg-primary-orange text-white`}
+              className={`${buttonClass} bg-primary-bright text-primary-foreground`}
             >
               {ackSubmitting ? (
                 <span className="inline-flex items-center gap-2 justify-center">
@@ -286,7 +286,7 @@ export function ShiftClock({ venues }: { venues: ShiftVenueOption[] }) {
             type="button"
             onClick={clockIn}
             disabled={submitting || consentBlocking || !venueId}
-            className={`${buttonClass} bg-primary-orange text-white`}
+            className={`${buttonClass} bg-primary-bright text-primary-foreground`}
           >
             {submitting ? (
               <span className="inline-flex items-center gap-2 justify-center">

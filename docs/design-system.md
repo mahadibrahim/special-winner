@@ -1,290 +1,315 @@
-# Aspire Sports — Editorial Design System
+# Aspire Sports — Broadsheet Design System (v2)
 
-> *The Athletic* meets *Tracksmith*, not a SaaS dashboard.
+> A match programme, not a magazine. Heavy condensed capitals, ink and sand bands alternating down the page, orange carrying real surface.
 
-Last updated: 2026-04-16
+Last updated: 2026-09-03 · Supersedes the Editorial system (v1, 2026-04-16)
+Design canvas: `Aspire Design System v2.dc.html` in the claude.ai/design project (reference page: `Aspire Classes & Camps.dc.html`, option 2a).
 
 ---
 
-## Philosophy
+## What changed, and why
 
-The Aspire Sports visual identity is **warm, editorial, and confident**. Every surface feels like a well-typeset magazine — warm off-white paper, purposeful serif headlines, restrained use of a single hot-spot accent color. We avoid cold grays, generic SaaS patterns, and system fonts.
+v1 was *The Athletic* meets *Tracksmith* — warm cream paper, Newsreader serif headlines, a single orange hot-spot held in reserve. It was calm and credible, and it under-sold a sports organisation. v2 keeps the warmth in the relief bands and replaces the voice: display type is now heavy condensed Archivo capitals, ink is a page surface rather than only a text colour, and orange is allowed to own a full band.
+
+**Scope: the Aspire brand, everywhere it appears.** Public marketing, parent dashboard, coach and referee apps, admin, minibooks.
+
+**Out of scope: SoccerOne — fully inert.** The app is multi-tenant. SoccerOne runs on its own locked token set (`src/styles/soccerone-tokens.css` — Anton / DM Sans / JetBrains Mono, lime on near-black, its own 2–20px radius scale), pinned to observed production values by founder decision. v2 does not touch it, **including shared flows (auth, checkout, dashboard) rendered under `data-brand="soccerone"`** — `src/lib/branding/themes.ts` overrides every v2 seam back to what v1 rendered there:
+
+- the **v2 primitive names** (`--sand`, `--on-sand`, `--primary`, `--primary-foreground`, `--secondary`, `--rule-color`…) as well as the v1 alias names, because the v2 semantic vars resolve through the primitives;
+- the **display-voice seams** (`--brand-display-weight/-leading/-tracking`) back to 500 / 1.05 / −0.02em — Anton has a single 400 face and Aspire's 900 would synthetic-bold it;
+- the **radius scale seams** (`--radius-scale-xs`…`-4xl`) back to v1's values, so SoccerOne's shared flows keep their rounding while Aspire is square;
+- `--primary-bright` → lime and `--primary-hover` → lime-bright, so the audited v2 CTAs (`bg-primary-bright … hover:bg-primary-hover`) render exactly like v1's lime buttons.
+
+Only sub-pixel-scale details intentionally follow Aspire's base styles under SoccerOne (body letter-spacing 0 vs v1's −0.005em, focus-outline corner radius, dropped `ss01`/`ss02` features — all invisible at rendering scale).
+
+**What did not change:** the orange itself (`oklch(0.58 0.19 35)`), the sand/cream ramp values, emerald as the youth accent, ochre as tertiary, the graded-imagery recipe, and every reveal animation. **v1 token names are aliased, not removed** — `--cream`, `--ink-2`, `--ink-muted`, `--primary-orange` and friends still resolve, so `bg-cream` / `text-ink-muted` / `text-primary-orange` keep working. Migrate at your own pace.
+
+### Repo deviations from the design canvas
+
+Recorded here so nobody "fixes" them back toward the canvas:
+
+- **Emerald keeps its v1 trio** (`--emerald: oklch(0.55 0.12 160)`, `-bright`, `-soft`). The canvas swatch reads `0.52 0.08 155`, but that is v1's `--sage` value and the canvas's own prose declares emerald unchanged; live youth pages depend on the trio. `--sage` stays a separate literal (success states), not an emerald alias.
+- **Youth extension tokens retained**: `--brand-red`, `--royal`, `--royal-bright` (logo-derived, 2026-08-18 youth redesign) are still real tokens with `@theme` mappings.
+- **`--primary-hover` (`oklch(0.70 0.17 40)`)** is a repo addition: the hover for orange fills, lighter so ink text gains contrast on hover. Used by `.btn--primary:hover` and `hover:bg-primary-hover` utility sites.
+- **The whole Tailwind radius scale** (`--radius-xs` … `--radius-4xl`) resolves through `var(--radius)` (0), so `rounded-2xl` cards go square too; `rounded-full` / pills are untouched.
+- **Everything after the token blocks is layered** (`@layer base` / `@layer components`) per the CSS layering rule below — the canvas's flat stylesheet is not the repo shape.
+- **Link colours are scoped to `.band-*` surfaces**, not a bare `a` rule. Legacy pages have unclassed links that inherit their surface colour (cream links on graded heroes); the canvas's global `a { color: var(--primary-text) }` painted those ~2.9:1 dark-orange-on-dark. New band-rhythm pages get the link rule automatically; legacy links keep inheritance until their page converts.
+
+---
+
+## The file
+
+`src/styles/globals.css` is the system. It keeps the `@import "tailwindcss"` / `@import "tw-animate-css"` lines, the full `@theme inline` mapping (new token names *and* the v1 aliases, so existing utilities resolve), the `@layer base` block, `.rule` / `.rule-heavy` / `.label-sm` / `.drop-cap` / `.paper-grain`, the focus ring, the reveal animations, the reduced-motion guard, `.graded` (+ `--fill`), and the mobile tap-responsiveness block. Nothing from v1 was silently dropped.
 
 ---
 
 ## Typography
 
-| Role | Family | Weight | Usage |
-|------|--------|--------|-------|
-| **Display** | Newsreader | 400–600, italic | Headlines (h1–h3), hero text, pull quotes |
-| **Body** | IBM Plex Sans | 400–600 | Body copy, UI labels, buttons, form inputs |
-| **Mono** | IBM Plex Mono | 400–500 | Code snippets, data values, technical labels |
+| Role | Family | Setting | Usage |
+|------|--------|---------|-------|
+| **Display** | Archivo | wght 900, wdth 78–84%, uppercase | h1–h3, hero, section heads, card titles, prices |
+| **Body / UI** | Archivo | wght 400–700, wdth 100% | Body copy, labels, buttons, inputs |
+| **Mono** | IBM Plex Mono | 400–500 | **(1)** discrete data values — times, ages, counts, statuses, prices · **(2)** technical annotation — token names, code, spec captions |
+
+**Mono has two jobs, both narrow.**
+
+1. **The data itself** — a value that is measured or counted. Not keys, not column heads, not nav items, not section labels: those are `.label` (Archivo 800, tracked). If you can't read the content aloud as a value, it isn't mono.
+2. **Technical annotation** — token names, code samples, spec-sheet metadata. This job belongs to **documentation surfaces only** (this doc, code in coaching guides). It is not licence to annotate product UI in mono.
+
+So `Tue · 4:30–5:15pm`, `18mo – 3 yrs` and `3 left` are mono under (1); `--primary-bright` and `radius 0 · pill 999px` on a spec sheet are mono under (2); `When`, `Where`, `Class`, `Pathway`, `Aspire Sports` are neither.
+
+**Tune mono for the editorial register.** A class table should read like a schedule, not a log file, and mono is what pushes it technical. So where a mono **value** sits beside sans, match the surrounding size (14px next to 14–15px sans, not a size down), keep weight 400, and use the same colour as the adjacent sans — never add tracking to a mono value. Mono marks the value; it shouldn't announce it.
+
+The one exception is **inline token and code spans inside prose** (job 2), which sit one step down — 12px in 14px copy, 13px in 15px. Plex Mono's x-height runs larger than Archivo's, so a matched size reads oversized mid-sentence. This carve-out applies to annotation only, never to a value in a table or card. Standalone annotation (band captions, swatch readouts, diagram tags) is its own element and sets its own size (10–11px) rather than stepping down from a parent.
+
+**Links follow the same rule.** On light surfaces a link is `--primary-text` (5.92:1 on paper) and **hover darkens to ink** — brightening a link on a light background lowers its contrast, and `--primary-bright` measures only 3.32:1 on paper, so it must never be a light-surface text colour. On ink bands the pair inverts: `--primary-bright` link, cream hover.
+
+**Names and categories are sans, not mono.** A value is measured or counted — a time, an age, a count, a status, a price. A *name* is neither: `Saturday Micros`, `Worthington Fieldhouse`, `Foundation`, `Technical`, `Coach Ade`. In a table row that means mono and sans interleave by column, and that is correct — the eye uses the shift to tell measurements from labels.
+
+**Mixed content follows the same test per part.** A filter chip is the common case: `3–5` is an age band, so that chip is mono (`.chip--value`); `Classes` and `Worthington Fieldhouse` are a category and a name, so those chips are sans. The trailing count is always mono (`.chip__count`), because a count is always a value — so a sans chip can legitimately carry a mono number.
+
+One family carries display and body. The display voice is a **width and weight setting**, not a second font file — which is why the whole system loads in a single variable face.
 
 ### Loading fonts
 
-Every page `<head>` must include:
+Loaded once in `src/layouts/BaseLayout.astro`:
 
 ```html
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link
-  href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500;1,6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+  href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,100..900&family=IBM+Plex+Mono:wght@400;500&display=swap"
   rel="stylesheet"
 />
 ```
 
-### Tailwind classes
+### Scale
 
-- `font-display` or `font-serif` — Newsreader (headlines, editorial text)
-- `font-sans` — IBM Plex Sans (default body, UI)
-- `font-mono` — IBM Plex Mono (code, data)
+| Class | Size | Leading | Width | Use |
+|---|---|---|---|---|
+| `.display-xl` | clamp(48px, 7vw, 88px) | 0.92 | 78% | One per page. Hero only. |
+| `.display-l` | clamp(36px, 4vw, 52px) | 0.98 | 80% | Band headings |
+| `.display-m` | 30px | 1.02 | 82% | Sub-sections, cross-link cards |
+| `.display-s` | 20px | 1.05 | 84% | Card titles, stat figures |
+| `.label` | 12px / 800 / 0.1em | — | 100% | Structural labels, table heads |
+| `.data` | 11px mono / 0.1em | — | — | Discrete data values — times, ages, counts, statuses |
+| `.body-l` | 18px | 1.55 | 100% | Hero subhead, pull copy |
+| `.body-copy` | 16px | 1.6 | 100% | Default |
+| `.body-s` | 14px | 1.55 | 100% | Card copy, meta |
 
-### Editorial patterns
+`h1`–`h3` take the display family, weight 900 and condensed width automatically, **but not uppercase** — shouting every dashboard heading wrecks app density. The condensed capital voice is opt-in via `.display-*`.
 
-- **Section labels**: `text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted` (e.g., "§ COACH DASHBOARD")
-- **Drop cap**: Add `.drop-cap` class for editorial first-paragraph treatment
-- **Rule lines**: `.rule` (thin border divider), `.rule-heavy` (2px ink)
-- **No eyebrow text**: Do not place kicker/eyebrow labels above headlines unless absolutely necessary. Headlines and supporting copy carry the message on their own. When status, date, or audience info must surface near a heading, use one of these treatments instead: a status chip docked to the card/section corner, the info woven into the meta row or first sentence of copy, or a bare accent bar with no text. Data labels inside key-value blocks and captions under content are fine — this rule targets text above headlines. (App-chrome "§" section labels above are navigation, not eyebrows, and remain allowed.)
+### Rules of the display voice
 
-**Do not use**: Inter, Roboto, Arial, Geist, or system-ui as primary fonts.
+- **Never letter-space a display line.** The width axis does that work. Negative tracking (−0.015em) only.
+- **Never below 19px.** Condensed capitals stop being legible; drop to `.label` instead.
+- **Never for reading.** Any run over ~12 words is body copy, mixed case, normal width. This is the guard on minibooks and coaching guides: their headings are display, their prose is not.
+- **Balance, don't wrap.** `text-wrap: balance` on display, `pretty` on body.
+
+### No eyebrow text
+
+**Carried over from v1 and still binding.** Do not place a kicker above a headline. Where status, age, or audience must surface near a heading, use:
+
+- a status chip docked to the card corner, or the **ink cap bar** (`.fixture__cap`) which carries category + status *above the card*, not above the headline inside it;
+- the fact woven into the meta row or the first sentence;
+- a bare orange accent bar with no text.
+
+Legal: data labels inside key-value blocks, table column heads, captions under content, and the app-chrome `§` section labels. Illegal: a tracked uppercase line sitting directly on top of a headline.
 
 ---
 
-## Color Palette
+## Colour
 
-### Core colors
+### Ink — the structural base
 
-| Token | Tailwind class | Description |
-|-------|---------------|-------------|
-| `--cream` | `bg-cream`, `text-cream` | Warm off-white foundation. The background of everything. |
-| `--cream-2` | `bg-cream-2` | Slightly darker cream for subtle card insets, hover states |
-| `--cream-3` | `bg-cream-3` | Deeper cream for active states, pressed buttons |
-| `--ink` | `text-ink` | Primary text color. Dark charcoal, never pure black. |
-| `--ink-2` | `text-ink-2` | Secondary text, slightly lighter |
-| `--ink-muted` | `text-ink-muted` | Muted labels, placeholders, helper text |
-| `--ink-faint` | `text-ink-faint` | Disabled text, decorative elements |
-| `--navy` | `bg-navy`, `text-navy` | Heritage navy. Sidebar backgrounds, quote marks, depth. |
-| `--navy-deep` | `bg-navy-deep` | Deeper navy for sidebar chrome |
-| `--primary` | `bg-primary`, `text-primary` | The Aspire red-orange. Single accent hot-spot. |
-| `--paper` | `bg-paper` | Card surfaces that lift off the cream background |
-| `--ochre` | `text-ochre` | Warm secondary accent for subtle highlights |
-| `--sage` | `text-sage` | Success states, positive indicators |
-| `--emerald` (+ `-bright`, `-soft`) | `text-emerald`, `bg-emerald-bright`, `border-t-emerald` | Youth accent family. Mirrors the `primary-orange` structure: anchor on cream, `-bright` on navy, `-soft` for chips. |
-| `--brand-red`, `--royal`, `--royal-bright` | `text-brand-red`, `bg-royal`, `text-royal-bright` | Logo-derived youth extensions. Red = hot CTA/flood on youth surfaces; royal = structural (jump bar, cards). |
+| Token | Value | Use |
+|---|---|---|
+| `--ink` | `oklch(0.20 0.021 245)` | Ink bands, primary text on sand, table headers |
+| `--ink-lift` | `oklch(0.25 0.025 248)` | Panels raised on ink (cross-link pair, sub-nav) |
+| `--ink-deep` | `oklch(0.16 0.020 245)` | Footer floor, photo scrim base |
+| `--on-ink` | `oklch(0.972 0.008 80)` | Text on ink |
+| `--on-ink-2` | `oklch(0.80 0.014 80)` | Secondary on ink |
+| `--on-ink-muted` | `oklch(0.655 0.013 80)` | Muted / table head labels on ink |
 
-### Semantic tokens (shadcn bridge)
+`--ink` is the one token whose **value changed** from v1 (was `oklch(0.18 0.008 260)`). Everything else in the light ramp carried over.
 
-| Token | Maps to | Usage |
-|-------|---------|-------|
-| `--background` | `--cream` | Page background |
-| `--foreground` | `--ink` | Default text |
-| `--card` | `--paper` | Card backgrounds |
-| `--border` | warm gray | Borders, dividers, input outlines |
-| `--primary` | `--primary-orange` | CTA buttons, links, accents |
-| `--secondary` | `--navy` | Secondary actions |
-| `--muted` | `--cream-2` | Muted backgrounds |
-| `--destructive` | red-orange | Delete, error states |
-| `--success` | `--sage` | Positive states |
-| `--warning` | `--ochre` | Warning states |
+### Sand — the relief surface
+
+| Token | Value | Use |
+|---|---|---|
+| `--sand` | `oklch(0.972 0.008 80)` | Relief band background |
+| `--sand-inset` | `oklch(0.955 0.012 78)` | Insets, hover |
+| `--sand-deep` | `oklch(0.935 0.018 76)` | Pressed states |
+| `--paper` | `oklch(0.99 0.003 80)` | Cards lifting off sand |
+| `--on-sand` / `-2` / `-muted` / `-faint` | ink / `0.38 0.010 80` / `0.48 0.012 80` / `0.56 0.010 80` | Text on sand |
+
+### Accents
+
+| Token | Value | Role |
+|---|---|---|
+| `--primary` | `oklch(0.58 0.19 35)` | **Unchanged value, far more surface.** Surfaces and non-text only: bands, accent bars, rules, display-xl headlines. With ink, either direction, it measures **3.85:1** — large text only (≥24px, or ≥18.66px bold) |
+| `--primary-bright` | `oklch(0.66 0.21 35)` | Small orange-and-ink text, either direction — **5.30:1**. Nav items, button fills, mono chips and numerals under 24px, orange text on an ink fill. Also the closer band, dark-mode primary |
+| `--primary-text` | `oklch(0.52 0.19 33)` | **New in v2.** Small orange text on light surfaces — 5.92:1 on paper, 5.60:1 on sand, 5.32:1 on sand-inset |
+| `--primary-hover` | `oklch(0.70 0.17 40)` | Repo addition: hover for orange fills — lighter, so ink text gains contrast |
+| `--emerald` (+`-bright`, `-soft`) | `oklch(0.55 0.12 160)` … | Youth (v1 trio, see deviations) |
+| `--sage` | `oklch(0.52 0.08 155)` | Success states |
+| `--ochre` | `oklch(0.75 0.12 75)` | Tertiary highlight, waitlist |
+| `--navy` / `--navy-deep` | `oklch(0.24 0.06 260)` / `oklch(0.18 0.07 262)` | Pickup, neutral depth |
+| `--brand-red` / `--royal` / `--royal-bright` | `oklch(0.52 0.19 27)` … | Youth logo-derived extensions |
+
+**Orange on ink is the signature pairing.** Text on orange is always `--ink`, never cream — `--primary-foreground` is ink in v2. This inverts v1. In markup, prefer `text-primary-foreground` over `text-ink` on orange fills: it resolves to ink on Aspire and to dark-on-lime under the SoccerOne brand override, so shared components stay correct on both tenants.
+
+### The orange contrast rule
+
+Measured WCAG ratios, not estimates. **Three orange values, one job each.**
+
+| Pairing | Ratio | Verdict |
+|---|---|---|
+| ink on `--primary` | 3.85:1 | Large text only — ≥24px, or ≥18.66px bold |
+| `--primary` on ink | 3.85:1 | Same pair reversed, same verdict |
+| cream on `--primary` | 4.33:1 | Fails small text; cream-on-orange is off-system anyway |
+| **ink on `--primary-bright`** | **5.30:1** | Safe at any size |
+| **`--primary-bright` on ink** | **5.30:1** | Safe at any size |
+| `--primary` text on `--paper` | 4.58:1 | Passes, but only just |
+| `--primary` text on `--sand` | 4.33:1 | **Fails** |
+| `--primary` text on `--sand-inset` | 4.12:1 | **Fails** — the worst light surface |
+| **`--primary-text` on `--paper`** | **5.92:1** | Safe |
+| **`--primary-text` on `--sand`** | **5.60:1** | Safe |
+| **`--primary-text` on `--sand-inset`** | **5.32:1** | Safe |
+| `--primary-text` on ink | 2.98:1 | Fails — it is a *light-surface* value only |
+
+So, by surface:
+
+- **On ink** — small orange-and-ink text in either direction uses `--primary-bright`.
+- **On sand or paper** — small orange text uses `--primary-text`; `--primary` cannot serve as one light-surface rule at one value.
+- **`--primary`** keeps the surfaces where type clears the 3:1 large-text floor — display-xl headlines, 34px numerals — plus every non-text use: accent bars, rules.
+
+Weight does not rescue 12px: WCAG's large-text threshold is 18.66px bold, so a 12px/700 nav item is still held to 4.5:1.
+
+**An ink wash cannot be an active state on an orange band.** A 10% ink wash over `--primary-bright` darkens it enough to pull ink text **below the 4.5:1 floor** (~4.4). Active and hover states on orange use a **cream** wash, which lightens the band instead and holds above 5.7:1 at 10% and 6.1:1 at 16%. Signal the active item with weight and a 3px inset underscore.
+
+The solid-on-solid figures are exact — computed by compositing the token values and applying the WCAG formula. Figures for **alpha washes are approximate by nature** (they shift with compositing rounding), so they are quoted as thresholds, not decimals. Re-measure rather than reason if you change a value.
 
 ### What NOT to use
 
 | Avoid | Use instead |
-|-------|------------|
-| `text-white` (on light bg) | `text-ink` |
-| `text-gray-500` | `text-ink-muted` |
-| `bg-gray-100` | `bg-cream` or `bg-cream-2` |
-| `bg-white` | `bg-paper` |
-| `bg-[#0a0a0f]` | `bg-cream` (light) or `bg-navy-deep` (sidebar) |
-| `border-white/10` | `border-border` |
-| `text-blue-400` | `text-primary` |
-| Cold Tailwind grays (`gray-100`–`gray-900`) | Editorial tokens (`cream`, `ink`, `navy`) |
+|---|---|
+| Newsreader, any serif | Archivo display |
+| Cream as the only background | Alternating `.band-ink` / `.band-sand` |
+| Rounded cards (`rounded-lg`, `rounded-2xl`) | Square. `--radius: 0` |
+| Card drop shadows | Hairline rules — `--rule-color`, `--rule-on-ink` |
+| Cream/white text on orange | `text-primary-foreground` (ink) on orange |
+| Tracked caps above a headline | Corner chip or ink cap bar |
+| Letter-spaced display type | The width axis |
 
 ---
 
-## Dark Mode
+## Geometry
 
-Dark mode (`class="dark"` on `<html>`) is reserved for **immersive reading contexts**: minibooks, coaching guides, resource study pages. It is NOT the default.
+**v2 is square.** `--radius: 0`, and the whole Tailwind radius scale resolves through it. Radius survives in exactly two places: filter chips and status pills (`--radius-pill: 999px`, `rounded-full`).
 
-All semantic tokens have dark-mode overrides defined in `globals.css`. In dark mode:
-- Background → deep navy
-- Text → warm cream-white
-- Primary → brighter orange
-- Cards → slightly lighter navy
+Shadows are gone as a separating device. Structure comes from **rules and bands**: a 1px hairline on sand, an alpha hairline on ink, a 2px `.rule-heavy` under band headings, and the 5px orange `--accent-bar` on step cards. The one legitimate shadow is a page-level lift on a floating overlay.
 
 ---
 
-## Layout Patterns
+## Band rhythm
 
-### Public pages (homepage, programs, guides)
+A page is a stack of full-bleed bands that alternate ink and sand.
 
-```html
-<body class="bg-cream text-ink antialiased">
-  <Navigation client:load />
-  <main>...</main>
-  <Footer client:idle />
-</body>
-```
+1. **Never two ink bands adjacent** unless one is orange or a photo scrim.
+2. **Orange appears at most twice per page** — conventionally the in-page nav bar and the closer.
+3. **Open on ink, close on orange.** Header and hero are ink; the final CTA band is orange; the footer returns to ink.
+4. Every band is full-bleed; the content inside it is what has a max width.
 
-### Coach pages
-
-```html
-<body class="min-h-screen flex flex-col bg-cream text-ink antialiased">
-  <Navigation client:load />
-  <main class="flex-1 pt-28 pb-16 px-4">
-    <div class="max-w-7xl mx-auto">
-      <!-- Section label bar -->
-      <div class="flex items-center justify-between mb-2">
-        <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">§ Page Title</p>
-        <p class="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">Date</p>
-      </div>
-      <div class="h-px bg-border mb-10"></div>
-      <!-- Breadcrumb -->
-      <nav class="text-sm text-ink-muted mb-6">
-        <a href="/coach" class="hover:text-ink">Coach Dashboard</a> / <span class="text-ink">Page</span>
-      </nav>
-      <!-- Content -->
-    </div>
-  </main>
-  <Footer client:idle />
-</body>
-```
-
-### Admin pages
-
-Admin uses a sidebar layout via `<AdminLayout>`. The sidebar is navy-deep with cream text. The content area inherits the cream background from the body.
-
-```html
-<body class="bg-cream text-ink antialiased">
-  <AdminLayout client:load currentPath="/admin/page" user={user}>
-    <!-- Page content goes here -->
-  </AdminLayout>
-</body>
-```
+Reference order, youth programme page: header (ink) → product sub-nav (ink-lift) → hero (photo + scrim) → in-page nav (orange) → pathway (sand) → philosophy (ink) → what it's like (sand) → coaching (ink) → pricing (sand) → schedule (paper) → open classes (sand) → FAQs (ink) → cross-links (ink-lift) → closer (orange) → footer (ink).
 
 ---
 
-## Component Patterns
+## Components
 
-### Cards
+Full rendered set: the design canvas. The classes live in `globals.css` `@layer components`. Highlights:
 
-```html
-<!-- Standard card -->
-<div class="bg-paper border border-border rounded-lg p-5">
+- **Step card** (`.step-card`, `--invert`) — orange top bar, title, mono age band, one sentence. The last card in a run inverts to ink. **No numeral**: the bar anchors the card, and the sequence is carried by document order plus the age band each card names.
+- **Fixture card** (`.fixture`, `.fixture__cap`, `.fixture__chip`) — ink cap bar carrying category + status chip, display title, key-value meta grid — keys as labels, times and ages in mono — then a price band above a full-width orange button. The cap bar is mixed content: the category is a name (sans) and the age band a value (mono). Used for classes, camps, leagues, sessions.
+- **Tier card** — display title, mono tier number, one sentence, then a two-row rate block (standard / technical) divided by a dashed hairline. The recommended tier gets an ink hairline ring and an orange fill button.
+- **Data table** (`.table__head`, `.table__row`, `.table__action`) — ink header row whose column heads are **labels, not mono** (Archivo 800 in `--on-ink-2`), hairline rows, paper zebra. Mono appears only in the cells holding measured values; name and category columns stay sans. The per-row action is a **button, not a data label**: Archivo 800. Right-most column is fixed-width, never `auto`.
+- **In-page nav** (`.inpage-nav`) — band on `--primary-bright`, **Archivo 600** uppercase items in full-strength ink (5.30:1), each `white-space: nowrap`. Active takes weight 700, a 3px ink underscore and a **cream** wash; hover a lighter cream wash. Never an ink wash — see the contrast rule. One link pushed right.
+- **Quadrant grid** (`.quadrants`, `--accent`) — four points on ink separated by hairlines. Replaces stat boxes. No numerals and no markers: **colour arrives through the structure** — the dividing rules go orange and the titles carry `--primary-bright`. If a band needs more life, colour something already there before adding an element.
+- **Buttons** (`.btn` + `--primary` / `--ink` / `--outline` / `--on-ink` / `--ghost`) — square, uppercase, 0.1em tracked, Archivo 800. In utility form: `bg-primary-bright text-primary-foreground hover:bg-primary-hover`.
+- **Chips** (`.chip`, `--value`, `__count`) — the one place radius survives. Font follows the content per the mono rule.
+- **Closer band** — `--primary-bright`, display-xl in ink, one ink button with `--primary-bright` label. Any subline on it is full-strength ink, never alpha.
 
-<!-- Inset card (slightly darker) -->
-<div class="bg-cream-2 rounded-lg p-3">
-
-<!-- Accent card (primary highlight) -->
-<div class="bg-primary/5 border border-primary/20 rounded-lg p-5">
-```
-
-### Buttons
-
-```html
-<!-- Primary CTA -->
-<button class="bg-primary text-cream hover:bg-primary/90 rounded px-4 py-2 text-sm font-medium">
-
-<!-- Secondary / outline -->
-<button class="border border-border text-ink-muted hover:text-ink hover:bg-cream-2 rounded px-4 py-2 text-sm font-medium">
-
-<!-- Ghost -->
-<button class="text-ink-muted hover:text-ink hover:bg-cream-2 rounded px-4 py-2 text-sm font-medium">
-```
-
-### Badges
-
-```html
-<!-- Status badges use Tailwind's color utilities with /10 or /20 opacity -->
-<span class="bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 text-xs px-2 py-0.5 rounded">Active</span>
-<span class="bg-amber-500/10 text-amber-700 border border-amber-500/20 text-xs px-2 py-0.5 rounded">Pending</span>
-```
-
-### Stat cards
-
-```html
-<div class="bg-paper border border-border rounded-2xl p-5">
-  <div class="flex items-center gap-3 mb-3">
-    <div class="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-      <Icon class="w-5 h-5 text-white" />
-    </div>
-    <span class="text-sm text-ink-muted">Label</span>
-  </div>
-  <p class="text-3xl font-bold text-ink">42</p>
-</div>
-```
-
-### Quick action links
-
-```html
-<a class="flex items-center gap-3 p-3 rounded-lg bg-cream-2 hover:bg-cream-3 transition-colors group">
-  <Icon class="w-5 h-5 text-ink-muted group-hover:text-primary" />
-  <span class="text-sm text-ink-2 group-hover:text-ink">Link text</span>
-  <ChevronRight class="w-4 h-4 text-ink-faint ml-auto" />
-</a>
-```
+**On numerals generally.** v2 uses almost none. A number earns its place only where the count itself is the information — a price, a spot count, a tier label, a table value, a filter-chip count. It is never a decorative anchor, and "ordered" is not an exemption. **A card that loses its numeral needs nothing in its place** — don't substitute a decorative bar for a decorative numeral.
 
 ---
 
-## Icon colors on colored backgrounds
+## Dark mode
 
-When an icon sits on a gradient or solid-color background, use `text-white`:
-
-```html
-<div class="bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl">
-  <span class="text-white">ET</span>  <!-- white on colored bg: OK -->
-</div>
-```
-
-When an icon sits on cream/paper, use `text-ink`, `text-ink-muted`, or `text-primary`.
+v1 reserved dark for immersive reading. In v2 ink is already a default surface, so `.dark` is only a deepening: sand relief bands become ink-lift, orange brightens to `--primary-bright`, and the surface/text aliases invert together so utilities stay correct.
 
 ---
 
-## Migration from dark theme
+## Migration: v1 → v2
 
-When converting a component from the old dark SaaS theme:
+| v1 pattern | v2 pattern |
+|---|---|
+| `--cream` / `--cream-2` / `--cream-3` | `--sand` / `--sand-inset` / `--sand-deep`. **Old names aliased** — `bg-cream` still works. |
+| `--ink-2` / `--ink-muted` / `--ink-faint` | `--on-sand-2` / `--on-sand-muted` / `--on-sand-faint`. Old names aliased. |
+| `--primary-orange` (+ `-bright`, `-soft`) | `--primary` (+ `-bright`, `-soft`). Old names aliased. |
+| `text-primary` used as small text on a light surface | `text-primary-text` — new text-only orange |
+| `--ink` | Unchanged name, **new value** — was `oklch(0.18 0.008 260)`, now `oklch(0.20 0.021 245)`. The only value change in the ramp. |
+| `.font-serif` / `.serif` (Newsreader) | Resolves to the display face. `--brand-font-serif` aliases `--brand-font-display`. |
+| `.drop-cap` (serif, 5.5rem, weight 500) | Retained, now a condensed capital at 5rem / 900 |
+| `.label-sm` (11px / 700 / 0.12em) | Retained as-is; `.label` (12px / 800 / 0.1em) is the v2 default |
+| Newsreader italic pull quote | Display caps, or body-l at 24px in `--on-ink` with an orange `<em>` |
+| `bg-cream text-ink` on every page | Alternating `.band-ink` / `.band-sand` |
+| `rounded-lg` / `rounded-2xl` card | Square (automatic — radius tokens are 0); chips keep `rounded-full` |
+| `bg-primary text-cream` / `text-white` button | `bg-primary-bright text-primary-foreground hover:bg-primary-hover` |
+| `bg-ink text-cream hover:bg-primary` button | keep rest state; hover → `hover:bg-primary-bright hover:text-primary-foreground` |
+| Status badge, tinted + rounded | Mono chip in the ink cap bar, or corner pill |
+| Stat card (icon tile + 3xl bold number) | Quadrant grid — orange rules, accent titles, no icon tile, no numeral |
+| Sidebar `bg-navy-deep` | `--sidebar: var(--ink)`; accent rows `--ink-lift` |
+| Dark mode = immersive reading only | Dark mode = deepening |
+| Drop shadow separation | `--rule-color` / `--rule-on-ink` hairlines |
+| `.graded` navy→orange at 0.78/0.32 | Same recipe, ink base at 0.82/0.34 |
+| Reveal animations (`.fade-up`, `.fade-slide-in`…) | Unchanged |
 
-| Old pattern | New pattern |
-|-------------|-------------|
-| `class="dark"` on `<html>` | Remove it |
-| `bg-[#0a0a0f]` | `bg-cream` |
-| `text-white` | `text-ink` (unless on colored bg) |
-| `text-gray-400`, `text-gray-500` | `text-ink-muted` |
-| `text-gray-300` | `text-ink-2` |
-| `text-gray-600` | `text-ink-faint` |
-| `bg-white/[0.02]`, `bg-white/[0.03]` | `bg-paper`, `bg-cream-2` |
-| `border-white/[0.06]`, `border-white/10` | `border-border` |
-| `hover:bg-white/5` | `hover:bg-cream-2` |
-| `text-blue-400`, `text-blue-500` | `text-primary` |
-| `bg-blue-500/20` | `bg-primary/10` |
-| `bg-gray-900`, `bg-gray-800` | `bg-navy-deep`, `bg-navy` |
+### Order of work
+
+1. ✅ `globals.css` replaced, font `<link>` swapped (this landing). The aliases mean nothing breaks on contact; every surface changes voice at once.
+2. ✅ `--radius` 0 with pills exempted.
+3. ✅ `--primary-foreground` flipped to ink; every same-line `bg-primary* + text-cream/text-white` combo audited and moved to `bg-primary-bright text-primary-foreground` (incl. the shadcn Button default variant).
+4. Convert marketing pages to band rhythm — highest visible return. Reference page: `Aspire Classes & Camps.dc.html` option 2a.
+5. App chrome: sidebar to ink, tables to ink headers.
+6. Minibooks last, and their prose stays body copy — only headings take the display voice.
+7. Optional cleanup: codemod `bg-cream`→`bg-sand`, `text-ink-muted`→`text-on-sand-muted`, `text-primary-orange`→`text-primary`, then delete the alias block. Do this after everything else is stable.
 
 ---
 
-## Graded imagery (2026-06-12 — aesthetic evolution)
+## Graded imagery
 
-Photography on public marketing surfaces never appears raw. Every image passes
-through the brand grade so mismatched (stock) photography reads as one set:
+Photography on public marketing surfaces never appears raw. Every image passes through the brand grade so mismatched (stock) photography reads as one set:
 
-- CSS: wrap in `.graded` (navy→orange duotone) or `.graded--emerald` (youth contexts).
+- CSS: wrap in `.graded` (ink→orange duotone) or `.graded--emerald` (youth contexts).
 - React: `<GradedImage src alt variant?="navy|emerald" />` from `@/components/ui/graded-image`.
-- Recipe: `grayscale(1) contrast(1.08) brightness(.96)` on the img + a
-  `linear-gradient(135deg, rgba(29,45,68,.78), rgba(232,78,27,.32))` multiply overlay.
+- Recipe: `grayscale(1) contrast(1.08) brightness(.96)` on the img + a `linear-gradient(135deg, oklch(0.20 0.021 245 / .82), oklch(0.58 0.19 35 / .34))` multiply overlay (v2 rebased the base from navy to ink).
+- Hero text legibility over photos: `.hero-scrim` — a diagonal ink wash.
 - Removing the grade per-image (when real photography arrives) = drop the class.
 
-### Accent roles (marketing surfaces)
+### `.graded--fill`
 
-orange = adult/primary CTA energy · emerald = youth · ochre = tertiary highlight ·
-navy = neutral/pickup. The "single hot-spot" restraint still applies to app/dashboard
-surfaces; marketing pages may run all three accents.
+Use the `graded--fill` modifier to deploy the grade as a hero background layer:
 
-### Patterns
+```html
+<section class="relative bg-ink overflow-hidden">
+  <div class="graded graded--emerald graded--fill z-0" aria-hidden="true">
+    <img src="..." alt="" />
+  </div>
+  <div class="relative z-10">…content…</div>
+</section>
+```
 
-- **Benefit trio**: 3 columns, 3px colored border-top (orange/emerald/ochre), italic
-  serif benefit headline, one supporting sentence. Replaces stat/proof boxes — leading
-  with operational tablestakes (venues, refs, fees) is banned; those live in body copy.
-- **Audience badge**: chip overlay on mixed-surface cards — orange "Adult",
-  emerald "Youth", navy "Pickup".
+The solid band colour on the section is the fallback ground so light text never lands on sand if the photo is missing.
 
 ### Stock sources (license traceability — Unsplash License, self-hosted)
 
@@ -297,149 +322,53 @@ surfaces; marketing pages may run all three accents.
 | youth-training.jpg | photo-1606925797300-0b35e9d1794e |
 | team-huddle.jpg | photo-1529900748604-07564a03e7a6 |
 
+---
+
 ## Sport color & youth surfaces (2026-08-17 — youth redesign)
 
 ### Sport palette
 
-Sport tint answers "which game"; the accent roles above answer "who it's for".
-They are different axes and a surface may carry both. One source:
+Sport tint answers "which game"; accent roles answer "who it's for". They are different axes and a surface may carry both. One source:
 
-- `sportColor(sport)` from `src/lib/design/sport-colors.ts` — resolves
-  `sports.color` (admin-set hex, wins) → `SPORT_FALLBACK_COLORS[slug]` →
-  neutral grey. Used by `CardShell` media bands (via `ProgramCardV2`) and the
-  league sport-picker hero tiles.
-- Never inline a sport's color as an `oklch()`/hex literal in a page. That is
-  how the same sport ended up different colors on a card and the tile above it.
-- Futsal deliberately sits adjacent to soccer in hue — sibling sports should
-  read as related.
+- `sportColor(sport)` from `src/lib/design/sport-colors.ts` — resolves `sports.color` (admin-set hex, wins) → `SPORT_FALLBACK_COLORS[slug]` → neutral grey. Used by `CardShell` media bands (via `ProgramCardV2`) and the league sport-picker hero tiles.
+- Never inline a sport's color as an `oklch()`/hex literal in a page.
+- Futsal deliberately sits adjacent to soccer in hue — sibling sports should read as related.
 
 ### Youth marketing surfaces — rules applied
 
-- Every accent is **emerald** (the youth role). Adult's orange belongs only on
-  adult surfaces.
-- Heroes use the graded photo treatment (`.graded--emerald`), never raw photos
-  and never flat navy voids.
-- `CategoryCard` has three youth aurora palettes (`youth-a` emerald, `youth-b`
-  amber, `youth-c` teal) so the hub's three doors never repeat a color.
-- Copy rules (owner-directed, enforced by an E2E spec on format claims): no
-  eyebrow/kicker text above headlines, no format claims (roster sizes, ball
-  sizes, field dimensions, game lengths), no oppositional language about other
-  clubs, the facility is not a selling point, pricing indicative on hub pages
-  with exact figures on programme pages.
-
-### `.graded--fill`
-
-Use the `graded--fill` modifier to deploy the grade as a hero background
-layer. (Historically this modifier existed because `.graded` was unlayered
-CSS and silently beat Tailwind's `absolute inset-0`; globals.css is now fully
-layered — see "CSS layering" below — so utilities win, but `graded--fill`
-remains the canonical spelling.)
-
-```html
-<section class="relative bg-navy-deep overflow-hidden">
-  <div class="graded graded--emerald graded--fill z-0" aria-hidden="true">
-    <img src="..." alt="" />
-  </div>
-  <div class="relative z-10">…content…</div>
-</section>
-```
-
-The `bg-navy-deep` on the section is the fallback ground so cream text never
-lands on cream if the photo is missing.
+- Every accent is **emerald** (the youth role). Adult's orange belongs only on adult surfaces.
+- Heroes use the graded photo treatment (`.graded--emerald`), never raw photos and never flat voids.
+- Copy rules (owner-directed, enforced by an E2E spec on format claims): no eyebrow/kicker text above headlines, no format claims (roster sizes, ball sizes, field dimensions, game lengths), no oppositional language about other clubs, the facility is not a selling point, pricing indicative on hub pages with exact figures on programme pages.
+- **Full-width body text (owner rule, 2026-08-18):** no max-width measure caps on paragraph text on new/touched pages.
+- The youth band primitives (`src/components/youth/bands/*` — jump bar, feature band, statement cards, pricing cards, coach section, deadline banner, division table) predate v2 and now render in the Archivo display voice via the font seams. Recompose them toward the v2 band grammar as pages are touched (order-of-work step 4), not in a big bang.
+- Accent roles on youth: emerald = youth signature · brand-red = youth hot CTA/flood · royal = structural (jump bar, cards, discs).
 
 ---
 
 ## CSS layering (2026-08-29)
 
-Tailwind v4 emits every utility inside the `utilities` cascade layer, and
-**unlayered author CSS beats all layered CSS regardless of specificity**. A
-bare class rule in a global stylesheet therefore silently overrides any
-Tailwind utility on the same property — the utility appears to do nothing,
-with no error (this is exactly how the `.graded` / `absolute inset-0`
-incident happened).
+Tailwind v4 emits every utility inside the `utilities` cascade layer, and **unlayered author CSS beats all layered CSS regardless of specificity**. A bare class rule in a global stylesheet therefore silently overrides any Tailwind utility on the same property — the utility appears to do nothing, with no error (the `.graded` / `absolute inset-0` incident).
 
 Rules:
 
-- **Every style rule in `globals.css` lives inside an `@layer` block.**
-  Element defaults (`a`, `h1`, focus rings) → `@layer base`. Class rules
-  (`.graded`, `.fade-up`, `.guide-card`) → `@layer components`. Utilities
-  then predictably win over both. Token-only statements (`:root`, `.dark`,
-  `@theme`) are exempt — they define variables, not competing declarations.
-- Enforced by `tests/unit/globals-css-layering.test.ts`, which fails on any
-  unlayered top-level rule.
-- The `prefers-reduced-motion` block keeps winning despite being layered: its
-  declarations are `!important`, and the cascade reverses layer order for
-  important rules, so a layered important beats even `!`-prefixed utilities.
+- **Every style rule in `globals.css` lives inside an `@layer` block.** Element defaults (`a`, `h1`, focus rings) → `@layer base`. Class rules (`.display-*`, `.band-*`, `.btn`, `.fixture`, `.graded`, `.fade-up`…) → `@layer components`. Utilities then predictably win over both. Token-only statements (`:root`, `.dark`, `@theme`) are exempt.
+- Enforced by `tests/unit/globals-css-layering.test.ts`, which fails on any unlayered top-level rule.
+- The `prefers-reduced-motion` block keeps winning despite being layered: its declarations are `!important`, and the cascade reverses layer order for important rules, so a layered important beats even `!`-prefixed utilities.
 
 ## Styling React islands (Astro + React)
 
-Astro's scoped `<style>` blocks are compiled to `data-astro-*` attribute
-selectors that are only stamped onto elements in the `.astro` template —
-**they never reach the DOM a React island renders**. Relying on a parent
-page's scoped styles to style island internals fails silently (this caused a
-prod incident).
+Astro's scoped `<style>` blocks are compiled to `data-astro-*` attribute selectors that are only stamped onto elements in the `.astro` template — **they never reach the DOM a React island renders**. Relying on a parent page's scoped styles to style island internals fails silently (this caused a prod incident).
 
 Convention for any `.tsx` component rendered with a `client:*` directive:
 
-- Style island internals exclusively with **Tailwind utilities and the global
-  design tokens** (`bg-cream`, `text-ink`, `var(--emerald)`, …). Both travel
-  with the component wherever it mounts.
-- If an island genuinely needs bespoke CSS a utility can't express, either
-  embed a `<style>` tag in the island's own JSX with island-prefixed class
-  names (the established pattern — see `partners-section.tsx`,
-  `SoccerOneSeasonTabs.tsx`), or add a layered rule to `globals.css`. Never
-  put it in the parent `.astro` page's scoped `<style>`. Embedded island
-  styles are unlayered, so keep their selectors on bespoke class names that
-  no Tailwind utility also targets.
-- Astro scoped `<style>` blocks are fine for markup that lives in the same
-  `.astro` file; just don't write selectors there that target an island's
-  internal markup.
+- Style island internals exclusively with **Tailwind utilities and the global design tokens** (`bg-sand`, `text-ink`, `var(--emerald)`, …). Both travel with the component wherever it mounts.
+- If an island genuinely needs bespoke CSS a utility can't express, either embed a `<style>` tag in the island's own JSX with island-prefixed class names (see `partners-section.tsx`, `SoccerOneSeasonTabs.tsx`), or add a layered rule to `globals.css`. Never put it in the parent `.astro` page's scoped `<style>`. Embedded island styles are unlayered, so keep their selectors on bespoke class names that no Tailwind utility also targets.
+- Astro scoped `<style>` blocks are fine for markup that lives in the same `.astro` file; just don't write selectors there that target an island's internal markup.
 
 ---
 
-## Youth band grammar (2026-08-18)
+## Open questions
 
-Youth pages (`/youth/**`) use a full-bleed band-composition system with serif
-typography and the logo-derived palette (emerald signature + brand-red CTAs +
-royal structure).
-
-**Band shape**: full-width color-blocked sections, each a self-contained visual
-unit. Section headers are bold serif with a `text-brand-red` tinted closing
-phrase. The 3px kicker rule element above h2s is retired on youth surfaces.
-
-**Primitive inventory** (youth-scoped consumers only; adult finder is prop-gated):
-- Sticky jump bar (`src/components/youth/bands/section-jump-bar.astro`) — royal
-  band, mono uppercase pill links, cream active state
-- Feature band (`src/components/youth/bands/feature-band.astro`) — full-bleed
-  colored band, image third, title + kicker + prose + CTA (powers pathway
-  steps and cross-promo)
-- Statement cards (`src/components/youth/bands/statement-cards.astro`) — solid
-  color card row (royal / emerald / red), mono label, large serif statement,
-  supporting line
-- Coach section (`src/components/youth/youth-coach-section.astro`) — circular
-  portrait, large italic serif line of attributed prose (his method, from
-  `COACH.method` — deliberately NOT rendered as a blockquote or in quotation
-  marks, since it isn't a blessed direct quote) with a red emphasis word,
-  credential chips from `COACH.credits`
-- Booking card (`ProgramCardV2` via `cardVariant="youth-band"` on
-  `CategoryFinder`, opt-in and default-unchanged) — colored level-band header
-  with the season's age/level label and its status pill (spots-left when the
-  season surfaces capacity, else "Open"), name, day/time/venue/price rows,
-  red Book CTA. Band color rotates emerald → royal → navy by card index.
-- Pricing cards (`src/components/youth/bands/pricing-cards.astro`) — three-card
-  cost explainer
-
-- Deadline banner (youth league pages) — full-width brand-red bar above the
-  hero: live term + registration deadline, cream CTA pill. Replaces the
-  in-hero now-registering banner on league surfaces.
-- Division table (`YouthDivisionTable` via `CategoryFinder layout="table"`,
-  opt-in) — direct-booking rows: group + Competitive/Developmental badge,
-  season, day/start, price with per-team/per-kid unit, row CTA. Level chips
-  via `levelChips`.
-- League-type labels are Competitive / Developmental; "Winter" only ever
-  names the season window (Nov – late March).
-- **Full-width body text (owner rule, 2026-08-18):** no max-width measure
-  caps on paragraph text. Ledes/subheads/notes span the content column.
-
-**Accent roles**: emerald = youth signature · brand-red = youth hot CTA/flood ·
-royal = structural (jump bar, cards, discs)
+- **Real rates.** The pricing pattern is documented with placeholder amounts on the canvas. Replace before launch.
+- **Coach bios.** The coaching band needs sourced copy and real photography; it currently ships as a placeholder.
+- **Photography.** The grade is tuned for the stock set in the licence table above. Real photography should drop the grade per-image, not globally.

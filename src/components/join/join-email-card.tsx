@@ -78,7 +78,7 @@ export function JoinEmailCard({ brand, src }: JoinEmailCardProps) {
           <button
             type="submit"
             disabled={status === "submitting"}
-            className="rounded-lg bg-primary px-6 py-3 text-sm font-medium uppercase tracking-wide text-cream transition-colors hover:bg-primary/90 disabled:opacity-60"
+            className="rounded-lg bg-primary-bright px-6 py-3 text-sm font-medium uppercase tracking-wide text-primary-foreground transition-colors hover:bg-primary-hover disabled:opacity-60"
             style={{ letterSpacing: "0.08em" }}
           >
             {status === "submitting" ? "Sending…" : "Get my code"}

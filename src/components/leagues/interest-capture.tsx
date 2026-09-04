@@ -50,7 +50,7 @@ export function InterestCapture({ seasonId, source, title, subtitle, compact }: 
         <button
           type="submit"
           disabled={status === "sending"}
-          className="font-sans font-semibold text-xs bg-primary text-cream px-4 py-2 rounded-md disabled:opacity-60"
+          className="font-sans font-semibold text-xs bg-primary-bright text-primary-foreground px-4 py-2 rounded-md disabled:opacity-60"
         >
           {status === "sending" ? "Sending…" : "Notify me"}
         </button>

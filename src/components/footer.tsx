@@ -177,7 +177,7 @@ export default function Footer() {
                   <button
                     type="submit"
                     disabled={nlStatus === "submitting"}
-                    className="inline-flex items-center justify-center gap-2 w-full px-4 py-2 bg-primary-orange text-cream text-sm font-medium rounded hover:bg-primary-orange/90 disabled:opacity-60 transition-colors"
+                    className="inline-flex items-center justify-center gap-2 w-full px-4 py-2 bg-primary-bright text-primary-foreground text-sm font-medium rounded hover:bg-primary-bright/90 disabled:opacity-60 transition-colors"
                   >
                     {nlStatus === "submitting" ? (
                       <>

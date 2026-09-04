@@ -70,7 +70,7 @@ export default function CaptureBand() {
             <button
               type="submit"
               disabled={status === "submitting"}
-              className="px-6 py-3 bg-primary text-cream text-sm font-medium tracking-wide uppercase rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-60"
+              className="px-6 py-3 bg-primary-bright text-primary-foreground text-sm font-medium tracking-wide uppercase rounded-lg hover:bg-primary-hover transition-colors disabled:opacity-60"
               style={{ letterSpacing: "0.08em" }}
             >
               {status === "submitting" ? "Sending…" : "Send my code"}

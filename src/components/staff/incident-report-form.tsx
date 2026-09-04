@@ -175,7 +175,7 @@ export function IncidentReportForm({
             <button
               type="button"
               onClick={() => setSubmitted(false)}
-              className="mt-4 inline-flex items-center justify-center px-5 py-2.5 bg-ink text-cream text-sm font-medium tracking-wide uppercase hover:bg-primary-orange transition-colors"
+              className="mt-4 inline-flex items-center justify-center px-5 py-2.5 bg-ink text-cream text-sm font-medium tracking-wide uppercase hover:bg-primary-bright hover:text-primary-foreground transition-colors"
               style={{ letterSpacing: "0.08em" }}
             >
               File another incident
@@ -372,7 +372,7 @@ export function IncidentReportForm({
       <button
         type="submit"
         disabled={isSubmitting}
-        className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-ink text-cream text-sm font-medium tracking-wide uppercase hover:bg-primary-orange transition-colors disabled:opacity-60 w-full"
+        className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-ink text-cream text-sm font-medium tracking-wide uppercase hover:bg-primary-bright hover:text-primary-foreground transition-colors disabled:opacity-60 w-full"
         style={{ letterSpacing: "0.08em" }}
       >
         {isSubmitting ? (

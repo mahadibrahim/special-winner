@@ -68,7 +68,7 @@ const INPUT_CLASS =
   "w-full px-4 py-3 bg-paper border border-border focus:border-ink focus:outline-none rounded-lg text-base text-ink placeholder:text-ink-faint transition-colors";
 
 const PRIMARY_BTN =
-  "w-full min-h-[60px] px-6 py-4 rounded-xl bg-primary text-cream text-lg font-medium transition-all hover:bg-primary/90 active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed";
+  "w-full min-h-[60px] px-6 py-4 rounded-xl bg-primary-bright text-primary-foreground text-lg font-medium transition-all hover:bg-primary-hover active:scale-[0.99] disabled:opacity-40 disabled:cursor-not-allowed";
 
 const GHOST_BTN =
   "inline-flex items-center gap-2 min-h-[44px] px-4 -ml-4 rounded-lg text-base text-ink-muted hover:text-ink transition-colors";

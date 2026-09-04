@@ -227,7 +227,7 @@ export default function WrapUp({
                         aria-pressed={decision === d}
                         onClick={() => setDecisions((prev) => ({ ...prev, [c.clientId]: d }))}
                         className={`min-h-11 rounded-full border border-border px-3 text-sm ${
-                          decision === d ? "bg-primary text-white" : "bg-paper text-ink"
+                          decision === d ? "bg-primary-bright text-primary-foreground" : "bg-paper text-ink"
                         }`}
                       >
                         {label}
@@ -275,7 +275,7 @@ export default function WrapUp({
         <button
           data-testid="wrapup-next"
           onClick={() => setStep((s) => s + 1)}
-          className="min-h-14 w-full rounded-xl bg-primary text-lg font-semibold text-white"
+          className="min-h-14 w-full rounded-xl bg-primary-bright text-lg font-semibold text-primary-foreground"
         >
           Next
         </button>
@@ -284,7 +284,7 @@ export default function WrapUp({
           data-testid="finish-session"
           disabled={finishing}
           onClick={finish}
-          className="min-h-14 w-full rounded-xl bg-primary text-lg font-semibold text-white disabled:opacity-50"
+          className="min-h-14 w-full rounded-xl bg-primary-bright text-lg font-semibold text-primary-foreground disabled:opacity-50"
         >
           {finishing ? "Finishing…" : "Finish"}
         </button>

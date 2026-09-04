@@ -697,7 +697,7 @@ export default function TeamCreate({
               <button
                 type="button"
                 onClick={handleCopy}
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-ink text-cream rounded-lg hover:bg-primary-orange transition-colors text-sm"
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-ink text-cream rounded-lg hover:bg-primary-bright hover:text-primary-foreground transition-colors text-sm"
               >
                 {copied ? (
                   <>
@@ -783,7 +783,7 @@ export default function TeamCreate({
               <button
                 type="submit"
                 disabled={inviteStatus === "sending"}
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-ink text-cream rounded-lg hover:bg-primary-orange transition-colors text-sm disabled:opacity-60"
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-ink text-cream rounded-lg hover:bg-primary-bright hover:text-primary-foreground transition-colors text-sm disabled:opacity-60"
               >
                 {inviteStatus === "sending" ? (
                   <>

@@ -460,7 +460,7 @@ export default function GlowsGrowsFlow({ sessionId }: { sessionId: string }) {
                         className={cn(
                           "min-h-11 px-4 py-2 rounded-full text-sm font-medium border transition-colors",
                           selected
-                            ? "bg-primary text-white border-primary"
+                            ? "bg-primary-bright text-primary-foreground border-primary"
                             : "bg-cream-2 text-ink-muted border-border hover:bg-cream-3",
                           disabled && "opacity-40"
                         )}
@@ -642,7 +642,7 @@ export default function GlowsGrowsFlow({ sessionId }: { sessionId: string }) {
           </a>
           <a
             href="/coach/practices/new"
-            className="min-h-11 flex items-center justify-center rounded-md bg-primary text-white font-medium text-sm"
+            className="min-h-11 flex items-center justify-center rounded-md bg-primary-bright text-primary-foreground font-medium text-sm"
           >
             Plan next practice
           </a>

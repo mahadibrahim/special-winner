@@ -131,7 +131,7 @@ export default function PickupCard({
           </div>
           <a
             href={`/dropin/${session.id}`}
-            className={`inline-flex items-center gap-1.5 text-xs font-semibold tracking-wide uppercase bg-ink text-cream px-3 py-2 rounded-md group-hover:bg-primary transition-colors ${STRETCHED_LINK_CLASSES}`}
+            className={`inline-flex items-center gap-1.5 text-xs font-semibold tracking-wide uppercase bg-ink text-cream px-3 py-2 rounded-md group-hover:bg-primary-bright group-hover:text-primary-foreground transition-colors ${STRETCHED_LINK_CLASSES}`}
           >
             {isFull ? "Join waitlist" : "Book"}
             <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />

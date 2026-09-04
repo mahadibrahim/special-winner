@@ -168,7 +168,7 @@ const faqSchema = {
         {currentTerm && (
           <a
             href={termHref}
-            class="mt-5 inline-flex items-center gap-2 px-6 py-3.5 bg-primary text-cream text-sm font-semibold rounded-lg hover:bg-ink transition-colors"
+            class="mt-5 inline-flex items-center gap-2 px-6 py-3.5 bg-primary-bright text-primary-foreground text-sm font-semibold rounded-lg hover:bg-ink transition-colors"
           >
             See {termLabel} divisions &amp; register →
           </a>
@@ -293,7 +293,7 @@ const faqSchema = {
         </div>
         <a
           href={termHref}
-          class="mt-8 inline-flex items-center gap-2 px-6 py-3.5 bg-ink text-cream text-sm font-semibold rounded-lg hover:bg-primary transition-colors"
+          class="mt-8 inline-flex items-center gap-2 px-6 py-3.5 bg-ink text-cream text-sm font-semibold rounded-lg hover:bg-primary-bright hover:text-primary-foreground transition-colors"
         >
           {currentTerm ? `Find your ${termLabel} division →` : "See adult soccer leagues →"}
         </a>

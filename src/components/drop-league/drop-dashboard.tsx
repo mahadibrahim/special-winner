@@ -277,7 +277,7 @@ function FoodDiaryWidget({ weekNumber }: { weekNumber: number }) {
             <button
               onClick={handleSubmit}
               disabled={status === "submitting"}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary-orange px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-lg bg-primary-bright px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm hover:opacity-90 transition-opacity disabled:opacity-50"
             >
               {status === "submitting" ? (
                 <>
@@ -359,7 +359,7 @@ export function DropDashboard() {
         </p>
         <a
           href="/drop-league/register"
-          className="inline-flex items-center gap-2 rounded-lg bg-primary-orange px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:opacity-90 transition-opacity"
+          className="inline-flex items-center gap-2 rounded-lg bg-primary-bright px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm hover:opacity-90 transition-opacity"
         >
           Register for Drop League
         </a>

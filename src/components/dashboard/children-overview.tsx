@@ -93,7 +93,7 @@ function ChildCard({ child }: { child: Child }) {
         {/* Header */}
         <div className="flex items-start gap-4 mb-4">
           {/* Avatar */}
-          <div className="relative w-14 h-14 rounded-xl bg-primary flex items-center justify-center text-white font-bold text-lg">
+          <div className="relative w-14 h-14 rounded-xl bg-primary-bright flex items-center justify-center text-primary-foreground font-bold text-lg">
             <span className="ph-mask">{child.firstName[0]}{child.lastName[0]}</span>
             {child.coachRating && child.coachRating >= 4.5 && (
               <div className="absolute -top-1 -right-1 w-5 h-5 bg-ochre rounded-full flex items-center justify-center">

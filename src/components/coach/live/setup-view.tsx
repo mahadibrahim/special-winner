@@ -111,7 +111,7 @@ export default function SetupView({
       <button
         data-testid="start-session"
         onClick={onStart}
-        className="fixed inset-x-4 bottom-4 mx-auto min-h-14 w-[calc(100%-2rem)] max-w-lg rounded-xl bg-primary text-lg font-semibold text-white"
+        className="fixed inset-x-4 bottom-4 mx-auto min-h-14 w-[calc(100%-2rem)] max-w-lg rounded-xl bg-primary-bright text-lg font-semibold text-primary-foreground"
       >
         Start session
       </button>

@@ -404,7 +404,7 @@ export default function ApplicationForm() {
       <button
         type="submit"
         disabled={isSubmitting}
-        className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-ink text-cream text-sm font-medium tracking-wide uppercase hover:bg-primary-orange transition-colors disabled:opacity-60"
+        className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-ink text-cream text-sm font-medium tracking-wide uppercase hover:bg-primary-bright hover:text-primary-foreground transition-colors disabled:opacity-60"
         style={{ letterSpacing: "0.08em" }}
       >
         {isSubmitting ? (
