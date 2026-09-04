@@ -1538,7 +1538,8 @@ function joinNames(names: string[]): string {
  *  so the single card still reads as personal to the family.
  *
  * Aspire-only: `/youth/classes` is Aspire's youth funnel, so the caller only
- * mounts this when `brandId !== "soccerone"` — see FamilyClassesCard below. */
+ * mounts this when `brandId === "aspire"` (fail-closed — an omitted/
+ * undefined brandId does NOT show it) — see FamilyClassesCard below. */
 function DiscoverCard({ names }: { names: string[] }) {
   return (
     <DashboardCard
@@ -1566,9 +1567,17 @@ interface FamilyClassesCardProps {
    *  see src/env.d.ts). `/youth/classes` is Aspire-only, so `DiscoverCard`
    *  is gated on this rather than any fetched data: the summary endpoint is
    *  brand-neutral (serves both Aspire and SoccerOne orgs) and has no signal
-   *  of its own to gate on. Optional so any other caller keeps working
-   *  unchanged, defaulting to Aspire's behavior — mirrors PayCard's
-   *  `brandId?: "aspire" | "soccerone"` convention. */
+   *  of its own to gate on. Optional in the type only for callers that
+   *  genuinely have no brand context (there are none today) — the gate
+   *  itself is `brandId === "aspire"`, FAIL-CLOSED: an omitted/undefined
+   *  value hides the card rather than showing it. This deliberately departs
+   *  from `PayCard`'s `brandId?: "aspire" | "soccerone"` convention (which
+   *  defaults an absent brandId to Aspire's *styling*, a cosmetic no-op on
+   *  SoccerOne) — here an absent brandId defaulting "open" would mean a
+   *  caller that forgets to thread it silently leaks a link into Aspire's
+   *  youth funnel onto a SoccerOne surface. Matches the fail-closed
+   *  direction `family.astro`/`start.astro` already use
+   *  (`Astro.locals.brandId === "aspire"`). */
   brandId?: "aspire" | "soccerone"
 }
 
@@ -1781,7 +1790,10 @@ export default function FamilyClassesCard({ brandId }: FamilyClassesCardProps = 
   // of their own; folded into the single family-level DiscoverCard below
   // instead (Aspire-only, see FamilyClassesCardProps.brandId).
   const discoverable = children.filter((c) => !qualifying.includes(c))
-  const showDiscoverCard = brandId !== "soccerone" && discoverable.length > 0
+  // Fail-closed: an omitted/undefined brandId hides the card. See
+  // FamilyClassesCardProps.brandId's doc comment for why this is
+  // `=== "aspire"`, not `!== "soccerone"`.
+  const showDiscoverCard = brandId === "aspire" && discoverable.length > 0
   if (qualifying.length === 0 && !showDiscoverCard) return packBanner
 
   return (

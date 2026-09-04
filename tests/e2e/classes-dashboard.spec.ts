@@ -667,3 +667,81 @@ test.describe("Family dashboard — one discover card per family, not one per ch
     await expect(card).toContainText(secondChildName);
   });
 });
+
+/**
+ * Task 6 fix (code review finding #2) — the brand gate must actually CLOSE
+ * on a real SoccerOne host, not merely default the `brandId` prop away in
+ * unit reasoning. `soccerone.localhost` is a supported DNS-free Playwright
+ * target (soccerone-routing.ts's `SOCCERONE_HOSTS`) — same approach as
+ * `soccerone-bookings.spec.ts` (the established pattern for driving a
+ * SoccerOne host in this suite): derive the SoccerOne origin from
+ * `PLAYWRIGHT_BASE_URL`, sign in via a direct POST to `/api/auth/signin`
+ * against that origin (scopes the session cookie to `soccerone.localhost`
+ * rather than `localhost`), then drive the dashboard pages there.
+ *
+ * Fixture: a throwaway parent + child with zero class touchpoints — the
+ * same shape the "class discovery entry points" suite above uses. On the
+ * Aspire host this child produces a DiscoverCard; on the SoccerOne host it
+ * must not, and neither Astro page may link to `/youth/classes` either.
+ *
+ * Each test independently confirms `html[data-brand="soccerone"]` before
+ * asserting an absence — an absence assertion against the wrong host (e.g.
+ * a silently-failed sign-in redirecting back to plain `localhost`) would
+ * pass for the wrong reason.
+ */
+test.describe("Family dashboard — class discovery entry points stay OFF on SoccerOne", () => {
+  test.setTimeout(60_000);
+
+  const SOCCERONE_BASE = (
+    process.env.PLAYWRIGHT_BASE_URL || "http://localhost:4321"
+  ).replace("localhost", "soccerone.localhost");
+
+  let parentEmail: string;
+  let parentPassword: string;
+  let parentUserId: string;
+
+  const suffix = Date.now();
+  const childFirstName = `DashboardDiscoverSoccerOneE2E-${suffix}`;
+
+  test.beforeAll(async () => {
+    const throwawayUser = await createTestUserWithPassword();
+    parentEmail = throwawayUser.email;
+    parentPassword = throwawayUser.password;
+    parentUserId = throwawayUser.userId;
+
+    await createTestChild(parentUserId, childFirstName);
+  });
+
+  async function signInOnSoccerOne(page: import("@playwright/test").Page) {
+    const response = await page.request.post(`${SOCCERONE_BASE}/api/auth/signin`, {
+      data: { email: parentEmail, password: parentPassword },
+    });
+    if (!response.ok()) {
+      const body = await response.text().catch(() => "(no body)");
+      throw new Error(
+        `signIn(${parentEmail}) on SoccerOne host failed: HTTP ${response.status()} — ${body}`,
+      );
+    }
+  }
+
+  test("SoccerOne /dashboard/family shows no discover-classes card and no /youth/classes link", async ({
+    page,
+  }) => {
+    await signInOnSoccerOne(page);
+    await page.goto(`${SOCCERONE_BASE}/dashboard/family`, { waitUntil: "domcontentloaded" });
+    await waitForHydration(page);
+
+    await expect(page.locator("html")).toHaveAttribute("data-brand", "soccerone");
+
+    await expect(page.getByTestId("discover-classes")).toHaveCount(0);
+    await expect(page.locator('main a[href="/youth/classes"]')).toHaveCount(0);
+  });
+
+  test("SoccerOne /dashboard/start has no door linking to /youth/classes", async ({ page }) => {
+    await signInOnSoccerOne(page);
+    await page.goto(`${SOCCERONE_BASE}/dashboard/start`, { waitUntil: "domcontentloaded" });
+
+    await expect(page.locator("html")).toHaveAttribute("data-brand", "soccerone");
+    await expect(page.locator('main a[href="/youth/classes"]')).toHaveCount(0);
+  });
+});
