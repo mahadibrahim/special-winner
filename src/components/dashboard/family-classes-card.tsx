@@ -17,6 +17,7 @@ import { DROPIN_WAIVER_TEXT } from "@/lib/dropin/waiver-text"
 import { waiverAssentSentence } from "@/lib/consents/waiver-consent-language"
 import { useConfirmDialog } from "@/components/ui/confirm-dialog"
 import { formatCents } from "@/lib/classes/ladder-model"
+import { formatDayTime, allotmentLabel } from "@/lib/dashboard/class-slot-format"
 
 /**
  * Family dashboard — per-child class membership card (Task 7 of the youth
@@ -222,18 +223,13 @@ interface MembershipTier {
 // files that may pull in server-only dependencies.
 // ---------------------------------------------------------------------------
 
-const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-
-function formatDayTime(weekday: number, startTime: string): string {
-  const day = WEEKDAY_NAMES[weekday] ?? `Day ${weekday}`
-  const [hourStr, minuteStr] = startTime.slice(0, 5).split(":")
-  const hour = Number(hourStr)
-  const minute = Number(minuteStr)
-  if (Number.isNaN(hour) || Number.isNaN(minute)) return `${day} ${startTime.slice(0, 5)}`
-  const period = hour >= 12 ? "PM" : "AM"
-  const hour12 = hour % 12 === 0 ? 12 : hour % 12
-  return `${day} ${hour12}:${String(minute).padStart(2, "0")} ${period}`
-}
+// formatDayTime and allotmentLabel are imported from
+// @/lib/dashboard/class-slot-format — the documented exception to this
+// file's "duplicate small pure helpers per island" convention (see that
+// module's header comment): child-profile-data.ts (Task 11) needs the exact
+// same allotment-string logic and a long-form weekday variant, and it is a
+// pure test target that must not pull in this island's Dialog/sonner
+// imports through a same-file import.
 
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
@@ -497,11 +493,6 @@ function PackSuccessBanner({ status }: { status: PackSettleStatus }) {
       <span>{message}</span>
     </div>
   )
-}
-
-function allotmentLabel(remaining: number | "unlimited"): string {
-  if (remaining === "unlimited") return "Unlimited classes this month"
-  return `${remaining} class${remaining === 1 ? "" : "es"} left this month`
 }
 
 function statusBadge(status: SummaryMembership["status"]): { label: string; tone: StatusTone } {

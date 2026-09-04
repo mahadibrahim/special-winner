@@ -24,6 +24,7 @@
 import { test, expect } from "@playwright/test";
 import { eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
+import { familyMembers } from "@/lib/db/schema/registrations";
 import { membershipTiers, memberships } from "@/lib/db/schema/memberships";
 import { classEnrollments } from "@/lib/db/schema/classes";
 import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
@@ -909,5 +910,134 @@ test.describe("Family dashboard — full schedule page renders real class sessio
     const modal = page.getByTestId("event-detail-modal");
     await expect(modal).toBeVisible();
     await expect(modal.getByRole("button", { name: "Add to Calendar" })).toBeVisible();
+  });
+});
+
+/**
+ * Task 11 of the classes-dashboard-launch plan.
+ *
+ * `/dashboard/children/[id]` used to know nothing about classes — it only
+ * fetched family-members + registrations, so a membership child's profile
+ * showed no tier, no home slot, no kit size, and its Schedule tab only ever
+ * rendered league season rows. `buildClassesSection`
+ * (src/components/dashboard/child-profile-data.ts) now maps this child's
+ * slice of `GET /api/classes/summary` into a "Classes" card rendered above
+ * Programs in the Overview tab, and the Schedule tab separately fetches
+ * `GET /api/dashboard/schedule` and renders this child's dated class rows
+ * above the existing league season list.
+ *
+ * Fixture: a throwaway parent + child (same shorthand as every suite above)
+ * with a `kitSize` set directly on the `family_members` row, an active
+ * DB-minted membership, and an active `class_enrollments` row on a fresh
+ * template — the same enrollment shape the "full schedule" suite above uses
+ * to drive the Schedule endpoint's PROJECTED weekly-recurrence half (no
+ * booked `drop_in_sessions` row needed; the projection alone lands a dated
+ * row inside the 60-day horizon).
+ */
+test.describe("Family dashboard — child profile becomes class-aware", () => {
+  test.setTimeout(120_000);
+
+  let organizationId: string;
+  let venueId: string;
+  let tierId: string;
+  let templateId: string;
+  let membershipId: string;
+  let enrollmentId: string;
+  let parentEmail: string;
+  let parentPassword: string;
+  let parentUserId: string;
+  let childId: string;
+
+  const suffix = Date.now();
+  const childFirstName = `DashboardChildProfileE2E-${suffix}`;
+  const tierName = `Premier Tier - e2e-dashboard-profile-${suffix}`;
+  const templateName = `Schedule-Slot-DashboardProfile-${suffix}`;
+  const kitSize = "YM";
+
+  test.beforeAll(async () => {
+    ({ organizationId, venueId } = await resolveDefaultOrgForHttpTests());
+    const db = getDb();
+
+    const [tier] = await db
+      .insert(membershipTiers)
+      .values({
+        organizationId,
+        name: tierName,
+        monthlyPriceCents: 4900,
+        benefits: { classes_per_month: 8 },
+        isActive: true,
+      })
+      .returning();
+    tierId = tier.id;
+
+    templateId = await createTestClassTemplate({
+      organizationId,
+      venueId,
+      name: templateName,
+      capacity: 10,
+    });
+
+    const throwawayUser = await createTestUserWithPassword();
+    parentEmail = throwawayUser.email;
+    parentPassword = throwawayUser.password;
+    parentUserId = throwawayUser.userId;
+
+    childId = await createTestChild(parentUserId, childFirstName);
+    await db.update(familyMembers).set({ kitSize }).where(eq(familyMembers.id, childId));
+
+    membershipId = await createTestChildMembership({
+      userId: parentUserId,
+      familyMemberId: childId,
+      organizationId,
+      tierId,
+      idSuffix: `e2e-dashboard-profile-${suffix}`,
+    });
+
+    const [enrollment] = await db
+      .insert(classEnrollments)
+      .values({ slotTemplateId: templateId, familyMemberId: childId, membershipId })
+      .returning({ id: classEnrollments.id });
+    enrollmentId = enrollment.id;
+  });
+
+  test.afterAll(async () => {
+    const db = getDb();
+    // Same FK ordering note as the "full schedule" suite above:
+    // class_enrollments.membershipId is ON DELETE RESTRICT.
+    if (enrollmentId) {
+      await db.delete(classEnrollments).where(eq(classEnrollments.id, enrollmentId));
+    }
+    if (membershipId) {
+      await db.delete(memberships).where(eq(memberships.id, membershipId));
+    }
+    if (templateId) await cleanupTestClassFixtures([templateId]);
+    if (tierId) await cleanupTestMembershipTiers([tierId]);
+  });
+
+  test("child profile Overview shows tier + kit size, Schedule tab shows a dated class row", async ({
+    page,
+  }) => {
+    await signIn(page, parentEmail, parentPassword);
+    await page.goto("/dashboard/family");
+    await waitForHydration(page);
+
+    const childCard = page
+      .locator("div.group.relative.overflow-hidden.rounded-2xl")
+      .filter({ hasText: childFirstName });
+    await expect(childCard).toBeVisible({ timeout: 15_000 });
+    await childCard.getByRole("link", { name: "View Profile" }).click();
+
+    await page.waitForURL(new RegExp(`/dashboard/children/${childId}`));
+    await waitForHydration(page);
+
+    const classesSection = page.getByTestId("child-classes-section");
+    await expect(classesSection).toBeVisible({ timeout: 15_000 });
+    await expect(classesSection).toContainText(tierName);
+    await expect(classesSection).toContainText(kitSize);
+
+    await page.getByRole("button", { name: "Schedule" }).click();
+    const classRow = page.getByTestId("class-schedule-row");
+    await expect(classRow.first()).toBeVisible({ timeout: 15_000 });
+    await expect(classRow.first()).toContainText(templateName);
   });
 });
