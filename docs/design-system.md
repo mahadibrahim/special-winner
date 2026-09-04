@@ -13,7 +13,14 @@ v1 was *The Athletic* meets *Tracksmith* — warm cream paper, Newsreader serif 
 
 **Scope: the Aspire brand, everywhere it appears.** Public marketing, parent dashboard, coach and referee apps, admin, minibooks.
 
-**Out of scope: SoccerOne.** The app is multi-tenant. SoccerOne runs on its own locked token set (`src/styles/soccerone-tokens.css` — Anton / DM Sans / JetBrains Mono, lime on near-black, its own 2–20px radius scale), pinned to observed production values by founder decision. v2 does not touch it. The `--brand-font-*` seams exist precisely so `html[data-brand]` can swap families per tenant, and SoccerOne surfaces continue to resolve through `--so-*`. Note: `src/lib/branding/themes.ts` now pins the **v2 primitive names** (`--sand`, `--on-sand`, `--primary`, `--primary-foreground`, `--secondary`, `--rule-color`) as well as the v1 alias names, because the v2 semantic vars resolve through the primitives.
+**Out of scope: SoccerOne — fully inert.** The app is multi-tenant. SoccerOne runs on its own locked token set (`src/styles/soccerone-tokens.css` — Anton / DM Sans / JetBrains Mono, lime on near-black, its own 2–20px radius scale), pinned to observed production values by founder decision. v2 does not touch it, **including shared flows (auth, checkout, dashboard) rendered under `data-brand="soccerone"`** — `src/lib/branding/themes.ts` overrides every v2 seam back to what v1 rendered there:
+
+- the **v2 primitive names** (`--sand`, `--on-sand`, `--primary`, `--primary-foreground`, `--secondary`, `--rule-color`…) as well as the v1 alias names, because the v2 semantic vars resolve through the primitives;
+- the **display-voice seams** (`--brand-display-weight/-leading/-tracking`) back to 500 / 1.05 / −0.02em — Anton has a single 400 face and Aspire's 900 would synthetic-bold it;
+- the **radius scale seams** (`--radius-scale-xs`…`-4xl`) back to v1's values, so SoccerOne's shared flows keep their rounding while Aspire is square;
+- `--primary-bright` → lime and `--primary-hover` → lime-bright, so the audited v2 CTAs (`bg-primary-bright … hover:bg-primary-hover`) render exactly like v1's lime buttons.
+
+Only sub-pixel-scale details intentionally follow Aspire's base styles under SoccerOne (body letter-spacing 0 vs v1's −0.005em, focus-outline corner radius, dropped `ss01`/`ss02` features — all invisible at rendering scale).
 
 **What did not change:** the orange itself (`oklch(0.58 0.19 35)`), the sand/cream ramp values, emerald as the youth accent, ochre as tertiary, the graded-imagery recipe, and every reveal animation. **v1 token names are aliased, not removed** — `--cream`, `--ink-2`, `--ink-muted`, `--primary-orange` and friends still resolve, so `bg-cream` / `text-ink-muted` / `text-primary-orange` keep working. Migrate at your own pace.
 

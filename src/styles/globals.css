@@ -144,10 +144,23 @@
   --rule-on-ink: oklch(0.972 0.008 80 / 0.16);
 
   /* ——————————— Geometry ———————————
-     v2 is square. Radius survives only on pills and status chips. */
+     v2 is square. Radius survives only on pills and status chips.
+     The per-step vars exist as BRAND SEAMS: on Aspire they all resolve
+     through --radius (0), collapsing the Tailwind scale; SoccerOne's
+     cssVars (themes.ts) override them back to the v1-rendered values so
+     its shared flows (auth, checkout, dashboard) keep their rounding.
+     Broadsheet is the Aspire brand only. */
   --radius: 0rem;
   --radius-pill: 999px;
   --accent-bar: 5px;
+  --radius-scale-xs: var(--radius);
+  --radius-scale-sm: var(--radius);
+  --radius-scale-md: var(--radius);
+  --radius-scale-lg: var(--radius);
+  --radius-scale-xl: var(--radius);
+  --radius-scale-2xl: var(--radius);
+  --radius-scale-3xl: var(--radius);
+  --radius-scale-4xl: var(--radius);
 
   /* ——————————— v1 ALIASES · compatibility layer ———————————
      Same values, old names. Every bg-cream / text-ink-muted /
@@ -208,6 +221,17 @@
   --brand-font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
   /* Mono has one job: discrete data values (times, ages, counts,
      statuses, prices). Keys and column heads are .label, not mono. */
+
+  /* Display-voice seams — Broadsheet's heavy headings are ASPIRE ONLY.
+     Archivo takes weight 900; Anton (SoccerOne) has a single 400 face,
+     so an unconditional 900 would synthetic-bold every SoccerOne
+     heading. themes.ts overrides these back to the v1-rendered values
+     (500 / 1.05 / -0.02em). font-stretch needs no seam: it only acts
+     on fonts with a wdth axis (Archivo), and is inert on Anton and
+     DM Sans. */
+  --brand-display-weight: 900;
+  --brand-display-leading: 1.02;
+  --brand-display-tracking: -0.015em;
 }
 
 /* ——————————— Dark mode ———————————
@@ -334,18 +358,18 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
 
-  /* Radius — square. Every step resolves through --radius (0rem) so
-     the whole scale collapses at once, while rounded-full / pills are
-     untouched. Resolving via var() keeps the seam: a brand override
-     could re-widen the scale by setting --radius alone. */
-  --radius-xs: var(--radius);
-  --radius-sm: var(--radius);
-  --radius-md: var(--radius);
-  --radius-lg: var(--radius);
-  --radius-xl: var(--radius);
-  --radius-2xl: var(--radius);
-  --radius-3xl: var(--radius);
-  --radius-4xl: var(--radius);
+  /* Radius — square on Aspire. Every step resolves through the
+     --radius-scale-* seams (all var(--radius) = 0 by default) so the
+     whole scale collapses at once while rounded-full / pills survive,
+     and a brand override (SoccerOne) can restore per-step values. */
+  --radius-xs: var(--radius-scale-xs);
+  --radius-sm: var(--radius-scale-sm);
+  --radius-md: var(--radius-scale-md);
+  --radius-lg: var(--radius-scale-lg);
+  --radius-xl: var(--radius-scale-xl);
+  --radius-2xl: var(--radius-scale-2xl);
+  --radius-3xl: var(--radius-scale-3xl);
+  --radius-4xl: var(--radius-scale-4xl);
   --radius-pill: var(--radius-pill);
 }
 
@@ -372,22 +396,24 @@
 
   /* Headings take the display FAMILY and weight, but not uppercase.
      Shouting every dashboard heading would wreck app density — the
-     condensed capital voice is opt-in via .display-* below. */
+     condensed capital voice is opt-in via .display-* below. Weight,
+     leading and tracking route through the display-voice seams so the
+     SoccerOne brand override renders these exactly as v1 did. */
   h1, h2, h3 {
     font-family: var(--font-display);
-    font-weight: 900;
+    font-weight: var(--brand-display-weight);
     font-stretch: 84%;
-    letter-spacing: -0.015em;
-    line-height: 1.02;
+    letter-spacing: var(--brand-display-tracking);
+    line-height: var(--brand-display-leading);
   }
   h1 { font-stretch: 80%; }
 
   .font-display,
   .display {
     font-family: var(--font-display);
-    font-weight: 900;
+    font-weight: var(--brand-display-weight);
     font-stretch: 84%;
-    letter-spacing: -0.015em;
+    letter-spacing: var(--brand-display-tracking);
   }
 
   /* v1 compatibility: `.font-serif` / `.serif` resolved to Newsreader.
@@ -395,9 +421,9 @@
   .font-serif,
   .serif {
     font-family: var(--font-serif);
-    font-weight: 900;
+    font-weight: var(--brand-display-weight);
     font-stretch: 84%;
-    letter-spacing: -0.015em;
+    letter-spacing: var(--brand-display-tracking);
   }
 
   /* v1's tracked small-caps label. Retained; see .label for the v2 one. */
