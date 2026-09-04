@@ -15,6 +15,7 @@ import { DashboardCard } from "@/components/dashboard/shell/DashboardCard"
 import type { StatusTone } from "@/lib/dashboard/dashboard-ui"
 import { DROPIN_WAIVER_TEXT } from "@/lib/dropin/waiver-text"
 import { waiverAssentSentence } from "@/lib/consents/waiver-consent-language"
+import { useConfirmDialog } from "@/components/ui/confirm-dialog"
 
 /**
  * Family dashboard — per-child class membership card (Task 7 of the youth
@@ -73,12 +74,14 @@ import { waiverAssentSentence } from "@/lib/consents/waiver-consent-language"
  * line if they don't. The params are stripped via `history.replaceState` so a
  * refresh never re-triggers the ladder.
  *
- * Field note: the summary endpoint (src/pages/api/classes/summary.ts) does
- * NOT expose a membership renewal/period-end date or the org's cancellation
- * cutoff window — both were checked against the actual route rather than
- * assumed. Renewal date is simply not rendered (nothing to show); the
- * cancel confirm below uses generic "before the cancellation window" copy
- * per the task brief rather than inventing a number.
+ * Field note (superseded — kept for history): this used to say the summary
+ * endpoint exposed neither a membership renewal date nor the org's real
+ * cancellation cutoff window, so the cancel confirm used generic "before the
+ * cancellation window" copy. Both gaps are closed now: the endpoint returns
+ * top-level `cancelWindowHours` and per-child `upcomingSessions`, so the
+ * per-session cancel confirm below (`useConfirmDialog`, not `window.confirm`)
+ * quotes the real number, and every upcoming session — not just the single
+ * soonest one — gets its own list row and cancel action.
  *
  * Two actions live in a modal (`MakeUpModal`) or delegate to an existing
  * page (`Change home slot` → the Task-3/4 choose-slot page, which already
@@ -118,6 +121,18 @@ interface SummaryNextSession {
   bookingId: string
 }
 
+/** One row of `child.upcomingSessions` — every confirmed future class
+ *  booking for the child, soonest-first, capped at 10 server-side (Task 1's
+ *  widening of `GET /api/classes/summary`). Same shape as
+ *  `SummaryNextSession`, kept as its own named type since the two now serve
+ *  different call sites (the list below vs. the make-up modal's "exclude the
+ *  next session" filter, which still reads `child.nextSession` alone). */
+interface SummaryUpcomingSession {
+  sessionId: string
+  bookingId: string
+  startsAt: string
+}
+
 interface SummaryCredit {
   /** "comp" = admin-issued goodwill credits; they render exactly like pack
    *  credits, with the label the API supplies. */
@@ -133,6 +148,12 @@ interface SummaryChild {
   membership: SummaryMembership | null
   enrollment: SummaryEnrollment | null
   nextSession: SummaryNextSession | null
+  /** Every confirmed future class booking, soonest-first (max 10) — the
+   *  source for the upcoming-sessions list rendered below. `nextSession`
+   *  above always equals `upcomingSessions[0]` when non-empty; kept as a
+   *  separate field because the make-up modal's eligibility filter only
+   *  needs the single soonest one. */
+  upcomingSessions: SummaryUpcomingSession[]
   trialUsed: boolean
   credits: SummaryCredit[]
   /** Annual validity, not "has ever signed" — a signature older than the
@@ -342,6 +363,7 @@ function EndEnrollmentButton({
   onChanged: () => void
 }) {
   const [ending, setEnding] = useState(false)
+  const { confirm, dialog } = useConfirmDialog()
   const enrollment = child.enrollment
   if (!enrollment) return null
 
@@ -355,11 +377,15 @@ function EndEnrollmentButton({
     // `releaseFutureEnrollmentSeats`), so a flat "any classes already booked
     // are cancelled" would tell a family their paid session is gone when it
     // is still theirs to attend.
-    const confirmed = window.confirm(
-      `End ${child.name}'s enrollment in ${enrollment.templateName}? Their weekly spot is ` +
+    const confirmed = await confirm({
+      title: "End this enrollment?",
+      description:
+        `End ${child.name}'s enrollment in ${enrollment.templateName}? Their weekly spot is ` +
         `released and any classes already booked on it with your membership or block ` +
         `credits are cancelled — classes you paid for separately are unaffected.${creditsLine}`,
-    )
+      confirmLabel: "End enrollment",
+      destructive: true,
+    })
     if (!confirmed) return
 
     setEnding(true)
@@ -394,9 +420,18 @@ function EndEnrollmentButton({
   }
 
   return (
-    <Button size="sm" variant="outline" disabled={ending} onClick={() => void handleEnd()}>
-      {ending ? "Ending…" : "End enrollment"}
-    </Button>
+    <>
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={ending}
+        onClick={() => void handleEnd()}
+        data-testid="end-enrollment"
+      >
+        {ending ? "Ending…" : "End enrollment"}
+      </Button>
+      {dialog}
+    </>
   )
 }
 
@@ -1107,28 +1142,37 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
 
 function MembershipChildCard({
   child,
+  cancelWindowHours,
   onChanged,
 }: {
   child: SummaryChild
+  /** Org's real cancellation cutoff, off the summary response's top-level
+   *  `cancelWindowHours` (Task 1) — quoted verbatim in the confirm dialog so
+   *  a parent knows exactly how much notice they need, instead of the old
+   *  generic "before the cancellation window" copy. */
+  cancelWindowHours: number
   onChanged: () => void
 }) {
   const membership = child.membership!
   const [modalOpen, setModalOpen] = useState(false)
-  const [cancelling, setCancelling] = useState(false)
+  const [cancellingBookingId, setCancellingBookingId] = useState<string | null>(null)
   const [openingPortal, setOpeningPortal] = useState(false)
+  const { confirm: confirmCancel, dialog: cancelDialog } = useConfirmDialog()
 
-  async function handleCancel() {
-    const nextSession = child.nextSession
-    if (!nextSession) return
-    const confirmed = window.confirm(
-      `Cancel ${child.name}'s class on ${formatDateTime(nextSession.startsAt)}? If this is before ` +
-        "the cancellation window, the class credit will be freed — cancelling too close to class " +
-        "time isn't allowed.",
-    )
+  /** Cancels ONE specific upcoming session, identified by its bookingId —
+   *  no longer implicitly "the next session" (`child.nextSession`), since a
+   *  child can have several upcoming sessions listed and each row's own
+   *  cancel button targets its own booking. */
+  async function handleCancel(bookingId: string) {
+    const confirmed = await confirmCancel({
+      title: "Cancel this class?",
+      description: `Cancelling less than ${cancelWindowHours} hours before start forfeits the session.`,
+      confirmLabel: "Cancel this class",
+      destructive: true,
+    })
     if (!confirmed) return
 
-    const bookingId = nextSession.bookingId
-    setCancelling(true)
+    setCancellingBookingId(bookingId)
     try {
       const res = await fetch(`/api/classes/bookings/${bookingId}/cancel`, { method: "POST" })
       const body = await parseJson(res)
@@ -1153,7 +1197,7 @@ function MembershipChildCard({
     } catch {
       toast.error("Network error — please try again.")
     } finally {
-      setCancelling(false)
+      setCancellingBookingId(null)
     }
   }
 
@@ -1228,11 +1272,6 @@ function MembershipChildCard({
               </Button>
             )}
             <EndEnrollmentButton child={child} onChanged={onChanged} />
-            {child.nextSession && (
-              <Button size="sm" variant="outline" disabled={cancelling} onClick={() => void handleCancel()}>
-                {cancelling ? "Cancelling…" : "Cancel"}
-              </Button>
-            )}
           </div>
         }
       >
@@ -1251,10 +1290,29 @@ function MembershipChildCard({
               Choose a home slot →
             </a>
           )}
-          {child.nextSession ? (
-            <p className="text-xs text-ink-2">
-              Next class: {formatDateTime(child.nextSession.startsAt)}
-            </p>
+          {child.upcomingSessions.length > 0 ? (
+            <ul className="space-y-0.5">
+              {child.upcomingSessions.map((session) => (
+                <li
+                  key={session.sessionId}
+                  data-testid="upcoming-session-row"
+                  className="flex items-center justify-between gap-2 text-xs text-ink-2"
+                >
+                  <span>{formatDateTime(session.startsAt)}</span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    disabled={cancellingBookingId === session.bookingId}
+                    onClick={() => void handleCancel(session.bookingId)}
+                    data-testid="cancel-session"
+                    className="h-auto px-2 py-0.5 text-xs"
+                  >
+                    {cancellingBookingId === session.bookingId ? "Cancelling…" : "Cancel"}
+                  </Button>
+                </li>
+              ))}
+            </ul>
           ) : child.enrollment ? (
             <p className="text-xs text-ink-muted">No upcoming class scheduled yet.</p>
           ) : null}
@@ -1297,6 +1355,7 @@ function MembershipChildCard({
         // "success screen unreachable" fix-list finding.
         onBooked={onChanged}
       />
+      {cancelDialog}
     </>
   )
 }
@@ -1399,6 +1458,11 @@ export default function FamilyClassesCard() {
   const [phase, setPhase] = useState<"loading" | "error" | "ready">("loading")
   const [children, setChildren] = useState<SummaryChild[]>([])
   const [cheapestMonthlyCents, setCheapestMonthlyCents] = useState<number | null>(null)
+  // Org's real cancel cutoff (Task 1's summary widening) — defaults to the
+  // same 24h the API falls back to for an org with no rate-card row, so the
+  // very first render (before this fetch resolves) never quotes a number
+  // that disagrees with what the endpoint would actually enforce.
+  const [cancelWindowHours, setCancelWindowHours] = useState<number>(24)
   const [reloadKey, setReloadKey] = useState(0)
   const [packSettle, setPackSettle] = useState<PackSettleStatus | null>(null)
 
@@ -1514,7 +1578,10 @@ export default function FamilyClassesCard() {
           }
           return
         }
-        const summaryBody = (await summaryRes.json()) as { children: SummaryChild[] }
+        const summaryBody = (await summaryRes.json()) as {
+          children: SummaryChild[]
+          cancelWindowHours?: number
+        }
 
         // Cheapest live class-membership tier — for the convert CTA's "$X/mo"
         // figure. Best-effort: a failed/empty tiers fetch just drops the
@@ -1535,6 +1602,9 @@ export default function FamilyClassesCard() {
         if (cancelled) return
         setChildren(summaryBody.children)
         setCheapestMonthlyCents(cheapest)
+        if (typeof summaryBody.cancelWindowHours === "number") {
+          setCancelWindowHours(summaryBody.cancelWindowHours)
+        }
         setPhase("ready")
       } catch {
         if (cancelled) return
@@ -1590,6 +1660,7 @@ export default function FamilyClassesCard() {
           <MembershipChildCard
             key={c.familyMemberId}
             child={c}
+            cancelWindowHours={cancelWindowHours}
             onChanged={() => setReloadKey((k) => k + 1)}
           />
         ) : c.credits.length > 0 ? (
