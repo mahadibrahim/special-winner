@@ -204,30 +204,29 @@ test.describe("youth navigation", () => {
 })
 
 test.describe("youth classes v2", () => {
-  // Band-system rebuild (docs/superpowers/specs/2026-08-18-youth-classes-v2-mockup.html):
-  // hero, sticky jump bar, five step-detail bands, on-page booking, and a
-  // link out to /youth/philosophy. No hydration wait needed — every element
-  // asserted here is server-rendered.
-  test("hero, jump bar, step band, booking section and philosophy link all render", async ({ page }) => {
+  // Broadsheet band conversion (design canvas "Aspire Classes & Camps" 2a):
+  // hero, sticky orange in-page nav, pathway step cards, on-page booking,
+  // and a link out to /youth/philosophy. No hydration wait needed — every
+  // element asserted here is server-rendered.
+  test("hero, in-page nav, pathway cards, booking section and philosophy link all render", async ({ page }) => {
     await page.goto("/youth/classes", { waitUntil: "domcontentloaded" })
 
     await expect(
       page.getByRole("heading", { level: 1, name: /first coach is the one that counts/i }),
     ).toBeVisible()
 
-    // SectionJumpBar renders one [data-jump-link] pill per JUMP_ITEMS entry
-    // (pathway, philosophy, feel, coach, pricing, schedule, open, faqs — 8).
-    // Task 4 (dc459f33, this branch) added the "Schedule" entry to
-    // JUMP_ITEMS without bumping this assertion off its prior count of 7 —
-    // found and fixed here, in Task 6.
+    // The orange in-page nav renders one [data-jump-link] anchor per
+    // NAV_ITEMS entry (pathway, philosophy, feel, coach, pricing, schedule,
+    // open, faqs — 8). "First class free" is a CTA, not a jump link.
     await expect(page.locator("[data-jump-link]")).toHaveCount(8)
 
-    // One FeatureBand per pathway step, id="step-<slug>" — Micros is first.
-    await expect(page.locator("#step-micros")).toBeVisible()
+    // The pathway band carries the five locked steps as step cards (the 2a
+    // canvas dropped the per-step detail bands).
+    await expect(page.locator("#pathway .step-card")).toHaveCount(5)
 
-    // On-page booking: the red "Book it right here." band (id="open", the
-    // jump bar / hero CTA target) sits directly above the CategoryFinder
-    // island (sectionId="open-classes" — ids can't collide with #open).
+    // On-page booking: the "Open classes" band (id="open", the in-page nav
+    // / hero CTA target) wraps the CategoryFinder island
+    // (sectionId="open-classes" — ids can't collide with #open).
     await expect(page.locator("#open")).toBeVisible()
     await expect(page.locator("#open-classes")).toBeVisible()
 
