@@ -77,18 +77,22 @@ const breadcrumbSchema = breadcrumbJsonLd([
   <script type="application/ld+json" set:html={JSON.stringify(breadcrumbSchema)} />
 
   <main id="main-content">
-    <section class="relative text-cream pt-16 px-9 bg-cover bg-center"
-      style={`background-image:linear-gradient(180deg,oklch(0.18 0.07 262/0.8),oklch(0.18 0.07 262/0.94)),url('${heroPhoto}')`}>
-      <div class="max-w-[1080px] mx-auto pb-8">
-        {currentProp && (
-          <a href={`/adult/leagues/flag-football/${currentProp.slug}`} class="flex items-center justify-between gap-3 bg-primary-bright text-primary-foreground rounded-lg px-4 py-3 mb-5" data-testid="now-registering" data-hero-banner-cta data-term={currentProp.slug}>
-            <span><span class="font-mono text-[10px] tracking-widest uppercase opacity-85">● Now Registering</span><br/><span class="font-display font-semibold text-lg">{currentProp.label} · registration open</span></span>
-            <span class="font-mono text-[11px] tracking-wider uppercase bg-cream text-primary px-3 py-2 rounded">See divisions →</span>
-          </a>
-        )}
-        <h1 class="font-display font-semibold text-5xl md:text-6xl tracking-tight mb-2">Adult flag football<br/>at Aspire.</h1>
-        <p class="text-cream/85 max-w-md mb-2">Men's &amp; coed indoor 4v4 — every player runs a route, every single play. Wednesday nights at Worthington.</p>
-        <p class="font-mono text-[12px] text-cream/70 pb-1">{FORMAT_FACTS.slice(0, 4).join(" · ")}</p>
+    {/* Ochre deadline banner — tertiary-highlight role (youth-league
+        precedent); keeps the testid + analytics hooks. pt clears the fixed
+        site header (first flow element). */}
+    {currentProp && (
+      <a href={`/adult/leagues/flag-football/${currentProp.slug}`} class="block bg-ochre text-ink px-6 sm:px-12 pt-16 lg:pt-20 no-underline" data-testid="now-registering" data-hero-banner-cta data-term={currentProp.slug}>
+        <span class="max-w-[1080px] mx-auto flex items-center justify-between gap-4 flex-wrap py-3">
+          <span class="text-[13.5px] font-semibold">● Now registering · {currentProp.label} · registration open</span>
+          <span class="label text-ink border-b-2 border-ink pb-0.5 whitespace-nowrap">See divisions →</span>
+        </span>
+      </a>
+    )}
+    <section class="band-ink relative px-9 bg-cover bg-center" style={`background-image:linear-gradient(78deg,oklch(0.20 0.021 245/0.94) 0%,oklch(0.20 0.021 245/0.82) 44%,oklch(0.20 0.021 245/0.55) 100%),url('${heroPhoto}')`}>
+      <div class:list={["max-w-[1080px] mx-auto pb-8", currentProp ? "pt-12" : "pt-28 lg:pt-32"]}>
+        <h1 class="display-xl mb-3" style="font-size:clamp(2.6rem,5.5vw,4.2rem)">Adult flag football<br/>at Aspire.</h1>
+        <p class="body-l text-on-ink-2 max-w-[520px] mb-2">Men's &amp; coed indoor 4v4 — every player runs a route, every single play. Wednesday nights at Worthington.</p>
+        <p class="font-mono text-[12px] text-on-ink-muted pb-1">{FORMAT_FACTS.slice(0, 4).join(" · ")}</p>
       </div>
     </section>
     <LandingTabs client:load

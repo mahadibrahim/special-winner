@@ -193,11 +193,11 @@ const faqSchema = {
   <main id="main-content">
     <section
       class="relative text-cream pt-10 sm:pt-14 px-5 sm:px-9 bg-cover bg-center"
-      style={`background-image:linear-gradient(180deg,oklch(0.18 0.07 262/0.78),oklch(0.18 0.07 262/0.93)),linear-gradient(100deg,oklch(0.18 0.07 262/0.95),oklch(0.18 0.07 262/0.4)),url('${heroPhoto}')`}
+      style={`background-image:linear-gradient(78deg,oklch(0.20 0.021 245/0.94) 0%,oklch(0.20 0.021 245/0.85) 44%,oklch(0.20 0.021 245/0.55) 100%),url('${heroPhoto}')`}
     >
       <div class="max-w-[1080px] mx-auto pb-7 lg:grid lg:grid-cols-[1.35fr_1fr] lg:gap-10 lg:items-end">
         <div>
-          <h1 class="font-display font-semibold text-[42px] leading-[1.05] sm:text-5xl md:text-6xl tracking-tight mb-1.5">{termLabel} · Flag Football</h1>
+          <h1 class="display-xl mb-2" style="font-size:clamp(2.4rem,5vw,3.8rem)">{termLabel} · Flag Football</h1>
           <p class="text-sm text-cream/85">
             <b class="font-semibold text-cream">Indoor 4v4 · {fmtShort(startDate)} – {fmtShort(endDate)}</b> · 8-game season, no playoffs · {divisions.length} divisions
             {!anyOpen && (
