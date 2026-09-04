@@ -1514,10 +1514,65 @@ function ConvertCard({
 }
 
 // ---------------------------------------------------------------------------
+// Family-level card — children with none of the four qualifying signals
+// ---------------------------------------------------------------------------
+
+/** First token of a `${firstName} ${lastName}` summary name (see
+ *  `/api/classes/summary`'s `name` field) — the discover card lists first
+ *  names only, never the shared "Test"-style last name. */
+function firstNameOf(fullName: string): string {
+  return fullName.split(" ")[0] || fullName
+}
+
+/** "Ava" / "Ava and Ben" / "Ava, Ben, and Cleo". */
+function joinNames(names: string[]): string {
+  if (names.length <= 1) return names[0] ?? ""
+  if (names.length === 2) return `${names[0]} and ${names[1]}`
+  return `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`
+}
+
+/** At most ONE of these renders per family, regardless of how many children
+ *  fail every other qualifying signal (no membership, no trial, no credits,
+ *  no enrollment) — a 4-child family with zero class touchpoints should not
+ *  see 4 identical banners. `names` lists every eligible child's first name
+ *  so the single card still reads as personal to the family.
+ *
+ * Aspire-only: `/youth/classes` is Aspire's youth funnel, so the caller only
+ * mounts this when `brandId !== "soccerone"` — see FamilyClassesCard below. */
+function DiscoverCard({ names }: { names: string[] }) {
+  return (
+    <DashboardCard
+      type="class"
+      eyebrow="Weekly classes"
+      title={joinNames(names)}
+      meta="Weekly small-group classes — first class is a free trial."
+      action={
+        <Button asChild size="sm">
+          <a href="/youth/classes" data-testid="discover-classes">
+            Discover classes
+          </a>
+        </Button>
+      }
+    />
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Top-level island
 // ---------------------------------------------------------------------------
 
-export default function FamilyClassesCard() {
+interface FamilyClassesCardProps {
+  /** Host-derived brand key (`Astro.locals.brandId`, always resolved —
+   *  see src/env.d.ts). `/youth/classes` is Aspire-only, so `DiscoverCard`
+   *  is gated on this rather than any fetched data: the summary endpoint is
+   *  brand-neutral (serves both Aspire and SoccerOne orgs) and has no signal
+   *  of its own to gate on. Optional so any other caller keeps working
+   *  unchanged, defaulting to Aspire's behavior — mirrors PayCard's
+   *  `brandId?: "aspire" | "soccerone"` convention. */
+  brandId?: "aspire" | "soccerone"
+}
+
+export default function FamilyClassesCard({ brandId }: FamilyClassesCardProps = {}) {
   useHydrationBeacon()
 
   const [phase, setPhase] = useState<"loading" | "error" | "ready">("loading")
@@ -1722,7 +1777,12 @@ export default function FamilyClassesCard() {
   const qualifying = children.filter(
     (c) => c.membership !== null || c.trialUsed || c.credits.length > 0 || c.enrollment !== null,
   )
-  if (qualifying.length === 0) return packBanner
+  // Children hitting none of the four signals — never shown a per-child card
+  // of their own; folded into the single family-level DiscoverCard below
+  // instead (Aspire-only, see FamilyClassesCardProps.brandId).
+  const discoverable = children.filter((c) => !qualifying.includes(c))
+  const showDiscoverCard = brandId !== "soccerone" && discoverable.length > 0
+  if (qualifying.length === 0 && !showDiscoverCard) return packBanner
 
   return (
     <div className="space-y-3">
@@ -1748,6 +1808,9 @@ export default function FamilyClassesCard() {
             cheapestMonthlyCents={cheapestMonthlyCents}
           />
         ),
+      )}
+      {showDiscoverCard && (
+        <DiscoverCard names={discoverable.map((c) => firstNameOf(c.name))} />
       )}
     </div>
   )

@@ -536,3 +536,134 @@ test.describe("Family dashboard — tail-of-block End-enrollment control", () =>
     await expect(card.getByTestId("end-enrollment")).toBeVisible();
   });
 });
+
+/**
+ * Task 6 of the classes-dashboard-launch plan.
+ *
+ * A child with none of the four qualifying signals (no membership, no used
+ * trial, no credits, no enrollment) rendered nothing at all on the family
+ * dashboard, and neither `family.astro`'s Explore band nor `/dashboard/start`
+ * linked to `/youth/classes` — the youth classes funnel had no discovery
+ * entry point anywhere in the parent dashboard. `FamilyClassesCard` now
+ * renders a single family-level `DiscoverCard` (`data-testid=
+ * "discover-classes"`, links to `/youth/classes`) whenever at least one
+ * child fails all four signals; `family.astro`'s Explore band grew a
+ * matching "Weekly classes" card; `/dashboard/start` grew a third door.
+ * All three are Aspire-only (`Astro.locals.brandId === "aspire"` /
+ * `brandId !== "soccerone"` prop) since `/youth/classes` is Aspire's youth
+ * funnel — the dev server under test resolves plain `localhost` to Aspire
+ * (see soccerone-routing.ts's `SOCCERONE_HOSTS`), so these assertions run
+ * against the gate being OPEN.
+ *
+ * Fixture: a throwaway parent + child with zero class touchpoints — no
+ * membership, no credits, no enrollment, no trial booking. Nothing to mint;
+ * `createTestChild` alone is enough to reach the "discoverable" branch.
+ */
+test.describe("Family dashboard — class discovery entry points", () => {
+  test.setTimeout(60_000);
+
+  let parentEmail: string;
+  let parentPassword: string;
+  let parentUserId: string;
+  let childId: string;
+
+  const suffix = Date.now();
+  const childFirstName = `DashboardDiscoverE2E-${suffix}`;
+
+  test.beforeAll(async () => {
+    const throwawayUser = await createTestUserWithPassword();
+    parentEmail = throwawayUser.email;
+    parentPassword = throwawayUser.password;
+    parentUserId = throwawayUser.userId;
+
+    childId = await createTestChild(parentUserId, childFirstName);
+  });
+
+  test("family page shows one discover-classes card naming the child, linking to /youth/classes", async ({
+    page,
+  }) => {
+    await signIn(page, parentEmail, parentPassword);
+    await page.goto("/dashboard/family");
+    await waitForHydration(page);
+
+    const discoverLink = page.getByTestId("discover-classes");
+    await expect(discoverLink).toBeVisible({ timeout: 15_000 });
+    await expect(discoverLink).toHaveAttribute("href", "/youth/classes");
+    await expect(discoverLink).toHaveCount(1);
+
+    // Scope the name assertion to the discover card itself (same
+    // DashboardCard shell/locator pattern the suites above use) —
+    // `ChildrenOverview`, elsewhere on this same page, independently lists
+    // every child by full name, so an unscoped page-wide text search is
+    // ambiguous.
+    const card = page
+      .locator("div.flex.items-start.gap-3.rounded-xl.border.border-border.border-l-4.p-3")
+      .filter({ has: discoverLink });
+    await expect(card).toContainText(childFirstName);
+  });
+
+  test("family page Explore band links to /youth/classes", async ({ page }) => {
+    await signIn(page, parentEmail, parentPassword);
+    await page.goto("/dashboard/family");
+
+    // Scoped to <main> — Navigation and Footer (siblings of <main> in
+    // BaseLayout) already link to /youth/classes site-wide ("Classes" /
+    // "Classes & clinics"), which would otherwise make an unscoped
+    // `a[href="/youth/classes"]` locator ambiguous.
+    await expect(
+      page.locator('main a[href="/youth/classes"]').filter({ hasText: /weekly classes|discover classes/i }),
+    ).toBeVisible();
+  });
+
+  test("/dashboard/start shows a door linking to /youth/classes", async ({ page }) => {
+    await signIn(page, parentEmail, parentPassword);
+    await page.goto("/dashboard/start", { waitUntil: "domcontentloaded" });
+
+    // Scoped to <main> for the same reason as above.
+    await expect(page.locator('main a[href="/youth/classes"]')).toBeVisible();
+  });
+});
+
+/**
+ * Task 6 (continued) — at most ONE discover card per family, regardless of
+ * how many children fail the qualifying predicate.
+ */
+test.describe("Family dashboard — one discover card per family, not one per child", () => {
+  test.setTimeout(60_000);
+
+  let parentEmail: string;
+  let parentPassword: string;
+  let parentUserId: string;
+
+  const suffix = Date.now();
+  const firstChildName = `DashboardDiscoverMultiA-${suffix}`;
+  const secondChildName = `DashboardDiscoverMultiB-${suffix}`;
+
+  test.beforeAll(async () => {
+    const throwawayUser = await createTestUserWithPassword();
+    parentEmail = throwawayUser.email;
+    parentPassword = throwawayUser.password;
+    parentUserId = throwawayUser.userId;
+
+    await createTestChild(parentUserId, firstChildName);
+    await createTestChild(parentUserId, secondChildName);
+  });
+
+  test("two children with zero class touchpoints still render exactly one discover card, naming both", async ({
+    page,
+  }) => {
+    await signIn(page, parentEmail, parentPassword);
+    await page.goto("/dashboard/family");
+    await waitForHydration(page);
+
+    const discoverLink = page.getByTestId("discover-classes");
+    await expect(discoverLink).toBeVisible({ timeout: 15_000 });
+    await expect(discoverLink).toHaveCount(1);
+
+    const card = page
+      .locator("div.flex.items-start.gap-3.rounded-xl.border.border-border.border-l-4.p-3")
+      .filter({ has: discoverLink });
+    await expect(card).toContainText(firstChildName);
+    await expect(card).toContainText(secondChildName);
+  });
+});
