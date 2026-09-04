@@ -91,6 +91,7 @@ export default function TiersList({ tiers: initialTiers }: TiersListProps) {
                 <th className="px-4 py-2 font-medium text-ink-muted">Name</th>
                 <th className="px-4 py-2 font-medium text-ink-muted">Monthly</th>
                 <th className="px-4 py-2 font-medium text-ink-muted">Annual</th>
+                <th className="px-4 py-2 font-medium text-ink-muted">Technical</th>
                 <th className="px-4 py-2 font-medium text-ink-muted">Status</th>
                 <th className="px-4 py-2"></th>
               </tr>
@@ -114,6 +115,11 @@ export default function TiersList({ tiers: initialTiers }: TiersListProps) {
                   </td>
                   <td className="px-4 py-3 text-ink-muted">
                     {formatCents(tier.annualPriceCents)}
+                  </td>
+                  <td className="px-4 py-3 text-ink-muted">
+                    {tier.technicalMonthlyCents != null
+                      ? `+${formatCents(tier.technicalMonthlyCents)}/mo`
+                      : "—"}
                   </td>
                   <td className="px-4 py-3">
                     <Badge

@@ -33,6 +33,41 @@ describe("tierInputSchema", () => {
     expect(() => tierInputSchema.parse({ ...base, monthlyDollars: null, annualDollars: null })).toThrow());
 });
 
+describe("tierInputSchema technical supplement requires monthly billing (F6)", () => {
+  it("rejects an annual-only tier with a technical supplement set", () => {
+    expect(() =>
+      tierInputSchema.parse({
+        name: "Annual Only",
+        monthlyDollars: null,
+        annualDollars: 290,
+        technicalMonthlyDollars: 9,
+        benefits: {},
+      }),
+    ).toThrow();
+  });
+
+  it("accepts a technical supplement on a tier that also has monthly billing", () => {
+    const v = tierInputSchema.parse({
+      name: "Weekly",
+      monthlyDollars: 125,
+      annualDollars: null,
+      technicalMonthlyDollars: 9,
+      benefits: {},
+    });
+    expect(v.technicalMonthlyDollars).toBe(9);
+  });
+
+  it("accepts an annual-only tier with no technical supplement", () => {
+    const v = tierInputSchema.parse({
+      name: "Annual Only",
+      monthlyDollars: null,
+      annualDollars: 290,
+      benefits: {},
+    });
+    expect(v.technicalMonthlyDollars).toBeNull();
+  });
+});
+
 describe("tierInputSchema fee + tagline", () => {
   it("accepts annual fee and tagline", () => {
     const v = tierInputSchema.parse({

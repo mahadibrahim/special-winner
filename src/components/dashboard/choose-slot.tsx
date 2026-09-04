@@ -491,7 +491,7 @@ export function ChooseSlot() {
         typeof body.technicalMonthlyCents === "number" ? body.technicalMonthlyCents : null;
       const confirmed = await confirmTechnicalPremium({
         title: "Technical training class",
-        description: `This class adds ${formatCents(technicalMonthlyCents) ?? "a fee"}/month to your membership — smaller groups, extra coaching. Add it?`,
+        description: `This class adds ${formatCents(technicalMonthlyCents) ?? "a monthly amount"}/month to your membership — smaller groups, extra coaching. Add it?`,
         confirmLabel: "Add it",
       });
       if (!confirmed) return { ok: false, message: "" };

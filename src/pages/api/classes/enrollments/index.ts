@@ -125,15 +125,26 @@ export const POST: APIRoute = async ({ request, locals }) => {
   // back a seat. Ownership was already proven inside `enrollChild`; the
   // where-clause re-check here is belt-and-braces, not the source of truth.
   if (kitSize) {
-    await getDb()
-      .update(familyMembers)
-      .set({ kitSize })
-      .where(
-        and(
-          eq(familyMembers.id, familyMemberId),
-          eq(familyMembers.parentUserId, locals.user.id),
-        ),
-      );
+    try {
+      await getDb()
+        .update(familyMembers)
+        .set({ kitSize })
+        .where(
+          and(
+            eq(familyMembers.id, familyMemberId),
+            eq(familyMembers.parentUserId, locals.user.id),
+          ),
+        );
+    } catch (err) {
+      // Best-effort: the seat already committed inside enrollChild's
+      // transaction above. A size-write failure here must never roll that
+      // back or change the response shape — log and let the family set the
+      // size later from their dashboard.
+      console.error("[classes/enrollments] kitSize update failed", {
+        familyMemberId,
+        err,
+      });
+    }
   }
 
   return json({ ok: true, enrollmentId: result.enrollmentId }, 200);

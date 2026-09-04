@@ -40,6 +40,16 @@ export const tierInputSchema = z
   .refine((v) => v.monthlyDollars != null || v.annualDollars != null, {
     message: "At least one of monthly or annual price is required",
     path: ["monthlyDollars"],
+  })
+  .refine((v) => v.technicalMonthlyDollars == null || v.monthlyDollars != null, {
+    // Stripe subscriptions bill on a single interval — the technical
+    // supplement is a recurring MONTHLY Price (see createTechnicalPrice in
+    // admin-stripe.ts), so it can only ride a subscription that already has
+    // a monthly recurring item. An annual-only tier's add-on sync would
+    // fail every time (silently, inside syncTechnicalAddonQuantity's
+    // try/catch) with nowhere for the supplement to attach.
+    message: "Technical supplement requires monthly billing",
+    path: ["technicalMonthlyDollars"],
   });
 
 export type TierInput = z.infer<typeof tierInputSchema>;

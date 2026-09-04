@@ -67,6 +67,23 @@ export function normalizeStartTime(t: string): string {
   return t.slice(0, 5);
 }
 
+/**
+ * True when `templateId` has at least one `active` enrollment. Used to
+ * block an `isTechnical` flip on a template that already has enrolled
+ * children — flipping it silently re-prices a live membership (the
+ * technical-training supplement gate reads the template's CURRENT
+ * `isTechnical` value, not the value at enrollment time), violating "the
+ * premium never attaches silently."
+ */
+export async function hasActiveEnrollments(templateId: string): Promise<boolean> {
+  const [row] = await getDb()
+    .select({ id: classEnrollments.id })
+    .from(classEnrollments)
+    .where(and(eq(classEnrollments.slotTemplateId, templateId), eq(classEnrollments.status, "active")))
+    .limit(1);
+  return row != null;
+}
+
 // ---------------------------------------------------------------------------
 // Deactivation with teeth: cancel this template's future scheduled sessions.
 // ---------------------------------------------------------------------------

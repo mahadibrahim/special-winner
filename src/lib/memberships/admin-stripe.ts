@@ -51,6 +51,11 @@ export async function createTechnicalPrice(
     currency: "usd",
     recurring: { interval: "month" },
     nickname: "Technical training supplement",
+    // Stamped so technical-addon.ts's sync can identify the subscription
+    // item that backs this supplement even after a $ edit replaces the
+    // Price id — matching on id alone would orphan the old item and create
+    // a second (double-billing) one. See tier-price-diff's "replace" action.
+    metadata: { kind: "technical_supplement" },
   });
   return price.id;
 }

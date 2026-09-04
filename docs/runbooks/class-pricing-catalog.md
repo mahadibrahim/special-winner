@@ -15,6 +15,10 @@ never block a weekly kid. Copy still says "1 class a week" / "2 a week".
 ## Slot templates (Admin → Classes → Templates)
 - Standard classes: session rate $35, technical checkbox OFF
 - Technical classes: session rate $37, technical checkbox ON
+- Set the technical checkbox BEFORE enrolling any children. Changing it
+  later is blocked (409 `technical_flip_blocked`) once the template has
+  active enrollments — end those enrollments first if the flag genuinely
+  needs to change.
 
 ## Do NOT create
 - Class packs, class blocks — deliberately dormant (spec: one system only).
