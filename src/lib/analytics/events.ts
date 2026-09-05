@@ -111,13 +111,17 @@ export type DivisionSurface = "term" | "landing" | "division";
 export const trackDivisionFilterApplied = (p: {
   facet: "level" | "format" | "day" | "venue" | "ages" | "sport";
   value: string;
-  term: string;
+  // Optional: the landing surface mixes many terms/seasons in one table, so
+  // its filter chips have no single "active term" to report — those call
+  // sites omit it rather than pass an empty-string placeholder. Term-page
+  // callers keep passing their real term.
+  term?: string;
   surface?: DivisionSurface;
 }) =>
   track(LEAGUE_EVENTS.divisionFilterApplied, {
     facet: p.facet,
     value: p.value,
-    term: p.term,
+    ...(p.term ? { term: p.term } : {}),
     surface: p.surface ?? "term",
   });
 export const trackDivisionRegisterClicked = (p: {
@@ -199,16 +203,21 @@ export const trackInappRecaptureRequested = (p: {
 
 /** Register-page dead-ends (audit F5) — every path that stops a visitor
  *  short of paying without an existing event covering it: the season isn't
- *  open yet / has closed, or the visitor (guest or signed-in) already has a
- *  live registration for this season. */
-export type RegistrationBlockedReason = "not_open" | "closed" | "already_registered";
+ *  open yet / has closed, the visitor (guest or signed-in) already has a
+ *  live registration for this season, or the player named doesn't meet the
+ *  season's age group (audit F-final: this dead-end was invisible to the
+ *  funnel — no event fired on either the client hard-block or the server's
+ *  422 age_ineligible response). */
+export type RegistrationBlockedReason = "not_open" | "closed" | "already_registered" | "age_ineligible";
 
 export const trackRegistrationBlocked = (p: { seasonId: string; reason: RegistrationBlockedReason }) =>
   track(LEAGUE_EVENTS.registrationBlocked, { season_id: p.seasonId, reason: p.reason });
 
 /** Client-side twin of the server's `guest_checkout_started` — fired once,
- *  when the guest form first renders, so form-shown → submitted abandonment
- *  is measurable (the server event only fires on POST). */
+ *  when the guest form first renders, for BOTH guest audiences (child and
+ *  adult), matching the server event which fires on POST for either. So
+ *  form-shown → submitted abandonment is measurable for the whole guest
+ *  population, not just youth. */
 export const trackGuestFormShown = (p: { seasonId: string }) =>
   track(LEAGUE_EVENTS.guestFormShown, { season_id: p.seasonId });
 

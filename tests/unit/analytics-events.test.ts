@@ -35,8 +35,15 @@ describe("analytics events", () => {
   });
 
   it("division_filter_applied accepts an explicit surface and the sport facet", () => {
-    trackDivisionFilterApplied({ facet: "sport", value: "soccer", term: "", surface: "landing" });
-    expect(spy).toHaveBeenCalledWith("division_filter_applied", { facet: "sport", value: "soccer", term: "", surface: "landing" });
+    trackDivisionFilterApplied({ facet: "sport", value: "soccer", term: "fall-2026", surface: "landing" });
+    expect(spy).toHaveBeenCalledWith("division_filter_applied", { facet: "sport", value: "soccer", term: "fall-2026", surface: "landing" });
+  });
+
+  it("division_filter_applied omits term entirely when none is active (landing surface, no placeholder)", () => {
+    trackDivisionFilterApplied({ facet: "venue", value: "worthington", surface: "landing" });
+    expect(spy).toHaveBeenCalledWith("division_filter_applied", { facet: "venue", value: "worthington", surface: "landing" });
+    const props = spy.mock.calls[0][1] ?? {};
+    expect("term" in props).toBe(false);
   });
   it("landing_tab_viewed passes sport + tab", () => {
     trackLandingTabViewed({ sport: "soccer", tab: "overview" });
@@ -204,6 +211,8 @@ describe("analytics events", () => {
     expect(spy).toHaveBeenCalledWith("registration_blocked", { season_id: "s1", reason: "closed" });
     trackRegistrationBlocked({ seasonId: "s1", reason: "already_registered" });
     expect(spy).toHaveBeenCalledWith("registration_blocked", { season_id: "s1", reason: "already_registered" });
+    trackRegistrationBlocked({ seasonId: "s1", reason: "age_ineligible" });
+    expect(spy).toHaveBeenCalledWith("registration_blocked", { season_id: "s1", reason: "age_ineligible" });
     const props = spy.mock.calls[0][1] ?? {};
     for (const k of Object.keys(props)) expect(/email|name|phone/i.test(k)).toBe(false);
   });

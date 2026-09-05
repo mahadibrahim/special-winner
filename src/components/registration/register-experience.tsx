@@ -44,6 +44,10 @@ export default function RegisterExperience({
         // Detail endpoint's sport.slug — used to send the closed-state "Back
         // to leagues" link to the right sport rather than a generic fallback.
         sport: { color: string | null; slug: string | null };
+        // Same adult-detection field registration-wizard.tsx uses — needed
+        // here so the closed-state bail-outs can tell an adult season from
+        // a youth one even when the URL never carried ?audience=.
+        ageGroup: { minAge: number } | null;
       })
     | null
   >(null);
@@ -167,15 +171,15 @@ export default function RegisterExperience({
   // back into the catalog — pinned to this season's own sport when the
   // detail payload carries one, falling back to soccer's league page
   // otherwise (the only sport with a stable /youth/leagues/<slug> page today).
-  const backToLeaguesHref = `/youth/leagues/${season.sport?.slug || "soccer"}`;
   // This component also serves ADULT season bail-outs (adult flag-football
-  // closes seasonally) — audienceHint is the same signal ChooseMode/rail use
-  // elsewhere, so mirror it here rather than hardcoding the youth segment.
-  // The href stays youth-only: /adult/leagues.astro is a full standalone
-  // landing page (CategoryFinder etc.), not a thin redirect like
-  // /youth/leagues.astro's 302 → /youth/leagues/soccer, so there's no adult
-  // equivalent of "this season's own sport's league page" to link to yet.
-  const notifyAudience = audienceHint === "adult" ? "adult" : "parent";
+  // closes seasonally). audienceHint alone is unreliable — it comes only
+  // from ?audience= on the URL, which the division tables/cards never set,
+  // so an adult season reached via a card click had no signal at all. Mirror
+  // the adultSelfFlow predicate from registration-wizard.tsx:261 — fall back
+  // to the season's own ageGroup.minAge when the hint is absent.
+  const isAdultSeason = audienceHint === "adult" || (season.ageGroup?.minAge ?? 0) >= 18;
+  const backToLeaguesHref = isAdultSeason ? "/adult/leagues" : `/youth/leagues/${season.sport?.slug || "soccer"}`;
+  const notifyAudience = isAdultSeason ? "adult" : "parent";
   if (season.status !== "open")
     return (
       <div className="space-y-4">

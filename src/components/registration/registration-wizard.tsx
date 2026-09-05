@@ -804,18 +804,18 @@ export default function RegistrationWizard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep, season, teamToken, captainCreditSettled])
 
-  // Client-side twin of the server's guest_checkout_started (audit F5) — the
-  // youth guest branch specifically, since that's the one the server keys
-  // audience:"youth" off (see the payload-shape comment above). Fires once
-  // per wizard mount, the first time the form actually renders.
+  // Client-side twin of the server's guest_checkout_started (audit F5) —
+  // the server fires that for BOTH audiences, so this fires for both guest
+  // branches (child and adult) too, not just youth. Fires once per wizard
+  // mount, the first time the form actually renders.
   const guestFormShownRef = useRef(false)
   useEffect(() => {
     if (guestFormShownRef.current) return
-    if (isGuest && guestMode === "child" && stepName === "player" && season) {
+    if (isGuest && stepName === "player" && season) {
       guestFormShownRef.current = true
       trackGuestFormShown({ seasonId: season.id })
     }
-  }, [isGuest, guestMode, stepName, season])
+  }, [isGuest, stepName, season])
 
   // Fire view_item once when entering the payment step
   useEffect(() => {
@@ -1253,6 +1253,7 @@ export default function RegistrationWizard({
           })
           setGuestServerAgeError(message)
           setCurrentStep(stepNumberOf("player"))
+          trackRegistrationBlocked({ seasonId, reason: "age_ineligible" })
           return { error: "age_ineligible" }
         }
         // Ambiguous-audience adult-guest branch (guestMode === "adult", not
@@ -1272,6 +1273,7 @@ export default function RegistrationWizard({
               age: ageOnDate(guestAdultBirthDate, onDate),
             }),
           )
+          trackRegistrationBlocked({ seasonId, reason: "age_ineligible" })
           return { error: "age_ineligible" }
         }
         throw new Error(parseApiError(data, "Failed to complete registration"))
@@ -1472,6 +1474,7 @@ export default function RegistrationWizard({
                 })
               : "This player isn't in the age range for this program.",
           )
+          trackRegistrationBlocked({ seasonId, reason: "age_ineligible" })
           return { error: "age_ineligible" }
         }
         throw new Error(parseApiError(data, "Failed to complete registration"))
@@ -1647,6 +1650,13 @@ export default function RegistrationWizard({
   // live as the customer fixes fields (so resolved errors clear themselves).
   const [guestAttempted, setGuestAttempted] = useState(false)
   const guestFieldErrors = guestAttempted ? computeGuestErrors() : null
+  // Register-page dead-end (audit final wave): this hard block was invisible
+  // to the funnel — no event fired when a guest is stopped cold by an
+  // ineligible DOB. Ref-guarded once per mount, matching this file's other
+  // trackers (guestFormShownRef, selfBlockingRegistrationTrackedRef) — the
+  // customer can mash Continue while fixing the same bad DOB and we only
+  // want the first "hit the wall" moment, not one event per click.
+  const ageIneligibleBlockedTrackedRef = useRef(false)
 
   const handleContinue = () => {
     if (stepName === "player" && isGuest) {
@@ -1661,6 +1671,10 @@ export default function RegistrationWizard({
       // re-submitting the same bad DOB.
       if (errors || displayedChildAgeError) {
         setGuestAttempted(true)
+        if (displayedChildAgeError && !ageIneligibleBlockedTrackedRef.current) {
+          ageIneligibleBlockedTrackedRef.current = true
+          trackRegistrationBlocked({ seasonId, reason: "age_ineligible" })
+        }
         return
       }
       setGuestAttempted(false)
