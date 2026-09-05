@@ -14,9 +14,8 @@ import {
 import { eq, and, or, isNull, desc, asc, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
-  requireCoachAccess,
   requireCoachPortalAccess,
-  isPlayerOnCoachTeam,
+  canCoachReachFamilyMember,
   getCoachPlayerIds,
 } from "@/lib/auth";
 import { clampLimit } from "@/lib/http/clamp-limit";
@@ -34,11 +33,19 @@ const createAssessmentSchema = z.object({
   areasForImprovement: z.array(z.string()).optional(),
 });
 
-// GET - Get assessments (filtered to coach's players only)
+// GET - Get assessments. Two distinct access modes:
+//   - `familyMemberId` supplied: a per-child read, gated by
+//     `canCoachReachFamilyMember` (roster OR active class assignment
+//     covering the child) — same reach predicate the POST write gate uses.
+//   - no `familyMemberId`: "list my players" stays ROSTER-ONLY this phase.
+//     Opening this to the org's broader coaching staff (`isOrgCoachingStaff`)
+//     is deliberately out of scope for S3 — only the single-child path
+//     follows class assignments for now.
 export const GET: APIRoute = async (context) => {
   try {
-    // Verify coach access
-    const auth = await requireCoachAccess(context);
+    // Portal variant resolves organizationId, needed by
+    // canCoachReachFamilyMember's cross-org defense-in-depth checks.
+    const auth = await requireCoachPortalAccess(context);
     if (!auth.authorized) return auth.response;
 
     const db = getDb();
@@ -58,32 +65,32 @@ export const GET: APIRoute = async (context) => {
       });
     }
 
-    // If familyMemberId is specified, verify player is on coach's team
+    // If familyMemberId is specified, verify the coach can reach this child
+    // (roster OR class assignment) — the per-child read gate. A specific
+    // familyMemberId, once access-checked here, is sufficient on its own —
+    // no need to additionally intersect with the roster-only coachPlayerIds
+    // list below, which would incorrectly exclude class-only children.
+    let conditions;
     if (familyMemberId) {
-      const hasAccess = await isPlayerOnCoachTeam(auth.teamIds, familyMemberId);
+      const hasAccess = await canCoachReachFamilyMember(auth.user.id, familyMemberId, auth.organizationId);
       if (!hasAccess) {
-        return new Response(JSON.stringify({ error: "Access denied - player not on your team" }), {
+        return new Response(JSON.stringify({ error: "You don't coach this player" }), {
           status: 403,
           headers: { "Content-Type": "application/json" },
         });
       }
-    }
-
-    // Get all player IDs the coach has access to
-    const coachPlayerIds = await getCoachPlayerIds(auth.teamIds);
-
-    if (coachPlayerIds.length === 0) {
-      return new Response(JSON.stringify({ assessments: [] }), {
-        status: 200,
-        headers: { "Content-Type": "application/json" },
-      });
-    }
-
-    // Build query conditions - always filter to coach's players
-    const conditions = [inArray(playerAssessments.familyMemberId, coachPlayerIds)];
-
-    if (familyMemberId) {
-      conditions.push(eq(playerAssessments.familyMemberId, familyMemberId));
+      conditions = [eq(playerAssessments.familyMemberId, familyMemberId)];
+    } else {
+      // No specific child requested: fall back to the roster-only player
+      // list (see header note — broad org-staff read isn't wired up here).
+      const coachPlayerIds = await getCoachPlayerIds(auth.teamIds);
+      if (coachPlayerIds.length === 0) {
+        return new Response(JSON.stringify({ assessments: [] }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      conditions = [inArray(playerAssessments.familyMemberId, coachPlayerIds)];
     }
 
     if (skillId) {
@@ -205,10 +212,14 @@ export const POST: APIRoute = async (context) => {
       });
     }
 
-    // Verify the player is on one of the coach's teams
-    const hasAccess = await isPlayerOnCoachTeam(auth.teamIds, familyMemberId);
+    // Verify the coach can reach this player — roster OR an active class
+    // assignment covering an active enrollment/confirmed booking (#626's
+    // unified reach predicate). Context-neutral message: this write is no
+    // longer team-only, so "not on your team" would be actively wrong for
+    // a class-context coach.
+    const hasAccess = await canCoachReachFamilyMember(auth.user.id, familyMemberId, auth.organizationId);
     if (!hasAccess) {
-      return new Response(JSON.stringify({ error: "Access denied - player not on your team" }), {
+      return new Response(JSON.stringify({ error: "You don't coach this player" }), {
         status: 403,
         headers: { "Content-Type": "application/json" },
       });

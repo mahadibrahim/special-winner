@@ -14,6 +14,7 @@ export {
   requireAdminAccess,
   requireSuperAdminAccess,
   isPlayerOnCoachTeam,
+  canCoachReachFamilyMember,
   getCoachPlayerIds,
   requireCoachAccess,
   requireCoachAccessToPlayer,

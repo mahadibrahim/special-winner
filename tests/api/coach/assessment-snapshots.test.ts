@@ -22,11 +22,14 @@
  * against fixed, far-future dates (year 2031) that can never collide with
  * real seeded or dev-generated data.
  *
- * NOTE on S3: the route still gates writes on `isPlayerOnCoachTeam` (S3's
- * `canCoachReachFamilyMember` swap-in hasn't landed), so the "class-context,
- * no season" case below is exercised as a team-context assessment with
- * `seasonId` omitted — the validator for `seasonId` only fires when the
- * field is present, so this is a legitimate request today.
+ * NOTE on S3: the route now gates writes on `canCoachReachFamilyMember`
+ * (roster OR class assignment) rather than the roster-only
+ * `isPlayerOnCoachTeam`. This file still exercises the "class-context, no
+ * season" case as a team-context assessment with `seasonId` omitted, since
+ * the fixture player here is a roster player — the validator for `seasonId`
+ * only fires when the field is present, so this remains a legitimate
+ * request. Genuine class-enrollment-only reach is covered end-to-end by
+ * tests/api/coach/class-assessments.test.ts.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { asc, and, eq, inArray } from "drizzle-orm";
