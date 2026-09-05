@@ -2281,6 +2281,45 @@ export async function sendDevReportQuarterly(
   return result;
 }
 
+/**
+ * Sentinel `email_logs.recipient_email` for the no-guardian audit
+ * breadcrumb below. The column is `NOT NULL varchar(255)` and nothing ever
+ * sends TO this address — `logDevReportSkippedNoGuardian` calls `logEmail`
+ * directly, bypassing `sendEmail` entirely, so no message is ever dispatched
+ * anywhere near it.
+ */
+const NO_GUARDIAN_SENTINEL_EMAIL = "no-guardian@internal.aspiresports.com";
+
+/**
+ * Audit-log breadcrumb for a development-report candidate that resolved to
+ * ZERO guardians (a data anomaly — every `family_members` dependent row
+ * should carry a `parentUserId`, and a self-registered adult row has no
+ * separate guardian to notify at all). No email is possible, so there's no
+ * `sendEmail` call here — but every OTHER terminal state in this cron logs
+ * to `email_logs` (sent, failed, skipped-for-inert-channel, deduped), and
+ * this one shouldn't be the silent exception: without a breadcrumb, an ops
+ * investigation into "why didn't this family get a report" finds nothing at
+ * all instead of a clear reason. Uses the same anti-dedupe metadata shape
+ * (`familyMemberId`) as the guardian-keyed sends, plus `reason` for
+ * disambiguation, so a repeat scan of the same period doesn't need special
+ * handling to avoid re-logging (though see runDevelopmentReports — the scan
+ * has no anti-join either way, per its own docstring, so re-runs will log
+ * this breadcrumb again; harmless, since it's diagnostic rather than a
+ * dedupe gate).
+ */
+export async function logDevReportSkippedNoGuardian(params: {
+  familyMemberId: string;
+  emailType: string;
+}): Promise<void> {
+  await logEmail({
+    emailType: params.emailType,
+    recipientEmail: NO_GUARDIAN_SENTINEL_EMAIL,
+    subject: "Development report skipped — no guardian on file",
+    status: "skipped",
+    metadata: { familyMemberId: params.familyMemberId, reason: "no_guardian" },
+  });
+}
+
 export interface SendSeasonInterestOpsAlertParams {
   email: string;
   firstName: string | null;

@@ -56,6 +56,7 @@ import {
 import {
   sendDevReportMonthly,
   sendDevReportQuarterly,
+  logDevReportSkippedNoGuardian,
   type DevReportMonthlyDomain,
   type DevReportQuarterlyDomain,
   type DevReportQuarterlyAchievement,
@@ -205,6 +206,14 @@ export interface GuardianInfo {
  * plus any additional linked guardians (`family_member_parents`) — see the
  * module docstring. Deduplicated by user id (a user could theoretically be
  * both, though the app never creates that state).
+ *
+ * The linked-guardian query filters on `canReceiveMessages` — every other
+ * outbound sender that reads `family_member_parents` respects this opt-out
+ * flag (`team-group-sync.ts:61,236`, `broadcast.ts:315,330`), and a monthly
+ * report is no exception. The PRIMARY guardian (`familyMembers.parentUserId`)
+ * stays unconditional: there's no `canReceiveMessages` column on
+ * `family_members` at all — the flag only exists on the join table for
+ * additional linked guardians.
  */
 export async function resolveGuardians(familyMemberId: string): Promise<GuardianInfo[]> {
   const db = getDb();
@@ -217,7 +226,12 @@ export async function resolveGuardians(familyMemberId: string): Promise<Guardian
   const linked = await db
     .select({ parentUserId: familyMemberParents.parentUserId })
     .from(familyMemberParents)
-    .where(eq(familyMemberParents.familyMemberId, familyMemberId));
+    .where(
+      and(
+        eq(familyMemberParents.familyMemberId, familyMemberId),
+        eq(familyMemberParents.canReceiveMessages, true),
+      ),
+    );
 
   const parentUserIds = new Set<string>();
   if (member?.parentUserId) parentUserIds.add(member.parentUserId);
@@ -420,6 +434,13 @@ export async function runDevelopmentReports(
       const guardians = await resolveGuardians(candidate.familyMemberId);
       if (guardians.length === 0) {
         counters.skipped += 1;
+        // Audit breadcrumb — see logDevReportSkippedNoGuardian's docstring
+        // for why a zero-guardian candidate must still log SOMETHING
+        // (every other terminal state in this cron does).
+        await logDevReportSkippedNoGuardian({
+          familyMemberId: candidate.familyMemberId,
+          emailType: emailTypeForPeriod(period),
+        });
         continue;
       }
 

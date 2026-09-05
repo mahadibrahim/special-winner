@@ -46,6 +46,7 @@ describe("Cron: send development reports", () => {
   let skillId: string;
 
   const createdFamilyMemberIds: string[] = [];
+  const createdUserIds: string[] = [];
 
   beforeAll(async () => {
     const db = getDb();
@@ -103,6 +104,9 @@ describe("Cron: send development reports", () => {
       await db.delete(playerAchievements).where(inArray(playerAchievements.familyMemberId, createdFamilyMemberIds));
       await db.delete(familyMemberParents).where(inArray(familyMemberParents.familyMemberId, createdFamilyMemberIds));
       await db.delete(familyMembers).where(inArray(familyMembers.id, createdFamilyMemberIds));
+    }
+    if (createdUserIds.length > 0) {
+      await db.delete(users).where(inArray(users.id, createdUserIds));
     }
     resetCookies();
   });
@@ -215,6 +219,77 @@ describe("Cron: send development reports", () => {
         (r) => (r.metadata as Record<string, unknown> | null)?.familyMemberId === familyMemberId,
       );
       expect(taggedForThisChild).toBe(false);
+    });
+
+    it("a candidate with zero resolvable guardians still logs a skipped breadcrumb (F2 regression)", async () => {
+      const period = computeReportPeriod(new Date());
+      if (period.kind !== "monthly") return;
+
+      const db = getDb();
+
+      // A dependent (`family_members.parent_user_id` set) can never legally
+      // reach zero guardians — the XOR constraint requires it. The scan
+      // (scanCandidateFamilyMemberIds) has no filter on
+      // parentUserId-vs-selfUserId, though, so a SELF-registered adult row
+      // (selfUserId set, parentUserId null, no family_member_parents link)
+      // qualifies as a candidate if they have activity, and resolveGuardians
+      // correctly finds nobody to notify — the natural, unmocked path to
+      // this edge case.
+      const email = `dev-report-self-${Date.now()}-${Math.random().toString(36).slice(2)}@t.example`;
+      const [selfUser] = await db
+        .insert(users)
+        .values({ email, firstName: "SelfNoGuardian", lastName: "Test" })
+        .returning({ id: users.id });
+      createdUserIds.push(selfUser.id);
+
+      const [selfMember] = await db
+        .insert(familyMembers)
+        .values({ selfUserId: selfUser.id, firstName: "SelfNoGuardian", lastName: "Test" })
+        .returning({ id: familyMembers.id });
+      const familyMemberId = selfMember.id;
+      createdFamilyMemberIds.push(familyMemberId);
+
+      const assessedAt = new Date(period.start.getTime() + 7 * 24 * 60 * 60 * 1000);
+      await db.insert(playerAssessments).values({
+        familyMemberId,
+        skillId,
+        coachUserId,
+        level: 2,
+        observationContext: "practice",
+        assessedAt,
+      });
+      await recomputePlayerSnapshots(db, familyMemberId, assessedAt);
+
+      // Confirm the scan actually picks this candidate up (otherwise the
+      // rest of this test would trivially pass for the wrong reason).
+      const dryRunRes = await apiFetch(`${ENDPOINT}?dryRun=1`, {
+        method: "POST",
+        headers: { "x-cron-secret": CRON_SECRET },
+      });
+      const dryRunJson = await expectJson(dryRunRes, 200);
+      const candidateIds = dryRunJson.candidates.map((c: { familyMemberId: string }) => c.familyMemberId);
+      expect(candidateIds).toContain(familyMemberId);
+
+      const res = await apiFetch(ENDPOINT, {
+        method: "POST",
+        headers: { "x-cron-secret": CRON_SECRET },
+      });
+      await expectJson(res, 200);
+
+      const emailType = emailTypeForPeriod(period);
+      const rows = await db
+        .select({ recipientEmail: emailLogs.recipientEmail, status: emailLogs.status, metadata: emailLogs.metadata })
+        .from(emailLogs)
+        .where(eq(emailLogs.emailType, emailType));
+      const forThisChild = rows.filter(
+        (r) => (r.metadata as Record<string, unknown> | null)?.familyMemberId === familyMemberId,
+      );
+      expect(forThisChild.length).toBe(1);
+      expect(forThisChild[0].status).toBe("skipped");
+      expect((forThisChild[0].metadata as Record<string, unknown>).reason).toBe("no_guardian");
+      // Sentinel recipient, not a real address — nobody was actually emailed.
+      expect(forThisChild[0].recipientEmail).toBeTruthy();
+      expect(forThisChild[0].recipientEmail).not.toBe(email);
     });
 
     it("dryRun=1 sends nothing (candidate present but no new email_logs row)", async () => {
@@ -371,6 +446,67 @@ describe("Cron: send development reports", () => {
       expect(recipientEmails.has("parent@test.aspiresports.com")).toBe(true);
       expect(recipientEmails.has("familyonly@test.aspiresports.com")).toBe(true);
       expect(forThisChild.length).toBe(2);
+    });
+
+    it("an opted-out linked guardian (canReceiveMessages=false) never gets emailed (F1 regression)", async () => {
+      const period = computeReportPeriod(new Date());
+      if (period.kind !== "monthly") return;
+
+      const db = getDb();
+      const [coParent] = await db
+        .select({ id: users.id, email: users.email })
+        .from(users)
+        .where(eq(users.email, "familyonly@test.aspiresports.com"))
+        .orderBy(asc(users.createdAt))
+        .limit(1);
+      if (!coParent) {
+        throw new Error("development-reports-cron test: seeded familyonly@test.aspiresports.com not found");
+      }
+
+      // Same shape as "multiple guardians ... each get their own email"
+      // above (primary guardian via createTestChild + one linked co-parent),
+      // but this co-parent has explicitly opted out of messages. The
+      // resolveGuardians linked-guardian query must exclude them — only the
+      // PRIMARY guardian (unconditional; no opt-out flag exists on that
+      // path) should ever be sent to.
+      const familyMemberId = await createTestChild(parentUserId, `DevReportOptedOut-${Date.now()}`);
+      createdFamilyMemberIds.push(familyMemberId);
+      await db.insert(familyMemberParents).values({
+        familyMemberId,
+        parentUserId: coParent.id,
+        relationship: "guardian",
+        canReceiveMessages: false,
+      });
+
+      const assessedAt = new Date(period.start.getTime() + 6 * 24 * 60 * 60 * 1000);
+      await db.insert(playerAssessments).values({
+        familyMemberId,
+        skillId,
+        coachUserId,
+        level: 3,
+        observationContext: "practice",
+        assessedAt,
+      });
+      await recomputePlayerSnapshots(db, familyMemberId, assessedAt);
+
+      const res = await apiFetch(ENDPOINT, {
+        method: "POST",
+        headers: { "x-cron-secret": CRON_SECRET },
+      });
+      await expectJson(res, 200);
+
+      const emailType = emailTypeForPeriod(period);
+      const rows = await db
+        .select({ recipientEmail: emailLogs.recipientEmail, metadata: emailLogs.metadata })
+        .from(emailLogs)
+        .where(eq(emailLogs.emailType, emailType));
+      const forThisChild = rows.filter(
+        (r) => (r.metadata as Record<string, unknown> | null)?.familyMemberId === familyMemberId,
+      );
+      const recipientEmails = new Set(forThisChild.map((r) => r.recipientEmail));
+      expect(recipientEmails.has("parent@test.aspiresports.com")).toBe(true);
+      expect(recipientEmails.has("familyonly@test.aspiresports.com")).toBe(false);
+      expect(forThisChild.length).toBe(1);
     });
   });
 
