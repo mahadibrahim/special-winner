@@ -1,5 +1,5 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon";
 import LeagueContextRail, { type RailSeason, type RailStep } from "./league-context-rail";
 import ChooseMode from "./choose-mode";
@@ -8,6 +8,7 @@ import RegistrationWizard from "./registration-wizard";
 import { InAppEscapeBanner } from "./in-app-escape-banner";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { ErrorBanner } from "@/components/ui/error-banner";
+import { trackRegistrationBlocked } from "@/lib/analytics/events";
 
 type AuthedUser = React.ComponentProps<typeof RegistrationWizard>["user"];
 
@@ -130,6 +131,21 @@ export default function RegisterExperience({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [season]);
+
+  // Register-page dead-ends (audit F5): the season isn't open yet, or
+  // registration has closed. Both bail-outs below were silent — fire once
+  // per mount so the funnel shows where visitors actually stop.
+  const blockedTrackedRef = useRef(false);
+  useEffect(() => {
+    if (!season || blockedTrackedRef.current) return;
+    if (season.status !== "open") {
+      blockedTrackedRef.current = true;
+      trackRegistrationBlocked({ seasonId, reason: "not_open" });
+    } else if (season.registrationClosed) {
+      blockedTrackedRef.current = true;
+      trackRegistrationBlocked({ seasonId, reason: "closed" });
+    }
+  }, [season, seasonId]);
 
   if (err) return <ErrorBanner message={err} />;
   // min-h reserves roughly the wizard's height so the loading→content swap

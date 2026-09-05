@@ -36,6 +36,8 @@ import {
 import { formatWaiverValidUntil } from "@/lib/registrations/waiver-text"
 import {
   trackRegistrationStepViewed,
+  trackRegistrationBlocked,
+  trackGuestFormShown,
   type RegVariant,
   type RegFlow,
 } from "@/lib/analytics/events"
@@ -802,6 +804,19 @@ export default function RegistrationWizard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep, season, teamToken, captainCreditSettled])
 
+  // Client-side twin of the server's guest_checkout_started (audit F5) — the
+  // youth guest branch specifically, since that's the one the server keys
+  // audience:"youth" off (see the payload-shape comment above). Fires once
+  // per wizard mount, the first time the form actually renders.
+  const guestFormShownRef = useRef(false)
+  useEffect(() => {
+    if (guestFormShownRef.current) return
+    if (isGuest && guestMode === "child" && stepName === "player" && season) {
+      guestFormShownRef.current = true
+      trackGuestFormShown({ seasonId: season.id })
+    }
+  }, [isGuest, guestMode, stepName, season])
+
   // Fire view_item once when entering the payment step
   useEffect(() => {
     if (stepName === "payment" && season) {
@@ -1218,6 +1233,7 @@ export default function RegistrationWizard({
           // 409 fires before guest-checkout creates any Stripe PaymentIntent.
           // The benign error string just stops the caller; the UI already
           // switched to the friendly state.
+          trackRegistrationBlocked({ seasonId, reason: "already_registered" })
           setGuestAlreadyRegistered(true)
           return { error: "already_registered" }
         }
@@ -1426,6 +1442,7 @@ export default function RegistrationWizard({
           // register a sibling — so it gets a named inline message naming
           // that player, and the wizard stays usable.
           if (adultSelfFlow) {
+            trackRegistrationBlocked({ seasonId, reason: "already_registered" })
             setRaceAlreadyRegistered(true)
           } else {
             setError(
