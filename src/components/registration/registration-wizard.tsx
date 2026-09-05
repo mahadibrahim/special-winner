@@ -1859,6 +1859,19 @@ export default function RegistrationWizard({
     selfBlockingRegistration,
   ])
 
+  // Register-page dead-end (audit F5 follow-up): the COMMON adult-self path —
+  // detected up-front from the mount-time GET /api/registrations check above,
+  // not a submit-time 409 — into the same full-screen "You're already in"
+  // state the race-fallback below also renders. Fires once per mount.
+  const selfBlockingRegistrationTrackedRef = useRef(false)
+  useEffect(() => {
+    if (selfBlockingRegistrationTrackedRef.current) return
+    if (season && adultSelfFlow && selfBlockingRegistration) {
+      selfBlockingRegistrationTrackedRef.current = true
+      trackRegistrationBlocked({ seasonId: season.id, reason: "already_registered" })
+    }
+  }, [season, adultSelfFlow, selfBlockingRegistration])
+
   // ── Loading / error states ─────────────────────────────────────────────────
 
   // Also waits on registrationsChecked (Task 5) so the wizard never flashes

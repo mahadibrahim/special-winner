@@ -199,14 +199,14 @@ export function SeasonsFinderSection({
   // the row id) can still fire division_register_clicked with real
   // level/gender/venue/term instead of blank enums (audit F5).
   const seasonById = useMemo(() => new Map(filtered.map((s) => [s.id, s])), [filtered])
-  const handleBook = (id: string) => {
+  const handleBook = (id: string, mode: "individual" | "team") => {
     const s = seasonById.get(id)
     trackDivisionRegisterClicked({
       seasonId: id,
       level: s?.skillLevel ?? "",
       gender: s?.divisionGender ?? "",
       venue: s?.location.slug ?? "",
-      mode: "individual",
+      mode,
       term: s?.termSlug ?? s?.termLabel ?? "",
       surface: "landing",
     })
