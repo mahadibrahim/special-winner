@@ -223,9 +223,6 @@ test.describe("Admin class template staffing panel", () => {
 test.describe("Coach portal — My Classes + roster", () => {
   test.setTimeout(120_000);
 
-  const UNASSIGNED_COACH_EMAIL = "training+coach@test.aspiresports.com";
-  const UNASSIGNED_COACH_PASSWORD = "TestCoach123!";
-
   let organizationId: string;
   let venueId: string;
   let assignedCoachId: string;
@@ -234,6 +231,11 @@ test.describe("Coach portal — My Classes + roster", () => {
   let childId: string;
   let grantId: string;
   let enrollmentId: string;
+  // Minted fresh per run (beforeAll below) rather than resolving the shared
+  // training+coach@test.aspiresports.com fixture — see that beforeAll's
+  // comment for why.
+  let unassignedCoachEmail: string;
+  let unassignedCoachPassword: string;
 
   const portalSuffix = Date.now();
   const portalTemplateName = `Portal-E2E-${portalSuffix}`;
@@ -267,26 +269,48 @@ test.describe("Coach portal — My Classes + roster", () => {
     }
     assignedCoachId = assignedCoach.id;
 
-    const [unassignedCoach] = await db
-      .select({ id: users.id })
-      .from(users)
-      .where(eq(users.email, UNASSIGNED_COACH_EMAIL))
+    // The empty-state test below needs a coach-role user that genuinely has
+    // ZERO class assignments. That used to be the shared
+    // training+coach@test.aspiresports.com fixture, "cleaned" by a blanket
+    // `coachingAssignments.active = false` update scoped only to that
+    // coach's userId — not to any template/session this describe owns.
+    // playwright.config.ts is fullyParallel, so this file's describes can
+    // run in different workers concurrently, and the Admin describe above
+    // resolves that SAME email as its per-session override target
+    // (`overrideCoachId`) and assigns it mid-test via the UI. The two raced
+    // in both directions: this blanket deactivation could fire after the
+    // Admin describe's override write and silently undo it out from under
+    // that test's "shows the override coach's name" assertion, while an
+    // Admin-describe override landing after this beforeAll (but before this
+    // file's empty-state test ran) would give the "unassigned" coach a real
+    // active class_session assignment and break the `toHaveCount(0)`
+    // assertion below.
+    //
+    // A dedicated, run-unique user sidesteps both directions: it starts with
+    // zero assignments by construction and no other describe in this file
+    // (or any sibling suite) ever references its id. Same throwaway-user
+    // convention as `createTestUserWithPassword` elsewhere in this file
+    // (e.g. the Glows describe's throwaway parent below); the coach role is
+    // granted org-scoped exactly the way seed-e2e-tests.ts grants the shared
+    // coach fixtures' roles.
+    const throwawayCoach = await createTestUserWithPassword();
+    unassignedCoachEmail = throwawayCoach.email;
+    unassignedCoachPassword = throwawayCoach.password;
+
+    const [coachRole] = await db
+      .select({ id: roles.id })
+      .from(roles)
+      .where(eq(roles.name, "coach"))
       .limit(1);
-    if (!unassignedCoach) {
-      throw new Error(`coach-classes.spec (portal): ${UNASSIGNED_COACH_EMAIL} is not seeded — run npm run db:seed:e2e`);
+    if (!coachRole) {
+      throw new Error("coach-classes.spec (portal): 'coach' role is missing — run npm run db:seed:e2e");
     }
-    // Hygiene: the empty-state assertion needs this coach to genuinely have
-    // zero active class assignments — clear any debris a prior/failed run
-    // (this file or a sibling API suite) may have left active.
-    await db
-      .update(coachingAssignments)
-      .set({ active: false })
-      .where(
-        and(
-          eq(coachingAssignments.coachUserId, unassignedCoach.id),
-          inArray(coachingAssignments.kind, ["class_template", "class_session"]),
-        ),
-      );
+    await db.insert(userRoles).values({
+      userId: throwawayCoach.userId,
+      roleId: coachRole.id,
+      scopeType: "organization",
+      scopeId: organizationId,
+    });
 
     const [parent] = await db
       .select({ id: users.id })
@@ -403,7 +427,7 @@ test.describe("Coach portal — My Classes + roster", () => {
   });
 
   test("a coach with no class assignments sees the empty state on My Classes", async ({ page }) => {
-    await signIn(page, UNASSIGNED_COACH_EMAIL, UNASSIGNED_COACH_PASSWORD);
+    await signIn(page, unassignedCoachEmail, unassignedCoachPassword);
 
     await page.goto("/coach/classes", { waitUntil: "domcontentloaded" });
     await waitForHydration(page);

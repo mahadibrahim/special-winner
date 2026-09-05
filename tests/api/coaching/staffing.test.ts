@@ -252,6 +252,14 @@ describe("template + session staffing propagation", () => {
       expect(putRes.status).toBe(200);
       const putBody = await putRes.json();
       expect(putBody.sessionsUpdated).toBeGreaterThanOrEqual(1);
+      // F2 fix: the response now always carries sessionsFailed/sessionsAttempted
+      // alongside sessionsUpdated, so a caller can tell "0 updated" apart from
+      // "N attempted, N failed" instead of the two looking identical. No
+      // failure is staged here (that would need setCoachesFor to throw on a
+      // legitimately-owned session, which isn't cheaply reproducible), so this
+      // just pins the response SHAPE and the all-succeeded invariant.
+      expect(putBody.sessionsFailed).toBe(0);
+      expect(putBody.sessionsAttempted).toBe(putBody.sessionsUpdated);
 
       const sessionRes = await getSessionCoaches(materializedSessionId);
       const sessionBody = await sessionRes.json();
@@ -364,5 +372,37 @@ describe("staffing endpoint guards", () => {
 
     const res = await putSessionCoaches(session.id, { lead: leadCoachId, assistants: [parentUserId] });
     expect(res.status).toBe(422);
+  });
+
+  it("GET/PUT session coaches 404 for a pickup (non-class) session", async () => {
+    // F3 fix: loadOwnedSession now requires kind = 'class' — a pickup
+    // drop_in_sessions row has no class_slot_templates relationship for this
+    // staffing model to hang off of, so it must 404 rather than accept a
+    // class-shaped staffing write.
+    const db = getDb();
+    const startsAt = new Date(Date.now() + 6 * 86_400_000);
+    const endsAt = new Date(startsAt.getTime() + 90 * 60_000);
+    const [pickupSession] = await db
+      .insert(dropInSessions)
+      .values({
+        organizationId,
+        venueId,
+        kind: "pickup",
+        sportOrClassLabel: `Staffing-Pickup-${Date.now()}`,
+        startsAt,
+        endsAt,
+        capacity: 10,
+      })
+      .returning();
+
+    try {
+      const getRes = await getSessionCoaches(pickupSession.id);
+      expect(getRes.status).toBe(404);
+
+      const putRes = await putSessionCoaches(pickupSession.id, { lead: leadCoachId, assistants: [] });
+      expect(putRes.status).toBe(404);
+    } finally {
+      await db.delete(dropInSessions).where(eq(dropInSessions.id, pickupSession.id));
+    }
   });
 });

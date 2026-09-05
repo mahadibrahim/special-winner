@@ -157,14 +157,21 @@ export const PUT: APIRoute = async (context) => {
   }
 
   let sessionsUpdated = 0;
+  let sessionsFailed = 0;
+  let sessionsAttempted = 0;
   if (input.applyToMaterialized) {
     const sessionIds = await futureScheduledSessionIds(id, new Date());
+    sessionsAttempted = sessionIds.length;
     for (const sessionId of sessionIds) {
       // Ownership is already guaranteed (every session here was queried BY
       // this template's id, which was itself just pinned to orgId above), so
       // AssignmentTargetOrgMismatchError is not expected — isolate per-session
       // anyway rather than let one unexpected failure abort the whole batch,
-      // matching the isolation pattern materializeClassSessions uses.
+      // matching the isolation pattern materializeClassSessions uses. A
+      // failure here means that ONE session silently keeps its prior coach
+      // set while the template (and every other session) moved on — surface
+      // the count rather than letting `sessionsUpdated` alone imply full
+      // success, so the admin UI can warn instead of reporting a clean save.
       try {
         await setCoachesFor({
           organizationId: orgId,
@@ -180,10 +187,11 @@ export const PUT: APIRoute = async (context) => {
           `[admin/classes] applyToMaterialized coach replace failed for session ${sessionId}:`,
           err,
         );
+        sessionsFailed += 1;
       }
     }
   }
 
   const templateCoaches = await getCoachesFor("class_template", id);
-  return json({ templateCoaches, sessionsUpdated }, 200);
+  return json({ templateCoaches, sessionsUpdated, sessionsFailed, sessionsAttempted }, 200);
 };

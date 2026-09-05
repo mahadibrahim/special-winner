@@ -150,12 +150,28 @@ export default function TemplateStaffing({ templateId, candidates }: TemplateSta
         toast.error(message);
         return;
       }
-      const sessionsUpdated = (body as { sessionsUpdated?: number }).sessionsUpdated ?? 0;
-      toast.success(
-        applyToMaterialized
-          ? `Staffing saved · ${sessionsUpdated} upcoming session${sessionsUpdated === 1 ? "" : "s"} updated`
-          : "Staffing saved",
-      );
+      const responseBody = body as {
+        sessionsUpdated?: number;
+        sessionsFailed?: number;
+        sessionsAttempted?: number;
+      };
+      const sessionsUpdated = responseBody.sessionsUpdated ?? 0;
+      const sessionsFailed = responseBody.sessionsFailed ?? 0;
+      const sessionsAttempted = responseBody.sessionsAttempted ?? 0;
+
+      if (sessionsFailed > 0) {
+        toast.warning(
+          `Staffing saved, but ${sessionsFailed} of ${sessionsAttempted} upcoming session${
+            sessionsAttempted === 1 ? "" : "s"
+          } failed to update — check them individually or try again.`,
+        );
+      } else {
+        toast.success(
+          applyToMaterialized
+            ? `Staffing saved · ${sessionsUpdated} upcoming session${sessionsUpdated === 1 ? "" : "s"} updated`
+            : "Staffing saved",
+        );
+      }
       setApplyToMaterialized(false);
       await load();
     } catch {
@@ -222,6 +238,22 @@ export default function TemplateStaffing({ templateId, candidates }: TemplateSta
   }
 
   const sessions = data?.sessions ?? [];
+
+  // F4: warn when the current draft DROPS a coach who was previously
+  // assigned at the template level (lead swap or an assistant unchecked).
+  // A removed coach's `class_session` assignments made when their old
+  // template-level set was copied onto materialized sessions aren't touched
+  // by a plain template PUT (see this component's earlier applyToMaterialized
+  // note, and templates/[id]/coaches.ts's header) — they keep portal access
+  // to already-scheduled sessions unless the admin also checks "apply to
+  // already-scheduled sessions".
+  const previouslyAssignedCoachIds = new Set(
+    (data?.templateCoaches ?? []).map((c) => c.coachUserId),
+  );
+  const draftCoachIds = new Set([leadDraft, ...assistantsDraft].filter(Boolean));
+  const isRemovingAssignedCoach =
+    !applyToMaterialized &&
+    Array.from(previouslyAssignedCoachIds).some((id) => !draftCoachIds.has(id));
 
   return (
     <div data-testid="staffing-panel" className="max-w-2xl space-y-8">
@@ -290,6 +322,17 @@ export default function TemplateStaffing({ templateId, candidates }: TemplateSta
             </span>
           </span>
         </label>
+
+        {isRemovingAssignedCoach && (
+          <p
+            data-testid="staffing-removal-warning"
+            className="text-xs text-amber-900 bg-amber-50 border border-amber-300 rounded-md p-3"
+          >
+            A coach you removed above keeps access to any already-scheduled sessions they were
+            staffed on — check &quot;Apply to already-scheduled sessions&quot; to also remove them
+            there.
+          </p>
+        )}
 
         <Button type="button" data-testid="staffing-save" onClick={saveTemplate} disabled={saving}>
           {saving ? "Saving…" : "Save staffing"}

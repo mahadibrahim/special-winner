@@ -17,9 +17,13 @@
  * why that path is a blunt, no-mercy replace in Phase 1).
  *
  * Guards mirror `templates/[id]/roster.ts`: org-admin gated
- * (`requireOrgAdminAccess`), session ownership pinned to the resolved org.
- * Coach ids in the body are validated as actual org coaching staff
- * (`isOrgCoachingStaff`) — an id that isn't gets a 422.
+ * (`requireOrgAdminAccess`), session ownership pinned to the resolved org AND
+ * `kind = 'class'` — a pickup `drop_in_sessions` row 404s here rather than
+ * accepting class-shaped staffing writes it has no `class_slot_templates`
+ * relationship to (mirrors `coach/class-sessions/[id]/glows.ts`'s
+ * `session.kind !== "class"` check). Coach ids in the body are validated as
+ * actual org coaching staff (`isOrgCoachingStaff`) — an id that isn't gets a
+ * 422.
  */
 import type { APIRoute } from "astro";
 import { and, eq } from "drizzle-orm";
@@ -43,7 +47,13 @@ async function loadOwnedSession(orgId: string, id: string) {
   const [row] = await getDb()
     .select({ id: dropInSessions.id })
     .from(dropInSessions)
-    .where(and(eq(dropInSessions.id, id), eq(dropInSessions.organizationId, orgId)))
+    .where(
+      and(
+        eq(dropInSessions.id, id),
+        eq(dropInSessions.organizationId, orgId),
+        eq(dropInSessions.kind, "class"),
+      ),
+    )
     .limit(1);
   return row ?? null;
 }

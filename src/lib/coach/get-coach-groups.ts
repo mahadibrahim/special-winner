@@ -118,7 +118,12 @@ export async function getCoachGroups(
           startTime: classSlotTemplates.startTime,
         })
         .from(classSlotTemplates)
-        .where(inArray(classSlotTemplates.id, templateIds))
+        .where(
+          and(
+            inArray(classSlotTemplates.id, templateIds),
+            eq(classSlotTemplates.organizationId, organizationId),
+          ),
+        )
     : [];
 
   const classGroups: CoachClassGroup[] = templates.map((template) => {
