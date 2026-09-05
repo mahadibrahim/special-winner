@@ -1,14 +1,18 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
+import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   users,
   familyMembers as familyMembersTable,
+  seasons,
+  ageGroups,
 } from "@/lib/db/schema";
 import {
   createRegistration,
   RegistrationError,
 } from "@/lib/registrations/create-registration";
+import { checkAgeEligibility } from "@/lib/registrations/age-eligibility";
 import {
   createCheckoutForRegistration,
   CheckoutError,
@@ -164,6 +168,58 @@ export const POST: APIRoute = async (context) => {
     // Storefront the charge came through — brands share one org and one
     // Stripe account, so the request host is the only brand signal.
     const brand = brandFromHost(request.headers.get("host") ?? "");
+
+    // -------------------------------------------------------------------------
+    // Server-side age gate (audit finding F1, owner decision: hard block both
+    // directions). A season's age_group bounds are enforced here — before
+    // upsertGuestUser/resolvePerson/any write and before any Stripe call — so
+    // nobody can buy (or be bought) into a season they're not age-eligible
+    // for, guest path included. A season with no age_group_id (open-age
+    // divisions) gates nothing; a registrant with no birthDate yet (v2 adult-
+    // self flow defers DOB to the post-payment completion step) also skips —
+    // checkAgeEligibility treats an empty birthDate as eligible, and the
+    // completion endpoint's own ageReviewNeeded check backstops that case
+    // once the real DOB is known. Age is computed on the season's start date
+    // (fallback to now), matching ageOnDate's convention.
+    const [seasonAgeGate] = await db
+      .select({
+        startDate: seasons.startDate,
+        minAge: ageGroups.minAge,
+        maxAge: ageGroups.maxAge,
+        ageGroupName: ageGroups.name,
+      })
+      .from(seasons)
+      .leftJoin(ageGroups, eq(seasons.ageGroupId, ageGroups.id))
+      .where(eq(seasons.id, data.seasonId));
+
+    function ageGateResponse(birthDate: string | null | undefined): Response | null {
+      if (
+        !seasonAgeGate ||
+        (seasonAgeGate.minAge == null && seasonAgeGate.maxAge == null) ||
+        !birthDate
+      ) {
+        return null;
+      }
+      const onDate = seasonAgeGate.startDate
+        ? new Date(seasonAgeGate.startDate)
+        : new Date();
+      const result = checkAgeEligibility({
+        birthDate,
+        minAge: seasonAgeGate.minAge,
+        maxAge: seasonAgeGate.maxAge,
+        onDate,
+      });
+      if (result.eligible) return null;
+      return new Response(
+        JSON.stringify({
+          error: "age_ineligible",
+          minAge: seasonAgeGate.minAge,
+          maxAge: seasonAgeGate.maxAge,
+          ageGroupName: seasonAgeGate.ageGroupName,
+        }),
+        { status: 422, headers: { "Content-Type": "application/json" } },
+      );
+    }
 
     // Capture GA4 client_id + ad-platform IDs (gclid, fbclid, _fbc, _fbp) to
     // pass through the PaymentIntent metadata so the webhook
@@ -584,6 +640,9 @@ export const POST: APIRoute = async (context) => {
       // exactly the failures it exists to make visible. Left as a literal.
       posthog.capture({ distinctId: phClientId || r.email.toLowerCase().trim(), event: "guest_checkout_started", properties: { $session_id: phSessionId, season_id: data.seasonId, registration_type: data.registrationType, brand, email: r.email.toLowerCase().trim(), audience: "adult" } });
 
+      const ageGate = ageGateResponse(r.birthDate ?? null);
+      if (ageGate) return ageGate;
+
       const { userRow, wasNewUser } = await upsertGuestUser(db, {
         email: r.email,
         firstName: r.firstName,
@@ -637,6 +696,9 @@ export const POST: APIRoute = async (context) => {
     // deferred: the shape is what selects this branch, and this branch is
     // what keeps the funnel's audience segmentation intact.
     posthog.capture({ distinctId: phClientId || data.parent.email.toLowerCase().trim(), event: "guest_checkout_started", properties: { $session_id: phSessionId, season_id: data.seasonId, registration_type: data.registrationType, brand, email: data.parent.email.toLowerCase().trim(), audience: "youth" } });
+
+    const ageGate = ageGateResponse(data.child.birthDate);
+    if (ageGate) return ageGate;
 
     const { userRow, wasNewUser } = await upsertGuestUser(db, {
       email: data.parent.email,

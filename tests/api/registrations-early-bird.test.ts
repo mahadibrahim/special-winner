@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { getAuthCookie, apiFetch } from "./setup/test-helpers";
 import { getDb } from "@/lib/db";
-import { seasons, registrations, familyMembers, users } from "@/lib/db/schema";
-import { and, eq, inArray } from "drizzle-orm";
+import { seasons } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 
 const BASE = process.env.TEST_BASE_URL ?? "http://localhost:4321";
 
@@ -51,37 +51,6 @@ beforeAll(async () => {
 
   // Cache the cookie once to avoid rate-limiting.
   adultCookie = await getAuthCookie(ADULT_EMAIL, "TestParent123!");
-
-  // Clean slate on the shared CI DB: a leftover pending-unpaid registration
-  // from a prior run would be "resumed" with its old amountDueCents instead
-  // of exercising the fresh charge path. Only pending/unpaid rows are removed
-  // (paid rows carry restrict-FK payments and shouldn't exist here anyway).
-  const [adultUser] = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.email, ADULT_EMAIL))
-    .limit(1);
-  if (adultUser) {
-    const selfPeople = await db
-      .select({ id: familyMembers.id })
-      .from(familyMembers)
-      .where(eq(familyMembers.selfUserId, adultUser.id));
-    if (selfPeople.length > 0) {
-      await db
-        .delete(registrations)
-        .where(
-          and(
-            eq(registrations.seasonId, seasonId),
-            inArray(
-              registrations.familyMemberId,
-              selfPeople.map((p) => p.id),
-            ),
-            eq(registrations.status, "pending"),
-            eq(registrations.paymentStatus, "unpaid"),
-          ),
-        );
-    }
-  }
 });
 
 describe("early-bird pricing — seeded spring season", () => {
@@ -102,12 +71,33 @@ describe("early-bird pricing — seeded spring season", () => {
   });
 
   it("POST /api/registrations charges the early-bird price for a full registration", async () => {
+    // Register a fresh in-range dependent rather than the adult account's
+    // own self-record: this season carries a U8 (6-8) age_group, and the
+    // age-eligibility gate (Task 2, F1) now 422s an adult (birthDate
+    // 1985-06-15) registering themselves for it. Early-bird pricing is a
+    // season-level calculation that doesn't care who registers, so a
+    // compatible-age dependent still exercises the thing this test is
+    // actually about.
+    const childRes = await apiFetch("/api/family-members", {
+      method: "POST",
+      cookie: adultCookie,
+      body: JSON.stringify({
+        firstName: `EarlyBirdKid${Date.now()}`,
+        lastName: "Test",
+        birthDate: "2019-01-01", // age ~7 — inside the U8 (6-8) age_group
+        gender: "male",
+        parentalConsent: true,
+      }),
+    });
+    expect(childRes.status).toBe(201);
+    const { familyMember } = await childRes.json();
+
     const res = await apiFetch("/api/registrations", {
       method: "POST",
       cookie: adultCookie,
       body: JSON.stringify({
         seasonId,
-        registerSelf: true,
+        familyMemberId: familyMember.id,
         registrationType: "full",
         waiverSigned: true,
         waiverSignedBy: "Adult Self",

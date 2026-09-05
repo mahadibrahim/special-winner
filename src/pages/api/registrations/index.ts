@@ -5,6 +5,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { z } from "zod";
 import { createRegistration, RegistrationError } from "@/lib/registrations/create-registration";
 import { resolvePerson } from "@/lib/registrations/resolve-person";
+import { checkAgeEligibility } from "@/lib/registrations/age-eligibility";
 import { getPostHogServer } from "@/lib/posthog-server";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
 import { fireRegistrationCreatedConversion } from "@/lib/analytics/server-conversions";
@@ -208,6 +209,55 @@ export const POST: APIRoute = async ({ request, clientAddress, locals }) => {
         });
       }
       familyMember = fm;
+    }
+
+    // -------------------------------------------------------------------------
+    // Server-side age gate (audit finding F1, owner decision: hard block both
+    // directions). Mirrors guest-checkout.ts's gate: a season's age_group
+    // bounds are enforced against the resolved family member's birthDate,
+    // before the registration insert below. A season with no age_group_id
+    // (open-age divisions) gates nothing; a family member with no birthDate
+    // yet (v2 adult-self flow defers DOB to the post-payment completion
+    // step) also skips — checkAgeEligibility treats an empty birthDate as
+    // eligible, and the completion endpoint's own ageReviewNeeded check
+    // backstops that case once the real DOB is known. Age is computed on the
+    // season's start date (fallback to now), matching ageOnDate's convention.
+    const [seasonAgeGate] = await db
+      .select({
+        startDate: seasons.startDate,
+        minAge: ageGroups.minAge,
+        maxAge: ageGroups.maxAge,
+        ageGroupName: ageGroups.name,
+      })
+      .from(seasons)
+      .leftJoin(ageGroups, eq(seasons.ageGroupId, ageGroups.id))
+      .where(eq(seasons.id, data.seasonId));
+
+    if (
+      seasonAgeGate &&
+      (seasonAgeGate.minAge != null || seasonAgeGate.maxAge != null) &&
+      familyMember.birthDate
+    ) {
+      const onDate = seasonAgeGate.startDate
+        ? new Date(seasonAgeGate.startDate)
+        : new Date();
+      const ageResult = checkAgeEligibility({
+        birthDate: familyMember.birthDate,
+        minAge: seasonAgeGate.minAge,
+        maxAge: seasonAgeGate.maxAge,
+        onDate,
+      });
+      if (!ageResult.eligible) {
+        return new Response(
+          JSON.stringify({
+            error: "age_ineligible",
+            minAge: seasonAgeGate.minAge,
+            maxAge: seasonAgeGate.maxAge,
+            ageGroupName: seasonAgeGate.ageGroupName,
+          }),
+          { status: 422, headers: { "Content-Type": "application/json" } },
+        );
+      }
     }
 
     try {
