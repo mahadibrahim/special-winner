@@ -51,7 +51,24 @@ describe("draftPlacements", () => {
     const result = draftPlacements(regs, teams);
 
     expect(result.unplaced).toEqual([]);
+    expect(result.assignments).toHaveLength(2);
     expect(result.assignments.every((a) => a.teamId === "t2")).toBe(true);
+  });
+
+  it("conserves every registration — placed or unplaced, never dropped or duplicated", () => {
+    const regs = Array.from({ length: 9 }, (_, i) => reg(`r${i + 1}`));
+    // total capacity across the three teams is 6 (2 + 3 + 1), so exactly 3 of
+    // the 9 registrations must land in unplaced.
+    const teams = [team("t1", 0, 2), team("t2", 0, 3), team("t3", 0, 1)];
+    const result = draftPlacements(regs, teams);
+
+    expect(result.assignments).toHaveLength(6);
+    expect(result.unplaced).toHaveLength(3);
+    expect(result.assignments.length + result.unplaced.length).toBe(regs.length);
+
+    const allIds = [...result.assignments.map((a) => a.registrationId), ...result.unplaced];
+    expect(new Set(allIds).size).toBe(regs.length); // no duplicates, none dropped
+    expect([...allIds].sort()).toEqual(regs.map((r) => r.registrationId).sort());
   });
 
   it("places remaining registrations in unplaced when every team is capped", () => {
@@ -90,18 +107,25 @@ describe("draftPlacements", () => {
     expect(a).toEqual(c);
   });
 
-  it("prefers the team with fewer of the registration's gender when load is tied", () => {
-    // t2 starts one ahead on load, so r1 goes to t1 (strictly less loaded).
-    // That ties the load at 1/1, but t1 now holds an F while t2 holds none —
-    // the gender-spread rule should route r2 to t2 despite equal teamId ordering
-    // otherwise preferring t1.
-    const regs = [reg("r1", { gender: "F" }), reg("r2", { gender: "F" }), reg("r3", { gender: "F" })];
-    const teams = [team("t1", 0), team("t2", 1)];
+  it("applies load, then gender-spread, then teamId order — in that precedence, across 3 teams", () => {
+    // t3 starts one ahead on load so it's excluded from the first two picks by
+    // load alone (tier 1: load beats everything, including gender).
+    const regs = [reg("r1", { gender: "F" }), reg("r2", { gender: "F" }), reg("r3", { gender: "F" }), reg("r4", { gender: "F" })];
+    const teams = [team("t1", 0), team("t2", 0), team("t3", 1)];
     const result = draftPlacements(regs, teams);
 
+    // r1: t1/t2 tied at load 0, gender F tied at 0 -> tier 3 (teamId order) -> t1.
     expect(teamOf(result, "r1")).toBe("t1");
+    // r2: t2 (load 0) is strictly less loaded than t1 (load 1) and t3 (load 1)
+    // -> tier 1 (load) wins outright, gender never consulted.
     expect(teamOf(result, "r2")).toBe("t2");
-    expect(teamOf(result, "r3")).toBe("t1");
+    // Now all three teams are tied at load 1: t1 holds 1 F, t2 holds 1 F, t3
+    // holds 0 F. r3: tier 2 (gender spread) picks t3 despite it sorting last
+    // by teamId — proof the gender rule outranks plain id order.
+    expect(teamOf(result, "r3")).toBe("t3");
+    // r4: t1/t2 tied at load 1 with 1 F each (t3 is now at load 2) -> gender
+    // tied too -> falls through to tier 3 (teamId order) -> t1.
+    expect(teamOf(result, "r4")).toBe("t1");
     expect(result.unplaced).toEqual([]);
   });
 
