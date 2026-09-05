@@ -18,6 +18,12 @@ import {
  * engine, so every test needs a UNIQUE parent email (and, for the age-gate
  * and kid-dedupe cases, a unique kid name+DOB) to avoid colliding with debris
  * left in the shared staging DB by a previous run.
+ *
+ * This file alone issues 10 POSTs to the endpoint, which burst-limits at 5
+ * requests/min/IP (see guest-trial.ts's `rateLimit("guest-trial:...", 5,
+ * 60_000)`). The dev server MUST run with DISABLE_RATE_LIMIT=1 or every test
+ * past the 5th will fail with a confusing 429 instead of its expected
+ * status — CI sets this globally; a plain `npm run dev` locally does not.
  */
 
 let organizationId: string;
@@ -67,6 +73,12 @@ const GUEST_TRIAL_WAIVER = {
 function birthDateForAge(age: number): string {
   return `${new Date().getUTCFullYear() - age}-01-01`;
 }
+
+// Body validation (zod) runs BEFORE the session lookup, so the three
+// invalid_body cases below never need a real session row — a well-formed
+// but nonexistent UUID satisfies the `sessionId: z.string().uuid()` shape
+// check without the cost of minting a throwaway drop-in session per case.
+const THROWAWAY_SESSION_ID = "11111111-1111-1111-1111-111111111111";
 
 async function postGuestTrial(body: Record<string, unknown>) {
   return apiFetch("/api/classes/guest-trial", {
@@ -157,9 +169,8 @@ describe("POST /api/classes/guest-trial", () => {
   });
 
   it("422s invalid_body when parentalConsent is false", async () => {
-    const sessionId = await createGuestSession();
     const res = await postGuestTrial({
-      sessionId,
+      sessionId: THROWAWAY_SESSION_ID,
       turnstileToken: "",
       parent: { firstName: "Guest", lastName: "Parent", email: guestEmail("consent-false") },
       child: { firstName: `ConsentFalseKid${Date.now()}`, lastName: "Trialkid", birthDate: "2016-01-01" },
@@ -172,9 +183,8 @@ describe("POST /api/classes/guest-trial", () => {
   });
 
   it("422s invalid_body when parentalConsent is absent", async () => {
-    const sessionId = await createGuestSession();
     const res = await postGuestTrial({
-      sessionId,
+      sessionId: THROWAWAY_SESSION_ID,
       turnstileToken: "",
       parent: { firstName: "Guest", lastName: "Parent", email: guestEmail("consent-absent") },
       child: { firstName: `ConsentAbsentKid${Date.now()}`, lastName: "Trialkid", birthDate: "2016-01-01" },
@@ -186,9 +196,8 @@ describe("POST /api/classes/guest-trial", () => {
   });
 
   it("422s invalid_body when waiver is missing", async () => {
-    const sessionId = await createGuestSession();
     const res = await postGuestTrial({
-      sessionId,
+      sessionId: THROWAWAY_SESSION_ID,
       turnstileToken: "",
       parent: { firstName: "Guest", lastName: "Parent", email: guestEmail("no-waiver") },
       child: { firstName: `NoWaiverKid${Date.now()}`, lastName: "Trialkid", birthDate: "2016-01-01" },
