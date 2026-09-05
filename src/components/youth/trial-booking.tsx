@@ -75,14 +75,29 @@ import { TurnstileWidget, type TurnstileWidgetHandle } from "@/components/auth/t
  *     checks, so only one auto-open ever fires) and reopens the modal —
  *     now authed, so it takes the normal picking path.
  *     Turnstile tokens are single-use server-side, so the widget is kept
- *     MOUNTED (visually hidden outside `guest_form`, via a CSS class, not
- *     unmounted) across `guest_form` → `guest_waiver` → `session_full_offer`
- *     — every retry path in `submitGuestBooking` resets it and clears the
- *     stored token so the next submit always carries a fresh one. This is
- *     the one deliberate deviation from the brief's inline snippet (which
- *     showed the widget only inside `guest_form`'s markup): unmounting it
- *     on every phase change would null out `turnstileRef.current` exactly
- *     when a retry needs `.reset()` to work.
+ *     MOUNTED and VISIBLE (never `display:none`, never a zero-size
+ *     container — a real Cloudflare challenge needs to be something a
+ *     parent can actually see and solve) across `guest_form` →
+ *     `guest_waiver` → `session_full_offer`, and through the `booking`
+ *     phase that bridges between them (`submitGuestBooking` sets that phase
+ *     synchronously before its first `await`). Every failure path in
+ *     `submitGuestBooking` resets it and clears the stored token so the
+ *     next submit always carries a fresh one; `guest_waiver`'s submit and
+ *     `session_full_offer`'s confirm are both disabled without a live
+ *     token, so a stale/expired one blocks the button instead of guaranteeing
+ *     a 403. Because the widget's ideal visual slot differs per phase
+ *     (above "Continue" + the sign-in escape hatch in `guest_form`; a
+ *     compact block above the submit button in `guest_waiver` and
+ *     `session_full_offer`) while still being ONE React element that must
+ *     never unmount, each phase's fields and primary-action markup are
+ *     split into separate top-level `DialogContent` children ordered via
+ *     inline `style={{ order }}` (fields: 1, the shared widget: 2, primary
+ *     action: 3) rather than nested inside one JSX fragment — DOM/CSS order
+ *     controls the visual position, not React tree position, so the widget
+ *     itself sits in one stable conditional slot (`guestTurnstileActive`)
+ *     the whole time. This is the one deliberate deviation from the
+ *     brief's inline snippet, which showed the widget nested directly
+ *     inside `guest_form`'s markup.
  *  2. Child picker (`child-picker.tsx`, shared with Task 6):
  *     `participantKind="dependent"` — self rows are hard-excluded (see that
  *     file's header comment: a self row's `parentUserId` is null, so
@@ -230,6 +245,13 @@ const SIGNIN_REDIRECT =
  *  book, so the modal REOPENS itself after the sign-in round-trip instead
  *  of dropping them back at the schedule with nothing open. */
 const PENDING_KEY = "youth:trial-pending"
+
+/** Cheap client-side shape check for the guest email field — catches an
+ *  obvious typo before it reaches the server's zod `.email()` validation
+ *  (which returns a 422 `invalid_body` this component can't usefully
+ *  narrow further; see `submitGuestBooking`'s `invalid_body` branch). Not
+ *  meant to be a complete email validator. */
+const GUEST_EMAIL_SHAPE_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export default function TrialBooking() {
   useHydrationBeacon()
@@ -425,10 +447,16 @@ export default function TrialBooking() {
         // `/youth/classes?trial=<templateId>#schedule` — this is that
         // landing point. By now the parent has followed the magic link and
         // is authed, so this resolves through the normal (non-guest)
-        // picking path. Read-only (not cleared) since the mount effect only
-        // ever runs once per page load, so there's no re-trigger risk.
-        const trialParam = new URLSearchParams(window.location.search).get("trial")
-        if (trialParam) void openForTemplate(trialParam, { resume: true })
+        // picking path. Consume-and-clear (strip the query param from the
+        // URL) so a refresh doesn't silently re-open the modal and
+        // re-fire trial_modal_opened.
+        const url = new URL(window.location.href)
+        const trialParam = url.searchParams.get("trial")
+        if (trialParam) {
+          url.searchParams.delete("trial")
+          window.history.replaceState(null, "", url.pathname + url.search + url.hash)
+          void openForTemplate(trialParam, { resume: true })
+        }
       }
     }
 
@@ -595,7 +623,7 @@ export default function TrialBooking() {
   const canContinueGuestForm =
     guestParentFirst.trim().length > 0 &&
     guestParentLast.trim().length > 0 &&
-    guestEmail.trim().length > 0 &&
+    GUEST_EMAIL_SHAPE_RE.test(guestEmail.trim()) &&
     guestChildFirst.trim().length > 0 &&
     guestChildLast.trim().length > 0 &&
     guestChildDob.length > 0 &&
@@ -747,6 +775,19 @@ export default function TrialBooking() {
       setPhase("guest_form")
       return
     }
+    if (code === "invalid_body") {
+      // The client-side email shape check in canContinueGuestForm should
+      // catch most of what would trip this — the server (zod) is still
+      // authoritative, so this is a backstop, not the primary defense.
+      blocked("generic")
+      setFlowError({
+        code: "generic",
+        message:
+          "Something in the form didn't validate — double-check the email address and birth date, then try again.",
+      })
+      setPhase("guest_form")
+      return
+    }
     blocked("generic")
     setFlowError({
       code: "generic",
@@ -790,9 +831,19 @@ export default function TrialBooking() {
     )
   }
 
-  async function submitGuestWaiver(e: React.FormEvent) {
-    e.preventDefault()
+  /**
+   * Plain click handler, not a `<form onSubmit>` — the waiver fields, the
+   * shared Turnstile widget, and this submit button live in three separate
+   * top-level DialogContent children (CSS `order` positions them, not DOM
+   * nesting; see guestTurnstileActive's doc comment), so they can't share
+   * one `<form>` element.
+   */
+  async function submitGuestWaiver() {
     if (!waiverAccepted || waiverSignerName.trim().length === 0) return
+    // Gate on a live token exactly like the session_full_offer confirm —
+    // Turnstile tokens are single-use, so an empty/stale one here would be a
+    // guaranteed 403 round trip instead of a disabled button.
+    if (!guestTurnstileToken) return
     // Guests always target the earliest upcoming session on first submit —
     // there's no waiver_required round trip to pin a specific pendingSession
     // to (the waiver is collected up front and sent in the same request).
@@ -803,19 +854,23 @@ export default function TrialBooking() {
 
   function confirmOfferedSession() {
     if (!offeredSession) return
-    trackTrialFullOfferAccepted({ templateId: templateId ?? "" })
     const session = offeredSession
     if (guestMode) {
       // Turnstile tokens are single-use — the token that got us here was
       // already spent by the attempt that hit session_full, and
       // submitGuestBooking's failure path already reset the widget and
-      // cleared guestTurnstileToken, so gate on a fresh one having arrived.
+      // cleared guestTurnstileToken, so gate on a fresh one having arrived
+      // before firing the tracking call or the request.
       if (!guestTurnstileToken) return
+      trackTrialFullOfferAccepted({ templateId: templateId ?? "" })
       setOfferedSession(null)
       void submitGuestBooking(session, generationRef.current)
       return
     }
+    // Signed-in path unchanged: same `!pendingChild` guard, same relative
+    // position of the tracking call, as before the guest branch existed.
     if (!pendingChild) return
+    trackTrialFullOfferAccepted({ templateId: templateId ?? "" })
     const waiver = offeredWaiver
     const child = pendingChild
     setOfferedSession(null)
@@ -832,6 +887,10 @@ export default function TrialBooking() {
   }
 
   function resetToPicker() {
+    // Only reachable from the authed success panel ("Add another player" is
+    // hidden in guest mode), but set defensively so this stays correct by
+    // construction even if that ever changes.
+    setGuestMode(false)
     setSelectedChild(null)
     setBookedSession(null)
     setPendingSession(null)
@@ -874,12 +933,21 @@ export default function TrialBooking() {
     )
   }
 
-  /** True while a guest phase that needs a live Turnstile widget instance is
-   *  active — see the header comment's Turnstile paragraph for why the
-   *  widget stays MOUNTED (only visually hidden) across all three, rather
-   *  than being rendered inline inside guest_form alone. */
+  /** True while a guest phase that needs a live, VISIBLE Turnstile widget
+   *  instance is active — see the header comment's Turnstile paragraph.
+   *  Includes "booking": `submitGuestBooking` sets that phase synchronously
+   *  before its first `await`, so omitting it would unmount the widget (and
+   *  null `turnstileRef.current`) for the entire request/response round
+   *  trip, turning every `.reset()` on a failure path into a silent no-op —
+   *  exactly the bug this fixes. The widget's visual slot (via CSS `order`,
+   *  see the render below) differs per phase, but the React element itself
+   *  never unmounts across this whole set. */
   const guestTurnstileActive =
-    guestMode && (phase === "guest_form" || phase === "guest_waiver" || phase === "session_full_offer")
+    guestMode &&
+    (phase === "guest_form" ||
+      phase === "guest_waiver" ||
+      phase === "session_full_offer" ||
+      phase === "booking")
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && closeModal()}>
@@ -998,19 +1066,26 @@ export default function TrialBooking() {
               Book {formatDateTime(offeredSession.startsAt)} instead?
             </DialogDescription>
             {renderFlowError()}
-            <div className="flex gap-3">
-              <Button
-                type="button"
-                onClick={confirmOfferedSession}
-                disabled={guestMode && !guestTurnstileToken}
-              >
-                Book that class
-              </Button>
-              <Button type="button" variant="outline" onClick={declineOfferedSession}>
-                Back
-              </Button>
-            </div>
           </>
+        )}
+
+        {/* Split from the fragment above/below via CSS `order` (not DOM
+            position) so the shared Turnstile widget — rendered once, order 2,
+            near the bottom of this file — can sit visually between them
+            without ever unmounting. See guestTurnstileActive's doc comment. */}
+        {phase === "session_full_offer" && slot && offeredSession && (
+          <div className="flex gap-3" style={{ order: 3 }}>
+            <Button
+              type="button"
+              onClick={confirmOfferedSession}
+              disabled={guestMode && !guestTurnstileToken}
+            >
+              Book that class
+            </Button>
+            <Button type="button" variant="outline" onClick={declineOfferedSession}>
+              Back
+            </Button>
+          </div>
         )}
 
         {phase === "waiver" && slot && (
@@ -1074,126 +1149,138 @@ export default function TrialBooking() {
             </DialogDescription>
 
             {renderFlowError()}
-
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="guest-parent-first" className="text-sm">
-                    Your first name
-                  </Label>
-                  <Input
-                    id="guest-parent-first"
-                    value={guestParentFirst}
-                    onChange={(e) => setGuestParentFirst(e.target.value)}
-                    autoComplete="given-name"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="guest-parent-last" className="text-sm">
-                    Your last name
-                  </Label>
-                  <Input
-                    id="guest-parent-last"
-                    value={guestParentLast}
-                    onChange={(e) => setGuestParentLast(e.target.value)}
-                    autoComplete="family-name"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="guest-email" className="text-sm">
-                  Your email
-                </Label>
-                <Input
-                  id="guest-email"
-                  type="email"
-                  value={guestEmail}
-                  onChange={(e) => setGuestEmail(e.target.value)}
-                  autoComplete="email"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="guest-child-first" className="text-sm">
-                    Child's first name
-                  </Label>
-                  <Input
-                    id="guest-child-first"
-                    value={guestChildFirst}
-                    onChange={(e) => setGuestChildFirst(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="guest-child-last" className="text-sm">
-                    Child's last name
-                  </Label>
-                  <Input
-                    id="guest-child-last"
-                    value={guestChildLast}
-                    onChange={(e) => setGuestChildLast(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="guest-child-dob" className="text-sm">
-                  Child's date of birth
-                </Label>
-                <Input
-                  id="guest-child-dob"
-                  type="date"
-                  value={guestChildDob}
-                  max={new Date().toISOString().slice(0, 10)}
-                  onChange={(e) => setGuestChildDob(e.target.value)}
-                />
-              </div>
-
-              <div className="flex items-start gap-3">
-                <Checkbox
-                  id="guest-coppa"
-                  checked={guestCoppaConsent}
-                  onCheckedChange={(c) => setGuestCoppaConsent(c === true)}
-                />
-                <Label htmlFor="guest-coppa" className="text-sm leading-snug cursor-pointer">
-                  I am this child's parent or legal guardian and I consent to Aspire
-                  collecting their information for this class. Required by federal law
-                  (COPPA) for participants under 13.
-                </Label>
-              </div>
-
-              <Button
-                type="button"
-                onClick={handleGuestContinue}
-                disabled={!canContinueGuestForm}
-                className="w-full sm:w-auto"
-              >
-                Continue
-              </Button>
-
-              <div>
-                <button
-                  type="button"
-                  className="text-sm text-ink-muted underline"
-                  onClick={() => {
-                    try {
-                      sessionStorage.setItem(PENDING_KEY, templateId ?? "")
-                    } catch {
-                      /* storage unavailable — the parent just re-clicks after signin */
-                    }
-                    window.location.href = SIGNIN_REDIRECT
-                  }}
-                >
-                  Already have an account? Sign in instead
-                </button>
-              </div>
-            </div>
           </>
         )}
 
+        {/* Split from the title/description/error above and the Continue +
+            escape-hatch below via CSS `order` (not DOM position) so the
+            shared Turnstile widget — rendered once, order 2, near the bottom
+            of this file — can sit visually between "fields" and "primary
+            action" without ever unmounting. See guestTurnstileActive's doc
+            comment. */}
+        {phase === "guest_form" && slot && (
+          <div className="space-y-4" style={{ order: 1 }}>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="guest-parent-first" className="text-sm">
+                  Your first name
+                </Label>
+                <Input
+                  id="guest-parent-first"
+                  value={guestParentFirst}
+                  onChange={(e) => setGuestParentFirst(e.target.value)}
+                  autoComplete="given-name"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="guest-parent-last" className="text-sm">
+                  Your last name
+                </Label>
+                <Input
+                  id="guest-parent-last"
+                  value={guestParentLast}
+                  onChange={(e) => setGuestParentLast(e.target.value)}
+                  autoComplete="family-name"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="guest-email" className="text-sm">
+                Your email
+              </Label>
+              <Input
+                id="guest-email"
+                type="email"
+                value={guestEmail}
+                onChange={(e) => setGuestEmail(e.target.value)}
+                autoComplete="email"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="guest-child-first" className="text-sm">
+                  Child's first name
+                </Label>
+                <Input
+                  id="guest-child-first"
+                  value={guestChildFirst}
+                  onChange={(e) => setGuestChildFirst(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="guest-child-last" className="text-sm">
+                  Child's last name
+                </Label>
+                <Input
+                  id="guest-child-last"
+                  value={guestChildLast}
+                  onChange={(e) => setGuestChildLast(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="guest-child-dob" className="text-sm">
+                Child's date of birth
+              </Label>
+              <Input
+                id="guest-child-dob"
+                type="date"
+                value={guestChildDob}
+                max={new Date().toISOString().slice(0, 10)}
+                onChange={(e) => setGuestChildDob(e.target.value)}
+              />
+            </div>
+
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="guest-coppa"
+                checked={guestCoppaConsent}
+                onCheckedChange={(c) => setGuestCoppaConsent(c === true)}
+              />
+              <Label htmlFor="guest-coppa" className="text-sm leading-snug cursor-pointer">
+                I am this child's parent or legal guardian and I consent to Aspire
+                collecting their information for this class. Required by federal law
+                (COPPA) for participants under 13.
+              </Label>
+            </div>
+          </div>
+        )}
+
+        {phase === "guest_form" && slot && (
+          <div className="space-y-3" style={{ order: 3 }}>
+            <Button
+              type="button"
+              onClick={handleGuestContinue}
+              disabled={!canContinueGuestForm}
+              className="w-full sm:w-auto"
+            >
+              Continue
+            </Button>
+
+            <div>
+              <button
+                type="button"
+                className="text-sm text-ink-muted underline"
+                onClick={() => {
+                  try {
+                    sessionStorage.setItem(PENDING_KEY, templateId ?? "")
+                  } catch {
+                    /* storage unavailable — the parent just re-clicks after signin */
+                  }
+                  window.location.href = SIGNIN_REDIRECT
+                }}
+              >
+                Already have an account? Sign in instead
+              </button>
+            </div>
+          </div>
+        )}
+
         {phase === "guest_waiver" && slot && (
-          <form onSubmit={(e) => void submitGuestWaiver(e)} className="space-y-4">
+          <>
             <DialogTitle className="text-ink">One more step: sign the guardian waiver</DialogTitle>
             <DialogDescription className="text-ink-2">
               {guestChildFirst.trim() || "Your player"} {guestChildLast.trim()} is trying{" "}
@@ -1201,7 +1288,12 @@ export default function TrialBooking() {
             </DialogDescription>
 
             {renderFlowError()}
+          </>
+        )}
 
+        {/* Split via CSS `order` — see guestTurnstileActive's doc comment. */}
+        {phase === "guest_waiver" && slot && (
+          <div className="space-y-4" style={{ order: 1 }}>
             <p className="text-sm text-ink-2 leading-relaxed rounded-lg border border-amber-200 bg-amber-50/60 p-3">
               {DROPIN_WAIVER_TEXT}
             </p>
@@ -1232,15 +1324,20 @@ export default function TrialBooking() {
                 autoComplete="name"
               />
             </div>
+          </div>
+        )}
 
+        {phase === "guest_waiver" && slot && (
+          <div style={{ order: 3 }}>
             <Button
-              type="submit"
-              disabled={!waiverAccepted || waiverSignerName.trim().length === 0}
+              type="button"
+              onClick={() => void submitGuestWaiver()}
+              disabled={!waiverAccepted || waiverSignerName.trim().length === 0 || !guestTurnstileToken}
               className="w-full sm:w-auto"
             >
               Sign waiver & book trial
             </Button>
-          </form>
+          </div>
         )}
 
         {phase === "guest_existing" && slot && (
@@ -1256,18 +1353,36 @@ export default function TrialBooking() {
           </>
         )}
 
-        {/* Turnstile widget for the guest flow — kept MOUNTED (only visually
-            hidden outside guest_form) across guest_form, guest_waiver, and
-            session_full_offer. See the header comment's Turnstile paragraph:
-            unmounting it on every phase change would null out
-            turnstileRef.current exactly when a retry needs .reset() to
-            mint a fresh (single-use) token. */}
+        {/* Turnstile widget for the guest flow — kept MOUNTED and VISIBLE
+            (never display:none, never zero-size) across guest_form,
+            guest_waiver, session_full_offer, AND the "booking" phase that
+            bridges between them (submitGuestBooking sets phase "booking"
+            synchronously before its first await). See guestTurnstileActive's
+            doc comment: unmounting it on any of these transitions would null
+            out turnstileRef.current exactly when a retry needs .reset() to
+            mint a fresh (single-use) token — this is a real Cloudflare
+            widget, so it also needs to stay visible for a parent to
+            interact with if a challenge ever requires it (a hidden
+            container can't present one). Visual position is CSS `order`
+            (order: 2, between each phase's "fields" content at order 1 and
+            its primary action at order 3), not DOM nesting, since the same
+            element must survive across fragments that render completely
+            different surrounding content. */}
         {guestTurnstileActive && (
-          <div className={phase === "guest_form" ? "" : "hidden"}>
+          <div className="space-y-1.5" style={{ order: 2 }}>
             <TurnstileWidget
               ref={turnstileRef}
               onToken={setGuestTurnstileToken}
-              onError={() => blocked("turnstile_failed")}
+              onError={() => {
+                // Token expiry ALSO fires this (turnstile-widget.tsx wires
+                // expired-callback to onError, not just render failures) —
+                // clear the stale token so the gated buttons above/below
+                // honestly reflect "no valid token" and the visible widget
+                // lets the parent re-solve. Never emit trial_blocked here:
+                // that reason is reserved for the server's actual 403, not
+                // a client-side expiry/render hiccup.
+                setGuestTurnstileToken("")
+              }}
             />
           </div>
         )}
