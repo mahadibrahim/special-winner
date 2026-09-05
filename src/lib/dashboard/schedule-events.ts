@@ -37,6 +37,7 @@ export interface FamilyScheduleEvent {
   address: string | null;
   projected: boolean; // true = from enrollment recurrence, not a booked seat
   bookingId: string | null; // cancelable only when non-null
+  status?: "scheduled" | "in_progress" | "completed" | "postponed" | "cancelled";
 }
 
 interface BookedSessionInput {
@@ -45,6 +46,10 @@ interface BookedSessionInput {
   startsAt: Date;
   durationMinutes: number | null;
   templateName: string;
+  // Nullable: pickup/one-off sessions never set this, and legacy sessions
+  // materialized before this column existed won't have it either — those
+  // fall back to name-keyed suppression (see nameKey/idKey below).
+  templateId: string | null;
   childId: string;
   childName: string;
   venueName: string | null;
@@ -56,6 +61,12 @@ interface EnrollmentInput {
   childId: string;
   childName: string;
   templateName: string;
+  // Nullable for symmetry with BookedSessionInput's fallback — in practice
+  // the endpoint always supplies this (classSlotTemplates.id via an inner
+  // join, never null), but keeping the type nullable here means a caller
+  // without an id still gets legacy name-based matching on both sides
+  // rather than a silent, permanent mismatch against id-keyed booked rows.
+  templateId: string | null;
   weekday: number;
   startTime: string;
   durationMinutes: number | null;
@@ -140,23 +151,67 @@ export function buildClassScheduleEvents(input: {
     bookingId: s.bookingId,
   }));
 
-  // Suppression index: childId+templateName -> sorted booked instants (ms).
-  // The booked seat is the truth — this also honestly swallows the
-  // materialized-but-cancelled case (a cancelled booking never reaches this
-  // list in the first place, since the caller only passes confirmed ones).
+  // Suppression keys: each side (booked/enrollment) is independently keyed
+  // by whichever identifiers it actually has, so a row that's missing a
+  // templateId still matches its counterpart by name.
+  //
+  // The endpoint's two legs are NOT symmetric: enrollment rows always carry
+  // a templateId (an inner join to class_slot_templates — see
+  // src/pages/api/dashboard/schedule.ts), but booked-session rows read
+  // `drop_in_sessions.classSlotTemplateId`, which is nullable and goes to
+  // null on template deletion (ON DELETE SET NULL) or was never set at all
+  // (one-off admin-created sessions). An id-only key on both sides would
+  // mean a null-templateId booked row (indexed by name) is never found by
+  // an id-keyed enrollment lookup — a silent duplicate booked+projected
+  // pair. So the lookup probes BOTH an id key and a name key.
+  //
+  // But indexing is NOT symmetric with lookup: a booked row that HAS a
+  // templateId is indexed under its id key ONLY, never also under a name
+  // key. Two distinct templates can coincidentally share a display name —
+  // indexing an id-bearing row by name too would let it wrongly suppress an
+  // unrelated template's projection just because the names match. Only rows
+  // with a null templateId (which have no id to be precise with) fall back
+  // to the name key.
+  function nameKey(childId: string, templateName: string): string {
+    return `${childId}::name::${templateName}`;
+  }
+  function idKey(childId: string, templateId: string | null): string | null {
+    return templateId != null ? `${childId}::id::${templateId}` : null;
+  }
+
+  // Suppression index: key -> sorted booked instants (ms). The booked seat is
+  // the truth — this also honestly swallows the materialized-but-cancelled
+  // case (a cancelled booking never reaches this list in the first place,
+  // since the caller only passes confirmed ones).
   const bookedByKey = new Map<string, number[]>();
-  for (const s of bookedSessions) {
-    const key = `${s.childId}::${s.templateName}`;
+  function indexBookedInstant(key: string, instantMs: number): void {
     const arr = bookedByKey.get(key) ?? [];
-    arr.push(s.startsAt.getTime());
+    arr.push(instantMs);
     bookedByKey.set(key, arr);
+  }
+  for (const s of bookedSessions) {
+    const ik = idKey(s.childId, s.templateId);
+    if (ik) {
+      indexBookedInstant(ik, s.startsAt.getTime());
+    } else {
+      indexBookedInstant(nameKey(s.childId, s.templateName), s.startsAt.getTime());
+    }
   }
   for (const arr of bookedByKey.values()) arr.sort((a, b) => a - b);
 
-  function isSuppressed(childId: string, templateName: string, instantMs: number): boolean {
-    const arr = bookedByKey.get(`${childId}::${templateName}`);
-    if (!arr) return false;
-    return arr.some((t) => Math.abs(t - instantMs) <= SUPPRESSION_WINDOW_MS);
+  function isSuppressed(
+    childId: string,
+    templateId: string | null,
+    templateName: string,
+    instantMs: number,
+  ): boolean {
+    const keys = [nameKey(childId, templateName)];
+    const ik = idKey(childId, templateId);
+    if (ik) keys.push(ik);
+    return keys.some((key) => {
+      const arr = bookedByKey.get(key);
+      return arr != null && arr.some((t) => Math.abs(t - instantMs) <= SUPPRESSION_WINDOW_MS);
+    });
   }
 
   const projectedEvents: FamilyScheduleEvent[] = [];
@@ -179,7 +234,7 @@ export function buildClassScheduleEvents(input: {
 
       const instant = zonedWallClockUtc(civ, hh, mm, ss, enr.timezone);
       if (!(instant > from && instant <= horizonEnd)) continue;
-      if (isSuppressed(enr.childId, enr.templateName, instant.getTime())) continue;
+      if (isSuppressed(enr.childId, enr.templateId, enr.templateName, instant.getTime())) continue;
 
       projectedEvents.push({
         id: `proj-${enr.enrollmentId}-${civilDateId(civ)}`,
@@ -201,4 +256,53 @@ export function buildClassScheduleEvents(input: {
   }
 
   return [...bookedEvents, ...projectedEvents].sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+}
+
+interface LeagueGameInput {
+  gameId: string;
+  scheduledAt: Date;
+  durationMinutes: number | null;
+  status: "scheduled" | "in_progress" | "completed" | "postponed" | "cancelled";
+  fieldNumber: string | null;
+  childId: string;
+  childName: string;
+  teamName: string; // the child's team
+  opponentName: string | null; // null = TBD fixture
+  venueName: string | null;
+  venueAddress: string | null;
+}
+
+/**
+ * Pure mapper from league game rows to family-schedule events — one event
+ * per rostered child on the game (so a game where two of a family's
+ * children both play produces two events, each addressable/cancelable
+ * independently in principle, though games are never cancelable — see
+ * `bookingId: null`).
+ *
+ * Deliberately a separate exported function rather than threaded through
+ * `buildClassScheduleEvents`: games have no projection/suppression concept
+ * (there's no "recurring game" to project forward, every game is a
+ * concrete scheduled row), so folding them into the class merge logic
+ * would just be dead branches on this input shape.
+ */
+export function buildLeagueGameEvents(input: { games: LeagueGameInput[] }): FamilyScheduleEvent[] {
+  const events: FamilyScheduleEvent[] = input.games.map((g) => ({
+    id: `game-${g.gameId}-${g.childId}`,
+    type: "game",
+    title: g.opponentName ? `${g.teamName} vs ${g.opponentName}` : `${g.teamName} — opponent TBD`,
+    startsAt: g.scheduledAt.toISOString(),
+    endsAt:
+      g.durationMinutes != null
+        ? new Date(g.scheduledAt.getTime() + g.durationMinutes * 60_000).toISOString()
+        : null,
+    childId: g.childId,
+    childName: g.childName,
+    location: g.venueName ? (g.fieldNumber ? `${g.venueName} · Field ${g.fieldNumber}` : g.venueName) : null,
+    address: g.venueAddress,
+    projected: false,
+    bookingId: null,
+    status: g.status,
+  }));
+
+  return events.sort((a, b) => a.startsAt.localeCompare(b.startsAt));
 }

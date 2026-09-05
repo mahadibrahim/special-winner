@@ -45,6 +45,15 @@ interface ScheduleEvent {
   /** true = projected from the enrollment's weekly recurrence, not a booked
    *  seat — renders a "Planned" chip and never a cancel affordance. */
   projected: boolean
+  /** League game status (see `FamilyScheduleEvent.status`). Only
+   *  "postponed"/"cancelled" render a chip — "scheduled"/"in_progress"/
+   *  "completed" are the unremarkable common case and render nothing. */
+  status?: "scheduled" | "in_progress" | "completed" | "postponed" | "cancelled"
+}
+
+const STATUS_CHIP_LABEL: Partial<Record<NonNullable<ScheduleEvent["status"]>, string>> = {
+  postponed: "Postponed",
+  cancelled: "Cancelled",
 }
 
 const eventTypeConfig: Record<EventType, {
@@ -165,6 +174,15 @@ function EventCard({
                   className="border-dashed border-border text-ink-faint text-[10px]"
                 >
                   Planned
+                </Badge>
+              )}
+              {event.status && STATUS_CHIP_LABEL[event.status] && (
+                <Badge
+                  data-testid="status-chip"
+                  variant="outline"
+                  className="border-dashed border-border text-ink-faint text-[10px]"
+                >
+                  {STATUS_CHIP_LABEL[event.status]}
                 </Badge>
               )}
             </div>
@@ -584,6 +602,7 @@ export default function FullSchedule() {
           childId: e.childId,
           childName: e.childName,
           projected: e.projected,
+          status: e.status,
         }))
         setEvents(mapped)
       } catch (err) {

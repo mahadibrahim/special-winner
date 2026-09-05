@@ -14,26 +14,32 @@
  *    `weekday`/`startTime` in the org's timezone. Marked `projected: true`;
  *    `bookingId: null` since there's no seat to cancel yet.
  *
- * League games/practices are OUT OF SCOPE for this endpoint today — `type`
- * is always `"class"` for every event it emits. `FamilyScheduleEvent`'s
- * wider union exists so the client type already covers league events once a
- * later pass adds them; this endpoint must never fabricate them from season
- * start dates in the meantime.
+ * A third leg (Task 3) adds league games for children rostered on a team:
+ * children → confirmed(-or-otherwise; no status filter, see below)
+ * `registrations` → `rosters` → `games` where either side is a rostered
+ * team, org-scoped via `games.seasonId → seasons → programs →
+ * locations.organizationId`. ALL game statuses are included — a cancelled
+ * or postponed game still surfaces (with its `status`) rather than being
+ * silently dropped; the client renders the status chip. `type` is `"game"`
+ * for these; `FamilyScheduleEvent`'s wider union (`"practice"` /
+ * `"tournament"`) remains unused until a later pass.
  *
  * Query shape mirrors GET /api/classes/summary: children fetched once
  * (capped + most-recently-added-first, same MAX_CHILDREN rationale as that
- * endpoint), then booked/enrollment rows fetched as two batched queries
- * keyed by `inArray(childId, ...)` rather than per-child loops.
+ * endpoint), then booked/enrollment/roster/game rows fetched as batched
+ * queries keyed by `inArray(...)` rather than per-child loops.
  */
 import type { APIRoute } from "astro";
-import { and, desc, eq, gt, inArray } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, or } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { familyMembers } from "@/lib/db/schema/registrations";
+import { familyMembers, registrations } from "@/lib/db/schema/registrations";
 import { classEnrollments, classSlotTemplates } from "@/lib/db/schema/classes";
 import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
-import { venues } from "@/lib/db/schema/teams";
+import { games, rosters, teams, venues } from "@/lib/db/schema/teams";
+import { programs, seasons } from "@/lib/db/schema/programs";
+import { locations } from "@/lib/db/schema/organizations";
 import { ORG_DEFAULT_TIMEZONE } from "@/lib/time/zoned-day";
-import { buildClassScheduleEvents } from "@/lib/dashboard/schedule-events";
+import { buildClassScheduleEvents, buildLeagueGameEvents } from "@/lib/dashboard/schedule-events";
 
 export const prerender = false;
 
@@ -95,6 +101,7 @@ export const GET: APIRoute = async ({ locals }) => {
       startsAt: dropInSessions.startsAt,
       endsAt: dropInSessions.endsAt,
       templateName: dropInSessions.formatLabel,
+      templateId: dropInSessions.classSlotTemplateId,
       childId: dropInBookings.familyMemberId,
       venueName: venues.name,
       venueAddress: venues.address,
@@ -123,6 +130,7 @@ export const GET: APIRoute = async ({ locals }) => {
       // it); every class-materialized session does, but fall back rather
       // than surface a blank title in the unlikely case one doesn't.
       templateName: r.templateName ?? "Class",
+      templateId: r.templateId,
       childId: r.childId,
       childName: childNameById.get(r.childId) ?? "",
       venueName: r.venueName,
@@ -137,6 +145,7 @@ export const GET: APIRoute = async ({ locals }) => {
       enrollmentId: classEnrollments.id,
       childId: classEnrollments.familyMemberId,
       templateName: classSlotTemplates.name,
+      templateId: classSlotTemplates.id,
       weekday: classSlotTemplates.weekday,
       startTime: classSlotTemplates.startTime,
       durationMins: classSlotTemplates.durationMins,
@@ -159,6 +168,7 @@ export const GET: APIRoute = async ({ locals }) => {
     childId: r.childId,
     childName: childNameById.get(r.childId) ?? "",
     templateName: r.templateName,
+    templateId: r.templateId,
     weekday: r.weekday,
     startTime: r.startTime,
     durationMinutes: r.durationMins,
@@ -167,12 +177,129 @@ export const GET: APIRoute = async ({ locals }) => {
     venueAddress: r.venueAddress,
   }));
 
-  const events = buildClassScheduleEvents({
+  const classEvents = buildClassScheduleEvents({
     bookedSessions,
     enrollments,
     from: now,
     horizonDays: HORIZON_DAYS,
   });
+
+  // League games: children -> registrations -> rosters -> teams. NO
+  // roster-status filter, matching the adult path (play-teams.ts) — v1
+  // shows all rostered teams regardless of roster status.
+  const regRows = await db
+    .select({ id: registrations.id, childId: registrations.familyMemberId })
+    .from(registrations)
+    .where(inArray(registrations.familyMemberId, childIds));
+  const childIdByRegId = new Map(regRows.map((r) => [r.id, r.childId]));
+  const regIds = regRows.map((r) => r.id);
+
+  const rosterRows =
+    regIds.length > 0
+      ? await db
+          .select({ teamId: rosters.teamId, registrationId: rosters.registrationId })
+          .from(rosters)
+          .where(inArray(rosters.registrationId, regIds))
+      : [];
+
+  // Which of the caller's children sit on each rostered team — a team can
+  // map to more than one child when siblings share a team.
+  const childIdsByTeamId = new Map<string, Set<string>>();
+  for (const r of rosterRows) {
+    const childId = childIdByRegId.get(r.registrationId);
+    if (!childId) continue;
+    const set = childIdsByTeamId.get(r.teamId) ?? new Set<string>();
+    set.add(childId);
+    childIdsByTeamId.set(r.teamId, set);
+  }
+  const rosteredTeamIds = [...childIdsByTeamId.keys()];
+
+  // Future games on any rostered team, org-scoped via
+  // seasons -> programs -> locations. ALL statuses included — cancelled and
+  // postponed games still surface with their status (see module doc).
+  const gameRows =
+    rosteredTeamIds.length > 0
+      ? await db
+          .select({
+            id: games.id,
+            homeTeamId: games.homeTeamId,
+            awayTeamId: games.awayTeamId,
+            venueId: games.venueId,
+            fieldNumber: games.fieldNumber,
+            scheduledAt: games.scheduledAt,
+            durationMinutes: games.durationMinutes,
+            status: games.status,
+          })
+          .from(games)
+          .innerJoin(seasons, eq(games.seasonId, seasons.id))
+          .innerJoin(programs, eq(seasons.programId, programs.id))
+          .innerJoin(locations, eq(programs.locationId, locations.id))
+          .where(
+            and(
+              eq(locations.organizationId, organizationId),
+              gt(games.scheduledAt, now),
+              or(inArray(games.homeTeamId, rosteredTeamIds), inArray(games.awayTeamId, rosteredTeamIds)),
+            ),
+          )
+      : [];
+
+  // Batched lookups: team names (both sides, so a rostered team's own name
+  // and its opponent's are both resolved in one query) and venue name/address.
+  const allTeamIds = [
+    ...new Set(
+      gameRows.flatMap((g) => [g.homeTeamId, g.awayTeamId]).filter((id): id is string => id !== null),
+    ),
+  ];
+  const teamNameById = new Map<string, string>();
+  if (allTeamIds.length > 0) {
+    const teamRows = await db.select({ id: teams.id, name: teams.name }).from(teams).where(inArray(teams.id, allTeamIds));
+    for (const t of teamRows) teamNameById.set(t.id, t.name);
+  }
+
+  const gameVenueIds = [...new Set(gameRows.map((g) => g.venueId).filter((id): id is string => id !== null))];
+  const gameVenueById = new Map<string, { name: string; address: string | null }>();
+  if (gameVenueIds.length > 0) {
+    const venueRows = await db
+      .select({ id: venues.id, name: venues.name, address: venues.address })
+      .from(venues)
+      .where(inArray(venues.id, gameVenueIds));
+    for (const v of venueRows) gameVenueById.set(v.id, { name: v.name, address: v.address });
+  }
+
+  // One event per (game, rostered child) — a game where both teams carry a
+  // caller's child (rare intra-family matchup) emits once per child, each
+  // with their own team as `teamName`.
+  const leagueGameInputs = gameRows.flatMap((g) => {
+    const sides = [
+      { teamId: g.homeTeamId, opponentId: g.awayTeamId },
+      { teamId: g.awayTeamId, opponentId: g.homeTeamId },
+    ];
+    const venue = g.venueId ? gameVenueById.get(g.venueId) : undefined;
+    return sides.flatMap(({ teamId, opponentId }) => {
+      if (!teamId) return [];
+      const rosteredChildIds = childIdsByTeamId.get(teamId);
+      if (!rosteredChildIds) return [];
+      const teamName = teamNameById.get(teamId) ?? "Team";
+      const opponentName = opponentId ? (teamNameById.get(opponentId) ?? null) : null;
+      return [...rosteredChildIds].map((childId) => ({
+        gameId: g.id,
+        scheduledAt: g.scheduledAt,
+        durationMinutes: g.durationMinutes,
+        status: g.status,
+        fieldNumber: g.fieldNumber,
+        childId,
+        childName: childNameById.get(childId) ?? "",
+        teamName,
+        opponentName,
+        venueName: venue?.name ?? null,
+        venueAddress: venue?.address ?? null,
+      }));
+    });
+  });
+
+  const gameEvents = buildLeagueGameEvents({ games: leagueGameInputs });
+
+  const events = [...classEvents, ...gameEvents].sort((a, b) => a.startsAt.localeCompare(b.startsAt));
 
   return json(
     {
