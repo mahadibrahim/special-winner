@@ -206,7 +206,10 @@ export async function purgeOldMagicLinks(olderThanDays = 30): Promise<number> {
   const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000);
   const result = await getDb()
     .delete(magicLinks)
-    .where(sql`${magicLinks.expiresAt} < ${cutoff}`);
+    // Raw sql`` params bypass drizzle's column type mapping — the postgres.js
+    // driver can't bind a bare Date here, so send an ISO string instead (same
+    // fix as materialize.ts's expires_at comparison).
+    .where(sql`${magicLinks.expiresAt} < ${cutoff.toISOString()}`);
   return (result as { rowCount?: number }).rowCount ?? 0;
 }
 

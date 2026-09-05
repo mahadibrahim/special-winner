@@ -347,8 +347,13 @@ export async function materializeClassSessions(now: Date): Promise<MaterializeRe
       .where(
         and(
           eq(classEnrollments.status, "active"),
+          // Raw sql`` params bypass drizzle's column type mapping (unlike
+          // the `.set({ endedAt: now })` above, which is column-mapped and
+          // serializes fine) — the postgres.js driver can't bind a bare
+          // Date here and throws ERR_INVALID_ARG_TYPE, so send an ISO
+          // string instead.
           sql`${classEnrollments.creditGrantId} IN (
-            SELECT id FROM class_credit_grants WHERE expires_at <= ${now}
+            SELECT id FROM class_credit_grants WHERE expires_at <= ${now.toISOString()}
           )`,
         ),
       )
