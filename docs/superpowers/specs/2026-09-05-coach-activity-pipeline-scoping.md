@@ -1,6 +1,6 @@
 # Coach → Activity Pipeline: Scoping
 
-**Date:** 2026-09-05 · **Status:** SCOPING — awaiting owner decisions (§6) before any plan is written
+**Date:** 2026-09-05 · **Status:** DECIDED — all §6 decisions resolved with the owner 2026-09-05; §6 records the answers. Phase 0+1 plan is the next artifact.
 **Trigger:** The classes-dashboard launch work (#620/#622) revealed that the coach toolchain cannot reach class children at all. Owner directive: scope the FULL coach→activity pipeline — coaches will run camps, classes, and developmental leagues, and this connection point is critical to the product's north star (curriculum → coach → kid/parent development loop).
 
 ---
@@ -114,12 +114,12 @@ Camps need **structure before coaching**: camp day-sessions (either a `drop_in_s
 - Any parent-dashboard work (already class-aware after #620/#622).
 - Messaging/notification fan-out from coach activity (rides on existing coach_notes visibility flags).
 
-## 6. Decisions needed from the owner before a Phase 0/1 plan is written
+## 6. Owner decisions — RESOLVED 2026-09-05
 
-1. **Coach-per-class-template** (one lead coach per weekly slot, assignable in admin) as the Phase 1 model — yes/no? Session-level substitutes deferred?
-2. **Multi-coach**: is `lead` + any number of `assistant`s the right shape? (The new table supports it; the old columns cap at 2.)
-3. **Churn policy** (§4.2): does a coach retain read access to a child who left their class?
-4. **Snapshot period for classes** (§4.1): calendar quarters, or something aligned to billing months?
-5. **Developmental league auto-rostering** (Phase 2): should confirmed youth registrations auto-place onto teams, or stay admin-curated?
-6. **Camp groups** (Phase 4): are pods age-banded and fixed for the week? Who defines them — admin pre-camp, or day-of at the venue? (This determines the camp schema.)
-7. **Sequencing**: Phase 0+1 target October (classes launch). Confirm 2 (league ops) vs 3 (assessments) ordering — leagues have paying families sooner, but assessments are the retention engine.
+1. **Staffing model: session-level, not template-level.** Coaches are assigned to *sessions*, with flexibility for turnover and absences. Implementation shape: each class slot carries a **default coach** that auto-stamps sessions as the materializer generates them (staffing happens "at a set interval" with no weekly admin work), plus a **staffing surface** where admins reassign individual sessions (sick days, coverage). This supersedes §2's `class_template` kind as the primary anchor: `coaching_assignments.kind` gains `class_session` (targetId → drop_in_sessions.id); the template-level default remains as config that feeds propagation, not as the authorization anchor.
+2. **Multi-coach: lead + one or two assistants per session.** The assignments table models `role: lead|assistant` with no hard cap; admin UI presents lead + up to 2 assistants.
+3. **Access policy: the development record is the CHILD's longitudinal file.** Kids may pass through many coaches from micros to elite teams, all adding to one record. **Write** access requires an active assignment covering the child. **Read** access to a child's development record is open to the org's coaching staff (so a newly assigned coach sees full history before their first session, and former coaches keep continuity). Supersedes §4.2's narrower options.
+4. **Development reporting is player-centric, not activity-centric.** All activities (league, classes, camps) feed ONE development record per child. Snapshots bucket **monthly at the player level** (periodKey = e.g. `2026-09`), independent of source activity; a **quarterly complete rollup** aggregates three months. Seasons become assessment *context*, not the reporting spine. Product deliverable alongside the plumbing: a monthly subset report and a fuller quarterly report pushed to parents; the record itself stays always-visible on the dashboards. Supersedes §3 Phase 3's "league keeps season keys" framing — league snapshots ALSO move to monthly player-level buckets (season stays as a queryable dimension on raw assessments).
+5. **Developmental league rostering: auto-place with admin review.** The system drafts balanced rosters (age group, team-size caps) as registrations confirm; admins review/adjust before publishing. Competitive tiers stay hand-picked.
+6. **Camp pods: formation strategy is per-camp-type.** Summer/day camps seed pods strictly age-banded; technical/skills camps seed by skill level (drawing on the development record); staff can adjust either before or during the week. Schema: `camp_groups` + membership with a per-camp `formationStrategy` (age | skill | manual), not a hardcoded rule.
+7. **Sequencing: strictly one phase at a time, back-to-back, all phases ASAP.** Order: Phase 0+1 (classes coaching, October) → Phase 2 (league ops: auto-rostering + staffing for 2026-27) → Phase 3 (player-centric snapshots + monthly/quarterly reports) → Phase 4 (camps) → Phase 5 (unified session lifecycle).
