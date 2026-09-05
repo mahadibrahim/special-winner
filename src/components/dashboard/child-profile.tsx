@@ -42,6 +42,25 @@ const eventTypeColors: Record<string, string> = {
   practice: "text-emerald-400 bg-emerald-500/10",
   class: "text-primary bg-blue-500/10",
   camp: "text-purple-400 bg-purple-500/10",
+  tournament: "text-purple-400 bg-purple-500/10",
+}
+
+/** Label + icon for a `FamilyScheduleEvent` row (used by the Schedule tab's
+ *  "Sessions" section below) — keyed by the endpoint's real `type`, never
+ *  hardcoded to "Class", since that section now also carries league games
+ *  (Task 3/4 of the schedule-league-events plan) alongside class sessions. */
+const SCHEDULE_EVENT_TYPE_LABEL: Record<FamilyScheduleEvent["type"], string> = {
+  class: "Class",
+  game: "Game",
+  practice: "Practice",
+  tournament: "Tournament",
+}
+
+function ScheduleEventTypeIcon({ type }: { type: FamilyScheduleEvent["type"] }) {
+  if (type === "game") return <Trophy className="w-5 h-5" />
+  if (type === "practice") return <Dumbbell className="w-5 h-5" />
+  if (type === "tournament") return <Zap className="w-5 h-5" />
+  return <Users className="w-5 h-5" />
 }
 
 const programStatusStyles: Record<Program["status"], string> = {
@@ -454,7 +473,7 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
                 <section className="mb-6">
                   <h2 className="text-lg font-semibold text-ink mb-4 flex items-center gap-2">
                     <Sparkles className="w-5 h-5 text-primary" />
-                    Classes
+                    Sessions
                   </h2>
                   <div className="space-y-2">
                     {classScheduleEvents.map((event) => {
@@ -474,13 +493,18 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
                           <div
                             className={cn(
                               "w-10 h-10 rounded-lg flex items-center justify-center",
-                              eventTypeColors.class,
+                              eventTypeColors[event.type] ?? eventTypeColors.class,
                             )}
                           >
-                            <Users className="w-5 h-5" />
+                            <ScheduleEventTypeIcon type={event.type} />
                           </div>
                           <div className="flex-1">
-                            <h4 className="font-medium text-ink">{event.title}</h4>
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-medium text-ink">{event.title}</h4>
+                              <Badge variant="outline" className="text-[10px]">
+                                {SCHEDULE_EVENT_TYPE_LABEL[event.type] ?? "Class"}
+                              </Badge>
+                            </div>
                             <div className="flex items-center gap-3 text-sm text-ink-muted">
                               <span className="flex items-center gap-1">
                                 <Clock className="w-3 h-3" />
@@ -498,6 +522,15 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
                               {event.projected && (
                                 <Badge variant="outline" className="text-[10px]">
                                   Planned
+                                </Badge>
+                              )}
+                              {(event.status === "postponed" || event.status === "cancelled") && (
+                                <Badge
+                                  data-testid="status-chip"
+                                  variant="outline"
+                                  className="text-[10px]"
+                                >
+                                  {event.status === "postponed" ? "Postponed" : "Cancelled"}
                                 </Badge>
                               )}
                             </div>

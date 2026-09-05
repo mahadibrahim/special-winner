@@ -22,12 +22,15 @@
  * convention" notes).
  */
 import { test, expect } from "@playwright/test";
-import { eq, inArray } from "drizzle-orm";
+import { asc, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { familyMembers } from "@/lib/db/schema/registrations";
+import { familyMembers, registrations } from "@/lib/db/schema/registrations";
 import { membershipTiers, memberships } from "@/lib/db/schema/memberships";
 import { classEnrollments } from "@/lib/db/schema/classes";
 import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
+import { games, rosters, teams } from "@/lib/db/schema/teams";
+import { programs, seasons } from "@/lib/db/schema/programs";
+import { locations } from "@/lib/db/schema/organizations";
 import { createTestDropInSession, resolveDefaultOrgForHttpTests } from "../utils/dropin-helpers";
 import {
   createTestChild,
@@ -928,6 +931,165 @@ test.describe("Family dashboard — full schedule page renders real class sessio
     const modal = page.getByTestId("event-detail-modal");
     await expect(modal).toBeVisible();
     await expect(modal.getByRole("button", { name: "Add to Calendar" })).toBeVisible();
+  });
+});
+
+/**
+ * Task 4 of the schedule-league-events plan.
+ *
+ * `GET /api/dashboard/schedule` (Task 3) merges a third leg into the family
+ * schedule: league games for any child rostered on a team, `type: "game"`,
+ * title `<team> vs <opponent>`, and an optional `status` — the client
+ * (`full-schedule.tsx`) is responsible for rendering the "Game" badge (an
+ * existing `eventTypeConfig` entry) and a muted status chip for
+ * `postponed`/`cancelled` games only. This spec pins that UI against the
+ * real endpoint, using a throwaway family (own team/roster/games, never the
+ * shared parent@test.aspiresports.com account) and reusing the fixture
+ * recipe from `tests/api/dashboard-schedule.test.ts`'s "includes league
+ * games" suite: a season reused from the seeded e2e catalog (teams/games
+ * hang off a season, not directly off the org — oldest-first per the
+ * multi-tenant query hazard convention), a confirmed registration + roster
+ * spot for the child, and two future games — one `scheduled`, one
+ * `postponed`.
+ */
+test.describe("Family dashboard — full schedule page surfaces league games", () => {
+  test.setTimeout(120_000);
+
+  let organizationId: string;
+  let venueId: string;
+  let parentEmail: string;
+  let parentPassword: string;
+  let parentUserId: string;
+  let childId: string;
+  let homeTeamId: string;
+  let awayTeamId: string;
+  let homeTeamName: string;
+  let awayTeamName: string;
+  let gameRegistrationId: string;
+  let gameRosterId: string;
+  let scheduledGameId: string;
+  let postponedGameId: string;
+
+  const suffix = Date.now();
+  const childFirstName = `DashboardLeagueGameE2E-${suffix}`;
+
+  test.beforeAll(async () => {
+    ({ organizationId, venueId } = await resolveDefaultOrgForHttpTests());
+    const db = getDb();
+
+    const throwawayUser = await createTestUserWithPassword();
+    parentEmail = throwawayUser.email;
+    parentPassword = throwawayUser.password;
+    parentUserId = throwawayUser.userId;
+
+    childId = await createTestChild(parentUserId, childFirstName);
+
+    // Teams/games hang off a season, not directly off the org — reuse an
+    // existing season under the resolved org (the seeded e2e catalog has
+    // plenty). Oldest-first per the multi-tenant query hazard convention.
+    const [existingSeason] = await db
+      .select({ id: seasons.id })
+      .from(seasons)
+      .innerJoin(programs, eq(seasons.programId, programs.id))
+      .innerJoin(locations, eq(programs.locationId, locations.id))
+      .where(eq(locations.organizationId, organizationId))
+      .orderBy(asc(seasons.createdAt))
+      .limit(1);
+    if (!existingSeason) {
+      throw new Error("No season found under the resolved org — run npm run db:seed:e2e before this suite");
+    }
+    const seasonId = existingSeason.id;
+
+    homeTeamName = `Schedule-Home-${suffix}`;
+    awayTeamName = `Schedule-Away-${suffix}`;
+    const [homeTeam] = await db.insert(teams).values({ seasonId, name: homeTeamName }).returning();
+    const [awayTeam] = await db.insert(teams).values({ seasonId, name: awayTeamName }).returning();
+    homeTeamId = homeTeam.id;
+    awayTeamId = awayTeam.id;
+
+    const [gameReg] = await db
+      .insert(registrations)
+      .values({
+        seasonId,
+        familyMemberId: childId,
+        registeredByUserId: parentUserId,
+        status: "confirmed",
+        paymentStatus: "paid",
+        amountDueCents: 0,
+      })
+      .returning();
+    gameRegistrationId = gameReg.id;
+
+    const [roster] = await db
+      .insert(rosters)
+      .values({ teamId: homeTeamId, registrationId: gameRegistrationId })
+      .returning();
+    gameRosterId = roster.id;
+
+    const [scheduledGame] = await db
+      .insert(games)
+      .values({
+        seasonId,
+        homeTeamId,
+        awayTeamId,
+        venueId,
+        fieldNumber: "3",
+        scheduledAt: new Date(Date.now() + 3 * 86_400_000),
+        status: "scheduled",
+      })
+      .returning();
+    scheduledGameId = scheduledGame.id;
+
+    const [postponedGame] = await db
+      .insert(games)
+      .values({
+        seasonId,
+        homeTeamId,
+        awayTeamId,
+        venueId,
+        scheduledAt: new Date(Date.now() + 4 * 86_400_000),
+        status: "postponed",
+      })
+      .returning();
+    postponedGameId = postponedGame.id;
+  });
+
+  test.afterAll(async () => {
+    const db = getDb();
+    // FK-safe order: games -> rosters -> registrations -> teams.
+    await db.delete(games).where(inArray(games.id, [scheduledGameId, postponedGameId]));
+    await db.delete(rosters).where(eq(rosters.id, gameRosterId));
+    await db.delete(registrations).where(eq(registrations.id, gameRegistrationId));
+    await db.delete(teams).where(inArray(teams.id, [homeTeamId, awayTeamId]));
+  });
+
+  test("list view shows a Game badge, the team-vs-opponent title, and a Postponed status chip", async ({
+    page,
+  }) => {
+    await signIn(page, parentEmail, parentPassword);
+    await page.goto("/dashboard/schedule");
+    await waitForHydration(page);
+
+    // Month view only shows the current calendar month; switch to list view
+    // (element click — hydration-safe per repo convention) before asserting.
+    await page.getByTitle("List view").click();
+
+    const gameCard = page
+      .getByTestId("schedule-event-card")
+      .filter({ hasText: `${homeTeamName} vs ${awayTeamName}` })
+      .first();
+    await expect(gameCard).toBeVisible({ timeout: 15_000 });
+    await expect(gameCard.getByTestId("event-type-badge")).toHaveText("Game");
+
+    // Both games share the same title, so scope the postponed assertion to
+    // the card that actually carries the status chip.
+    const postponedCard = page
+      .getByTestId("schedule-event-card")
+      .filter({ has: page.getByTestId("status-chip") })
+      .first();
+    await expect(postponedCard).toBeVisible();
+    await expect(postponedCard.getByTestId("status-chip")).toHaveText("Postponed");
+    await expect(postponedCard).toContainText(`${homeTeamName} vs ${awayTeamName}`);
   });
 });
 
