@@ -629,8 +629,16 @@ test.describe("Family dashboard — class discovery entry points", () => {
     // BaseLayout) already link to /youth/classes site-wide ("Classes" /
     // "Classes & clinics"), which would otherwise make an unscoped
     // `a[href="/youth/classes"]` locator ambiguous.
+    //
+    // Match the EXPLORE CARD ONLY (/weekly classes/i). The old regex also
+    // accepted "discover classes", which matches the client-rendered
+    // DiscoverCard this fixture family always earns — a hydration race:
+    // locally the assertion resolved before the island produced the second
+    // link, while CI's slower hydration landed both inside the wait window
+    // and tripped strict mode (post-merge test-full failure, 2026-09-05).
+    // The DiscoverCard has its own dedicated test above.
     await expect(
-      page.locator('main a[href="/youth/classes"]').filter({ hasText: /weekly classes|discover classes/i }),
+      page.locator('main a[href="/youth/classes"]').filter({ hasText: /weekly classes/i }),
     ).toBeVisible();
   });
 
