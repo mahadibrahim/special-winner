@@ -1433,8 +1433,9 @@ export default function TrialBooking() {
             />
             {guestTurnstileError && (
               <p className="text-sm text-ink-muted">
-                Verification didn&#39;t load — refresh the page and try again, or use
-                &#34;Already have an account? Sign in instead&#34; below.
+                {phase === "guest_form"
+                  ? 'Verification didn’t load — refresh the page and try again, or use "Already have an account? Sign in instead" below.'
+                  : "Verification didn’t load — refresh the page and try again."}
               </p>
             )}
           </div>

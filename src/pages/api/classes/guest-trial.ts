@@ -257,21 +257,37 @@ export const POST: APIRoute = async (context) => {
     return json({ status: "existing_account" }, 200);
   }
 
-  // New account: create the kid, stamp COPPA consent, book. Everything from
-  // here through the booking result is wrapped in try/catch — a throw
-  // ANYWHERE in this path (resolvePerson, the COPPA update, recordConsent,
-  // createChildClassBooking itself) would otherwise strand the freshly
-  // created user+kid rows forever (the sweeper skips users with a role
-  // assignment; see cleanupFailedGuestSignup's doc comment), and every later
-  // submit from this email would wrongly hit the `!wasNewUser` →
-  // existing_account branch instead of retrying. The `!result.ok` branch
+  // New account: create the kid, stamp COPPA consent, book. ONLY resolvePerson
+  // through determining the booking result (both the `!result.ok` branch and
+  // the success assignment below) are guarded by this try/catch — a throw
+  // ANYWHERE in that narrower range (resolvePerson, the COPPA update,
+  // recordConsent, createChildClassBooking itself) would otherwise strand
+  // the freshly created user+kid rows forever (the sweeper skips users with
+  // a role assignment; see cleanupFailedGuestSignup's doc comment), and
+  // every later submit from this email would wrongly hit the `!wasNewUser`
+  // → existing_account branch instead of retrying. The `!result.ok` branch
   // below already runs cleanup and RETURNS (it never throws), so it can't
   // double-run cleanup through this catch.
+  //
+  // Deliberately NOT guarded: createSession and the welcome-email block,
+  // both moved below this try/catch. A booking row is committed the moment
+  // `result.ok` is true — a later failure (e.g. createSession's cookie/DB
+  // write) must NOT roll that back. The bug this fixes (found in re-review):
+  // createSession used to sit inside this try, so a transient session-layer
+  // failure AFTER the booking committed fell into the catch, which ran
+  // cleanupFailedGuestSignup with the real childId — deleting the COPPA
+  // consent + family_members rows out from under a REAL booking (the
+  // booking survives orphaned via `drop_in_bookings.familyMemberId`'s
+  // set-null), had the users delete bounce off `drop_in_bookings.userId`'s
+  // RESTRICT leaving a roleless user, and reported a 500 for a trial that
+  // had actually booked.
+  //
   // Tracked outside the try so the catch's cleanup can target the right
   // family_members row even if a later step (COPPA update, recordConsent,
   // createChildClassBooking) is what throws — undefined only if
   // resolvePerson itself never returned.
   let childId: string | undefined;
+  let bookingSuccess: { bookingId: string; childFirstName: string } | undefined;
   try {
     const child = await resolvePerson(db, {
       kind: "dependent",
@@ -339,34 +355,10 @@ export const POST: APIRoute = async (context) => {
       return json({ error: code, message }, ERROR_STATUS[code]);
     }
 
-    // New guest becomes a signed-in (1h until email-verified) parent — the
-    // uniform wasNewUser-only session rule from the paid guest checkouts.
-    await createSession(userRow.id, context);
-
-    try {
-      const link = await createMagicLink({
-        userId: userRow.id,
-        purpose: "login",
-        purposeContext: { redirectTo: "/dashboard" },
-        deliveredChannel: "email",
-        deliveredTo: userRow.email,
-      });
-      await awaitEmailSend("guest-trial welcome link", () =>
-        sendMagicLinkLoginEmail({
-          userId: userRow.id,
-          parentEmail: userRow.email,
-          parentName: userRow.firstName || userRow.email.split("@")[0],
-          magicLinkUrl: buildMagicLinkUrl(link.token, { origin: url.origin }),
-          childName: `${child.firstName}`,
-          brand,
-          variant: "welcome",
-        }),
-      );
-    } catch (err) {
-      console.error("[guest-trial] welcome link failed:", err);
-    }
-
-    return json({ status: "booked", bookingId: result.bookingId }, 200);
+    // Booking committed. Stash what the post-try code needs and fall out of
+    // the guarded region — see this block's opening comment on why
+    // createSession/the welcome email must NOT be inside this try.
+    bookingSuccess = { bookingId: result.bookingId, childFirstName: child.firstName };
   } catch (err) {
     // A throw anywhere above (resolvePerson/COPPA update/recordConsent/
     // createChildClassBooking) would otherwise strand this brand-new guest
@@ -377,4 +369,56 @@ export const POST: APIRoute = async (context) => {
     await cleanupFailedGuestSignup(db, { userId: userRow.id, familyMemberId: childId });
     throw err;
   }
+
+  if (!bookingSuccess) {
+    // Unreachable in practice: the try above either returns early
+    // (`!result.ok`), throws (caught above and rethrown, so execution never
+    // reaches here), or falls through only after assigning bookingSuccess.
+    // This guard exists purely so TypeScript doesn't have to take that on
+    // faith across the try/catch boundary.
+    throw new Error("[guest-trial] unreachable: bookingSuccess unset after booking try/catch");
+  }
+
+  // New guest becomes a signed-in (1h until email-verified) parent — the
+  // uniform wasNewUser-only session rule from the paid guest checkouts.
+  // Deliberately OUTSIDE the guarded try/catch above: the booking already
+  // committed, so a createSession failure here must not trigger compensating
+  // cleanup (that would delete rows out from under a real booking — see the
+  // opening comment). Best-effort: log and continue to the 200 response
+  // either way — a booked trial with a failed cookie is still a success,
+  // and the welcome magic-link email below is the recovery path for signing
+  // in.
+  try {
+    await createSession(userRow.id, context);
+  } catch (err) {
+    console.error(
+      "[guest-trial] createSession failed after a successful booking (non-fatal — welcome email is the recovery path):",
+      err,
+    );
+  }
+
+  try {
+    const link = await createMagicLink({
+      userId: userRow.id,
+      purpose: "login",
+      purposeContext: { redirectTo: "/dashboard" },
+      deliveredChannel: "email",
+      deliveredTo: userRow.email,
+    });
+    await awaitEmailSend("guest-trial welcome link", () =>
+      sendMagicLinkLoginEmail({
+        userId: userRow.id,
+        parentEmail: userRow.email,
+        parentName: userRow.firstName || userRow.email.split("@")[0],
+        magicLinkUrl: buildMagicLinkUrl(link.token, { origin: url.origin }),
+        childName: bookingSuccess.childFirstName,
+        brand,
+        variant: "welcome",
+      }),
+    );
+  } catch (err) {
+    console.error("[guest-trial] welcome link failed:", err);
+  }
+
+  return json({ status: "booked", bookingId: bookingSuccess.bookingId }, 200);
 };
