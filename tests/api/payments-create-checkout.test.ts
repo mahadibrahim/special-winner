@@ -51,6 +51,8 @@ function guestBody(seasonId: string, overrides: Record<string, unknown> = {}) {
     registrationType: "full" as const,
     waiverSigned: true,
     waiverSignedBy: "CheckoutTest Parent",
+    // COPPA: verifiable parental consent at collection time.
+    parentalConsent: true as const,
     ...overrides,
   };
 }

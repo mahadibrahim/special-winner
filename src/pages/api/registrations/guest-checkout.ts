@@ -7,6 +7,8 @@ import {
   familyMembers as familyMembersTable,
   seasons,
   ageGroups,
+  programs,
+  locations,
 } from "@/lib/db/schema";
 import {
   createRegistration,
@@ -83,6 +85,13 @@ const legacyGuestCheckoutSchema = z
     // SMS consent checkbox next to the phone field (unchecked by default).
     // Only meaningful when a phone is provided.
     smsConsent: z.boolean().optional(),
+    // COPPA (audit finding F2, owner decision: mirror the guest-trial flow):
+    // verifiable parental consent, captured at COLLECTION time — this is a
+    // separate affirmative confirmation from the (deferred) liability
+    // waiver, required for every parent+child guest checkout. The write
+    // side lives below, right after resolvePerson resolves the child's
+    // family_members row.
+    parentalConsent: z.literal(true),
   })
   .superRefine((d, ctx) => {
     if (d.waiverSigned && !d.waiverSignedBy?.trim()) {
@@ -712,7 +721,7 @@ export const POST: APIRoute = async (context) => {
     // helper rather than an inline SELECT-then-INSERT so all family_members
     // creation goes through one code path (matches the adult-self branch
     // above and the project convention).
-    const familyMemberRow = await resolvePerson(db, {
+    let familyMemberRow = await resolvePerson(db, {
       kind: "dependent",
       parentUserId: userRow.id,
       firstName: data.child.firstName,
@@ -720,6 +729,63 @@ export const POST: APIRoute = async (context) => {
       birthDate: data.child.birthDate,
       gender: data.child.gender || null,
     });
+
+    // -----------------------------------------------------------------------
+    // COPPA: verifiable parental consent at COLLECTION time (audit finding
+    // F2, owner decision: mirror the guest-trial flow). This is a separate
+    // affirmative confirmation from the (deferred-to-post-payment) liability
+    // waiver below, gated by the schema's `parentalConsent: z.literal(true)`
+    // above — every parent+child guest checkout reaches here having already
+    // confirmed it. The two writes are independently idempotent — a
+    // resumed/deduped child (resolvePerson found an existing row) never
+    // double-records: the family_members stamp only applies when the row
+    // isn't already stamped, and the consents row only writes when no active
+    // "parental" consent exists yet — so a re-submission (or a family_members
+    // row created some other way, e.g. the dashboard's add-dependent form)
+    // never overwrites the original stamp or creates a duplicate grant.
+    const needsFamilyMemberStamp = !familyMemberRow.parentalConsentGivenAt;
+    const needsConsentRow = !(await hasActiveConsent(
+      db,
+      familyMemberRow.id,
+      "parental",
+    ));
+    if (needsFamilyMemberStamp || needsConsentRow) {
+      const [orgRow] = needsConsentRow
+        ? await db
+            .select({ organizationId: locations.organizationId })
+            .from(seasons)
+            .innerJoin(programs, eq(seasons.programId, programs.id))
+            .innerJoin(locations, eq(programs.locationId, locations.id))
+            .where(eq(seasons.id, data.seasonId))
+        : [];
+
+      if (needsFamilyMemberStamp) {
+        const [stampedMember] = await db
+          .update(familyMembersTable)
+          .set({
+            parentalConsentGivenAt: new Date(),
+            parentalConsentGivenBy: userRow.id,
+            parentalConsentIp: clientAddress || null,
+            updatedAt: new Date(),
+          })
+          .where(eq(familyMembersTable.id, familyMemberRow.id))
+          .returning();
+        if (stampedMember) familyMemberRow = stampedMember;
+      }
+
+      if (needsConsentRow) {
+        await recordConsent({
+          db,
+          familyMemberId: familyMemberRow.id,
+          organizationId: orgRow?.organizationId ?? null,
+          type: "parental",
+          signedByUserId: userRow.id,
+          signedByName: `${data.parent.firstName} ${data.parent.lastName}`.trim(),
+          ipAddress: clientAddress || null,
+          userAgent: userAgent ?? null,
+        });
+      }
+    }
 
     return runCheckout({
       userRow,

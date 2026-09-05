@@ -144,6 +144,7 @@ describe("POST /api/registrations/guest-checkout — age gate (parent+child path
         registrationType: "full",
         waiverSigned: true,
         waiverSignedBy: "GateGuest TooYoung",
+        parentalConsent: true,
       }),
     });
     expect(res.status).toBe(422);
@@ -182,6 +183,7 @@ describe("POST /api/registrations/guest-checkout — age gate (parent+child path
         registrationType: "full",
         waiverSigned: true,
         waiverSignedBy: "GateGuest TooOld",
+        parentalConsent: true,
       }),
     });
     expect(res.status).toBe(422);
@@ -218,6 +220,7 @@ describe("POST /api/registrations/guest-checkout — age gate (parent+child path
         registrationType: "full",
         waiverSigned: true,
         waiverSignedBy: "GateGuest InRange",
+        parentalConsent: true,
       }),
     });
     expect(res.status).not.toBe(422);
@@ -242,6 +245,7 @@ describe("POST /api/registrations/guest-checkout — age gate (parent+child path
         registrationType: "full",
         waiverSigned: true,
         waiverSignedBy: "GateGuest NoGroup",
+        parentalConsent: true,
       }),
     });
     // No Stripe key in CI 503s at the checkout step; either way it must not

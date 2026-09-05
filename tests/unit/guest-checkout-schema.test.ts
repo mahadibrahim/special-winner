@@ -92,6 +92,9 @@ describe("guestCheckoutSchema — parent+child (youth) path", () => {
     registrationType: "full" as const,
     waiverSigned: true,
     waiverSignedBy: "Guest Tester",
+    // COPPA: verifiable parental consent at collection time (audit finding
+    // F2, owner decision: mirror the guest-trial flow).
+    parentalConsent: true as const,
   };
 
   it("still parses the legacy payload unchanged", () => {
@@ -138,6 +141,21 @@ describe("guestCheckoutSchema — parent+child (youth) path", () => {
     const r = guestCheckoutSchema.safeParse({
       ...legacyBody,
       child: { firstName: "Kid", lastName: "Tester", gender: "male" as const },
+    });
+    expect(r.success).toBe(false);
+  });
+
+  it("rejects the parent+child shape when parentalConsent is missing", () => {
+    const { parentalConsent, ...rest } = legacyBody;
+    void parentalConsent;
+    const r = guestCheckoutSchema.safeParse(rest);
+    expect(r.success).toBe(false);
+  });
+
+  it("rejects the parent+child shape when parentalConsent is false", () => {
+    const r = guestCheckoutSchema.safeParse({
+      ...legacyBody,
+      parentalConsent: false,
     });
     expect(r.success).toBe(false);
   });

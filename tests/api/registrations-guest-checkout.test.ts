@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { getDb } from "@/lib/db";
-import { users, familyMembers, registrations, emailLogs } from "@/lib/db/schema";
+import { users, familyMembers, registrations, emailLogs, consents } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 
 const BASE = process.env.TEST_BASE_URL || "http://localhost:4321";
@@ -44,6 +44,8 @@ const validBody = (overrides: Record<string, unknown> = {}) => ({
   registrationType: "full" as const,
   waiverSigned: true,
   waiverSignedBy: "Guest Tester",
+  // COPPA: verifiable parental consent at collection time.
+  parentalConsent: true as const,
   ...overrides,
 });
 
@@ -109,6 +111,97 @@ describe("POST /api/registrations/guest-checkout", () => {
       }),
     });
     expect(res.status).toBe(400);
+  });
+
+  // COPPA (audit finding F2, owner decision: mirror the guest-trial flow):
+  // parental consent is captured at COLLECTION time (this request), not
+  // deferred to the post-payment completion step the way the liability
+  // waiver is. Missing or false parentalConsent must fail schema validation
+  // (400, same status the file's own malformed-payload test above asserts —
+  // this is a zod z.literal(true) field like the rest of the schema, not a
+  // business-rule check like the age gate's 422).
+  it("returns 400 when parentalConsent is missing on the parent+child shape", async () => {
+    const seasonId = await fetchOpenSeasonId();
+    const body: Record<string, unknown> = validBody();
+    delete body.parentalConsent;
+    const res = await fetch(`${BASE}/api/registrations/guest-checkout`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...body, seasonId }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 400 when parentalConsent is false on the parent+child shape", async () => {
+    const seasonId = await fetchOpenSeasonId();
+    const res = await fetch(`${BASE}/api/registrations/guest-checkout`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...validBody({ parentalConsent: false }),
+        seasonId,
+      }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("stamps family_members parental-consent columns and writes a granted parental consents row at collection time", async () => {
+    const seasonId = await fetchOpenSeasonId();
+    const email = `guest-coppa-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`;
+    const childFirstName = `CoppaKid${Date.now()}`;
+    const body = validBody({
+      parent: { firstName: "Coppa", lastName: "Parent", email },
+      child: {
+        firstName: childFirstName,
+        lastName: "Tester",
+        birthDate: "2018-06-01",
+        gender: "male",
+      },
+    });
+    const res = await fetch(`${BASE}/api/registrations/guest-checkout`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...body, seasonId }),
+    });
+    // The family_members write happens synchronously before the Stripe step,
+    // so this holds whether or not Stripe is configured in this environment.
+    expect(res.status).not.toBe(400);
+    expect([200, 503]).toContain(res.status);
+
+    const db = getDb();
+    const [userRow] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, email.toLowerCase()));
+    expect(userRow, "guest user should have been upserted").toBeTruthy();
+
+    const [memberRow] = await db
+      .select()
+      .from(familyMembers)
+      .where(
+        and(
+          eq(familyMembers.parentUserId, userRow.id),
+          eq(familyMembers.firstName, childFirstName),
+        ),
+      );
+    expect(memberRow, "child family_members row should exist").toBeTruthy();
+    expect(memberRow.parentalConsentGivenAt).toBeTruthy();
+    expect(memberRow.parentalConsentGivenBy).toBe(userRow.id);
+    expect(memberRow.parentalConsentIp).toBeTruthy();
+
+    const consentRows = await db
+      .select()
+      .from(consents)
+      .where(
+        and(
+          eq(consents.familyMemberId, memberRow.id),
+          eq(consents.type, "parental"),
+        ),
+      );
+    expect(consentRows.length).toBe(1);
+    expect(consentRows[0].status).toBe("granted");
+    expect(consentRows[0].signedByUserId).toBe(userRow.id);
+    expect(consentRows[0].signedByName).toBe("Coppa Parent");
   });
 
   // Youth adopted the v2 deferred waiver. The wizard still posts the
