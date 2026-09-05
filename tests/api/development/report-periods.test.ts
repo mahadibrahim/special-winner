@@ -18,7 +18,7 @@
  *     back to the legacy row (the "zero UI change" safety net).
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { asc, and, eq, inArray } from "drizzle-orm";
+import { asc, and, eq, ne, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { users } from "@/lib/db/schema/users";
 import { familyMembers } from "@/lib/db/schema/registrations";
@@ -214,5 +214,85 @@ describe("Period-aware development report (GET /api/development/reports/[familyM
     const legacySnap = json.snapshots.find((s: { domain: string }) => s.domain === domainDisplayName);
     expect(legacySnap).toBeDefined();
     expect(legacySnap.averageLevel).toBe(3.5);
+  });
+
+  it("merges the back-compat snapshots per domain: current-quarter rollup where present, legacy fallback otherwise (review finding)", async () => {
+    // Regression coverage for a review finding: an earlier version of the
+    // reports API picked ONE source for the whole `snapshots` field
+    // (current-quarter rollup OR legacy fallback), so a family with legacy
+    // rows in most domains and current-quarter data in only one lost every
+    // other domain from `snapshots` — exactly the shape migration 0147's
+    // backfill produces for real, already-assessed families. The merge must
+    // be per-domain: each domain keeps its own best-available value.
+    const db = getDb();
+    const familyMemberId = await createTestChild(parentUserId, `ReportPeriodsMixed-${Date.now()}`);
+    createdFamilyMemberIds.push(familyMemberId);
+
+    // 3 legacy-only domains — any domains other than the one `skillId`
+    // belongs to (that one gets real current-quarter data below).
+    const otherDomains = await db
+      .select({ id: skillDomains.id, displayName: skillDomains.displayName })
+      .from(skillDomains)
+      .where(ne(skillDomains.id, domainId))
+      .orderBy(asc(skillDomains.sortOrder))
+      .limit(3);
+    expect(
+      otherDomains.length,
+      "expected at least 3 other skill_domains rows — run the curriculum loader (scripts/curriculum-load.ts) first",
+    ).toBe(3);
+
+    const legacyAverageByDomainId = new Map<string, number>();
+    for (const [i, dom] of otherDomains.entries()) {
+      const value = 2 + i; // 2, 3, 4 — distinct per domain so a mismatch is obvious
+      legacyAverageByDomainId.set(dom.id, value);
+      await db.insert(assessmentSnapshots).values({
+        familyMemberId,
+        periodKey: `legacy:${crypto.randomUUID()}`,
+        domainId: dom.id,
+        averageLevel: value.toFixed(2),
+        assessmentCount: 1,
+        skillsAssessed: 1,
+      });
+    }
+
+    // 1 current-quarter domain, via the real recompute path.
+    const currentDate = dateForPeriod(monthB);
+    await db.insert(playerAssessments).values({
+      familyMemberId,
+      skillId,
+      coachUserId,
+      level: 4,
+      observationContext: "practice",
+      assessedAt: currentDate,
+    });
+    await recomputePlayerSnapshots(db, familyMemberId, currentDate);
+
+    const res = await apiFetch(`/api/development/reports/${familyMemberId}`, {
+      method: "GET",
+      cookie: parentCookie,
+    });
+    const json = await expectJson(res, 200);
+
+    // periods.radar stays pure: the quarter entry has ONLY the domain with
+    // actual current-quarter data.
+    const quarterEntry = json.periods.radar.find(
+      (e: { key: string; kind: string }) => e.kind === "quarter" && e.key === nowQuarterKey,
+    );
+    expect(quarterEntry).toBeDefined();
+    expect(quarterEntry.snapshots).toHaveLength(1);
+    expect(quarterEntry.snapshots[0].domain).toBe(domainDisplayName);
+    expect(quarterEntry.snapshots[0].averageLevel).toBe(4);
+
+    // The back-compat `snapshots` field merges: all 4 domains present, the
+    // current-quarter domain carries the rollup value, the 3 legacy-only
+    // domains carry their legacy values unchanged.
+    expect(json.snapshots).toHaveLength(4);
+    const snapshotByDomain = new Map<string, number>(
+      json.snapshots.map((s: { domain: string; averageLevel: number }) => [s.domain, s.averageLevel]),
+    );
+    expect(snapshotByDomain.get(domainDisplayName)).toBe(4);
+    for (const dom of otherDomains) {
+      expect(snapshotByDomain.get(dom.displayName)).toBe(legacyAverageByDomainId.get(dom.id));
+    }
   });
 });

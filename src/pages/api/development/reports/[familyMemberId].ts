@@ -276,20 +276,26 @@ export const GET: APIRoute = async ({ params, locals }) => {
       .orderBy(skillDomains.sortOrder, desc(assessmentSnapshots.updatedAt));
 
     // Legacy fallback: most recently updated row per domain, across every
-    // periodKey (legacy or monthly) — the pre-S4 behavior, kept as the
-    // back-compat floor for children with no monthly rows at all.
+    // periodKey (legacy or monthly) — the pre-S4 behavior, kept per-domain
+    // (keyed by domainId, not flattened to an array) so it can be merged
+    // with the current-quarter rollup below rather than swapped in wholesale.
     const latestSnapshotByDomain = new Map<string, (typeof snapshotRows)[number]>();
     for (const row of snapshotRows) {
       if (!latestSnapshotByDomain.has(row.domainId)) {
         latestSnapshotByDomain.set(row.domainId, row);
       }
     }
-    const legacyFallbackSnapshots = [...latestSnapshotByDomain.values()].map((row) => ({
-      domain: row.domainDisplayName,
-      averageLevel: row.averageLevel !== null ? parseFloat(row.averageLevel) : 0,
-      previousAverageLevel:
-        row.previousAverageLevel !== null ? parseFloat(row.previousAverageLevel) : null,
-    }));
+    const legacyFallbackByDomainId = new Map(
+      [...latestSnapshotByDomain.entries()].map(([domId, row]) => [
+        domId,
+        {
+          domain: row.domainDisplayName,
+          averageLevel: row.averageLevel !== null ? parseFloat(row.averageLevel) : 0,
+          previousAverageLevel:
+            row.previousAverageLevel !== null ? parseFloat(row.previousAverageLevel) : null,
+        },
+      ]),
+    );
 
     // Monthly (non-legacy) rows only participate in period math.
     const monthlyRows = snapshotRows.filter(
@@ -341,15 +347,25 @@ export const GET: APIRoute = async ({ params, locals }) => {
       return result;
     }
 
+    // Keeps `domainId` alongside the public `domain` display name — needed
+    // internally for the per-domain merge below (`stripDomainId` removes it
+    // before anything goes on the wire).
     function quarterEntrySnapshots(quarterKey: string) {
       const averages = quarterDomainAverages(quarterKey);
       if (averages.size === 0) return null;
       const previousAverages = quarterDomainAverages(previousQuarterKey(quarterKey));
       return [...averages.entries()].map(([domId, { displayName, averageLevel }]) => ({
+        domainId: domId,
         domain: displayName,
         averageLevel,
         previousAverageLevel: previousAverages.get(domId)?.averageLevel ?? null,
       }));
+    }
+
+    function stripDomainId<T extends { domainId: string }>(
+      snaps: T[],
+    ): Omit<T, "domainId">[] {
+      return snaps.map(({ domainId: _domainId, ...rest }) => rest);
     }
 
     const nowQuarterKey = quarterKeyFor(new Date());
@@ -363,7 +379,11 @@ export const GET: APIRoute = async ({ params, locals }) => {
 
     const currentQuarterSnapshots = quarterEntrySnapshots(nowQuarterKey);
     if (currentQuarterSnapshots) {
-      radar.push({ key: nowQuarterKey, kind: "quarter", snapshots: currentQuarterSnapshots });
+      radar.push({
+        key: nowQuarterKey,
+        kind: "quarter",
+        snapshots: stripDomainId(currentQuarterSnapshots),
+      });
     }
 
     for (const periodKey of currentMonths) {
@@ -387,13 +407,29 @@ export const GET: APIRoute = async ({ params, locals }) => {
     for (const quarterKey of priorQuarterKeys) {
       const snaps = quarterEntrySnapshots(quarterKey);
       if (!snaps) continue;
-      radar.push({ key: quarterKey, kind: "quarter", snapshots: snaps });
+      radar.push({ key: quarterKey, kind: "quarter", snapshots: stripDomainId(snaps) });
     }
 
-    // Back-compat `snapshots` field: current-quarter rollup when it has
-    // data, else the legacy latest-per-domain-across-all-rows fallback so
-    // old data (and the radar's zero-UI-change floor) keeps rendering.
-    const snapshots = currentQuarterSnapshots ?? legacyFallbackSnapshots;
+    // Back-compat `snapshots` field: a PER-DOMAIN merge, not a whole-response
+    // either/or. Every domain the member has ANY row for gets an entry —
+    // the current-quarter rollup where that quarter has rows for the
+    // domain, else the legacy/latest fallback for that domain. This matters
+    // because migration 0147 backfilled EVERY existing family into legacy
+    // rows, and real coaching won't touch every domain every quarter: a
+    // child with legacy rows in 3 domains and current-quarter data in only
+    // 1 must still see all 4 axes here, or DomainRadar's >=3-populated-axes
+    // gate regresses a radar that rendered fine before this feature shipped
+    // (an earlier either/or version of this line dropped the other 3
+    // domains entirely — caught in review).
+    const currentQuarterByDomainId = new Map(
+      (currentQuarterSnapshots ?? []).map((s) => [
+        s.domainId,
+        { domain: s.domain, averageLevel: s.averageLevel, previousAverageLevel: s.previousAverageLevel },
+      ]),
+    );
+    const snapshots = [...legacyFallbackByDomainId.entries()].map(
+      ([domId, fallback]) => currentQuarterByDomainId.get(domId) ?? fallback,
+    );
 
     // Calculate age. birthDate can be null for adult self-registrants whose
     // DOB is still pending post-payment review.
