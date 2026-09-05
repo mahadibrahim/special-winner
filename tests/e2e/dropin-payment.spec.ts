@@ -61,9 +61,26 @@ test.describe("Drop-in inline payment (test-mode card)", () => {
     await page.locator("#guest-last-name").fill("Verifier");
     // No waiver checkbox/signature pre-pay — the dialog is contact-only.
     await expect(page.locator("#waiver-accept")).toHaveCount(0);
-    const continueBtn = page.getByRole("button", { name: /continue to payment/i });
-    await expect(continueBtn).toBeEnabled({ timeout: 10_000 });
-    await continueBtn.click();
+    // The dialog CTA doubles as environment detection. With a publishable key
+    // the paid session renders "Continue to payment" (inline deferred form);
+    // without one (CI's STRIPE_* secrets are empty) BookButton's `paidInline`
+    // is false and even a paid session falls back to the legacy submit,
+    // labelled "Confirm & book". The old assertion demanded "Continue to
+    // payment" outright, which turned a Stripe-less environment into a hard
+    // failure the moment the shared staging DB offered ANY paid bookable
+    // session in the first 8 upcoming (#620's class fixtures did exactly
+    // that) — the iframe self-skip below sits past that assertion and could
+    // never fire. Detect the fallback here and skip instead.
+    const submitBtn = page.getByRole("button", {
+      name: /continue to payment|confirm & book/i,
+    });
+    await expect(submitBtn).toBeEnabled({ timeout: 10_000 });
+    const submitLabel = ((await submitBtn.textContent()) ?? "").trim();
+    test.skip(
+      /confirm & book/i.test(submitLabel),
+      "Stripe not configured in this environment (paid session fell back to the legacy submit path)",
+    );
+    await submitBtn.click();
 
     // The inline deferred card form replaces the Book button — the customer
     // never leaves the site. Self-skip when Stripe isn't configured (CI).
