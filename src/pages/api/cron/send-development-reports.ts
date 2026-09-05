@@ -31,7 +31,11 @@
  * `resolveOverridePeriod`'s docstring for the exact resolution and
  * validation rules (shape + "must already be closed" both reject with
  * 422). Runs the identical scan/build/send/dedupe pipeline as the plain
- * path, just against the named period instead of "now"'s.
+ * path, just against the named period instead of "now"'s. NOTE:
+ * `?period=YYYY-12` (or any Mar/Jun/Sep/Dec month) runs the Q4 (or
+ * respective quarter) report, NOT a standalone monthly — monthly subsets
+ * don't exist for quarter-ending months in production, so the override
+ * collapses to the quarter here too, matching the scheduler exactly.
  */
 import type { APIRoute } from "astro";
 import {
@@ -125,7 +129,7 @@ export const GET: APIRoute = async () =>
     JSON.stringify({
       description: "Monthly subset / quarterly full development-report cron endpoint",
       usage:
-        "POST with header x-cron-secret: $CRON_SECRET to email every qualifying child's guardians a development report for the just-closed period (monthly subset most months, quarterly full report on the four months that close a quarter). Add ?dryRun=1 to return the scanned candidates without sending. Add ?period=YYYY-MM or ?period=YYYY-Qn to run for an explicit already-closed period instead of 'now' — ops recovery for a failed run after the month has rolled past it (within the same month, just re-POST with no override; dedupe makes the retry idempotent). Malformed or not-yet-closed period values return 422. Per-child/guardian failures are isolated and counted rather than aborting the batch. Intended for scheduled callers only.",
+        "POST with header x-cron-secret: $CRON_SECRET to email every qualifying child's guardians a development report for the just-closed period (monthly subset most months, quarterly full report on the four months that close a quarter). Add ?dryRun=1 to return the scanned candidates without sending. Add ?period=YYYY-MM or ?period=YYYY-Qn to run for an explicit already-closed period instead of 'now' — ops recovery for a failed run after the month has rolled past it (within the same month, just re-POST with no override; dedupe makes the retry idempotent). ?period=YYYY-12 (or any Mar/Jun/Sep/Dec month) runs that quarter's Q4/Q1/Q2/Q3 report, not a standalone monthly — monthly subsets don't exist for quarter-ending months, matching the scheduler. Malformed or not-yet-closed period values return 422. Per-child/guardian failures are isolated and counted rather than aborting the batch. Intended for scheduled callers only.",
     }),
     { status: 200, headers: { "Content-Type": "application/json" } },
   );

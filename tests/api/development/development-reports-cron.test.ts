@@ -255,12 +255,17 @@ describe("Cron: send development reports", () => {
     });
 
     it("a candidate with zero resolvable guardians still logs a skipped breadcrumb (F2 regression)", async () => {
+      // Deliberately mid-quarter (NOT Mar/Jun/Sep/Dec) — a quarter-ending
+      // month can never resolve to a bare monthly period (see the
+      // ?period= quarter-collapse coverage below), so a hand-built
+      // MonthlyReportPeriod fixture on one would silently diverge from
+      // what the ?period= override actually runs against.
       const period: MonthlyReportPeriod = {
         kind: "monthly",
-        periodKey: "2019-03",
-        label: "March 2019",
-        start: new Date("2019-03-01T00:00:00.000Z"),
-        end: new Date("2019-04-01T00:00:00.000Z"),
+        periodKey: "2019-08",
+        label: "August 2019",
+        start: new Date("2019-08-01T00:00:00.000Z"),
+        end: new Date("2019-09-01T00:00:00.000Z"),
       };
 
       const db = getDb();
@@ -443,12 +448,14 @@ describe("Cron: send development reports", () => {
     });
 
     it("multiple guardians of the same child each get their own email", async () => {
+      // Mid-quarter, same reasoning as the F2-regression test above — June
+      // is a quarter-ending month and can't exist as a bare monthly period.
       const period: MonthlyReportPeriod = {
         kind: "monthly",
-        periodKey: "2019-06",
-        label: "June 2019",
-        start: new Date("2019-06-01T00:00:00.000Z"),
-        end: new Date("2019-07-01T00:00:00.000Z"),
+        periodKey: "2019-10",
+        label: "October 2019",
+        start: new Date("2019-10-01T00:00:00.000Z"),
+        end: new Date("2019-11-01T00:00:00.000Z"),
       };
 
       const db = getDb();
@@ -595,6 +602,32 @@ describe("Cron: send development reports", () => {
         headers: { "x-cron-secret": CRON_SECRET },
       });
       expect(res.status).toBe(422);
+    });
+
+    it("a quarter-ending ?period=YYYY-MM (Dec) collapses to the quarterly report, matching the scheduler's own rule", async () => {
+      // computeReportPeriod never produces a standalone monthly for
+      // Mar/Jun/Sep/Dec (closedMonth % 3 === 0 always collapses to
+      // quarterly) — resolveOverridePeriod must mirror that exactly or
+      // ?period=2019-12 would run the wrong pipeline (subset instead of
+      // full) under the wrong emailType.
+      const res = await apiFetch(`${ENDPOINT}?dryRun=1&period=2019-12`, {
+        method: "POST",
+        headers: { "x-cron-secret": CRON_SECRET },
+      });
+      const json = await expectJson(res, 200);
+      expect(json.period.kind).toBe("quarterly");
+      expect(json.period.key).toBe("2019-Q4");
+      expect(json.period.months).toEqual(["2019-10", "2019-11", "2019-12"]);
+    });
+
+    it("a mid-quarter ?period=YYYY-MM stays a standalone monthly period", async () => {
+      const res = await apiFetch(`${ENDPOINT}?dryRun=1&period=2019-11`, {
+        method: "POST",
+        headers: { "x-cron-secret": CRON_SECRET },
+      });
+      const json = await expectJson(res, 200);
+      expect(json.period.kind).toBe("monthly");
+      expect(json.period.key).toBe("2019-11");
     });
   });
 

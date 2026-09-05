@@ -37,7 +37,7 @@
  * dependent row would hit, so it's indistinguishable from one in the
  * counters/logs today. Whether a self-registered adult should instead
  * receive their OWN development report is an open scope question, tracked
- * as a follow-up ticket filed alongside this PR — not addressed here. If
+ * as a follow-up ticket to be filed with this PR — not addressed here. If
  * `resolveGuardians` returns zero guardians for a genuine dependent row (a
  * data anomaly — every family_members dependent row should have a
  * parentUserId), the same skip path applies.
@@ -180,6 +180,17 @@ export class InvalidPeriodOverrideError extends Error {}
  * Only PAST (already-closed, as of `now`) periods are valid — a period
  * whose covered range extends into or past `now` is rejected as "future"
  * rather than run early with incomplete data.
+ *
+ * QUARTER-COLLAPSE (mirrors `computeReportPeriod`'s `closedMonth % 3 === 0`
+ * branch): a standalone monthly report for Mar/Jun/Sep/Dec never happens in
+ * production — the scheduler always sends the quarterly FULL report for
+ * that quarter instead. A `?period=YYYY-MM` naming one of those months
+ * would otherwise resolve to a monthly period `runDevelopmentReports` never
+ * actually runs against in production (wrong pipeline: subset instead of
+ * full; wrong emailType: `dev_report_YYYY-MM` instead of
+ * `dev_report_YYYY-Qn`), breaking "runs identically" for exactly the
+ * recovery months that matter. So a quarter-ending month collapses to its
+ * quarter here too, same as the scheduler would.
  */
 export function resolveOverridePeriod(periodParam: string, now: Date): ReportPeriod {
   const monthMatch = MONTH_KEY_RE.exec(periodParam);
@@ -198,6 +209,26 @@ export function resolveOverridePeriod(periodParam: string, now: Date): ReportPer
     if (end > now) {
       throw new InvalidPeriodOverrideError(`?period=${periodParam} has not closed yet (future period)`);
     }
+
+    if (month % 3 === 0) {
+      // Quarter-ending month — collapse into the quarterly period, exactly
+      // as computeReportPeriod's own closedMonth % 3 === 0 branch does.
+      const monthDate = new Date(Date.UTC(year, month - 1, 1));
+      const quarterKey = quarterKeyFor(monthDate);
+      const months = monthsOfQuarter(quarterKey);
+      const [firstYear, firstMonth] = months[0].split("-").map(Number);
+      const quarterStart = new Date(Date.UTC(firstYear, firstMonth - 1, 1));
+      const quarterNum = Number(quarterKey.split("-Q")[1]);
+      return {
+        kind: "quarterly",
+        quarterKey,
+        months,
+        label: `Q${quarterNum} ${year}`,
+        start: quarterStart,
+        end, // the requested month's end IS the quarter's end (it's the last month)
+      };
+    }
+
     return { kind: "monthly", periodKey: periodParam, label: monthLabel(periodParam), start, end };
   }
 
