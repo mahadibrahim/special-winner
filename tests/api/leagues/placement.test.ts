@@ -14,7 +14,9 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { teams, rosters } from "@/lib/db/schema/teams";
+import { seasons, programs } from "@/lib/db/schema/programs";
+import { teams, rosters, venues } from "@/lib/db/schema/teams";
+import { sports, ageGroups } from "@/lib/db/schema/sports";
 import { registrations, familyMembers } from "@/lib/db/schema/registrations";
 import { users } from "@/lib/db/schema/users";
 import { apiFetch, getAdminCookie, getCoachCookie } from "../setup/test-helpers";
@@ -35,6 +37,48 @@ const createdTeamIds: string[] = [];
 const createdRegistrationIds: string[] = [];
 const createdFamilyMemberIds: string[] = [];
 const createdUserIds: string[] = [];
+
+// F1 fix (post-review): every `createAdminOrgGameContext` call (~12 across
+// this file) mints a full season+program+sport+ageGroup+venue fixture set
+// that afterAll previously never deleted — only registrations/familyMembers/
+// users and scaffolded teams were cleaned up. Mirrors the tracking +
+// FK-ordered teardown pattern from tests/api/leagues/attention.test.ts.
+const createdSeasonIds: string[] = [];
+const createdProgramIds: string[] = [];
+const createdSportIds: string[] = [];
+const createdAgeGroupIds: string[] = [];
+const createdVenueIds: string[] = [];
+
+/**
+ * Wraps createAdminOrgGameContext and tracks every id it mints (season,
+ * program, sport, ageGroup, venue, both teams) for F1 cleanup — the helper
+ * itself only returns {seasonId, programId, ...}, not sportId/ageGroupId, so
+ * those are fetched with one follow-up read each (mirrors attention.test.ts).
+ */
+async function mintSeason(
+  opts: Parameters<typeof createAdminOrgGameContext>[0] = {},
+): Promise<Awaited<ReturnType<typeof createAdminOrgGameContext>>> {
+  const ctx = await createAdminOrgGameContext(opts);
+  createdSeasonIds.push(ctx.seasonId);
+  createdProgramIds.push(ctx.programId);
+  createdVenueIds.push(ctx.venueId);
+  createdTeamIds.push(ctx.homeTeamId, ctx.awayTeamId);
+
+  const db = getDb();
+  const [programRow] = await db
+    .select({ sportId: programs.sportId })
+    .from(programs)
+    .where(eq(programs.id, ctx.programId));
+  if (programRow?.sportId) createdSportIds.push(programRow.sportId);
+
+  const [seasonRow] = await db
+    .select({ ageGroupId: seasons.ageGroupId })
+    .from(seasons)
+    .where(eq(seasons.id, ctx.seasonId));
+  if (seasonRow?.ageGroupId) createdAgeGroupIds.push(seasonRow.ageGroupId);
+
+  return ctx;
+}
 
 /**
  * Seeds a family + registration directly via DB insert (no Stripe available
@@ -138,7 +182,7 @@ beforeAll(async () => {
   // Fresh league season inside the seeded admin's org. This helper also
   // creates 2 teams (home/away) as part of a game fixture — the assertions
   // below diff against a `before` count rather than assuming 0.
-  const ctx = await createAdminOrgGameContext({
+  const ctx = await mintSeason({
     programType: "league",
     audienceType: "parents",
   });
@@ -162,9 +206,17 @@ beforeAll(async () => {
 
 afterAll(async () => {
   const db = getDb();
-  // FK-safe order: registrations first (RESTRICT on familyMemberId /
-  // registeredByUserId), then family members, then users. Rosters cascade
-  // off registrations automatically.
+  // FK-safe order (rosters -> teams -> registrations -> familyMembers/users
+  // -> seasons -> programs -> sports/ageGroups/venues), mirroring
+  // attention.test.ts's F2 teardown. Rosters are also cascade-deleted by
+  // both the team delete and the registration delete below, so the explicit
+  // roster delete here is defense-in-depth, not load-bearing.
+  if (createdTeamIds.length > 0) {
+    await db.delete(rosters).where(inArray(rosters.teamId, createdTeamIds));
+  }
+  if (createdTeamIds.length > 0) {
+    await db.delete(teams).where(inArray(teams.id, createdTeamIds));
+  }
   if (createdRegistrationIds.length > 0) {
     await db.delete(registrations).where(inArray(registrations.id, createdRegistrationIds));
   }
@@ -174,8 +226,20 @@ afterAll(async () => {
   if (createdUserIds.length > 0) {
     await db.delete(users).where(inArray(users.id, createdUserIds));
   }
-  if (createdTeamIds.length > 0) {
-    await db.delete(teams).where(inArray(teams.id, createdTeamIds));
+  if (createdSeasonIds.length > 0) {
+    await db.delete(seasons).where(inArray(seasons.id, createdSeasonIds));
+  }
+  if (createdProgramIds.length > 0) {
+    await db.delete(programs).where(inArray(programs.id, createdProgramIds));
+  }
+  if (createdSportIds.length > 0) {
+    await db.delete(sports).where(inArray(sports.id, createdSportIds));
+  }
+  if (createdAgeGroupIds.length > 0) {
+    await db.delete(ageGroups).where(inArray(ageGroups.id, createdAgeGroupIds));
+  }
+  if (createdVenueIds.length > 0) {
+    await db.delete(venues).where(inArray(venues.id, createdVenueIds));
   }
 });
 
@@ -310,7 +374,7 @@ describe("GET /api/admin/seasons/:id/placement", () => {
   });
 
   it("returns season/team/unplaced shape: teams with zero counts, unplaced with childName+age, rostered regs excluded", async () => {
-    const ctx = await createAdminOrgGameContext({ programType: "league", audienceType: "parents" });
+    const ctx = await mintSeason({ programType: "league", audienceType: "parents" });
 
     const unplacedReg = await seedRegistration(ctx.seasonId, "confirmed");
     const rosteredReg = await seedRegistration(ctx.seasonId, "confirmed");
@@ -352,13 +416,13 @@ describe("GET /api/admin/seasons/:id/placement", () => {
 
 describe("POST /api/admin/seasons/:id/placements", () => {
   it("401s for an unauthenticated caller", async () => {
-    const ctx = await createAdminOrgGameContext({ programType: "league", audienceType: "parents" });
+    const ctx = await mintSeason({ programType: "league", audienceType: "parents" });
     const res = await publishPlacements(ctx.seasonId, [], "");
     expect(res.status).toBe(401);
   });
 
   it("403s for a non-admin (coach) caller", async () => {
-    const ctx = await createAdminOrgGameContext({ programType: "league", audienceType: "parents" });
+    const ctx = await mintSeason({ programType: "league", audienceType: "parents" });
     const res = await publishPlacements(ctx.seasonId, [], coachCookie);
     expect(res.status).toBe(403);
   });
@@ -369,7 +433,7 @@ describe("POST /api/admin/seasons/:id/placements", () => {
   });
 
   it("happy path: publishes 4 registrations across 2 teams, writes active roster rows, and returns per-team counts", async () => {
-    const ctx = await createAdminOrgGameContext({ programType: "league", audienceType: "parents" });
+    const ctx = await mintSeason({ programType: "league", audienceType: "parents" });
     const regs = await Promise.all([
       seedRegistration(ctx.seasonId),
       seedRegistration(ctx.seasonId),
@@ -401,7 +465,7 @@ describe("POST /api/admin/seasons/:id/placements", () => {
   });
 
   it("over-cap batch is rejected all-or-nothing: no rows written, even for assignments that would have fit", async () => {
-    const ctx = await createAdminOrgGameContext({ programType: "league", audienceType: "parents" });
+    const ctx = await mintSeason({ programType: "league", audienceType: "parents" });
     const scaffoldRes = await scaffoldTeams(ctx.seasonId, { count: 1, maxRosterSize: 1 });
     expect(scaffoldRes.status).toBe(201);
     const { createdTeamIds: capTeamIds } = await scaffoldRes.json();
@@ -425,7 +489,7 @@ describe("POST /api/admin/seasons/:id/placements", () => {
   });
 
   it("rejects a registration already rostered onto a team in this season", async () => {
-    const ctx = await createAdminOrgGameContext({ programType: "league", audienceType: "parents" });
+    const ctx = await mintSeason({ programType: "league", audienceType: "parents" });
     const reg = await seedRegistration(ctx.seasonId);
 
     const first = await publishPlacements(ctx.seasonId, [
@@ -448,8 +512,8 @@ describe("POST /api/admin/seasons/:id/placements", () => {
   });
 
   it("rejects a registration that belongs to a different season", async () => {
-    const ctxA = await createAdminOrgGameContext({ programType: "league", audienceType: "parents" });
-    const ctxB = await createAdminOrgGameContext({ programType: "league", audienceType: "parents" });
+    const ctxA = await mintSeason({ programType: "league", audienceType: "parents" });
+    const ctxB = await mintSeason({ programType: "league", audienceType: "parents" });
     const regFromB = await seedRegistration(ctxB.seasonId);
 
     const res = await publishPlacements(ctxA.seasonId, [
@@ -464,7 +528,7 @@ describe("POST /api/admin/seasons/:id/placements", () => {
   });
 
   it("rejects a batch with a duplicate registrationId targeting two teams", async () => {
-    const ctx = await createAdminOrgGameContext({ programType: "league", audienceType: "parents" });
+    const ctx = await mintSeason({ programType: "league", audienceType: "parents" });
     const reg = await seedRegistration(ctx.seasonId);
 
     const res = await publishPlacements(ctx.seasonId, [
@@ -480,7 +544,7 @@ describe("POST /api/admin/seasons/:id/placements", () => {
   });
 
   it("rejects a waitlisted registration", async () => {
-    const ctx = await createAdminOrgGameContext({ programType: "league", audienceType: "parents" });
+    const ctx = await mintSeason({ programType: "league", audienceType: "parents" });
     const reg = await seedRegistration(ctx.seasonId, "waitlisted");
 
     const res = await publishPlacements(ctx.seasonId, [
@@ -504,7 +568,7 @@ describe("POST /api/admin/rosters (legacy single add) — shares the season plac
   // These two cases confirm this endpoint's own behavior is unchanged now
   // that its dupe check + cap check + insert run inside a transaction.
   it("happy path: adds a player to a team's roster", async () => {
-    const ctx = await createAdminOrgGameContext({ programType: "league", audienceType: "parents" });
+    const ctx = await mintSeason({ programType: "league", audienceType: "parents" });
     const reg = await seedRegistration(ctx.seasonId);
 
     const res = await apiFetch("/api/admin/rosters", {
@@ -523,7 +587,7 @@ describe("POST /api/admin/rosters (legacy single add) — shares the season plac
   });
 
   it("rejects (400) once the team's roster is at maxRosterSize, and writes nothing", async () => {
-    const ctx = await createAdminOrgGameContext({ programType: "league", audienceType: "parents" });
+    const ctx = await mintSeason({ programType: "league", audienceType: "parents" });
     const scaffoldRes = await scaffoldTeams(ctx.seasonId, { count: 1, maxRosterSize: 1 });
     expect(scaffoldRes.status).toBe(201);
     const { createdTeamIds: capTeamIds } = await scaffoldRes.json();

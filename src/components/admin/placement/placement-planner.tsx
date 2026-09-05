@@ -84,6 +84,42 @@ export function PlacementPlanner({
   const [publishing, setPublishing] = useState(false);
   const [publishErrors, setPublishErrors] = useState<PublishError[] | null>(null);
 
+  // F2 fix (post-review): the zero-team EmptyState used to dead-end at "Back
+  // to season hub" with no way to actually create teams — the admin had to
+  // know the scaffold endpoint existed and hit it out-of-band. This inline
+  // form calls the same POST /api/admin/seasons/:id/teams/scaffold endpoint
+  // the API tests cover (tests/api/leagues/placement.test.ts), then refetches
+  // the placement GET so the newly-created teams appear immediately.
+  const [scaffoldCount, setScaffoldCount] = useState(4);
+  const [scaffoldMaxRosterSize, setScaffoldMaxRosterSize] = useState<number | "">(12);
+  const [scaffolding, setScaffolding] = useState(false);
+  const [scaffoldError, setScaffoldError] = useState<string | null>(null);
+
+  async function scaffoldTeams() {
+    setScaffolding(true);
+    setScaffoldError(null);
+    try {
+      const res = await fetch(`/api/admin/seasons/${seasonId}/teams/scaffold`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          count: scaffoldCount,
+          maxRosterSize: scaffoldMaxRosterSize === "" ? null : scaffoldMaxRosterSize,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? `Failed to create teams (${res.status})`);
+      }
+      toast.success("Teams created.");
+      await loadPlacementData();
+    } catch (e) {
+      setScaffoldError(e instanceof Error ? e.message : "Failed to create teams.");
+    } finally {
+      setScaffolding(false);
+    }
+  }
+
   async function loadPlacementData() {
     setLoading(true);
     setLoadError(null);
@@ -243,14 +279,58 @@ export function PlacementPlanner({
           {data.teams.length === 0 ? (
             <EmptyState
               title="No teams yet"
-              description="Scaffold teams for this season before placing players."
+              description="Create teams for this season before placing players."
             >
-              <a
-                href={`/admin/seasons/${seasonId}`}
-                className="text-xs font-semibold tracking-wide uppercase border border-ink text-ink hover:bg-ink hover:text-cream px-3 py-2 rounded-md transition-colors"
+              <form
+                data-testid="scaffold-form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  scaffoldTeams();
+                }}
+                className="flex flex-wrap items-end justify-center gap-3"
               >
-                Back to season hub
-              </a>
+                <label className="flex flex-col items-start gap-1 text-xs text-ink-muted">
+                  Number of teams
+                  <input
+                    data-testid="scaffold-count"
+                    type="number"
+                    min={1}
+                    max={26}
+                    required
+                    value={scaffoldCount}
+                    onChange={(e) => setScaffoldCount(Number(e.target.value))}
+                    className="w-24 border border-border rounded-md px-2 py-1 bg-paper text-ink text-sm"
+                  />
+                </label>
+                <label className="flex flex-col items-start gap-1 text-xs text-ink-muted">
+                  Max roster size (optional)
+                  <input
+                    data-testid="scaffold-max-roster-size"
+                    type="number"
+                    min={1}
+                    value={scaffoldMaxRosterSize}
+                    onChange={(e) =>
+                      setScaffoldMaxRosterSize(e.target.value === "" ? "" : Number(e.target.value))
+                    }
+                    className="w-24 border border-border rounded-md px-2 py-1 bg-paper text-ink text-sm"
+                  />
+                </label>
+                <button
+                  type="submit"
+                  data-testid="scaffold-submit"
+                  disabled={scaffolding}
+                  className="text-xs font-semibold tracking-wide uppercase bg-ink text-cream hover:bg-primary-bright hover:text-primary-foreground px-3 py-2 rounded-md transition-colors disabled:opacity-50"
+                >
+                  {scaffolding ? "Creating…" : "Create teams"}
+                </button>
+              </form>
+              {scaffoldError && (
+                <ErrorBanner
+                  message={scaffoldError}
+                  onDismiss={() => setScaffoldError(null)}
+                  className="mt-3 text-left"
+                />
+              )}
             </EmptyState>
           ) : (
             <>

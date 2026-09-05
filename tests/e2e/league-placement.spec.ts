@@ -237,3 +237,179 @@ test.describe("Admin roster placement planner", () => {
     }
   });
 });
+
+test.describe("Admin roster placement planner — scaffold from empty state", () => {
+  test.setTimeout(120_000);
+
+  /**
+   * F2 fix (post-review): the planner's zero-team EmptyState used to
+   * dead-end at "Back to season hub" with no way to create teams. This
+   * scenario covers the new inline scaffold form end to end: a season with
+   * NO pre-scaffolded teams (createAdminOrgGameContext always mints a
+   * home/away pair as part of its game fixture, so those two are deleted
+   * right after minting to get a genuine zero-team season) → scaffold form
+   * visible → set count 2 → submit → team columns appear → auto-draft →
+   * publish works. Own throwaway fixtures, not shared with the describe
+   * above.
+   */
+  let seasonId: string;
+  let programId: string;
+  let venueId: string;
+  let sportId: string;
+  let ageGroupId: string | null;
+
+  const createdRegistrationIds: string[] = [];
+  const createdFamilyMemberIds: string[] = [];
+  const createdUserIds: string[] = [];
+
+  async function seedConfirmedRegistration(index: number): Promise<string> {
+    const db = getDb();
+    const suffix = `${Date.now()}-${index}-${Math.floor(Math.random() * 1e6)}`;
+
+    const [user] = await db
+      .insert(users)
+      .values({
+        email: `league-placement-scaffold-${suffix}@test.example`,
+        passwordHash: "x",
+        firstName: "Parent",
+        lastName: `Scaffold${suffix}`,
+      })
+      .returning();
+    createdUserIds.push(user.id);
+
+    const [member] = await db
+      .insert(familyMembers)
+      .values({
+        parentUserId: user.id,
+        firstName: `Player${index}`,
+        lastName: `Scaffold${suffix}`,
+        birthDate: "2015-06-01",
+      })
+      .returning();
+    createdFamilyMemberIds.push(member.id);
+
+    const [reg] = await db
+      .insert(registrations)
+      .values({
+        seasonId,
+        familyMemberId: member.id,
+        registeredByUserId: user.id,
+        status: "confirmed",
+        paymentStatus: "paid",
+        amountPaidCents: 10000,
+        amountDueCents: 10000,
+        registrationType: "full",
+        waiverSigned: true,
+      })
+      .returning();
+    createdRegistrationIds.push(reg.id);
+
+    return reg.id;
+  }
+
+  test.beforeAll(async () => {
+    const ctx = await createAdminOrgGameContext({ programType: "league", audienceType: "parents" });
+    seasonId = ctx.seasonId;
+    programId = ctx.programId;
+    venueId = ctx.venueId;
+
+    const db = getDb();
+    const [programRow] = await db
+      .select({ sportId: programs.sportId })
+      .from(programs)
+      .where(eq(programs.id, programId));
+    sportId = programRow.sportId;
+
+    const [seasonRow] = await db
+      .select({ ageGroupId: seasons.ageGroupId })
+      .from(seasons)
+      .where(eq(seasons.id, seasonId));
+    ageGroupId = seasonRow?.ageGroupId ?? null;
+
+    // Delete the home/away pair the context fixture always mints so the
+    // season genuinely starts at zero teams — the scenario under test is
+    // "no pre-scaffolded teams".
+    await db.delete(teams).where(inArray(teams.id, [ctx.homeTeamId, ctx.awayTeamId]));
+
+    await Promise.all([seedConfirmedRegistration(1), seedConfirmedRegistration(2)]);
+  });
+
+  test.afterAll(async () => {
+    const db = getDb();
+    if (createdRegistrationIds.length > 0) {
+      await db.delete(registrations).where(inArray(registrations.id, createdRegistrationIds));
+    }
+    if (createdFamilyMemberIds.length > 0) {
+      await db.delete(familyMembers).where(inArray(familyMembers.id, createdFamilyMemberIds));
+    }
+    if (createdUserIds.length > 0) {
+      await db.delete(users).where(inArray(users.id, createdUserIds));
+    }
+    // Season cascades away any teams scaffolded during the test itself,
+    // plus the game row (games.seasonId is ON DELETE CASCADE).
+    if (seasonId) {
+      await db.delete(seasons).where(eq(seasons.id, seasonId));
+    }
+    if (programId) {
+      await db.delete(programs).where(eq(programs.id, programId));
+    }
+    if (sportId) {
+      await db.delete(sports).where(eq(sports.id, sportId));
+    }
+    if (ageGroupId) {
+      await db.delete(ageGroups).where(eq(ageGroups.id, ageGroupId));
+    }
+    if (venueId) {
+      await db.delete(venues).where(eq(venues.id, venueId));
+    }
+  });
+
+  test("admin scaffolds teams from the empty planner, then auto-drafts and publishes @critical", async ({
+    page,
+  }: {
+    page: Page;
+  }) => {
+    await signIn(page, TEST_USERS.admin.email, TEST_USERS.admin.password);
+
+    await page.goto(`/admin/seasons/${seasonId}/placement`, { waitUntil: "domcontentloaded" });
+    await waitForHydration(page);
+
+    await expect(page.getByTestId("placement-planner")).toBeVisible();
+
+    // Zero-team empty state renders the scaffold form, not a dead-end link.
+    await expect(page.getByTestId("scaffold-form")).toBeVisible();
+    await expect(page.getByTestId("team-column")).toHaveCount(0);
+
+    await page.getByTestId("scaffold-count").fill("2");
+    await page.getByTestId("scaffold-submit").click();
+    await expectToast(page, /teams created/i);
+
+    // Planner refetches placement data on success — team columns now appear
+    // and the scaffold form is gone.
+    await expect(page.getByTestId("team-column")).toHaveCount(2);
+    await expect(page.getByTestId("scaffold-form")).toHaveCount(0);
+
+    await page.getByTestId("auto-draft").click();
+    const rows = page.getByTestId("placement-row");
+    await expect(rows).toHaveCount(2);
+
+    await page.getByTestId("publish-placements").click();
+    await expectToast(page, /published/i);
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForHydration(page);
+
+    await expect(page.getByTestId("placement-row")).toHaveCount(0);
+    const columns = page.getByTestId("team-column");
+    await expect(columns).toHaveCount(2);
+    let totalPlaced = 0;
+    const columnCount = await columns.count();
+    for (let i = 0; i < columnCount; i++) {
+      const countText = (await columns.nth(i).getByTestId("team-count").textContent())?.trim();
+      // Text is "N" or "N / cap" (the scaffold form's default max roster size
+      // is 12) — only the leading number matters here.
+      totalPlaced += Number(countText?.match(/^\d+/)?.[0] ?? NaN);
+    }
+    expect(totalPlaced).toBe(2);
+  });
+});
