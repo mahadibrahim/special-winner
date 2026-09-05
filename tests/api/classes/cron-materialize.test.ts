@@ -3,6 +3,8 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
 import { membershipTiers } from "@/lib/db/schema/memberships";
+import { roles, userRoles } from "@/lib/db/schema/users";
+import { coachingAssignments } from "@/lib/db/schema/coaching";
 import { apiFetch, getAuthCookie } from "../setup/test-helpers";
 import { createTestDropInSession } from "../../utils/dropin-helpers";
 import {
@@ -18,6 +20,7 @@ import {
   CLASS_TEST_PARENT_PASSWORD,
 } from "../../utils/classes-helpers";
 import { classEnrollments } from "@/lib/db/schema/classes";
+import { setCoachesFor, getCoachesFor } from "@/lib/coach/coaching-assignments";
 
 const CRON_SECRET = process.env.CRON_SECRET;
 
@@ -339,6 +342,115 @@ describe("POST /api/cron/materialize-class-sessions", () => {
       // client is about to be routed to is priced as a class, not as an
       // adult drop-in.
       expect(body.memberRateCents).toBe(1500);
+    },
+  );
+
+  it(
+    "propagates a template's active coach assignments onto every freshly-materialized " +
+      "session, and never leaves one unstaffed while its template has an active set " +
+      "(F1/F2 fix-round coverage, Task 3)",
+    async (ctx) => {
+      if (!CRON_SECRET) return ctx.skip();
+      const db = getDb();
+      const suffix = Date.now();
+
+      const templateId = await createTestClassTemplate({
+        organizationId,
+        venueId,
+        name: `Cron-Template-Staffing-${suffix}`,
+        capacity: 10,
+        startTime: "14:00:00",
+      });
+      createdTemplateIds.push(templateId);
+
+      // Two org-scoped `coach`-role users, resolved dynamically (same
+      // fixtures tests/api/coaching/staffing.test.ts uses) rather than
+      // hardcoded — coach@test.aspiresports.com and
+      // training+coach@test.aspiresports.com are both seeded at
+      // scopeType:"organization" for this org (seed-e2e-tests.ts).
+      const coachRows = await db
+        .select({ userId: userRoles.userId })
+        .from(userRoles)
+        .innerJoin(roles, eq(roles.id, userRoles.roleId))
+        .where(
+          and(
+            eq(roles.name, "coach"),
+            eq(userRoles.scopeType, "organization"),
+            eq(userRoles.scopeId, organizationId),
+          ),
+        )
+        .orderBy(asc(userRoles.createdAt));
+      if (coachRows.length < 2) {
+        throw new Error(
+          `cron-materialize.test: expected at least 2 org-scoped coach-role users, found ${coachRows.length} — run npm run db:seed:e2e first`,
+        );
+      }
+      const [leadCoachId, assistantCoachId] = coachRows.map((r) => r.userId);
+
+      await setCoachesFor({
+        organizationId,
+        kind: "class_template",
+        targetId: templateId,
+        lead: leadCoachId,
+        assistants: [assistantCoachId],
+        createdByUserId: leadCoachId,
+      });
+
+      // ---- Run 1: materialize ----
+      const res1 = await postCron(CRON_SECRET);
+      expect(res1.status).toBe(200);
+
+      const sessions = await db
+        .select({ id: dropInSessions.id })
+        .from(dropInSessions)
+        .where(
+          and(eq(dropInSessions.classSlotTemplateId, templateId), eq(dropInSessions.status, "scheduled")),
+        );
+      expect(sessions.length).toBeGreaterThanOrEqual(1);
+      const sessionIds = sessions.map((s) => s.id);
+
+      // The atomicity contract from the F1 fix (materialize.ts wraps the
+      // session INSERT and the coach-copy in one transaction) can't be
+      // exercised with real fault injection from an HTTP-level test — there
+      // is no hook to make the copy throw mid-transaction on a live cron
+      // request without a test-only seam this codebase doesn't have. What
+      // CAN be verified black-box is the invariant the transaction
+      // guarantees: given the template had an active coach set BEFORE
+      // materialization, every session that transaction produced must carry
+      // that set — never zero assignment rows. If the insert-then-copy pair
+      // could partially commit (the bug F1 fixed), this is exactly the
+      // assertion that would go red — a session created but a copy that
+      // silently failed.
+      for (const sessionId of sessionIds) {
+        const coaches = await getCoachesFor("class_session", sessionId);
+        expect(coaches.length).toBeGreaterThan(0); // the invariant, spelled out
+        expect(coaches).toHaveLength(2);
+        const byId = new Map(coaches.map((c) => [c.coachUserId, c.role]));
+        expect(byId.get(leadCoachId)).toBe("lead");
+        expect(byId.get(assistantCoachId)).toBe("assistant");
+      }
+
+      // ---- Run 2: idempotent — no duplicate assignment rows ----
+      const res2 = await postCron(CRON_SECRET);
+      expect(res2.status).toBe(200);
+      for (const sessionId of sessionIds) {
+        const coaches = await getCoachesFor("class_session", sessionId);
+        expect(coaches).toHaveLength(2);
+      }
+
+      // This suite's templates are only DEACTIVATED by cleanupTestClassFixtures
+      // (afterAll), never deleted — clean up the assignment rows this test
+      // created directly so they don't linger as unrelated debris.
+      await db
+        .delete(coachingAssignments)
+        .where(and(eq(coachingAssignments.kind, "class_template"), eq(coachingAssignments.targetId, templateId)));
+      if (sessionIds.length > 0) {
+        await db
+          .delete(coachingAssignments)
+          .where(
+            and(eq(coachingAssignments.kind, "class_session"), inArray(coachingAssignments.targetId, sessionIds)),
+          );
+      }
     },
   );
 });
