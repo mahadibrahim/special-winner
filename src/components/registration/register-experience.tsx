@@ -168,11 +168,19 @@ export default function RegisterExperience({
   // detail payload carries one, falling back to soccer's league page
   // otherwise (the only sport with a stable /youth/leagues/<slug> page today).
   const backToLeaguesHref = `/youth/leagues/${season.sport?.slug || "soccer"}`;
+  // This component also serves ADULT season bail-outs (adult flag-football
+  // closes seasonally) — audienceHint is the same signal ChooseMode/rail use
+  // elsewhere, so mirror it here rather than hardcoding the youth segment.
+  // The href stays youth-only: /adult/leagues.astro is a full standalone
+  // landing page (CategoryFinder etc.), not a thin redirect like
+  // /youth/leagues.astro's 302 → /youth/leagues/soccer, so there's no adult
+  // equivalent of "this season's own sport's league page" to link to yet.
+  const notifyAudience = audienceHint === "adult" ? "adult" : "parent";
   if (season.status !== "open")
     return (
       <div className="space-y-4">
         <ErrorBanner message="Registration for this division isn't open." />
-        <EmptyNotifyForm audience="parent" source="league-closed" />
+        <EmptyNotifyForm audience={notifyAudience} source="league-closed" />
         <a href={backToLeaguesHref} className="inline-block text-sm font-medium text-ochre hover:underline">
           ← Back to leagues
         </a>
@@ -182,7 +190,7 @@ export default function RegisterExperience({
     return (
       <div className="space-y-4">
         <ErrorBanner message="Registration for this season has closed. Contact us if you'd like to join a roster mid-season." />
-        <EmptyNotifyForm audience="parent" source="league-closed" />
+        <EmptyNotifyForm audience={notifyAudience} source="league-closed" />
         <a href={backToLeaguesHref} className="inline-block text-sm font-medium text-ochre hover:underline">
           ← Back to leagues
         </a>
