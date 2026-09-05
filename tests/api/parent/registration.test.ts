@@ -67,8 +67,11 @@ describe("Parent Registration API", () => {
       });
 
       // 201 = created, 400 = validation issue, 409 = already registered
-      // (a live, non-cancelled/refunded row already exists for this member+season)
-      expect([200, 201, 400, 409]).toContain(res.status);
+      // (a live, non-cancelled/refunded row already exists for this member+season),
+      // 422 = age_ineligible (the age-eligibility gate, Task 2/F1) — the
+      // "first open season" + "first family member" this test picks up from
+      // the shared CI DB could be an age-mismatched pair.
+      expect([200, 201, 400, 409, 422]).toContain(res.status);
 
       const json = await res.json();
 

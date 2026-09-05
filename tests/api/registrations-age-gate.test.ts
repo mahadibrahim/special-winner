@@ -368,3 +368,77 @@ describe("POST /api/registrations — age gate (signed-in dependent path)", () =
     expect([200, 201]).toContain(res.status);
   });
 });
+
+describe("POST /api/registrations — age gate (signed-in registerSelf path)", () => {
+  /** A brand-new throwaway account (unique per run) so the birthDate we set
+   *  directly below is unambiguous — the shared parent@/adult-self fixtures
+   *  may already carry a self family_members row from other suites, which
+   *  would make "no self row was created" unprovable. */
+  async function createThrowawayUser(label: string): Promise<{ userId: string; cookie: string }> {
+    const stamp = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const email = `age-gate-self-${label}-${stamp}@example.com`;
+    const password = "TestAgeGateSelf123!";
+    const signupRes = await apiFetch("/api/auth/signup", {
+      method: "POST",
+      body: JSON.stringify({
+        email,
+        password,
+        firstName: "AgeGateSelf",
+        lastName: label,
+      }),
+    });
+    expect(signupRes.status).toBeLessThan(300);
+    const cookie = await getAuthCookie(email, password);
+    const db = getDb();
+    // Signup stores email.toLowerCase() — match on that, not the (already
+    // lowercase-domain but possibly mixed-case-local) literal we sent.
+    const [u] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, email.toLowerCase()))
+      .limit(1);
+    expect(u, "signed-up user should exist").toBeTruthy();
+    return { userId: u.id, cookie };
+  }
+
+  it("422s an out-of-range registerSelf with the exact age_ineligible body, before any self family_members write", async () => {
+    const { userId, cookie } = await createThrowawayUser("TooOld");
+    // Set the user's OWN birthDate directly (signup collects no DOB) —
+    // simulates an authenticated user whose stored birthDate is already on
+    // file and out of range for this season.
+    const birthDate = birthDateForAge(u12.startDate, u12.maxAge + 5);
+    const db = getDb();
+    await db.update(users).set({ birthDate }).where(eq(users.id, userId));
+
+    const res = await apiFetch("/api/registrations", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({
+        seasonId: u12.id,
+        registerSelf: true,
+        registrationType: "full",
+        waiverSigned: true,
+        waiverSignedBy: "Age Gate Self",
+      }),
+    });
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body).toEqual({
+      error: "age_ineligible",
+      minAge: u12.minAge,
+      maxAge: u12.maxAge,
+      ageGroupName: u12.ageGroupName,
+    });
+
+    // The gate must fire BEFORE resolvePerson runs — no self family_members
+    // row should exist for this user at all.
+    const selfRows = await db
+      .select({ id: familyMembers.id })
+      .from(familyMembers)
+      .where(eq(familyMembers.selfUserId, userId));
+    expect(
+      selfRows.length,
+      "no self family_members row should have been created",
+    ).toBe(0);
+  });
+});
