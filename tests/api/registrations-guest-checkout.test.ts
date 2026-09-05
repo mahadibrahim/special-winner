@@ -28,6 +28,39 @@ async function fetchOpenSeasonId(): Promise<string> {
   return seasons[0].id;
 }
 
+/** Build a YYYY-MM-DD birthDate that is exactly `age` years old on `onDate`
+ *  (mirrors birthDateForAge in tests/api/registrations-age-gate.test.ts). */
+function birthDateForAge(onDate: Date, age: number): string {
+  const year = onDate.getUTCFullYear() - age;
+  const month = String(onDate.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(onDate.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+// The age gate (audit finding F1) 422s any birthDate outside the target
+// season's age_group bounds. fetchOpenSeasonId() resolves to WHATEVER open
+// season happens to sort first on CI's accumulated DB — locally that's
+// usually one with no/compatible age bounds, but CI can resolve a
+// tightly-bounded one a fixed historical DOB no longer fits. Self-anchor:
+// resolve the target season's own bounds + startDate and compute a
+// mid-range DOB relative to that, so the fixture is valid for ANY season
+// the helper lands on. Falls back to the caller's historical fixed DOB when
+// the season carries no age group (open-age divisions gate nothing, so any
+// DOB is fine there too).
+async function inRangeDobFor(seasonId: string, fallbackBirthDate: string): Promise<string> {
+  const res = await fetch(`${BASE}/api/public/seasons/${seasonId}`);
+  if (!res.ok) return fallbackBirthDate;
+  const data = await res.json();
+  const ageGroup = data.season?.ageGroup;
+  const startDateRaw = data.season?.startDate;
+  if (!ageGroup || ageGroup.minAge == null || ageGroup.maxAge == null || !startDateRaw) {
+    return fallbackBirthDate;
+  }
+  const onDate = new Date(startDateRaw);
+  const midAge = Math.round((ageGroup.minAge + ageGroup.maxAge) / 2);
+  return birthDateForAge(onDate, midAge);
+}
+
 const validBody = (overrides: Record<string, unknown> = {}) => ({
   parent: {
     firstName: "Guest",
@@ -52,10 +85,16 @@ const validBody = (overrides: Record<string, unknown> = {}) => ({
 describe("POST /api/registrations/guest-checkout", () => {
   itWithStripe("creates user, family member, registration, and returns PaymentIntent clientSecret for new email", async () => {
     const seasonId = await fetchOpenSeasonId();
+    const birthDate = await inRangeDobFor(seasonId, "2018-06-01");
     const res = await fetch(`${BASE}/api/registrations/guest-checkout`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...validBody(), seasonId }),
+      body: JSON.stringify({
+        ...validBody({
+          child: { firstName: `Kid${Date.now()}`, lastName: "Tester", birthDate, gender: "male" },
+        }),
+        seasonId,
+      }),
     });
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -71,6 +110,7 @@ describe("POST /api/registrations/guest-checkout", () => {
 
   itWithStripe("matches existing email without setting a session cookie", async () => {
     const seasonId = await fetchOpenSeasonId();
+    const birthDate = await inRangeDobFor(seasonId, "2017-03-15");
     const body = validBody({
       parent: {
         firstName: "Parent",
@@ -81,7 +121,7 @@ describe("POST /api/registrations/guest-checkout", () => {
       child: {
         firstName: `Existing${Date.now()}`,
         lastName: "Test",
-        birthDate: "2017-03-15",
+        birthDate,
         gender: "female",
       },
     });
@@ -147,6 +187,7 @@ describe("POST /api/registrations/guest-checkout", () => {
 
   it("stamps family_members parental-consent columns and writes a granted parental consents row at collection time", async () => {
     const seasonId = await fetchOpenSeasonId();
+    const birthDate = await inRangeDobFor(seasonId, "2018-06-01");
     const email = `guest-coppa-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`;
     const childFirstName = `CoppaKid${Date.now()}`;
     const body = validBody({
@@ -154,7 +195,7 @@ describe("POST /api/registrations/guest-checkout", () => {
       child: {
         firstName: childFirstName,
         lastName: "Tester",
-        birthDate: "2018-06-01",
+        birthDate,
         gender: "male",
       },
     });
@@ -212,13 +253,14 @@ describe("POST /api/registrations/guest-checkout", () => {
   // UNSIGNED instead of 400-ing on the missing signature.
   it("accepts the parent+child shape with waiverSigned:false and creates the row unsigned", async () => {
     const seasonId = await fetchOpenSeasonId();
+    const birthDate = await inRangeDobFor(seasonId, "2018-06-01");
     const email = `guest-youth-v2-${Date.now()}-${Math.random().toString(36).slice(2)}@example.com`;
     const body: Record<string, unknown> = validBody({
       parent: { firstName: "YouthV2", lastName: "Parent", email },
       child: {
         firstName: `YouthV2Kid${Date.now()}`,
         lastName: "Tester",
-        birthDate: "2018-06-01",
+        birthDate,
       },
       waiverSigned: false,
     });
@@ -288,6 +330,7 @@ describe("POST /api/registrations/guest-checkout", () => {
 
   itWithStripe("records opted_in when the SMS consent box is checked", async () => {
     const seasonId = await fetchOpenSeasonId();
+    const birthDate = await inRangeDobFor(seasonId, "2018-06-01");
     const phone = uniquePhone();
     const res = await fetch(`${BASE}/api/registrations/guest-checkout`, {
       method: "POST",
@@ -300,6 +343,7 @@ describe("POST /api/registrations/guest-checkout", () => {
             email: `guest-optin-${Date.now()}@example.com`,
             phone,
           },
+          child: { firstName: `Kid${Date.now()}`, lastName: "Tester", birthDate, gender: "male" },
           smsConsent: true,
         }),
         seasonId,
@@ -316,6 +360,7 @@ describe("POST /api/registrations/guest-checkout", () => {
 
   itWithStripe("records pending (not opted_in) when the SMS consent box is left unchecked", async () => {
     const seasonId = await fetchOpenSeasonId();
+    const birthDate = await inRangeDobFor(seasonId, "2018-06-01");
     const phone = uniquePhone();
     const res = await fetch(`${BASE}/api/registrations/guest-checkout`, {
       method: "POST",
@@ -328,6 +373,7 @@ describe("POST /api/registrations/guest-checkout", () => {
             email: `guest-nooptin-${Date.now()}@example.com`,
             phone,
           },
+          child: { firstName: `Kid${Date.now()}`, lastName: "Tester", birthDate, gender: "male" },
           // no smsConsent field — box left unchecked
         }),
         seasonId,
@@ -343,11 +389,12 @@ describe("POST /api/registrations/guest-checkout", () => {
 
   itWithStripe("dedupes child + resumes registration when called twice with same email/child/season", async () => {
     const seasonId = await fetchOpenSeasonId();
+    const birthDate = await inRangeDobFor(seasonId, "2019-01-01");
     const email = `guest-dedupe-${Date.now()}@example.com`;
     const child = {
       firstName: `DedupeKid${Date.now()}`,
       lastName: "Child",
-      birthDate: "2019-01-01",
+      birthDate,
       gender: "other",
     };
     const body = validBody({
@@ -381,11 +428,12 @@ describe("POST /api/registrations/guest-checkout", () => {
   describe("guest already-registered 409 + manage-link email", () => {
     it("returns 409 already_registered against a live (paid) registration, before any Stripe step, and sends exactly one manage-link email across repeat 409s within the throttle window", async () => {
       const seasonId = await fetchOpenSeasonId();
+      const birthDate = await inRangeDobFor(seasonId, "2016-04-01");
       const email = `guest-alreadyreg-${Date.now()}@example.com`;
       const child = {
         firstName: `AlreadyRegKid${Date.now()}`,
         lastName: "Tester",
-        birthDate: "2016-04-01",
+        birthDate,
         gender: "male",
       };
       const body = validBody({
