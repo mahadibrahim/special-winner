@@ -321,8 +321,12 @@ export const DELETE: APIRoute = async (context) => {
  * After a roster write succeeds, ensure a team_group row exists (scheduled or
  * active) and sync membership for any active group. Runs async — roster writes
  * are never blocked on Telegram failures.
+ *
+ * Exported so other roster-writing endpoints (e.g. the batch placement
+ * publish at admin/seasons/[id]/placements.ts) can reuse the exact same
+ * fire-and-forget sync rather than re-implementing it.
  */
-async function triggerTeamGroupSync(teamId: string): Promise<void> {
+export async function triggerTeamGroupSync(teamId: string): Promise<void> {
   const db = getDb();
 
   // Find the earliest upcoming scheduled game for this team so we can seed

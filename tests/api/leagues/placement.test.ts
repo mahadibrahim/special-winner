@@ -7,14 +7,19 @@
  * with zero teams (the 2026-27 catalog's 88-seasons-0-teams gap) can be
  * backfilled.
  *
- * P3 will extend this same file with the placement/publish suite.
+ * Task P3 extends this file with the placement planner GET
+ * (/api/admin/seasons/:id/placement) and the transactional batch-publish
+ * POST (/api/admin/seasons/:id/placements) suites below.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { teams } from "@/lib/db/schema/teams";
+import { teams, rosters } from "@/lib/db/schema/teams";
+import { registrations, familyMembers } from "@/lib/db/schema/registrations";
+import { users } from "@/lib/db/schema/users";
 import { apiFetch, getAdminCookie, getCoachCookie } from "../setup/test-helpers";
 import { createAdminOrgGameContext } from "../../utils/admin-org-game-context";
+import { ageOnDate } from "@/lib/classes/book-child";
 
 let adminCookie: string;
 let coachCookie: string;
@@ -22,6 +27,89 @@ let seasonId: string;
 let orgBSeasonId: string | null = null;
 
 const createdTeamIds: string[] = [];
+
+// P3 fixture cleanup — registrations must be deleted BEFORE the family
+// members/users they reference (registrations.familyMemberId/registeredByUserId
+// are ON DELETE RESTRICT, not cascade). Rosters cascade off registrations, so
+// they never need explicit cleanup here.
+const createdRegistrationIds: string[] = [];
+const createdFamilyMemberIds: string[] = [];
+const createdUserIds: string[] = [];
+
+/**
+ * Seeds a family + registration directly via DB insert (no Stripe available
+ * in CI — see ci-api-tests-have-no-stripe precedent) against an existing
+ * season. Defaults to `confirmed`, the only status placements can be
+ * published from.
+ */
+async function seedRegistration(
+  targetSeasonId: string,
+  status: "confirmed" | "waitlisted" | "pending" | "cancelled" = "confirmed",
+): Promise<{ registrationId: string; familyMemberId: string }> {
+  const db = getDb();
+  const suffix = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+
+  const [user] = await db
+    .insert(users)
+    .values({
+      email: `placement-${suffix}@test.example`,
+      passwordHash: "x",
+      firstName: "Parent",
+      lastName: `Placement${suffix}`,
+    })
+    .returning();
+  createdUserIds.push(user.id);
+
+  const [member] = await db
+    .insert(familyMembers)
+    .values({
+      parentUserId: user.id,
+      firstName: "Kid",
+      lastName: `Placement${suffix}`,
+      birthDate: "2015-06-01",
+    })
+    .returning();
+  createdFamilyMemberIds.push(member.id);
+
+  const [reg] = await db
+    .insert(registrations)
+    .values({
+      seasonId: targetSeasonId,
+      familyMemberId: member.id,
+      registeredByUserId: user.id,
+      status,
+      paymentStatus: "paid",
+      amountPaidCents: 10000,
+      amountDueCents: 10000,
+      registrationType: "full",
+      waiverSigned: true,
+    })
+    .returning();
+  createdRegistrationIds.push(reg.id);
+
+  return { registrationId: reg.id, familyMemberId: member.id };
+}
+
+async function getPlacementData(targetSeasonId: string, cookie: string | undefined = adminCookie) {
+  return apiFetch(`/api/admin/seasons/${targetSeasonId}/placement`, { cookie });
+}
+
+async function publishPlacements(
+  targetSeasonId: string,
+  assignments: Array<{ registrationId: string; teamId: string }>,
+  cookie: string | undefined = adminCookie,
+) {
+  return apiFetch(`/api/admin/seasons/${targetSeasonId}/placements`, {
+    method: "POST",
+    cookie,
+    body: JSON.stringify({ assignments }),
+  });
+}
+
+async function rosterRowsForRegistrations(registrationIds: string[]) {
+  if (registrationIds.length === 0) return [];
+  return getDb().select().from(rosters).where(inArray(rosters.registrationId, registrationIds));
+}
 
 async function scaffoldTeams(
   targetSeasonId: string,
@@ -73,8 +161,21 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  const db = getDb();
+  // FK-safe order: registrations first (RESTRICT on familyMemberId /
+  // registeredByUserId), then family members, then users. Rosters cascade
+  // off registrations automatically.
+  if (createdRegistrationIds.length > 0) {
+    await db.delete(registrations).where(inArray(registrations.id, createdRegistrationIds));
+  }
+  if (createdFamilyMemberIds.length > 0) {
+    await db.delete(familyMembers).where(inArray(familyMembers.id, createdFamilyMemberIds));
+  }
+  if (createdUserIds.length > 0) {
+    await db.delete(users).where(inArray(users.id, createdUserIds));
+  }
   if (createdTeamIds.length > 0) {
-    await getDb().delete(teams).where(inArray(teams.id, createdTeamIds));
+    await db.delete(teams).where(inArray(teams.id, createdTeamIds));
   }
 });
 
@@ -190,4 +291,206 @@ describe("POST /api/admin/seasons/:id/teams/scaffold", () => {
       expect(new Set(allNames).size).toBe(allNames.length);
     },
   );
+});
+
+describe("GET /api/admin/seasons/:id/placement", () => {
+  it("401s for an unauthenticated caller", async () => {
+    const res = await getPlacementData(seasonId, "");
+    expect(res.status).toBe(401);
+  });
+
+  it("403s for a non-admin (coach) caller", async () => {
+    const res = await getPlacementData(seasonId, coachCookie);
+    expect(res.status).toBe(403);
+  });
+
+  it("404s for a season belonging to another org", async () => {
+    const res = await getPlacementData(orgBSeasonId as string);
+    expect(res.status).toBe(404);
+  });
+
+  it("returns season/team/unplaced shape: teams with zero counts, unplaced with childName+age, rostered regs excluded", async () => {
+    const ctx = await createAdminOrgGameContext({ programType: "league", audienceType: "parents" });
+
+    const unplacedReg = await seedRegistration(ctx.seasonId, "confirmed");
+    const rosteredReg = await seedRegistration(ctx.seasonId, "confirmed");
+
+    // Publish the second registration onto the home team directly (DB
+    // insert, not the endpoint under test) so it should NOT show up as
+    // unplaced.
+    await getDb().insert(rosters).values({
+      teamId: ctx.homeTeamId,
+      registrationId: rosteredReg.registrationId,
+      status: "active",
+    });
+
+    const res = await getPlacementData(ctx.seasonId);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+
+    expect(body.season.id).toBe(ctx.seasonId);
+    expect(typeof body.season.audienceType).toBe("string");
+
+    const homeTeam = body.teams.find((t: any) => t.teamId === ctx.homeTeamId);
+    const awayTeam = body.teams.find((t: any) => t.teamId === ctx.awayTeamId);
+    expect(homeTeam).toBeTruthy();
+    expect(awayTeam).toBeTruthy();
+    expect(homeTeam.currentCount).toBe(1); // the directly-rostered registration
+    expect(awayTeam.currentCount).toBe(0);
+    expect(homeTeam.coachUserId).toBeNull();
+    expect(homeTeam.coachName).toBeNull();
+
+    const unplacedIds = body.unplaced.map((r: any) => r.registrationId);
+    expect(unplacedIds).toContain(unplacedReg.registrationId);
+    expect(unplacedIds).not.toContain(rosteredReg.registrationId);
+
+    const row = body.unplaced.find((r: any) => r.registrationId === unplacedReg.registrationId);
+    expect(row.childName).toMatch(/^Kid Placement/);
+    expect(row.age).toBe(ageOnDate("2015-06-01", new Date()));
+  });
+});
+
+describe("POST /api/admin/seasons/:id/placements", () => {
+  it("401s for an unauthenticated caller", async () => {
+    const ctx = await createAdminOrgGameContext({ programType: "league", audienceType: "parents" });
+    const res = await publishPlacements(ctx.seasonId, [], "");
+    expect(res.status).toBe(401);
+  });
+
+  it("403s for a non-admin (coach) caller", async () => {
+    const ctx = await createAdminOrgGameContext({ programType: "league", audienceType: "parents" });
+    const res = await publishPlacements(ctx.seasonId, [], coachCookie);
+    expect(res.status).toBe(403);
+  });
+
+  it("404s for a season belonging to another org", async () => {
+    const res = await publishPlacements(orgBSeasonId as string, []);
+    expect(res.status).toBe(404);
+  });
+
+  it("happy path: publishes 4 registrations across 2 teams, writes active roster rows, and returns per-team counts", async () => {
+    const ctx = await createAdminOrgGameContext({ programType: "league", audienceType: "parents" });
+    const regs = await Promise.all([
+      seedRegistration(ctx.seasonId),
+      seedRegistration(ctx.seasonId),
+      seedRegistration(ctx.seasonId),
+      seedRegistration(ctx.seasonId),
+    ]);
+
+    const assignments = [
+      { registrationId: regs[0].registrationId, teamId: ctx.homeTeamId },
+      { registrationId: regs[1].registrationId, teamId: ctx.homeTeamId },
+      { registrationId: regs[2].registrationId, teamId: ctx.awayTeamId },
+      { registrationId: regs[3].registrationId, teamId: ctx.awayTeamId },
+    ];
+
+    const res = await publishPlacements(ctx.seasonId, assignments);
+    expect(res.status).toBe(201);
+    const body = await res.json();
+
+    const homeCount = body.teams.find((t: any) => t.teamId === ctx.homeTeamId)?.newCount;
+    const awayCount = body.teams.find((t: any) => t.teamId === ctx.awayTeamId)?.newCount;
+    expect(homeCount).toBe(2);
+    expect(awayCount).toBe(2);
+
+    const rows = await rosterRowsForRegistrations(regs.map((r) => r.registrationId));
+    expect(rows).toHaveLength(4);
+    for (const row of rows) {
+      expect(row.status).toBe("active");
+    }
+  });
+
+  it("over-cap batch is rejected all-or-nothing: no rows written, even for assignments that would have fit", async () => {
+    const ctx = await createAdminOrgGameContext({ programType: "league", audienceType: "parents" });
+    const scaffoldRes = await scaffoldTeams(ctx.seasonId, { count: 1, maxRosterSize: 1 });
+    expect(scaffoldRes.status).toBe(201);
+    const { createdTeamIds: capTeamIds } = await scaffoldRes.json();
+    createdTeamIds.push(...capTeamIds);
+    const cappedTeamId = capTeamIds[0];
+
+    const reg1 = await seedRegistration(ctx.seasonId);
+    const reg2 = await seedRegistration(ctx.seasonId);
+
+    const res = await publishPlacements(ctx.seasonId, [
+      { registrationId: reg1.registrationId, teamId: cappedTeamId },
+      { registrationId: reg2.registrationId, teamId: cappedTeamId },
+    ]);
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(Array.isArray(body.errors)).toBe(true);
+    expect(body.errors.length).toBeGreaterThan(0);
+
+    const rows = await rosterRowsForRegistrations([reg1.registrationId, reg2.registrationId]);
+    expect(rows).toHaveLength(0);
+  });
+
+  it("rejects a registration already rostered onto a team in this season", async () => {
+    const ctx = await createAdminOrgGameContext({ programType: "league", audienceType: "parents" });
+    const reg = await seedRegistration(ctx.seasonId);
+
+    const first = await publishPlacements(ctx.seasonId, [
+      { registrationId: reg.registrationId, teamId: ctx.homeTeamId },
+    ]);
+    expect(first.status).toBe(201);
+
+    const second = await publishPlacements(ctx.seasonId, [
+      { registrationId: reg.registrationId, teamId: ctx.awayTeamId },
+    ]);
+    expect(second.status).toBe(422);
+    const body = await second.json();
+    expect(body.errors[0].registrationId).toBe(reg.registrationId);
+    expect(body.errors[0].reason).toMatch(/already rostered/i);
+
+    // Still only the original placement — the rejected retry wrote nothing.
+    const rows = await rosterRowsForRegistrations([reg.registrationId]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].teamId).toBe(ctx.homeTeamId);
+  });
+
+  it("rejects a registration that belongs to a different season", async () => {
+    const ctxA = await createAdminOrgGameContext({ programType: "league", audienceType: "parents" });
+    const ctxB = await createAdminOrgGameContext({ programType: "league", audienceType: "parents" });
+    const regFromB = await seedRegistration(ctxB.seasonId);
+
+    const res = await publishPlacements(ctxA.seasonId, [
+      { registrationId: regFromB.registrationId, teamId: ctxA.homeTeamId },
+    ]);
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.errors[0].registrationId).toBe(regFromB.registrationId);
+
+    const rows = await rosterRowsForRegistrations([regFromB.registrationId]);
+    expect(rows).toHaveLength(0);
+  });
+
+  it("rejects a batch with a duplicate registrationId targeting two teams", async () => {
+    const ctx = await createAdminOrgGameContext({ programType: "league", audienceType: "parents" });
+    const reg = await seedRegistration(ctx.seasonId);
+
+    const res = await publishPlacements(ctx.seasonId, [
+      { registrationId: reg.registrationId, teamId: ctx.homeTeamId },
+      { registrationId: reg.registrationId, teamId: ctx.awayTeamId },
+    ]);
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.errors.some((e: any) => /duplicate/i.test(e.reason))).toBe(true);
+
+    const rows = await rosterRowsForRegistrations([reg.registrationId]);
+    expect(rows).toHaveLength(0);
+  });
+
+  it("rejects a waitlisted registration", async () => {
+    const ctx = await createAdminOrgGameContext({ programType: "league", audienceType: "parents" });
+    const reg = await seedRegistration(ctx.seasonId, "waitlisted");
+
+    const res = await publishPlacements(ctx.seasonId, [
+      { registrationId: reg.registrationId, teamId: ctx.homeTeamId },
+    ]);
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body.errors[0].registrationId).toBe(reg.registrationId);
+
+    const rows = await rosterRowsForRegistrations([reg.registrationId]);
+    expect(rows).toHaveLength(0);
+  });
 });
