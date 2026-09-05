@@ -197,6 +197,43 @@ describe("buildClassScheduleEvents", () => {
     expect(sep9Events[0].bookingId).toBe("b1");
   });
 
+  it("does NOT suppress across two distinct templates that happen to share a display name", () => {
+    const events = buildClassScheduleEvents({
+      bookedSessions: [
+        {
+          bookingId: "b1",
+          sessionId: "s1",
+          // Same instant as the first weekly projection (Sep 9 21:30Z).
+          startsAt: new Date("2026-09-09T21:30:00.000Z"),
+          durationMinutes: 55,
+          // Different template id ("tA") than the enrollment ("tB") below,
+          // but the same display name — a real coincidence (two distinct
+          // recurring slots someone happened to name identically). Since
+          // this booked row HAS an id, it must be keyed by id only; keying
+          // it by name too would let it wrongly suppress template B's
+          // unrelated projection.
+          templateName: "X",
+          templateId: "tA",
+          childId: "c1",
+          childName: "Alex",
+          venueName: "Powell",
+          venueAddress: null,
+        },
+      ],
+      enrollments: [{ ...wed1730, templateName: "X", templateId: "tB" }],
+      from: new Date("2026-09-04T12:00:00Z"),
+      horizonDays: 28,
+    });
+
+    // Both the booked session (template A) and the full 4 weekly
+    // projections (template B) render — no cross-template suppression.
+    expect(events).toHaveLength(5);
+    const sep9Events = events.filter((e) => e.startsAt.startsWith("2026-09-09"));
+    expect(sep9Events).toHaveLength(2);
+    expect(sep9Events.some((e) => e.projected === false && e.bookingId === "b1")).toBe(true);
+    expect(sep9Events.some((e) => e.projected === true)).toBe(true);
+  });
+
   it("sorts merged output by startsAt", () => {
     const childB = {
       enrollmentId: "e2",

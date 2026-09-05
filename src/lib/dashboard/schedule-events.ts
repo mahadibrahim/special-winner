@@ -163,8 +163,15 @@ export function buildClassScheduleEvents(input: {
   // (one-off admin-created sessions). An id-only key on both sides would
   // mean a null-templateId booked row (indexed by name) is never found by
   // an id-keyed enrollment lookup — a silent duplicate booked+projected
-  // pair. So: index booked rows under BOTH a name key and (when present) an
-  // id key, and probe BOTH keys on lookup from the enrollment side too.
+  // pair. So the lookup probes BOTH an id key and a name key.
+  //
+  // But indexing is NOT symmetric with lookup: a booked row that HAS a
+  // templateId is indexed under its id key ONLY, never also under a name
+  // key. Two distinct templates can coincidentally share a display name —
+  // indexing an id-bearing row by name too would let it wrongly suppress an
+  // unrelated template's projection just because the names match. Only rows
+  // with a null templateId (which have no id to be precise with) fall back
+  // to the name key.
   function nameKey(childId: string, templateName: string): string {
     return `${childId}::name::${templateName}`;
   }
@@ -183,9 +190,12 @@ export function buildClassScheduleEvents(input: {
     bookedByKey.set(key, arr);
   }
   for (const s of bookedSessions) {
-    indexBookedInstant(nameKey(s.childId, s.templateName), s.startsAt.getTime());
     const ik = idKey(s.childId, s.templateId);
-    if (ik) indexBookedInstant(ik, s.startsAt.getTime());
+    if (ik) {
+      indexBookedInstant(ik, s.startsAt.getTime());
+    } else {
+      indexBookedInstant(nameKey(s.childId, s.templateName), s.startsAt.getTime());
+    }
   }
   for (const arr of bookedByKey.values()) arr.sort((a, b) => a - b);
 
