@@ -133,17 +133,34 @@ const DAY_LABEL: Record<string, string> = {
 };
 
 function to12h(t: string): string {
-  const [h] = t.split(":").map(Number);
+  const parts = t.split(":").map(Number);
+  const h = parts[0];
+  const m = parts[1];
   const ampm = h >= 12 ? "pm" : "am";
   const h12 = h % 12 === 0 ? 12 : h % 12;
-  return `${h12}${ampm}`;
+  // Only include minutes if non-zero
+  return m > 0 ? `${h12}:${String(m).padStart(2, "0")}${ampm}` : `${h12}${ampm}`;
 }
 
 export function formatDayTime(day: string | null, start: string | null, end: string | null): string {
   const label = DAY_LABEL[(day ?? "").toLowerCase()];
   if (!label) return "";
-  const d = `${label} nights`;
-  if (!start || !end) return d;
+
+  // No start time → just the day label
+  if (!start || !end) return label;
+
+  // Determine daypart from start hour
+  const [h] = start.split(":").map(Number);
+  let daypart: string;
+  if (h < 12) {
+    daypart = "mornings";
+  } else if (h < 17) {
+    daypart = "afternoons";
+  } else {
+    daypart = "nights";
+  }
+
+  const d = `${label} ${daypart}`;
   // "7–10pm" — collapse matching periods to one suffix.
   const s = to12h(start), e = to12h(end);
   const sNum = s.replace(/[ap]m/, ""), sPer = s.slice(-2), ePer = e.slice(-2);
