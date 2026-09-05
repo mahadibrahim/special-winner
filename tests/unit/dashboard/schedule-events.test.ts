@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildClassScheduleEvents } from "@/lib/dashboard/schedule-events";
+import { buildClassScheduleEvents, buildLeagueGameEvents } from "@/lib/dashboard/schedule-events";
 
 const wed1730 = {
   enrollmentId: "e1",
@@ -213,5 +213,102 @@ describe("buildClassScheduleEvents", () => {
     expect(events).toHaveLength(2);
     expect(events[0].startsAt).toBe("2026-10-28T21:30:00.000Z");
     expect(events[1].startsAt).toBe("2026-11-04T22:30:00.000Z");
+  });
+});
+
+describe("buildLeagueGameEvents", () => {
+  const baseGame = {
+    gameId: "g1",
+    scheduledAt: new Date("2026-09-13T14:00:00.000Z"),
+    durationMinutes: 60,
+    status: "scheduled" as const,
+    fieldNumber: "3",
+    childId: "c1",
+    childName: "Alex",
+    teamName: "Powell U10",
+    opponentName: "Dublin U10",
+    venueName: "Powell Sports Complex",
+    venueAddress: "123 Main St",
+  };
+
+  it("maps a full game to a schedule event", () => {
+    const events = buildLeagueGameEvents({ games: [baseGame] });
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      id: "game-g1-c1",
+      type: "game",
+      title: "Powell U10 vs Dublin U10",
+      startsAt: "2026-09-13T14:00:00.000Z",
+      endsAt: "2026-09-13T15:00:00.000Z",
+      childId: "c1",
+      childName: "Alex",
+      location: "Powell Sports Complex · Field 3",
+      address: "123 Main St",
+      projected: false,
+      bookingId: null,
+      status: "scheduled",
+    });
+  });
+
+  it("titles a TBD fixture when opponentName is null", () => {
+    const events = buildLeagueGameEvents({
+      games: [{ ...baseGame, opponentName: null }],
+    });
+
+    expect(events[0].title).toBe("Powell U10 — opponent TBD");
+  });
+
+  it("maps null durationMinutes to a null endsAt", () => {
+    const events = buildLeagueGameEvents({
+      games: [{ ...baseGame, durationMinutes: null }],
+    });
+
+    expect(events[0].endsAt).toBeNull();
+  });
+
+  it("omits the field suffix when fieldNumber is null", () => {
+    const events = buildLeagueGameEvents({
+      games: [{ ...baseGame, fieldNumber: null }],
+    });
+
+    expect(events[0].location).toBe("Powell Sports Complex");
+  });
+
+  it("passes through a non-default status", () => {
+    const events = buildLeagueGameEvents({
+      games: [{ ...baseGame, status: "postponed" }],
+    });
+
+    expect(events[0].status).toBe("postponed");
+  });
+
+  it("emits one event per rostered child on the same game with distinct ids", () => {
+    const events = buildLeagueGameEvents({
+      games: [
+        baseGame,
+        { ...baseGame, childId: "c2", childName: "Jamie" },
+      ],
+    });
+
+    expect(events).toHaveLength(2);
+    expect(events.map((e) => e.id).sort()).toEqual(["game-g1-c1", "game-g1-c2"]);
+  });
+
+  it("sorts output by startsAt", () => {
+    const later = {
+      ...baseGame,
+      gameId: "g2",
+      scheduledAt: new Date("2026-09-20T14:00:00.000Z"),
+    };
+    const earlier = {
+      ...baseGame,
+      gameId: "g0",
+      scheduledAt: new Date("2026-09-06T14:00:00.000Z"),
+    };
+
+    const events = buildLeagueGameEvents({ games: [baseGame, later, earlier] });
+
+    expect(events.map((e) => e.id)).toEqual(["game-g0-c1", "game-g1-c1", "game-g2-c1"]);
   });
 });

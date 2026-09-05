@@ -37,6 +37,7 @@ export interface FamilyScheduleEvent {
   address: string | null;
   projected: boolean; // true = from enrollment recurrence, not a booked seat
   bookingId: string | null; // cancelable only when non-null
+  status?: "scheduled" | "in_progress" | "completed" | "postponed" | "cancelled";
 }
 
 interface BookedSessionInput {
@@ -225,4 +226,53 @@ export function buildClassScheduleEvents(input: {
   }
 
   return [...bookedEvents, ...projectedEvents].sort((a, b) => a.startsAt.localeCompare(b.startsAt));
+}
+
+interface LeagueGameInput {
+  gameId: string;
+  scheduledAt: Date;
+  durationMinutes: number | null;
+  status: "scheduled" | "in_progress" | "completed" | "postponed" | "cancelled";
+  fieldNumber: string | null;
+  childId: string;
+  childName: string;
+  teamName: string; // the child's team
+  opponentName: string | null; // null = TBD fixture
+  venueName: string | null;
+  venueAddress: string | null;
+}
+
+/**
+ * Pure mapper from league game rows to family-schedule events — one event
+ * per rostered child on the game (so a game where two of a family's
+ * children both play produces two events, each addressable/cancelable
+ * independently in principle, though games are never cancelable — see
+ * `bookingId: null`).
+ *
+ * Deliberately a separate exported function rather than threaded through
+ * `buildClassScheduleEvents`: games have no projection/suppression concept
+ * (there's no "recurring game" to project forward, every game is a
+ * concrete scheduled row), so folding them into the class merge logic
+ * would just be dead branches on this input shape.
+ */
+export function buildLeagueGameEvents(input: { games: LeagueGameInput[] }): FamilyScheduleEvent[] {
+  const events: FamilyScheduleEvent[] = input.games.map((g) => ({
+    id: `game-${g.gameId}-${g.childId}`,
+    type: "game",
+    title: g.opponentName ? `${g.teamName} vs ${g.opponentName}` : `${g.teamName} — opponent TBD`,
+    startsAt: g.scheduledAt.toISOString(),
+    endsAt:
+      g.durationMinutes != null
+        ? new Date(g.scheduledAt.getTime() + g.durationMinutes * 60_000).toISOString()
+        : null,
+    childId: g.childId,
+    childName: g.childName,
+    location: g.venueName ? (g.fieldNumber ? `${g.venueName} · Field ${g.fieldNumber}` : g.venueName) : null,
+    address: g.venueAddress,
+    projected: false,
+    bookingId: null,
+    status: g.status,
+  }));
+
+  return events.sort((a, b) => a.startsAt.localeCompare(b.startsAt));
 }
