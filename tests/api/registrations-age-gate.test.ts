@@ -17,7 +17,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import { getAuthCookie, apiFetch } from "./setup/test-helpers";
 import { getDb } from "@/lib/db";
-import { seasons, ageGroups, users, familyMembers } from "@/lib/db/schema";
+import { seasons, ageGroups, users, familyMembers, registrations } from "@/lib/db/schema";
 import { eq, asc } from "drizzle-orm";
 
 const stripeConfigured = Boolean(process.env.STRIPE_SECRET_KEY);
@@ -440,5 +440,58 @@ describe("POST /api/registrations — age gate (signed-in registerSelf path)", (
       selfRows.length,
       "no self family_members row should have been created",
     ).toBe(0);
+  });
+
+  // Round-2 review finding: users.birthDate is self-service mutable
+  // (PUT /api/user/profile accepts birthDate: null and clears it), so a
+  // returning registrant with a real out-of-range DOB already mirrored on
+  // their self family_members row could clear their profile DOB, null-
+  // short-circuit the users.birthDate check, and have resolvePerson quietly
+  // find the still-out-of-range existing self row. The gate must also read
+  // that row directly, before resolvePerson runs.
+  it("closes the mutable-profile bypass: a cleared users.birthDate still gates on the existing self family_members row's DOB", async () => {
+    const { userId, cookie } = await createThrowawayUser("Bypass");
+    const db = getDb();
+
+    // An existing self row with a real, out-of-range birthDate already on
+    // file — the state a real returning registrant would be in.
+    const outOfRangeDob = birthDateForAge(u12.startDate, u12.maxAge + 5);
+    await db.insert(familyMembers).values({
+      selfUserId: userId,
+      firstName: "AgeGateSelf",
+      lastName: "Bypass",
+      birthDate: outOfRangeDob,
+    });
+
+    // ...and users.birthDate cleared, exactly as PUT /api/user/profile
+    // would leave it — the state the bypass exploited.
+    await db.update(users).set({ birthDate: null }).where(eq(users.id, userId));
+
+    const res = await apiFetch("/api/registrations", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({
+        seasonId: u12.id,
+        registerSelf: true,
+        registrationType: "full",
+        waiverSigned: true,
+        waiverSignedBy: "Age Gate Self",
+      }),
+    });
+    expect(res.status).toBe(422);
+    const body = await res.json();
+    expect(body).toEqual({
+      error: "age_ineligible",
+      minAge: u12.minAge,
+      maxAge: u12.maxAge,
+      ageGroupName: u12.ageGroupName,
+    });
+
+    // No registration was created for this user.
+    const regs = await db
+      .select({ id: registrations.id })
+      .from(registrations)
+      .where(eq(registrations.registeredByUserId, userId));
+    expect(regs.length, "no registration should have been created").toBe(0);
   });
 });

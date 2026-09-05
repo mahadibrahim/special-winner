@@ -236,6 +236,26 @@ export const POST: APIRoute = async ({ request, clientAddress, locals }) => {
       const ageGate = ageGateResponse(user.birthDate);
       if (ageGate) return ageGate;
 
+      // users.birthDate is self-service mutable (PUT /api/user/profile
+      // accepts birthDate: null and clears it), so it can desync from the
+      // mirrored self family_members row — a returning registrant with a
+      // real out-of-range DOB on file could otherwise clear their profile
+      // DOB, skip the check above (null short-circuits it), and have
+      // resolvePerson silently find their existing, still-out-of-range self
+      // row. Read-only pre-check: if a self row already exists and carries
+      // its own birthDate, that DOB is authoritative — gate on it too,
+      // still before resolvePerson (find-or-create) runs. Both null is the
+      // legitimate deferred-DOB case and stays ungated (ageReviewNeeded is
+      // the advisory backstop once a real DOB is known).
+      const [existingSelfRow] = await db
+        .select({ birthDate: familyMembers.birthDate })
+        .from(familyMembers)
+        .where(eq(familyMembers.selfUserId, user.id));
+      const selfRowAgeGate = existingSelfRow
+        ? ageGateResponse(existingSelfRow.birthDate)
+        : null;
+      if (selfRowAgeGate) return selfRowAgeGate;
+
       // birthDate may be null for adult self-registration: the v2 (adult-locked)
       // flow defers DOB (and the waiver) to the post-payment completion step,
       // exactly like the guest path. Requiring it here forced returning users
