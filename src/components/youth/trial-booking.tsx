@@ -310,6 +310,13 @@ export default function TrialBooking() {
   const [guestChildDob, setGuestChildDob] = useState("")
   const [guestCoppaConsent, setGuestCoppaConsent] = useState(false)
   const [guestTurnstileToken, setGuestTurnstileToken] = useState("")
+  // True when the Turnstile widget itself failed to load/render (or a live
+  // token expired) — distinct from a server-side turnstile_failed 403. Set in
+  // the widget's onError alongside clearing the token, cleared the moment a
+  // fresh token arrives (onToken) or on openForTemplate reset. Surfaces a
+  // helper line under the widget so a parent isn't left staring at a
+  // permanently-disabled Continue with no explanation.
+  const [guestTurnstileError, setGuestTurnstileError] = useState(false)
   // Exposes .reset() — see the header comment's Turnstile paragraph for why
   // this widget stays mounted (hidden via CSS) across guest_form,
   // guest_waiver, and session_full_offer instead of only rendering inside
@@ -380,6 +387,7 @@ export default function TrialBooking() {
     setGuestChildDob("")
     setGuestCoppaConsent(false)
     setGuestTurnstileToken("")
+    setGuestTurnstileError(false)
     setPhase("loading")
 
     try {
@@ -665,6 +673,7 @@ export default function TrialBooking() {
    */
   async function submitGuestBooking(session: ScheduleSession, myGeneration: number) {
     setPhase("booking")
+    setFlowError(null)
     trackTrialGuestSubmitted({ templateId: templateId ?? "" })
     trackTrialBookingAttempted({ templateId: templateId ?? "" })
 
@@ -729,9 +738,15 @@ export default function TrialBooking() {
 
     if (code === "rate_limited") {
       blocked("rate_limited")
+      // Daily cap (scope: "day") is a 24-hour window — distinct copy from the
+      // burst limit's few-minutes wait, so a parent isn't told to retry
+      // shortly when the real wait is a full day.
       setFlowError({
         code: "generic",
-        message: "Too many attempts — please try again in a few minutes.",
+        message:
+          body.scope === "day"
+            ? "Daily limit reached for free-trial bookings from this connection — please try again tomorrow."
+            : "Too many attempts — please try again in a few minutes.",
       })
       setPhase("guest_waiver")
       return
@@ -1400,7 +1415,10 @@ export default function TrialBooking() {
           <div className="space-y-1.5" style={{ order: 2 }}>
             <TurnstileWidget
               ref={turnstileRef}
-              onToken={setGuestTurnstileToken}
+              onToken={(token) => {
+                setGuestTurnstileToken(token)
+                setGuestTurnstileError(false)
+              }}
               onError={() => {
                 // Token expiry ALSO fires this (turnstile-widget.tsx wires
                 // expired-callback to onError, not just render failures) —
@@ -1410,8 +1428,15 @@ export default function TrialBooking() {
                 // that reason is reserved for the server's actual 403, not
                 // a client-side expiry/render hiccup.
                 setGuestTurnstileToken("")
+                setGuestTurnstileError(true)
               }}
             />
+            {guestTurnstileError && (
+              <p className="text-sm text-ink-muted">
+                Verification didn&#39;t load — refresh the page and try again, or use
+                &#34;Already have an account? Sign in instead&#34; below.
+              </p>
+            )}
           </div>
         )}
 

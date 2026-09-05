@@ -120,5 +120,8 @@ export async function purgeOldStaffNotifications(
   const { sql } = await import("drizzle-orm");
   await db
     .delete(staffNotificationLog)
-    .where(sql`${staffNotificationLog.sentAt} < ${cutoff}`);
+    // Raw sql`` params bypass drizzle's column type mapping — the postgres.js
+    // driver can't bind a bare Date here, so send an ISO string instead (same
+    // fix as materialize.ts's expires_at comparison).
+    .where(sql`${staffNotificationLog.sentAt} < ${cutoff.toISOString()}`);
 }

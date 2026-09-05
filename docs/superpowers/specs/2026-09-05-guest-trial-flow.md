@@ -1,10 +1,11 @@
-# Guest Trial Flow — Design Spec (awaiting owner confirmation)
+# Guest Trial Flow — Design Spec (approved & implemented)
 
 **Status:** APPROVED 2026-09-05 (owner). Decisions: (1) GO on the inline
 guest flow; (2) existing emails get a sign-in link, never a booking;
 (3) repeat-trial guards = org-wide kid name+DOB trial dedupe + daily
 per-IP cap + Turnstile on the guest form. Implementation plan:
-`docs/superpowers/plans/2026-09-05-guest-trial-flow.md`.
+`docs/superpowers/plans/2026-09-05-guest-trial-flow.md`. Implemented on
+feat/youth-guest-trial.
 
 **Problem (Youth UX audit finding #1):** a signed-out parent who clicks
 "Book a free trial" on `/youth/classes` is hard-bounced to magic-link

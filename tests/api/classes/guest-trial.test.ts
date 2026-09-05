@@ -24,6 +24,14 @@ import {
  * 60_000)`). The dev server MUST run with DISABLE_RATE_LIMIT=1 or every test
  * past the 5th will fail with a confusing 429 instead of its expected
  * status — CI sets this globally; a plain `npm run dev` locally does not.
+ *
+ * This suite also depends on `TURNSTILE_SECRET_KEY` being ABSENT from the
+ * server's env: `verifyTurnstile` fails OPEN (treats every token as valid)
+ * when no secret is configured, and CI does not set this var. If it's ever
+ * added to CI, every case here would start 403ing with `turnstile_failed`
+ * instead of its expected status. One consequence worth flagging: Turnstile
+ * gating itself has NO test coverage by construction — this suite can only
+ * ever exercise the fail-open path.
  */
 
 let organizationId: string;

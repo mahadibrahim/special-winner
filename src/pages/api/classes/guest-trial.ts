@@ -83,9 +83,20 @@ const ERROR_STATUS: Record<Exclude<ChildBookingError["code"], "allotment_exhaust
  * email, no booking) instead of a real retry.
  *
  * Deletes, in FK-safe order: the child's consent rows, the family_members
- * row, the user's user_roles rows, then the user row itself. Wrapped in
- * try/catch — a cleanup failure logs and falls through to stranding the
- * account rather than 500ing the response the parent is waiting on.
+ * row, the user's user_roles rows, then the user row itself. This order is
+ * not just tidiness — `consents.signed_by_user_id` is `ON DELETE RESTRICT`,
+ * so a consent row signed by this user would block the final `users` delete
+ * if it weren't removed first; the `family_members` row's cascades would
+ * otherwise cover everything else. Wrapped in try/catch — a cleanup failure
+ * logs and falls through to stranding the account rather than 500ing the
+ * response the parent is waiting on.
+ *
+ * `familyMemberId` is optional: the new-user path's outer try/catch (see
+ * its call site) can throw before `resolvePerson` ever returns a child row,
+ * in which case there's nothing to delete there — skip straight to the
+ * user/role cleanup rather than passing a bogus id into a uuid column
+ * (which would itself throw and abort the whole sequence before the user
+ * row got deleted).
  *
  * Race tolerance (accepted): a concurrent duplicate submit that reads
  * `wasNewUser: false` between our create and this delete will go on to email
@@ -95,11 +106,13 @@ const ERROR_STATUS: Record<Exclude<ChildBookingError["code"], "allotment_exhaust
  */
 async function cleanupFailedGuestSignup(
   db: ReturnType<typeof getDb>,
-  params: { userId: string; familyMemberId: string },
+  params: { userId: string; familyMemberId?: string },
 ): Promise<void> {
   try {
-    await db.delete(consents).where(eq(consents.familyMemberId, params.familyMemberId));
-    await db.delete(familyMembers).where(eq(familyMembers.id, params.familyMemberId));
+    if (params.familyMemberId) {
+      await db.delete(consents).where(eq(consents.familyMemberId, params.familyMemberId));
+      await db.delete(familyMembers).where(eq(familyMembers.id, params.familyMemberId));
+    }
     await db.delete(userRoles).where(eq(userRoles.userId, params.userId));
     await db.delete(users).where(eq(users.id, params.userId));
   } catch (err) {
@@ -183,7 +196,24 @@ export const POST: APIRoute = async (context) => {
   // (CGNAT, school network) daily quota before anyone attempts a real
   // booking.
   const daily = rateLimit(`guest-trial-day:${ip}`, 3, 24 * 3_600_000);
-  if (!daily.allowed) return rateLimitedResponse(daily.retryAfter ?? 3600);
+  if (!daily.allowed) {
+    // Controller ruling: the daily cap stays at 3/day, but its 429 must be
+    // distinguishable from the burst-limit 429 above — otherwise the client
+    // shows "try again in a few minutes" for what's actually a 24-hour wait.
+    // `scope: "day"` lets trial-booking.tsx branch its copy; the burst
+    // branch above is untouched and keeps using rateLimitedResponse.
+    const retryAfter = daily.retryAfter ?? 3600;
+    return new Response(
+      JSON.stringify({ error: "rate_limited", scope: "day", retryAfter }),
+      {
+        status: 429,
+        headers: {
+          "Content-Type": "application/json",
+          "Retry-After": String(retryAfter),
+        },
+      },
+    );
+  }
 
   const brand = brandFromHost(request.headers.get("host") ?? "");
   const { userRow, wasNewUser } = await upsertGuestUser(db, {
@@ -227,97 +257,124 @@ export const POST: APIRoute = async (context) => {
     return json({ status: "existing_account" }, 200);
   }
 
-  // New account: create the kid, stamp COPPA consent, book.
-  const child = await resolvePerson(db, {
-    kind: "dependent",
-    parentUserId: userRow.id,
-    firstName: body.child.firstName,
-    lastName: body.child.lastName,
-    birthDate: body.child.birthDate,
-  });
-
-  // COPPA audit trail: the checkbox was the affirmative act; stamp who/
-  // when/where. First flow to write these columns — deliberate (spec).
-  await db
-    .update(familyMembers)
-    .set({
-      parentalConsentGivenAt: new Date(),
-      parentalConsentGivenBy: userRow.id,
-      parentalConsentIp: clientAddress ?? null,
-    })
-    .where(eq(familyMembers.id, child.id));
-  if (!(await hasActiveConsent(db, child.id, "parental"))) {
-    await recordConsent({
-      db,
-      familyMemberId: child.id,
-      organizationId: locals.organization.id,
-      type: "parental",
-      signedByUserId: userRow.id,
-      signedByName: body.waiver.signedBy,
-      ipAddress: clientAddress ?? null,
-      userAgent: request.headers.get("user-agent"),
-    });
-  }
-
-  const result = await createChildClassBooking({
-    sessionId: body.sessionId,
-    parentUserId: userRow.id,
-    familyMemberId: child.id,
-    kind: "trial",
-    waiver: {
-      signedBy: body.waiver.signedBy,
-      consentText: body.waiver.consentText,
-      ipAddress: clientAddress ?? null,
-      userAgent: request.headers.get("user-agent"),
-    },
-    brand,
-  });
-
-  if (!result.ok) {
-    // Compensating cleanup (see cleanupFailedGuestSignup's doc comment): a
-    // failed trial for a brand-new guest must not strand the user+kid rows,
-    // or a resubmit with the same email would wrongly hit the
-    // `!wasNewUser` → existing_account branch instead of retrying the
-    // booking.
-    await cleanupFailedGuestSignup(db, { userId: userRow.id, familyMemberId: child.id });
-    const { code, message } = result.error;
-    if (code === "allotment_exhausted") {
-      // `kind: "member"`-only error — this endpoint always books
-      // `kind: "trial"`, so book-child.ts should never return this here.
-      // Log loudly (would mean its kind-gating broke) rather than silently
-      // mapping to a made-up status.
-      console.error("[guest-trial] unexpected allotment_exhausted for a trial booking");
-      return json({ error: code, message }, 409);
-    }
-    return json({ error: code, message }, ERROR_STATUS[code]);
-  }
-
-  // New guest becomes a signed-in (1h until email-verified) parent — the
-  // uniform wasNewUser-only session rule from the paid guest checkouts.
-  await createSession(userRow.id, context);
-
+  // New account: create the kid, stamp COPPA consent, book. Everything from
+  // here through the booking result is wrapped in try/catch — a throw
+  // ANYWHERE in this path (resolvePerson, the COPPA update, recordConsent,
+  // createChildClassBooking itself) would otherwise strand the freshly
+  // created user+kid rows forever (the sweeper skips users with a role
+  // assignment; see cleanupFailedGuestSignup's doc comment), and every later
+  // submit from this email would wrongly hit the `!wasNewUser` →
+  // existing_account branch instead of retrying. The `!result.ok` branch
+  // below already runs cleanup and RETURNS (it never throws), so it can't
+  // double-run cleanup through this catch.
+  // Tracked outside the try so the catch's cleanup can target the right
+  // family_members row even if a later step (COPPA update, recordConsent,
+  // createChildClassBooking) is what throws — undefined only if
+  // resolvePerson itself never returned.
+  let childId: string | undefined;
   try {
-    const link = await createMagicLink({
-      userId: userRow.id,
-      purpose: "login",
-      purposeContext: { redirectTo: "/dashboard" },
-      deliveredChannel: "email",
-      deliveredTo: userRow.email,
+    const child = await resolvePerson(db, {
+      kind: "dependent",
+      parentUserId: userRow.id,
+      firstName: body.child.firstName,
+      lastName: body.child.lastName,
+      birthDate: body.child.birthDate,
     });
-    await awaitEmailSend("guest-trial welcome link", () =>
-      sendMagicLinkLoginEmail({
-        userId: userRow.id,
-        parentEmail: userRow.email,
-        parentName: userRow.firstName || userRow.email.split("@")[0],
-        magicLinkUrl: buildMagicLinkUrl(link.token, { origin: url.origin }),
-        childName: `${child.firstName}`,
-        brand,
-        variant: "welcome",
-      }),
-    );
-  } catch (err) {
-    console.error("[guest-trial] welcome link failed:", err);
-  }
+    childId = child.id;
 
-  return json({ status: "booked", bookingId: result.bookingId }, 200);
+    // COPPA audit trail: the checkbox was the affirmative act; stamp who/
+    // when/where. First flow to write these columns — deliberate (spec).
+    await db
+      .update(familyMembers)
+      .set({
+        parentalConsentGivenAt: new Date(),
+        parentalConsentGivenBy: userRow.id,
+        parentalConsentIp: clientAddress ?? null,
+      })
+      .where(eq(familyMembers.id, child.id));
+    if (!(await hasActiveConsent(db, child.id, "parental"))) {
+      await recordConsent({
+        db,
+        familyMemberId: child.id,
+        organizationId: locals.organization.id,
+        type: "parental",
+        signedByUserId: userRow.id,
+        signedByName: body.waiver.signedBy,
+        ipAddress: clientAddress ?? null,
+        userAgent: request.headers.get("user-agent"),
+      });
+    }
+
+    const result = await createChildClassBooking({
+      sessionId: body.sessionId,
+      parentUserId: userRow.id,
+      familyMemberId: child.id,
+      kind: "trial",
+      waiver: {
+        signedBy: body.waiver.signedBy,
+        consentText: body.waiver.consentText,
+        ipAddress: clientAddress ?? null,
+        userAgent: request.headers.get("user-agent"),
+      },
+      brand,
+    });
+
+    if (!result.ok) {
+      // Compensating cleanup (see cleanupFailedGuestSignup's doc comment): a
+      // failed trial for a brand-new guest must not strand the user+kid rows,
+      // or a resubmit with the same email would wrongly hit the
+      // `!wasNewUser` → existing_account branch instead of retrying the
+      // booking. This path RETURNS (does not throw), so the catch below
+      // cannot also run cleanup for it.
+      await cleanupFailedGuestSignup(db, { userId: userRow.id, familyMemberId: child.id });
+      const { code, message } = result.error;
+      if (code === "allotment_exhausted") {
+        // `kind: "member"`-only error — this endpoint always books
+        // `kind: "trial"`, so book-child.ts should never return this here.
+        // Log loudly (would mean its kind-gating broke) rather than silently
+        // mapping to a made-up status.
+        console.error("[guest-trial] unexpected allotment_exhausted for a trial booking");
+        return json({ error: code, message }, 409);
+      }
+      return json({ error: code, message }, ERROR_STATUS[code]);
+    }
+
+    // New guest becomes a signed-in (1h until email-verified) parent — the
+    // uniform wasNewUser-only session rule from the paid guest checkouts.
+    await createSession(userRow.id, context);
+
+    try {
+      const link = await createMagicLink({
+        userId: userRow.id,
+        purpose: "login",
+        purposeContext: { redirectTo: "/dashboard" },
+        deliveredChannel: "email",
+        deliveredTo: userRow.email,
+      });
+      await awaitEmailSend("guest-trial welcome link", () =>
+        sendMagicLinkLoginEmail({
+          userId: userRow.id,
+          parentEmail: userRow.email,
+          parentName: userRow.firstName || userRow.email.split("@")[0],
+          magicLinkUrl: buildMagicLinkUrl(link.token, { origin: url.origin }),
+          childName: `${child.firstName}`,
+          brand,
+          variant: "welcome",
+        }),
+      );
+    } catch (err) {
+      console.error("[guest-trial] welcome link failed:", err);
+    }
+
+    return json({ status: "booked", bookingId: result.bookingId }, 200);
+  } catch (err) {
+    // A throw anywhere above (resolvePerson/COPPA update/recordConsent/
+    // createChildClassBooking) would otherwise strand this brand-new guest
+    // account forever — see this block's opening comment. Best-effort
+    // cleanup, then rethrow so Astro turns it into a 500 (the parent's
+    // request genuinely failed; we must not report success).
+    console.error("[guest-trial] new-guest path threw, cleaning up:", err);
+    await cleanupFailedGuestSignup(db, { userId: userRow.id, familyMemberId: childId });
+    throw err;
+  }
 };
