@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label"
 import { ErrorBanner } from "@/components/ui/error-banner"
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
+import { EmptyNotifyForm } from "@/components/landing/empty-notify-form"
 import { DROPIN_WAIVER_TEXT } from "@/lib/dropin/waiver-text"
 import { waiverAssentSentence } from "@/lib/consents/waiver-consent-language"
 import { ChildPicker, type ChildPickerMember } from "@/components/youth/child-picker"
@@ -171,6 +172,11 @@ async function parseJson(res: Response): Promise<Record<string, unknown>> {
 const SIGNIN_REDIRECT =
   "/signin?redirect=" + encodeURIComponent("/youth/classes#schedule")
 
+/** sessionStorage key carrying the template a signed-out parent tried to
+ *  book, so the modal REOPENS itself after the sign-in round-trip instead
+ *  of dropping them back at the schedule with nothing open. */
+const PENDING_KEY = "youth:trial-pending"
+
 export default function TrialBooking() {
   useHydrationBeacon()
 
@@ -238,7 +244,7 @@ export default function TrialBooking() {
     }
   }, [isOpen])
 
-  const openForTemplate = useCallback(async (id: string) => {
+  const openForTemplate = useCallback(async (id: string, opts?: { resume?: boolean }) => {
     const myGeneration = ++generationRef.current
     trackTrialModalOpened({ templateId: id })
 
@@ -253,6 +259,16 @@ export default function TrialBooking() {
     if (myGeneration !== generationRef.current) return // superseded meanwhile
 
     if (!authed) {
+      // A RESUMED open (post-signin backstop) must never redirect again —
+      // if the parent abandoned sign-in and came back, bouncing them
+      // straight back to /signin would be a loop. The key was already
+      // cleared on read, so this drops silently exactly once.
+      if (opts?.resume) return
+      try {
+        sessionStorage.setItem(PENDING_KEY, id)
+      } catch {
+        /* storage unavailable — the parent just re-clicks after signin */
+      }
       window.location.href = SIGNIN_REDIRECT
       return
     }
@@ -309,6 +325,18 @@ export default function TrialBooking() {
     if (pendingTemplateId) {
       window.__youthTrialPending = undefined
       void openForTemplate(pendingTemplateId)
+    } else {
+      // Sign-in round-trip resume: a signed-out click stashed its template
+      // before redirecting to /signin. Consume-and-clear so the modal
+      // reopens exactly once on the way back.
+      let stored: string | null = null
+      try {
+        stored = sessionStorage.getItem(PENDING_KEY)
+        if (stored) sessionStorage.removeItem(PENDING_KEY)
+      } catch {
+        stored = null
+      }
+      if (stored) void openForTemplate(stored, { resume: true })
     }
 
     return () => window.removeEventListener("youth:trial-requested", handleTrialRequested)
@@ -581,8 +609,12 @@ export default function TrialBooking() {
           <>
             <DialogTitle className="text-ink">{slot.name}</DialogTitle>
             <DialogDescription className="text-ink-muted">
-              No upcoming class time is scheduled right now — check back soon.
+              No upcoming class time is scheduled right now — leave your email and we&#39;ll tell
+              you the moment one opens.
             </DialogDescription>
+            {/* Never a dead end: the capture matches the finder empty-state
+                pattern (audience parent, source names this surface). */}
+            <EmptyNotifyForm audience="parent" source="trial-no-sessions" />
             <Button type="button" variant="outline" onClick={closeModal}>
               Close
             </Button>
