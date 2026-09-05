@@ -30,7 +30,7 @@ PR B — Modify: `src/lib/leagues/rail-content.ts` (+ its unit test), `src/lib/l
 
 ## PR A — feat/league-age-gate-coppa
 
-### Task A1: Pure age-eligibility helper
+### Task 1: Pure age-eligibility helper
 
 **Files:** Create `src/lib/registrations/age-eligibility.ts`, `tests/unit/registrations/age-eligibility.test.ts`.
 
@@ -41,7 +41,7 @@ PR B — Modify: `src/lib/leagues/rail-content.ts` (+ its unit test), `src/lib/l
 - [ ] **Step 3:** Implement (pure, no imports beyond types).
 - [ ] **Step 4:** Tests green. **Step 5:** Commit `feat(registrations): pure age-eligibility helper`.
 
-### Task A2: Server gate — both endpoints
+### Task 2: Server gate — both endpoints
 
 **Files:** Modify `src/pages/api/registrations/guest-checkout.ts` (youth branch — the parent+child payload shape, `~L587-660` region where the child is resolved; the season row with `ageGroupId` is already loaded for registration creation — join/fetch `age_groups.min_age/max_age/name` beside it), `src/pages/api/registrations/index.ts` (signed-in POST — same check against the selected family member's `birthDate`). Test: extend the existing API test files covering each endpoint (find them under `tests/api/registrations/`).
 
@@ -52,13 +52,13 @@ PR B — Modify: `src/lib/leagues/rail-content.ts` (+ its unit test), `src/lib/l
 - [ ] **Step 3:** Implement in both endpoints. Placement: after zod parse + season load, before `upsertGuestUser`/any write. Age date: `season.startDate ? new Date(season.startDate) : new Date()`.
 - [ ] **Step 4:** Tests green; re-run the files' existing cases (no regression). **Step 5:** Commit.
 
-### Task A3: COPPA at collection (guest youth branch)
+### Task 3: COPPA at collection (guest youth branch)
 
 **Files:** Modify `src/pages/api/registrations/guest-checkout.ts`: youth (`legacyGuestCheckoutSchema`) gains `parentalConsent: z.literal(true)`; after `resolvePerson` creates/dedupes the child, stamp `family_members.parental_consent_given_at/by/ip` (skip if already stamped) and write the `consents` type `parental` row gated on `hasActiveConsent` — at CHECKOUT time, not post-payment. Keep the existing post-payment write (it is already `hasActiveConsent`-gated, so it becomes a no-op backstop). Reference implementation: `src/pages/api/classes/guest-trial.ts` COPPA block. Test: extend the same API file — after a successful youth guest checkout, the family_members row has the stamps and a parental consent row exists (query via an existing test helper or a follow-up authenticated read if the suite has one; otherwise assert via the DB helper pattern the suite already uses).
 
 - [ ] Steps: failing test → run → implement → green → commit. Adult branch (`adultGuestCheckoutSchema`) is untouched.
 
-### Task A4: Client — inline age validation + COPPA checkbox
+### Task 4: Client — inline age validation + COPPA checkbox
 
 **Files:** Modify `src/components/registration/guest-info-step.tsx` (props already carry `childBirthDate` at `:62`; season `ageGroup.minAge/maxAge` are in the wizard's season payload — thread them in as new props), `src/components/registration/registration-wizard.tsx` (pass bounds + collect `parentalConsent` into the guest payload; block Continue until checked on the youth guest path), and the signed-in player selection (locate where a dependent is chosen for youth solo — if it renders DOB, add the same inline mismatch error; if the audit's signed-in surface is `who-step.tsx`, wire it there).
 
@@ -66,7 +66,7 @@ Behavior: on DOB change/blur AND on Continue, if out of range show inline: `"{Ag
 
 - [ ] Steps: implement → `npx tsc --noEmit` → verify in the browser against the dev server (out-of-range DOB blocks with the message; checkbox gates Continue; server 422 also renders the same inline error as a fallback via the existing error plumbing) → update any e2e spec that walks youth guest registration (grep `tests/e2e/` for the register flow specs; they must now check the checkbox and use in-range DOBs) → run those specs locally → commit.
 
-### Task A5: Gate + PR A
+### Task 5: Gate + PR A
 
 - [ ] `npm run db:seed:e2e`; API files touched re-run green; affected e2e specs green locally; `npm run build`; `npx tsc --noEmit`; push branch; open PR A (body: audit F1/F2, owner decisions, note the trial-flow parity argument); watch CI; owner merges.
 
@@ -74,17 +74,17 @@ Behavior: on DOB change/blur AND on Continue, if out of range show inline: `"{Ag
 
 ## PR B — feat/league-funnel-quick-wins (stacked on feat/youth-guest-trial)
 
-### Task B1: F3 — daypart-aware schedule label
+### Task 6: F3 — daypart-aware schedule label
 
 **Files:** `src/lib/leagues/rail-content.ts:142-152` `formatDayTime`; its unit test (grep `tests/unit` for rail-content; create `tests/unit/leagues/rail-content.test.ts` if absent).
 
 Replace the hardcoded `nights`: daypart from start hour — `<12 → "mornings"`, `<17 → "afternoons"`, else `"nights"`; no start time → just the day label ("Sat"). Failing test first (`("sat","09:00","11:00") → "Sat mornings · 9–11am"`, `("wed","19:00","22:00") → "Wed nights · 7–10pm"`, `("sun", null, null) → "Sun"`).
 
-### Task B2: F4 — kicker derived from live terms
+### Task 7: F4 — kicker derived from live terms
 
 **Files:** `src/lib/leagues/youth-league-page-data.ts` (developmentalRows exist at `~:96-97`; derive `developmentalTermLabels: string[]` = unique ordered `termLabel`s of those rows), `src/lib/youth/league-page-content.ts:52` (keep the authored string as the empty-catalog fallback), `src/components/youth/youth-sport-league-page.astro` (render the derived labels joined " · " as the developmental door kicker when non-empty). Same treatment for the competitive door's kicker (`:39` "Winter · November – late March") only if trivially symmetric — otherwise leave it and note. Verify in browser: door now reads "Winter 1 2026-27" against staging.
 
-### Task B3: F5 — instrumentation
+### Task 8: F5 — instrumentation
 
 **Files:** `src/lib/analytics/events.ts` + `tests/unit/analytics-events.test.ts`; `src/components/leagues/seasons-finder-section.tsx`; `src/components/leagues/youth-division-table.tsx` (caller passes `onBook` at `seasons-finder-section.tsx:368`); `src/components/leagues/DivisionPageLayout.astro` (delegated click script like `youth-sport-league-page.astro:716-721`); `src/components/registration/register-experience.tsx`; `src/components/registration/registration-wizard.tsx`.
 
@@ -95,15 +95,15 @@ New catalog entries (LEAGUE_EVENTS block, snake_case, ids only):
 ```
 Wiring: landing `#open` table Book → existing `trackDivisionRegisterClicked({ mode: "individual", surface: "landing" })` (extend the wrapper with an optional `surface` prop, default "term" — keep existing call sites unchanged); landing Level/facet chips → `trackDivisionFilterApplied({ facet, value, surface: "landing" })` (same optional-prop treatment); DivisionPageLayout "Sign Up Solo"/team CTAs → delegated `division_register_clicked` with `surface: "division"`; `register-experience.tsx:144-147` bail-outs + the wizard's `already_registered` friendly state (`registration-wizard.tsx:~1272`) → `registration_blocked` with the reason; guest who-step mount → `guest_registration_form_shown` once per wizard mount. `express_checkout_confirmed`: wire it where the wallet express path confirms in `embedded-payment.tsx` if a natural point exists; otherwise DELETE the dead constant and its type references (decide in-code, note in report). Unit tests for every new/extended wrapper.
 
-### Task B4: F6 — closed-state capture
+### Task 9: F6 — closed-state capture
 
 **Files:** `src/components/registration/register-experience.tsx:140-150` region. Both bail-out states render, instead of the bare message: the message + `<EmptyNotifyForm audience="parent" source="league-closed" />` + a "Back to leagues" link to `/youth/leagues/soccer` (derive the sport link from season payload if it carries the sport slug; hardcode soccer fallback). Reuse the import pattern from `trial-booking.tsx`.
 
-### Task B5: F8 seed + F9 hub links
+### Task 10: F8 seed + F9 hub links
 
 **Files:** `src/lib/db/seeds/seed-e2e-tests.ts` — extend `e2e-test-spring-2026` (`:2354-2386`) with `termSlug: "spring-2026"`, `termLabel: "Spring 2026"`, `skillLevel: "developmental"` (idempotent update-if-different, matching the file's self-heal patterns). `src/pages/youth.astro:108,221-223` — point the league CTAs at `/youth/leagues/soccer` directly (keep `/youth/leagues` redirect for external links). Run `npm run db:seed:e2e`; verify the term page `/youth/leagues/soccer/spring-2026` now renders the developmental row with its tier badge in the browser.
 
-### Task B6: Gate + PR B
+### Task 11: Gate + PR B
 
 - [ ] Unit + touched API/e2e green; build; tsc; push; open PR B **with base main but note the stack** (merge after #635; GitHub will show only B's own commits once #635 merges — or open with base `feat/youth-guest-trial` and retarget after merge, whichever `gh` supports cleanly); watch CI; owner merges.
 
