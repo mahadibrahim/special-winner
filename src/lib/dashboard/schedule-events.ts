@@ -45,6 +45,10 @@ interface BookedSessionInput {
   startsAt: Date;
   durationMinutes: number | null;
   templateName: string;
+  // Nullable: pickup/one-off sessions never set this, and legacy sessions
+  // materialized before this column existed won't have it either — those
+  // fall back to name-keyed suppression (see suppressionKey below).
+  templateId: string | null;
   childId: string;
   childName: string;
   venueName: string | null;
@@ -56,6 +60,12 @@ interface EnrollmentInput {
   childId: string;
   childName: string;
   templateName: string;
+  // Nullable for symmetry with BookedSessionInput's fallback — in practice
+  // the endpoint always supplies this (classSlotTemplates.id via an inner
+  // join, never null), but keeping the type nullable here means a caller
+  // without an id still gets legacy name-based matching on both sides
+  // rather than a silent, permanent mismatch against id-keyed booked rows.
+  templateId: string | null;
   weekday: number;
   startTime: string;
   durationMinutes: number | null;
@@ -140,21 +150,35 @@ export function buildClassScheduleEvents(input: {
     bookingId: s.bookingId,
   }));
 
-  // Suppression index: childId+templateName -> sorted booked instants (ms).
-  // The booked seat is the truth — this also honestly swallows the
-  // materialized-but-cancelled case (a cancelled booking never reaches this
-  // list in the first place, since the caller only passes confirmed ones).
+  // Suppression key: childId + templateId, falling back to templateName when
+  // templateId is null (pickup/legacy sessions with no template back-ref).
+  // Keying on id rather than name keeps booked/projected suppression in sync
+  // across a template rename — the display name can change independently of
+  // the row that identifies "this is the same recurring slot".
+  function suppressionKey(childId: string, templateId: string | null, templateName: string): string {
+    return `${childId}::${templateId ?? templateName}`;
+  }
+
+  // Suppression index: key -> sorted booked instants (ms). The booked seat is
+  // the truth — this also honestly swallows the materialized-but-cancelled
+  // case (a cancelled booking never reaches this list in the first place,
+  // since the caller only passes confirmed ones).
   const bookedByKey = new Map<string, number[]>();
   for (const s of bookedSessions) {
-    const key = `${s.childId}::${s.templateName}`;
+    const key = suppressionKey(s.childId, s.templateId, s.templateName);
     const arr = bookedByKey.get(key) ?? [];
     arr.push(s.startsAt.getTime());
     bookedByKey.set(key, arr);
   }
   for (const arr of bookedByKey.values()) arr.sort((a, b) => a - b);
 
-  function isSuppressed(childId: string, templateName: string, instantMs: number): boolean {
-    const arr = bookedByKey.get(`${childId}::${templateName}`);
+  function isSuppressed(
+    childId: string,
+    templateId: string | null,
+    templateName: string,
+    instantMs: number,
+  ): boolean {
+    const arr = bookedByKey.get(suppressionKey(childId, templateId, templateName));
     if (!arr) return false;
     return arr.some((t) => Math.abs(t - instantMs) <= SUPPRESSION_WINDOW_MS);
   }
@@ -179,7 +203,7 @@ export function buildClassScheduleEvents(input: {
 
       const instant = zonedWallClockUtc(civ, hh, mm, ss, enr.timezone);
       if (!(instant > from && instant <= horizonEnd)) continue;
-      if (isSuppressed(enr.childId, enr.templateName, instant.getTime())) continue;
+      if (isSuppressed(enr.childId, enr.templateId, enr.templateName, instant.getTime())) continue;
 
       projectedEvents.push({
         id: `proj-${enr.enrollmentId}-${civilDateId(civ)}`,

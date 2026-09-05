@@ -95,6 +95,7 @@ export const GET: APIRoute = async ({ locals }) => {
       startsAt: dropInSessions.startsAt,
       endsAt: dropInSessions.endsAt,
       templateName: dropInSessions.formatLabel,
+      templateId: dropInSessions.classSlotTemplateId,
       childId: dropInBookings.familyMemberId,
       venueName: venues.name,
       venueAddress: venues.address,
@@ -123,6 +124,7 @@ export const GET: APIRoute = async ({ locals }) => {
       // it); every class-materialized session does, but fall back rather
       // than surface a blank title in the unlikely case one doesn't.
       templateName: r.templateName ?? "Class",
+      templateId: r.templateId,
       childId: r.childId,
       childName: childNameById.get(r.childId) ?? "",
       venueName: r.venueName,
@@ -137,6 +139,7 @@ export const GET: APIRoute = async ({ locals }) => {
       enrollmentId: classEnrollments.id,
       childId: classEnrollments.familyMemberId,
       templateName: classSlotTemplates.name,
+      templateId: classSlotTemplates.id,
       weekday: classSlotTemplates.weekday,
       startTime: classSlotTemplates.startTime,
       durationMins: classSlotTemplates.durationMins,
@@ -159,6 +162,7 @@ export const GET: APIRoute = async ({ locals }) => {
     childId: r.childId,
     childName: childNameById.get(r.childId) ?? "",
     templateName: r.templateName,
+    templateId: r.templateId,
     weekday: r.weekday,
     startTime: r.startTime,
     durationMinutes: r.durationMins,

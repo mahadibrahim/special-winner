@@ -6,6 +6,9 @@ const wed1730 = {
   childId: "c1",
   childName: "Alex",
   templateName: "U8 Wednesdays",
+  // No templateId on the base fixture — exercises the name-fallback path by
+  // default; tests that need id-based matching override it per-case.
+  templateId: null,
   weekday: 3,
   startTime: "17:30",
   durationMinutes: 55,
@@ -24,6 +27,7 @@ describe("buildClassScheduleEvents", () => {
           startsAt: new Date("2026-09-09T21:30:00.000Z"),
           durationMinutes: 55,
           templateName: "U8 Wednesdays",
+          templateId: null,
           childId: "c1",
           childName: "Alex",
           venueName: "Powell",
@@ -75,6 +79,7 @@ describe("buildClassScheduleEvents", () => {
           startsAt: new Date("2026-09-09T21:30:00.000Z"),
           durationMinutes: 55,
           templateName: "U8 Wednesdays",
+          templateId: null,
           childId: "c1",
           childName: "Alex",
           venueName: "Powell",
@@ -94,12 +99,74 @@ describe("buildClassScheduleEvents", () => {
     expect(sep9Events[0].bookingId).toBe("b1");
   });
 
+  it("suppresses a projection by templateId even when the template was renamed", () => {
+    const events = buildClassScheduleEvents({
+      bookedSessions: [
+        {
+          bookingId: "b1",
+          sessionId: "s1",
+          // Same instant as the first weekly projection (Sep 9 21:30Z).
+          startsAt: new Date("2026-09-09T21:30:00.000Z"),
+          durationMinutes: 55,
+          // Renamed since materialization — name no longer matches the
+          // enrollment's templateName, but templateId still does.
+          templateName: "U8 Wednesdays (Renamed)",
+          templateId: "t1",
+          childId: "c1",
+          childName: "Alex",
+          venueName: "Powell",
+          venueAddress: null,
+        },
+      ],
+      enrollments: [{ ...wed1730, templateId: "t1" }],
+      from: new Date("2026-09-04T12:00:00Z"),
+      horizonDays: 28,
+    });
+
+    // 1 booked + 3 remaining projections (Sep 9's projection is suppressed
+    // despite the name mismatch, because templateId matched).
+    expect(events).toHaveLength(4);
+    const sep9Events = events.filter((e) => e.startsAt.startsWith("2026-09-09"));
+    expect(sep9Events).toHaveLength(1);
+    expect(sep9Events[0].projected).toBe(false);
+    expect(sep9Events[0].bookingId).toBe("b1");
+  });
+
+  it("falls back to name matching when templateId is null (legacy rows)", () => {
+    const events = buildClassScheduleEvents({
+      bookedSessions: [
+        {
+          bookingId: "b1",
+          sessionId: "s1",
+          startsAt: new Date("2026-09-09T21:30:00.000Z"),
+          durationMinutes: 55,
+          templateName: "U8 Wednesdays",
+          templateId: null,
+          childId: "c1",
+          childName: "Alex",
+          venueName: "Powell",
+          venueAddress: null,
+        },
+      ],
+      enrollments: [wed1730],
+      from: new Date("2026-09-04T12:00:00Z"),
+      horizonDays: 28,
+    });
+
+    expect(events).toHaveLength(4);
+    const sep9Events = events.filter((e) => e.startsAt.startsWith("2026-09-09"));
+    expect(sep9Events).toHaveLength(1);
+    expect(sep9Events[0].projected).toBe(false);
+    expect(sep9Events[0].bookingId).toBe("b1");
+  });
+
   it("sorts merged output by startsAt", () => {
     const childB = {
       enrollmentId: "e2",
       childId: "c2",
       childName: "Jamie",
       templateName: "U10 Mondays",
+      templateId: null,
       weekday: 1,
       startTime: "16:00",
       durationMinutes: 60,
@@ -116,6 +183,7 @@ describe("buildClassScheduleEvents", () => {
           startsAt: new Date("2026-09-10T10:00:00.000Z"),
           durationMinutes: 55,
           templateName: "Make-up",
+          templateId: null,
           childId: "c1",
           childName: "Alex",
           venueName: "Powell",
