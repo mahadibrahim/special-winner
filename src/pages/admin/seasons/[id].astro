@@ -17,7 +17,7 @@ import { BUSINESS_TIMEZONE } from "@/lib/time/business-timezone";
 import { registrations, familyMembers } from "@/lib/db/schema/registrations";
 import { teams, games, rosters } from "@/lib/db/schema/teams";
 import { seasonRevenueCents } from "@/lib/admin/season-revenue";
-import { and, eq, sql, ne, desc, asc } from "drizzle-orm";
+import { and, eq, sql, ne, desc, asc, notInArray } from "drizzle-orm";
 
 export const prerender = false;
 
@@ -123,7 +123,7 @@ const stats: SeasonStats = {
 // and Teams). The remaining 5 tabs stay as deep-link panels — that work
 // lives on other admin pages and inlining it would duplicate without
 // adding value.
-const [recentRegs, teamsWithRoster] = await Promise.all([
+const [recentRegs, teamsWithRoster, [unplacedCount]] = await Promise.all([
   getDb()
     .select({
       id: registrations.id,
@@ -147,6 +147,7 @@ const [recentRegs, teamsWithRoster] = await Promise.all([
       id: teams.id,
       name: teams.name,
       maxRosterSize: teams.maxRosterSize,
+      coachUserId: teams.coachUserId,
       rosterCount: sql<number>`COALESCE((
         SELECT COUNT(*)::int FROM ${rosters}
           WHERE ${rosters.teamId} = ${teams.id}
@@ -156,7 +157,30 @@ const [recentRegs, teamsWithRoster] = await Promise.all([
     .from(teams)
     .where(eq(teams.seasonId, seasonId))
     .orderBy(asc(teams.name)),
+  // Unplaced = confirmed registrations of this season minus any already
+  // rostered onto a team in this season — same shape as the placement
+  // planner endpoint (src/pages/api/admin/seasons/[id]/placement.ts).
+  getDb()
+    .select({ n: sql<number>`count(*)::int` })
+    .from(registrations)
+    .where(
+      and(
+        eq(registrations.seasonId, seasonId),
+        eq(registrations.status, "confirmed"),
+        notInArray(
+          registrations.id,
+          getDb()
+            .select({ registrationId: rosters.registrationId })
+            .from(rosters)
+            .innerJoin(teams, eq(rosters.teamId, teams.id))
+            .where(eq(teams.seasonId, seasonId)),
+        ),
+      ),
+    ),
 ]);
+
+const coachlessTeamCount = teamsWithRoster.filter((t) => !t.coachUserId).length;
+const unplacedPlayerCount = unplacedCount?.n ?? 0;
 
 // HTML-escape user-controlled text. Cheap to call; defends the
 // dangerouslySetInnerHTML path on the React side without dragging in
@@ -272,6 +296,31 @@ function registrationsPanel(): string {
   );
 }
 
+// Season-readiness chips ("N unplaced", "M teams without a coach") shown at
+// the top of the Teams tab. Only rendered when the count is > 0 — an
+// all-clear season shows no chips at all rather than a "0 unplaced" no-op.
+function readinessChips(): string {
+  const chips: string[] = [];
+  if (unplacedPlayerCount > 0) {
+    chips.push(
+      '<a href="/admin/seasons/' +
+        esc(seasonId) +
+        '/placement" class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-100 text-amber-800 hover:bg-amber-200">' +
+        esc(`${unplacedPlayerCount} unplaced`) +
+        "</a>",
+    );
+  }
+  if (coachlessTeamCount > 0) {
+    chips.push(
+      '<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-100 text-amber-800">' +
+        esc(`${coachlessTeamCount} team${coachlessTeamCount === 1 ? "" : "s"} without a coach`) +
+        "</span>",
+    );
+  }
+  if (chips.length === 0) return "";
+  return '<div class="flex gap-2 flex-wrap">' + chips.join("") + "</div>";
+}
+
 // Inline teams table — every team in the season + active roster count.
 function teamsPanel(): string {
   const summary =
@@ -286,6 +335,7 @@ function teamsPanel(): string {
       '<p class="text-sm text-ink-muted">' +
       esc(summary) +
       "</p>" +
+      readinessChips() +
       '<p class="text-sm text-ink-muted italic">No teams yet.</p>' +
       '<div class="flex gap-4">' +
       '<a href="/admin/teams?seasonId=' +
@@ -331,6 +381,7 @@ function teamsPanel(): string {
     '<p class="text-sm text-ink-muted">' +
     esc(summary) +
     "</p>" +
+    readinessChips() +
     '<table class="w-full text-sm"><thead><tr class="text-left text-[10px] uppercase tracking-wider text-ink-muted">' +
     '<th class="pb-1 pr-3">Team</th>' +
     '<th class="pb-1 pr-3">Active roster</th>' +
