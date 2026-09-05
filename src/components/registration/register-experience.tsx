@@ -8,6 +8,7 @@ import RegistrationWizard from "./registration-wizard";
 import { InAppEscapeBanner } from "./in-app-escape-banner";
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton";
 import { ErrorBanner } from "@/components/ui/error-banner";
+import { EmptyNotifyForm } from "@/components/landing/empty-notify-form";
 import { trackRegistrationBlocked } from "@/lib/analytics/events";
 
 type AuthedUser = React.ComponentProps<typeof RegistrationWizard>["user"];
@@ -40,6 +41,9 @@ export default function RegisterExperience({
         signupModes: string | null;
         status: string;
         registrationClosed?: boolean;
+        // Detail endpoint's sport.slug — used to send the closed-state "Back
+        // to leagues" link to the right sport rather than a generic fallback.
+        sport: { color: string | null; slug: string | null };
       })
     | null
   >(null);
@@ -157,10 +161,33 @@ export default function RegisterExperience({
         <LoadingSkeleton />
       </div>
     );
+  // Closed-state capture (audit F6): both bail-outs below used to be a bare
+  // message and a dead end. Now they also offer an email-capture (the same
+  // finder empty-state pattern as EmptyNotifyForm's other callers) and a way
+  // back into the catalog — pinned to this season's own sport when the
+  // detail payload carries one, falling back to soccer's league page
+  // otherwise (the only sport with a stable /youth/leagues/<slug> page today).
+  const backToLeaguesHref = `/youth/leagues/${season.sport?.slug || "soccer"}`;
   if (season.status !== "open")
-    return <ErrorBanner message="Registration for this division isn't open." />;
+    return (
+      <div className="space-y-4">
+        <ErrorBanner message="Registration for this division isn't open." />
+        <EmptyNotifyForm audience="parent" source="league-closed" />
+        <a href={backToLeaguesHref} className="inline-block text-sm font-medium text-ochre hover:underline">
+          ← Back to leagues
+        </a>
+      </div>
+    );
   if (season.registrationClosed)
-    return <ErrorBanner message="Registration for this season has closed. Contact us if you'd like to join a roster mid-season." />;
+    return (
+      <div className="space-y-4">
+        <ErrorBanner message="Registration for this season has closed. Contact us if you'd like to join a roster mid-season." />
+        <EmptyNotifyForm audience="parent" source="league-closed" />
+        <a href={backToLeaguesHref} className="inline-block text-sm font-medium text-ochre hover:underline">
+          ← Back to leagues
+        </a>
+      </div>
+    );
 
   const canTeam = !!season.signupModes && season.signupModes.includes("team");
   // Server truth wins over the URL hint: "team" on an individual-only season
