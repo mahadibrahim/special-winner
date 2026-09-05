@@ -646,6 +646,8 @@ async function seedCoachHistory(ctx: Ctx, youth: { ys: Record<string, string>; s
   ];
   for (const w of waves) {
     const kid = people.rostersByKid[w.kid];
+    const earlyWhen = at(lastDow(2, 4), 9, 0);
+    const recentWhen = at(lastDow(2, 1), 9, 0);
     for (let i = 0; i < skillIds.length; i++) {
       // select-then-heal, e2e idiom :622-652 — one row per (kid, skill, season, assessedAt-wave).
       // assessedAt must be weekday-stable (via lastDow, anchored to Tuesday practice days),
@@ -653,7 +655,7 @@ async function seedCoachHistory(ctx: Ctx, youth: { ys: Record<string, string>; s
       // mandated morning re-seed the next calendar day each compute a different assessedAt
       // for the "same" wave, the select-then-heal WHERE clause never matches, and every
       // re-seed pass silently piles on 8 more duplicate rows per kid.
-      for (const [level, prev, when] of [[w.early[i], null, at(lastDow(2, 4), 9, 0)], [w.recent[i], w.early[i], at(lastDow(2, 1), 9, 0)]] as const) {
+      for (const [level, prev, when] of [[w.early[i], null, earlyWhen], [w.recent[i], w.early[i], recentWhen]] as const) {
         const [existing] = await db.select({ id: playerAssessments.id }).from(playerAssessments)
           .where(and(eq(playerAssessments.familyMemberId, kid.familyMemberId),
             eq(playerAssessments.skillId, skillIds[i]),
@@ -668,7 +670,13 @@ async function seedCoachHistory(ctx: Ctx, youth: { ys: Record<string, string>; s
         }
       }
     }
-    await recomputePlayerSnapshots(db, kid.familyMemberId, youth.ys.summer26);
+    // Snapshots bucket by assessedAt's UTC calendar month (S2), and the two
+    // waves are deliberately ~3 weeks apart (lastDow(2,4) vs lastDow(2,1))
+    // so they can straddle a month boundary — recompute once per wave date
+    // rather than once at "now" so both months get their own snapshot row
+    // instead of one wave silently missing its bucket.
+    await recomputePlayerSnapshots(db, kid.familyMemberId, earlyWhen);
+    await recomputePlayerSnapshots(db, kid.familyMemberId, recentWhen);
   }
 
   // --- Parent-visible coach notes (glows & grows voice) ---

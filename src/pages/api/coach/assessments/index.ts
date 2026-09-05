@@ -300,7 +300,11 @@ export const POST: APIRoute = async (context) => {
         })
         .returning();
 
-      await recomputePlayerSnapshots(tx, familyMemberId, seasonId ?? null);
+      // Bucket by the assessment's own assessedAt (defaultNow() at insert
+      // time here — the schema has no client-supplied assessedAt on this
+      // route), not a fresh `new Date()` read, so the snapshot's period key
+      // always matches the row that produced it.
+      await recomputePlayerSnapshots(tx, familyMemberId, created.assessedAt);
 
       const now = new Date();
       await tx

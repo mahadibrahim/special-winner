@@ -681,15 +681,20 @@ async function seedCurriculumRadarFixture(db: Database, orgId: string) {
         observationContext: "practice",
         assessedAt: new Date(),
       });
-    } else if (existingAssessment.level !== level) {
+    } else {
+      // Snapshots bucket by assessedAt's UTC calendar month (S2). Always
+      // refresh assessedAt (not just when level changed) so a re-seed on a
+      // later date doesn't leave this fixture's rows stranded in a past
+      // month, which would silently drop them out of the "current" period
+      // the radar fixture depends on.
       await db
         .update(playerAssessments)
-        .set({ level, updatedAt: new Date() })
+        .set({ level, assessedAt: new Date(), updatedAt: new Date() })
         .where(eq(playerAssessments.id, existingAssessment.id));
     }
   }
 
-  const { domainsWritten } = await recomputePlayerSnapshots(db, tommy.id, season.id);
+  const { domainsWritten } = await recomputePlayerSnapshots(db, tommy.id, new Date());
   console.log(
     `   ✓ Curriculum radar fixture: ${SKILL_LEVELS.length} skills assessed for Tommy, ` +
       `${domainsWritten} domain snapshot(s) recomputed`,
