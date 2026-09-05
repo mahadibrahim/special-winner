@@ -321,9 +321,12 @@ export const coachNotes = pgTable(
     familyMemberId: uuid("family_member_id")
       .notNull()
       .references(() => familyMembers.id, { onDelete: "cascade" }),
-    teamId: uuid("team_id")
-      .notNull()
-      .references(() => teams.id, { onDelete: "cascade" }),
+    // Nullable as of the coach→classes dual-anchor migration (Task 1,
+    // 2026-09-05-coach-classes-phase01): a coach_notes row anchors to
+    // EITHER a team (this column) OR a non-team activity (activityKind +
+    // activityId below), never both, never neither — enforced by the
+    // coach_notes_anchor_check CHECK below.
+    teamId: uuid("team_id").references(() => teams.id, { onDelete: "cascade" }),
     coachUserId: uuid("coach_user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
@@ -334,6 +337,14 @@ export const coachNotes = pgTable(
     sessionPlanId: uuid("session_plan_id").references(() => sessionPlans.id, {
       onDelete: "set null",
     }),
+    // Non-team anchor half of the dual-anchor pair. varchar, not an enum:
+    // activity kinds will grow with camps and other Phase-1+ activity types,
+    // and enum-adds (ALTER TYPE ... ADD VALUE) are 55P04-fraught on a live
+    // DB — validated at the app layer instead. No FK on activityId: it's
+    // polymorphic by activityKind (same rationale as
+    // coaching_assignments.targetId in ./coaching.ts).
+    activityKind: varchar("activity_kind", { length: 32 }),
+    activityId: uuid("activity_id"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -343,6 +354,11 @@ export const coachNotes = pgTable(
       table.teamId,
     ),
     index("coach_notes_session_plan_idx").on(table.sessionPlanId),
+    index("coach_notes_activity_idx").on(table.activityKind, table.activityId),
+    check(
+      "coach_notes_anchor_check",
+      sql`(${table.teamId} IS NOT NULL AND ${table.activityKind} IS NULL AND ${table.activityId} IS NULL) OR (${table.teamId} IS NULL AND ${table.activityKind} IS NOT NULL AND ${table.activityId} IS NOT NULL)`,
+    ),
   ],
 );
 

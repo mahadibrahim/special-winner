@@ -1,0 +1,27 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { CoachLayout } from '@/components/coach/coach-layout';
+import ClassRoster from '@/components/coach/classes/class-roster';
+
+export const prerender = false;
+
+// Middleware guarantees the coach role for /coach/**. Access to THIS
+// specific template (assigned lead/assistant vs. org-wide read-only vs.
+// forbidden) is enforced client-side by ClassRoster hitting
+// GET /api/coach/classes/:templateId — see that endpoint's doc comment for
+// the three-tier gate. Doing the gate check here too would just duplicate
+// it; the page shell renders unconditionally and the island shows the
+// resulting error state (403/404) inline.
+const user = Astro.locals.user!;
+const templateId = Astro.params.templateId!;
+---
+
+<BaseLayout title="Class — Coach — Aspire Sports" navigation={false} footer={false}>
+  <CoachLayout
+    client:load
+    currentPath="/coach/classes"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <ClassRoster client:load templateId={templateId} />
+  </CoachLayout>
+</BaseLayout>

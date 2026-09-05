@@ -79,6 +79,7 @@ import { and, eq, gt, lte, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { classSlotTemplates, classEnrollments } from "@/lib/db/schema/classes";
 import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
+import { coachingAssignments } from "@/lib/db/schema/coaching";
 import { familyMembers } from "@/lib/db/schema/registrations";
 import { organizations } from "@/lib/db/schema/organizations";
 import { ORG_DEFAULT_TIMEZONE } from "@/lib/time/zoned-day";
@@ -228,6 +229,63 @@ export function occurrenceInstants(
   return out;
 }
 
+/**
+ * Copies a template's ACTIVE `class_template` coach assignments onto a
+ * freshly-materialized `class_session` (Task 3 of the coach→classes Phase
+ * 0/1 plan). Only ever called right after a session INSERT actually happened
+ * (see the call site below) — a session that already existed from a prior
+ * run had this copy performed the first time IT was inserted, so re-running
+ * the cron never re-copies. `onConflictDoNothing` on the assignment table's
+ * `(coach_user_id, kind, target_id)` unique is still kept as defense in
+ * depth (matching the brief's "idempotent across re-runs" requirement)
+ * rather than relying solely on the "only call on fresh insert" guard.
+ *
+ * Deliberately NOT re-run when an admin edits the template's coach set
+ * later — that is what `applyToMaterialized` on
+ * `PUT /api/admin/classes/templates/:id/coaches` is for (an explicit,
+ * admin-triggered replace across future sessions), not something this cron
+ * silently redoes every run.
+ *
+ * Always called with the SAME transaction handle the session insert just
+ * ran in (never a bare `getDb()`) — see the call site's header comment for
+ * why the insert and this copy must commit or roll back together.
+ */
+async function copyTemplateCoachesToSession(
+  tx: DropInTx,
+  organizationId: string,
+  templateId: string,
+  sessionId: string,
+): Promise<void> {
+  const activeAssignments = await tx
+    .select({ coachUserId: coachingAssignments.coachUserId, role: coachingAssignments.role })
+    .from(coachingAssignments)
+    .where(
+      and(
+        eq(coachingAssignments.kind, "class_template"),
+        eq(coachingAssignments.targetId, templateId),
+        eq(coachingAssignments.active, true),
+      ),
+    );
+  if (activeAssignments.length === 0) return;
+
+  await tx
+    .insert(coachingAssignments)
+    .values(
+      activeAssignments.map((a) => ({
+        organizationId,
+        coachUserId: a.coachUserId,
+        kind: "class_session" as const,
+        targetId: sessionId,
+        role: a.role,
+        active: true,
+        createdByUserId: null,
+      })),
+    )
+    .onConflictDoNothing({
+      target: [coachingAssignments.coachUserId, coachingAssignments.kind, coachingAssignments.targetId],
+    });
+}
+
 export interface MaterializeResult {
   sessionsCreated: number;
   autoBooked: number;
@@ -339,44 +397,66 @@ export async function materializeClassSessions(now: Date): Promise<MaterializeRe
     }
 
     // ---- Pass 1: materialize sessions ----
-    // A plain insert is already atomic on its own; no transaction needed
-    // just to wrap one statement.
+    // The insert and its coach-staffing copy (Task 3) are wrapped in ONE
+    // transaction — a plain insert would be atomic on its own, but pairing
+    // it with copyTemplateCoachesToSession means a mid-copy failure (e.g. a
+    // transient Railway blip; see railway-connect-timeout-cron-blips in the
+    // team's incident notes) must roll back the INSERT too. Without that,
+    // the only-on-fresh-insert guard that makes the copy idempotent would
+    // become a liability: a session that survived while its copy failed
+    // would exist forever unstaffed, because no later cron run ever revisits
+    // an already-existing session's staffing (see copyTemplateCoachesToSession's
+    // doc comment). Rolling back together means the NEXT run's
+    // onConflictDoNothing sees no row yet, retries the insert, and retries
+    // the copy — the same all-or-nothing occurrence, not a half-done one.
     for (const startsAt of occurrences) {
       try {
         const endsAt = new Date(startsAt.getTime() + template.durationMins * 60_000);
-        const [inserted] = await db
-          .insert(dropInSessions)
-          .values({
-            organizationId: template.organizationId,
-            venueId: template.venueId,
-            bookableResourceId: null,
-            kind: "class",
-            sportOrClassLabel: template.sportLabel,
-            formatLabel: template.name,
-            startsAt,
-            endsAt,
-            capacity: template.capacity,
-            audience: "youth",
-            status: "scheduled",
-            // Class rates travel from the template onto the session, so the
-            // paid make-up path (POST /api/dropin/bookings with
-            // familyMemberId) and the 402 quote from POST /api/classes/book
-            // both read a CLASS price off the session row — same shape
-            // pickup already uses. Null here (template left them unset)
-            // falls through to the org's drop_in_rate_card defaults at the
-            // booking endpoints, which is the adult pickup card, hence the
-            // strong preference for setting them on the template.
-            sessionRateCents: template.sessionRateCents,
-            memberRateCents: template.memberRateCents,
-            classSlotTemplateId: template.id,
-          })
-          .onConflictDoNothing({
-            target: [dropInSessions.classSlotTemplateId, dropInSessions.startsAt],
-            where: sql`class_slot_template_id IS NOT NULL`,
-          })
-          .returning({ id: dropInSessions.id });
+        const insertedId: string | null = await db.transaction(async (tx) => {
+          const [inserted] = await tx
+            .insert(dropInSessions)
+            .values({
+              organizationId: template.organizationId,
+              venueId: template.venueId,
+              bookableResourceId: null,
+              kind: "class",
+              sportOrClassLabel: template.sportLabel,
+              formatLabel: template.name,
+              startsAt,
+              endsAt,
+              capacity: template.capacity,
+              audience: "youth",
+              status: "scheduled",
+              // Class rates travel from the template onto the session, so the
+              // paid make-up path (POST /api/dropin/bookings with
+              // familyMemberId) and the 402 quote from POST /api/classes/book
+              // both read a CLASS price off the session row — same shape
+              // pickup already uses. Null here (template left them unset)
+              // falls through to the org's drop_in_rate_card defaults at the
+              // booking endpoints, which is the adult pickup card, hence the
+              // strong preference for setting them on the template.
+              sessionRateCents: template.sessionRateCents,
+              memberRateCents: template.memberRateCents,
+              classSlotTemplateId: template.id,
+            })
+            .onConflictDoNothing({
+              target: [dropInSessions.classSlotTemplateId, dropInSessions.startsAt],
+              where: sql`class_slot_template_id IS NOT NULL`,
+            })
+            .returning({ id: dropInSessions.id });
 
-        if (inserted) counters.sessionsCreated += 1;
+          if (inserted) {
+            // Coach staffing propagation (Task 3): only for a session that
+            // was ACTUALLY just created — see copyTemplateCoachesToSession's
+            // doc comment for why that's the idempotency guarantee, not the
+            // onConflictDoNothing inside it (which is defense in depth
+            // only). A throw here rolls back the insert above too (same tx).
+            await copyTemplateCoachesToSession(tx, template.organizationId, template.id, inserted.id);
+          }
+          return inserted?.id ?? null;
+        });
+
+        if (insertedId) counters.sessionsCreated += 1;
       } catch (err) {
         console.error(
           `[classes] session insert failed for template ${template.id} at ${startsAt.toISOString()}:`,

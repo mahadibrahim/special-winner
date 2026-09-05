@@ -157,3 +157,6 @@ export * from "./spectators";
 
 // Scoped machine tokens for the admin MCP — session-less, org-pinned, allowlisted
 export * from "./admin-api-tokens";
+
+// Coach → classes staffing (Phase 0/1): coaching_assignments table
+export * from "./coaching";

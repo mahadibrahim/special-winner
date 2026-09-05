@@ -1,0 +1,31 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import { CoachLayout } from '@/components/coach/coach-layout';
+import MyClasses from '@/components/coach/classes/my-classes';
+import { getCoachGroups } from '@/lib/coach/get-coach-groups';
+
+export const prerender = false;
+
+// Middleware guarantees the coach role for /coach/**
+const user = Astro.locals.user!;
+const orgId = Astro.locals.organization?.id;
+
+// No resolvable organization for this request (e.g. a super-admin hitting a
+// host with no domain mapping) — nothing to show, send them back to the
+// portal home rather than rendering an org-less class list.
+if (!orgId) {
+  return Astro.redirect('/coach');
+}
+
+const { classGroups } = await getCoachGroups(user.id, orgId);
+---
+
+<BaseLayout title="My Classes — Coach — Aspire Sports" navigation={false} footer={false}>
+  <CoachLayout
+    client:load
+    currentPath="/coach/classes"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <MyClasses client:load classGroups={classGroups} />
+  </CoachLayout>
+</BaseLayout>
