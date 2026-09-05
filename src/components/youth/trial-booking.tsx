@@ -852,6 +852,26 @@ export default function TrialBooking() {
     await submitGuestBooking(targetSession, generationRef.current)
   }
 
+  /**
+   * Enter-to-submit for guest inputs that live outside a `<form>` — the
+   * fields/widget/primary-action split (see guestTurnstileActive's doc
+   * comment) means these buttons can't rely on native form-submit-on-Enter.
+   * Mirrors the inline onKeyDown-calls-the-action pattern already used for
+   * team-create.tsx's discount code input, but adds the no-modifiers guard
+   * and an explicit `enabled` check mirroring the corresponding button's
+   * `disabled` condition, so Enter never fires a submit the button itself
+   * wouldn't allow.
+   */
+  function submitOnEnter(
+    e: React.KeyboardEvent<HTMLInputElement>,
+    enabled: boolean,
+    action: () => void,
+  ) {
+    if (e.key !== "Enter" || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey || !enabled) return
+    e.preventDefault()
+    action()
+  }
+
   function confirmOfferedSession() {
     if (!offeredSession) return
     const session = offeredSession
@@ -1194,6 +1214,7 @@ export default function TrialBooking() {
                 type="email"
                 value={guestEmail}
                 onChange={(e) => setGuestEmail(e.target.value)}
+                onKeyDown={(e) => submitOnEnter(e, canContinueGuestForm, handleGuestContinue)}
                 autoComplete="email"
               />
             </div>
@@ -1320,6 +1341,13 @@ export default function TrialBooking() {
                 id="guest-waiver-signer-name"
                 value={waiverSignerName}
                 onChange={(e) => setWaiverSignerName(e.target.value)}
+                onKeyDown={(e) =>
+                  submitOnEnter(
+                    e,
+                    waiverAccepted && waiverSignerName.trim().length > 0 && Boolean(guestTurnstileToken),
+                    () => void submitGuestWaiver(),
+                  )
+                }
                 placeholder="Your full name"
                 autoComplete="name"
               />
