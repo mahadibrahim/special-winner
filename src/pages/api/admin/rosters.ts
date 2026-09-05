@@ -109,6 +109,14 @@ export const GET: APIRoute = async (context) => {
 };
 
 // POST - Add player to roster
+//
+// The dupe check + cap check + insert below run inside one transaction that
+// takes a `FOR UPDATE` lock on the team's season row first. That is the SAME
+// lock taken by `seasons/[id]/placements.ts` (batch placement publish) and
+// `seasons/[id]/teams/scaffold.ts` (bulk team creation) — all three
+// season-scoped roster/team writers serialize against each other through
+// this one row lock, so a single add here can never race a batch publish
+// (or another single add) into overshooting a team's `maxRosterSize`.
 export const POST: APIRoute = async (context) => {
   const auth = await requireSuperAdminAccess(context);
   if (!auth.authorized) return auth.response;
@@ -161,50 +169,70 @@ export const POST: APIRoute = async (context) => {
       return new Response(JSON.stringify({ error: "Registration not found" }), { status: 404 });
     }
 
-    // Check if player is already on this team
-    const existingRoster = await getDb().query.rosters.findFirst({
-      where: and(
-        eq(rosters.teamId, result.data.teamId),
-        eq(rosters.registrationId, result.data.registrationId)
-      ),
+    // Dupe check + cap check + insert, inside one transaction that locks
+    // the season row first — see the POST docstring above for why.
+    const txResult = await getDb().transaction(async (tx) => {
+      await tx.select({ id: seasons.id }).from(seasons).where(eq(seasons.id, team.seasonId)).for("update");
+
+      // Check if player is already on this team
+      const [existingRoster] = await tx
+        .select({ id: rosters.id })
+        .from(rosters)
+        .where(
+          and(eq(rosters.teamId, result.data.teamId), eq(rosters.registrationId, result.data.registrationId)),
+        )
+        .limit(1); // (teamId, registrationId) is unique — at most one row
+
+      if (existingRoster) {
+        return { outcome: "duplicate" as const };
+      }
+
+      // Check team roster size limit
+      if (team.maxRosterSize) {
+        const currentRosterCount = await tx
+          .select({ id: rosters.id })
+          .from(rosters)
+          .where(eq(rosters.teamId, result.data.teamId));
+
+        if (currentRosterCount.length >= team.maxRosterSize) {
+          return { outcome: "full" as const };
+        }
+      }
+
+      const [newRoster] = await tx
+        .insert(rosters)
+        .values({
+          ...result.data,
+        })
+        .returning();
+
+      return { outcome: "created" as const, roster: newRoster };
     });
 
-    if (existingRoster) {
+    if (txResult.outcome === "duplicate") {
       return new Response(
         JSON.stringify({ error: "Player is already on this team" }),
         { status: 409 }
       );
     }
 
-    // Check team roster size limit
-    if (team.maxRosterSize) {
-      const currentRosterCount = await getDb()
-        .select({ id: rosters.id })
-        .from(rosters)
-        .where(eq(rosters.teamId, result.data.teamId));
-
-      if (currentRosterCount.length >= team.maxRosterSize) {
-        return new Response(
-          JSON.stringify({ error: "Team roster is full" }),
-          { status: 400 }
-        );
-      }
+    if (txResult.outcome === "full") {
+      return new Response(
+        JSON.stringify({ error: "Team roster is full" }),
+        { status: 400 }
+      );
     }
 
-    const [newRoster] = await getDb()
-      .insert(rosters)
-      .values({
-        ...result.data,
-      })
-      .returning();
-
-    // Trigger team group sync — fire and forget; don't block on Telegram failures
+    // Trigger team group sync — fire and forget; don't block on Telegram
+    // failures. Deliberately outside the transaction (and unawaited): a
+    // Telegram/HTTP failure here must never roll back a roster write that
+    // already committed.
     const rosteredTeamId = result.data.teamId;
     triggerTeamGroupSync(rosteredTeamId).catch((err) => {
       console.warn(`Team group sync failed for team ${rosteredTeamId}:`, err);
     });
 
-    return new Response(JSON.stringify({ roster: newRoster }), {
+    return new Response(JSON.stringify({ roster: txResult.roster }), {
       status: 201,
       headers: { "Content-Type": "application/json" },
     });

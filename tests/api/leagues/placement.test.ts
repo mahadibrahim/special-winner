@@ -494,3 +494,62 @@ describe("POST /api/admin/seasons/:id/placements", () => {
     expect(rows).toHaveLength(0);
   });
 });
+
+describe("POST /api/admin/rosters (legacy single add) — shares the season placement lock", () => {
+  // The lock itself is a shared-discipline guarantee: this endpoint, the
+  // batch placement publish, and the team scaffold endpoint all take the
+  // SAME `FOR UPDATE` lock on the season row, which is what rules the
+  // overshoot race out — no concurrency test is needed to demonstrate that
+  // (two truly concurrent requests would just serialize through the lock).
+  // These two cases confirm this endpoint's own behavior is unchanged now
+  // that its dupe check + cap check + insert run inside a transaction.
+  it("happy path: adds a player to a team's roster", async () => {
+    const ctx = await createAdminOrgGameContext({ programType: "league", audienceType: "parents" });
+    const reg = await seedRegistration(ctx.seasonId);
+
+    const res = await apiFetch("/api/admin/rosters", {
+      method: "POST",
+      cookie: adminCookie,
+      body: JSON.stringify({ teamId: ctx.homeTeamId, registrationId: reg.registrationId }),
+    });
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.roster.teamId).toBe(ctx.homeTeamId);
+    expect(body.roster.registrationId).toBe(reg.registrationId);
+    expect(body.roster.status).toBe("active");
+
+    const rows = await rosterRowsForRegistrations([reg.registrationId]);
+    expect(rows).toHaveLength(1);
+  });
+
+  it("rejects (400) once the team's roster is at maxRosterSize, and writes nothing", async () => {
+    const ctx = await createAdminOrgGameContext({ programType: "league", audienceType: "parents" });
+    const scaffoldRes = await scaffoldTeams(ctx.seasonId, { count: 1, maxRosterSize: 1 });
+    expect(scaffoldRes.status).toBe(201);
+    const { createdTeamIds: capTeamIds } = await scaffoldRes.json();
+    createdTeamIds.push(...capTeamIds);
+    const cappedTeamId = capTeamIds[0];
+
+    const reg1 = await seedRegistration(ctx.seasonId);
+    const reg2 = await seedRegistration(ctx.seasonId);
+
+    const first = await apiFetch("/api/admin/rosters", {
+      method: "POST",
+      cookie: adminCookie,
+      body: JSON.stringify({ teamId: cappedTeamId, registrationId: reg1.registrationId }),
+    });
+    expect(first.status).toBe(201);
+
+    const second = await apiFetch("/api/admin/rosters", {
+      method: "POST",
+      cookie: adminCookie,
+      body: JSON.stringify({ teamId: cappedTeamId, registrationId: reg2.registrationId }),
+    });
+    expect(second.status).toBe(400);
+    const body = await second.json();
+    expect(body.error).toMatch(/roster is full/i);
+
+    const rows = await rosterRowsForRegistrations([reg2.registrationId]);
+    expect(rows).toHaveLength(0);
+  });
+});

@@ -23,6 +23,15 @@ import { triggerTeamGroupSync } from "@/pages/api/admin/rosters";
  * index is (teamId, registrationId) only, not registrationId alone), so
  * that check has to happen here, inside the transaction, against the locked
  * snapshot.
+ *
+ * The `FOR UPDATE` lock taken on the season row below is the SAME lock
+ * taken by `teams/scaffold.ts` (bulk team creation) and by the legacy
+ * single-add `POST /api/admin/rosters` (`rosters.ts`) — all three call
+ * sites that can add roster rows or teams to a season serialize against
+ * each other through this one row lock. Without it, this batch publish and
+ * a concurrent legacy single-add could each read the same pre-write roster
+ * count under READ COMMITTED and both believe a capped team has room,
+ * overshooting `maxRosterSize` (no DB constraint would catch that either).
  */
 const assignmentSchema = z.object({
   registrationId: z.string().uuid("Valid registration ID is required"),
@@ -84,10 +93,11 @@ export const POST: APIRoute = async (context) => {
     }
 
     const txResult = await db.transaction(async (tx) => {
-      // Lock the season row first so a concurrent publish (or a P2-style
-      // team scaffold) on the same season serializes against this one
-      // instead of both reading the same pre-write snapshot under READ
-      // COMMITTED — same precedent as teams/scaffold.ts.
+      // Lock the season row first so a concurrent publish, a P2-style team
+      // scaffold, OR a legacy single roster add (admin/rosters.ts POST,
+      // which takes this same lock) on the same season serializes against
+      // this one instead of both reading the same pre-write snapshot under
+      // READ COMMITTED.
       await tx.select({ id: seasons.id }).from(seasons).where(eq(seasons.id, seasonId)).for("update");
 
       // This season's teams + their max sizes.
