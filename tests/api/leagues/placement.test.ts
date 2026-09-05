@@ -105,63 +105,89 @@ describe("POST /api/admin/seasons/:id/teams/scaffold", () => {
     expect(tooHigh.status).toBe(422);
   });
 
-  it("creates N teams with the roster cap set; a second call ADDS more (documented semantics)", async () => {
+  it("with a namePrefix, creates N teams with that prefix and the roster cap set", async () => {
     const before = await countTeamsForSeason(seasonId);
+    const prefix = `Scaffold-${Date.now()}`;
 
-    const res1 = await scaffoldTeams(seasonId, {
+    const res = await scaffoldTeams(seasonId, {
       count: 3,
       maxRosterSize: 14,
-      namePrefix: `Scaffold-${Date.now()}`,
+      namePrefix: prefix,
     });
-    expect(res1.status).toBe(201);
-    const body1 = await res1.json();
-    expect(body1.createdTeamIds).toHaveLength(3);
-    expect(body1.totalTeams).toBe(before + 3);
-    createdTeamIds.push(...body1.createdTeamIds);
-
-    const inserted1 = await getDb()
-      .select()
-      .from(teams)
-      .where(inArray(teams.id, body1.createdTeamIds));
-    expect(inserted1).toHaveLength(3);
-    for (const t of inserted1) {
-      expect(t.maxRosterSize).toBe(14);
-      expect(t.name).toMatch(/Team \d+$/);
-    }
-
-    // Second call on the SAME season adds more teams rather than replacing —
-    // this matches the pre-existing scaffold-at-creation semantics.
-    const res2 = await scaffoldTeams(seasonId, {
-      count: 2,
-      maxRosterSize: null,
-      namePrefix: `Scaffold2-${Date.now()}`,
-    });
-    expect(res2.status).toBe(201);
-    const body2 = await res2.json();
-    expect(body2.createdTeamIds).toHaveLength(2);
-    expect(body2.totalTeams).toBe(before + 3 + 2);
-    createdTeamIds.push(...body2.createdTeamIds);
-
-    const inserted2 = await getDb()
-      .select()
-      .from(teams)
-      .where(inArray(teams.id, body2.createdTeamIds));
-    for (const t of inserted2) {
-      expect(t.maxRosterSize).toBeNull();
-    }
-  });
-
-  it("uses the program/age-group name convention when namePrefix is omitted", async () => {
-    const res = await scaffoldTeams(seasonId, { count: 1, maxRosterSize: null });
     expect(res.status).toBe(201);
     const body = await res.json();
-    expect(body.createdTeamIds).toHaveLength(1);
+    expect(body.createdTeamIds).toHaveLength(3);
+    expect(body.totalTeams).toBe(before + 3);
     createdTeamIds.push(...body.createdTeamIds);
 
-    const [row] = await getDb()
+    const inserted = await getDb()
       .select()
       .from(teams)
-      .where(eq(teams.id, body.createdTeamIds[0]));
-    expect(row.name).toMatch(/^Test Program .* Team 1$/);
+      .where(inArray(teams.id, body.createdTeamIds));
+    expect(inserted).toHaveLength(3);
+    for (const t of inserted) {
+      expect(t.maxRosterSize).toBe(14);
+      expect(t.name).toMatch(new RegExp(`^${prefix} Team \\d+$`));
+    }
   });
+
+  it(
+    "under the default naming convention, a second call ADDS more teams and CONTINUES numbering " +
+      "from the existing count (F1 fix) — names never collide across the two calls",
+    async () => {
+      const before = await countTeamsForSeason(seasonId);
+
+      // Both calls omit namePrefix, exercising the "{program} {ageGroup} Team N"
+      // default convention end to end.
+      const res1 = await scaffoldTeams(seasonId, { count: 3, maxRosterSize: 14 });
+      expect(res1.status).toBe(201);
+      const body1 = await res1.json();
+      expect(body1.createdTeamIds).toHaveLength(3);
+      expect(body1.totalTeams).toBe(before + 3);
+      createdTeamIds.push(...body1.createdTeamIds);
+
+      const inserted1 = await getDb()
+        .select()
+        .from(teams)
+        .where(inArray(teams.id, body1.createdTeamIds));
+      expect(inserted1).toHaveLength(3);
+      for (const t of inserted1) {
+        expect(t.maxRosterSize).toBe(14);
+        expect(t.name).toMatch(/^Test Program .* Team \d+$/);
+      }
+      // Numbers continue from `before` rather than restarting at 1.
+      const numbers1 = inserted1
+        .map((t) => Number(t.name.match(/Team (\d+)$/)?.[1]))
+        .sort((a, b) => a - b);
+      expect(numbers1).toEqual([before + 1, before + 2, before + 3]);
+
+      // Second call on the SAME season, still no namePrefix — adds more teams
+      // rather than replacing (documented semantics) and must continue
+      // numbering from where the first call left off, not restart at 1.
+      const res2 = await scaffoldTeams(seasonId, { count: 2, maxRosterSize: null });
+      expect(res2.status).toBe(201);
+      const body2 = await res2.json();
+      expect(body2.createdTeamIds).toHaveLength(2);
+      expect(body2.totalTeams).toBe(before + 3 + 2);
+      createdTeamIds.push(...body2.createdTeamIds);
+
+      const inserted2 = await getDb()
+        .select()
+        .from(teams)
+        .where(inArray(teams.id, body2.createdTeamIds));
+      for (const t of inserted2) {
+        expect(t.maxRosterSize).toBeNull();
+      }
+      const numbers2 = inserted2
+        .map((t) => Number(t.name.match(/Team (\d+)$/)?.[1]))
+        .sort((a, b) => a - b);
+      expect(numbers2).toEqual([before + 4, before + 5]);
+
+      // No name collisions across the two batches (the bug F1 fixed: naming
+      // used to restart at "Team 1" on every call regardless of existing
+      // teams, so a second default-convention call would duplicate names).
+      const allNames = [...inserted1, ...inserted2].map((t) => t.name);
+      expect(new Set(allNames).size).toBe(allNames.length);
+    },
+  );
 });

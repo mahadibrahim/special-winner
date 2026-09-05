@@ -47,6 +47,13 @@ export async function bulkCreateTeams(
     /** Overrides the "{programName} {ageGroupName}" prefix convention —
      *  used by the existing-season scaffold endpoint's `namePrefix` field. */
     namePrefix?: string;
+    /** Numbering offset — "Team {startIndex + i + 1}" instead of always
+     *  starting at 1. Defaults to 0 so the season-create caller (which
+     *  always scaffolds onto a brand-new, team-less season) is unaffected.
+     *  The existing-season scaffold endpoint passes the season's pre-insert
+     *  team count here so a repeat call continues numbering (Team 4, Team
+     *  5, ...) instead of duplicating Team 1, Team 2, ... */
+    startIndex?: number;
   }
 ): Promise<Team[]> {
   if (args.count <= 0) return [];
@@ -54,10 +61,11 @@ export async function bulkCreateTeams(
   const prefix =
     args.namePrefix ??
     (args.ageGroupName ? `${args.programName} ${args.ageGroupName}` : args.programName);
+  const startIndex = args.startIndex ?? 0;
 
   const rows = Array.from({ length: args.count }, (_, i) => ({
     seasonId: args.targetSeasonId,
-    name: `${prefix} Team ${i + 1}`,
+    name: `${prefix} Team ${startIndex + i + 1}`,
     maxRosterSize: args.maxRosterSize ?? null,
   }));
 

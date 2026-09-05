@@ -16,8 +16,13 @@ import { bulkCreateTeams } from "@/lib/seasons/scaffold";
  *
  * Idempotency note: calling this twice on the same season ADDS more teams
  * rather than replacing the existing set (matches the pre-existing
- * scaffold-at-creation semantics). The response carries `createdTeamIds`
- * and `totalTeams` so the caller/UI can warn before a second call.
+ * scaffold-at-creation semantics). Under the default naming convention
+ * (no `namePrefix`), numbering CONTINUES from the season's existing team
+ * count rather than restarting at "Team 1" — the pre-insert count is read
+ * inside the same transaction as the insert so two concurrent calls can't
+ * interleave a stale count and collide on numbers. The response carries
+ * `createdTeamIds` and `totalTeams` so the caller/UI can warn before a
+ * second call.
  */
 const scaffoldTeamsSchema = z.object({
   count: z.number().int().min(1).max(26),
@@ -70,7 +75,7 @@ export const POST: APIRoute = async (context) => {
       .where(
         and(eq(seasons.id, seasonId), eq(locations.organizationId, orgContext.organizationId)),
       )
-      .limit(1);
+      .limit(1); // seasons.id is a PK — at most one row
 
     if (!row) {
       return new Response(JSON.stringify({ error: "Season not found" }), {
@@ -85,11 +90,24 @@ export const POST: APIRoute = async (context) => {
         .select({ name: ageGroups.name })
         .from(ageGroups)
         .where(eq(ageGroups.id, row.ageGroupId))
-        .limit(1);
+        .limit(1); // ageGroups.id is a PK — at most one row
       ageGroupName = ag?.name ?? null;
     }
 
     const createdTeams = await getDb().transaction(async (tx) => {
+      // Lock the season row first so two concurrent scaffold calls on the
+      // same season serialize instead of both reading the same pre-insert
+      // count under READ COMMITTED — mirrors the FOR UPDATE capacity-gate
+      // pattern used elsewhere (classes/enrollment.ts, rentals/blocks).
+      await tx.select({ id: seasons.id }).from(seasons).where(eq(seasons.id, seasonId)).for("update");
+
+      // Read the pre-insert count INSIDE the (now-serialized) transaction so
+      // a repeat call continues numbering instead of restarting at Team 1.
+      const existing = await tx
+        .select({ id: teams.id })
+        .from(teams)
+        .where(eq(teams.seasonId, seasonId));
+
       return bulkCreateTeams(tx, {
         targetSeasonId: seasonId,
         count,
@@ -97,6 +115,7 @@ export const POST: APIRoute = async (context) => {
         ageGroupName,
         maxRosterSize,
         namePrefix,
+        startIndex: existing.length,
       });
     });
 
