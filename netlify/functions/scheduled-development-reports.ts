@@ -11,6 +11,17 @@
  *
  * Returns 200 when the route responds OK, 500 otherwise so Netlify's logs
  * surface failures without retrying (the next tick is a month away).
+ *
+ * RECOVERY MODEL (F2): this function never retries a failed invocation, and
+ * the route's default period is always "whatever just closed relative to
+ * now" — so a failure here is only silently self-healing WITHIN the same
+ * month (a manual re-POST to the route still resolves the same just-closed
+ * period; dedupe makes it idempotent). Once the month rolls, this schedule
+ * fires again for the NEW period and the missed one is otherwise
+ * unreachable. Ops recovery for that case: manually re-POST the route with
+ * `?period=YYYY-MM` (or `?period=YYYY-Qn`) naming the missed period — see
+ * the route's header and `resolveOverridePeriod` in
+ * src/lib/reports/development-reports.ts.
  */
 import { schedule } from "@netlify/functions";
 

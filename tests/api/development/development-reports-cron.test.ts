@@ -5,17 +5,28 @@
  * even though no real email goes out.
  *
  * Two testing strategies, matched to what's calendar-dependent vs not:
- *   - The MONTHLY-subset scenarios drive the real HTTP endpoint, using
- *     whatever period `computeReportPeriod(new Date())` resolves to right
- *     now (imported directly so the fixtures and assertions always agree
- *     with the endpoint's own clock — no hardcoded "today").
- *   - The QUARTERLY-full scenario calls `runDevelopmentReports` directly
- *     with a synthetic PAST quarter (2019-Q1) rather than going through the
- *     HTTP endpoint's `computeReportPeriod(new Date())` — this exercises
- *     the exact same scan/build/send/dedupe pipeline the endpoint uses,
- *     without waiting for the calendar to actually land on a quarter-close
- *     month. See tests/unit/reports/development-reports-period.test.ts for
- *     exhaustive fixed-date coverage of WHICH branch fires when.
+ *   - The MONTHLY-subset regression scenarios drive the real HTTP endpoint
+ *     with an explicit `?period=YYYY-MM` override (F2's ops-recovery
+ *     parameter — see resolveOverridePeriod's docstring in
+ *     src/lib/reports/development-reports.ts) naming a synthetic PAST month
+ *     fixed at write time. This is what makes them run unconditionally
+ *     year-round instead of early-returning whenever
+ *     `computeReportPeriod(new Date())` happens to resolve to "quarterly"
+ *     for the 4 months/year that closes a quarter (F3 fix — those months
+ *     used to get ZERO coverage of the F1 opt-out and no-guardian
+ *     regressions below). One plain HTTP smoke test (no override) is kept
+ *     to prove the real "now"-driven path still works end to end; it may
+ *     skip on a quarter-close month since it isn't asserting anything
+ *     period-specific.
+ *   - The QUARTERLY-full scenarios call `runDevelopmentReports` directly
+ *     with a synthetic PAST quarter (2019-Q1 / 2018-Q1) rather than going
+ *     through the HTTP endpoint — this exercises the exact same
+ *     scan/build/send/dedupe pipeline the endpoint uses, without waiting
+ *     for the calendar to actually land on a quarter-close month.
+ * See tests/unit/reports/development-reports-period.test.ts for exhaustive
+ * fixed-date coverage of WHICH branch fires when, and
+ * tests/unit/reports/development-reports-period-override.test.ts for
+ * resolveOverridePeriod's own shape/future-rejection unit coverage.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { asc, eq, inArray, and } from "drizzle-orm";
@@ -32,6 +43,7 @@ import {
   computeReportPeriod,
   emailTypeForPeriod,
   runDevelopmentReports,
+  type MonthlyReportPeriod,
   type QuarterlyReportPeriod,
 } from "@/lib/reports/development-reports";
 import { createTestChild } from "../../utils/classes-helpers";
@@ -131,17 +143,33 @@ describe("Cron: send development reports", () => {
     expect(json.description).toContain("development-report");
   });
 
-  describe("monthly subset — the live cron's real just-closed period", () => {
-    it("sends once per (child, guardian) for a child with an assessment this period, then skips on re-run", async () => {
-      const db = getDb();
+  describe("monthly subset — synthetic past month via ?period= override (F3: year-round coverage)", () => {
+    it("HTTP smoke: the live cron's real just-closed period responds 200 (may skip on a quarter-close month)", async () => {
       const period = computeReportPeriod(new Date());
       if (period.kind !== "monthly") {
         // The live calendar happens to be on a quarter-close month right
-        // now — the monthly branch isn't reachable via the real endpoint
-        // today. Covered exhaustively for all months by the unit suite;
-        // skip this specific live-monthly assertion rather than fail.
+        // now — this specific plain-path smoke isn't meaningful today
+        // (nothing period-specific is asserted here; the regressions below
+        // run unconditionally via the ?period= override instead).
         return;
       }
+      const res = await apiFetch(`${ENDPOINT}?dryRun=1`, {
+        method: "POST",
+        headers: { "x-cron-secret": CRON_SECRET },
+      });
+      const json = await expectJson(res, 200);
+      expect(json.period.kind).toBe("monthly");
+    });
+
+    it("sends once per (child, guardian) for a child with an assessment this period, then skips on re-run", async () => {
+      const db = getDb();
+      const period: MonthlyReportPeriod = {
+        kind: "monthly",
+        periodKey: "2019-01",
+        label: "January 2019",
+        start: new Date("2019-01-01T00:00:00.000Z"),
+        end: new Date("2019-02-01T00:00:00.000Z"),
+      };
 
       const familyMemberId = await createTestChild(parentUserId, `DevReportMonthly-${Date.now()}`);
       createdFamilyMemberIds.push(familyMemberId);
@@ -173,7 +201,7 @@ describe("Cron: send development reports", () => {
         );
       }
 
-      const first = await apiFetch(ENDPOINT, {
+      const first = await apiFetch(`${ENDPOINT}?period=${period.periodKey}`, {
         method: "POST",
         headers: { "x-cron-secret": CRON_SECRET },
       });
@@ -183,7 +211,7 @@ describe("Cron: send development reports", () => {
       expect(logsAfterFirst.length).toBe(1);
       expect(logsAfterFirst[0].status === "sent" || logsAfterFirst[0].status === "skipped").toBe(true);
 
-      const second = await apiFetch(ENDPOINT, {
+      const second = await apiFetch(`${ENDPOINT}?period=${period.periodKey}`, {
         method: "POST",
         headers: { "x-cron-secret": CRON_SECRET },
       });
@@ -194,14 +222,19 @@ describe("Cron: send development reports", () => {
     });
 
     it("a child with zero assessments/notes this period is not counted as a candidate", async () => {
-      const period = computeReportPeriod(new Date());
-      if (period.kind !== "monthly") return;
+      const period: MonthlyReportPeriod = {
+        kind: "monthly",
+        periodKey: "2019-02",
+        label: "February 2019",
+        start: new Date("2019-02-01T00:00:00.000Z"),
+        end: new Date("2019-03-01T00:00:00.000Z"),
+      };
 
       const db = getDb();
       const familyMemberId = await createTestChild(parentUserId, `DevReportNoActivity-${Date.now()}`);
       createdFamilyMemberIds.push(familyMemberId);
 
-      const dryRunRes = await apiFetch(`${ENDPOINT}?dryRun=1`, {
+      const dryRunRes = await apiFetch(`${ENDPOINT}?dryRun=1&period=${period.periodKey}`, {
         method: "POST",
         headers: { "x-cron-secret": CRON_SECRET },
       });
@@ -222,8 +255,13 @@ describe("Cron: send development reports", () => {
     });
 
     it("a candidate with zero resolvable guardians still logs a skipped breadcrumb (F2 regression)", async () => {
-      const period = computeReportPeriod(new Date());
-      if (period.kind !== "monthly") return;
+      const period: MonthlyReportPeriod = {
+        kind: "monthly",
+        periodKey: "2019-03",
+        label: "March 2019",
+        start: new Date("2019-03-01T00:00:00.000Z"),
+        end: new Date("2019-04-01T00:00:00.000Z"),
+      };
 
       const db = getDb();
 
@@ -262,7 +300,7 @@ describe("Cron: send development reports", () => {
 
       // Confirm the scan actually picks this candidate up (otherwise the
       // rest of this test would trivially pass for the wrong reason).
-      const dryRunRes = await apiFetch(`${ENDPOINT}?dryRun=1`, {
+      const dryRunRes = await apiFetch(`${ENDPOINT}?dryRun=1&period=${period.periodKey}`, {
         method: "POST",
         headers: { "x-cron-secret": CRON_SECRET },
       });
@@ -270,7 +308,7 @@ describe("Cron: send development reports", () => {
       const candidateIds = dryRunJson.candidates.map((c: { familyMemberId: string }) => c.familyMemberId);
       expect(candidateIds).toContain(familyMemberId);
 
-      const res = await apiFetch(ENDPOINT, {
+      const res = await apiFetch(`${ENDPOINT}?period=${period.periodKey}`, {
         method: "POST",
         headers: { "x-cron-secret": CRON_SECRET },
       });
@@ -293,8 +331,13 @@ describe("Cron: send development reports", () => {
     });
 
     it("dryRun=1 sends nothing (candidate present but no new email_logs row)", async () => {
-      const period = computeReportPeriod(new Date());
-      if (period.kind !== "monthly") return;
+      const period: MonthlyReportPeriod = {
+        kind: "monthly",
+        periodKey: "2019-04",
+        label: "April 2019",
+        start: new Date("2019-04-01T00:00:00.000Z"),
+        end: new Date("2019-05-01T00:00:00.000Z"),
+      };
 
       const db = getDb();
       const familyMemberId = await createTestChild(parentUserId, `DevReportDryRun-${Date.now()}`);
@@ -311,7 +354,7 @@ describe("Cron: send development reports", () => {
       });
       await recomputePlayerSnapshots(db, familyMemberId, assessedAt);
 
-      const dryRunRes = await apiFetch(`${ENDPOINT}?dryRun=1`, {
+      const dryRunRes = await apiFetch(`${ENDPOINT}?dryRun=1&period=${period.periodKey}`, {
         method: "POST",
         headers: { "x-cron-secret": CRON_SECRET },
       });
@@ -329,7 +372,7 @@ describe("Cron: send development reports", () => {
       // Now run for real — proves the candidate WOULD have sent (pairs with
       // the dry run above to show dryRun genuinely changed nothing but the
       // send step).
-      const liveRes = await apiFetch(ENDPOINT, {
+      const liveRes = await apiFetch(`${ENDPOINT}?period=${period.periodKey}`, {
         method: "POST",
         headers: { "x-cron-secret": CRON_SECRET },
       });
@@ -342,8 +385,13 @@ describe("Cron: send development reports", () => {
     });
 
     it("a failed prior send is retried on the next run (anti-dedupe excludes status='failed')", async () => {
-      const period = computeReportPeriod(new Date());
-      if (period.kind !== "monthly") return;
+      const period: MonthlyReportPeriod = {
+        kind: "monthly",
+        periodKey: "2019-05",
+        label: "May 2019",
+        start: new Date("2019-05-01T00:00:00.000Z"),
+        end: new Date("2019-06-01T00:00:00.000Z"),
+      };
 
       const db = getDb();
       const familyMemberId = await createTestChild(parentUserId, `DevReportRetry-${Date.now()}`);
@@ -375,7 +423,7 @@ describe("Cron: send development reports", () => {
         metadata: { familyMemberId, parentUserId },
       });
 
-      const res = await apiFetch(ENDPOINT, {
+      const res = await apiFetch(`${ENDPOINT}?period=${period.periodKey}`, {
         method: "POST",
         headers: { "x-cron-secret": CRON_SECRET },
       });
@@ -395,8 +443,13 @@ describe("Cron: send development reports", () => {
     });
 
     it("multiple guardians of the same child each get their own email", async () => {
-      const period = computeReportPeriod(new Date());
-      if (period.kind !== "monthly") return;
+      const period: MonthlyReportPeriod = {
+        kind: "monthly",
+        periodKey: "2019-06",
+        label: "June 2019",
+        start: new Date("2019-06-01T00:00:00.000Z"),
+        end: new Date("2019-07-01T00:00:00.000Z"),
+      };
 
       const db = getDb();
       const [coParent] = await db
@@ -428,7 +481,7 @@ describe("Cron: send development reports", () => {
       });
       await recomputePlayerSnapshots(db, familyMemberId, assessedAt);
 
-      const res = await apiFetch(ENDPOINT, {
+      const res = await apiFetch(`${ENDPOINT}?period=${period.periodKey}`, {
         method: "POST",
         headers: { "x-cron-secret": CRON_SECRET },
       });
@@ -449,8 +502,13 @@ describe("Cron: send development reports", () => {
     });
 
     it("an opted-out linked guardian (canReceiveMessages=false) never gets emailed (F1 regression)", async () => {
-      const period = computeReportPeriod(new Date());
-      if (period.kind !== "monthly") return;
+      const period: MonthlyReportPeriod = {
+        kind: "monthly",
+        periodKey: "2019-07",
+        label: "July 2019",
+        start: new Date("2019-07-01T00:00:00.000Z"),
+        end: new Date("2019-08-01T00:00:00.000Z"),
+      };
 
       const db = getDb();
       const [coParent] = await db
@@ -489,7 +547,7 @@ describe("Cron: send development reports", () => {
       });
       await recomputePlayerSnapshots(db, familyMemberId, assessedAt);
 
-      const res = await apiFetch(ENDPOINT, {
+      const res = await apiFetch(`${ENDPOINT}?period=${period.periodKey}`, {
         method: "POST",
         headers: { "x-cron-secret": CRON_SECRET },
       });
@@ -507,6 +565,36 @@ describe("Cron: send development reports", () => {
       expect(recipientEmails.has("parent@test.aspiresports.com")).toBe(true);
       expect(recipientEmails.has("familyonly@test.aspiresports.com")).toBe(false);
       expect(forThisChild.length).toBe(1);
+    });
+  });
+
+  describe("?period= override (F2 ops recovery)", () => {
+    it("rejects a malformed ?period= shape with 422", async () => {
+      const res = await apiFetch(`${ENDPOINT}?period=not-a-period`, {
+        method: "POST",
+        headers: { "x-cron-secret": CRON_SECRET },
+      });
+      expect(res.status).toBe(422);
+      const json = await res.json();
+      expect(typeof json.error).toBe("string");
+    });
+
+    it("rejects a not-yet-closed (future) ?period= with 422", async () => {
+      const res = await apiFetch(`${ENDPOINT}?period=2099-01`, {
+        method: "POST",
+        headers: { "x-cron-secret": CRON_SECRET },
+      });
+      expect(res.status).toBe(422);
+      const json = await res.json();
+      expect(typeof json.error).toBe("string");
+    });
+
+    it("rejects a not-yet-closed (future) quarterly ?period= with 422", async () => {
+      const res = await apiFetch(`${ENDPOINT}?period=2099-Q1`, {
+        method: "POST",
+        headers: { "x-cron-secret": CRON_SECRET },
+      });
+      expect(res.status).toBe(422);
     });
   });
 

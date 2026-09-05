@@ -18,8 +18,9 @@
  * (unlike "whatever the org's configured timezone happens to be").
  */
 
-const MONTH_KEY_RE = /^(\d{4})-(\d{2})$/;
-const QUARTER_KEY_RE = /^(\d{4})-Q([1-4])$/;
+/** Exported so callers (e.g. the development-reports `?period=` override) can validate shape without duplicating the pattern. */
+export const MONTH_KEY_RE = /^(\d{4})-(\d{2})$/;
+export const QUARTER_KEY_RE = /^(\d{4})-Q([1-4])$/;
 
 /** `YYYY-MM` for the UTC calendar month containing `date`. */
 export function periodKeyFor(date: Date): string {

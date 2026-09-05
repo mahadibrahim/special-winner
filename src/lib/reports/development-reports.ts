@@ -26,14 +26,21 @@
  * GUARDIANS: mirrors src/pages/api/family/coach-notes.ts's guardian
  * resolution, inverted (child -> parents instead of parent -> children):
  * the primary guardian (`familyMembers.parentUserId`) UNION any additional
- * linked guardians (`family_member_parents.parentUserId`). A self-registered
- * adult (`familyMembers.selfUserId`) has no separate guardian to notify —
- * `selfUserId` rows never qualify here since nothing in the scan queries a
- * `self_user_id` anywhere near families of interest, and there's no
- * "development report for yourself" surface for a bare self row that has no
- * dependents. If `resolveGuardians` returns zero guardians (a data
- * anomaly — every family_members dependent row should have a parentUserId),
- * the candidate is counted as skipped rather than thrown.
+ * linked guardians (`family_member_parents.parentUserId`). SELF-REGISTERED
+ * ADULTS (`familyMembers.selfUserId` set, `parentUserId` null): the scan
+ * above has no parent/self filter, so a self row WITH qualifying activity
+ * DOES show up as a candidate — `resolveGuardians` then correctly finds
+ * zero guardians for it (there's no separate guardian to notify, and no
+ * `self_user_id` lookup path here at all), and the candidate is counted as
+ * `skipped` with a `no_guardian` breadcrumb (see below) rather than
+ * silently dropped. This is the same skip path a data anomaly on a
+ * dependent row would hit, so it's indistinguishable from one in the
+ * counters/logs today. Whether a self-registered adult should instead
+ * receive their OWN development report is an open scope question, tracked
+ * as a follow-up ticket filed alongside this PR — not addressed here. If
+ * `resolveGuardians` returns zero guardians for a genuine dependent row (a
+ * data anomaly — every family_members dependent row should have a
+ * parentUserId), the same skip path applies.
  */
 import { and, asc, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import { getDb } from "@/lib/db";
@@ -48,6 +55,8 @@ import {
 import { assessmentSnapshots } from "@/lib/db/schema/assessments";
 import { familyMemberParents } from "@/lib/db/schema/family-member-parents";
 import {
+  MONTH_KEY_RE,
+  QUARTER_KEY_RE,
   monthsOfQuarter,
   periodKeyFor,
   previousPeriod,
@@ -145,6 +154,76 @@ export function computeReportPeriod(now: Date): ReportPeriod {
     start,
     end,
   };
+}
+
+/** Thrown by `resolveOverridePeriod` on a malformed or not-yet-closed `?period=` value — the route maps this to a 422. */
+export class InvalidPeriodOverrideError extends Error {}
+
+/**
+ * Ops recovery path (F2): resolve an explicit `?period=YYYY-MM` /
+ * `?period=YYYY-Qn` override into the exact same `ReportPeriod` shape
+ * `computeReportPeriod` would produce for that period — so
+ * `runDevelopmentReports` runs identically regardless of which path
+ * supplied the period, and the existing per-(child, guardian, period)
+ * dedupe in `sendDevReportMonthly`/`sendDevReportQuarterly` makes re-POSTing
+ * the same override idempotent.
+ *
+ * RECOVERY MODEL: a failed run is naturally recoverable by re-POSTing
+ * WITHIN the same month — `computeReportPeriod(new Date())` still resolves
+ * to the same just-closed period, and dedupe skips whatever already sent.
+ * Once the month rolls, `computeReportPeriod(new Date())` moves on to the
+ * next period and the missed one becomes unreachable via the plain route —
+ * that's what this override exists to fix: explicitly name the missed
+ * period so the endpoint can compute its structures and run the identical
+ * scan/build/send/dedupe pipeline for it, no matter how long ago it closed.
+ *
+ * Only PAST (already-closed, as of `now`) periods are valid — a period
+ * whose covered range extends into or past `now` is rejected as "future"
+ * rather than run early with incomplete data.
+ */
+export function resolveOverridePeriod(periodParam: string, now: Date): ReportPeriod {
+  const monthMatch = MONTH_KEY_RE.exec(periodParam);
+  const quarterMatch = QUARTER_KEY_RE.exec(periodParam);
+
+  if (monthMatch) {
+    const year = Number(monthMatch[1]);
+    const month = Number(monthMatch[2]);
+    if (month < 1 || month > 12) {
+      throw new InvalidPeriodOverrideError(
+        `Invalid ?period= value "${periodParam}" — expected YYYY-MM or YYYY-Qn`,
+      );
+    }
+    const start = new Date(Date.UTC(year, month - 1, 1));
+    const end = new Date(Date.UTC(year, month, 1));
+    if (end > now) {
+      throw new InvalidPeriodOverrideError(`?period=${periodParam} has not closed yet (future period)`);
+    }
+    return { kind: "monthly", periodKey: periodParam, label: monthLabel(periodParam), start, end };
+  }
+
+  if (quarterMatch) {
+    const year = Number(quarterMatch[1]);
+    const quarterNum = Number(quarterMatch[2]);
+    const months = monthsOfQuarter(periodParam);
+    const [lastYear, lastMonth] = months[2].split("-").map(Number);
+    const start = new Date(Date.UTC(year, (quarterNum - 1) * 3, 1));
+    const end = new Date(Date.UTC(lastYear, lastMonth, 1));
+    if (end > now) {
+      throw new InvalidPeriodOverrideError(`?period=${periodParam} has not closed yet (future period)`);
+    }
+    return {
+      kind: "quarterly",
+      quarterKey: periodParam,
+      months,
+      label: `Q${quarterNum} ${year}`,
+      start,
+      end,
+    };
+  }
+
+  throw new InvalidPeriodOverrideError(
+    `Invalid ?period= value "${periodParam}" — expected YYYY-MM or YYYY-Qn`,
+  );
 }
 
 /** The `email_logs.email_type` this period's report is logged/deduped under. */

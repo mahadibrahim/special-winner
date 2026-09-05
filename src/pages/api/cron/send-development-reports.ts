@@ -18,9 +18,29 @@
  * `?dryRun=1` runs the scan and returns the candidate list without
  * resolving guardians, building report data, or sending anything — cheap
  * ops sanity-check before a live run.
+ *
+ * OPS RECOVERY MODEL (F2): the netlify scheduled function
+ * (netlify/functions/scheduled-development-reports.ts) doesn't retry on
+ * failure, and `computeReportPeriod(new Date())` always resolves relative
+ * to "right now" — so a failed run is naturally recoverable by re-POSTing
+ * WITHIN the same month (the period is still the same just-closed one, and
+ * per-(child, guardian, period) dedupe makes the retry idempotent). Once
+ * the month rolls, the plain route moves on to the NEXT period and the
+ * missed one becomes otherwise unreachable. `?period=YYYY-MM` /
+ * `?period=YYYY-Qn` names that missed period explicitly — see
+ * `resolveOverridePeriod`'s docstring for the exact resolution and
+ * validation rules (shape + "must already be closed" both reject with
+ * 422). Runs the identical scan/build/send/dedupe pipeline as the plain
+ * path, just against the named period instead of "now"'s.
  */
 import type { APIRoute } from "astro";
-import { computeReportPeriod, emailTypeForPeriod, runDevelopmentReports } from "@/lib/reports/development-reports";
+import {
+  computeReportPeriod,
+  emailTypeForPeriod,
+  InvalidPeriodOverrideError,
+  resolveOverridePeriod,
+  runDevelopmentReports,
+} from "@/lib/reports/development-reports";
 import { captureServerException } from "@/lib/observability/server-error";
 import { warmDbConnection } from "@/lib/db/retry";
 
@@ -52,11 +72,27 @@ export const POST: APIRoute = async ({ request, url }) => {
   if (authError) return authError;
 
   const dryRun = url.searchParams.get("dryRun") === "1";
+  const periodParam = url.searchParams.get("period");
+
+  let period;
+  if (periodParam) {
+    try {
+      period = resolveOverridePeriod(periodParam, new Date());
+    } catch (err) {
+      if (err instanceof InvalidPeriodOverrideError) {
+        return new Response(JSON.stringify({ error: err.message }), {
+          status: 422,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      throw err;
+    }
+  } else {
+    period = computeReportPeriod(new Date());
+  }
 
   try {
     await warmDbConnection();
-    const now = new Date();
-    const period = computeReportPeriod(now);
     const startedAt = Date.now();
     const result = await runDevelopmentReports(period, { dryRun });
     const elapsedMs = Date.now() - startedAt;
@@ -89,7 +125,7 @@ export const GET: APIRoute = async () =>
     JSON.stringify({
       description: "Monthly subset / quarterly full development-report cron endpoint",
       usage:
-        "POST with header x-cron-secret: $CRON_SECRET to email every qualifying child's guardians a development report for the just-closed period (monthly subset most months, quarterly full report on the four months that close a quarter). Add ?dryRun=1 to return the scanned candidates without sending. Per-child/guardian failures are isolated and counted rather than aborting the batch. Intended for scheduled callers only.",
+        "POST with header x-cron-secret: $CRON_SECRET to email every qualifying child's guardians a development report for the just-closed period (monthly subset most months, quarterly full report on the four months that close a quarter). Add ?dryRun=1 to return the scanned candidates without sending. Add ?period=YYYY-MM or ?period=YYYY-Qn to run for an explicit already-closed period instead of 'now' — ops recovery for a failed run after the month has rolled past it (within the same month, just re-POST with no override; dedupe makes the retry idempotent). Malformed or not-yet-closed period values return 422. Per-child/guardian failures are isolated and counted rather than aborting the batch. Intended for scheduled callers only.",
     }),
     { status: 200, headers: { "Content-Type": "application/json" } },
   );
