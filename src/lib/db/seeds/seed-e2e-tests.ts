@@ -2372,15 +2372,30 @@ async function seedE2ETests() {
         depositCents: 5000, // $50 deposit
         allowDeposit: true,
         maxParticipants: 20,
+        termSlug: "spring-2026",
+        termLabel: "Spring 2026",
+        skillLevel: "developmental",
       })
       .returning();
-  } else if (season.isTest) {
+  } else if (
+    season.isTest ||
+    season.termSlug !== "spring-2026" ||
+    season.termLabel !== "Spring 2026" ||
+    season.skillLevel !== "developmental"
+  ) {
     // isTest heal — same reasoning as the program block above, but the
     // SEASON row also carries its own is_test flag that the public seasons
-    // API checks independently of the program's.
+    // API checks independently of the program's. termSlug/termLabel/
+    // skillLevel healed alongside it (F8): rows created before those columns
+    // were seeded here would otherwise sit NULL forever on a re-run.
     [season] = await db
       .update(seasons)
-      .set({ isTest: false })
+      .set({
+        isTest: false,
+        termSlug: "spring-2026",
+        termLabel: "Spring 2026",
+        skillLevel: "developmental",
+      })
       .where(eq(seasons.id, season.id))
       .returning();
   }

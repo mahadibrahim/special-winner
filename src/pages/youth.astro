@@ -105,7 +105,7 @@ const HERO_IMAGE = "/images/stock/youth-training.jpg";
 
         <p class="text-sm text-on-ink-muted">
           Or browse by programme:
-          <a href="/youth/leagues" class="text-primary-bright underline underline-offset-2">Leagues</a>
+          <a href="/youth/leagues/soccer" class="text-primary-bright underline underline-offset-2">Leagues</a>
           ·
           <a href="/youth/classes" class="text-primary-bright underline underline-offset-2">Classes</a>
           ·
@@ -217,10 +217,12 @@ const HERO_IMAGE = "/images/stock/youth-training.jpg";
   import { track } from "@/lib/analytics/track";
 
   // Legacy age-band anchors (pre-Phase-2 bookmarks) → leagues category page.
+  // Points straight at soccer's term page now (F9) — /youth/leagues itself
+  // is just a redirect to the same destination, so this skips that extra hop.
   const anchorMap: Record<string, string> = {
-    "ages-4-8": "/youth/leagues",
-    "ages-9-12": "/youth/leagues",
-    "ages-13-18": "/youth/leagues",
+    "ages-4-8": "/youth/leagues/soccer",
+    "ages-9-12": "/youth/leagues/soccer",
+    "ages-13-18": "/youth/leagues/soccer",
   };
   const hash = location.hash.slice(1);
   if (Object.hasOwn(anchorMap, hash)) location.replace(anchorMap[hash]);
