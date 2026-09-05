@@ -10,7 +10,6 @@ export type LandingTerm = { slug: string; label: string; meta: string };
 type CurrentTerm = LandingTerm & { dateLine: string; divisions: number; venues: number };
 type UpcomingTerm = LandingTerm & { opensLabel: string };
 export type LandingOverview = {
-  kicker: string;
   headline: { before: string; em: string; after: string };
   intro: string;
   why: ValueProp[];
@@ -61,8 +60,6 @@ export function LandingTabs({ sport, basePath, overview, ruleSections, pastEmpty
           <>
             <div className="band-ink px-9 py-9">
               <div className="max-w-[1080px] mx-auto">
-                {/* overview.kicker is no longer rendered — the no-eyebrow rule
-                    bans the tracked line above the headline. */}
                 <h2 className="text-3xl md:text-[34px] mb-1 max-w-[620px]">{overview.headline.before}<em style={{ color: ORANGE }}>{overview.headline.em}</em>{overview.headline.after}</h2>
                 <p className="text-cream/85 max-w-[560px] text-[15px] mb-6">{overview.intro}</p>
                 <div className="grid md:grid-cols-3 gap-3.5">
