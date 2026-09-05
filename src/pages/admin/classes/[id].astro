@@ -9,6 +9,8 @@ import { locations } from '@/lib/db/schema/organizations';
 import { and, asc, eq } from 'drizzle-orm';
 import TemplateForm from '@/components/admin/classes/template-form';
 import TemplateRoster from '@/components/admin/classes/template-roster';
+import TemplateStaffing from '@/components/admin/classes/template-staffing';
+import { getOrgCoachCandidates } from '@/lib/admin/coach-candidates';
 
 export const prerender = false;
 
@@ -37,6 +39,8 @@ const venueRows = await getDb()
   .innerJoin(locations, eq(locations.id, venues.locationId))
   .where(eq(locations.organizationId, orgId))
   .orderBy(asc(venues.name));
+
+const coachCandidates = await getOrgCoachCandidates(orgId);
 ---
 
 <BaseLayout title={`Edit ${template.name} — Admin — Aspire Sports`} navigation={false} footer={false}>
@@ -48,6 +52,7 @@ const venueRows = await getDb()
   >
     <div class="space-y-8">
       <TemplateForm client:load template={template} venues={venueRows} />
+      <TemplateStaffing client:load templateId={template.id} candidates={coachCandidates} />
       <TemplateRoster client:load templateId={template.id} />
     </div>
   </AdminLayout>
