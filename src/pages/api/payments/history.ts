@@ -8,6 +8,8 @@ import {
   programs,
   sports,
   teamRegistrations,
+  memberships,
+  membershipTiers,
 } from "@/lib/db/schema";
 import { eq, desc, sql } from "drizzle-orm";
 
@@ -23,7 +25,7 @@ export const GET: APIRoute = async ({ locals }) => {
 
     const db = getDb();
 
-    const userPayments = await getDb()
+    const userPayments = await db
       .select({
         payment: payments,
         registration: registrations,
@@ -32,23 +34,39 @@ export const GET: APIRoute = async ({ locals }) => {
         program: programs,
         sport: sports,
         team: teamRegistrations,
+        membership: memberships,
+        membershipTier: membershipTiers,
       })
       .from(payments)
-      // A payment is tied to a solo registration OR a team registration
-      // (captain deposit / backstop balance — #525). Both resolve a season
-      // via COALESCE; the inner seasons join keeps orphaned rows out.
+      // A payment is tied to a solo registration, a team registration
+      // (captain deposit / backstop balance — #525), OR a class-membership
+      // subscription invoice (paymentType "membership", no registration at
+      // all — see src/lib/memberships/invoice-ledger.ts's handleInvoicePaid).
+      // The season/program/sport chain only exists for the first two, so
+      // EVERY join below is a LEFT join: an INNER join on seasons silently
+      // dropped every membership payment row (F1 finding), because
+      // COALESCE(registrations.seasonId, teamRegistrations.seasonId) is NULL
+      // for a membership-only payment.
       .leftJoin(registrations, eq(payments.registrationId, registrations.id))
       .leftJoin(
         teamRegistrations,
         eq(payments.teamRegistrationId, teamRegistrations.id),
       )
-      .leftJoin(familyMembers, eq(registrations.familyMemberId, familyMembers.id))
-      .innerJoin(
+      .leftJoin(memberships, eq(payments.membershipId, memberships.id))
+      .leftJoin(membershipTiers, eq(memberships.tierId, membershipTiers.id))
+      // familyMember resolves off whichever side actually has one: a solo
+      // registration's familyMemberId, or (for membership rows, which carry
+      // no registration) the membership's own familyMemberId.
+      .leftJoin(
+        familyMembers,
+        sql`${familyMembers.id} = COALESCE(${registrations.familyMemberId}, ${memberships.familyMemberId})`,
+      )
+      .leftJoin(
         seasons,
         sql`${seasons.id} = COALESCE(${registrations.seasonId}, ${teamRegistrations.seasonId})`,
       )
-      .innerJoin(programs, eq(seasons.programId, programs.id))
-      .innerJoin(sports, eq(programs.sportId, sports.id))
+      .leftJoin(programs, eq(seasons.programId, programs.id))
+      .leftJoin(sports, eq(programs.sportId, sports.id))
       .where(eq(payments.userId, user.id))
       .orderBy(desc(payments.createdAt));
 
@@ -67,17 +85,23 @@ export const GET: APIRoute = async ({ locals }) => {
           }
         : null,
       team: p.team ? { name: p.team.teamName } : null,
-      season: {
-        name: p.season.name,
-      },
-      program: {
-        name: p.program.name,
-      },
-      sport: {
-        name: p.sport.name,
-        icon: p.sport.icon,
-        color: p.sport.color,
-      },
+      // Null for class-membership subscription charges (invoice.paid rows —
+      // no registration, so no season/program/sport chain). Consumers must
+      // treat this as optional and fall back to `membership.tierName` below.
+      season: p.season ? { name: p.season.name } : null,
+      program: p.program ? { name: p.program.name } : null,
+      sport: p.sport
+        ? {
+            name: p.sport.name,
+            icon: p.sport.icon,
+            color: p.sport.color,
+          }
+        : null,
+      // Present for membership-subscription rows (paymentType "membership").
+      // Still nullable even then: `payments.membershipId` is ON DELETE SET
+      // NULL, so a since-deleted membership leaves this null on an
+      // otherwise-untouched historical payment row.
+      membership: p.membershipTier ? { tierName: p.membershipTier.name } : null,
     }));
 
     return new Response(JSON.stringify({ payments: formatted }), {

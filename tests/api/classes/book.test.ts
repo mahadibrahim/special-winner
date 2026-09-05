@@ -623,4 +623,42 @@ describe("POST /api/classes/bookings/:id/cancel", () => {
     const body = await cancelRes.json();
     expect(body.error).toBe("inside_cutoff");
   });
+
+  it("GET /api/dropin/bookings includes familyMemberId on child bookings", async () => {
+    const suffix = `${Date.now()}-list-check`;
+    const childId = await createTestChild(parentUserId, `ListCheckChild-${suffix}`);
+    await createTestChildMembership({
+      userId: parentUserId,
+      familyMemberId: childId,
+      organizationId,
+      tierId,
+      idSuffix: suffix,
+    });
+    const sessionId = await createClassSession(hoursFromNow(5 * 24));
+
+    // Book the child
+    const bookRes = await apiFetch("/api/classes/book", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({
+        sessionId,
+        familyMemberId: childId,
+        kind: "member",
+        waiver: CLASS_TEST_WAIVER,
+      }),
+    });
+    expect(bookRes.status).toBe(200);
+    const { bookingId } = await bookRes.json();
+
+    // Fetch bookings list and expect familyMemberId on the matching booking
+    const listRes = await apiFetch("/api/dropin/bookings", {
+      method: "GET",
+      cookie,
+    });
+    expect(listRes.status).toBe(200);
+    const listBody = await listRes.json();
+    const booking = listBody.bookings.find((b: any) => b.id === bookingId);
+    expect(booking).toBeDefined();
+    expect(booking.familyMemberId).toBe(childId);
+  });
 });

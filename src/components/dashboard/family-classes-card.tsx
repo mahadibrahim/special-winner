@@ -15,6 +15,9 @@ import { DashboardCard } from "@/components/dashboard/shell/DashboardCard"
 import type { StatusTone } from "@/lib/dashboard/dashboard-ui"
 import { DROPIN_WAIVER_TEXT } from "@/lib/dropin/waiver-text"
 import { waiverAssentSentence } from "@/lib/consents/waiver-consent-language"
+import { useConfirmDialog } from "@/components/ui/confirm-dialog"
+import { formatCents } from "@/lib/classes/ladder-model"
+import { formatDayTime, allotmentLabel } from "@/lib/dashboard/class-slot-format"
 
 /**
  * Family dashboard — per-child class membership card (Task 7 of the youth
@@ -24,11 +27,15 @@ import { waiverAssentSentence } from "@/lib/consents/waiver-consent-language"
  * Fetches `/api/classes/summary` once and renders one `DashboardCard` per
  * child who holds a class membership, has active pack/block credits
  * (`credits`, Task 12 — the class-purchase-ladder's non-membership rungs),
- * OR has used their org trial (`trialUsed`). Children with none of the
- * three render nothing — `ChildrenOverview` already covers the plain "no
- * classes yet" case, so duplicating that here would be noise. The whole
- * component renders `null` when zero children qualify (no empty section, no
- * dangling heading).
+ * has used their org trial (`trialUsed`), OR holds a standing `enrollment`
+ * (Task 5, issue #601 F6: the TAIL of a credit-backed block — the backing
+ * grant's last purchased session is already booked, so `credits` filters it
+ * to `[]` even though the enrollment is still active until that session
+ * happens; without this the child rendered no card at all and no way to end
+ * it). Children with none of the four render nothing — `ChildrenOverview`
+ * already covers the plain "no classes yet" case, so duplicating that here
+ * would be noise. The whole component renders `null` when zero children
+ * qualify (no empty section, no dangling heading).
  *
  * CREDITS: every qualifying child's card also shows its active credit
  * grants inline (`CreditLines`) — a MEMBER can be sitting on leftover pack/
@@ -73,12 +80,14 @@ import { waiverAssentSentence } from "@/lib/consents/waiver-consent-language"
  * line if they don't. The params are stripped via `history.replaceState` so a
  * refresh never re-triggers the ladder.
  *
- * Field note: the summary endpoint (src/pages/api/classes/summary.ts) does
- * NOT expose a membership renewal/period-end date or the org's cancellation
- * cutoff window — both were checked against the actual route rather than
- * assumed. Renewal date is simply not rendered (nothing to show); the
- * cancel confirm below uses generic "before the cancellation window" copy
- * per the task brief rather than inventing a number.
+ * Field note (superseded — kept for history): this used to say the summary
+ * endpoint exposed neither a membership renewal date nor the org's real
+ * cancellation cutoff window, so the cancel confirm used generic "before the
+ * cancellation window" copy. Both gaps are closed now: the endpoint returns
+ * top-level `cancelWindowHours` and per-child `upcomingSessions`, so the
+ * per-session cancel confirm below (`useConfirmDialog`, not `window.confirm`)
+ * quotes the real number, and every upcoming session — not just the single
+ * soonest one — gets its own list row and cancel action.
  *
  * Two actions live in a modal (`MakeUpModal`) or delegate to an existing
  * page (`Change home slot` → the Task-3/4 choose-slot page, which already
@@ -96,6 +105,12 @@ interface SummaryMembership {
   tierName: string
   status: "active" | "paused" | "past_due" | "incomplete"
   classAllotmentRemaining: number | "unlimited"
+  /** The tier's monthly technical-band supplement, in cents — null/undefined
+   *  when the tier has none configured. Surfaced so the make-up modal's
+   *  `technical_not_included` upsell (see MakeUpModal below) can quote the
+   *  real price without a second round trip; `POST /api/classes/book`'s 409
+   *  body carries no price of its own (src/pages/api/classes/book.ts). */
+  technicalMonthlyCents?: number | null
 }
 
 interface SummaryEnrollment {
@@ -118,6 +133,18 @@ interface SummaryNextSession {
   bookingId: string
 }
 
+/** One row of `child.upcomingSessions` — every confirmed future class
+ *  booking for the child, soonest-first, capped at 10 server-side (Task 1's
+ *  widening of `GET /api/classes/summary`). Same shape as
+ *  `SummaryNextSession`, kept as its own named type since the two now serve
+ *  different call sites (the list below vs. the make-up modal's "exclude the
+ *  next session" filter, which still reads `child.nextSession` alone). */
+interface SummaryUpcomingSession {
+  sessionId: string
+  bookingId: string
+  startsAt: string
+}
+
 interface SummaryCredit {
   /** "comp" = admin-issued goodwill credits; they render exactly like pack
    *  credits, with the label the API supplies. */
@@ -133,6 +160,12 @@ interface SummaryChild {
   membership: SummaryMembership | null
   enrollment: SummaryEnrollment | null
   nextSession: SummaryNextSession | null
+  /** Every confirmed future class booking, soonest-first (max 10) — the
+   *  source for the upcoming-sessions list rendered below. `nextSession`
+   *  above always equals `upcomingSessions[0]` when non-empty; kept as a
+   *  separate field because the make-up modal's eligibility filter only
+   *  needs the single soonest one. */
+  upcomingSessions: SummaryUpcomingSession[]
   trialUsed: boolean
   credits: SummaryCredit[]
   /** Annual validity, not "has ever signed" — a signature older than the
@@ -190,18 +223,13 @@ interface MembershipTier {
 // files that may pull in server-only dependencies.
 // ---------------------------------------------------------------------------
 
-const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-
-function formatDayTime(weekday: number, startTime: string): string {
-  const day = WEEKDAY_NAMES[weekday] ?? `Day ${weekday}`
-  const [hourStr, minuteStr] = startTime.slice(0, 5).split(":")
-  const hour = Number(hourStr)
-  const minute = Number(minuteStr)
-  if (Number.isNaN(hour) || Number.isNaN(minute)) return `${day} ${startTime.slice(0, 5)}`
-  const period = hour >= 12 ? "PM" : "AM"
-  const hour12 = hour % 12 === 0 ? 12 : hour % 12
-  return `${day} ${hour12}:${String(minute).padStart(2, "0")} ${period}`
-}
+// formatDayTime and allotmentLabel are imported from
+// @/lib/dashboard/class-slot-format — the documented exception to this
+// file's "duplicate small pure helpers per island" convention (see that
+// module's header comment): child-profile-data.ts (Task 11) needs the exact
+// same allotment-string logic and a long-form weekday variant, and it is a
+// pure test target that must not pull in this island's Dialog/sonner
+// imports through a same-file import.
 
 function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
@@ -292,9 +320,124 @@ function CreditLines({ credits }: { credits: SummaryCredit[] }) {
   )
 }
 
-/** Amber "sign the waiver first" nudge — shown when a child has spendable
- *  credits but no waiver inside the annual window. Clicking it opens the same
- *  make-up modal `onOpen` opens for the "Book a session" CTA: the modal's own
+/**
+ * Every upcoming booked session for a child, each with its own cancel
+ * button (testids `upcoming-session-row` / `cancel-session`) — shared
+ * between `MembershipChildCard` and `CreditChildCard` (F4, final-review
+ * wave). A comp-credit/pack/block child can book sessions exactly like a
+ * membership child (both go through the same `MakeUpModal` /
+ * `POST /api/classes/book`), so they need the same visibility into what's
+ * booked and the same ability to cancel a single row — this used to exist
+ * only on the membership card, leaving credit-only families with no way to
+ * see or cancel a booked session short of the destructive "End enrollment"
+ * button. The list is pure rendering; both callers own their own
+ * cancel-in-flight state and pass it in via `cancellingBookingId`/`onCancel`
+ * so neither card's booking logic has to live here.
+ */
+function UpcomingSessionsList({
+  sessions,
+  cancellingBookingId,
+  onCancel,
+}: {
+  sessions: SummaryUpcomingSession[]
+  cancellingBookingId: string | null
+  onCancel: (bookingId: string, startsAt: string) => void
+}) {
+  if (sessions.length === 0) return null
+  return (
+    <ul className="space-y-0.5">
+      {sessions.map((session) => (
+        <li
+          key={session.sessionId}
+          data-testid="upcoming-session-row"
+          className="flex items-center justify-between gap-2 text-xs text-ink-2"
+        >
+          <span>{formatDateTime(session.startsAt)}</span>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            disabled={cancellingBookingId === session.bookingId}
+            onClick={() => onCancel(session.bookingId, session.startsAt)}
+            data-testid="cancel-session"
+            className="h-auto px-2 py-0.5 text-xs"
+          >
+            {cancellingBookingId === session.bookingId ? "Cancelling…" : "Cancel"}
+          </Button>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+/**
+ * Shared per-session cancel plumbing behind `UpcomingSessionsList` — same
+ * confirm-then-POST-then-toast flow for both card variants (F4). Pulled out
+ * of `MembershipChildCard` so `CreditChildCard` doesn't duplicate it.
+ *
+ * The confirm dialog now names WHICH class is being cancelled (F2,
+ * final-review wave): it used to say only "Cancelling less than N hours
+ * before start forfeits the session," with no date, so a parent cancelling
+ * the wrong row out of several upcoming sessions had no way to double-check
+ * from the dialog alone.
+ */
+function useSessionCancel(
+  childName: string,
+  cancelWindowHours: number,
+  onChanged: () => void,
+) {
+  const [cancellingBookingId, setCancellingBookingId] = useState<string | null>(null)
+  const { confirm: confirmCancel, dialog: cancelDialog } = useConfirmDialog()
+
+  async function handleCancel(bookingId: string, startsAt: string) {
+    const confirmed = await confirmCancel({
+      title: "Cancel this class?",
+      description: `This cancels ${childName}'s class on ${formatDateTime(startsAt)}. Cancelling less than ${cancelWindowHours} hours before start forfeits the session.`,
+      confirmLabel: "Cancel this class",
+      destructive: true,
+    })
+    if (!confirmed) return
+
+    setCancellingBookingId(bookingId)
+    try {
+      const res = await fetch(`/api/classes/bookings/${bookingId}/cancel`, { method: "POST" })
+      const body = await parseJson(res)
+      if (!res.ok) {
+        if (body.error === "inside_cutoff") {
+          toast.error("Too close to class time to cancel — you're inside the cancellation window.")
+        } else {
+          toast.error(
+            typeof body.message === "string" ? body.message : "Could not cancel — please try again.",
+          )
+        }
+        return
+      }
+      if (body.creditFreed) {
+        toast.success("Cancelled — the class credit was freed.")
+      } else if (body.refunded) {
+        toast.success("Cancelled — refund issued.")
+      } else {
+        toast.success("Cancelled.")
+      }
+      onChanged()
+    } catch {
+      toast.error("Network error — please try again.")
+    } finally {
+      setCancellingBookingId(null)
+    }
+  }
+
+  return { cancellingBookingId, handleCancel, cancelDialog }
+}
+
+/** Amber "sign the waiver first" nudge — shown for `CreditChildCard` whenever
+ *  a child has spendable credits but no waiver inside the annual window, and
+ *  for `MembershipChildCard` whenever the child has a membership or home-slot
+ *  enrollment but no waiver inside the annual window (Task 3: previously
+ *  gated on credits there too, so a membership child sitting on zero leftover
+ *  pack/block credits got no warning until a real booking 422s
+ *  `waiver_required`). Clicking it opens the same make-up modal `onOpen`
+ *  opens for the "Book a session"/"Book a make-up" CTA: the modal's own
  *  booking attempt is what actually surfaces the waiver step (see
  *  MakeUpModal's `waiver_required` handling), so this nudge doesn't need to
  *  engineer a special modal entry state — it just explains what's about to
@@ -308,6 +451,7 @@ function WaiverNudge({ onOpen }: { onOpen: () => void }) {
   return (
     <button
       type="button"
+      data-testid="waiver-attention"
       onClick={onOpen}
       className="block text-left text-xs font-medium text-amber-800 bg-amber-50/80 border border-amber-200 rounded-lg px-2.5 py-1.5 hover:bg-amber-100/80"
     >
@@ -342,6 +486,7 @@ function EndEnrollmentButton({
   onChanged: () => void
 }) {
   const [ending, setEnding] = useState(false)
+  const { confirm, dialog } = useConfirmDialog()
   const enrollment = child.enrollment
   if (!enrollment) return null
 
@@ -355,11 +500,15 @@ function EndEnrollmentButton({
     // `releaseFutureEnrollmentSeats`), so a flat "any classes already booked
     // are cancelled" would tell a family their paid session is gone when it
     // is still theirs to attend.
-    const confirmed = window.confirm(
-      `End ${child.name}'s enrollment in ${enrollment.templateName}? Their weekly spot is ` +
+    const confirmed = await confirm({
+      title: "End this enrollment?",
+      description:
+        `End ${child.name}'s enrollment in ${enrollment.templateName}? Their weekly spot is ` +
         `released and any classes already booked on it with your membership or block ` +
         `credits are cancelled — classes you paid for separately are unaffected.${creditsLine}`,
-    )
+      confirmLabel: "End enrollment",
+      destructive: true,
+    })
     if (!confirmed) return
 
     setEnding(true)
@@ -394,9 +543,18 @@ function EndEnrollmentButton({
   }
 
   return (
-    <Button size="sm" variant="outline" disabled={ending} onClick={() => void handleEnd()}>
-      {ending ? "Ending…" : "End enrollment"}
-    </Button>
+    <>
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={ending}
+        onClick={() => void handleEnd()}
+        data-testid="end-enrollment"
+      >
+        {ending ? "Ending…" : "End enrollment"}
+      </Button>
+      {dialog}
+    </>
   )
 }
 
@@ -447,11 +605,6 @@ function PackSuccessBanner({ status }: { status: PackSettleStatus }) {
   )
 }
 
-function allotmentLabel(remaining: number | "unlimited"): string {
-  if (remaining === "unlimited") return "Unlimited classes this month"
-  return `${remaining} class${remaining === 1 ? "" : "es"} left this month`
-}
-
 function statusBadge(status: SummaryMembership["status"]): { label: string; tone: StatusTone } {
   switch (status) {
     case "active":
@@ -484,6 +637,7 @@ type ModalPhase =
   | "booking"
   | "waiver"
   | "allotment_exhausted"
+  | "technical_upsell"
   | "paying"
   | "success"
 
@@ -699,6 +853,20 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
       const memberRateCents = typeof body.memberRateCents === "number" ? body.memberRateCents : 0
       setExhaustedOffer({ session, memberRateCents })
       setPhase("allotment_exhausted")
+      return
+    }
+
+    // Allotment has room, but this is a technical slot and the tier owes the
+    // technical supplement the child hasn't paid for (no active technical
+    // enrollment on this membership — see requiresTechnicalPremium /
+    // hasActiveTechnicalEnrollment in book-child.ts). The 409 body carries no
+    // price (src/pages/api/classes/book.ts) — quote the tier's real
+    // technicalMonthlyCents off the summary snapshot instead of a dead-end
+    // ErrorBanner dump, and route the parent to the choose-slot flow, which
+    // already owns the `acknowledgeTechnicalPremium` PUT (see choose-slot.tsx's
+    // `technical_premium_required` handling).
+    if (code === "technical_not_included") {
+      setPhase("technical_upsell")
       return
     }
 
@@ -1071,6 +1239,34 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
           </>
         )}
 
+        {phase === "technical_upsell" && (
+          <>
+            <DialogTitle className="text-ink">Book this class</DialogTitle>
+            <DialogDescription className="sr-only">
+              This class requires the technical training supplement.
+            </DialogDescription>
+            <div
+              data-testid="technical-upsell"
+              className="rounded-lg border border-sky-200 bg-sky-50 p-3 space-y-2"
+            >
+              <h3 className="font-semibold text-sky-900 text-sm">This is a technical class</h3>
+              <p className="text-sm text-sky-800">
+                Technical sessions run in smaller groups with extra coaching. Add the technical
+                supplement — {formatCents(child.membership?.technicalMonthlyCents) ?? "a monthly amount"}
+                /month — to book them with your membership.
+              </p>
+              <Button asChild size="sm">
+                <a href={`/dashboard/family/choose-slot?child=${child.familyMemberId}`}>
+                  Add technical supplement
+                </a>
+              </Button>
+            </div>
+            <Button type="button" variant="outline" onClick={handleClose}>
+              Not now
+            </Button>
+          </>
+        )}
+
         {phase === "paying" && (
           <div className="py-6 text-center space-y-2">
             <div
@@ -1107,55 +1303,25 @@ function MakeUpModal({ child, open, onClose, onBooked }: MakeUpModalProps) {
 
 function MembershipChildCard({
   child,
+  cancelWindowHours,
   onChanged,
 }: {
   child: SummaryChild
+  /** Org's real cancellation cutoff, off the summary response's top-level
+   *  `cancelWindowHours` (Task 1) — quoted verbatim in the confirm dialog so
+   *  a parent knows exactly how much notice they need, instead of the old
+   *  generic "before the cancellation window" copy. */
+  cancelWindowHours: number
   onChanged: () => void
 }) {
   const membership = child.membership!
   const [modalOpen, setModalOpen] = useState(false)
-  const [cancelling, setCancelling] = useState(false)
   const [openingPortal, setOpeningPortal] = useState(false)
-
-  async function handleCancel() {
-    const nextSession = child.nextSession
-    if (!nextSession) return
-    const confirmed = window.confirm(
-      `Cancel ${child.name}'s class on ${formatDateTime(nextSession.startsAt)}? If this is before ` +
-        "the cancellation window, the class credit will be freed — cancelling too close to class " +
-        "time isn't allowed.",
-    )
-    if (!confirmed) return
-
-    const bookingId = nextSession.bookingId
-    setCancelling(true)
-    try {
-      const res = await fetch(`/api/classes/bookings/${bookingId}/cancel`, { method: "POST" })
-      const body = await parseJson(res)
-      if (!res.ok) {
-        if (body.error === "inside_cutoff") {
-          toast.error("Too close to class time to cancel — you're inside the cancellation window.")
-        } else {
-          toast.error(
-            typeof body.message === "string" ? body.message : "Could not cancel — please try again.",
-          )
-        }
-        return
-      }
-      if (body.creditFreed) {
-        toast.success("Cancelled — the class credit was freed.")
-      } else if (body.refunded) {
-        toast.success("Cancelled — refund issued.")
-      } else {
-        toast.success("Cancelled.")
-      }
-      onChanged()
-    } catch {
-      toast.error("Network error — please try again.")
-    } finally {
-      setCancelling(false)
-    }
-  }
+  const { cancellingBookingId, handleCancel, cancelDialog } = useSessionCancel(
+    child.name,
+    cancelWindowHours,
+    onChanged,
+  )
 
   const badge = statusBadge(membership.status)
   const isActive = membership.status === "active"
@@ -1228,11 +1394,6 @@ function MembershipChildCard({
               </Button>
             )}
             <EndEnrollmentButton child={child} onChanged={onChanged} />
-            {child.nextSession && (
-              <Button size="sm" variant="outline" disabled={cancelling} onClick={() => void handleCancel()}>
-                {cancelling ? "Cancelling…" : "Cancel"}
-              </Button>
-            )}
           </div>
         }
       >
@@ -1251,10 +1412,12 @@ function MembershipChildCard({
               Choose a home slot →
             </a>
           )}
-          {child.nextSession ? (
-            <p className="text-xs text-ink-2">
-              Next class: {formatDateTime(child.nextSession.startsAt)}
-            </p>
+          {child.upcomingSessions.length > 0 ? (
+            <UpcomingSessionsList
+              sessions={child.upcomingSessions}
+              cancellingBookingId={cancellingBookingId}
+              onCancel={(bookingId, startsAt) => void handleCancel(bookingId, startsAt)}
+            />
           ) : child.enrollment ? (
             <p className="text-xs text-ink-muted">No upcoming class scheduled yet.</p>
           ) : null}
@@ -1280,7 +1443,7 @@ function MembershipChildCard({
             </button>
           )}
           <CreditLines credits={child.credits} />
-          {child.credits.length > 0 && !child.hasWaiverOnFile && (
+          {!child.hasWaiverOnFile && (child.membership || child.enrollment) && (
             <WaiverNudge onOpen={() => setModalOpen(true)} />
           )}
         </div>
@@ -1297,6 +1460,7 @@ function MembershipChildCard({
         // "success screen unreachable" fix-list finding.
         onBooked={onChanged}
       />
+      {cancelDialog}
     </>
   )
 }
@@ -1313,13 +1477,24 @@ function MembershipChildCard({
  *  separate booking UI is needed here. */
 function CreditChildCard({
   child,
+  cancelWindowHours,
   onChanged,
 }: {
   child: SummaryChild
+  /** Org's real cancellation cutoff — same prop `MembershipChildCard` takes
+   *  (F4, final-review wave): a credit-only child can book and cancel
+   *  sessions exactly like a membership child, so the confirm dialog needs
+   *  the same real number rather than a hardcoded default. */
+  cancelWindowHours: number
   onChanged: () => void
 }) {
   const [modalOpen, setModalOpen] = useState(false)
   const showWaiverNudge = child.credits.length > 0 && !child.hasWaiverOnFile
+  const { cancellingBookingId, handleCancel, cancelDialog } = useSessionCancel(
+    child.name,
+    cancelWindowHours,
+    onChanged,
+  )
 
   return (
     <>
@@ -1327,7 +1502,12 @@ function CreditChildCard({
         type="class"
         eyebrow="Class credits"
         title={child.name}
-        meta={creditLine(child.credits[0])}
+        // Tail-of-block shape (issue #601, F6): the backing grant's last
+        // session is already booked, so `credits` (spendable balances only)
+        // is empty even though the enrollment itself is still active until
+        // that last session happens. `creditLine` assumes a real credit —
+        // guard the empty case rather than indexing `child.credits[0]`.
+        meta={child.credits.length > 0 ? creditLine(child.credits[0]) : "No sessions left to book"}
         action={
           <div className="flex flex-col items-end gap-1.5">
             <Button size="sm" onClick={() => setModalOpen(true)}>
@@ -1345,6 +1525,13 @@ function CreditChildCard({
               {formatDayTime(child.enrollment.weekday, child.enrollment.startTime)}
             </p>
           )}
+          {child.upcomingSessions.length > 0 && (
+            <UpcomingSessionsList
+              sessions={child.upcomingSessions}
+              cancellingBookingId={cancellingBookingId}
+              onCancel={(bookingId, startsAt) => void handleCancel(bookingId, startsAt)}
+            />
+          )}
           {child.credits.length > 1 && <CreditLines credits={child.credits.slice(1)} />}
           {showWaiverNudge && <WaiverNudge onOpen={() => setModalOpen(true)} />}
         </div>
@@ -1356,6 +1543,7 @@ function CreditChildCard({
         onClose={() => setModalOpen(false)}
         onBooked={onChanged}
       />
+      {cancelDialog}
     </>
   )
 }
@@ -1364,12 +1552,22 @@ function CreditChildCard({
 // Per-child card — no membership, trial used → convert CTA
 // ---------------------------------------------------------------------------
 
+/**
+ * `/youth/classes#pricing` is Aspire's youth funnel — same fail-closed gate
+ * `DiscoverCard`/`FamilyClassesCardProps.brandId` already document (F3,
+ * final-review wave): this card used to link there unconditionally, leaking
+ * an Aspire-only CTA onto a SoccerOne family's dashboard. A non-Aspire brand
+ * still gets the trial-used status line, just with no CTA to click through
+ * on — there's nowhere on SoccerOne for it to send them.
+ */
 function ConvertCard({
   child,
   cheapestMonthlyCents,
+  brandId,
 }: {
   child: SummaryChild
   cheapestMonthlyCents: number | null
+  brandId?: "aspire" | "soccerone"
 }) {
   const priceLabel = fmtDollars(cheapestMonthlyCents)
   return (
@@ -1379,9 +1577,56 @@ function ConvertCard({
       title={child.name}
       meta="Loved the trial?"
       action={
+        brandId === "aspire" ? (
+          <Button asChild size="sm">
+            <a href="/youth/classes#pricing">
+              {priceLabel ? `Join from ${priceLabel}/mo` : "See membership pricing"}
+            </a>
+          </Button>
+        ) : undefined
+      }
+    />
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Family-level card — children with none of the four qualifying signals
+// ---------------------------------------------------------------------------
+
+/** First token of a `${firstName} ${lastName}` summary name (see
+ *  `/api/classes/summary`'s `name` field) — the discover card lists first
+ *  names only, never the shared "Test"-style last name. */
+function firstNameOf(fullName: string): string {
+  return fullName.split(" ")[0] || fullName
+}
+
+/** "Ava" / "Ava and Ben" / "Ava, Ben, and Cleo". */
+function joinNames(names: string[]): string {
+  if (names.length <= 1) return names[0] ?? ""
+  if (names.length === 2) return `${names[0]} and ${names[1]}`
+  return `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`
+}
+
+/** At most ONE of these renders per family, regardless of how many children
+ *  fail every other qualifying signal (no membership, no trial, no credits,
+ *  no enrollment) — a 4-child family with zero class touchpoints should not
+ *  see 4 identical banners. `names` lists every eligible child's first name
+ *  so the single card still reads as personal to the family.
+ *
+ * Aspire-only: `/youth/classes` is Aspire's youth funnel, so the caller only
+ * mounts this when `brandId === "aspire"` (fail-closed — an omitted/
+ * undefined brandId does NOT show it) — see FamilyClassesCard below. */
+function DiscoverCard({ names }: { names: string[] }) {
+  return (
+    <DashboardCard
+      type="class"
+      eyebrow="Weekly classes"
+      title={joinNames(names)}
+      meta="Weekly small-group classes — first class is a free trial."
+      action={
         <Button asChild size="sm">
-          <a href="/youth/classes#pricing">
-            {priceLabel ? `Join from ${priceLabel}/mo` : "See membership pricing"}
+          <a href="/youth/classes" data-testid="discover-classes">
+            Discover classes
           </a>
         </Button>
       }
@@ -1393,12 +1638,36 @@ function ConvertCard({
 // Top-level island
 // ---------------------------------------------------------------------------
 
-export default function FamilyClassesCard() {
+interface FamilyClassesCardProps {
+  /** Host-derived brand key (`Astro.locals.brandId`, always resolved —
+   *  see src/env.d.ts). `/youth/classes` is Aspire-only, so `DiscoverCard`
+   *  is gated on this rather than any fetched data: the summary endpoint is
+   *  brand-neutral (serves both Aspire and SoccerOne orgs) and has no signal
+   *  of its own to gate on. Optional in the type only for callers that
+   *  genuinely have no brand context (there are none today) — the gate
+   *  itself is `brandId === "aspire"`, FAIL-CLOSED: an omitted/undefined
+   *  value hides the card rather than showing it. This deliberately departs
+   *  from `PayCard`'s `brandId?: "aspire" | "soccerone"` convention (which
+   *  defaults an absent brandId to Aspire's *styling*, a cosmetic no-op on
+   *  SoccerOne) — here an absent brandId defaulting "open" would mean a
+   *  caller that forgets to thread it silently leaks a link into Aspire's
+   *  youth funnel onto a SoccerOne surface. Matches the fail-closed
+   *  direction `family.astro`/`start.astro` already use
+   *  (`Astro.locals.brandId === "aspire"`). */
+  brandId?: "aspire" | "soccerone"
+}
+
+export default function FamilyClassesCard({ brandId }: FamilyClassesCardProps = {}) {
   useHydrationBeacon()
 
   const [phase, setPhase] = useState<"loading" | "error" | "ready">("loading")
   const [children, setChildren] = useState<SummaryChild[]>([])
   const [cheapestMonthlyCents, setCheapestMonthlyCents] = useState<number | null>(null)
+  // Org's real cancel cutoff (Task 1's summary widening) — defaults to the
+  // same 24h the API falls back to for an org with no rate-card row, so the
+  // very first render (before this fetch resolves) never quotes a number
+  // that disagrees with what the endpoint would actually enforce.
+  const [cancelWindowHours, setCancelWindowHours] = useState<number>(24)
   const [reloadKey, setReloadKey] = useState(0)
   const [packSettle, setPackSettle] = useState<PackSettleStatus | null>(null)
 
@@ -1514,7 +1783,10 @@ export default function FamilyClassesCard() {
           }
           return
         }
-        const summaryBody = (await summaryRes.json()) as { children: SummaryChild[] }
+        const summaryBody = (await summaryRes.json()) as {
+          children: SummaryChild[]
+          cancelWindowHours?: number
+        }
 
         // Cheapest live class-membership tier — for the convert CTA's "$X/mo"
         // figure. Best-effort: a failed/empty tiers fetch just drops the
@@ -1535,6 +1807,9 @@ export default function FamilyClassesCard() {
         if (cancelled) return
         setChildren(summaryBody.children)
         setCheapestMonthlyCents(cheapest)
+        if (typeof summaryBody.cancelWindowHours === "number") {
+          setCancelWindowHours(summaryBody.cancelWindowHours)
+        }
         setPhase("ready")
       } catch {
         if (cancelled) return
@@ -1577,10 +1852,25 @@ export default function FamilyClassesCard() {
     )
   }
 
+  // `enrollment !== null` also qualifies on its own — the tail of a
+  // credit-backed (block) enrollment (issue #601, F6): the backing grant's
+  // last purchased session is already spent (booked), so `credits` filters
+  // it out entirely (spendable balances only) and there's no membership or
+  // trial-used flag either. Without this the child rendered NO card at
+  // all — no visible way to end the enrollment before the block quietly
+  // lapses. See CreditChildCard below, which renders for this shape too.
   const qualifying = children.filter(
-    (c) => c.membership !== null || c.trialUsed || c.credits.length > 0,
+    (c) => c.membership !== null || c.trialUsed || c.credits.length > 0 || c.enrollment !== null,
   )
-  if (qualifying.length === 0) return packBanner
+  // Children hitting none of the four signals — never shown a per-child card
+  // of their own; folded into the single family-level DiscoverCard below
+  // instead (Aspire-only, see FamilyClassesCardProps.brandId).
+  const discoverable = children.filter((c) => !qualifying.includes(c))
+  // Fail-closed: an omitted/undefined brandId hides the card. See
+  // FamilyClassesCardProps.brandId's doc comment for why this is
+  // `=== "aspire"`, not `!== "soccerone"`.
+  const showDiscoverCard = brandId === "aspire" && discoverable.length > 0
+  if (qualifying.length === 0 && !showDiscoverCard) return packBanner
 
   return (
     <div className="space-y-3">
@@ -1590,12 +1880,14 @@ export default function FamilyClassesCard() {
           <MembershipChildCard
             key={c.familyMemberId}
             child={c}
+            cancelWindowHours={cancelWindowHours}
             onChanged={() => setReloadKey((k) => k + 1)}
           />
-        ) : c.credits.length > 0 ? (
+        ) : c.credits.length > 0 || c.enrollment !== null ? (
           <CreditChildCard
             key={c.familyMemberId}
             child={c}
+            cancelWindowHours={cancelWindowHours}
             onChanged={() => setReloadKey((k) => k + 1)}
           />
         ) : (
@@ -1603,8 +1895,12 @@ export default function FamilyClassesCard() {
             key={c.familyMemberId}
             child={c}
             cheapestMonthlyCents={cheapestMonthlyCents}
+            brandId={brandId}
           />
         ),
+      )}
+      {showDiscoverCard && (
+        <DiscoverCard names={discoverable.map((c) => firstNameOf(c.name))} />
       )}
     </div>
   )

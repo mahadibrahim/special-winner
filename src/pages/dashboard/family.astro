@@ -15,7 +15,7 @@ import { TelegramConnectBanner } from "@/components/dashboard/telegram-connect-b
 import { currentBusinessHour } from "@/lib/time/business-timezone";
 import { PaymentSuccessBanner } from "@/components/dashboard/payment-success-banner";
 import { ExploreCard } from "@/components/dashboard/shell/ExploreCard";
-import { BookOpen, CalendarPlus, ShoppingBag, MessageCircle } from "lucide-react";
+import { BookOpen, CalendarPlus, GraduationCap, ShoppingBag, MessageCircle } from "lucide-react";
 import { resolveExternalStore } from "@/lib/organization/external-store";
 import { getDb } from "@/lib/db";
 import { userNudgeState } from "@/lib/db/schema";
@@ -200,7 +200,7 @@ const { hasFamily, hasPlay } = await getDashboardDestinations(user.id);
           {/* ── What you're part of ── */}
           <DashboardSection title="What you're part of" icon="shield" accent="default">
             <div class="flex flex-col gap-6 mt-1">
-              <FamilyClassesCard client:load />
+              <FamilyClassesCard client:load brandId={Astro.locals.brandId} />
               <ChildrenOverview client:load />
               <AccountCreditBalance client:load />
               <CoachNotes client:visible />
@@ -229,6 +229,16 @@ const { hasFamily, hasPlay } = await getDashboardDestinations(user.id);
                 href="/programs?audience=youth"
                 cta="Browse programs"
               />
+              {Astro.locals.brandId === "aspire" && (
+                <ExploreCard
+                  client:visible
+                  icon={GraduationCap}
+                  title="Weekly classes"
+                  description="Small-group skill classes for every age — first class is always a free trial."
+                  href="/youth/classes"
+                  cta="Discover classes"
+                />
+              )}
               {externalStore && (
                 <ExploreCard
                   client:visible

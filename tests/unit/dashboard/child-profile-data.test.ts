@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  buildClassesSection,
   buildProfile,
   computeAge,
   parseLocalDate,
@@ -115,5 +116,40 @@ describe("buildProfile", () => {
       NOW,
     );
     expect(profile.programs.map((p) => p.id)).toEqual(["active", "upcoming", "completed"]);
+  });
+});
+
+describe("buildClassesSection", () => {
+  it("assembles the classes section from a summary child", () => {
+    const section = buildClassesSection({
+      membership: { tierName: "All-In", status: "active", classAllotmentRemaining: "unlimited",
+        renewsAt: "2026-10-01T00:00:00.000Z", cancelAtPeriodEnd: false, technicalMonthlyCents: 900 },
+      enrollment: { id: "e1", templateId: "t1", templateName: "U8 Wednesdays",
+        weekday: 3, startTime: "17:30", creditsExpireAt: null },
+      credits: [], kitSize: "YM", hasWaiverOnFile: true,
+    });
+    expect(section).toMatchObject({
+      tierLine: "All-In · Unlimited classes this month",
+      homeSlotLine: expect.stringContaining("Wednesday"),
+      kitSize: "YM",
+      renewsAt: "2026-10-01T00:00:00.000Z",
+    });
+  });
+  it("returns null when the child has no class touchpoints", () => {
+    expect(buildClassesSection({ membership: null, enrollment: null, credits: [],
+      kitSize: null, hasWaiverOnFile: false, trialUsed: false })).toBeNull();
+  });
+
+  it("returns a trial-only section when the child used the trial but holds no membership/enrollment/credits", () => {
+    const section = buildClassesSection({
+      membership: null, enrollment: null, credits: [],
+      kitSize: null, hasWaiverOnFile: true, trialUsed: true,
+    });
+    expect(section).toMatchObject({ trialOnly: true, tierLine: null, homeSlotLine: null });
+  });
+
+  it("still returns null when trialUsed is false and every other field is empty", () => {
+    expect(buildClassesSection({ membership: null, enrollment: null, credits: [],
+      kitSize: null, hasWaiverOnFile: false, trialUsed: false })).toBeNull();
   });
 });

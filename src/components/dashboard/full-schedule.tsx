@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import {
   Calendar,
   Clock,
@@ -20,9 +20,13 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { LoadingSkeleton } from "@/components/ui/loading-skeleton"
+import { ErrorBanner } from "@/components/ui/error-banner"
+import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { cn } from "@/lib/utils"
+import type { FamilyScheduleEvent } from "@/lib/dashboard/schedule-events"
 
-type EventType = "game" | "practice" | "tournament"
+type EventType = "class" | "game" | "practice" | "tournament"
 type ViewMode = "month" | "week" | "list"
 
 interface ScheduleEvent {
@@ -35,10 +39,12 @@ interface ScheduleEvent {
   address?: string
   childId: string
   childName: string
-  sport: string
-  program: string
+  program?: string
   notes?: string
   opponent?: string
+  /** true = projected from the enrollment's weekly recurrence, not a booked
+   *  seat — renders a "Planned" chip and never a cancel affordance. */
+  projected: boolean
 }
 
 const eventTypeConfig: Record<EventType, {
@@ -48,6 +54,13 @@ const eventTypeConfig: Record<EventType, {
   bgColor: string
   borderColor: string
 }> = {
+  class: {
+    icon: Calendar,
+    label: "Class",
+    color: "text-sky-400",
+    bgColor: "bg-sky-500/10",
+    borderColor: "border-sky-500/30",
+  },
   game: {
     icon: Trophy,
     label: "Game",
@@ -70,136 +83,6 @@ const eventTypeConfig: Record<EventType, {
     borderColor: "border-purple-500/30",
   },
 }
-
-// Generate mock events
-function generateMockEvents(): ScheduleEvent[] {
-  const events: ScheduleEvent[] = []
-  const now = new Date()
-  const currentMonth = now.getMonth()
-  const currentYear = now.getFullYear()
-
-  // Generate events for current month and next month
-  for (let monthOffset = 0; monthOffset < 2; monthOffset++) {
-    const month = currentMonth + monthOffset
-    const year = month > 11 ? currentYear + 1 : currentYear
-    const actualMonth = month % 12
-
-    // Practices - twice a week
-    const practiceDay1 = 2 // Tuesday
-    const practiceDay2 = 4 // Thursday
-
-    for (let week = 0; week < 4; week++) {
-      const baseDate = new Date(year, actualMonth, 1 + week * 7)
-
-      // Find Tuesday
-      const tuesday = new Date(baseDate)
-      tuesday.setDate(tuesday.getDate() + ((practiceDay1 - tuesday.getDay() + 7) % 7))
-      if (tuesday.getMonth() === actualMonth) {
-        events.push({
-          id: `practice-${actualMonth}-${week}-1`,
-          title: "Soccer Practice",
-          type: "practice",
-          date: new Date(tuesday.setHours(17, 30)),
-          endDate: new Date(tuesday.setHours(19, 0)),
-          location: "Powell Sports Complex",
-          address: "550 Lewis Center Rd, Powell, OH",
-          childId: "emma",
-          childName: "Emma",
-          sport: "Soccer",
-          program: "U10 Lightning",
-          notes: "Bring water and cleats",
-        })
-      }
-
-      // Find Thursday
-      const thursday = new Date(baseDate)
-      thursday.setDate(thursday.getDate() + ((practiceDay2 - thursday.getDay() + 7) % 7))
-      if (thursday.getMonth() === actualMonth) {
-        events.push({
-          id: `practice-${actualMonth}-${week}-2`,
-          title: "Soccer Practice",
-          type: "practice",
-          date: new Date(thursday.setHours(17, 30)),
-          endDate: new Date(thursday.setHours(19, 0)),
-          location: "Powell Sports Complex",
-          address: "550 Lewis Center Rd, Powell, OH",
-          childId: "emma",
-          childName: "Emma",
-          sport: "Soccer",
-          program: "U10 Lightning",
-        })
-      }
-
-      // Add Liam's practice on Wednesdays
-      const wednesday = new Date(baseDate)
-      wednesday.setDate(wednesday.getDate() + ((3 - wednesday.getDay() + 7) % 7))
-      if (wednesday.getMonth() === actualMonth) {
-        events.push({
-          id: `practice-liam-${actualMonth}-${week}`,
-          title: "Soccer Practice",
-          type: "practice",
-          date: new Date(wednesday.setHours(16, 0)),
-          endDate: new Date(wednesday.setHours(17, 0)),
-          location: "Dublin Recreation Center",
-          address: "5600 Post Rd, Dublin, OH",
-          childId: "liam",
-          childName: "Liam",
-          sport: "Soccer",
-          program: "U8 Thunder",
-        })
-      }
-    }
-
-    // Games - Saturdays
-    for (let week = 0; week < 4; week++) {
-      const saturday = new Date(year, actualMonth, 1 + week * 7)
-      saturday.setDate(saturday.getDate() + ((6 - saturday.getDay() + 7) % 7))
-
-      if (saturday.getMonth() === actualMonth) {
-        events.push({
-          id: `game-${actualMonth}-${week}`,
-          title: "League Game",
-          type: "game",
-          date: new Date(saturday.setHours(10, 0)),
-          endDate: new Date(saturday.setHours(11, 30)),
-          location: week % 2 === 0 ? "Powell Sports Complex" : "Westerville Soccer Fields",
-          address: week % 2 === 0 ? "550 Lewis Center Rd, Powell, OH" : "123 Main St, Westerville, OH",
-          childId: "emma",
-          childName: "Emma",
-          sport: "Soccer",
-          program: "U10 Lightning",
-          opponent: ["Dublin FC", "Westerville United", "Grove City Rovers", "Hilliard Stars"][week],
-          notes: week % 2 === 0 ? "Home game - arrive 30 min early" : "Away game",
-        })
-      }
-    }
-  }
-
-  // Add a tournament
-  const tournamentDate = new Date(currentYear, currentMonth + 1, 15)
-  events.push({
-    id: "tournament-1",
-    title: "Fall Classic Tournament",
-    type: "tournament",
-    date: new Date(tournamentDate.setHours(8, 0)),
-    endDate: new Date(tournamentDate.setHours(18, 0)),
-    location: "OSU Sports Complex",
-    address: "2491 Olentangy River Rd, Columbus, OH",
-    childId: "emma",
-    childName: "Emma",
-    sport: "Soccer",
-    program: "U10 Lightning",
-    notes: "Full day event. Pack lunch and snacks.",
-  })
-
-  return events.sort((a, b) => a.date.getTime() - b.date.getTime())
-}
-
-// Real data wiring pending. Empty arrays surface empty calendar/list states
-// rather than another family's fictional schedule.
-const mockEvents: ReturnType<typeof generateMockEvents> = []
-
-const mockChildren: Array<{ id: string; name: string }> = []
 
 function EventCard({
   event,
@@ -234,6 +117,9 @@ function EventCard({
         <div className="flex items-center gap-2">
           <Icon className={cn("w-3 h-3 flex-shrink-0", config.color)} />
           <span className="text-xs font-medium text-ink truncate">{event.title}</span>
+          {event.projected && (
+            <span className="text-[9px] uppercase tracking-wide text-ink-faint flex-shrink-0">Planned</span>
+          )}
         </div>
         <div className="text-[10px] text-ink-muted mt-0.5 truncate">
           {formatTime(event.date)} - {event.childName}
@@ -245,6 +131,8 @@ function EventCard({
   return (
     <div
       onClick={() => onOpenDetails(event)}
+      data-testid="schedule-event-card"
+      data-projected={event.projected ? "true" : "false"}
       className={cn(
         "group relative overflow-hidden rounded-2xl border transition-all cursor-pointer hover:scale-[1.01] hover:shadow-lg",
         config.borderColor,
@@ -264,12 +152,21 @@ function EventCard({
           {/* Content */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <Badge className={cn("text-[10px]", config.bgColor, config.color, "border-0")}>
+              <Badge data-testid="event-type-badge" className={cn("text-[10px]", config.bgColor, config.color, "border-0")}>
                 {config.label}
               </Badge>
               <Badge variant="outline" className="border-border text-ink-muted text-[10px]">
                 {event.childName}
               </Badge>
+              {event.projected && (
+                <Badge
+                  data-testid="planned-chip"
+                  variant="outline"
+                  className="border-dashed border-border text-ink-faint text-[10px]"
+                >
+                  Planned
+                </Badge>
+              )}
             </div>
 
             <h4 className="font-semibold text-ink text-sm mb-1">{event.title}</h4>
@@ -334,7 +231,10 @@ function EventDetailModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md rounded-3xl bg-cream border border-border shadow-2xl overflow-hidden">
+      <div
+        data-testid="event-detail-modal"
+        className="relative w-full max-w-md rounded-3xl bg-cream border border-border shadow-2xl overflow-hidden"
+      >
         {/* Header */}
         <div className={cn("p-6 border-b border-border", config.bgColor)}>
           <button
@@ -352,9 +252,16 @@ function EventDetailModal({
               <Icon className={cn("w-7 h-7", config.color)} />
             </div>
             <div>
-              <Badge className={cn("text-[10px] mb-1", config.bgColor, config.color, "border-0")}>
-                {config.label}
-              </Badge>
+              <div className="flex items-center gap-2 mb-1">
+                <Badge className={cn("text-[10px]", config.bgColor, config.color, "border-0")}>
+                  {config.label}
+                </Badge>
+                {event.projected && (
+                  <Badge variant="outline" className="border-dashed border-border text-ink-faint text-[10px]">
+                    Planned
+                  </Badge>
+                )}
+              </div>
               <h2 className="text-xl font-bold text-ink">{event.title}</h2>
               {event.opponent && (
                 <p className="text-sm text-ink-muted">vs {event.opponent}</p>
@@ -370,7 +277,7 @@ function EventDetailModal({
             <div>
               <p className="text-sm text-ink-muted">Player</p>
               <p className="text-ink font-medium">{event.childName}</p>
-              <p className="text-xs text-ink-muted">{event.program}</p>
+              {event.program && <p className="text-xs text-ink-muted">{event.program}</p>}
             </div>
           </div>
 
@@ -632,12 +539,66 @@ function ListView({
 }
 
 export default function FullSchedule() {
-  const [events] = useState(mockEvents)
+  // FullSchedule is mounted `client:load` at the top of
+  // src/pages/dashboard/schedule.astro, so it doubles as this page's
+  // hydration beacon (repo convention — see children-overview.tsx's beacon
+  // comment). E2E specs navigating to /dashboard/schedule rely on
+  // waitForHydration(page) finding this.
+  useHydrationBeacon()
+
+  const [events, setEvents] = useState<ScheduleEvent[]>([])
+  const [children, setChildren] = useState<Array<{ id: string; name: string }>>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
   const [viewMode, setViewMode] = useState<ViewMode>("month")
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedChild, setSelectedChild] = useState<string | "all">("all")
   const [selectedType, setSelectedType] = useState<EventType | "all">("all")
   const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    setError(false)
+    ;(async () => {
+      try {
+        const res = await fetch("/api/dashboard/schedule")
+        if (cancelled) return
+        if (!res.ok) {
+          setError(true)
+          return
+        }
+        const data: { children: Array<{ id: string; name: string }>; events: FamilyScheduleEvent[] } =
+          await res.json()
+        if (cancelled) return
+        setChildren(data.children ?? [])
+        const mapped: ScheduleEvent[] = (data.events ?? []).map((e) => ({
+          id: e.id,
+          title: e.title,
+          type: e.type,
+          date: new Date(e.startsAt),
+          endDate: e.endsAt ? new Date(e.endsAt) : undefined,
+          location: e.location ?? "",
+          address: e.address ?? undefined,
+          childId: e.childId,
+          childName: e.childName,
+          projected: e.projected,
+        }))
+        setEvents(mapped)
+      } catch (err) {
+        if (!cancelled) {
+          console.error("Failed to load schedule:", err)
+          setError(true)
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [reloadKey])
 
   const filteredEvents = useMemo(() => {
     return events.filter(event => {
@@ -769,7 +730,7 @@ export default function FullSchedule() {
             className="px-3 py-2 rounded-xl bg-paper border border-border text-sm text-ink-2 focus:outline-none focus:border-primary/50"
           >
             <option value="all">All Children</option>
-            {mockChildren.map(child => (
+            {children.map(child => (
               <option key={child.id} value={child.id}>{child.name}</option>
             ))}
           </select>
@@ -803,7 +764,16 @@ export default function FullSchedule() {
       </div>
 
       {/* Calendar/List View */}
-      {viewMode === "month" ? (
+      {loading ? (
+        <LoadingSkeleton rows={5} variant="list" />
+      ) : error ? (
+        <div className="space-y-3">
+          <ErrorBanner message="We couldn't load your schedule. Please try again." />
+          <Button size="sm" variant="outline" onClick={() => setReloadKey((k) => k + 1)}>
+            Retry
+          </Button>
+        </div>
+      ) : viewMode === "month" ? (
         <MonthCalendar
           events={filteredEvents}
           currentDate={currentDate}

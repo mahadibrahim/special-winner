@@ -13,21 +13,29 @@ import {
   Award,
   Trophy,
   Zap,
+  Shirt,
+  ShieldAlert,
+  RefreshCw,
+  Sparkles,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton"
 import { ErrorBanner } from "@/components/ui/error-banner"
+import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import DevelopmentReport from "./development-report"
 import AchievementsDisplay from "./achievements-display"
 import {
+  buildClassesSection,
   buildProfile,
   type ChildProfileData,
+  type ClassesSection,
   type FamilyMemberApi,
   type Program,
   type RegistrationApiRow,
 } from "./child-profile-data"
+import type { FamilyScheduleEvent } from "@/lib/dashboard/schedule-events"
 
 const eventTypeColors: Record<string, string> = {
   game: "text-amber-400 bg-amber-500/10",
@@ -62,6 +70,13 @@ type ChildProfileTab = "overview" | "progress" | "schedule" | "achievements"
 const VALID_TABS: ChildProfileTab[] = ["overview", "progress", "schedule", "achievements"]
 
 export default function ChildProfile({ childId }: ChildProfileProps) {
+  // ChildProfile is mounted `client:load` at the top of
+  // src/pages/dashboard/children/[id].astro, so it doubles as this page's
+  // hydration beacon (repo convention — see children-overview.tsx's beacon
+  // comment). E2E specs navigating to /dashboard/children/:id rely on
+  // waitForHydration(page) finding this.
+  useHydrationBeacon()
+
   const [activeTab, setActiveTab] = useState<ChildProfileTab>(() => {
     if (typeof window !== "undefined") {
       const t = new URLSearchParams(window.location.search).get("tab")
@@ -70,6 +85,8 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
     return "overview"
   })
   const [child, setChild] = useState<ChildProfileData | null>(null)
+  const [classesSection, setClassesSection] = useState<ClassesSection | null>(null)
+  const [classScheduleEvents, setClassScheduleEvents] = useState<FamilyScheduleEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [notFound, setNotFound] = useState(false)
@@ -83,9 +100,15 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
 
     ;(async () => {
       try {
-        const [memberRes, regsRes] = await Promise.all([
+        // Summary/schedule are class-awareness ADDITIONS to this profile —
+        // their failure degrades to "no classes section" / "no dated class
+        // rows" rather than blocking the core member+registrations profile,
+        // which is the page's original, still-primary contract.
+        const [memberRes, regsRes, summaryRes, scheduleRes] = await Promise.all([
           fetch(`/api/family-members/${childId}`),
           fetch("/api/registrations"),
+          fetch("/api/classes/summary"),
+          fetch("/api/dashboard/schedule"),
         ])
 
         if (cancelled) return
@@ -108,6 +131,35 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
           (r: RegistrationApiRow) => r.familyMember?.id === childId,
         )
         setChild(buildProfile(member, regs))
+
+        if (summaryRes.ok) {
+          const summaryData = await summaryRes.json()
+          const summaryChild = (summaryData.children ?? []).find(
+            (c: { familyMemberId: string }) => c.familyMemberId === childId,
+          )
+          setClassesSection(
+            summaryChild
+              ? buildClassesSection({
+                  membership: summaryChild.membership ?? null,
+                  enrollment: summaryChild.enrollment ?? null,
+                  credits: summaryChild.credits ?? [],
+                  kitSize: summaryChild.kitSize ?? null,
+                  hasWaiverOnFile: summaryChild.hasWaiverOnFile ?? false,
+                  trialUsed: summaryChild.trialUsed ?? false,
+                })
+              : null,
+          )
+        } else {
+          setClassesSection(null)
+        }
+
+        if (scheduleRes.ok) {
+          const scheduleData = await scheduleRes.json()
+          const events: FamilyScheduleEvent[] = scheduleData.events ?? []
+          setClassScheduleEvents(events.filter((e) => e.childId === childId))
+        } else {
+          setClassScheduleEvents([])
+        }
       } catch (err) {
         if (!cancelled) {
           console.error("Failed to load child profile:", err)
@@ -255,63 +307,127 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
           {activeTab === "overview" && (
-            <section>
-              <h2 className="text-lg font-semibold text-ink mb-4 flex items-center gap-2">
-                <Dumbbell className="w-5 h-5 text-primary" />
-                Programs
-              </h2>
-              {child.programs.length === 0 ? (
-                <div className="text-center py-10 px-6 rounded-xl bg-paper border border-border">
-                  <p className="text-sm text-ink-muted mb-4">
-                    <span className="ph-mask">{child.firstName}</span> isn't registered for any programs yet.
-                  </p>
-                  <Button asChild size="sm">
-                    <a href="/programs">Browse programs</a>
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {child.programs.map((program) => (
-                    <div
-                      key={program.id}
-                      className="p-4 rounded-xl bg-paper border border-border transition-all"
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-semibold text-ink">{program.name}</h3>
-                            <Badge
-                              variant="outline"
-                              className={cn("text-xs", programStatusStyles[program.status])}
-                            >
-                              {program.status}
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-ink-muted">{program.sport}</p>
-                        </div>
-                        <Button variant="ghost" size="sm" className="text-ink-muted hover:text-ink" asChild>
-                          <a href={`/dashboard/registrations/${program.id}`}>
-                            <ChevronRight className="w-4 h-4" />
-                          </a>
-                        </Button>
-                      </div>
-                      {program.schedule && (
-                        <div className="flex items-center gap-2 text-sm text-ink-muted mb-2">
+            <>
+              {classesSection && (
+                <section
+                  data-testid="child-classes-section"
+                  className="p-5 rounded-2xl bg-paper border border-border mb-6"
+                >
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <h2 className="text-lg font-semibold text-ink flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-primary" />
+                      Classes
+                    </h2>
+                    <Button variant="outline" size="sm" asChild>
+                      <a href="/dashboard/family">Manage</a>
+                    </Button>
+                  </div>
+
+                  {classesSection.trialOnly ? (
+                    <p className="text-sm text-ink-muted">Free trial class used</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {classesSection.tierLine && (
+                        <p className="text-sm text-ink">{classesSection.tierLine}</p>
+                      )}
+                      {classesSection.homeSlotLine && (
+                        <div className="flex items-center gap-2 text-sm text-ink-muted">
                           <Clock className="w-3.5 h-3.5" />
-                          {program.schedule}
+                          {classesSection.homeSlotLine}
                         </div>
                       )}
-                      {program.location && (
+                      {classesSection.renewsAt && (
                         <div className="flex items-center gap-2 text-sm text-ink-muted">
-                          <MapPin className="w-3.5 h-3.5" />
-                          {program.location}
+                          <RefreshCw className="w-3.5 h-3.5" />
+                          {classesSection.cancelAtPeriodEnd ? "Ends" : "Renews"}{" "}
+                          {new Date(classesSection.renewsAt).toLocaleDateString("en-US", {
+                            month: "long",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
                         </div>
                       )}
                     </div>
-                  ))}
-                </div>
+                  )}
+
+                  <div className="flex flex-wrap items-center gap-2 mt-3">
+                    {classesSection.kitSize && (
+                      <Badge variant="outline" className="text-xs gap-1">
+                        <Shirt className="w-3 h-3" />
+                        Kit size {classesSection.kitSize}
+                      </Badge>
+                    )}
+                    {!classesSection.hasWaiverOnFile && (
+                      <Badge
+                        variant="outline"
+                        className="text-xs gap-1 border-amber-500/50 text-amber-500"
+                      >
+                        <ShieldAlert className="w-3 h-3" />
+                        Waiver needed
+                      </Badge>
+                    )}
+                  </div>
+                </section>
               )}
-            </section>
+
+              <section>
+                <h2 className="text-lg font-semibold text-ink mb-4 flex items-center gap-2">
+                  <Dumbbell className="w-5 h-5 text-primary" />
+                  Programs
+                </h2>
+                {child.programs.length === 0 ? (
+                  <div className="text-center py-10 px-6 rounded-xl bg-paper border border-border">
+                    <p className="text-sm text-ink-muted mb-4">
+                      <span className="ph-mask">{child.firstName}</span> isn't registered for any programs yet.
+                    </p>
+                    <Button asChild size="sm">
+                      <a href="/programs">Browse programs</a>
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {child.programs.map((program) => (
+                      <div
+                        key={program.id}
+                        className="p-4 rounded-xl bg-paper border border-border transition-all"
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className="font-semibold text-ink">{program.name}</h3>
+                              <Badge
+                                variant="outline"
+                                className={cn("text-xs", programStatusStyles[program.status])}
+                              >
+                                {program.status}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-ink-muted">{program.sport}</p>
+                          </div>
+                          <Button variant="ghost" size="sm" className="text-ink-muted hover:text-ink" asChild>
+                            <a href={`/dashboard/registrations/${program.id}`}>
+                              <ChevronRight className="w-4 h-4" />
+                            </a>
+                          </Button>
+                        </div>
+                        {program.schedule && (
+                          <div className="flex items-center gap-2 text-sm text-ink-muted mb-2">
+                            <Clock className="w-3.5 h-3.5" />
+                            {program.schedule}
+                          </div>
+                        )}
+                        {program.location && (
+                          <div className="flex items-center gap-2 text-sm text-ink-muted">
+                            <MapPin className="w-3.5 h-3.5" />
+                            {program.location}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            </>
           )}
 
           {activeTab === "progress" && (
@@ -333,65 +449,126 @@ export default function ChildProfile({ childId }: ChildProfileProps) {
           )}
 
           {activeTab === "schedule" && (
-            <section>
-              <h2 className="text-lg font-semibold text-ink mb-4 flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-primary" />
-                Upcoming Schedule
-              </h2>
-              {child.upcomingEvents.length === 0 ? (
-                <div className="text-center py-10 px-6 rounded-xl bg-paper border border-border">
-                  <Calendar className="w-10 h-10 text-ink-faint mx-auto mb-3" />
-                  <p className="text-sm text-ink-muted">
-                    No upcoming sessions yet. New seasons appear here once <span className="ph-mask">{child.firstName}</span> is registered.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {child.upcomingEvents.map((event) => (
-                    <div
-                      key={event.id}
-                      className="flex items-center gap-4 p-4 rounded-xl bg-paper border border-border transition-all"
-                    >
-                      <div className="text-center w-12">
-                        <div className="text-[10px] font-bold text-ink-muted uppercase">
-                          {event.date.toLocaleDateString("en-US", { weekday: "short" })}
+            <>
+              {classScheduleEvents.length > 0 && (
+                <section className="mb-6">
+                  <h2 className="text-lg font-semibold text-ink mb-4 flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-primary" />
+                    Classes
+                  </h2>
+                  <div className="space-y-2">
+                    {classScheduleEvents.map((event) => {
+                      const startsAt = new Date(event.startsAt)
+                      return (
+                        <div
+                          key={event.id}
+                          data-testid="class-schedule-row"
+                          className="flex items-center gap-4 p-4 rounded-xl bg-paper border border-border transition-all"
+                        >
+                          <div className="text-center w-12">
+                            <div className="text-[10px] font-bold text-ink-muted uppercase">
+                              {startsAt.toLocaleDateString("en-US", { weekday: "short" })}
+                            </div>
+                            <div className="text-xl font-bold text-ink">{startsAt.getDate()}</div>
+                          </div>
+                          <div
+                            className={cn(
+                              "w-10 h-10 rounded-lg flex items-center justify-center",
+                              eventTypeColors.class,
+                            )}
+                          >
+                            <Users className="w-5 h-5" />
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="font-medium text-ink">{event.title}</h4>
+                            <div className="flex items-center gap-3 text-sm text-ink-muted">
+                              <span className="flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {startsAt.toLocaleTimeString("en-US", {
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                })}
+                              </span>
+                              {event.location && (
+                                <span className="flex items-center gap-1">
+                                  <MapPin className="w-3 h-3" />
+                                  {event.location}
+                                </span>
+                              )}
+                              {event.projected && (
+                                <Badge variant="outline" className="text-[10px]">
+                                  Planned
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <div className="text-xl font-bold text-ink">{event.date.getDate()}</div>
-                      </div>
-                      <div
-                        className={cn(
-                          "w-10 h-10 rounded-lg flex items-center justify-center",
-                          eventTypeColors[event.type],
-                        )}
-                      >
-                        {event.type === "game" ? (
-                          <Trophy className="w-5 h-5" />
-                        ) : event.type === "practice" ? (
-                          <Dumbbell className="w-5 h-5" />
-                        ) : event.type === "camp" ? (
-                          <Zap className="w-5 h-5" />
-                        ) : (
-                          <Users className="w-5 h-5" />
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="font-medium text-ink">{event.title}</h4>
-                        <div className="flex items-center gap-3 text-sm text-ink-muted">
-                          <span className="flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {event.time}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <MapPin className="w-3 h-3" />
-                            {event.location}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                      )
+                    })}
+                  </div>
+                </section>
               )}
-            </section>
+
+              <section>
+                <h2 className="text-lg font-semibold text-ink mb-4 flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-primary" />
+                  Upcoming Schedule
+                </h2>
+                {child.upcomingEvents.length === 0 ? (
+                  <div className="text-center py-10 px-6 rounded-xl bg-paper border border-border">
+                    <Calendar className="w-10 h-10 text-ink-faint mx-auto mb-3" />
+                    <p className="text-sm text-ink-muted">
+                      No upcoming sessions yet. New seasons appear here once <span className="ph-mask">{child.firstName}</span> is registered.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {child.upcomingEvents.map((event) => (
+                      <div
+                        key={event.id}
+                        className="flex items-center gap-4 p-4 rounded-xl bg-paper border border-border transition-all"
+                      >
+                        <div className="text-center w-12">
+                          <div className="text-[10px] font-bold text-ink-muted uppercase">
+                            {event.date.toLocaleDateString("en-US", { weekday: "short" })}
+                          </div>
+                          <div className="text-xl font-bold text-ink">{event.date.getDate()}</div>
+                        </div>
+                        <div
+                          className={cn(
+                            "w-10 h-10 rounded-lg flex items-center justify-center",
+                            eventTypeColors[event.type],
+                          )}
+                        >
+                          {event.type === "game" ? (
+                            <Trophy className="w-5 h-5" />
+                          ) : event.type === "practice" ? (
+                            <Dumbbell className="w-5 h-5" />
+                          ) : event.type === "camp" ? (
+                            <Zap className="w-5 h-5" />
+                          ) : (
+                            <Users className="w-5 h-5" />
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-medium text-ink">{event.title}</h4>
+                          <div className="flex items-center gap-3 text-sm text-ink-muted">
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {event.time}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <MapPin className="w-3 h-3" />
+                              {event.location}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </section>
+            </>
           )}
 
           {activeTab === "achievements" && (

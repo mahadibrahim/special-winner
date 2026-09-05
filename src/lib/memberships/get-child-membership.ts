@@ -41,6 +41,10 @@ export interface ChildMembership {
    *  that predates Stripe wiring or was seeded directly (tests). Used by
    *  syncTechnicalAddonQuantity to find the subscription to adjust. */
   stripeSubscriptionId: string | null;
+  /** Stripe current_period_end — the "renews on" date. Null for DB-minted /
+   *  pre-Stripe memberships. */
+  currentPeriodEnd: Date | null;
+  cancelAtPeriodEnd: boolean;
 }
 
 export async function getActiveChildMembership(
@@ -104,5 +108,7 @@ export async function getActiveChildMembership(
     classAllotmentRemaining,
     technicalMonthlyCents: row.t.technicalMonthlyCents,
     stripeSubscriptionId: row.m.stripeSubscriptionId,
+    currentPeriodEnd: row.m.currentPeriodEnd,
+    cancelAtPeriodEnd: row.m.cancelAtPeriodEnd,
   };
 }

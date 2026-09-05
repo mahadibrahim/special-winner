@@ -3,6 +3,7 @@
  * shape the ChildProfile view renders. Kept free of React/DOM imports so it
  * can be unit-tested directly (tests/unit/dashboard/child-profile-data.test.ts).
  */
+import { formatDayTime, allotmentLabel } from "@/lib/dashboard/class-slot-format"
 
 export interface Program {
   id: string
@@ -150,5 +151,102 @@ export function buildProfile(
     programs,
     upcomingEvents,
     seasonHistory,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Classes section (Task 11 of the classes-dashboard-launch plan) — maps a
+// single child's slice of GET /api/classes/summary into the profile's
+// "Classes" card. Shapes below mirror family-classes-card.tsx's
+// SummaryMembership/SummaryEnrollment/SummaryCredit exactly (same API
+// response), duplicated here rather than imported for the same reason this
+// file's other API row types aren't shared with that island.
+// ---------------------------------------------------------------------------
+
+export interface ClassesSectionMembership {
+  tierName: string
+  status: "active" | "paused" | "past_due" | "incomplete"
+  classAllotmentRemaining: number | "unlimited"
+  renewsAt: string | null
+  cancelAtPeriodEnd: boolean
+  technicalMonthlyCents: number | null
+}
+
+export interface ClassesSectionEnrollment {
+  id: string
+  templateId: string
+  templateName: string
+  weekday: number
+  startTime: string
+  creditsExpireAt: string | null
+}
+
+export interface ClassesSectionCredit {
+  source: string
+  remaining: number
+  expiresAt: string
+  label: string
+}
+
+export interface ClassesSectionInput {
+  membership: ClassesSectionMembership | null
+  enrollment: ClassesSectionEnrollment | null
+  credits: ClassesSectionCredit[]
+  kitSize: string | null
+  hasWaiverOnFile: boolean
+  /** Optional (defaults to false) so the brief's original two verbatim test
+   *  cases, which predate this field, still type-check unchanged. */
+  trialUsed?: boolean
+}
+
+export interface ClassesSection {
+  /** e.g. "All-In · Unlimited classes this month". Null when the child holds
+   *  no membership (credits/enrollment-only touchpoints still render a card,
+   *  just without this line). */
+  tierLine: string | null
+  /** e.g. "U8 Wednesdays · Wednesday 5:30 PM". Null when there's no standing
+   *  enrollment (home slot). */
+  homeSlotLine: string | null
+  templateName: string | null
+  kitSize: string | null
+  renewsAt: string | null
+  cancelAtPeriodEnd: boolean
+  hasWaiverOnFile: boolean
+  /** True when the ORG TRIAL is the child's only class touchpoint — no
+   *  membership, no standing enrollment, no spendable credits. The caller
+   *  renders a single "Free trial class used" line instead of the
+   *  tier/home-slot/kit-size body, which would otherwise all be null. */
+  trialOnly: boolean
+}
+
+/**
+ * Assembles the profile's "Classes" card from one child's slice of
+ * GET /api/classes/summary. Returns null when the child has no class
+ * touchpoint at all — no membership, no standing enrollment, no spendable
+ * credits, and no used trial — the caller renders nothing rather than an
+ * empty card. Mirrors `FamilyClassesCard`'s qualifying predicate exactly:
+ * `membership !== null || trialUsed || credits.length > 0 || enrollment !== null`
+ * — a trial-only child (used the org trial, nothing else) gets a card here
+ * exactly as they do on `/dashboard/family`.
+ */
+export function buildClassesSection(input: ClassesSectionInput): ClassesSection | null {
+  const { membership, enrollment, credits, kitSize, hasWaiverOnFile, trialUsed = false } = input
+
+  const hasOtherTouchpoint = membership !== null || enrollment !== null || credits.length > 0
+  if (!hasOtherTouchpoint && !trialUsed) return null
+
+  return {
+    tierLine: membership
+      ? `${membership.tierName} · ${allotmentLabel(membership.classAllotmentRemaining)}`
+      : null,
+    homeSlotLine: enrollment
+      ? `${enrollment.templateName} · ${formatDayTime(enrollment.weekday, enrollment.startTime, "long")}`
+      : null,
+    templateName: enrollment?.templateName ?? null,
+    kitSize: kitSize ?? null,
+    renewsAt: membership?.renewsAt ?? null,
+    cancelAtPeriodEnd: membership?.cancelAtPeriodEnd ?? false,
+    hasWaiverOnFile,
+    trialOnly: !hasOtherTouchpoint && trialUsed,
   }
 }
