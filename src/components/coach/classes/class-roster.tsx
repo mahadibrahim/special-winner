@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
-import { Users, CalendarClock, ArrowLeft } from "lucide-react"
+import { Users, CalendarClock, ArrowLeft, Sparkles } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/ui/empty-state"
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton"
 import { ErrorBanner } from "@/components/ui/error-banner"
+import ClassGlows from "./class-glows"
 
 interface Enrollment {
   enrollmentId: string
@@ -96,6 +98,15 @@ export default function ClassRoster({ templateId }: { templateId: string }) {
   const [data, setData] = useState<ClassRosterResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  // Which session's Glows & Grows modal is open, if any. Only offered when
+  // the page-level `writable` flag is true — a read-only coach can't write
+  // glows for any session on this class, so there's no point showing the
+  // action. (A substitute coach assigned to only ONE materialized session
+  // is `writable: true` at the page level per the roster endpoint's tier-a
+  // logic but could still 403 on a DIFFERENT session's glows endpoint —
+  // the modal surfaces that via its own error state if it happens, same
+  // graceful-degradation precedent as Task 5's roster page.)
+  const [glowsSessionId, setGlowsSessionId] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -251,11 +262,26 @@ export default function ClassRoster({ templateId }: { templateId: string }) {
                     ))}
                   </ul>
                 )}
+                {writable && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    data-testid="class-glows-open"
+                    onClick={() => setGlowsSessionId(session.sessionId)}
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Glows &amp; grows
+                  </Button>
+                )}
               </div>
             ))}
           </div>
         )}
       </section>
+
+      {glowsSessionId && (
+        <ClassGlows sessionId={glowsSessionId} onClose={() => setGlowsSessionId(null)} />
+      )}
     </div>
   )
 }
