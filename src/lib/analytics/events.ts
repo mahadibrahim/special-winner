@@ -28,6 +28,45 @@ export const TEAM_EVENTS = {
   teamHqViewed: "team_hq_viewed", // "ok" share/invite state rendered
 } as const;
 
+// Youth trial funnel (trial-booking.tsx modal). The trial is the youth
+// side's front door ("first class free") — these are the spine events that
+// make its conversion measurable. Intent-named, not UI-named, so they
+// survive redesigns. Ladder rung CLICKS are already covered by the pages'
+// delegated youth_hub_section_cta_clicked (section: "ladder-*").
+export const YOUTH_EVENTS = {
+  trialModalOpened: "trial_modal_opened", // modal open requested for a template
+  trialBookingAttempted: "trial_booking_attempted", // child picked, POST fired
+  trialWaiverShown: "trial_waiver_shown", // guardian waiver step surfaced
+  trialBooked: "trial_booked", // success (already_booked distinguishes idempotent repeats)
+  trialFullOfferShown: "trial_full_offer_shown", // week full -> next-week offer surfaced
+  trialFullOfferAccepted: "trial_full_offer_accepted", // parent confirmed the offered date
+  trialBlocked: "trial_blocked", // terminal/blocking outcome with a reason
+} as const;
+
+export type TrialBlockedReason =
+  | "member_child_no_trial"
+  | "trial_already_used"
+  | "session_full_no_alternative"
+  | "child_not_found"
+  | "age_ineligible"
+  | "network"
+  | "generic";
+
+export const trackTrialModalOpened = (p: { templateId: string }) =>
+  track(YOUTH_EVENTS.trialModalOpened, { template_id: p.templateId });
+export const trackTrialBookingAttempted = (p: { templateId: string }) =>
+  track(YOUTH_EVENTS.trialBookingAttempted, { template_id: p.templateId });
+export const trackTrialWaiverShown = (p: { templateId: string }) =>
+  track(YOUTH_EVENTS.trialWaiverShown, { template_id: p.templateId });
+export const trackTrialBooked = (p: { templateId: string; alreadyBooked: boolean }) =>
+  track(YOUTH_EVENTS.trialBooked, { template_id: p.templateId, already_booked: p.alreadyBooked });
+export const trackTrialFullOfferShown = (p: { templateId: string }) =>
+  track(YOUTH_EVENTS.trialFullOfferShown, { template_id: p.templateId });
+export const trackTrialFullOfferAccepted = (p: { templateId: string }) =>
+  track(YOUTH_EVENTS.trialFullOfferAccepted, { template_id: p.templateId });
+export const trackTrialBlocked = (p: { templateId: string; reason: TrialBlockedReason }) =>
+  track(YOUTH_EVENTS.trialBlocked, { template_id: p.templateId, reason: p.reason });
+
 // Server-side event names (used by posthog-node callsites elsewhere).
 export const SERVER_EVENTS = {
   dropRegisterSubmitted: "drop_register_submitted",

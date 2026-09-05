@@ -7,7 +7,9 @@ import {
   trackExpressCheckoutConfirmed,
   trackInappBannerShown, trackInappBannerClicked, trackInappRecaptureRequested,
   trackPaymentStepWalletsResolved, trackCheckoutAbandonReason,
-  TEAM_EVENTS, SERVER_EVENTS,
+  TEAM_EVENTS, SERVER_EVENTS, YOUTH_EVENTS,
+  trackTrialModalOpened, trackTrialBookingAttempted, trackTrialWaiverShown,
+  trackTrialBooked, trackTrialFullOfferShown, trackTrialFullOfferAccepted, trackTrialBlocked,
 } from "@/lib/analytics/events";
 
 describe("analytics events", () => {
@@ -191,5 +193,37 @@ describe("analytics events", () => {
     expect(TEAM_EVENTS.teamDepositViewed).toBe("team_deposit_viewed");
     expect(TEAM_EVENTS.teamHqViewed).toBe("team_hq_viewed");
     expect(SERVER_EVENTS.teamDepositPaid).toBe("team_deposit_paid");
+  });
+});
+
+describe("youth trial funnel events", () => {
+  const spy = vi.spyOn(track, "track").mockImplementation(() => {});
+  beforeEach(() => spy.mockClear());
+
+  it("spine events use snake_case template_id, no PII", () => {
+    trackTrialModalOpened({ templateId: "tpl1" });
+    expect(spy).toHaveBeenCalledWith("trial_modal_opened", { template_id: "tpl1" });
+    trackTrialBookingAttempted({ templateId: "tpl1" });
+    expect(spy).toHaveBeenCalledWith("trial_booking_attempted", { template_id: "tpl1" });
+    trackTrialWaiverShown({ templateId: "tpl1" });
+    expect(spy).toHaveBeenCalledWith("trial_waiver_shown", { template_id: "tpl1" });
+    for (const call of spy.mock.calls) {
+      for (const k of Object.keys(call[1] ?? {})) expect(/email|name|phone/i.test(k)).toBe(false);
+    }
+  });
+
+  it("booked distinguishes idempotent repeats; offer + blocked carry outcomes", () => {
+    trackTrialBooked({ templateId: "tpl1", alreadyBooked: false });
+    expect(spy).toHaveBeenCalledWith("trial_booked", { template_id: "tpl1", already_booked: false });
+    trackTrialFullOfferShown({ templateId: "tpl1" });
+    trackTrialFullOfferAccepted({ templateId: "tpl1" });
+    trackTrialBlocked({ templateId: "tpl1", reason: "trial_already_used" });
+    expect(spy).toHaveBeenCalledWith("trial_blocked", { template_id: "tpl1", reason: "trial_already_used" });
+  });
+
+  it("event names are stable strings", () => {
+    expect(YOUTH_EVENTS.trialModalOpened).toBe("trial_modal_opened");
+    expect(YOUTH_EVENTS.trialBooked).toBe("trial_booked");
+    expect(YOUTH_EVENTS.trialBlocked).toBe("trial_blocked");
   });
 });

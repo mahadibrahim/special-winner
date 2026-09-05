@@ -1,6 +1,16 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
+import {
+  trackTrialModalOpened,
+  trackTrialBookingAttempted,
+  trackTrialWaiverShown,
+  trackTrialBooked,
+  trackTrialFullOfferShown,
+  trackTrialFullOfferAccepted,
+  trackTrialBlocked,
+  type TrialBlockedReason,
+} from "@/lib/analytics/events"
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -230,6 +240,7 @@ export default function TrialBooking() {
 
   const openForTemplate = useCallback(async (id: string) => {
     const myGeneration = ++generationRef.current
+    trackTrialModalOpened({ templateId: id })
 
     let authed = false
     try {
@@ -325,6 +336,9 @@ export default function TrialBooking() {
    * React's state-commit timing entirely — it's an ordinary JS value
    * captured by value at the call site, always correct.
    */
+  const blocked = (reason: TrialBlockedReason) =>
+    trackTrialBlocked({ templateId: templateId ?? "", reason })
+
   async function attemptBooking(
     session: ScheduleSession,
     child: ChildPickerMember,
@@ -333,6 +347,7 @@ export default function TrialBooking() {
   ) {
     setPhase("booking")
     setFlowError(null)
+    trackTrialBookingAttempted({ templateId: templateId ?? "" })
 
     let res: Response
     try {
@@ -348,6 +363,7 @@ export default function TrialBooking() {
       })
     } catch {
       if (myGeneration !== generationRef.current) return
+      blocked("network")
       setFlowError({ code: "generic", message: "Network error — please try again." })
       setPhase("picking")
       return
@@ -356,6 +372,7 @@ export default function TrialBooking() {
     if (myGeneration !== generationRef.current) return // modal closed/reopened while this was in flight
 
     if (res.ok) {
+      trackTrialBooked({ templateId: templateId ?? "", alreadyBooked: false })
       setBookedSession(session)
       setPhase("success")
       return
@@ -367,6 +384,7 @@ export default function TrialBooking() {
     const code = typeof body.error === "string" ? body.error : undefined
 
     if (code === "waiver_required") {
+      trackTrialWaiverShown({ templateId: templateId ?? "" })
       setPendingSession(session)
       setPendingChild(child)
       setPhase("waiver")
@@ -374,6 +392,7 @@ export default function TrialBooking() {
     }
 
     if (code === "already_booked") {
+      trackTrialBooked({ templateId: templateId ?? "", alreadyBooked: true })
       setBookedSession(session)
       setPhase("success")
       return
@@ -387,18 +406,21 @@ export default function TrialBooking() {
       const idx = templateSessions.findIndex((s) => s.id === session.id)
       const next = idx >= 0 ? templateSessions[idx + 1] : undefined
       if (next) {
+        trackTrialFullOfferShown({ templateId: templateId ?? "" })
         setOfferedSession(next)
         setOfferedWaiver(waiver)
         setPendingChild(child)
         setPhase("session_full_offer")
         return
       }
+      blocked("session_full_no_alternative")
       setFlowError({ code: "generic", message: "This class is full this week." })
       setPhase("picking")
       return
     }
 
     if (code === "member_child_no_trial") {
+      blocked("member_child_no_trial")
       setFlowError({
         code: "member_child_no_trial",
         message: "Your member kids already have classes included — book a make-up instead",
@@ -408,6 +430,7 @@ export default function TrialBooking() {
     }
 
     if (code === "trial_already_used") {
+      blocked("trial_already_used")
       setFlowError({
         code: "trial_already_used",
         message: "Trial already used — join to keep coming",
@@ -417,6 +440,7 @@ export default function TrialBooking() {
     }
 
     if (code === "child_not_found") {
+      blocked("child_not_found")
       // Backstop only — should not occur given ChildPicker's
       // participantKind="dependent" exclusion of self rows. Surfacing
       // rather than silently failing in case ownership ever legitimately
@@ -430,6 +454,7 @@ export default function TrialBooking() {
     }
 
     if (code === "age_ineligible") {
+      blocked("age_ineligible")
       setFlowError({
         code: "generic",
         message: `${child.firstName} is outside this class's age range — pick another player above.`,
@@ -438,6 +463,7 @@ export default function TrialBooking() {
       return
     }
 
+    blocked("generic")
     setFlowError({
       code: "generic",
       message: typeof body.message === "string" ? body.message : "Could not book this class — please try again.",
@@ -482,6 +508,7 @@ export default function TrialBooking() {
 
   function confirmOfferedSession() {
     if (!offeredSession || !pendingChild) return
+    trackTrialFullOfferAccepted({ templateId: templateId ?? "" })
     const session = offeredSession
     const waiver = offeredWaiver
     const child = pendingChild
