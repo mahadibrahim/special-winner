@@ -32,6 +32,9 @@ import { coachingAssignments } from "@/lib/db/schema/coaching";
 import { coachNotes } from "@/lib/db/schema";
 import { classEnrollments, classCreditGrants } from "@/lib/db/schema/classes";
 import { familyMembers } from "@/lib/db/schema/registrations";
+import { skills } from "@/lib/db/schema/curriculum";
+import { sports } from "@/lib/db/schema/sports";
+import { assessmentSnapshots, playerAssessments, playerSkillSummary } from "@/lib/db/schema/assessments";
 import { resolveDefaultOrgForHttpTests } from "../utils/dropin-helpers";
 import {
   createTestClassTemplate,
@@ -610,5 +613,224 @@ test.describe("Coach records a class-session glow; parent sees it on the family 
     await coachNotesHeading.scrollIntoViewIfNeeded();
 
     await expect(page.getByText("Great effort today").first()).toBeVisible({ timeout: 15_000 });
+  });
+});
+
+/**
+ * Task 5 of the 2026-09-05-player-snapshots-phase3 plan — THE Phase 3
+ * acceptance test: a class-context coach assesses an enrolled child from the
+ * class roster (`class-roster.tsx`'s per-child "Assess" action, reusing
+ * `player-assessment-form.tsx` via its new `classSport` prop — Task 5's
+ * parameterization, no team/season involved), and the write shows up on the
+ * child's OWN parent-facing development page
+ * (`/dashboard/children/:id/development`, `development-report.tsx`),
+ * completing the loop: class activity -> player_assessments ->
+ * assessment_snapshots -> the parent-visible record.
+ *
+ * The domain radar (`DomainRadar`) only renders once >= 3 axes have data
+ * (`domain-radar.tsx`'s MIN_AXES_WITH_DATA gate) — assessing 3 skills across
+ * 3 domains through the UI just to trigger the SVG would test the radar's
+ * existing threshold behavior (already covered by
+ * tests/e2e/development-radar.spec.ts), not the new class-context write
+ * path. The pragmatic assertion here is the single assessment's own skill
+ * name and level surfacing in the report's "Recent Coach Assessments"
+ * timeline, which renders unconditionally as soon as there's at least one
+ * assessment — proof the class-context write reached the same read path a
+ * team assessment would, without needing the 3-domain radar minimum.
+ *
+ * Fixture mirrors the "Coach records a class-session glow" describe above:
+ * a fresh `Assess-`-prefixed template (swept by `sweepOrphanedTestTemplates`
+ * per `TEST_TEMPLATE_NAME_PREFIXES`) the seeded coach leads, plus a
+ * throwaway parent + child enrolled (not booked into any session — the
+ * assessment flow reads the ENROLLED-children list, not session bookings).
+ * The skill picker's sport comes from the roster endpoint's best-effort
+ * `sportLabel` -> `sports.name` match (Task 5) — the template's default
+ * "Soccer" label matches the org's seeded "Soccer" sport row, and
+ * `seedCurriculumRadarFixture` (seed-e2e-tests.ts) guarantees an "E2E
+ * Technical Skill" exists for that sport, so the test doesn't need to seed
+ * its own skill.
+ */
+test.describe("Coach assesses a class child from the roster; parent sees it on the development page", () => {
+  test.setTimeout(120_000);
+
+  let organizationId: string;
+  let venueId: string;
+  let assignedCoachId: string;
+  let templateId: string;
+  let childId: string;
+  let grantId: string;
+  let enrollmentId: string;
+  let parentEmail: string;
+  let parentPassword: string;
+  let parentUserId: string;
+
+  const suffix = Date.now();
+  const templateName = `Assess-E2E-${suffix}`;
+  const childFirstName = `AssessE2E-Child-${suffix}`;
+  const SKILL_NAME = "E2E Technical Skill";
+
+  test.beforeAll(async () => {
+    ({ organizationId, venueId } = await resolveDefaultOrgForHttpTests());
+    await sweepOrphanedTestTemplates(organizationId);
+
+    const db = getDb();
+
+    const [assignedCoach] = await db
+      .select({ id: users.id })
+      .from(users)
+      .innerJoin(userRoles, eq(userRoles.userId, users.id))
+      .innerJoin(roles, eq(roles.id, userRoles.roleId))
+      .where(
+        and(
+          eq(users.email, TEST_USERS.coach.email),
+          eq(roles.name, "coach"),
+          eq(userRoles.scopeType, "organization"),
+          eq(userRoles.scopeId, organizationId),
+        ),
+      )
+      .orderBy(asc(userRoles.createdAt))
+      .limit(1);
+    if (!assignedCoach) {
+      throw new Error(
+        `coach-classes.spec (assess): ${TEST_USERS.coach.email} is not a seeded org coach — run npm run db:seed:e2e`,
+      );
+    }
+    assignedCoachId = assignedCoach.id;
+
+    // Confirm the seeded curriculum fixture this test depends on exists,
+    // rather than letting a missing-skill failure surface confusingly deep
+    // inside the UI flow below.
+    const [skillRow] = await db
+      .select({ id: skills.id })
+      .from(skills)
+      .innerJoin(sports, eq(skills.sportId, sports.id))
+      .where(and(eq(sports.organizationId, organizationId), eq(sports.slug, "soccer"), eq(skills.name, SKILL_NAME)))
+      .orderBy(asc(skills.createdAt))
+      .limit(1);
+    if (!skillRow) {
+      throw new Error(
+        `coach-classes.spec (assess): "${SKILL_NAME}" curriculum fixture is missing — run npm run db:seed:e2e`,
+      );
+    }
+
+    templateId = await createTestClassTemplate({
+      organizationId,
+      venueId,
+      name: templateName,
+      capacity: 10,
+    });
+
+    await db.insert(coachingAssignments).values({
+      organizationId,
+      coachUserId: assignedCoachId,
+      kind: "class_template",
+      targetId: templateId,
+      role: "lead",
+    });
+
+    const throwawayParent = await createTestUserWithPassword();
+    parentEmail = throwawayParent.email;
+    parentPassword = throwawayParent.password;
+    parentUserId = throwawayParent.userId;
+
+    // Age matters here: PlayerAssessmentForm auto-selects a development
+    // stage filter from playerAge as soon as the skill list loads (see its
+    // `useEffect` keyed on `playerAge`/`stages`). The seeded "E2E ..."
+    // skills (seedCurriculumRadarFixture) all sit in the "fundamentals"
+    // stage (ages 6-8) — createTestChild's own default birthDate computes
+    // to an age outside that range, which auto-selects a DIFFERENT stage
+    // and filters the seeded skill out of the picker ("No skills found").
+    // Age 7 keeps the auto-selected stage aligned with the fixture.
+    childId = await createTestChild(parentUserId, childFirstName, "2019-01-01");
+
+    grantId = await createTestCreditGrant({
+      organizationId,
+      familyMemberId: childId,
+      sessionsGranted: 10,
+      idSuffix: `assess-e2e-${suffix}`,
+    });
+
+    const [enrollment] = await db
+      .insert(classEnrollments)
+      .values({ slotTemplateId: templateId, familyMemberId: childId, creditGrantId: grantId, status: "active" })
+      .returning();
+    enrollmentId = enrollment.id;
+  });
+
+  test.afterAll(async () => {
+    const db = getDb();
+    if (childId) {
+      await db.delete(assessmentSnapshots).where(eq(assessmentSnapshots.familyMemberId, childId));
+      await db.delete(playerAssessments).where(eq(playerAssessments.familyMemberId, childId));
+      await db.delete(playerSkillSummary).where(eq(playerSkillSummary.familyMemberId, childId));
+    }
+    if (templateId) {
+      await db
+        .delete(coachingAssignments)
+        .where(and(eq(coachingAssignments.kind, "class_template"), eq(coachingAssignments.targetId, templateId)));
+    }
+    if (enrollmentId) {
+      await db.delete(classEnrollments).where(eq(classEnrollments.id, enrollmentId));
+    }
+    if (grantId) {
+      await db.delete(classCreditGrants).where(eq(classCreditGrants.id, grantId));
+    }
+    if (templateId) {
+      await cleanupTestClassFixtures([templateId]);
+    }
+    // childId/parentUserId are throwaway-user residue, same convention as
+    // the glows describe above — left in place rather than deleted.
+  });
+
+  test("coach assesses the class child; the parent sees the skill and level on the development page", async ({
+    page,
+  }) => {
+    await signIn(page, TEST_USERS.coach.email, TEST_USERS.coach.password);
+
+    await page.goto(`/coach/classes/${templateId}`, { waitUntil: "domcontentloaded" });
+    await waitForHydration(page);
+
+    const rosterRow = page.getByTestId("class-roster-row").filter({ hasText: childFirstName });
+    await expect(rosterRow).toBeVisible({ timeout: 15_000 });
+
+    await rosterRow.getByTestId("class-assess-open").click();
+
+    // Skill picker loads asynchronously (parallel fetch of domains/stages/
+    // skills, keyed off the roster endpoint's resolved `template.sport`).
+    const searchInput = page.getByPlaceholder("Search skills...");
+    await expect(searchInput).toBeVisible({ timeout: 10_000 });
+    await searchInput.fill(SKILL_NAME);
+
+    await page.getByRole("button", { name: SKILL_NAME }).click();
+
+    // Level grid: 1-5, each button rendering its number + a label (3 =
+    // "Competent" default, 4 = "Proficient" — picking a non-default level
+    // makes the parent-side assertion meaningfully tied to THIS submission
+    // rather than incidentally matching a default value).
+    await page.locator("button", { hasText: "Proficient" }).click();
+
+    await page.getByTestId("class-assess-submit").click();
+    await expect(page.getByText("Assessment saved!")).toBeVisible({ timeout: 15_000 });
+
+    // Same page, new session: sign in as the child's parent — an account
+    // this branch's coach/admin diff never touches — and confirm the
+    // assessment shows up on the untouched parent-facing development page.
+    await signIn(page, parentEmail, parentPassword);
+    await page.goto("/dashboard/family", { waitUntil: "domcontentloaded" });
+    await waitForHydration(page);
+
+    await page.getByRole("link", { name: `View development for ${childFirstName}` }).click();
+    await expect(page).toHaveURL(new RegExp(`/dashboard/children/${childId}/development`));
+
+    // "Recent Coach Assessments" renders the skill name as an <h4> — the
+    // ALL-TIME "Development by Domain" grid also lists per-skill names
+    // (same page) but at <h5>, so scoping by heading level disambiguates
+    // the two without depending on either component's CSS classes.
+    await expect(page.getByRole("heading", { name: SKILL_NAME, level: 4 })).toBeVisible({ timeout: 15_000 });
+    // Exact match: the "Understanding Levels" reference panel elsewhere on
+    // this same page also contains the substring "Proficient" (as
+    // "Proficient - Strong skills"), which a non-exact match would collide
+    // with. The assessment row's level label is the bare word alone.
+    await expect(page.getByText("Proficient", { exact: true })).toBeVisible();
   });
 });

@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react"
 import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
-import { Users, CalendarClock, ArrowLeft, Sparkles } from "lucide-react"
+import { Users, CalendarClock, ArrowLeft, Sparkles, Target } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { EmptyState } from "@/components/ui/empty-state"
 import { LoadingSkeleton } from "@/components/ui/loading-skeleton"
 import { ErrorBanner } from "@/components/ui/error-banner"
 import ClassGlows from "./class-glows"
+import PlayerAssessmentForm from "../player-assessment-form"
 
 interface Enrollment {
   enrollmentId: string
@@ -50,6 +51,11 @@ interface ClassRosterResponse {
     startTime: string
     sportLabel: string
     capacity: number
+    /** Resolved sport for the per-child assessment flow's skill picker —
+     *  null when the template's free-text `sportLabel` doesn't match any of
+     *  this org's configured sports (see the roster endpoint's header
+     *  comment). The "Assess" action is hidden per-row when null. */
+    sport: { id: string; name: string } | null
   }
   enrollments: Enrollment[]
   upcomingSessions: UpcomingSession[]
@@ -107,6 +113,16 @@ export default function ClassRoster({ templateId }: { templateId: string }) {
   // the modal surfaces that via its own error state if it happens, same
   // graceful-degradation precedent as Task 5's roster page.)
   const [glowsSessionId, setGlowsSessionId] = useState<string | null>(null)
+
+  // Which enrolled child the per-child assessment modal is open for, if
+  // any. Same `writable`-gated availability as glows above; additionally
+  // requires `template.sport` to resolve (see PlayerAssessmentForm's
+  // `classSport` prop) — no sport means no skill list to assess against.
+  const [assessTarget, setAssessTarget] = useState<{
+    familyMemberId: string
+    childName: string
+    age: number | null
+  } | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -196,6 +212,7 @@ export default function ClassRoster({ templateId }: { templateId: string }) {
                   <th className="px-4 py-2 font-medium text-ink-muted">Child</th>
                   <th className="px-4 py-2 font-medium text-ink-muted">Age</th>
                   <th className="px-4 py-2 font-medium text-ink-muted">Kit size</th>
+                  {writable && <th className="px-4 py-2 font-medium text-ink-muted">Actions</th>}
                 </tr>
               </thead>
               <tbody>
@@ -204,6 +221,25 @@ export default function ClassRoster({ templateId }: { templateId: string }) {
                     <td className="px-4 py-3 font-medium text-ink">{e.childName}</td>
                     <td className="px-4 py-3 text-ink-muted">{e.age ?? "—"}</td>
                     <td className="px-4 py-3 text-ink-muted">{e.kitSize ?? "—"}</td>
+                    {writable && (
+                      <td className="px-4 py-3">
+                        {template.sport ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            data-testid="class-assess-open"
+                            onClick={() =>
+                              setAssessTarget({ familyMemberId: e.familyMemberId, childName: e.childName, age: e.age })
+                            }
+                          >
+                            <Target className="h-3.5 w-3.5" />
+                            Assess
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-ink-faint">Sport not configured</span>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -281,6 +317,18 @@ export default function ClassRoster({ templateId }: { templateId: string }) {
 
       {glowsSessionId && (
         <ClassGlows sessionId={glowsSessionId} onClose={() => setGlowsSessionId(null)} />
+      )}
+
+      {assessTarget && template.sport && (
+        <PlayerAssessmentForm
+          playerId={assessTarget.familyMemberId}
+          playerName={assessTarget.childName}
+          playerAge={assessTarget.age ?? undefined}
+          teams={[]}
+          classSport={template.sport}
+          isOpen={true}
+          onClose={() => setAssessTarget(null)}
+        />
       )}
     </div>
   )

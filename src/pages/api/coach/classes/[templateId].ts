@@ -32,15 +32,29 @@
  * shape as the admin roster), and the next `NEXT_SESSIONS_LIMIT` upcoming
  * sessions, each with its staffed coaches and a per-child booking breakdown
  * (status + check-in stamp) so a coach can see who's actually expected.
+ *
+ * Task 5 (2026-09-05-player-snapshots-phase3): `template.sport` resolves the
+ * sport for the per-child assessment flow's skill picker. `class_slot_templates`
+ * carries no `sportId`/`programId` FK — only a free-text `sportLabel` (e.g.
+ * "Soccer") — so there is no direct join to the `sports` table the way a
+ * team's `programs.sportId` resolves one. Best-effort resolution: match
+ * `sportLabel` case-insensitively against this org's `sports.name` (the org
+ * setup convention seeds a `sports` row per label used on templates/programs
+ * alike, e.g. `name: "Soccer", slug: "soccer"` — see
+ * scripts/seed-demo-day.ts). `null` when no match exists (a template whose
+ * label doesn't correspond to any configured sport) — the roster UI hides
+ * the "Assess" action in that case rather than sending a skill picker with
+ * no sport to query, same graceful-degradation precedent as `writable`.
  */
 import type { APIRoute } from "astro";
-import { and, asc, eq, gt, inArray } from "drizzle-orm";
+import { and, asc, eq, gt, ilike, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { classSlotTemplates, classEnrollments } from "@/lib/db/schema/classes";
 import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
 import { familyMembers } from "@/lib/db/schema/registrations";
 import { users } from "@/lib/db/schema/users";
 import { coachingAssignments } from "@/lib/db/schema/coaching";
+import { sports } from "@/lib/db/schema/sports";
 import { requireCoachPortalAccess, isOrgCoachingStaff } from "@/lib/auth/roles";
 import { getCoachesFor } from "@/lib/coach/coaching-assignments";
 import { ageOnDate } from "@/lib/classes/book-child";
@@ -238,6 +252,17 @@ export const GET: APIRoute = async (context) => {
     })),
   );
 
+  // Best-effort sport resolution for the assessment skill picker — see the
+  // header comment. `.limit(1)` is safe without additional disambiguation
+  // beyond `orderBy`: sports.name is unique per org in practice (admin sport
+  // setup), but a duplicate would otherwise silently pick a CI-arbitrary row.
+  const [sportMatch] = await db
+    .select({ id: sports.id, name: sports.name })
+    .from(sports)
+    .where(and(eq(sports.organizationId, orgId), ilike(sports.name, template.sportLabel)))
+    .orderBy(asc(sports.createdAt))
+    .limit(1);
+
   return json(
     {
       writable,
@@ -249,6 +274,7 @@ export const GET: APIRoute = async (context) => {
         startTime: template.startTime,
         sportLabel: template.sportLabel,
         capacity: template.capacity,
+        sport: sportMatch ? { id: sportMatch.id, name: sportMatch.name } : null,
       },
       enrollments,
       upcomingSessions,
