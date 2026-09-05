@@ -127,6 +127,18 @@ front). IP/user-agent from request context, never the body.
 - **Account-existence oracle:** the `existing_account` response reveals
   that an email has an account. Identical to the registrations
   guest-checkout behavior today; rate limits bound enumeration.
+- **Rate limiter is process-local:** `rateLimit()` (`src/lib/auth/rate-limit.ts`)
+  keeps its buckets in-memory per Netlify Function instance, not shared
+  across instances. Every limit this endpoint relies on — the 5/min burst,
+  the 3/day-per-IP cap, and the 1-per-10-min existing-account email gate —
+  effectively multiplies by however many cold instances Netlify happens to
+  route a given IP/user across. Concretely: a victim whose email is guessed
+  at could receive more than one sign-in-link email per 10 minutes if the
+  attacker's requests land on different instances. Accepted at current
+  launch scale (low traffic keeps instance counts low); the fix is the
+  Redis/Upstash-backed limiter already tracked as a post-launch TODO at the
+  top of `rate-limit.ts`, which would make these limits correct platform-wide
+  rather than per-instance.
 
 ## Decision points — RESOLVED (owner, 2026-09-05)
 

@@ -20,6 +20,7 @@ import type { APIRoute } from "astro";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
+import { users, userRoles, consents } from "@/lib/db/schema";
 import { familyMembers } from "@/lib/db/schema/registrations";
 import { dropInSessions } from "@/lib/db/schema/drop-in";
 import { createChildClassBooking, type ChildBookingError } from "@/lib/classes/book-child";
@@ -42,17 +43,69 @@ const json = (body: unknown, status: number) =>
     headers: { "Content-Type": "application/json" },
   });
 
-const ERROR_STATUS: Partial<Record<ChildBookingError["code"], number>> = {
+/**
+ * Total map, not partial: every `ChildBookingError["code"]` EXCEPT
+ * `allotment_exhausted` (a `kind: "member"`-only error that can never be
+ * returned for this endpoint's `kind: "trial"` booking — handled by the
+ * explicit branch below instead of a lookup default) must appear here, so a
+ * newly added code fails the TS build instead of silently falling back to
+ * 400. Mirrors `/api/classes/book`'s `ERROR_STATUS` exactly, including codes
+ * (`no_membership`, `technical_not_included`) that this endpoint's `trial`
+ * kind can't actually trigger — completeness over cleverness.
+ */
+const ERROR_STATUS: Record<Exclude<ChildBookingError["code"], "allotment_exhausted">, number> = {
   session_not_found: 404,
   session_not_class: 400,
   session_not_scheduled: 400,
   session_started: 400,
   session_full: 409,
+  child_not_found: 404,
   already_booked: 409,
+  no_membership: 403,
+  technical_not_included: 409,
   trial_already_used: 409,
   member_child_no_trial: 409,
   age_ineligible: 422,
+  waiver_required: 422,
 };
+
+/**
+ * Best-effort compensating cleanup for a NEW guest whose trial booking
+ * failed (session_full, age_ineligible, etc). Without this, the freshly
+ * created user+kid rows would strand: `cleanup-unverified-users.ts` never
+ * collects them because `upsertGuestUser` always grants the `parent` role,
+ * and that sweeper's `NOT EXISTS user_roles` guard skips any account with a
+ * role assignment (see cleanup-unverified-users.ts:56-58) — the "kiosk
+ * walk-in tolerance" this endpoint originally cited only applies to a
+ * successful booking's rows, not a failed one's. Without cleanup, a parent
+ * who hits `session_full`/`age_ineligible` and resubmits with the SAME email
+ * would hit the `!wasNewUser` branch and get `existing_account` (a sign-in
+ * email, no booking) instead of a real retry.
+ *
+ * Deletes, in FK-safe order: the child's consent rows, the family_members
+ * row, the user's user_roles rows, then the user row itself. Wrapped in
+ * try/catch — a cleanup failure logs and falls through to stranding the
+ * account rather than 500ing the response the parent is waiting on.
+ *
+ * Race tolerance (accepted): a concurrent duplicate submit that reads
+ * `wasNewUser: false` between our create and this delete will go on to email
+ * a sign-in link to a user we're about to delete — the email send just fails
+ * (already best-effort/caught at that call site). Narrow window, no PII
+ * exposure, not worth serializing over.
+ */
+async function cleanupFailedGuestSignup(
+  db: ReturnType<typeof getDb>,
+  params: { userId: string; familyMemberId: string },
+): Promise<void> {
+  try {
+    await db.delete(consents).where(eq(consents.familyMemberId, params.familyMemberId));
+    await db.delete(familyMembers).where(eq(familyMembers.id, params.familyMemberId));
+    await db.delete(userRoles).where(eq(userRoles.userId, params.userId));
+    await db.delete(users).where(eq(users.id, params.userId));
+  } catch (err) {
+    console.error("[guest-trial] compensating cleanup failed:", err);
+  }
+}
 
 const bodySchema = z.object({
   sessionId: z.string().uuid(),
@@ -81,13 +134,9 @@ export const POST: APIRoute = async (context) => {
   const { request, locals, clientAddress, url } = context;
   if (!locals.organization) return json({ error: "No organization context" }, 400);
 
-  const ip = clientAddress ?? "unknown";
+  const ip = clientAddress || "unknown";
   const burst = rateLimit(`guest-trial:${ip}`, 5, 60_000);
   if (!burst.allowed) return rateLimitedResponse(burst.retryAfter ?? 60);
-  // Daily cap (owner decision): bounds repeat-trial farming from one
-  // connection without ever bothering a normal family.
-  const daily = rateLimit(`guest-trial-day:${ip}`, 3, 24 * 3_600_000);
-  if (!daily.allowed) return rateLimitedResponse(daily.retryAfter ?? 3600);
 
   let raw: unknown;
   try {
@@ -125,6 +174,16 @@ export const POST: APIRoute = async (context) => {
   if (!session || session.organizationId !== locals.organization.id) {
     return json({ error: "session_not_found", message: "Session not found" }, 404);
   }
+
+  // Daily cap (owner decision): bounds repeat-trial farming from one
+  // connection without ever bothering a normal family. Deliberately checked
+  // here — AFTER the body validates and Turnstile passes, not up front with
+  // the burst check — so a handful of empty/malformed or bot-flagged POSTs
+  // (422 invalid_body, 403 turnstile_failed) can't burn a shared IP's
+  // (CGNAT, school network) daily quota before anyone attempts a real
+  // booking.
+  const daily = rateLimit(`guest-trial-day:${ip}`, 3, 24 * 3_600_000);
+  if (!daily.allowed) return rateLimitedResponse(daily.retryAfter ?? 3600);
 
   const brand = brandFromHost(request.headers.get("host") ?? "");
   const { userRow, wasNewUser } = await upsertGuestUser(db, {
@@ -215,10 +274,22 @@ export const POST: APIRoute = async (context) => {
   });
 
   if (!result.ok) {
-    // The user + kid rows stay (kiosk walk-in tolerance): dedupe absorbs a
-    // retry, and the sweeper skips users with family_members/user_roles.
+    // Compensating cleanup (see cleanupFailedGuestSignup's doc comment): a
+    // failed trial for a brand-new guest must not strand the user+kid rows,
+    // or a resubmit with the same email would wrongly hit the
+    // `!wasNewUser` → existing_account branch instead of retrying the
+    // booking.
+    await cleanupFailedGuestSignup(db, { userId: userRow.id, familyMemberId: child.id });
     const { code, message } = result.error;
-    return json({ error: code, message }, ERROR_STATUS[code] ?? 400);
+    if (code === "allotment_exhausted") {
+      // `kind: "member"`-only error — this endpoint always books
+      // `kind: "trial"`, so book-child.ts should never return this here.
+      // Log loudly (would mean its kind-gating broke) rather than silently
+      // mapping to a made-up status.
+      console.error("[guest-trial] unexpected allotment_exhausted for a trial booking");
+      return json({ error: code, message }, 409);
+    }
+    return json({ error: code, message }, ERROR_STATUS[code]);
   }
 
   // New guest becomes a signed-in (1h until email-verified) parent — the
