@@ -298,6 +298,10 @@ function teamsPanel(): string {
       esc(seasonId) +
       '/blueprint" class="underline text-sm hover:no-underline">' +
       "Compose season blueprint &rarr;</a>" +
+      '<a href="/admin/seasons/' +
+      esc(seasonId) +
+      '/placement" class="underline text-sm hover:no-underline">' +
+      "Place players &rarr;</a>" +
       "</div></div>"
     );
   }
@@ -344,6 +348,10 @@ function teamsPanel(): string {
     esc(seasonId) +
     '/blueprint" class="underline text-sm hover:no-underline">' +
     "Compose season blueprint &rarr;</a>" +
+    '<a href="/admin/seasons/' +
+    esc(seasonId) +
+    '/placement" class="underline text-sm hover:no-underline">' +
+    "Place players &rarr;</a>" +
     '<a href="#gear" class="underline text-sm hover:no-underline">Jump to Gear binding &rarr;</a>' +
     "</div></div>"
   );
