@@ -91,16 +91,41 @@ test.describe("Anonymous registration (guest checkout)", { tag: "@critical" }, (
     await emailInput.fill(uniqueEmail);
     await childFirstInput.fill("E2E");
     await childLastInput.fill("Kid");
-    // Mid-range DOB for the seeded U8 age group (minAge 6/maxAge 8), computed
-    // relative to today rather than a fixed literal. The season's startDate
-    // is seeded as "now + 1 month" (see seed-e2e-tests.ts), and Jan 15 is
-    // early enough in the year that age stays 6-7 (never touching the U8
-    // max-age-8 boundary) for the whole window this spec can run in.
+
+    // Mid-range DOB derived from the season's OWN age-group bounds + its
+    // startDate (both already on the `season` object from the API call
+    // above) rather than a hardcoded U8/age-7 assumption or a fixed
+    // literal — stays valid as the seed's season start date and/or
+    // age-group config drifts.
     // CAUTION (audit F1): the previous fixture, 2018-06-01, sat EXACTLY on
     // U8's max-age boundary against the live season startDate — pick DOBs
     // with comfortable slack, not boundary values.
-    const midRangeChildBirthDate = `${new Date().getFullYear() - 7}-01-15`;
+    const seasonStart = new Date(season.startDate);
+    const ageGroup: { minAge: number | null; maxAge: number | null } | null = season.ageGroup ?? null;
+    const minAge = ageGroup?.minAge ?? null;
+    const maxAge = ageGroup?.maxAge ?? null;
+    const midAge =
+      minAge != null && maxAge != null
+        ? Math.round((minAge + maxAge) / 2)
+        : (minAge ?? maxAge ?? 10);
+    const midRangeChildBirthDate = `${seasonStart.getUTCFullYear() - midAge}-01-15`;
+    // Deliberately out-of-range (audit F1 negative case): ~20 years before
+    // today, well past any youth age group's max bound.
+    const outOfRangeChildBirthDate = `${new Date().getFullYear() - 20}-01-15`;
+
+    // ── Negative case (a): out-of-range DOB blocks Continue with the
+    // audit F1 inline message, before the COPPA box is even touched. ──
+    await birthDateInput.fill(outOfRangeChildBirthDate);
+    await page.getByRole("button", { name: /continue/i }).click();
+    await expect(page.getByText(/is for ages/i)).toBeVisible();
+    await expect(page.getByText(/Payment Option/i)).not.toBeVisible();
+
+    // ── Negative case (b): DOB fixed, but the COPPA box is still
+    // unchecked — Continue stays blocked on the consent requirement. ──
     await birthDateInput.fill(midRangeChildBirthDate);
+    await page.getByRole("button", { name: /continue/i }).click();
+    await expect(page.getByText(/Check the box to confirm parental consent/i)).toBeVisible();
+    await expect(page.getByText(/Payment Option/i)).not.toBeVisible();
 
     // COPPA (audit finding F2): required parental-consent checkbox — the
     // guest-checkout API 400s without `parentalConsent: true` and Continue
