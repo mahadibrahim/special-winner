@@ -29,11 +29,15 @@ import { getDb } from "@/lib/db";
 import { users, roles, userRoles } from "@/lib/db/schema/users";
 import { dropInSessions } from "@/lib/db/schema/drop-in";
 import { coachingAssignments } from "@/lib/db/schema/coaching";
+import { classEnrollments, classCreditGrants } from "@/lib/db/schema/classes";
+import { familyMembers } from "@/lib/db/schema/registrations";
 import { resolveDefaultOrgForHttpTests } from "../utils/dropin-helpers";
 import {
   createTestClassTemplate,
   cleanupTestClassFixtures,
   sweepOrphanedTestTemplates,
+  createTestChild,
+  createTestCreditGrant,
 } from "../utils/classes-helpers";
 import { signIn, waitForHydration, TEST_USERS } from "../utils/test-helpers";
 
@@ -205,5 +209,204 @@ test.describe("Admin class template staffing panel", () => {
     // The second (untouched) session is still unstaffed — the override only
     // ever targeted the one row.
     await expect(rows.nth(1)).toContainText("Unassigned");
+  });
+});
+
+/**
+ * Task 5 of the same plan: the coach-portal "My Classes" list
+ * (`/coach/classes`) and its roster/session detail
+ * (`/coach/classes/:templateId`) — the surfaces coaches actually use, as
+ * opposed to the admin staffing panel above.
+ */
+test.describe("Coach portal — My Classes + roster", () => {
+  test.setTimeout(120_000);
+
+  const UNASSIGNED_COACH_EMAIL = "training+coach@test.aspiresports.com";
+  const UNASSIGNED_COACH_PASSWORD = "TestCoach123!";
+
+  let organizationId: string;
+  let venueId: string;
+  let assignedCoachId: string;
+  let portalTemplateId: string;
+  let portalSessionId: string;
+  let childId: string;
+  let grantId: string;
+  let enrollmentId: string;
+
+  const portalSuffix = Date.now();
+  const portalTemplateName = `Portal-E2E-${portalSuffix}`;
+  const portalChildFirstName = `Portal-E2E-Child-${portalSuffix}`;
+
+  test.beforeAll(async () => {
+    ({ organizationId, venueId } = await resolveDefaultOrgForHttpTests());
+    await sweepOrphanedTestTemplates(organizationId);
+
+    const db = getDb();
+
+    const [assignedCoach] = await db
+      .select({ id: users.id })
+      .from(users)
+      .innerJoin(userRoles, eq(userRoles.userId, users.id))
+      .innerJoin(roles, eq(roles.id, userRoles.roleId))
+      .where(
+        and(
+          eq(users.email, TEST_USERS.coach.email),
+          eq(roles.name, "coach"),
+          eq(userRoles.scopeType, "organization"),
+          eq(userRoles.scopeId, organizationId),
+        ),
+      )
+      .orderBy(asc(userRoles.createdAt))
+      .limit(1);
+    if (!assignedCoach) {
+      throw new Error(
+        `coach-classes.spec (portal): ${TEST_USERS.coach.email} is not a seeded org coach — run npm run db:seed:e2e`,
+      );
+    }
+    assignedCoachId = assignedCoach.id;
+
+    const [unassignedCoach] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, UNASSIGNED_COACH_EMAIL))
+      .limit(1);
+    if (!unassignedCoach) {
+      throw new Error(`coach-classes.spec (portal): ${UNASSIGNED_COACH_EMAIL} is not seeded — run npm run db:seed:e2e`);
+    }
+    // Hygiene: the empty-state assertion needs this coach to genuinely have
+    // zero active class assignments — clear any debris a prior/failed run
+    // (this file or a sibling API suite) may have left active.
+    await db
+      .update(coachingAssignments)
+      .set({ active: false })
+      .where(
+        and(
+          eq(coachingAssignments.coachUserId, unassignedCoach.id),
+          inArray(coachingAssignments.kind, ["class_template", "class_session"]),
+        ),
+      );
+
+    const [parent] = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.email, TEST_USERS.parent.email))
+      .limit(1);
+    if (!parent) {
+      throw new Error(
+        `coach-classes.spec (portal): ${TEST_USERS.parent.email} is not seeded — run npm run db:seed:e2e`,
+      );
+    }
+
+    portalTemplateId = await createTestClassTemplate({
+      organizationId,
+      venueId,
+      name: portalTemplateName,
+      capacity: 10,
+    });
+
+    const [assignment] = await db
+      .insert(coachingAssignments)
+      .values({
+        organizationId,
+        coachUserId: assignedCoachId,
+        kind: "class_template",
+        targetId: portalTemplateId,
+        role: "lead",
+      })
+      .returning();
+    void assignment;
+
+    childId = await createTestChild(parent.id, portalChildFirstName);
+
+    grantId = await createTestCreditGrant({
+      organizationId,
+      familyMemberId: childId,
+      sessionsGranted: 10,
+      idSuffix: `portal-e2e-${portalSuffix}`,
+    });
+
+    const [enrollment] = await db
+      .insert(classEnrollments)
+      .values({
+        slotTemplateId: portalTemplateId,
+        familyMemberId: childId,
+        creditGrantId: grantId,
+        status: "active",
+      })
+      .returning();
+    enrollmentId = enrollment.id;
+
+    const startsAt = new Date(Date.now() + 4 * 86_400_000);
+    const [session] = await db
+      .insert(dropInSessions)
+      .values({
+        organizationId,
+        venueId,
+        kind: "class",
+        sportOrClassLabel: "Soccer",
+        startsAt,
+        endsAt: new Date(startsAt.getTime() + 55 * 60_000),
+        capacity: 10,
+        classSlotTemplateId: portalTemplateId,
+      })
+      .returning();
+    portalSessionId = session.id;
+  });
+
+  test.afterAll(async () => {
+    const db = getDb();
+    if (portalSessionId) {
+      await db.delete(dropInSessions).where(eq(dropInSessions.id, portalSessionId));
+    }
+    if (portalTemplateId) {
+      await db
+        .delete(coachingAssignments)
+        .where(
+          and(eq(coachingAssignments.kind, "class_template"), eq(coachingAssignments.targetId, portalTemplateId)),
+        );
+    }
+    if (enrollmentId) {
+      await db.delete(classEnrollments).where(eq(classEnrollments.id, enrollmentId));
+    }
+    if (grantId) {
+      await db.delete(classCreditGrants).where(eq(classCreditGrants.id, grantId));
+    }
+    if (childId) {
+      await db.delete(familyMembers).where(eq(familyMembers.id, childId));
+    }
+    if (portalTemplateId) {
+      await cleanupTestClassFixtures([portalTemplateId]);
+    }
+  });
+
+  test("assigned coach sees the class on My Classes, opens it, and sees the enrolled child + upcoming session", async ({
+    page,
+  }) => {
+    await signIn(page, TEST_USERS.coach.email, TEST_USERS.coach.password);
+
+    await page.goto("/coach/classes", { waitUntil: "domcontentloaded" });
+    await waitForHydration(page);
+
+    const card = page.getByTestId("my-class-card").filter({ hasText: portalTemplateName });
+    await expect(card).toBeVisible({ timeout: 15_000 });
+    await card.click();
+
+    await expect(page).toHaveURL(new RegExp(`/coach/classes/${portalTemplateId}$`));
+    await waitForHydration(page);
+
+    const rosterRow = page.getByTestId("class-roster-row");
+    await expect(rosterRow.filter({ hasText: portalChildFirstName })).toBeVisible({ timeout: 15_000 });
+
+    await expect(page.getByTestId("class-session-row")).toHaveCount(1);
+  });
+
+  test("a coach with no class assignments sees the empty state on My Classes", async ({ page }) => {
+    await signIn(page, UNASSIGNED_COACH_EMAIL, UNASSIGNED_COACH_PASSWORD);
+
+    await page.goto("/coach/classes", { waitUntil: "domcontentloaded" });
+    await waitForHydration(page);
+
+    await expect(page.getByTestId("my-class-card")).toHaveCount(0);
+    await expect(page.getByText(/no classes assigned yet/i)).toBeVisible({ timeout: 15_000 });
   });
 });
