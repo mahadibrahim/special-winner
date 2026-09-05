@@ -89,3 +89,47 @@ export function checkAgeEligibility(
 
   return { eligible: true };
 }
+
+export interface AgeIneligibleMessageOpts {
+  /** The age group's display name (e.g. "U8"). */
+  ageGroupName: string;
+  minAge: number | null;
+  maxAge: number | null;
+  /** The person's computed age on the eligibility date (from a failed
+   *  checkAgeEligibility result). */
+  age: number;
+  /** The player/registrant's first name. Falls back to "This player" when
+   *  blank/undefined (guest checkout may not have a name yet). */
+  personName?: string | null;
+}
+
+/**
+ * Format the client-facing copy for an out-of-range age gate — shared by
+ * every surface that blocks on `checkAgeEligibility` (guest child DOB,
+ * signed-in dependent/self selection, and the server 422 fallback) so the
+ * wording stays byte-for-byte identical everywhere it appears.
+ *
+ * Exact shape (audit F1): "{ageGroupName} is for ages {min}–{max}.
+ * {personName || "This player"} would be {age} when the season starts —
+ * think this is wrong? Contact us at hello@aspiresportsohio.com."
+ *
+ * Single-bound groups degrade gracefully: minAge only → "ages {min}+";
+ * maxAge only → "up to {max}".
+ */
+export function formatAgeIneligibleMessage(
+  opts: AgeIneligibleMessageOpts,
+): string {
+  const { ageGroupName, minAge, maxAge, age, personName } = opts;
+  let range: string;
+  if (minAge != null && maxAge != null) {
+    range = `ages ${minAge}–${maxAge}`;
+  } else if (minAge != null) {
+    range = `ages ${minAge}+`;
+  } else if (maxAge != null) {
+    range = `up to ${maxAge}`;
+  } else {
+    range = "a different age range";
+  }
+  const name = personName?.trim() || "This player";
+  return `${ageGroupName} is for ${range}. ${name} would be ${age} when the season starts — think this is wrong? Contact us at hello@aspiresportsohio.com.`;
+}

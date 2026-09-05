@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   checkAgeEligibility,
   ageOnDate,
+  formatAgeIneligibleMessage,
 } from "@/lib/registrations/age-eligibility";
 
 describe("ageOnDate", () => {
@@ -238,5 +239,62 @@ describe("checkAgeEligibility", () => {
       });
       expect(result).toEqual({ eligible: true });
     });
+  });
+});
+
+describe("formatAgeIneligibleMessage", () => {
+  it("formats a min+max range with the exact audit F1 copy", () => {
+    const message = formatAgeIneligibleMessage({
+      ageGroupName: "U8",
+      minAge: 6,
+      maxAge: 8,
+      age: 10,
+      personName: "Sam",
+    });
+    expect(message).toBe(
+      "U8 is for ages 6–8. Sam would be 10 when the season starts — think this is wrong? Contact us at hello@aspiresportsohio.com.",
+    );
+  });
+
+  it("falls back to \"This player\" when personName is blank/undefined", () => {
+    expect(
+      formatAgeIneligibleMessage({
+        ageGroupName: "U8",
+        minAge: 6,
+        maxAge: 8,
+        age: 10,
+        personName: "",
+      }),
+    ).toContain("This player would be 10");
+    expect(
+      formatAgeIneligibleMessage({
+        ageGroupName: "U8",
+        minAge: 6,
+        maxAge: 8,
+        age: 10,
+      }),
+    ).toContain("This player would be 10");
+  });
+
+  it("degrades to a min-only range (\"ages N+\") when maxAge is null", () => {
+    const message = formatAgeIneligibleMessage({
+      ageGroupName: "Adult League",
+      minAge: 18,
+      maxAge: null,
+      age: 15,
+      personName: "Jamie",
+    });
+    expect(message).toContain("Adult League is for ages 18+.");
+  });
+
+  it("degrades to a max-only range (\"up to N\") when minAge is null", () => {
+    const message = formatAgeIneligibleMessage({
+      ageGroupName: "U8",
+      minAge: null,
+      maxAge: 8,
+      age: 11,
+      personName: "Jamie",
+    });
+    expect(message).toContain("U8 is for up to 8.");
   });
 });
