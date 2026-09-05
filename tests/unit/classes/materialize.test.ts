@@ -88,6 +88,7 @@ describe("occurrenceInstants — pure tz-aware occurrence math", () => {
 // vi.mock("@/lib/db", ...) shape as tests/unit/memberships/annual-fee.test.ts.
 import { classSlotTemplates, classEnrollments } from "@/lib/db/schema/classes";
 import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
+import { coachingAssignments } from "@/lib/db/schema/coaching";
 
 interface TemplateRow {
   template: Record<string, unknown>;
@@ -170,22 +171,41 @@ vi.mock("@/lib/db", () => ({
         throw new Error("unexpected top-level select target in test double");
       },
     }),
-    insert: () => ({
-      values: (vals: Record<string, unknown>) => ({
-        onConflictDoNothing: () => ({
-          returning: async () => {
-            const iso = (vals.startsAt as Date).toISOString();
-            insertedSessionValues.push(vals);
-            if (insertThrowsIso.has(iso)) throw new Error("insert boom");
-            if (alreadyExistsIso.has(iso)) return [];
-            insertedCount += 1;
-            return [{ id: `session-${insertedCount}` }];
-          },
-        }),
-      }),
-    }),
     transaction: async (cb: (tx: unknown) => Promise<unknown>) => {
+      // Same tx shape covers BOTH transaction call sites in materialize.ts:
+      // pass 1's per-occurrence session insert (+ coach-copy) and pass 2's
+      // per-session enrollment sweep. Real materialize.ts issues `tx.insert`
+      // for the session insert (and, when a session was freshly inserted,
+      // `tx.select`/`tx.insert` on coachingAssignments via
+      // copyTemplateCoachesToSession) — not `db.insert` — since #630 moved
+      // the insert inside `db.transaction`.
       const tx = {
+        insert: (table: unknown) => {
+          if (table === dropInSessions) {
+            return {
+              values: (vals: Record<string, unknown>) => ({
+                onConflictDoNothing: () => ({
+                  returning: async () => {
+                    const iso = (vals.startsAt as Date).toISOString();
+                    insertedSessionValues.push(vals);
+                    if (insertThrowsIso.has(iso)) throw new Error("insert boom");
+                    if (alreadyExistsIso.has(iso)) return [];
+                    insertedCount += 1;
+                    return [{ id: `session-${insertedCount}` }];
+                  },
+                }),
+              }),
+            };
+          }
+          if (table === coachingAssignments) {
+            // No test in this suite exercises coach-staffing copy (that's
+            // book-child/coaching's own concern) — always onConflictDoNothing
+            // with nothing to insert in practice, since the paired select
+            // below always reports zero active assignments.
+            return { values: () => ({ onConflictDoNothing: async () => undefined }) };
+          }
+          throw new Error("unexpected tx insert target in test double");
+        },
         select: () => ({
           from: (table: unknown) => {
             if (table === classEnrollments) {
@@ -201,6 +221,12 @@ vi.mock("@/lib/db", () => ({
                   },
                 }),
               };
+            }
+            if (table === coachingAssignments) {
+              // copyTemplateCoachesToSession's lookup of ACTIVE template
+              // assignments — no test here seeds any, so it always early-
+              // returns before ever calling tx.insert(coachingAssignments).
+              return { where: async () => [] };
             }
             throw new Error("unexpected tx select target in test double");
           },

@@ -11,6 +11,14 @@
  *     class-membership child lands on /dashboard/family/choose-slot,
  *     enrolls the child's standing weekly seat, books the first class, and
  *     signs the waiver when prompted.
+ *  3. Signed-out guest trial (spec 2026-09-05): a genuinely signed-out
+ *     visitor books a free trial entirely inline — guest form (parent +
+ *     child + COPPA + Turnstile) → guardian waiver → success — never
+ *     bouncing to /signin. Runs in its own fresh browser context (no
+ *     signIn() call) so it can't inherit auth state from the other specs'
+ *     `page` fixture. Cleanup is direct-via-drizzle rather than an API
+ *     cancel call: the guest account this flow creates has no password to
+ *     authenticate a cancel request with.
  *
  * IMPORTANT — what the seeded session actually guarantees: both specs
  * insert their own future `drop_in_sessions` row against the shared
@@ -57,6 +65,8 @@ import { classSlotTemplates, classEnrollments } from "@/lib/db/schema/classes";
 import { dropInSessions, dropInBookings, dropInRateCard } from "@/lib/db/schema/drop-in";
 import { familyMembers } from "@/lib/db/schema/registrations";
 import { memberships } from "@/lib/db/schema/memberships";
+import { users, userRoles } from "@/lib/db/schema/users";
+import { consents } from "@/lib/db/schema/consents";
 import {
   resolveClassTestFixtures,
   createTestChild,
@@ -433,5 +443,157 @@ test.describe("Youth classes — choose-slot standalone enroll + first booking",
     // comment, no branching needed here unlike the trial spec above.
     await expect(page.getByText("You're all set!")).toBeVisible({ timeout: 20_000 });
     await expect(page.getByText(/is enrolled in Test Class Slot/)).toBeVisible();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Spec 3 — signed-out guest trial happy path from /youth/classes
+// ---------------------------------------------------------------------------
+
+test.describe("Youth classes — signed-out guest trial happy path", () => {
+  test.setTimeout(120_000);
+
+  let organizationId: string;
+  let venueId: string;
+  let templateId: string;
+  let sessionId: string;
+
+  // Unique per run on BOTH axes the guest-trial endpoint dedupes on: the
+  // kid's name (createChildClassBooking's org-wide trial dedupe keys on
+  // lower(firstName)+lower(lastName)+birthDate — see book-child.ts) and the
+  // parent's email (upsertGuestUser's "account already exists" branch would
+  // otherwise short-circuit a second run straight into `existing_account`
+  // and skip the booking this spec exists to exercise). Without both, the
+  // SECOND run of this spec against the shared staging DB fails.
+  const runId = Date.now();
+  const guestChildFirstName = `GuestTrialE2E-${runId}`;
+  const guestChildLastName = "Signup";
+  const guestEmail = `guest-trial-e2e-${runId}@e2e.aspiresports.test`;
+  const guestParentFirstName = "Guest";
+  const guestParentLastName = "TrialParent";
+
+  test.beforeAll(async () => {
+    ({ organizationId, venueId } = await resolveClassTestFixtures());
+    // See the identical comment in the other describe blocks above.
+    await sweepOrphanedTestSessions(organizationId);
+    const template = await resolveTestClassSlotTemplate(organizationId);
+    templateId = template.id;
+    sessionId = await seedFutureClassSession({
+      organizationId,
+      venueId,
+      templateId,
+      capacity: template.capacity,
+      sessionRateCents: template.sessionRateCents,
+      memberRateCents: template.memberRateCents,
+    });
+  });
+
+  test.afterAll(async () => {
+    // No signIn() in this spec (it's signed out throughout) and the guest
+    // account this flow creates has no password to authenticate an API
+    // cancel with — clean up directly via drizzle instead. Find the booking
+    // by CHILD, not by this spec's own seeded sessionId: like the trial-led
+    // describe block above, the booking UI always books the template's
+    // EARLIEST upcoming session, which on shared staging under parallel
+    // workers can be a DIFFERENT session than the one this spec's
+    // beforeAll inserted — deleting only our own sessionId would leave that
+    // booking's row behind, blocking the user delete below on
+    // drop_in_bookings' RESTRICT-on-user_id FK.
+    const db = getDb();
+    const [child] = await db
+      .select({ id: familyMembers.id, parentUserId: familyMembers.parentUserId })
+      .from(familyMembers)
+      .where(
+        and(
+          eq(familyMembers.firstName, guestChildFirstName),
+          eq(familyMembers.lastName, guestChildLastName),
+        ),
+      )
+      .orderBy(desc(familyMembers.createdAt))
+      .limit(1);
+
+    if (child) {
+      const bookingId = await findActiveBookingIdForChild(child.id);
+      if (bookingId) await db.delete(dropInBookings).where(eq(dropInBookings.id, bookingId));
+      await db.delete(consents).where(eq(consents.familyMemberId, child.id));
+      await db.delete(familyMembers).where(eq(familyMembers.id, child.id));
+      if (child.parentUserId) {
+        await db.delete(userRoles).where(eq(userRoles.userId, child.parentUserId));
+        await db.delete(users).where(eq(users.id, child.parentUserId));
+      }
+    }
+
+    if (sessionId) await deleteTestSession(sessionId);
+  });
+
+  test("guest parent books a free trial without an account", async ({ browser }) => {
+    // Fresh, storage-state-free context: the other describe blocks in this
+    // file sign in via signIn(page, ...) on their own `page` fixture, so a
+    // brand-new context/page here guarantees this test starts genuinely
+    // signed out rather than depending on test-isolation defaults.
+    const context = await browser.newContext();
+    const page = await context.newPage();
+
+    try {
+      await page.goto("/youth/classes");
+      await waitForHydration(page);
+
+      // Pin by the exact seeded template id, resolved server-side above —
+      // same pattern as the trial-led spec.
+      await page.locator(`button[data-trial-slot="${templateId}"]`).click();
+
+      const dialog = page.getByRole("dialog");
+      await expect(dialog.getByText("Book a free trial — Test Class Slot")).toBeVisible({
+        timeout: 15_000,
+      });
+
+      await dialog.locator("#guest-parent-first").fill(guestParentFirstName);
+      await dialog.locator("#guest-parent-last").fill(guestParentLastName);
+      await dialog.locator("#guest-email").fill(guestEmail);
+      await dialog.locator("#guest-child-first").fill(guestChildFirstName);
+      await dialog.locator("#guest-child-last").fill(guestChildLastName);
+      await dialog.locator("#guest-child-dob").fill("2016-01-01");
+      await dialog.locator("#guest-coppa").click();
+
+      // Turnstile's always-pass sandbox widget still takes a beat to
+      // deliver its token — Continue stays disabled until
+      // canContinueGuestForm sees a non-empty guestTurnstileToken (see
+      // trial-booking.tsx), so wait for enabled rather than clicking
+      // immediately.
+      const continueButton = dialog.getByRole("button", { name: "Continue" });
+      await expect(continueButton).toBeEnabled({ timeout: 20_000 });
+      await continueButton.click();
+
+      await expect(dialog.getByText("One more step: sign the guardian waiver")).toBeVisible({
+        timeout: 15_000,
+      });
+      // Signature is prefilled from the parent's name by handleGuestContinue
+      // — assert that instead of re-typing it.
+      await expect(dialog.locator("#guest-waiver-signer-name")).toHaveValue(
+        `${guestParentFirstName} ${guestParentLastName}`,
+      );
+      await dialog.locator("#guest-waiver-accept").click();
+
+      const submitButton = dialog.getByRole("button", { name: "Sign waiver & book trial" });
+      await expect(submitButton).toBeEnabled({ timeout: 20_000 });
+      await submitButton.click();
+
+      await expect(dialog.getByText("You're all set!")).toBeVisible({ timeout: 20_000 });
+      await expect(
+        dialog.getByText(`${guestChildFirstName}'s free trial is booked.`),
+      ).toBeVisible();
+      await expect(dialog.getByText("Test Class Slot", { exact: true })).toBeVisible();
+
+      // Guests never get "Add another player" — only Close (see the
+      // success panel's `!guestMode &&` guard in trial-booking.tsx). The
+      // dialog's own built-in [X] close control also has an accessible name
+      // of "Close" (shadcn's DialogContent), so this is `.first()` (the
+      // explicit success-panel button, which renders before that control in
+      // DOM order) rather than an unqualified match.
+      await expect(dialog.getByRole("button", { name: "Add another player" })).toHaveCount(0);
+      await expect(dialog.getByRole("button", { name: "Close" }).first()).toBeVisible();
+    } finally {
+      await context.close();
+    }
   });
 });

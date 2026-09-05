@@ -162,6 +162,91 @@ describe("POST /api/classes/book", () => {
     expect(body2.error).toBe("trial_already_used");
   });
 
+  it("blocks a same-name+DOB kid's trial under a DIFFERENT parent account (org-wide identity dedupe)", async () => {
+    // Unique per run — this is a shared staging DB, so a fixed literal name
+    // would make every re-run fail its FIRST booking against debris from the
+    // last run (owner ruling 2026-09-05).
+    const dedupeFirstName = `Dedupe${Date.now()}`;
+    const dedupeLastName = "Trialkid";
+    const dedupeBirthDate = "2018-04-01";
+
+    // Account A: the seeded parent creates the kid and spends the trial.
+    const childARes = await apiFetch("/api/family-members", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({
+        firstName: dedupeFirstName,
+        lastName: dedupeLastName,
+        birthDate: dedupeBirthDate,
+        parentalConsent: true,
+      }),
+    });
+    expect(childARes.status).toBe(201);
+    const { familyMember: childA } = await childARes.json();
+
+    const sessionA = await createClassSession(hoursFromNow(13 * 24));
+    const resA = await apiFetch("/api/classes/book", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({
+        sessionId: sessionA,
+        familyMemberId: childA.id,
+        kind: "trial",
+        waiver: CLASS_TEST_WAIVER,
+      }),
+    });
+    expect(resA.status).toBe(200);
+    expect((await resA.json()).paymentMethod).toBe("trial");
+
+    // Account B: a DIFFERENT parent, signed up fresh, creates a kid with the
+    // SAME name+DOB and attempts a trial in the same org. The per-
+    // familyMemberId check alone would miss this — it's a different
+    // family_members row and a different parent account — so this exercises
+    // the identity-based (name+DOB) guard specifically.
+    const secondParentEmail = `dedupe-trial-${Date.now()}@example.com`;
+    const secondParentPassword = "TestDedupe123!";
+    const signupRes = await apiFetch("/api/auth/signup", {
+      method: "POST",
+      body: JSON.stringify({
+        email: secondParentEmail,
+        password: secondParentPassword,
+        firstName: "Second",
+        lastName: "Parent",
+      }),
+    });
+    expect(signupRes.status).toBeLessThan(400);
+    const secondParentCookie = await getAuthCookie(secondParentEmail, secondParentPassword);
+
+    const childBRes = await apiFetch("/api/family-members", {
+      method: "POST",
+      cookie: secondParentCookie,
+      body: JSON.stringify({
+        firstName: dedupeFirstName,
+        lastName: dedupeLastName,
+        birthDate: dedupeBirthDate,
+        parentalConsent: true,
+      }),
+    });
+    expect(childBRes.status).toBe(201);
+    const { familyMember: childB } = await childBRes.json();
+    expect(childB.id).not.toBe(childA.id);
+
+    const sessionB = await createClassSession(hoursFromNow(14 * 24));
+    const resB = await apiFetch("/api/classes/book", {
+      method: "POST",
+      cookie: secondParentCookie,
+      body: JSON.stringify({
+        sessionId: sessionB,
+        familyMemberId: childB.id,
+        kind: "trial",
+        waiver: CLASS_TEST_WAIVER,
+      }),
+    });
+    expect(resB.status).toBe(409);
+    const bodyB = await resB.json();
+    expect(bodyB.error).toBe("trial_already_used");
+  });
+
   it("409s member_child_no_trial when a child who already holds a membership asks for a trial", async () => {
     const suffix = `${Date.now()}-h`;
     const childId = await createTestChild(parentUserId, `MemberTrial-${suffix}`);

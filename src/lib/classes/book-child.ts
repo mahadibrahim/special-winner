@@ -36,7 +36,7 @@
  * mirroring the free path's ordering exactly: membership grant, then an
  * awaited confirmation dispatch.
  */
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
 import { familyMembers } from "@/lib/db/schema/registrations";
@@ -411,6 +411,34 @@ export async function createChildClassBooking(opts: {
         )
         .limit(1);
       if (priorTrial) {
+        return err("trial_already_used", "Child has already used their trial class");
+      }
+
+      // Repeat-trial guard across ACCOUNTS (owner decision 2026-09-05): the
+      // per-familyMemberId check above misses a parent re-minting the same
+      // kid under a fresh guest email. Match on the kid's identity — case-
+      // insensitive name + exact DOB — against any non-cancelled trial
+      // booking in this org. A false positive (two real kids sharing full
+      // name AND birthday) is possible but rare; support can comp a class.
+      const [priorTrialSameKid] = await tx
+        .select({ id: dropInBookings.id })
+        .from(dropInBookings)
+        .innerJoin(dropInSessions, eq(dropInSessions.id, dropInBookings.sessionId))
+        .innerJoin(familyMembers, eq(familyMembers.id, dropInBookings.familyMemberId))
+        .where(
+          and(
+            eq(dropInSessions.organizationId, session.organizationId),
+            eq(dropInBookings.paymentMethod, "trial"),
+            ne(dropInBookings.status, "cancelled"),
+            sql`lower(${familyMembers.firstName}) = lower(${child.firstName})`,
+            sql`lower(${familyMembers.lastName}) = lower(${child.lastName})`,
+            child.birthDate !== null
+              ? eq(familyMembers.birthDate, child.birthDate)
+              : sql`false`,
+          ),
+        )
+        .limit(1);
+      if (priorTrialSameKid) {
         return err("trial_already_used", "Child has already used their trial class");
       }
       paymentMethod = "trial";

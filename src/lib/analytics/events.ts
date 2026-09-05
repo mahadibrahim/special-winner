@@ -41,6 +41,9 @@ export const YOUTH_EVENTS = {
   trialFullOfferShown: "trial_full_offer_shown", // week full -> next-week offer surfaced
   trialFullOfferAccepted: "trial_full_offer_accepted", // parent confirmed the offered date
   trialBlocked: "trial_blocked", // terminal/blocking outcome with a reason
+  trialGuestFormShown: "trial_guest_form_shown", // signed-out open -> inline guest form rendered
+  trialGuestSubmitted: "trial_guest_submitted", // guest form POST fired (client, pre-response)
+  trialGuestExistingAccount: "trial_guest_existing_account", // email already had an account -> sign-in link sent
 } as const;
 
 export type TrialBlockedReason =
@@ -50,7 +53,9 @@ export type TrialBlockedReason =
   | "child_not_found"
   | "age_ineligible"
   | "network"
-  | "generic";
+  | "generic"
+  | "rate_limited"
+  | "turnstile_failed";
 
 export const trackTrialModalOpened = (p: { templateId: string }) =>
   track(YOUTH_EVENTS.trialModalOpened, { template_id: p.templateId });
@@ -66,6 +71,12 @@ export const trackTrialFullOfferAccepted = (p: { templateId: string }) =>
   track(YOUTH_EVENTS.trialFullOfferAccepted, { template_id: p.templateId });
 export const trackTrialBlocked = (p: { templateId: string; reason: TrialBlockedReason }) =>
   track(YOUTH_EVENTS.trialBlocked, { template_id: p.templateId, reason: p.reason });
+export const trackTrialGuestFormShown = (p: { templateId: string }) =>
+  track(YOUTH_EVENTS.trialGuestFormShown, { template_id: p.templateId });
+export const trackTrialGuestSubmitted = (p: { templateId: string }) =>
+  track(YOUTH_EVENTS.trialGuestSubmitted, { template_id: p.templateId });
+export const trackTrialGuestExistingAccount = (p: { templateId: string }) =>
+  track(YOUTH_EVENTS.trialGuestExistingAccount, { template_id: p.templateId });
 
 // Server-side event names (used by posthog-node callsites elsewhere).
 export const SERVER_EVENTS = {

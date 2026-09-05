@@ -7,7 +7,11 @@ import { getRentalVenuesByLocation } from "@/lib/soccerone/venues";
 // Uses the seeded "soccerone" fixture org (an org with rental-enabled
 // venues) purely as test data — in prod the brands share the Aspire org
 // and callers pass `Astro.locals.organization.id`.
-describe("getRentalVenuesByLocation()", () => {
+// skipIf: this suite needs a live DB (unusual for tests/unit) — without
+// DATABASE_URL the beforeAll would throw and fail the whole run instead
+// of skipping. CI always sets DATABASE_URL, so this only affects DB-less
+// local runs.
+describe.skipIf(!process.env.DATABASE_URL)("getRentalVenuesByLocation()", () => {
   let fixtureOrgId: string;
   let otherOrgId: string;
 

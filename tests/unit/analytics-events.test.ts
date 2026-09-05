@@ -10,6 +10,7 @@ import {
   TEAM_EVENTS, SERVER_EVENTS, YOUTH_EVENTS,
   trackTrialModalOpened, trackTrialBookingAttempted, trackTrialWaiverShown,
   trackTrialBooked, trackTrialFullOfferShown, trackTrialFullOfferAccepted, trackTrialBlocked,
+  trackTrialGuestFormShown, trackTrialGuestSubmitted, trackTrialGuestExistingAccount,
 } from "@/lib/analytics/events";
 
 describe("analytics events", () => {
@@ -225,5 +226,23 @@ describe("youth trial funnel events", () => {
     expect(YOUTH_EVENTS.trialModalOpened).toBe("trial_modal_opened");
     expect(YOUTH_EVENTS.trialBooked).toBe("trial_booked");
     expect(YOUTH_EVENTS.trialBlocked).toBe("trial_blocked");
+  });
+
+  it("guest form events use snake_case template_id, no PII", () => {
+    trackTrialGuestFormShown({ templateId: "tpl1" });
+    expect(spy).toHaveBeenCalledWith("trial_guest_form_shown", { template_id: "tpl1" });
+    trackTrialGuestSubmitted({ templateId: "tpl1" });
+    expect(spy).toHaveBeenCalledWith("trial_guest_submitted", { template_id: "tpl1" });
+    trackTrialGuestExistingAccount({ templateId: "tpl1" });
+    expect(spy).toHaveBeenCalledWith("trial_guest_existing_account", { template_id: "tpl1" });
+    for (const call of spy.mock.calls) {
+      for (const k of Object.keys(call[1] ?? {})) expect(/email|name|phone/i.test(k)).toBe(false);
+    }
+  });
+
+  it("exposes guest form event names as stable strings", () => {
+    expect(YOUTH_EVENTS.trialGuestFormShown).toBe("trial_guest_form_shown");
+    expect(YOUTH_EVENTS.trialGuestSubmitted).toBe("trial_guest_submitted");
+    expect(YOUTH_EVENTS.trialGuestExistingAccount).toBe("trial_guest_existing_account");
   });
 });
