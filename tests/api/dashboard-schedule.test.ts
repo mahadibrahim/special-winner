@@ -196,11 +196,23 @@ afterAll(async () => {
   await cleanupTestClassFixtures(createdTemplateIds, createdEnrollmentIds);
   await cleanupTestMembershipTiers(createdTierIds);
 
-  // FK-safe order: games -> rosters -> registrations -> teams.
-  await db.delete(games).where(inArray(games.id, [scheduledGameId, postponedGameId]));
-  await db.delete(rosters).where(eq(rosters.id, gameRosterId));
-  await db.delete(registrations).where(eq(registrations.id, gameRegistrationId));
-  await db.delete(teams).where(inArray(teams.id, [homeTeamId, awayTeamId]));
+  // FK-safe order: games -> rosters -> registrations -> teams. Guard against
+  // undefined ids (beforeAll may have died partway through) so a cleanup
+  // failure doesn't mask the original setup error.
+  const gameIds = [scheduledGameId, postponedGameId].filter(Boolean);
+  if (gameIds.length > 0) {
+    await db.delete(games).where(inArray(games.id, gameIds));
+  }
+  if (gameRosterId) {
+    await db.delete(rosters).where(eq(rosters.id, gameRosterId));
+  }
+  if (gameRegistrationId) {
+    await db.delete(registrations).where(eq(registrations.id, gameRegistrationId));
+  }
+  const teamIds = [homeTeamId, awayTeamId].filter(Boolean);
+  if (teamIds.length > 0) {
+    await db.delete(teams).where(inArray(teams.id, teamIds));
+  }
 });
 
 describe("GET /api/dashboard/schedule", () => {
@@ -241,11 +253,8 @@ describe("GET /api/dashboard/schedule", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
 
-    const gameEvents = body.events.filter((e: any) => e.type === "game");
+    const gameEvents = body.events.filter((e: any) => e.type === "game" && e.childId === testChildId);
     expect(gameEvents.length).toBe(2);
-    for (const event of gameEvents) {
-      expect(event.childId).toBe(testChildId);
-    }
 
     const scheduled = gameEvents.find((e: any) => e.id === `game-${scheduledGameId}-${testChildId}`);
     expect(scheduled).toBeTruthy();

@@ -1056,11 +1056,23 @@ test.describe("Family dashboard — full schedule page surfaces league games", (
 
   test.afterAll(async () => {
     const db = getDb();
-    // FK-safe order: games -> rosters -> registrations -> teams.
-    await db.delete(games).where(inArray(games.id, [scheduledGameId, postponedGameId]));
-    await db.delete(rosters).where(eq(rosters.id, gameRosterId));
-    await db.delete(registrations).where(eq(registrations.id, gameRegistrationId));
-    await db.delete(teams).where(inArray(teams.id, [homeTeamId, awayTeamId]));
+    // FK-safe order: games -> rosters -> registrations -> teams. Guard
+    // against undefined ids (beforeAll may have died partway through) so a
+    // cleanup failure doesn't mask the original setup error.
+    const gameIds = [scheduledGameId, postponedGameId].filter(Boolean);
+    if (gameIds.length > 0) {
+      await db.delete(games).where(inArray(games.id, gameIds));
+    }
+    if (gameRosterId) {
+      await db.delete(rosters).where(eq(rosters.id, gameRosterId));
+    }
+    if (gameRegistrationId) {
+      await db.delete(registrations).where(eq(registrations.id, gameRegistrationId));
+    }
+    const teamIds = [homeTeamId, awayTeamId].filter(Boolean);
+    if (teamIds.length > 0) {
+      await db.delete(teams).where(inArray(teams.id, teamIds));
+    }
   });
 
   test("list view shows a Game badge, the team-vs-opponent title, and a Postponed status chip", async ({

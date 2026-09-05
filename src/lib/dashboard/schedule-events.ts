@@ -48,7 +48,7 @@ interface BookedSessionInput {
   templateName: string;
   // Nullable: pickup/one-off sessions never set this, and legacy sessions
   // materialized before this column existed won't have it either — those
-  // fall back to name-keyed suppression (see suppressionKey below).
+  // fall back to name-keyed suppression (see nameKey/idKey below).
   templateId: string | null;
   childId: string;
   childName: string;
@@ -151,13 +151,25 @@ export function buildClassScheduleEvents(input: {
     bookingId: s.bookingId,
   }));
 
-  // Suppression key: childId + templateId, falling back to templateName when
-  // templateId is null (pickup/legacy sessions with no template back-ref).
-  // Keying on id rather than name keeps booked/projected suppression in sync
-  // across a template rename — the display name can change independently of
-  // the row that identifies "this is the same recurring slot".
-  function suppressionKey(childId: string, templateId: string | null, templateName: string): string {
-    return `${childId}::${templateId ?? templateName}`;
+  // Suppression keys: each side (booked/enrollment) is independently keyed
+  // by whichever identifiers it actually has, so a row that's missing a
+  // templateId still matches its counterpart by name.
+  //
+  // The endpoint's two legs are NOT symmetric: enrollment rows always carry
+  // a templateId (an inner join to class_slot_templates — see
+  // src/pages/api/dashboard/schedule.ts), but booked-session rows read
+  // `drop_in_sessions.classSlotTemplateId`, which is nullable and goes to
+  // null on template deletion (ON DELETE SET NULL) or was never set at all
+  // (one-off admin-created sessions). An id-only key on both sides would
+  // mean a null-templateId booked row (indexed by name) is never found by
+  // an id-keyed enrollment lookup — a silent duplicate booked+projected
+  // pair. So: index booked rows under BOTH a name key and (when present) an
+  // id key, and probe BOTH keys on lookup from the enrollment side too.
+  function nameKey(childId: string, templateName: string): string {
+    return `${childId}::name::${templateName}`;
+  }
+  function idKey(childId: string, templateId: string | null): string | null {
+    return templateId != null ? `${childId}::id::${templateId}` : null;
   }
 
   // Suppression index: key -> sorted booked instants (ms). The booked seat is
@@ -165,11 +177,15 @@ export function buildClassScheduleEvents(input: {
   // case (a cancelled booking never reaches this list in the first place,
   // since the caller only passes confirmed ones).
   const bookedByKey = new Map<string, number[]>();
-  for (const s of bookedSessions) {
-    const key = suppressionKey(s.childId, s.templateId, s.templateName);
+  function indexBookedInstant(key: string, instantMs: number): void {
     const arr = bookedByKey.get(key) ?? [];
-    arr.push(s.startsAt.getTime());
+    arr.push(instantMs);
     bookedByKey.set(key, arr);
+  }
+  for (const s of bookedSessions) {
+    indexBookedInstant(nameKey(s.childId, s.templateName), s.startsAt.getTime());
+    const ik = idKey(s.childId, s.templateId);
+    if (ik) indexBookedInstant(ik, s.startsAt.getTime());
   }
   for (const arr of bookedByKey.values()) arr.sort((a, b) => a - b);
 
@@ -179,9 +195,13 @@ export function buildClassScheduleEvents(input: {
     templateName: string,
     instantMs: number,
   ): boolean {
-    const arr = bookedByKey.get(suppressionKey(childId, templateId, templateName));
-    if (!arr) return false;
-    return arr.some((t) => Math.abs(t - instantMs) <= SUPPRESSION_WINDOW_MS);
+    const keys = [nameKey(childId, templateName)];
+    const ik = idKey(childId, templateId);
+    if (ik) keys.push(ik);
+    return keys.some((key) => {
+      const arr = bookedByKey.get(key);
+      return arr != null && arr.some((t) => Math.abs(t - instantMs) <= SUPPRESSION_WINDOW_MS);
+    });
   }
 
   const projectedEvents: FamilyScheduleEvent[] = [];

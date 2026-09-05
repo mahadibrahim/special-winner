@@ -160,6 +160,43 @@ describe("buildClassScheduleEvents", () => {
     expect(sep9Events[0].bookingId).toBe("b1");
   });
 
+  it("suppresses a projection when the booked row has a null templateId but the enrollment has one (one-off admin-created session, mirrors the endpoint's real asymmetric shape)", () => {
+    const events = buildClassScheduleEvents({
+      bookedSessions: [
+        {
+          bookingId: "b1",
+          sessionId: "s1",
+          // Same instant as the first weekly projection (Sep 9 21:30Z).
+          startsAt: new Date("2026-09-09T21:30:00.000Z"),
+          durationMinutes: 55,
+          // classSlotTemplateId is null — e.g. a template that was since
+          // deleted (ON DELETE SET NULL) or a one-off admin-created class
+          // session never linked to a template. The endpoint's enrollment
+          // leg, by contrast, always has a templateId (inner join), so a
+          // purely id-keyed lookup would never find this booked row.
+          templateName: "U8 Wednesdays",
+          templateId: null,
+          childId: "c1",
+          childName: "Alex",
+          venueName: "Powell",
+          venueAddress: null,
+        },
+      ],
+      enrollments: [{ ...wed1730, templateId: "t1" }],
+      from: new Date("2026-09-04T12:00:00Z"),
+      horizonDays: 28,
+    });
+
+    // 1 booked + 3 remaining projections (Sep 9's projection is suppressed
+    // via the name-key fallback, despite the enrollment side being
+    // id-keyed).
+    expect(events).toHaveLength(4);
+    const sep9Events = events.filter((e) => e.startsAt.startsWith("2026-09-09"));
+    expect(sep9Events).toHaveLength(1);
+    expect(sep9Events[0].projected).toBe(false);
+    expect(sep9Events[0].bookingId).toBe("b1");
+  });
+
   it("sorts merged output by startsAt", () => {
     const childB = {
       enrollmentId: "e2",
