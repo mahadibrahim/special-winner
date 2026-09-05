@@ -1254,6 +1254,12 @@ export default function RegistrationWizard({
           setGuestServerAgeError(message)
           setCurrentStep(stepNumberOf("player"))
           trackRegistrationBlocked({ seasonId, reason: "age_ineligible" })
+          // This 422 routes back to the player step with guestServerAgeError
+          // set, which feeds displayedChildAgeError — so a re-click of
+          // Continue without editing the DOB would hit handleContinue's
+          // client-side block and fire the SAME event again. Pre-set the
+          // ref here so that guard treats this wall-hit as already counted.
+          ageIneligibleBlockedTrackedRef.current = true
           return { error: "age_ineligible" }
         }
         // Ambiguous-audience adult-guest branch (guestMode === "adult", not

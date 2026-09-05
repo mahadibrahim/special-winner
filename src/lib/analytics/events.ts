@@ -18,7 +18,7 @@ export const LEAGUE_EVENTS = {
   inappBannerClicked: "inapp_banner_clicked",
   inappRecaptureRequested: "inapp_recapture_requested",
   // League-funnel instrumentation gaps closed under audit F5.
-  registrationBlocked: "registration_blocked", // register page dead-ends: reason not_open|closed|already_registered
+  registrationBlocked: "registration_blocked", // register page dead-ends: reason not_open|closed|already_registered|age_ineligible
   guestFormShown: "guest_registration_form_shown", // guest who-step rendered (client-side twin of guest_checkout_started)
 } as const;
 
