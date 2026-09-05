@@ -68,6 +68,18 @@ interface RecentAssessment {
   context: string | null
 }
 
+interface RadarSnapshot {
+  domain: string
+  averageLevel: number
+  previousAverageLevel: number | null
+}
+
+interface RadarPeriodEntry {
+  key: string
+  kind: "quarter" | "month"
+  snapshots: RadarSnapshot[]
+}
+
 interface ReportData {
   familyMember: {
     id: string
@@ -94,10 +106,35 @@ interface ReportData {
   }
   domainProgress: DomainProgress[]
   recentAssessments: RecentAssessment[]
-  snapshots: { domain: string; averageLevel: number; previousAverageLevel: number | null }[]
+  snapshots: RadarSnapshot[]
+  periods?: {
+    current: { quarterKey: string; months: string[] }
+    radar: RadarPeriodEntry[]
+  }
 }
 
 const LEVEL_LABELS = ["Not Assessed", "Beginner", "Developing", "Competent", "Proficient", "Advanced"]
+
+const MONTH_NAMES = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+]
+
+const LATEST_PERIOD_KEY = "__latest__"
+
+/** "2026-Q3" -> "Q3 2026"; "2026-09" -> "Sep 2026"; falls back to the raw key. */
+function formatPeriodLabel(entry: Pick<RadarPeriodEntry, "key" | "kind">): string {
+  if (entry.kind === "quarter") {
+    const match = /^(\d{4})-Q([1-4])$/.exec(entry.key)
+    if (match) return `Q${match[2]} ${match[1]}`
+    return entry.key
+  }
+  const match = /^(\d{4})-(\d{2})$/.exec(entry.key)
+  if (match) {
+    const monthName = MONTH_NAMES[Number(match[2]) - 1] ?? match[2]
+    return `${monthName} ${match[1]}`
+  }
+  return entry.key
+}
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("en-US", {
@@ -129,6 +166,7 @@ export default function DevelopmentReport({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [expandedDomain, setExpandedDomain] = useState<string | null>(null)
+  const [selectedPeriodKey, setSelectedPeriodKey] = useState<string>(LATEST_PERIOD_KEY)
 
   useEffect(() => {
     async function fetchReport() {
@@ -142,8 +180,21 @@ export default function DevelopmentReport({
           throw new Error("Failed to load development report")
         }
 
-        const reportData = await res.json()
+        const reportData: ReportData = await res.json()
         setData(reportData)
+
+        // Default to the current quarter's rollup when periods are
+        // available; otherwise the "Latest" sentinel drives the back-compat
+        // `snapshots` field (legacy fallback / zero-UI-change floor).
+        const periods = reportData.periods
+        if (periods && periods.radar.length > 0) {
+          const currentQuarterEntry = periods.radar.find(
+            (e) => e.kind === "quarter" && e.key === periods.current.quarterKey
+          )
+          setSelectedPeriodKey(currentQuarterEntry?.key ?? periods.radar[0].key)
+        } else {
+          setSelectedPeriodKey(LATEST_PERIOD_KEY)
+        }
       } catch (err) {
         console.error("Error fetching report:", err)
         setError(err instanceof Error ? err.message : "Failed to load report")
@@ -172,12 +223,26 @@ export default function DevelopmentReport({
     )
   }
 
-  const { overallProgress, domainProgress, recentAssessments, snapshots } = data
+  const { overallProgress, domainProgress, recentAssessments, snapshots, periods } = data
   const TrendIcon = overallProgress.trend > 0 ? TrendingUp : overallProgress.trend < 0 ? TrendingDown : Minus
   const trendColor = overallProgress.trend > 0 ? "text-emerald-400" : overallProgress.trend < 0 ? "text-amber-500" : "text-ink-muted"
   const trendLabel = overallProgress.trend < 0 ? "finding form" : undefined
 
-  const radarAxes: RadarAxis[] = (snapshots ?? []).map((s) => ({
+  // Period selector options: the API's radar entries (quarter rollup +
+  // monthly drill-down), or a single "Latest" fallback when the child has
+  // no periods data at all (legacy-only — see the reports API's back-compat
+  // `snapshots` field).
+  const hasPeriods = !!periods && periods.radar.length > 0
+  const periodOptions = hasPeriods
+    ? periods!.radar.map((entry) => ({ key: entry.key, label: formatPeriodLabel(entry) }))
+    : [{ key: LATEST_PERIOD_KEY, label: "Latest" }]
+
+  const selectedRadarEntry = hasPeriods
+    ? periods!.radar.find((entry) => entry.key === selectedPeriodKey)
+    : undefined
+  const activeSnapshots = selectedRadarEntry ? selectedRadarEntry.snapshots : (snapshots ?? [])
+
+  const radarAxes: RadarAxis[] = activeSnapshots.map((s) => ({
     label: s.domain,
     current: s.averageLevel,
     previous: s.previousAverageLevel ?? undefined,
@@ -247,8 +312,11 @@ export default function DevelopmentReport({
   // Full view
   return (
     <div className={cn("space-y-6", className)}>
-      {/* Header Stats */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* Header Stats — these totals are all-time (never period-filtered),
+          called out explicitly so they can't be misread as disagreeing
+          with the period-scoped radar below. */}
+      <p className="text-xs font-medium uppercase tracking-wide text-ink-faint">All time</p>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 -mt-2">
         {/* Overall Progress */}
         <div className="p-5 rounded-2xl bg-gradient-to-br from-primary/10 to-orange-500/10 border border-primary/20">
           <div className="flex items-center gap-3 mb-3">
@@ -319,23 +387,47 @@ export default function DevelopmentReport({
       {/* Recent Glows — quick hit of positive framing above the domain cards. */}
       <RecentGlows familyMemberId={familyMemberId} />
 
-      {/* Domain Radar — at-a-glance shape of development across domains */}
+      {/* Domain Radar — at-a-glance shape of development across domains,
+          period-aware: defaults to the current quarter's rollup, with
+          monthly drill-down and prior quarters available in the selector. */}
       <section>
-        <h2 className="text-lg font-semibold text-ink flex items-center gap-2 mb-4">
-          <BarChart3 className="w-5 h-5 text-primary" />
-          Domain Overview
-        </h2>
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <h2 className="text-lg font-semibold text-ink flex items-center gap-2">
+            <BarChart3 className="w-5 h-5 text-primary" />
+            Domain Overview
+          </h2>
+          <label className="flex items-center gap-2 text-sm text-ink-muted">
+            <span className="sr-only">Radar period</span>
+            <select
+              data-testid="radar-period-select"
+              value={selectedPeriodKey}
+              onChange={(e) => setSelectedPeriodKey(e.target.value)}
+              disabled={!hasPeriods}
+              className="rounded-lg border border-border bg-paper px-3 py-1.5 text-sm text-ink disabled:opacity-60"
+            >
+              {periodOptions.map((option) => (
+                <option key={option.key} value={option.key}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
         <div className="p-6 rounded-2xl bg-paper border border-border">
           <DomainRadar axes={radarAxes} />
         </div>
       </section>
 
-      {/* Domain Progress */}
+      {/* Domain Progress — all-time, not period-filtered (see the reports
+          API: domainProgress derives straight from player_assessments). */}
       <section>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-ink flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-primary" />
             Development by Domain
+            <span className="text-xs font-medium uppercase tracking-wide text-ink-faint ml-1">
+              All time
+            </span>
           </h2>
         </div>
 

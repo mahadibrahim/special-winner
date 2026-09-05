@@ -15,7 +15,26 @@ import {
 import { assessmentSnapshots } from "@/lib/db/schema/assessments";
 import { sports } from "@/lib/db/schema/sports";
 import { canAccessFamilyMember } from "@/lib/auth/family-access";
+import { quarterKeyFor, monthsOfQuarter } from "@/lib/curriculum/period-key";
 import { eq, and, desc, sql } from "drizzle-orm";
+
+const LEGACY_PERIOD_PREFIX = "legacy:";
+
+/** `YYYY-MM` -> its `YYYY-Qn` quarter key, without needing a Date at hand. */
+function quarterKeyOfMonth(periodKey: string): string {
+  const [year, month] = periodKey.split("-").map(Number);
+  return quarterKeyFor(new Date(Date.UTC(year, month - 1, 1)));
+}
+
+/** The quarter key immediately preceding `quarterKey`, crossing year boundaries. */
+function previousQuarterKey(quarterKey: string): string {
+  const match = /^(\d{4})-Q([1-4])$/.exec(quarterKey);
+  if (!match) throw new Error(`previousQuarterKey: invalid quarter key "${quarterKey}"`);
+  const year = Number(match[1]);
+  const quarter = Number(match[2]);
+  if (quarter === 1) return `${year - 1}-Q4`;
+  return `${year}-Q${quarter - 1}`;
+}
 
 // GET - Get development report for a family member
 export const GET: APIRoute = async ({ params, locals }) => {
@@ -237,15 +256,18 @@ export const GET: APIRoute = async ({ params, locals }) => {
       context: a.observationContext,
     }));
 
-    // Get assessment snapshots (Task 9) for the domain radar chart (Task 10).
-    // A player can have snapshot rows across multiple seasons per domain —
-    // take the most recently updated one per domain as "current".
+    // Get assessment snapshots (Task 9) for the domain radar chart (Task 10),
+    // now period-aware (Phase 3 S4): the radar defaults to a current-quarter
+    // rollup with monthly drill-down, falling back to the pre-S2
+    // latest-per-domain-across-all-rows behavior for children who only have
+    // legacy (`legacy:<seasonId>`) rows.
     const snapshotRows = await getDb()
       .select({
         domainId: assessmentSnapshots.domainId,
         domainDisplayName: skillDomains.displayName,
         averageLevel: assessmentSnapshots.averageLevel,
         previousAverageLevel: assessmentSnapshots.previousAverageLevel,
+        periodKey: assessmentSnapshots.periodKey,
         updatedAt: assessmentSnapshots.updatedAt,
       })
       .from(assessmentSnapshots)
@@ -253,19 +275,125 @@ export const GET: APIRoute = async ({ params, locals }) => {
       .where(eq(assessmentSnapshots.familyMemberId, familyMemberId))
       .orderBy(skillDomains.sortOrder, desc(assessmentSnapshots.updatedAt));
 
+    // Legacy fallback: most recently updated row per domain, across every
+    // periodKey (legacy or monthly) — the pre-S4 behavior, kept as the
+    // back-compat floor for children with no monthly rows at all.
     const latestSnapshotByDomain = new Map<string, (typeof snapshotRows)[number]>();
     for (const row of snapshotRows) {
       if (!latestSnapshotByDomain.has(row.domainId)) {
         latestSnapshotByDomain.set(row.domainId, row);
       }
     }
-
-    const snapshots = [...latestSnapshotByDomain.values()].map((row) => ({
+    const legacyFallbackSnapshots = [...latestSnapshotByDomain.values()].map((row) => ({
       domain: row.domainDisplayName,
       averageLevel: row.averageLevel !== null ? parseFloat(row.averageLevel) : 0,
       previousAverageLevel:
         row.previousAverageLevel !== null ? parseFloat(row.previousAverageLevel) : null,
     }));
+
+    // Monthly (non-legacy) rows only participate in period math.
+    const monthlyRows = snapshotRows.filter(
+      (row) => !row.periodKey.startsWith(LEGACY_PERIOD_PREFIX),
+    );
+
+    // periodKey -> domainId -> row (unique per the DB natural key).
+    const rowsByPeriod = new Map<string, Map<string, (typeof snapshotRows)[number]>>();
+    for (const row of monthlyRows) {
+      let byDomain = rowsByPeriod.get(row.periodKey);
+      if (!byDomain) {
+        byDomain = new Map();
+        rowsByPeriod.set(row.periodKey, byDomain);
+      }
+      byDomain.set(row.domainId, row);
+    }
+
+    // quarterKey -> periodKeys present in that quarter (chronological).
+    const periodsByQuarter = new Map<string, string[]>();
+    for (const periodKey of rowsByPeriod.keys()) {
+      const quarterKey = quarterKeyOfMonth(periodKey);
+      const list = periodsByQuarter.get(quarterKey) ?? [];
+      list.push(periodKey);
+      periodsByQuarter.set(quarterKey, list);
+    }
+    for (const list of periodsByQuarter.values()) list.sort();
+
+    /** Average each domain's monthly rows within `quarterKey`, keyed by domainId. */
+    function quarterDomainAverages(
+      quarterKey: string,
+    ): Map<string, { displayName: string; averageLevel: number }> {
+      const periodKeys = periodsByQuarter.get(quarterKey) ?? [];
+      const sums = new Map<string, { sum: number; count: number; displayName: string }>();
+      for (const periodKey of periodKeys) {
+        const byDomain = rowsByPeriod.get(periodKey)!;
+        for (const [domId, row] of byDomain) {
+          const level = row.averageLevel !== null ? parseFloat(row.averageLevel) : null;
+          if (level === null) continue;
+          const entry = sums.get(domId) ?? { sum: 0, count: 0, displayName: row.domainDisplayName };
+          entry.sum += level;
+          entry.count += 1;
+          sums.set(domId, entry);
+        }
+      }
+      const result = new Map<string, { displayName: string; averageLevel: number }>();
+      for (const [domId, { sum, count, displayName }] of sums) {
+        result.set(domId, { displayName, averageLevel: Math.round((sum / count) * 10) / 10 });
+      }
+      return result;
+    }
+
+    function quarterEntrySnapshots(quarterKey: string) {
+      const averages = quarterDomainAverages(quarterKey);
+      if (averages.size === 0) return null;
+      const previousAverages = quarterDomainAverages(previousQuarterKey(quarterKey));
+      return [...averages.entries()].map(([domId, { displayName, averageLevel }]) => ({
+        domain: displayName,
+        averageLevel,
+        previousAverageLevel: previousAverages.get(domId)?.averageLevel ?? null,
+      }));
+    }
+
+    const nowQuarterKey = quarterKeyFor(new Date());
+    const currentMonths = monthsOfQuarter(nowQuarterKey);
+
+    const radar: Array<{
+      key: string;
+      kind: "quarter" | "month";
+      snapshots: { domain: string; averageLevel: number; previousAverageLevel: number | null }[];
+    }> = [];
+
+    const currentQuarterSnapshots = quarterEntrySnapshots(nowQuarterKey);
+    if (currentQuarterSnapshots) {
+      radar.push({ key: nowQuarterKey, kind: "quarter", snapshots: currentQuarterSnapshots });
+    }
+
+    for (const periodKey of currentMonths) {
+      const byDomain = rowsByPeriod.get(periodKey);
+      if (!byDomain || byDomain.size === 0) continue;
+      const monthSnapshots = [...byDomain.values()].map((row) => ({
+        domain: row.domainDisplayName,
+        averageLevel: row.averageLevel !== null ? parseFloat(row.averageLevel) : 0,
+        previousAverageLevel:
+          row.previousAverageLevel !== null ? parseFloat(row.previousAverageLevel) : null,
+      }));
+      radar.push({ key: periodKey, kind: "month", snapshots: monthSnapshots });
+    }
+
+    // Prior quarters with monthly data, most recent first, capped at 4.
+    const priorQuarterKeys = [...periodsByQuarter.keys()]
+      .filter((q) => q !== nowQuarterKey)
+      .sort()
+      .reverse()
+      .slice(0, 4);
+    for (const quarterKey of priorQuarterKeys) {
+      const snaps = quarterEntrySnapshots(quarterKey);
+      if (!snaps) continue;
+      radar.push({ key: quarterKey, kind: "quarter", snapshots: snaps });
+    }
+
+    // Back-compat `snapshots` field: current-quarter rollup when it has
+    // data, else the legacy latest-per-domain-across-all-rows fallback so
+    // old data (and the radar's zero-UI-change floor) keeps rendering.
+    const snapshots = currentQuarterSnapshots ?? legacyFallbackSnapshots;
 
     // Calculate age. birthDate can be null for adult self-registrants whose
     // DOB is still pending post-payment review.
@@ -298,6 +426,10 @@ export const GET: APIRoute = async ({ params, locals }) => {
         domainProgress: domainSummaries,
         recentAssessments,
         snapshots,
+        periods: {
+          current: { quarterKey: nowQuarterKey, months: currentMonths },
+          radar,
+        },
       }),
       {
         status: 200,
