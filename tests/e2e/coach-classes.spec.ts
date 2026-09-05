@@ -812,6 +812,25 @@ test.describe("Coach assesses a class child from the roster; parent sees it on t
     await page.getByTestId("class-assess-submit").click();
     await expect(page.getByText("Assessment saved!")).toBeVisible({ timeout: 15_000 });
 
+    // Regression pin (review finding): the Save button must stay disabled
+    // through the whole 2s confirmation window, not just while the POST is
+    // in flight — the confirmation view holds `selectedSkill` for that
+    // window (player-assessment-form.tsx), and pre-fix `isSubmitting` alone
+    // reset before it did, leaving a fully-enabled button next to
+    // "Assessment saved!" that would double-POST on a second click. `force:
+    // true` bypasses Playwright's own actionability wait (which would
+    // otherwise just block on the disabled attribute and never click) so
+    // this actually exercises "what if the browser dispatched a click
+    // anyway" — a native disabled <button> still swallows it, which is
+    // exactly the behavior being pinned.
+    await page.getByTestId("class-assess-submit").click({ force: true });
+    await page.waitForTimeout(2_500); // let the confirmation window (and any errant second POST) fully elapse
+    const postSubmitAssessments = await getDb()
+      .select({ id: playerAssessments.id })
+      .from(playerAssessments)
+      .where(eq(playerAssessments.familyMemberId, childId));
+    expect(postSubmitAssessments).toHaveLength(1);
+
     // Same page, new session: sign in as the child's parent — an account
     // this branch's coach/admin diff never touches — and confirm the
     // assessment shows up on the untouched parent-facing development page.

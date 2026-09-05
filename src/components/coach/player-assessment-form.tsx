@@ -584,7 +584,16 @@ export default function PlayerAssessmentForm({
                   {!error && !success && <div />}
                   <Button
                     type="submit"
-                    disabled={isSubmitting || !selectedSkill || !hasAssessmentContext}
+                    // `success` stays true for the full 2s confirmation
+                    // window (the setTimeout in handleSubmit only clears it,
+                    // and selectedSkill, together). Without it here,
+                    // isSubmitting has already reset in the POST's `finally`
+                    // by the time the confirmation is showing, leaving a
+                    // fully-enabled Save button next to "Assessment saved!"
+                    // — a second click during that window POSTs a duplicate
+                    // assessment (extra player_assessments row, double-
+                    // counted skill summary). Included on both flows.
+                    disabled={isSubmitting || success || !selectedSkill || !hasAssessmentContext}
                     data-testid={classSport ? "class-assess-submit" : undefined}
                     className="bg-emerald-600 hover:bg-emerald-700 text-ink"
                   >
