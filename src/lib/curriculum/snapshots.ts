@@ -83,12 +83,15 @@ export function computeDomainAverages(rows: AssessmentRow[]): Map<string, Domain
  * "declining" | "new". We write the real enum values — up -> improving,
  * down -> declining, steady -> stable — rather than widen the enum.
  *
- * NOTE on seasonId: `assessment_snapshots.season_id` is NOT NULL, but
- * `player_assessments.season_id` is nullable (a coach can record an
- * assessment without picking a season). When `seasonId` is null there is
- * nowhere to write the snapshot, so this is a documented no-op — those
- * assessments simply don't contribute to the radar chart until the
- * assessment is backfilled with a season.
+ * NOTE on seasonId: as of migration 0147 `assessment_snapshots.season_id`
+ * is nullable, but this function still requires a season (it writes the
+ * interim 'legacy:<seasonId>' period key — see below). `player_assessments
+ * .season_id` is separately nullable (a coach can record an assessment
+ * without picking a season). When `seasonId` is null there is no season to
+ * bucket by, so this is a documented no-op — those assessments simply
+ * don't contribute to the radar chart until the assessment is backfilled
+ * with a season (S2 replaces this season-only path with real period-key
+ * computation).
  */
 /**
  * Executor type: a plain Database or an open drizzle transaction. When a tx
@@ -130,6 +133,16 @@ export async function recomputePlayerSnapshots(
 
     let domainsWritten = 0;
     for (const [domainId, { average, skillCount, assessmentCount }] of averages) {
+      // INTERIM (S1 schema boundary — see migration 0147): the natural key
+      // is now (familyMemberId, periodKey, domainId), not
+      // (familyMemberId, seasonId, domainId). This function still only
+      // knows about seasons, so it keeps writing the 'legacy:<seasonId>'
+      // period key that the migration's backfill used, preserving existing
+      // callers' behavior byte-for-byte. S2 replaces this whole function
+      // with real period-key computation (monthly buckets from
+      // player_assessments.assessedAt) and removes this shim.
+      const periodKey = `legacy:${seasonId}`;
+
       // Read the pre-update row inside the same transaction so
       // `previousAverageLevel` reflects the state before this write.
       const [existing] = await tx
@@ -138,7 +151,7 @@ export async function recomputePlayerSnapshots(
         .where(
           and(
             eq(assessmentSnapshots.familyMemberId, familyMemberId),
-            eq(assessmentSnapshots.seasonId, seasonId),
+            eq(assessmentSnapshots.periodKey, periodKey),
             eq(assessmentSnapshots.domainId, domainId),
           ),
         );
@@ -170,6 +183,7 @@ export async function recomputePlayerSnapshots(
         .values({
           familyMemberId,
           seasonId,
+          periodKey,
           domainId,
           averageLevel: averageLevelStr,
           assessmentCount,
@@ -180,7 +194,7 @@ export async function recomputePlayerSnapshots(
         .onConflictDoUpdate({
           target: [
             assessmentSnapshots.familyMemberId,
-            assessmentSnapshots.seasonId,
+            assessmentSnapshots.periodKey,
             assessmentSnapshots.domainId,
           ],
           set: {

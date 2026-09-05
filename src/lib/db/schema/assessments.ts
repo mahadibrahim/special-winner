@@ -92,9 +92,24 @@ export const assessmentSnapshots = pgTable(
   familyMemberId: uuid("family_member_id")
     .notNull()
     .references(() => familyMembers.id, { onDelete: "cascade" }),
-  seasonId: uuid("season_id")
-    .notNull()
-    .references(() => seasons.id, { onDelete: "cascade" }),
+  // Nullable as of migration 0147 (period-keyed snapshots, Phase 3 S1):
+  // seasonId is being superseded by periodKey as the temporal bucket.
+  // Existing rows were backfilled with periodKey = 'legacy:' + seasonId,
+  // so seasonId stays populated for those; new period-keyed writes (S2)
+  // may leave it null.
+  seasonId: uuid("season_id").references(() => seasons.id, { onDelete: "cascade" }),
+  // Period bucket for the snapshot: either 'legacy:<seasonId>' (rows that
+  // predate this migration, or that still key off a season) or a
+  // monthly/quarterly period token written by later development-loop work
+  // (S2+). Drives the natural key below instead of seasonId alone so a
+  // player can have both a legacy season snapshot and monthly snapshots
+  // for the same domain without colliding.
+  // Width is 64, not 16: see migration 0147's DEVIATION comment — the
+  // brief's backfill formula ('legacy:' || season_id, a uuid) needs 43
+  // chars, which does not fit varchar(16). Future monthly/quarterly
+  // tokens (e.g. "2026-09") are tiny by comparison, so this width doesn't
+  // constrain anything downstream.
+  periodKey: varchar("period_key", { length: 64 }).notNull(),
   domainId: uuid("domain_id")
     .notNull()
     .references(() => skillDomains.id, { onDelete: "cascade" }),
@@ -108,11 +123,13 @@ export const assessmentSnapshots = pgTable(
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => [
-    // Natural key for the snapshot upsert (Task 9): one row per
-    // family member × season × domain.
-    uniqueIndex("assessment_snapshots_member_season_domain_uniq").on(
+    // Natural key for the snapshot upsert (Task 9, superseded by migration
+    // 0147): one row per family member × period × domain. periodKey
+    // replaces seasonId in the uniqueness contract so legacy season rows
+    // and new monthly rows for the same member+domain can coexist.
+    uniqueIndex("assessment_snapshots_member_period_domain_uniq").on(
       table.familyMemberId,
-      table.seasonId,
+      table.periodKey,
       table.domainId,
     ),
   ],
