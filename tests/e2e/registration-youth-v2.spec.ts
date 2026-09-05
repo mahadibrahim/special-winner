@@ -36,6 +36,24 @@ test.describe("Youth v2 wizard (authed parent)", () => {
       `expected seeded youth season ${YOUTH_SEASON_SLUG} — re-seed e2e data`,
     ).toBeTruthy();
 
+    // Mid-range DOB derived from the season's OWN age-group bounds + its
+    // startDate (both already on the `season` object from the API call
+    // above) rather than a hardcoded literal — mirrors
+    // registration-guest-flow.spec.ts's fix for the same hazard (audit
+    // F-final): "2018-06-01" sat exactly on U8's max-age boundary against
+    // the live season startDate, so this spec 422s as soon as the season
+    // ages past that boundary (~2027-05) — and since this spec only runs
+    // post-merge, nothing would catch it before prod.
+    const seasonStart = new Date(season.startDate);
+    const ageGroup: { minAge: number | null; maxAge: number | null } | null = season.ageGroup ?? null;
+    const minAge = ageGroup?.minAge ?? null;
+    const maxAge = ageGroup?.maxAge ?? null;
+    const midAge =
+      minAge != null && maxAge != null
+        ? Math.round((minAge + maxAge) / 2)
+        : (minAge ?? maxAge ?? 10);
+    const midRangeChildBirthDate = `${seasonStart.getUTCFullYear() - midAge}-01-15`;
+
     // Mint a fresh dependent (unique per run, so the already-registered 409
     // guard never fires) and leave a pending+unpaid registration for it —
     // exactly the state a stalled Stripe payment leaves behind.
@@ -44,7 +62,7 @@ test.describe("Youth v2 wizard (authed parent)", () => {
       data: {
         firstName: "Resume",
         lastName: `Guard${stamp}`,
-        birthDate: "2018-06-01",
+        birthDate: midRangeChildBirthDate,
         parentalConsent: true,
       },
     });

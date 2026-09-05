@@ -93,6 +93,10 @@ describe("rail-content", () => {
     // No times → just the day label
     expect(formatDayTime("sun", null, null)).toBe("Sun");
     expect(formatDayTime(null, null, null)).toBe("");
+    // Start but no end → day + daypart, no time range (missing END must not
+    // collapse all the way to the bare label — only a missing START does).
+    expect(formatDayTime("sat", "09:00", null)).toBe("Sat mornings");
+    expect(formatDayTime("wed", "19:00", null)).toBe("Wed nights");
   });
 });
 

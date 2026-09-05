@@ -290,7 +290,7 @@ export function SeasonsFinderSection({
               options={levelOptions}
               active={level === "all" ? null : level}
               onChange={(v) => {
-                if (v) trackDivisionFilterApplied({ facet: "level", value: v, term: "", surface: "landing" })
+                if (v) trackDivisionFilterApplied({ facet: "level", value: v, surface: "landing" })
                 setLevel((v as "competitive" | "developmental") ?? "all")
               }}
             />
@@ -305,7 +305,7 @@ export function SeasonsFinderSection({
               options={formatOptions}
               active={activeFormat}
               onChange={(v) => {
-                if (v) trackDivisionFilterApplied({ facet: "format", value: v, term: "", surface: "landing" })
+                if (v) trackDivisionFilterApplied({ facet: "format", value: v, surface: "landing" })
                 setActiveFormat(v)
               }}
             />
@@ -314,7 +314,7 @@ export function SeasonsFinderSection({
               options={sportOptions}
               active={activeSport}
               onChange={(v) => {
-                if (v) trackDivisionFilterApplied({ facet: "sport", value: v, term: "", surface: "landing" })
+                if (v) trackDivisionFilterApplied({ facet: "sport", value: v, surface: "landing" })
                 setActiveSport(v)
               }}
             />
@@ -323,7 +323,7 @@ export function SeasonsFinderSection({
               options={venueOptions}
               active={activeVenue}
               onChange={(v) => {
-                if (v) trackDivisionFilterApplied({ facet: "venue", value: v, term: "", surface: "landing" })
+                if (v) trackDivisionFilterApplied({ facet: "venue", value: v, surface: "landing" })
                 setActiveVenue(v)
               }}
             />
@@ -332,7 +332,7 @@ export function SeasonsFinderSection({
               options={dayOptions}
               active={activeDay}
               onChange={(v) => {
-                if (v) trackDivisionFilterApplied({ facet: "day", value: v, term: "", surface: "landing" })
+                if (v) trackDivisionFilterApplied({ facet: "day", value: v, surface: "landing" })
                 setActiveDay(v)
               }}
             />

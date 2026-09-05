@@ -146,8 +146,8 @@ export function formatDayTime(day: string | null, start: string | null, end: str
   const label = DAY_LABEL[(day ?? "").toLowerCase()];
   if (!label) return "";
 
-  // No start time → just the day label
-  if (!start || !end) return label;
+  // No start time at all → just the day label.
+  if (!start) return label;
 
   // Determine daypart from start hour
   const [h] = start.split(":").map(Number);
@@ -161,6 +161,9 @@ export function formatDayTime(day: string | null, start: string | null, end: str
   }
 
   const d = `${label} ${daypart}`;
+  // Start but no end → the day+daypart label, no time range to render.
+  if (!end) return d;
+
   // "7–10pm" — collapse matching periods to one suffix.
   const s = to12h(start), e = to12h(end);
   const sNum = s.replace(/[ap]m/, ""), sPer = s.slice(-2), ePer = e.slice(-2);
