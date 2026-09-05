@@ -39,6 +39,14 @@ function yesterday(): string {
  * the top 5 and failing this test regardless of any code change here. Swept
  * defensively (rather than fixed at the source) to keep this suite green
  * without touching two unrelated files/suites' fixture ownership.
+ *
+ * Theoretical race: if `tests/e2e/coach-glows.spec.ts` is running
+ * concurrently against the same DB, this could cancel its in-flight "Glows
+ * E2E Session" mid-run. Not addressed by construction (no lock/ownership
+ * tag distinguishes "in use right now" from "orphaned from a past run") —
+ * relies in practice on that title being effectively unique-in-time across
+ * this codebase's test invocations (`npm run test:api` and `npm test` are
+ * run separately, not interleaved, in this repo's workflow).
  */
 async function sweepKnownDebrisSessions(coachTeamIds: string[]): Promise<void> {
   if (coachTeamIds.length === 0) return;

@@ -83,6 +83,13 @@ export const GET: APIRoute = async (context) => {
     } else {
       // No specific child requested: fall back to the roster-only player
       // list (see header note — broad org-staff read isn't wired up here).
+      //
+      // Deliberate contract, pinned post-requireCoachPortalAccess swap: a
+      // coach-role user with ZERO team assignments (class-only coaches are
+      // real since #626) gets 200 with an empty list here, NOT 403. A flat
+      // 403 would be wrong now that class-only coaches legitimately exist —
+      // they just have nothing in the roster-scoped list, and reach their
+      // actual players via the per-child `?familyMemberId=` branch above.
       const coachPlayerIds = await getCoachPlayerIds(auth.teamIds);
       if (coachPlayerIds.length === 0) {
         return new Response(JSON.stringify({ assessments: [] }), {

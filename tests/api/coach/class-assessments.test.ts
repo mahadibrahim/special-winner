@@ -278,4 +278,23 @@ describe("Class-context assessment writes (S3: canCoachReachFamilyMember)", () =
       expect(res.status).toBe(403);
     });
   });
+
+  describe("GET /api/coach/assessments — list branch (no familyMemberId) for a zero-team coach", () => {
+    // Pins the deliberate post-requireCoachPortalAccess-swap contract: a
+    // coach-role user with ZERO team assignments now gets 200 + an empty
+    // list here, not the old flat 403 `requireCoachAccess` used to produce.
+    // `training+coach@test.aspiresports.com` is never assigned as
+    // coachUserId/assistantCoachUserId on any team in the e2e seed (see
+    // seed-e2e-tests.ts's seedTrainingFixtures — it only grants the
+    // org-scoped `coach` role), and this file's beforeAll already
+    // deactivates its class assignments, so it's roster-empty AND
+    // class-empty by the time this test runs.
+    it("200s with an empty assessments array, not 403", async () => {
+      const res = await apiFetch("/api/coach/assessments", {
+        cookie: unassignedCoachCookie,
+      });
+      const json = await expectJson(res, 200);
+      expect(json.assessments).toEqual([]);
+    });
+  });
 });
