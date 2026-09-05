@@ -79,6 +79,7 @@ import { and, eq, gt, lte, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { classSlotTemplates, classEnrollments } from "@/lib/db/schema/classes";
 import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
+import { coachingAssignments } from "@/lib/db/schema/coaching";
 import { familyMembers } from "@/lib/db/schema/registrations";
 import { organizations } from "@/lib/db/schema/organizations";
 import { ORG_DEFAULT_TIMEZONE } from "@/lib/time/zoned-day";
@@ -226,6 +227,59 @@ export function occurrenceInstants(
     if (instant > now && instant <= horizonEnd) out.push(instant);
   }
   return out;
+}
+
+/**
+ * Copies a template's ACTIVE `class_template` coach assignments onto a
+ * freshly-materialized `class_session` (Task 3 of the coach→classes Phase
+ * 0/1 plan). Only ever called right after a session INSERT actually happened
+ * (see the call site below) — a session that already existed from a prior
+ * run had this copy performed the first time IT was inserted, so re-running
+ * the cron never re-copies. `onConflictDoNothing` on the assignment table's
+ * `(coach_user_id, kind, target_id)` unique is still kept as defense in
+ * depth (matching the brief's "idempotent across re-runs" requirement)
+ * rather than relying solely on the "only call on fresh insert" guard.
+ *
+ * Deliberately NOT re-run when an admin edits the template's coach set
+ * later — that is what `applyToMaterialized` on
+ * `PUT /api/admin/classes/templates/:id/coaches` is for (an explicit,
+ * admin-triggered replace across future sessions), not something this cron
+ * silently redoes every run.
+ */
+async function copyTemplateCoachesToSession(
+  db: ReturnType<typeof getDb>,
+  organizationId: string,
+  templateId: string,
+  sessionId: string,
+): Promise<void> {
+  const activeAssignments = await db
+    .select({ coachUserId: coachingAssignments.coachUserId, role: coachingAssignments.role })
+    .from(coachingAssignments)
+    .where(
+      and(
+        eq(coachingAssignments.kind, "class_template"),
+        eq(coachingAssignments.targetId, templateId),
+        eq(coachingAssignments.active, true),
+      ),
+    );
+  if (activeAssignments.length === 0) return;
+
+  await db
+    .insert(coachingAssignments)
+    .values(
+      activeAssignments.map((a) => ({
+        organizationId,
+        coachUserId: a.coachUserId,
+        kind: "class_session" as const,
+        targetId: sessionId,
+        role: a.role,
+        active: true,
+        createdByUserId: null,
+      })),
+    )
+    .onConflictDoNothing({
+      target: [coachingAssignments.coachUserId, coachingAssignments.kind, coachingAssignments.targetId],
+    });
 }
 
 export interface MaterializeResult {
@@ -376,7 +430,14 @@ export async function materializeClassSessions(now: Date): Promise<MaterializeRe
           })
           .returning({ id: dropInSessions.id });
 
-        if (inserted) counters.sessionsCreated += 1;
+        if (inserted) {
+          counters.sessionsCreated += 1;
+          // Coach staffing propagation (Task 3): only for a session that was
+          // ACTUALLY just created — see copyTemplateCoachesToSession's doc
+          // comment for why that's the idempotency guarantee, not the
+          // onConflictDoNothing inside it (which is defense in depth only).
+          await copyTemplateCoachesToSession(db, template.organizationId, template.id, inserted.id);
+        }
       } catch (err) {
         console.error(
           `[classes] session insert failed for template ${template.id} at ${startsAt.toISOString()}:`,
