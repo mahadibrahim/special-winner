@@ -17,6 +17,8 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { coachingAssignments } from "@/lib/db/schema/coaching";
 import { users } from "@/lib/db/schema/users";
+import { classSlotTemplates } from "@/lib/db/schema/classes";
+import { dropInSessions } from "@/lib/db/schema/drop-in";
 
 /** A `getDb()` handle or a transaction handle from `db.transaction(...)`.
  *  Mirrors src/lib/memberships/get-child-membership.ts. */
@@ -42,6 +44,54 @@ export class TooManyAssistantCoachesError extends Error {
 
 export type CoachingAssignmentKind = "team" | "class_template" | "class_session";
 
+/** Thrown by `setCoachesFor` when `targetId` does not belong to
+ *  `organizationId` — the cross-tenant trust-boundary guard. `targetId` is
+ *  polymorphic and carries no FK (see coaching.ts's table doc comment), so
+ *  nothing at the DB layer stops a caller from naming another org's
+ *  template/session; this is the app-layer check that closes that gap. */
+export class AssignmentTargetOrgMismatchError extends Error {
+  constructor(
+    readonly kind: CoachingAssignmentKind,
+    readonly targetId: string,
+  ) {
+    super(`Assignment target ${kind}:${targetId} does not belong to the given organization`);
+    this.name = "AssignmentTargetOrgMismatchError";
+  }
+}
+
+/** Verifies `targetId` (a class_slot_templates or drop_in_sessions row,
+ *  depending on `kind`) actually belongs to `organizationId`. Both target
+ *  tables key `id` as their primary key, so `.limit(1)` is a uniqueness
+ *  guarantee, not an ordering choice. Throws `AssignmentTargetOrgMismatchError`
+ *  on a missing row OR an org mismatch — both are "not a valid target in
+ *  this org" from the caller's perspective. */
+async function assertTargetBelongsToOrg(
+  db: DbClient,
+  kind: "class_template" | "class_session",
+  targetId: string,
+  organizationId: string,
+): Promise<void> {
+  if (kind === "class_template") {
+    const [row] = await db
+      .select({ organizationId: classSlotTemplates.organizationId })
+      .from(classSlotTemplates)
+      .where(eq(classSlotTemplates.id, targetId))
+      .limit(1);
+    if (!row || row.organizationId !== organizationId) {
+      throw new AssignmentTargetOrgMismatchError(kind, targetId);
+    }
+  } else {
+    const [row] = await db
+      .select({ organizationId: dropInSessions.organizationId })
+      .from(dropInSessions)
+      .where(eq(dropInSessions.id, targetId))
+      .limit(1);
+    if (!row || row.organizationId !== organizationId) {
+      throw new AssignmentTargetOrgMismatchError(kind, targetId);
+    }
+  }
+}
+
 /**
  * Declaratively replace the coach roster for one (kind, targetId): the
  * caller states who should be lead and who should be assistants right now,
@@ -64,19 +114,25 @@ export async function setCoachesFor(opts: {
 }): Promise<void> {
   const { organizationId, kind, targetId, lead, createdByUserId } = opts;
 
-  const uniqueAssistants = Array.from(new Set(opts.assistants));
+  // lead wins role on overlap (lead listed again as an "assistant" is
+  // still just the lead — not a validation error, matches how a caller
+  // might naively pass a form's full roster). Dedupe AND drop the lead
+  // BEFORE the cap check: the cap is on real assistant seats, and a lead
+  // relisted among `assistants` occupies zero of them.
+  const uniqueAssistants = Array.from(new Set(opts.assistants)).filter(
+    (assistantId) => assistantId !== lead,
+  );
   if (uniqueAssistants.length > MAX_ASSISTANT_COACHES) {
     throw new TooManyAssistantCoachesError(uniqueAssistants.length);
   }
 
-  // lead wins role on overlap (lead listed again as an "assistant" is
-  // still just the lead — not a validation error, matches how a caller
-  // might naively pass a form's full roster).
   const wanted = new Map<string, "lead" | "assistant">();
   if (lead) wanted.set(lead, "lead");
   for (const assistantId of uniqueAssistants) {
-    if (!wanted.has(assistantId)) wanted.set(assistantId, "assistant");
+    wanted.set(assistantId, "assistant");
   }
+
+  await assertTargetBelongsToOrg(opts.dbOrTx ?? getDb(), kind, targetId, organizationId);
 
   const run = async (tx: DbClient) => {
     const existing = await tx

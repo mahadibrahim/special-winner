@@ -10,7 +10,16 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { eq, inArray, asc, and } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { users, teams, coachingAssignments, familyMembers, classEnrollments } from "@/lib/db/schema";
+import {
+  users,
+  teams,
+  coachingAssignments,
+  familyMembers,
+  classEnrollments,
+  organizations,
+  locations,
+  venues,
+} from "@/lib/db/schema";
 import { classCreditGrants, classSlotTemplates } from "@/lib/db/schema/classes";
 import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
 import { resolveDefaultOrgForHttpTests } from "../../utils/dropin-helpers";
@@ -19,6 +28,7 @@ import {
   setCoachesFor,
   getCoachesFor,
   TooManyAssistantCoachesError,
+  AssignmentTargetOrgMismatchError,
 } from "@/lib/coach/coaching-assignments";
 import { getCoachGroups } from "@/lib/coach/get-coach-groups";
 import { canCoachReachFamilyMember, isOrgCoachingStaff } from "@/lib/auth/roles";
@@ -32,6 +42,10 @@ describe("coach-classes resolvers (Task 2)", () => {
   let mediaStaffUserId: string;
   let mediaEditorUserId: string;
   let hostUserId: string;
+  /** "Org B (Test Only)" — the seeded second tenant (seed-e2e-tests.ts §3b),
+   *  used ONLY for the F2 cross-org trust-boundary tests below. */
+  let orgBId: string;
+  let orgBVenueId: string;
 
   const createdAssignmentIds: string[] = [];
   const createdTemplateIds: string[] = [];
@@ -69,6 +83,28 @@ describe("coach-classes resolvers (Task 2)", () => {
     mediaStaffUserId = idByEmail.get("media_staff@test.aspiresports.com")!;
     mediaEditorUserId = idByEmail.get("media_editor@test.aspiresports.com")!;
     hostUserId = idByEmail.get("host@test.aspiresports.com")!;
+
+    const [orgB] = await db
+      .select({ id: organizations.id })
+      .from(organizations)
+      .where(eq(organizations.slug, "orgb"))
+      .limit(1); // slug is unique
+    if (!orgB) {
+      throw new Error('resolvers.test: seeded "Org B (Test Only)" (slug "orgb") not found — run npm run db:seed:e2e first');
+    }
+    orgBId = orgB.id;
+
+    const [orgBVenue] = await db
+      .select({ id: venues.id })
+      .from(venues)
+      .innerJoin(locations, eq(locations.id, venues.locationId))
+      .where(eq(locations.organizationId, orgBId))
+      .orderBy(asc(venues.createdAt))
+      .limit(1);
+    if (!orgBVenue) {
+      throw new Error("resolvers.test: seeded Org B venue not found — run npm run db:seed:e2e first");
+    }
+    orgBVenueId = orgBVenue.id;
   });
 
   afterAll(async () => {
@@ -415,6 +451,48 @@ describe("coach-classes resolvers (Task 2)", () => {
       expect(rows[0].role).toBe("assistant");
     });
 
+    it("(F1) lead re-listed among assistants does not count against the assistant cap", async () => {
+      // adminUserId is both `lead` and repeated in `assistants` — the real
+      // assistant set is just [mediaStaffUserId, mediaEditorUserId] (2, at
+      // the cap). Before the fix, the cap check ran on the raw
+      // (pre-dedupe-against-lead) assistants array and rejected this.
+      const freshTemplateId = await createTestClassTemplate({
+        organizationId,
+        venueId,
+        name: `Resolver-LeadOverlap-${Date.now()}`,
+        capacity: 10,
+      });
+      createdTemplateIds.push(freshTemplateId);
+
+      await setCoachesFor({
+        organizationId,
+        kind: "class_template",
+        targetId: freshTemplateId,
+        lead: adminUserId,
+        assistants: [adminUserId, mediaStaffUserId, mediaEditorUserId],
+        createdByUserId: adminUserId,
+      });
+
+      const coaches = await getCoachesFor("class_template", freshTemplateId);
+      createdAssignmentIds.push(
+        ...(await getDb()
+          .select({ id: coachingAssignments.id })
+          .from(coachingAssignments)
+          .where(
+            and(
+              eq(coachingAssignments.kind, "class_template"),
+              eq(coachingAssignments.targetId, freshTemplateId),
+            ),
+          )).map((r) => r.id),
+      );
+
+      expect(coaches).toHaveLength(3);
+      const byId = new Map(coaches.map((c) => [c.coachUserId, c]));
+      expect(byId.get(adminUserId)?.role).toBe("lead");
+      expect(byId.get(mediaStaffUserId)?.role).toBe("assistant");
+      expect(byId.get(mediaEditorUserId)?.role).toBe("assistant");
+    });
+
     it("(d) rejects more than 2 assistants with a typed error, leaving the roster unchanged", async () => {
       await expect(
         setCoachesFor({
@@ -444,6 +522,273 @@ describe("coach-classes resolvers (Task 2)", () => {
 
     it("returns false for the seeded coach against a different (bogus) org", async () => {
       expect(await isOrgCoachingStaff(seededCoachUserId, crypto.randomUUID())).toBe(false);
+    });
+  });
+
+  describe("F2 — cross-org trust boundary", () => {
+    describe("canCoachReachFamilyMember denies a target that actually belongs to another org", () => {
+      it("class_template branch: assignment row claims orgA, but the template is orgB's", async () => {
+        const orgBTemplateId = await createTestClassTemplate({
+          organizationId: orgBId,
+          venueId: orgBVenueId,
+          name: `Resolver-CrossOrgTemplate-${Date.now()}`,
+          capacity: 10,
+        });
+        createdTemplateIds.push(orgBTemplateId);
+
+        const childId = await makeChild(`CrossOrgTemplateChild-${Date.now()}`);
+        await activeEnrollment(orgBTemplateId, childId, `crossorg-template-${Date.now()}`);
+
+        // Directly inserted (not via setCoachesFor, which now blocks exactly
+        // this at write time — see the setCoachesFor test below) to prove
+        // the READ side (canCoachReachFamilyMember) has its OWN
+        // defense-in-depth and doesn't just trust the assignment row's
+        // stamped organizationId.
+        const [assignment] = await getDb()
+          .insert(coachingAssignments)
+          .values({
+            organizationId, // orgA — the assignment row LIES about its org
+            coachUserId: hostUserId,
+            kind: "class_template",
+            targetId: orgBTemplateId, // but the template actually belongs to orgB
+            role: "lead",
+          })
+          .returning();
+        createdAssignmentIds.push(assignment.id);
+
+        const reached = await canCoachReachFamilyMember(hostUserId, childId, organizationId);
+        expect(reached).toBe(false);
+      });
+
+      it("class_session branch: assignment row claims orgA, but the session is orgB's", async () => {
+        const orgBTemplateId = await createTestClassTemplate({
+          organizationId: orgBId,
+          venueId: orgBVenueId,
+          name: `Resolver-CrossOrgSession-${Date.now()}`,
+          capacity: 10,
+        });
+        createdTemplateIds.push(orgBTemplateId);
+
+        const startsAt = new Date(Date.now() + 4 * 86_400_000);
+        const endsAt = new Date(startsAt.getTime() + 55 * 60_000);
+        const [orgBSession] = await getDb()
+          .insert(dropInSessions)
+          .values({
+            organizationId: orgBId,
+            venueId: orgBVenueId,
+            kind: "class",
+            sportOrClassLabel: "Soccer",
+            startsAt,
+            endsAt,
+            capacity: 10,
+            classSlotTemplateId: orgBTemplateId,
+          })
+          .returning();
+        createdSessionIds.push(orgBSession.id);
+
+        const childId = await makeChild(`CrossOrgSessionChild-${Date.now()}`);
+        const [booking] = await getDb()
+          .insert(dropInBookings)
+          .values({
+            sessionId: orgBSession.id,
+            userId: parentUserId,
+            familyMemberId: childId,
+            status: "confirmed",
+            source: "online_booking",
+            paymentMethod: "card_online",
+          })
+          .returning();
+        createdBookingIds.push(booking.id);
+
+        const [assignment] = await getDb()
+          .insert(coachingAssignments)
+          .values({
+            organizationId, // orgA — lies about its org, same as above
+            coachUserId: hostUserId,
+            kind: "class_session",
+            targetId: orgBSession.id, // but the session actually belongs to orgB
+            role: "assistant",
+          })
+          .returning();
+        createdAssignmentIds.push(assignment.id);
+
+        const reached = await canCoachReachFamilyMember(hostUserId, childId, organizationId);
+        expect(reached).toBe(false);
+      });
+    });
+
+    describe("setCoachesFor rejects a target belonging to another org", () => {
+      it("class_template: targetId is a template that belongs to orgB", async () => {
+        const orgBTemplateId = await createTestClassTemplate({
+          organizationId: orgBId,
+          venueId: orgBVenueId,
+          name: `Resolver-SetCoaches-CrossOrgTemplate-${Date.now()}`,
+          capacity: 10,
+        });
+        createdTemplateIds.push(orgBTemplateId);
+
+        await expect(
+          setCoachesFor({
+            organizationId, // orgA
+            kind: "class_template",
+            targetId: orgBTemplateId, // belongs to orgB
+            lead: hostUserId,
+            assistants: [],
+            createdByUserId: adminUserId,
+          }),
+        ).rejects.toBeInstanceOf(AssignmentTargetOrgMismatchError);
+
+        // Nothing should have been written.
+        const coaches = await getCoachesFor("class_template", orgBTemplateId);
+        expect(coaches).toHaveLength(0);
+      });
+
+      it("class_session: targetId is a session that belongs to orgB", async () => {
+        const orgBTemplateId = await createTestClassTemplate({
+          organizationId: orgBId,
+          venueId: orgBVenueId,
+          name: `Resolver-SetCoaches-CrossOrgSession-${Date.now()}`,
+          capacity: 10,
+        });
+        createdTemplateIds.push(orgBTemplateId);
+
+        const startsAt = new Date(Date.now() + 5 * 86_400_000);
+        const endsAt = new Date(startsAt.getTime() + 55 * 60_000);
+        const [orgBSession] = await getDb()
+          .insert(dropInSessions)
+          .values({
+            organizationId: orgBId,
+            venueId: orgBVenueId,
+            kind: "class",
+            sportOrClassLabel: "Soccer",
+            startsAt,
+            endsAt,
+            capacity: 10,
+            classSlotTemplateId: orgBTemplateId,
+          })
+          .returning();
+        createdSessionIds.push(orgBSession.id);
+
+        await expect(
+          setCoachesFor({
+            organizationId, // orgA
+            kind: "class_session",
+            targetId: orgBSession.id, // belongs to orgB
+            lead: hostUserId,
+            assistants: [],
+            createdByUserId: adminUserId,
+          }),
+        ).rejects.toBeInstanceOf(AssignmentTargetOrgMismatchError);
+
+        const coaches = await getCoachesFor("class_session", orgBSession.id);
+        expect(coaches).toHaveLength(0);
+      });
+    });
+  });
+
+  describe("integration: deactivation and dual-assignment precedence", () => {
+    it("deactivating a coach via setCoachesFor revokes canCoachReachFamilyMember end-to-end", async () => {
+      const templateId = await createTestClassTemplate({
+        organizationId,
+        venueId,
+        name: `Resolver-RevokeReach-${Date.now()}`,
+        capacity: 10,
+      });
+      createdTemplateIds.push(templateId);
+
+      const childId = await makeChild(`RevokeReachChild-${Date.now()}`);
+      await activeEnrollment(templateId, childId, `revoke-reach-${Date.now()}`);
+
+      await setCoachesFor({
+        organizationId,
+        kind: "class_template",
+        targetId: templateId,
+        lead: hostUserId,
+        assistants: [],
+        createdByUserId: adminUserId,
+      });
+      expect(await canCoachReachFamilyMember(hostUserId, childId, organizationId)).toBe(true);
+
+      // Declarative replace WITHOUT hostUserId — they're deactivated, not
+      // just superseded.
+      await setCoachesFor({
+        organizationId,
+        kind: "class_template",
+        targetId: templateId,
+        lead: adminUserId,
+        assistants: [],
+        createdByUserId: adminUserId,
+      });
+      createdAssignmentIds.push(
+        ...(await getDb()
+          .select({ id: coachingAssignments.id })
+          .from(coachingAssignments)
+          .where(
+            and(
+              eq(coachingAssignments.kind, "class_template"),
+              eq(coachingAssignments.targetId, templateId),
+            ),
+          )).map((r) => r.id),
+      );
+
+      expect(await canCoachReachFamilyMember(hostUserId, childId, organizationId)).toBe(false);
+    });
+
+    it("a coach with BOTH a template assignment and a session assignment on that template gets sessionOnly: false", async () => {
+      const templateId = await createTestClassTemplate({
+        organizationId,
+        venueId,
+        name: `Resolver-DualAssignment-${Date.now()}`,
+        capacity: 10,
+      });
+      createdTemplateIds.push(templateId);
+
+      const startsAt = new Date(Date.now() + 6 * 86_400_000);
+      const endsAt = new Date(startsAt.getTime() + 55 * 60_000);
+      const [session] = await getDb()
+        .insert(dropInSessions)
+        .values({
+          organizationId,
+          venueId,
+          kind: "class",
+          sportOrClassLabel: "Soccer",
+          startsAt,
+          endsAt,
+          capacity: 10,
+          classSlotTemplateId: templateId,
+        })
+        .returning();
+      createdSessionIds.push(session.id);
+
+      const [templateAssignment] = await getDb()
+        .insert(coachingAssignments)
+        .values({
+          organizationId,
+          coachUserId: mediaEditorUserId,
+          kind: "class_template",
+          targetId: templateId,
+          role: "lead",
+        })
+        .returning();
+      createdAssignmentIds.push(templateAssignment.id);
+
+      const [sessionAssignment] = await getDb()
+        .insert(coachingAssignments)
+        .values({
+          organizationId,
+          coachUserId: mediaEditorUserId,
+          kind: "class_session",
+          targetId: session.id,
+          role: "lead",
+        })
+        .returning();
+      createdAssignmentIds.push(sessionAssignment.id);
+
+      const { classGroups } = await getCoachGroups(mediaEditorUserId, organizationId);
+      const group = classGroups.find((g) => g.templateId === templateId);
+      expect(group).toBeDefined();
+      expect(group?.sessionOnly).toBe(false);
+      expect(group?.role).toBe("lead");
     });
   });
 });

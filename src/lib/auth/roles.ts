@@ -4,8 +4,8 @@ import { userRoles, roles, teams, rosters, registrations, organizations, locatio
 import { eq, and, or, inArray, asc } from "drizzle-orm";
 import { validateSession } from "./session";
 import { coachingAssignments } from "@/lib/db/schema/coaching";
-import { classEnrollments } from "@/lib/db/schema/classes";
-import { dropInBookings } from "@/lib/db/schema/drop-in";
+import { classEnrollments, classSlotTemplates } from "@/lib/db/schema/classes";
+import { dropInBookings, dropInSessions } from "@/lib/db/schema/drop-in";
 
 export type RoleName =
   | "super_admin"
@@ -306,6 +306,13 @@ export async function canCoachReachFamilyMember(
   // Branch 2: active enrollment on a template this coach is actively
   // assigned to lead/assist. `.limit(1)` is an existence check — any
   // matching row is sufficient, no ordering semantics needed.
+  //
+  // Defense-in-depth: `coachingAssignments.organizationId` alone is NOT
+  // sufficient to prove the *template* belongs to `organizationId` —
+  // `targetId` carries no FK (see coaching.ts), so nothing stops an
+  // assignment row stamped with org A from naming a template that actually
+  // lives in org B. The extra join to `classSlotTemplates` + its own
+  // `organizationId` check closes that gap; both filters stay.
   const [enrollmentMatch] = await db
     .select({ id: classEnrollments.id })
     .from(classEnrollments)
@@ -319,6 +326,13 @@ export async function canCoachReachFamilyMember(
         eq(coachingAssignments.organizationId, organizationId),
       ),
     )
+    .innerJoin(
+      classSlotTemplates,
+      and(
+        eq(classSlotTemplates.id, classEnrollments.slotTemplateId),
+        eq(classSlotTemplates.organizationId, organizationId),
+      ),
+    )
     .where(
       and(
         eq(classEnrollments.familyMemberId, familyMemberId),
@@ -330,6 +344,8 @@ export async function canCoachReachFamilyMember(
 
   // Branch 3: confirmed booking on a session this coach is actively
   // assigned to (substitute coverage of a single materialized session).
+  // Same defense-in-depth: join to `dropInSessions` and check ITS
+  // `organizationId`, not just the assignment row's.
   const [bookingMatch] = await db
     .select({ id: dropInBookings.id })
     .from(dropInBookings)
@@ -341,6 +357,13 @@ export async function canCoachReachFamilyMember(
         eq(coachingAssignments.coachUserId, userId),
         eq(coachingAssignments.active, true),
         eq(coachingAssignments.organizationId, organizationId),
+      ),
+    )
+    .innerJoin(
+      dropInSessions,
+      and(
+        eq(dropInSessions.id, dropInBookings.sessionId),
+        eq(dropInSessions.organizationId, organizationId),
       ),
     )
     .where(
@@ -359,10 +382,18 @@ export async function canCoachReachFamilyMember(
  * open to the org's coaching staff" — i.e. holding the `coach` role IN THIS
  * ORGANIZATION, with no requirement that the coach is actually assigned to
  * the specific child/team/class in question (that's `canCoachReachFamilyMember`,
- * the WRITE gate). Mirrors the role-resolution `requireCoachPortalAccess`
- * uses (`getUserRoles` → `role.name === "coach"`), scoped to `organizationId`
- * via `hasRole`'s scopeType/scopeId filter since the coach role is always
- * assigned at `scopeType: "organization"` (see seed-e2e-tests.ts).
+ * the WRITE gate).
+ *
+ * NOT a mirror of `requireCoachPortalAccess`'s role check — deliberately
+ * STRICTER. `requireCoachPortalAccess` accepts `role.name === "coach"` with
+ * no scope filter at all (any org's coach role passes), because it exists to
+ * let a freshly-hired coach with zero team assignments still reach their own
+ * onboarding checklist before an org context is even meaningful there. This
+ * function is a per-org READ gate, so it must confirm the coach role is
+ * actually scoped to `organizationId` — via `hasRole`'s scopeType/scopeId
+ * filter — since the coach role is always assigned at
+ * `scopeType: "organization"` (see seed-e2e-tests.ts). A coach role held
+ * only in a DIFFERENT org must not pass here.
  */
 export async function isOrgCoachingStaff(
   userId: string,
