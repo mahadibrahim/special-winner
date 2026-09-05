@@ -3,6 +3,9 @@ import { getDb } from "@/lib/db";
 import { userRoles, roles, teams, rosters, registrations, organizations, locations } from "@/lib/db/schema";
 import { eq, and, or, inArray, asc } from "drizzle-orm";
 import { validateSession } from "./session";
+import { coachingAssignments } from "@/lib/db/schema/coaching";
+import { classEnrollments } from "@/lib/db/schema/classes";
+import { dropInBookings } from "@/lib/db/schema/drop-in";
 
 export type RoleName =
   | "super_admin"
@@ -266,6 +269,106 @@ export async function getCoachPlayerIds(coachTeamIds: string[]): Promise<string[
     .where(inArray(rosters.teamId, coachTeamIds));
 
   return result.map((r) => r.familyMemberId);
+}
+
+/**
+ * Class-aware sibling of `isPlayerOnCoachTeam`: can this coach reach this
+ * child through ANY of the coaching surfaces that now exist per the
+ * 2026-09-05 coach→classes scoping spec (§6)? Three independent branches,
+ * any one is sufficient:
+ *
+ *   1. Legacy roster — the child is on one of the coach's teams
+ *      (`isPlayerOnCoachTeam`, unchanged).
+ *   2. Class enrollment — the child has an ACTIVE `class_enrollments` row
+ *      whose `slotTemplateId` carries an active `class_template`
+ *      `coaching_assignments` row for this coach (lead or assistant).
+ *   3. Drop-in booking — the child has a CONFIRMED `drop_in_bookings` row
+ *      whose `sessionId` carries an active `class_session`
+ *      `coaching_assignments` row for this coach (the one-off substitute
+ *      case — staffed on a single materialized session, not the template).
+ *
+ * This is the WRITE gate per spec §6.3 ("write requires an active
+ * assignment covering the child") — `isOrgCoachingStaff` below is the
+ * broader READ gate.
+ */
+export async function canCoachReachFamilyMember(
+  userId: string,
+  familyMemberId: string,
+  organizationId: string,
+): Promise<boolean> {
+  const teamIds = await getCoachTeamIds(userId);
+  if (await isPlayerOnCoachTeam(teamIds, familyMemberId)) {
+    return true;
+  }
+
+  const db = getDb();
+
+  // Branch 2: active enrollment on a template this coach is actively
+  // assigned to lead/assist. `.limit(1)` is an existence check — any
+  // matching row is sufficient, no ordering semantics needed.
+  const [enrollmentMatch] = await db
+    .select({ id: classEnrollments.id })
+    .from(classEnrollments)
+    .innerJoin(
+      coachingAssignments,
+      and(
+        eq(coachingAssignments.targetId, classEnrollments.slotTemplateId),
+        eq(coachingAssignments.kind, "class_template"),
+        eq(coachingAssignments.coachUserId, userId),
+        eq(coachingAssignments.active, true),
+        eq(coachingAssignments.organizationId, organizationId),
+      ),
+    )
+    .where(
+      and(
+        eq(classEnrollments.familyMemberId, familyMemberId),
+        eq(classEnrollments.status, "active"),
+      ),
+    )
+    .limit(1);
+  if (enrollmentMatch) return true;
+
+  // Branch 3: confirmed booking on a session this coach is actively
+  // assigned to (substitute coverage of a single materialized session).
+  const [bookingMatch] = await db
+    .select({ id: dropInBookings.id })
+    .from(dropInBookings)
+    .innerJoin(
+      coachingAssignments,
+      and(
+        eq(coachingAssignments.targetId, dropInBookings.sessionId),
+        eq(coachingAssignments.kind, "class_session"),
+        eq(coachingAssignments.coachUserId, userId),
+        eq(coachingAssignments.active, true),
+        eq(coachingAssignments.organizationId, organizationId),
+      ),
+    )
+    .where(
+      and(
+        eq(dropInBookings.familyMemberId, familyMemberId),
+        eq(dropInBookings.status, "confirmed"),
+      ),
+    )
+    .limit(1);
+
+  return !!bookingMatch;
+}
+
+/**
+ * Broad READ gate per spec §6.3: "read of a child's development data is
+ * open to the org's coaching staff" — i.e. holding the `coach` role IN THIS
+ * ORGANIZATION, with no requirement that the coach is actually assigned to
+ * the specific child/team/class in question (that's `canCoachReachFamilyMember`,
+ * the WRITE gate). Mirrors the role-resolution `requireCoachPortalAccess`
+ * uses (`getUserRoles` → `role.name === "coach"`), scoped to `organizationId`
+ * via `hasRole`'s scopeType/scopeId filter since the coach role is always
+ * assigned at `scopeType: "organization"` (see seed-e2e-tests.ts).
+ */
+export async function isOrgCoachingStaff(
+  userId: string,
+  organizationId: string,
+): Promise<boolean> {
+  return hasRole(userId, "coach", "organization", organizationId);
 }
 
 /**
