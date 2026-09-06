@@ -10,6 +10,7 @@ import {
   locations,
   registrations,
   familyMembers,
+  ageGroups,
 } from "@/lib/db/schema";
 import { eq, asc } from "drizzle-orm";
 import {
@@ -19,6 +20,7 @@ import {
 } from "@/lib/registrations/captain-credit";
 import { teamMoneyReceivedCents } from "@/lib/registrations/team-funding";
 import { registrationAmountDueCents } from "@/lib/registrations/amount-due";
+import { isYouthTeamSeason } from "@/lib/registrations/team-season-kind";
 
 /**
  * Resolve a team by its invite token. Used by the team landing page so
@@ -49,12 +51,15 @@ export const GET: APIRoute = async ({ params, locals, request }) => {
         program: programs,
         sport: sports,
         location: locations,
+        // Only for isYouthTeamSeason below — never surfaced on its own.
+        ageGroupMinAge: ageGroups.minAge,
       })
       .from(teamRegistrations)
       .innerJoin(seasons, eq(teamRegistrations.seasonId, seasons.id))
       .innerJoin(programs, eq(seasons.programId, programs.id))
       .innerJoin(sports, eq(programs.sportId, sports.id))
       .innerJoin(locations, eq(programs.locationId, locations.id))
+      .leftJoin(ageGroups, eq(seasons.ageGroupId, ageGroups.id))
       .where(eq(teamRegistrations.inviteToken, token))
       .limit(1);
 
@@ -142,13 +147,24 @@ export const GET: APIRoute = async ({ params, locals, request }) => {
         : captainEmailLower === viewerEmailLower
       : false;
 
+    // ADULT ONLY (winter-team-fixes, task 4 / fix round 1): a youth captain
+    // is never auto-registered as a player and never receives a per-share
+    // credit against the deposit (see finalize-team-deposit.ts +
+    // resolveTeamPricing in create-registration.ts) — this preview must
+    // agree, even though nothing renders it today (inert, one refactor from
+    // live per the review that flagged it).
+    const isYouth = isYouthTeamSeason({
+      minAge: t.season.minAge,
+      ageGroupMinAge: t.ageGroupMinAge,
+    });
+
     let viewerCaptainCredit: {
       shareCents: number;
       creditCents: number;
       dueCents: number;
       depositCents: number;
     } | null = null;
-    if (isCaptain && teamDepositPaid(t.team)) {
+    if (isCaptain && teamDepositPaid(t.team) && !isYouth) {
       const inviteeRow = invitees.find(
         (i) => i.email.toLowerCase() === viewerEmailLower,
       );

@@ -82,6 +82,8 @@ interface HubDetail {
     depositCents: number
     collectedCents: number
     paymentDeadline: string | null
+    /** Server-computed (team-hub.ts) — never re-derived client-side. */
+    isYouth: boolean
   }
   captainCredit: {
     shareCents: number
@@ -280,6 +282,7 @@ function TeamTab({ detail, reload }: { detail: HubDetail; reload: () => Promise<
         inviteToken={team.inviteToken}
         teamFeeCents={payment.teamFeeCents}
         depositCents={payment.depositCents}
+        isYouth={payment.isYouth}
         currentInviteeCount={team.invitees.length}
         reload={reload}
       />
@@ -715,21 +718,32 @@ function AddTeammates({
   inviteToken,
   teamFeeCents,
   depositCents,
+  isYouth,
   currentInviteeCount,
   reload,
 }: {
   inviteToken: string
   teamFeeCents: number | null
   depositCents: number
+  /** Server-computed (team-hub.ts's isYouthTeamSeason) — a youth roster
+   *  covers the FULL team fee (the deposit is a refundable hold, never a
+   *  per-share credit); adult covers fee-minus-deposit, unchanged. These
+   *  shares are persisted verbatim by the invite endpoint, so getting this
+   *  wrong here directly caps what the roster is ever asked to pay
+   *  (winter-team-fixes, fix round 1 — CRITICAL 1). */
+  isYouth: boolean
   currentInviteeCount: number
   reload: () => Promise<void>
 }) {
-  // Default share = even split of (teamFee − deposit) across a nominal roster.
+  // Default share = even split of the splittable amount across a nominal
+  // roster — the full team fee for youth, (teamFee − deposit) for adult.
   const defaultShare = useMemo(() => {
-    const splittable = Math.max(0, (teamFeeCents ?? 0) - depositCents)
+    const splittable = isYouth
+      ? Math.max(0, teamFeeCents ?? 0)
+      : Math.max(0, (teamFeeCents ?? 0) - depositCents)
     const denom = Math.max(1, currentInviteeCount + 1)
     return splittable > 0 ? (Math.round(splittable / denom) / 100).toFixed(2) : ""
-  }, [teamFeeCents, depositCents, currentInviteeCount])
+  }, [teamFeeCents, depositCents, isYouth, currentInviteeCount])
 
   const [rows, setRows] = useState<{ email: string; amount: string }[]>([
     { email: "", amount: defaultShare },

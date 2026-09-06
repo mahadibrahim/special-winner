@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Loader2, CheckCircle2, Copy, Check, Send, Plus, X, Mail } from "lucide-react";
 import { EmbeddedPayment, type CreateIntentResult } from "./embedded-payment";
 import { CAPTAIN_DEPOSIT_CENTS, CAPTAIN_DEPOSIT_DOLLARS } from "@/lib/registrations/team-deposit";
+import { isYouthTeamSeason } from "@/lib/registrations/team-season-kind";
 import { TurnstileWidget } from "@/components/auth/turnstile-widget";
 import { teamPriceStory } from "@/lib/leagues/rail-content";
 import { formatDateOnly } from "@/lib/time/format-date";
@@ -196,6 +197,11 @@ export default function TeamCreate({
         `isYouthTeamSeason`). Display-only here — the server is the money-
         grade source of truth for every amount this component shows. */
     ageGroup?: { minAge: number } | null;
+    /** Explicit season-level override — resolved FIRST, same order as the
+        server's `isYouthTeamSeason` (winter-team-fixes, fix round 1: the
+        client used to read `ageGroup.minAge` alone, which could disagree
+        with the server on a minAge-only season with no age group). */
+    minAge?: number | null;
   };
   /** Server env STRIPE_PUBLISHABLE_KEY threaded from the register page — the
       deferred card form mounts inline on load, before any server round-trip
@@ -260,9 +266,15 @@ export default function TeamCreate({
   const [discountBusy, setDiscountBusy] = useState(false);
   const [discountError, setDiscountError] = useState<string | null>(null);
 
-  // Youth vs adult — display-only branch (winter-team-fixes, tasks 4 + 5).
-  // Null ageGroup → adult, mirroring the server's isYouthTeamSeason default.
-  const isYouth = (season?.ageGroup?.minAge ?? 18) < 18;
+  // Youth vs adult — display-only branch (winter-team-fixes, tasks 4 + 5),
+  // using the SAME canonical predicate the server uses (never a re-derived
+  // client copy — fix round 1, IMPORTANT 2: an inline `ageGroup.minAge`-only
+  // check here once disagreed with the server on a minAge-only season with
+  // no age group).
+  const isYouth = isYouthTeamSeason({
+    minAge: season?.minAge ?? null,
+    ageGroupMinAge: season?.ageGroup?.minAge ?? null,
+  });
 
   // Fee box math — display-only; the server recomputes the fee at create time.
   const story = season ? teamPriceStory(season) : null;

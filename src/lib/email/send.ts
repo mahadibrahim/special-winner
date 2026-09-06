@@ -1363,7 +1363,15 @@ export function buildTeamDepositReceipt(params: TeamDepositReceiptParams): {
     : total
       ? `Your ${deposit} deposit is in and counts toward the ${total} team fee — your roster covers the remaining ${remainder} as they register.`
       : `Your ${deposit} deposit is in and counts toward the team fee — your roster covers the rest as they register.`;
-  const deadlineLine = `Teammate shares still unpaid after ${deadline ?? "the payment deadline"} are charged to your card on file.`;
+  // Youth: the deposit absorbs a shortfall FIRST (see teamYouthDueCents in
+  // team-captain-charge.ts) — the card is only ever charged for what's left
+  // after the deposit, never the raw unpaid-shares total. The adult line
+  // below is accurate as-is: the adult deposit is already counted as
+  // "received" (captain-credit.ts), so unpaid teammate shares really are
+  // what's charged.
+  const deadlineLine = params.isYouth
+    ? `If the roster hasn't covered the team fee by ${deadline ?? "the payment deadline"}, your deposit is applied to the difference first and any remainder is charged to your card on file.`
+    : `Teammate shares still unpaid after ${deadline ?? "the payment deadline"} are charged to your card on file.`;
 
   const manageButton = manageUrl
     ? `<p><a href="${manageUrl}" style="display:inline-block;background:#1a1a1a;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">Manage your team →</a></p>

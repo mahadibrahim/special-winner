@@ -48,6 +48,12 @@ export default function RegisterExperience({
         // here so the closed-state bail-outs can tell an adult season from
         // a youth one even when the URL never carried ?audience=.
         ageGroup: { minAge: number } | null;
+        // Explicit season-level override (winter-team-fixes, fix round 1) —
+        // threaded through so TeamCreate's isYouth can mirror the server's
+        // isYouthTeamSeason resolution order (minAge ?? ageGroup.minAge)
+        // instead of reading ageGroup alone. Not read directly in this
+        // component today.
+        minAge: number | null;
       })
     | null
   >(null);

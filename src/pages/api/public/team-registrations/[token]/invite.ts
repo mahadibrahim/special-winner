@@ -159,7 +159,8 @@ export const POST: APIRoute = async ({ params, request, locals, clientAddress })
 
     // Normalize the body into an [{ email, shareCents }] list, de-duped by
     // email. Prefer an explicit per-email share when provided; otherwise
-    // even-split (teamFee − deposit) across the bare email list.
+    // even-split across the bare email list — the full team fee on a youth
+    // season, or (teamFee − deposit) on adult (see isYouthTeamSeason below).
     let shareByEmail: Map<string, number>;
     if ("invites" in parsed.data) {
       shareByEmail = new Map();

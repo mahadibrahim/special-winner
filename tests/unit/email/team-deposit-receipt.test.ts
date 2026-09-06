@@ -58,6 +58,23 @@ describe("buildTeamDepositReceipt", () => {
       }
     });
 
+    // fix round 1, minor (a): the deadline line must say "deposit absorbs
+    // the shortfall first, THEN the card" — not "teammate shares are
+    // charged", which contradicts teamYouthDueCents' deposit-first math.
+    it("deadline line: deposit absorbs the shortfall first, remainder to the card", () => {
+      const { html, text } = buildTeamDepositReceipt({ ...base, isYouth: true });
+      for (const body of [html, text]) {
+        expect(body).toContain("applied to the difference first");
+        expect(body).toContain("charged to your card on file");
+        expect(body).not.toContain("Teammate shares still unpaid");
+      }
+    });
+
+    it("adult deadline line is unchanged", () => {
+      const { html } = buildTeamDepositReceipt(base);
+      expect(html).toContain("Teammate shares still unpaid");
+    });
+
     it("degrades to generic full-fee refund wording when the fee is unknown", () => {
       const { html, text } = buildTeamDepositReceipt({
         ...base,

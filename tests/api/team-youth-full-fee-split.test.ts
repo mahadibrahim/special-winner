@@ -17,7 +17,7 @@
 import { describe, it, expect } from "vitest";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { seasons } from "@/lib/db/schema";
+import { seasons, ageGroups } from "@/lib/db/schema";
 import { apiFetch, getAuthCookie } from "./setup/test-helpers";
 import {
   seedTeamPaymentContext,
@@ -28,6 +28,22 @@ import {
 
 async function makeYouthSeason(seasonId: string) {
   await getDb().update(seasons).set({ minAge: 8 }).where(eq(seasons.id, seasonId));
+}
+
+/** The production youth shape (fix round 1, minor c): real seasons carry no
+ *  `seasons.minAge` override — they're age-group-led by construction. This
+ *  exercises invite.ts's `leftJoin(ageGroups)` resolution branch, not just
+ *  the direct `seasons.minAge` one `makeYouthSeason` above covers. */
+async function makeYouthSeasonViaAgeGroup(organizationId: string, seasonId: string) {
+  const db = getDb();
+  const [ageGroup] = await db
+    .insert(ageGroups)
+    .values({ organizationId, name: "U10", minAge: 6, maxAge: 10 })
+    .returning();
+  await db
+    .update(seasons)
+    .set({ ageGroupId: ageGroup.id, minAge: null })
+    .where(eq(seasons.id, seasonId));
 }
 
 async function inviteEmails(token: string, cookie: string, emails: string[]) {
@@ -72,6 +88,25 @@ describe("POST /invite bare email-list split — youth vs adult", () => {
     const min = Math.min(...ours);
     const max = Math.max(...ours);
     expect(max - min).toBeLessThanOrEqual(1);
+  });
+
+  it("youth via a real age group (no seasons.minAge): even-splits the FULL team fee", async () => {
+    const ctx = await seedTeamPaymentContext();
+    await makeYouthSeasonViaAgeGroup(ctx.organizationId, ctx.seasonId);
+    const cookie = await getAuthCookie(ctx.captainEmail, CAPTAIN_PASSWORD);
+    const token = `tok-${ctx.suffix}`;
+
+    const suffix = Math.random().toString(36).slice(2, 10);
+    const emails = [`ysplitag-a-${suffix}@test.example`, `ysplitag-b-${suffix}@test.example`];
+
+    const res = await inviteEmails(token, cookie, emails);
+    expect(res.status).toBe(200);
+
+    const byEmail = await getInviteeSharesByEmail(token, cookie);
+    const ours = emails.map((e) => byEmail.get(e)!);
+    expect(ours.every((v) => v != null)).toBe(true);
+    const total = ours.reduce((a, b) => a + b, 0);
+    expect(total).toBe(TEAM_FEE_CENTS);
   });
 
   it("adult: even-splits (team fee minus the $200 deposit), unchanged", async () => {
