@@ -1051,6 +1051,13 @@
       "when": 1788700888630,
       "tag": "0149_camp_sessions_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 150,
+      "version": "7",
+      "when": 1788730050118,
+      "tag": "0150_faulty_vivisector",
+      "breakpoints": true
     }
   ]
 }
