@@ -1970,6 +1970,13 @@ async function seedCampFixture(
     `   ✓ Camp season: ${campSeason.name} (${campSeason.startDate} → ${campSeason.endDate}, status=${campSeason.status})`,
   );
 
+  // The venue command center can only column-place a session whose location
+  // has venue_resources rows ("Field N") — on a resource-less venue the camp
+  // block maps to spaceId "unknown" and silently never renders on the day
+  // grid (Task 9 found the seeded camp venue in exactly that state). Same
+  // idempotent helper the rental venue already gets in the main seed body.
+  await ensureVenueResources(venueId);
+
   // Two pre-scaffolded pods ("camp groups") under the camp season.
   async function ensurePod(name: string): Promise<{ id: string; name: string }> {
     let [pod] = await db
