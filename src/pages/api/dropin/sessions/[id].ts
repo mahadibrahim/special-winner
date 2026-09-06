@@ -205,7 +205,16 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
   // session, so `locals.user` is null there even though the booking has a
   // real owning account).
   let bookingUserId: string | null = null;
-  if (row.session.kind !== "class" && rateCard) {
+  // PICKUP only — never `kind !== "class"`. A camp day-session (kind='camp')
+  // is REGISTRATION-ONLY: it has no per-seat price on any public door, and
+  // resolveRate + this rate card would quote the adult pickup walk-up rate
+  // for a week-long youth camp. Camp detail stays a 200 (an auto-enrolled
+  // parent reaches this page from the dashboard's drop-in bookings panel to
+  // view details / sign the waiver) but with BOTH quote fields null, so the
+  // page renders no priced CTA — and POST /api/dropin/bookings /
+  // /guest-checkout refuse camp (camp_registration_only) as the server-side
+  // authority if a "Book" submit is forced anyway.
+  if (row.session.kind === "pickup" && rateCard) {
     const membership = locals.user
       ? await getActiveMembershipForUser(
           locals.user.id,

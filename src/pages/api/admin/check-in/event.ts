@@ -85,9 +85,18 @@ export const GET: APIRoute = async (context) => {
         waiverSigned: dropInBookings.waiverSigned,
         // WHO the booking is for, for the coverage probe below. Set only when
         // the participant is not the booking's user (a kiosk walk-in for a
-        // minor); otherwise the booker IS the participant and coverage hangs
-        // off their SELF person row.
+        // minor, or a camp auto-booking — see materialize.ts); otherwise the
+        // booker IS the participant and coverage hangs off their SELF person
+        // row.
         familyMemberId: dropInBookings.familyMemberId,
+        // LEFT-joined participant (present only on the minor path — see
+        // resolve-signer.ts's identical join for the same reasoning). Used
+        // below to show the CHILD's name/photo instead of the booking's
+        // user (the parent), mirroring resolveSigner's displayName logic.
+        fmFirstName: familyMembers.firstName,
+        fmLastName: familyMembers.lastName,
+        fmPhotoUrl: familyMembers.photoUrl,
+        fmParentUserId: familyMembers.parentUserId,
         checkedInAt: dropInBookings.checkedInAt,
         amountPaidCents: dropInBookings.amountPaidCents,
         sessionRateCents: dropInSessions.sessionRateCents,
@@ -97,6 +106,7 @@ export const GET: APIRoute = async (context) => {
       .from(dropInBookings)
       .innerJoin(users, eq(users.id, dropInBookings.userId))
       .innerJoin(dropInSessions, eq(dropInSessions.id, dropInBookings.sessionId))
+      .leftJoin(familyMembers, eq(familyMembers.id, dropInBookings.familyMemberId))
       .where(
         and(
           eq(dropInBookings.sessionId, id),
@@ -147,18 +157,31 @@ export const GET: APIRoute = async (context) => {
             const paid = r.amountPaidCents > 0 || effectiveRate === 0;
             const personId =
               r.familyMemberId ?? selfPersonByUser.get(r.userId) ?? null;
+            // A family_members row on the parent_user_id path IS the
+            // definition of a minor (the self_user_id path is the adult-self
+            // row; the DB CHECK makes it an XOR) — same test resolveSigner()
+            // uses. Without this, a camp/kiosk booking for a child showed the
+            // PARENT's name on the roster row (the booking's userId), because
+            // the query only ever joined `users` — the child was reachable
+            // for waiver-coverage math but invisible on the desk's screen.
+            const isMinor = r.familyMemberId !== null && r.fmParentUserId !== null;
+            const bookerName =
+              `${r.firstName ?? ""} ${r.lastName ?? ""}`.trim() || r.email;
+            const name = isMinor
+              ? `${r.fmFirstName ?? ""} ${r.fmLastName ?? ""}`.trim() || bookerName
+              : bookerName;
             return {
               rowKind: "drop_in_booking" as const,
               targetId: r.bookingId,
-              name: `${r.firstName ?? ""} ${r.lastName ?? ""}`.trim() || r.email,
-              subtitle: `adult · ${formatPhone(r.phone)}`,
-              photoUrl: r.avatarUrl,
+              name,
+              subtitle: `${isMinor ? "youth" : "adult"} · ${formatPhone(r.phone)}`,
+              photoUrl: isMinor ? (r.fmPhotoUrl ?? null) : r.avatarUrl,
               waiverSigned:
                 r.waiverSigned ||
                 (personId !== null && coveredPersonIds.has(personId)),
               checkedInAt: r.checkedInAt ? r.checkedInAt.toISOString() : null,
-              isMinor: false,
-              familyMemberId: null,
+              isMinor,
+              familyMemberId: isMinor ? r.familyMemberId : null,
               recipientUserId: r.userId,
               paid,
               status: r.status as "confirmed" | "pending_payment" | "pending_claim",

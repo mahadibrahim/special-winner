@@ -957,6 +957,18 @@ export function SeasonsList() {
                             <p className="text-sm text-muted-foreground">{capacityLabel(season)}</p>
                           </div>
                           <div className="flex items-center gap-2">
+                            {season.program.programType === "camp" && (
+                              // Camp seasons get the camp-group planner
+                              // (mirrors the league placement link on the
+                              // season hub — camps arrange camp groups, not
+                              // team placements).
+                              <a
+                                href={`/admin/seasons/${season.id}/pods`}
+                                className="text-sm text-primary hover:underline whitespace-nowrap"
+                              >
+                                Camp groups →
+                              </a>
+                            )}
                             <a
                               href={`/admin/seasons/${season.id}`}
                               className="text-sm text-primary hover:underline whitespace-nowrap"

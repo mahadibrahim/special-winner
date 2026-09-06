@@ -16,17 +16,26 @@
  * `applyToMaterialized: true` (see `templates/[id]/coaches.ts`'s header for
  * why that path is a blunt, no-mercy replace in Phase 1).
  *
+ * CAMP day-sessions (`kind='camp'`, Phase 4) are accepted too: this endpoint
+ * is the designated per-day staffing override for materialized camp days —
+ * the materializer copies pod-coach staffing exactly once and deliberately
+ * never re-syncs (src/lib/camps/materialize.ts's module contract), so
+ * GET/PUT here is THE remediation path when a pod's coaches change after a
+ * week's sessions already materialized. setCoachesFor/getCoachesFor target
+ * `drop_in_sessions` rows generically via `kind='class_session'`
+ * assignments, so no other change is needed.
+ *
  * Guards mirror `templates/[id]/roster.ts`: org-admin gated
  * (`requireOrgAdminAccess`), session ownership pinned to the resolved org AND
- * `kind = 'class'` — a pickup `drop_in_sessions` row 404s here rather than
- * accepting class-shaped staffing writes it has no `class_slot_templates`
- * relationship to (mirrors `coach/class-sessions/[id]/glows.ts`'s
- * `session.kind !== "class"` check). Coach ids in the body are validated as
+ * `kind IN ('class','camp')` — a pickup `drop_in_sessions` row 404s here
+ * rather than accepting class-shaped staffing writes it has no template (or
+ * camp season) relationship to (mirrors `coach/class-sessions/[id]/glows.ts`'s
+ * kind check). Coach ids in the body are validated as
  * actual org coaching staff (`isOrgCoachingStaff`) — an id that isn't gets a
  * 422.
  */
 import type { APIRoute } from "astro";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { dropInSessions } from "@/lib/db/schema/drop-in";
 import { requireOrgAdminAccess } from "@/lib/auth/roles";
@@ -51,7 +60,7 @@ async function loadOwnedSession(orgId: string, id: string) {
       and(
         eq(dropInSessions.id, id),
         eq(dropInSessions.organizationId, orgId),
-        eq(dropInSessions.kind, "class"),
+        inArray(dropInSessions.kind, ["class", "camp"]),
       ),
     )
     .limit(1);

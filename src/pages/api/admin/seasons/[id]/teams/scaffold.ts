@@ -28,6 +28,10 @@ const scaffoldTeamsSchema = z.object({
   count: z.number().int().min(1).max(26),
   maxRosterSize: z.number().int().positive().nullable(),
   namePrefix: z.string().min(1).optional(),
+  /** Grouping noun in generated names — defaults to "Team". The camp-group
+   *  planner passes "Group" so camp names never say "team" (vocabulary
+   *  rule: groupNoun() renders camp → "camp group"). */
+  nameNoun: z.string().min(1).max(32).optional(),
 });
 
 export const POST: APIRoute = async (context) => {
@@ -56,7 +60,7 @@ export const POST: APIRoute = async (context) => {
       { status: 422, headers: { "Content-Type": "application/json" } },
     );
   }
-  const { count, maxRosterSize, namePrefix } = result.data;
+  const { count, maxRosterSize, namePrefix, nameNoun } = result.data;
 
   try {
     // Season -> program -> location.organizationId, joined with the
@@ -115,6 +119,7 @@ export const POST: APIRoute = async (context) => {
         ageGroupName,
         maxRosterSize,
         namePrefix,
+        nameNoun,
         startIndex: existing.length,
       });
     });

@@ -1,0 +1,66 @@
+---
+import BaseLayout from "@/layouts/BaseLayout.astro";
+import { AdminLayout } from "@/components/admin/admin-layout";
+import { getPrimaryRoleName } from "@/lib/auth";
+import { PodPlanner } from "@/components/admin/camps/pod-planner";
+import { getDb } from "@/lib/db";
+import { seasons, programs } from "@/lib/db/schema/programs";
+import { locations } from "@/lib/db/schema/organizations";
+import { eq, and } from "drizzle-orm";
+
+export const prerender = false;
+
+// Middleware guarantees user is an admin for /admin routes.
+const user = Astro.locals.user!;
+const primaryRole = getPrimaryRoleName(Astro.locals.userRoles);
+const organization = Astro.locals.organization;
+const { id: seasonId } = Astro.params;
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+if (!seasonId || !organization?.id || !UUID_RE.test(seasonId)) {
+  return Astro.redirect("/admin/seasons");
+}
+
+// Confirm the season belongs to this org AND is a camp before rendering
+// (mirrors placement.astro; the camp gate matches the API's 404 behavior —
+// the camp-group planner only exists for camp seasons). The rest of the data
+// (candidates, camp groups) is loaded client-side by the island via
+// GET /api/admin/seasons/:id/pods, which re-does both checks server-side.
+const [season] = await getDb()
+  .select({ id: seasons.id, name: seasons.name, programName: programs.name })
+  .from(seasons)
+  .innerJoin(programs, eq(seasons.programId, programs.id))
+  .innerJoin(locations, eq(programs.locationId, locations.id))
+  .where(
+    and(
+      eq(seasons.id, seasonId),
+      eq(locations.organizationId, organization.id),
+      eq(programs.programType, "camp"),
+    ),
+  );
+
+if (!season) {
+  return Astro.redirect("/admin/seasons");
+}
+---
+
+<BaseLayout
+  title={`Camp Group Planner — ${season.name} — Admin — Aspire Sports`}
+  navigation={false}
+  footer={false}
+>
+  <AdminLayout
+    client:load
+    role={primaryRole}
+    currentPath="/admin/seasons"
+    user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
+  >
+    <PodPlanner
+      client:load
+      seasonId={season.id}
+      seasonName={season.name}
+      programName={season.programName}
+    />
+  </AdminLayout>
+</BaseLayout>

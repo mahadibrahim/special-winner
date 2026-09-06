@@ -20,10 +20,15 @@ import { familyMembers } from "./registrations";
 import { mediaAssets } from "./media";
 import { venueResources } from "./scheduling";
 import { classSlotTemplates } from "./classes";
+import { seasons } from "./programs";
 
 // === enums ===
 
-export const dropInSessionKindEnum = pgEnum("drop_in_session_kind", ["pickup", "class"]);
+export const dropInSessionKindEnum = pgEnum("drop_in_session_kind", [
+  "pickup",
+  "class",
+  "camp",
+]);
 export const dropInSkillLevelEnum = pgEnum("drop_in_skill_level", [
   "recreational",
   "intermediate",
@@ -63,6 +68,9 @@ export const dropInPaymentMethodEnum = pgEnum("drop_in_payment_method", [
   // Class session paid from a purchased credit grant (pack or block) —
   // see src/lib/db/schema/classes.ts classCreditGrants.
   "pack_credit",
+  // Camp day-session booking paid via the camp registration itself, not at
+  // the session level — see src/lib/camps/materialize.ts auto-booking.
+  "registration",
 ]);
 export const dropInCancellationReasonEnum = pgEnum("drop_in_cancellation_reason", [
   "user_request",
@@ -138,6 +146,11 @@ export const dropInSessions = pgTable(
       () => classSlotTemplates.id,
       { onDelete: "set null" },
     ),
+    // Camp day-sessions: set when this session is a materialized day of a
+    // camp season (kind='camp'). Mirrors classSlotTemplateId for classes.
+    campSeasonId: uuid("camp_season_id").references(() => seasons.id, {
+      onDelete: "set null",
+    }),
     // Stamped when the one-and-only "needs players" alert blast for this
     // session is claimed by the cron (stamp-then-send; see fill-alerts.ts).
     fillAlertSentAt: timestamp("fill_alert_sent_at", { withTimezone: true }),
@@ -153,6 +166,12 @@ export const dropInSessions = pgTable(
     uniqueIndex("drop_in_sessions_one_per_template_start")
       .on(table.classSlotTemplateId, table.startsAt)
       .where(sql`class_slot_template_id IS NOT NULL`),
+    // Materialization idempotency for camp day-sessions: at most one session
+    // per camp season per start instant — the camp cron upserts against
+    // this, mirroring drop_in_sessions_one_per_template_start above.
+    uniqueIndex("drop_in_sessions_one_per_camp_day")
+      .on(table.campSeasonId, table.startsAt)
+      .where(sql`camp_season_id IS NOT NULL`),
   ],
 );
 

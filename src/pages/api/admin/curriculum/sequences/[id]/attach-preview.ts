@@ -28,7 +28,10 @@ import { groupNoun } from "@/lib/programs/group-noun";
 
 const previewQuerySchema = z.object({
   seasonId: z.string().uuid(),
-  weekday: z.coerce.number().int().min(0).max(6),
+  // Optional ONLY for camp seasons (weekdaily cadence, Task 7) — required
+  // for every other programType, enforced in the handler below once the
+  // season's programType is known. Mirrors the POST attach schema exactly.
+  weekday: z.coerce.number().int().min(0).max(6).optional(),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD"),
   timeOfDay: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Expected HH:MM (24h)"),
   count: z.coerce.number().int().min(1).max(52),
@@ -139,6 +142,21 @@ export const GET: APIRoute = async (context) => {
       .limit(1);
     const noun = groupNoun(program?.programType ?? "league");
 
+    // Preview must generate the SAME dates the POST attach will (Task 7):
+    // camps use the weekdaily cadence and ignore weekday; everything else
+    // keeps weekly and still requires weekday (same 400 shape as the
+    // schema itself would produce).
+    const isCamp = program?.programType === "camp";
+    if (!isCamp && data.weekday === undefined) {
+      return new Response(
+        JSON.stringify({
+          error: "Validation failed",
+          details: { weekday: ["Required"] },
+        }),
+        { status: 400 },
+      );
+    }
+
     // Practice times are org-local wall times; resolve via the org's zone.
     const [org] = await db
       .select({ timezone: organizations.timezone })
@@ -150,12 +168,13 @@ export const GET: APIRoute = async (context) => {
     const { dates, truncatedBySeasonEnd } = generatePracticeDates(
       {
         startDate: data.startDate,
-        weekday: data.weekday,
+        weekday: data.weekday, // ignored under weekdaily (camp) cadence
         timeOfDay: data.timeOfDay,
         count: Math.min(data.count, entryRows.length),
         timezone,
       },
       season.endDate, // date column → "YYYY-MM-DD" string
+      { cadence: isCamp ? "weekdaily" : "weekly" },
     );
     const dateIsoList = dates.map((d) => d.toISOString());
     // Calendar-day lookup, in the org's own timezone (review I3): maps each

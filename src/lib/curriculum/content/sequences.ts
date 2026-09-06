@@ -146,6 +146,41 @@ export const REFERENCE_SEQUENCES: SequenceContent[] = [
     ],
   },
   {
+    // Camp arc (Task 7, camps Phase 4): entry N = Day N of a Mon–Fri camp
+    // week — the attach endpoint schedules camp sequences on consecutive
+    // weekdays ("weekdaily" cadence) and titles sessions "Day N of M".
+    name: "Soccer Camp Week — 5-Day Fundamentals Arc",
+    sport: "soccer",
+    stage: "fundamentals",
+    programType: "camp",
+    description:
+      "A five-day camp week for ages 6–8: names and team culture on day one, then ball mastery, dribbling, and games, building to first passing and the end-of-week showcase scrimmage.",
+    entries: [
+      {
+        template: "First Day of Season - Getting Started Right",
+        objectives: ["Learn every camper's name", "Set the fun-and-safe camp culture"],
+        notes: "Day 1 — keep it light; campers are meeting each other for the first time.",
+      },
+      {
+        template: "Ball Mastery Session - Individual Ball Control",
+        objectives: ["Maximize individual touches", "Build comfort with the ball"],
+      },
+      {
+        template: "Dribbling Adventures - Learning to Move with the Ball",
+        objectives: ["Dribble with the ball close under light pressure"],
+      },
+      {
+        template: "First Passing Session",
+        objectives: ["Introduce inside-of-foot passing with a partner"],
+      },
+      {
+        template: "Game Day Warmup - Pre-Game Routine",
+        objectives: ["Rehearse the routine, then play the end-of-week showcase scrimmage"],
+        notes: "Day 5 — parents often watch the final scrimmage; finish on a high.",
+      },
+    ],
+  },
+  {
     name: "Hockey Fundamentals — 4-Week Cross-Ice Block",
     sport: "hockey",
     stage: "fundamentals",
