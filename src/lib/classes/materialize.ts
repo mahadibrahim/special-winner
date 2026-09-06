@@ -93,14 +93,18 @@ export const HORIZON_DAYS = 8;
 const DAY_MS = 86_400_000;
 const WEEKDAY_ABBR = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-interface CivilDate {
+export interface CivilDate {
   y: number;
   m: number; // 1-12
   day: number;
 }
 
-/** Civil date (and JS-style 0=Sun..6=Sat weekday) of `d` as observed in `timeZone`. */
-function civilPartsInTz(d: Date, timeZone: string): CivilDate & { weekday: number } {
+/** Civil date (and JS-style 0=Sun..6=Sat weekday) of `d` as observed in `timeZone`.
+ *  Exported (with `civilAddDays` / `zonedWallClockUtc`) for the camp
+ *  day-session materializer (src/lib/camps/materialize.ts), which walks the
+ *  same civil-day calendar — one implementation of the DST-safe date math,
+ *  not two. */
+export function civilPartsInTz(d: Date, timeZone: string): CivilDate & { weekday: number } {
   const fmt = new Intl.DateTimeFormat("en-US", {
     timeZone,
     year: "numeric",
@@ -118,7 +122,7 @@ function civilPartsInTz(d: Date, timeZone: string): CivilDate & { weekday: numbe
 }
 
 /** Add `delta` calendar days to a civil date via UTC-anchored overflow normalization — pure calendar arithmetic, never touches wall-clock time, so it can't drift across a DST transition. */
-function civilAddDays(civ: CivilDate, delta: number): CivilDate {
+export function civilAddDays(civ: CivilDate, delta: number): CivilDate {
   const d = new Date(Date.UTC(civ.y, civ.m - 1, civ.day + delta));
   return { y: d.getUTCFullYear(), m: d.getUTCMonth() + 1, day: d.getUTCDate() };
 }

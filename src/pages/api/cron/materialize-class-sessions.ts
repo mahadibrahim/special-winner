@@ -14,9 +14,17 @@
  * each enrollment) is isolated so one failure doesn't stop the batch — this
  * endpoint always returns 200 with the counter breakdown (a genuine 500 here
  * means the query itself, not a per-session/per-booking step, blew up).
+ *
+ * Camps (Phase 4): after the classes run, the same invocation runs
+ * materializeCampSessions (src/lib/camps/materialize.ts) — weekday camp
+ * day-sessions + registration-backed auto-booking. Response shape: the
+ * classes counters stay FLAT at the top level (monitors + the pre-camps API
+ * tests read them there) and are additionally nested as `classes`, with the
+ * camp counters under `camps`.
  */
 import type { APIRoute } from "astro";
 import { materializeClassSessions } from "@/lib/classes/materialize";
+import { materializeCampSessions } from "@/lib/camps/materialize";
 import { captureServerException } from "@/lib/observability/server-error";
 import { warmDbConnection } from "@/lib/db/retry";
 
@@ -49,13 +57,17 @@ export const POST: APIRoute = async ({ request }) => {
     await warmDbConnection();
     const startedAt = Date.now();
     const result = await materializeClassSessions(new Date());
+    const camps = await materializeCampSessions(new Date());
     const elapsedMs = Date.now() - startedAt;
 
     console.info(
-      `[cron] Materialize class sessions: sessionsCreated=${result.sessionsCreated} autoBooked=${result.autoBooked} skippedExhausted=${result.skippedExhausted} skippedPastDue=${result.skippedPastDue} skippedNoWaiver=${result.skippedNoWaiver} enrollmentsEnded=${result.enrollmentsEnded} failed=${result.failed} in ${elapsedMs}ms`,
+      `[cron] Materialize class sessions: sessionsCreated=${result.sessionsCreated} autoBooked=${result.autoBooked} skippedExhausted=${result.skippedExhausted} skippedPastDue=${result.skippedPastDue} skippedNoWaiver=${result.skippedNoWaiver} enrollmentsEnded=${result.enrollmentsEnded} failed=${result.failed}; camps: sessionsCreated=${camps.sessionsCreated} autoBooked=${camps.autoBooked} skippedNoVenue=${camps.skippedNoVenue.length} failed=${camps.failed} in ${elapsedMs}ms`,
     );
 
-    return new Response(JSON.stringify({ ...result, elapsedMs }), {
+    // Backward-compatible shape: the classes counters keep their original
+    // flat top-level position AND appear nested under `classes`; camp
+    // counters are new under `camps`.
+    return new Response(JSON.stringify({ ...result, elapsedMs, classes: result, camps }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
@@ -74,9 +86,9 @@ export const POST: APIRoute = async ({ request }) => {
 export const GET: APIRoute = async () =>
   new Response(
     JSON.stringify({
-      description: "Class-slot materialization + auto-booking cron endpoint",
+      description: "Class-slot + camp day-session materialization + auto-booking cron endpoint",
       usage:
-        "POST with header x-cron-secret: $CRON_SECRET to materialize the next HORIZON_DAYS days of drop_in_sessions rows for every active class_slot_templates row and auto-book each active enrollment into every session created this run. Per-session and per-enrollment failures are isolated and counted rather than aborting the batch. Intended for scheduled callers only.",
+        "POST with header x-cron-secret: $CRON_SECRET to materialize the next HORIZON_DAYS days of drop_in_sessions rows for every active class_slot_templates row (auto-booking each active enrollment) and every eligible camp season's Mon-Fri camp days (auto-booking each confirmed registration). Per-session and per-enrollment/registration failures are isolated and counted rather than aborting the batch. Intended for scheduled callers only.",
     }),
     { status: 200, headers: { "Content-Type": "application/json" } },
   );
