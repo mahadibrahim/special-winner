@@ -74,6 +74,26 @@ export const teamRegistrations = pgTable("team_registrations", {
   // at team creation; legacy rows predate the checkbox and stay null.
   backstopConsentedAt: timestamp("backstop_consented_at", { withTimezone: true }),
 
+  // Deposit refund tracking (winter-team-fixes). The $200 deposit
+  // (depositCents above) can be walked back after the fact — a captain
+  // cancels before the roster fills, an admin issues a goodwill refund, or
+  // the team never delivers and the deposit is kept outright. These four
+  // columns are the ledger for that outcome; they are set together by
+  // whichever admin/webhook path performs the refund, not incrementally.
+  depositRefundStatus: varchar("deposit_refund_status", { length: 20 })
+    .default("none")
+    .notNull(),
+  // 'none' — no refund action taken (the common case; deposit stands as
+  //   paid, whether or not the team ever completed).
+  // 'refunded' — the full deposit was returned to the captain.
+  // 'partially_refunded' — some but not all of the deposit was returned
+  //   (e.g. a cancellation fee was retained).
+  // 'forfeited' — the deposit was kept in full; no money moved, but this
+  //   marks the deposit as resolved/closed rather than pending.
+  depositRefundId: varchar("deposit_refund_id", { length: 255 }), // Stripe refund id, when a refund was actually issued
+  depositRefundedCents: integer("deposit_refunded_cents"),        // amount actually returned; null unless status is 'refunded' or 'partially_refunded'
+  depositRefundedAt: timestamp("deposit_refunded_at", { withTimezone: true }), // when the refund/forfeiture was recorded
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (t) => [
