@@ -85,14 +85,22 @@ export const teamRegistrations = pgTable("team_registrations", {
     .notNull(),
   // 'none' — no refund action taken (the common case; deposit stands as
   //   paid, whether or not the team ever completed).
+  // 'processing' — the executor (maybeRefundTeamDeposit in
+  //   src/lib/payments/team-deposit-refund.ts) has claimed this row and is
+  //   mid-flight. NOT a stable resting state: a row seen here is either a
+  //   genuinely concurrent in-flight call, or a PRIOR call that crashed
+  //   before finishing — the executor treats both identically and is safe
+  //   to re-enter (it reconciles against Stripe before ever creating a
+  //   second refund). A row should never sit here indefinitely; if one
+  //   does, something upstream stopped re-triggering it.
   // 'refunded' — the full deposit was returned to the captain.
   // 'partially_refunded' — some but not all of the deposit was returned
   //   (e.g. a cancellation fee was retained).
   // 'forfeited' — the deposit was kept in full; no money moved, but this
   //   marks the deposit as resolved/closed rather than pending.
   depositRefundId: varchar("deposit_refund_id", { length: 255 }), // Stripe refund id, when a refund was actually issued
-  depositRefundedCents: integer("deposit_refunded_cents"),        // amount actually returned; null unless status is 'refunded' or 'partially_refunded'
-  depositRefundedAt: timestamp("deposit_refunded_at", { withTimezone: true }), // when the refund/forfeiture was recorded
+  depositRefundedCents: integer("deposit_refunded_cents"),        // amount actually returned; NULL for 'forfeited' (nothing was returned) as well as 'none'/'processing'; only set for 'refunded'/'partially_refunded'
+  depositRefundedAt: timestamp("deposit_refunded_at", { withTimezone: true }), // WHEN THE DEPOSIT QUESTION SETTLED — a refund, a partial refund, or a forfeiture all stamp this; it marks "resolved," not "money moved"
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

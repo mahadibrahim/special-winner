@@ -139,11 +139,25 @@ export interface TeamRosterCollected {
  * first place. A cron re-run or a redelivered trigger could see the
  * post-refund total and decide the roster is newly short again, or newly
  * "fully collected" again, chasing its own tail. Excluding the deposit and
- * its refund symmetrically makes this figure monotonic in PARENT payments
- * only — a roster payment can only raise it, a deposit refund can never move
- * it — so the value that fed the refund decision stays stable after the
- * refund fires. Other refunds (e.g. an admin refund of a parent's own share)
- * are NOT exempted and still subtract, same as teamMoneyReceivedCents.
+ * its refund symmetrically makes this figure monotonic WITH RESPECT TO THE
+ * DEPOSIT SPECIFICALLY: a deposit refund can never move it, in either
+ * direction, so the value that fed the refund decision stays stable after
+ * the refund fires. This is narrower than "monotonic, full stop" — other
+ * refunds (e.g. an admin refund of a parent's own share) are NOT exempted
+ * and still subtract, same as teamMoneyReceivedCents, because THOSE
+ * represent real money actually leaving the roster's contribution, not the
+ * captain's separate collateral being returned.
+ *
+ * This helper DOES still count a captain backstop 'balance' row (the
+ * TeamPayer-style off-session charge to the captain's card for unpaid
+ * teammate shares — see charge-unpaid-team-shares.ts) toward the total, even
+ * though it's charged to the captain, not a teammate. That's intentional,
+ * not an oversight: a backstop charge settles the ROSTER's own unpaid
+ * shares — it's the captain paying on a teammate's behalf, still money
+ * collected FOR the fee — which is a fundamentally different thing from the
+ * $200 deposit, which is refundable collateral that was never a roster
+ * share to begin with. Only the deposit (and its refund) are excluded;
+ * every other team-level payment type, backstop balances included, counts.
  */
 export async function teamRosterCollectedByTeamIds(
   db: ReturnType<typeof getDb>,

@@ -10,7 +10,7 @@ import {
 } from "@/lib/db/schema";
 import { memberships } from "@/lib/db/schema/memberships";
 import { locations } from "@/lib/db/schema/organizations";
-import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
+import { eq, and, gte, lte, ne, sql, desc } from "drizzle-orm";
 import { requireSuperAdminAccess, requireOrganizationContext } from "@/lib/auth";
 import { periodBucket } from "@/lib/admin/report-period";
 
@@ -19,6 +19,20 @@ import { periodBucket } from "@/lib/admin/report-period";
 // balance) — see #525. Orphaned rows (both ids NULL) stay excluded by the
 // inner seasons join, matching the old behavior.
 const paymentSeasonId = sql`COALESCE(${registrations.seasonId}, ${teamRegistrations.seasonId})`;
+
+// A settled refund row (paymentType='refund', status='succeeded' — the
+// deposit-refund executor in src/lib/payments/team-deposit-refund.ts is the
+// first flow to actually insert one) must NOT be counted as revenue: it's
+// money going back OUT, already surfaced separately via the dedicated
+// "Refunds summary" query below (which filters TO paymentType='refund').
+// Without this, a refund row would double as "revenue" here AND as a
+// refund there, inflating totalRevenue/revenueByPeriod/revenueBySport and
+// showing a nonsensical positive "Recent Transactions" entry for money that
+// left, not arrived — recentTransactions here has no refund-aware
+// rendering (contrast admin/payments.ts's payments-list.tsx, which renders
+// refund rows with a "-" prefix; this dashboard's Recent Transactions card
+// does not), so excluding is the consistent choice, not just netting.
+const notARefund = ne(payments.paymentType, "refund");
 
 // GET - Get revenue reports
 export const GET: APIRoute = async (context) => {
@@ -103,6 +117,7 @@ export const GET: APIRoute = async (context) => {
           and(
             orgScope,
             eq(payments.status, "succeeded"),
+            notARefund,
             gte(payments.createdAt, start),
             lte(payments.createdAt, end)
           )
@@ -124,6 +139,7 @@ export const GET: APIRoute = async (context) => {
           and(
             orgScope,
             eq(payments.status, "succeeded"),
+            notARefund,
             gte(payments.createdAt, start),
             lte(payments.createdAt, end)
           )
@@ -173,6 +189,7 @@ export const GET: APIRoute = async (context) => {
           and(
             orgScope,
             eq(payments.status, "succeeded"),
+            notARefund,
             gte(payments.createdAt, start),
             lte(payments.createdAt, end)
           )
@@ -199,6 +216,7 @@ export const GET: APIRoute = async (context) => {
           and(
             orgScope,
             eq(payments.status, "succeeded"),
+            notARefund,
             gte(payments.createdAt, start),
             lte(payments.createdAt, end)
           )

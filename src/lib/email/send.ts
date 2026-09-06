@@ -1401,46 +1401,82 @@ export interface TeamDepositRefundedParams {
   to: string;
   captainName: string;
   teamName: string;
-  /** Amount actually returned to the captain's card, in cents. */
-  refundedCents: number;
+  /** Which of the three outcomes the deposit-refund executor landed on —
+   *  selects the copy variant. Matches maybeRefundTeamDeposit's internal
+   *  FinalStatus verbatim so callers can pass it straight through. */
+  outcome: "refunded" | "partially_refunded" | "forfeited";
   /**
-   * Set only for the deadline-settle partial-refund variant — the portion of
-   * the roster's shares that went uncovered and was absorbed by the deposit.
-   * Omitted (or 0) selects the full-collection copy.
+   * Amount actually returned to the captain's card, in cents. Required for
+   * 'refunded'/'partially_refunded'; omitted for 'forfeited' (nothing is
+   * returned).
+   */
+  refundedCents?: number;
+  /** The deposit's face amount, in cents — phrases the forfeited copy
+   *  ("your $200 deposit..."). */
+  depositCents: number;
+  /**
+   * The roster shortfall the deposit absorbed at the payment deadline.
+   * Required for 'partially_refunded' and 'forfeited'; irrelevant (omit)
+   * for a full_collection-triggered full refund.
    */
   shortfallCents?: number;
   brand?: BrandId;
 }
 
 /**
- * Pure body builder — exported for unit tests. Mirrors buildTeamDepositReceipt:
- * two copy variants (full vs. partial) selected by whether a shortfall was
- * absorbed, per the deposit-refund executor's math
- * (src/lib/payments/team-deposit-refund.ts).
+ * Pure body builder — exported for unit tests. Mirrors buildTeamDepositReceipt
+ * in shape, but has THREE copy variants (not two) selected by `outcome`,
+ * matching the deposit-refund executor's math
+ * (src/lib/payments/team-deposit-refund.ts) — including the forfeited case,
+ * which is NOT silent: the owner-model transparency promise means the
+ * captain hears about it even when nothing is returned to their card.
+ *
+ * Money is formatted via the shared `formatCurrency` (`.toFixed(2)`) helper,
+ * not `.toLocaleString`, because a partial refund (depositCents minus an
+ * arbitrary shortfall) routinely carries odd cents that `.toLocaleString`
+ * would render inconsistently (e.g. "150.4" instead of "150.40").
  */
 export function buildTeamDepositRefunded(params: TeamDepositRefundedParams): {
   subject: string;
   html: string;
   text: string;
 } {
-  const refund = `$${(params.refundedCents / 100).toLocaleString("en-US")}`;
-  const isPartial = typeof params.shortfallCents === "number" && params.shortfallCents > 0;
-  const shortfall = isPartial
-    ? `$${(params.shortfallCents as number / 100).toLocaleString("en-US")}`
-    : null;
+  const deposit = formatCurrency(params.depositCents);
 
-  const subject = `Your ${refund} team deposit is on its way back`;
+  let subject: string;
+  let bodyLine: string;
 
-  const bodyLine = isPartial
-    ? `After the payment deadline, ${shortfall} of the roster's shares were uncovered — your deposit covered that, and the remaining ${refund} is being refunded to your card.`
-    : `Your roster covered the team fee — your ${refund} deposit is being refunded to your card, arriving in 5-10 business days.`;
+  if (params.outcome === "refunded") {
+    const refund = formatCurrency(params.refundedCents ?? params.depositCents);
+    subject = `Your ${refund} team deposit is on its way back`;
+    bodyLine = `Your roster covered the team fee — your ${refund} deposit is being refunded to your card, arriving in 5-10 business days.`;
+  } else if (params.outcome === "partially_refunded") {
+    const refund = formatCurrency(params.refundedCents ?? 0);
+    const shortfall = formatCurrency(params.shortfallCents ?? 0);
+    // Don't call the refunded remainder "your deposit" in the subject — it's
+    // less than the full $200, so the full-refund subject's phrasing would
+    // overstate it.
+    subject = "Part of your team deposit is on its way back";
+    bodyLine = `After the payment deadline, ${shortfall} of the roster's shares were uncovered — your deposit covered that, and the remaining ${refund} is being refunded to your card.`;
+  } else {
+    // forfeited — the deposit was kept in full; no money moves, but the
+    // captain still hears exactly what happened to it.
+    const shortfallCents = params.shortfallCents ?? 0;
+    subject = "About your team deposit";
+    bodyLine =
+      shortfallCents > params.depositCents
+        ? `After the payment deadline, the roster's payments didn't fully cover the team fee — your ${deposit} deposit covered ${deposit} of the ${formatCurrency(shortfallCents)} shortfall and was not refunded.`
+        : `After the payment deadline, the roster's payments didn't fully cover the team fee — your ${deposit} deposit was applied in full toward the shortfall and was not refunded.`;
+  }
+
+  const greeting = params.outcome === "forfeited" ? "an update" : "good news";
 
   const html = `<!doctype html><html><body style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1a1a1a;line-height:1.5;">
-    <p>${escapeHtml(params.captainName)}, good news about <strong>${escapeHtml(params.teamName)}</strong>.</p>
+    <p>${escapeHtml(params.captainName)}, ${greeting} about <strong>${escapeHtml(params.teamName)}</strong>.</p>
     <p>${escapeHtml(bodyLine)}</p>
   </body></html>`;
 
-  const text = `${params.captainName}, good news about ${params.teamName}.\n\n${bodyLine}\n`;
+  const text = `${params.captainName}, ${greeting} about ${params.teamName}.\n\n${bodyLine}\n`;
 
   return { subject, html, text };
 }
