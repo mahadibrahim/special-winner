@@ -22,7 +22,7 @@ export function YouthDivisionTable({
   onBook,
 }: {
   rows: DivisionRowModel[]
-  onBook?: (id: string) => void
+  onBook?: (id: string, mode: "individual" | "team") => void
 }) {
   return (
     <div>
@@ -100,7 +100,7 @@ export function YouthDivisionTable({
                   {row.team && (
                     <a
                       href={row.team.href}
-                      onClick={() => onBook?.(row.id)}
+                      onClick={() => onBook?.(row.id, "team")}
                       data-division-cta="team"
                       className={`${PILL} bg-royal`}
                     >
@@ -110,7 +110,7 @@ export function YouthDivisionTable({
                   {row.solo && (
                     <a
                       href={row.solo.href}
-                      onClick={() => onBook?.(row.id)}
+                      onClick={() => onBook?.(row.id, "individual")}
                       data-division-cta="solo"
                       className={`${PILL} bg-brand-red`}
                     >

@@ -18,9 +18,29 @@ export interface YouthLeaguePageData {
   openRows: DivisionRowModel[];
   competitiveRows: DivisionRowModel[];
   developmentalRows: DivisionRowModel[];
+  /** Unique, order-preserving `termLabel`s of `competitiveRows` (e.g.
+   *  ["Winter 1 2026-27"]) — drives the competitive door's kicker so it
+   *  tracks whatever terms are actually open instead of an authored season
+   *  description going stale (audit F4). Empty when nothing is open. */
+  competitiveTermLabels: string[];
+  /** Same derivation as `competitiveTermLabels`, for `developmentalRows`. */
+  developmentalTermLabels: string[];
   bannerDeadline: string | null;
   bannerTermLabel: string | null;
   bannerTermSlug: string | null;
+}
+
+/** Unique, order-preserving `termLabel`s off a set of division rows. */
+function uniqueTermLabels(rows: DivisionRowModel[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const row of rows) {
+    if (row.termLabel && !seen.has(row.termLabel)) {
+      seen.add(row.termLabel);
+      out.push(row.termLabel);
+    }
+  }
+  return out;
 }
 
 export async function fetchYouthLeaguePageData(opts: {
@@ -121,6 +141,8 @@ export async function fetchYouthLeaguePageData(opts: {
     openRows,
     competitiveRows,
     developmentalRows,
+    competitiveTermLabels: uniqueTermLabels(competitiveRows),
+    developmentalTermLabels: uniqueTermLabels(developmentalRows),
     bannerDeadline,
     bannerTermLabel,
     bannerTermSlug,

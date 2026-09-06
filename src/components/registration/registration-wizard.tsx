@@ -36,6 +36,8 @@ import {
 import { formatWaiverValidUntil } from "@/lib/registrations/waiver-text"
 import {
   trackRegistrationStepViewed,
+  trackRegistrationBlocked,
+  trackGuestFormShown,
   type RegVariant,
   type RegFlow,
 } from "@/lib/analytics/events"
@@ -802,6 +804,19 @@ export default function RegistrationWizard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentStep, season, teamToken, captainCreditSettled])
 
+  // Client-side twin of the server's guest_checkout_started (audit F5) —
+  // the server fires that for BOTH audiences, so this fires for both guest
+  // branches (child and adult) too, not just youth. Fires once per wizard
+  // mount, the first time the form actually renders.
+  const guestFormShownRef = useRef(false)
+  useEffect(() => {
+    if (guestFormShownRef.current) return
+    if (isGuest && stepName === "player" && season) {
+      guestFormShownRef.current = true
+      trackGuestFormShown({ seasonId: season.id })
+    }
+  }, [isGuest, stepName, season])
+
   // Fire view_item once when entering the payment step
   useEffect(() => {
     if (stepName === "payment" && season) {
@@ -1218,6 +1233,7 @@ export default function RegistrationWizard({
           // 409 fires before guest-checkout creates any Stripe PaymentIntent.
           // The benign error string just stops the caller; the UI already
           // switched to the friendly state.
+          trackRegistrationBlocked({ seasonId, reason: "already_registered" })
           setGuestAlreadyRegistered(true)
           return { error: "already_registered" }
         }
@@ -1237,6 +1253,13 @@ export default function RegistrationWizard({
           })
           setGuestServerAgeError(message)
           setCurrentStep(stepNumberOf("player"))
+          trackRegistrationBlocked({ seasonId, reason: "age_ineligible" })
+          // This 422 routes back to the player step with guestServerAgeError
+          // set, which feeds displayedChildAgeError — so a re-click of
+          // Continue without editing the DOB would hit handleContinue's
+          // client-side block and fire the SAME event again. Pre-set the
+          // ref here so that guard treats this wall-hit as already counted.
+          ageIneligibleBlockedTrackedRef.current = true
           return { error: "age_ineligible" }
         }
         // Ambiguous-audience adult-guest branch (guestMode === "adult", not
@@ -1256,6 +1279,7 @@ export default function RegistrationWizard({
               age: ageOnDate(guestAdultBirthDate, onDate),
             }),
           )
+          trackRegistrationBlocked({ seasonId, reason: "age_ineligible" })
           return { error: "age_ineligible" }
         }
         throw new Error(parseApiError(data, "Failed to complete registration"))
@@ -1426,6 +1450,7 @@ export default function RegistrationWizard({
           // register a sibling — so it gets a named inline message naming
           // that player, and the wizard stays usable.
           if (adultSelfFlow) {
+            trackRegistrationBlocked({ seasonId, reason: "already_registered" })
             setRaceAlreadyRegistered(true)
           } else {
             setError(
@@ -1455,6 +1480,7 @@ export default function RegistrationWizard({
                 })
               : "This player isn't in the age range for this program.",
           )
+          trackRegistrationBlocked({ seasonId, reason: "age_ineligible" })
           return { error: "age_ineligible" }
         }
         throw new Error(parseApiError(data, "Failed to complete registration"))
@@ -1630,6 +1656,13 @@ export default function RegistrationWizard({
   // live as the customer fixes fields (so resolved errors clear themselves).
   const [guestAttempted, setGuestAttempted] = useState(false)
   const guestFieldErrors = guestAttempted ? computeGuestErrors() : null
+  // Register-page dead-end (audit final wave): this hard block was invisible
+  // to the funnel — no event fired when a guest is stopped cold by an
+  // ineligible DOB. Ref-guarded once per mount, matching this file's other
+  // trackers (guestFormShownRef, selfBlockingRegistrationTrackedRef) — the
+  // customer can mash Continue while fixing the same bad DOB and we only
+  // want the first "hit the wall" moment, not one event per click.
+  const ageIneligibleBlockedTrackedRef = useRef(false)
 
   const handleContinue = () => {
     if (stepName === "player" && isGuest) {
@@ -1644,6 +1677,10 @@ export default function RegistrationWizard({
       // re-submitting the same bad DOB.
       if (errors || displayedChildAgeError) {
         setGuestAttempted(true)
+        if (displayedChildAgeError && !ageIneligibleBlockedTrackedRef.current) {
+          ageIneligibleBlockedTrackedRef.current = true
+          trackRegistrationBlocked({ seasonId, reason: "age_ineligible" })
+        }
         return
       }
       setGuestAttempted(false)
@@ -1841,6 +1878,19 @@ export default function RegistrationWizard({
     user,
     selfBlockingRegistration,
   ])
+
+  // Register-page dead-end (audit F5 follow-up): the COMMON adult-self path —
+  // detected up-front from the mount-time GET /api/registrations check above,
+  // not a submit-time 409 — into the same full-screen "You're already in"
+  // state the race-fallback below also renders. Fires once per mount.
+  const selfBlockingRegistrationTrackedRef = useRef(false)
+  useEffect(() => {
+    if (selfBlockingRegistrationTrackedRef.current) return
+    if (season && adultSelfFlow && selfBlockingRegistration) {
+      selfBlockingRegistrationTrackedRef.current = true
+      trackRegistrationBlocked({ seasonId: season.id, reason: "already_registered" })
+    }
+  }, [season, adultSelfFlow, selfBlockingRegistration])
 
   // ── Loading / error states ─────────────────────────────────────────────────
 

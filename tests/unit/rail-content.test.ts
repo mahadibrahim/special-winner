@@ -83,10 +83,20 @@ describe("rail-content", () => {
       unit: "today · $1,000 total · your roster pays the rest",
     });
   });
-  it("formatDayTime renders day + time window (dayOfWeek is lowercase 'tue')", () => {
-    expect(formatDayTime("tue", "19:00:00", "22:00:00")).toBe("Tue nights · 7–10pm");
-    expect(formatDayTime("tue", null, null)).toBe("Tue nights");
+  it("formatDayTime renders day + time window with daypart based on start hour (dayOfWeek is lowercase)", () => {
+    // Morning: start < 12 → "mornings"
+    expect(formatDayTime("sat", "09:00", "11:00")).toBe("Sat mornings · 9–11am");
+    // Night: start >= 17 → "nights"
+    expect(formatDayTime("wed", "19:00", "22:00")).toBe("Wed nights · 7–10pm");
+    // Afternoon: start >= 12 and < 17 → "afternoons"
+    expect(formatDayTime("mon", "14:00", "15:30")).toBe("Mon afternoons · 2–3:30pm");
+    // No times → just the day label
+    expect(formatDayTime("sun", null, null)).toBe("Sun");
     expect(formatDayTime(null, null, null)).toBe("");
+    // Start but no end → day + daypart, no time range (missing END must not
+    // collapse all the way to the bare label — only a missing START does).
+    expect(formatDayTime("sat", "09:00", null)).toBe("Sat mornings");
+    expect(formatDayTime("wed", "19:00", null)).toBe("Wed nights");
   });
 });
 

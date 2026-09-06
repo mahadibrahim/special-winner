@@ -33,7 +33,13 @@ export const CLUB_CARD = {
   emailCta: "Email us about winter entry",
 };
 
-/** The two league-type cards (#types). Division rows render live under these. */
+/** The two league-type cards (#types). Division rows render live under these.
+ *  `kicker` on each is the EMPTY-CATALOG FALLBACK ONLY (audit F4): when any
+ *  door has open rows, youth-sport-league-page.astro derives the kicker from
+ *  those rows' live `termLabel`s instead — so the door reads "Winter 1
+ *  2026-27" rather than a hand-authored season description that silently
+ *  drifts as the catalog moves through the year. Edit these only for the
+ *  copy shown when the catalog is empty. */
 export const LEAGUE_TYPE_CARDS = {
   competitive: {
     kicker: "Winter · November – late March",

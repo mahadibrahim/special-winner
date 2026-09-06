@@ -172,6 +172,12 @@ const facts: { label: string; value: string }[] = [
                 </p>
                 <a
                   href={`/register/${season.id}?mode=individual`}
+                  data-division-register-cta="individual"
+                  data-season-id={season.id}
+                  data-level={season.skillLevel ?? ""}
+                  data-gender={season.divisionGender ?? ""}
+                  data-venue={season.location.slug}
+                  data-term={term}
                   class="mt-4 inline-flex items-center justify-center px-5 py-3 bg-ink text-cream text-sm font-semibold rounded-lg hover:bg-primary-bright hover:text-primary-foreground transition-colors"
                 >
                   Sign Up Solo
@@ -193,6 +199,12 @@ const facts: { label: string; value: string }[] = [
                 </p>
                 <a
                   href={`/register/${season.id}?mode=team`}
+                  data-division-register-cta="team"
+                  data-season-id={season.id}
+                  data-level={season.skillLevel ?? ""}
+                  data-gender={season.divisionGender ?? ""}
+                  data-venue={season.location.slug}
+                  data-term={term}
                   class="mt-4 inline-flex items-center justify-center px-5 py-3 bg-primary-bright text-primary-foreground text-sm font-semibold rounded-lg hover:bg-ink transition-colors"
                 >
                   Bring a Team
@@ -272,3 +284,24 @@ const facts: { label: string; value: string }[] = [
     </div>
   </main>
 </BaseLayout>
+
+<script>
+  import { trackDivisionRegisterClicked } from "@/lib/analytics/events"
+
+  // Delegated so it works regardless of load order (audit F5 — the "Sign Up
+  // Solo"/"Bring a Team" CTAs were bare anchors that fired nothing).
+  document.addEventListener("click", (e) => {
+    const el = e.target instanceof Element ? e.target.closest<HTMLElement>("[data-division-register-cta]") : null
+    if (!el) return
+    const mode = el.dataset.divisionRegisterCta === "team" ? "team" : "individual"
+    trackDivisionRegisterClicked({
+      seasonId: el.dataset.seasonId ?? "",
+      level: el.dataset.level ?? "",
+      gender: el.dataset.gender ?? "",
+      venue: el.dataset.venue ?? "",
+      mode,
+      term: el.dataset.term ?? "",
+      surface: "division",
+    })
+  })
+</script>

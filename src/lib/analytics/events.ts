@@ -12,12 +12,14 @@ export const LEAGUE_EVENTS = {
   standingsDivisionSelected: "standings_division_selected",
   catalogSportTileClicked: "catalog_sport_tile_clicked",
   registrationStepViewed: "registration_step_viewed",
-  expressCheckoutConfirmed: "express_checkout_confirmed",
   paymentStepWalletsResolved: "payment_step_wallets_resolved",
   checkoutAbandonReason: "checkout_abandon_reason",
   inappBannerShown: "inapp_banner_shown",
   inappBannerClicked: "inapp_banner_clicked",
   inappRecaptureRequested: "inapp_recapture_requested",
+  // League-funnel instrumentation gaps closed under audit F5.
+  registrationBlocked: "registration_blocked", // register page dead-ends: reason not_open|closed|already_registered|age_ineligible
+  guestFormShown: "guest_registration_form_shown", // guest who-step rendered (client-side twin of guest_checkout_started)
 } as const;
 
 // Team funnel client events (team-create.tsx form → deposit → HQ share view).
@@ -99,10 +101,47 @@ export const trackLandingCtaClicked = (p: { term: string }) =>
   track(LEAGUE_EVENTS.landingCtaClicked, { term: p.term });
 export const trackSeasonViewed = (p: { sport: string; term: string }) =>
   track(LEAGUE_EVENTS.seasonViewed, { sport: p.sport, term: p.term });
-export const trackDivisionFilterApplied = (p: { facet: "level" | "format" | "day" | "venue" | "ages"; value: string; term: string }) =>
-  track(LEAGUE_EVENTS.divisionFilterApplied, { facet: p.facet, value: p.value, term: p.term });
-export const trackDivisionRegisterClicked = (p: { seasonId: string; level: string; gender: string; venue: string; mode: "team" | "individual" | "interest"; term: string }) =>
-  track(LEAGUE_EVENTS.divisionRegisterClicked, { season_id: p.seasonId, level: p.level, gender: p.gender, venue: p.venue, mode: p.mode, term: p.term });
+/** Where the filter/register interaction happened. Optional, defaults to
+ *  "term" (the original term-page finders) so every pre-existing call site
+ *  keeps emitting the same properties it always has. "landing" covers the
+ *  youth landing sections' chips/table (audit F5); "division" covers the
+ *  per-division page's direct CTAs. */
+export type DivisionSurface = "term" | "landing" | "division";
+
+export const trackDivisionFilterApplied = (p: {
+  facet: "level" | "format" | "day" | "venue" | "ages" | "sport";
+  value: string;
+  // Optional: the landing surface mixes many terms/seasons in one table, so
+  // its filter chips have no single "active term" to report — those call
+  // sites omit it rather than pass an empty-string placeholder. Term-page
+  // callers keep passing their real term.
+  term?: string;
+  surface?: DivisionSurface;
+}) =>
+  track(LEAGUE_EVENTS.divisionFilterApplied, {
+    facet: p.facet,
+    value: p.value,
+    ...(p.term ? { term: p.term } : {}),
+    surface: p.surface ?? "term",
+  });
+export const trackDivisionRegisterClicked = (p: {
+  seasonId: string;
+  level: string;
+  gender: string;
+  venue: string;
+  mode: "team" | "individual" | "interest";
+  term: string;
+  surface?: DivisionSurface;
+}) =>
+  track(LEAGUE_EVENTS.divisionRegisterClicked, {
+    season_id: p.seasonId,
+    level: p.level,
+    gender: p.gender,
+    venue: p.venue,
+    mode: p.mode,
+    term: p.term,
+    surface: p.surface ?? "term",
+  });
 export const trackStandingsDivisionSelected = (p: { term: string; seasonId: string }) =>
   track(LEAGUE_EVENTS.standingsDivisionSelected, { term: p.term, season_id: p.seasonId });
 export const trackCatalogSportTileClicked = (p: { sport: string; state: "live" | "coming_soon" }) =>
@@ -113,11 +152,6 @@ export const trackRegistrationStepViewed = (p: { step: RegStep; seasonId: string
     season_id: p.seasonId,
     flow: p.flow,
     variant: p.variant,
-    in_app_browser: isInAppBrowser(),
-  });
-export const trackExpressCheckoutConfirmed = (p: { expressPaymentType: string }) =>
-  track(LEAGUE_EVENTS.expressCheckoutConfirmed, {
-    express_payment_type: p.expressPaymentType,
     in_app_browser: isInAppBrowser(),
   });
 /** Which placement of the in-app escape UI fired the event — the passive
@@ -166,6 +200,26 @@ export const trackInappRecaptureRequested = (p: {
     channel: p.channel,
     in_app_browser: isInAppBrowser(),
   });
+
+/** Register-page dead-ends (audit F5) — every path that stops a visitor
+ *  short of paying without an existing event covering it: the season isn't
+ *  open yet / has closed, the visitor (guest or signed-in) already has a
+ *  live registration for this season, or the player named doesn't meet the
+ *  season's age group (audit F-final: this dead-end was invisible to the
+ *  funnel — no event fired on either the client hard-block or the server's
+ *  422 age_ineligible response). */
+export type RegistrationBlockedReason = "not_open" | "closed" | "already_registered" | "age_ineligible";
+
+export const trackRegistrationBlocked = (p: { seasonId: string; reason: RegistrationBlockedReason }) =>
+  track(LEAGUE_EVENTS.registrationBlocked, { season_id: p.seasonId, reason: p.reason });
+
+/** Client-side twin of the server's `guest_checkout_started` — fired once,
+ *  when the guest form first renders, for BOTH guest audiences (child and
+ *  adult), matching the server event which fires on POST for either. So
+ *  form-shown → submitted abandonment is measurable for the whole guest
+ *  population, not just youth. */
+export const trackGuestFormShown = (p: { seasonId: string }) =>
+  track(LEAGUE_EVENTS.guestFormShown, { season_id: p.seasonId });
 
 /** One-tap exit-reason chips shown after backing out of the payment step. */
 export type AbandonReason =

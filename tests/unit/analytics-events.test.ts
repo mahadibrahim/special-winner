@@ -4,9 +4,9 @@ import {
   trackDivisionRegisterClicked, trackLandingTabViewed, trackRegistrationStepViewed,
   trackCatalogSportTileClicked, LEAGUE_EVENTS,
   trackTeamCreateViewed, trackTeamCreateSubmitted, trackTeamDepositViewed, trackTeamHqViewed,
-  trackExpressCheckoutConfirmed,
   trackInappBannerShown, trackInappBannerClicked, trackInappRecaptureRequested,
   trackPaymentStepWalletsResolved, trackCheckoutAbandonReason,
+  trackDivisionFilterApplied, trackRegistrationBlocked, trackGuestFormShown,
   TEAM_EVENTS, SERVER_EVENTS, YOUTH_EVENTS,
   trackTrialModalOpened, trackTrialBookingAttempted, trackTrialWaiverShown,
   trackTrialBooked, trackTrialFullOfferShown, trackTrialFullOfferAccepted, trackTrialBlocked,
@@ -17,11 +17,33 @@ describe("analytics events", () => {
   const spy = vi.spyOn(track, "track").mockImplementation(() => {});
   beforeEach(() => spy.mockClear());
 
-  it("division_register_clicked uses snake_case props, no PII", () => {
+  it("division_register_clicked uses snake_case props, no PII, and defaults surface to term", () => {
     trackDivisionRegisterClicked({ seasonId: "s1", level: "c", gender: "coed", venue: "worthington", mode: "team", term: "fall-2026" });
-    expect(spy).toHaveBeenCalledWith("division_register_clicked", { season_id: "s1", level: "c", gender: "coed", venue: "worthington", mode: "team", term: "fall-2026" });
+    expect(spy).toHaveBeenCalledWith("division_register_clicked", { season_id: "s1", level: "c", gender: "coed", venue: "worthington", mode: "team", term: "fall-2026", surface: "term" });
     const props = spy.mock.calls[0][1] ?? {};
     for (const k of Object.keys(props)) expect(/email|name|phone/i.test(k)).toBe(false);
+  });
+
+  it("division_register_clicked accepts an explicit surface", () => {
+    trackDivisionRegisterClicked({ seasonId: "s1", level: "developmental", gender: "coed", venue: "worthington", mode: "individual", term: "fall-2026", surface: "landing" });
+    expect(spy).toHaveBeenCalledWith("division_register_clicked", { season_id: "s1", level: "developmental", gender: "coed", venue: "worthington", mode: "individual", term: "fall-2026", surface: "landing" });
+  });
+
+  it("division_filter_applied uses snake_case props and defaults surface to term", () => {
+    trackDivisionFilterApplied({ facet: "venue", value: "worthington", term: "fall-2026" });
+    expect(spy).toHaveBeenCalledWith("division_filter_applied", { facet: "venue", value: "worthington", term: "fall-2026", surface: "term" });
+  });
+
+  it("division_filter_applied accepts an explicit surface and the sport facet", () => {
+    trackDivisionFilterApplied({ facet: "sport", value: "soccer", term: "fall-2026", surface: "landing" });
+    expect(spy).toHaveBeenCalledWith("division_filter_applied", { facet: "sport", value: "soccer", term: "fall-2026", surface: "landing" });
+  });
+
+  it("division_filter_applied omits term entirely when none is active (landing surface, no placeholder)", () => {
+    trackDivisionFilterApplied({ facet: "venue", value: "worthington", surface: "landing" });
+    expect(spy).toHaveBeenCalledWith("division_filter_applied", { facet: "venue", value: "worthington", surface: "landing" });
+    const props = spy.mock.calls[0][1] ?? {};
+    expect("term" in props).toBe(false);
   });
   it("landing_tab_viewed passes sport + tab", () => {
     trackLandingTabViewed({ sport: "soccer", tab: "overview" });
@@ -75,20 +97,6 @@ describe("analytics events", () => {
       season_id: "s1",
       in_app_browser: expect.any(Boolean),
     });
-  });
-
-  it("express_checkout_confirmed passes express_payment_type + in_app_browser, no PII", () => {
-    trackExpressCheckoutConfirmed({ expressPaymentType: "apple_pay" });
-    expect(spy).toHaveBeenCalledWith(LEAGUE_EVENTS.expressCheckoutConfirmed, {
-      express_payment_type: "apple_pay",
-      in_app_browser: expect.any(Boolean),
-    });
-    const props = spy.mock.calls[0][1] ?? {};
-    for (const k of Object.keys(props)) expect(/email|name|phone/i.test(k)).toBe(false);
-  });
-
-  it("exposes the express checkout event name", () => {
-    expect(LEAGUE_EVENTS.expressCheckoutConfirmed).toBe("express_checkout_confirmed");
   });
 
   it("inapp_banner_shown passes season_id + in_app_browser and defaults variant to passive, no PII", () => {
@@ -194,6 +202,31 @@ describe("analytics events", () => {
     expect(TEAM_EVENTS.teamDepositViewed).toBe("team_deposit_viewed");
     expect(TEAM_EVENTS.teamHqViewed).toBe("team_hq_viewed");
     expect(SERVER_EVENTS.teamDepositPaid).toBe("team_deposit_paid");
+  });
+
+  it("registration_blocked carries season_id + reason, no PII", () => {
+    trackRegistrationBlocked({ seasonId: "s1", reason: "not_open" });
+    expect(spy).toHaveBeenCalledWith("registration_blocked", { season_id: "s1", reason: "not_open" });
+    trackRegistrationBlocked({ seasonId: "s1", reason: "closed" });
+    expect(spy).toHaveBeenCalledWith("registration_blocked", { season_id: "s1", reason: "closed" });
+    trackRegistrationBlocked({ seasonId: "s1", reason: "already_registered" });
+    expect(spy).toHaveBeenCalledWith("registration_blocked", { season_id: "s1", reason: "already_registered" });
+    trackRegistrationBlocked({ seasonId: "s1", reason: "age_ineligible" });
+    expect(spy).toHaveBeenCalledWith("registration_blocked", { season_id: "s1", reason: "age_ineligible" });
+    const props = spy.mock.calls[0][1] ?? {};
+    for (const k of Object.keys(props)) expect(/email|name|phone/i.test(k)).toBe(false);
+  });
+
+  it("guest_registration_form_shown carries season_id, no PII", () => {
+    trackGuestFormShown({ seasonId: "s1" });
+    expect(spy).toHaveBeenCalledWith("guest_registration_form_shown", { season_id: "s1" });
+    const props = spy.mock.calls[0][1] ?? {};
+    for (const k of Object.keys(props)) expect(/email|name|phone/i.test(k)).toBe(false);
+  });
+
+  it("exposes the F5 event names as stable strings", () => {
+    expect(LEAGUE_EVENTS.registrationBlocked).toBe("registration_blocked");
+    expect(LEAGUE_EVENTS.guestFormShown).toBe("guest_registration_form_shown");
   });
 });
 

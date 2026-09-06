@@ -11,6 +11,7 @@ import type { ApiSeason } from "@/lib/programs/api-season"
 import { deriveDayKey, DAY_KEYS, DAY_LABELS } from "@/lib/programs/derive"
 import { useFinderFilter } from "@/lib/hooks/use-finder-filter"
 import { divisionRowModel } from "@/lib/leagues/division-row-model"
+import { trackDivisionFilterApplied, trackDivisionRegisterClicked } from "@/lib/analytics/events"
 
 const PAGE_SIZE = 6
 
@@ -194,6 +195,22 @@ export function SeasonsFinderSection({
     () => filtered.filter((s) => s.status === "open").map((s) => divisionRowModel(s)),
     [filtered],
   )
+  // Row id -> raw catalog season, so the table's onBook (which only carries
+  // the row id) can still fire division_register_clicked with real
+  // level/gender/venue/term instead of blank enums (audit F5).
+  const seasonById = useMemo(() => new Map(filtered.map((s) => [s.id, s])), [filtered])
+  const handleBook = (id: string, mode: "individual" | "team") => {
+    const s = seasonById.get(id)
+    trackDivisionRegisterClicked({
+      seasonId: id,
+      level: s?.skillLevel ?? "",
+      gender: s?.divisionGender ?? "",
+      venue: s?.location.slug ?? "",
+      mode,
+      term: s?.termSlug ?? s?.termLabel ?? "",
+      surface: "landing",
+    })
+  }
   // Level membership follows the AVAILABLE DOOR, not the season's headline
   // kind: "Competitive (team entry)" means "I can enter a whole team here", so
   // dual-mode winter divisions belong in it even though a single kid can also
@@ -272,7 +289,10 @@ export function SeasonsFinderSection({
               label="Level"
               options={levelOptions}
               active={level === "all" ? null : level}
-              onChange={(v) => setLevel((v as "competitive" | "developmental") ?? "all")}
+              onChange={(v) => {
+                if (v) trackDivisionFilterApplied({ facet: "level", value: v, surface: "landing" })
+                setLevel((v as "competitive" | "developmental") ?? "all")
+              }}
             />
           </div>
         )}
@@ -280,10 +300,42 @@ export function SeasonsFinderSection({
         {/* Filters */}
         {!loading && seasons.length > 0 && (
           <div className="mt-6 flex flex-col gap-2.5">
-            <FilterChips label="Format" options={formatOptions} active={activeFormat} onChange={setActiveFormat} />
-            <FilterChips label="Sport" options={sportOptions} active={activeSport} onChange={setActiveSport} />
-            <FilterChips label="Venue" options={venueOptions} active={activeVenue} onChange={setActiveVenue} />
-            <FilterChips label="Day" options={dayOptions} active={activeDay} onChange={setActiveDay} />
+            <FilterChips
+              label="Format"
+              options={formatOptions}
+              active={activeFormat}
+              onChange={(v) => {
+                if (v) trackDivisionFilterApplied({ facet: "format", value: v, surface: "landing" })
+                setActiveFormat(v)
+              }}
+            />
+            <FilterChips
+              label="Sport"
+              options={sportOptions}
+              active={activeSport}
+              onChange={(v) => {
+                if (v) trackDivisionFilterApplied({ facet: "sport", value: v, surface: "landing" })
+                setActiveSport(v)
+              }}
+            />
+            <FilterChips
+              label="Venue"
+              options={venueOptions}
+              active={activeVenue}
+              onChange={(v) => {
+                if (v) trackDivisionFilterApplied({ facet: "venue", value: v, surface: "landing" })
+                setActiveVenue(v)
+              }}
+            />
+            <FilterChips
+              label="Day"
+              options={dayOptions}
+              active={activeDay}
+              onChange={(v) => {
+                if (v) trackDivisionFilterApplied({ facet: "day", value: v, surface: "landing" })
+                setActiveDay(v)
+              }}
+            />
           </div>
         )}
 
@@ -365,7 +417,7 @@ export function SeasonsFinderSection({
               {layout === "table" ? (
                 // Table layout — opt-in, direct-booking division rows. Cards
                 // branch (the else-below) stays untouched.
-                <YouthDivisionTable rows={levelRows} />
+                <YouthDivisionTable rows={levelRows} onBook={handleBook} />
               ) : (
                 <>
                   <CardGrid layout="grid">

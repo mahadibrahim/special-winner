@@ -74,10 +74,25 @@ const {
   openRows,
   competitiveRows,
   developmentalRows,
+  competitiveTermLabels,
+  developmentalTermLabels,
   bannerDeadline,
   bannerTermLabel,
   bannerTermSlug,
 } = data
+
+// F4: the door kicker tracks whatever terms are actually open rather than an
+// authored season description (e.g. "Spring, summer & fall") that goes stale
+// the moment the open catalog is a winter term. The authored copy in
+// LEAGUE_TYPE_CARDS survives only as the empty-catalog fallback.
+const competitiveKicker =
+  competitiveTermLabels.length > 0
+    ? competitiveTermLabels.join(" · ")
+    : LEAGUE_TYPE_CARDS.competitive.kicker
+const developmentalKicker =
+  developmentalTermLabels.length > 0
+    ? developmentalTermLabels.join(" · ")
+    : LEAGUE_TYPE_CARDS.developmental.kicker
 
 // Deadline dates are business-timezone facts: a 11:59pm ET cutoff serializes
 // as the next day in UTC, and this renders on a UTC server.
@@ -189,13 +204,13 @@ const TYPE_CARDS = [
   {
     key: "competitive" as const,
     tone: "bg-royal",
-    copy: LEAGUE_TYPE_CARDS.competitive,
+    copy: { ...LEAGUE_TYPE_CARDS.competitive, kicker: competitiveKicker },
     rows: competitiveRows,
   },
   {
     key: "developmental" as const,
     tone: "bg-emerald",
-    copy: LEAGUE_TYPE_CARDS.developmental,
+    copy: { ...LEAGUE_TYPE_CARDS.developmental, kicker: developmentalKicker },
     rows: developmentalRows,
   },
 ]
@@ -302,7 +317,7 @@ const NAV_ITEMS = [
           class="relative block bg-royal text-cream px-5 pt-4 pb-4 no-underline"
         >
           <h2 class="display-s text-cream m-0" style="font-size:1.5rem">Competitive leagues</h2>
-          <div class="data text-cream/85 mt-1.5">For club teams · Winter · Nov – late Mar</div>
+          <div class="data text-cream/85 mt-1.5">For club teams · {competitiveKicker}</div>
           <span class="absolute right-4 bottom-3 font-bold text-lg text-cream" aria-hidden="true">→</span>
         </a>
         <a
@@ -311,7 +326,7 @@ const NAV_ITEMS = [
           class="relative block bg-emerald text-cream px-5 pt-4 pb-4 no-underline"
         >
           <h2 class="display-s text-cream m-0" style="font-size:1.5rem">Developmental leagues</h2>
-          <div class="data text-cream/85 mt-1.5">For individual players · Spring, summer &amp; fall</div>
+          <div class="data text-cream/85 mt-1.5">For individual players · {developmentalKicker}</div>
           <span class="absolute right-4 bottom-3 font-bold text-lg text-cream" aria-hidden="true">→</span>
         </a>
       </div>
