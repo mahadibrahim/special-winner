@@ -1452,12 +1452,20 @@ export function buildTeamDepositRefunded(params: TeamDepositRefundedParams): {
     bodyLine = `Your roster covered the team fee — your ${refund} deposit is being refunded to your card, arriving in 5-10 business days.`;
   } else if (params.outcome === "partially_refunded") {
     const refund = formatCurrency(params.refundedCents ?? 0);
-    const shortfall = formatCurrency(params.shortfallCents ?? 0);
     // Don't call the refunded remainder "your deposit" in the subject — it's
     // less than the full $200, so the full-refund subject's phrasing would
     // overstate it.
     subject = "Part of your team deposit is on its way back";
-    bodyLine = `After the payment deadline, ${shortfall} of the roster's shares were uncovered — your deposit covered that, and the remaining ${refund} is being refunded to your card.`;
+    // shortfallCents may be absent or (rarely) non-positive when the
+    // refunded amount came from reconciling an adopted Stripe refund rather
+    // than a freshly-computed shortfall — the caller passes undefined in
+    // that case rather than a stale/incoherent figure (see
+    // src/lib/payments/team-deposit-refund.ts). Fall back to copy that
+    // doesn't name a specific dollar shortfall at all.
+    bodyLine =
+      typeof params.shortfallCents === "number" && params.shortfallCents > 0
+        ? `After the payment deadline, ${formatCurrency(params.shortfallCents)} of the roster's shares were uncovered — your deposit covered that, and the remaining ${refund} is being refunded to your card.`
+        : `After the payment deadline, part of the roster's shares went uncovered — your deposit covered that, and the remaining ${refund} is being refunded to your card.`;
   } else {
     // forfeited — the deposit was kept in full; no money moves, but the
     // captain still hears exactly what happened to it.
