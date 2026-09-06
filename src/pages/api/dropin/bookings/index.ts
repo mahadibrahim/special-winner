@@ -232,6 +232,26 @@ export const POST: APIRoute = async ({ request, locals, url, clientAddress }) =>
     return json({ error: "Session not open for booking" }, 409);
   }
 
+  // Camp day-sessions (kind='camp') are REGISTRATION-ONLY. Their bookings
+  // are created exclusively by the camp materializer's auto-enrollment from
+  // paid camp registrations (src/lib/camps/materialize.ts,
+  // paymentMethod='registration') — never by this endpoint. Without this
+  // guard a deep-linked camp session id falls into the resolveRate + adult
+  // pickup rate-card path below and checks out a walk-up-priced seat in a
+  // week-long youth camp. Same guard vocabulary as /walkin/start and
+  // /guest-checkout: camp_registration_only.
+  if (session.kind === "camp") {
+    return json(
+      {
+        error: {
+          code: "camp_registration_only",
+          message: "Camp days are included with camp registration and can't be booked individually.",
+        },
+      },
+      422,
+    );
+  }
+
   // Child paid make-up: validate ownership before anything else — the
   // family_members row must belong to this parent, or 404 (never leak
   // whether the id exists under another user). Restricted to class

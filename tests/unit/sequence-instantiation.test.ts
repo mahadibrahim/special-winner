@@ -93,6 +93,103 @@ describe("generatePracticeDates", () => {
     expect(dates).toHaveLength(2);
     expect(truncatedBySeasonEnd).toBe(false);
   });
+
+  it("explicit { cadence: 'weekly' } is byte-identical to the default (no options)", () => {
+    const withDefault = generatePracticeDates({ ...base, count: 3 });
+    const withExplicit = generatePracticeDates({ ...base, count: 3 }, undefined, {
+      cadence: "weekly",
+    });
+    expect(withExplicit.dates.map((d) => d.toISOString())).toEqual(
+      withDefault.dates.map((d) => d.toISOString()),
+    );
+    expect(withExplicit.truncatedBySeasonEnd).toBe(withDefault.truncatedBySeasonEnd);
+  });
+
+  it("weekly cadence without a weekday throws (league contract stays strict)", () => {
+    expect(() =>
+      generatePracticeDates({
+        startDate: "2026-03-01",
+        timeOfDay: "09:00",
+        timezone: "America/New_York",
+        count: 1,
+      }),
+    ).toThrow(/weekday/);
+  });
+
+  describe("weekdaily cadence (camps: consecutive Mon–Fri days)", () => {
+    const campBase = {
+      startDate: "2026-03-04", // a Wednesday
+      timeOfDay: "09:00",
+      timezone: "America/New_York",
+    };
+
+    it("from a Wednesday start yields Wed, Thu, Fri, then skips the weekend to Mon, Tue", () => {
+      const { dates, truncatedBySeasonEnd } = generatePracticeDates(
+        { ...campBase, count: 5 },
+        undefined,
+        { cadence: "weekdaily" },
+      );
+      expect(truncatedBySeasonEnd).toBe(false);
+      expect(dates.map((d) => d.toISOString())).toEqual([
+        "2026-03-04T14:00:00.000Z", // Wed, EST (UTC-5)
+        "2026-03-05T14:00:00.000Z", // Thu
+        "2026-03-06T14:00:00.000Z", // Fri
+        // Sat 3/7 + Sun 3/8 skipped; DST began Sun morning — wall time holds.
+        "2026-03-09T13:00:00.000Z", // Mon, EDT (UTC-4)
+        "2026-03-10T13:00:00.000Z", // Tue
+      ]);
+    });
+
+    it("advances a weekend startDate to the next Monday", () => {
+      const { dates } = generatePracticeDates(
+        { ...campBase, startDate: "2026-03-07", count: 2 }, // a Saturday
+        undefined,
+        { cadence: "weekdaily" },
+      );
+      expect(dates.map((d) => d.toISOString())).toEqual([
+        "2026-03-09T13:00:00.000Z", // Mon (EDT)
+        "2026-03-10T13:00:00.000Z", // Tue
+      ]);
+    });
+
+    it("clamps at seasonEndDate exactly like weekly (truncatedBySeasonEnd)", () => {
+      const { dates, truncatedBySeasonEnd } = generatePracticeDates(
+        { ...campBase, count: 5 },
+        "2026-03-05",
+        { cadence: "weekdaily" },
+      );
+      expect(dates.map((d) => d.toISOString())).toEqual([
+        "2026-03-04T14:00:00.000Z",
+        "2026-03-05T14:00:00.000Z",
+      ]);
+      expect(truncatedBySeasonEnd).toBe(true);
+    });
+
+    it("allows a day ON the season end date (inclusive), no truncation flag", () => {
+      const { dates, truncatedBySeasonEnd } = generatePracticeDates(
+        { ...campBase, count: 3 },
+        "2026-03-06",
+        { cadence: "weekdaily" },
+      );
+      expect(dates).toHaveLength(3);
+      expect(truncatedBySeasonEnd).toBe(false);
+    });
+
+    it("ignores weekday entirely (present or absent) in weekdaily mode", () => {
+      const withWeekday = generatePracticeDates(
+        { ...campBase, weekday: 0, count: 3 }, // weekday would say Sunday — ignored
+        undefined,
+        { cadence: "weekdaily" },
+      );
+      const withoutWeekday = generatePracticeDates({ ...campBase, count: 3 }, undefined, {
+        cadence: "weekdaily",
+      });
+      expect(withWeekday.dates.map((d) => d.toISOString())).toEqual(
+        withoutWeekday.dates.map((d) => d.toISOString()),
+      );
+      expect(withWeekday.dates[0].toISOString()).toBe("2026-03-04T14:00:00.000Z"); // still Wed
+    });
+  });
 });
 
 describe("buildDraftSessionPlans", () => {
@@ -198,6 +295,31 @@ describe("buildDraftSessionPlans", () => {
     expect(plans[0].segments).toEqual([]);
     expect(plans[0].durationMinutes).toBe(45);
     expect(plans[0].prescribedStructure).toBeNull();
+  });
+
+  it("titles with the Day arc unit for camps, over the same sorted-index math", () => {
+    const plans = buildDraftSessionPlans({
+      teamId: "team-1",
+      coachUserId: "coach-1",
+      entries,
+      templatesById,
+      dates,
+      arcUnit: "Day",
+    });
+    expect(plans[0].title).toBe("Day 1 of 2 — Dribbling Under Pressure");
+    expect(plans[1].title).toBe("Day 2 of 2 — First Passing Session");
+  });
+
+  it("explicit arcUnit 'Week' matches the default title exactly", () => {
+    const [withExplicit] = buildDraftSessionPlans({
+      teamId: "team-1",
+      coachUserId: "coach-1",
+      entries,
+      templatesById,
+      dates,
+      arcUnit: "Week",
+    });
+    expect(withExplicit.title).toBe("Week 1 of 2 — Dribbling Under Pressure");
   });
 
   it("throws when an entry references a template not in the map", () => {

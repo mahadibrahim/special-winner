@@ -1,5 +1,5 @@
 {
-  "id": "a2c1fe47-9c47-432f-8586-ca9da526ecd9",
+  "id": "657c7597-bacb-4bb9-bcad-385ba0633641",
   "prevId": "662cd3d7-3108-46fd-bce5-a7cbea932d8e",
   "version": "7",
   "dialect": "postgresql",
@@ -23564,31 +23564,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "deposit_refund_status": {
-          "name": "deposit_refund_status",
-          "type": "varchar(20)",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'none'"
-        },
-        "deposit_refund_id": {
-          "name": "deposit_refund_id",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "deposit_refunded_cents": {
-          "name": "deposit_refunded_cents",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "deposit_refunded_at": {
-          "name": "deposit_refunded_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -26489,7 +26464,8 @@
         "member_allotment",
         "host_comp",
         "trial",
-        "pack_credit"
+        "pack_credit",
+        "registration"
       ]
     },
     "public.drop_in_session_kind": {
@@ -26497,7 +26473,8 @@
       "schema": "public",
       "values": [
         "pickup",
-        "class"
+        "class",
+        "camp"
       ]
     },
     "public.drop_in_session_status": {
@@ -27329,7 +27306,6 @@
         "team_reserved",
         "team_backstop_charged",
         "team_backstop_failed",
-        "team_deposit_refunded",
         "dropin_booked",
         "rental_confirmed",
         "membership_started",

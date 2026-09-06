@@ -414,6 +414,7 @@ export function ActivityDetailPanel({ session, locationId, timezone, onClose, on
             return (
               <div
                 key={row.targetId}
+                data-testid="roster-row"
                 className="flex items-center gap-3 px-4 py-2.5 border-b border-[#efe9dc]"
               >
                 {/* Avatar / photo upload */}

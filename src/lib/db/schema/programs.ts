@@ -162,6 +162,11 @@ export const seasons = pgTable(
     // deleting a sequence nulls this pointer while generated drafts —
     // which have no FK to sequences at all — are untouched.
     curriculumSequenceId: uuid("curriculum_sequence_id"),
+    // Camps-only: how camp day-session groups ('camp group' in copy) get
+    // formed — 'age' | 'skill' | 'manual'. Null = not chosen yet; the admin
+    // formation picker defaults to 'age' when null. Unused by non-camp
+    // program types.
+    formationStrategy: varchar("formation_strategy", { length: 16 }),
     settings: jsonb("settings"),
     isTest: boolean("is_test").default(false).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),

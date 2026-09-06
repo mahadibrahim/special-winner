@@ -229,6 +229,29 @@ export const POST: APIRoute = async ({ params, request, clientAddress, locals })
     return json({ error: "That session has already ended. Please pick another." }, 422);
   }
 
+  // --- CAMP: registration-only, never walk-in bookable --------------------
+  // A camp day-session (kind='camp') is one materialized day of a camp
+  // SEASON: the product sold is the camp registration (the whole week), and
+  // its roster is built exclusively by the materializer's auto-enrollment
+  // from paid registrations (src/lib/camps/materialize.ts,
+  // paymentMethod='registration'). It has no per-day price this desk may
+  // quote — without this guard it would fall into the pickup rate-card
+  // branch below and sell a walk-up-priced seat in a week-long youth camp
+  // (to an adult, even: the class-only minor requirement wouldn't apply).
+  // Refused BEFORE rate resolution so no rate is ever computed and no
+  // users/family_members row is written for a sale that cannot happen.
+  // GET /sessions hides camp sessions from the kiosk list; this is the
+  // server-side authority for direct/stale calls.
+  if (session.kind === "camp") {
+    return json(
+      {
+        error: "Camp days are included with camp registration and can't be booked at the kiosk.",
+        code: "camp_registration_only",
+      },
+      422,
+    );
+  }
+
   // --- CLASS eligibility (kind='class' only) -----------------------------
   // A class is a kids' product: every class booking path (allotment, trial,
   // credit, paid make-up) is keyed to a `family_members` row, and the online

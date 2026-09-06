@@ -1,6 +1,6 @@
 {
-  "id": "6dfb4272-1be9-4325-92bc-4f8b424e5efa",
-  "prevId": "a2c1fe47-9c47-432f-8586-ca9da526ecd9",
+  "id": "aa70db32-d2d2-41bd-bb4d-6ee2f9e4bf5f",
+  "prevId": "657c7597-bacb-4bb9-bcad-385ba0633641",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -8086,6 +8086,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "camp_season_id": {
+          "name": "camp_season_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "fill_alert_sent_at": {
           "name": "fill_alert_sent_at",
           "type": "timestamp with time zone",
@@ -8186,6 +8192,28 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "drop_in_sessions_one_per_camp_day": {
+          "name": "drop_in_sessions_one_per_camp_day",
+          "columns": [
+            {
+              "expression": "camp_season_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "starts_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "camp_season_id IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -8260,6 +8288,19 @@
           "tableTo": "class_slot_templates",
           "columnsFrom": [
             "class_slot_template_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "drop_in_sessions_camp_season_id_seasons_id_fk": {
+          "name": "drop_in_sessions_camp_season_id_seasons_id_fk",
+          "tableFrom": "drop_in_sessions",
+          "tableTo": "seasons",
+          "columnsFrom": [
+            "camp_season_id"
           ],
           "columnsTo": [
             "id"
@@ -14775,6 +14816,12 @@
         "curriculum_sequence_id": {
           "name": "curriculum_sequence_id",
           "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "formation_strategy": {
+          "name": "formation_strategy",
+          "type": "varchar(16)",
           "primaryKey": false,
           "notNull": false
         },
@@ -23564,37 +23611,6 @@
           "primaryKey": false,
           "notNull": false
         },
-        "deposit_refund_status": {
-          "name": "deposit_refund_status",
-          "type": "varchar(20)",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'none'"
-        },
-        "deposit_refund_id": {
-          "name": "deposit_refund_id",
-          "type": "varchar(255)",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "deposit_refunded_cents": {
-          "name": "deposit_refunded_cents",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "deposit_refunded_at": {
-          "name": "deposit_refunded_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "deposit_refund_claimed_at": {
-          "name": "deposit_refund_claimed_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -26495,7 +26511,8 @@
         "member_allotment",
         "host_comp",
         "trial",
-        "pack_credit"
+        "pack_credit",
+        "registration"
       ]
     },
     "public.drop_in_session_kind": {
@@ -26503,7 +26520,8 @@
       "schema": "public",
       "values": [
         "pickup",
-        "class"
+        "class",
+        "camp"
       ]
     },
     "public.drop_in_session_status": {
@@ -27335,7 +27353,6 @@
         "team_reserved",
         "team_backstop_charged",
         "team_backstop_failed",
-        "team_deposit_refunded",
         "dropin_booked",
         "rental_confirmed",
         "membership_started",

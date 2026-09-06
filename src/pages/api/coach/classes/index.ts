@@ -5,7 +5,8 @@
  * for the coach portal. Thin wrapper over `getCoachGroups` (Task 2) — every
  * class-slot template the signed-in coach is staffed on, either as a
  * standing `class_template` lead/assistant or as a one-off `class_session`
- * substitute (`sessionOnly: true`).
+ * substitute (`sessionOnly: true`) — plus, since Camps Phase 4 Task 6, the
+ * coach's upcoming camp day-sessions (`campSessions`).
  *
  * Auth mirrors the other coach-portal listing endpoints (e.g.
  * `/api/coach/sessions`'s POST): `requireCoachPortalAccess` — 401 with no
@@ -26,6 +27,6 @@ export const GET: APIRoute = async (context) => {
   const auth = await requireCoachPortalAccess(context);
   if (!auth.authorized) return auth.response;
 
-  const { classGroups } = await getCoachGroups(auth.user.id, auth.organizationId);
-  return json({ classGroups }, 200);
+  const { classGroups, campSessions } = await getCoachGroups(auth.user.id, auth.organizationId);
+  return json({ classGroups, campSessions }, 200);
 };

@@ -63,6 +63,15 @@ export const GET: APIRoute = async ({ params, locals }) => {
     .where(
       and(
         eq(venues.locationId, k.location.id),
+        // Camp day-sessions (kind='camp') are REGISTRATION-ONLY: their
+        // roster is built exclusively by the camp materializer's
+        // auto-enrollment from paid camp registrations
+        // (src/lib/camps/materialize.ts), and they carry no per-day price
+        // (sessionRateCents null). Listing one here would offer a week-long
+        // camp to any walk-in at the adult pickup walk-up rate.
+        // /walkin/start refuses them server-side too (camp_registration_only)
+        // — this filter just keeps the dead end off the lobby iPad.
+        inArray(dropInSessions.kind, ["pickup", "class"]),
         eq(dropInSessions.status, "scheduled"),
         gte(dropInSessions.startsAt, dayStart),
         lt(dropInSessions.startsAt, dayEnd),

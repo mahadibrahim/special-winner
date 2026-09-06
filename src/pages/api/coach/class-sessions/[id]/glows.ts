@@ -22,6 +22,14 @@
  *   3. Note anchor: writes set `teamId: null`, `activityKind:
  *      "class_session"`, `activityId: <sessionId>` instead of `teamId`.
  *
+ * Camps Phase 4 (Task 6 of the 2026-09-06-camps-phase4 plan) widened this
+ * endpoint to camp day-sessions (`kind='camp'`): auth additionally accepts
+ * a lead/assistant pod coach of the session's camp season (see
+ * `verifyClassSessionAccess`), and camp notes anchor on
+ * `activityKind: "camp_session"` instead of `"class_session"` (same
+ * varchar column — no migration; parent surfaces read notes by
+ * `familyMemberId` and are anchor-agnostic).
+ *
  * Chip source is unchanged (`reinforcement.ts` via `getSessionChips`), but
  * class sessions have no curriculum-linked segments/activities the way a
  * team's `sessionPlans` row does (`resolveSessionChipSkillSlugs` is
@@ -37,7 +45,8 @@ import { coachNotes } from "@/lib/db/schema";
 import { dropInSessions, dropInBookings } from "@/lib/db/schema/drop-in";
 import { familyMembers } from "@/lib/db/schema/registrations";
 import { coachingAssignments } from "@/lib/db/schema/coaching";
-import { eq, and, asc, isNotNull } from "drizzle-orm";
+import { teams } from "@/lib/db/schema/teams";
+import { eq, and, or, asc, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 import { requireCoachPortalAccess } from "@/lib/auth";
 import { getSessionChips, UNIVERSAL_GLOWS } from "@/lib/curriculum/reinforcement";
@@ -55,6 +64,9 @@ interface ClassSessionAccess {
   classSlotTemplateId: string | null;
   status: "scheduled" | "cancelled" | "completed";
   startsAt: Date;
+  /** Which anchor this session's coach_notes rows carry:
+   *  kind='class' → "class_session", kind='camp' → "camp_session". */
+  noteActivityKind: "class_session" | "camp_session";
 }
 
 // Resolves the session (tenant-scoped) and checks the assignment-based
@@ -62,6 +74,17 @@ interface ClassSessionAccess {
 // (not found, wrong org, or no reaching assignment) — callers respond 403
 // (or 404 if they want to distinguish; this endpoint follows the team
 // version's convention of a flat 403 for any access failure).
+//
+// Camps Phase 4 (Task 6): camp day-sessions (`kind='camp'`) are accepted
+// too. For those, access is EITHER the same active `class_session`
+// assignment on this session (the materializer-staffed path) OR being a
+// lead/assistant pod coach of the camp season — a `teams` row under
+// `session.campSeasonId` with the caller as coach. Defense-in-depth per the
+// plan's Global Constraints: the pod-coach probe is keyed to
+// `session.campSeasonId` taken from THIS session row, whose
+// `dropInSessions.organizationId` was already verified against the
+// caller's resolved org above — so a cross-org season id can never grant
+// access here. The `class_template` fallback stays class-only.
 async function verifyClassSessionAccess(
   userId: string,
   organizationId: string,
@@ -77,11 +100,16 @@ async function verifyClassSessionAccess(
       status: dropInSessions.status,
       startsAt: dropInSessions.startsAt,
       kind: dropInSessions.kind,
+      campSeasonId: dropInSessions.campSeasonId,
     })
     .from(dropInSessions)
     .where(eq(dropInSessions.id, sessionId));
 
-  if (!session || session.organizationId !== organizationId || session.kind !== "class") {
+  if (
+    !session ||
+    session.organizationId !== organizationId ||
+    (session.kind !== "class" && session.kind !== "camp")
+  ) {
     return null;
   }
 
@@ -101,7 +129,22 @@ async function verifyClassSessionAccess(
 
   let assigned = !!sessionAssignment;
 
-  if (!assigned && session.classSlotTemplateId) {
+  if (!assigned && session.kind === "camp" && session.campSeasonId) {
+    const [podTeam] = await db
+      .select({ id: teams.id })
+      .from(teams)
+      .where(
+        and(
+          eq(teams.seasonId, session.campSeasonId),
+          or(eq(teams.coachUserId, userId), eq(teams.assistantCoachUserId, userId)),
+        ),
+      )
+      .orderBy(asc(teams.createdAt))
+      .limit(1);
+    assigned = !!podTeam;
+  }
+
+  if (!assigned && session.kind === "class" && session.classSlotTemplateId) {
     const [templateAssignment] = await db
       .select({ id: coachingAssignments.id })
       .from(coachingAssignments)
@@ -125,6 +168,7 @@ async function verifyClassSessionAccess(
     classSlotTemplateId: session.classSlotTemplateId,
     status: session.status,
     startsAt: session.startsAt,
+    noteActivityKind: session.kind === "camp" ? "camp_session" : "class_session",
   };
 }
 
@@ -185,7 +229,7 @@ export const GET: APIRoute = async (context) => {
         createdAt: coachNotes.createdAt,
       })
       .from(coachNotes)
-      .where(and(eq(coachNotes.activityKind, "class_session"), eq(coachNotes.activityId, id)))
+      .where(and(eq(coachNotes.activityKind, access.noteActivityKind), eq(coachNotes.activityId, id)))
       .orderBy(asc(coachNotes.createdAt));
 
     return json(
@@ -278,7 +322,7 @@ export const POST: APIRoute = async (context) => {
     // of at the DB's CHECK constraint (500).
     const anchorCheck = noteAnchorSchema.safeParse({
       kind: "activity",
-      activityKind: "class_session",
+      activityKind: access.noteActivityKind,
       activityId: id,
     });
     if (!anchorCheck.success) {
@@ -330,7 +374,7 @@ export const POST: APIRoute = async (context) => {
             .values({
               familyMemberId: entry.familyMemberId,
               teamId: null,
-              activityKind: "class_session",
+              activityKind: access.noteActivityKind,
               activityId: id,
               coachUserId: auth.user.id,
               category: hasSkillGlow ? "achievement" : "encouragement",
@@ -349,7 +393,7 @@ export const POST: APIRoute = async (context) => {
             .values({
               familyMemberId: entry.familyMemberId,
               teamId: null,
-              activityKind: "class_session",
+              activityKind: access.noteActivityKind,
               activityId: id,
               coachUserId: auth.user.id,
               category: "focus",
