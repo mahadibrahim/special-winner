@@ -54,6 +54,12 @@ export async function bulkCreateTeams(
      *  team count here so a repeat call continues numbering (Team 4, Team
      *  5, ...) instead of duplicating Team 1, Team 2, ... */
     startIndex?: number;
+    /** The grouping noun in generated names ("{prefix} {nameNoun} {N}").
+     *  Defaults to "Team" (leagues). The camp-group planner passes "Group"
+     *  so camp names never contain "team" — see groupNoun() and the
+     *  program-blueprint language rule ("no user-facing surface says 'team'
+     *  for a non-league program"). */
+    nameNoun?: string;
   }
 ): Promise<Team[]> {
   if (args.count <= 0) return [];
@@ -62,10 +68,11 @@ export async function bulkCreateTeams(
     args.namePrefix ??
     (args.ageGroupName ? `${args.programName} ${args.ageGroupName}` : args.programName);
   const startIndex = args.startIndex ?? 0;
+  const noun = args.nameNoun ?? "Team";
 
   const rows = Array.from({ length: args.count }, (_, i) => ({
     seasonId: args.targetSeasonId,
-    name: `${prefix} Team ${startIndex + i + 1}`,
+    name: `${prefix} ${noun} ${startIndex + i + 1}`,
     maxRosterSize: args.maxRosterSize ?? null,
   }));
 
