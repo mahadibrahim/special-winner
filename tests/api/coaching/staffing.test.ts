@@ -406,3 +406,116 @@ describe("staffing endpoint guards", () => {
     }
   });
 });
+
+describe("camp day-session staffing (camps Phase 4 final-review I-2)", () => {
+  // The camp materializer copies pod-coach staffing onto each day-session
+  // exactly once and deliberately never re-syncs (src/lib/camps/materialize.ts
+  // module contract) — this endpoint is the designated per-day override /
+  // remediation path when a pod's coaches change AFTER a week's sessions
+  // materialized. Before the fix, loadOwnedSession gated kind='class' and
+  // 404'd every camp day-session, leaving a removed coach's stale active
+  // assignment with no deactivation path at all.
+  let campSessionId: string;
+
+  beforeAll(async () => {
+    const db = getDb();
+    const startsAt = new Date(Date.now() + 5 * 86_400_000);
+    const endsAt = new Date(startsAt.getTime() + 6 * 3_600_000);
+    const [campSession] = await db
+      .insert(dropInSessions)
+      .values({
+        organizationId,
+        venueId,
+        kind: "camp",
+        sportOrClassLabel: `Staffing-Camp-${Date.now()}`,
+        startsAt,
+        endsAt,
+        capacity: 24,
+        audience: "youth",
+      })
+      .returning();
+    campSessionId = campSession.id;
+
+    // Simulate the materializer's propagated staffing: lead + assistant
+    // active class_session assignments on the day-session (materialize.ts
+    // inserts exactly this shape when it copies a pod's coach set).
+    await db.insert(coachingAssignments).values([
+      {
+        organizationId,
+        coachUserId: leadCoachId,
+        role: "lead",
+        kind: "class_session",
+        targetId: campSessionId,
+        active: true,
+      },
+      {
+        organizationId,
+        coachUserId: assistantCoachId,
+        role: "assistant",
+        kind: "class_session",
+        targetId: campSessionId,
+        active: true,
+      },
+    ]);
+  });
+
+  afterAll(async () => {
+    const db = getDb();
+    if (campSessionId) {
+      await db
+        .delete(coachingAssignments)
+        .where(
+          and(
+            eq(coachingAssignments.kind, "class_session"),
+            eq(coachingAssignments.targetId, campSessionId),
+          ),
+        );
+      await db.delete(dropInSessions).where(eq(dropInSessions.id, campSessionId));
+    }
+  });
+
+  it("GET returns the materializer-propagated staffing for a camp session", async () => {
+    const res = await getSessionCoaches(campSessionId);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    const byId = new Map<string, { role: string }>(
+      body.coaches.map((c: { coachUserId: string; role: string }) => [c.coachUserId, c]),
+    );
+    expect(byId.get(leadCoachId)?.role).toBe("lead");
+    expect(byId.get(assistantCoachId)?.role).toBe("assistant");
+    expect(body.coaches).toHaveLength(2);
+  });
+
+  it("PUT replaces the set — an omitted propagated assignment is DEACTIVATED", async () => {
+    // The remediation scenario itself: admin removes the original lead after
+    // materialization; only the former assistant remains, promoted to lead.
+    const putRes = await putSessionCoaches(campSessionId, {
+      lead: assistantCoachId,
+      assistants: [],
+    });
+    expect(putRes.status).toBe(200);
+    const body = await putRes.json();
+    expect(body.coaches).toHaveLength(1);
+    expect(body.coaches[0].coachUserId).toBe(assistantCoachId);
+    expect(body.coaches[0].role).toBe("lead");
+
+    // The removed coach's propagated row must be deactivated (active=false,
+    // never deleted — setCoachesFor preserves history), which is exactly what
+    // severs their "Camp days" visibility and glows write access.
+    const db = getDb();
+    const [removed] = await db
+      .select({ active: coachingAssignments.active })
+      .from(coachingAssignments)
+      .where(
+        and(
+          eq(coachingAssignments.coachUserId, leadCoachId),
+          eq(coachingAssignments.kind, "class_session"),
+          eq(coachingAssignments.targetId, campSessionId),
+        ),
+      )
+      .orderBy(asc(coachingAssignments.createdAt))
+      .limit(1);
+    expect(removed).toBeDefined();
+    expect(removed.active).toBe(false);
+  });
+});

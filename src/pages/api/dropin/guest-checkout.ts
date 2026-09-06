@@ -156,6 +156,25 @@ export const POST: APIRoute = async (context) => {
     );
   }
 
+  // Camp day-sessions (kind='camp') are REGISTRATION-ONLY: bookings on them
+  // are created exclusively by the camp materializer's auto-enrollment from
+  // paid camp registrations (src/lib/camps/materialize.ts). Without this
+  // guard a camp session id falls into the resolveRate + adult pickup
+  // rate-card path below — a guest would pay the ~walk-up rate for a
+  // week-long youth camp. Same guard vocabulary as /walkin/start and
+  // POST /api/dropin/bookings: camp_registration_only.
+  if (session.kind === "camp") {
+    return json(
+      {
+        error: {
+          code: "camp_registration_only",
+          message: "Camp days are included with camp registration and can't be booked individually.",
+        },
+      },
+      422,
+    );
+  }
+
   const [rateCard] = await db
     .select()
     .from(dropInRateCard)

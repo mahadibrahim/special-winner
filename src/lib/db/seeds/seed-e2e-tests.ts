@@ -1983,6 +1983,7 @@ async function seedCampFixture(
       .select()
       .from(teams)
       .where(and(eq(teams.seasonId, campSeason.id), eq(teams.name, name)))
+      .orderBy(asc(teams.createdAt))
       .limit(1);
     if (!pod) {
       [pod] = await db
@@ -2006,6 +2007,10 @@ async function seedCampFixture(
       .where(
         and(eq(familyMembers.parentUserId, parentUserId), eq(familyMembers.firstName, firstName)),
       )
+      // Oldest row wins — the same resolver order the camps e2e spec's own
+      // child() helper uses, so seed and spec can never pick DIFFERENT rows
+      // if a duplicate name ever exists on the shared CI DB.
+      .orderBy(asc(familyMembers.createdAt))
       .limit(1);
     if (!child) {
       throw new Error(
@@ -2060,9 +2065,15 @@ async function seedCampFixture(
   const sarahReg = await ensureConfirmedRegistration(sarah.id);
   const alexReg = await ensureConfirmedRegistration(alex.id); // left UNPLACED — feeds the attention item
 
-  // Publish Tommy onto Group 1 and Sarah onto Group 2 — idempotent on the
-  // (teamId, registrationId) unique index. Alex's registration is
-  // deliberately NOT rostered onto either pod.
+  // Publish Tommy onto Group 1 and Sarah onto Group 2. The rosters unique is
+  // per (team, registration) — after an e2e run's full-replace publish moves
+  // a child to the OTHER group (auto-arrange by age reshuffles),
+  // onConflictDoNothing alone would insert a second row and double-roster
+  // the child onto two camp groups. Normalize first: delete each camper's
+  // roster rows (same normalization Alex gets below), then publish the
+  // fixture's documented shape.
+  await db.delete(rosters).where(eq(rosters.registrationId, tommyReg.id));
+  await db.delete(rosters).where(eq(rosters.registrationId, sarahReg.id));
   await db
     .insert(rosters)
     .values({ teamId: pod1.id, registrationId: tommyReg.id, status: "active" })
@@ -3526,6 +3537,7 @@ async function seedE2ETests() {
         eq(familyMembers.firstName, "Alex")
       )
     )
+    .orderBy(asc(familyMembers.createdAt))
     .limit(1);
 
   if (!child3) {
