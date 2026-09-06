@@ -57,6 +57,15 @@ export function teamPriceStory(season: {
  *
  * When a discount has been applied to the team, pass discountCents: the total
  * and roster split reflect it, and baseTotal shows the pre-discount team fee.
+ *
+ * `isYouth` (winter-team-fixes, fix round 2 — micro round) selects the
+ * roster-split math: youth rosters cover the FULL effective total (the $200
+ * deposit is a refundable hold, never a per-share credit — see
+ * captain-credit.ts); adult rosters cover the total minus the deposit,
+ * unchanged. This is a plain boolean, not a re-derivation of the predicate —
+ * the caller resolves youth-ness once via the canonical `isYouthTeamSeason`
+ * (team-season-kind.ts) and passes the result in, so this pure-math module
+ * never needs its own copy of that logic.
  */
 export function teamRailBreakdown(
   season: {
@@ -65,7 +74,7 @@ export function teamRailBreakdown(
     effectiveTeamPrice?: number | null;
     teamEarlyBirdActive?: boolean;
   },
-  opts?: { discountCents?: number | null },
+  opts?: { discountCents?: number | null; isYouth?: boolean },
 ): { total: string; baseTotal: string | null; depositToday: string; rosterPays: string } {
   const list = season.teamPrice ?? season.price;
   const earlyBird = season.effectiveTeamPrice ?? list;
@@ -77,7 +86,9 @@ export function teamRailBreakdown(
   const discountLive = discount > 0;
   const earlyBirdLive = season.teamEarlyBirdActive === true && earlyBird < list;
   const base = discountLive ? earlyBird : earlyBirdLive ? list : null;
-  const rosterPays = Math.max(0, effective - CAPTAIN_DEPOSIT_DOLLARS);
+  const rosterPays = opts?.isYouth
+    ? effective
+    : Math.max(0, effective - CAPTAIN_DEPOSIT_DOLLARS);
   return {
     total: usd(effective),
     baseTotal: base != null && base > effective ? usd(base) : null,

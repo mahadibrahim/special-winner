@@ -145,4 +145,25 @@ describe("teamRailBreakdown", () => {
       teamRailBreakdown({ price: 120, teamPrice: 1000, effectiveTeamPrice: 1000 }, { discountCents: 10000 }),
     ).toEqual({ total: "$900", baseTotal: "$1,000", depositToday: "$200", rosterPays: "$700" });
   });
+
+  // winter-team-fixes, fix round 2 (micro round, CRITICAL): the dark sidebar
+  // rail's "Your roster pays" figure computed fee-minus-deposit for youth too
+  // — this is the case that regresses if `isYouth` is dropped.
+  it("isYouth: rosterPays is the FULL effective total, not fee-minus-deposit", () => {
+    expect(
+      teamRailBreakdown(
+        { price: 120, teamPrice: 1000, effectiveTeamPrice: 1000 },
+        { isYouth: true },
+      ),
+    ).toEqual({ total: "$1,000", baseTotal: null, depositToday: "$200", rosterPays: "$1,000" });
+  });
+
+  it("isYouth with a discount: rosterPays is the full discounted total", () => {
+    expect(
+      teamRailBreakdown(
+        { price: 120, teamPrice: 1050, effectiveTeamPrice: 1000, teamEarlyBirdActive: true },
+        { discountCents: 10000, isYouth: true },
+      ),
+    ).toEqual({ total: "$900", baseTotal: "$1,000", depositToday: "$200", rosterPays: "$900" });
+  });
 });

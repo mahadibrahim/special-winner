@@ -961,7 +961,17 @@ export default function TeamCreate({
         <p className="text-[11px] font-semibold tracking-[0.15em] uppercase text-ink-muted">Step 1 of 2 · Required</p>
         <h1 className="font-display text-2xl text-ink mt-1 mb-2">Reserve your team</h1>
         <p className="text-ink-2 text-sm leading-relaxed">
-          <b>${CAPTAIN_DEPOSIT_DOLLARS}</b> reserves your team today. Your roster splits the rest when they register.
+          {isYouth ? (
+            <>
+              <b>${CAPTAIN_DEPOSIT_DOLLARS}</b> reserves your team today — it's refunded once your families cover the
+              team fee.
+            </>
+          ) : (
+            <>
+              <b>${CAPTAIN_DEPOSIT_DOLLARS}</b> reserves your team today. Your roster splits the rest when they
+              register.
+            </>
+          )}
         </p>
       </div>
 
@@ -1062,7 +1072,7 @@ export default function TeamCreate({
           {discountUi}
           <p className="text-xs text-ink-muted leading-relaxed">
             Reserving keeps your card on file for the team — any {isYouth ? "roster shortfall" : "teammate shares"} still unpaid after
-            {deadlineLabel ? <> <b>{deadlineLabel}</b></> : " the deadline"} are charged to it.{" "}
+            {deadlineLabel ? <> <b>{deadlineLabel}</b></> : " the deadline"} {isYouth ? "is" : "are"} charged to it.{" "}
             {isYouth
               ? `Your $${CAPTAIN_DEPOSIT_DOLLARS} deposit holds the team — it's refunded to your card once your roster covers the full team fee. You're the team's manager, not a player.`
               : `Your $${CAPTAIN_DEPOSIT_DOLLARS} deposit counts toward the team fee, and you're added to the roster as captain.`}
