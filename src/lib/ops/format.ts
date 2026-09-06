@@ -3,6 +3,7 @@ export type OpsPingEvent =
   | { kind: "team_reserved"; brand: string; eventId: string; label: string; amountCents: number }
   | { kind: "team_backstop_charged"; brand: string; eventId: string; label: string; amountCents: number }
   | { kind: "team_backstop_failed"; brand: string; eventId: string; label: string }
+  | { kind: "team_deposit_refunded"; brand: string; eventId: string; label: string; amountCents: number }
   | { kind: "dropin_booked"; brand: string; eventId: string; label: string; amountCents: number }
   | { kind: "rental_confirmed"; brand: string; eventId: string; label: string; amountCents: number }
   | { kind: "membership_started"; brand: string; eventId: string; label: string; amountCents: number }
@@ -23,6 +24,7 @@ export const INSTANT_KINDS: ReadonlySet<string> = new Set([
   "team_reserved",
   "team_backstop_charged",
   "team_backstop_failed",
+  "team_deposit_refunded",
   "dropin_booked",
   "rental_confirmed",
   "membership_started",
@@ -39,6 +41,7 @@ export const OPS_PING_KIND_LABELS: Record<OpsPingEvent["kind"], string> = {
   team_reserved: "Team reserved",
   team_backstop_charged: "Team backstop charged",
   team_backstop_failed: "Team backstop FAILED",
+  team_deposit_refunded: "Team deposit refunded",
   dropin_booked: "Drop-in",
   rental_confirmed: "Rental",
   membership_started: "Membership",
@@ -56,6 +59,7 @@ const KIND_EMOJI: Record<OpsPingEvent["kind"], string> = {
   team_reserved: "🏆",
   team_backstop_charged: "💰",
   team_backstop_failed: "🚨",
+  team_deposit_refunded: "💸",
   dropin_booked: "💰",
   rental_confirmed: "💰",
   membership_started: "💰",

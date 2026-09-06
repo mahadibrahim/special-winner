@@ -123,6 +123,21 @@
  *                                      refund needed via the Stripe dashboard
  *                                      using the `stripePaymentIntentId` in
  *                                      the log line.
+ *   - `team_deposit_refund_failed`   — A captain's $200 team deposit was due
+ *                                      back (full roster collection, or a
+ *                                      deadline-settle partial/forfeit) but
+ *                                      the Stripe refund call threw, or
+ *                                      Stripe wasn't configured. The team
+ *                                      row's `deposit_refund_status` was
+ *                                      reverted to 'none' so the next trigger
+ *                                      (a re-run of the cron, or a retried
+ *                                      webhook) retries automatically — no
+ *                                      action needed unless the log line
+ *                                      recurs for the same team, in which
+ *                                      case issue the refund manually via the
+ *                                      Stripe dashboard using the
+ *                                      `stripePaymentIntentId` in the log
+ *                                      line and stamp the team row by hand.
  */
 
 export type AlertTag =
@@ -138,7 +153,8 @@ export type AlertTag =
   | "dropin_duplicate_refund_failed"
   | "rental_late_refund_failed"
   | "rental_block_payment_refunded"
-  | "rental_block_refund_failed";
+  | "rental_block_refund_failed"
+  | "team_deposit_refund_failed";
 
 export type AlertContext = Record<string, unknown>;
 

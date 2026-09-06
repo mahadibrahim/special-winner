@@ -1395,6 +1395,79 @@ export async function sendTeamDepositReceiptEmail(params: TeamDepositReceiptPara
   return result;
 }
 
+// ---- Team deposit refunded (winter-team-fixes — maybeRefundTeamDeposit) ----
+
+export interface TeamDepositRefundedParams {
+  to: string;
+  captainName: string;
+  teamName: string;
+  /** Amount actually returned to the captain's card, in cents. */
+  refundedCents: number;
+  /**
+   * Set only for the deadline-settle partial-refund variant — the portion of
+   * the roster's shares that went uncovered and was absorbed by the deposit.
+   * Omitted (or 0) selects the full-collection copy.
+   */
+  shortfallCents?: number;
+  brand?: BrandId;
+}
+
+/**
+ * Pure body builder — exported for unit tests. Mirrors buildTeamDepositReceipt:
+ * two copy variants (full vs. partial) selected by whether a shortfall was
+ * absorbed, per the deposit-refund executor's math
+ * (src/lib/payments/team-deposit-refund.ts).
+ */
+export function buildTeamDepositRefunded(params: TeamDepositRefundedParams): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  const refund = `$${(params.refundedCents / 100).toLocaleString("en-US")}`;
+  const isPartial = typeof params.shortfallCents === "number" && params.shortfallCents > 0;
+  const shortfall = isPartial
+    ? `$${(params.shortfallCents as number / 100).toLocaleString("en-US")}`
+    : null;
+
+  const subject = `Your ${refund} team deposit is on its way back`;
+
+  const bodyLine = isPartial
+    ? `After the payment deadline, ${shortfall} of the roster's shares were uncovered — your deposit covered that, and the remaining ${refund} is being refunded to your card.`
+    : `Your roster covered the team fee — your ${refund} deposit is being refunded to your card, arriving in 5-10 business days.`;
+
+  const html = `<!doctype html><html><body style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1a1a1a;line-height:1.5;">
+    <p>${escapeHtml(params.captainName)}, good news about <strong>${escapeHtml(params.teamName)}</strong>.</p>
+    <p>${escapeHtml(bodyLine)}</p>
+  </body></html>`;
+
+  const text = `${params.captainName}, good news about ${params.teamName}.\n\n${bodyLine}\n`;
+
+  return { subject, html, text };
+}
+
+export async function sendTeamDepositRefundedEmail(params: TeamDepositRefundedParams) {
+  if (!isEmailConfigured()) {
+    console.warn("Email not configured, skipping team deposit refunded email");
+    return { success: false, error: "Email not configured" };
+  }
+  const { subject, html, text } = buildTeamDepositRefunded(params);
+  const result = await sendEmail({
+    to: params.to,
+    subject,
+    html,
+    text,
+    from: fromForBrand(params.brand),
+  });
+  await logEmail({
+    emailType: "team_deposit_refunded",
+    recipientEmail: params.to,
+    subject,
+    resendMessageId: result.messageId,
+    status: result.success ? "sent" : "failed",
+  });
+  return result;
+}
+
 // ---- Team share reminder (~3 days before the payment deadline) ----
 
 export interface SendTeamShareReminderParams {

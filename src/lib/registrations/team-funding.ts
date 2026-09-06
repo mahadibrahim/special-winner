@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNotNull, ne, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, ne, not, or, sql } from "drizzle-orm";
 import type { getDb } from "@/lib/db";
 import {
   payments,
@@ -92,6 +92,148 @@ export async function teamMoneyReceivedCents(
   teamRegistrationId: string,
 ): Promise<TeamMoneyReceived> {
   const map = await teamMoneyReceivedByTeamIds(db, [teamRegistrationId]);
+  return (
+    map.get(teamRegistrationId) ?? {
+      teamLevelCents: 0,
+      memberCents: 0,
+      totalCents: 0,
+    }
+  );
+}
+
+export interface TeamRosterCollected {
+  /** Sum of linked member registrations' amountPaidCents (already refund-adjusted). */
+  memberCents: number;
+  /** Settled team-level payments EXCLUDING the deposit and its refund pair (see doc comment below). */
+  teamLevelCents: number;
+  totalCents: number;
+}
+
+/**
+ * Money the ROSTER has paid toward the team fee — the shortfall/collection
+ * input for the deposit-refund executor (`maybeRefundTeamDeposit` in
+ * src/lib/payments/team-deposit-refund.ts), deliberately DIFFERENT from
+ * `teamMoneyReceivedCents` above (the admin-display source of truth for
+ * "money on file").
+ *
+ * teamMoneyReceivedCents counts the $200 captain deposit itself (netting any
+ * refund of it) because it answers "how much money is on file for this team,
+ * period." This helper answers a narrower question — "how much has the
+ * ROSTER covered, independent of the captain's own refundable deposit?" — so
+ * it EXCLUDES both the deposit payment row and any refund of it, as a
+ * matched, symmetric pair:
+ *
+ *   - the deposit row itself: identified primarily by
+ *     `payments.id = team.depositPaymentId` (the durable link stamped at
+ *     finalize time — see finalize-team-deposit.ts), falling back to
+ *     `paymentType = 'deposit'` for legacy rows that predate that column
+ *     being populated.
+ *   - its refund counterpart: `paymentType = 'refund' AND refundReason =
+ *     'team_deposit_release'` — the tag the deposit-refund executor stamps
+ *     on the row it inserts.
+ *
+ * HAZARD this guards against: if a deposit-refund row were left IN the sum
+ * (netted like any other refund, the way teamMoneyReceivedCents treats it),
+ * then ISSUING the refund would itself lower "roster collected" back down —
+ * re-arming whatever shortfall/full-collection check fired the refund in the
+ * first place. A cron re-run or a redelivered trigger could see the
+ * post-refund total and decide the roster is newly short again, or newly
+ * "fully collected" again, chasing its own tail. Excluding the deposit and
+ * its refund symmetrically makes this figure monotonic in PARENT payments
+ * only — a roster payment can only raise it, a deposit refund can never move
+ * it — so the value that fed the refund decision stays stable after the
+ * refund fires. Other refunds (e.g. an admin refund of a parent's own share)
+ * are NOT exempted and still subtract, same as teamMoneyReceivedCents.
+ */
+export async function teamRosterCollectedByTeamIds(
+  db: ReturnType<typeof getDb>,
+  teamRegistrationIds: string[],
+): Promise<Map<string, TeamRosterCollected>> {
+  const result = new Map<string, TeamRosterCollected>();
+  if (teamRegistrationIds.length === 0) return result;
+  for (const id of teamRegistrationIds) {
+    result.set(id, { teamLevelCents: 0, memberCents: 0, totalCents: 0 });
+  }
+
+  const [teamLevelRows, memberRows] = await Promise.all([
+    db
+      .select({
+        teamRegistrationId: payments.teamRegistrationId,
+        cents: sql<number>`COALESCE(SUM(
+          CASE WHEN ${payments.paymentType} = 'refund'
+               THEN -${payments.amountCents}
+               ELSE ${payments.amountCents} END), 0)::int`,
+      })
+      .from(payments)
+      .innerJoin(
+        teamRegistrations,
+        eq(payments.teamRegistrationId, teamRegistrations.id),
+      )
+      .where(
+        and(
+          inArray(payments.teamRegistrationId, teamRegistrationIds),
+          eq(payments.status, "succeeded"),
+          // Exclude the deposit row and its refund pair — see doc comment
+          // above. Each disjunct is written to never evaluate to SQL NULL
+          // (three-valued-logic trap): a bare `eq(col, nullableCol)` or
+          // `eq(nullableCol, literal)` returns NULL, not false, when the
+          // nullable side is null — which would silently drop the ROW from
+          // the aggregate entirely (via NOT(NULL) = NULL in a WHERE clause)
+          // instead of just failing to match the exclusion. Guarding each
+          // disjunct with isNotNull first keeps every branch a definite
+          // true/false.
+          not(
+            or(
+              and(
+                isNotNull(teamRegistrations.depositPaymentId),
+                eq(payments.id, teamRegistrations.depositPaymentId),
+              )!,
+              eq(payments.paymentType, "deposit"),
+              and(
+                eq(payments.paymentType, "refund"),
+                isNotNull(payments.refundReason),
+                eq(payments.refundReason, "team_deposit_release"),
+              )!,
+            )!,
+          ),
+        ),
+      )
+      .groupBy(payments.teamRegistrationId),
+    db
+      .select({
+        teamRegistrationId: teamRegistrationMembers.teamRegistrationId,
+        cents: sql<number>`COALESCE(SUM(${registrations.amountPaidCents}), 0)::int`,
+      })
+      .from(teamRegistrationMembers)
+      .innerJoin(
+        registrations,
+        eq(teamRegistrationMembers.registrationId, registrations.id),
+      )
+      .where(inArray(teamRegistrationMembers.teamRegistrationId, teamRegistrationIds))
+      .groupBy(teamRegistrationMembers.teamRegistrationId),
+  ]);
+
+  for (const row of teamLevelRows) {
+    if (!row.teamRegistrationId) continue;
+    const entry = result.get(row.teamRegistrationId)!;
+    entry.teamLevelCents = row.cents;
+  }
+  for (const row of memberRows) {
+    const entry = result.get(row.teamRegistrationId)!;
+    entry.memberCents = row.cents;
+  }
+  for (const entry of result.values()) {
+    entry.totalCents = entry.teamLevelCents + entry.memberCents;
+  }
+  return result;
+}
+
+/** Single-team convenience wrapper over teamRosterCollectedByTeamIds. */
+export async function teamRosterCollectedCents(
+  db: ReturnType<typeof getDb>,
+  teamRegistrationId: string,
+): Promise<TeamRosterCollected> {
+  const map = await teamRosterCollectedByTeamIds(db, [teamRegistrationId]);
   return (
     map.get(teamRegistrationId) ?? {
       teamLevelCents: 0,
