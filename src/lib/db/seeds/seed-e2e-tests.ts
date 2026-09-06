@@ -2492,6 +2492,7 @@ async function seedE2ETests() {
     .select()
     .from(venues)
     .where(eq(venues.locationId, location.id))
+    .orderBy(asc(venues.createdAt))
     .limit(1);
 
   if (!venue) {
