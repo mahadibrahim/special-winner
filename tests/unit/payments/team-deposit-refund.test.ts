@@ -9,10 +9,11 @@
  * The fakeDb models `team_registrations.deposit_refund_status` (and its
  * `updatedAt`) as a REAL tiny state machine (`state.status`/`state.updatedAt`,
  * mutated only by conditional UPDATEs that check the expected prior value,
- * exactly like Postgres would) rather than a simple call-counting flag —
- * this lets the "processing re-entry", "staleness gate", and "concurrent
- * finalize race" tests exercise the actual guard logic instead of a testing
- * artifact.
+ * exactly like Postgres would) — including the round-3 CLAIM predicate's
+ * staleness check done in the SAME UPDATE as the "none" claim (`state.status
+ * === "none" || isStaleProcessing`), so there is no separate app-side
+ * re-check-then-decide step to fake around: the fakeDb's CLAIM branch IS
+ * the SQL predicate.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
@@ -68,10 +69,10 @@ const ORG_ID = "org-1";
 const DEPOSIT_PI = "pi_deposit_1";
 const DEPOSIT_CENTS = 20000;
 
-// Mirrors the source's REENTRY_STALE_MS (10 minutes) — comfortably-stale and
-// comfortably-fresh values on either side of it for the re-entry tests.
-const STALE_AGE_MS = 20 * 60 * 1000;
-const FRESH_AGE_MS = 1000;
+// Mirrors the source's SQL-side `interval '10 minutes'` staleness threshold.
+const STALE_MS = 10 * 60 * 1000;
+const STALE_AGE_MS = STALE_MS * 2; // comfortably stale
+const FRESH_AGE_MS = 1000; // comfortably fresh
 
 function baseTeamFields(overrides: Record<string, unknown> = {}) {
   return {
@@ -105,6 +106,21 @@ interface FakeDbOpts {
   ageGroupMinAge?: number | null;
   /** Make the revert-to-'none' UPDATE throw, to exercise the second-alert path. */
   revertThrows?: boolean;
+  /**
+   * Force the NEXT claim UPDATE attempt to match 0 rows regardless of the
+   * row's actual state — simulates a live TOCTOU race where some OTHER
+   * process holds the row at the instant our UPDATE runs, without needing
+   * true concurrent execution. Consumed after one use.
+   */
+  forceClaimMiss?: boolean;
+  /**
+   * Force the NEXT finalize UPDATE attempt to match 0 rows regardless of
+   * the row's actual state — simulates an external actor changing
+   * deposit_refund_status between our claim and our finalize (outside this
+   * executor entirely), to exercise the finalize_lost_race_after_refund
+   * alert without fabricating an unrealistic same-function double-claim.
+   */
+  forceFinalizeMiss?: boolean;
 }
 
 function makeFakeDb(opts: FakeDbOpts = {}) {
@@ -116,6 +132,8 @@ function makeFakeDb(opts: FakeDbOpts = {}) {
     seasonMinAge = 10,
     ageGroupMinAge = null,
     revertThrows = false,
+    forceClaimMiss = false,
+    forceFinalizeMiss = false,
   } = opts;
 
   const state = {
@@ -126,6 +144,8 @@ function makeFakeDb(opts: FakeDbOpts = {}) {
     updates: [],
     inserts: [],
   };
+  let claimMissRemaining = forceClaimMiss ? 1 : 0;
+  let finalizeMissRemaining = forceFinalizeMiss ? 1 : 0;
 
   function whereResult(returningValue: unknown[]) {
     return {
@@ -137,9 +157,9 @@ function makeFakeDb(opts: FakeDbOpts = {}) {
   const fakeDb = {
     select: () => ({
       from: () => ({
-        // Direct .where() (no join) — the post-failed-claim status+age re-check.
+        // Direct .where() (no join) — the post-failed-claim status re-check.
         where: () => ({
-          limit: async () => [{ status: state.status, updatedAt: state.updatedAt }],
+          limit: async () => [{ status: state.status }],
         }),
         // .innerJoin().leftJoin().where() — the initial team+season+ageGroup fetch.
         innerJoin: () => ({
@@ -149,11 +169,7 @@ function makeFakeDb(opts: FakeDbOpts = {}) {
                 teamExists
                   ? [
                       {
-                        team: {
-                          ...teamFields,
-                          depositRefundStatus: state.status,
-                          updatedAt: state.updatedAt,
-                        },
+                        team: { ...teamFields, depositRefundStatus: state.status },
                         seasonMinAge,
                         ageGroupMinAge,
                       },
@@ -169,9 +185,17 @@ function makeFakeDb(opts: FakeDbOpts = {}) {
         where: () => {
           calls.updates.push(vals);
 
-          // Claim: none -> processing.
+          // CLAIM: matches SQL's `status='none' OR (status='processing' AND
+          // updated_at < now() - interval '10 minutes')`.
           if (vals.depositRefundStatus === "processing") {
-            if (state.status === "none") {
+            if (claimMissRemaining > 0) {
+              claimMissRemaining -= 1;
+              return whereResult([]);
+            }
+            const isStaleProcessing =
+              state.status === "processing" &&
+              Date.now() - state.updatedAt.getTime() >= STALE_MS;
+            if (state.status === "none" || isStaleProcessing) {
               state.status = "processing";
               state.updatedAt = new Date();
               return whereResult([{ id: TEAM_ID }]);
@@ -179,21 +203,22 @@ function makeFakeDb(opts: FakeDbOpts = {}) {
             return whereResult([]);
           }
 
-          // Revert: processing -> none.
+          // REVERT: processing -> none.
           if (vals.depositRefundStatus === "none") {
             if (revertThrows) {
               throw new Error("db revert failed");
             }
-            if (state.status === "processing") {
-              state.status = "none";
-              state.updatedAt = new Date();
-            }
+            state.status = "none";
+            state.updatedAt = new Date();
             return whereResult([]);
           }
 
-          // Finalize: processing -> {refunded|partially_refunded|forfeited},
-          // identified by the extra stamp columns riding along.
+          // FINALIZE: processing -> {refunded|partially_refunded|forfeited}.
           if ("depositRefundId" in vals || "depositRefundedCents" in vals) {
+            if (finalizeMissRemaining > 0) {
+              finalizeMissRemaining -= 1;
+              return whereResult([]);
+            }
             if (state.status === "processing") {
               state.status = vals.depositRefundStatus as string;
               state.updatedAt = new Date();
@@ -249,7 +274,10 @@ describe("maybeRefundTeamDeposit", () => {
 
     expect(result).toEqual({ status: "refunded" });
 
-    expect(hoisted.state.stripe!.refunds.list).toHaveBeenCalledWith({ payment_intent: DEPOSIT_PI });
+    expect(hoisted.state.stripe!.refunds.list).toHaveBeenCalledWith({
+      payment_intent: DEPOSIT_PI,
+      limit: 100,
+    });
     expect(hoisted.state.stripe!.refunds.create).toHaveBeenCalledWith(
       {
         payment_intent: DEPOSIT_PI,
@@ -340,7 +368,7 @@ describe("maybeRefundTeamDeposit", () => {
     );
   });
 
-  it("forfeits the deposit with no Stripe call when a FRESH claim's shortfall >= depositCents, and still emails the captain", async () => {
+  it("forfeits with no CREATE call when shortfall >= depositCents, but still RECONCILEs first (unconditional) and emails the captain", async () => {
     const { fakeDb, calls } = makeFakeDb();
 
     const result = await maybeRefundTeamDeposit(fakeDb as never, {
@@ -350,7 +378,13 @@ describe("maybeRefundTeamDeposit", () => {
     });
 
     expect(result).toEqual({ status: "forfeited" });
-    expect(hoisted.state.stripe!.refunds.list).not.toHaveBeenCalled();
+    // Round 3: RECONCILE is now unconditional — even a claim that computes
+    // forfeited checks Stripe first (a lost-response create could have
+    // actually moved money on an earlier crashed attempt).
+    expect(hoisted.state.stripe!.refunds.list).toHaveBeenCalledWith({
+      payment_intent: DEPOSIT_PI,
+      limit: 100,
+    });
     expect(hoisted.state.stripe!.refunds.create).not.toHaveBeenCalled();
     expect(calls.inserts).toHaveLength(0);
     expect(sendOpsPing).not.toHaveBeenCalled();
@@ -359,9 +393,6 @@ describe("maybeRefundTeamDeposit", () => {
     expect(stamp?.depositRefundedCents).toBeNull();
     expect(stamp?.depositRefundedAt).toBeInstanceOf(Date);
 
-    // Fix #8 (round 1): forfeit is not silent — the captain still hears
-    // about it. A fresh claim's forfeit uses opts.shortfallCents directly
-    // (not reconciled, so it's already coherent with refundCents=0).
     expect(sendTeamDepositRefundedEmail).toHaveBeenCalledWith(
       expect.objectContaining({
         outcome: "forfeited",
@@ -372,7 +403,7 @@ describe("maybeRefundTeamDeposit", () => {
     );
   });
 
-  it("treats a computed refund of <= 0 (no real deposit) as a silent forfeit — no Stripe, no email", async () => {
+  it("treats a computed refund of <= 0 (no real deposit) as a silent forfeit — still reconciles, but no email", async () => {
     const { fakeDb, calls } = makeFakeDb({ teamFields: baseTeamFields({ depositCents: 0 }) });
 
     const result = await maybeRefundTeamDeposit(fakeDb as never, {
@@ -381,7 +412,7 @@ describe("maybeRefundTeamDeposit", () => {
     });
 
     expect(result).toEqual({ status: "forfeited" });
-    expect(hoisted.state.stripe!.refunds.list).not.toHaveBeenCalled();
+    expect(hoisted.state.stripe!.refunds.list).toHaveBeenCalledTimes(1);
     expect(hoisted.state.stripe!.refunds.create).not.toHaveBeenCalled();
     expect(calls.inserts).toHaveLength(0);
     expect(sendOpsPing).not.toHaveBeenCalled();
@@ -389,7 +420,7 @@ describe("maybeRefundTeamDeposit", () => {
     expect(sendTeamDepositRefundedEmail).not.toHaveBeenCalled();
   });
 
-  it("re-enters a STALE row stuck in 'processing' (crashed prior attempt) and reconciles against an existing Stripe refund instead of creating a second one", async () => {
+  it("claims a STALE row stuck in 'processing' (crashed prior attempt) via the SAME atomic UPDATE as a fresh claim, and reconciles against an existing Stripe refund instead of creating a second one", async () => {
     hoisted.state.stripe!.refunds.list.mockResolvedValueOnce({
       data: [refundObj({ id: "re_prior_1" })],
     });
@@ -418,7 +449,7 @@ describe("maybeRefundTeamDeposit", () => {
     // Reconciled amount is LESS than what a fresh deadline_settle computation
     // would have produced — Stripe's number must win, and the email's
     // shortfall figure must be re-derived from it (depositCents - refundCents),
-    // NOT the stale opts.shortfallCents (fix round 2, finding 4).
+    // NOT the stale opts.shortfallCents.
     const reconciledAmount = 1000;
     hoisted.state.stripe!.refunds.list.mockResolvedValueOnce({
       data: [refundObj({ id: "re_prior_2", amount: reconciledAmount })],
@@ -445,7 +476,7 @@ describe("maybeRefundTeamDeposit", () => {
     expect(emailArgs.refundedCents + emailArgs.shortfallCents).toBe(DEPOSIT_CENTS);
   });
 
-  it("reconciles BEFORE taking the forfeit shortcut on a stale re-entrant: adopts a prior partial refund even though the fresh computation says forfeited", async () => {
+  it("reconciles BEFORE taking the forfeit shortcut on a stale claim: adopts a prior partial refund even though the fresh computation says forfeited", async () => {
     // Fresh computation: shortfall (25000) >= depositCents (20000) => would
     // normally forfeit outright. But a crashed PRIOR attempt already moved
     // SOME money (a smaller shortfall at the time) — that must be adopted,
@@ -463,7 +494,10 @@ describe("maybeRefundTeamDeposit", () => {
     });
 
     expect(result).toEqual({ status: "partial" });
-    expect(hoisted.state.stripe!.refunds.list).toHaveBeenCalledWith({ payment_intent: DEPOSIT_PI });
+    expect(hoisted.state.stripe!.refunds.list).toHaveBeenCalledWith({
+      payment_intent: DEPOSIT_PI,
+      limit: 100,
+    });
     expect(hoisted.state.stripe!.refunds.create).not.toHaveBeenCalled();
     const finalStamp = calls.updates.find((u) => "depositRefundId" in u);
     expect(finalStamp).toMatchObject({
@@ -475,7 +509,7 @@ describe("maybeRefundTeamDeposit", () => {
     expect(sendOpsPing).toHaveBeenCalledTimes(1);
   });
 
-  it("stale re-entrant confirms a clean forfeit when reconcile finds nothing usable", async () => {
+  it("confirms a clean forfeit (after reconciling) when nothing usable is found", async () => {
     const { fakeDb, calls } = makeFakeDb({ initialStatus: "processing", initialAgeMs: STALE_AGE_MS });
 
     const result = await maybeRefundTeamDeposit(fakeDb as never, {
@@ -485,9 +519,10 @@ describe("maybeRefundTeamDeposit", () => {
     });
 
     expect(result).toEqual({ status: "forfeited" });
-    // Unlike the fresh-claim forfeit test, a re-entrant call DOES reconcile
-    // even for a forfeit outcome — it just finds nothing usable here.
-    expect(hoisted.state.stripe!.refunds.list).toHaveBeenCalledWith({ payment_intent: DEPOSIT_PI });
+    expect(hoisted.state.stripe!.refunds.list).toHaveBeenCalledWith({
+      payment_intent: DEPOSIT_PI,
+      limit: 100,
+    });
     expect(hoisted.state.stripe!.refunds.create).not.toHaveBeenCalled();
     const stamp = calls.updates.find((u) => "depositRefundedCents" in u);
     expect(stamp?.depositRefundedCents).toBeNull();
@@ -581,7 +616,7 @@ describe("maybeRefundTeamDeposit", () => {
     expect(hoisted.state.stripe!.refunds.create).not.toHaveBeenCalled();
   });
 
-  it("skips 'in_flight' — without touching Stripe or the row — when 'processing' is FRESH (a genuinely concurrent call owns it right now)", async () => {
+  it("skips 'in_flight' — without touching Stripe or the row — when 'processing' is FRESH (the claim UPDATE's stale-check correctly fails to match)", async () => {
     const { fakeDb, calls, state } = makeFakeDb({ initialStatus: "processing", initialAgeMs: FRESH_AGE_MS });
 
     const result = await maybeRefundTeamDeposit(fakeDb as never, {
@@ -598,7 +633,23 @@ describe("maybeRefundTeamDeposit", () => {
     expect(calls.updates.filter((u) => u.depositRefundStatus === "none")).toHaveLength(0);
   });
 
-  it("a STALE re-entrant that itself fails does NOT revert the claim it doesn't own — leaves 'processing' for the next attempt", async () => {
+  it("skips 'retryable_race' — not 'already_settled' — when the claim UPDATE misses but the row reads 'none' again on re-check (a live TOCTOU race)", async () => {
+    const { fakeDb, calls, state } = makeFakeDb({ initialStatus: "none", forceClaimMiss: true });
+
+    const result = await maybeRefundTeamDeposit(fakeDb as never, {
+      teamId: TEAM_ID,
+      trigger: "full_collection",
+    });
+
+    expect(result).toEqual({ status: "skipped", reason: "retryable_race" });
+    expect(hoisted.state.stripe!.refunds.list).not.toHaveBeenCalled();
+    expect(hoisted.state.stripe!.refunds.create).not.toHaveBeenCalled();
+    expect(logAlert).not.toHaveBeenCalled();
+    expect(state.status).toBe("none");
+    expect(calls.updates).toHaveLength(1); // only the missed claim attempt
+  });
+
+  it("a STALE claim that itself fails DOES revert — real ownership on the recovery path, just like a fresh claim", async () => {
     hoisted.state.stripe!.refunds.list.mockRejectedValueOnce(new Error("stripe list down"));
     const { fakeDb, calls, state } = makeFakeDb({ initialStatus: "processing", initialAgeMs: STALE_AGE_MS });
 
@@ -612,14 +663,13 @@ describe("maybeRefundTeamDeposit", () => {
       "team_deposit_refund_failed",
       expect.objectContaining({ error: "stripe list down" }),
     );
-    // NOT reverted — this call never owned the claim (didClaim=false).
-    expect(state.status).toBe("processing");
-    expect(calls.updates.filter((u) => u.depositRefundStatus === "none")).toHaveLength(0);
+    // Reverted — this call claimed the row via the SAME atomic UPDATE as a
+    // fresh claim, so it genuinely owns it and may revert on failure.
+    expect(state.status).toBe("none");
+    expect(calls.updates.some((u) => u.depositRefundStatus === "none")).toBe(true);
   });
 
-  it("only one of two concurrent STALE re-entrant calls wins the finalize; the loser alerts that a refund exists with no bookkeeping recorded", async () => {
-    // Same idempotency key => Stripe would return the SAME refund object to
-    // both callers in reality; model that with a stable resolved value.
+  it("exactly one of two callers racing a STALE row claims it; the loser gets 'in_flight' immediately (no Stripe call, no finalize race)", async () => {
     hoisted.state.stripe!.refunds.create.mockImplementation(async () =>
       refundObj({ id: "re_race_1" }),
     );
@@ -633,21 +683,40 @@ describe("maybeRefundTeamDeposit", () => {
     const statuses = [a.status, b.status].sort();
     expect(statuses).toEqual(["refunded", "skipped"]);
     const loser = [a, b].find((r) => r.status === "skipped");
-    expect(loser).toEqual({ status: "skipped", reason: "already_settled" });
+    // Round 3: the claim UPDATE itself is the sole serialization point, so
+    // the loser never gets far enough to race at finalize — it's turned
+    // away at CLAIM as "in_flight" (the winner just refreshed updated_at).
+    expect(loser).toEqual({ status: "skipped", reason: "in_flight" });
 
-    // Whichever call(s) reached Stripe, only the FINALIZE winner does the
-    // rest of the bookkeeping — never twice.
+    expect(hoisted.state.stripe!.refunds.create).toHaveBeenCalledTimes(1);
     expect(sendOpsPing).toHaveBeenCalledTimes(1);
     expect(sendTeamDepositRefundedEmail).toHaveBeenCalledTimes(1);
-    // The loser's lost race is NOT silent — it just created/adopted a real
-    // refund and then lost FINALIZE, so it must alert (fix round 2, finding 5).
-    expect(logAlert).toHaveBeenCalledWith(
-      "team_deposit_refund_failed",
-      expect.objectContaining({ error: "finalize_lost_race_after_refund", stripeRefundId: "re_race_1" }),
-    );
+    expect(logAlert).not.toHaveBeenCalled();
   });
 
-  it("logs the alert BEFORE reverting, and reverts a claim it OWNS to 'none', when the Stripe refund call throws", async () => {
+  it("alerts finalize_lost_race_after_refund when a real refund is in hand but an OUT-OF-BAND status change loses the finalize race", async () => {
+    hoisted.state.stripe!.refunds.create.mockResolvedValueOnce(refundObj({ id: "re_orphaned" }));
+    const { fakeDb } = makeFakeDb({ forceFinalizeMiss: true });
+
+    const result = await maybeRefundTeamDeposit(fakeDb as never, {
+      teamId: TEAM_ID,
+      trigger: "full_collection",
+    });
+
+    expect(result).toEqual({ status: "skipped", reason: "already_settled" });
+    expect(logAlert).toHaveBeenCalledWith(
+      "team_deposit_refund_failed",
+      expect.objectContaining({
+        error: "finalize_lost_race_after_refund",
+        stripeRefundId: "re_orphaned",
+      }),
+    );
+    // Genuinely orphaned — nothing recorded it.
+    expect(sendOpsPing).not.toHaveBeenCalled();
+    expect(sendTeamDepositRefundedEmail).not.toHaveBeenCalled();
+  });
+
+  it("logs the alert BEFORE reverting, and reverts the claim to 'none', when the Stripe refund call throws (fresh claim)", async () => {
     hoisted.state.stripe!.refunds.create.mockRejectedValueOnce(new Error("card_declined"));
     const { fakeDb, calls, state } = makeFakeDb();
 
@@ -674,7 +743,7 @@ describe("maybeRefundTeamDeposit", () => {
     expect(sendTeamDepositRefundedEmail).not.toHaveBeenCalled();
   });
 
-  it("logs a SECOND alert with a revert_failed marker when the revert-to-none UPDATE itself throws (claim OWNED by this call)", async () => {
+  it("logs a SECOND alert with a revert_failed marker when the revert-to-none UPDATE itself throws", async () => {
     hoisted.state.stripe!.refunds.create.mockRejectedValueOnce(new Error("card_declined"));
     const { fakeDb } = makeFakeDb({ revertThrows: true });
 
@@ -697,7 +766,7 @@ describe("maybeRefundTeamDeposit", () => {
     );
   });
 
-  it("reverts the claim to 'none' and logs an alert when Stripe is not configured (claim owned)", async () => {
+  it("reverts the claim to 'none' and logs an alert when Stripe is not configured", async () => {
     hoisted.state.stripe = null;
     const { fakeDb, calls, state } = makeFakeDb();
 

@@ -87,12 +87,18 @@ export const teamRegistrations = pgTable("team_registrations", {
   //   paid, whether or not the team ever completed).
   // 'processing' — the executor (maybeRefundTeamDeposit in
   //   src/lib/payments/team-deposit-refund.ts) has claimed this row and is
-  //   mid-flight. NOT a stable resting state: a row seen here is either a
-  //   genuinely concurrent in-flight call, or a PRIOR call that crashed
-  //   before finishing — the executor treats both identically and is safe
-  //   to re-enter (it reconciles against Stripe before ever creating a
-  //   second refund). A row should never sit here indefinitely; if one
-  //   does, something upstream stopped re-triggering it.
+  //   mid-flight. NOT a stable resting state, but the two ways a row lands
+  //   here are NOT treated identically: a FRESH 'processing' row (updated
+  //   within the last 10 minutes) means a genuinely concurrent call owns
+  //   it right now — other callers skip it untouched ("in_flight"). Only a
+  //   STALE 'processing' row (older than 10 minutes — the prior claimant
+  //   crashed or was killed before finishing) is claimable again, and that
+  //   reclaim happens via the SAME atomic SQL UPDATE as a fresh 'none' claim
+  //   (WHERE status='none' OR (status='processing' AND updated_at is
+  //   stale)) — a recovery claimant is a real, full owner of the row, not a
+  //   caller merely "allowed to peek." A row should never sit here
+  //   indefinitely; if one does, something upstream stopped re-triggering
+  //   it (see the caller contract in the executor's module doc).
   // 'refunded' — the full deposit was returned to the captain.
   // 'partially_refunded' — some but not all of the deposit was returned
   //   (e.g. a cancellation fee was retained).

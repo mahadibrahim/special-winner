@@ -123,21 +123,96 @@
  *                                      refund needed via the Stripe dashboard
  *                                      using the `stripePaymentIntentId` in
  *                                      the log line.
- *   - `team_deposit_refund_failed`   — A captain's $200 team deposit was due
- *                                      back (full roster collection, or a
- *                                      deadline-settle partial/forfeit) but
- *                                      the Stripe refund call threw, or
- *                                      Stripe wasn't configured. The team
- *                                      row's `deposit_refund_status` was
- *                                      reverted to 'none' so the next trigger
- *                                      (a re-run of the cron, or a retried
- *                                      webhook) retries automatically — no
- *                                      action needed unless the log line
- *                                      recurs for the same team, in which
- *                                      case issue the refund manually via the
- *                                      Stripe dashboard using the
- *                                      `stripePaymentIntentId` in the log
- *                                      line and stamp the team row by hand.
+ *   - `team_deposit_refund_failed`   — One tag, several distinct shapes
+ *                                      (`maybeRefundTeamDeposit` in
+ *                                      src/lib/payments/team-deposit-refund.ts).
+ *                                      Read `context.error` /
+ *                                      `context.revert_failed` /
+ *                                      `context.adopted_untagged` to tell
+ *                                      them apart:
+ *
+ *                                      Plain failure (Stripe refund call
+ *                                      threw, or Stripe wasn't configured;
+ *                                      no `revert_failed`/`adopted_untagged`
+ *                                      marker) — the team row's
+ *                                      `deposit_refund_status` was reverted
+ *                                      to 'none', so the next trigger (a
+ *                                      re-run of the cron, or a retried
+ *                                      webhook) retries automatically.
+ *                                      SELF-HEALS — no action needed for a
+ *                                      one-off. If the SAME team recurs
+ *                                      repeatedly, that's a signal the
+ *                                      PaymentIntent may be genuinely
+ *                                      unrefundable (already fully disputed,
+ *                                      the charge is too old, etc.) — check
+ *                                      the `stripePaymentIntentId` in the
+ *                                      Stripe dashboard.
+ *
+ *                                      `revert_failed: true` — the refund
+ *                                      call ALSO failed (or wasn't
+ *                                      configured), and the follow-up
+ *                                      revert-to-'none' UPDATE threw too.
+ *                                      The row is now stuck in
+ *                                      'processing'. It still SELF-RECOVERS
+ *                                      once the row goes stale (10 minutes)
+ *                                      — the next trigger reclaims it via
+ *                                      the same atomic UPDATE as any fresh
+ *                                      claim — but a human should manually
+ *                                      verify at Stripe (using
+ *                                      `stripePaymentIntentId`) that no
+ *                                      refund actually went through during
+ *                                      the failed attempt in the meantime.
+ *
+ *                                      `error: "finalize_lost_race_after_refund"`
+ *                                      — THIS IS THE ONE THAT NEEDS A HUMAN,
+ *                                      NOT SELF-HEALING: this call created
+ *                                      or adopted a REAL Stripe refund
+ *                                      (`stripeRefundId` in the log line)
+ *                                      but lost the atomic finalize race
+ *                                      before recording it — there is NO
+ *                                      ledger row, NO captain email, and NO
+ *                                      ops ping for this refund anywhere.
+ *                                      Manually verify the refund at Stripe
+ *                                      and, if the team row's
+ *                                      `deposit_refund_status` genuinely
+ *                                      never reflects it (check for a
+ *                                      concurrent winner that already
+ *                                      recorded the SAME refund id first —
+ *                                      that's the benign, expected case),
+ *                                      backfill the payments ledger row and
+ *                                      notify the captain by hand.
+ *
+ *                                      `adopted_untagged: true` — RECONCILE
+ *                                      found a refund on the deposit
+ *                                      PaymentIntent with no
+ *                                      `metadata.kind ===
+ *                                      "team_deposit_release"` tag and
+ *                                      adopted it anyway (a team deposit PI
+ *                                      should never carry any OTHER kind of
+ *                                      refund, but this could be a
+ *                                      Stripe-Dashboard goodwill refund a
+ *                                      human issued for an unrelated
+ *                                      reason). VERIFY the adopted refund
+ *                                      (`stripeRefundId`) was actually meant
+ *                                      as the team deposit release — if it
+ *                                      was a goodwill refund for something
+ *                                      else, adopting it here FORECLOSES the
+ *                                      real deposit refund: the row is now
+ *                                      stamped settled for the DIFFERENCE
+ *                                      (`refundCents` in the log line),
+ *                                      which is not what should have
+ *                                      happened, and the actual deposit
+ *                                      refund the captain is owed must be
+ *                                      issued manually.
+ *
+ *                                      `phase: "ledger_insert"` — the
+ *                                      Stripe refund succeeded and the team
+ *                                      row IS correctly finalized, but the
+ *                                      `payments` ledger row failed to
+ *                                      insert. Money and status are correct;
+ *                                      only the ledger/reporting trail is
+ *                                      missing a row — backfill it by hand
+ *                                      using `refundCents`/`stripeRefundId`.
  */
 
 export type AlertTag =

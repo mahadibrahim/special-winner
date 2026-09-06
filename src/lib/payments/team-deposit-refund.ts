@@ -1,8 +1,8 @@
 /**
  * Deposit-refund executor for team registrations (winter-team-fixes, task 2;
- * hardened in review-fix rounds 1 and 2 against a claim-then-crash
- * money-loss window and the re-entry hazards round 1's fix itself
- * introduced — see the state-machine walkthrough below).
+ * hardened across three review-fix rounds against a claim-then-crash
+ * money-loss window and the re-entry hazards each earlier fix introduced —
+ * see the state-machine walkthrough below).
  *
  * Two callers fire the same executor with different triggers:
  *   - "full_collection" — the share-payment handler, the moment the roster's
@@ -27,75 +27,96 @@
  * migration needed to add the 'processing' value):
  *
  *   none -> processing -> {refunded | partially_refunded | forfeited}
- *                       -> none   (reverted, ONLY by the call that owned the claim)
+ *                       -> none   (reverted by the call that owns the claim)
  *
- *   1. CLAIM — a conditional UPDATE (`WHERE deposit_refund_status = 'none'`)
- *      flips the row to 'processing' BEFORE any Stripe call. `didClaim`
- *      tracks whether THIS invocation is the one that won that UPDATE:
- *        - didClaim = true — this call created the 'processing' state, and
- *          it ALONE may revert it back to 'none' on failure.
- *        - didClaim = false (0 rows updated) — re-check the row's current
- *          status and `updatedAt`:
- *            - status is terminal (refunded / partially_refunded /
- *              forfeited): really is settled — skip "already_settled".
- *            - status is 'processing' and FRESH (updatedAt within the last
- *              `REENTRY_STALE_MS`): a genuinely concurrent call owns this
- *              claim right now — skip "in_flight" WITHOUT touching Stripe
- *              or the row at all. This is the ordinary "two triggers fired
- *              almost simultaneously" case, not a crash.
- *            - status is 'processing' and STALE (older than
- *              `REENTRY_STALE_MS`): the prior claimant crashed or was
- *              killed before finishing — this is crash recovery. Proceed,
- *              but `didClaim` stays false: this call does NOT own the
- *              claim and must never revert it. Round 1's fix introduced
- *              exactly this bug: a re-entrant's revert-to-'none' on its own
- *              failure could clobber a genuinely still-live winner's claim,
- *              making the winner's own FINALIZE lose its race and silently
- *              skip recording a refund that really happened at Stripe.
- *   2. RECONCILE — before EVER calling `stripe.refunds.create`, list
- *      existing refunds for the deposit PaymentIntent, ignoring any with
- *      status 'failed' or 'canceled' — money that never actually moved must
- *      never be adopted and told to the captain as "on its way back."
- *      Prefer a refund explicitly tagged `metadata.kind ===
- *      "team_deposit_release"`; fall back to any other usable refund on the
- *      PI (a team deposit PI should never legitimately carry any OTHER kind
- *      of refund) — but ALERT when adopting an untagged one, since it could
- *      be a Stripe-Dashboard goodwill refund a human issued for an
- *      unrelated reason; adopt it anyway (don't block), just flag it. A
- *      found refund's ACTUAL amount always wins over whatever was just
- *      computed locally, and the outcome (refunded / partially_refunded /
- *      forfeited) is recomputed from it — this is what closes the
- *      "amount mismatch" retry loop a naive re-create would hit.
+ *   1. CLAIM — ONE atomic, SQL-side conditional UPDATE claims the row,
+ *      whether it's fresh ('none') or crash-recoverable ('processing' for
+ *      longer than 10 minutes — computed with POSTGRES'S OWN CLOCK via
+ *      `now() - interval '10 minutes'`, not app-side `Date.now()`, so
+ *      there's no local-clock/timezone skew hazard across processes):
  *
- *      RECONCILE runs even when the fresh computation says "forfeited," as
- *      long as this call did NOT originate the claim (didClaim = false): a
- *      crashed PARTIAL refund from a prior attempt must still be adopted
- *      even if today's fresh recomputation (e.g. the shortfall grew past
- *      the deposit between attempts) would otherwise take the forfeit
- *      shortcut. Only a clean "nothing usable found" result may actually
- *      forfeit. A fresh claim (didClaim = true) that computes "forfeited"
- *      skips RECONCILE entirely — there is no possible prior refund for a
- *      claim that just originated.
+ *        WHERE id = ? AND (
+ *          deposit_refund_status = 'none'
+ *          OR (deposit_refund_status = 'processing'
+ *              AND updated_at < now() - interval '10 minutes')
+ *        )
+ *
+ *      `didClaim = claimed.length > 0` is true for BOTH a fresh claim and a
+ *      stale-recovery claim — there is no "proceeded without owning" limbo
+ *      state. Whichever way it won, THIS call genuinely OWNS the row from
+ *      here on and may revert it on failure exactly like any owner (see
+ *      FAILURE below). A concurrent herd hitting the same stale row all
+ *      serialize on this one UPDATE statement; exactly one wins.
+ *
+ *      On 0 rows (didClaim = false), re-check the row's CURRENT status to
+ *      return an HONEST reason — never overload "already_settled" for a row
+ *      that's actually retryable right now:
+ *        - status = 'processing' — the row is FRESH (a genuinely concurrent
+ *          call owns it right now; if it were stale our own UPDATE above
+ *          would have matched it) — skip "in_flight", touch nothing.
+ *        - status = 'none' — a live TOCTOU race: some OTHER call claimed
+ *          this row, ran its own attempt, and reverted back to 'none', all
+ *          between our initial row fetch and this UPDATE executing.
+ *          Retrying RIGHT NOW would succeed — skip "retryable_race", not
+ *          "already_settled".
+ *        - anything else (a terminal status) — really is settled — skip
+ *          "already_settled".
+ *   2. RECONCILE — UNCONDITIONALLY, for every call that reaches this step,
+ *      regardless of trigger and regardless of whether the fresh
+ *      computation says "forfeited": list existing refunds for the deposit
+ *      PaymentIntent before EVER calling `stripe.refunds.create`. An
+ *      earlier version of this code skipped RECONCILE for "a claim that
+ *      just originated and computes forfeited," on the premise that such a
+ *      claim couldn't possibly have a prior refund to find. THAT PREMISE IS
+ *      FALSE: `stripe.refunds.create` can succeed at Stripe while the HTTP
+ *      response is lost (a network blip, the process killed mid-await) —
+ *      the catch block then reverts 'processing' back to 'none' with a
+ *      REAL refund now sitting at Stripe that this row's history knows
+ *      nothing about. A LATER claim (fresh, from 'none') that computes
+ *      "forfeited" would, under the old premise, never think to check
+ *      Stripe at all — silently stamping forfeited and emailing "not
+ *      refunded" while money had already moved. `refunds.list` is one cheap
+ *      read (capped at 100 results — the API's default of 10 could hide
+ *      ours on a refund-rich PI, though a team deposit PI should rarely
+ *      have more than one or two); there is no scenario where skipping it
+ *      is worth that risk.
+ *
+ *      Ignore any found refund with status 'failed' or 'canceled' — money
+ *      that never actually moved must never be adopted and told to the
+ *      captain as "on its way back." Prefer a refund explicitly tagged
+ *      `metadata.kind === "team_deposit_release"`; fall back to any other
+ *      usable refund on the PI (a team deposit PI should never legitimately
+ *      carry any OTHER kind of refund) — but ALERT when adopting an
+ *      untagged one (`adopted_untagged`), since it could be a
+ *      Stripe-Dashboard goodwill refund a human issued for an unrelated
+ *      reason; adopt it anyway (don't block), just flag it — see
+ *      alerts.ts's runbook for what a human should verify. A found refund's
+ *      ACTUAL amount always wins over whatever was just computed locally,
+ *      and the outcome (refunded / partially_refunded / forfeited) is
+ *      recomputed from it — this is what closes the "amount mismatch"
+ *      retry loop a naive re-create would hit. Only when NOTHING usable is
+ *      found does a "forfeited" computation actually forfeit; only then
+ *      does a "refunded" / "partially_refunded" computation reach
+ *      `stripe.refunds.create`.
  *   3. FINALIZE — ONE atomic UPDATE (`WHERE deposit_refund_status =
  *      'processing'`) writes the terminal status AND depositRefundId /
- *      RefundedCents / RefundedAt together. This is the single race gate
- *      for the bookkeeping fan-out below it (ledger insert, ops ping,
- *      email, analytics). On 0 rows: if THIS call just created or adopted
- *      a real Stripe refund (i.e. it has one in hand), that is NOT benign —
- *      a refund exists at Stripe with no bookkeeping recorded for it, so it
- *      gets its own alert. If this call never got a refund (a clean
- *      forfeit lost the race), 0 rows really does just mean someone else
- *      already settled this row.
+ *      RefundedCents / RefundedAt together. Single race gate for the
+ *      bookkeeping fan-out below it (ledger insert, ops ping, email,
+ *      analytics). On 0 rows: if THIS call holds a just-created-or-adopted
+ *      `refund`, that's NOT benign — a refund exists at Stripe with no
+ *      bookkeeping recorded for it, so it gets its own alert
+ *      (`finalize_lost_race_after_refund`). If this call never got a
+ *      refund (a clean forfeit lost the race), 0 rows really does just mean
+ *      someone else already settled this row.
  *   4. FAILURE (Stripe throws, or Stripe isn't configured) — log the alert
  *      FIRST (so the failure is visible even if the revert below also
- *      fails), then — ONLY IF didClaim — revert 'processing' -> 'none' in
- *      its own try/catch; if THAT throws too, log a SECOND alert with a
- *      `revert_failed` marker. A re-entrant call (didClaim = false) that
- *      itself fails leaves the row in 'processing' rather than reverting
- *      it — it doesn't own the claim, so it must not destroy it; a LATER
- *      re-entry (once stale again) will retry.
+ *      fails), then revert 'processing' -> 'none' in its own try/catch;
+ *      didClaim is always true by the time execution reaches here (CLAIM is
+ *      step 1 and every early exit before it returns directly), so this
+ *      call always genuinely owns the row it's reverting. If the revert
+ *      itself throws, log a SECOND alert with a `revert_failed` marker.
  */
-import { and, eq } from "drizzle-orm";
+import { and, eq, lt, or, sql } from "drizzle-orm";
 import type Stripe from "stripe";
 import type { getDb } from "@/lib/db";
 import { ageGroups, payments, seasons, teamRegistrations } from "@/lib/db/schema";
@@ -123,15 +144,6 @@ export interface MaybeRefundTeamDepositResult {
 }
 
 type FinalStatus = "refunded" | "partially_refunded" | "forfeited";
-
-/**
- * A 'processing' row younger than this is treated as a genuinely concurrent
- * in-flight call (skip "in_flight"); older than this, it's treated as a
- * crashed prior attempt eligible for crash-recovery re-entry. Ruled value —
- * long enough that any real concurrent call (even a slow one) has finished,
- * short enough that real crash recovery doesn't wait forever.
- */
-const REENTRY_STALE_MS = 10 * 60 * 1000;
 
 /**
  * Decide and execute the deposit refund/forfeit for one team, idempotently
@@ -226,48 +238,48 @@ export async function maybeRefundTeamDeposit(
     finalStatus = "forfeited";
   }
 
-  // ── CLAIM ───────────────────────────────────────────────────────────────
+  // ── CLAIM — one atomic, SQL-side conditional UPDATE. Matches a fresh
+  // 'none' row OR a 'processing' row whose updated_at is stale by
+  // POSTGRES'S clock (see module doc) — both are real ownership. ─────────
   const claimed = await db
     .update(teamRegistrations)
     .set({ depositRefundStatus: "processing", updatedAt: new Date() })
     .where(
       and(
         eq(teamRegistrations.id, team.id),
-        eq(teamRegistrations.depositRefundStatus, "none"),
+        or(
+          eq(teamRegistrations.depositRefundStatus, "none"),
+          and(
+            eq(teamRegistrations.depositRefundStatus, "processing"),
+            lt(teamRegistrations.updatedAt, sql`now() - interval '10 minutes'`),
+          )!,
+        )!,
       ),
     )
     .returning({ id: teamRegistrations.id });
 
-  // Ownership of the claim — ONLY the call that actually won the none ->
-  // processing transition may ever revert it back to 'none'. A re-entrant
-  // (didClaim = false) that itself fails must leave the row in 'processing'
-  // — see FAILURE in the module doc for why (round 1's exact bug).
   const didClaim = claimed.length > 0;
 
   if (!didClaim) {
-    // Either a prior call already holds 'processing', or the row settled
-    // between our SELECT above and this UPDATE — re-check rather than trust
-    // the now-possibly-stale in-memory status from the initial row fetch.
+    // Re-check the row's CURRENT status for an honest skip reason — never
+    // overload "already_settled" for a row that's actually retryable now.
     const [current] = await db
-      .select({
-        status: teamRegistrations.depositRefundStatus,
-        updatedAt: teamRegistrations.updatedAt,
-      })
+      .select({ status: teamRegistrations.depositRefundStatus })
       .from(teamRegistrations)
       .where(eq(teamRegistrations.id, team.id))
       .limit(1);
 
-    if (current?.status !== "processing") {
-      return { status: "skipped", reason: "already_settled" };
-    }
-
-    const ageMs = Date.now() - current.updatedAt.getTime();
-    if (ageMs < REENTRY_STALE_MS) {
-      // Fresh 'processing' row — a genuinely concurrent call owns this
-      // claim right now. Do NOT touch Stripe or the row; just back off.
+    if (current?.status === "processing") {
+      // FRESH — if it were stale, our own UPDATE above would have matched
+      // it. A genuinely concurrent call owns this claim right now.
       return { status: "skipped", reason: "in_flight" };
     }
-    // Stale — crash recovery. Proceed as a re-entrant (didClaim stays false).
+    if (current?.status === "none") {
+      // Live TOCTOU race: some other call claimed, attempted, and reverted
+      // between our initial fetch and this UPDATE. Retrying now would win.
+      return { status: "skipped", reason: "retryable_race" };
+    }
+    return { status: "skipped", reason: "already_settled" };
   }
 
   const alertContext = {
@@ -282,99 +294,87 @@ export async function maybeRefundTeamDeposit(
   // True only when `refund` was ADOPTED from an existing Stripe refund (via
   // RECONCILE) rather than freshly created — in that case `refundCents` no
   // longer agrees with `opts.shortfallCents` and the email's shortfall
-  // figure must be re-derived from the ACTUAL amounts (fix round 2, finding 4).
+  // figure must be re-derived from the ACTUAL amounts.
   let refundCentsFromReconcile = false;
 
-  // RECONCILE runs whenever we actually need to move money (not forfeited),
-  // OR whenever this call is a re-entrant (didClaim = false) even if the
-  // fresh computation says forfeited — a crashed prior attempt may have
-  // already moved money before today's recomputation decided there was
-  // nothing left to refund. A fresh claim that computes "forfeited" skips
-  // this entirely: there's no possible prior refund for a claim that just
-  // originated.
-  const mustReconcile = finalStatus !== "forfeited" || !didClaim;
+  if (!stripe) {
+    await logAlert("team_deposit_refund_failed", {
+      ...alertContext,
+      refundCents,
+      error: "stripe-not-configured",
+    });
+    await revertClaim(db, team.id, { ...alertContext, refundCents });
+    return { status: "skipped", reason: "stripe_not_configured" };
+  }
 
-  if (mustReconcile) {
-    if (!stripe) {
-      await logAlert("team_deposit_refund_failed", {
-        ...alertContext,
-        refundCents,
-        error: "stripe-not-configured",
-      });
-      if (didClaim) await revertClaim(db, team.id, { ...alertContext, refundCents });
-      return { status: "skipped", reason: "stripe_not_configured" };
-    }
+  try {
+    // RECONCILE — unconditional (see module doc for why "skip for a fresh
+    // forfeited claim" was a false premise). Stripe is the source of truth
+    // for "did this already happen," never our local status column.
+    const existing = await stripe.refunds.list({
+      payment_intent: depositPaymentIntentId,
+      limit: 100, // default 10 could hide ours on a refund-rich PI
+    });
+    // A failed/canceled refund never actually moved money — never adopt one
+    // as "the" deposit refund: the captain must not be told a bank-rejected
+    // refund is "on its way back."
+    const usable = existing.data.filter(
+      (r) => r.status !== "failed" && r.status !== "canceled",
+    );
+    const taggedRefund = usable.find(
+      (r) => r.metadata?.kind === "team_deposit_release",
+    );
+    const priorRefund = taggedRefund ?? usable[0];
 
-    try {
-      // RECONCILE — Stripe is the source of truth for "did this already
-      // happen," never our local status column (see module doc).
-      const existing = await stripe.refunds.list({
-        payment_intent: depositPaymentIntentId,
-      });
-      // A failed/canceled refund never actually moved money — never adopt
-      // one as "the" deposit refund (fix round 2, finding 2): the captain
-      // must not be told a bank-rejected refund is "on its way back."
-      const usable = existing.data.filter(
-        (r) => r.status !== "failed" && r.status !== "canceled",
-      );
-      const taggedRefund = usable.find(
-        (r) => r.metadata?.kind === "team_deposit_release",
-      );
-      const priorRefund = taggedRefund ?? usable[0];
+    if (priorRefund) {
+      refund = priorRefund;
+      refundCents = priorRefund.amount;
+      refundCentsFromReconcile = true;
+      finalStatus =
+        refundCents <= 0
+          ? "forfeited"
+          : refundCents >= depositCents
+            ? "refunded"
+            : "partially_refunded";
 
-      if (priorRefund) {
-        refund = priorRefund;
-        refundCents = priorRefund.amount;
-        refundCentsFromReconcile = true;
-        finalStatus =
-          refundCents <= 0
-            ? "forfeited"
-            : refundCents >= depositCents
-              ? "refunded"
-              : "partially_refunded";
-
-        if (!taggedRefund) {
-          // fix round 2, finding 7: adopting an UNTAGGED refund — flag it,
-          // don't block. See module doc's RECONCILE section.
-          await logAlert("team_deposit_refund_failed", {
-            ...alertContext,
-            refundCents,
-            error: "adopted_untagged_refund",
-            adopted_untagged: true,
-            stripeRefundId: refund.id,
-          });
-        }
-      } else if (finalStatus !== "forfeited") {
-        // No usable prior refund, and there's actually something to move.
-        // (Only reachable here when finalStatus is refunded/
-        // partially_refunded — a re-entrant forfeit with nothing found
-        // stays forfeited, per mustReconcile's contract above.)
-        refund = await stripe.refunds.create(
-          {
-            payment_intent: depositPaymentIntentId,
-            amount: refundCents,
-            metadata: {
-              kind: "team_deposit_release",
-              team_registration_id: team.id,
-            },
-          },
-          // Belt only — its 24h TTL is why RECONCILE above is the real
-          // source of truth, not this key.
-          { idempotencyKey: `${depositPaymentIntentId}:deposit-refund` },
-        );
+      if (!taggedRefund) {
+        // Adopting an UNTAGGED refund — flag it, don't block. See module
+        // doc's RECONCILE section and alerts.ts's runbook.
+        await logAlert("team_deposit_refund_failed", {
+          ...alertContext,
+          refundCents,
+          error: "adopted_untagged_refund",
+          adopted_untagged: true,
+          stripeRefundId: refund.id,
+        });
       }
-      // else: finalStatus === "forfeited" and nothing usable was found — a
-      // clean forfeit, now CONFIRMED by reconciliation. No Stripe write.
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      await logAlert("team_deposit_refund_failed", {
-        ...alertContext,
-        refundCents,
-        error: message,
-      });
-      if (didClaim) await revertClaim(db, team.id, { ...alertContext, refundCents });
-      return { status: "skipped", reason: "stripe_refund_failed" };
+    } else if (finalStatus !== "forfeited") {
+      // No usable prior refund, and there's actually something to move.
+      refund = await stripe.refunds.create(
+        {
+          payment_intent: depositPaymentIntentId,
+          amount: refundCents,
+          metadata: {
+            kind: "team_deposit_release",
+            team_registration_id: team.id,
+          },
+        },
+        // Belt only — its 24h TTL is why RECONCILE above is the real
+        // source of truth, not this key.
+        { idempotencyKey: `${depositPaymentIntentId}:deposit-refund` },
+      );
     }
+    // else: finalStatus === "forfeited" and nothing usable was found — a
+    // clean forfeit, now CONFIRMED by reconciliation. No Stripe write.
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    await logAlert("team_deposit_refund_failed", {
+      ...alertContext,
+      refundCents,
+      error: message,
+    });
+    await revertClaim(db, team.id, { ...alertContext, refundCents });
+    return { status: "skipped", reason: "stripe_refund_failed" };
   }
 
   // ── FINALIZE — the single race gate for every side effect below. ───────
@@ -399,8 +399,7 @@ export async function maybeRefundTeamDeposit(
     if (refund) {
       // This call just created or adopted a REAL Stripe refund but lost the
       // finalize race — money exists at Stripe with no bookkeeping recorded
-      // for it. NOT benign; a human should verify nothing is unaccounted
-      // for (fix round 2, finding 5).
+      // for it. NOT benign; a human should verify nothing is unaccounted for.
       await logAlert("team_deposit_refund_failed", {
         ...alertContext,
         refundCents,
@@ -467,9 +466,9 @@ export async function maybeRefundTeamDeposit(
   // Email shortfall figure: when refundCents came from RECONCILE (adopted,
   // not freshly computed from opts.shortfallCents), the two numbers no
   // longer agree — re-derive the figure from the actual amounts instead of
-  // repeating the stale opts value (fix round 2, finding 4). When even that
-  // derivation is incoherent (<= 0), pass undefined so the email builder
-  // falls back to its no-figure phrasing rather than print a bogus number.
+  // repeating the stale opts value. When even that derivation is incoherent
+  // (<= 0), pass undefined so the email builder falls back to its no-figure
+  // phrasing rather than print a bogus number.
   let emailShortfallCents: number | undefined;
   if (finalStatus === "partially_refunded" || finalStatus === "forfeited") {
     if (refundCentsFromReconcile) {
@@ -524,15 +523,17 @@ export async function maybeRefundTeamDeposit(
 }
 
 /**
- * Revert the optimistic claim back to 'none' after a failed (or unavailable)
- * Stripe refund, so the next trigger (cron re-run, redelivered webhook)
- * retries automatically instead of the deposit silently getting stuck
- * claimed-but-unrefunded forever. Callers MUST only invoke this when
- * `didClaim` was true — see the module doc's FAILURE section for why a
- * re-entrant call reverting a claim it doesn't own is exactly round 1's
- * money-loss bug. Own try/catch: if THIS throws too, log a second alert
- * with a `revert_failed` marker — a row stuck in 'processing' with no alert
- * trail is exactly the money-loss window this exists to close.
+ * Revert the claim back to 'none' after a failed (or unavailable) Stripe
+ * refund, so the next trigger (cron re-run, redelivered webhook) retries
+ * automatically instead of the deposit silently getting stuck
+ * claimed-but-unrefunded forever. Every call site reaches this only after
+ * CLAIM has already succeeded (didClaim = true) — see the module doc's
+ * state machine — so this call always genuinely owns the row it's
+ * reverting. Own try/catch: if THIS throws too, log a second alert with a
+ * `revert_failed` marker — a row stuck in 'processing' with no alert trail
+ * is exactly the money-loss window this exists to close (it still
+ * self-heals via the stale-claim path once 10 minutes pass, but a human
+ * should verify Stripe manually in the meantime).
  */
 async function revertClaim(
   db: ReturnType<typeof getDb>,
