@@ -1037,6 +1037,20 @@
       "when": 1788638476326,
       "tag": "0147_curved_hairball",
       "breakpoints": true
+    },
+    {
+      "idx": 148,
+      "version": "7",
+      "when": 1788700888629,
+      "tag": "0148_camp_enum_values",
+      "breakpoints": true
+    },
+    {
+      "idx": 149,
+      "version": "7",
+      "when": 1788700888630,
+      "tag": "0149_camp_sessions_columns",
+      "breakpoints": true
     }
   ]
 }
