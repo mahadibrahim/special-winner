@@ -22,7 +22,7 @@ function actionLabelFor(type: ActivityType, isPast: boolean, isFuture: boolean):
   if (isPast) return "View attendance"
   if (isFuture) return "Scheduled"
   if (type === "league_game" || type === "tournament_game") return "Check in roster"
-  if (type === "drop_in" || type === "class") return "Check in"
+  if (type === "drop_in" || type === "class" || type === "camp") return "Check in"
   return "View"
 }
 
