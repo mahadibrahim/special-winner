@@ -39,6 +39,38 @@ export function teamBackstopDueCents(opts: {
   return sumUnpaidSharesCents(opts.invitees);
 }
 
+/**
+ * Youth-specific due-shortfall math for the payment-deadline cron
+ * (winter-team-fixes, task 3) — deliberately SEPARATE from
+ * `teamBackstopDueCents` above, which stays untouched for adult teams.
+ *
+ * `teamBackstopDueCents` computes its shortfall against
+ * `teamMoneyReceivedCents`, which folds the captain's deposit INTO
+ * "received" (nets any refund of it). That's correct for adult teams
+ * (no deposit-refund lifecycle exists for them), but wrong for youth teams:
+ * the deposit is refundable collateral, not a roster share, so it must
+ * never be netted into "how much has the roster paid" — see
+ * `teamRosterCollectedCents`' doc comment in team-funding.ts for the
+ * "re-arms itself" hazard that mixing the two would create.
+ *
+ * `shortfallCents` — what the ROSTER still owes against the team fee,
+ *   ignoring the deposit entirely. This is the number that feeds
+ *   `maybeRefundTeamDeposit`'s `deadline_settle` trigger (the deposit is
+ *   applied AFTER this figure, not folded into computing it).
+ * `chargeCents` — what actually lands on the captain's saved card: the
+ *   shortfall MINUS the deposit, which absorbs it first. Floored at zero —
+ *   if the deposit alone covers the shortfall, nothing is charged.
+ */
+export function teamYouthDueCents(opts: {
+  teamFeeCents: number;
+  rosterCollectedCents: number;
+  depositCents: number;
+}): { shortfallCents: number; chargeCents: number } {
+  const shortfallCents = Math.max(0, opts.teamFeeCents - opts.rosterCollectedCents);
+  const chargeCents = Math.max(0, shortfallCents - opts.depositCents);
+  return { shortfallCents, chargeCents };
+}
+
 /** Split a total evenly across N emails; earlier shares absorb the remainder. */
 export function assignEvenShares(totalCents: number, emails: string[]): number[] {
   const n = emails.length;

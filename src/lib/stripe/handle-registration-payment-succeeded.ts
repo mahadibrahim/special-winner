@@ -25,6 +25,9 @@ import { capturePaymentCompleted } from "@/lib/observability/payment-telemetry";
 import { sendOpsPing } from "@/lib/ops/ping";
 import { teamRegistrationMembers, teamRegistrations } from "@/lib/db/schema";
 import { env } from "@/lib/env";
+import { teamRosterCollectedCents } from "@/lib/registrations/team-funding";
+import { maybeRefundTeamDeposit } from "@/lib/payments/team-deposit-refund";
+import { logAlert } from "@/lib/logging/alerts";
 
 // Handles `payment_intent.succeeded` for registration payments. Mirrors
 // the prior Checkout-Session flow exactly, just sourced from a PI.
@@ -146,6 +149,60 @@ export async function handleRegistrationPaymentSucceeded(
     } catch (err) {
       console.error("[stripe webhook] team invitee paid-flip failed:", err);
     }
+  }
+
+  // Full-collection deposit refund trigger (winter-team-fixes, task 3): if
+  // this registration belongs to a team and the ROSTER (not this payment
+  // alone) now covers the team fee in full, the captain's deposit is no
+  // longer needed as a backstop — release it. Runs regardless of
+  // `isFullyPaid` for THIS registration: a partial/installment payment can
+  // still be the one that tips the roster's cumulative total over the fee,
+  // so every team-linked payment re-checks. `teamRosterCollectedCents` is
+  // used deliberately, NOT `teamMoneyReceivedCents`/`teamBackstopDueCents` —
+  // the roster-collected figure excludes the deposit and its refund by
+  // construction, which is what keeps this check from re-arming itself the
+  // moment `maybeRefundTeamDeposit` issues the refund (see that helper's doc
+  // comment in team-funding.ts). Best-effort and isolated in its own
+  // try/catch: a refund-executor failure must NEVER fail payment
+  // fulfillment — the executor already self-heals via the cron's retry
+  // sweep, so an alert here is enough.
+  try {
+    const [membership] = await db
+      .select({
+        teamRegistrationId: teamRegistrationMembers.teamRegistrationId,
+        teamFeeCents: teamRegistrations.teamFeeCents,
+      })
+      .from(teamRegistrationMembers)
+      .innerJoin(
+        teamRegistrations,
+        eq(teamRegistrationMembers.teamRegistrationId, teamRegistrations.id),
+      )
+      .where(eq(teamRegistrationMembers.registrationId, registrationId))
+      .limit(1);
+
+    if (membership?.teamFeeCents != null) {
+      const rosterCollected = await teamRosterCollectedCents(
+        db,
+        membership.teamRegistrationId,
+      );
+      if (rosterCollected.totalCents >= membership.teamFeeCents) {
+        await maybeRefundTeamDeposit(db, {
+          teamId: membership.teamRegistrationId,
+          trigger: "full_collection",
+        });
+      }
+    }
+  } catch (err) {
+    console.error(
+      "[stripe webhook] team deposit full-collection check failed:",
+      err,
+    );
+    await logAlert("team_deposit_refund_failed", {
+      registrationId,
+      stripePaymentIntentId: paymentIntent.id,
+      error: err instanceof Error ? err.message : String(err),
+      phase: "full_collection_caller_threw",
+    });
   }
 
   try {

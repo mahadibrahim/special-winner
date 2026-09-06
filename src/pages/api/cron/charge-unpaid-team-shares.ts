@@ -1,13 +1,17 @@
 import type { APIRoute } from "astro";
-import { and, eq, lt, gte, sql } from "drizzle-orm";
+import { and, eq, gt, gte, inArray, isNotNull, lt, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { teamRegistrations, teamInvitees, payments } from "@/lib/db/schema";
+import { teamRegistrations, teamInvitees, payments, seasons, ageGroups } from "@/lib/db/schema";
 import { sendTeamShareReminderEmail, sendTeamBackstopWarningEmail } from "@/lib/email/send";
 import {
   teamBackstopDueCents,
+  teamYouthDueCents,
   chargeTeamBackstop,
 } from "@/lib/payments/team-captain-charge";
-import { teamMoneyReceivedCents } from "@/lib/registrations/team-funding";
+import { teamMoneyReceivedCents, teamRosterCollectedCents } from "@/lib/registrations/team-funding";
+import { isYouthTeamSeason } from "@/lib/registrations/team-season-kind";
+import { maybeRefundTeamDeposit } from "@/lib/payments/team-deposit-refund";
+import { logAlert } from "@/lib/logging/alerts";
 import { sendOpsPing } from "@/lib/ops/ping";
 import { env } from "@/lib/env";
 import { captureServerException } from "@/lib/observability/server-error";
@@ -29,6 +33,45 @@ import { captureServerException } from "@/lib/observability/server-error";
  *     the still-unpaid invitees 'charged_to_captain'. On failure set
  *     backstopStatus='failed' and capture an exception for manual follow-up.
  *
+ *     ADULT teams keep this exact math (`teamMoneyReceivedCents` +
+ *     `teamBackstopDueCents`, deposit folded into "received") untouched.
+ *     YOUTH teams (winter-team-fixes, task 3) branch to a separate,
+ *     deposit-aware formula: `shortfallCents = max(0, teamFeeCents −
+ *     teamRosterCollectedCents)` (excludes the deposit — see that helper's
+ *     doc in team-funding.ts) and `chargeCents = max(0, shortfallCents −
+ *     depositCents)` (`teamYouthDueCents` in team-captain-charge.ts) — the
+ *     card is only charged for what the deposit doesn't already cover.
+ *     Order matters here: the shortfall is computed BEFORE the card charge
+ *     (a captain backstop 'balance' payment row WOULD itself count toward
+ *     `teamRosterCollectedCents` on a later read, so it must not leak into
+ *     the number `maybeRefundTeamDeposit` settles against), and the
+ *     deposit-settle call (trigger `deadline_settle`, the PRE-charge
+ *     shortfall) fires AFTER the charge outcome is known but BEFORE this
+ *     team's own backstopStatus/invitee writes for the iteration — "deposit
+ *     absorbs first, the card covers the rest" is the owner's rule, and it
+ *     holds regardless of whether the subsequent card charge itself
+ *     succeeds or fails.
+ *
+ *  3. Deposit-refund retry sweep (winter-team-fixes, task 3): independent of
+ *     backstopStatus entirely — see the CALLER CONTRACT in
+ *     team-deposit-refund.ts for why this is contract-mandated. The
+ *     deadline-charge pass above is strictly one-shot per team (every branch
+ *     flips backstopStatus off 'pending'), so a deposit left unsettled by
+ *     that one pass — reverted to 'none', skipped in-flight/retryable, or
+ *     stranded 'processing' by a crash — would otherwise never be retried by
+ *     anything. This sweep selects purely on the deposit columns
+ *     (`deposit_refund_status IN ('none','processing')`,
+ *     `deposit_payment_intent_id IS NOT NULL`, `payment_deadline < now()`),
+ *     bounded to the last 30 days (`payment_deadline > now() - interval '30
+ *     days'`) so the FIRST run of this sweep doesn't settle every historical
+ *     team ever created — real refunds/forfeit emails firing for prior
+ *     seasons. Cases aged past 30 days are a manual follow-up (see
+ *     alerts.ts's `team_deposit_refund_failed` runbook); nothing else
+ *     surfaces them. Youth-gated via the season/age-group join, same
+ *     predicate as `isYouthTeamSeason` elsewhere. Naturally self-limiting:
+ *     every terminal outcome drops the row out of the `deposit_refund_status`
+ *     predicate, so the sweep stops touching a team the moment it settles.
+ *
  * The backstop charge is recorded in the payments ledger as a team-level row
  * (registrationId NULL, teamRegistrationId set, paymentType "balance") — a
  * backstop spans multiple registrations so it can't attach to any single one.
@@ -38,7 +81,7 @@ import { captureServerException } from "@/lib/observability/server-error";
  * Authentication: requires `x-cron-secret` header matching CRON_SECRET env
  * (same convention as the sibling cron endpoints in this directory).
  *
- * Returns { processed, reminded, charged, failed }.
+ * Returns { processed, reminded, charged, failed, depositSwept }.
  */
 
 export const prerender = false;
@@ -72,6 +115,7 @@ export const POST: APIRoute = async ({ request }) => {
   let reminded = 0;
   let charged = 0;
   let failed = 0;
+  let depositSwept = 0;
 
   // ---- 1. Reminders (~3 days before the deadline) ----
   try {
@@ -206,11 +250,16 @@ export const POST: APIRoute = async ({ request }) => {
         teamName: teamRegistrations.teamName,
         brand: teamRegistrations.brand,
         teamFeeCents: teamRegistrations.teamFeeCents,
+        depositCents: teamRegistrations.depositCents,
         captainUserId: teamRegistrations.captainUserId,
         captainStripeCustomerId: teamRegistrations.captainStripeCustomerId,
         captainPaymentMethodId: teamRegistrations.captainPaymentMethodId,
+        seasonMinAge: seasons.minAge,
+        ageGroupMinAge: ageGroups.minAge,
       })
       .from(teamRegistrations)
+      .innerJoin(seasons, eq(teamRegistrations.seasonId, seasons.id))
+      .leftJoin(ageGroups, eq(seasons.ageGroupId, ageGroups.id))
       .where(
         and(
           eq(teamRegistrations.backstopStatus, "pending"),
@@ -220,6 +269,180 @@ export const POST: APIRoute = async ({ request }) => {
 
     for (const team of dueTeams) {
       processed += 1;
+      const isYouth = isYouthTeamSeason({
+        minAge: team.seasonMinAge,
+        ageGroupMinAge: team.ageGroupMinAge,
+      });
+
+      // ---- YOUTH branch (winter-team-fixes, task 3) — separate formula,
+      // deposit-aware. Falls through to the adult/legacy path below only
+      // when a youth team has no teamFeeCents recorded (can't compute a
+      // meaningful shortfall against a null fee; legacy fallback covers it).
+      if (isYouth && team.teamFeeCents != null) {
+        try {
+          // Shortfall computed BEFORE the card charge, from roster-collected
+          // money that EXCLUDES the deposit (see teamRosterCollectedCents'
+          // doc) — a backstop 'balance' row created by the charge below
+          // WOULD itself count as roster-collected on a later read, so this
+          // number must be captured now, not re-derived after charging.
+          const rosterCollected = await teamRosterCollectedCents(db, team.id);
+          const { shortfallCents, chargeCents } = teamYouthDueCents({
+            teamFeeCents: team.teamFeeCents,
+            rosterCollectedCents: rosterCollected.totalCents,
+            depositCents: team.depositCents ?? 0,
+          });
+
+          const chargeResult =
+            chargeCents > 0 ? await chargeTeamBackstop(team, chargeCents) : undefined;
+
+          // Deposit settle — AFTER the charge outcome is known, BEFORE this
+          // team's own backstopStatus/invitee writes below, using the
+          // PRE-charge shortfallCents (not chargeCents): the deposit absorbs
+          // the shortfall first regardless of whether the card charge itself
+          // succeeds or fails. Best-effort: the executor already self-heals
+          // via the retry sweep (phase 3 below), so a throw here must not
+          // block this team's own bookkeeping.
+          try {
+            await maybeRefundTeamDeposit(db, {
+              teamId: team.id,
+              trigger: "deadline_settle",
+              shortfallCents,
+            });
+          } catch (settleErr) {
+            console.error(
+              `[cron] deposit settle failed for team ${team.id}:`,
+              settleErr,
+            );
+            await logAlert("team_deposit_refund_failed", {
+              teamRegistrationId: team.id,
+              organizationId: team.organizationId,
+              teamName: team.teamName,
+              trigger: "deadline_settle",
+              error: settleErr instanceof Error ? settleErr.message : String(settleErr),
+              phase: "deadline_settle_caller_threw",
+            });
+          }
+
+          if (chargeCents <= 0) {
+            // Deposit alone covers the shortfall (or there was none) —
+            // nothing to charge the card for.
+            await db
+              .update(teamRegistrations)
+              .set({ backstopStatus: "charged", updatedAt: new Date() })
+              .where(eq(teamRegistrations.id, team.id));
+            charged += 1;
+            continue;
+          }
+
+          if (chargeResult?.ok) {
+            await db
+              .update(teamRegistrations)
+              .set({ backstopStatus: "charged", updatedAt: new Date() })
+              .where(eq(teamRegistrations.id, team.id));
+
+            await db
+              .update(teamInvitees)
+              .set({ status: "charged_to_captain" })
+              .where(
+                and(
+                  eq(teamInvitees.teamRegistrationId, team.id),
+                  sql`${teamInvitees.status} <> 'paid'`,
+                ),
+              );
+
+            if (team.captainUserId && chargeResult.paymentIntentId) {
+              try {
+                await db
+                  .insert(payments)
+                  .values({
+                    registrationId: null,
+                    teamRegistrationId: team.id,
+                    userId: team.captainUserId,
+                    amountCents: chargeCents,
+                    paymentType: "balance",
+                    status: "succeeded",
+                    stripePaymentIntentId: chargeResult.paymentIntentId,
+                  })
+                  .onConflictDoNothing({
+                    target: payments.stripePaymentIntentId,
+                    where: sql`stripe_payment_intent_id IS NOT NULL`,
+                  });
+              } catch (ledgerErr) {
+                console.error(
+                  `[cron] failed to record backstop payment for team ${team.id}:`,
+                  ledgerErr,
+                );
+                void captureServerException(ledgerErr, {
+                  component: "cron/charge-unpaid-team-shares",
+                  metadata: { team_registration_id: team.id, phase: "charge-ledger" },
+                });
+              }
+            }
+
+            await sendOpsPing(team.organizationId, {
+              kind: "team_backstop_charged",
+              brand: team.brand ?? "aspire",
+              eventId: team.id,
+              label: `${team.teamName} · captain card charged for the shortfall`,
+              amountCents: chargeCents,
+            });
+
+            charged += 1;
+          } else {
+            await db
+              .update(teamRegistrations)
+              .set({ backstopStatus: "failed", updatedAt: new Date() })
+              .where(eq(teamRegistrations.id, team.id));
+
+            await sendOpsPing(team.organizationId, {
+              kind: "team_backstop_failed",
+              brand: team.brand ?? "aspire",
+              eventId: team.id,
+              label: `${team.teamName} · $${(chargeCents / 100).toFixed(2)} uncollected (${chargeResult?.reason ?? chargeResult?.status ?? "charge failed"})`,
+            });
+
+            void captureServerException(
+              new Error(
+                `Captain backstop charge failed for team ${team.id}: ${chargeResult?.reason ?? chargeResult?.status ?? "unknown"}`,
+              ),
+              {
+                component: "cron/charge-unpaid-team-shares",
+                metadata: {
+                  team_registration_id: team.id,
+                  phase: "charge",
+                  reason: chargeResult?.reason,
+                  status: chargeResult?.status,
+                  unpaid_cents: chargeCents,
+                },
+              },
+            );
+            failed += 1;
+          }
+        } catch (teamErr) {
+          console.error(
+            `[cron] team backstop charge failed for team ${team.id}:`,
+            teamErr,
+          );
+          try {
+            await db
+              .update(teamRegistrations)
+              .set({ backstopStatus: "failed", updatedAt: new Date() })
+              .where(eq(teamRegistrations.id, team.id));
+          } catch {
+            // Best-effort status flip; the captured exception is the record.
+          }
+          void captureServerException(teamErr, {
+            component: "cron/charge-unpaid-team-shares",
+            metadata: { team_registration_id: team.id, phase: "charge" },
+          });
+          failed += 1;
+        }
+        continue;
+      }
+
+      // ---- ADULT (and youth-without-a-recorded-fee legacy) path — the
+      // formula here is UNCHANGED: teamMoneyReceivedCents folds the deposit
+      // into "received" the way it always has. ----
       try {
         const invitees = await db
           .select({
@@ -372,13 +595,94 @@ export const POST: APIRoute = async ({ request }) => {
     });
   }
 
+  // ---- 3. Deposit-refund retry sweep — independent of backstopStatus. ----
+  // See the module doc above and the CALLER CONTRACT in
+  // team-deposit-refund.ts: the charge pass above is strictly one-shot per
+  // team, so a deposit left unsettled by it (reverted, in-flight, or
+  // crash-stranded) is otherwise never retried by anything. Bounded to the
+  // last 30 days so the FIRST run of this sweep doesn't settle every
+  // historical team ever created.
+  try {
+    const sweepRows = await db
+      .select({
+        id: teamRegistrations.id,
+        organizationId: teamRegistrations.organizationId,
+        teamName: teamRegistrations.teamName,
+        teamFeeCents: teamRegistrations.teamFeeCents,
+        seasonMinAge: seasons.minAge,
+        ageGroupMinAge: ageGroups.minAge,
+      })
+      .from(teamRegistrations)
+      .innerJoin(seasons, eq(teamRegistrations.seasonId, seasons.id))
+      .leftJoin(ageGroups, eq(seasons.ageGroupId, ageGroups.id))
+      .where(
+        and(
+          inArray(teamRegistrations.depositRefundStatus, ["none", "processing"]),
+          isNotNull(teamRegistrations.depositPaymentIntentId),
+          lt(teamRegistrations.paymentDeadline, sql`now()`),
+          // Lower bound — without it the first run settles historical teams:
+          // real refunds + forfeit emails to captains from prior seasons.
+          gt(teamRegistrations.paymentDeadline, sql`now() - interval '30 days'`),
+        ),
+      );
+
+    for (const row of sweepRows) {
+      if (
+        !isYouthTeamSeason({
+          minAge: row.seasonMinAge,
+          ageGroupMinAge: row.ageGroupMinAge,
+        })
+      ) {
+        continue; // maybeRefundTeamDeposit re-checks this too, but skip the
+        // extra roster-collected query for a row we already know is adult.
+      }
+      if (row.teamFeeCents == null) continue; // nothing to compute a shortfall against
+
+      try {
+        // Counts every row the sweep actually reached the executor for —
+        // regardless of outcome, including a Stripe-side failure that
+        // reverts the claim back to 'none' (that's still a genuine retry
+        // attempt, not a no-op; see the module doc's self-limiting note —
+        // it stops counting a team only once it's truly terminal and drops
+        // out of the predicate above).
+        depositSwept += 1;
+        const rosterCollected = await teamRosterCollectedCents(db, row.id);
+        const shortfallCents = Math.max(0, row.teamFeeCents - rosterCollected.totalCents);
+        await maybeRefundTeamDeposit(db, {
+          teamId: row.id,
+          trigger: "deadline_settle",
+          shortfallCents,
+        });
+      } catch (sweepTeamErr) {
+        console.error(
+          `[cron] deposit retry-sweep failed for team ${row.id}:`,
+          sweepTeamErr,
+        );
+        await logAlert("team_deposit_refund_failed", {
+          teamRegistrationId: row.id,
+          organizationId: row.organizationId,
+          teamName: row.teamName,
+          trigger: "deadline_settle",
+          error: sweepTeamErr instanceof Error ? sweepTeamErr.message : String(sweepTeamErr),
+          phase: "retry_sweep_caller_threw",
+        });
+      }
+    }
+  } catch (sweepErr) {
+    console.error("[cron] deposit retry-sweep query failed:", sweepErr);
+    void captureServerException(sweepErr, {
+      component: "cron/charge-unpaid-team-shares",
+      metadata: { phase: "retry-sweep-query" },
+    });
+  }
+
   const elapsedMs = Date.now() - startedAt;
   console.info(
-    `[cron] Charge unpaid team shares: ${processed} processed, ${reminded} reminded, ${charged} charged, ${failed} failed in ${elapsedMs}ms`,
+    `[cron] Charge unpaid team shares: ${processed} processed, ${reminded} reminded, ${charged} charged, ${failed} failed, ${depositSwept} deposit-swept in ${elapsedMs}ms`,
   );
 
   return new Response(
-    JSON.stringify({ processed, reminded, charged, failed, elapsedMs }),
+    JSON.stringify({ processed, reminded, charged, failed, depositSwept, elapsedMs }),
     { status: 200, headers: { "Content-Type": "application/json" } },
   );
 };

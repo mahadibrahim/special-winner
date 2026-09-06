@@ -125,11 +125,46 @@
  *                                      the log line.
  *   - `team_deposit_refund_failed`   — One tag, several distinct shapes
  *                                      (`maybeRefundTeamDeposit` in
- *                                      src/lib/payments/team-deposit-refund.ts).
- *                                      Read `context.error` /
+ *                                      src/lib/payments/team-deposit-refund.ts,
+ *                                      plus its call sites). Read
+ *                                      `context.error` / `context.phase` /
  *                                      `context.revert_failed` /
  *                                      `context.adopted_untagged` to tell
  *                                      them apart:
+ *
+ *                                      `phase:
+ *                                      "full_collection_caller_threw"` /
+ *                                      `"deadline_settle_caller_threw"` /
+ *                                      `"retry_sweep_caller_threw"` — a CALL
+ *                                      SITE (the registration-payment
+ *                                      handler, the deadline cron's charge
+ *                                      phase, or its retry sweep) caught an
+ *                                      unexpected throw wrapping the whole
+ *                                      `maybeRefundTeamDeposit` call — NOT
+ *                                      one of the executor's own internal
+ *                                      failure paths below (those are
+ *                                      self-contained and already logged
+ *                                      with their own shape). This means the
+ *                                      call itself never completed (e.g. the
+ *                                      executor's initial row SELECT or its
+ *                                      CLAIM/FINALIZE UPDATE threw a raw DB
+ *                                      error) — the team's deposit_refund
+ *                                      state is whatever it was before the
+ *                                      call. SELF-HEALS for `deadline_settle`
+ *                                      and `full_collection`-from-a-later-
+ *                                      trigger: the cron's retry sweep (see
+ *                                      its own doc in
+ *                                      charge-unpaid-team-shares.ts) recomputes
+ *                                      and retries any youth team still
+ *                                      sitting in `none`/`processing` on its
+ *                                      next daily run, PROVIDED the team's
+ *                                      `payment_deadline` is within the
+ *                                      sweep's 30-day lower bound — a case
+ *                                      that ages past that window is a
+ *                                      MANUAL follow-up (verify at Stripe
+ *                                      using the team's
+ *                                      `deposit_payment_intent_id` and
+ *                                      settle by hand).
  *
  *                                      Plain failure (Stripe refund call
  *                                      threw, or Stripe wasn't configured;
