@@ -42,4 +42,40 @@ describe("buildTeamDepositReceipt", () => {
       expect(body).toContain("the payment deadline"); // generic fallback wording
     }
   });
+
+  // winter-team-fixes, task 4: a youth captain's deposit is a refundable
+  // hold, never a per-share credit — the copy must say "refunded", never
+  // "counts toward"/"remaining", and must name the FULL fee, not a remainder.
+  describe("isYouth", () => {
+    it("uses the refund-promise copy and the full fee, not a remainder", () => {
+      const { html, text } = buildTeamDepositReceipt({ ...base, isYouth: true });
+      for (const body of [html, text]) {
+        expect(body).toContain("$200");
+        expect(body).toContain("$1,000"); // full fee, not the $800 remainder
+        expect(body).toContain("refunded");
+        expect(body).not.toContain("$800");
+        expect(body).not.toContain("counts toward");
+      }
+    });
+
+    it("degrades to generic full-fee refund wording when the fee is unknown", () => {
+      const { html, text } = buildTeamDepositReceipt({
+        ...base,
+        isYouth: true,
+        teamFeeCents: null,
+      });
+      for (const body of [html, text]) {
+        expect(body).toContain("$200");
+        expect(body).toContain("refunded");
+        expect(body).not.toContain("null");
+        expect(body).not.toContain("NaN");
+      }
+    });
+
+    it("defaults to the adult (credit-toward) copy when isYouth is omitted", () => {
+      const { html } = buildTeamDepositReceipt(base);
+      expect(html).toContain("counts toward");
+      expect(html).not.toContain("refunded");
+    });
+  });
 });

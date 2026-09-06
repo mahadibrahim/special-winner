@@ -2,11 +2,12 @@ import type Stripe from "stripe";
 import { and, eq, sql } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import { getDb } from "@/lib/db";
-import { teamRegistrations, payments, discountUsages, discountCodes, seasons } from "@/lib/db/schema";
+import { teamRegistrations, payments, discountUsages, discountCodes, seasons, ageGroups } from "@/lib/db/schema";
 import { upsertGuestUser } from "@/lib/registrations/upsert-guest-user";
 import { resolvePerson } from "@/lib/registrations/resolve-person";
 import { createRegistration, RegistrationError } from "@/lib/registrations/create-registration";
 import { CAPTAIN_DEPOSIT_CENTS } from "@/lib/registrations/team-deposit";
+import { isYouthTeamSeason } from "@/lib/registrations/team-season-kind";
 import { getPostHogServer } from "@/lib/posthog-server";
 import { SERVER_EVENTS } from "@/lib/analytics/events";
 import { capturePaymentCompleted } from "@/lib/observability/payment-telemetry";
@@ -43,10 +44,16 @@ const num = (v: string | undefined): number | null => {
 };
 
 /**
- * Auto-register the captain as a player on their own team — every captain
- * plays, so there's no separate "register yourself" step. Their $200 deposit
- * credits against their share (solo price ≤ deposit → $0 more due), and the
- * waiver is deferred exactly like any other adult self-registration.
+ * Auto-register the captain as a player on their own team — every ADULT
+ * captain plays, so there's no separate "register yourself" step. Their $200
+ * deposit credits against their share (solo price ≤ deposit → $0 more due),
+ * and the waiver is deferred exactly like any other adult self-registration.
+ *
+ * ADULT SEASONS ONLY (winter-team-fixes, task 4). A youth captain is a
+ * manager, not a player — the roster is made of the kids their teammates'
+ * families register, never the captain themselves. Both call sites below gate
+ * this on `!isYouthTeamSeason`, so this function is never invoked at all for
+ * a youth team; its body still assumes an adult self-registration.
  *
  * Best-effort + idempotent: createRegistration links the captain into
  * team_registration_members with the captain role and returns "resumed" (or
@@ -117,6 +124,32 @@ export async function finalizeTeamDeposit(pi: Stripe.PaymentIntent): Promise<Fin
     throw new Error("finalizeTeamDeposit: missing required metadata (organizationId/seasonId/captainEmail)");
   }
 
+  // Season snapshot, fetched once up front — registrationCloses/name back the
+  // paymentDeadline + receipt/ops-ping copy below (as before), and
+  // minAge/ageGroupMinAge feed `isYouthTeamSeason` for the captain-auto-
+  // registration gate (winter-team-fixes, task 4), needed by BOTH the
+  // idempotent re-entry branch just below and the fresh-create branch
+  // further down — so this must run before the `existing` check, not after.
+  const [season] = await db
+    .select({
+      registrationCloses: seasons.registrationCloses,
+      name: seasons.name,
+      minAge: seasons.minAge,
+      ageGroupMinAge: ageGroups.minAge,
+    })
+    .from(seasons)
+    .leftJoin(ageGroups, eq(seasons.ageGroupId, ageGroups.id))
+    .where(eq(seasons.id, seasonId))
+    .limit(1);
+  // A missing season row is a data anomaly we've never been able to reach in
+  // practice (finalize always carries a real seasonId) — fail toward the
+  // existing adult behavior rather than silently opting an unknown season
+  // into the new youth-only paths (mirrors isYouthTeamSeason's own
+  // null-resolves-to-adult contract).
+  const isYouth = season
+    ? isYouthTeamSeason({ minAge: season.minAge, ageGroupMinAge: season.ageGroupMinAge })
+    : false;
+
   // Already finalized? Return it — idempotent for a redelivered webhook or a
   // browser retry after the webhook already won.
   const [existing] = await db
@@ -127,8 +160,10 @@ export async function finalizeTeamDeposit(pi: Stripe.PaymentIntent): Promise<Fin
   if (existing) {
     // Team already created — but ensure the captain's own registration exists
     // (idempotent), so a webhook arriving after a finalize that created the team
-    // but failed to register the captain still closes that gap.
-    if (existing.captainUserId) {
+    // but failed to register the captain still closes that gap. ADULT ONLY
+    // (task 4): a youth captain is a manager, not a player, so this never
+    // fires for a youth team.
+    if (existing.captainUserId && !isYouth) {
       await ensureCaptainRegistration({
         captainUserId: existing.captainUserId,
         captainEmail,
@@ -165,14 +200,6 @@ export async function finalizeTeamDeposit(pi: Stripe.PaymentIntent): Promise<Fin
   const teamFeeCents = num(m.teamFeeCents);
   const discountCents = num(m.discountCents);
   const discountCodeId = m.discountCodeId || null;
-
-  // Payment deadline = season.registrationCloses at finalize time (mirrors the
-  // eager path's snapshot).
-  const [season] = await db
-    .select({ registrationCloses: seasons.registrationCloses, name: seasons.name })
-    .from(seasons)
-    .where(eq(seasons.id, seasonId))
-    .limit(1);
 
   const inviteToken = generateInviteToken();
 
@@ -313,22 +340,20 @@ export async function finalizeTeamDeposit(pi: Stripe.PaymentIntent): Promise<Fin
     metadata: { team_registration_id: team.id, season_id: seasonId },
   });
   try {
-    let seasonName = "your season";
-    try {
-      const [sr] = await db.select({ name: seasons.name }).from(seasons).where(eq(seasons.id, seasonId)).limit(1);
-      if (sr?.name) seasonName = sr.name;
-    } catch { /* non-fatal */ }
+    // seasonName reuses the up-front season fetch (needed anyway for
+    // isYouth) rather than re-querying — this used to be a second SELECT.
     await sendTeamDepositReceiptEmail({
       to: captainEmail,
       captainName,
       teamName: teamName || "My team",
-      seasonName,
+      seasonName: season?.name ?? "your season",
       seasonId,
       inviteToken: team.inviteToken,
       teamRegistrationId: team.id,
       teamFeeCents,
       depositCents: CAPTAIN_DEPOSIT_CENTS,
       paymentDeadline: season?.registrationCloses ?? null,
+      isYouth,
       brand: (m.brand as BrandId | undefined) || undefined,
     });
   } catch (err) {
@@ -336,15 +361,19 @@ export async function finalizeTeamDeposit(pi: Stripe.PaymentIntent): Promise<Fin
   }
 
   // Auto-register the captain as a player (deposit covers their spot, waiver
-  // deferred) — runs after the deposit ledger so the credit resolves.
-  await ensureCaptainRegistration({
-    captainUserId,
-    captainEmail,
-    captainName,
-    seasonId,
-    inviteToken: team.inviteToken,
-    brand: m.brand,
-  });
+  // deferred) — runs after the deposit ledger so the credit resolves. ADULT
+  // ONLY (task 4): a youth captain never plays on their own team, so this is
+  // skipped entirely for a youth season.
+  if (!isYouth) {
+    await ensureCaptainRegistration({
+      captainUserId,
+      captainEmail,
+      captainName,
+      seasonId,
+      inviteToken: team.inviteToken,
+      brand: m.brand,
+    });
+  }
 
   // Principal ping — a reserved team is exactly the kind of money event the
   // ops channel exists for. eventId = team id, so the finalize path and the

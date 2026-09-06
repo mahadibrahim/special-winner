@@ -190,6 +190,12 @@ export default function TeamCreate({
     effectiveTeamPrice?: number | null;
     teamEarlyBirdActive?: boolean;
     registrationCloses?: string | null;
+    /** Same field register-experience.tsx already fetches to tell an adult
+        season from a youth one (`isAdultSeason`). Null/absent → adult
+        (fail-toward-existing-behavior, same default as the server's
+        `isYouthTeamSeason`). Display-only here — the server is the money-
+        grade source of truth for every amount this component shows. */
+    ageGroup?: { minAge: number } | null;
   };
   /** Server env STRIPE_PUBLISHABLE_KEY threaded from the register page — the
       deferred card form mounts inline on load, before any server round-trip
@@ -253,6 +259,10 @@ export default function TeamCreate({
   const [discountOpen, setDiscountOpen] = useState(false);
   const [discountBusy, setDiscountBusy] = useState(false);
   const [discountError, setDiscountError] = useState<string | null>(null);
+
+  // Youth vs adult — display-only branch (winter-team-fixes, tasks 4 + 5).
+  // Null ageGroup → adult, mirroring the server's isYouthTeamSeason default.
+  const isYouth = (season?.ageGroup?.minAge ?? 18) < 18;
 
   // Fee box math — display-only; the server recomputes the fee at create time.
   const story = season ? teamPriceStory(season) : null;
@@ -676,9 +686,9 @@ export default function TeamCreate({
             <div>
               <h3 className="font-display text-2xl text-ink mb-2">You're in — team reserved.</h3>
               <p className="text-ink-2 leading-relaxed text-sm">
-                You're on the roster as captain (your $200 deposit covers your spot). Share your
-                team link whenever you're ready; each teammate registers and pays their share, and
-                you'll see them join as they do. We'll email you a waiver link to sign before game 1.
+                {isYouth
+                  ? "Your team is reserved — share the link below; each family registers and pays for their own player. Your $200 deposit is refunded once the roster covers the team fee."
+                  : "You're on the roster as captain (your $200 deposit covers your spot). Share your team link whenever you're ready; each teammate registers and pays their share, and you'll see them join as they do. We'll email you a waiver link to sign before game 1."}
               </p>
             </div>
           </div>
@@ -715,8 +725,11 @@ export default function TeamCreate({
           </div>
         </div>
 
-        {/* Optional — invite the roster now or later from the team link. The
-            captain is already on the roster (auto-registered at deposit). */}
+        {/* Optional — invite the roster now or later from the team link.
+            ADULT: the captain is already on the roster (auto-registered at
+            deposit). YOUTH: the captain is never on the roster — they're the
+            manager, not a player; the roster is entirely the families who
+            register through this link (winter-team-fixes, task 4). */}
         <div className="bg-paper border border-ink/10 rounded-2xl p-6">
           <div className="flex items-center gap-3 mb-3">
             <h4 className="font-display text-lg text-ink">Invite your roster</h4>
@@ -725,10 +738,9 @@ export default function TeamCreate({
             </span>
           </div>
           <p className="text-ink-muted text-sm mb-3 leading-relaxed">
-            Add each teammate's email and the share they should pay. We default
-            to an even split of the team fee minus your $200 deposit — adjust any
-            amount as you like. Each teammate pays exactly their share when they
-            register.
+            {isYouth
+              ? "Add each family's email and the share they should pay. We default to an even split of the full team fee — adjust any amount as you like. Each family pays exactly their share when they register their player."
+              : "Add each teammate's email and the share they should pay. We default to an even split of the team fee minus your $200 deposit — adjust any amount as you like. Each teammate pays exactly their share when they register."}
           </p>
           <form onSubmit={handleInvite} className="space-y-3">
             {inviteRows.map((row, idx) => (
@@ -1019,9 +1031,11 @@ export default function TeamCreate({
           {breakdown}
           {discountUi}
           <p className="text-xs text-ink-muted leading-relaxed">
-            Reserving keeps your card on file for the team — any teammate shares still unpaid after
-            {deadlineLabel ? <> <b>{deadlineLabel}</b></> : " the deadline"} are charged to it. Your
-            ${CAPTAIN_DEPOSIT_DOLLARS} deposit counts toward the team fee, and you're added to the roster as captain.
+            Reserving keeps your card on file for the team — any {isYouth ? "roster shortfall" : "teammate shares"} still unpaid after
+            {deadlineLabel ? <> <b>{deadlineLabel}</b></> : " the deadline"} are charged to it.{" "}
+            {isYouth
+              ? `Your $${CAPTAIN_DEPOSIT_DOLLARS} deposit holds the team — it's refunded to your card once your roster covers the full team fee. You're the team's manager, not a player.`
+              : `Your $${CAPTAIN_DEPOSIT_DOLLARS} deposit counts toward the team fee, and you're added to the roster as captain.`}
           </p>
           {error && <p className="text-sm text-red-500">{error}</p>}
 

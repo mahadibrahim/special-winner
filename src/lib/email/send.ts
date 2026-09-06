@@ -1305,6 +1305,17 @@ export interface TeamDepositReceiptParams {
   teamFeeCents: number | null;
   depositCents: number;
   paymentDeadline: Date | null;
+  /**
+   * True for a youth season (winter-team-fixes, task 4) — selects the
+   * "deposit is a refundable hold, not a credit" feeLine variant. The captain
+   * never plays on a youth team (see finalize-team-deposit.ts's
+   * `ensureCaptainRegistration` gate), so the adult "counts toward the
+   * remaining $X" framing would be misleading: the deposit backs the WHOLE
+   * team fee as families register, and is refunded once the roster covers
+   * it. Defaults to false (adult copy) so existing callers/tests are
+   * unaffected until they thread it.
+   */
+  isYouth?: boolean;
   brand?: BrandId;
 }
 
@@ -1345,9 +1356,13 @@ export function buildTeamDepositReceipt(params: TeamDepositReceiptParams): {
     : null;
 
   const subject = `${params.teamName} is reserved — here's your team link`;
-  const feeLine = total
-    ? `Your ${deposit} deposit is in and counts toward the ${total} team fee — your roster covers the remaining ${remainder} as they register.`
-    : `Your ${deposit} deposit is in and counts toward the team fee — your roster covers the rest as they register.`;
+  const feeLine = params.isYouth
+    ? total
+      ? `Your ${deposit} deposit holds the team. Your roster covers the full ${total} as families register — once they do, your deposit is refunded to your card.`
+      : `Your ${deposit} deposit holds the team. Your roster covers the full team fee as families register — once they do, your deposit is refunded to your card.`
+    : total
+      ? `Your ${deposit} deposit is in and counts toward the ${total} team fee — your roster covers the remaining ${remainder} as they register.`
+      : `Your ${deposit} deposit is in and counts toward the team fee — your roster covers the rest as they register.`;
   const deadlineLine = `Teammate shares still unpaid after ${deadline ?? "the payment deadline"} are charged to your card on file.`;
 
   const manageButton = manageUrl
