@@ -269,8 +269,15 @@ export default function TeamCreate({
   const baseFeeDollars = season ? (season.effectiveTeamPrice ?? season.teamPrice ?? season.price) : null;
   const discountDollars = (discount?.cents ?? 0) / 100;
   const feeTotalDollars = baseFeeDollars != null ? Math.max(0, baseFeeDollars - discountDollars) : null;
+  // "Your roster pays" — youth rosters cover the FULL team fee (the deposit
+  // is a refundable hold, never a credit against it); adult rosters cover the
+  // fee minus the captain's own $200-credited spot (winter-team-fixes, task 5).
   const rosterRemainderDollars =
-    feeTotalDollars != null ? Math.max(0, feeTotalDollars - CAPTAIN_DEPOSIT_CENTS / 100) : null;
+    feeTotalDollars != null
+      ? isYouth
+        ? feeTotalDollars
+        : Math.max(0, feeTotalDollars - CAPTAIN_DEPOSIT_CENTS / 100)
+      : null;
   // registrationCloses is a full ISO instant (not a date-only column), so it
   // must be pinned to the org timezone (America/New_York) — otherwise it
   // renders in the viewer's local zone and can disagree with the receipt
@@ -559,7 +566,12 @@ export default function TeamCreate({
       clearDraft();
       setInviteToken(json.inviteToken);
       if (teamFeeCents != null) {
-        const splittable = Math.max(0, teamFeeCents - CAPTAIN_DEPOSIT_CENTS);
+        // Youth rosters split the FULL fee (the deposit doesn't credit any
+        // one player's share); adult rosters split fee-minus-deposit, since
+        // the captain's own spot is already covered (winter-team-fixes, task 5).
+        const splittable = isYouth
+          ? Math.max(0, teamFeeCents)
+          : Math.max(0, teamFeeCents - CAPTAIN_DEPOSIT_CENTS);
         const [a, b] = evenSplitCents(splittable, 2);
         setInviteRows([
           { email: "", amount: ((a ?? 0) / 100).toFixed(2) },
@@ -597,9 +609,15 @@ export default function TeamCreate({
     setInviteRows((rows) => rows.map((r, i) => (i === idx ? { ...r, ...patch } : r)));
   };
   const addRow = () => {
-    // Default new rows to the even split of (teamFee − $200) across one share.
+    // Default new rows to an even split — youth: the full team fee; adult:
+    // (teamFee − $200), since the captain's own spot is already covered
+    // (winter-team-fixes, task 5).
     const splittable =
-      teamFeeCents != null ? Math.max(0, teamFeeCents - CAPTAIN_DEPOSIT_CENTS) : 0;
+      teamFeeCents != null
+        ? isYouth
+          ? Math.max(0, teamFeeCents)
+          : Math.max(0, teamFeeCents - CAPTAIN_DEPOSIT_CENTS)
+        : 0;
     const dflt = teamFeeCents != null ? (splittable / 100).toFixed(2) : "";
     setInviteRows((rows) => [...rows, { email: "", amount: dflt }]);
   };
