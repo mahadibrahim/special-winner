@@ -14,14 +14,55 @@
  *     any) is refunded; if the shortfall consumes the whole deposit, it's
  *     forfeited outright.
  *
- * CALLER CONTRACT — READ BEFORE WRITING A NEW CALL SITE (e.g. a cron scan
- * that selects candidate teams to pass in here): ANY QUERY THAT SELECTS
- * CANDIDATE TEAMS MUST USE `deposit_refund_status IN ('none', 'processing')`
- * — NOT `deposit_refund_status = 'none'` ALONE. A 'none'-ONLY PREDICATE
- * MAKES THE CRASH-RECOVERY PATH BELOW COMPLETELY UNREACHABLE: a team stuck
- * in 'processing' from a crashed prior attempt would never be selected
- * again by such a query, silently stranding the captain's $200 forever —
- * exactly the failure mode this whole redesign exists to close.
+ * ═══════════════════════════════════════════════════════════════════════
+ * CALLER CONTRACT — READ BEFORE WRITING A NEW CALL SITE. THIS FUNCTION IS
+ * NOT SELF-DRIVING: IT ONLY EVER RUNS WHEN SOMETHING CALLS IT, AND SEVERAL
+ * OF ITS RETURN PATHS ARE DELIBERATE SILENT NO-OPS THAT ASSUME A LATER CALL
+ * WILL COME. IF NO SUCH LATER CALL EXISTS, A CAPTAIN'S $200 IS STRANDED
+ * WITH NO ALERT AND NO TRACE.
+ *
+ * (1) THE DEADLINE CRON MUST RUN A DEDICATED RETRY SWEEP, INDEPENDENT OF
+ *     `backstop_status`.
+ *
+ *     The deadline cron's existing "due teams" pass
+ *     (src/pages/api/cron/charge-unpaid-team-shares.ts) selects on
+ *     `backstop_status = 'pending'` AND EVERY BRANCH OF IT FLIPS THAT
+ *     COLUMN TO 'charged' OR 'failed'. THAT MAKES IT STRICTLY ONE-SHOT PER
+ *     TEAM. A deposit left unsettled by that single pass — reverted to
+ *     'none' by `stripe_refund_failed`, skipped as `retryable_race` or
+ *     `in_flight`, or stranded in 'processing' by a crash — WILL NEVER BE
+ *     SELECTED BY THAT QUERY AGAIN. Nothing anywhere else reads
+ *     `deposit_refund_status`, so there is no second trigger and no alert:
+ *     the money simply sits at Stripe forever.
+ *
+ *     SO: THE CRON MUST ALSO RUN A SEPARATE SWEEP THAT SELECTS PURELY ON
+ *     THE DEPOSIT COLUMNS, NEVER ON `backstop_status`:
+ *
+ *       WHERE deposit_refund_status IN ('none', 'processing')
+ *         AND deposit_payment_intent_id IS NOT NULL
+ *         AND payment_deadline < now()
+ *         AND <the same youth-season gate this executor applies>
+ *
+ *     and invoke this executor with trigger "deadline_settle" (and the
+ *     freshly recomputed shortfall) for each row it returns. Because every
+ *     terminal outcome — 'refunded' / 'partially_refunded' / 'forfeited' —
+ *     drops out of that predicate, the sweep is naturally self-limiting: it
+ *     keeps retrying exactly the rows that are still unsettled and stops
+ *     touching them the moment they settle.
+ *
+ *     `deposit_refund_status IN ('none','processing')` — BOTH VALUES, NOT
+ *     'none' ALONE. A 'none'-only predicate makes the crash-recovery path
+ *     below completely unreachable: a team stuck in 'processing' from a
+ *     crashed prior attempt would never be selected again.
+ *
+ * (2) THE SILENT SKIPS BELOW ARE SAFE ONLY BECAUSE THAT SWEEP EXISTS.
+ *     `in_flight` (someone else holds a fresh claim), `retryable_race` (a
+ *     live TOCTOU loss), and `stripe_refund_failed` (claim reverted to
+ *     'none') all return WITHOUT settling anything and WITHOUT scheduling
+ *     any follow-up of their own — they are "come back later," not "done."
+ *     The retry sweep IS "later." Delete or `backstop_status`-gate that
+ *     sweep and all three silently become permanent money loss.
+ * ═══════════════════════════════════════════════════════════════════════
  *
  * STATE MACHINE (`depositRefundStatus` is a plain varchar — no DB enum, no
  * migration needed to add the 'processing' value):
@@ -30,16 +71,39 @@
  *                       -> none   (reverted by the call that owns the claim)
  *
  *   1. CLAIM — ONE atomic, SQL-side conditional UPDATE claims the row,
- *      whether it's fresh ('none') or crash-recoverable ('processing' for
- *      longer than 10 minutes — computed with POSTGRES'S OWN CLOCK via
- *      `now() - interval '10 minutes'`, not app-side `Date.now()`, so
- *      there's no local-clock/timezone skew hazard across processes):
+ *      whether it's fresh ('none') or crash-recoverable ('processing' whose
+ *      lease is older than 10 minutes):
  *
+ *        SET deposit_refund_status = 'processing',
+ *            deposit_refund_claimed_at = now()
  *        WHERE id = ? AND (
  *          deposit_refund_status = 'none'
  *          OR (deposit_refund_status = 'processing'
- *              AND updated_at < now() - interval '10 minutes')
+ *              AND (deposit_refund_claimed_at IS NULL
+ *                   OR deposit_refund_claimed_at < now() - interval '10 minutes'))
  *        )
+ *
+ *      THE LEASE IS ITS OWN DEDICATED COLUMN, `deposit_refund_claimed_at`,
+ *      WRITTEN ONLY BY THIS STATEMENT. It is NOT `updated_at`, which an
+ *      earlier version of this code used and which was WRONG: `updated_at`
+ *      is bumped by every other writer on team_registrations (the backstop
+ *      cron's own `backstopStatus` updates, admin edits, roster changes), so
+ *      a 'processing' row that some co-writer touches on every pass would
+ *      never age past the staleness threshold and the crash-recovery claim
+ *      would starve indefinitely — the exact "$200 stranded forever" outcome
+ *      this executor exists to prevent. Nothing outside this file may write
+ *      the lease column (see its schema comment).
+ *
+ *      BOTH SIDES OF THE STALENESS COMPARISON ARE POSTGRES'S OWN CLOCK —
+ *      the column is stamped with `now()` here and compared against `now() -
+ *      interval '10 minutes'` there, never app-side `Date.now()`/`new
+ *      Date()`. One clock, literally: no local-clock or timezone skew
+ *      hazard across processes or hosts. (The row's `updated_at` is still
+ *      bumped alongside, per this table's convention, but NOTHING reads it
+ *      for the lease.) A NULL lease on a 'processing' row is treated as
+ *      stale — defence only; this statement always stamps the two together,
+ *      so the combination should be unreachable, but a row that somehow had
+ *      it must be recoverable rather than stuck forever.
  *
  *      `didClaim = claimed.length > 0` is true for BOTH a fresh claim and a
  *      stale-recovery claim — there is no "proceeded without owning" limbo
@@ -61,6 +125,10 @@
  *          "already_settled".
  *        - anything else (a terminal status) — really is settled — skip
  *          "already_settled".
+ *      "in_flight" and "retryable_race" both leave the deposit UNSETTLED and
+ *      schedule nothing — they are safe ONLY because the cron's retry sweep
+ *      (caller contract, above) comes back for them. Same for the
+ *      "stripe_refund_failed" revert in step 4.
  *   2. RECONCILE — UNCONDITIONALLY, for every call that reaches this step,
  *      regardless of trigger and regardless of whether the fresh
  *      computation says "forfeited": list existing refunds for the deposit
@@ -116,7 +184,7 @@
  *      call always genuinely owns the row it's reverting. If the revert
  *      itself throws, log a SECOND alert with a `revert_failed` marker.
  */
-import { and, eq, lt, or, sql } from "drizzle-orm";
+import { and, eq, isNull, lt, or, sql } from "drizzle-orm";
 import type Stripe from "stripe";
 import type { getDb } from "@/lib/db";
 import { ageGroups, payments, seasons, teamRegistrations } from "@/lib/db/schema";
@@ -239,11 +307,20 @@ export async function maybeRefundTeamDeposit(
   }
 
   // ── CLAIM — one atomic, SQL-side conditional UPDATE. Matches a fresh
-  // 'none' row OR a 'processing' row whose updated_at is stale by
-  // POSTGRES'S clock (see module doc) — both are real ownership. ─────────
+  // 'none' row OR a 'processing' row whose LEASE is stale — both are real
+  // ownership. The lease is `deposit_refund_claimed_at`, this executor's
+  // own column, stamped and compared with POSTGRES'S clock on both sides
+  // (never app-side `new Date()`); `updated_at` is deliberately NOT the
+  // lease, because every other writer on this table bumps it and would keep
+  // a crashed claim looking permanently fresh. See the module doc. ───────
   const claimed = await db
     .update(teamRegistrations)
-    .set({ depositRefundStatus: "processing", updatedAt: new Date() })
+    .set({
+      depositRefundStatus: "processing",
+      depositRefundClaimedAt: sql`now()`,
+      // Table convention only — nothing reads updated_at for the lease.
+      updatedAt: new Date(),
+    })
     .where(
       and(
         eq(teamRegistrations.id, team.id),
@@ -251,7 +328,16 @@ export async function maybeRefundTeamDeposit(
           eq(teamRegistrations.depositRefundStatus, "none"),
           and(
             eq(teamRegistrations.depositRefundStatus, "processing"),
-            lt(teamRegistrations.updatedAt, sql`now() - interval '10 minutes'`),
+            or(
+              // Defence only: CLAIM always stamps status + lease together,
+              // so 'processing' with a NULL lease should be unreachable —
+              // but if one ever existed it must be recoverable, not stuck.
+              isNull(teamRegistrations.depositRefundClaimedAt),
+              lt(
+                teamRegistrations.depositRefundClaimedAt,
+                sql`now() - interval '10 minutes'`,
+              ),
+            )!,
           )!,
         )!,
       ),

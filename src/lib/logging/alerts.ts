@@ -154,10 +154,12 @@
  *                                      revert-to-'none' UPDATE threw too.
  *                                      The row is now stuck in
  *                                      'processing'. It still SELF-RECOVERS
- *                                      once the row goes stale (10 minutes)
- *                                      — the next trigger reclaims it via
- *                                      the same atomic UPDATE as any fresh
- *                                      claim — but a human should manually
+ *                                      once its `deposit_refund_claimed_at`
+ *                                      lease goes stale (10 minutes) — the
+ *                                      next trigger (the cron's deposit
+ *                                      retry sweep) reclaims it via the same
+ *                                      atomic UPDATE as any fresh claim —
+ *                                      but a human should manually
  *                                      verify at Stripe (using
  *                                      `stripePaymentIntentId`) that no
  *                                      refund actually went through during

@@ -1,0 +1,20 @@
+-- Winter-team-fixes, task 2 (round 4): the deposit-refund executor's own
+-- claim lease.
+--
+-- maybeRefundTeamDeposit (src/lib/payments/team-deposit-refund.ts) claims a
+-- row into 'processing' and, if it crashes, relies on a staleness check to
+-- let a later run reclaim it. That check previously read
+-- team_registrations.updated_at — which every OTHER writer on this table
+-- bumps (the backstop cron's backstop_status updates, admin edits, roster
+-- changes), so a co-written row would never age past the threshold and the
+-- crash-recovery claim would starve, permanently stranding a captain's $200
+-- deposit. This dedicated column is written ONLY by that executor's CLAIM
+-- statement, so nothing else can refresh the lease.
+--
+-- Nullable with no default and no backfill: NULL means "never claimed," and
+-- the executor's claim predicate treats a NULL lease on a 'processing' row
+-- as stale, so any pre-existing row is recoverable rather than stuck.
+--
+-- Written idempotently (ADD COLUMN IF NOT EXISTS) per the 0023/0024
+-- convention, matching 0145-0148.
+ALTER TABLE "team_registrations" ADD COLUMN IF NOT EXISTS "deposit_refund_claimed_at" timestamp with time zone;

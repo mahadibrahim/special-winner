@@ -77,9 +77,12 @@ export const teamRegistrations = pgTable("team_registrations", {
   // Deposit refund tracking (winter-team-fixes). The $200 deposit
   // (depositCents above) can be walked back after the fact — a captain
   // cancels before the roster fills, an admin issues a goodwill refund, or
-  // the team never delivers and the deposit is kept outright. These four
-  // columns are the ledger for that outcome; they are set together by
-  // whichever admin/webhook path performs the refund, not incrementally.
+  // the team never delivers and the deposit is kept outright. The status/id/
+  // cents/at columns below are the ledger for that outcome; they are set
+  // together by whichever admin/webhook path performs the refund, not
+  // incrementally. (deposit_refund_claimed_at, last in the group, is NOT part
+  // of that ledger — it is the executor's private concurrency lease; see its
+  // own comment.)
   depositRefundStatus: varchar("deposit_refund_status", { length: 20 })
     .default("none")
     .notNull(),
@@ -88,17 +91,18 @@ export const teamRegistrations = pgTable("team_registrations", {
   // 'processing' — the executor (maybeRefundTeamDeposit in
   //   src/lib/payments/team-deposit-refund.ts) has claimed this row and is
   //   mid-flight. NOT a stable resting state, but the two ways a row lands
-  //   here are NOT treated identically: a FRESH 'processing' row (updated
-  //   within the last 10 minutes) means a genuinely concurrent call owns
-  //   it right now — other callers skip it untouched ("in_flight"). Only a
-  //   STALE 'processing' row (older than 10 minutes — the prior claimant
-  //   crashed or was killed before finishing) is claimable again, and that
-  //   reclaim happens via the SAME atomic SQL UPDATE as a fresh 'none' claim
-  //   (WHERE status='none' OR (status='processing' AND updated_at is
-  //   stale)) — a recovery claimant is a real, full owner of the row, not a
-  //   caller merely "allowed to peek." A row should never sit here
-  //   indefinitely; if one does, something upstream stopped re-triggering
-  //   it (see the caller contract in the executor's module doc).
+  //   here are NOT treated identically: a FRESH 'processing' row (claimed
+  //   within the last 10 minutes per deposit_refund_claimed_at below) means
+  //   a genuinely concurrent call owns it right now — other callers skip it
+  //   untouched ("in_flight"). Only a STALE 'processing' row (claimed more
+  //   than 10 minutes ago — the prior claimant crashed or was killed before
+  //   finishing) is claimable again, and that reclaim happens via the SAME
+  //   atomic SQL UPDATE as a fresh 'none' claim (WHERE status='none' OR
+  //   (status='processing' AND deposit_refund_claimed_at is stale)) — a
+  //   recovery claimant is a real, full owner of the row, not a caller
+  //   merely "allowed to peek." A row should never sit here indefinitely;
+  //   if one does, something upstream stopped re-triggering it (see the
+  //   caller contract in the executor's module doc).
   // 'refunded' — the full deposit was returned to the captain.
   // 'partially_refunded' — some but not all of the deposit was returned
   //   (e.g. a cancellation fee was retained).
@@ -107,6 +111,18 @@ export const teamRegistrations = pgTable("team_registrations", {
   depositRefundId: varchar("deposit_refund_id", { length: 255 }), // Stripe refund id, when a refund was actually issued
   depositRefundedCents: integer("deposit_refunded_cents"),        // amount actually returned; NULL for 'forfeited' (nothing was returned) as well as 'none'/'processing'; only set for 'refunded'/'partially_refunded'
   depositRefundedAt: timestamp("deposit_refunded_at", { withTimezone: true }), // WHEN THE DEPOSIT QUESTION SETTLED — a refund, a partial refund, or a forfeiture all stamp this; it marks "resolved," not "money moved"
+  // THE DEPOSIT-REFUND EXECUTOR'S CLAIM LEASE — set (to Postgres's own now())
+  // by, and ONLY by, the CLAIM step of maybeRefundTeamDeposit
+  // (src/lib/payments/team-deposit-refund.ts). NOTHING ELSE MAY EVER WRITE
+  // THIS COLUMN. It exists precisely because `updated_at` cannot serve as the
+  // lease: updated_at is bumped by every other writer on this table (the
+  // backstop cron's `backstopStatus` updates, admin edits, roster changes), so
+  // a row co-written by one of them on every pass would never look "stale" and
+  // the crash-recovery path would starve forever, permanently stranding a
+  // captain's $200. Staleness is read from THIS column alone, compared against
+  // Postgres's now() on both sides of the comparison — one clock, no app-side
+  // Date.now() anywhere in the lease.
+  depositRefundClaimedAt: timestamp("deposit_refund_claimed_at", { withTimezone: true }),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

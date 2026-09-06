@@ -6,14 +6,21 @@
  * alert/posthog side-effect modules, so the money math and the crash-
  * recovery/race guards are pinned without a real Postgres or Stripe account.
  *
- * The fakeDb models `team_registrations.deposit_refund_status` (and its
- * `updatedAt`) as a REAL tiny state machine (`state.status`/`state.updatedAt`,
- * mutated only by conditional UPDATEs that check the expected prior value,
- * exactly like Postgres would) — including the round-3 CLAIM predicate's
- * staleness check done in the SAME UPDATE as the "none" claim (`state.status
- * === "none" || isStaleProcessing`), so there is no separate app-side
- * re-check-then-decide step to fake around: the fakeDb's CLAIM branch IS
- * the SQL predicate.
+ * The fakeDb models `team_registrations.deposit_refund_status` and BOTH
+ * timestamps that matter — `deposit_refund_claimed_at` (the executor's
+ * private claim lease) and `updated_at` (the shared column every other
+ * writer on the table bumps) — as a REAL tiny state machine
+ * (`state.status`/`state.claimedAt`/`state.updatedAt`, mutated only by
+ * conditional UPDATEs that check the expected prior value, exactly like
+ * Postgres would), including the CLAIM predicate's staleness check done in
+ * the SAME UPDATE as the "none" claim (`state.status === "none" ||
+ * isStaleProcessing`), so there is no separate app-side re-check-then-decide
+ * step to fake around: the fakeDb's CLAIM branch IS the SQL predicate.
+ *
+ * Keeping the two timestamps SEPARATE in the fake is the point of the
+ * round-4 regression test below: staleness must key on the lease alone, so
+ * a co-writer bumping `updated_at` on every pass can never starve
+ * crash-recovery.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
@@ -96,12 +103,26 @@ interface FakeDbOpts {
   /** Seed the row's deposit_refund_status. Defaults to 'none'. */
   initialStatus?: string;
   /**
-   * How old (ms before "now") the row's updatedAt is at test start. Only
-   * matters when initialStatus is 'processing' — defaults to comfortably
-   * STALE so existing re-entrant tests don't need to think about staleness
-   * unless they're specifically testing that gate.
+   * How old (ms before "now") the row's deposit_refund_claimed_at LEASE is
+   * at test start. Only matters when initialStatus is 'processing' —
+   * defaults to comfortably STALE so existing re-entrant tests don't need to
+   * think about staleness unless they're specifically testing that gate.
    */
   initialAgeMs?: number;
+  /**
+   * How old (ms before "now") the row's SHARED updated_at is at test start,
+   * independent of the lease above. Defaults to tracking initialAgeMs (the
+   * ordinary case: the executor's own claim wrote both). Set it explicitly
+   * to simulate an unrelated co-writer (the backstop cron, an admin edit)
+   * having bumped updated_at while the lease sat untouched.
+   */
+  initialUpdatedAgeMs?: number;
+  /**
+   * Seed a 'processing' row with a NULL lease (a row that somehow reached
+   * 'processing' without the claim stamp). Must be treated as STALE, never
+   * as permanently-fresh-and-unclaimable.
+   */
+  nullLease?: boolean;
   seasonMinAge?: number | null;
   ageGroupMinAge?: number | null;
   /** Make the revert-to-'none' UPDATE throw, to exercise the second-alert path. */
@@ -129,6 +150,8 @@ function makeFakeDb(opts: FakeDbOpts = {}) {
     teamFields = baseTeamFields(),
     initialStatus = "none",
     initialAgeMs = STALE_AGE_MS,
+    initialUpdatedAgeMs = initialAgeMs,
+    nullLease = false,
     seasonMinAge = 10,
     ageGroupMinAge = null,
     revertThrows = false,
@@ -138,7 +161,10 @@ function makeFakeDb(opts: FakeDbOpts = {}) {
 
   const state = {
     status: initialStatus,
-    updatedAt: new Date(Date.now() - initialAgeMs),
+    // The executor's private lease — the ONLY thing staleness may read.
+    claimedAt: nullLease ? null : (new Date(Date.now() - initialAgeMs) as Date | null),
+    // The shared column any other writer on team_registrations may bump.
+    updatedAt: new Date(Date.now() - initialUpdatedAgeMs),
   };
   const calls: { updates: Record<string, unknown>[]; inserts: Record<string, unknown>[] } = {
     updates: [],
@@ -186,7 +212,9 @@ function makeFakeDb(opts: FakeDbOpts = {}) {
           calls.updates.push(vals);
 
           // CLAIM: matches SQL's `status='none' OR (status='processing' AND
-          // updated_at < now() - interval '10 minutes')`.
+          // (deposit_refund_claimed_at IS NULL OR deposit_refund_claimed_at
+          // < now() - interval '10 minutes'))`. Note it reads the LEASE, not
+          // updated_at — a co-writer bumping updated_at must not defer this.
           if (vals.depositRefundStatus === "processing") {
             if (claimMissRemaining > 0) {
               claimMissRemaining -= 1;
@@ -194,16 +222,21 @@ function makeFakeDb(opts: FakeDbOpts = {}) {
             }
             const isStaleProcessing =
               state.status === "processing" &&
-              Date.now() - state.updatedAt.getTime() >= STALE_MS;
+              (state.claimedAt === null ||
+                Date.now() - state.claimedAt.getTime() >= STALE_MS);
             if (state.status === "none" || isStaleProcessing) {
               state.status = "processing";
+              // The claim stamps the lease (SQL now()) and, per the table's
+              // convention, updated_at alongside it.
+              state.claimedAt = new Date();
               state.updatedAt = new Date();
               return whereResult([{ id: TEAM_ID }]);
             }
             return whereResult([]);
           }
 
-          // REVERT: processing -> none.
+          // REVERT: processing -> none. Deliberately leaves the lease alone —
+          // a 'none' row is claimable via the status branch regardless.
           if (vals.depositRefundStatus === "none") {
             if (revertThrows) {
               throw new Error("db revert failed");
@@ -631,6 +664,77 @@ describe("maybeRefundTeamDeposit", () => {
     // The row is untouched — no revert, no finalize, status unchanged.
     expect(state.status).toBe("processing");
     expect(calls.updates.filter((u) => u.depositRefundStatus === "none")).toHaveLength(0);
+  });
+
+  it("stamps the dedicated lease column (deposit_refund_claimed_at) — not just updated_at — on every claim", async () => {
+    hoisted.state.stripe!.refunds.create.mockResolvedValueOnce(refundObj({ id: "re_lease_1" }));
+    const { fakeDb, calls, state } = makeFakeDb();
+
+    await maybeRefundTeamDeposit(fakeDb as never, {
+      teamId: TEAM_ID,
+      trigger: "full_collection",
+    });
+
+    const claim = calls.updates.find((u) => u.depositRefundStatus === "processing");
+    expect(claim).toBeTruthy();
+    // Present, and written as SQL (the DB's own now()), never an app-side
+    // `new Date()` — one clock on both sides of the staleness comparison.
+    expect(claim).toHaveProperty("depositRefundClaimedAt");
+    expect(claim!.depositRefundClaimedAt).not.toBeInstanceOf(Date);
+    expect(state.claimedAt).toBeInstanceOf(Date);
+  });
+
+  it("REGRESSION: a co-writer bumping the SHARED updated_at does NOT defer crash-recovery — staleness reads the lease column alone", async () => {
+    // The exact starvation the dedicated lease exists to prevent: a row
+    // crashed in 'processing' 20 minutes ago (lease is stale), but the
+    // backstop cron / an admin edit touched the row one second ago, so
+    // updated_at looks brand new. Keying staleness on updated_at would make
+    // this row permanently unclaimable and strand the captain's $200.
+    hoisted.state.stripe!.refunds.create.mockResolvedValueOnce(refundObj({ id: "re_recovered" }));
+    const { fakeDb, state } = makeFakeDb({
+      initialStatus: "processing",
+      initialAgeMs: STALE_AGE_MS, // lease: stale
+      initialUpdatedAgeMs: FRESH_AGE_MS, // updated_at: co-writer bumped it
+    });
+
+    const result = await maybeRefundTeamDeposit(fakeDb as never, {
+      teamId: TEAM_ID,
+      trigger: "full_collection",
+    });
+
+    expect(result).toEqual({ status: "refunded" });
+    expect(state.status).toBe("refunded");
+    expect(hoisted.state.stripe!.refunds.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("REGRESSION (converse): a FRESH lease under a STALE updated_at is still 'in_flight' — updated_at cannot be mistaken for the lease", async () => {
+    const { fakeDb, state } = makeFakeDb({
+      initialStatus: "processing",
+      initialAgeMs: FRESH_AGE_MS, // lease: fresh — someone owns it right now
+      initialUpdatedAgeMs: STALE_AGE_MS, // updated_at: untouched for ages
+    });
+
+    const result = await maybeRefundTeamDeposit(fakeDb as never, {
+      teamId: TEAM_ID,
+      trigger: "full_collection",
+    });
+
+    expect(result).toEqual({ status: "skipped", reason: "in_flight" });
+    expect(hoisted.state.stripe!.refunds.list).not.toHaveBeenCalled();
+    expect(state.status).toBe("processing");
+  });
+
+  it("treats a 'processing' row with a NULL lease as stale (recoverable), never as permanently unclaimable", async () => {
+    hoisted.state.stripe!.refunds.create.mockResolvedValueOnce(refundObj({ id: "re_null_lease" }));
+    const { fakeDb, state } = makeFakeDb({ initialStatus: "processing", nullLease: true });
+
+    const result = await maybeRefundTeamDeposit(fakeDb as never, {
+      teamId: TEAM_ID,
+      trigger: "full_collection",
+    });
+
+    expect(result).toEqual({ status: "refunded" });
+    expect(state.status).toBe("refunded");
   });
 
   it("skips 'retryable_race' — not 'already_settled' — when the claim UPDATE misses but the row reads 'none' again on re-check (a live TOCTOU race)", async () => {
