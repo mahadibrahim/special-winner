@@ -1888,17 +1888,30 @@ async function seedCampFixture(
         programType: "camp",
         audienceType: "parents",
         active: true,
-        isTest: false,
+        // isTest=true (review fix round 1, Finding 1): unlike the other
+        // seed fixtures in this file, this one is NOT meant to be publicly
+        // browsable — its only consumers are internal (admin attention
+        // feed, the pods planner, the camp materializer). Leaving it
+        // isTest=false made it render a card on /youth/camps
+        // (src/pages/api/public/seasons.ts filters on
+        // `isTest=false AND isTest=false`), which broke
+        // tests/e2e/category-pages.spec.ts's "/youth/camps — empty catalog"
+        // test. None of this fixture's real consumers filter on isTest:
+        // the camp materializer eligibility query, the pods planner
+        // GET/POST, and the camp_groups_unformed attention-feed query all
+        // scope purely on programType/org/status, so hiding it from the
+        // public catalog costs nothing.
+        isTest: true,
       })
       .returning();
   } else if (
     campProgram.programType !== "camp" ||
     campProgram.audienceType !== "parents" ||
-    campProgram.isTest
+    !campProgram.isTest
   ) {
     [campProgram] = await db
       .update(programs)
-      .set({ programType: "camp", audienceType: "parents", isTest: false })
+      .set({ programType: "camp", audienceType: "parents", isTest: true })
       .where(eq(programs.id, campProgram.id))
       .returning();
   }
@@ -1932,7 +1945,8 @@ async function seedCampFixture(
     status: "active" as const,
     priceCents: 30000,
     maxParticipants: 24,
-    isTest: false,
+    // isTest=true — see the matching comment on campProgram above.
+    isTest: true,
   };
 
   if (!campSeason) {
