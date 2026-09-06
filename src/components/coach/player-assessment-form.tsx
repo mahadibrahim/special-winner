@@ -80,6 +80,16 @@ interface PlayerAssessmentFormProps {
   playerName: string;
   playerAge?: number;
   teams: Team[];
+  /**
+   * Class-context override (Task 5, 2026-09-05-player-snapshots-phase3): a
+   * class-roster assessment has no team/season, so there's no
+   * `selectedTeam.sport.id` to source the skill picker from. When set, this
+   * takes over as the sport source and the team selector/requirement is
+   * skipped entirely; `teams` is expected empty (`[]`) in that case. The
+   * team flow (this prop omitted) is unaffected — falls through to
+   * `selectedTeam?.sport?.id` exactly as before.
+   */
+  classSport?: { id: string; name: string } | null;
   isOpen: boolean;
   onClose: () => void;
   onAssessmentCreated?: () => void;
@@ -113,11 +123,18 @@ export default function PlayerAssessmentForm({
   playerName,
   playerAge,
   teams,
+  classSport,
   isOpen,
   onClose,
   onAssessmentCreated,
 }: PlayerAssessmentFormProps) {
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(teams[0] || null);
+  // The skill picker's sport source: class context wins outright when
+  // present (there's no team to fall back to), otherwise the team flow's
+  // existing selectedTeam?.sport?.id — unchanged from before this prop
+  // existed.
+  const effectiveSportId = classSport?.id ?? selectedTeam?.sport?.id ?? null;
+  const hasAssessmentContext = !!classSport || !!selectedTeam;
   const [skills, setSkills] = useState<Skill[]>([]);
   const [stages, setStages] = useState<Stage[]>([]);
   const [domains, setDomains] = useState<Domain[]>([]);
@@ -145,10 +162,10 @@ export default function PlayerAssessmentForm({
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isOpen && selectedTeam?.sport?.id) {
+    if (isOpen && effectiveSportId) {
       fetchSkillsData();
     }
-  }, [isOpen, selectedTeam]);
+  }, [isOpen, effectiveSportId]);
 
   useEffect(() => {
     if (teams.length > 0 && !selectedTeam) {
@@ -169,7 +186,7 @@ export default function PlayerAssessmentForm({
   }, [playerAge, stages, selectedStageId]);
 
   const fetchSkillsData = async () => {
-    if (!selectedTeam?.sport?.id) return;
+    if (!effectiveSportId) return;
 
     setIsLoadingSkills(true);
     setFetchError(null);
@@ -177,7 +194,7 @@ export default function PlayerAssessmentForm({
       const [domainsRes, stagesRes, skillsRes] = await Promise.all([
         fetch("/api/coach/skills/domains"),
         fetch("/api/coach/skills/stages"),
-        fetch(`/api/coach/skills?sportId=${selectedTeam.sport.id}`),
+        fetch(`/api/coach/skills?sportId=${effectiveSportId}`),
       ]);
 
       if (!domainsRes.ok || !stagesRes.ok || !skillsRes.ok) {
@@ -224,7 +241,7 @@ export default function PlayerAssessmentForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedSkill || !selectedTeam) return; // button is disabled in these states; belt-and-braces
+    if (!selectedSkill || !hasAssessmentContext) return; // button is disabled in these states; belt-and-braces
 
     setIsSubmitting(true);
     setError(null);
@@ -237,8 +254,12 @@ export default function PlayerAssessmentForm({
         body: JSON.stringify({
           familyMemberId: playerId,
           skillId: selectedSkill.id,
-          teamId: selectedTeam.id,
-          seasonId: selectedTeam.season?.id,
+          // Class context carries no team/season — selectedTeam is null
+          // there, so these come through as undefined and JSON.stringify
+          // drops them, matching the class-context assessment contract
+          // (POST /api/coach/assessments treats both as optional).
+          teamId: selectedTeam?.id,
+          seasonId: selectedTeam?.season?.id,
           level,
           observationContext,
           notes: notes.trim() || undefined,
@@ -249,16 +270,24 @@ export default function PlayerAssessmentForm({
 
       if (response.ok) {
         setSuccess(true);
-        // Reset form for next assessment
-        setSelectedSkill(null);
-        setLevel(3);
-        setNotes("");
-        setStrengths([]);
-        setAreasForImprovement([]);
         onAssessmentCreated?.();
 
-        // Keep success message for 2 seconds
-        setTimeout(() => setSuccess(false), 2000);
+        // Show the "Assessment saved!" confirmation for 2 seconds BEFORE
+        // resetting selectedSkill back to null. Bug fix: the previous
+        // version cleared selectedSkill in this same synchronous batch as
+        // setSuccess(true), which flips the view straight back to the skill
+        // list (the `{selectedSkill ? ... : ...}` branch below) before the
+        // success message — which only renders in the OTHER branch — ever
+        // has a chance to paint. Deferring the reset to the same timeout
+        // that clears `success` lets the confirmation actually show.
+        setTimeout(() => {
+          setSuccess(false);
+          setSelectedSkill(null);
+          setLevel(3);
+          setNotes("");
+          setStrengths([]);
+          setAreasForImprovement([]);
+        }, 2000);
       } else {
         const data = await response.json();
         setError(data.error || "Failed to save assessment");
@@ -540,7 +569,7 @@ export default function PlayerAssessmentForm({
 
                 {/* Submit */}
                 <div className="flex items-center justify-between pt-4 border-t border-border">
-                  {!selectedTeam && (
+                  {!hasAssessmentContext && (
                     <p className="text-sm text-amber-500">
                       No team available — this player is not on any of your teams.
                     </p>
@@ -555,7 +584,17 @@ export default function PlayerAssessmentForm({
                   {!error && !success && <div />}
                   <Button
                     type="submit"
-                    disabled={isSubmitting || !selectedSkill || !selectedTeam}
+                    // `success` stays true for the full 2s confirmation
+                    // window (the setTimeout in handleSubmit only clears it,
+                    // and selectedSkill, together). Without it here,
+                    // isSubmitting has already reset in the POST's `finally`
+                    // by the time the confirmation is showing, leaving a
+                    // fully-enabled Save button next to "Assessment saved!"
+                    // — a second click during that window POSTs a duplicate
+                    // assessment (extra player_assessments row, double-
+                    // counted skill summary). Included on both flows.
+                    disabled={isSubmitting || success || !selectedSkill || !hasAssessmentContext}
+                    data-testid={classSport ? "class-assess-submit" : undefined}
                     className="bg-emerald-600 hover:bg-emerald-700 text-ink"
                   >
                     {isSubmitting ? (

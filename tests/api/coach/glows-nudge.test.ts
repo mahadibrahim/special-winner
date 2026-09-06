@@ -8,7 +8,7 @@
  * shares glows for a session, it must drop off the list.
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray, like, notInArray, or } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { coachNotes, sessionPlans } from "@/lib/db/schema";
 import {
@@ -26,6 +26,46 @@ function yesterday(): string {
   return d.toISOString();
 }
 
+/**
+ * Pre-existing hygiene gap found while working S3 of the player-snapshots
+ * plan (unrelated to that task): `/api/coach/glows/nudge` caps its list at
+ * MAX_PENDING=5, most-recent-first. `tests/api/admin/curriculum-sequences.test.ts`
+ * generates sessions titled "Week 1/2 of 2 — seq-tpl-test-…" against a
+ * HARDCODED calendar date (2026-09-05) with no `afterAll` cleanup, and
+ * `tests/e2e/coach-glows.spec.ts` leaves behind a real "Glows E2E Session"
+ * — both on this same seeded coach's teams. Once "today" caught up to that
+ * hardcoded date, every historical run's leftover rows became simultaneously
+ * "in the past 14 days", permanently crowding this test's own fixture out of
+ * the top 5 and failing this test regardless of any code change here. Swept
+ * defensively (rather than fixed at the source) to keep this suite green
+ * without touching two unrelated files/suites' fixture ownership.
+ *
+ * Theoretical race: if `tests/e2e/coach-glows.spec.ts` is running
+ * concurrently against the same DB, this could cancel its in-flight "Glows
+ * E2E Session" mid-run. Not addressed by construction (no lock/ownership
+ * tag distinguishes "in use right now" from "orphaned from a past run") —
+ * relies in practice on that title being effectively unique-in-time across
+ * this codebase's test invocations (`npm run test:api` and `npm test` are
+ * run separately, not interleaved, in this repo's workflow).
+ */
+async function sweepKnownDebrisSessions(coachTeamIds: string[]): Promise<void> {
+  if (coachTeamIds.length === 0) return;
+  await getDb()
+    .update(sessionPlans)
+    .set({ status: "cancelled" })
+    .where(
+      and(
+        inArray(sessionPlans.teamId, coachTeamIds),
+        notInArray(sessionPlans.status, ["cancelled"]),
+        or(
+          like(sessionPlans.title, "Week 1 of 2 — seq-tpl-test-%"),
+          like(sessionPlans.title, "Week 2 of 2 — seq-tpl-test-%"),
+          eq(sessionPlans.title, "Glows E2E Session"),
+        ),
+      ),
+    );
+}
+
 describe("Coach glows nudge API", () => {
   let coachCookie: string;
   let parentCookie: string;
@@ -36,6 +76,13 @@ describe("Coach glows nudge API", () => {
   beforeAll(async () => {
     coachCookie = await getCoachCookie();
     parentCookie = await getParentCookie();
+
+    const teamsRes = await apiFetch("/api/coach/teams", {
+      method: "GET",
+      cookie: coachCookie,
+    });
+    const teamsJson = await expectJson(teamsRes, 200);
+    await sweepKnownDebrisSessions(teamsJson.teams.map((t: { id: string }) => t.id));
 
     const playersRes = await apiFetch("/api/coach/players", {
       method: "GET",

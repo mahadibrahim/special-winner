@@ -29,6 +29,15 @@ import { FeedbackNpsEmail } from "./templates/feedback-nps";
 import { FeedbackDetractorAlertEmail } from "./templates/feedback-detractor-alert";
 import { FeedbackRefereeRatingEmail } from "./templates/feedback-referee-rating";
 import { FirstGameRecapEmail } from "./templates/first-game-recap";
+import {
+  DevReportMonthlyEmail,
+  type DevReportMonthlyDomain,
+} from "./templates/dev-report-monthly";
+import {
+  DevReportQuarterlyEmail,
+  type DevReportQuarterlyDomain,
+  type DevReportQuarterlyAchievement,
+} from "./templates/dev-report-quarterly";
 import { TrialConvertEmail } from "./templates/trial-convert";
 import { ClassBlockNudgeEmail } from "./templates/class-block-nudge";
 import { resolveGoogleReviewUrl } from "@/lib/feedback/review-url";
@@ -2053,6 +2062,261 @@ export async function sendFirstGameRecapEmail(
     html,
     text,
     from: fromForBrand(params.brand),
+  });
+}
+
+// ---- Development reports (Phase 3 S6 — monthly subset / quarterly full) ----
+
+export type { DevReportMonthlyDomain, DevReportQuarterlyDomain, DevReportQuarterlyAchievement };
+
+export interface SendDevReportMonthlyParams {
+  /** Dedupe identity, PART 1 — see the module note on the pre-send check
+   *  below for why familyMemberId ALONE isn't sufficient. */
+  familyMemberId: string;
+  /** Dedupe identity, PART 2 — the guardian being emailed. */
+  parentUserId: string;
+  parentEmail: string;
+  parentFirstName: string | null;
+  childFirstName: string;
+  /** `YYYY-MM` of the closed month — the emailType suffix. */
+  periodKey: string;
+  /** Human label, e.g. "August 2026". */
+  periodLabel: string;
+  domains: DevReportMonthlyDomain[];
+  glowCount: number;
+  ctaUrl: string;
+}
+
+/**
+ * Monthly subset development report — fired by
+ * /api/cron/send-development-reports for every month that ISN'T the close
+ * of a quarter (src/lib/reports/development-reports.ts's
+ * computeReportPeriod). One per (child, guardian, month) — a child can have
+ * more than one guardian, and each gets their own email.
+ *
+ * Dedupe: unlike sendTrialConvertEmail's "one per child ever" (keyed on
+ * familyMemberId alone, safe because a trial booking has exactly one parent
+ * account), a development report can go to MULTIPLE guardians per child —
+ * so the dedupe key must be the (familyMemberId, parentUserId) PAIR, or
+ * guardian B's send would read guardian A's already-logged row and skip
+ * itself. Both fields live in `metadata` (recipientEmail alone can't serve
+ * as the key either — see trial-convert.ts's module header on why a shared
+ * parent address breaks a sibling-keyed dedupe; the same asymmetry applies
+ * here in the other direction). This check is the PRIMARY dedupe gate, not
+ * a race guard — see development-reports.ts's module docstring for why the
+ * scan has no SQL-level anti-join to back it up. Failed sends
+ * (`status = 'failed'`) are excluded from the "already sent" check so a
+ * transient Resend error retries on the next cron run.
+ */
+export async function sendDevReportMonthly(
+  params: SendDevReportMonthlyParams,
+): Promise<{ success: boolean; deduped?: boolean; error?: string }> {
+  const emailType = `dev_report_${params.periodKey}`;
+  const subject = `${params.childFirstName}'s ${params.periodLabel} development update`;
+  const metadata = { familyMemberId: params.familyMemberId, parentUserId: params.parentUserId };
+
+  const [already] = await getDb()
+    .select({ id: emailLogs.id })
+    .from(emailLogs)
+    .where(
+      and(
+        eq(emailLogs.emailType, emailType),
+        ne(emailLogs.status, "failed"),
+        sql`${emailLogs.metadata} ->> 'familyMemberId' = ${params.familyMemberId}`,
+        sql`${emailLogs.metadata} ->> 'parentUserId' = ${params.parentUserId}`,
+      ),
+    )
+    .limit(1);
+  if (already) {
+    return { success: true, deduped: true };
+  }
+
+  if (!isEmailConfigured()) {
+    console.warn("Email not configured, skipping monthly development report email");
+    // Record the attempt anyway so the dedupe gate holds — an intentionally
+    // inert channel must not retry forever (same convention as
+    // sendFirstGameRecapEmail's "Email not configured" branch).
+    await logEmail({
+      userId: params.parentUserId,
+      emailType,
+      recipientEmail: params.parentEmail,
+      subject,
+      status: "skipped",
+      metadata,
+    });
+    return { success: false, error: "Email not configured" };
+  }
+
+  // Classes/curriculum are an Aspire-only surface (no SoccerOne equivalent
+  // — see trial-convert.ts's identical note), so brand is hardcoded rather
+  // than threaded through from an org lookup.
+  const appUrl = originForBrand("aspire") ?? env.PUBLIC_APP_URL;
+
+  const { html, text } = await renderEmail(
+    DevReportMonthlyEmail({
+      parentFirstName: params.parentFirstName ?? "there",
+      childFirstName: params.childFirstName,
+      periodLabel: params.periodLabel,
+      domains: params.domains,
+      glowCount: params.glowCount,
+      ctaUrl: params.ctaUrl,
+      appUrl,
+    }),
+  );
+
+  const result = await sendEmail({
+    to: params.parentEmail,
+    subject,
+    html,
+    text,
+    from: fromForBrand("aspire"),
+  });
+
+  await logEmail({
+    userId: params.parentUserId,
+    emailType,
+    recipientEmail: params.parentEmail,
+    subject,
+    resendMessageId: result.messageId,
+    status: result.success ? "sent" : "failed",
+    metadata,
+  });
+
+  return result;
+}
+
+export interface SendDevReportQuarterlyParams {
+  familyMemberId: string;
+  parentUserId: string;
+  parentEmail: string;
+  parentFirstName: string | null;
+  childFirstName: string;
+  /** `YYYY-Qn` of the closed quarter — the emailType suffix. */
+  quarterKey: string;
+  /** Human label, e.g. "Q3 2026". */
+  quarterLabel: string;
+  domains: DevReportQuarterlyDomain[];
+  assessmentCount: number;
+  skillCount: number;
+  achievements: DevReportQuarterlyAchievement[];
+  ctaUrl: string;
+}
+
+/**
+ * Quarterly FULL development report — fired INSTEAD of the monthly subset
+ * on the four months that close a quarter (decision 4). Same dedupe shape
+ * as sendDevReportMonthly (see its docstring): keyed on the
+ * (familyMemberId, parentUserId) pair, one per (child, guardian, quarter).
+ */
+export async function sendDevReportQuarterly(
+  params: SendDevReportQuarterlyParams,
+): Promise<{ success: boolean; deduped?: boolean; error?: string }> {
+  const emailType = `dev_report_${params.quarterKey}`;
+  const subject = `${params.childFirstName}'s ${params.quarterLabel} development report`;
+  const metadata = { familyMemberId: params.familyMemberId, parentUserId: params.parentUserId };
+
+  const [already] = await getDb()
+    .select({ id: emailLogs.id })
+    .from(emailLogs)
+    .where(
+      and(
+        eq(emailLogs.emailType, emailType),
+        ne(emailLogs.status, "failed"),
+        sql`${emailLogs.metadata} ->> 'familyMemberId' = ${params.familyMemberId}`,
+        sql`${emailLogs.metadata} ->> 'parentUserId' = ${params.parentUserId}`,
+      ),
+    )
+    .limit(1);
+  if (already) {
+    return { success: true, deduped: true };
+  }
+
+  if (!isEmailConfigured()) {
+    console.warn("Email not configured, skipping quarterly development report email");
+    await logEmail({
+      userId: params.parentUserId,
+      emailType,
+      recipientEmail: params.parentEmail,
+      subject,
+      status: "skipped",
+      metadata,
+    });
+    return { success: false, error: "Email not configured" };
+  }
+
+  const appUrl = originForBrand("aspire") ?? env.PUBLIC_APP_URL;
+
+  const { html, text } = await renderEmail(
+    DevReportQuarterlyEmail({
+      parentFirstName: params.parentFirstName ?? "there",
+      childFirstName: params.childFirstName,
+      quarterLabel: params.quarterLabel,
+      domains: params.domains,
+      assessmentCount: params.assessmentCount,
+      skillCount: params.skillCount,
+      achievements: params.achievements,
+      ctaUrl: params.ctaUrl,
+      appUrl,
+    }),
+  );
+
+  const result = await sendEmail({
+    to: params.parentEmail,
+    subject,
+    html,
+    text,
+    from: fromForBrand("aspire"),
+  });
+
+  await logEmail({
+    userId: params.parentUserId,
+    emailType,
+    recipientEmail: params.parentEmail,
+    subject,
+    resendMessageId: result.messageId,
+    status: result.success ? "sent" : "failed",
+    metadata,
+  });
+
+  return result;
+}
+
+/**
+ * Sentinel `email_logs.recipient_email` for the no-guardian audit
+ * breadcrumb below. The column is `NOT NULL varchar(255)` and nothing ever
+ * sends TO this address — `logDevReportSkippedNoGuardian` calls `logEmail`
+ * directly, bypassing `sendEmail` entirely, so no message is ever dispatched
+ * anywhere near it.
+ */
+const NO_GUARDIAN_SENTINEL_EMAIL = "no-guardian@internal.aspiresports.com";
+
+/**
+ * Audit-log breadcrumb for a development-report candidate that resolved to
+ * ZERO guardians (a data anomaly — every `family_members` dependent row
+ * should carry a `parentUserId`, and a self-registered adult row has no
+ * separate guardian to notify at all). No email is possible, so there's no
+ * `sendEmail` call here — but every OTHER terminal state in this cron logs
+ * to `email_logs` (sent, failed, skipped-for-inert-channel, deduped), and
+ * this one shouldn't be the silent exception: without a breadcrumb, an ops
+ * investigation into "why didn't this family get a report" finds nothing at
+ * all instead of a clear reason. Uses the same anti-dedupe metadata shape
+ * (`familyMemberId`) as the guardian-keyed sends, plus `reason` for
+ * disambiguation, so a repeat scan of the same period doesn't need special
+ * handling to avoid re-logging (though see runDevelopmentReports — the scan
+ * has no anti-join either way, per its own docstring, so re-runs will log
+ * this breadcrumb again; harmless, since it's diagnostic rather than a
+ * dedupe gate).
+ */
+export async function logDevReportSkippedNoGuardian(params: {
+  familyMemberId: string;
+  emailType: string;
+}): Promise<void> {
+  await logEmail({
+    emailType: params.emailType,
+    recipientEmail: NO_GUARDIAN_SENTINEL_EMAIL,
+    subject: "Development report skipped — no guardian on file",
+    status: "skipped",
+    metadata: { familyMemberId: params.familyMemberId, reason: "no_guardian" },
   });
 }
 

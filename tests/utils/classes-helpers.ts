@@ -277,6 +277,7 @@ export const TEST_TEMPLATE_NAME_PREFIXES = [
   "GuestTrial-",
   "Staffing-",
   "Portal-",
+  "Assess-",
 ] as const;
 
 /**
