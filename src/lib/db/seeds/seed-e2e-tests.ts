@@ -1834,6 +1834,232 @@ async function seedFlagFootballFixture(db: Database, orgId: string) {
   }
 }
 
+const CAMP_FIXTURE_DAY_MS = 86_400_000;
+
+/**
+ * Camp fixture for Task 8 of the 2026-09-06-camps-phase4 plan: a live camp
+ * season (`programType='camp'`, `audienceType='parents'`) with two campers
+ * already published into camp groups (pods) and a THIRD confirmed camper
+ * left deliberately unplaced. This is the minimum shape two different
+ * consumers need:
+ *
+ *   - the `camp_groups_unformed` attention-feed item (Task 8) needs a real
+ *     camp season with >0 confirmed-but-unrostered registrations;
+ *   - the camp-group planner e2e spec (Task 9) needs pre-scaffolded pods
+ *     with real published membership to load against.
+ *
+ * Dates anchor to `new Date()` (never a fixed calendar date — plan Global
+ * Constraints / CLAUDE.md "Test fixtures anchor to new Date()"): the season
+ * starts 2 days ago and ends 5 days from now, a 7-day span that always
+ * straddles at least one Mon-Fri weekday regardless of which day the seed
+ * runs on. `venueId`/`startTime`/`endTime` are set so the camp
+ * materialization cron (src/lib/camps/materialize.ts) can also pick this
+ * season up without a `skippedNoVenue` warning.
+ */
+async function seedCampFixture(
+  db: Database,
+  orgId: string,
+  locationId: string,
+  venueId: string,
+  sportId: string,
+  ageGroupId: string,
+  parentUserId: string,
+): Promise<void> {
+  // Program — orderBy per the shared-DB "multi-tenant query hazards" rule
+  // (programs.slug is unique per locationId, but a slug-only lookup can
+  // still match more than one historical row on the shared CI/staging DB).
+  let [campProgram] = await db
+    .select()
+    .from(programs)
+    .where(eq(programs.slug, "test-summer-camp"))
+    .orderBy(asc(programs.createdAt))
+    .limit(1);
+
+  if (!campProgram) {
+    [campProgram] = await db
+      .insert(programs)
+      .values({
+        locationId,
+        sportId,
+        venueId,
+        name: "Test Summer Camp",
+        slug: "test-summer-camp",
+        description: "E2E fixture camp season for the camp-group readiness planner",
+        programType: "camp",
+        audienceType: "parents",
+        active: true,
+        isTest: false,
+      })
+      .returning();
+  } else if (
+    campProgram.programType !== "camp" ||
+    campProgram.audienceType !== "parents" ||
+    campProgram.isTest
+  ) {
+    [campProgram] = await db
+      .update(programs)
+      .set({ programType: "camp", audienceType: "parents", isTest: false })
+      .where(eq(programs.id, campProgram.id))
+      .returning();
+  }
+  console.log(`   ✓ Camp program: ${campProgram.name}`);
+
+  // Season — 2 days ago -> +5 days from `new Date()`, re-synced on every
+  // seed run (mirrors the flag-football season fixture above) so the
+  // fixture never drifts stale relative to "today". formationStrategy is
+  // set only on first insert — once Task 9's planner e2e spec publishes a
+  // real strategy on this exact season, re-seeding must not stomp it back.
+  const now = new Date();
+  const formatDate = (d: Date) => d.toISOString().split("T")[0];
+  const campSeasonStart = formatDate(new Date(now.getTime() - 2 * CAMP_FIXTURE_DAY_MS));
+  const campSeasonEnd = formatDate(new Date(now.getTime() + 5 * CAMP_FIXTURE_DAY_MS));
+
+  let [campSeason] = await db
+    .select()
+    .from(seasons)
+    .where(eq(seasons.slug, "e2e-test-summer-camp"))
+    .orderBy(asc(seasons.createdAt))
+    .limit(1);
+
+  const campSeasonSyncFields = {
+    ageGroupId,
+    venueId,
+    name: "Test Summer Camp",
+    startDate: campSeasonStart,
+    endDate: campSeasonEnd,
+    startTime: "09:00",
+    endTime: "15:00",
+    status: "active" as const,
+    priceCents: 30000,
+    maxParticipants: 24,
+    isTest: false,
+  };
+
+  if (!campSeason) {
+    [campSeason] = await db
+      .insert(seasons)
+      .values({
+        programId: campProgram.id,
+        slug: "e2e-test-summer-camp",
+        formationStrategy: null,
+        ...campSeasonSyncFields,
+      })
+      .returning();
+  } else {
+    [campSeason] = await db
+      .update(seasons)
+      .set(campSeasonSyncFields)
+      .where(eq(seasons.id, campSeason.id))
+      .returning();
+  }
+  console.log(
+    `   ✓ Camp season: ${campSeason.name} (${campSeason.startDate} → ${campSeason.endDate}, status=${campSeason.status})`,
+  );
+
+  // Two pre-scaffolded pods ("camp groups") under the camp season.
+  async function ensurePod(name: string): Promise<{ id: string; name: string }> {
+    let [pod] = await db
+      .select()
+      .from(teams)
+      .where(and(eq(teams.seasonId, campSeason.id), eq(teams.name, name)))
+      .limit(1);
+    if (!pod) {
+      [pod] = await db
+        .insert(teams)
+        .values({ seasonId: campSeason.id, name, maxRosterSize: 12 })
+        .returning();
+    }
+    return pod;
+  }
+  const pod1 = await ensurePod("Test Summer Camp Group 1");
+  const pod2 = await ensurePod("Test Summer Camp Group 2");
+  console.log(`   ✓ Camp groups: ${pod1.name}, ${pod2.name}`);
+
+  // Look up the three seeded test children (Tommy, Sarah, Alex — created
+  // earlier in seedE2ETests) by name, same get-or-create-by-name lookup
+  // shape used everywhere else in this file.
+  async function findChild(firstName: string): Promise<{ id: string; firstName: string }> {
+    const [child] = await db
+      .select({ id: familyMembers.id, firstName: familyMembers.firstName })
+      .from(familyMembers)
+      .where(
+        and(eq(familyMembers.parentUserId, parentUserId), eq(familyMembers.firstName, firstName)),
+      )
+      .limit(1);
+    if (!child) {
+      throw new Error(
+        `e2e seed: expected family member "${firstName}" for parent ${parentUserId} to already exist`,
+      );
+    }
+    return child;
+  }
+  const tommy = await findChild("Tommy");
+  const sarah = await findChild("Sarah");
+  const alex = await findChild("Alex");
+
+  // Confirmed registration for a child on the camp season — idempotent
+  // get-or-create by (seasonId, familyMemberId), same shape as the main
+  // season's registration block above.
+  async function ensureConfirmedRegistration(familyMemberId: string): Promise<{ id: string }> {
+    let [reg] = await db
+      .select({ id: registrations.id })
+      .from(registrations)
+      .where(
+        and(
+          eq(registrations.seasonId, campSeason.id),
+          eq(registrations.familyMemberId, familyMemberId),
+        ),
+      )
+      .limit(1);
+    if (!reg) {
+      [reg] = await db
+        .insert(registrations)
+        .values({
+          seasonId: campSeason.id,
+          familyMemberId,
+          registeredByUserId: parentUserId,
+          status: "confirmed",
+          paymentStatus: "paid",
+          registrationType: "full",
+          amountDueCents: 0,
+          amountPaidCents: 30000,
+          waiverSigned: true,
+        })
+        .returning({ id: registrations.id });
+    } else {
+      [reg] = await db
+        .update(registrations)
+        .set({ status: "confirmed", paymentStatus: "paid", amountDueCents: 0 })
+        .where(eq(registrations.id, reg.id))
+        .returning({ id: registrations.id });
+    }
+    return reg;
+  }
+  const tommyReg = await ensureConfirmedRegistration(tommy.id);
+  const sarahReg = await ensureConfirmedRegistration(sarah.id);
+  const alexReg = await ensureConfirmedRegistration(alex.id); // left UNPLACED — feeds the attention item
+
+  // Publish Tommy onto Group 1 and Sarah onto Group 2 — idempotent on the
+  // (teamId, registrationId) unique index. Alex's registration is
+  // deliberately NOT rostered onto either pod.
+  await db
+    .insert(rosters)
+    .values({ teamId: pod1.id, registrationId: tommyReg.id, status: "active" })
+    .onConflictDoNothing({ target: [rosters.teamId, rosters.registrationId] });
+  await db
+    .insert(rosters)
+    .values({ teamId: pod2.id, registrationId: sarahReg.id, status: "active" })
+    .onConflictDoNothing({ target: [rosters.teamId, rosters.registrationId] });
+  // Defense-in-depth: if a prior run (or a manual test) ever rostered Alex
+  // onto a pod, un-roster so the fixture always has exactly one unplaced
+  // camper on re-seed.
+  await db.delete(rosters).where(eq(rosters.registrationId, alexReg.id));
+
+  console.log(
+    `   ✓ Camp roster: Tommy→${pod1.name}, Sarah→${pod2.name}, Alex unplaced (registration ${alexReg.id})`,
+  );
+}
+
 async function seedE2ETests() {
   assertNotProduction();
   console.log("🧪 Seeding E2E test data...\n");
@@ -3264,6 +3490,35 @@ async function seedE2ETests() {
       .returning();
   }
   console.log(`   ✓ Child: ${child2.firstName} ${child2.lastName}`);
+
+  // Third child (Task 8 of 2026-09-06-camps-phase4): the camp fixture below
+  // needs a THIRD seeded child left deliberately unplaced onto any camp
+  // group, alongside Tommy/Sarah who get placed — same get-or-create
+  // pattern as the two above.
+  let [child3] = await db
+    .select()
+    .from(familyMembers)
+    .where(
+      and(
+        eq(familyMembers.parentUserId, parentUser.id),
+        eq(familyMembers.firstName, "Alex")
+      )
+    )
+    .limit(1);
+
+  if (!child3) {
+    [child3] = await db
+      .insert(familyMembers)
+      .values({
+        parentUserId: parentUser.id,
+        firstName: "Alex",
+        lastName: "Test",
+        birthDate: "2017-11-01",
+        gender: "male",
+      })
+      .returning();
+  }
+  console.log(`   ✓ Child: ${child3.firstName} ${child3.lastName}`);
 
   // Create a confirmed registration for one child
   console.log("\n6. Setting up registrations...");
@@ -4965,6 +5220,13 @@ async function seedE2ETests() {
       console.log(`   ✓ Pack product "Test Class Pack" already exists (${classPack.id})`);
     }
   }
+
+  // Stage 24 — Camp fixture (SDD 2026-09-06-camps-phase4, Task 8): a live
+  // camp season with 2 campers published into camp groups and a 3rd
+  // confirmed-but-unplaced camper — feeds the `camp_groups_unformed`
+  // attention item and the Task 9 camp-group planner e2e spec.
+  console.log("\n24. Setting up camp fixture (Test Summer Camp)...");
+  await seedCampFixture(db, org.id, location.id, venue.id, soccer.id, u8AgeGroup.id, parentUser.id);
 
   console.log("\n✅ E2E test data seeded successfully!");
   console.log("\n📋 Test Credentials:");

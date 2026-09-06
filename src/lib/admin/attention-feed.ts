@@ -9,6 +9,8 @@
  *   - youth league seasons with coachless teams (season readiness)
  *   - youth league seasons with unplaced confirmed registrations (season
  *     readiness)
+ *   - camp seasons with confirmed registrations not yet in a camp group
+ *     (camp-group readiness — Task 8 of the 2026-09-06-camps-phase4 plan)
  *
  * Each item has an optional href so the UI can wire the row to a deep
  * link. Order matters: the array is the display order.
@@ -25,7 +27,8 @@ export type AttentionKind =
   | "ref_unassigned"
   | "season_capacity"
   | "teams_coachless"
-  | "players_unplaced";
+  | "players_unplaced"
+  | "camp_groups_unformed";
 
 // Youth league seasons still in a "getting ready" window — draft/closed/
 // completed/cancelled seasons don't need readiness nudges.
@@ -56,8 +59,9 @@ export async function getAttentionFeed(orgId: string): Promise<AttentionItem[]> 
   const db = getDb();
   const items: AttentionItem[] = [];
 
-  // The four queries below are independent of each other — run in parallel.
-  const [[refundCount], capacityRows, coachlessRows, unplacedRows] = await Promise.all([
+  // The five queries below are independent of each other — run in parallel.
+  const [[refundCount], capacityRows, coachlessRows, unplacedRows, campUnformedRows] =
+    await Promise.all([
     // 1. Refund requests awaiting approval (org-scoped via location join).
     db
       .select({ count: sql<number>`count(*)::int` })
@@ -175,6 +179,50 @@ export async function getAttentionFeed(orgId: string): Promise<AttentionItem[]> 
       ORDER BY unplaced_count DESC, season_id ASC
       LIMIT ${READINESS_ROW_CAP}
     `),
+
+    // 5. Camp seasons (readiness window) with confirmed registrations not
+    // yet placed on any camp group (pod). Identical shape to query 4 —
+    // program_type='camp' instead of 'league' is the only filter change; a
+    // "camp group" (pod) is an ordinary `teams` row under the camp season
+    // per the Phase 4 keystone decision (docs/superpowers/plans/
+    // 2026-09-06-camps-phase4.md), so the NOT EXISTS join against
+    // rosters/teams is unchanged. Same total_count + ORDER BY + LIMIT
+    // capping as query 4.
+    db.execute<{
+      season_id: string;
+      name: string;
+      location_name: string;
+      unplaced_count: number;
+      total_count: number;
+    }>(sql`
+      SELECT *, COUNT(*) OVER()::int AS total_count
+      FROM (
+        SELECT
+          seasons.id     AS season_id,
+          seasons.name   AS name,
+          locations.name AS location_name,
+          COUNT(registrations.id)::int AS unplaced_count
+        FROM seasons
+        INNER JOIN programs      ON programs.id      = seasons.program_id
+        INNER JOIN locations     ON locations.id     = programs.location_id
+        INNER JOIN registrations ON registrations.season_id = seasons.id
+                                AND registrations.status = 'confirmed'
+        WHERE locations.organization_id = ${orgId}
+          AND programs.audience_type = 'parents'
+          AND programs.program_type = 'camp'
+          AND seasons.status IN (${READINESS_STATUS_LIST})
+          AND NOT EXISTS (
+            SELECT 1 FROM rosters
+            INNER JOIN teams ON teams.id = rosters.team_id
+            WHERE rosters.registration_id = registrations.id
+              AND teams.season_id = seasons.id
+          )
+        GROUP BY seasons.id, seasons.name, locations.name
+        HAVING COUNT(registrations.id) > 0
+      ) qualifying
+      ORDER BY unplaced_count DESC, season_id ASC
+      LIMIT ${READINESS_ROW_CAP}
+    `),
   ]);
 
   const refundN = refundCount?.count ?? 0;
@@ -255,7 +303,35 @@ export async function getAttentionFeed(orgId: string): Promise<AttentionItem[]> 
     }
   }
 
-  // 5. Unassigned refs in the next 48h. The games table has no ref column
+  // Camp-group readiness sits right after league placement readiness — both
+  // are "confirmed registrations with nowhere to sit yet" nudges, camps just
+  // resolve to the pods planner instead of the placement planner.
+  const campUnformedResultRows: any[] = Array.isArray(campUnformedRows)
+    ? campUnformedRows
+    : ((campUnformedRows as any).rows ?? []);
+  for (const r of campUnformedResultRows) {
+    const n = Number(r.unplaced_count);
+    items.push({
+      id: `camp-unformed-${r.season_id}`,
+      kind: "camp_groups_unformed",
+      text: `${r.name}: ${n} camper${n === 1 ? "" : "s"} not in a camp group`,
+      href: `/admin/seasons/${r.season_id}/pods`,
+    });
+  }
+  if (campUnformedResultRows.length > 0) {
+    const total = Number(campUnformedResultRows[0].total_count);
+    const remainder = total - campUnformedResultRows.length;
+    if (remainder > 0) {
+      items.push({
+        id: "camp-unformed-more",
+        kind: "camp_groups_unformed",
+        text: `+ ${remainder} more camp season${remainder === 1 ? "" : "s"} with unformed camp groups`,
+        href: "/admin/seasons",
+      });
+    }
+  }
+
+  // 6. Unassigned refs in the next 48h. The games table has no ref column
   //    in the current schema, so this slot is intentionally empty until a
   //    `games.ref_user_id` column is added (Phase 4 follow-up). When that
   //    lands, mirror the refunds query.
