@@ -5,6 +5,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { z } from "zod";
 import { createRegistration, RegistrationError } from "@/lib/registrations/create-registration";
 import { resolvePerson } from "@/lib/registrations/resolve-person";
+import { checkAgeEligibility } from "@/lib/registrations/age-eligibility";
 import { getPostHogServer } from "@/lib/posthog-server";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
 import { fireRegistrationCreatedConversion } from "@/lib/analytics/server-conversions";
@@ -173,8 +174,88 @@ export const POST: APIRoute = async ({ request, clientAddress, locals }) => {
     }
     const data = validation.data;
 
+    // -------------------------------------------------------------------------
+    // Server-side age gate (audit finding F1, owner decision: hard block both
+    // directions). Mirrors guest-checkout.ts's gate: a season's age_group
+    // bounds are enforced before any write. A season with no age_group_id
+    // (open-age divisions) gates nothing; a null birthDate (v2 adult-self flow
+    // defers DOB to the post-payment completion step) also skips —
+    // checkAgeEligibility treats an empty birthDate as eligible, and the
+    // completion endpoint's own ageReviewNeeded check backstops that case once
+    // the real DOB is known. Age is computed on the season's start date
+    // (fallback to now), matching ageOnDate's convention.
+    //
+    // Loaded once here (both branches below need it) — BEFORE resolvePerson
+    // is called for the self branch, since resolvePerson can INSERT a new
+    // self family_members row, and no write may precede the 422.
+    const [seasonAgeGate] = await db
+      .select({
+        startDate: seasons.startDate,
+        minAge: ageGroups.minAge,
+        maxAge: ageGroups.maxAge,
+        ageGroupName: ageGroups.name,
+      })
+      .from(seasons)
+      .leftJoin(ageGroups, eq(seasons.ageGroupId, ageGroups.id))
+      .where(eq(seasons.id, data.seasonId));
+
+    function ageGateResponse(birthDate: string | null | undefined): Response | null {
+      if (
+        !seasonAgeGate ||
+        (seasonAgeGate.minAge == null && seasonAgeGate.maxAge == null) ||
+        !birthDate
+      ) {
+        return null;
+      }
+      const onDate = seasonAgeGate.startDate
+        ? new Date(seasonAgeGate.startDate)
+        : new Date();
+      const result = checkAgeEligibility({
+        birthDate,
+        minAge: seasonAgeGate.minAge,
+        maxAge: seasonAgeGate.maxAge,
+        onDate,
+      });
+      if (result.eligible) return null;
+      return new Response(
+        JSON.stringify({
+          error: "age_ineligible",
+          minAge: seasonAgeGate.minAge,
+          maxAge: seasonAgeGate.maxAge,
+          ageGroupName: seasonAgeGate.ageGroupName,
+        }),
+        { status: 422, headers: { "Content-Type": "application/json" } },
+      );
+    }
+
     let familyMember;
     if (data.registerSelf) {
+      // Gate on the user's OWN stored birthDate — checked before
+      // resolvePerson runs, since resolvePerson can insert the self
+      // family_members row on first use.
+      const ageGate = ageGateResponse(user.birthDate);
+      if (ageGate) return ageGate;
+
+      // users.birthDate is self-service mutable (PUT /api/user/profile
+      // accepts birthDate: null and clears it), so it can desync from the
+      // mirrored self family_members row — a returning registrant with a
+      // real out-of-range DOB on file could otherwise clear their profile
+      // DOB, skip the check above (null short-circuits it), and have
+      // resolvePerson silently find their existing, still-out-of-range self
+      // row. Read-only pre-check: if a self row already exists and carries
+      // its own birthDate, that DOB is authoritative — gate on it too,
+      // still before resolvePerson (find-or-create) runs. Both null is the
+      // legitimate deferred-DOB case and stays ungated (ageReviewNeeded is
+      // the advisory backstop once a real DOB is known).
+      const [existingSelfRow] = await db
+        .select({ birthDate: familyMembers.birthDate })
+        .from(familyMembers)
+        .where(eq(familyMembers.selfUserId, user.id));
+      const selfRowAgeGate = existingSelfRow
+        ? ageGateResponse(existingSelfRow.birthDate)
+        : null;
+      if (selfRowAgeGate) return selfRowAgeGate;
+
       // birthDate may be null for adult self-registration: the v2 (adult-locked)
       // flow defers DOB (and the waiver) to the post-payment completion step,
       // exactly like the guest path. Requiring it here forced returning users
@@ -207,6 +288,11 @@ export const POST: APIRoute = async ({ request, clientAddress, locals }) => {
           headers: { "Content-Type": "application/json" },
         });
       }
+      // Dependents already exist (this is a read-only lookup, not a write),
+      // so gating here — rather than before the select — changes nothing
+      // about write ordering; kept adjacent to the lookup for clarity.
+      const ageGate = ageGateResponse(fm.birthDate);
+      if (ageGate) return ageGate;
       familyMember = fm;
     }
 

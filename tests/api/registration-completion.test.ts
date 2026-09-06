@@ -110,18 +110,24 @@ describe("guest-checkout v2 (deferred waiver/DOB)", () => {
 // POST /api/registrations path instead:
 //   1. 401 test needs no fixture at all — auth is checked before any lookup.
 //   2. 400 malformed-id test only needs an auth cookie.
-//   3/4. happy-path + age-review both mint a fresh DEPENDENT (unique name
-//      per run, via POST /api/family-members) then register that dependent
-//      for the adult season via POST /api/registrations with
-//      waiverSigned:false (this branch's own feature — no signature
-//      required). create-registration.ts has no server-side age-eligibility
-//      check at creation time (confirmed by reading it), so an
-//      age-ineligible dependent registers for the 18+ season without being
-//      rejected — which is exactly what the age-review case needs. The
-//      dependent always carries a DOB (COPPA path, non-nullable), so
-//      complete.ts's `effectiveDob = familyMember.birthDate ?? data.birthDate`
-//      uses the STORED DOB and ignores whatever birthDate the completion
-//      body sends.
+//   3. The happy-path cases mint a fresh DEPENDENT (unique name per run, via
+//      POST /api/family-members, with an adult-range birthDate) then
+//      register that dependent for the adult season via
+//      POST /api/registrations with waiverSigned:false (this branch's own
+//      feature — no signature required). The birthDate is adult-range on
+//      purpose: the server-side age-eligibility gate (Task 2, F1) now 422s a
+//      mismatched-age dependent AT CREATION, so a real "child" DOB against
+//      this 18+ season can no longer mint a registration at all.
+//   4. age-review needs the opposite: a registrant whose true age is
+//      unknown until completion time. That's the v2 adult-self flow with a
+//      deferred DOB — a family_member with selfUserId set and birthDate
+//      still NULL, which the gate skips (checkAgeEligibility treats an
+//      empty birthDate as eligible). It mints a brand-new throwaway
+//      self-registrant (signup + registerSelf) rather than reusing
+//      parent@test.aspiresports.com — that shared fixture's self row
+//      already carries a real (adult) birthDate from other suites, which
+//      would make complete.ts's `effectiveDob = familyMember.birthDate ??
+//      data.birthDate` ignore whatever birthDate this test submits.
 // Net effect: all four cases are Stripe-free; no itWithStripe gating needed
 // in this describe block.
 describe("registration completion (POST /api/registrations/{id}/complete)", () => {
@@ -173,6 +179,49 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
       participantName: `Complete Fixture${stamp}`,
       cookie,
     };
+  }
+
+  /** A fresh, one-off self-registrant with a DEFERRED DOB (v2 adult-self
+   *  flow — birthDate stays null through signup + registerSelf). The
+   *  age-eligibility gate (Task 2, F1) skips a null birthDate, so this mints
+   *  cleanly against the 18+ season even though the true age, supplied only
+   *  at /complete time, may turn out to be a minor's — exactly the case
+   *  complete.ts's ageReviewNeeded flag exists to catch. */
+  async function mintDeferredDobSelfRegistration(): Promise<{
+    registrationId: string;
+    cookie: string;
+  }> {
+    const stamp = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const email = `age-review-self-${stamp}@example.com`;
+    const password = "TestAgeReview123!";
+
+    const signupRes = await apiFetch("/api/auth/signup", {
+      method: "POST",
+      body: JSON.stringify({
+        email,
+        password,
+        firstName: "AgeReview",
+        lastName: `Self${stamp}`,
+      }),
+    });
+    expect([200, 201]).toContain(signupRes.status);
+
+    const cookie = await getAuthCookie(email, password);
+
+    const regRes = await apiFetch("/api/registrations", {
+      method: "POST",
+      cookie,
+      body: JSON.stringify({
+        seasonId: adultSeasonId,
+        registerSelf: true,
+        registrationType: "full",
+        waiverSigned: false,
+      }),
+    });
+    expect(regRes.status).toBe(201);
+    const regBody = await regRes.json();
+    expect(regBody.registration?.id).toBeTruthy();
+    return { registrationId: regBody.registration.id, cookie };
   }
 
   it("rejects an unauthenticated request with 401", async () => {
@@ -245,7 +294,7 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
   // land on both the consent rows and the registration.
   it("takes the parental (never age_confirmation) branch and stamps the waiver for a DEPENDENT registrant", async () => {
     const { registrationId, familyMemberId, cookie } =
-      await mintOwnedRegistration("2016-04-01");
+      await mintOwnedRegistration("1995-04-01");
     const signature = `Guardian Sig ${Date.now()}`;
 
     const res = await apiFetch(`/api/registrations/${registrationId}/complete`, {
@@ -421,7 +470,7 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
       // Nobody signed it. The idempotency branch used to read that bare flag
       // as "already has a signature" and no-op, silently dropping a real one.
       const { registrationId, familyMemberId, cookie } =
-        await mintOwnedRegistration("2016-04-01");
+        await mintOwnedRegistration("1995-04-01");
 
       const db = getDb();
       const [reg] = await db
@@ -478,7 +527,7 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
       // typed here is a genuine signing event and is filed as one: dated,
       // named, and appended to the canonical log.
       const { registrationId, familyMemberId, cookie } =
-        await mintOwnedRegistration("2016-04-01");
+        await mintOwnedRegistration("1995-04-01");
 
       const db = getDb();
       const [reg] = await db
@@ -601,7 +650,7 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
     // endpoint must accept that body and still backfill the DOB.
     it("accepts a DOB-only submission (no waiver fields) and backfills the birth date", async () => {
       const { registrationId, familyMemberId, cookie } =
-        await mintOwnedRegistration("2016-04-01");
+        await mintOwnedRegistration("1995-04-01");
 
       const db = getDb();
       // Clear the DOB so this registration is in the real state the DOB-only
@@ -645,7 +694,7 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
     // cosmetic one. The gate is now the PRE-REQUEST signature state.
     it("captures phone + WhatsApp consent on a FIRST completion that takes the on-file branch", async () => {
       const { registrationId, familyMemberId, cookie } =
-        await mintOwnedRegistration("2016-04-01");
+        await mintOwnedRegistration("1995-04-01");
       const phone = `+1614558${String(Date.now()).slice(-4)}`;
 
       const db = getDb();
@@ -729,7 +778,10 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
         body: JSON.stringify({
           firstName: "BornStamped",
           lastName: `Fixture${stamp}`,
-          birthDate: "2016-04-01",
+          // Adult-range: this dependent registers against the 18+ adult
+          // season, and the age-eligibility gate (Task 2, F1) would 422 a
+          // real "child" DOB at creation.
+          birthDate: "1995-04-01",
           parentalConsent: true,
         }),
       });
@@ -917,7 +969,7 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
     // opt-outs were presented and then thrown away.
     it("honors media-auth opt-outs submitted on the on-file branch", async () => {
       const { registrationId, familyMemberId, cookie } =
-        await mintOwnedRegistration("2016-04-01");
+        await mintOwnedRegistration("1995-04-01");
 
       const db = getDb();
       const [reg] = await db
@@ -973,7 +1025,7 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
 
     it("writes an org-scoped, ip/UA-stamped consent for a genuinely fresh signature", async () => {
       const { registrationId, familyMemberId, participantName, cookie } =
-        await mintOwnedRegistration("2016-04-01");
+        await mintOwnedRegistration("1995-04-01");
       const signature = `Org Scoped ${Date.now()}`;
 
       const res = await apiFetch(`/api/registrations/${registrationId}/complete`, {
@@ -1020,10 +1072,11 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
   });
 
   it("flags age review for a DOB outside the season's age group without blocking the sign", async () => {
-    // Adult 18+ season (minAge 18) — this DOB is well under that, stored on
-    // the dependent at creation (create-registration.ts enforces no
-    // age-eligibility gate, so the mint itself is not rejected).
-    const { registrationId, cookie } = await mintOwnedRegistration("2015-01-01");
+    // Adult 18+ season (minAge 18). The registrant's DOB is deferred (v2
+    // adult-self flow) — unknown, so the age-eligibility gate (Task 2, F1)
+    // doesn't block the mint — and only surfaces here at completion, well
+    // under 18. That's exactly the case ageReviewNeeded exists to catch.
+    const { registrationId, cookie } = await mintDeferredDobSelfRegistration();
 
     const res = await apiFetch(`/api/registrations/${registrationId}/complete`, {
       method: "POST",
@@ -1031,6 +1084,9 @@ describe("registration completion (POST /api/registrations/{id}/complete)", () =
       body: JSON.stringify({
         waiverAccepted: true,
         waiverSignature: "Complete Flow",
+        // The DOB this registrant's signup never collected — supplied here,
+        // well under the season's minAge 18.
+        birthDate: "2015-01-01",
       }),
     });
     expect(res.status).toBe(200);

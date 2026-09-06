@@ -45,6 +45,10 @@ export type WhoStepProps = {
     firstName: string;
     lastName: string;
     ageEligible: boolean;
+    /** Audit F1: the exact age-range/contact-us copy to show when
+     *  `ageEligible` is false. Falls back to a generic message when absent
+     *  (e.g. no age group on this season). */
+    ageIneligibleMessage?: string | null;
     registered?: boolean;
   } | null;
   /**
@@ -79,6 +83,9 @@ export type WhoStepProps = {
     // post-payment review (their row can surface here alongside dependents).
     birthDate: string | null;
     ageEligible: boolean;
+    /** Audit F1: the exact age-range/contact-us copy to show when
+     *  `ageEligible` is false. Falls back to a generic message when absent. */
+    ageIneligibleMessage?: string | null;
     /** Already has a non-cancelled/refunded registration for THIS season. */
     registered?: boolean;
   }>;
@@ -358,7 +365,7 @@ export function WhoStep({
           </div>
           {!selfOption.registered && !selfOption.ageEligible && (
             <div className="text-xs text-muted-foreground mt-1">
-              This program isn't in your age range.
+              {selfOption.ageIneligibleMessage || "This program isn't in your age range."}
             </div>
           )}
         </Card>
@@ -399,7 +406,7 @@ export function WhoStep({
             </div>
             {!d.registered && !d.ageEligible && (
               <div className="text-xs text-muted-foreground mt-1">
-                Not in age range for this program.
+                {d.ageIneligibleMessage || "Not in age range for this program."}
               </div>
             )}
           </Card>

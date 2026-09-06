@@ -28,6 +28,11 @@ import { useHydrationBeacon } from "@/lib/hooks/use-hydration-beacon"
 import { parseApiError } from "@/lib/api/error-message"
 import { recordConfirmedPayment } from "@/lib/registrations/payment-confirmation-signal"
 import { readGuestDraft, clearGuestDraft, stashGuestDraft } from "@/lib/registrations/guest-draft"
+import {
+  checkAgeEligibility,
+  ageOnDate,
+  formatAgeIneligibleMessage,
+} from "@/lib/registrations/age-eligibility"
 import { formatWaiverValidUntil } from "@/lib/registrations/waiver-text"
 import {
   trackRegistrationStepViewed,
@@ -308,6 +313,16 @@ export default function RegistrationWizard({
   const [guestChildGender, setGuestChildGender] = useState("")
   const [guestEmailCollision, setGuestEmailCollision] = useState(false)
   const [isCheckingEmail, setIsCheckingEmail] = useState(false)
+  // COPPA (audit finding F2): required parental-consent checkbox, child
+  // guest mode only. Unchecked by default — this is an affirmative consent,
+  // not a pre-ticked box.
+  const [guestParentalConsent, setGuestParentalConsent] = useState(false)
+  // Server-side age gate fallback belt (audit F1): set when the guest
+  // checkout's 422 `age_ineligible` fires despite the client-side check
+  // passing (e.g. season age-group bounds changed after the page loaded).
+  // Cleared whenever the child's birth date is edited so a stale message
+  // doesn't linger past the fix.
+  const [guestServerAgeError, setGuestServerAgeError] = useState<string | null>(null)
 
   // Guest submit hit the server's `already_registered` 409 (this email
   // already has a live registration for this season). Renders a friendly
@@ -1184,6 +1199,10 @@ export default function RegistrationWizard({
               mediaAuthOptOuts: mediaAuthOptOutsArr,
               paymentMethodCategory: category,
               teamToken: teamToken ?? undefined,
+              // COPPA (audit finding F2): the server requires this literal
+              // true — Continue is blocked on step 1 until the checkbox is
+              // checked, so by the time this fires it's always true.
+              parentalConsent: true as const,
             }
 
       const res = await fetch("/api/registrations/guest-checkout", {
@@ -1201,6 +1220,43 @@ export default function RegistrationWizard({
           // switched to the friendly state.
           setGuestAlreadyRegistered(true)
           return { error: "already_registered" }
+        }
+        // Fallback belt (audit F1): the client-side check already blocks
+        // Continue on an out-of-range DOB, so this only fires on a race
+        // (e.g. the season's age-group bounds changed after the page
+        // loaded). The youth child branch renders the message inline at the
+        // player step, naming the child.
+        if (data?.error === "age_ineligible" && !adultSelfFlow && guestMode === "child") {
+          const onDate = season.startDate ? new Date(season.startDate) : new Date()
+          const message = formatAgeIneligibleMessage({
+            ageGroupName: data.ageGroupName ?? season.ageGroup?.name ?? "This age group",
+            minAge: data.minAge ?? null,
+            maxAge: data.maxAge ?? null,
+            age: ageOnDate(guestChildBirthDate, onDate),
+            personName: guestChildFirstName,
+          })
+          setGuestServerAgeError(message)
+          setCurrentStep(stepNumberOf("player"))
+          return { error: "age_ineligible" }
+        }
+        // Ambiguous-audience adult-guest branch (guestMode === "adult", not
+        // adultSelfFlow — the deferred-DOB v2 flow can't submit a birthDate,
+        // so it can't hit this gate). Same fallback-belt reasoning, but
+        // there's no per-field slot to render it inline, so it goes to the
+        // generic error banner. personName is deliberately left undefined
+        // (code review fix) — the shared formatter falls back to "This
+        // player" rather than surfacing the raw "age_ineligible" enum.
+        if (data?.error === "age_ineligible") {
+          const onDate = season.startDate ? new Date(season.startDate) : new Date()
+          setError(
+            formatAgeIneligibleMessage({
+              ageGroupName: data.ageGroupName ?? season.ageGroup?.name ?? "This age group",
+              minAge: data.minAge ?? null,
+              maxAge: data.maxAge ?? null,
+              age: ageOnDate(guestAdultBirthDate, onDate),
+            }),
+          )
+          return { error: "age_ineligible" }
         }
         throw new Error(parseApiError(data, "Failed to complete registration"))
       }
@@ -1380,6 +1436,27 @@ export default function RegistrationWizard({
           }
           return { error: "already_registered" }
         }
+        // Fallback belt (audit F1, code review fix): the WhoStep click gate
+        // and canProceed() both already block on an ineligible selection, so
+        // this only fires on a race (season/age-group changed after the
+        // page loaded). personName is deliberately left undefined here (the
+        // shared formatter falls back to "This player") rather than surfacing
+        // the raw "age_ineligible" enum via parseApiError.
+        if (data?.error === "age_ineligible") {
+          const onDate = season?.startDate ? new Date(season.startDate) : new Date()
+          const birthDate = selectedPersonBirthDate()
+          setError(
+            birthDate
+              ? formatAgeIneligibleMessage({
+                  ageGroupName: data.ageGroupName ?? season?.ageGroup?.name ?? "This age group",
+                  minAge: data.minAge ?? null,
+                  maxAge: data.maxAge ?? null,
+                  age: ageOnDate(birthDate, onDate),
+                })
+              : "This player isn't in the age range for this program.",
+          )
+          return { error: "age_ineligible" }
+        }
         throw new Error(parseApiError(data, "Failed to complete registration"))
       }
 
@@ -1541,6 +1618,10 @@ export default function RegistrationWizard({
       if (!guestChildLastName.trim()) errors.childLastName = "Enter the player's last name."
       if (!/^\d{4}-\d{2}-\d{2}$/.test(guestChildBirthDate))
         errors.childBirthDate = "Enter the player's birth date."
+      // COPPA (audit finding F2): required, unchecked-by-default consent —
+      // block Continue until the guardian affirmatively checks it.
+      if (!guestParentalConsent)
+        errors.parentalConsent = "Check the box to confirm parental consent."
     }
     return Object.keys(errors).length > 0 ? errors : null
   }
@@ -1553,7 +1634,15 @@ export default function RegistrationWizard({
   const handleContinue = () => {
     if (stepName === "player" && isGuest) {
       const errors = computeGuestErrors()
-      if (errors) {
+      // Age-eligibility (audit F1) is a hard block independent of the
+      // attempt-based required-field errors above — it already renders live
+      // (see displayedChildAgeError). Checking the server-belt half
+      // (guestServerAgeError, via displayedChildAgeError) too — not just the
+      // client-side childAgeIneligibleMessage — closes a Continue → Pay →
+      // 422 → Continue loop: without it, a race-condition 422 leaves the
+      // message visible but doesn't stop the customer from immediately
+      // re-submitting the same bad DOB.
+      if (errors || displayedChildAgeError) {
         setGuestAttempted(true)
         return
       }
@@ -1562,13 +1651,35 @@ export default function RegistrationWizard({
     setCurrentStep(currentStep + 1)
   }
 
+  // Resolves the signed-in step's selected registrant's birth date, for the
+  // age-eligibility gate below. Mirrors selectedDisplayName's self/dependent
+  // split (defined further down) rather than depending on it directly.
+  const selectedPersonBirthDate = (): string | null => {
+    if (selectedKey === "self") {
+      // Adult-self flows defer DOB to post-payment — a null birthDate here
+      // is treated as eligible by isAgeEligible/checkAgeEligibility, same as
+      // the WhoStep selfOption card above.
+      return completedBirthDate ?? null
+    }
+    return familyMembers.find((m) => m.id === selectedKey)?.birthDate ?? null
+  }
+
   const canProceed = () => {
     switch (stepName) {
-      case "player":
+      case "player": {
         // Guests: always allow the tap — handleContinue validates and surfaces
         // per-field errors instead of a dead button.
         if (isGuest) return true
-        return selectedKey !== null
+        if (selectedKey === null) return false
+        // Age-eligibility (audit F1) is a hard block here too — not just on
+        // the WhoStep card's click handler — because two routes bypass that
+        // click gate entirely: handleAddMember auto-selects a freshly
+        // created dependent with no age check, and applyDraft can restore a
+        // selectedKey from localStorage that points at a dependent who's
+        // since become ineligible (season/age-group changed underneath it).
+        if (!season) return true // canProceed only renders after the wizard's own "!season → return null" guard; permissive fallback purely for TS narrowing below
+        return isAgeEligible(selectedPersonBirthDate(), season)
+      }
       case "agreements":
         // Waiver is the gate; media consent below it is optional. The full
         // legal text being collapsed doesn't change what's required.
@@ -1580,24 +1691,75 @@ export default function RegistrationWizard({
     }
   }
 
-  const calculateAge = (birthDate: string) => {
-    const today = new Date()
-    const birth = new Date(birthDate)
-    let age = today.getFullYear() - birth.getFullYear()
-    const monthDiff = today.getMonth() - birth.getMonth()
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-      age--
+  // Age is computed on the season's start date (fallback: today), matching
+  // the server's ageGateResponse convention in guest-checkout.ts/index.ts.
+  const ageGateOnDate = (currentSeason: Season | null) =>
+    currentSeason?.startDate ? new Date(currentSeason.startDate) : new Date()
+
+  // Single source of truth for the age-eligibility math (audit F1) — do not
+  // recompute this inline; checkAgeEligibility is the pure, shared module
+  // the server 422 gate also uses. minAge/maxAge come straight off the DB
+  // column (nullable) even though Season's TS shape claims `number` — treat
+  // them defensively as possibly-null here.
+  const ageEligibilityFor = (birthDate: string | null, currentSeason: Season | null) => {
+    if (!currentSeason?.ageGroup || !birthDate) {
+      return { eligible: true as const }
     }
-    return age
+    return checkAgeEligibility({
+      birthDate,
+      minAge: currentSeason.ageGroup.minAge,
+      maxAge: currentSeason.ageGroup.maxAge,
+      onDate: ageGateOnDate(currentSeason),
+    })
   }
 
-  const isAgeEligible = (birthDate: string | null, currentSeason: Season): boolean => {
-    if (!currentSeason.ageGroup) return true
-    // DOB not known yet (post-payment deferral) — treat as unknown-yet-
-    // allowed; the post-payment age check owns enforcement.
-    if (!birthDate) return true
-    const age = calculateAge(birthDate)
-    return age >= currentSeason.ageGroup.minAge && age <= currentSeason.ageGroup.maxAge
+  const isAgeEligible = (birthDate: string | null, currentSeason: Season): boolean =>
+    ageEligibilityFor(birthDate, currentSeason).eligible
+
+  // Builds the exact inline copy for an out-of-range DOB, or null when in
+  // range/unknown. Shared by the guest child field, the signed-in Who step
+  // (self + dependents), and the server-422 fallback belt below.
+  const ageIneligibleMessageFor = (
+    birthDate: string | null,
+    currentSeason: Season | null,
+    personName?: string | null,
+  ): string | null => {
+    const result = ageEligibilityFor(birthDate, currentSeason)
+    if (result.eligible || !currentSeason?.ageGroup) return null
+    return formatAgeIneligibleMessage({
+      ageGroupName: currentSeason.ageGroup.name,
+      minAge: currentSeason.ageGroup.minAge,
+      maxAge: currentSeason.ageGroup.maxAge,
+      age: result.age,
+      personName,
+    })
+  }
+
+  // Guest child mode's live age-eligibility message (audit F1). Computed on
+  // every render — not gated behind a Continue attempt — so it appears as
+  // soon as the visitor types/picks an out-of-range DOB. Only applies to
+  // the youth guest branch (child mode, not the deferred-DOB adult-self flow).
+  const childAgeIneligibleMessage =
+    isGuest && !adultSelfFlow && guestMode === "child"
+      ? ageIneligibleMessageFor(guestChildBirthDate, season, guestChildFirstName)
+      : null
+
+  // Combines the live client-side check with the server-422 fallback belt —
+  // whichever fired most recently. The server-side message is cleared as
+  // soon as the birth date changes (see handleGuestChildBirthDateChange).
+  const displayedChildAgeError = childAgeIneligibleMessage ?? guestServerAgeError
+
+  const handleGuestChildBirthDateChange = (v: string) => {
+    setGuestChildBirthDate(v)
+    setGuestServerAgeError(null)
+  }
+
+  // Toggling child ↔ adult mode swaps which DOB field (and which age gate)
+  // is even in play — a stale guestServerAgeError from the other mode's 422
+  // must not linger and render against the wrong field/context.
+  const handleGuestModeChange = (mode: GuestRegistrationMode) => {
+    setGuestMode(mode)
+    setGuestServerAgeError(null)
   }
 
   // Resolve the display name for the selected registrant
@@ -1967,6 +2129,11 @@ export default function RegistrationWizard({
                     firstName: completedProfile.firstName || (user?.firstName ?? ""),
                     lastName: completedProfile.lastName || (user?.lastName ?? ""),
                     ageEligible: isAgeEligible(completedBirthDate, season),
+                    ageIneligibleMessage: ageIneligibleMessageFor(
+                      completedBirthDate,
+                      season,
+                      completedProfile.firstName || (user?.firstName ?? ""),
+                    ),
                     registered:
                       selfFamilyMemberId != null && registeredMemberIds.has(selfFamilyMemberId),
                   }
@@ -1999,6 +2166,7 @@ export default function RegistrationWizard({
                 lastName: m.lastName,
                 birthDate: m.birthDate,
                 ageEligible: isAgeEligible(m.birthDate, season),
+                ageIneligibleMessage: ageIneligibleMessageFor(m.birthDate, season, m.firstName),
                 registered: registeredMemberIds.has(m.id),
               }))}
             selectedKey={selectedKey}
@@ -2034,7 +2202,7 @@ export default function RegistrationWizard({
           <GuestInfoStep
             seasonId={seasonId}
             mode={guestMode}
-            onModeChange={setGuestMode}
+            onModeChange={handleGuestModeChange}
             lockedMode={lockedGuestMode}
             // Minimal = name + email only, adult-self only. Youth renders the
             // full parent + child form here (child DOB included); the waiver
@@ -2058,12 +2226,15 @@ export default function RegistrationWizard({
             onSmsConsentChange={setGuestSmsConsent}
             onChildFirstNameChange={setGuestChildFirstName}
             onChildLastNameChange={setGuestChildLastName}
-            onChildBirthDateChange={setGuestChildBirthDate}
+            onChildBirthDateChange={handleGuestChildBirthDateChange}
             onChildGenderChange={setGuestChildGender}
             adultBirthDate={guestAdultBirthDate}
             adultGender={guestAdultGender}
             onAdultBirthDateChange={setGuestAdultBirthDate}
             onAdultGenderChange={setGuestAdultGender}
+            childAgeError={displayedChildAgeError}
+            parentalConsent={guestParentalConsent}
+            onParentalConsentChange={setGuestParentalConsent}
             fieldErrors={guestFieldErrors}
             onSignInClick={handleGuestSignInClick}
           />
@@ -2253,7 +2424,7 @@ export default function RegistrationWizard({
                 Continue
                 <ChevronRight className="w-4 h-4 ml-1" />
               </Button>
-              {stepName === "player" && isGuest && guestFieldErrors && (
+              {stepName === "player" && isGuest && (guestFieldErrors || displayedChildAgeError) && (
                 <p className="text-xs text-destructive text-right">
                   Fix the highlighted fields above to continue.
                 </p>

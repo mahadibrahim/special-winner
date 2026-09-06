@@ -93,7 +93,12 @@ afterAll(async () => {
   await db.delete(familyMembers).where(inArray(familyMembers.id, createdChildIds));
 });
 
-/** A fresh dependent under the seeded parent, unique per run. */
+/** A fresh dependent under the seeded parent, unique per run. Birthdate is
+ *  adult-range (not a real "child" DOB) — this fixture registers against
+ *  e2e-adult-open-soccer-2026 (18-99 age_group), and the age-eligibility
+ *  gate (Task 2, F1) now 422s a mismatched-age dependent at creation. Waiver
+ *  coverage logic (what this suite actually tests) doesn't care who's
+ *  registering, so a compatible-age dependent keeps the fixture minimal. */
 async function newChild(label: string): Promise<string> {
   const db = getDb();
   const [child] = await db
@@ -102,7 +107,7 @@ async function newChild(label: string): Promise<string> {
       parentUserId,
       firstName: `AnnualWaiver${label}`,
       lastName: suffix,
-      birthDate: "2015-01-01",
+      birthDate: "1995-01-01",
     })
     .returning({ id: familyMembers.id });
   createdChildIds.push(child.id);

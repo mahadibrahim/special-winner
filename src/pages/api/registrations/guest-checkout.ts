@@ -1,14 +1,20 @@
 import type { APIRoute } from "astro";
 import { z } from "zod";
+import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import {
   users,
   familyMembers as familyMembersTable,
+  seasons,
+  ageGroups,
+  programs,
+  locations,
 } from "@/lib/db/schema";
 import {
   createRegistration,
   RegistrationError,
 } from "@/lib/registrations/create-registration";
+import { checkAgeEligibility } from "@/lib/registrations/age-eligibility";
 import {
   createCheckoutForRegistration,
   CheckoutError,
@@ -79,6 +85,13 @@ const legacyGuestCheckoutSchema = z
     // SMS consent checkbox next to the phone field (unchecked by default).
     // Only meaningful when a phone is provided.
     smsConsent: z.boolean().optional(),
+    // COPPA (audit finding F2, owner decision: mirror the guest-trial flow):
+    // verifiable parental consent, captured at COLLECTION time — this is a
+    // separate affirmative confirmation from the (deferred) liability
+    // waiver, required for every parent+child guest checkout. The write
+    // side lives below, right after resolvePerson resolves the child's
+    // family_members row.
+    parentalConsent: z.literal(true),
   })
   .superRefine((d, ctx) => {
     if (d.waiverSigned && !d.waiverSignedBy?.trim()) {
@@ -164,6 +177,58 @@ export const POST: APIRoute = async (context) => {
     // Storefront the charge came through — brands share one org and one
     // Stripe account, so the request host is the only brand signal.
     const brand = brandFromHost(request.headers.get("host") ?? "");
+
+    // -------------------------------------------------------------------------
+    // Server-side age gate (audit finding F1, owner decision: hard block both
+    // directions). A season's age_group bounds are enforced here — before
+    // upsertGuestUser/resolvePerson/any write and before any Stripe call — so
+    // nobody can buy (or be bought) into a season they're not age-eligible
+    // for, guest path included. A season with no age_group_id (open-age
+    // divisions) gates nothing; a registrant with no birthDate yet (v2 adult-
+    // self flow defers DOB to the post-payment completion step) also skips —
+    // checkAgeEligibility treats an empty birthDate as eligible, and the
+    // completion endpoint's own ageReviewNeeded check backstops that case
+    // once the real DOB is known. Age is computed on the season's start date
+    // (fallback to now), matching ageOnDate's convention.
+    const [seasonAgeGate] = await db
+      .select({
+        startDate: seasons.startDate,
+        minAge: ageGroups.minAge,
+        maxAge: ageGroups.maxAge,
+        ageGroupName: ageGroups.name,
+      })
+      .from(seasons)
+      .leftJoin(ageGroups, eq(seasons.ageGroupId, ageGroups.id))
+      .where(eq(seasons.id, data.seasonId));
+
+    function ageGateResponse(birthDate: string | null | undefined): Response | null {
+      if (
+        !seasonAgeGate ||
+        (seasonAgeGate.minAge == null && seasonAgeGate.maxAge == null) ||
+        !birthDate
+      ) {
+        return null;
+      }
+      const onDate = seasonAgeGate.startDate
+        ? new Date(seasonAgeGate.startDate)
+        : new Date();
+      const result = checkAgeEligibility({
+        birthDate,
+        minAge: seasonAgeGate.minAge,
+        maxAge: seasonAgeGate.maxAge,
+        onDate,
+      });
+      if (result.eligible) return null;
+      return new Response(
+        JSON.stringify({
+          error: "age_ineligible",
+          minAge: seasonAgeGate.minAge,
+          maxAge: seasonAgeGate.maxAge,
+          ageGroupName: seasonAgeGate.ageGroupName,
+        }),
+        { status: 422, headers: { "Content-Type": "application/json" } },
+      );
+    }
 
     // Capture GA4 client_id + ad-platform IDs (gclid, fbclid, _fbc, _fbp) to
     // pass through the PaymentIntent metadata so the webhook
@@ -584,6 +649,9 @@ export const POST: APIRoute = async (context) => {
       // exactly the failures it exists to make visible. Left as a literal.
       posthog.capture({ distinctId: phClientId || r.email.toLowerCase().trim(), event: "guest_checkout_started", properties: { $session_id: phSessionId, season_id: data.seasonId, registration_type: data.registrationType, brand, email: r.email.toLowerCase().trim(), audience: "adult" } });
 
+      const ageGate = ageGateResponse(r.birthDate ?? null);
+      if (ageGate) return ageGate;
+
       const { userRow, wasNewUser } = await upsertGuestUser(db, {
         email: r.email,
         firstName: r.firstName,
@@ -638,6 +706,9 @@ export const POST: APIRoute = async (context) => {
     // what keeps the funnel's audience segmentation intact.
     posthog.capture({ distinctId: phClientId || data.parent.email.toLowerCase().trim(), event: "guest_checkout_started", properties: { $session_id: phSessionId, season_id: data.seasonId, registration_type: data.registrationType, brand, email: data.parent.email.toLowerCase().trim(), audience: "youth" } });
 
+    const ageGate = ageGateResponse(data.child.birthDate);
+    if (ageGate) return ageGate;
+
     const { userRow, wasNewUser } = await upsertGuestUser(db, {
       email: data.parent.email,
       firstName: data.parent.firstName,
@@ -650,7 +721,7 @@ export const POST: APIRoute = async (context) => {
     // helper rather than an inline SELECT-then-INSERT so all family_members
     // creation goes through one code path (matches the adult-self branch
     // above and the project convention).
-    const familyMemberRow = await resolvePerson(db, {
+    let familyMemberRow = await resolvePerson(db, {
       kind: "dependent",
       parentUserId: userRow.id,
       firstName: data.child.firstName,
@@ -658,6 +729,63 @@ export const POST: APIRoute = async (context) => {
       birthDate: data.child.birthDate,
       gender: data.child.gender || null,
     });
+
+    // -----------------------------------------------------------------------
+    // COPPA: verifiable parental consent at COLLECTION time (audit finding
+    // F2, owner decision: mirror the guest-trial flow). This is a separate
+    // affirmative confirmation from the (deferred-to-post-payment) liability
+    // waiver below, gated by the schema's `parentalConsent: z.literal(true)`
+    // above — every parent+child guest checkout reaches here having already
+    // confirmed it. The two writes are independently idempotent — a
+    // resumed/deduped child (resolvePerson found an existing row) never
+    // double-records: the family_members stamp only applies when the row
+    // isn't already stamped, and the consents row only writes when no active
+    // "parental" consent exists yet — so a re-submission (or a family_members
+    // row created some other way, e.g. the dashboard's add-dependent form)
+    // never overwrites the original stamp or creates a duplicate grant.
+    const needsFamilyMemberStamp = !familyMemberRow.parentalConsentGivenAt;
+    const needsConsentRow = !(await hasActiveConsent(
+      db,
+      familyMemberRow.id,
+      "parental",
+    ));
+    if (needsFamilyMemberStamp || needsConsentRow) {
+      const [orgRow] = needsConsentRow
+        ? await db
+            .select({ organizationId: locations.organizationId })
+            .from(seasons)
+            .innerJoin(programs, eq(seasons.programId, programs.id))
+            .innerJoin(locations, eq(programs.locationId, locations.id))
+            .where(eq(seasons.id, data.seasonId))
+        : [];
+
+      if (needsFamilyMemberStamp) {
+        const [stampedMember] = await db
+          .update(familyMembersTable)
+          .set({
+            parentalConsentGivenAt: new Date(),
+            parentalConsentGivenBy: userRow.id,
+            parentalConsentIp: clientAddress || null,
+            updatedAt: new Date(),
+          })
+          .where(eq(familyMembersTable.id, familyMemberRow.id))
+          .returning();
+        if (stampedMember) familyMemberRow = stampedMember;
+      }
+
+      if (needsConsentRow) {
+        await recordConsent({
+          db,
+          familyMemberId: familyMemberRow.id,
+          organizationId: orgRow?.organizationId ?? null,
+          type: "parental",
+          signedByUserId: userRow.id,
+          signedByName: `${data.parent.firstName} ${data.parent.lastName}`.trim(),
+          ipAddress: clientAddress || null,
+          userAgent: userAgent ?? null,
+        });
+      }
+    }
 
     return runCheckout({
       userRow,

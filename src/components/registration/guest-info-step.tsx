@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import { Checkbox } from "@/components/ui/checkbox"
 import { SmsConsentCheckbox } from "@/components/sms/sms-consent-checkbox"
 import { buildSigninRedirectHref } from "@/lib/auth/signin-redirect-href"
 
@@ -20,6 +21,9 @@ export interface GuestFieldErrors {
   childLastName?: string
   childBirthDate?: string
   adultBirthDate?: string
+  /** Shown when Continue was attempted without checking the COPPA box
+   *  (child mode only). */
+  parentalConsent?: string
 }
 
 export interface GuestInfoStepProps {
@@ -72,6 +76,24 @@ export interface GuestInfoStepProps {
   onAdultBirthDateChange: (v: string) => void
   onAdultGenderChange: (v: string) => void
 
+  /**
+   * Live age-eligibility message for the child's birth date (audit F1),
+   * computed by the wizard from the season's age-group bounds. Unlike
+   * `fieldErrors`, this renders as soon as an out-of-range DOB is entered —
+   * it is NOT gated behind a failed Continue attempt — so the visitor sees
+   * it immediately on change/blur. Null/undefined = in range or unknown.
+   */
+  childAgeError?: string | null
+
+  /**
+   * COPPA (audit finding F2): required parental-consent checkbox, rendered
+   * only in child mode (never adult-self). Exact copy is fixed — see the
+   * render below — do not paraphrase; it mirrors the guest-checkout API's
+   * `parentalConsent: true` requirement.
+   */
+  parentalConsent: boolean
+  onParentalConsentChange: (v: boolean) => void
+
   /** Set by the wizard after a failed Continue attempt; null/absent = no
    *  validation attempted yet (fields render without error styling). */
   fieldErrors?: GuestFieldErrors | null
@@ -114,6 +136,9 @@ export function GuestInfoStep({
   adultGender,
   onAdultBirthDateChange,
   onAdultGenderChange,
+  childAgeError = null,
+  parentalConsent,
+  onParentalConsentChange,
   lockedMode,
   minimal = false,
   fieldErrors = null,
@@ -370,9 +395,14 @@ export function GuestInfoStep({
                   type="date"
                   value={childBirthDate}
                   onChange={(e) => onChildBirthDateChange(e.target.value)}
-                  className={`bg-cream-2 text-ink focus:border-primary ${errClass("childBirthDate")}`}
+                  className={`bg-cream-2 text-ink focus:border-primary ${
+                    childAgeError ? "border-destructive" : errClass("childBirthDate")
+                  }`}
                 />
                 {errText("childBirthDate")}
+                {childAgeError && (
+                  <p className="text-xs text-destructive">{childAgeError}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="guest-child-gender" className="text-ink-muted">Gender</Label>
@@ -387,6 +417,34 @@ export function GuestInfoStep({
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            {/* COPPA (audit finding F2): verifiable parental consent captured
+                at collection time, separate from the (deferred) liability
+                waiver. Required for every parent+child guest checkout —
+                gates the guest-checkout API's `parentalConsent: true`. */}
+            <div className="rounded-lg border border-border bg-cream-2 p-3">
+              <label
+                htmlFor="guest-child-parental-consent"
+                className="flex items-start gap-2.5 cursor-pointer"
+              >
+                <Checkbox
+                  id="guest-child-parental-consent"
+                  checked={parentalConsent}
+                  onCheckedChange={(v) => onParentalConsentChange(v === true)}
+                  className="mt-0.5"
+                />
+                <span className="text-sm text-ink-2">
+                  I am this child's parent or legal guardian and I consent to
+                  Aspire collecting their information for this program.
+                  Required by federal law (COPPA) for participants under 13.
+                </span>
+              </label>
+              {err("parentalConsent") && (
+                <p className="text-xs text-destructive mt-1.5 ml-[26px]">
+                  {err("parentalConsent")}
+                </p>
+              )}
             </div>
           </div>
         </>

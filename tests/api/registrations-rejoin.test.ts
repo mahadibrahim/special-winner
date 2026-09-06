@@ -94,7 +94,12 @@ async function makePerson(label: string) {
       parentUserId,
       firstName: "Rejoin",
       lastName: `${label}-${unique}`,
-      birthDate: "2015-01-01",
+      // Adult-range, not a real "child" DOB: this fixture registers against
+      // e2e-adult-open-soccer-2026 (18-99 age_group), and the age-
+      // eligibility gate (Task 2, F1) now 422s a mismatched-age dependent at
+      // creation. Cancel/resume/rejoin semantics (what this suite tests)
+      // don't care about the registrant's actual age.
+      birthDate: "1995-01-01",
     })
     .returning();
   cleanupMemberIds.push(member.id);
