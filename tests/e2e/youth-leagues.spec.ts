@@ -183,12 +183,16 @@ test.describe("youth navigation", () => {
     // calls useHydrationBeacon(), so html[data-hydrated="true"] never
     // appears and the wait would hang until timeout.
     await page.goto("/youth", { waitUntil: "domcontentloaded" })
-    // Scope to #main-content: the header nav also renders an
-    // `a[href="/youth/leagues"]` inside its Youth dropdown, but that link is
-    // CSS-hidden until :hover, so an unscoped `.first()` can resolve to it
-    // and report a false "hidden" failure (same pattern category-pages.spec
-    // uses to disambiguate nav links from body links).
-    for (const href of ["/youth/leagues", "/youth/classes", "/youth/camps"]) {
+    // Scope to #main-content: the header nav also renders league links
+    // inside its Youth dropdown, but those are CSS-hidden until :hover, so
+    // an unscoped `.first()` can resolve to one and report a false "hidden"
+    // failure (same pattern category-pages.spec uses to disambiguate nav
+    // links from body links).
+    //
+    // The hub's league links point DIRECTLY at /youth/leagues/soccer since
+    // the F9 audit fix (#638) — the bare /youth/leagues 302 remains only
+    // for external/bookmarked links.
+    for (const href of ["/youth/leagues/soccer", "/youth/classes", "/youth/camps"]) {
       await expect(page.locator(`#main-content a[href="${href}"]`).first()).toBeVisible()
     }
   })
