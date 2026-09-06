@@ -10,11 +10,8 @@
  *   - tournament_game → games rows where the parent program's programType = "tournament"
  *   - drop_in         → dropInSessions rows where kind = "pickup"
  *   - class           → dropInSessions rows where kind = "class"
+ *   - camp            → dropInSessions rows where kind = "camp"
  *   - rental          → fieldRentals rows
- *
- * Camps (programs with programType = "camp") have no per-day scheduling
- * surface in the schema yet — they're a known gap to address in Phase 4 (or
- * via a separate "camp sessions" table). Not blocked on for the v1 Venue Day.
  */
 
 import { getDb } from "@/lib/db";
@@ -347,7 +344,7 @@ export async function getVenueDayData(
 
   const dropInBlocks: ActivityBlock[] = dropInRows.map((s) => ({
     id: s.id,
-    type: s.kind === "class" ? "class" : "drop_in",
+    type: s.kind === "class" ? "class" : s.kind === "camp" ? "camp" : "drop_in",
     startAt: s.startsAt.toISOString(),
     endAt: s.endsAt.toISOString(),
     title: s.label,
