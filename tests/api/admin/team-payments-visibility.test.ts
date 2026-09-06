@@ -292,15 +292,18 @@ describe("GET /api/admin/registrations/export.csv — team context", () => {
 describe("GET /api/admin/reports/revenue — team-level transactions", () => {
   it("counts team deposits and balances in totals and by-type buckets", async () => {
     const report = await fetchRevenueReport();
-    // All 4 succeeded rows (deposit, balance, refund-typed row, solo) land in
-    // the report's totalRevenue (it filters on status only — pre-existing
-    // semantics, unchanged here).
+    // Only 3 of the 4 succeeded rows (deposit, balance, solo) land in the
+    // report's totalRevenue/transactionCount — the refund-typed row is
+    // deliberately excluded there (revenue.ts's `notARefund` guard, added by
+    // winter-team-fixes task 2 to stop a deposit-refund row from double-
+    // counting as both "revenue" and, via the dedicated refunds summary
+    // below, a refund) and surfaces separately instead.
     expect(report.summary.totalRevenue - revenueBaseline.summary.totalRevenue).toBe(
-      DEPOSIT_CENTS + BALANCE_CENTS + REFUND_CENTS + 12000,
+      DEPOSIT_CENTS + BALANCE_CENTS + 12000,
     );
     expect(
       report.summary.transactionCount - revenueBaseline.summary.transactionCount,
-    ).toBe(4);
+    ).toBe(3);
     expect(report.summary.refunds.total - revenueBaseline.summary.refunds.total).toBe(
       REFUND_CENTS,
     );

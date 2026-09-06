@@ -86,6 +86,7 @@ export const SERVER_EVENTS = {
   waiverSigned: "waiver_signed",
   waiverReminderSent: "waiver_reminder_sent",
   teamDepositPaid: "team_deposit_paid",
+  teamDepositRefunded: "team_deposit_refunded",
   // Interest in a forming season was invisible to analytics until #543 —
   // demand signal for unopened divisions couldn't be measured at all.
   seasonInterestSubmitted: "season_interest_submitted",

@@ -115,6 +115,11 @@ export const GET: APIRoute = async ({ params, locals }) => {
       depositCents: result.season.depositCents,
       allowDeposit: result.season.allowDeposit,
       status: result.season.status,
+      // Explicit minAge override, when set — the register page's team-create
+      // flow mirrors isYouthTeamSeason's resolution order (minAge ?? ageGroup
+      // .minAge) rather than reading ageGroup alone, so it never diverges
+      // from the money-grade server predicate (see team-season-kind.ts).
+      minAge: result.season.minAge,
       registrationCloses: result.season.registrationCloses ? result.season.registrationCloses.toISOString() : null,
       // Server-computed so the register page and the API agree on the clock;
       // createRegistration enforces the same predicate on the write path.

@@ -34,12 +34,14 @@ import {
   programs,
   sports,
   locations,
+  ageGroups,
 } from "@/lib/db/schema";
 import {
   captainDepositCreditCents,
   captainShareDueCents,
   teamDepositPaid,
 } from "@/lib/registrations/captain-credit";
+import { isYouthTeamSeason } from "@/lib/registrations/team-season-kind";
 import {
   teamMoneyReceivedCents,
   teamMoneyReceivedByTeamIds,
@@ -194,6 +196,15 @@ export interface TeamHubDetail {
     depositCents: number;
     collectedCents: number;
     paymentDeadline: string | null;
+    /**
+     * True for a youth season (winter-team-fixes, task 4/5 fix round 1) —
+     * computed server-side here (never re-derived client-side) so the
+     * dashboard's "Add teammates" split and any future consumer of this
+     * payload can never diverge from the money-grade predicate. Youth: the
+     * roster split covers the FULL team fee (the deposit is a refundable
+     * hold, never a per-share credit). Adult: unchanged (fee − deposit).
+     */
+    isYouth: boolean;
   };
   captainCredit: {
     shareCents: number;
@@ -237,15 +248,22 @@ export async function buildTeamHubDetail(
       program: programs,
       sport: sports,
       location: locations,
+      // Only for isYouthTeamSeason below — never surfaced on its own.
+      ageGroupMinAge: ageGroups.minAge,
     })
     .from(seasons)
     .innerJoin(programs, eq(seasons.programId, programs.id))
     .innerJoin(sports, eq(programs.sportId, sports.id))
     .innerJoin(locations, eq(programs.locationId, locations.id))
+    .leftJoin(ageGroups, eq(seasons.ageGroupId, ageGroups.id))
     .where(eq(seasons.id, team.seasonId))
     .limit(1);
 
   const ctx = context[0]!;
+  const isYouth = isYouthTeamSeason({
+    minAge: ctx.season.minAge,
+    ageGroupMinAge: ctx.ageGroupMinAge,
+  });
 
   const [members, invitees] = await Promise.all([
     db
@@ -289,14 +307,19 @@ export async function buildTeamHubDetail(
   const collectedCents = (await teamMoneyReceivedCents(db, team.id)).totalCents;
 
   // Captain's own-registration credit preview (display-only; createRegistration
-  // recomputes server-side). Only when the deposit is verifiably paid and the
-  // captain hasn't already registered. Since #468/#469 the captain is
-  // auto-registered as a member at finalize, so this is normally suppressed —
-  // showing "you still owe $X for your own spot" to an already-registered
-  // captain (whenever solo price > deposit) is just misleading.
+  // recomputes server-side). Only when the deposit is verifiably paid, the
+  // captain hasn't already registered, AND the season is adult. Since
+  // #468/#469 the captain is auto-registered as a member at finalize (adult
+  // only — see finalize-team-deposit.ts), so `!captainRegistered` is normally
+  // already false on adult teams; it's the `!isYouth` gate that matters here:
+  // a youth captain is NEVER auto-registered (task 4), which would otherwise
+  // make `!captainRegistered` permanently true and render "your own player
+  // registration: $X due after your deposit credit" to a manager-captain who
+  // has no player registration and no credit at all (winter-team-fixes, fix
+  // round 1).
   const captainRegistered = members.some((m) => m.role === "captain");
   let captainCredit: TeamHubDetail["captainCredit"] = null;
-  if (teamDepositPaid(team) && !captainRegistered) {
+  if (teamDepositPaid(team) && !captainRegistered && !isYouth) {
     const ownInvitee = invitees.find(
       (i) => i.email.toLowerCase() === captainEmailLower,
     );
@@ -349,6 +372,7 @@ export async function buildTeamHubDetail(
       paymentDeadline: team.paymentDeadline
         ? team.paymentDeadline.toISOString()
         : null,
+      isYouth,
     },
     captainCredit,
     season: {

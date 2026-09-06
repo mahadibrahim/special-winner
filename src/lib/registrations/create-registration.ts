@@ -8,6 +8,7 @@ import {
   teamRegistrations,
   teamRegistrationMembers,
   teamInvitees,
+  ageGroups,
 } from "@/lib/db/schema";
 import { sendRegistrationConfirmationEmail } from "@/lib/email/send";
 import { awaitEmailSend } from "@/lib/notifications/await-dispatch";
@@ -19,6 +20,7 @@ import {
   captainShareDueCents,
   teamDepositPaid,
 } from "@/lib/registrations/captain-credit";
+import { isYouthTeamSeason } from "@/lib/registrations/team-season-kind";
 import {
   WAIVER_ON_FILE_ATTRIBUTION,
   hasValidLiabilityWaiver,
@@ -253,6 +255,33 @@ async function resolveTeamInvitee(opts: {
 }
 
 /**
+ * Whether the season backing a team registration is youth (winter-team-fixes,
+ * task 4). `season` here is the full `seasons` row `createRegistration`
+ * already loaded — its `minAge` column is a direct read, so the extra query
+ * only fires on the (already narrow) captain-credit path below, and only
+ * when `minAge` itself is null and an ageGroupId exists to resolve.
+ */
+async function isYouthSeasonForTeamPricing(
+  db: ReturnType<typeof getDb>,
+  season: typeof seasons.$inferSelect,
+): Promise<boolean> {
+  let ageGroupMinAge: number | null = null;
+  if (season.minAge == null && season.ageGroupId) {
+    try {
+      const [ag] = await db
+        .select({ minAge: ageGroups.minAge })
+        .from(ageGroups)
+        .where(eq(ageGroups.id, season.ageGroupId))
+        .limit(1);
+      ageGroupMinAge = ag?.minAge ?? null;
+    } catch (err) {
+      console.error("[createRegistration] age group lookup failed:", err);
+    }
+  }
+  return isYouthTeamSeason({ minAge: season.minAge, ageGroupMinAge });
+}
+
+/**
  * Team-token pricing for a registrant, shared by the create and resume paths
  * so a resumed pending registration can never quote a different amount than a
  * fresh one (the captain-double-charge bug's second life).
@@ -325,18 +354,30 @@ async function resolveTeamPricing(opts: {
         ? teamReg.captainUserId === user.id
         : teamReg.captainEmail.toLowerCase() === user.email.toLowerCase();
     if (isCaptain && teamDepositPaid(teamReg)) {
-      // Share: the captain-assigned invitee share when one exists, else the
-      // captain-set join price, else the season's individual effective price
-      // (early-bird aware).
-      const shareCents =
-        matchedTeamInvitee?.assignedShareCents ??
-        teamReg.joinShareCents ??
-        registrationAmountDueCents(season, "full");
-      amountDueOverride = captainShareDueCents(
-        shareCents,
-        teamReg.depositCents ?? 0,
-      );
-      captainCreditApplied = true;
+      // ADULT SEASONS ONLY (winter-team-fixes, task 4): a youth captain never
+      // plays on their own team, so this branch should be structurally
+      // unreachable for a youth season (children have no selfUserId to match
+      // `familyMember.selfUserId === user.id` above) — but the credit backs
+      // real money, so it fails safe rather than trusting that invariant.
+      // Skipping it here leaves `amountDueOverride` at whatever was already
+      // resolved above (the invitee's assigned share, the captain's join
+      // price, or the season price) — i.e. the full share, un-credited,
+      // matching "the deposit is a refundable hold, not a credit" for youth.
+      const isYouth = await isYouthSeasonForTeamPricing(db, season);
+      if (!isYouth) {
+        // Share: the captain-assigned invitee share when one exists, else the
+        // captain-set join price, else the season's individual effective price
+        // (early-bird aware).
+        const shareCents =
+          matchedTeamInvitee?.assignedShareCents ??
+          teamReg.joinShareCents ??
+          registrationAmountDueCents(season, "full");
+        amountDueOverride = captainShareDueCents(
+          shareCents,
+          teamReg.depositCents ?? 0,
+        );
+        captainCreditApplied = true;
+      }
     }
   }
 

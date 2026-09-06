@@ -1,17 +1,19 @@
 import type { APIRoute } from "astro";
 import { db } from "@/lib/db";
-import { teamRegistrations, teamInvitees } from "@/lib/db/schema";
+import { teamRegistrations, teamInvitees, seasons, ageGroups } from "@/lib/db/schema";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { sendTeamInviteEmail } from "@/lib/email/send";
 import { brandFromHost } from "@/lib/organization/soccerone-routing";
 import { assignEvenShares } from "@/lib/payments/team-captain-charge";
 import { rateLimit, rateLimitedResponse } from "@/lib/auth/rate-limit";
+import { isYouthTeamSeason } from "@/lib/registrations/team-season-kind";
 
 const emailSchema = z.string().trim().toLowerCase().email().max(320);
 
 // Accept either an explicit per-email share (`invites`) or a bare email list
-// (`emails`), in which case we even-split (teamFee − deposit) across them.
+// (`emails`), in which case we even-split across them — the full team fee for
+// a youth season, or (teamFee − deposit) for adult (winter-team-fixes, task 5).
 const BodySchema = z.union([
   z.object({
     invites: z
@@ -33,9 +35,11 @@ const BodySchema = z.union([
  * Send team-invite emails to prospective teammates AND persist each invitee's
  * assigned per-player share. The captain supplies either explicit
  * `{ invites: [{ email, shareCents }] }` or a bare `{ emails: [] }` list (we
- * even-split the team fee minus the captain deposit across them). Each invitee
- * gets the one-door join link tagged to this team and, when they register, pays
- * exactly their assigned share.
+ * even-split across them — the full team fee on a youth season, since the
+ * captain's deposit never credits a player's share there; team fee minus the
+ * captain deposit on adult, where the captain's own spot is already covered).
+ * Each invitee gets the one-door join link tagged to this team and, when they
+ * register, pays exactly their assigned share.
  *
  * CAPTAIN-ONLY (locals.user must be this team's captain). The assigned share
  * IS the amount the teammate is charged (create-registration.ts uses it as the
@@ -90,6 +94,11 @@ export const POST: APIRoute = async ({ params, request, locals, clientAddress })
   }
 
   try {
+    // Joined to seasons/ageGroups (cheapest correct query, no second
+    // round-trip) so `isYouthTeamSeason` can decide the bare-email-list even
+    // split below: youth rosters split the FULL team fee (the deposit is a
+    // refundable hold, never a per-share credit); adult rosters split
+    // fee-minus-deposit as before (winter-team-fixes, task 5).
     const teamRow = await db
       .select({
         id: teamRegistrations.id,
@@ -102,8 +111,12 @@ export const POST: APIRoute = async ({ params, request, locals, clientAddress })
         inviteToken: teamRegistrations.inviteToken,
         teamFeeCents: teamRegistrations.teamFeeCents,
         depositCents: teamRegistrations.depositCents,
+        seasonMinAge: seasons.minAge,
+        ageGroupMinAge: ageGroups.minAge,
       })
       .from(teamRegistrations)
+      .innerJoin(seasons, eq(teamRegistrations.seasonId, seasons.id))
+      .leftJoin(ageGroups, eq(seasons.ageGroupId, ageGroups.id))
       .where(eq(teamRegistrations.inviteToken, token))
       .limit(1);
 
@@ -146,7 +159,8 @@ export const POST: APIRoute = async ({ params, request, locals, clientAddress })
 
     // Normalize the body into an [{ email, shareCents }] list, de-duped by
     // email. Prefer an explicit per-email share when provided; otherwise
-    // even-split (teamFee − deposit) across the bare email list.
+    // even-split across the bare email list — the full team fee on a youth
+    // season, or (teamFee − deposit) on adult (see isYouthTeamSeason below).
     let shareByEmail: Map<string, number>;
     if ("invites" in parsed.data) {
       shareByEmail = new Map();
@@ -154,11 +168,14 @@ export const POST: APIRoute = async ({ params, request, locals, clientAddress })
         shareByEmail.set(email, shareCents); // last write wins on dupes
       }
     } else {
+      const isYouth = isYouthTeamSeason({
+        minAge: team.seasonMinAge,
+        ageGroupMinAge: team.ageGroupMinAge,
+      });
+      const splittable = isYouth
+        ? Math.max(0, team.teamFeeCents ?? 0)
+        : Math.max(0, (team.teamFeeCents ?? 0) - (team.depositCents ?? 0));
       const emails = Array.from(new Set(parsed.data.emails));
-      const splittable = Math.max(
-        0,
-        (team.teamFeeCents ?? 0) - (team.depositCents ?? 0),
-      );
       const shares = assignEvenShares(splittable, emails);
       shareByEmail = new Map(emails.map((e, i) => [e, shares[i]!]));
     }

@@ -2,6 +2,7 @@
 import { tierColorClass, priceLabel, teamRailBreakdown, formatDayTime, type RailMode } from "@/lib/leagues/rail-content";
 import { railTierBadge } from "@/lib/leagues/division-filters";
 import { formatDateOnly } from "@/lib/time/format-date";
+import { isYouthTeamSeason } from "@/lib/registrations/team-season-kind";
 
 export interface RailSeason {
   name: string;
@@ -24,6 +25,13 @@ export interface RailSeason {
   /** Early-bird-aware TEAM price + whether the team early-bird window is live. */
   effectiveTeamPrice?: number | null;
   teamEarlyBirdActive?: boolean;
+  /** Same fields team-create.tsx reads for its own isYouth branch (fix round
+   *  1/2) — resolved through the SAME canonical `isYouthTeamSeason` here so
+   *  the sidebar rail's "Your roster pays" figure can never diverge from the
+   *  breakdown box's. Optional/absent → adult (fail-toward-existing-behavior,
+   *  same default as the predicate itself). */
+  ageGroup?: { minAge: number } | null;
+  minAge?: number | null;
 }
 
 /** One wizard step for the rail's progress bar. Optional steps render dashed
@@ -67,8 +75,12 @@ export default function LeagueContextRail({ season, mode, step, stepCount, steps
   // lives in the string instead of CSS.
   const tier = railTierBadge(season.skillLevel);
   const isTeam = mode === "team";
+  const isYouth = isYouthTeamSeason({
+    minAge: season.minAge ?? null,
+    ageGroupMinAge: season.ageGroup?.minAge ?? null,
+  });
   const { amount, unit } = priceLabel(mode, season, { shareCents });
-  const teamBreak = isTeam ? teamRailBreakdown(season, { discountCents }) : null;
+  const teamBreak = isTeam ? teamRailBreakdown(season, { discountCents, isYouth }) : null;
   const noShareYet = mode === "share" && !amount;
   const dayTime = formatDayTime(season.dayOfWeek, season.startTime, season.endTime);
   const success = variant === "success";

@@ -1305,6 +1305,17 @@ export interface TeamDepositReceiptParams {
   teamFeeCents: number | null;
   depositCents: number;
   paymentDeadline: Date | null;
+  /**
+   * True for a youth season (winter-team-fixes, task 4) — selects the
+   * "deposit is a refundable hold, not a credit" feeLine variant. The captain
+   * never plays on a youth team (see finalize-team-deposit.ts's
+   * `ensureCaptainRegistration` gate), so the adult "counts toward the
+   * remaining $X" framing would be misleading: the deposit backs the WHOLE
+   * team fee as families register, and is refunded once the roster covers
+   * it. Defaults to false (adult copy) so existing callers/tests are
+   * unaffected until they thread it.
+   */
+  isYouth?: boolean;
   brand?: BrandId;
 }
 
@@ -1345,10 +1356,22 @@ export function buildTeamDepositReceipt(params: TeamDepositReceiptParams): {
     : null;
 
   const subject = `${params.teamName} is reserved — here's your team link`;
-  const feeLine = total
-    ? `Your ${deposit} deposit is in and counts toward the ${total} team fee — your roster covers the remaining ${remainder} as they register.`
-    : `Your ${deposit} deposit is in and counts toward the team fee — your roster covers the rest as they register.`;
-  const deadlineLine = `Teammate shares still unpaid after ${deadline ?? "the payment deadline"} are charged to your card on file.`;
+  const feeLine = params.isYouth
+    ? total
+      ? `Your ${deposit} deposit holds the team. Your roster covers the full ${total} as families register — once they do, your deposit is refunded to your card.`
+      : `Your ${deposit} deposit holds the team. Your roster covers the full team fee as families register — once they do, your deposit is refunded to your card.`
+    : total
+      ? `Your ${deposit} deposit is in and counts toward the ${total} team fee — your roster covers the remaining ${remainder} as they register.`
+      : `Your ${deposit} deposit is in and counts toward the team fee — your roster covers the rest as they register.`;
+  // Youth: the deposit absorbs a shortfall FIRST (see teamYouthDueCents in
+  // team-captain-charge.ts) — the card is only ever charged for what's left
+  // after the deposit, never the raw unpaid-shares total. The adult line
+  // below is accurate as-is: the adult deposit is already counted as
+  // "received" (captain-credit.ts), so unpaid teammate shares really are
+  // what's charged.
+  const deadlineLine = params.isYouth
+    ? `If the roster hasn't covered the team fee by ${deadline ?? "the payment deadline"}, your deposit is applied to the difference first and any remainder is charged to your card on file.`
+    : `Teammate shares still unpaid after ${deadline ?? "the payment deadline"} are charged to your card on file.`;
 
   const manageButton = manageUrl
     ? `<p><a href="${manageUrl}" style="display:inline-block;background:#1a1a1a;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">Manage your team →</a></p>
@@ -1387,6 +1410,123 @@ export async function sendTeamDepositReceiptEmail(params: TeamDepositReceiptPara
   });
   await logEmail({
     emailType: "team_deposit_receipt",
+    recipientEmail: params.to,
+    subject,
+    resendMessageId: result.messageId,
+    status: result.success ? "sent" : "failed",
+  });
+  return result;
+}
+
+// ---- Team deposit refunded (winter-team-fixes — maybeRefundTeamDeposit) ----
+
+export interface TeamDepositRefundedParams {
+  to: string;
+  captainName: string;
+  teamName: string;
+  /** Which of the three outcomes the deposit-refund executor landed on —
+   *  selects the copy variant. Matches maybeRefundTeamDeposit's internal
+   *  FinalStatus verbatim so callers can pass it straight through. */
+  outcome: "refunded" | "partially_refunded" | "forfeited";
+  /**
+   * Amount actually returned to the captain's card, in cents. Required for
+   * 'refunded'/'partially_refunded'; omitted for 'forfeited' (nothing is
+   * returned).
+   */
+  refundedCents?: number;
+  /** The deposit's face amount, in cents — phrases the forfeited copy
+   *  ("your $200 deposit..."). */
+  depositCents: number;
+  /**
+   * The roster shortfall the deposit absorbed at the payment deadline.
+   * Required for 'partially_refunded' and 'forfeited'; irrelevant (omit)
+   * for a full_collection-triggered full refund.
+   */
+  shortfallCents?: number;
+  brand?: BrandId;
+}
+
+/**
+ * Pure body builder — exported for unit tests. Mirrors buildTeamDepositReceipt
+ * in shape, but has THREE copy variants (not two) selected by `outcome`,
+ * matching the deposit-refund executor's math
+ * (src/lib/payments/team-deposit-refund.ts) — including the forfeited case,
+ * which is NOT silent: the owner-model transparency promise means the
+ * captain hears about it even when nothing is returned to their card.
+ *
+ * Money is formatted via the shared `formatCurrency` (`.toFixed(2)`) helper,
+ * not `.toLocaleString`, because a partial refund (depositCents minus an
+ * arbitrary shortfall) routinely carries odd cents that `.toLocaleString`
+ * would render inconsistently (e.g. "150.4" instead of "150.40").
+ */
+export function buildTeamDepositRefunded(params: TeamDepositRefundedParams): {
+  subject: string;
+  html: string;
+  text: string;
+} {
+  const deposit = formatCurrency(params.depositCents);
+
+  let subject: string;
+  let bodyLine: string;
+
+  if (params.outcome === "refunded") {
+    const refund = formatCurrency(params.refundedCents ?? params.depositCents);
+    subject = `Your ${refund} team deposit is on its way back`;
+    bodyLine = `Your roster covered the team fee — your ${refund} deposit is being refunded to your card, arriving in 5-10 business days.`;
+  } else if (params.outcome === "partially_refunded") {
+    const refund = formatCurrency(params.refundedCents ?? 0);
+    // Don't call the refunded remainder "your deposit" in the subject — it's
+    // less than the full $200, so the full-refund subject's phrasing would
+    // overstate it.
+    subject = "Part of your team deposit is on its way back";
+    // shortfallCents may be absent or (rarely) non-positive when the
+    // refunded amount came from reconciling an adopted Stripe refund rather
+    // than a freshly-computed shortfall — the caller passes undefined in
+    // that case rather than a stale/incoherent figure (see
+    // src/lib/payments/team-deposit-refund.ts). Fall back to copy that
+    // doesn't name a specific dollar shortfall at all.
+    bodyLine =
+      typeof params.shortfallCents === "number" && params.shortfallCents > 0
+        ? `After the payment deadline, ${formatCurrency(params.shortfallCents)} of the roster's shares were uncovered — your deposit covered that, and the remaining ${refund} is being refunded to your card.`
+        : `After the payment deadline, part of the roster's shares went uncovered — your deposit covered that, and the remaining ${refund} is being refunded to your card.`;
+  } else {
+    // forfeited — the deposit was kept in full; no money moves, but the
+    // captain still hears exactly what happened to it.
+    const shortfallCents = params.shortfallCents ?? 0;
+    subject = "About your team deposit";
+    bodyLine =
+      shortfallCents > params.depositCents
+        ? `After the payment deadline, the roster's payments didn't fully cover the team fee — your ${deposit} deposit covered ${deposit} of the ${formatCurrency(shortfallCents)} shortfall and was not refunded.`
+        : `After the payment deadline, the roster's payments didn't fully cover the team fee — your ${deposit} deposit was applied in full toward the shortfall and was not refunded.`;
+  }
+
+  const greeting = params.outcome === "forfeited" ? "an update" : "good news";
+
+  const html = `<!doctype html><html><body style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#1a1a1a;line-height:1.5;">
+    <p>${escapeHtml(params.captainName)}, ${greeting} about <strong>${escapeHtml(params.teamName)}</strong>.</p>
+    <p>${escapeHtml(bodyLine)}</p>
+  </body></html>`;
+
+  const text = `${params.captainName}, ${greeting} about ${params.teamName}.\n\n${bodyLine}\n`;
+
+  return { subject, html, text };
+}
+
+export async function sendTeamDepositRefundedEmail(params: TeamDepositRefundedParams) {
+  if (!isEmailConfigured()) {
+    console.warn("Email not configured, skipping team deposit refunded email");
+    return { success: false, error: "Email not configured" };
+  }
+  const { subject, html, text } = buildTeamDepositRefunded(params);
+  const result = await sendEmail({
+    to: params.to,
+    subject,
+    html,
+    text,
+    from: fromForBrand(params.brand),
+  });
+  await logEmail({
+    emailType: "team_deposit_refunded",
     recipientEmail: params.to,
     subject,
     resendMessageId: result.messageId,

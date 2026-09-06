@@ -42,4 +42,57 @@ describe("buildTeamDepositReceipt", () => {
       expect(body).toContain("the payment deadline"); // generic fallback wording
     }
   });
+
+  // winter-team-fixes, task 4: a youth captain's deposit is a refundable
+  // hold, never a per-share credit — the copy must say "refunded", never
+  // "counts toward"/"remaining", and must name the FULL fee, not a remainder.
+  describe("isYouth", () => {
+    it("uses the refund-promise copy and the full fee, not a remainder", () => {
+      const { html, text } = buildTeamDepositReceipt({ ...base, isYouth: true });
+      for (const body of [html, text]) {
+        expect(body).toContain("$200");
+        expect(body).toContain("$1,000"); // full fee, not the $800 remainder
+        expect(body).toContain("refunded");
+        expect(body).not.toContain("$800");
+        expect(body).not.toContain("counts toward");
+      }
+    });
+
+    // fix round 1, minor (a): the deadline line must say "deposit absorbs
+    // the shortfall first, THEN the card" — not "teammate shares are
+    // charged", which contradicts teamYouthDueCents' deposit-first math.
+    it("deadline line: deposit absorbs the shortfall first, remainder to the card", () => {
+      const { html, text } = buildTeamDepositReceipt({ ...base, isYouth: true });
+      for (const body of [html, text]) {
+        expect(body).toContain("applied to the difference first");
+        expect(body).toContain("charged to your card on file");
+        expect(body).not.toContain("Teammate shares still unpaid");
+      }
+    });
+
+    it("adult deadline line is unchanged", () => {
+      const { html } = buildTeamDepositReceipt(base);
+      expect(html).toContain("Teammate shares still unpaid");
+    });
+
+    it("degrades to generic full-fee refund wording when the fee is unknown", () => {
+      const { html, text } = buildTeamDepositReceipt({
+        ...base,
+        isYouth: true,
+        teamFeeCents: null,
+      });
+      for (const body of [html, text]) {
+        expect(body).toContain("$200");
+        expect(body).toContain("refunded");
+        expect(body).not.toContain("null");
+        expect(body).not.toContain("NaN");
+      }
+    });
+
+    it("defaults to the adult (credit-toward) copy when isYouth is omitted", () => {
+      const { html } = buildTeamDepositReceipt(base);
+      expect(html).toContain("counts toward");
+      expect(html).not.toContain("refunded");
+    });
+  });
 });

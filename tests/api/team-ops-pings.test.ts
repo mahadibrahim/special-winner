@@ -33,7 +33,10 @@ import {
   REFUND_CENTS,
 } from "../utils/team-payment-context";
 
-const CRON_SECRET = "ci-cron-test-secret";
+// Read from the environment (matching the rest of the cron test suite's
+// convention) with the same fallback literal this file always used — see
+// the matching note in team-money-model.test.ts.
+const CRON_SECRET = process.env.CRON_SECRET ?? "ci-cron-test-secret";
 const TEAM_LEVEL_CENTS = DEPOSIT_CENTS + BALANCE_CENTS - REFUND_CENTS;
 
 async function enableOpsPings(organizationId: string) {

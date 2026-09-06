@@ -28,8 +28,8 @@ import {
   teamRegistrationMembers,
   teamInvitees,
 } from "@/lib/db/schema";
-import { teamMoneyReceivedCents } from "@/lib/registrations/team-funding";
-import { teamBackstopDueCents } from "@/lib/payments/team-captain-charge";
+import { teamMoneyReceivedCents, teamRosterCollectedCents } from "@/lib/registrations/team-funding";
+import { teamBackstopDueCents, teamYouthDueCents } from "@/lib/payments/team-captain-charge";
 import { createRegistration } from "@/lib/registrations/create-registration";
 import { getAuthCookie, apiFetch } from "./setup/test-helpers";
 import {
@@ -42,7 +42,13 @@ import {
 } from "../utils/team-payment-context";
 
 const TEAM_LEVEL_CENTS = DEPOSIT_CENTS + BALANCE_CENTS - REFUND_CENTS;
-const CRON_SECRET = "ci-cron-test-secret";
+// Read from the environment (matching the rest of the cron test suite's
+// convention) with the same fallback literal this file always used — a
+// hardcoded-only constant silently 401s against any dev server started
+// with a different CRON_SECRET (a pre-existing gotcha; see CLAUDE.md's
+// pre-push checklist note on matching CRON_SECRET between the dev server
+// and the test runtime).
+const CRON_SECRET = process.env.CRON_SECRET ?? "ci-cron-test-secret";
 
 async function seedJoiner(ctx: TeamPaymentContext, tag: string) {
   const db = getDb();
@@ -89,6 +95,50 @@ describe("teamMoneyReceivedCents", () => {
   });
 });
 
+describe("teamRosterCollectedCents", () => {
+  it("excludes the deposit, counts member payments, subtracts an untagged refund, and excludes a team_deposit_release refund", async () => {
+    const ctx = await seedTeamPaymentContext();
+    const db = getDb();
+
+    // Base fixture: deposit ($200, linked via depositPaymentId) + balance
+    // ($637.50) + an UNTAGGED refund ($50, no refundReason). The deposit
+    // itself is excluded by construction (this helper's whole point — see
+    // its doc in team-funding.ts), but the untagged refund is NOT a
+    // team_deposit_release, so it still subtracts same as any other refund.
+    const before = await teamRosterCollectedCents(db, ctx.teamRegistrationId);
+    expect(before.teamLevelCents).toBe(BALANCE_CENTS - REFUND_CENTS);
+    expect(before.memberCents).toBe(0);
+    expect(before.totalCents).toBe(BALANCE_CENTS - REFUND_CENTS);
+
+    // Link the paid solo registration to the team — its $120 now counts.
+    await db.insert(teamRegistrationMembers).values({
+      teamRegistrationId: ctx.teamRegistrationId,
+      registrationId: ctx.soloRegistrationId,
+      role: "member",
+    });
+    const withMember = await teamRosterCollectedCents(db, ctx.teamRegistrationId);
+    expect(withMember.memberCents).toBe(12000);
+    expect(withMember.totalCents).toBe(BALANCE_CENTS - REFUND_CENTS + 12000);
+
+    // A refund TAGGED team_deposit_release (the deposit-refund executor's
+    // own marker) must be excluded, unlike the untagged refund above — this
+    // is the "excludes the deposit AND its refund pair, symmetrically" half
+    // of the contract. The total must be unchanged by inserting it.
+    await db.insert(payments).values({
+      registrationId: null,
+      teamRegistrationId: ctx.teamRegistrationId,
+      userId: ctx.captainUserId,
+      amountCents: DEPOSIT_CENTS,
+      paymentType: "refund",
+      status: "succeeded",
+      stripePaymentIntentId: null,
+      refundReason: "team_deposit_release",
+    });
+    const afterDepositRefund = await teamRosterCollectedCents(db, ctx.teamRegistrationId);
+    expect(afterDepositRefund.totalCents).toBe(withMember.totalCents);
+  });
+});
+
 describe("teamBackstopDueCents", () => {
   it("charges the shortfall against the fee, floored at zero", () => {
     expect(
@@ -110,6 +160,43 @@ describe("teamBackstopDueCents", () => {
         ],
       }),
     ).toBe(5000);
+  });
+});
+
+describe("teamYouthDueCents", () => {
+  it("charges nothing when the roster already covers the fee", () => {
+    expect(
+      teamYouthDueCents({ teamFeeCents: 105000, rosterCollectedCents: 105000, depositCents: 20000 }),
+    ).toEqual({ shortfallCents: 0, chargeCents: 0 });
+    expect(
+      teamYouthDueCents({ teamFeeCents: 105000, rosterCollectedCents: 116000, depositCents: 20000 }),
+    ).toEqual({ shortfallCents: 0, chargeCents: 0 });
+  });
+
+  it("absorbs a shortfall smaller than the deposit — nothing charged to the card", () => {
+    // shortfall = 10000, depositCents = 20000 → deposit alone covers it.
+    expect(
+      teamYouthDueCents({ teamFeeCents: 105000, rosterCollectedCents: 95000, depositCents: 20000 }),
+    ).toEqual({ shortfallCents: 10000, chargeCents: 0 });
+  });
+
+  it("charges the card for exactly the remainder once the shortfall exceeds the deposit", () => {
+    // shortfall = 30000, depositCents = 20000 → chargeCents = 10000.
+    expect(
+      teamYouthDueCents({ teamFeeCents: 135000, rosterCollectedCents: 105000, depositCents: 20000 }),
+    ).toEqual({ shortfallCents: 30000, chargeCents: 10000 });
+  });
+
+  it("treats a shortfall exactly equal to the deposit as fully absorbed (no card charge)", () => {
+    expect(
+      teamYouthDueCents({ teamFeeCents: 125000, rosterCollectedCents: 105000, depositCents: 20000 }),
+    ).toEqual({ shortfallCents: 20000, chargeCents: 0 });
+  });
+
+  it("floors both figures at zero for an over-collected roster", () => {
+    expect(
+      teamYouthDueCents({ teamFeeCents: 50000, rosterCollectedCents: 70000, depositCents: 20000 }),
+    ).toEqual({ shortfallCents: 0, chargeCents: 0 });
   });
 });
 

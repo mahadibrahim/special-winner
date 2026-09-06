@@ -1,7 +1,7 @@
 import type Stripe from "stripe";
 import { eq, sql } from "drizzle-orm";
 import { getDb } from "@/lib/db";
-import { teamRegistrations, payments, seasons } from "@/lib/db/schema";
+import { teamRegistrations, payments, seasons, ageGroups } from "@/lib/db/schema";
 import { getPostHogServer } from "@/lib/posthog-server";
 import { SERVER_EVENTS } from "@/lib/analytics/events";
 import { sendTeamDepositReceiptEmail } from "@/lib/email/send";
@@ -10,6 +10,7 @@ import { CAPTAIN_DEPOSIT_CENTS } from "@/lib/registrations/team-deposit";
 import { capturePaymentCompleted } from "@/lib/observability/payment-telemetry";
 import { sendOpsPing } from "@/lib/ops/ping";
 import { normalizeBrand } from "@/lib/organization/soccerone-routing";
+import { isYouthTeamSeason } from "@/lib/registrations/team-season-kind";
 
 /**
  * Handles `payment_intent.succeeded` for the captain's $200 team deposit
@@ -210,15 +211,27 @@ export async function handleTeamDepositSucceeded(
     // (the capture above has already fired by then, so it's safe either way).
     // It sits OUTSIDE the receipt's try/catch because the ops ping below needs
     // the same name, and a raw uuid in the ops channel is unreadable.
-    let seasonRow: { name: string } | undefined;
+    // Also carries minAge/ageGroupMinAge so the receipt below can pick the
+    // youth vs adult feeLine (winter-team-fixes, task 4) without a third
+    // query — this is the "eager" team-creation path (the team row already
+    // existed before the deposit), which never calls
+    // ensureCaptainRegistration (see index.ts's doc comment: the captain
+    // registers themselves later, through the ordinary per-player flow), so
+    // there is no captain-registration gate to add here — only the receipt
+    // copy needs the season's youth-ness.
+    let seasonRow: { name: string; minAge: number | null; ageGroupMinAge: number | null } | undefined;
     try {
       [seasonRow] = await db
-        .select({ name: seasons.name })
+        .select({ name: seasons.name, minAge: seasons.minAge, ageGroupMinAge: ageGroups.minAge })
         .from(seasons)
+        .leftJoin(ageGroups, eq(seasons.ageGroupId, ageGroups.id))
         .where(eq(seasons.id, team.seasonId));
     } catch (err) {
       console.error("[team-deposit] season name lookup failed:", err);
     }
+    const isYouth = seasonRow
+      ? isYouthTeamSeason({ minAge: seasonRow.minAge, ageGroupMinAge: seasonRow.ageGroupMinAge })
+      : false;
 
     try {
       await sendTeamDepositReceiptEmail({
@@ -232,6 +245,7 @@ export async function handleTeamDepositSucceeded(
         teamFeeCents: team.teamFeeCents,
         depositCents: team.depositCents ?? CAPTAIN_DEPOSIT_CENTS,
         paymentDeadline: team.paymentDeadline,
+        isYouth,
         brand: (team.brand as BrandId | undefined) ?? undefined,
       });
     } catch (err) {

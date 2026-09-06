@@ -23,8 +23,12 @@ import { normalizeBrand, originForBrand } from "@/lib/organization/soccerone-rou
 import { fireServerPurchaseConversions } from "@/lib/analytics/server-conversions";
 import { capturePaymentCompleted } from "@/lib/observability/payment-telemetry";
 import { sendOpsPing } from "@/lib/ops/ping";
-import { teamRegistrationMembers, teamRegistrations } from "@/lib/db/schema";
+import { teamRegistrationMembers, teamRegistrations, ageGroups } from "@/lib/db/schema";
 import { env } from "@/lib/env";
+import { teamRosterCollectedCents } from "@/lib/registrations/team-funding";
+import { maybeRefundTeamDeposit } from "@/lib/payments/team-deposit-refund";
+import { isYouthTeamSeason } from "@/lib/registrations/team-season-kind";
+import { logAlert } from "@/lib/logging/alerts";
 
 // Handles `payment_intent.succeeded` for registration payments. Mirrors
 // the prior Checkout-Session flow exactly, just sourced from a PI.
@@ -148,6 +152,110 @@ export async function handleRegistrationPaymentSucceeded(
     }
   }
 
+  // Single team-membership lookup (review round 1, minor 4): this used to
+  // be TWO separate registrationId -> team joins (one here, one further
+  // down for the ops-ping team-name suffix) — consolidated into one query,
+  // reused by both. Also gives it the explicit `orderBy` CLAUDE.md requires
+  // for any query that picks "a" row via `.limit(1)` from a set of possible
+  // matches: a shared CI DB can carry more than one `team_registration_members`
+  // row for the same registrationId (no DB-level uniqueness constraint
+  // enforces one team per registration), so an un-ordered `.limit(1)` would
+  // pick an arbitrary one. Ordered oldest-membership-first
+  // (`asc(teamRegistrationMembers.joinedAt)`), the safe default per
+  // CLAUDE.md's multi-tenant query hazards section. Also carries the
+  // season/age-group columns `isYouthTeamSeason` needs, so the
+  // full-collection check below can skip adult teams without a second query
+  // (minor 5 — adult teams shouldn't pay for the roster-collected check on
+  // every share payment).
+  let teamMembership:
+    | {
+        teamRegistrationId: string;
+        teamName: string;
+        teamFeeCents: number | null;
+        seasonMinAge: number | null;
+        ageGroupMinAge: number | null;
+      }
+    | undefined;
+  try {
+    [teamMembership] = await db
+      .select({
+        teamRegistrationId: teamRegistrationMembers.teamRegistrationId,
+        teamName: teamRegistrations.teamName,
+        teamFeeCents: teamRegistrations.teamFeeCents,
+        seasonMinAge: seasons.minAge,
+        ageGroupMinAge: ageGroups.minAge,
+      })
+      .from(teamRegistrationMembers)
+      .innerJoin(
+        teamRegistrations,
+        eq(teamRegistrationMembers.teamRegistrationId, teamRegistrations.id),
+      )
+      .innerJoin(seasons, eq(teamRegistrations.seasonId, seasons.id))
+      .leftJoin(ageGroups, eq(seasons.ageGroupId, ageGroups.id))
+      .where(eq(teamRegistrationMembers.registrationId, registrationId))
+      .orderBy(asc(teamRegistrationMembers.joinedAt))
+      .limit(1);
+  } catch (err) {
+    console.error("[stripe webhook] team-membership lookup failed:", err);
+    await logAlert("team_deposit_refund_failed", {
+      registrationId,
+      stripePaymentIntentId: paymentIntent.id,
+      error: err instanceof Error ? err.message : String(err),
+      phase: "full_collection_membership_lookup_threw",
+    });
+  }
+
+  // Full-collection deposit refund trigger (winter-team-fixes, task 3): if
+  // this registration belongs to a YOUTH team and the ROSTER (not this
+  // payment alone) now covers the team fee in full, the captain's deposit
+  // is no longer needed as a backstop — release it. Runs regardless of
+  // `isFullyPaid` for THIS registration: a partial/installment payment can
+  // still be the one that tips the roster's cumulative total over the fee,
+  // so every team-linked payment re-checks. `teamRosterCollectedCents` is
+  // used deliberately, NOT `teamMoneyReceivedCents`/`teamBackstopDueCents` —
+  // the roster-collected figure excludes the deposit and its refund by
+  // construction, which is what keeps this check from re-arming itself the
+  // moment `maybeRefundTeamDeposit` issues the refund (see that helper's doc
+  // comment in team-funding.ts). Gated on `isYouthTeamSeason` up front so an
+  // adult team's payment never runs the roster-collected query at all — the
+  // executor would just skip it as `adult_season` anyway, but there's no
+  // reason to pay for that round-trip on every adult share payment. Best-
+  // effort and isolated in its own try/catch: a refund-executor failure
+  // must NEVER fail payment fulfillment — the executor already self-heals
+  // via the cron's retry sweep, so an alert here is enough.
+  if (teamMembership) {
+    try {
+      const isYouth = isYouthTeamSeason({
+        minAge: teamMembership.seasonMinAge,
+        ageGroupMinAge: teamMembership.ageGroupMinAge,
+      });
+      if (isYouth && teamMembership.teamFeeCents != null) {
+        const rosterCollected = await teamRosterCollectedCents(
+          db,
+          teamMembership.teamRegistrationId,
+        );
+        if (rosterCollected.totalCents >= teamMembership.teamFeeCents) {
+          await maybeRefundTeamDeposit(db, {
+            teamId: teamMembership.teamRegistrationId,
+            trigger: "full_collection",
+          });
+        }
+      }
+    } catch (err) {
+      console.error(
+        "[stripe webhook] team deposit full-collection check failed:",
+        err,
+      );
+      await logAlert("team_deposit_refund_failed", {
+        registrationId,
+        teamRegistrationId: teamMembership.teamRegistrationId,
+        stripePaymentIntentId: paymentIntent.id,
+        error: err instanceof Error ? err.message : String(err),
+        phase: "full_collection_caller_threw",
+      });
+    }
+  }
+
   try {
     const [row] = await db
       .select({
@@ -169,22 +277,11 @@ export async function handleRegistrationPaymentSucceeded(
       // These four sends are mutually independent (two emails, an ops ping,
       // Team context for the ops ping: a member paying through a team link is
       // a team event — name the team so the principals see the roster grow.
-      // Best-effort; an empty suffix on failure is fine.
-      let teamJoinSuffix = "";
-      try {
-        const [membership] = await db
-          .select({ teamName: teamRegistrations.teamName })
-          .from(teamRegistrationMembers)
-          .innerJoin(
-            teamRegistrations,
-            eq(teamRegistrationMembers.teamRegistrationId, teamRegistrations.id),
-          )
-          .where(eq(teamRegistrationMembers.registrationId, registrationId))
-          .limit(1);
-        if (membership) teamJoinSuffix = ` · joined ${membership.teamName}`;
-      } catch {
-        // non-fatal
-      }
+      // Reuses the single team-membership lookup from above (review round 1,
+      // minor 4) instead of re-running the same join a second time.
+      const teamJoinSuffix = teamMembership
+        ? ` · joined ${teamMembership.teamName}`
+        : "";
 
       // and — only for guest checkout — a magic-link mint + email) and were
       // previously awaited serially, roughly quadrupling this section's
