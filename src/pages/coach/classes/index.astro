@@ -17,7 +17,13 @@ if (!orgId) {
   return Astro.redirect('/coach');
 }
 
-const { classGroups } = await getCoachGroups(user.id, orgId);
+const { classGroups, campSessions } = await getCoachGroups(user.id, orgId);
+// Serialize Date → ISO at the island boundary (the /api/coach/classes JSON
+// shape does the same implicitly).
+const campSessionViews = campSessions.map((s) => ({
+  ...s,
+  startsAt: s.startsAt.toISOString(),
+}));
 ---
 
 <BaseLayout title="My Classes — Coach — Aspire Sports" navigation={false} footer={false}>
@@ -26,6 +32,6 @@ const { classGroups } = await getCoachGroups(user.id, orgId);
     currentPath="/coach/classes"
     user={{ firstName: user.firstName, lastName: user.lastName, email: user.email }}
   >
-    <MyClasses client:load classGroups={classGroups} />
+    <MyClasses client:load classGroups={classGroups} campSessions={campSessionViews} />
   </CoachLayout>
 </BaseLayout>
