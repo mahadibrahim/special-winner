@@ -79,6 +79,10 @@ export const GET: APIRoute = async (context) => {
     // touching revenueBySport or recentTransactions, which don't have a
     // membership-shaped analog.
     const membershipOrgScope = eq(memberships.organizationId, orgContext.organizationId);
+    // No notARefund guard needed on any of the three membership queries below
+    // (current/prev/by-period) — they already filter TO an exact
+    // paymentType='membership' match, which a paymentType='refund' row can
+    // never satisfy (paymentType is a single enum value per row).
     const membershipRevenueWhere = (rangeStart: Date, rangeEnd: Date) =>
       and(
         membershipOrgScope,
@@ -147,7 +151,10 @@ export const GET: APIRoute = async (context) => {
         .groupBy(periodExpr)
         .orderBy(periodExpr),
 
-      // Revenue by payment type
+      // Revenue by payment type — deliberately NOT notARefund-filtered: this
+      // is the one query meant to show refunds as their OWN labeled bucket
+      // (getPaymentTypeLabel("refund") === "Refund" in revenue-report.tsx),
+      // the opposite intent from the aggregates above/below.
       getDb()
         .select({
           paymentType: payments.paymentType,
@@ -224,7 +231,12 @@ export const GET: APIRoute = async (context) => {
         .orderBy(desc(payments.createdAt))
         .limit(10),
 
-      // Previous period, for the comparison
+      // Previous period, for the comparison. Needs the same notARefund guard
+      // as totalRevenueResult above: this feeds `prevRevenue`, which
+      // `revenueChange` compares directly against `combinedTotal` (itself
+      // refund-excluded) — leaving a refund row IN this side alone would
+      // both inflate the prior-period baseline and skew revenueChange% by
+      // comparing a refund-inclusive figure against a refund-excluded one.
       getDb()
         .select({
           total: sql<number>`COALESCE(SUM(${payments.amountCents}), 0)`,
@@ -239,12 +251,15 @@ export const GET: APIRoute = async (context) => {
           and(
             orgScope,
             eq(payments.status, "succeeded"),
+            notARefund,
             gte(payments.createdAt, prevStart),
             lte(payments.createdAt, prevEnd)
           )
         ),
 
-      // Refunds summary
+      // Refunds summary — no notARefund guard here either: this query filters
+      // TO paymentType='refund' (the mirror image of every guard above), so
+      // it's already exactly and only refund rows by construction.
       getDb()
         .select({
           total: sql<number>`COALESCE(SUM(${payments.amountCents}), 0)`,
