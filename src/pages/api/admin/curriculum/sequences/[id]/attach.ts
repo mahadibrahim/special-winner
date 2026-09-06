@@ -39,7 +39,11 @@ class DistributionRaceLostError extends Error {}
 
 const attachSchema = z.object({
   seasonId: z.string().uuid(),
-  weekday: z.number().int().min(0).max(6), // 0=Sunday … 6=Saturday
+  // 0=Sunday … 6=Saturday. Optional at the schema layer ONLY because camp
+  // seasons (weekdaily cadence, Task 7) don't use it — for every non-camp
+  // season it is still REQUIRED, enforced in the handler once the season's
+  // programType is known (the same 400 shape a schema failure produces).
+  weekday: z.number().int().min(0).max(6).optional(),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Expected YYYY-MM-DD"),
   timeOfDay: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Expected HH:MM (24h)"),
   count: z.number().int().min(1).max(52),
@@ -130,13 +134,35 @@ export const POST: APIRoute = async (context) => {
 
     // PK lookup — no orderBy needed on limit(1). Joined to programs for
     // sportId, which the activity-resolution step below needs to scope its
-    // suggestion-name lookup to the right sport.
+    // suggestion-name lookup to the right sport, and programType, which
+    // decides the generation cadence below.
     const [season] = await db
-      .select({ id: seasons.id, endDate: seasons.endDate, sportId: programs.sportId })
+      .select({
+        id: seasons.id,
+        endDate: seasons.endDate,
+        sportId: programs.sportId,
+        programType: programs.programType,
+      })
       .from(seasons)
       .innerJoin(programs, eq(seasons.programId, programs.id))
       .where(eq(seasons.id, data.seasonId))
       .limit(1);
+
+    // Camp seasons run a DAILY arc (Task 7): successive Mon–Fri days from
+    // startDate, "Day N of M" titles, no single practice weekday. Everything
+    // else keeps the original weekly contract — including weekday being
+    // required, which the schema can no longer enforce alone (it doesn't
+    // know the programType), so it's enforced here with the same 400 shape.
+    const isCamp = season.programType === "camp";
+    if (!isCamp && data.weekday === undefined) {
+      return new Response(
+        JSON.stringify({
+          error: "Validation failed",
+          details: { weekday: ["Required"] },
+        }),
+        { status: 400 },
+      );
+    }
 
     const entryRows = await db
       .select()
@@ -232,12 +258,13 @@ export const POST: APIRoute = async (context) => {
     const { dates, truncatedBySeasonEnd } = generatePracticeDates(
       {
         startDate: data.startDate,
-        weekday: data.weekday,
+        weekday: data.weekday, // ignored under weekdaily (camp) cadence
         timeOfDay: data.timeOfDay,
         count: Math.min(data.count, entryRows.length),
         timezone,
       },
       season.endDate, // date column → "YYYY-MM-DD" string
+      { cadence: isCamp ? "weekdaily" : "weekly" },
     );
 
     // Deterministic order so "the anchor team" (the first with fresh work,
@@ -306,6 +333,9 @@ export const POST: APIRoute = async (context) => {
         status: "planned",
         sequenceAttachmentId: null,
         activityIdByName,
+        // "Day N of M" for camps — must match the UI's arcUnitLabel
+        // (blueprint-workspace.tsx) for the same programType.
+        arcUnit: isCamp ? "Day" : "Week",
       });
       const fresh = drafts.filter(
         (d) =>

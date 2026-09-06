@@ -26,10 +26,14 @@
 
 export interface RecurrenceInput {
   /** "YYYY-MM-DD", org-local. First candidate date; advanced forward to
-   * `weekday` when it doesn't already fall on it. */
+   * `weekday` when it doesn't already fall on it (weekly cadence), or to
+   * the next Mon–Fri day when it falls on a weekend (weekdaily cadence). */
   startDate: string;
-  /** 0 (Sunday) … 6 (Saturday) — matches JS Date#getUTCDay. */
-  weekday: number;
+  /** 0 (Sunday) … 6 (Saturday) — matches JS Date#getUTCDay. REQUIRED for
+   * the default weekly cadence (generatePracticeDates throws without it);
+   * ignored entirely under `cadence: "weekdaily"` (camps — every Mon–Fri
+   * day is a session day, there is no single practice weekday). */
+  weekday?: number;
   /** Requested number of practices. Callers cap it at the sequence's entry
    * count before calling (the attach endpoint does `Math.min(count, entries.length)`). */
   count: number;
@@ -108,16 +112,41 @@ export function utcInstantToZonedDateString(instant: Date, timeZone: string): st
   return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
+export interface GenerateDatesOptions {
+  /** "weekly" (default — one practice per week on `weekday`, the original
+   * league behavior, byte-identical with no options passed) or "weekdaily"
+   * (camps — successive Mon–Fri days from `startDate`, weekends skipped,
+   * `weekday` ignored). Both cadences clamp at `seasonEndDate` the same way. */
+  cadence?: "weekly" | "weekdaily";
+}
+
+/** True for Saturday (6) / Sunday (0) in Date#getUTCDay terms. */
+function isWeekendUtcDay(day: number): boolean {
+  return day === 0 || day === 6;
+}
+
 export function generatePracticeDates(
   recurrence: RecurrenceInput,
   /** "YYYY-MM-DD" — no practices are generated after this local date (inclusive allowed). */
   seasonEndDate?: string,
+  options?: GenerateDatesOptions,
 ): GeneratedDates {
+  const cadence = options?.cadence ?? "weekly";
   const [y, m, d] = recurrence.startDate.split("-").map(Number);
   // Calendar-day arithmetic in UTC space — immune to the host machine's zone.
   const cursor = new Date(Date.UTC(y, m - 1, d));
-  const advance = (recurrence.weekday - cursor.getUTCDay() + 7) % 7;
-  cursor.setUTCDate(cursor.getUTCDate() + advance);
+  if (cadence === "weekly") {
+    if (recurrence.weekday === undefined) {
+      throw new Error("weekday is required for the weekly cadence");
+    }
+    const advance = (recurrence.weekday - cursor.getUTCDay() + 7) % 7;
+    cursor.setUTCDate(cursor.getUTCDate() + advance);
+  } else {
+    // weekdaily: a weekend startDate advances to the next Monday.
+    while (isWeekendUtcDay(cursor.getUTCDay())) {
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
+  }
 
   const dates: Date[] = [];
   let truncatedBySeasonEnd = false;
@@ -131,7 +160,14 @@ export function generatePracticeDates(
     dates.push(
       zonedDateTimeToUtc(dateISO, recurrence.timeOfDay, recurrence.timezone),
     );
-    cursor.setUTCDate(cursor.getUTCDate() + 7);
+    if (cadence === "weekly") {
+      cursor.setUTCDate(cursor.getUTCDate() + 7);
+    } else {
+      // Next Mon–Fri day: +1, then hop the weekend when landed on it.
+      do {
+        cursor.setUTCDate(cursor.getUTCDate() + 1);
+      } while (isWeekendUtcDay(cursor.getUTCDay()));
+    }
   }
   return { dates, truncatedBySeasonEnd };
 }
@@ -191,6 +227,11 @@ export interface BuildDraftsInput {
    * exactly as before (back-compat for any caller that hasn't wired
    * resolution yet, and for templates with no suggestions at all). */
   activityIdByName?: Map<string, { id: string; name: string }>;
+  /** Arc-unit word in generated titles: "Week N of M — …" (default, the
+   * original league behavior) or "Day N of M — …" (camps). Mirrors the
+   * UI's arcUnitLabel (blueprint-workspace.tsx) — the server-generated
+   * title and the workspace's slot labels must speak the same unit. */
+  arcUnit?: "Week" | "Day";
 }
 
 /**
@@ -265,6 +306,7 @@ export function buildDraftSessionPlans(
 ): DraftSessionPlan[] {
   const sorted = [...input.entries].sort((a, b) => a.position - b.position);
   const total = sorted.length;
+  const arcUnit = input.arcUnit ?? "Week";
   const n = Math.min(total, input.dates.length);
   const plans: DraftSessionPlan[] = [];
   for (let i = 0; i < n; i++) {
@@ -279,9 +321,9 @@ export function buildDraftSessionPlans(
       teamId: input.teamId,
       templateId: template.id,
       coachUserId: input.coachUserId,
-      // "Week i of total" over sorted index, not entry.position — positions
-      // are 1..N by construction, but the index is what pairs with dates.
-      title: `Week ${i + 1} of ${total} — ${template.name}`,
+      // "<arcUnit> i of total" over sorted index, not entry.position —
+      // positions are 1..N by construction, but the index pairs with dates.
+      title: `${arcUnit} ${i + 1} of ${total} — ${template.name}`,
       scheduledDate: input.dates[i],
       durationMinutes: template.totalDurationMinutes,
       status: input.status ?? "draft",
