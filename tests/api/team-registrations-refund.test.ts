@@ -29,11 +29,24 @@
  * refunded/partial/forfeited MONEY outcome is pinned precisely by two other
  * suites: tests/unit/payments/team-deposit-refund.test.ts (the executor
  * itself, Stripe mocked) and the `teamYouthDueCents` unit tests in
- * tests/unit/payments/team-captain-charge.test.ts (task 3's shortfall/charge
- * math) — see the report for which layer covers what.
+ * tests/api/team-money-model.test.ts (task 3's shortfall/charge math,
+ * colocated there next to `teamBackstopDueCents`'s own pure-math tests —
+ * NOT a separate unit file) — see the report for which layer covers what.
+ *
+ * Fixture-accumulation note (review round 1, important 2): every test below
+ * that sets a past `paymentDeadline` on a YOUTH team leaves that row
+ * matching the deposit-refund retry sweep's predicate
+ * (`deposit_refund_status IN ('none','processing') AND
+ * deposit_payment_intent_id IS NOT NULL AND payment_deadline < now()`) for
+ * up to 30 days on the SHARED staging DB — every later cron POST (from any
+ * test, or a real scheduled run) would otherwise re-sweep it: a roster
+ * query, the executor's own team-row join, and a live `refunds.list` call
+ * to Stripe against the fixture's fake PaymentIntent, repeated per team per
+ * run, forever growing. `afterAll` below nulls `paymentDeadline` on every
+ * such team this file creates so none of them linger in the sweep's window.
  */
-import { describe, it, expect } from "vitest";
-import { eq } from "drizzle-orm";
+import { describe, it, expect, afterAll } from "vitest";
+import { eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db";
 import { teamRegistrations, seasons, registrations, teamRegistrationMembers, familyMembers, users } from "@/lib/db/schema";
 import { hashPassword } from "@/lib/auth";
@@ -66,6 +79,20 @@ async function getTeam(teamRegistrationId: string) {
   return team;
 }
 
+// See the fixture-accumulation note in the module doc above — every team
+// registration a test sets a PAST paymentDeadline on gets pushed here, and
+// afterAll nulls paymentDeadline for all of them so none linger inside the
+// deposit-refund retry sweep's 30-day predicate on the shared staging DB.
+const teamsWithPastDeadline: string[] = [];
+
+afterAll(async () => {
+  if (teamsWithPastDeadline.length === 0) return;
+  await getDb()
+    .update(teamRegistrations)
+    .set({ paymentDeadline: null })
+    .where(inArray(teamRegistrations.id, teamsWithPastDeadline));
+});
+
 describe("deadline cron — youth deposit-settle branch", () => {
   it("charges the card for the remainder when the shortfall exceeds the deposit, and the deposit settle attempt resolves without crashing", async () => {
     const ctx = await seedTeamPaymentContext();
@@ -89,6 +116,7 @@ describe("deadline cron — youth deposit-settle branch", () => {
         paymentDeadline: new Date(Date.now() - 60_000),
       })
       .where(eq(teamRegistrations.id, ctx.teamRegistrationId));
+    teamsWithPastDeadline.push(ctx.teamRegistrationId);
 
     const res = await apiFetch("/api/cron/charge-unpaid-team-shares", {
       method: "POST",
@@ -125,6 +153,7 @@ describe("deadline cron — youth deposit-settle branch", () => {
         paymentDeadline: new Date(Date.now() - 60_000),
       })
       .where(eq(teamRegistrations.id, ctx.teamRegistrationId));
+    teamsWithPastDeadline.push(ctx.teamRegistrationId);
 
     const res = await apiFetch("/api/cron/charge-unpaid-team-shares", {
       method: "POST",
@@ -152,6 +181,7 @@ describe("deadline cron — youth deposit-settle branch", () => {
         paymentDeadline: new Date(Date.now() - 60_000),
       })
       .where(eq(teamRegistrations.id, ctx.teamRegistrationId));
+    teamsWithPastDeadline.push(ctx.teamRegistrationId);
 
     const res = await apiFetch("/api/cron/charge-unpaid-team-shares", {
       method: "POST",
@@ -182,6 +212,7 @@ describe("deadline cron — deposit-refund retry sweep (phase 3)", () => {
         paymentDeadline: new Date(Date.now() - 60_000),
       })
       .where(eq(teamRegistrations.id, ctx.teamRegistrationId));
+    teamsWithPastDeadline.push(ctx.teamRegistrationId);
 
     const res = await apiFetch("/api/cron/charge-unpaid-team-shares", {
       method: "POST",
@@ -212,6 +243,10 @@ describe("deadline cron — deposit-refund retry sweep (phase 3)", () => {
         paymentDeadline: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000), // 40 days ago
       })
       .where(eq(teamRegistrations.id, ctx.teamRegistrationId));
+    // Deliberately NOT pushed to teamsWithPastDeadline — a 40-day-old
+    // deadline already sits outside the sweep's own 30-day window, so this
+    // row is never a candidate for it in the first place; nulling it in
+    // afterAll would be a no-op cleanup, not a correctness requirement.
 
     const res = await apiFetch("/api/cron/charge-unpaid-team-shares", {
       method: "POST",
@@ -220,9 +255,15 @@ describe("deadline cron — deposit-refund retry sweep (phase 3)", () => {
     expect(res.status).toBe(200);
 
     const team = await getTeam(ctx.teamRegistrationId);
-    // Untouched — aged past the sweep's lower bound, a manual case per
-    // alerts.ts's runbook, not an automatic one.
+    // `depositRefundStatus === 'none'` alone proves nothing here — it's ALSO
+    // the resting state after a reached-and-reverted attempt (see the tests
+    // above). The real discriminator that this row was never even SELECTED
+    // by the sweep is `depositRefundClaimedAt` staying NULL (review round 1,
+    // important 1) — the executor's CLAIM step is the only thing that ever
+    // writes that column, so a null lease proves the executor was never
+    // invoked for this team at all.
     expect(team.depositRefundStatus).toBe("none");
+    expect(team.depositRefundClaimedAt).toBeNull();
   });
 
   it("skips an adult team entirely, even with deposit columns matching the predicate", async () => {
@@ -237,6 +278,7 @@ describe("deadline cron — deposit-refund retry sweep (phase 3)", () => {
         paymentDeadline: new Date(Date.now() - 60_000),
       })
       .where(eq(teamRegistrations.id, ctx.teamRegistrationId));
+    teamsWithPastDeadline.push(ctx.teamRegistrationId);
 
     const res = await apiFetch("/api/cron/charge-unpaid-team-shares", {
       method: "POST",
@@ -245,7 +287,12 @@ describe("deadline cron — deposit-refund retry sweep (phase 3)", () => {
     expect(res.status).toBe(200);
 
     const team = await getTeam(ctx.teamRegistrationId);
+    // Same discriminator as the 30-day-bound test above: 'none' alone is
+    // ambiguous (also the reverted-attempt end state), so assert the lease
+    // stayed NULL — proof the adult gate skipped this row BEFORE the
+    // executor was ever called, not that a call happened and reverted.
     expect(team.depositRefundStatus).toBe("none");
+    expect(team.depositRefundClaimedAt).toBeNull();
   });
 });
 

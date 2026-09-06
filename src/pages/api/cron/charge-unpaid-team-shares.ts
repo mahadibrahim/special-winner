@@ -274,10 +274,26 @@ export const POST: APIRoute = async ({ request }) => {
         ageGroupMinAge: team.ageGroupMinAge,
       });
 
+      // A youth team with NO recorded teamFeeCents falls through to the
+      // adult/legacy path below (can't compute a meaningful shortfall
+      // against a null fee) — but that path NEVER touches
+      // deposit_refund_status, so this team's deposit would strand
+      // silently forever with nothing to flag it. That's exactly the class
+      // of silent stranding the caller contract in team-deposit-refund.ts
+      // exists to ban (review round 1, minor 3) — alert so a human can
+      // backfill teamFeeCents or otherwise resolve the deposit by hand.
+      if (isYouth && team.teamFeeCents == null) {
+        await logAlert("team_deposit_refund_failed", {
+          teamRegistrationId: team.id,
+          organizationId: team.organizationId,
+          teamName: team.teamName,
+          error: "youth_team_missing_fee_cents",
+          phase: "charge_phase_null_fee_fallback",
+        });
+      }
+
       // ---- YOUTH branch (winter-team-fixes, task 3) — separate formula,
-      // deposit-aware. Falls through to the adult/legacy path below only
-      // when a youth team has no teamFeeCents recorded (can't compute a
-      // meaningful shortfall against a null fee; legacy fallback covers it).
+      // deposit-aware. ----
       if (isYouth && team.teamFeeCents != null) {
         try {
           // Shortfall computed BEFORE the card charge, from roster-collected
@@ -325,7 +341,26 @@ export const POST: APIRoute = async ({ request }) => {
 
           if (chargeCents <= 0) {
             // Deposit alone covers the shortfall (or there was none) —
-            // nothing to charge the card for.
+            // nothing to charge the CARD for. But if there WAS a shortfall
+            // (shortfallCents > 0), those roster shares ARE covered — just
+            // by the deposit settle above (partially refunded/forfeited),
+            // not by a new captain charge. Flip the still-unpaid invitees
+            // the same way the charge-success path below does, or their
+            // rows stay stuck 'pending' forever despite the deposit having
+            // covered them — a roster-display correctness gap (review
+            // round 1, minor 6). Skipped when shortfallCents is 0 (nothing
+            // needed covering, so nothing should change).
+            if (shortfallCents > 0) {
+              await db
+                .update(teamInvitees)
+                .set({ status: "charged_to_captain" })
+                .where(
+                  and(
+                    eq(teamInvitees.teamRegistrationId, team.id),
+                    sql`${teamInvitees.status} <> 'paid'`,
+                  ),
+                );
+            }
             await db
               .update(teamRegistrations)
               .set({ backstopStatus: "charged", updatedAt: new Date() })
@@ -601,7 +636,12 @@ export const POST: APIRoute = async ({ request }) => {
   // team, so a deposit left unsettled by it (reverted, in-flight, or
   // crash-stranded) is otherwise never retried by anything. Bounded to the
   // last 30 days so the FIRST run of this sweep doesn't settle every
-  // historical team ever created.
+  // historical team ever created. Note: `lt(paymentDeadline, now())` also
+  // naturally excludes any row with a NULL `paymentDeadline` (a team that
+  // never had a deadline assigned) — SQL's `NULL < now()` is neither true
+  // nor false, so such a row can never match this predicate at all. That's
+  // a known, accepted gap (a deposit on a deadline-less team is not swept
+  // automatically), not something this sweep tries to cover.
   try {
     const sweepRows = await db
       .select({
@@ -636,7 +676,21 @@ export const POST: APIRoute = async ({ request }) => {
         continue; // maybeRefundTeamDeposit re-checks this too, but skip the
         // extra roster-collected query for a row we already know is adult.
       }
-      if (row.teamFeeCents == null) continue; // nothing to compute a shortfall against
+      if (row.teamFeeCents == null) {
+        // Nothing to compute a shortfall against — but silently skipping
+        // this row means the sweep, the ONE thing that would otherwise
+        // retry an unsettled deposit, is doing nothing for it either. Same
+        // silent-stranding class as the phase-2 fallthrough above (review
+        // round 1, minor 3) — alert so a human can backfill teamFeeCents.
+        await logAlert("team_deposit_refund_failed", {
+          teamRegistrationId: row.id,
+          organizationId: row.organizationId,
+          teamName: row.teamName,
+          error: "youth_team_missing_fee_cents",
+          phase: "retry_sweep_null_fee_skip",
+        });
+        continue;
+      }
 
       try {
         // Counts every row the sweep actually reached the executor for —
